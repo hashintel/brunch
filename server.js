@@ -7,6 +7,8 @@ import { google } from '@ai-sdk/google';
 import { openai } from '@ai-sdk/openai';
 import { mistral } from '@ai-sdk/mistral';
 import { resolve } from 'node:path';
+import { mkdir, readdir, readFile, writeFile, unlink } from 'node:fs/promises';
+import crypto from 'node:crypto';
 
 const PROVIDER_ENV_KEYS = {
     google:    'GOOGLE_GENERATIVE_AI_API_KEY',
@@ -219,6 +221,76 @@ app.post('/api/streamsummary', async (req, res) => {
             res.end();
         }
     });
+});
+
+// --- Sessions ---
+const SESSIONS_DIR = resolve('data/sessions');
+await mkdir(SESSIONS_DIR, { recursive: true });
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+app.get('/api/sessions', async (_req, res) => {
+    try {
+        const files = await readdir(SESSIONS_DIR);
+        const sessions = await Promise.all(
+            files.filter(f => f.endsWith('.json')).map(async f => {
+                const data = JSON.parse(await readFile(resolve(SESSIONS_DIR, f), 'utf-8'));
+                return { id: data.id, name: data.name, updatedAt: data.updatedAt };
+            })
+        );
+        sessions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
+        res.json(sessions);
+    } catch (err) {
+        res.status(500).json({ error: 'Failed to list sessions' });
+    }
+});
+
+app.get('/api/sessions/:id', async (req, res) => {
+    const { id } = req.params;
+    if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid session id' });
+    try {
+        const data = await readFile(resolve(SESSIONS_DIR, `${id}.json`), 'utf-8');
+        res.json(JSON.parse(data));
+    } catch {
+        res.status(404).json({ error: 'Session not found' });
+    }
+});
+
+app.post('/api/sessions', async (req, res) => {
+    const id = crypto.randomUUID();
+    const now = new Date().toISOString();
+    const session = { ...req.body, id, createdAt: now, updatedAt: now };
+    try {
+        await writeFile(resolve(SESSIONS_DIR, `${id}.json`), JSON.stringify(session, null, 2));
+        res.status(201).json(session);
+    } catch {
+        res.status(500).json({ error: 'Failed to create session' });
+    }
+});
+
+app.put('/api/sessions/:id', async (req, res) => {
+    const { id } = req.params;
+    if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid session id' });
+    const filePath = resolve(SESSIONS_DIR, `${id}.json`);
+    try {
+        const existing = JSON.parse(await readFile(filePath, 'utf-8'));
+        const updated = { ...existing, ...req.body, id, updatedAt: new Date().toISOString() };
+        await writeFile(filePath, JSON.stringify(updated, null, 2));
+        res.json(updated);
+    } catch {
+        res.status(404).json({ error: 'Session not found' });
+    }
+});
+
+app.delete('/api/sessions/:id', async (req, res) => {
+    const { id } = req.params;
+    if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid session id' });
+    try {
+        await unlink(resolve(SESSIONS_DIR, `${id}.json`));
+        res.json({ ok: true });
+    } catch {
+        res.status(404).json({ error: 'Session not found' });
+    }
 });
 
 const PORT = process.env.PORT || 3001;

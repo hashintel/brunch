@@ -1,9 +1,10 @@
 import './style.css';
 import { useEffect, useState } from 'preact/hooks';
-import type { Model, Requirement, Task } from './types';
+import type { Model, Requirement, Task, SessionMeta, Session } from './types';
 import { RequirementList } from './RequirementList';
 import { TaskList } from './TaskList';
 import { SummarySection } from './SummarySection';
+import { SessionPanel } from './SessionPanel';
 
 export function Home() {
     const [prompt, setPrompt] = useState('');
@@ -19,14 +20,90 @@ export function Home() {
     const [summary, setSummary] = useState('');
     const [loadingSummary, setLoadingSummary] = useState(false);
 
+    const [sessions, setSessions] = useState<SessionMeta[]>([]);
+    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
+
     useEffect(() => {
-        fetch('/api/models')
-            .then(r => r.json())
-            .then((data: Model[]) => {
-                setModels(data);
-            })
-            .catch(() => {});
+        fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
+        fetch('/api/sessions').then(r => r.json()).then(setSessions).catch(() => {});
     }, []);
+
+    async function refreshSessions() {
+        const res = await fetch('/api/sessions');
+        setSessions(await res.json());
+    }
+
+    async function handleSave() {
+        setSaving(true);
+        try {
+            const body = { prompt, response, selectedModel, requirements, tasks, summary, name: '' };
+            if (currentSessionId) {
+                const res = await fetch(`/api/sessions/${currentSessionId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                if (!res.ok) throw new Error('Failed to save');
+            } else {
+                const name = window.prompt('Session name:', prompt.slice(0, 60) || 'Untitled');
+                if (!name) { setSaving(false); return; }
+                body.name = name;
+                const res = await fetch('/api/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                if (!res.ok) throw new Error('Failed to save');
+                const created: Session = await res.json();
+                setCurrentSessionId(created.id);
+            }
+            await refreshSessions();
+        } catch {
+            setError('Failed to save session');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function handleLoadSession(id: string) {
+        try {
+            const res = await fetch(`/api/sessions/${id}`);
+            if (!res.ok) throw new Error();
+            const s: Session = await res.json();
+            setPrompt(s.prompt);
+            setResponse(s.response);
+            setSelectedModel(s.selectedModel);
+            setRequirements(s.requirements);
+            setTasks(s.tasks);
+            setSummary(s.summary);
+            setCurrentSessionId(s.id);
+            setError('');
+        } catch {
+            setError('Failed to load session');
+        }
+    }
+
+    async function handleDeleteSession(id: string) {
+        if (!window.confirm('Delete this session?')) return;
+        try {
+            await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
+            if (currentSessionId === id) setCurrentSessionId(null);
+            await refreshSessions();
+        } catch {
+            setError('Failed to delete session');
+        }
+    }
+
+    function handleNewSession() {
+        setPrompt('');
+        setResponse('');
+        setRequirements([]);
+        setTasks([]);
+        setSummary('');
+        setError('');
+        setCurrentSessionId(null);
+    }
 
     async function handleGo() {
         if (!prompt.trim() || loading) return;
@@ -187,6 +264,15 @@ export function Home() {
 
     return (
         <div class="home">
+            <SessionPanel
+                sessions={sessions}
+                currentSessionId={currentSessionId}
+                onLoad={handleLoadSession}
+                onDelete={handleDeleteSession}
+                onNew={handleNewSession}
+                onSave={handleSave}
+                saving={saving}
+            />
             <label>Describe your goal. What do you want to build?</label>
             <textarea
                 class="textarea"

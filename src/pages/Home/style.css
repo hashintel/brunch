@@ -384,6 +384,104 @@
     }
 }
 
+.session-panel {
+    border: 1px solid #ccc;
+    border-radius: 0.5rem;
+    padding: 0.75rem 1rem;
+    background-color: #f9f9f9;
+}
+
+.session-panel-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.5rem;
+}
+
+.session-panel-actions {
+    display: flex;
+    gap: 0.4rem;
+}
+
+.session-empty {
+    margin: 0;
+    color: #888;
+    font-size: 0.9rem;
+}
+
+.session-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
+.session-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.3rem 0.5rem;
+    border-radius: 0.35rem;
+}
+
+.session-item-active {
+    background-color: #673ab822;
+}
+
+.session-item-name {
+    flex: 1;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 0.9rem;
+    font-family: inherit;
+    text-align: left;
+    padding: 0;
+    color: inherit;
+}
+
+.session-item-name:hover {
+    color: #673ab8;
+}
+
+.session-item-date {
+    font-size: 0.75rem;
+    color: #888;
+    white-space: nowrap;
+}
+
+.session-item-delete {
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 1.1rem;
+    color: #888;
+    padding: 0 0.2rem;
+    line-height: 1;
+}
+
+.session-item-delete:hover {
+    color: #c00;
+}
+
+@media (prefers-color-scheme: dark) {
+    .session-panel {
+        border-color: #555;
+        background-color: #2a2a2a;
+    }
+    .session-item-active {
+        background-color: #a07ee033;
+    }
+    .session-item-name:hover {
+        color: #a07ee0;
+    }
+    .session-item-delete:hover {
+        color: #f88;
+    }
+}
+
 img {
 	margin-bottom: 1.5rem;
 }
