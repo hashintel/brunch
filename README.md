@@ -1,2 +1,0 @@
-# brunch
-https://brunch.ai/

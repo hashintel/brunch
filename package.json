@@ -1,0 +1,39 @@
+{
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"dev": "concurrently \"vite\" \"node --env-file=.env server.js\"",
+		"server": "node --env-file=.env server.js",
+		"build": "vite build",
+		"preview": "vite preview",
+		"test": "vitest run"
+	},
+	"dependencies": {
+		"@ai-sdk/anthropic": "^3.0.58",
+		"@ai-sdk/google": "^3.0.43",
+		"@ai-sdk/mistral": "^3.0.24",
+		"@ai-sdk/openai": "^3.0.41",
+		"ai": "^6.0.116",
+		"cors": "^2.8.6",
+		"express": "^5.2.1",
+		"preact": "^10.26.9",
+		"preact-iso": "^2.11.1",
+		"preact-render-to-string": "^6.6.6"
+	},
+	"devDependencies": {
+		"@preact/preset-vite": "^2.10.2",
+		"@types/cors": "^2.8.19",
+		"@types/express": "^5.0.6",
+		"@types/supertest": "^7.2.0",
+		"concurrently": "^9.2.1",
+		"eslint": "^9.39.4",
+		"eslint-config-preact": "^2.0.0",
+		"supertest": "^7.2.2",
+		"typescript": "^5.9.3",
+		"vite": "^7.0.4",
+		"vitest": "^4.1.0"
+	},
+	"eslintConfig": {
+		"extends": "preact"
+	}
+}
