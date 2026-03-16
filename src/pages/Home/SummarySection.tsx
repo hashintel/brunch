@@ -1,3 +1,6 @@
+import { useMemo } from 'preact/hooks';
+import { marked } from 'marked';
+
 interface Props {
     summary: string;
     loading: boolean;
@@ -5,6 +8,11 @@ interface Props {
 }
 
 export function SummarySection({ summary, loading, onGenerate }: Props) {
+    const html = useMemo(() => {
+        if (!summary) return '';
+        return marked.parse(summary, { async: false }) as string;
+    }, [summary]);
+
     return (
         <>
             <button
@@ -17,7 +25,7 @@ export function SummarySection({ summary, loading, onGenerate }: Props) {
             {summary && (
                 <div class="summary">
                     <strong>Roadmap Summary</strong>
-                    <div class="summary-content">{summary}</div>
+                    <div class="summary-content" dangerouslySetInnerHTML={{ __html: html }} />
                 </div>
             )}
         </>

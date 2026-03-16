@@ -202,7 +202,7 @@ app.post('/api/streamsummary', async (req, res) => {
     const taskList = tasks.map((t, i) => `${i + 1}. ${t.title} (${t.hours}h) — ${t.definition} [Requirement: ${requirements[t.requirementIndex]?.title ?? 'N/A'}]`).join('\n');
     const totalHours = tasks.reduce((sum, t) => sum + t.hours, 0);
 
-    const userContent = `Goal:\n${prompt}\n\nRequirements:\n${reqList}\n\nTasks (${totalHours}h total):\n${taskList}\n\nWrite a concise project roadmap summary. Include: an overview of the project goal, the key requirements, a phased breakdown of tasks grouped logically, the total estimated effort, and any risks or dependencies to be aware of. Write in prose with clear section headings.`;
+    const userContent = `Goal:\n${prompt}\n\nRequirements:\n${reqList}\n\nTasks (${totalHours}h total):\n${taskList}\n\nWrite a concise project roadmap summary formatted in Markdown. Include: an overview of the project goal, the key requirements, a phased breakdown of tasks grouped logically (use a table with columns: Phase, Task, Hours, Requirement), the total estimated effort, and any risks or dependencies as a bulleted list. Use ## headings for each section.`;
 
     const result = streamText({
         model: registry.languageModel(modelId),
