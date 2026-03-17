@@ -246,7 +246,8 @@ app.post('/api/streamsummary', async (req, res) => {
 });
 
 // --- Sessions ---
-const SESSIONS_DIR = resolve('data/sessions');
+const __dirname = new URL('.', import.meta.url).pathname;
+const SESSIONS_DIR = resolve(__dirname, 'data/sessions');
 await mkdir(SESSIONS_DIR, { recursive: true });
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;

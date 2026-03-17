@@ -2,7 +2,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"dev": "concurrently \"vite\" \"node --env-file=.env server.js\"",
+		"dev": "concurrently \"vite\" \"node --env-file=.env server/server.js\"",
 		"server": "node --env-file=.env server/server.js",
 		"build": "vite build",
 		"preview": "vite preview",
