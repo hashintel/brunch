@@ -31,6 +31,12 @@ app.get('/api/models', (_req, res) => {
 // --- Helpers ---
 
 const READ_TOOLS = ['Read', 'Glob', 'Grep'];
+const CWD_SYSTEM_PROMPT = 'You have access to a project directory. Use the Read, Glob, and Grep tools to explore the codebase and answer questions based on the actual files. Always investigate the project before responding.';
+
+function cwdOptions(cwd) {
+    if (!cwd) return {};
+    return { cwd, allowedTools: READ_TOOLS, systemPrompt: CWD_SYSTEM_PROMPT };
+}
 
 async function streamQueryText(prompt, modelId, res, cwd) {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
@@ -43,7 +49,7 @@ async function streamQueryText(prompt, modelId, res, cwd) {
             model: modelId,
             maxTurns: 100,
             includePartialMessages: true,
-            ...(cwd ? { cwd, allowedTools: READ_TOOLS } : {}),
+            ...cwdOptions(cwd),
         },
     })) {
         if (
@@ -67,7 +73,7 @@ async function queryStructured(prompt, modelId, schema, cwd) {
             model: modelId,
             maxTurns: 100,
             outputFormat: { type: 'json_schema', schema },
-            ...(cwd ? { cwd, allowedTools: READ_TOOLS } : {}),
+            ...cwdOptions(cwd),
         },
     })) {
         if (msg.type === 'result') {
