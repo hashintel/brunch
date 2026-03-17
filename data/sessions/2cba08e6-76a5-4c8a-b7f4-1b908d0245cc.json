@@ -1,0 +1,80 @@
+{
+  "prompt": "Tell a tale",
+  "response": "# The Lighthouse Keeper's Secret\n\nOn a rocky island where no ships passed anymore, old Thomas kept the lighthouse beam turning every night.\n\nThe townspeople thought him mad. \"Why tend a light that guides no one?\" they'd ask. But Thomas climbed the spiral stairs faithfully, polishing the great lens, trimming the wick.\n\nOne autumn evening, a storm rolled in that hadn't been forecast. The wind howled like nothing Thomas had heard in decades. Then—through the rain—he saw it: a small sailboat, listing badly, heading straight for the rocks.\n\nHis hands moved without thought. He adjusted the lighthouse beam lower, angled it to shine on a hidden channel through the reef that he alone remembered. Back and forth, he swung the light like a beacon, like a song.\n\nThe sailboat saw. The sailboat *understood*. It veered, found the passage, and slipped through safely.\n\nBy morning, the storm had passed. No one came to thank him. The boat was already gone.\n\nBut Thomas smiled as he climbed back up the spiral stairs. He understood now. You don't keep the light burning because it's needed *today*.\n\nYou keep it burning so it's there *when it matters most*.\n\nAnd some nights, he thought, that's enough.",
+  "selectedModel": "anthropic:claude-haiku-4-5",
+  "requirements": [
+    {
+      "title": "Maintain Critical Infrastructure",
+      "definition": "Keep essential systems operational and functional even during periods when they appear unused or unnecessary, because their true value emerges during unexpected crises or emergencies",
+      "confidence": 0.92
+    },
+    {
+      "title": "Trust in Delayed Purpose",
+      "definition": "Accept that meaningful work may go unrecognized or unrewarded in the present moment, but retain faith that its value will be revealed when circumstances demand it",
+      "confidence": 0.89
+    },
+    {
+      "title": "Preserve Specialized Knowledge",
+      "definition": "Maintain expertise and institutional memory about systems, passages, or solutions that may become critical in unforeseen circumstances, even if they seem obsolete",
+      "confidence": 0.88
+    },
+    {
+      "title": "Perform Duty with Quiet Dedication",
+      "definition": "Execute assigned responsibilities faithfully and thoroughly regardless of social validation, mockery, or apparent irrelevance to others",
+      "confidence": 0.9
+    },
+    {
+      "title": "Recognize Hidden Value",
+      "definition": "Understand that the worth of one's work is not determined by immediate visibility, gratitude, or practical application, but by its potential to matter when it truly counts",
+      "confidence": 0.91
+    },
+    {
+      "title": "Prepare for Unpredicted Emergencies",
+      "definition": "Maintain readiness and capability to respond to unexpected crises that defy forecasting or common expectations, requiring both preparation and adaptability",
+      "confidence": 0.87
+    }
+  ],
+  "tasks": [
+    {
+      "title": "Establish System Redundancy Protocols",
+      "definition": "Document and implement backup systems, failover procedures, and maintenance schedules for critical infrastructure to ensure continuous operation during emergencies. Create checklists for regular inspections and establish contingency plans for each system component.",
+      "hours": 12,
+      "requirementIndex": 0
+    },
+    {
+      "title": "Document Historical System Knowledge",
+      "definition": "Create comprehensive written records of specialized procedures, alternative routes, system capabilities, and institutional memory. Archive this knowledge in accessible formats and establish a succession plan to transfer expertise to others.",
+      "hours": 10,
+      "requirementIndex": 2
+    },
+    {
+      "title": "Design Emergency Response Framework",
+      "definition": "Develop adaptable protocols for responding to unpredicted crises that fall outside normal operational parameters. Include scenario planning, decision-making trees, and resource allocation strategies that allow for improvisation.",
+      "hours": 14,
+      "requirementIndex": 5
+    },
+    {
+      "title": "Create Maintenance Discipline System",
+      "definition": "Establish regular maintenance routines and accountability mechanisms that ensure assigned responsibilities are performed faithfully regardless of perceived necessity. Include logging systems to demonstrate consistent dedication to duty.",
+      "hours": 8,
+      "requirementIndex": 3
+    },
+    {
+      "title": "Conduct Value Assessment Review",
+      "definition": "Analyze historical cases where seemingly obsolete or underutilized systems proved critical, and document the potential future impact of current work. Create materials that help stakeholders understand non-obvious value propositions.",
+      "hours": 9,
+      "requirementIndex": 4
+    },
+    {
+      "title": "Implement Delayed Gratification Framework",
+      "definition": "Develop internal motivation structures and peer support systems that reinforce commitment to long-term value creation despite lack of immediate recognition. Create milestone documentation that acknowledges contributions even when external validation is absent.",
+      "hours": 7,
+      "requirementIndex": 1
+    }
+  ],
+  "summary": "# The Lighthouse Keeper's Secret: Project Roadmap\n\n## Project Overview\n\nEstablish and maintain organizational resilience by creating systems, documentation, and cultural practices that preserve critical infrastructure, institutional knowledge, and operational readiness—ensuring that essential capabilities remain functional and valuable even during periods of apparent disuse, and are immediately available when unexpected crises demand them.\n\n## Key Requirements\n\n1. **Maintain Critical Infrastructure** — Keep essential systems operational during periods of low visibility\n2. **Trust in Delayed Purpose** — Foster commitment to work whose value emerges only in crisis\n3. **Preserve Specialized Knowledge** — Document expertise and institutional memory for future access\n4. **Perform Duty with Quiet Dedication** — Execute responsibilities faithfully regardless of external validation\n5. **Recognize Hidden Value** — Articulate non-obvious worth of current work to stakeholders\n6. **Prepare for Unpredicted Emergencies** — Build adaptive capacity to respond to unforeseen crises\n\n## Phased Task Breakdown\n\n| Phase | Task | Hours | Requirement |\n|-------|------|-------|-------------|\n| **Foundation** | Document Historical System Knowledge | 10 | Preserve Specialized Knowledge |\n| **Foundation** | Conduct Value Assessment Review | 9 | Recognize Hidden Value |\n| **Foundation** | *Subtotal* | **19h** | |\n| **Infrastructure** | Establish System Redundancy Protocols | 12 | Maintain Critical Infrastructure |\n| **Infrastructure** | Design Emergency Response Framework | 14 | Prepare for Unpredicted Emergencies |\n| **Infrastructure** | *Subtotal* | **26h** | |\n| **Operations** | Create Maintenance Discipline System | 8 | Perform Duty with Quiet Dedication |\n| **Operations** | Implement Delayed Gratification Framework | 7 | Trust in Delayed Purpose |\n| **Operations** | *Subtotal* | **15h** | |\n| | **TOTAL EFFORT** | **60h** | |\n\n## Risk & Dependencies\n\n- **Knowledge Transfer Risk:** Expertise loss if specialized personnel depart before documentation is complete; mitigate by prioritizing historical documentation early\n- **Stakeholder Buy-In:** Long-term maintenance may face budget pressure if immediate ROI isn't visible; dependency on value assessment materials and leadership alignment\n- **Scope Creep:** Emergency response framework could expand indefinitely; establish clear boundaries and scenario parameters upfront\n- **Maintenance Discipline:** Routines may atrophy without accountability mechanisms; dependency on logging systems and peer accountability structures\n- **Resource Availability:** Completing redundancy protocols may require infrastructure investment; sequence planning needed before implementation phase",
+  "name": "Tell a tale",
+  "id": "2cba08e6-76a5-4c8a-b7f4-1b908d0245cc",
+  "createdAt": "2026-03-17T09:30:31.520Z",
+  "updatedAt": "2026-03-17T09:30:31.520Z"
+}
