@@ -1,22 +1,19 @@
 import express from 'express';
 import cors from 'cors';
-import { streamText, streamObject } from 'ai';
+import { createOpencode } from '@opencode-ai/sdk';
 import { z } from 'zod';
-import { createOpencode } from 'ai-sdk-provider-opencode-sdk';
 import { resolve } from 'node:path';
 import { homedir } from 'node:os';
+import { mkdir, readdir, readFile, writeFile, unlink } from 'node:fs/promises';
+import crypto from 'node:crypto';
 
 // Ensure the opencode binary is discoverable
 const opencodebin = resolve(homedir(), '.opencode/bin');
 if (!process.env.PATH?.includes(opencodebin)) {
     process.env.PATH = `${opencodebin}:${process.env.PATH}`;
 }
-import { mkdir, readdir, readFile, writeFile, unlink } from 'node:fs/promises';
-import crypto from 'node:crypto';
 
-const opencode = createOpencode({
-    autoStartServer: true,
-});
+const { client } = await createOpencode();
 
 export const MODELS = [
     { id: 'anthropic/claude-haiku-4-5-20251001',    label: 'Claude Haiku 4.5',    provider: 'Anthropic' },
@@ -31,7 +28,12 @@ export const MODELS = [
 const VALID_MODEL_IDS = new Set(MODELS.map(m => m.id));
 const DEFAULT_MODEL = MODELS[0].id;
 
-console.log(`OpenCode SDK provider initialized (${MODELS.length} models, default: ${DEFAULT_MODEL})`);
+console.log(`OpenCode SDK initialized (${MODELS.length} models, default: ${DEFAULT_MODEL})`);
+
+function parseModelId(id) {
+    const idx = id.indexOf('/');
+    return { providerID: id.slice(0, idx), modelID: id.slice(idx + 1) };
+}
 
 function extractJsonObject(text) {
     const trimmed = text.trim();
@@ -43,43 +45,78 @@ function extractJsonObject(text) {
     return body.slice(start, end + 1);
 }
 
-async function generateJsonObject({ modelId, prompt, schema, retries = 2 }) {
-    // Try native streamObject first
-    for (let attempt = 1; attempt <= retries; attempt++) {
-        try {
-            const result = streamObject({
-                model: opencode(modelId, { outputFormatRetryCount: 2 }),
-                schema,
-                prompt,
-            });
-            return await result.object;
-        } catch (err) {
-            console.log(`[${modelId}] streamObject attempt ${attempt}/${retries} failed: ${err.message}`);
-            if (attempt === retries) break;
-        }
-    }
+async function streamPrompt({ modelId, content, res }) {
+    const { providerID, modelID } = parseModelId(modelId);
+    const { data: session } = await client.session.create({ throwOnError: true });
+    const sessionId = session.id;
 
-    // Fallback: streamText + manual JSON extraction
-    console.log(`[${modelId}] falling back to streamText + JSON extraction`);
+    try {
+        // Subscribe to events before sending prompt to avoid missing any
+        const events = await client.event.subscribe();
+
+        // Send prompt (non-blocking)
+        await client.session.promptAsync({
+            path: { id: sessionId },
+            body: {
+                parts: [{ type: 'text', text: content }],
+                model: { providerID, modelID },
+            },
+            throwOnError: true,
+        });
+
+        res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+        res.setHeader('Transfer-Encoding', 'chunked');
+
+        let fullText = '';
+        for await (const event of events.stream) {
+            if (event.type === 'message.part.updated') {
+                const { part, delta } = event.properties;
+                if (part.sessionID === sessionId && part.type === 'text' && delta) {
+                    res.write(delta);
+                    fullText += delta;
+                }
+            } else if (event.type === 'session.status') {
+                const { sessionID, status } = event.properties;
+                if (sessionID === sessionId && (status === 'idle' || status === 'error')) {
+                    break;
+                }
+            }
+        }
+
+        res.end();
+        console.log(`[${modelId}] response: ${fullText}`);
+    } finally {
+        await client.session.delete({ path: { id: sessionId } }).catch(() => {});
+    }
+}
+
+async function generateJsonObject({ modelId, prompt, schema, retries = 2 }) {
+    const { providerID, modelID } = parseModelId(modelId);
+
     for (let attempt = 1; attempt <= retries; attempt++) {
+        const { data: session } = await client.session.create({ throwOnError: true });
         try {
-            const result = streamText({
-                model: opencode(modelId),
-                prompt: `Return only valid JSON (no prose, no markdown fences).\n\n${prompt}`,
+            const { data } = await client.session.prompt({
+                path: { id: session.id },
+                body: {
+                    parts: [{ type: 'text', text: `Return only valid JSON (no prose, no markdown fences).\n\n${prompt}` }],
+                    model: { providerID, modelID },
+                },
+                throwOnError: true,
             });
-            let text = '';
-            for await (const chunk of result.textStream) {
-                text += chunk;
-            }
-            const json = extractJsonObject(text);
-            if (!json) {
-                if (attempt === retries) throw new Error('Response did not contain a JSON object');
-                continue;
-            }
+
+            const text = data.parts
+                .filter(p => p.type === 'text')
+                .map(p => p.text)
+                .join('');
+
+            const json = extractJsonObject(text) ?? text;
             return schema.parse(JSON.parse(json));
         } catch (err) {
+            console.log(`[${modelId}] attempt ${attempt}/${retries} failed: ${err.message}`);
             if (attempt === retries) throw err;
-            console.log(`[${modelId}] fallback attempt ${attempt}/${retries} failed: ${err.message}`);
+        } finally {
+            await client.session.delete({ path: { id: session.id } }).catch(() => {});
         }
     }
 }
@@ -108,24 +145,16 @@ app.post('/api/stream', async (req, res) => {
 
     console.log(`[${modelId}] ${prompt}`);
 
-    const result = streamText({
-        model: opencode(modelId),
-        messages: [{ role: 'user', content: prompt }],
-        onFinish({ text }) {
-            console.log(`[${modelId}] response: ${text}`);
-        },
-    });
-
-    result.pipeTextStreamToResponse(res);
-
-    result.text.catch(err => {
+    try {
+        await streamPrompt({ modelId, content: prompt, res });
+    } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to generate response' });
         } else {
             res.end();
         }
-    });
+    }
 });
 
 const requirementSchema = z.object({
@@ -223,21 +252,16 @@ app.post('/api/streamsummary', async (req, res) => {
 
     const userContent = `Goal:\n${prompt}\n\nRequirements:\n${reqList}\n\nTasks (${totalHours}h total):\n${taskList}\n\nWrite a concise project roadmap summary formatted in Markdown. Include: an overview of the project goal, the key requirements, a phased breakdown of tasks grouped logically (use a table with columns: Phase, Task, Hours, Requirement), the total estimated effort, and any risks or dependencies as a bulleted list. Use ## headings for each section.`;
 
-    const result = streamText({
-        model: opencode(modelId),
-        messages: [{ role: 'user', content: userContent }],
-    });
-
-    result.pipeTextStreamToResponse(res);
-
-    result.text.catch(err => {
+    try {
+        await streamPrompt({ modelId, content: userContent, res });
+    } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to generate summary' });
         } else {
             res.end();
         }
-    });
+    }
 });
 
 // --- Sessions ---
