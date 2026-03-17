@@ -8,6 +8,7 @@ import { SessionPanel } from './SessionPanel';
 
 export function Home() {
     const [prompt, setPrompt] = useState('');
+    const [cwd, setCwd] = useState('');
     const [response, setResponse] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -37,7 +38,7 @@ export function Home() {
     async function handleSave() {
         setSaving(true);
         try {
-            const body = { prompt, response, selectedModel, requirements, tasks, summary, name: '' };
+            const body = { prompt, cwd, response, selectedModel, requirements, tasks, summary, name: '' };
             if (currentSessionId) {
                 const res = await fetch(`/api/sessions/${currentSessionId}`, {
                     method: 'PUT',
@@ -72,6 +73,7 @@ export function Home() {
             if (!res.ok) throw new Error();
             const s: Session = await res.json();
             setPrompt(s.prompt);
+            setCwd(s.cwd ?? '');
             setResponse(s.response);
             setSelectedModel(s.selectedModel);
             setRequirements(s.requirements);
@@ -97,6 +99,7 @@ export function Home() {
 
     function handleNewSession() {
         setPrompt('');
+        setCwd('');
         setResponse('');
         setRequirements([]);
         setTasks([]);
@@ -116,7 +119,7 @@ export function Home() {
             const res = await fetch('http://localhost:3001/api/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: selectedModel }),
+                body: JSON.stringify({ prompt, model: selectedModel, cwd: cwd || undefined }),
             });
 
             if (!res.ok) {
@@ -147,8 +150,8 @@ export function Home() {
 
         const isGenerateMore = requirements.length > 0;
         const body = isGenerateMore
-            ? { prompt: response, model: selectedModel, existingRequirements: requirements }
-            : { prompt: response, model: selectedModel };
+            ? { prompt: response, model: selectedModel, cwd: cwd || undefined, existingRequirements: requirements }
+            : { prompt: response, model: selectedModel, cwd: cwd || undefined };
 
         try {
             const res = await fetch('/api/streamrequirements', {
@@ -192,6 +195,7 @@ export function Home() {
         const body = {
             prompt: response,
             model: selectedModel,
+            cwd: cwd || undefined,
             requirements,
             ...(isGenerateMore ? { existingTasks: tasks } : {}),
         };
@@ -239,7 +243,7 @@ export function Home() {
             const res = await fetch('/api/streamsummary', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: response, model: selectedModel, requirements, tasks }),
+                body: JSON.stringify({ prompt: response, model: selectedModel, cwd: cwd || undefined, requirements, tasks }),
             });
 
             if (!res.ok) {
@@ -276,6 +280,15 @@ export function Home() {
                 />
             </aside>
             <div class="home">
+            <label>Project folder (optional)</label>
+            <input
+                class="input"
+                type="text"
+                value={cwd}
+                onInput={e => setCwd(e.currentTarget.value)}
+                placeholder="/path/to/project"
+                disabled={loading}
+            />
             <label>Describe your goal. What do you want to build?</label>
             <textarea
                 class="textarea"

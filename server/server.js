@@ -30,7 +30,9 @@ app.get('/api/models', (_req, res) => {
 
 // --- Helpers ---
 
-async function streamQueryText(prompt, modelId, res) {
+const READ_TOOLS = ['Read', 'Glob', 'Grep'];
+
+async function streamQueryText(prompt, modelId, res, cwd) {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8');
     res.setHeader('Transfer-Encoding', 'chunked');
 
@@ -40,8 +42,8 @@ async function streamQueryText(prompt, modelId, res) {
         options: {
             model: modelId,
             maxTurns: 100,
-
             includePartialMessages: true,
+            ...(cwd ? { cwd, allowedTools: READ_TOOLS } : {}),
         },
     })) {
         if (
@@ -57,7 +59,7 @@ async function streamQueryText(prompt, modelId, res) {
     return fullText;
 }
 
-async function queryStructured(prompt, modelId, schema) {
+async function queryStructured(prompt, modelId, schema, cwd) {
     let result;
     for await (const msg of query({
         prompt,
@@ -65,6 +67,7 @@ async function queryStructured(prompt, modelId, schema) {
             model: modelId,
             maxTurns: 100,
             outputFormat: { type: 'json_schema', schema },
+            ...(cwd ? { cwd, allowedTools: READ_TOOLS } : {}),
         },
     })) {
         if (msg.type === 'result') {
@@ -84,7 +87,7 @@ async function queryStructured(prompt, modelId, schema) {
 // --- Endpoints ---
 
 app.post('/api/stream', async (req, res) => {
-    const { prompt, model: modelId = DEFAULT_MODEL } = req.body;
+    const { prompt, model: modelId = DEFAULT_MODEL, cwd } = req.body;
 
     if (!prompt?.trim()) {
         return res.status(400).json({ error: 'prompt is required' });
@@ -93,10 +96,10 @@ app.post('/api/stream', async (req, res) => {
         return res.status(400).json({ error: `invalid model: ${modelId}` });
     }
 
-    console.log(`[${modelId}] ${prompt}`);
+    console.log(`[${modelId}]${cwd ? ` (${cwd})` : ''} ${prompt}`);
 
     try {
-        const text = await streamQueryText(prompt, modelId, res);
+        const text = await streamQueryText(prompt, modelId, res, cwd);
         console.log(`[${modelId}] response: ${text}`);
     } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
@@ -130,7 +133,7 @@ const requirementJsonSchema = {
 };
 
 app.post('/api/streamrequirements', async (req, res) => {
-    const { prompt, model: modelId = DEFAULT_MODEL } = req.body;
+    const { prompt, model: modelId = DEFAULT_MODEL, cwd } = req.body;
 
     if (!prompt?.trim()) {
         return res.status(400).json({ error: 'prompt is required' });
@@ -142,7 +145,7 @@ app.post('/api/streamrequirements', async (req, res) => {
     console.log(`[${modelId}] streamrequirements: ${prompt}`);
 
     try {
-        const output = await queryStructured(prompt, modelId, requirementJsonSchema);
+        const output = await queryStructured(prompt, modelId, requirementJsonSchema, cwd);
         res.json(output);
     } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
@@ -177,7 +180,7 @@ const taskJsonSchema = {
 };
 
 app.post('/api/streamtasks', async (req, res) => {
-    const { prompt, model: modelId = DEFAULT_MODEL, requirements, existingTasks } = req.body;
+    const { prompt, model: modelId = DEFAULT_MODEL, cwd, requirements, existingTasks } = req.body;
 
     if (!prompt?.trim()) {
         return res.status(400).json({ error: 'prompt is required' });
@@ -200,7 +203,7 @@ app.post('/api/streamtasks', async (req, res) => {
     }
 
     try {
-        const output = await queryStructured(userContent, modelId, taskJsonSchema);
+        const output = await queryStructured(userContent, modelId, taskJsonSchema, cwd);
         res.json(output);
     } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
@@ -213,7 +216,7 @@ app.post('/api/streamtasks', async (req, res) => {
 });
 
 app.post('/api/streamsummary', async (req, res) => {
-    const { prompt, model: modelId = DEFAULT_MODEL, requirements, tasks } = req.body;
+    const { prompt, model: modelId = DEFAULT_MODEL, cwd, requirements, tasks } = req.body;
 
     if (!prompt?.trim()) {
         return res.status(400).json({ error: 'prompt is required' });
@@ -234,7 +237,7 @@ app.post('/api/streamsummary', async (req, res) => {
     const userContent = `Goal:\n${prompt}\n\nRequirements:\n${reqList}\n\nTasks (${totalHours}h total):\n${taskList}\n\nWrite a concise project roadmap summary formatted in Markdown. Include: an overview of the project goal, the key requirements, a phased breakdown of tasks grouped logically (use a table with columns: Phase, Task, Hours, Requirement), the total estimated effort, and any risks or dependencies as a bulleted list. Use ## headings for each section.`;
 
     try {
-        await streamQueryText(userContent, modelId, res);
+        await streamQueryText(userContent, modelId, res, cwd);
     } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
         if (!res.headersSent) {

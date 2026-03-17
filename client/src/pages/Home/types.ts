@@ -8,6 +8,7 @@ export type Session = {
     createdAt: string;
     updatedAt: string;
     prompt: string;
+    cwd: string;
     response: string;
     selectedModel: string;
     requirements: Requirement[];
