@@ -3,7 +3,7 @@
 	"type": "module",
 	"scripts": {
 		"dev": "concurrently \"vite\" \"node --env-file=.env server.js\"",
-		"server": "node --env-file=.env server.js",
+		"server": "node --env-file=.env server/server.js",
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "vitest run"
