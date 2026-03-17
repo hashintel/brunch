@@ -263,16 +263,19 @@ export function Home() {
     }
 
     return (
-        <div class="home">
-            <SessionPanel
-                sessions={sessions}
-                currentSessionId={currentSessionId}
-                onLoad={handleLoadSession}
-                onDelete={handleDeleteSession}
-                onNew={handleNewSession}
-                onSave={handleSave}
-                saving={saving}
-            />
+        <div class="home-layout">
+            <aside class="sidebar">
+                <SessionPanel
+                    sessions={sessions}
+                    currentSessionId={currentSessionId}
+                    onLoad={handleLoadSession}
+                    onDelete={handleDeleteSession}
+                    onNew={handleNewSession}
+                    onSave={handleSave}
+                    saving={saving}
+                />
+            </aside>
+            <div class="home">
             <label>Describe your goal. What do you want to build?</label>
             <textarea
                 class="textarea"
@@ -340,6 +343,7 @@ export function Home() {
                     )}
                 </>
             )}
+            </div>
         </div>
     );
 }

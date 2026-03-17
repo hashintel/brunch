@@ -50,10 +50,10 @@ header a:hover {
 main {
 	flex: auto;
 	display: flex;
-	align-items: center;
 	max-width: 1280px;
 	margin: 0 auto;
 	text-align: center;
+	width: 100%;
 }
 
 @media (max-width: 639px) {
