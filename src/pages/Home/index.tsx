@@ -12,7 +12,7 @@ export function Home() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [models, setModels] = useState<Model[]>([]);
-    const [selectedModel, setSelectedModel] = useState('anthropic:claude-haiku-4-5');
+    const [selectedModel, setSelectedModel] = useState('claude-haiku-4-5');
     const [requirements, setRequirements] = useState<Requirement[]>([]);
     const [loadingRequirements, setLoadingRequirements] = useState(false);
     const [tasks, setTasks] = useState<Task[]>([]);

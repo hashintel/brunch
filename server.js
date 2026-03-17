@@ -1,57 +1,20 @@
 import express from 'express';
 import cors from 'cors';
-import { streamText, streamObject, createProviderRegistry } from 'ai';
-import { z } from 'zod';
-import { anthropic } from '@ai-sdk/anthropic';
-import { google } from '@ai-sdk/google';
-import { openai } from '@ai-sdk/openai';
-import { mistral } from '@ai-sdk/mistral';
+import { query } from '@anthropic-ai/claude-agent-sdk';
 import { resolve } from 'node:path';
 import { mkdir, readdir, readFile, writeFile, unlink } from 'node:fs/promises';
 import crypto from 'node:crypto';
 
-const PROVIDER_ENV_KEYS = {
-    google:    'GOOGLE_GENERATIVE_AI_API_KEY',
-    anthropic: 'ANTHROPIC_API_KEY',
-    openai:    'OPENAI_API_KEY',
-    mistral:   'MISTRAL_API_KEY',
-};
-
-const ALL_MODELS = [
-    { id: 'anthropic:claude-haiku-4-5',     label: 'Claude Haiku 4.5',    provider: 'Anthropic', providerKey: 'anthropic' },
-    { id: 'anthropic:claude-opus-4-6',      label: 'Claude Opus 4.6',     provider: 'Anthropic', providerKey: 'anthropic' },
-    { id: 'google:gemini-2.0-flash',        label: 'Gemini 2.0 Flash',    provider: 'Google',    providerKey: 'google' },
-    { id: 'google:gemini-1.5-pro',          label: 'Gemini 1.5 Pro',      provider: 'Google',    providerKey: 'google' },
-    { id: 'openai:gpt-4o-mini',             label: 'GPT-4o Mini',         provider: 'OpenAI',    providerKey: 'openai' },
-    { id: 'openai:gpt-4o',                  label: 'GPT-4o',              provider: 'OpenAI',    providerKey: 'openai' },
-    { id: 'mistral:mistral-small-latest',   label: 'Mistral Small',       provider: 'Mistral',   providerKey: 'mistral' },
-    { id: 'mistral:mistral-large-latest',   label: 'Mistral Large',       provider: 'Mistral',   providerKey: 'mistral' },
+export const MODELS = [
+    { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', provider: 'Anthropic' },
+    { id: 'claude-sonnet-4-6', label: 'Claude Sonnet 4.6', provider: 'Anthropic' },
+    { id: 'claude-opus-4-6', label: 'Claude Opus 4.6', provider: 'Anthropic' },
 ];
-
-const configuredProviders = Object.entries(PROVIDER_ENV_KEYS)
-    .filter(([, envVar]) => process.env[envVar]?.trim())
-    .map(([key]) => key);
-
-if (configuredProviders.length === 0) {
-    console.error('No API keys configured. Set at least one of:', Object.values(PROVIDER_ENV_KEYS).join(', '));
-    process.exit(1);
-}
-
-const configuredSet = new Set(configuredProviders);
-const registry = createProviderRegistry(
-    Object.fromEntries(
-        Object.entries({ anthropic, google, openai, mistral })
-            .filter(([key]) => configuredSet.has(key))
-    )
-);
-
-export const MODELS = ALL_MODELS.filter(m => configuredSet.has(m.providerKey))
-    .map(({ providerKey: _, ...rest }) => rest);
 
 const VALID_MODEL_IDS = new Set(MODELS.map(m => m.id));
 const DEFAULT_MODEL = MODELS[0].id;
 
-console.log(`Configured providers: ${configuredProviders.join(', ')} (${MODELS.length} models, default: ${DEFAULT_MODEL})`);
+console.log(`Models: ${MODELS.map(m => m.id).join(', ')} (default: ${DEFAULT_MODEL})`);
 
 export const app = express();
 app.use(cors());
@@ -65,6 +28,61 @@ app.get('/api/models', (_req, res) => {
     res.json(MODELS);
 });
 
+// --- Helpers ---
+
+async function streamQueryText(prompt, modelId, res) {
+    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
+
+    let fullText = '';
+    for await (const msg of query({
+        prompt,
+        options: {
+            model: modelId,
+            maxTurns: 100,
+
+            includePartialMessages: true,
+        },
+    })) {
+        if (
+            msg.type === 'stream_event' &&
+            msg.event.type === 'content_block_delta' &&
+            msg.event.delta.type === 'text_delta'
+        ) {
+            res.write(msg.event.delta.text);
+            fullText += msg.event.delta.text;
+        }
+    }
+    res.end();
+    return fullText;
+}
+
+async function queryStructured(prompt, modelId, schema) {
+    let result;
+    for await (const msg of query({
+        prompt,
+        options: {
+            model: modelId,
+            maxTurns: 100,
+            outputFormat: { type: 'json_schema', schema },
+        },
+    })) {
+        if (msg.type === 'result') {
+            result = msg;
+        }
+    }
+    if (result?.subtype === 'success' && result.structured_output) {
+        return result.structured_output;
+    }
+    // Fallback: parse the result text as JSON
+    if (result?.subtype === 'success' && result.result) {
+        return JSON.parse(result.result);
+    }
+    throw new Error(result?.subtype ?? 'Unknown error');
+}
+
+// --- Endpoints ---
+
 app.post('/api/stream', async (req, res) => {
     const { prompt, model: modelId = DEFAULT_MODEL } = req.body;
 
@@ -77,33 +95,39 @@ app.post('/api/stream', async (req, res) => {
 
     console.log(`[${modelId}] ${prompt}`);
 
-    const result = streamText({
-        model: registry.languageModel(modelId),
-        messages: [{ role: 'user', content: prompt }],
-        onFinish({ text }) {
-            console.log(`[${modelId}] response: ${text}`);
-        },
-    });
-
-    result.pipeTextStreamToResponse(res);
-
-    result.text.catch(err => {
+    try {
+        const text = await streamQueryText(prompt, modelId, res);
+        console.log(`[${modelId}] response: ${text}`);
+    } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to generate response' });
         } else {
             res.end();
         }
-    });
+    }
 });
 
-const requirementSchema = z.object({
-    requirements: z.array(z.object({
-        title: z.string(),
-        definition: z.string(),
-        confidence: z.number(),
-    })),
-});
+const requirementJsonSchema = {
+    type: 'object',
+    properties: {
+        requirements: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    title: { type: 'string' },
+                    definition: { type: 'string' },
+                    confidence: { type: 'number' },
+                },
+                required: ['title', 'definition', 'confidence'],
+                additionalProperties: false,
+            },
+        },
+    },
+    required: ['requirements'],
+    additionalProperties: false,
+};
 
 app.post('/api/streamrequirements', async (req, res) => {
     const { prompt, model: modelId = DEFAULT_MODEL } = req.body;
@@ -117,32 +141,40 @@ app.post('/api/streamrequirements', async (req, res) => {
 
     console.log(`[${modelId}] streamrequirements: ${prompt}`);
 
-    const result = streamObject({
-        model: registry.languageModel(modelId),
-        messages: [{ role: 'user', content: prompt }],
-        schema: requirementSchema,
-    });
-
-    result.pipeTextStreamToResponse(res);
-
-    result.object.catch(err => {
+    try {
+        const output = await queryStructured(prompt, modelId, requirementJsonSchema);
+        res.json(output);
+    } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to generate response' });
         } else {
             res.end();
         }
-    });
+    }
 });
 
-const taskSchema = z.object({
-    tasks: z.array(z.object({
-        title: z.string(),
-        definition: z.string(),
-        hours: z.number(),
-        requirementIndex: z.number(),
-    })),
-});
+const taskJsonSchema = {
+    type: 'object',
+    properties: {
+        tasks: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    title: { type: 'string' },
+                    definition: { type: 'string' },
+                    hours: { type: 'number' },
+                    requirementIndex: { type: 'integer' },
+                },
+                required: ['title', 'definition', 'hours', 'requirementIndex'],
+                additionalProperties: false,
+            },
+        },
+    },
+    required: ['tasks'],
+    additionalProperties: false,
+};
 
 app.post('/api/streamtasks', async (req, res) => {
     const { prompt, model: modelId = DEFAULT_MODEL, requirements, existingTasks } = req.body;
@@ -167,22 +199,17 @@ app.post('/api/streamtasks', async (req, res) => {
         userContent += `\n\nAlready created tasks (do not duplicate):\n${existing}\n\nGenerate additional tasks only.`;
     }
 
-    const result = streamObject({
-        model: registry.languageModel(modelId),
-        messages: [{ role: 'user', content: userContent }],
-        schema: taskSchema,
-    });
-
-    result.pipeTextStreamToResponse(res);
-
-    result.object.catch(err => {
+    try {
+        const output = await queryStructured(userContent, modelId, taskJsonSchema);
+        res.json(output);
+    } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to generate tasks' });
         } else {
             res.end();
         }
-    });
+    }
 });
 
 app.post('/api/streamsummary', async (req, res) => {
@@ -206,21 +233,16 @@ app.post('/api/streamsummary', async (req, res) => {
 
     const userContent = `Goal:\n${prompt}\n\nRequirements:\n${reqList}\n\nTasks (${totalHours}h total):\n${taskList}\n\nWrite a concise project roadmap summary formatted in Markdown. Include: an overview of the project goal, the key requirements, a phased breakdown of tasks grouped logically (use a table with columns: Phase, Task, Hours, Requirement), the total estimated effort, and any risks or dependencies as a bulleted list. Use ## headings for each section.`;
 
-    const result = streamText({
-        model: registry.languageModel(modelId),
-        messages: [{ role: 'user', content: userContent }],
-    });
-
-    result.pipeTextStreamToResponse(res);
-
-    result.text.catch(err => {
+    try {
+        await streamQueryText(userContent, modelId, res);
+    } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to generate summary' });
         } else {
             res.end();
         }
-    });
+    }
 });
 
 // --- Sessions ---
