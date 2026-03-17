@@ -1,57 +1,88 @@
 import express from 'express';
 import cors from 'cors';
-import { streamText, streamObject, createProviderRegistry } from 'ai';
+import { streamText, streamObject } from 'ai';
 import { z } from 'zod';
-import { anthropic } from '@ai-sdk/anthropic';
-import { google } from '@ai-sdk/google';
-import { openai } from '@ai-sdk/openai';
-import { mistral } from '@ai-sdk/mistral';
+import { createOpencode } from 'ai-sdk-provider-opencode-sdk';
 import { resolve } from 'node:path';
+import { homedir } from 'node:os';
+
+// Ensure the opencode binary is discoverable
+const opencodebin = resolve(homedir(), '.opencode/bin');
+if (!process.env.PATH?.includes(opencodebin)) {
+    process.env.PATH = `${opencodebin}:${process.env.PATH}`;
+}
 import { mkdir, readdir, readFile, writeFile, unlink } from 'node:fs/promises';
 import crypto from 'node:crypto';
 
-const PROVIDER_ENV_KEYS = {
-    google:    'GOOGLE_GENERATIVE_AI_API_KEY',
-    anthropic: 'ANTHROPIC_API_KEY',
-    openai:    'OPENAI_API_KEY',
-    mistral:   'MISTRAL_API_KEY',
-};
+const opencode = createOpencode({
+    autoStartServer: true,
+});
 
-const ALL_MODELS = [
-    { id: 'anthropic:claude-haiku-4-5',     label: 'Claude Haiku 4.5',    provider: 'Anthropic', providerKey: 'anthropic' },
-    { id: 'anthropic:claude-opus-4-6',      label: 'Claude Opus 4.6',     provider: 'Anthropic', providerKey: 'anthropic' },
-    { id: 'google:gemini-2.0-flash',        label: 'Gemini 2.0 Flash',    provider: 'Google',    providerKey: 'google' },
-    { id: 'google:gemini-1.5-pro',          label: 'Gemini 1.5 Pro',      provider: 'Google',    providerKey: 'google' },
-    { id: 'openai:gpt-4o-mini',             label: 'GPT-4o Mini',         provider: 'OpenAI',    providerKey: 'openai' },
-    { id: 'openai:gpt-4o',                  label: 'GPT-4o',              provider: 'OpenAI',    providerKey: 'openai' },
-    { id: 'mistral:mistral-small-latest',   label: 'Mistral Small',       provider: 'Mistral',   providerKey: 'mistral' },
-    { id: 'mistral:mistral-large-latest',   label: 'Mistral Large',       provider: 'Mistral',   providerKey: 'mistral' },
+export const MODELS = [
+    { id: 'anthropic/claude-haiku-4-5-20251001',    label: 'Claude Haiku 4.5',    provider: 'Anthropic' },
+    { id: 'anthropic/claude-sonnet-4-5-20250929',   label: 'Claude Sonnet 4.5',   provider: 'Anthropic' },
+    { id: 'anthropic/claude-opus-4-5-20250918',     label: 'Claude Opus 4.5',     provider: 'Anthropic' },
+    { id: 'google/gemini-2.5-flash',                label: 'Gemini 2.5 Flash',    provider: 'Google' },
+    { id: 'google/gemini-2.5-pro',                  label: 'Gemini 2.5 Pro',      provider: 'Google' },
+    { id: 'openai/gpt-4o-mini',                     label: 'GPT-4o Mini',         provider: 'OpenAI' },
+    { id: 'openai/gpt-4o',                          label: 'GPT-4o',              provider: 'OpenAI' },
 ];
-
-const configuredProviders = Object.entries(PROVIDER_ENV_KEYS)
-    .filter(([, envVar]) => process.env[envVar]?.trim())
-    .map(([key]) => key);
-
-if (configuredProviders.length === 0) {
-    console.error('No API keys configured. Set at least one of:', Object.values(PROVIDER_ENV_KEYS).join(', '));
-    process.exit(1);
-}
-
-const configuredSet = new Set(configuredProviders);
-const registry = createProviderRegistry(
-    Object.fromEntries(
-        Object.entries({ anthropic, google, openai, mistral })
-            .filter(([key]) => configuredSet.has(key))
-    )
-);
-
-export const MODELS = ALL_MODELS.filter(m => configuredSet.has(m.providerKey))
-    .map(({ providerKey: _, ...rest }) => rest);
 
 const VALID_MODEL_IDS = new Set(MODELS.map(m => m.id));
 const DEFAULT_MODEL = MODELS[0].id;
 
-console.log(`Configured providers: ${configuredProviders.join(', ')} (${MODELS.length} models, default: ${DEFAULT_MODEL})`);
+console.log(`OpenCode SDK provider initialized (${MODELS.length} models, default: ${DEFAULT_MODEL})`);
+
+function extractJsonObject(text) {
+    const trimmed = text.trim();
+    const fenced = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+    const body = fenced?.[1] ?? trimmed;
+    const start = body.indexOf('{');
+    const end = body.lastIndexOf('}');
+    if (start === -1 || end === -1 || end < start) return null;
+    return body.slice(start, end + 1);
+}
+
+async function generateJsonObject({ modelId, prompt, schema, retries = 2 }) {
+    // Try native streamObject first
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const result = streamObject({
+                model: opencode(modelId, { outputFormatRetryCount: 2 }),
+                schema,
+                prompt,
+            });
+            return await result.object;
+        } catch (err) {
+            console.log(`[${modelId}] streamObject attempt ${attempt}/${retries} failed: ${err.message}`);
+            if (attempt === retries) break;
+        }
+    }
+
+    // Fallback: streamText + manual JSON extraction
+    console.log(`[${modelId}] falling back to streamText + JSON extraction`);
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            const result = streamText({
+                model: opencode(modelId),
+                prompt: `Return only valid JSON (no prose, no markdown fences).\n\n${prompt}`,
+            });
+            let text = '';
+            for await (const chunk of result.textStream) {
+                text += chunk;
+            }
+            const json = extractJsonObject(text);
+            if (!json) {
+                if (attempt === retries) throw new Error('Response did not contain a JSON object');
+                continue;
+            }
+            return schema.parse(JSON.parse(json));
+        } catch (err) {
+            if (attempt === retries) throw err;
+            console.log(`[${modelId}] fallback attempt ${attempt}/${retries} failed: ${err.message}`);
+        }
+    }
+}
 
 export const app = express();
 app.use(cors());
@@ -78,7 +109,7 @@ app.post('/api/stream', async (req, res) => {
     console.log(`[${modelId}] ${prompt}`);
 
     const result = streamText({
-        model: registry.languageModel(modelId),
+        model: opencode(modelId),
         messages: [{ role: 'user', content: prompt }],
         onFinish({ text }) {
             console.log(`[${modelId}] response: ${text}`);
@@ -117,22 +148,15 @@ app.post('/api/streamrequirements', async (req, res) => {
 
     console.log(`[${modelId}] streamrequirements: ${prompt}`);
 
-    const result = streamObject({
-        model: registry.languageModel(modelId),
-        messages: [{ role: 'user', content: prompt }],
-        schema: requirementSchema,
-    });
-
-    result.pipeTextStreamToResponse(res);
-
-    result.object.catch(err => {
+    try {
+        const parsed = await generateJsonObject({ modelId, prompt, schema: requirementSchema });
+        res.json(parsed);
+    } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
         if (!res.headersSent) {
-            res.status(500).json({ error: 'Failed to generate response' });
-        } else {
-            res.end();
+            res.status(500).json({ error: 'Failed to generate requirements' });
         }
-    });
+    }
 });
 
 const taskSchema = z.object({
@@ -167,22 +191,15 @@ app.post('/api/streamtasks', async (req, res) => {
         userContent += `\n\nAlready created tasks (do not duplicate):\n${existing}\n\nGenerate additional tasks only.`;
     }
 
-    const result = streamObject({
-        model: registry.languageModel(modelId),
-        messages: [{ role: 'user', content: userContent }],
-        schema: taskSchema,
-    });
-
-    result.pipeTextStreamToResponse(res);
-
-    result.object.catch(err => {
+    try {
+        const parsed = await generateJsonObject({ modelId, prompt: userContent, schema: taskSchema });
+        res.json(parsed);
+    } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to generate tasks' });
-        } else {
-            res.end();
         }
-    });
+    }
 });
 
 app.post('/api/streamsummary', async (req, res) => {
@@ -207,7 +224,7 @@ app.post('/api/streamsummary', async (req, res) => {
     const userContent = `Goal:\n${prompt}\n\nRequirements:\n${reqList}\n\nTasks (${totalHours}h total):\n${taskList}\n\nWrite a concise project roadmap summary formatted in Markdown. Include: an overview of the project goal, the key requirements, a phased breakdown of tasks grouped logically (use a table with columns: Phase, Task, Hours, Requirement), the total estimated effort, and any risks or dependencies as a bulleted list. Use ## headings for each section.`;
 
     const result = streamText({
-        model: registry.languageModel(modelId),
+        model: opencode(modelId),
         messages: [{ role: 'user', content: userContent }],
     });
 

@@ -9,11 +9,9 @@
 		"test": "vitest run"
 	},
 	"dependencies": {
-		"@ai-sdk/anthropic": "^3.0.58",
-		"@ai-sdk/google": "^3.0.43",
-		"@ai-sdk/mistral": "^3.0.24",
-		"@ai-sdk/openai": "^3.0.41",
+		"@opencode-ai/sdk": "^1.2.27",
 		"ai": "^6.0.116",
+		"ai-sdk-provider-opencode-sdk": "^2.1.2",
 		"cors": "^2.8.6",
 		"express": "^5.2.1",
 		"marked": "^17.0.4",

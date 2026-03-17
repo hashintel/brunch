@@ -12,7 +12,7 @@ export function Home() {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [models, setModels] = useState<Model[]>([]);
-    const [selectedModel, setSelectedModel] = useState('anthropic:claude-haiku-4-5');
+    const [selectedModel, setSelectedModel] = useState('anthropic/claude-haiku-4-5-20251001');
     const [requirements, setRequirements] = useState<Requirement[]>([]);
     const [loadingRequirements, setLoadingRequirements] = useState(false);
     const [tasks, setTasks] = useState<Task[]>([]);
@@ -158,21 +158,11 @@ export function Home() {
             });
 
             if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.error ?? `Server error: ${res.status}`);
+                const errBody = await res.json().catch(() => ({}));
+                throw new Error(errBody.error ?? `Server error: ${res.status}`);
             }
 
-            const reader = res.body!.getReader();
-            const decoder = new TextDecoder();
-            let accumulated = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                accumulated += decoder.decode(value);
-            }
-
-            const parsed = JSON.parse(accumulated);
+            const parsed = await res.json();
             const reqs: Requirement[] = Array.isArray(parsed) ? parsed : parsed.requirements ?? [];
             setRequirements(prev => isGenerateMore ? [...prev, ...reqs] : reqs);
         } catch (e) {
@@ -204,21 +194,11 @@ export function Home() {
             });
 
             if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.error ?? `Server error: ${res.status}`);
+                const errBody = await res.json().catch(() => ({}));
+                throw new Error(errBody.error ?? `Server error: ${res.status}`);
             }
 
-            const reader = res.body!.getReader();
-            const decoder = new TextDecoder();
-            let accumulated = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                accumulated += decoder.decode(value);
-            }
-
-            const parsed = JSON.parse(accumulated);
+            const parsed = await res.json();
             const newTasks: Task[] = Array.isArray(parsed) ? parsed : parsed.tasks ?? [];
             setTasks(prev => isGenerateMore ? [...prev, ...newTasks] : newTasks);
         } catch (e) {
