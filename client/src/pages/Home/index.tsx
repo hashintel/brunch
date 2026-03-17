@@ -38,7 +38,7 @@ export function Home() {
     async function handleSave() {
         setSaving(true);
         try {
-            const body = { prompt, cwd, response, selectedModel, requirements, tasks, summary, name: '' };
+            const body = { prompt, cwd, response, selectedModel, requirements, tasks, summary };
             if (currentSessionId) {
                 const res = await fetch(`/api/sessions/${currentSessionId}`, {
                     method: 'PUT',
