@@ -880,7 +880,7 @@ tr.requirement--drag-over td {
 .modal {
     background: #fff;
     border-radius: 0.6rem;
-    width: 560px;
+    width: 960px;
     max-width: 95vw;
     max-height: 85vh;
     overflow-y: auto;
@@ -994,7 +994,7 @@ tr.requirement--drag-over td {
 .modal-test-row {
     display: flex;
     gap: 0.4rem;
-    align-items: center;
+    align-items: flex-start;
 }
 
 .modal-select--test-type {
@@ -1002,8 +1002,10 @@ tr.requirement--drag-over td {
     width: 10rem;
 }
 
-.modal-input--test-desc {
+.modal-textarea--test-desc {
     flex: 1;
+    overflow: hidden;
+    resize: none;
 }
 
 .modal-test-remove {

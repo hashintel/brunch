@@ -204,9 +204,14 @@ function EditModal({
                                     onChange={e => handleUpdateTest(i, { ...t, type: e.currentTarget.value as TestType })}>
                                     {TEST_TYPES.map(tt => <option key={tt} value={tt}>{TEST_TYPE_LABELS[tt]}</option>)}
                                 </select>
-                                <input class="modal-input modal-input--test-desc" value={t.description}
-                                    onInput={e => handleUpdateTest(i, { ...t, description: e.currentTarget.value })}
-                                    placeholder="Describe the test..." />
+                                <textarea class="modal-textarea modal-textarea--test-desc" value={t.description}
+                                    onInput={e => {
+                                        handleUpdateTest(i, { ...t, description: e.currentTarget.value });
+                                        e.currentTarget.style.height = 'auto';
+                                        e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                                    }}
+                                    ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                                    placeholder="Describe the test..." rows={1} />
                                 <button class="modal-test-remove" onClick={() => handleRemoveTest(i)} title="Remove test">&times;</button>
                             </div>
                         ))}
