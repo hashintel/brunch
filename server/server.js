@@ -2,8 +2,6 @@ import express from 'express';
 import cors from 'cors';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { resolve } from 'node:path';
-import { mkdir, readdir, readFile, writeFile, unlink } from 'node:fs/promises';
-import crypto from 'node:crypto';
 import db from './db.js';
 
 export const MODELS = [
@@ -494,74 +492,134 @@ Generate verification tests for this requirement. Each test has a "type" (one of
     }
 });
 
-// --- Sessions ---
-const __dirname = new URL('.', import.meta.url).pathname;
-const SESSIONS_DIR = resolve(__dirname, 'data/sessions');
-await mkdir(SESSIONS_DIR, { recursive: true });
+// --- Sessions (SQLite-backed) ---
 
-const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+function insertRequirements(projectPk, requirements, parentPk = null) {
+    const stmt = db.prepare(`INSERT INTO entry (title, description, test, stage, confidence, project_id, parent_id, sort_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+    for (let i = 0; i < requirements.length; i++) {
+        const r = requirements[i];
+        const info = stmt.run(r.title, r.definition, JSON.stringify(r.tests ?? []), r.stage ?? 'proposal', r.confidence, projectPk, parentPk, i);
+        if (r.children?.length > 0) {
+            insertRequirements(projectPk, r.children, info.lastInsertRowid);
+        }
+    }
+}
 
-app.get('/api/sessions', async (_req, res) => {
+function buildRequirementTree(entries) {
+    const byParent = new Map();
+    for (const e of entries) {
+        const pid = e.parent_id ?? null;
+        if (!byParent.has(pid)) byParent.set(pid, []);
+        byParent.get(pid).push(e);
+    }
+    for (const [, group] of byParent) group.sort((a, b) => a.sort_order - b.sort_order);
+
+    function buildLevel(parentPk) {
+        const children = byParent.get(parentPk) ?? [];
+        return children.map(e => ({
+            id: String(e.pk),
+            title: e.title,
+            definition: e.description,
+            confidence: e.confidence,
+            stage: e.stage,
+            tests: JSON.parse(e.test || '[]'),
+            children: buildLevel(e.pk),
+        }));
+    }
+    return buildLevel(null);
+}
+
+app.get('/api/sessions', (_req, res) => {
     try {
-        const files = await readdir(SESSIONS_DIR);
-        const sessions = await Promise.all(
-            files.filter(f => f.endsWith('.json')).map(async f => {
-                const data = JSON.parse(await readFile(resolve(SESSIONS_DIR, f), 'utf-8'));
-                return { id: data.id, name: data.name, updatedAt: data.updatedAt };
-            })
-        );
-        sessions.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
-        res.json(sessions);
+        const rows = db.prepare('SELECT pk, name, updated_at FROM project ORDER BY updated_at DESC').all();
+        res.json(rows.map(r => ({ id: String(r.pk), name: r.name, updatedAt: r.updated_at })));
     } catch (err) {
+        console.error('[sessions] list error:', err.message);
         res.status(500).json({ error: 'Failed to list sessions' });
     }
 });
 
-app.get('/api/sessions/:id', async (req, res) => {
+app.get('/api/sessions/:id', (req, res) => {
     const { id } = req.params;
-    if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid session id' });
     try {
-        const data = await readFile(resolve(SESSIONS_DIR, `${id}.json`), 'utf-8');
-        res.json(JSON.parse(data));
-    } catch {
-        res.status(404).json({ error: 'Session not found' });
+        const project = db.prepare('SELECT * FROM project WHERE pk = ?').get(id);
+        if (!project) return res.status(404).json({ error: 'Session not found' });
+        const entries = db.prepare('SELECT * FROM entry WHERE project_id = ?').all(id);
+        const clarifyingState = JSON.parse(project.clarifying_state || '{}');
+        res.json({
+            id: String(project.pk), name: project.name,
+            prompt: project.prompt, cwd: project.folder, response: project.goal,
+            selectedModel: project.model, requirements: buildRequirementTree(entries),
+            ...clarifyingState,
+            createdAt: project.created_at, updatedAt: project.updated_at,
+        });
+    } catch (err) {
+        console.error('[sessions] get error:', err.message);
+        res.status(500).json({ error: 'Failed to load session' });
     }
 });
 
-app.post('/api/sessions', async (req, res) => {
-    const id = crypto.randomUUID();
-    const now = new Date().toISOString();
-    const session = { ...req.body, id, createdAt: now, updatedAt: now };
+app.post('/api/sessions', (req, res) => {
+    const { name, prompt, cwd, response, selectedModel, requirements, ...clarifying } = req.body;
     try {
-        await writeFile(resolve(SESSIONS_DIR, `${id}.json`), JSON.stringify(session, null, 2));
-        res.status(201).json(session);
-    } catch {
+        const info = db.prepare(
+            `INSERT INTO project (name, prompt, folder, goal, model, clarifying_state) VALUES (?, ?, ?, ?, ?, ?)`
+        ).run(name, prompt, cwd, response, selectedModel, JSON.stringify(clarifying));
+        const pk = info.lastInsertRowid;
+        insertRequirements(pk, requirements ?? []);
+        const project = db.prepare('SELECT * FROM project WHERE pk = ?').get(pk);
+        const entries = db.prepare('SELECT * FROM entry WHERE project_id = ?').all(pk);
+        const state = JSON.parse(project.clarifying_state || '{}');
+        res.status(201).json({
+            id: String(project.pk), name: project.name,
+            prompt: project.prompt, cwd: project.folder, response: project.goal,
+            selectedModel: project.model, requirements: buildRequirementTree(entries),
+            ...state,
+            createdAt: project.created_at, updatedAt: project.updated_at,
+        });
+    } catch (err) {
+        console.error('[sessions] create error:', err.message);
         res.status(500).json({ error: 'Failed to create session' });
     }
 });
 
-app.put('/api/sessions/:id', async (req, res) => {
+app.put('/api/sessions/:id', (req, res) => {
     const { id } = req.params;
-    if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid session id' });
-    const filePath = resolve(SESSIONS_DIR, `${id}.json`);
+    const { name, prompt, cwd, response, selectedModel, requirements, ...clarifying } = req.body;
     try {
-        const existing = JSON.parse(await readFile(filePath, 'utf-8'));
-        const updated = { ...existing, ...req.body, id, updatedAt: new Date().toISOString() };
-        await writeFile(filePath, JSON.stringify(updated, null, 2));
-        res.json(updated);
-    } catch {
-        res.status(404).json({ error: 'Session not found' });
+        const existing = db.prepare('SELECT pk FROM project WHERE pk = ?').get(id);
+        if (!existing) return res.status(404).json({ error: 'Session not found' });
+        db.prepare(
+            `UPDATE project SET name=?, prompt=?, folder=?, goal=?, model=?, clarifying_state=?, updated_at=datetime('now') WHERE pk=?`
+        ).run(name, prompt, cwd, response, selectedModel, JSON.stringify(clarifying), id);
+        db.prepare('DELETE FROM entry WHERE project_id = ?').run(id);
+        insertRequirements(Number(id), requirements ?? []);
+        const project = db.prepare('SELECT * FROM project WHERE pk = ?').get(id);
+        const entries = db.prepare('SELECT * FROM entry WHERE project_id = ?').all(id);
+        const state = JSON.parse(project.clarifying_state || '{}');
+        res.json({
+            id: String(project.pk), name: project.name,
+            prompt: project.prompt, cwd: project.folder, response: project.goal,
+            selectedModel: project.model, requirements: buildRequirementTree(entries),
+            ...state,
+            createdAt: project.created_at, updatedAt: project.updated_at,
+        });
+    } catch (err) {
+        console.error('[sessions] update error:', err.message);
+        res.status(500).json({ error: 'Failed to update session' });
     }
 });
 
-app.delete('/api/sessions/:id', async (req, res) => {
+app.delete('/api/sessions/:id', (req, res) => {
     const { id } = req.params;
-    if (!UUID_RE.test(id)) return res.status(400).json({ error: 'Invalid session id' });
     try {
-        await unlink(resolve(SESSIONS_DIR, `${id}.json`));
+        const result = db.prepare('DELETE FROM project WHERE pk = ?').run(id);
+        if (result.changes === 0) return res.status(404).json({ error: 'Session not found' });
         res.json({ ok: true });
-    } catch {
-        res.status(404).json({ error: 'Session not found' });
+    } catch (err) {
+        console.error('[sessions] delete error:', err.message);
+        res.status(500).json({ error: 'Failed to delete session' });
     }
 });
 
