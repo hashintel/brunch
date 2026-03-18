@@ -21,7 +21,7 @@ app.use(cors());
 app.use(express.json());
 
 app.get('/', (_req, res) => {
-    res.json({ status: 'ok', endpoints: ['/api/models', '/api/stream', '/api/streamrequirements', '/api/streamtasks', '/api/streamsummary'] });
+    res.json({ status: 'ok', endpoints: ['/api/models', '/api/stream', '/api/clarifyingquestions', '/api/streamrequirements', '/api/streamtasks', '/api/streamsummary'] });
 });
 
 app.get('/api/models', (_req, res) => {
@@ -117,6 +117,92 @@ app.post('/api/stream', async (req, res) => {
     }
 });
 
+// --- Clarifying Questions ---
+
+const clarifyingQuestionsSchema = {
+    type: 'object',
+    properties: {
+        questions: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    question: { type: 'string' },
+                    why: { type: 'string' },
+                    options: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: { label: { type: 'string' } },
+                            required: ['label'],
+                            additionalProperties: false,
+                        },
+                    },
+                },
+                required: ['question', 'why', 'options'],
+                additionalProperties: false,
+            },
+        },
+        done: { type: 'boolean' },
+    },
+    required: ['questions', 'done'],
+    additionalProperties: false,
+};
+
+function formatClarifyingRounds(rounds) {
+    if (!rounds?.length) return '';
+    return rounds.map((round, i) => {
+        const qas = round.questions.map((q, j) => {
+            const ans = round.answers[j];
+            let answerText = 'Skipped';
+            if (ans && !ans.skipped) {
+                const parts = [];
+                if (ans.selectedLabels?.length) parts.push(ans.selectedLabels.join(', '));
+                if (ans.otherText) parts.push(`Other: ${ans.otherText}`);
+                if (parts.length) answerText = parts.join('; ');
+            }
+            return `Q: ${q.question}\nA: ${answerText}`;
+        }).join('\n\n');
+        return `--- Round ${i + 1} ---\n${qas}`;
+    }).join('\n\n');
+}
+
+app.post('/api/clarifyingquestions', async (req, res) => {
+    const { prompt, model: modelId = DEFAULT_MODEL, cwd, previousRounds } = req.body;
+
+    if (!prompt?.trim()) {
+        return res.status(400).json({ error: 'prompt is required' });
+    }
+    if (!VALID_MODEL_IDS.has(modelId)) {
+        return res.status(400).json({ error: `invalid model: ${modelId}` });
+    }
+
+    console.log(`[${modelId}] clarifyingquestions`);
+
+    let userContent = `Goal description:\n${prompt}\n\n`;
+
+    const roundsText = formatClarifyingRounds(previousRounds);
+    if (roundsText) {
+        userContent += `Previous clarifying Q&A:\n${roundsText}\n\n`;
+    }
+
+    userContent += `You are a spec elicitation assistant. Based on the goal above${previousRounds?.length ? ' and the previous answers' : ''}, generate 3-5 multi-choice clarifying questions about ambiguities that would change the shape of the specification if answered differently. Each question should have 2-5 options. For each question, explain why it matters for the spec in the "why" field.
+
+If the goal is already clear enough and no more clarification is needed, set "done" to true and return an empty questions array.`;
+
+    try {
+        const output = await queryStructured(userContent, modelId, clarifyingQuestionsSchema, cwd);
+        res.json(output);
+    } catch (err) {
+        console.error(`[${modelId}] error:`, err.message ?? err);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to generate clarifying questions' });
+        } else {
+            res.end();
+        }
+    }
+});
+
 const requirementJsonSchema = {
     type: 'object',
     properties: {
@@ -139,7 +225,7 @@ const requirementJsonSchema = {
 };
 
 app.post('/api/streamrequirements', async (req, res) => {
-    const { prompt, model: modelId = DEFAULT_MODEL, cwd } = req.body;
+    const { prompt, model: modelId = DEFAULT_MODEL, cwd, clarifyingRounds } = req.body;
 
     if (!prompt?.trim()) {
         return res.status(400).json({ error: 'prompt is required' });
@@ -150,8 +236,14 @@ app.post('/api/streamrequirements', async (req, res) => {
 
     console.log(`[${modelId}] streamrequirements: ${prompt}`);
 
+    let fullPrompt = prompt;
+    const roundsContext = formatClarifyingRounds(clarifyingRounds);
+    if (roundsContext) {
+        fullPrompt = `${prompt}\n\nClarifying Q&A context:\n${roundsContext}`;
+    }
+
     try {
-        const output = await queryStructured(prompt, modelId, requirementJsonSchema, cwd);
+        const output = await queryStructured(fullPrompt, modelId, requirementJsonSchema, cwd);
         res.json(output);
     } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);

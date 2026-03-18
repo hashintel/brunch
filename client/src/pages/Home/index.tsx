@@ -1,12 +1,13 @@
 import './style.css';
 import { useEffect, useState } from 'preact/hooks';
-import type { Model, Requirement, Task, SessionMeta, Session } from './types';
+import type { Model, Requirement, Task, SessionMeta, Session, ClarifyingQuestion, ClarifyingAnswer, ClarifyingRound } from './types';
 import { RequirementList } from './RequirementList';
 import { TaskList } from './TaskList';
 import { SummarySection } from './SummarySection';
 import { SessionPanel } from './SessionPanel';
+import { ClarifyingQuestions } from './ClarifyingQuestions';
 
-const STEPS = ['Goal', 'Requirements', 'Tasks', 'Summary'] as const;
+const STEPS = ['Goal', 'Questions', 'Requirements', 'Tasks', 'Summary'] as const;
 
 export function Home() {
     const [projectName, setProjectName] = useState('');
@@ -24,14 +25,21 @@ export function Home() {
     const [summary, setSummary] = useState('');
     const [loadingSummary, setLoadingSummary] = useState(false);
 
+    const [clarifyingRounds, setClarifyingRounds] = useState<ClarifyingRound[]>([]);
+    const [currentQuestions, setCurrentQuestions] = useState<ClarifyingQuestion[]>([]);
+    const [currentAnswers, setCurrentAnswers] = useState<ClarifyingAnswer[]>([]);
+    const [loadingQuestions, setLoadingQuestions] = useState(false);
+    const [clarifyingDone, setClarifyingDone] = useState(false);
+
     const [sessions, setSessions] = useState<SessionMeta[]>([]);
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [openSections, setOpenSections] = useState<Set<number>>(() => new Set([0]));
 
-    // Derive step statuses (4 steps)
+    // Derive step statuses (5 steps)
     const stepCompleted = [
         response.length > 0,
+        clarifyingDone,
         requirements.length > 0,
         tasks.length > 0,
         summary.length > 0,
@@ -39,6 +47,7 @@ export function Home() {
     const stepActive = [
         true,
         response.length > 0,
+        clarifyingDone,
         requirements.length > 0,
         tasks.length > 0,
     ];
@@ -49,12 +58,12 @@ export function Home() {
     useEffect(() => {
         setOpenSections(prev => {
             const next = new Set(prev);
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < 5; i++) {
                 if (stepActive[i] && !stepCompleted[i]) next.add(i);
             }
             return next;
         });
-    }, [response, requirements.length, tasks.length, summary]);
+    }, [response, clarifyingDone, requirements.length, tasks.length, summary]);
 
     function toggleSection(index: number) {
         setOpenSections(prev => {
@@ -78,7 +87,7 @@ export function Home() {
     async function handleSave() {
         setSaving(true);
         try {
-            const body = { prompt, cwd, response, selectedModel, requirements, tasks, summary };
+            const body = { prompt, cwd, response, selectedModel, clarifyingRounds, clarifyingDone, requirements, tasks, summary };
             if (currentSessionId) {
                 const res = await fetch(`/api/sessions/${currentSessionId}`, {
                     method: 'PUT',
@@ -116,6 +125,10 @@ export function Home() {
             setCwd(s.cwd ?? '');
             setResponse(s.response);
             setSelectedModel(s.selectedModel);
+            setClarifyingRounds(s.clarifyingRounds ?? []);
+            setClarifyingDone((s as any).clarifyingDone ?? (s.clarifyingRounds?.length > 0));
+            setCurrentQuestions([]);
+            setCurrentAnswers([]);
             setRequirements(s.requirements);
             setTasks(s.tasks);
             setSummary(s.summary);
@@ -142,6 +155,10 @@ export function Home() {
         setPrompt('');
         setCwd('');
         setResponse('');
+        setClarifyingRounds([]);
+        setCurrentQuestions([]);
+        setCurrentAnswers([]);
+        setClarifyingDone(false);
         setRequirements([]);
         setTasks([]);
         setSummary('');
@@ -183,6 +200,105 @@ export function Home() {
         }
     }
 
+    async function handleGenerateQuestions() {
+        if (!response.trim() || loadingQuestions) return;
+
+        setError('');
+        setLoadingQuestions(true);
+
+        try {
+            const res = await fetch('/api/clarifyingquestions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: response,
+                    model: selectedModel,
+                    cwd: cwd || undefined,
+                    previousRounds: clarifyingRounds.length > 0 ? clarifyingRounds : undefined,
+                }),
+            });
+
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error ?? `Server error: ${res.status}`);
+            }
+
+            const data = await res.json();
+            if (data.done || !data.questions?.length) {
+                setClarifyingDone(true);
+                setCurrentQuestions([]);
+                setCurrentAnswers([]);
+            } else {
+                setCurrentQuestions(data.questions);
+                setCurrentAnswers(data.questions.map(() => ({ selectedLabels: [], otherText: '', skipped: false })));
+            }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to generate questions');
+        } finally {
+            setLoadingQuestions(false);
+        }
+    }
+
+    function handleUpdateAnswer(index: number, answer: ClarifyingAnswer) {
+        setCurrentAnswers(prev => {
+            const next = [...prev];
+            next[index] = answer;
+            return next;
+        });
+    }
+
+    async function handleSubmitAnswers() {
+        // Save current round
+        const newRound: ClarifyingRound = {
+            questions: currentQuestions,
+            answers: currentAnswers,
+        };
+        const newRounds = [...clarifyingRounds, newRound];
+        setClarifyingRounds(newRounds);
+        setCurrentQuestions([]);
+        setCurrentAnswers([]);
+
+        // Ask for next round
+        setLoadingQuestions(true);
+        setError('');
+
+        try {
+            const res = await fetch('/api/clarifyingquestions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: response,
+                    model: selectedModel,
+                    cwd: cwd || undefined,
+                    previousRounds: newRounds,
+                }),
+            });
+
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error ?? `Server error: ${res.status}`);
+            }
+
+            const data = await res.json();
+            if (data.done || !data.questions?.length) {
+                setClarifyingDone(true);
+            } else {
+                setCurrentQuestions(data.questions);
+                setCurrentAnswers(data.questions.map(() => ({ selectedLabels: [], otherText: '', skipped: false })));
+            }
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to generate questions');
+        } finally {
+            setLoadingQuestions(false);
+        }
+    }
+
+    function handleSkipAll() {
+        setClarifyingDone(true);
+        setCurrentQuestions([]);
+        setCurrentAnswers([]);
+    }
+
     async function handleGenerateRequirements() {
         if (!response.trim() || loadingRequirements) return;
 
@@ -191,8 +307,8 @@ export function Home() {
 
         const isGenerateMore = requirements.length > 0;
         const body = isGenerateMore
-            ? { prompt: response, model: selectedModel, cwd: cwd || undefined, existingRequirements: requirements }
-            : { prompt: response, model: selectedModel, cwd: cwd || undefined };
+            ? { prompt: response, model: selectedModel, cwd: cwd || undefined, existingRequirements: requirements, clarifyingRounds: clarifyingRounds.length > 0 ? clarifyingRounds : undefined }
+            : { prompt: response, model: selectedModel, cwd: cwd || undefined, clarifyingRounds: clarifyingRounds.length > 0 ? clarifyingRounds : undefined };
 
         try {
             const res = await fetch('/api/streamrequirements', {
@@ -371,14 +487,54 @@ export function Home() {
                     </div>
                 </div>
 
-                {/* Section 1: Requirements */}
+                {/* Section 1: Clarifying Questions */}
                 {stepActive[1] && (
                     <div class="collapsible">
                         <button class="collapsible-header" onClick={() => toggleSection(1)}>
-                            <span class="collapsible-title">Requirements</span>
+                            <span class="collapsible-title">Clarifying Questions</span>
+                            {clarifyingRounds.length > 0 && (
+                                <span class="collapsible-badge">{clarifyingRounds.length} round{clarifyingRounds.length !== 1 ? 's' : ''}</span>
+                            )}
                             <span class={`collapsible-chevron ${openSections.has(1) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                         </button>
                         <div class={`collapsible-body ${openSections.has(1) ? 'collapsible-body--open' : ''}`}>
+                            <div class="collapsible-content">
+                                {clarifyingDone && currentQuestions.length === 0 && (
+                                    <div class="clarifying-done-message">
+                                        Clarification complete — ready to generate requirements.
+                                    </div>
+                                )}
+                                <ClarifyingQuestions
+                                    currentQuestions={currentQuestions}
+                                    currentAnswers={currentAnswers}
+                                    onUpdateAnswer={handleUpdateAnswer}
+                                    previousRounds={clarifyingRounds}
+                                    onSubmitAnswers={handleSubmitAnswers}
+                                    onSkipAll={handleSkipAll}
+                                    loading={loadingQuestions}
+                                />
+                                {!clarifyingDone && currentQuestions.length === 0 && (
+                                    <button
+                                        class="button"
+                                        onClick={handleGenerateQuestions}
+                                        disabled={loadingQuestions}
+                                    >
+                                        {loadingQuestions ? 'Generating\u2026' : 'Generate Questions'}
+                                    </button>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Section 2: Requirements */}
+                {stepActive[2] && (
+                    <div class="collapsible">
+                        <button class="collapsible-header" onClick={() => toggleSection(2)}>
+                            <span class="collapsible-title">Requirements</span>
+                            <span class={`collapsible-chevron ${openSections.has(2) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
+                        </button>
+                        <div class={`collapsible-body ${openSections.has(2) ? 'collapsible-body--open' : ''}`}>
                             <div class="collapsible-content">
                                 {requirements.length > 0 && (
                                     <RequirementList
@@ -398,17 +554,17 @@ export function Home() {
                     </div>
                 )}
 
-                {/* Section 2: Tasks */}
-                {stepActive[2] && (
+                {/* Section 3: Tasks */}
+                {stepActive[3] && (
                     <div class="collapsible">
-                        <button class="collapsible-header" onClick={() => toggleSection(2)}>
+                        <button class="collapsible-header" onClick={() => toggleSection(3)}>
                             <span class="collapsible-title">Tasks</span>
                             {tasks.length > 0 && (
                                 <span class="collapsible-badge">{totalHours}h total</span>
                             )}
-                            <span class={`collapsible-chevron ${openSections.has(2) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
+                            <span class={`collapsible-chevron ${openSections.has(3) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                         </button>
-                        <div class={`collapsible-body ${openSections.has(2) ? 'collapsible-body--open' : ''}`}>
+                        <div class={`collapsible-body ${openSections.has(3) ? 'collapsible-body--open' : ''}`}>
                             <div class="collapsible-content">
                                 {tasks.length > 0 && (
                                     <TaskList
@@ -429,14 +585,14 @@ export function Home() {
                     </div>
                 )}
 
-                {/* Section 3: Summary */}
-                {stepActive[3] && (
+                {/* Section 4: Summary */}
+                {stepActive[4] && (
                     <div class="collapsible">
-                        <button class="collapsible-header" onClick={() => toggleSection(3)}>
+                        <button class="collapsible-header" onClick={() => toggleSection(4)}>
                             <span class="collapsible-title">Summary</span>
-                            <span class={`collapsible-chevron ${openSections.has(3) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
+                            <span class={`collapsible-chevron ${openSections.has(4) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                         </button>
-                        <div class={`collapsible-body ${openSections.has(3) ? 'collapsible-body--open' : ''}`}>
+                        <div class={`collapsible-body ${openSections.has(4) ? 'collapsible-body--open' : ''}`}>
                             <div class="collapsible-content">
                                 {summary && (
                                     <SummarySection
