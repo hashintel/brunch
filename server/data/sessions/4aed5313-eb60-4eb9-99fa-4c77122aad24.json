@@ -533,7 +533,24 @@
       "definition": "The actual proposal document or detailed proposal content that outlines the current testing strategy, proposed approach, tooling choices, and implementation plan. This is the primary artifact needed for the review.",
       "confidence": 1,
       "stage": "proposal",
-      "tests": [],
+      "tests": [
+        {
+          "type": "static_analysis",
+          "description": "Verify proposal document exists and contains required sections: (1) Current Testing Strategy, (2) Proposed Approach, (3) Tooling Choices, (4) Implementation Plan, (5) Cost/Infrastructure Analysis, and (6) Developer Experience/Adoption Strategy. Document should be in a supported format (markdown, PDF, or plain text) with minimum length of 1000 words."
+        },
+        {
+          "type": "programmatic_test",
+          "description": "Parse and validate proposal document structure: confirm all major sections are present, check for key technical details (test types covered: unit, integration, E2E, performance, security), verify implementation timeline or phases are defined, and ensure technology/tooling recommendations are explicitly stated."
+        },
+        {
+          "type": "llm_review",
+          "description": "Assess proposal content quality: evaluate clarity of vision between current state and proposed state, check that coverage strategy addresses all test types (unit, integration, E2E, performance, security), verify that cost optimization and developer experience considerations are explicitly discussed, and ensure implementation approach is practical and well-reasoned."
+        },
+        {
+          "type": "human_review",
+          "description": "Manual review for completeness and feasibility: confirm proposal addresses team size and current tech stack, validate that tooling recommendations are appropriate for stated constraints, verify alignment between cost/infrastructure efficiency goals and proposed solutions, and assess whether migration strategy from current approach is clearly defined."
+        }
+      ],
       "children": []
     },
     {
@@ -800,5 +817,5 @@
   "name": "I'd be happy to help with your testing infra project proposa",
   "id": "4aed5313-eb60-4eb9-99fa-4c77122aad24",
   "createdAt": "2026-03-18T13:28:45.612Z",
-  "updatedAt": "2026-03-18T14:48:20.078Z"
+  "updatedAt": "2026-03-18T14:59:36.235Z"
 }

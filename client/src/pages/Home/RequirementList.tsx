@@ -222,16 +222,17 @@ function EditModal({
     );
 }
 
-// ── Test badges ──
+// ── Test entries (nested display) ──
 
-function TestBadges({ tests }: { tests: TestCase[] }) {
+function TestEntries({ tests }: { tests: TestCase[] }) {
     if (tests.length === 0) return null;
     return (
-        <div class="requirement-tests">
+        <div class="test-entries">
             {tests.map((t, i) => (
-                <span key={i} class={`test-badge test-badge--${t.type}`} title={t.description || TEST_TYPE_LABELS[t.type]}>
-                    {TEST_TYPE_LABELS[t.type]}
-                </span>
+                <div key={i} class="test-entry">
+                    <span class={`test-entry-type test-entry-type--${t.type}`}>{TEST_TYPE_LABELS[t.type]}</span>
+                    {t.description && <span class="test-entry-desc">{t.description}</span>}
+                </div>
             ))}
         </div>
     );
@@ -277,7 +278,7 @@ function SortableItem({
                 </div>
             </div>
             <p>{item.req.definition}</p>
-            <TestBadges tests={item.req.tests} />
+            <TestEntries tests={item.req.tests} />
             <div class="requirement-card-footer">
                 <button class="requirement-expand-btn" onClick={() => onGenerateChildren(item.id)} disabled={generatingChildrenId === item.id}>
                     {generatingChildrenId === item.id ? 'Generating\u2026' : 'Generate Subrequirements'}
@@ -497,7 +498,7 @@ function CanvasView({
                                 <span class={`requirement-stage requirement-stage--${item.req.stage}`}>{STAGE_LABELS[item.req.stage]}</span>
                             </div>
                             <p class="canvas-node-def">{item.req.definition}</p>
-                            <TestBadges tests={item.req.tests} />
+                            <TestEntries tests={item.req.tests} />
                             <div class="canvas-node-actions-bottom">
                                 <button class="requirement-expand-btn" onClick={() => onGenerateChildren(item.id)} disabled={generatingChildrenId === item.id}>
                                     {generatingChildrenId === item.id ? 'Generating\u2026' : 'Subreqs'}
@@ -713,8 +714,15 @@ export function RequirementList({ requirements, onUpdate, onGenerateChildren, on
                                     <td><span class={`requirement-stage requirement-stage--${item.req.stage}`}>{STAGE_LABELS[item.req.stage]}</span></td>
                                     <td>
                                         {item.req.tests.length > 0
-                                            ? <span class="test-count">{item.req.tests.length}</span>
-                                            : <span class="test-count test-count--none">0</span>}
+                                            ? <div class="test-entries test-entries--compact">
+                                                {item.req.tests.map((t, ti) => (
+                                                    <div key={ti} class="test-entry test-entry--compact">
+                                                        <span class={`test-entry-type test-entry-type--${t.type}`}>{TEST_TYPE_LABELS[t.type]}</span>
+                                                        {t.description && <span class="test-entry-desc">{t.description}</span>}
+                                                    </div>
+                                                ))}
+                                            </div>
+                                            : <span class="test-count test-count--none">--</span>}
                                     </td>
                                     <td class="requirements-table-actions">
                                         <button class="requirement-action" onClick={() => openEditById(item.id)} title="Edit">&#9998;</button>
