@@ -356,6 +356,11 @@
 }
 
 .requirements-table td:first-child {
+    width: 1.5rem;
+    text-align: center;
+}
+
+.requirements-table td:nth-child(2) {
     width: 2rem;
     text-align: center;
     color: #888;
@@ -465,6 +470,29 @@
 .requirement-add-btn:hover {
     color: #673ab8;
     border-color: #673ab8;
+}
+
+.drag-handle {
+    cursor: grab;
+    color: #bbb;
+    font-size: 1.1rem;
+    user-select: none;
+    line-height: 1;
+    padding: 0 0.15rem;
+    letter-spacing: -0.1em;
+}
+
+.drag-handle:hover {
+    color: #888;
+}
+
+.requirement--drag-over {
+    border-color: #673ab8;
+    box-shadow: 0 -2px 0 0 #673ab8;
+}
+
+tr.requirement--drag-over td {
+    border-top: 2px solid #673ab8;
 }
 
 .button-small {
@@ -681,6 +709,19 @@
     .requirement-add-btn:hover {
         color: #a07ee0;
         border-color: #a07ee0;
+    }
+    .drag-handle {
+        color: #555;
+    }
+    .drag-handle:hover {
+        color: #999;
+    }
+    .requirement--drag-over {
+        border-color: #a07ee0;
+        box-shadow: 0 -2px 0 0 #a07ee0;
+    }
+    tr.requirement--drag-over td {
+        border-top-color: #a07ee0;
     }
     .task {
         border-color: #555;

@@ -1,4 +1,4 @@
-import { useState } from 'preact/hooks';
+import { useState, useRef } from 'preact/hooks';
 import type { Requirement } from './types';
 
 interface Props {
@@ -12,6 +12,9 @@ export function RequirementList({ requirements, onUpdate }: Props) {
     const [view, setView] = useState<'list' | 'table'>('list');
     const [adding, setAdding] = useState(false);
     const [addDraft, setAddDraft] = useState<Requirement>({ title: '', definition: '', confidence: 1 });
+
+    const dragIndex = useRef<number | null>(null);
+    const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
 
     function handleRemove(index: number) {
         onUpdate(requirements.filter((_, i) => i !== index));
@@ -51,6 +54,41 @@ export function RequirementList({ requirements, onUpdate }: Props) {
         setAddDraft({ title: '', definition: '', confidence: 1 });
     }
 
+    function handleDragStart(i: number) {
+        dragIndex.current = i;
+    }
+
+    function handleDragOver(e: DragEvent, i: number) {
+        e.preventDefault();
+        setDragOverIndex(i);
+    }
+
+    function handleDragEnd() {
+        if (dragIndex.current !== null && dragOverIndex !== null && dragIndex.current !== dragOverIndex) {
+            const reordered = [...requirements];
+            const [moved] = reordered.splice(dragIndex.current, 1);
+            reordered.splice(dragOverIndex, 0, moved);
+            onUpdate(reordered);
+        }
+        dragIndex.current = null;
+        setDragOverIndex(null);
+    }
+
+    function dragProps(i: number) {
+        return {
+            draggable: true,
+            onDragStart: () => handleDragStart(i),
+            onDragOver: (e: DragEvent) => handleDragOver(e, i),
+            onDragEnd: handleDragEnd,
+            onDragLeave: () => setDragOverIndex(null),
+        };
+    }
+
+    const dropClass = (i: number) =>
+        dragOverIndex === i && dragIndex.current !== null && dragIndex.current !== i
+            ? ' requirement--drag-over'
+            : '';
+
     return (
         <div class="requirements">
             <div class="requirements-view-toggle">
@@ -68,6 +106,7 @@ export function RequirementList({ requirements, onUpdate }: Props) {
                 <table class="requirements-table">
                     <thead>
                         <tr>
+                            <th></th>
                             <th>#</th>
                             <th>Title</th>
                             <th>Definition</th>
@@ -77,7 +116,8 @@ export function RequirementList({ requirements, onUpdate }: Props) {
                     </thead>
                     <tbody>
                         {requirements.map((req, i) => (
-                            <tr key={i}>
+                            <tr key={i} class={dropClass(i)} {...dragProps(i)}>
+                                <td class="drag-handle" title="Drag to reorder">&#8942;</td>
                                 <td>{i + 1}</td>
                                 <td><strong>{req.title}</strong></td>
                                 <td>{req.definition}</td>
@@ -90,6 +130,7 @@ export function RequirementList({ requirements, onUpdate }: Props) {
                         ))}
                         {adding ? (
                             <tr>
+                                <td></td>
                                 <td>{requirements.length + 1}</td>
                                 <td>
                                     <input
@@ -117,7 +158,7 @@ export function RequirementList({ requirements, onUpdate }: Props) {
                             </tr>
                         ) : (
                             <tr>
-                                <td colspan={5}>
+                                <td colspan={6}>
                                     <button class="requirement-add-btn" onClick={handleStartAdd}>+ Add requirement</button>
                                 </td>
                             </tr>
@@ -127,7 +168,11 @@ export function RequirementList({ requirements, onUpdate }: Props) {
             ) : (
                 <>
                     {requirements.map((req, i) => (
-                        <div class="requirement" key={i}>
+                        <div
+                            class={`requirement${dropClass(i)}`}
+                            key={i}
+                            {...dragProps(i)}
+                        >
                             {editingIndex === i && editDraft ? (
                                 <div class="requirement-edit">
                                     <input
@@ -150,6 +195,7 @@ export function RequirementList({ requirements, onUpdate }: Props) {
                             ) : (
                                 <>
                                     <div class="requirement-header">
+                                        <span class="drag-handle" title="Drag to reorder">&#8942;</span>
                                         <strong>{req.title}</strong>
                                         <div class="requirement-actions">
                                             <span class="requirement-confidence">{Math.round(req.confidence * 100)}%</span>
