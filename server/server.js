@@ -60,7 +60,7 @@ app.use('/api', (req, res, next) => {
 });
 
 app.get('/', (_req, res) => {
-    res.json({ status: 'ok', endpoints: ['/api/models', '/api/stream', '/api/clarifyingquestions', '/api/streamrequirements', '/api/streamtasks', '/api/streamsummary'] });
+    res.json({ status: 'ok', endpoints: ['/api/models', '/api/stream', '/api/clarifyingquestions', '/api/streamrequirements', '/api/expandrequirement'] });
 });
 
 app.get('/api/models', (_req, res) => {
@@ -368,91 +368,74 @@ app.post('/api/streamrequirements', async (req, res) => {
     }
 });
 
-const taskJsonSchema = {
+// --- Expand Requirement ---
+
+const expandRequirementSchema = {
     type: 'object',
     properties: {
-        tasks: {
+        tests: {
+            type: 'array',
+            description: 'Verification methods for this requirement',
+            items: {
+                type: 'object',
+                properties: {
+                    type: { type: 'string', enum: ['static_analysis', 'programmatic_test', 'llm_review', 'human_review'] },
+                    description: { type: 'string' },
+                },
+                required: ['type', 'description'],
+                additionalProperties: false,
+            },
+        },
+        children: {
             type: 'array',
             items: {
                 type: 'object',
                 properties: {
                     title: { type: 'string' },
                     definition: { type: 'string' },
-                    hours: { type: 'number' },
-                    requirementIndex: { type: 'integer' },
+                    confidence: { type: 'number' },
                 },
-                required: ['title', 'definition', 'hours', 'requirementIndex'],
+                required: ['title', 'definition', 'confidence'],
                 additionalProperties: false,
             },
         },
     },
-    required: ['tasks'],
+    required: ['tests', 'children'],
     additionalProperties: false,
 };
 
-app.post('/api/streamtasks', async (req, res) => {
-    const { prompt, model: modelId = DEFAULT_MODEL, cwd, requirements, existingTasks } = req.body;
+app.post('/api/expandrequirement', async (req, res) => {
+    const { requirement, prompt, model: modelId = DEFAULT_MODEL, cwd } = req.body;
 
-    if (!prompt?.trim()) {
-        return res.status(400).json({ error: 'prompt is required' });
-    }
-    if (!requirements?.length) {
-        return res.status(400).json({ error: 'requirements are required' });
+    if (!requirement?.title) {
+        return res.status(400).json({ error: 'requirement is required' });
     }
     if (!VALID_MODEL_IDS.has(modelId)) {
         return res.status(400).json({ error: `invalid model: ${modelId}` });
     }
 
-    console.log(`[${modelId}] streamtasks: ${requirements.length} requirements`);
+    console.log(`[${modelId}] expandrequirement: ${requirement.title}`);
 
-    const reqList = requirements.map((r, i) => `${i}. ${r.title}: ${r.definition}`).join('\n');
-    let userContent = `Goal description:\n${prompt}\n\nRequirements:\n${reqList}\n\nGenerate implementation tasks for these requirements. Each task must reference a requirementIndex (0-based) matching the requirement it fulfills. Estimate hours for each task.`;
+    const userContent = `You are a spec elicitation assistant expanding a requirement into sub-requirements and verification tests.
 
-    if (existingTasks?.length) {
-        const existing = existingTasks.map(t => `- ${t.title} (${t.hours}h, req ${t.requirementIndex})`).join('\n');
-        userContent += `\n\nAlready created tasks (do not duplicate):\n${existing}\n\nGenerate additional tasks only.`;
-    }
+Project goal:
+${prompt || 'Not specified'}
+
+Requirement to expand:
+Title: ${requirement.title}
+Definition: ${requirement.definition}
+
+Generate:
+1. Verification tests for this requirement (in the "tests" array). Each test has a "type" (one of: static_analysis, programmatic_test, llm_review, human_review) and a "description" explaining what to check. Choose the most appropriate test types — use static_analysis for linting/type checks, programmatic_test for unit/integration tests, llm_review for AI-based assessment, human_review for manual verification. Generate 1-3 tests.
+2. Sub-requirements that break this requirement down into smaller, more specific parts (in the "children" array). Each sub-requirement should have a title, definition, and confidence score (0-1). Generate 2-5 sub-requirements if the requirement is complex enough to warrant decomposition, or an empty array if it's already atomic.`;
 
     try {
-        const output = await queryStructured(userContent, modelId, taskJsonSchema, cwd);
+        const output = await queryStructured(userContent, modelId, expandRequirementSchema, cwd);
         res.json(output);
     } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
         if (!res.headersSent) {
-            res.status(500).json({ error: 'Failed to generate tasks' });
-        } else {
-            res.end();
-        }
-    }
-});
-
-app.post('/api/streamsummary', async (req, res) => {
-    const { prompt, model: modelId = DEFAULT_MODEL, cwd, requirements, tasks } = req.body;
-
-    if (!prompt?.trim()) {
-        return res.status(400).json({ error: 'prompt is required' });
-    }
-    if (!requirements?.length || !tasks?.length) {
-        return res.status(400).json({ error: 'requirements and tasks are required' });
-    }
-    if (!VALID_MODEL_IDS.has(modelId)) {
-        return res.status(400).json({ error: `invalid model: ${modelId}` });
-    }
-
-    console.log(`[${modelId}] streamsummary: ${requirements.length} requirements, ${tasks.length} tasks`);
-
-    const reqList = requirements.map((r, i) => `${i + 1}. ${r.title}: ${r.definition}`).join('\n');
-    const taskList = tasks.map((t, i) => `${i + 1}. ${t.title} (${t.hours}h) — ${t.definition} [Requirement: ${requirements[t.requirementIndex]?.title ?? 'N/A'}]`).join('\n');
-    const totalHours = tasks.reduce((sum, t) => sum + t.hours, 0);
-
-    const userContent = `Goal:\n${prompt}\n\nRequirements:\n${reqList}\n\nTasks (${totalHours}h total):\n${taskList}\n\nWrite a concise project roadmap summary formatted in Markdown. Include: an overview of the project goal, the key requirements, a phased breakdown of tasks grouped logically (use a table with columns: Phase, Task, Hours, Requirement), the total estimated effort, and any risks or dependencies as a bulleted list. Use ## headings for each section.`;
-
-    try {
-        await streamQueryText(userContent, modelId, res, cwd);
-    } catch (err) {
-        console.error(`[${modelId}] error:`, err.message ?? err);
-        if (!res.headersSent) {
-            res.status(500).json({ error: 'Failed to generate summary' });
+            res.status(500).json({ error: 'Failed to expand requirement' });
         } else {
             res.end();
         }

@@ -528,44 +528,168 @@
   "clarifyingDone": true,
   "requirements": [
     {
+      "id": "35f2d9d8-6307-4557-84ee-03af680f2402",
       "title": "Testing Infrastructure Proposal Document",
       "definition": "The actual proposal document or detailed proposal content that outlines the current testing strategy, proposed approach, tooling choices, and implementation plan. This is the primary artifact needed for the review.",
-      "confidence": 1
+      "confidence": 1,
+      "stage": "proposal",
+      "test": "",
+      "children": []
     },
     {
+      "id": "16013ac2-6b91-40bd-8b81-6088aa52c5bb",
       "title": "Current Test Coverage Baseline",
       "definition": "Current test coverage percentages or metrics across unit, integration, and any existing E2E tests. Helps assess the gap between current state and proposed coverage targets.",
-      "confidence": 0.9
+      "confidence": 0.9,
+      "stage": "proposal",
+      "test": "1. Run coverage tools (e.g., Istanbul/NYC for JS, pytest-cov for Python, etc.) across the entire test suite\n2. Generate coverage reports for each test type: unit tests, integration tests, and E2E tests\n3. Verify the baseline report includes coverage percentages (line coverage, branch coverage, statement coverage) for each category\n4. Confirm critical modules/features are identified and their current coverage status is documented\n5. Validate that the baseline includes both covered and uncovered code paths for gap analysis\n6. Acceptance: Team has approved baseline report showing current metrics for comparison against proposed targets",
+      "children": [
+        {
+          "id": "375ab759-80d6-4524-a803-643a8609fdea",
+          "title": "Unit Test Coverage Baseline",
+          "definition": "Measure and document current code coverage metrics (line %, branch %, statement %) for the unit test suite. Identify which modules/components have high vs. low coverage to establish baseline for improvement.",
+          "confidence": 0.95,
+          "stage": "proposal",
+          "test": "Execute the following verification workflow:\n1. Configure and run a code coverage tool (e.g., Istanbul/nyc, pytest-cov, Coverage.py) on the entire unit test suite\n2. Generate a coverage report that includes: line coverage %, branch coverage %, and statement coverage %\n3. Produce a detailed module/component breakdown showing which files/components have coverage percentages\n4. Create a baseline document (CSV, JSON, or markdown) with: total coverage percentages, per-module coverage, and a categorization of modules into \"High Coverage\" (>80%), \"Medium Coverage\" (50-80%), and \"Low Coverage\" (<50%)\n5. Verify the baseline is committed to version control or stored in an accessible location for future comparison\n6. Confirm that the baseline can be reproduced by running a single command (e.g., `npm run coverage:baseline` or `make coverage-report`)",
+          "children": [
+            {
+              "id": "d1a3f18e-08c2-4531-b915-77e081d7b394",
+              "title": "Configure Coverage Measurement Tool",
+              "definition": "Select, install, and configure an appropriate code coverage tool for your tech stack (e.g., Istanbul/nyc for JavaScript, pytest-cov/coverage.py for Python, JaCoCo for Java). Ensure the tool is integrated into the project's test runner and configured to track line, branch, and statement coverage metrics.",
+              "confidence": 0.95,
+              "stage": "proposal",
+              "test": "",
+              "children": []
+            },
+            {
+              "id": "06441e30-8298-4fc9-8a10-2817278f84d8",
+              "title": "Execute Unit Test Suite with Coverage Instrumentation",
+              "definition": "Run the complete unit test suite with coverage tracking enabled. Ensure all unit tests pass and that coverage instrumentation captures metrics without altering test behavior. Document any configuration needed to run tests with coverage (e.g., environment variables, CLI flags).",
+              "confidence": 0.95,
+              "stage": "proposal",
+              "test": "",
+              "children": []
+            },
+            {
+              "id": "252055f1-0ecd-43f2-b52b-54c5ed695501",
+              "title": "Generate Coverage Metrics Report",
+              "definition": "Produce a comprehensive coverage report that includes aggregate metrics (line %, branch %, statement %) and exports coverage data in a parseable format (JSON, XML, or HTML). The report should clearly display overall coverage percentages and be reproducible with a single command.",
+              "confidence": 0.92,
+              "stage": "proposal",
+              "test": "",
+              "children": []
+            },
+            {
+              "id": "038d19cd-c98a-41d4-9a1d-214c59682161",
+              "title": "Analyze and Categorize Module-Level Coverage",
+              "definition": "Parse the coverage report to identify and categorize each module or component by coverage level. Create a mapping that identifies which modules have high coverage (>80%), medium coverage (50-80%), and low coverage (<50%). Document the rationale for coverage categories if non-standard thresholds are used.",
+              "confidence": 0.9,
+              "stage": "proposal",
+              "test": "",
+              "children": []
+            },
+            {
+              "id": "25c9baef-bc54-49b7-86bb-edaff5b7d9bc",
+              "title": "Document and Version Control Baseline Snapshot",
+              "definition": "Create a baseline record (CSV, JSON, markdown table, or similar) containing: total line/branch/statement coverage percentages, per-module coverage data, timestamp of measurement, and test environment details (Node version, Python version, etc.). Commit this baseline to version control or store in a persistent location to enable future comparison and tracking of coverage trends.",
+              "confidence": 0.93,
+              "stage": "proposal",
+              "test": "",
+              "children": []
+            }
+          ]
+        },
+        {
+          "id": "4aca3355-8df3-4260-a856-94ea40f9d406",
+          "title": "Integration Test Coverage Assessment",
+          "definition": "Assess and document coverage of integration tests across API boundaries, database interactions, and module integrations. Identify which integration paths are currently tested vs. untested.",
+          "confidence": 0.92,
+          "stage": "proposal",
+          "test": "",
+          "children": []
+        },
+        {
+          "id": "c1d1f0bd-c87d-4e06-b43a-27285d48fc2d",
+          "title": "E2E Test Coverage Baseline",
+          "definition": "Document current E2E test coverage for critical user workflows and business-critical features. Identify which user journeys are covered and which are untested.",
+          "confidence": 0.9,
+          "stage": "proposal",
+          "test": "",
+          "children": []
+        },
+        {
+          "id": "9754e413-fde4-471f-90a0-03e61a4bcfe8",
+          "title": "Coverage Gaps and Risk Areas Identification",
+          "definition": "Analyze baseline metrics to identify critical code paths, features, or modules with zero or very low test coverage (<20%). Flag high-risk areas (security, payment, authentication) with insufficient coverage.",
+          "confidence": 0.93,
+          "stage": "proposal",
+          "test": "",
+          "children": []
+        },
+        {
+          "id": "486c627c-80f9-4507-a2cd-96dfd6b99824",
+          "title": "Coverage Tools and Metrics Infrastructure",
+          "definition": "Ensure proper coverage measurement tools are configured and can consistently capture metrics across all test types. Establish which metrics (line/branch/statement coverage) will be tracked going forward.",
+          "confidence": 0.88,
+          "stage": "proposal",
+          "test": "",
+          "children": []
+        }
+      ]
     },
     {
+      "id": "fef492b1-2cbb-4c70-9dad-a0be23edc836",
       "title": "Team Size & Testing Responsibility Distribution",
       "definition": "How many engineers are involved in testing, whether testing is a dedicated role or distributed across the team, and any relevant skill levels or constraints.",
-      "confidence": 0.8
+      "confidence": 0.8,
+      "stage": "proposal",
+      "test": "",
+      "children": []
     },
     {
+      "id": "9b197c2e-22bb-4c3b-a96b-9639528495fa",
       "title": "CI/CD Platform & Current Infrastructure",
       "definition": "Identification of CI/CD platform (GitHub Actions, GitLab CI, Jenkins, etc.), current hosting (cloud provider, on-premise), and any existing infrastructure costs or constraints.",
-      "confidence": 0.85
+      "confidence": 0.85,
+      "stage": "proposal",
+      "test": "",
+      "children": []
     },
     {
+      "id": "bace85a3-c599-461b-964a-800e8c50ff9f",
       "title": "Budget & Cost Constraints",
       "definition": "Specific budget limits or cost thresholds for testing infrastructure, including acceptable monthly/annual spend for CI/CD, test infrastructure, and tooling.",
-      "confidence": 0.8
+      "confidence": 0.8,
+      "stage": "proposal",
+      "test": "",
+      "children": []
     },
     {
+      "id": "3cf5ded6-0785-4ee4-bb42-72e1dd03513f",
       "title": "Frontend vs Backend Testing Focus",
       "definition": "Clarification on whether the proposal focuses equally on frontend and backend testing, or if one area is prioritized over the other.",
-      "confidence": 0.7
+      "confidence": 0.7,
+      "stage": "proposal",
+      "test": "",
+      "children": []
     },
     {
+      "id": "211a7649-a5d3-4b05-947b-e9104e1f3ce9",
       "title": "Specific Pain Points & Blockers",
       "definition": "Top 1-3 pain points with current testing setup (slow feedback loops, flaky tests, high infrastructure costs, low team adoption, etc.) that the proposal is trying to address.",
-      "confidence": 0.75
+      "confidence": 0.75,
+      "stage": "proposal",
+      "test": "",
+      "children": []
     },
     {
+      "id": "0c018c27-9833-445b-b74c-025898e1ab80",
       "title": "Implementation Timeline & Phasing Strategy",
       "definition": "Preferred timeline for implementation (immediate, phased over months, etc.) and whether the team prefers a big-bang migration or incremental adoption.",
-      "confidence": 0.7
+      "confidence": 0.7,
+      "stage": "proposal",
+      "test": "",
+      "children": []
     }
   ],
   "tasks": [],
@@ -573,5 +697,5 @@
   "name": "I'd be happy to help with your testing infra project proposa",
   "id": "4aed5313-eb60-4eb9-99fa-4c77122aad24",
   "createdAt": "2026-03-18T13:28:45.612Z",
-  "updatedAt": "2026-03-18T13:34:14.443Z"
+  "updatedAt": "2026-03-18T14:08:14.999Z"
 }

@@ -1,6 +1,21 @@
 export type Model = { id: string; label: string; provider: string };
-export type Requirement = { title: string; definition: string; confidence: number };
-export type Task = { title: string; definition: string; hours: number; requirementIndex: number };
+
+export type TestType = 'static_analysis' | 'programmatic_test' | 'llm_review' | 'human_review';
+
+export type TestCase = {
+    type: TestType;
+    description: string;
+};
+
+export type Requirement = {
+    id: string;
+    title: string;
+    definition: string;
+    confidence: number;
+    stage: 'proposal' | 'approved' | 'completed';
+    tests: TestCase[];
+    children: Requirement[];
+};
 
 export type ClarifyingQuestion = {
     question: string;
@@ -30,8 +45,6 @@ export type Session = {
     selectedModel: string;
     clarifyingRounds: ClarifyingRound[];
     requirements: Requirement[];
-    tasks: Task[];
-    summary: string;
 };
 
 export type GoalIteration = {

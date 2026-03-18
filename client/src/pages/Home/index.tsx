@@ -1,14 +1,12 @@
 import './style.css';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useRoute, useLocation } from 'preact-iso';
-import type { Model, Requirement, Task, SessionMeta, Session, ClarifyingQuestion, ClarifyingAnswer, GoalIteration, ClaudeCall } from './types';
+import type { Model, Requirement, SessionMeta, Session, ClarifyingQuestion, ClarifyingAnswer, GoalIteration, ClaudeCall } from './types';
 import { RequirementList } from './RequirementList';
-import { TaskList } from './TaskList';
-import { SummarySection } from './SummarySection';
 import { SessionPanel } from './SessionPanel';
 import { ClarifyingQuestions } from './ClarifyingQuestions';
 
-const STEPS = ['Goal', 'Requirements', 'Tasks', 'Summary'] as const;
+const STEPS = ['Goal', 'Requirements'] as const;
 
 function isAnswered(a: ClarifyingAnswer): boolean {
     return a.skipped || a.selectedLabels.length > 0 || a.otherText.length > 0;
@@ -43,6 +41,18 @@ function buildPreviousRounds(iterations: GoalIteration[], questions: ClarifyingQ
     return rounds;
 }
 
+function makeRequirement(r: { title: string; definition: string; confidence: number }): Requirement {
+    return {
+        id: crypto.randomUUID(),
+        title: r.title,
+        definition: r.definition,
+        confidence: r.confidence,
+        stage: 'proposal',
+        tests: [],
+        children: [],
+    };
+}
+
 export function Home() {
     const { params } = useRoute();
     const { route } = useLocation();
@@ -56,10 +66,7 @@ export function Home() {
     const [selectedModel, setSelectedModel] = useState('claude-haiku-4-5');
     const [requirements, setRequirements] = useState<Requirement[]>([]);
     const [loadingRequirements, setLoadingRequirements] = useState(false);
-    const [tasks, setTasks] = useState<Task[]>([]);
-    const [loadingTasks, setLoadingTasks] = useState(false);
-    const [summary, setSummary] = useState('');
-    const [loadingSummary, setLoadingSummary] = useState(false);
+    const [expandingId, setExpandingId] = useState<string | null>(null);
 
     // Goal iterations (previous revisions, read-only)
     const [goalIterations, setGoalIterations] = useState<GoalIteration[]>([]);
@@ -98,32 +105,26 @@ export function Home() {
         } catch {}
     }
 
-    // Derive step statuses (4 steps: Goal, Requirements, Tasks, Summary)
+    // Derive step statuses (2 steps: Goal, Requirements)
     const stepCompleted = [
         clarifyingDone,
         requirements.length > 0,
-        tasks.length > 0,
-        summary.length > 0,
     ];
     const stepActive = [
         true,
         clarifyingDone,
-        requirements.length > 0,
-        tasks.length > 0,
     ];
-
-    const totalHours = tasks.reduce((sum, t) => sum + t.hours, 0);
 
     // Auto-open sections as they become active
     useEffect(() => {
         setOpenSections(prev => {
             const next = new Set(prev);
-            for (let i = 0; i < 4; i++) {
+            for (let i = 0; i < 2; i++) {
                 if (stepActive[i] && !stepCompleted[i]) next.add(i);
             }
             return next;
         });
-    }, [response, clarifyingDone, requirements.length, tasks.length, summary]);
+    }, [response, clarifyingDone, requirements.length]);
 
     function toggleSection(index: number) {
         setOpenSections(prev => {
@@ -170,7 +171,7 @@ export function Home() {
             const body: any = {
                 prompt, cwd, response, selectedModel,
                 goalIterations, allQuestions, allAnswers, questionsExhausted,
-                clarifyingDone, requirements, tasks, summary,
+                clarifyingDone, requirements,
             };
             if (currentSessionId) {
                 const res = await fetch(`/api/sessions/${currentSessionId}`, {
@@ -223,9 +224,30 @@ export function Home() {
                 })));
             }
             setClarifyingDone(s.clarifyingDone ?? false);
-            setRequirements(s.requirements ?? []);
-            setTasks(s.tasks ?? []);
-            setSummary(s.summary ?? '');
+            // Load requirements with backward compat (old format without id/stage/tests/children)
+            function migrateTests(r: any) {
+                if (r.tests && Array.isArray(r.tests)) return r.tests;
+                if (r.test && typeof r.test === 'string') return [{ type: 'programmatic_test', description: r.test }];
+                return [];
+            }
+            const loadedReqs = (s.requirements ?? []).map((r: any) => ({
+                id: r.id ?? crypto.randomUUID(),
+                title: r.title,
+                definition: r.definition,
+                confidence: r.confidence,
+                stage: r.stage ?? 'proposal',
+                tests: migrateTests(r),
+                children: (r.children ?? []).map((c: any) => ({
+                    id: c.id ?? crypto.randomUUID(),
+                    title: c.title,
+                    definition: c.definition,
+                    confidence: c.confidence,
+                    stage: c.stage ?? 'proposal',
+                    tests: migrateTests(c),
+                    children: [],
+                })),
+            }));
+            setRequirements(loadedReqs);
             setCurrentSessionId(s.id);
             setError('');
         } catch {
@@ -256,8 +278,6 @@ export function Home() {
         setClarifyingDone(false);
         setUpdatingGoal(false);
         setRequirements([]);
-        setTasks([]);
-        setSummary('');
         setError('');
         setCurrentSessionId(null);
     }
@@ -517,7 +537,8 @@ export function Home() {
             }
 
             const parsed = JSON.parse(accumulated);
-            const reqs: Requirement[] = Array.isArray(parsed) ? parsed : parsed.requirements ?? [];
+            const rawReqs: { title: string; definition: string; confidence: number }[] = Array.isArray(parsed) ? parsed : parsed.requirements ?? [];
+            const reqs: Requirement[] = rawReqs.map(makeRequirement);
             setRequirements(prev => isGenerateMore ? [...prev, ...reqs] : reqs);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to generate requirements');
@@ -527,66 +548,36 @@ export function Home() {
         }
     }
 
-    async function handleGenerateTasks() {
-        if (!requirements.length || loadingTasks) return;
-
+    async function handleExpandRequirement(reqId: string) {
+        if (expandingId) return;
+        setExpandingId(reqId);
         setError('');
-        setLoadingTasks(true);
 
-        const isGenerateMore = tasks.length > 0;
-        const body = {
-            prompt: response,
-            model: selectedModel,
-            cwd: cwd || undefined,
-            requirements,
-            ...(isGenerateMore ? { existingTasks: tasks } : {}),
-        };
-
-        try {
-            const res = await fetch('/api/streamtasks', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
-
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.error ?? `Server error: ${res.status}`);
+        // Find the requirement (top-level or child)
+        let targetReq: Requirement | undefined;
+        for (const r of requirements) {
+            if (r.id === reqId) { targetReq = r; break; }
+            for (const c of r.children) {
+                if (c.id === reqId) { targetReq = c; break; }
             }
-
-            const reader = res.body!.getReader();
-            const decoder = new TextDecoder();
-            let accumulated = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                accumulated += decoder.decode(value);
-            }
-
-            const parsed = JSON.parse(accumulated);
-            const newTasks: Task[] = Array.isArray(parsed) ? parsed : parsed.tasks ?? [];
-            setTasks(prev => isGenerateMore ? [...prev, ...newTasks] : newTasks);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to generate tasks');
-        } finally {
-            setLoadingTasks(false);
-            await refreshCallHistory();
+            if (targetReq) break;
         }
-    }
 
-    async function handleGenerateSummary() {
-        if (!tasks.length || loadingSummary) return;
-
-        setSummary('');
-        setError('');
-        setLoadingSummary(true);
+        if (!targetReq) {
+            setExpandingId(null);
+            return;
+        }
 
         try {
-            const res = await fetch('/api/streamsummary', {
+            const res = await fetch('/api/expandrequirement', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: response, model: selectedModel, cwd: cwd || undefined, requirements, tasks }),
+                body: JSON.stringify({
+                    requirement: { title: targetReq.title, definition: targetReq.definition },
+                    prompt: response,
+                    model: selectedModel,
+                    cwd: cwd || undefined,
+                }),
             });
 
             if (!res.ok) {
@@ -594,18 +585,36 @@ export function Home() {
                 throw new Error(body.error ?? `Server error: ${res.status}`);
             }
 
-            const reader = res.body!.getReader();
-            const decoder = new TextDecoder();
+            const data = await res.json();
+            const newChildren: Requirement[] = (data.children ?? []).map((c: any) => makeRequirement(c));
+            const newTests = Array.isArray(data.tests) ? data.tests : [];
 
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                setSummary(prev => prev + decoder.decode(value));
-            }
+            // Update the requirement in state
+            setRequirements(prev => prev.map(r => {
+                if (r.id === reqId) {
+                    return {
+                        ...r,
+                        tests: r.tests.length > 0 ? r.tests : newTests,
+                        children: [...r.children, ...newChildren],
+                    };
+                }
+                // Check children
+                const updatedChildren = r.children.map(c => {
+                    if (c.id === reqId) {
+                        return {
+                            ...c,
+                            tests: c.tests.length > 0 ? c.tests : newTests,
+                            children: [...c.children, ...newChildren],
+                        };
+                    }
+                    return c;
+                });
+                return { ...r, children: updatedChildren };
+            }));
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to generate summary');
+            setError(e instanceof Error ? e.message : 'Failed to expand requirement');
         } finally {
-            setLoadingSummary(false);
+            setExpandingId(null);
             await refreshCallHistory();
         }
     }
@@ -740,6 +749,8 @@ export function Home() {
                                     <RequirementList
                                         requirements={requirements}
                                         onUpdate={setRequirements}
+                                        onExpand={handleExpandRequirement}
+                                        expandingId={expandingId}
                                     />
                                 )}
                                 <button
@@ -748,63 +759,6 @@ export function Home() {
                                     disabled={loadingRequirements}
                                 >
                                     {loadingRequirements ? 'Generating\u2026' : requirements.length > 0 ? 'Generate More' : 'Generate Requirements'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Section 2: Tasks */}
-                {stepActive[2] && (
-                    <div class="collapsible">
-                        <button class="collapsible-header" onClick={() => toggleSection(2)}>
-                            <span class="collapsible-title">Tasks</span>
-                            {tasks.length > 0 && (
-                                <span class="collapsible-badge">{totalHours}h total</span>
-                            )}
-                            <span class={`collapsible-chevron ${openSections.has(2) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
-                        </button>
-                        <div class={`collapsible-body ${openSections.has(2) ? 'collapsible-body--open' : ''}`}>
-                            <div class="collapsible-content">
-                                {tasks.length > 0 && (
-                                    <TaskList
-                                        tasks={tasks}
-                                        requirements={requirements}
-                                        onUpdate={setTasks}
-                                    />
-                                )}
-                                <button
-                                    class="button"
-                                    onClick={handleGenerateTasks}
-                                    disabled={loadingTasks}
-                                >
-                                    {loadingTasks ? 'Generating\u2026' : tasks.length > 0 ? 'Generate More Tasks' : 'Generate Tasks'}
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Section 3: Summary */}
-                {stepActive[3] && (
-                    <div class="collapsible">
-                        <button class="collapsible-header" onClick={() => toggleSection(3)}>
-                            <span class="collapsible-title">Summary</span>
-                            <span class={`collapsible-chevron ${openSections.has(3) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
-                        </button>
-                        <div class={`collapsible-body ${openSections.has(3) ? 'collapsible-body--open' : ''}`}>
-                            <div class="collapsible-content">
-                                {summary && (
-                                    <SummarySection
-                                        summary={summary}
-                                    />
-                                )}
-                                <button
-                                    class="button"
-                                    onClick={handleGenerateSummary}
-                                    disabled={loadingSummary}
-                                >
-                                    {loadingSummary ? 'Generating\u2026' : summary ? 'Regenerate Summary' : 'Generate Summary'}
                                 </button>
                             </div>
                         </div>
