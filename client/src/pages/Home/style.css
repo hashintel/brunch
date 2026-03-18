@@ -324,6 +324,9 @@
 
 .view-toggle-btn:last-child {
     border-radius: 0 0.35rem 0.35rem 0;
+}
+
+.view-toggle-btn + .view-toggle-btn {
     border-left: none;
 }
 
@@ -506,6 +509,129 @@ tr.requirement--drag-over td {
 
 .button-secondary {
     background-color: #888;
+}
+
+/* ── Canvas view ── */
+.canvas-container {
+    overflow: auto;
+    border: 1px solid #e2e2e5;
+    border-radius: 0.5rem;
+    background: #fafafa;
+    min-height: 600px;
+    max-height: 70vh;
+    position: relative;
+}
+
+.canvas {
+    position: relative;
+    min-width: 100%;
+    min-height: 100%;
+}
+
+.canvas-edges {
+    position: absolute;
+    top: 0;
+    left: 0;
+    pointer-events: none;
+}
+
+.canvas-edge {
+    fill: none;
+    stroke: #ccc;
+    stroke-width: 2;
+}
+
+.canvas-node {
+    position: absolute;
+    background: #fff;
+    border: 1px solid #ccc;
+    border-radius: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    cursor: grab;
+    user-select: none;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06);
+    transition: box-shadow 0.15s ease;
+    font-size: 0.85rem;
+}
+
+.canvas-node:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.canvas-node--child {
+    border-color: #ddd;
+    background: #f9f9fb;
+}
+
+.canvas-node--dragging {
+    cursor: grabbing;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+    z-index: 10;
+}
+
+.canvas-node-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 0.25rem;
+    margin-bottom: 0.25rem;
+}
+
+.canvas-node-header strong {
+    font-size: 0.85rem;
+    line-height: 1.3;
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+}
+
+.canvas-node-actions {
+    display: flex;
+    gap: 0.15rem;
+    flex-shrink: 0;
+}
+
+.canvas-node-meta {
+    display: flex;
+    gap: 0.35rem;
+    align-items: center;
+    margin-bottom: 0.3rem;
+}
+
+.canvas-node-def {
+    margin: 0;
+    color: #666;
+    font-size: 0.78rem;
+    line-height: 1.4;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    margin-bottom: 0.3rem;
+}
+
+.canvas-node .requirement-expand-btn {
+    font-size: 0.7rem;
+    padding: 0.15rem 0.5rem;
+}
+
+.canvas-node .requirement-tests {
+    margin-bottom: 0.3rem;
+}
+
+.canvas-node .test-badge {
+    font-size: 0.6rem;
+    padding: 0.05rem 0.3rem;
+}
+
+.canvas-node .requirement-action {
+    font-size: 0.9rem;
+    padding: 0;
 }
 
 /* ── Requirement Stage Badge ── */
@@ -1148,6 +1274,34 @@ tr.requirement--drag-over td {
     }
     .requirement-child {
         border-left-color: #a07ee044;
+    }
+    .canvas-container {
+        border-color: #444;
+        background: #1a1a1d;
+    }
+    .canvas-edge {
+        stroke: #555;
+    }
+    .canvas-node {
+        background: #2a2a2e;
+        border-color: #444;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.2);
+    }
+    .canvas-node:hover {
+        box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .canvas-node--child {
+        background: #252528;
+        border-color: #555;
+    }
+    .canvas-node--dragging {
+        box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+    }
+    .canvas-node-header strong {
+        color: #ccc;
+    }
+    .canvas-node-def {
+        color: #999;
     }
     .requirement-expand-btn {
         border-color: #555;

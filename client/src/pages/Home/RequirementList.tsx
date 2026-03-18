@@ -42,7 +42,7 @@ const TEST_TYPE_LABELS: Record<TestType, string> = {
 
 const TEST_TYPES: TestType[] = ['static_analysis', 'programmatic_test', 'llm_review', 'human_review'];
 
-const NEST_THRESHOLD = 40; // px of horizontal drag to trigger nesting
+const NEST_THRESHOLD = 40;
 
 function emptyRequirement(): Requirement {
     return { id: '', title: '', definition: '', confidence: 1, stage: 'proposal', tests: [], children: [] };
@@ -68,29 +68,6 @@ function flattenTree(requirements: Requirement[]): FlatItem[] {
     return items;
 }
 
-function unflattenTree(items: FlatItem[]): Requirement[] {
-    const roots: Requirement[] = [];
-    let currentParent: Requirement | null = null;
-
-    for (const item of items) {
-        const req: Requirement = { ...item.req, children: [] };
-        if (item.depth === 0) {
-            currentParent = req;
-            roots.push(req);
-        } else {
-            // depth > 0: attach to most recent root
-            if (currentParent) {
-                currentParent.children.push(req);
-            } else {
-                // Orphan child — promote to root
-                roots.push({ ...req, children: [] });
-            }
-        }
-    }
-    return roots;
-}
-
-/** Given a flat list and a drag operation, compute the projected depth (0 or 1) for the active item. */
 function getProjectedDepth(
     flatItems: FlatItem[],
     activeId: string,
@@ -99,22 +76,12 @@ function getProjectedDepth(
 ): number {
     const overIndex = flatItems.findIndex(i => i.id === overId);
     if (overIndex < 0) return 0;
-
-    // The item above the drop position
     const itemAbove = overIndex > 0 ? flatItems[overIndex - 1] : null;
-
-    // If dragging right enough past threshold, try to nest
     if (dragOffsetX > NEST_THRESHOLD) {
-        // Can only nest under a depth-0 item
-        // The item at overIndex or above must be depth 0 for us to go to depth 1
         if (flatItems[overIndex].depth === 0 && flatItems[overIndex].id !== activeId) return 1;
         if (itemAbove && itemAbove.depth === 0 && itemAbove.id !== activeId) return 1;
     }
-
-    // If dragging left, promote to root
     if (dragOffsetX < -NEST_THRESHOLD) return 0;
-
-    // Default: match the depth of the over item
     return flatItems[overIndex].depth;
 }
 
@@ -136,9 +103,7 @@ function EditModal({
     const backdropRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
-        function onKey(e: KeyboardEvent) {
-            if (e.key === 'Escape') onCancel();
-        }
+        function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onCancel(); }
         window.addEventListener('keydown', onKey);
         return () => window.removeEventListener('keydown', onKey);
     }, [onCancel]);
@@ -146,21 +111,16 @@ function EditModal({
     function handleAddTest() {
         onChange({ ...draft, tests: [...draft.tests, { type: 'programmatic_test', description: '' }] });
     }
-
     function handleUpdateTest(i: number, t: TestCase) {
         onChange({ ...draft, tests: draft.tests.map((x, j) => j === i ? t : x) });
     }
-
     function handleRemoveTest(i: number) {
         onChange({ ...draft, tests: draft.tests.filter((_, j) => j !== i) });
     }
 
     return (
-        <div
-            class="modal-backdrop"
-            ref={backdropRef}
-            onClick={e => { if (e.target === backdropRef.current) onCancel(); }}
-        >
+        <div class="modal-backdrop" ref={backdropRef}
+            onClick={e => { if (e.target === backdropRef.current) onCancel(); }}>
             <div class="modal">
                 <div class="modal-header">
                     <strong>{title}</strong>
@@ -168,68 +128,39 @@ function EditModal({
                 </div>
                 <div class="modal-body">
                     <label class="modal-label">Title</label>
-                    <input
-                        class="modal-input"
-                        value={draft.title}
+                    <input class="modal-input" value={draft.title}
                         onInput={e => onChange({ ...draft, title: e.currentTarget.value })}
-                        placeholder="Requirement title"
-                    />
-
+                        placeholder="Requirement title" />
                     <label class="modal-label">Definition</label>
-                    <textarea
-                        class="modal-textarea"
-                        value={draft.definition}
+                    <textarea class="modal-textarea" value={draft.definition}
                         onInput={e => onChange({ ...draft, definition: e.currentTarget.value })}
-                        placeholder="What does this requirement entail?"
-                        rows={3}
-                    />
-
+                        placeholder="What does this requirement entail?" rows={3} />
                     <div class="modal-row">
                         <div>
                             <label class="modal-label">Confidence</label>
-                            <input
-                                class="modal-input modal-input--short"
-                                type="number"
-                                min="0"
-                                max="1"
-                                step="0.05"
-                                value={draft.confidence}
-                                onInput={e => onChange({ ...draft, confidence: parseFloat(e.currentTarget.value) || 0 })}
-                            />
+                            <input class="modal-input modal-input--short" type="number"
+                                min="0" max="1" step="0.05" value={draft.confidence}
+                                onInput={e => onChange({ ...draft, confidence: parseFloat(e.currentTarget.value) || 0 })} />
                         </div>
                         <div>
                             <label class="modal-label">Stage</label>
-                            <select
-                                class="modal-select"
-                                value={draft.stage}
-                                onChange={e => onChange({ ...draft, stage: e.currentTarget.value as Requirement['stage'] })}
-                            >
-                                {STAGE_ORDER.map(s => (
-                                    <option key={s} value={s}>{STAGE_LABELS[s]}</option>
-                                ))}
+                            <select class="modal-select" value={draft.stage}
+                                onChange={e => onChange({ ...draft, stage: e.currentTarget.value as Requirement['stage'] })}>
+                                {STAGE_ORDER.map(s => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
                             </select>
                         </div>
                     </div>
-
                     <label class="modal-label">Tests / Verification</label>
                     <div class="modal-tests">
                         {draft.tests.map((t, i) => (
                             <div key={i} class="modal-test-row">
-                                <select
-                                    class="modal-select modal-select--test-type"
-                                    value={t.type}
-                                    onChange={e => handleUpdateTest(i, { ...t, type: e.currentTarget.value as TestType })}
-                                >
-                                    {TEST_TYPES.map(tt => (
-                                        <option key={tt} value={tt}>{TEST_TYPE_LABELS[tt]}</option>
-                                    ))}
+                                <select class="modal-select modal-select--test-type" value={t.type}
+                                    onChange={e => handleUpdateTest(i, { ...t, type: e.currentTarget.value as TestType })}>
+                                    {TEST_TYPES.map(tt => <option key={tt} value={tt}>{TEST_TYPE_LABELS[tt]}</option>)}
                                 </select>
-                                <input
-                                    class="modal-input modal-input--test-desc"
-                                    value={t.description}
+                                <input class="modal-input modal-input--test-desc" value={t.description}
                                     onInput={e => handleUpdateTest(i, { ...t, description: e.currentTarget.value })}
-                                    placeholder="Describe the test..."
-                                />
+                                    placeholder="Describe the test..." />
                                 <button class="modal-test-remove" onClick={() => handleRemoveTest(i)} title="Remove test">&times;</button>
                             </div>
                         ))}
@@ -260,16 +191,10 @@ function TestBadges({ tests }: { tests: TestCase[] }) {
     );
 }
 
-// ── Sortable card (used in flat DnD list) ──
+// ── Sortable card (list view DnD) ──
 
 function SortableItem({
-    item,
-    onEdit,
-    onRemove,
-    onExpand,
-    expandingId,
-    projectedDepth,
-    isDragOverlay,
+    item, onEdit, onRemove, onExpand, expandingId, projectedDepth, isDragOverlay,
 }: {
     item: FlatItem;
     onEdit: (id: string) => void;
@@ -279,17 +204,8 @@ function SortableItem({
     projectedDepth?: number;
     isDragOverlay?: boolean;
 }) {
-    const {
-        attributes,
-        listeners,
-        setNodeRef,
-        transform,
-        transition,
-        isDragging,
-    } = useSortable({ id: item.id });
-
+    const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
     const depth = projectedDepth ?? item.depth;
-
     const style = {
         transform: CSS.Transform.toString(transform),
         transition,
@@ -299,20 +215,15 @@ function SortableItem({
     };
 
     return (
-        <div
-            class={`requirement ${depth > 0 ? 'requirement-child' : ''}`}
-            ref={isDragOverlay ? undefined : setNodeRef}
-            style={style}
-            {...(isDragOverlay ? {} : attributes)}
-        >
+        <div class={`requirement ${depth > 0 ? 'requirement-child' : ''}`}
+            ref={isDragOverlay ? undefined : setNodeRef} style={style}
+            {...(isDragOverlay ? {} : attributes)}>
             <div class="requirement-header">
                 <span class="drag-handle" title="Drag to reorder or nest" {...(isDragOverlay ? {} : listeners)}>&#8942;</span>
                 <strong>{item.req.title}</strong>
                 <div class="requirement-actions">
                     <span class="requirement-confidence">{Math.round(item.req.confidence * 100)}%</span>
-                    <span class={`requirement-stage requirement-stage--${item.req.stage}`}>
-                        {STAGE_LABELS[item.req.stage]}
-                    </span>
+                    <span class={`requirement-stage requirement-stage--${item.req.stage}`}>{STAGE_LABELS[item.req.stage]}</span>
                     <button class="requirement-action" onClick={() => onEdit(item.id)} title="Edit">&#9998;</button>
                     <button class="requirement-action requirement-action-remove" onClick={() => onRemove(item.id)} title="Remove">&times;</button>
                 </div>
@@ -320,11 +231,7 @@ function SortableItem({
             <p>{item.req.definition}</p>
             <TestBadges tests={item.req.tests} />
             <div class="requirement-card-footer">
-                <button
-                    class="requirement-expand-btn"
-                    onClick={() => onExpand(item.id)}
-                    disabled={expandingId === item.id}
-                >
+                <button class="requirement-expand-btn" onClick={() => onExpand(item.id)} disabled={expandingId === item.id}>
                     {expandingId === item.id ? 'Expanding\u2026' : 'Expand'}
                 </button>
             </div>
@@ -332,39 +239,22 @@ function SortableItem({
     );
 }
 
-// ── Sort header helper ──
+// ── Sort header ──
 
-function SortHeader({ label, field, current, onSort }: {
-    label: string;
-    field: string;
-    current: SortField;
-    onSort: (s: SortField) => void;
-}) {
+type SortField = 'none' | 'confidence-asc' | 'confidence-desc' | 'stage-asc' | 'stage-desc' | 'title-asc' | 'title-desc';
+type StageFilter = 'all' | Requirement['stage'];
+
+function SortHeader({ label, field, current, onSort }: { label: string; field: string; current: SortField; onSort: (s: SortField) => void }) {
     const asc = `${field}-asc` as SortField;
     const desc = `${field}-desc` as SortField;
     const isAsc = current === asc;
     const isDesc = current === desc;
-
-    function handleClick() {
-        if (isAsc) onSort(desc);
-        else if (isDesc) onSort('none');
-        else onSort(asc);
-    }
-
     return (
-        <th class="sortable-th" onClick={handleClick}>
-            {label}
-            <span class="sort-indicator">
-                {isAsc ? ' \u25B2' : isDesc ? ' \u25BC' : ''}
-            </span>
+        <th class="sortable-th" onClick={() => isAsc ? onSort(desc) : isDesc ? onSort('none') : onSort(asc)}>
+            {label}<span class="sort-indicator">{isAsc ? ' \u25B2' : isDesc ? ' \u25BC' : ''}</span>
         </th>
     );
 }
-
-// ── Table helpers ──
-
-type SortField = 'none' | 'confidence-asc' | 'confidence-desc' | 'stage-asc' | 'stage-desc' | 'title-asc' | 'title-desc';
-type StageFilter = 'all' | Requirement['stage'];
 
 function matchesSearch(item: FlatItem, query: string): boolean {
     if (!query) return true;
@@ -373,8 +263,7 @@ function matchesSearch(item: FlatItem, query: string): boolean {
 }
 
 function matchesStage(item: FlatItem, filter: StageFilter): boolean {
-    if (filter === 'all') return true;
-    return item.req.stage === filter;
+    return filter === 'all' || item.req.stage === filter;
 }
 
 function compareFlatItems(a: FlatItem, b: FlatItem, sort: SortField): number {
@@ -389,22 +278,185 @@ function compareFlatItems(a: FlatItem, b: FlatItem, sort: SortField): number {
     }
 }
 
+// ── Canvas view ──
+
+const CANVAS_NODE_W = 220;
+const CANVAS_NODE_GAP_X = 40;
+const CANVAS_NODE_GAP_Y = 60;
+const CANVAS_NODE_H_EST = 90; // estimated height per node
+
+type NodePos = { x: number; y: number };
+
+function computeLayout(requirements: Requirement[]): Record<string, NodePos> {
+    const pos: Record<string, NodePos> = {};
+    let x = 30;
+    for (const r of requirements) {
+        const colCount = Math.max(1, r.children.length);
+        const colWidth = colCount * (CANVAS_NODE_W + CANVAS_NODE_GAP_X);
+        // Parent centered above children
+        const parentX = x + (colWidth - CANVAS_NODE_W) / 2;
+        pos[r.id] = { x: parentX, y: 30 };
+        r.children.forEach((c, ci) => {
+            pos[c.id] = { x: x + ci * (CANVAS_NODE_W + CANVAS_NODE_GAP_X), y: 30 + CANVAS_NODE_H_EST + CANVAS_NODE_GAP_Y };
+        });
+        x += colWidth + CANVAS_NODE_GAP_X;
+    }
+    return pos;
+}
+
+function CanvasView({
+    requirements, onEdit, onRemove, onExpand, expandingId,
+}: {
+    requirements: Requirement[];
+    onEdit: (id: string) => void;
+    onRemove: (id: string) => void;
+    onExpand: (id: string) => void;
+    expandingId: string | null;
+}) {
+    const containerRef = useRef<HTMLDivElement>(null);
+    const [positions, setPositions] = useState<Record<string, NodePos>>({});
+    const [dragging, setDragging] = useState<{ id: string; startX: number; startY: number; origX: number; origY: number } | null>(null);
+    const nodeRefs = useRef<Record<string, HTMLDivElement | null>>({});
+
+    // Recompute layout when requirements change structurally (new ids appear)
+    useEffect(() => {
+        setPositions(prev => {
+            const layout = computeLayout(requirements);
+            const merged: Record<string, NodePos> = {};
+            // Keep existing positions for nodes that already exist, use layout for new ones
+            for (const id of Object.keys(layout)) {
+                merged[id] = prev[id] ?? layout[id];
+            }
+            return merged;
+        });
+    }, [requirements.map(r => r.id + ':' + r.children.map(c => c.id).join(',')).join('|')]);
+
+    // Canvas dimensions
+    const canvasSize = useMemo(() => {
+        let maxX = 600, maxY = 400;
+        for (const p of Object.values(positions)) {
+            maxX = Math.max(maxX, p.x + CANVAS_NODE_W + 40);
+            maxY = Math.max(maxY, p.y + CANVAS_NODE_H_EST + 40);
+        }
+        return { width: maxX, height: maxY };
+    }, [positions]);
+
+    // Edges: parent → child
+    const edges = useMemo(() => {
+        const result: { from: string; to: string }[] = [];
+        for (const r of requirements) {
+            for (const c of r.children) {
+                result.push({ from: r.id, to: c.id });
+            }
+        }
+        return result;
+    }, [requirements]);
+
+    function handlePointerDown(id: string, e: PointerEvent) {
+        if ((e.target as HTMLElement).closest('.requirement-action, .requirement-expand-btn, .requirement-stage')) return;
+        e.preventDefault();
+        const pos = positions[id];
+        if (!pos) return;
+        setDragging({ id, startX: e.clientX, startY: e.clientY, origX: pos.x, origY: pos.y });
+    }
+
+    useEffect(() => {
+        if (!dragging) return;
+        function onMove(e: PointerEvent) {
+            if (!dragging) return;
+            const dx = e.clientX - dragging.startX;
+            const dy = e.clientY - dragging.startY;
+            setPositions(prev => ({
+                ...prev,
+                [dragging.id]: { x: Math.max(0, dragging.origX + dx), y: Math.max(0, dragging.origY + dy) },
+            }));
+        }
+        function onUp() { setDragging(null); }
+        window.addEventListener('pointermove', onMove);
+        window.addEventListener('pointerup', onUp);
+        return () => {
+            window.removeEventListener('pointermove', onMove);
+            window.removeEventListener('pointerup', onUp);
+        };
+    }, [dragging]);
+
+    const flatItems = flattenTree(requirements);
+
+    return (
+        <div class="canvas-container" ref={containerRef}>
+            <div class="canvas" style={{ width: canvasSize.width + 'px', height: canvasSize.height + 'px' }}>
+                <svg class="canvas-edges" width={canvasSize.width} height={canvasSize.height}>
+                    {edges.map(edge => {
+                        const from = positions[edge.from];
+                        const to = positions[edge.to];
+                        if (!from || !to) return null;
+                        const fromNode = nodeRefs.current[edge.from];
+                        const fromH = fromNode?.offsetHeight ?? CANVAS_NODE_H_EST;
+                        const x1 = from.x + CANVAS_NODE_W / 2;
+                        const y1 = from.y + fromH;
+                        const x2 = to.x + CANVAS_NODE_W / 2;
+                        const y2 = to.y;
+                        const midY = (y1 + y2) / 2;
+                        return (
+                            <path
+                                key={`${edge.from}-${edge.to}`}
+                                d={`M${x1},${y1} C${x1},${midY} ${x2},${midY} ${x2},${y2}`}
+                                class="canvas-edge"
+                            />
+                        );
+                    })}
+                </svg>
+                {flatItems.map(item => {
+                    const pos = positions[item.id];
+                    if (!pos) return null;
+                    const isChild = item.depth > 0;
+                    return (
+                        <div
+                            key={item.id}
+                            ref={el => { nodeRefs.current[item.id] = el; }}
+                            class={`canvas-node ${isChild ? 'canvas-node--child' : ''} ${dragging?.id === item.id ? 'canvas-node--dragging' : ''}`}
+                            style={{ left: pos.x + 'px', top: pos.y + 'px', width: CANVAS_NODE_W + 'px' }}
+                            onPointerDown={e => handlePointerDown(item.id, e)}
+                        >
+                            <div class="canvas-node-header">
+                                <strong>{item.req.title}</strong>
+                                <div class="canvas-node-actions">
+                                    <button class="requirement-action" onClick={() => onEdit(item.id)} title="Edit">&#9998;</button>
+                                    <button class="requirement-action requirement-action-remove" onClick={() => onRemove(item.id)} title="Remove">&times;</button>
+                                </div>
+                            </div>
+                            <div class="canvas-node-meta">
+                                <span class="requirement-confidence">{Math.round(item.req.confidence * 100)}%</span>
+                                <span class={`requirement-stage requirement-stage--${item.req.stage}`}>{STAGE_LABELS[item.req.stage]}</span>
+                            </div>
+                            <p class="canvas-node-def">{item.req.definition}</p>
+                            <TestBadges tests={item.req.tests} />
+                            <button class="requirement-expand-btn" onClick={() => onExpand(item.id)} disabled={expandingId === item.id}>
+                                {expandingId === item.id ? 'Expanding\u2026' : 'Expand'}
+                            </button>
+                        </div>
+                    );
+                })}
+            </div>
+        </div>
+    );
+}
+
 // ── Main component ──
 
 export function RequirementList({ requirements, onUpdate, onExpand, expandingId }: Props) {
-    const [view, setView] = useState<'list' | 'table'>('list');
+    const [view, setView] = useState<'list' | 'table' | 'canvas'>('list');
     const [search, setSearch] = useState('');
     const [sort, setSort] = useState<SortField>('none');
     const [stageFilter, setStageFilter] = useState<StageFilter>('all');
 
-    // Modal state
     const [modal, setModal] = useState<{
         mode: 'edit' | 'add';
         draft: Requirement;
         editId?: string;
     } | null>(null);
 
-    // DnD state
+    // DnD state (list view)
     const [activeId, setActiveId] = useState<string | null>(null);
     const [overId, setOverId] = useState<string | null>(null);
     const [dragOffsetX, setDragOffsetX] = useState(0);
@@ -418,13 +470,10 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
     const flatItems = useMemo(() => flattenTree(requirements), [requirements]);
     const flatIds = useMemo(() => flatItems.map(i => i.id), [flatItems]);
 
-    // Projected depth for the active item during drag
     const projectedDepth = useMemo(() => {
         if (!activeId || !overId) return null;
         return getProjectedDepth(flatItems, activeId, overId, dragOffsetX);
     }, [flatItems, activeId, overId, dragOffsetX]);
-
-    // ── Helpers to find items by id ──
 
     function findReqById(id: string): { req: Requirement; parentIndex: number | null; childIndex: number | null; topIndex: number } | null {
         for (let i = 0; i < requirements.length; i++) {
@@ -435,8 +484,6 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
         }
         return null;
     }
-
-    // ── Handlers ──
 
     function handleRemoveById(id: string) {
         const info = findReqById(id);
@@ -466,14 +513,12 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
             const info = findReqById(modal.editId);
             if (!info) return;
             if (info.parentIndex != null && info.childIndex != null) {
-                // Editing a child
                 onUpdate(requirements.map((r, i) =>
                     i === info.parentIndex
                         ? { ...r, children: r.children.map((c, ci) => ci === info.childIndex ? { ...modal.draft } : c) }
                         : r
                 ));
             } else {
-                // Editing a top-level: preserve children
                 onUpdate(requirements.map(r => r.id === modal.editId ? { ...modal.draft, children: r.children } : r));
             }
         } else if (modal.mode === 'add') {
@@ -482,193 +527,104 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
         setModal(null);
     }
 
-    // ── DnD handlers ──
-
+    // ── List DnD handlers ──
     function handleDragStart(event: DragStartEvent) {
         setActiveId(String(event.active.id));
-        const pointerEvent = event.activatorEvent as PointerEvent;
-        dragStartXRef.current = pointerEvent.clientX;
+        dragStartXRef.current = (event.activatorEvent as PointerEvent).clientX;
         setDragOffsetX(0);
     }
-
     function handleDragOver(event: DragOverEvent) {
-        const { over, delta } = event;
-        setOverId(over ? String(over.id) : null);
-        setDragOffsetX(delta.x);
+        setOverId(event.over ? String(event.over.id) : null);
+        setDragOffsetX(event.delta.x);
     }
-
     function handleDragEnd(event: DragEndEvent) {
         const { active, over } = event;
-        setActiveId(null);
-        setOverId(null);
-        setDragOffsetX(0);
-
+        setActiveId(null); setOverId(null); setDragOffsetX(0);
         if (!over || active.id === over.id) return;
-
         const activeIdStr = String(active.id);
         const overIdStr = String(over.id);
         const depth = getProjectedDepth(flatItems, activeIdStr, overIdStr, event.delta.x);
-
-        // Remove the active item from the tree (extract it)
         let draggedReq: Requirement | null = null;
         let newReqs = requirements.map(r => {
-            if (r.id === activeIdStr) {
-                draggedReq = { ...r };
-                return null; // mark for removal
-            }
-            const childIdx = r.children.findIndex(c => c.id === activeIdStr);
-            if (childIdx >= 0) {
-                draggedReq = { ...r.children[childIdx] };
-                return { ...r, children: r.children.filter((_, i) => i !== childIdx) };
-            }
+            if (r.id === activeIdStr) { draggedReq = { ...r }; return null; }
+            const ci = r.children.findIndex(c => c.id === activeIdStr);
+            if (ci >= 0) { draggedReq = { ...r.children[ci] }; return { ...r, children: r.children.filter((_, i) => i !== ci) }; }
             return r;
         }).filter(Boolean) as Requirement[];
-
         if (!draggedReq) return;
-
-        // If dragged item was a parent, keep its children
-        // (they travel with it)
-
-        // Re-flatten without the dragged item to find insertion point
         const flatWithout = flattenTree(newReqs);
         const overIdx = flatWithout.findIndex(i => i.id === overIdStr);
-
         if (depth === 0) {
-            // Insert as top-level at the position of 'over'
-            // Find which top-level index 'over' corresponds to
             let insertIdx: number;
-            if (overIdx < 0) {
-                insertIdx = newReqs.length;
-            } else {
-                const overItem = flatWithout[overIdx];
-                if (overItem.parentId) {
-                    // over is a child — insert after its parent
-                    const parentIdx = newReqs.findIndex(r => r.id === overItem.parentId);
-                    insertIdx = parentIdx >= 0 ? parentIdx + 1 : newReqs.length;
-                } else {
-                    const topIdx = newReqs.findIndex(r => r.id === overItem.id);
-                    insertIdx = topIdx >= 0 ? topIdx : newReqs.length;
-                }
+            if (overIdx < 0) { insertIdx = newReqs.length; }
+            else {
+                const oi = flatWithout[overIdx];
+                if (oi.parentId) { const pi = newReqs.findIndex(r => r.id === oi.parentId); insertIdx = pi >= 0 ? pi + 1 : newReqs.length; }
+                else { const ti = newReqs.findIndex(r => r.id === oi.id); insertIdx = ti >= 0 ? ti : newReqs.length; }
             }
             newReqs.splice(insertIdx, 0, draggedReq);
         } else {
-            // Insert as child (depth 1)
-            // Find the parent: it's the nearest depth-0 item at or above overIdx
             let parentId: string | null = null;
-            if (overIdx >= 0) {
-                // Walk backwards from overIdx to find a root
-                for (let i = overIdx; i >= 0; i--) {
-                    if (flatWithout[i].depth === 0) {
-                        parentId = flatWithout[i].id;
-                        break;
-                    }
-                }
-            }
-
+            if (overIdx >= 0) { for (let i = overIdx; i >= 0; i--) { if (flatWithout[i].depth === 0) { parentId = flatWithout[i].id; break; } } }
             if (parentId) {
-                // Find child insertion index
                 const parent = newReqs.find(r => r.id === parentId)!;
-                const overItem = flatWithout[overIdx];
-                let childInsertIdx: number;
-                if (overItem.parentId === parentId) {
-                    // over is already a child of this parent
-                    childInsertIdx = parent.children.findIndex(c => c.id === overItem.id);
-                    if (childInsertIdx < 0) childInsertIdx = parent.children.length;
-                } else {
-                    // over is the parent itself — append at end
-                    childInsertIdx = parent.children.length;
-                }
-                // Strip children if nesting (children can't have children for MVP 2 levels)
-                const nested: Requirement = { ...draggedReq, children: [] };
-                parent.children.splice(childInsertIdx, 0, nested);
-                // If dragged item had children, promote them to top-level after the parent
+                const oi = flatWithout[overIdx];
+                let ci = oi.parentId === parentId ? parent.children.findIndex(c => c.id === oi.id) : parent.children.length;
+                if (ci < 0) ci = parent.children.length;
+                parent.children.splice(ci, 0, { ...draggedReq, children: [] });
                 if (draggedReq.children.length > 0) {
-                    const parentTopIdx = newReqs.findIndex(r => r.id === parentId);
-                    const promoted = draggedReq.children.map(c => ({ ...c, children: [] }));
-                    newReqs.splice(parentTopIdx + 1, 0, ...promoted);
+                    const pti = newReqs.findIndex(r => r.id === parentId);
+                    newReqs.splice(pti + 1, 0, ...draggedReq.children.map(c => ({ ...c, children: [] })));
                 }
-            } else {
-                // Fallback: insert as top-level
-                newReqs.push(draggedReq);
-            }
+            } else { newReqs.push(draggedReq); }
         }
-
         onUpdate(newReqs);
     }
+    function handleDragCancel() { setActiveId(null); setOverId(null); setDragOffsetX(0); }
 
-    function handleDragCancel() {
-        setActiveId(null);
-        setOverId(null);
-        setDragOffsetX(0);
-    }
-
-    // ── Table view data ──
+    // ── Table data ──
     const displayRows = useMemo(() => {
         let items = flattenTree(requirements);
-        if (search || stageFilter !== 'all') {
-            items = items.filter(i => matchesSearch(i, search) && matchesStage(i, stageFilter));
-        }
-        if (sort !== 'none') {
-            items = [...items].sort((a, b) => compareFlatItems(a, b, sort));
-        }
+        if (search || stageFilter !== 'all') items = items.filter(i => matchesSearch(i, search) && matchesStage(i, stageFilter));
+        if (sort !== 'none') items = [...items].sort((a, b) => compareFlatItems(a, b, sort));
         return items;
     }, [requirements, search, sort, stageFilter]);
 
     const hasActiveFilters = search !== '' || stageFilter !== 'all' || sort !== 'none';
-
     const modalTitle = modal?.mode === 'add' ? 'Add Requirement' : 'Edit Requirement';
-
     const activeItem = activeId ? flatItems.find(i => i.id === activeId) ?? null : null;
 
     return (
         <div class="requirements">
             {modal && (
-                <EditModal
-                    title={modalTitle}
-                    draft={modal.draft}
+                <EditModal title={modalTitle} draft={modal.draft}
                     onChange={draft => setModal({ ...modal, draft })}
-                    onSave={handleModalSave}
-                    onCancel={() => setModal(null)}
-                />
+                    onSave={handleModalSave} onCancel={() => setModal(null)} />
             )}
 
             <div class="requirements-toolbar">
                 <div class="requirements-view-toggle">
-                    <button
-                        class={`view-toggle-btn ${view === 'list' ? 'view-toggle-btn--active' : ''}`}
-                        onClick={() => setView('list')}
-                    >List</button>
-                    <button
-                        class={`view-toggle-btn ${view === 'table' ? 'view-toggle-btn--active' : ''}`}
-                        onClick={() => setView('table')}
-                    >Table</button>
+                    <button class={`view-toggle-btn ${view === 'list' ? 'view-toggle-btn--active' : ''}`}
+                        onClick={() => setView('list')}>List</button>
+                    <button class={`view-toggle-btn ${view === 'table' ? 'view-toggle-btn--active' : ''}`}
+                        onClick={() => setView('table')}>Table</button>
+                    <button class={`view-toggle-btn ${view === 'canvas' ? 'view-toggle-btn--active' : ''}`}
+                        onClick={() => setView('canvas')}>Canvas</button>
                 </div>
 
                 {view === 'table' && (
                     <div class="requirements-filters">
-                        <input
-                            class="filter-search"
-                            type="text"
-                            placeholder="Search..."
-                            value={search}
-                            onInput={e => setSearch(e.currentTarget.value)}
-                        />
-                        <select
-                            class="filter-select"
-                            value={stageFilter}
-                            onChange={e => setStageFilter(e.currentTarget.value as StageFilter)}
-                        >
+                        <input class="filter-search" type="text" placeholder="Search..."
+                            value={search} onInput={e => setSearch(e.currentTarget.value)} />
+                        <select class="filter-select" value={stageFilter}
+                            onChange={e => setStageFilter(e.currentTarget.value as StageFilter)}>
                             <option value="all">All stages</option>
-                            {STAGE_ORDER.map(s => (
-                                <option key={s} value={s}>{STAGE_LABELS[s]}</option>
-                            ))}
+                            {STAGE_ORDER.map(s => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
                         </select>
                         {hasActiveFilters && (
-                            <button
-                                class="filter-clear"
+                            <button class="filter-clear"
                                 onClick={() => { setSearch(''); setStageFilter('all'); setSort('none'); }}
-                                title="Clear filters"
-                            >Clear</button>
+                                title="Clear filters">Clear</button>
                         )}
                     </div>
                 )}
@@ -689,9 +645,7 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
                     </thead>
                     <tbody>
                         {displayRows.length === 0 && (
-                            <tr>
-                                <td colspan={7} class="table-empty">No requirements match your filters.</td>
-                            </tr>
+                            <tr><td colspan={7} class="table-empty">No requirements match your filters.</td></tr>
                         )}
                         {displayRows.map(item => {
                             const isChild = item.depth > 0;
@@ -703,83 +657,60 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
                                     <td><strong>{item.req.title}</strong></td>
                                     <td>{item.req.definition}</td>
                                     <td class="requirement-confidence">{Math.round(item.req.confidence * 100)}%</td>
-                                    <td>
-                                        <span class={`requirement-stage requirement-stage--${item.req.stage}`}>
-                                            {STAGE_LABELS[item.req.stage]}
-                                        </span>
-                                    </td>
+                                    <td><span class={`requirement-stage requirement-stage--${item.req.stage}`}>{STAGE_LABELS[item.req.stage]}</span></td>
                                     <td>
                                         {item.req.tests.length > 0
                                             ? <span class="test-count">{item.req.tests.length}</span>
-                                            : <span class="test-count test-count--none">0</span>
-                                        }
+                                            : <span class="test-count test-count--none">0</span>}
                                     </td>
                                     <td class="requirements-table-actions">
                                         <button class="requirement-action" onClick={() => openEditById(item.id)} title="Edit">&#9998;</button>
                                         {!isChild && (
-                                            <button
-                                                class="requirement-action"
-                                                onClick={() => onExpand(item.id)}
-                                                disabled={expandingId === item.id}
-                                                title="Expand"
-                                            >&#8690;</button>
+                                            <button class="requirement-action" onClick={() => onExpand(item.id)}
+                                                disabled={expandingId === item.id} title="Expand">&#8690;</button>
                                         )}
-                                        <button
-                                            class="requirement-action requirement-action-remove"
-                                            onClick={() => handleRemoveById(item.id)}
-                                            title="Remove"
-                                        >&times;</button>
+                                        <button class="requirement-action requirement-action-remove"
+                                            onClick={() => handleRemoveById(item.id)} title="Remove">&times;</button>
                                     </td>
                                 </tr>
                             );
                         })}
-                        <tr>
-                            <td colspan={7}>
-                                <button class="requirement-add-btn" onClick={openAdd}>+ Add requirement</button>
-                            </td>
-                        </tr>
+                        <tr><td colspan={7}><button class="requirement-add-btn" onClick={openAdd}>+ Add requirement</button></td></tr>
                     </tbody>
                 </table>
+            ) : view === 'canvas' ? (
+                <>
+                    <CanvasView
+                        requirements={requirements}
+                        onEdit={openEditById}
+                        onRemove={handleRemoveById}
+                        onExpand={onExpand}
+                        expandingId={expandingId}
+                    />
+                    <button class="requirement-add-btn" onClick={openAdd}>+ Add requirement</button>
+                </>
             ) : (
-                <DndContext
-                    sensors={sensors}
-                    collisionDetection={closestCenter}
-                    onDragStart={handleDragStart}
-                    onDragOver={handleDragOver}
-                    onDragEnd={handleDragEnd}
-                    onDragCancel={handleDragCancel}
-                    measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}
-                >
+                <DndContext sensors={sensors} collisionDetection={closestCenter}
+                    onDragStart={handleDragStart} onDragOver={handleDragOver}
+                    onDragEnd={handleDragEnd} onDragCancel={handleDragCancel}
+                    measuring={{ droppable: { strategy: MeasuringStrategy.Always } }}>
                     <SortableContext items={flatIds} strategy={verticalListSortingStrategy}>
                         {flatItems.map(item => (
-                            <SortableItem
-                                key={item.id}
-                                item={item}
-                                onEdit={openEditById}
-                                onRemove={handleRemoveById}
-                                onExpand={onExpand}
-                                expandingId={expandingId}
+                            <SortableItem key={item.id} item={item}
+                                onEdit={openEditById} onRemove={handleRemoveById}
+                                onExpand={onExpand} expandingId={expandingId}
                                 projectedDepth={
-                                    activeId && overId && item.id !== activeId
-                                        ? undefined // non-dragged items keep their depth
-                                        : item.id === activeId && projectedDepth != null
-                                        ? projectedDepth
-                                        : undefined
-                                }
-                            />
+                                    activeId && overId && item.id !== activeId ? undefined
+                                    : item.id === activeId && projectedDepth != null ? projectedDepth
+                                    : undefined
+                                } />
                         ))}
                     </SortableContext>
                     <DragOverlay dropAnimation={null}>
                         {activeItem && (
-                            <SortableItem
-                                item={activeItem}
-                                onEdit={() => {}}
-                                onRemove={() => {}}
-                                onExpand={() => {}}
-                                expandingId={null}
-                                projectedDepth={projectedDepth ?? activeItem.depth}
-                                isDragOverlay
-                            />
+                            <SortableItem item={activeItem} onEdit={() => {}} onRemove={() => {}}
+                                onExpand={() => {}} expandingId={null}
+                                projectedDepth={projectedDepth ?? activeItem.depth} isDragOverlay />
                         )}
                     </DragOverlay>
                     <button class="requirement-add-btn" onClick={openAdd}>+ Add requirement</button>
