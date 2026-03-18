@@ -1,0 +1,5 @@
+fly.toml
+node_modules
+dist
+server/data
+.env

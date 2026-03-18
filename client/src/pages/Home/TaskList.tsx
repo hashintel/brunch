@@ -34,10 +34,6 @@ export function TaskList({ tasks, requirements, onUpdate }: Props) {
 
     return (
         <div class="tasks">
-            <div class="tasks-header">
-                <strong>Tasks</strong>
-                <span class="tasks-total-hours">{tasks.reduce((sum, t) => sum + t.hours, 0)}h total</span>
-            </div>
             {tasks.map((task, i) => (
                 <div class="task" key={i}>
                     {editingIndex === i && editDraft ? (

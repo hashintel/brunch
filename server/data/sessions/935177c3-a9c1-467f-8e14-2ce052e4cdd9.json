@@ -1,0 +1,64 @@
+{
+  "prompt": "explain goal of this project",
+  "cwd": "/home/matej/brunch",
+  "response": "I'll help you understand the goal of this project. Let me explore the project structure first.## Project Overview: **Brunch**\n\n**Brunch** is an AI-powered project planning and requirements management tool built with Claude's agent capabilities. Here's what it does:\n\n### **Primary Goal**\nHelp users break down high-level project goals into structured requirements and implementation tasks, with AI-generated project roadmaps and cost estimates.\n\n### **Key Features**\n\n1. **Project Analysis**\n   - Users describe their project goal in natural language\n   - Claude uses its Agent SDK to analyze the goal and provide contextual responses\n   - Can optionally analyze existing code in a project directory (`cwd` parameter)\n\n2. **Requirements Generation**\n   - Automatically extracts and generates structured requirements from project descriptions\n   - Each requirement includes: title, definition, and confidence score\n   - Users can generate additional requirements iteratively\n\n3. **Task Planning**\n   - Converts requirements into actionable implementation tasks\n   - Each task includes: title, definition, estimated hours, and requirement mapping\n   - Prevents duplicate task generation when adding more tasks\n\n4. **Project Roadmap**\n   - Generates a comprehensive project summary in Markdown format\n   - Includes phased breakdown, total effort estimation, and risk/dependency analysis\n   - Formatted as a structured roadmap document\n\n5. **Session Management**\n   - Save/load/delete planning sessions\n   - Persistent storage of entire planning sessions (goal, requirements, tasks, summary)\n   - Quick access to previous project plans\n\n### **Technology Stack**\n- **Frontend**: Preact + Vite (lightweight React alternative)\n- **Backend**: Express.js\n- **AI**: Anthropic Claude Agent SDK with multiple models (Haiku, Sonnet, Opus 4.6)\n- **Testing**: Vitest + Supertest\n\n### **Workflow**\nUser describes goal → AI analyzes → Extract requirements → Generate tasks → Create roadmap → Save session\n\nThis is essentially a **project planning assistant** that leverages Claude AI to help teams understand project scope, estimate effort, and create structured implementation plans.",
+  "selectedModel": "claude-haiku-4-5",
+  "requirements": [
+    {
+      "title": "AI-Powered Project Analysis",
+      "definition": "Use Claude Agent SDK to analyze project goals described in natural language and provide intelligent insights about project scope and requirements",
+      "confidence": 0.95
+    },
+    {
+      "title": "Requirements Generation",
+      "definition": "Automatically extract and generate structured requirements from project descriptions, with each requirement including title, definition, and confidence score (0-1)",
+      "confidence": 0.95
+    },
+    {
+      "title": "Task Planning and Estimation",
+      "definition": "Convert generated requirements into actionable implementation tasks with estimated effort in hours and mapping to specific requirements",
+      "confidence": 0.95
+    },
+    {
+      "title": "Project Roadmap Generation",
+      "definition": "Generate comprehensive project summaries in Markdown format including phased breakdown, total effort estimation, and risk/dependency analysis",
+      "confidence": 0.9
+    },
+    {
+      "title": "Session Management",
+      "definition": "Enable users to save, load, and delete planning sessions with persistent storage of goals, requirements, tasks, and summaries",
+      "confidence": 0.95
+    },
+    {
+      "title": "Codebase Analysis Support",
+      "definition": "Allow users to specify a project directory path (cwd) for AI to analyze existing code and provide context-aware requirements and planning",
+      "confidence": 0.85
+    },
+    {
+      "title": "Multi-Model Support",
+      "definition": "Support multiple Claude models (Haiku 4.5, Sonnet 4.6, Opus 4.6) with user selection for different cost/quality trade-offs",
+      "confidence": 0.9
+    },
+    {
+      "title": "Incremental Requirement Generation",
+      "definition": "Allow users to generate additional requirements iteratively without duplicating previously created requirements",
+      "confidence": 0.9
+    },
+    {
+      "title": "Incremental Task Generation",
+      "definition": "Support generating additional tasks iteratively while preventing duplicate task creation based on existing tasks",
+      "confidence": 0.9
+    },
+    {
+      "title": "Full-Stack Web Application",
+      "definition": "Provide a responsive frontend UI (Preact/Vite) with Express.js backend serving REST APIs for all planning operations",
+      "confidence": 0.95
+    }
+  ],
+  "tasks": [],
+  "summary": "",
+  "name": "This Project",
+  "id": "935177c3-a9c1-467f-8e14-2ce052e4cdd9",
+  "createdAt": "2026-03-17T12:10:00.445Z",
+  "updatedAt": "2026-03-17T12:11:42.467Z"
+}

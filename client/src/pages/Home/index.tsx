@@ -6,7 +6,10 @@ import { TaskList } from './TaskList';
 import { SummarySection } from './SummarySection';
 import { SessionPanel } from './SessionPanel';
 
+const STEPS = ['Goal', 'Requirements', 'Tasks', 'Summary'] as const;
+
 export function Home() {
+    const [projectName, setProjectName] = useState('');
     const [prompt, setPrompt] = useState('');
     const [cwd, setCwd] = useState('');
     const [response, setResponse] = useState('');
@@ -24,6 +27,43 @@ export function Home() {
     const [sessions, setSessions] = useState<SessionMeta[]>([]);
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
+    const [openSections, setOpenSections] = useState<Set<number>>(() => new Set([0]));
+
+    // Derive step statuses (4 steps)
+    const stepCompleted = [
+        response.length > 0,
+        requirements.length > 0,
+        tasks.length > 0,
+        summary.length > 0,
+    ];
+    const stepActive = [
+        true,
+        response.length > 0,
+        requirements.length > 0,
+        tasks.length > 0,
+    ];
+
+    const totalHours = tasks.reduce((sum, t) => sum + t.hours, 0);
+
+    // Auto-open sections as they become active
+    useEffect(() => {
+        setOpenSections(prev => {
+            const next = new Set(prev);
+            for (let i = 0; i < 4; i++) {
+                if (stepActive[i] && !stepCompleted[i]) next.add(i);
+            }
+            return next;
+        });
+    }, [response, requirements.length, tasks.length, summary]);
+
+    function toggleSection(index: number) {
+        setOpenSections(prev => {
+            const next = new Set(prev);
+            if (next.has(index)) next.delete(index);
+            else next.add(index);
+            return next;
+        });
+    }
 
     useEffect(() => {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
@@ -98,6 +138,7 @@ export function Home() {
     }
 
     function handleNewSession() {
+        setProjectName('');
         setPrompt('');
         setCwd('');
         setResponse('');
@@ -277,85 +318,142 @@ export function Home() {
                     onNew={handleNewSession}
                     onSave={handleSave}
                     saving={saving}
+                    projectName={projectName}
+                    onProjectNameChange={setProjectName}
+                    cwd={cwd}
+                    onCwdChange={setCwd}
+                    models={models}
+                    selectedModel={selectedModel}
+                    onModelChange={setSelectedModel}
+                    disabled={loading}
                 />
             </aside>
             <div class="home">
-            <label>Project folder (optional)</label>
-            <input
-                class="input"
-                type="text"
-                value={cwd}
-                onInput={e => setCwd(e.currentTarget.value)}
-                placeholder="/path/to/project"
-                disabled={loading}
-            />
-            <label>Describe your goal. What do you want to build?</label>
-            <textarea
-                class="textarea"
-                value={prompt}
-                onInput={e => setPrompt(e.currentTarget.value)}
-                placeholder="What is your goal?"
-                disabled={loading}
-            />
-            <div class="controls">
-                <select
-                    class="model-select"
-                    value={selectedModel}
-                    onChange={e => setSelectedModel(e.currentTarget.value)}
-                    disabled={loading}
-                >
-                    {models.map(m => (
-                        <option key={m.id} value={m.id}>{m.provider} — {m.label}</option>
+                {/* Progress Stepper */}
+                <div class="stepper">
+                    {STEPS.map((label, i) => (
+                        <div key={label} class="stepper-step">
+                            {i > 0 && (
+                                <div class={`stepper-line ${stepCompleted[i - 1] ? 'stepper-line--filled' : ''}`} />
+                            )}
+                            <div class={`stepper-circle ${stepCompleted[i] ? 'stepper-circle--completed' : stepActive[i] ? 'stepper-circle--active' : ''}`}>
+                                {i + 1}
+                            </div>
+                            <span class={`stepper-label ${stepActive[i] ? 'stepper-label--active' : ''}`}>{label}</span>
+                        </div>
                     ))}
-                </select>
-                <button class="button" onClick={handleGo} disabled={loading || !prompt.trim()}>
-                    {loading ? 'Thinking\u2026' : 'Go'}
-                </button>
-            </div>
-            {error && <div class="error">{error}</div>}
-            {response && (
-                <>
-                    <textarea class="textarea" value={response} readOnly />
-                    <button
-                        class="button"
-                        onClick={handleGenerateRequirements}
-                        disabled={loadingRequirements}
-                    >
-                        {loadingRequirements ? 'Generating\u2026' : requirements.length > 0 ? 'Generate More' : 'Generate Requirements'}
+                </div>
+
+                {error && <div class="error">{error}</div>}
+
+                {/* Section 0: Goal */}
+                <div class="collapsible">
+                    <button class="collapsible-header" onClick={() => toggleSection(0)}>
+                        <span class="collapsible-title">Goal</span>
+                        <span class={`collapsible-chevron ${openSections.has(0) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                     </button>
-                    {requirements.length > 0 && (
-                        <RequirementList
-                            requirements={requirements}
-                            onUpdate={setRequirements}
-                        />
-                    )}
-                    {requirements.length > 0 && (
-                        <>
-                            <button
-                                class="button"
-                                onClick={handleGenerateTasks}
-                                disabled={loadingTasks}
-                            >
-                                {loadingTasks ? 'Generating\u2026' : tasks.length > 0 ? 'Generate More Tasks' : 'Generate Tasks'}
+                    <div class={`collapsible-body ${openSections.has(0) ? 'collapsible-body--open' : ''}`}>
+                        <div class="collapsible-content">
+                            <textarea
+                                class="textarea"
+                                value={prompt}
+                                onInput={e => setPrompt(e.currentTarget.value)}
+                                placeholder="Describe your goal. What do you want to build?"
+                                disabled={loading}
+                            />
+                            {response && (
+                                <textarea class="textarea" value={response} readOnly />
+                            )}
+                            <button class="button" onClick={handleGo} disabled={loading || !prompt.trim()}>
+                                {loading ? 'Generating\u2026' : 'Generate Description'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Section 1: Requirements */}
+                {stepActive[1] && (
+                    <div class="collapsible">
+                        <button class="collapsible-header" onClick={() => toggleSection(1)}>
+                            <span class="collapsible-title">Requirements</span>
+                            <span class={`collapsible-chevron ${openSections.has(1) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
+                        </button>
+                        <div class={`collapsible-body ${openSections.has(1) ? 'collapsible-body--open' : ''}`}>
+                            <div class="collapsible-content">
+                                {requirements.length > 0 && (
+                                    <RequirementList
+                                        requirements={requirements}
+                                        onUpdate={setRequirements}
+                                    />
+                                )}
+                                <button
+                                    class="button"
+                                    onClick={handleGenerateRequirements}
+                                    disabled={loadingRequirements}
+                                >
+                                    {loadingRequirements ? 'Generating\u2026' : requirements.length > 0 ? 'Generate More' : 'Generate Requirements'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Section 2: Tasks */}
+                {stepActive[2] && (
+                    <div class="collapsible">
+                        <button class="collapsible-header" onClick={() => toggleSection(2)}>
+                            <span class="collapsible-title">Tasks</span>
                             {tasks.length > 0 && (
-                                <TaskList
-                                    tasks={tasks}
-                                    requirements={requirements}
-                                    onUpdate={setTasks}
-                                />
+                                <span class="collapsible-badge">{totalHours}h total</span>
                             )}
-                            {tasks.length > 0 && (
-                                <SummarySection
-                                    summary={summary}
-                                    loading={loadingSummary}
-                                    onGenerate={handleGenerateSummary}
-                                />
-                            )}
-                        </>
-                    )}
-                </>
-            )}
+                            <span class={`collapsible-chevron ${openSections.has(2) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
+                        </button>
+                        <div class={`collapsible-body ${openSections.has(2) ? 'collapsible-body--open' : ''}`}>
+                            <div class="collapsible-content">
+                                {tasks.length > 0 && (
+                                    <TaskList
+                                        tasks={tasks}
+                                        requirements={requirements}
+                                        onUpdate={setTasks}
+                                    />
+                                )}
+                                <button
+                                    class="button"
+                                    onClick={handleGenerateTasks}
+                                    disabled={loadingTasks}
+                                >
+                                    {loadingTasks ? 'Generating\u2026' : tasks.length > 0 ? 'Generate More Tasks' : 'Generate Tasks'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Section 3: Summary */}
+                {stepActive[3] && (
+                    <div class="collapsible">
+                        <button class="collapsible-header" onClick={() => toggleSection(3)}>
+                            <span class="collapsible-title">Summary</span>
+                            <span class={`collapsible-chevron ${openSections.has(3) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
+                        </button>
+                        <div class={`collapsible-body ${openSections.has(3) ? 'collapsible-body--open' : ''}`}>
+                            <div class="collapsible-content">
+                                {summary && (
+                                    <SummarySection
+                                        summary={summary}
+                                    />
+                                )}
+                                <button
+                                    class="button"
+                                    onClick={handleGenerateSummary}
+                                    disabled={loadingSummary}
+                                >
+                                    {loadingSummary ? 'Generating\u2026' : summary ? 'Regenerate Summary' : 'Generate Summary'}
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
             </div>
         </div>
     );

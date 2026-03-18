@@ -1,0 +1,13 @@
+{
+  "prompt": "make app",
+  "cwd": "",
+  "response": "I'd be happy to help you make an app! To get started, I need a bit more information:\n\n1. **What type of app?** (web app, CLI tool, mobile app, desktop app, etc.)\n2. **What technology/framework?** (React, Node.js, Python, Vue, etc.)\n3. **What should it do?** (brief description of functionality)\n4. **Starting from scratch or existing code?** (new project or work with existing files)\n\nCould you provide some more details about what you'd like to build?",
+  "selectedModel": "claude-haiku-4-5",
+  "requirements": [],
+  "tasks": [],
+  "summary": "",
+  "name": "wip",
+  "id": "0afe2671-ad3f-49a9-9619-c9dc9c4409b9",
+  "createdAt": "2026-03-18T06:54:08.051Z",
+  "updatedAt": "2026-03-18T06:54:08.051Z"
+}
