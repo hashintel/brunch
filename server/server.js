@@ -21,6 +21,44 @@ export const app = express();
 app.use(cors());
 app.use(express.json());
 
+// --- API call history logging ---
+const logApiCall = db.prepare(`
+    INSERT INTO api_call (method, path, status_code, model, session_id, request_body, response_body, duration_ms, error)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+`);
+
+app.use('/api', (req, res, next) => {
+    const start = Date.now();
+    const originalJson = res.json.bind(res);
+    const originalEnd = res.end.bind(res);
+    let responseBody = null;
+
+    res.json = function (body) {
+        responseBody = body;
+        return originalJson(body);
+    };
+
+    res.on('finish', () => {
+        try {
+            logApiCall.run(
+                req.method,
+                req.path,
+                res.statusCode,
+                req.body?.model ?? null,
+                req.body?.sessionId ?? req.params?.id ?? null,
+                req.method !== 'GET' ? JSON.stringify(req.body) : null,
+                responseBody ? JSON.stringify(responseBody) : null,
+                Date.now() - start,
+                res.statusCode >= 400 && responseBody?.error ? responseBody.error : null,
+            );
+        } catch (e) {
+            console.error('[db] failed to log api call:', e.message);
+        }
+    });
+
+    next();
+});
+
 app.get('/', (_req, res) => {
     res.json({ status: 'ok', endpoints: ['/api/models', '/api/stream', '/api/clarifyingquestions', '/api/streamrequirements', '/api/streamtasks', '/api/streamsummary'] });
 });
@@ -416,6 +454,31 @@ app.delete('/api/sessions/:id', async (req, res) => {
     } catch {
         res.status(404).json({ error: 'Session not found' });
     }
+});
+
+// --- API call history ---
+app.get('/api/history', (req, res) => {
+    const limit = Math.min(parseInt(req.query.limit) || 50, 500);
+    const offset = parseInt(req.query.offset) || 0;
+    const path = req.query.path;
+
+    let sql = 'SELECT * FROM api_call';
+    const params = [];
+
+    if (path) {
+        sql += ' WHERE path = ?';
+        params.push(path);
+    }
+
+    sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
+    params.push(limit, offset);
+
+    const rows = db.prepare(sql).all(...params);
+    const total = db.prepare(
+        `SELECT COUNT(*) as count FROM api_call${path ? ' WHERE path = ?' : ''}`
+    ).get(...(path ? [path] : []));
+
+    res.json({ rows, total: total.count });
 });
 
 const PORT = process.env.PORT || 3001;
