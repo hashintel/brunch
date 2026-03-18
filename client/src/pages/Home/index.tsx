@@ -1,13 +1,13 @@
 import './style.css';
-import { useEffect, useState } from 'preact/hooks';
-import type { Model, Requirement, Task, SessionMeta, Session, ClarifyingQuestion, ClarifyingAnswer, ClarifyingRound } from './types';
+import { useEffect, useRef, useState } from 'preact/hooks';
+import type { Model, Requirement, Task, SessionMeta, Session, ClarifyingQuestion, ClarifyingAnswer, ClarifyingRound, ClaudeCall } from './types';
 import { RequirementList } from './RequirementList';
 import { TaskList } from './TaskList';
 import { SummarySection } from './SummarySection';
 import { SessionPanel } from './SessionPanel';
 import { ClarifyingQuestions } from './ClarifyingQuestions';
 
-const STEPS = ['Goal', 'Questions', 'Requirements', 'Tasks', 'Summary'] as const;
+const STEPS = ['Goal', 'Requirements', 'Tasks', 'Summary'] as const;
 
 export function Home() {
     const [projectName, setProjectName] = useState('');
@@ -35,10 +35,28 @@ export function Home() {
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [openSections, setOpenSections] = useState<Set<number>>(() => new Set([0]));
+    const [callHistory, setCallHistory] = useState<ClaudeCall[]>([]);
+    const goalTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-    // Derive step statuses (5 steps)
+    // Auto-resize the goal textarea as content streams in
+    useEffect(() => {
+        const el = goalTextareaRef.current;
+        if (el) {
+            el.style.height = 'auto';
+            el.style.height = el.scrollHeight + 'px';
+        }
+    }, [prompt]);
+
+    async function refreshCallHistory() {
+        try {
+            const res = await fetch('/api/history/claude?limit=50');
+            const data = await res.json();
+            setCallHistory(data.rows);
+        } catch {}
+    }
+
+    // Derive step statuses (4 steps: Goal, Requirements, Tasks, Summary)
     const stepCompleted = [
-        response.length > 0,
         clarifyingDone,
         requirements.length > 0,
         tasks.length > 0,
@@ -46,7 +64,6 @@ export function Home() {
     ];
     const stepActive = [
         true,
-        response.length > 0,
         clarifyingDone,
         requirements.length > 0,
         tasks.length > 0,
@@ -58,7 +75,7 @@ export function Home() {
     useEffect(() => {
         setOpenSections(prev => {
             const next = new Set(prev);
-            for (let i = 0; i < 5; i++) {
+            for (let i = 0; i < 4; i++) {
                 if (stepActive[i] && !stepCompleted[i]) next.add(i);
             }
             return next;
@@ -172,7 +189,9 @@ export function Home() {
         setResponse('');
         setError('');
         setLoading(true);
+        setPrompt('');
 
+        let fullText = '';
         try {
             const res = await fetch('http://localhost:3001/api/stream', {
                 method: 'POST',
@@ -191,17 +210,25 @@ export function Home() {
             while (true) {
                 const { done, value } = await reader.read();
                 if (done) break;
-                setResponse(prev => prev + decoder.decode(value));
+                const chunk = decoder.decode(value);
+                fullText += chunk;
+                setPrompt(prev => prev + chunk);
             }
+
+            setResponse(fullText);
+            // Auto-trigger clarifying questions after goal generation
+            await generateQuestions(fullText);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Something went wrong');
         } finally {
             setLoading(false);
+            await refreshCallHistory();
         }
     }
 
-    async function handleGenerateQuestions() {
-        if (!response.trim() || loadingQuestions) return;
+    async function generateQuestions(responseText?: string) {
+        const text = responseText ?? response;
+        if (!text.trim() || loadingQuestions) return;
 
         setError('');
         setLoadingQuestions(true);
@@ -211,7 +238,7 @@ export function Home() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    prompt: response,
+                    prompt: text,
                     model: selectedModel,
                     cwd: cwd || undefined,
                     previousRounds: clarifyingRounds.length > 0 ? clarifyingRounds : undefined,
@@ -236,6 +263,7 @@ export function Home() {
             setError(e instanceof Error ? e.message : 'Failed to generate questions');
         } finally {
             setLoadingQuestions(false);
+            await refreshCallHistory();
         }
     }
 
@@ -290,6 +318,7 @@ export function Home() {
             setError(e instanceof Error ? e.message : 'Failed to generate questions');
         } finally {
             setLoadingQuestions(false);
+            await refreshCallHistory();
         }
     }
 
@@ -339,6 +368,7 @@ export function Home() {
             setError(e instanceof Error ? e.message : 'Failed to generate requirements');
         } finally {
             setLoadingRequirements(false);
+            await refreshCallHistory();
         }
     }
 
@@ -386,6 +416,7 @@ export function Home() {
             setError(e instanceof Error ? e.message : 'Failed to generate tasks');
         } finally {
             setLoadingTasks(false);
+            await refreshCallHistory();
         }
     }
 
@@ -420,6 +451,7 @@ export function Home() {
             setError(e instanceof Error ? e.message : 'Failed to generate summary');
         } finally {
             setLoadingSummary(false);
+            await refreshCallHistory();
         }
     }
 
@@ -441,6 +473,7 @@ export function Home() {
                     models={models}
                     selectedModel={selectedModel}
                     onModelChange={setSelectedModel}
+                    callHistory={callHistory}
                     disabled={loading}
                 />
             </aside>
@@ -462,79 +495,59 @@ export function Home() {
 
                 {error && <div class="error">{error}</div>}
 
-                {/* Section 0: Goal */}
+                {/* Section 0: Goal + Clarifying Questions */}
                 <div class="collapsible">
                     <button class="collapsible-header" onClick={() => toggleSection(0)}>
                         <span class="collapsible-title">Goal</span>
+                        {clarifyingRounds.length > 0 && (
+                            <span class="collapsible-badge">{clarifyingRounds.length} round{clarifyingRounds.length !== 1 ? 's' : ''}</span>
+                        )}
                         <span class={`collapsible-chevron ${openSections.has(0) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                     </button>
                     <div class={`collapsible-body ${openSections.has(0) ? 'collapsible-body--open' : ''}`}>
                         <div class="collapsible-content">
                             <textarea
+                                ref={goalTextareaRef}
                                 class="textarea"
                                 value={prompt}
                                 onInput={e => setPrompt(e.currentTarget.value)}
                                 placeholder="Describe your goal. What do you want to build?"
                                 disabled={loading}
                             />
-                            {response && (
-                                <textarea class="textarea" value={response} readOnly />
+                            {response ? (
+                                <>
+                                    {clarifyingDone && currentQuestions.length === 0 && (
+                                        <div class="clarifying-done-message">
+                                            Clarification complete — ready to generate requirements.
+                                        </div>
+                                    )}
+                                    <ClarifyingQuestions
+                                        currentQuestions={currentQuestions}
+                                        currentAnswers={currentAnswers}
+                                        onUpdateAnswer={handleUpdateAnswer}
+                                        previousRounds={clarifyingRounds}
+                                        onSubmitAnswers={handleSubmitAnswers}
+                                        onSkipAll={handleSkipAll}
+                                        loading={loadingQuestions}
+                                    />
+                                </>
+                            ) : (
+                                <button class="button" onClick={handleGo} disabled={loading || !prompt.trim()}>
+                                    {loading ? 'Generating\u2026' : 'Generate'}
+                                </button>
                             )}
-                            <button class="button" onClick={handleGo} disabled={loading || !prompt.trim()}>
-                                {loading ? 'Generating\u2026' : 'Generate Description'}
-                            </button>
                         </div>
                     </div>
                 </div>
 
-                {/* Section 1: Clarifying Questions */}
+                {/* Section 1: Requirements */}
                 {stepActive[1] && (
                     <div class="collapsible">
                         <button class="collapsible-header" onClick={() => toggleSection(1)}>
-                            <span class="collapsible-title">Clarifying Questions</span>
-                            {clarifyingRounds.length > 0 && (
-                                <span class="collapsible-badge">{clarifyingRounds.length} round{clarifyingRounds.length !== 1 ? 's' : ''}</span>
-                            )}
+                            <span class="collapsible-title">Requirements</span>
                             <span class={`collapsible-chevron ${openSections.has(1) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                         </button>
                         <div class={`collapsible-body ${openSections.has(1) ? 'collapsible-body--open' : ''}`}>
-                            <div class="collapsible-content">
-                                {clarifyingDone && currentQuestions.length === 0 && (
-                                    <div class="clarifying-done-message">
-                                        Clarification complete — ready to generate requirements.
-                                    </div>
-                                )}
-                                <ClarifyingQuestions
-                                    currentQuestions={currentQuestions}
-                                    currentAnswers={currentAnswers}
-                                    onUpdateAnswer={handleUpdateAnswer}
-                                    previousRounds={clarifyingRounds}
-                                    onSubmitAnswers={handleSubmitAnswers}
-                                    onSkipAll={handleSkipAll}
-                                    loading={loadingQuestions}
-                                />
-                                {!clarifyingDone && currentQuestions.length === 0 && (
-                                    <button
-                                        class="button"
-                                        onClick={handleGenerateQuestions}
-                                        disabled={loadingQuestions}
-                                    >
-                                        {loadingQuestions ? 'Generating\u2026' : 'Generate Questions'}
-                                    </button>
-                                )}
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* Section 2: Requirements */}
-                {stepActive[2] && (
-                    <div class="collapsible">
-                        <button class="collapsible-header" onClick={() => toggleSection(2)}>
-                            <span class="collapsible-title">Requirements</span>
-                            <span class={`collapsible-chevron ${openSections.has(2) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
-                        </button>
-                        <div class={`collapsible-body ${openSections.has(2) ? 'collapsible-body--open' : ''}`}>
                             <div class="collapsible-content">
                                 {requirements.length > 0 && (
                                     <RequirementList
@@ -554,17 +567,17 @@ export function Home() {
                     </div>
                 )}
 
-                {/* Section 3: Tasks */}
-                {stepActive[3] && (
+                {/* Section 2: Tasks */}
+                {stepActive[2] && (
                     <div class="collapsible">
-                        <button class="collapsible-header" onClick={() => toggleSection(3)}>
+                        <button class="collapsible-header" onClick={() => toggleSection(2)}>
                             <span class="collapsible-title">Tasks</span>
                             {tasks.length > 0 && (
                                 <span class="collapsible-badge">{totalHours}h total</span>
                             )}
-                            <span class={`collapsible-chevron ${openSections.has(3) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
+                            <span class={`collapsible-chevron ${openSections.has(2) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                         </button>
-                        <div class={`collapsible-body ${openSections.has(3) ? 'collapsible-body--open' : ''}`}>
+                        <div class={`collapsible-body ${openSections.has(2) ? 'collapsible-body--open' : ''}`}>
                             <div class="collapsible-content">
                                 {tasks.length > 0 && (
                                     <TaskList
@@ -585,14 +598,14 @@ export function Home() {
                     </div>
                 )}
 
-                {/* Section 4: Summary */}
-                {stepActive[4] && (
+                {/* Section 3: Summary */}
+                {stepActive[3] && (
                     <div class="collapsible">
-                        <button class="collapsible-header" onClick={() => toggleSection(4)}>
+                        <button class="collapsible-header" onClick={() => toggleSection(3)}>
                             <span class="collapsible-title">Summary</span>
-                            <span class={`collapsible-chevron ${openSections.has(4) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
+                            <span class={`collapsible-chevron ${openSections.has(3) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                         </button>
-                        <div class={`collapsible-body ${openSections.has(4) ? 'collapsible-body--open' : ''}`}>
+                        <div class={`collapsible-body ${openSections.has(3) ? 'collapsible-body--open' : ''}`}>
                             <div class="collapsible-content">
                                 {summary && (
                                     <SummarySection

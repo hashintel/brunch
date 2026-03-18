@@ -35,3 +35,17 @@ export type Session = {
 };
 
 export type SessionMeta = Pick<Session, 'id' | 'name' | 'updatedAt'>;
+
+export interface ClaudeCall {
+    pk: number;
+    model: string;
+    caller: string;
+    prompt: string | null;
+    response: string | null;
+    input_tokens: number | null;
+    output_tokens: number | null;
+    duration_ms: number | null;
+    status: string;
+    error: string | null;
+    created_at: string;
+}

@@ -1,4 +1,23 @@
-import type { Model, SessionMeta } from './types';
+import { useState } from 'preact/hooks';
+import type { Model, SessionMeta, ClaudeCall } from './types';
+
+function callerLabel(caller: string): string {
+    if (caller === 'streamQueryText') return 'Goal / Summary';
+    if (caller === 'queryStructured') return 'Questions / Requirements / Tasks';
+    return caller;
+}
+
+function formatDuration(ms: number | null): string {
+    if (ms == null) return '—';
+    return (ms / 1000).toFixed(1) + 's';
+}
+
+function formatTokens(input: number | null, output: number | null): string {
+    const parts: string[] = [];
+    if (input != null) parts.push(`${input} in`);
+    if (output != null) parts.push(`${output} out`);
+    return parts.length > 0 ? parts.join(' / ') : '—';
+}
 
 type Props = {
     sessions: SessionMeta[];
@@ -15,14 +34,17 @@ type Props = {
     models: Model[];
     selectedModel: string;
     onModelChange: (v: string) => void;
+    callHistory: ClaudeCall[];
     disabled: boolean;
 };
 
 export function SessionPanel({
     sessions, currentSessionId, onLoad, onDelete, onNew, onSave, saving,
     projectName, onProjectNameChange, cwd, onCwdChange,
-    models, selectedModel, onModelChange, disabled,
+    models, selectedModel, onModelChange, callHistory, disabled,
 }: Props) {
+    const [expandedCall, setExpandedCall] = useState<number | null>(null);
+
     return (
         <div class="sidebar-inner">
                         <div class="sidebar-section">
@@ -86,7 +108,41 @@ export function SessionPanel({
                         </button>
             </div>
 
-
+            <div class="sidebar-section">
+                <strong class="sidebar-section-title">LLM Calls</strong>
+                {callHistory.length === 0 && <p class="session-empty">No calls yet.</p>}
+                <div class="call-history">
+                    {callHistory.map(call => {
+                        const isExpanded = expandedCall === call.pk;
+                        const promptPreview = call.prompt
+                            ? (call.prompt.length > 80 ? call.prompt.slice(0, 80) + '\u2026' : call.prompt)
+                            : '(no prompt)';
+                        return (
+                            <div
+                                key={call.pk}
+                                class="call-history-item"
+                                onClick={() => setExpandedCall(isExpanded ? null : call.pk)}
+                            >
+                                <div class="call-history-header">
+                                    <span class={`call-history-status ${call.status === 'success' ? 'call-history-status--ok' : 'call-history-status--err'}`} />
+                                    <span class="call-history-caller">{callerLabel(call.caller)}</span>
+                                </div>
+                                <div class="call-history-meta">
+                                    <span class="call-history-model">{call.model}</span>
+                                    <span>{formatDuration(call.duration_ms)}</span>
+                                    <span>{formatTokens(call.input_tokens, call.output_tokens)}</span>
+                                </div>
+                                {!isExpanded && (
+                                    <div class="call-history-preview">{promptPreview}</div>
+                                )}
+                                {isExpanded && (
+                                    <div class="call-history-full">{call.prompt ?? '(no prompt)'}</div>
+                                )}
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
         </div>
     );
 }

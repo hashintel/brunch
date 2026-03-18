@@ -810,6 +810,12 @@ tr.requirement--drag-over td {
     .clarifying-card { border-color: #555; background-color: #2a2a2a; }
     .clarifying-card-question { color: #ccc; }
     .clarifying-card-why { color: #999; border-left-color: #a07ee0; }
+    .clarifying-dot { border-color: #555; background: #1a1a1a; }
+    .clarifying-dot:hover { border-color: #a07ee0; }
+    .clarifying-dot--active { border-color: #a07ee0; background: #a07ee0; }
+    .clarifying-dot--answered { border-color: #22c55e; background: #22c55e; }
+    .clarifying-dot--active.clarifying-dot--answered { border-color: #a07ee0; background: #a07ee0; box-shadow: 0 0 0 2px #22c55e; }
+    .clarifying-counter { color: #777; }
     .clarifying-option { border-color: #555; color: #ccc; }
     .clarifying-option:hover { border-color: #a07ee0; background-color: #a07ee010; }
     .clarifying-option--selected { border-color: #a07ee0; background-color: #a07ee018; }
@@ -1033,6 +1039,162 @@ tr.requirement--drag-over td {
     color: #c00;
 }
 
+/* ── Clarifying Question Navigation ── */
+.clarifying-nav {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
+
+.clarifying-dots {
+    display: flex;
+    gap: 0.35rem;
+}
+
+.clarifying-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    border: 2px solid #ccc;
+    background: #fff;
+    padding: 0;
+    cursor: pointer;
+    transition: all 0.15s ease;
+}
+
+.clarifying-dot:hover {
+    border-color: #673ab8;
+}
+
+.clarifying-dot--active {
+    border-color: #673ab8;
+    background: #673ab8;
+}
+
+.clarifying-dot--answered {
+    border-color: #22c55e;
+    background: #22c55e;
+}
+
+.clarifying-dot--active.clarifying-dot--answered {
+    border-color: #673ab8;
+    background: #673ab8;
+    box-shadow: 0 0 0 2px #22c55e;
+}
+
+.clarifying-counter {
+    font-size: 0.78rem;
+    color: #888;
+    font-weight: 500;
+}
+
+.clarifying-card {
+    animation: clarifyingReveal 0.25s ease-out;
+}
+
+@keyframes clarifyingReveal {
+    from {
+        opacity: 0;
+        transform: translateX(12px);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+/* ── Call History ── */
+.call-history {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.call-history-item {
+    padding: 0.5rem 0.6rem;
+    border: 1px solid #e2e2e5;
+    border-radius: 0.35rem;
+    background-color: #fff;
+    cursor: pointer;
+    font-size: 0.78rem;
+    transition: border-color 0.15s ease, background-color 0.1s ease;
+}
+
+.call-history-item:hover {
+    border-color: #ccc;
+    background-color: #f9f9fb;
+}
+
+.call-history-header {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    margin-bottom: 0.2rem;
+}
+
+.call-history-status {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    flex-shrink: 0;
+}
+
+.call-history-status--ok {
+    background-color: #22c55e;
+}
+
+.call-history-status--err {
+    background-color: #ef4444;
+}
+
+.call-history-caller {
+    font-weight: 600;
+    font-size: 0.78rem;
+    color: #333;
+}
+
+.call-history-meta {
+    display: flex;
+    gap: 0.5rem;
+    font-size: 0.7rem;
+    color: #888;
+    margin-bottom: 0.25rem;
+    flex-wrap: wrap;
+}
+
+.call-history-model {
+    background-color: #f0f0f2;
+    padding: 0.05rem 0.35rem;
+    border-radius: 0.2rem;
+    font-size: 0.68rem;
+    font-weight: 500;
+    color: #666;
+}
+
+.call-history-preview {
+    font-size: 0.72rem;
+    color: #999;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.call-history-full {
+    font-size: 0.72rem;
+    color: #555;
+    white-space: pre-wrap;
+    word-break: break-word;
+    max-height: 200px;
+    overflow-y: auto;
+    margin-top: 0.25rem;
+    padding: 0.4rem;
+    background-color: #f5f5f5;
+    border: 1px solid #e2e2e5;
+    border-radius: 0.25rem;
+}
+
 @media (prefers-color-scheme: dark) {
     .sidebar {
         background-color: #1a1a1e;
@@ -1084,6 +1246,32 @@ tr.requirement--drag-over td {
     }
     .session-item-delete:hover {
         color: #f88;
+    }
+    .call-history-item {
+        border-color: #444;
+        background-color: #252528;
+    }
+    .call-history-item:hover {
+        border-color: #555;
+        background-color: #2a2a2e;
+    }
+    .call-history-caller {
+        color: #ccc;
+    }
+    .call-history-meta {
+        color: #777;
+    }
+    .call-history-model {
+        background-color: #333;
+        color: #aaa;
+    }
+    .call-history-preview {
+        color: #888;
+    }
+    .call-history-full {
+        color: #aaa;
+        border-color: #444;
+        background-color: #1f1f22;
     }
 }
 
