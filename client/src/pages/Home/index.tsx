@@ -92,8 +92,9 @@ export function Home() {
     async function refreshCallHistory() {
         try {
             const res = await fetch('/api/history/claude?limit=50');
+            if (!res.ok) return;
             const data = await res.json();
-            setCallHistory(data.rows);
+            setCallHistory(data.rows ?? []);
         } catch {}
     }
 
@@ -136,6 +137,7 @@ export function Home() {
     useEffect(() => {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
         fetch('/api/sessions').then(r => r.json()).then(setSessions).catch(() => {});
+        refreshCallHistory();
     }, []);
 
     // Load session from URL param on mount
