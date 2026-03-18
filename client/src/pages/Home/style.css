@@ -448,6 +448,25 @@
     gap: 0.5rem;
 }
 
+.requirement-add-btn {
+    background: none;
+    border: 1px dashed #ccc;
+    border-radius: 0.4rem;
+    padding: 0.5rem;
+    font-size: 0.85rem;
+    font-family: inherit;
+    color: #888;
+    cursor: pointer;
+    width: 100%;
+    text-align: center;
+    transition: color 0.15s ease, border-color 0.15s ease;
+}
+
+.requirement-add-btn:hover {
+    color: #673ab8;
+    border-color: #673ab8;
+}
+
 .button-small {
     padding: 0.3rem 0.75rem;
     font-size: 0.85rem;
@@ -654,6 +673,14 @@
         border-color: #555;
         background-color: #333;
         color: #ccc;
+    }
+    .requirement-add-btn {
+        border-color: #555;
+        color: #777;
+    }
+    .requirement-add-btn:hover {
+        color: #a07ee0;
+        border-color: #a07ee0;
     }
     .task {
         border-color: #555;
