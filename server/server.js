@@ -4,6 +4,7 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import { resolve } from 'node:path';
 import { mkdir, readdir, readFile, writeFile, unlink } from 'node:fs/promises';
 import crypto from 'node:crypto';
+import db from './db.js';
 
 export const MODELS = [
     { id: 'claude-haiku-4-5', label: 'Claude Haiku 4.5', provider: 'Anthropic' },
