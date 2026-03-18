@@ -26,6 +26,9 @@ interface Props {
     onGenerateTests: (id: string) => void;
     generatingChildrenId: string | null;
     generatingTestsId: string | null;
+    pendingTests: { reqId: string; tests: TestCase[] } | null;
+    onApprovePendingTests: (approved: TestCase[]) => void;
+    onCancelPendingTests: () => void;
 }
 
 const STAGE_ORDER: Requirement['stage'][] = ['proposal', 'approved', 'completed'];
@@ -220,6 +223,78 @@ function EditModal({
                 </div>
                 <div class="modal-footer">
                     <button class="button button-small" onClick={onSave} disabled={!draft.title.trim()}>Save</button>
+                    <button class="button button-small button-secondary" onClick={onCancel}>Cancel</button>
+                </div>
+            </div>
+        </div>
+    );
+}
+
+// ── Approve Tests Modal ──
+
+function ApproveTestsModal({
+    tests,
+    requirementTitle,
+    onApprove,
+    onCancel,
+}: {
+    tests: TestCase[];
+    requirementTitle: string;
+    onApprove: (approved: TestCase[]) => void;
+    onCancel: () => void;
+}) {
+    const [checked, setChecked] = useState<boolean[]>(() => tests.map(() => true));
+    const backdropRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onCancel(); }
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [onCancel]);
+
+    function toggleAll() {
+        const allChecked = checked.every(Boolean);
+        setChecked(tests.map(() => !allChecked));
+    }
+
+    const selectedCount = checked.filter(Boolean).length;
+
+    return (
+        <div class="modal-backdrop" ref={backdropRef}
+            onClick={e => { if (e.target === backdropRef.current) onCancel(); }}>
+            <div class="modal">
+                <div class="modal-header">
+                    <strong>Approve Generated Tests</strong>
+                    <button class="modal-close" onClick={onCancel}>&times;</button>
+                </div>
+                <div class="modal-body">
+                    <p class="approve-tests-subtitle">
+                        {tests.length} test{tests.length !== 1 ? 's' : ''} generated for <strong>{requirementTitle}</strong>. Select which to add:
+                    </p>
+                    <label class="approve-tests-select-all">
+                        <input type="checkbox" checked={checked.every(Boolean)}
+                            ref={el => { if (el) el.indeterminate = selectedCount > 0 && selectedCount < tests.length; }}
+                            onChange={toggleAll} />
+                        Select all
+                    </label>
+                    <div class="approve-tests-list">
+                        {tests.map((t, i) => (
+                            <label key={i} class={`approve-test-item ${checked[i] ? 'approve-test-item--checked' : ''}`}>
+                                <input type="checkbox" checked={checked[i]}
+                                    onChange={() => setChecked(prev => prev.map((v, j) => j === i ? !v : v))} />
+                                <div class="approve-test-item-content">
+                                    <span class={`test-entry-type test-entry-type--${t.type}`}>{TEST_TYPE_LABELS[t.type]}</span>
+                                    <span class="approve-test-item-desc">{t.description}</span>
+                                </div>
+                            </label>
+                        ))}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button class="button button-small" onClick={() => onApprove(tests.filter((_, i) => checked[i]))}
+                        disabled={selectedCount === 0}>
+                        Add {selectedCount} Test{selectedCount !== 1 ? 's' : ''}
+                    </button>
                     <button class="button button-small button-secondary" onClick={onCancel}>Cancel</button>
                 </div>
             </div>
@@ -541,7 +616,7 @@ function CanvasView({
 
 // ── Main component ──
 
-export function RequirementList({ requirements, onUpdate, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId }: Props) {
+export function RequirementList({ requirements, onUpdate, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId, pendingTests, onApprovePendingTests, onCancelPendingTests }: Props) {
     const [view, setView] = useState<'list' | 'table' | 'canvas'>('list');
     const [search, setSearch] = useState('');
     const [sort, setSort] = useState<SortField>('none');
@@ -700,6 +775,17 @@ export function RequirementList({ requirements, onUpdate, onGenerateChildren, on
                     onChange={draft => setModal({ ...modal, draft })}
                     onSave={handleModalSave} onCancel={() => setModal(null)} />
             )}
+            {pendingTests && (() => {
+                const req = findInTree(requirements, pendingTests.reqId);
+                return (
+                    <ApproveTestsModal
+                        tests={pendingTests.tests}
+                        requirementTitle={req?.title ?? 'Unknown'}
+                        onApprove={onApprovePendingTests}
+                        onCancel={onCancelPendingTests}
+                    />
+                );
+            })()}
 
             <div class="requirements-toolbar">
                 <div class="requirements-view-toggle">

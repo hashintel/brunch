@@ -68,6 +68,7 @@ export function Home() {
     const [loadingRequirements, setLoadingRequirements] = useState(false);
     const [generatingChildrenId, setGeneratingChildrenId] = useState<string | null>(null);
     const [generatingTestsId, setGeneratingTestsId] = useState<string | null>(null);
+    const [pendingTests, setPendingTests] = useState<{ reqId: string; tests: import('./types').TestCase[] } | null>(null);
 
     // Goal iterations (previous revisions, read-only)
     const [goalIterations, setGoalIterations] = useState<GoalIteration[]>([]);
@@ -618,15 +619,26 @@ export function Home() {
             }
             const data = await res.json();
             const newTests = Array.isArray(data.tests) ? data.tests : [];
-            setRequirements(prev => updateInTree(prev, reqId, r => ({
-                ...r, tests: [...r.tests, ...newTests],
-            })));
+            if (newTests.length > 0) {
+                setPendingTests({ reqId, tests: newTests });
+            }
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to generate tests');
         } finally {
             setGeneratingTestsId(null);
             await refreshCallHistory();
         }
+    }
+
+    function handleApprovePendingTests(approved: import('./types').TestCase[]) {
+        if (!pendingTests) return;
+        const { reqId } = pendingTests;
+        if (approved.length > 0) {
+            setRequirements(prev => updateInTree(prev, reqId, r => ({
+                ...r, tests: [...r.tests, ...approved],
+            })));
+        }
+        setPendingTests(null);
     }
 
     const anyBusy = loading || updatingGoal || loadingQuestions;
@@ -763,6 +775,9 @@ export function Home() {
                                         onGenerateTests={handleGenerateTests}
                                         generatingChildrenId={generatingChildrenId}
                                         generatingTestsId={generatingTestsId}
+                                        pendingTests={pendingTests}
+                                        onApprovePendingTests={handleApprovePendingTests}
+                                        onCancelPendingTests={() => setPendingTests(null)}
                                     />
                                 )}
                                 <button
