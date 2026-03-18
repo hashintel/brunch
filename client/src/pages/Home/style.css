@@ -683,12 +683,96 @@ tr.requirement--drag-over td {
     color: #065f46;
 }
 
+/* ── Global tests toggle ── */
+.tests-global-toggle {
+    padding: 0.25rem 0.6rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border: 1px solid #d0d0d5;
+    border-radius: 0.3rem;
+    background: #fff;
+    color: #555;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    font-family: inherit;
+}
+.tests-global-toggle:hover {
+    border-color: #a07ee0;
+    color: #a07ee0;
+}
+.tests-global-toggle--active {
+    background: #a07ee0;
+    color: #fff;
+    border-color: #a07ee0;
+}
+.tests-global-toggle--active:hover {
+    background: #8a64cc;
+    border-color: #8a64cc;
+    color: #fff;
+}
+
+/* ── Per-row test toggle ── */
+.test-entries-wrapper {
+    margin-top: 0.35rem;
+}
+.test-entries-wrapper--compact {
+    margin-top: 0;
+}
+
+.test-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.1rem 0.3rem;
+    font-size: 0.72rem;
+    font-weight: 500;
+    color: #777;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: inherit;
+    border-radius: 0.2rem;
+    transition: color 0.15s ease;
+}
+.test-toggle-btn:hover {
+    color: #a07ee0;
+}
+.test-toggle-chevron {
+    display: inline-block;
+    font-size: 0.5rem;
+    transition: transform 0.15s ease;
+}
+.test-toggle-chevron--open {
+    transform: rotate(90deg);
+}
+
+.test-badges-inline {
+    display: inline-flex;
+    gap: 0.25rem;
+    margin-left: 0.3rem;
+    flex-wrap: wrap;
+}
+
+.test-badge {
+    display: inline-block;
+    padding: 0.05rem 0.35rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    border-radius: 0.2rem;
+    white-space: nowrap;
+}
+
+.test-badge--static_analysis { background-color: #e0e7ff; color: #3730a3; }
+.test-badge--programmatic_test { background-color: #d1fae5; color: #065f46; }
+.test-badge--llm_review { background-color: #fef3c7; color: #92400e; }
+.test-badge--human_review { background-color: #fce7f3; color: #9d174d; }
+
 /* ── Test Entries (nested display) ── */
 .test-entries {
     display: flex;
     flex-direction: column;
     gap: 0.25rem;
-    margin-top: 0.5rem;
+    margin-top: 0.25rem;
     padding-left: 0.75rem;
     border-left: 2px solid #e2e2e5;
 }
@@ -1365,6 +1449,16 @@ tr.requirement--drag-over td {
         border-color: #a07ee0;
     }
     .test-entries { border-left-color: #444; }
+    .test-badge--static_analysis { background-color: #312e81; color: #c7d2fe; }
+    .test-badge--programmatic_test { background-color: #064e3b; color: #d1fae5; }
+    .test-badge--llm_review { background-color: #78350f; color: #fef3c7; }
+    .test-badge--human_review { background-color: #831843; color: #fce7f3; }
+    .test-toggle-btn { color: #888; }
+    .test-toggle-btn:hover { color: #a07ee0; }
+    .tests-global-toggle { background: #2a2a2e; border-color: #555; color: #999; }
+    .tests-global-toggle:hover { border-color: #a07ee0; color: #a07ee0; }
+    .tests-global-toggle--active { background: #a07ee0; color: #fff; border-color: #a07ee0; }
+    .tests-global-toggle--active:hover { background: #8a64cc; border-color: #8a64cc; color: #fff; }
     .test-entry-desc { color: #999; }
     .test-entry-type--static_analysis { background-color: #312e81; color: #c7d2fe; }
     .test-entry-type--programmatic_test { background-color: #064e3b; color: #d1fae5; }

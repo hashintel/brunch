@@ -222,18 +222,33 @@ function EditModal({
     );
 }
 
-// ── Test entries (nested display) ──
+// ── Test entries (nested display with local toggle) ──
 
-function TestEntries({ tests }: { tests: TestCase[] }) {
+function TestEntries({ tests, visible, onToggle, compact }: { tests: TestCase[]; visible: boolean; onToggle: () => void; compact?: boolean }) {
     if (tests.length === 0) return null;
     return (
-        <div class="test-entries">
-            {tests.map((t, i) => (
-                <div key={i} class="test-entry">
-                    <span class={`test-entry-type test-entry-type--${t.type}`}>{TEST_TYPE_LABELS[t.type]}</span>
-                    {t.description && <span class="test-entry-desc">{t.description}</span>}
+        <div class={`test-entries-wrapper ${compact ? 'test-entries-wrapper--compact' : ''}`}>
+            <button class="test-toggle-btn" onClick={onToggle}>
+                <span class={`test-toggle-chevron ${visible ? 'test-toggle-chevron--open' : ''}`}>&#9654;</span>
+                {tests.length} test{tests.length !== 1 ? 's' : ''}
+                {!visible && (
+                    <span class="test-badges-inline">
+                        {tests.map((t, i) => (
+                            <span key={i} class={`test-badge test-badge--${t.type}`}>{TEST_TYPE_LABELS[t.type]}</span>
+                        ))}
+                    </span>
+                )}
+            </button>
+            {visible && (
+                <div class={`test-entries ${compact ? 'test-entries--compact' : ''}`}>
+                    {tests.map((t, i) => (
+                        <div key={i} class={`test-entry ${compact ? 'test-entry--compact' : ''}`}>
+                            <span class={`test-entry-type test-entry-type--${t.type}`}>{TEST_TYPE_LABELS[t.type]}</span>
+                            {t.description && <span class="test-entry-desc">{t.description}</span>}
+                        </div>
+                    ))}
                 </div>
-            ))}
+            )}
         </div>
     );
 }
@@ -241,7 +256,7 @@ function TestEntries({ tests }: { tests: TestCase[] }) {
 // ── Sortable card (list view DnD) ──
 
 function SortableItem({
-    item, onEdit, onRemove, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId, projectedDepth, isDragOverlay,
+    item, onEdit, onRemove, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId, testsVisible, onToggleTests, projectedDepth, isDragOverlay,
 }: {
     item: FlatItem;
     onEdit: (id: string) => void;
@@ -250,6 +265,8 @@ function SortableItem({
     onGenerateTests: (id: string) => void;
     generatingChildrenId: string | null;
     generatingTestsId: string | null;
+    testsVisible: boolean;
+    onToggleTests: (id: string) => void;
     projectedDepth?: number;
     isDragOverlay?: boolean;
 }) {
@@ -278,7 +295,7 @@ function SortableItem({
                 </div>
             </div>
             <p>{item.req.definition}</p>
-            <TestEntries tests={item.req.tests} />
+            <TestEntries tests={item.req.tests} visible={testsVisible} onToggle={() => onToggleTests(item.id)} />
             <div class="requirement-card-footer">
                 <button class="requirement-expand-btn" onClick={() => onGenerateChildren(item.id)} disabled={generatingChildrenId === item.id}>
                     {generatingChildrenId === item.id ? 'Generating\u2026' : 'Generate Subrequirements'}
@@ -367,7 +384,7 @@ function computeLayout(requirements: Requirement[]): Record<string, NodePos> {
 }
 
 function CanvasView({
-    requirements, onEdit, onRemove, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId,
+    requirements, onEdit, onRemove, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId, isTestsVisible, onToggleTests,
 }: {
     requirements: Requirement[];
     onEdit: (id: string) => void;
@@ -376,6 +393,8 @@ function CanvasView({
     onGenerateTests: (id: string) => void;
     generatingChildrenId: string | null;
     generatingTestsId: string | null;
+    isTestsVisible: (id: string) => boolean;
+    onToggleTests: (id: string) => void;
 }) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [positions, setPositions] = useState<Record<string, NodePos>>({});
@@ -498,7 +517,7 @@ function CanvasView({
                                 <span class={`requirement-stage requirement-stage--${item.req.stage}`}>{STAGE_LABELS[item.req.stage]}</span>
                             </div>
                             <p class="canvas-node-def">{item.req.definition}</p>
-                            <TestEntries tests={item.req.tests} />
+                            <TestEntries tests={item.req.tests} visible={isTestsVisible(item.id)} onToggle={() => onToggleTests(item.id)} compact />
                             <div class="canvas-node-actions-bottom">
                                 <button class="requirement-expand-btn" onClick={() => onGenerateChildren(item.id)} disabled={generatingChildrenId === item.id}>
                                     {generatingChildrenId === item.id ? 'Generating\u2026' : 'Subreqs'}
@@ -522,6 +541,27 @@ export function RequirementList({ requirements, onUpdate, onGenerateChildren, on
     const [search, setSearch] = useState('');
     const [sort, setSort] = useState<SortField>('none');
     const [stageFilter, setStageFilter] = useState<StageFilter>('all');
+    const [showTestsGlobal, setShowTestsGlobal] = useState(false);
+    const [testsExpandedIds, setTestsExpandedIds] = useState<Set<string>>(new Set());
+
+    function isTestsVisible(id: string): boolean {
+        if (testsExpandedIds.has(id)) return !showTestsGlobal; // locally overridden
+        return showTestsGlobal;
+    }
+
+    function toggleTestsForId(id: string) {
+        setTestsExpandedIds(prev => {
+            const next = new Set(prev);
+            if (next.has(id)) next.delete(id);
+            else next.add(id);
+            return next;
+        });
+    }
+
+    function toggleTestsGlobal() {
+        setShowTestsGlobal(prev => !prev);
+        setTestsExpandedIds(new Set()); // reset local overrides
+    }
 
     const [modal, setModal] = useState<{
         mode: 'edit' | 'add';
@@ -665,6 +705,10 @@ export function RequirementList({ requirements, onUpdate, onGenerateChildren, on
                     <button class={`view-toggle-btn ${view === 'canvas' ? 'view-toggle-btn--active' : ''}`}
                         onClick={() => setView('canvas')}>Canvas</button>
                 </div>
+                <button class={`tests-global-toggle ${showTestsGlobal ? 'tests-global-toggle--active' : ''}`}
+                    onClick={toggleTestsGlobal} title={showTestsGlobal ? 'Hide all tests' : 'Show all tests'}>
+                    {showTestsGlobal ? 'Hide Tests' : 'Show Tests'}
+                </button>
 
                 {view === 'table' && (
                     <div class="requirements-filters">
@@ -714,14 +758,7 @@ export function RequirementList({ requirements, onUpdate, onGenerateChildren, on
                                     <td><span class={`requirement-stage requirement-stage--${item.req.stage}`}>{STAGE_LABELS[item.req.stage]}</span></td>
                                     <td>
                                         {item.req.tests.length > 0
-                                            ? <div class="test-entries test-entries--compact">
-                                                {item.req.tests.map((t, ti) => (
-                                                    <div key={ti} class="test-entry test-entry--compact">
-                                                        <span class={`test-entry-type test-entry-type--${t.type}`}>{TEST_TYPE_LABELS[t.type]}</span>
-                                                        {t.description && <span class="test-entry-desc">{t.description}</span>}
-                                                    </div>
-                                                ))}
-                                            </div>
+                                            ? <TestEntries tests={item.req.tests} visible={isTestsVisible(item.id)} onToggle={() => toggleTestsForId(item.id)} compact />
                                             : <span class="test-count test-count--none">--</span>}
                                     </td>
                                     <td class="requirements-table-actions">
@@ -749,6 +786,8 @@ export function RequirementList({ requirements, onUpdate, onGenerateChildren, on
                         onGenerateTests={onGenerateTests}
                         generatingChildrenId={generatingChildrenId}
                         generatingTestsId={generatingTestsId}
+                        isTestsVisible={isTestsVisible}
+                        onToggleTests={toggleTestsForId}
                     />
                     <button class="requirement-add-btn" onClick={openAdd}>+ Add requirement</button>
                 </>
@@ -763,6 +802,7 @@ export function RequirementList({ requirements, onUpdate, onGenerateChildren, on
                                 onEdit={openEditById} onRemove={handleRemoveById}
                                 onGenerateChildren={onGenerateChildren} onGenerateTests={onGenerateTests}
                                 generatingChildrenId={generatingChildrenId} generatingTestsId={generatingTestsId}
+                                testsVisible={isTestsVisible(item.id)} onToggleTests={toggleTestsForId}
                                 projectedDepth={
                                     activeId && overId && item.id !== activeId ? undefined
                                     : item.id === activeId && projectedDepth != null ? projectedDepth
@@ -775,6 +815,7 @@ export function RequirementList({ requirements, onUpdate, onGenerateChildren, on
                             <SortableItem item={activeItem} onEdit={() => {}} onRemove={() => {}}
                                 onGenerateChildren={() => {}} onGenerateTests={() => {}}
                                 generatingChildrenId={null} generatingTestsId={null}
+                                testsVisible={isTestsVisible(activeItem.id)} onToggleTests={() => {}}
                                 projectedDepth={projectedDepth ?? activeItem.depth} isDragOverlay />
                         )}
                     </DragOverlay>
