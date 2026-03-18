@@ -12,6 +12,7 @@ export function App() {
 			<main>
 				<Router>
 					<Route path="/" component={Home} />
+					<Route path="/session/:id" component={Home} />
 					<Route default component={NotFound} />
 				</Router>
 			</main>

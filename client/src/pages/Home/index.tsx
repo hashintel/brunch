@@ -1,5 +1,6 @@
 import './style.css';
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { useRoute, useLocation } from 'preact-iso';
 import type { Model, Requirement, Task, SessionMeta, Session, ClarifyingQuestion, ClarifyingAnswer, GoalIteration, ClaudeCall } from './types';
 import { RequirementList } from './RequirementList';
 import { TaskList } from './TaskList';
@@ -43,6 +44,8 @@ function buildPreviousRounds(iterations: GoalIteration[], questions: ClarifyingQ
 }
 
 export function Home() {
+    const { params } = useRoute();
+    const { route } = useLocation();
     const [projectName, setProjectName] = useState('');
     const [prompt, setPrompt] = useState('');
     const [cwd, setCwd] = useState('');
@@ -134,6 +137,25 @@ export function Home() {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
         fetch('/api/sessions').then(r => r.json()).then(setSessions).catch(() => {});
     }, []);
+
+    // Load session from URL param on mount
+    useEffect(() => {
+        if (params.id && params.id !== currentSessionId) {
+            handleLoadSession(params.id);
+        }
+    }, [params.id]);
+
+    // Update URL when session changes
+    useEffect(() => {
+        if (currentSessionId) {
+            const target = `/session/${currentSessionId}`;
+            if (location.pathname !== target) {
+                route(target, true);
+            }
+        } else if (location.pathname !== '/') {
+            route('/', true);
+        }
+    }, [currentSessionId]);
 
     async function refreshSessions() {
         const res = await fetch('/api/sessions');

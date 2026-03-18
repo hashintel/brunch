@@ -1,127 +1,515 @@
 {
-  "prompt": "I'd be happy to help with your testing infra project proposal! However, I need a bit more information to provide the best assistance. Could you clarify what you'd like me to do?\n\n**Are you looking to:**\n\n1. **Create/write a testing infra proposal** - I can help draft a comprehensive proposal document\n2. **Review an existing proposal** - I can provide feedback on a proposal you've already written (please share the content or file)\n3. **Plan the implementation** - I can help design the architecture and implementation strategy for a testing infrastructure project\n4. **Explore your codebase** - I can examine your current testing setup and suggest improvements\n5. **Something else** - Please describe what you need\n\nIf you have a proposal document or specific details about your project, feel free to share them and I'll dive in!",
+  "prompt": "# Updated Project Goal: Testing Infrastructure Proposal Review & Improvement\n\n## Primary Objective\n**Review and improve an existing testing infrastructure proposal** to establish a comprehensive, cost-effective testing strategy that emphasizes developer adoption and ease-of-use.\n\n## Testing Scope\nDesign and implement a **full-spectrum testing approach** covering:\n- Unit tests\n- Integration tests\n- End-to-end (E2E) tests\n- Performance testing\n- Security testing\n\n## Current State\n- **Existing tests:** Some test coverage exists but requires improvement and scaling\n- **Migration:** Currently transitioning from existing approach/tooling to a new testing strategy\n- **Challenge:** Balancing expansion of test coverage with infrastructure efficiency\n\n## Success Metrics & Constraints\n1. **Infrastructure Efficiency:** Minimize costs and operational overhead\n2. **Developer Experience:** Maximize ease-of-use and team adoption of testing practices\n3. **Scalability:** Maintain performance and cost-effectiveness as test suite grows\n\n## What You'd Like Help With\nReview your existing proposal and provide recommendations for:\n- Improving coverage strategy across all test types\n- Optimizing cost and infrastructure requirements\n- Enhancing developer experience and workflow integration\n- Structuring the migration from current to proposed approach\n\n---\n\n## To Provide Targeted Feedback\n\nPlease share:\n1. **Your existing proposal document** (or paste the content)\n2. *(Optional but helpful)* Your current tech stack and team size\n3. *(Optional)* Specific pain points or concerns you want addressed in the review\n\nOnce you provide the proposal, I can give specific, actionable feedback on architecture, tooling choices, cost optimization, and adoption strategies.\n\n**Ready when you are!** 📋",
   "cwd": "",
-  "response": "I'd be happy to help with your testing infra project proposal! However, I need a bit more information to provide the best assistance. Could you clarify what you'd like me to do?\n\n**Are you looking to:**\n\n1. **Create/write a testing infra proposal** - I can help draft a comprehensive proposal document\n2. **Review an existing proposal** - I can provide feedback on a proposal you've already written (please share the content or file)\n3. **Plan the implementation** - I can help design the architecture and implementation strategy for a testing infrastructure project\n4. **Explore your codebase** - I can examine your current testing setup and suggest improvements\n5. **Something else** - Please describe what you need\n\nIf you have a proposal document or specific details about your project, feel free to share them and I'll dive in!",
+  "response": "# Updated Project Goal: Testing Infrastructure Proposal Review & Improvement\n\n## Primary Objective\n**Review and improve an existing testing infrastructure proposal** to establish a comprehensive, cost-effective testing strategy that emphasizes developer adoption and ease-of-use.\n\n## Testing Scope\nDesign and implement a **full-spectrum testing approach** covering:\n- Unit tests\n- Integration tests\n- End-to-end (E2E) tests\n- Performance testing\n- Security testing\n\n## Current State\n- **Existing tests:** Some test coverage exists but requires improvement and scaling\n- **Migration:** Currently transitioning from existing approach/tooling to a new testing strategy\n- **Challenge:** Balancing expansion of test coverage with infrastructure efficiency\n\n## Success Metrics & Constraints\n1. **Infrastructure Efficiency:** Minimize costs and operational overhead\n2. **Developer Experience:** Maximize ease-of-use and team adoption of testing practices\n3. **Scalability:** Maintain performance and cost-effectiveness as test suite grows\n\n## What You'd Like Help With\nReview your existing proposal and provide recommendations for:\n- Improving coverage strategy across all test types\n- Optimizing cost and infrastructure requirements\n- Enhancing developer experience and workflow integration\n- Structuring the migration from current to proposed approach\n\n---\n\n## To Provide Targeted Feedback\n\nPlease share:\n1. **Your existing proposal document** (or paste the content)\n2. *(Optional but helpful)* Your current tech stack and team size\n3. *(Optional)* Specific pain points or concerns you want addressed in the review\n\nOnce you provide the proposal, I can give specific, actionable feedback on architecture, tooling choices, cost optimization, and adoption strategies.\n\n**Ready when you are!** 📋",
   "selectedModel": "claude-haiku-4-5",
-  "goalIterations": [],
+  "goalIterations": [
+    {
+      "goalText": "I'd be happy to help with your testing infra project proposal! However, I need a bit more information to provide the best assistance. Could you clarify what you'd like me to do?\n\n**Are you looking to:**\n\n1. **Create/write a testing infra proposal** - I can help draft a comprehensive proposal document\n2. **Review an existing proposal** - I can provide feedback on a proposal you've already written (please share the content or file)\n3. **Plan the implementation** - I can help design the architecture and implementation strategy for a testing infrastructure project\n4. **Explore your codebase** - I can examine your current testing setup and suggest improvements\n5. **Something else** - Please describe what you need\n\nIf you have a proposal document or specific details about your project, feel free to share them and I'll dive in!",
+      "questions": [
+        {
+          "question": "What is your primary action - what would you like me to help you do?",
+          "why": "This determines the scope of deliverables. Writing a proposal from scratch, reviewing an existing one, or planning implementation are fundamentally different tasks with different outputs and approaches.",
+          "options": [
+            {
+              "label": "Write/create a new testing infra proposal"
+            },
+            {
+              "label": "Review and improve an existing proposal"
+            },
+            {
+              "label": "Design implementation strategy/architecture"
+            },
+            {
+              "label": "Audit and improve current testing setup"
+            }
+          ]
+        },
+        {
+          "question": "What is the scope of testing you want to cover?",
+          "why": "The testing scope dramatically changes tool selection, resource requirements, and proposal structure. Unit-only testing is far simpler than a comprehensive testing pyramid including E2E, performance, and security testing.",
+          "options": [
+            {
+              "label": "Unit tests only"
+            },
+            {
+              "label": "Unit + Integration tests"
+            },
+            {
+              "label": "Full spectrum (unit, integration, E2E, performance, security, etc.)"
+            },
+            {
+              "label": "Depends on project - need guidance on what to include"
+            }
+          ]
+        },
+        {
+          "question": "What is your project's current testing state?",
+          "why": "Starting from scratch requires different recommendations than improving existing infrastructure or migrating between tools. This affects whether we're designing new architecture vs. optimizing current setup.",
+          "options": [
+            {
+              "label": "No testing infrastructure - starting from scratch"
+            },
+            {
+              "label": "Some tests exist - need to improve/scale"
+            },
+            {
+              "label": "Migrating from one approach/tool to another"
+            },
+            {
+              "label": "Need an assessment first to understand current state"
+            }
+          ]
+        },
+        {
+          "question": "What is your primary success metric or constraint?",
+          "why": "Different priorities lead to different architectural choices. Minimizing cost conflicts with maximizing speed, and ease-of-use may trade off against coverage, affecting the entire proposal strategy.",
+          "options": [
+            {
+              "label": "Minimize costs and infrastructure overhead"
+            },
+            {
+              "label": "Maximize test execution speed"
+            },
+            {
+              "label": "Maximize test reliability and reduce flakiness"
+            },
+            {
+              "label": "Maximize developer ease-of-use and adoption"
+            },
+            {
+              "label": "Achieve high code coverage"
+            }
+          ]
+        },
+        {
+          "question": "What is your team size and infrastructure experience?",
+          "why": "Team context determines proposal complexity. A solo developer needs simpler solutions than a large organization. Expertise level affects whether we recommend managed services vs. self-hosted solutions.",
+          "options": [
+            {
+              "label": "Solo developer or very small team (<5 people)"
+            },
+            {
+              "label": "Medium team (5-20 people) with some infra experience"
+            },
+            {
+              "label": "Large organization (20+ people) with dedicated infra team"
+            },
+            {
+              "label": "Varied expertise levels - need to keep it approachable"
+            }
+          ]
+        },
+        {
+          "question": "What is your current technology stack? (language(s), frameworks, platforms)",
+          "why": "This determines which testing frameworks, tools, and CI/CD platforms are most suitable. A Python/Django project has very different tooling needs than a Node.js microservices architecture or a Java/Spring project. This is foundational to any testing infrastructure recommendation.",
+          "options": [
+            {
+              "label": "Single language/framework (Python, Node.js, Go, Java, etc.)"
+            },
+            {
+              "label": "Multi-language/polyglot architecture"
+            },
+            {
+              "label": "Frontend + Backend (e.g., React/Node, Vue/Python)"
+            },
+            {
+              "label": "Microservices across multiple stacks"
+            },
+            {
+              "label": "I'm not sure yet"
+            }
+          ]
+        },
+        {
+          "question": "What are the top 1-3 pain points with your current testing setup?",
+          "why": "Understanding what's broken helps prioritize the proposal. Are tests flaky? Too slow? Low coverage? Hard to maintain? Slow CI/CD? This shapes whether we focus on test quality, speed, maintainability, or coverage—each requiring different solutions.",
+          "options": [
+            {
+              "label": "Tests are slow/long execution time"
+            },
+            {
+              "label": "Tests are flaky/unreliable"
+            },
+            {
+              "label": "Low code coverage or gaps in test coverage"
+            },
+            {
+              "label": "Hard to maintain/scale tests or testing infrastructure"
+            },
+            {
+              "label": "Poor CI/CD integration or lack of automation"
+            },
+            {
+              "label": "Other (please describe)"
+            }
+          ]
+        },
+        {
+          "question": "What's your team size and testing responsibility distribution?",
+          "why": "Affects complexity and automation trade-offs. A small team needs simpler, more automated solutions. A large team needs sophisticated tooling and clear ownership models. This also determines training and documentation needs.",
+          "options": [
+            {
+              "label": "Small team (1-5 people) - developers write all tests"
+            },
+            {
+              "label": "Medium team (5-20 people) - dedicated QA + developers"
+            },
+            {
+              "label": "Large team (20+ people) - dedicated QA, test engineers, and developers"
+            },
+            {
+              "label": "Distributed teams across multiple locations"
+            }
+          ]
+        },
+        {
+          "question": "How do you want to approach this implementation - timeline and phasing?",
+          "why": "This determines the proposal structure and scope. A quick win approach prioritizes immediate improvements, while a comprehensive roadmap enables building a sophisticated foundation. This affects what we recommend as Phase 1 vs Phase 2+.",
+          "options": [
+            {
+              "label": "Quick wins first (improve existing tests in next 1-2 sprints)"
+            },
+            {
+              "label": "Phased approach (foundation now, advanced features over 3-6 months)"
+            },
+            {
+              "label": "Comprehensive redesign (build it right, 6+ months)"
+            },
+            {
+              "label": "Parallel track (quick wins + longer-term strategy simultaneously)"
+            }
+          ]
+        },
+        {
+          "question": "What does success look like for this initiative? (Pick the most critical 1-2)",
+          "why": "Success metrics drive the entire testing strategy. Are you optimizing for developer velocity, deployment confidence, cost, coverage? Or shift-left quality? These require different tool choices and infrastructure investments.",
+          "options": [
+            {
+              "label": "High code coverage (>80-90%) and quality gates"
+            },
+            {
+              "label": "Fast feedback loops (tests run in <5 minutes for PR validation)"
+            },
+            {
+              "label": "Reduced production bugs and faster incident resolution"
+            },
+            {
+              "label": "Reduced manual testing effort and QA toil"
+            },
+            {
+              "label": "Cost optimization of test infrastructure"
+            }
+          ]
+        }
+      ],
+      "answers": [
+        {
+          "selectedLabels": [
+            "Review and improve an existing proposal"
+          ],
+          "otherText": "",
+          "skipped": false
+        },
+        {
+          "selectedLabels": [
+            "Unit + Integration tests",
+            "Full spectrum (unit, integration, E2E, performance, security, etc.)"
+          ],
+          "otherText": "",
+          "skipped": false
+        },
+        {
+          "selectedLabels": [
+            "Some tests exist - need to improve/scale",
+            "Migrating from one approach/tool to another"
+          ],
+          "otherText": "",
+          "skipped": false
+        },
+        {
+          "selectedLabels": [
+            "Minimize costs and infrastructure overhead",
+            "Maximize developer ease-of-use and adoption"
+          ],
+          "otherText": "",
+          "skipped": false
+        },
+        {
+          "selectedLabels": [],
+          "otherText": "",
+          "skipped": false
+        },
+        {
+          "selectedLabels": [],
+          "otherText": "",
+          "skipped": false
+        },
+        {
+          "selectedLabels": [],
+          "otherText": "",
+          "skipped": false
+        },
+        {
+          "selectedLabels": [],
+          "otherText": "",
+          "skipped": false
+        },
+        {
+          "selectedLabels": [],
+          "otherText": "",
+          "skipped": false
+        },
+        {
+          "selectedLabels": [],
+          "otherText": "",
+          "skipped": false
+        }
+      ]
+    },
+    {
+      "goalText": "",
+      "questions": [
+        {
+          "question": "What's your primary technology stack?",
+          "why": "Different languages/frameworks have vastly different testing ecosystems, tool maturity, and cost profiles. A JavaScript stack would benefit from Jest/Vitest, Python from pytest, Go from testify, etc. This fundamentally changes which tools I'd recommend and their cost/adoption implications.",
+          "options": [
+            {
+              "label": "JavaScript/Node.js (frontend and/or backend)"
+            },
+            {
+              "label": "Python"
+            },
+            {
+              "label": "Java or other JVM languages"
+            },
+            {
+              "label": "Go, Rust, or other systems languages"
+            },
+            {
+              "label": "Polyglot (multiple language services)"
+            }
+          ]
+        },
+        {
+          "question": "What testing infrastructure exists today?",
+          "why": "Understanding your current state determines the migration effort and complexity. Building from minimal tests vs. refactoring existing Jest setup vs. consolidating multiple frameworks are very different paths. This affects both the feasibility and the roadmap I'd recommend.",
+          "options": [
+            {
+              "label": "Minimal or no existing test infrastructure"
+            },
+            {
+              "label": "Jest/Vitest or other JavaScript testing framework"
+            },
+            {
+              "label": "pytest or other Python testing framework"
+            },
+            {
+              "label": "Multiple different testing frameworks already in use"
+            },
+            {
+              "label": "Comprehensive testing exists but needs optimization"
+            }
+          ]
+        },
+        {
+          "question": "What's your team's primary constraint or biggest concern?",
+          "why": "You mentioned both cost minimization and adoption maximization, but if you had to choose, which matters more? Or is there a third constraint (execution speed, infrastructure complexity)? This shapes whether I'd recommend lightweight tools (adoption-first) vs. optimized infrastructure (cost-first) vs. fast feedback loops.",
+          "options": [
+            {
+              "label": "Cost/infrastructure is the hard blocker"
+            },
+            {
+              "label": "Developer adoption and ease-of-use is the hard blocker"
+            },
+            {
+              "label": "Test execution speed (feedback loops for rapid development)"
+            },
+            {
+              "label": "All three matter equally - need balance"
+            }
+          ]
+        },
+        {
+          "question": "How is testing responsibility distributed in your team?",
+          "why": "A small team with shared responsibility needs different strategies than a dedicated QA team. This affects whether recommendations should emphasize automated, low-friction tools (shared responsibility) vs. more sophisticated infrastructure (dedicated team can handle complexity).",
+          "options": [
+            {
+              "label": "Developers own testing (shared responsibility across team)"
+            },
+            {
+              "label": "Dedicated QA/testing engineers"
+            },
+            {
+              "label": "Mix of both - some developers, some QA specialists"
+            },
+            {
+              "label": "Not yet established or unclear"
+            }
+          ]
+        },
+        {
+          "question": "What's your implementation timeline?",
+          "why": "Phasing affects scope and ambition. A 1-2 month rollout requires focused, phased approach; 6+ months allows tackling technical debt and more architectural changes. This changes how aggressive recommendations should be and what gets prioritized first.",
+          "options": [
+            {
+              "label": "Immediate (start within 1-2 months)"
+            },
+            {
+              "label": "Phased (rollout over 3-6 months)"
+            },
+            {
+              "label": "Long-term (6+ months, significant planning phase)"
+            },
+            {
+              "label": "Flexible - depends on proposal feedback"
+            }
+          ]
+        }
+      ],
+      "answers": [
+        {
+          "selectedLabels": [
+            "JavaScript/Node.js (frontend and/or backend)"
+          ],
+          "otherText": "",
+          "skipped": false
+        },
+        {
+          "selectedLabels": [
+            "Jest/Vitest or other JavaScript testing framework"
+          ],
+          "otherText": "",
+          "skipped": false
+        },
+        {
+          "selectedLabels": [
+            "Cost/infrastructure is the hard blocker"
+          ],
+          "otherText": "",
+          "skipped": false
+        },
+        {
+          "selectedLabels": [],
+          "otherText": "",
+          "skipped": false
+        },
+        {
+          "selectedLabels": [],
+          "otherText": "",
+          "skipped": false
+        }
+      ]
+    }
+  ],
   "allQuestions": [
     {
-      "question": "What is your primary action - what would you like me to help you do?",
-      "why": "This determines the scope of deliverables. Writing a proposal from scratch, reviewing an existing one, or planning implementation are fundamentally different tasks with different outputs and approaches.",
+      "question": "Is this a frontend-heavy project, backend-heavy project, or full-stack application?",
+      "why": "This fundamentally changes your testing pyramid and tool recommendations. Frontend-heavy projects prioritize E2E tools (Playwright, Cypress) and visual testing; backend projects focus on API testing and database testing; full-stack requires balancing both. This also affects cost structure and which parts of your test suite will be most expensive to run.",
       "options": [
         {
-          "label": "Write/create a new testing infra proposal"
+          "label": "Frontend-heavy (React/Vue/Svelte with light backend)"
         },
         {
-          "label": "Review and improve an existing proposal"
+          "label": "Backend-heavy (API/microservices with light frontend)"
         },
         {
-          "label": "Design implementation strategy/architecture"
+          "label": "Full-stack (balanced frontend and backend)"
         },
         {
-          "label": "Audit and improve current testing setup"
+          "label": "Other (serverless, CLI tools, libraries, etc.)"
         }
       ]
     },
     {
-      "question": "What is the scope of testing you want to cover?",
-      "why": "The testing scope dramatically changes tool selection, resource requirements, and proposal structure. Unit-only testing is far simpler than a comprehensive testing pyramid including E2E, performance, and security testing.",
+      "question": "What's your team size and does anyone have existing testing infrastructure experience?",
+      "why": "This affects the complexity of tools you can realistically adopt and maintain. A solo developer or 2-person team needs simpler, lower-maintenance tools. A larger team can support more sophisticated (but more complex) testing infrastructure. This directly influences whether to recommend simplicity vs. power, and affects your adoption strategy.",
       "options": [
         {
-          "label": "Unit tests only"
+          "label": "Solo or 2-3 people (keep it simple)"
         },
         {
-          "label": "Unit + Integration tests"
+          "label": "4-8 people (moderate complexity acceptable)"
         },
         {
-          "label": "Full spectrum (unit, integration, E2E, performance, security, etc.)"
+          "label": "9+ people (can handle complex setups)"
         },
         {
-          "label": "Depends on project - need guidance on what to include"
+          "label": "Other - we have specialized QA/testing role(s)"
         }
       ]
     },
     {
-      "question": "What is your project's current testing state?",
-      "why": "Starting from scratch requires different recommendations than improving existing infrastructure or migrating between tools. This affects whether we're designing new architecture vs. optimizing current setup.",
+      "question": "What's your CI/CD platform and do you have budget for SaaS testing tools, or are you restricted to open-source?",
+      "why": "This is critical for cost optimization. GitHub Actions, GitLab CI, and Jenkins have different cost profiles. SaaS testing tools (BrowserStack, Sauce Labs, Percy) vs. open-source (Playwright, Cypress) have vastly different cost structures. Some recommendations will only be viable depending on your platform choice and budget flexibility.",
       "options": [
         {
-          "label": "No testing infrastructure - starting from scratch"
+          "label": "GitHub Actions + can use SaaS tools (Chromatic, Percy, etc.)"
         },
         {
-          "label": "Some tests exist - need to improve/scale"
+          "label": "GitHub Actions + open-source only"
         },
         {
-          "label": "Migrating from one approach/tool to another"
+          "label": "GitLab CI / Jenkins + can use SaaS tools"
         },
         {
-          "label": "Need an assessment first to understand current state"
+          "label": "GitLab CI / Jenkins + open-source only"
+        },
+        {
+          "label": "Other platform / unsure"
         }
       ]
     },
     {
-      "question": "What is your primary success metric or constraint?",
-      "why": "Different priorities lead to different architectural choices. Minimizing cost conflicts with maximizing speed, and ease-of-use may trade off against coverage, affecting the entire proposal strategy.",
+      "question": "For E2E, performance, and security testing—are you looking for comprehensive coverage or focused critical-path testing?",
+      "why": "This dramatically affects your infrastructure costs and timeline. Comprehensive E2E (many user flows), load testing (k6, Artillery), and security scanning (SAST/DAST) are much more expensive than smoke tests and critical-path-only scenarios. Knowing the scope allows me to recommend cost-effective approaches tailored to your actual risk profile.",
       "options": [
         {
-          "label": "Minimize costs and infrastructure overhead"
+          "label": "Smoke tests + critical-path E2E only (minimal scope)"
         },
         {
-          "label": "Maximize test execution speed"
+          "label": "Comprehensive E2E for main features + basic performance checks"
         },
         {
-          "label": "Maximize test reliability and reduce flakiness"
+          "label": "Full spectrum: comprehensive E2E + load testing + security scanning"
         },
         {
-          "label": "Maximize developer ease-of-use and adoption"
-        },
-        {
-          "label": "Achieve high code coverage"
+          "label": "Unsure—looking for recommendations on what's right for our product"
         }
       ]
     },
     {
-      "question": "What is your team size and infrastructure experience?",
-      "why": "Team context determines proposal complexity. A solo developer needs simpler solutions than a large organization. Expertise level affects whether we recommend managed services vs. self-hosted solutions.",
+      "question": "How frequently do you deploy, and do you have constraints on how long your test suite can take to run?",
+      "why": "Deployment frequency (daily vs. monthly) and acceptable test duration directly impact test execution costs and which optimizations matter most. High-frequency deployments might benefit from test parallelization and selective test runs. This also affects infrastructure sizing and whether you need advanced CI/CD caching strategies.",
       "options": [
         {
-          "label": "Solo developer or very small team (<5 people)"
+          "label": "Low frequency (monthly or less) / 30+ min tests acceptable"
         },
         {
-          "label": "Medium team (5-20 people) with some infra experience"
+          "label": "Weekly deploys / 15-30 min test suite acceptable"
         },
         {
-          "label": "Large organization (20+ people) with dedicated infra team"
+          "label": "Daily or continuous deploys / need sub-10-min feedback"
         },
         {
-          "label": "Varied expertise levels - need to keep it approachable"
+          "label": "Unsure—looking for recommendations"
         }
       ]
     }
   ],
   "allAnswers": [
     {
-      "selectedLabels": [
-        "Review and improve an existing proposal",
-        "Design implementation strategy/architecture",
-        "Audit and improve current testing setup"
-      ],
+      "selectedLabels": [],
       "otherText": "",
       "skipped": false
     },
     {
-      "selectedLabels": [
-        "Unit + Integration tests",
-        "Full spectrum (unit, integration, E2E, performance, security, etc.)"
-      ],
+      "selectedLabels": [],
       "otherText": "",
       "skipped": false
     },
     {
-      "selectedLabels": [
-        "Some tests exist - need to improve/scale",
-        "Migrating from one approach/tool to another"
-      ],
+      "selectedLabels": [],
       "otherText": "",
       "skipped": false
     },
@@ -137,12 +525,53 @@
     }
   ],
   "questionsExhausted": false,
-  "clarifyingDone": false,
-  "requirements": [],
+  "clarifyingDone": true,
+  "requirements": [
+    {
+      "title": "Testing Infrastructure Proposal Document",
+      "definition": "The actual proposal document or detailed proposal content that outlines the current testing strategy, proposed approach, tooling choices, and implementation plan. This is the primary artifact needed for the review.",
+      "confidence": 1
+    },
+    {
+      "title": "Current Test Coverage Baseline",
+      "definition": "Current test coverage percentages or metrics across unit, integration, and any existing E2E tests. Helps assess the gap between current state and proposed coverage targets.",
+      "confidence": 0.9
+    },
+    {
+      "title": "Team Size & Testing Responsibility Distribution",
+      "definition": "How many engineers are involved in testing, whether testing is a dedicated role or distributed across the team, and any relevant skill levels or constraints.",
+      "confidence": 0.8
+    },
+    {
+      "title": "CI/CD Platform & Current Infrastructure",
+      "definition": "Identification of CI/CD platform (GitHub Actions, GitLab CI, Jenkins, etc.), current hosting (cloud provider, on-premise), and any existing infrastructure costs or constraints.",
+      "confidence": 0.85
+    },
+    {
+      "title": "Budget & Cost Constraints",
+      "definition": "Specific budget limits or cost thresholds for testing infrastructure, including acceptable monthly/annual spend for CI/CD, test infrastructure, and tooling.",
+      "confidence": 0.8
+    },
+    {
+      "title": "Frontend vs Backend Testing Focus",
+      "definition": "Clarification on whether the proposal focuses equally on frontend and backend testing, or if one area is prioritized over the other.",
+      "confidence": 0.7
+    },
+    {
+      "title": "Specific Pain Points & Blockers",
+      "definition": "Top 1-3 pain points with current testing setup (slow feedback loops, flaky tests, high infrastructure costs, low team adoption, etc.) that the proposal is trying to address.",
+      "confidence": 0.75
+    },
+    {
+      "title": "Implementation Timeline & Phasing Strategy",
+      "definition": "Preferred timeline for implementation (immediate, phased over months, etc.) and whether the team prefers a big-bang migration or incremental adoption.",
+      "confidence": 0.7
+    }
+  ],
   "tasks": [],
   "summary": "",
   "name": "I'd be happy to help with your testing infra project proposa",
   "id": "4aed5313-eb60-4eb9-99fa-4c77122aad24",
   "createdAt": "2026-03-18T13:28:45.612Z",
-  "updatedAt": "2026-03-18T13:28:45.612Z"
+  "updatedAt": "2026-03-18T13:34:14.443Z"
 }
