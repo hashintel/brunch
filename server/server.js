@@ -60,7 +60,7 @@ app.use('/api', (req, res, next) => {
 });
 
 app.get('/', (_req, res) => {
-    res.json({ status: 'ok', endpoints: ['/api/models', '/api/stream', '/api/clarifyingquestions', '/api/streamrequirements', '/api/expandrequirement'] });
+    res.json({ status: 'ok', endpoints: ['/api/models', '/api/stream', '/api/clarifyingquestions', '/api/streamrequirements', '/api/generatechildren', '/api/generatetests'] });
 });
 
 app.get('/api/models', (_req, res) => {
@@ -404,7 +404,25 @@ const expandRequirementSchema = {
     additionalProperties: false,
 };
 
-app.post('/api/expandrequirement', async (req, res) => {
+const generateChildrenSchema = {
+    type: 'object',
+    properties: {
+        children: expandRequirementSchema.properties.children,
+    },
+    required: ['children'],
+    additionalProperties: false,
+};
+
+const generateTestsSchema = {
+    type: 'object',
+    properties: {
+        tests: expandRequirementSchema.properties.tests,
+    },
+    required: ['tests'],
+    additionalProperties: false,
+};
+
+app.post('/api/generatechildren', async (req, res) => {
     const { requirement, prompt, model: modelId = DEFAULT_MODEL, cwd } = req.body;
 
     if (!requirement?.title) {
@@ -414,28 +432,62 @@ app.post('/api/expandrequirement', async (req, res) => {
         return res.status(400).json({ error: `invalid model: ${modelId}` });
     }
 
-    console.log(`[${modelId}] expandrequirement: ${requirement.title}`);
+    console.log(`[${modelId}] generatechildren: ${requirement.title}`);
 
-    const userContent = `You are a spec elicitation assistant expanding a requirement into sub-requirements and verification tests.
+    const userContent = `You are a spec elicitation assistant breaking a requirement into sub-requirements.
 
 Project goal:
 ${prompt || 'Not specified'}
 
-Requirement to expand:
+Requirement to decompose:
 Title: ${requirement.title}
 Definition: ${requirement.definition}
 
-Generate:
-1. Verification tests for this requirement (in the "tests" array). Each test has a "type" (one of: static_analysis, programmatic_test, llm_review, human_review) and a "description" explaining what to check. Choose the most appropriate test types — use static_analysis for linting/type checks, programmatic_test for unit/integration tests, llm_review for AI-based assessment, human_review for manual verification. Generate 1-3 tests.
-2. Sub-requirements that break this requirement down into smaller, more specific parts (in the "children" array). Each sub-requirement should have a title, definition, and confidence score (0-1). Generate 2-5 sub-requirements if the requirement is complex enough to warrant decomposition, or an empty array if it's already atomic.`;
+Generate sub-requirements that break this requirement down into smaller, more specific parts. Each sub-requirement should have a title, definition, and confidence score (0-1). Generate 2-5 sub-requirements if the requirement is complex enough to warrant decomposition, or an empty array if it's already atomic.`;
 
     try {
-        const output = await queryStructured(userContent, modelId, expandRequirementSchema, cwd);
+        const output = await queryStructured(userContent, modelId, generateChildrenSchema, cwd);
         res.json(output);
     } catch (err) {
         console.error(`[${modelId}] error:`, err.message ?? err);
         if (!res.headersSent) {
-            res.status(500).json({ error: 'Failed to expand requirement' });
+            res.status(500).json({ error: 'Failed to generate sub-requirements' });
+        } else {
+            res.end();
+        }
+    }
+});
+
+app.post('/api/generatetests', async (req, res) => {
+    const { requirement, prompt, model: modelId = DEFAULT_MODEL, cwd } = req.body;
+
+    if (!requirement?.title) {
+        return res.status(400).json({ error: 'requirement is required' });
+    }
+    if (!VALID_MODEL_IDS.has(modelId)) {
+        return res.status(400).json({ error: `invalid model: ${modelId}` });
+    }
+
+    console.log(`[${modelId}] generatetests: ${requirement.title}`);
+
+    const userContent = `You are a spec elicitation assistant generating verification tests for a requirement.
+
+Project goal:
+${prompt || 'Not specified'}
+
+Requirement to generate tests for:
+Title: ${requirement.title}
+Definition: ${requirement.definition}
+
+Generate verification tests for this requirement. Each test has a "type" (one of: static_analysis, programmatic_test, llm_review, human_review) and a "description" explaining what to check. Choose the most appropriate test types — use static_analysis for linting/type checks, programmatic_test for unit/integration tests, llm_review for AI-based assessment, human_review for manual verification. Generate 1-4 tests.`;
+
+    try {
+        const output = await queryStructured(userContent, modelId, generateTestsSchema, cwd);
+        res.json(output);
+    } catch (err) {
+        console.error(`[${modelId}] error:`, err.message ?? err);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to generate tests' });
         } else {
             res.end();
         }

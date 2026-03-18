@@ -66,7 +66,8 @@ export function Home() {
     const [selectedModel, setSelectedModel] = useState('claude-haiku-4-5');
     const [requirements, setRequirements] = useState<Requirement[]>([]);
     const [loadingRequirements, setLoadingRequirements] = useState(false);
-    const [expandingId, setExpandingId] = useState<string | null>(null);
+    const [generatingChildrenId, setGeneratingChildrenId] = useState<string | null>(null);
+    const [generatingTestsId, setGeneratingTestsId] = useState<string | null>(null);
 
     // Goal iterations (previous revisions, read-only)
     const [goalIterations, setGoalIterations] = useState<GoalIteration[]>([]);
@@ -230,23 +231,18 @@ export function Home() {
                 if (r.test && typeof r.test === 'string') return [{ type: 'programmatic_test', description: r.test }];
                 return [];
             }
-            const loadedReqs = (s.requirements ?? []).map((r: any) => ({
-                id: r.id ?? crypto.randomUUID(),
-                title: r.title,
-                definition: r.definition,
-                confidence: r.confidence,
-                stage: r.stage ?? 'proposal',
-                tests: migrateTests(r),
-                children: (r.children ?? []).map((c: any) => ({
-                    id: c.id ?? crypto.randomUUID(),
-                    title: c.title,
-                    definition: c.definition,
-                    confidence: c.confidence,
-                    stage: c.stage ?? 'proposal',
-                    tests: migrateTests(c),
-                    children: [],
-                })),
-            }));
+            function migrateReq(r: any): Requirement {
+                return {
+                    id: r.id ?? crypto.randomUUID(),
+                    title: r.title,
+                    definition: r.definition,
+                    confidence: r.confidence,
+                    stage: r.stage ?? 'proposal',
+                    tests: migrateTests(r),
+                    children: (r.children ?? []).map(migrateReq),
+                };
+            }
+            const loadedReqs = (s.requirements ?? []).map(migrateReq);
             setRequirements(loadedReqs);
             setCurrentSessionId(s.id);
             setError('');
@@ -548,73 +544,87 @@ export function Home() {
         }
     }
 
-    async function handleExpandRequirement(reqId: string) {
-        if (expandingId) return;
-        setExpandingId(reqId);
+    // Recursive tree helpers
+    function findInTree(reqs: Requirement[], id: string): Requirement | null {
+        for (const r of reqs) {
+            if (r.id === id) return r;
+            const found = findInTree(r.children, id);
+            if (found) return found;
+        }
+        return null;
+    }
+
+    function updateInTree(reqs: Requirement[], id: string, updater: (r: Requirement) => Requirement): Requirement[] {
+        return reqs.map(r => {
+            if (r.id === id) return updater(r);
+            return { ...r, children: updateInTree(r.children, id, updater) };
+        });
+    }
+
+    async function handleGenerateChildren(reqId: string) {
+        if (generatingChildrenId) return;
+        setGeneratingChildrenId(reqId);
         setError('');
 
-        // Find the requirement (top-level or child)
-        let targetReq: Requirement | undefined;
-        for (const r of requirements) {
-            if (r.id === reqId) { targetReq = r; break; }
-            for (const c of r.children) {
-                if (c.id === reqId) { targetReq = c; break; }
-            }
-            if (targetReq) break;
-        }
-
-        if (!targetReq) {
-            setExpandingId(null);
-            return;
-        }
+        const targetReq = findInTree(requirements, reqId);
+        if (!targetReq) { setGeneratingChildrenId(null); return; }
 
         try {
-            const res = await fetch('/api/expandrequirement', {
+            const res = await fetch('/api/generatechildren', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     requirement: { title: targetReq.title, definition: targetReq.definition },
-                    prompt: response,
-                    model: selectedModel,
-                    cwd: cwd || undefined,
+                    prompt: response, model: selectedModel, cwd: cwd || undefined,
                 }),
             });
-
             if (!res.ok) {
                 const body = await res.json().catch(() => ({}));
                 throw new Error(body.error ?? `Server error: ${res.status}`);
             }
-
             const data = await res.json();
             const newChildren: Requirement[] = (data.children ?? []).map((c: any) => makeRequirement(c));
-            const newTests = Array.isArray(data.tests) ? data.tests : [];
-
-            // Update the requirement in state
-            setRequirements(prev => prev.map(r => {
-                if (r.id === reqId) {
-                    return {
-                        ...r,
-                        tests: r.tests.length > 0 ? r.tests : newTests,
-                        children: [...r.children, ...newChildren],
-                    };
-                }
-                // Check children
-                const updatedChildren = r.children.map(c => {
-                    if (c.id === reqId) {
-                        return {
-                            ...c,
-                            tests: c.tests.length > 0 ? c.tests : newTests,
-                            children: [...c.children, ...newChildren],
-                        };
-                    }
-                    return c;
-                });
-                return { ...r, children: updatedChildren };
-            }));
+            setRequirements(prev => updateInTree(prev, reqId, r => ({
+                ...r, children: [...r.children, ...newChildren],
+            })));
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to expand requirement');
+            setError(e instanceof Error ? e.message : 'Failed to generate sub-requirements');
         } finally {
-            setExpandingId(null);
+            setGeneratingChildrenId(null);
+            await refreshCallHistory();
+        }
+    }
+
+    async function handleGenerateTests(reqId: string) {
+        if (generatingTestsId) return;
+        setGeneratingTestsId(reqId);
+        setError('');
+
+        const targetReq = findInTree(requirements, reqId);
+        if (!targetReq) { setGeneratingTestsId(null); return; }
+
+        try {
+            const res = await fetch('/api/generatetests', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    requirement: { title: targetReq.title, definition: targetReq.definition },
+                    prompt: response, model: selectedModel, cwd: cwd || undefined,
+                }),
+            });
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error ?? `Server error: ${res.status}`);
+            }
+            const data = await res.json();
+            const newTests = Array.isArray(data.tests) ? data.tests : [];
+            setRequirements(prev => updateInTree(prev, reqId, r => ({
+                ...r, tests: [...r.tests, ...newTests],
+            })));
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to generate tests');
+        } finally {
+            setGeneratingTestsId(null);
             await refreshCallHistory();
         }
     }
@@ -749,8 +759,10 @@ export function Home() {
                                     <RequirementList
                                         requirements={requirements}
                                         onUpdate={setRequirements}
-                                        onExpand={handleExpandRequirement}
-                                        expandingId={expandingId}
+                                        onGenerateChildren={handleGenerateChildren}
+                                        onGenerateTests={handleGenerateTests}
+                                        generatingChildrenId={generatingChildrenId}
+                                        generatingTestsId={generatingTestsId}
                                     />
                                 )}
                                 <button

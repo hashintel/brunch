@@ -602,6 +602,16 @@ tr.requirement--drag-over td {
     margin-bottom: 0.3rem;
 }
 
+.canvas-node-actions-bottom {
+    display: flex;
+    gap: 0.25rem;
+    margin-top: 0.3rem;
+}
+.canvas-node-actions-bottom .requirement-expand-btn {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.35rem;
+}
+
 .canvas-node-def {
     margin: 0;
     color: #666;

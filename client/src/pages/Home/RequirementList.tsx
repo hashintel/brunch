@@ -22,8 +22,10 @@ import type { Requirement, TestCase, TestType } from './types';
 interface Props {
     requirements: Requirement[];
     onUpdate: (requirements: Requirement[]) => void;
-    onExpand: (id: string) => void;
-    expandingId: string | null;
+    onGenerateChildren: (id: string) => void;
+    onGenerateTests: (id: string) => void;
+    generatingChildrenId: string | null;
+    generatingTestsId: string | null;
 }
 
 const STAGE_ORDER: Requirement['stage'][] = ['proposal', 'approved', 'completed'];
@@ -57,15 +59,54 @@ type FlatItem = {
     parentId: string | null;
 };
 
-function flattenTree(requirements: Requirement[]): FlatItem[] {
+function flattenTree(requirements: Requirement[], depth = 0, parentId: string | null = null): FlatItem[] {
     const items: FlatItem[] = [];
     for (const r of requirements) {
-        items.push({ id: r.id, req: r, depth: 0, parentId: null });
-        for (const c of r.children) {
-            items.push({ id: c.id, req: c, depth: 1, parentId: r.id });
+        items.push({ id: r.id, req: r, depth, parentId });
+        if (r.children.length > 0) {
+            items.push(...flattenTree(r.children, depth + 1, r.id));
         }
     }
     return items;
+}
+
+// Recursive tree helpers
+function findInTree(requirements: Requirement[], id: string): Requirement | null {
+    for (const r of requirements) {
+        if (r.id === id) return r;
+        const found = findInTree(r.children, id);
+        if (found) return found;
+    }
+    return null;
+}
+
+function removeFromTree(requirements: Requirement[], id: string): Requirement[] {
+    return requirements
+        .filter(r => r.id !== id)
+        .map(r => ({ ...r, children: removeFromTree(r.children, id) }));
+}
+
+function updateInTree(requirements: Requirement[], id: string, updater: (r: Requirement) => Requirement): Requirement[] {
+    return requirements.map(r => {
+        if (r.id === id) return updater(r);
+        return { ...r, children: updateInTree(r.children, id, updater) };
+    });
+}
+
+function insertIntoTree(requirements: Requirement[], parentId: string, child: Requirement, afterChildId?: string): Requirement[] {
+    return requirements.map(r => {
+        if (r.id === parentId) {
+            const children = [...r.children];
+            if (afterChildId) {
+                const idx = children.findIndex(c => c.id === afterChildId);
+                children.splice(idx >= 0 ? idx + 1 : children.length, 0, child);
+            } else {
+                children.push(child);
+            }
+            return { ...r, children };
+        }
+        return { ...r, children: insertIntoTree(r.children, parentId, child, afterChildId) };
+    });
 }
 
 function getProjectedDepth(
@@ -76,13 +117,18 @@ function getProjectedDepth(
 ): number {
     const overIndex = flatItems.findIndex(i => i.id === overId);
     if (overIndex < 0) return 0;
+    const overDepth = flatItems[overIndex].depth;
+    // Find the max depth we could nest at (one level deeper than the item above, excluding the dragged item)
     const itemAbove = overIndex > 0 ? flatItems[overIndex - 1] : null;
+    const maxDepth = itemAbove && itemAbove.id !== activeId ? itemAbove.depth + 1 : overDepth + 1;
+
     if (dragOffsetX > NEST_THRESHOLD) {
-        if (flatItems[overIndex].depth === 0 && flatItems[overIndex].id !== activeId) return 1;
-        if (itemAbove && itemAbove.depth === 0 && itemAbove.id !== activeId) return 1;
+        return Math.min(overDepth + 1, maxDepth);
     }
-    if (dragOffsetX < -NEST_THRESHOLD) return 0;
-    return flatItems[overIndex].depth;
+    if (dragOffsetX < -NEST_THRESHOLD) {
+        return Math.max(0, overDepth - 1);
+    }
+    return overDepth;
 }
 
 // ── Edit Modal ──
@@ -194,13 +240,15 @@ function TestBadges({ tests }: { tests: TestCase[] }) {
 // ── Sortable card (list view DnD) ──
 
 function SortableItem({
-    item, onEdit, onRemove, onExpand, expandingId, projectedDepth, isDragOverlay,
+    item, onEdit, onRemove, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId, projectedDepth, isDragOverlay,
 }: {
     item: FlatItem;
     onEdit: (id: string) => void;
     onRemove: (id: string) => void;
-    onExpand: (id: string) => void;
-    expandingId: string | null;
+    onGenerateChildren: (id: string) => void;
+    onGenerateTests: (id: string) => void;
+    generatingChildrenId: string | null;
+    generatingTestsId: string | null;
     projectedDepth?: number;
     isDragOverlay?: boolean;
 }) {
@@ -231,8 +279,11 @@ function SortableItem({
             <p>{item.req.definition}</p>
             <TestBadges tests={item.req.tests} />
             <div class="requirement-card-footer">
-                <button class="requirement-expand-btn" onClick={() => onExpand(item.id)} disabled={expandingId === item.id}>
-                    {expandingId === item.id ? 'Expanding\u2026' : 'Expand'}
+                <button class="requirement-expand-btn" onClick={() => onGenerateChildren(item.id)} disabled={generatingChildrenId === item.id}>
+                    {generatingChildrenId === item.id ? 'Generating\u2026' : 'Generate Subrequirements'}
+                </button>
+                <button class="requirement-expand-btn" onClick={() => onGenerateTests(item.id)} disabled={generatingTestsId === item.id}>
+                    {generatingTestsId === item.id ? 'Generating\u2026' : 'Generate Tests'}
                 </button>
             </div>
         </div>
@@ -289,29 +340,41 @@ type NodePos = { x: number; y: number };
 
 function computeLayout(requirements: Requirement[]): Record<string, NodePos> {
     const pos: Record<string, NodePos> = {};
-    let x = 30;
-    for (const r of requirements) {
-        const colCount = Math.max(1, r.children.length);
-        const colWidth = colCount * (CANVAS_NODE_W + CANVAS_NODE_GAP_X);
-        // Parent centered above children
-        const parentX = x + (colWidth - CANVAS_NODE_W) / 2;
-        pos[r.id] = { x: parentX, y: 30 };
-        r.children.forEach((c, ci) => {
-            pos[c.id] = { x: x + ci * (CANVAS_NODE_W + CANVAS_NODE_GAP_X), y: 30 + CANVAS_NODE_H_EST + CANVAS_NODE_GAP_Y };
-        });
-        x += colWidth + CANVAS_NODE_GAP_X;
+
+    // Compute the width needed for a subtree (leaf count * node slot width)
+    function subtreeLeafCount(r: Requirement): number {
+        if (r.children.length === 0) return 1;
+        return r.children.reduce((sum, c) => sum + subtreeLeafCount(c), 0);
     }
+
+    function layoutSubtree(reqs: Requirement[], startX: number, y: number) {
+        let x = startX;
+        for (const r of reqs) {
+            const leafCount = subtreeLeafCount(r);
+            const subtreeWidth = leafCount * (CANVAS_NODE_W + CANVAS_NODE_GAP_X);
+            const parentX = x + (subtreeWidth - CANVAS_NODE_W) / 2;
+            pos[r.id] = { x: parentX, y };
+            if (r.children.length > 0) {
+                layoutSubtree(r.children, x, y + CANVAS_NODE_H_EST + CANVAS_NODE_GAP_Y);
+            }
+            x += subtreeWidth;
+        }
+    }
+
+    layoutSubtree(requirements, 30, 30);
     return pos;
 }
 
 function CanvasView({
-    requirements, onEdit, onRemove, onExpand, expandingId,
+    requirements, onEdit, onRemove, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId,
 }: {
     requirements: Requirement[];
     onEdit: (id: string) => void;
     onRemove: (id: string) => void;
-    onExpand: (id: string) => void;
-    expandingId: string | null;
+    onGenerateChildren: (id: string) => void;
+    onGenerateTests: (id: string) => void;
+    generatingChildrenId: string | null;
+    generatingTestsId: string | null;
 }) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [positions, setPositions] = useState<Record<string, NodePos>>({});
@@ -329,7 +392,7 @@ function CanvasView({
             }
             return merged;
         });
-    }, [requirements.map(r => r.id + ':' + r.children.map(c => c.id).join(',')).join('|')]);
+    }, [flattenTree(requirements).map(i => i.id).join('|')]);
 
     // Canvas dimensions
     const canvasSize = useMemo(() => {
@@ -341,14 +404,18 @@ function CanvasView({
         return { width: maxX, height: maxY };
     }, [positions]);
 
-    // Edges: parent → child
+    // Edges: parent → child (recursive)
     const edges = useMemo(() => {
         const result: { from: string; to: string }[] = [];
-        for (const r of requirements) {
-            for (const c of r.children) {
-                result.push({ from: r.id, to: c.id });
+        function collectEdges(reqs: Requirement[]) {
+            for (const r of reqs) {
+                for (const c of r.children) {
+                    result.push({ from: r.id, to: c.id });
+                }
+                collectEdges(r.children);
             }
         }
+        collectEdges(requirements);
         return result;
     }, [requirements]);
 
@@ -431,9 +498,14 @@ function CanvasView({
                             </div>
                             <p class="canvas-node-def">{item.req.definition}</p>
                             <TestBadges tests={item.req.tests} />
-                            <button class="requirement-expand-btn" onClick={() => onExpand(item.id)} disabled={expandingId === item.id}>
-                                {expandingId === item.id ? 'Expanding\u2026' : 'Expand'}
-                            </button>
+                            <div class="canvas-node-actions-bottom">
+                                <button class="requirement-expand-btn" onClick={() => onGenerateChildren(item.id)} disabled={generatingChildrenId === item.id}>
+                                    {generatingChildrenId === item.id ? 'Generating\u2026' : 'Subreqs'}
+                                </button>
+                                <button class="requirement-expand-btn" onClick={() => onGenerateTests(item.id)} disabled={generatingTestsId === item.id}>
+                                    {generatingTestsId === item.id ? 'Generating\u2026' : 'Tests'}
+                                </button>
+                            </div>
                         </div>
                     );
                 })}
@@ -444,7 +516,7 @@ function CanvasView({
 
 // ── Main component ──
 
-export function RequirementList({ requirements, onUpdate, onExpand, expandingId }: Props) {
+export function RequirementList({ requirements, onUpdate, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId }: Props) {
     const [view, setView] = useState<'list' | 'table' | 'canvas'>('list');
     const [search, setSearch] = useState('');
     const [sort, setSort] = useState<SortField>('none');
@@ -475,32 +547,14 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
         return getProjectedDepth(flatItems, activeId, overId, dragOffsetX);
     }, [flatItems, activeId, overId, dragOffsetX]);
 
-    function findReqById(id: string): { req: Requirement; parentIndex: number | null; childIndex: number | null; topIndex: number } | null {
-        for (let i = 0; i < requirements.length; i++) {
-            if (requirements[i].id === id) return { req: requirements[i], parentIndex: null, childIndex: null, topIndex: i };
-            for (let ci = 0; ci < requirements[i].children.length; ci++) {
-                if (requirements[i].children[ci].id === id) return { req: requirements[i].children[ci], parentIndex: i, childIndex: ci, topIndex: i };
-            }
-        }
-        return null;
-    }
-
     function handleRemoveById(id: string) {
-        const info = findReqById(id);
-        if (!info) return;
-        if (info.parentIndex != null && info.childIndex != null) {
-            onUpdate(requirements.map((r, i) =>
-                i === info.parentIndex ? { ...r, children: r.children.filter((_, ci) => ci !== info.childIndex) } : r
-            ));
-        } else {
-            onUpdate(requirements.filter(r => r.id !== id));
-        }
+        onUpdate(removeFromTree(requirements, id));
     }
 
     function openEditById(id: string) {
-        const info = findReqById(id);
-        if (!info) return;
-        setModal({ mode: 'edit', draft: { ...info.req, children: info.parentIndex == null ? [...info.req.children] : [] }, editId: id });
+        const req = findInTree(requirements, id);
+        if (!req) return;
+        setModal({ mode: 'edit', draft: { ...req }, editId: id });
     }
 
     function openAdd() {
@@ -510,17 +564,10 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
     function handleModalSave() {
         if (!modal || !modal.draft.title.trim()) return;
         if (modal.mode === 'edit' && modal.editId) {
-            const info = findReqById(modal.editId);
-            if (!info) return;
-            if (info.parentIndex != null && info.childIndex != null) {
-                onUpdate(requirements.map((r, i) =>
-                    i === info.parentIndex
-                        ? { ...r, children: r.children.map((c, ci) => ci === info.childIndex ? { ...modal.draft } : c) }
-                        : r
-                ));
-            } else {
-                onUpdate(requirements.map(r => r.id === modal.editId ? { ...modal.draft, children: r.children } : r));
-            }
+            onUpdate(updateInTree(requirements, modal.editId, existing => ({
+                ...modal.draft,
+                children: existing.children, // preserve children structure
+            })));
         } else if (modal.mode === 'add') {
             onUpdate([...requirements, { ...modal.draft, id: crypto.randomUUID() }]);
         }
@@ -544,39 +591,45 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
         const activeIdStr = String(active.id);
         const overIdStr = String(over.id);
         const depth = getProjectedDepth(flatItems, activeIdStr, overIdStr, event.delta.x);
-        let draggedReq: Requirement | null = null;
-        let newReqs = requirements.map(r => {
-            if (r.id === activeIdStr) { draggedReq = { ...r }; return null; }
-            const ci = r.children.findIndex(c => c.id === activeIdStr);
-            if (ci >= 0) { draggedReq = { ...r.children[ci] }; return { ...r, children: r.children.filter((_, i) => i !== ci) }; }
-            return r;
-        }).filter(Boolean) as Requirement[];
+
+        // Extract the dragged requirement (with its children intact)
+        const draggedReq = findInTree(requirements, activeIdStr);
         if (!draggedReq) return;
+        let newReqs = removeFromTree(requirements, activeIdStr);
+
         const flatWithout = flattenTree(newReqs);
         const overIdx = flatWithout.findIndex(i => i.id === overIdStr);
+
         if (depth === 0) {
+            // Insert as top-level
             let insertIdx: number;
-            if (overIdx < 0) { insertIdx = newReqs.length; }
-            else {
-                const oi = flatWithout[overIdx];
-                if (oi.parentId) { const pi = newReqs.findIndex(r => r.id === oi.parentId); insertIdx = pi >= 0 ? pi + 1 : newReqs.length; }
-                else { const ti = newReqs.findIndex(r => r.id === oi.id); insertIdx = ti >= 0 ? ti : newReqs.length; }
-            }
-            newReqs.splice(insertIdx, 0, draggedReq);
-        } else {
-            let parentId: string | null = null;
-            if (overIdx >= 0) { for (let i = overIdx; i >= 0; i--) { if (flatWithout[i].depth === 0) { parentId = flatWithout[i].id; break; } } }
-            if (parentId) {
-                const parent = newReqs.find(r => r.id === parentId)!;
-                const oi = flatWithout[overIdx];
-                let ci = oi.parentId === parentId ? parent.children.findIndex(c => c.id === oi.id) : parent.children.length;
-                if (ci < 0) ci = parent.children.length;
-                parent.children.splice(ci, 0, { ...draggedReq, children: [] });
-                if (draggedReq.children.length > 0) {
-                    const pti = newReqs.findIndex(r => r.id === parentId);
-                    newReqs.splice(pti + 1, 0, ...draggedReq.children.map(c => ({ ...c, children: [] })));
+            if (overIdx < 0) {
+                insertIdx = newReqs.length;
+            } else {
+                // Find which top-level item the over target belongs to
+                let topId = overIdStr;
+                for (let i = overIdx; i >= 0; i--) {
+                    if (flatWithout[i].depth === 0) { topId = flatWithout[i].id; break; }
                 }
-            } else { newReqs.push(draggedReq); }
+                const ti = newReqs.findIndex(r => r.id === topId);
+                insertIdx = ti >= 0 ? ti + 1 : newReqs.length;
+            }
+            newReqs.splice(insertIdx, 0, { ...draggedReq });
+        } else {
+            // Find the parent at depth-1 by walking backwards from over position
+            let parentId: string | null = null;
+            if (overIdx >= 0) {
+                for (let i = overIdx; i >= 0; i--) {
+                    if (flatWithout[i].depth === depth - 1) { parentId = flatWithout[i].id; break; }
+                }
+            }
+            if (parentId) {
+                const overItem = flatWithout[overIdx];
+                const afterChildId = overItem.parentId === parentId ? overItem.id : undefined;
+                newReqs = insertIntoTree(newReqs, parentId, { ...draggedReq }, afterChildId);
+            } else {
+                newReqs.push({ ...draggedReq });
+            }
         }
         onUpdate(newReqs);
     }
@@ -651,7 +704,7 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
                             const isChild = item.depth > 0;
                             return (
                                 <tr key={item.id} class={isChild ? 'table-row--child' : ''}>
-                                    <td class="table-indent-cell">
+                                    <td class="table-indent-cell" style={isChild ? { paddingLeft: `${item.depth * 1}rem` } : undefined}>
                                         {isChild ? <span class="table-indent-marker">&#8627;</span> : null}
                                     </td>
                                     <td><strong>{item.req.title}</strong></td>
@@ -665,10 +718,10 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
                                     </td>
                                     <td class="requirements-table-actions">
                                         <button class="requirement-action" onClick={() => openEditById(item.id)} title="Edit">&#9998;</button>
-                                        {!isChild && (
-                                            <button class="requirement-action" onClick={() => onExpand(item.id)}
-                                                disabled={expandingId === item.id} title="Expand">&#8690;</button>
-                                        )}
+                                        <button class="requirement-action" onClick={() => onGenerateChildren(item.id)}
+                                            disabled={generatingChildrenId === item.id} title="Generate Subrequirements">&#8690;</button>
+                                        <button class="requirement-action" onClick={() => onGenerateTests(item.id)}
+                                            disabled={generatingTestsId === item.id} title="Generate Tests">&#9881;</button>
                                         <button class="requirement-action requirement-action-remove"
                                             onClick={() => handleRemoveById(item.id)} title="Remove">&times;</button>
                                     </td>
@@ -684,8 +737,10 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
                         requirements={requirements}
                         onEdit={openEditById}
                         onRemove={handleRemoveById}
-                        onExpand={onExpand}
-                        expandingId={expandingId}
+                        onGenerateChildren={onGenerateChildren}
+                        onGenerateTests={onGenerateTests}
+                        generatingChildrenId={generatingChildrenId}
+                        generatingTestsId={generatingTestsId}
                     />
                     <button class="requirement-add-btn" onClick={openAdd}>+ Add requirement</button>
                 </>
@@ -698,7 +753,8 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
                         {flatItems.map(item => (
                             <SortableItem key={item.id} item={item}
                                 onEdit={openEditById} onRemove={handleRemoveById}
-                                onExpand={onExpand} expandingId={expandingId}
+                                onGenerateChildren={onGenerateChildren} onGenerateTests={onGenerateTests}
+                                generatingChildrenId={generatingChildrenId} generatingTestsId={generatingTestsId}
                                 projectedDepth={
                                     activeId && overId && item.id !== activeId ? undefined
                                     : item.id === activeId && projectedDepth != null ? projectedDepth
@@ -709,7 +765,8 @@ export function RequirementList({ requirements, onUpdate, onExpand, expandingId 
                     <DragOverlay dropAnimation={null}>
                         {activeItem && (
                             <SortableItem item={activeItem} onEdit={() => {}} onRemove={() => {}}
-                                onExpand={() => {}} expandingId={null}
+                                onGenerateChildren={() => {}} onGenerateTests={() => {}}
+                                generatingChildrenId={null} generatingTestsId={null}
                                 projectedDepth={projectedDepth ?? activeItem.depth} isDragOverlay />
                         )}
                     </DragOverlay>
