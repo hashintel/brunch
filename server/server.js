@@ -19,7 +19,7 @@ console.log(`Models: ${MODELS.map(m => m.id).join(', ')} (default: ${DEFAULT_MOD
 
 export const app = express();
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '5mb' }));
 
 // --- API call history logging ---
 const logApiCall = db.prepare(`

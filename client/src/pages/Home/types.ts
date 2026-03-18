@@ -34,6 +34,12 @@ export type Session = {
     summary: string;
 };
 
+export type GoalIteration = {
+    goalText: string;
+    questions: ClarifyingQuestion[];
+    answers: ClarifyingAnswer[];
+};
+
 export type SessionMeta = Pick<Session, 'id' | 'name' | 'updatedAt'>;
 
 export interface ClaudeCall {

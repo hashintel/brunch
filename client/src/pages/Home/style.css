@@ -770,6 +770,12 @@ tr.requirement--drag-over td {
     border-color: #673ab8;
 }
 
+.clarifying-card-nav {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 0.5rem;
+}
+
 .clarifying-actions {
     display: flex;
     align-items: center;
@@ -809,6 +815,9 @@ tr.requirement--drag-over td {
     .clarifying-round-a { color: #999; }
     .clarifying-card { border-color: #555; background-color: #2a2a2a; }
     .clarifying-card-question { color: #ccc; }
+    .goal-iteration { border-bottom-color: #444; }
+    .textarea--readonly { background-color: #222; opacity: 0.6; }
+    .clarifying-loading { color: #777; }
     .clarifying-card-why { color: #999; border-left-color: #a07ee0; }
     .clarifying-dot { border-color: #555; background: #1a1a1a; }
     .clarifying-dot:hover { border-color: #a07ee0; }
@@ -1037,6 +1046,30 @@ tr.requirement--drag-over td {
 
 .session-item-delete:hover {
     color: #c00;
+}
+
+/* ── Goal Iterations ── */
+.goal-iteration {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px dashed #ddd;
+    margin-bottom: 0.25rem;
+}
+
+.textarea--readonly {
+    opacity: 0.7;
+    background-color: #f5f5f5;
+    cursor: default;
+    resize: none;
+}
+
+.clarifying-loading {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    color: #888;
+    font-style: italic;
 }
 
 /* ── Clarifying Question Navigation ── */

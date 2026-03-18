@@ -1,6 +1,6 @@
 import './style.css';
 import { useEffect, useRef, useState } from 'preact/hooks';
-import type { Model, Requirement, Task, SessionMeta, Session, ClarifyingQuestion, ClarifyingAnswer, ClarifyingRound, ClaudeCall } from './types';
+import type { Model, Requirement, Task, SessionMeta, Session, ClarifyingQuestion, ClarifyingAnswer, GoalIteration, ClaudeCall } from './types';
 import { RequirementList } from './RequirementList';
 import { TaskList } from './TaskList';
 import { SummarySection } from './SummarySection';
@@ -8,6 +8,39 @@ import { SessionPanel } from './SessionPanel';
 import { ClarifyingQuestions } from './ClarifyingQuestions';
 
 const STEPS = ['Goal', 'Requirements', 'Tasks', 'Summary'] as const;
+
+function isAnswered(a: ClarifyingAnswer): boolean {
+    return a.skipped || a.selectedLabels.length > 0 || a.otherText.length > 0;
+}
+
+function formatAnswer(a: ClarifyingAnswer | undefined): string {
+    if (!a || a.skipped) return 'Skipped';
+    const parts: string[] = [];
+    if (a.selectedLabels.length) parts.push(a.selectedLabels.join(', '));
+    if (a.otherText) parts.push(`Other: ${a.otherText}`);
+    return parts.length ? parts.join(' — ') : 'Skipped';
+}
+
+function buildPreviousRounds(iterations: GoalIteration[], questions: ClarifyingQuestion[], answers: ClarifyingAnswer[]) {
+    const rounds: { questions: ClarifyingQuestion[]; answers: ClarifyingAnswer[] }[] = [];
+    for (const iter of iterations) {
+        if (iter.questions.length > 0) {
+            rounds.push({ questions: iter.questions, answers: iter.answers });
+        }
+    }
+    const answeredQs: ClarifyingQuestion[] = [];
+    const answeredAs: ClarifyingAnswer[] = [];
+    for (let i = 0; i < questions.length; i++) {
+        if (answers[i] && isAnswered(answers[i])) {
+            answeredQs.push(questions[i]);
+            answeredAs.push(answers[i]);
+        }
+    }
+    if (answeredQs.length > 0) {
+        rounds.push({ questions: answeredQs, answers: answeredAs });
+    }
+    return rounds;
+}
 
 export function Home() {
     const [projectName, setProjectName] = useState('');
@@ -25,11 +58,17 @@ export function Home() {
     const [summary, setSummary] = useState('');
     const [loadingSummary, setLoadingSummary] = useState(false);
 
-    const [clarifyingRounds, setClarifyingRounds] = useState<ClarifyingRound[]>([]);
-    const [currentQuestions, setCurrentQuestions] = useState<ClarifyingQuestion[]>([]);
-    const [currentAnswers, setCurrentAnswers] = useState<ClarifyingAnswer[]>([]);
+    // Goal iterations (previous revisions, read-only)
+    const [goalIterations, setGoalIterations] = useState<GoalIteration[]>([]);
+
+    // Flat question/answer lists (current active round)
+    const [allQuestions, setAllQuestions] = useState<ClarifyingQuestion[]>([]);
+    const [allAnswers, setAllAnswers] = useState<ClarifyingAnswer[]>([]);
     const [loadingQuestions, setLoadingQuestions] = useState(false);
+    const [questionsExhausted, setQuestionsExhausted] = useState(false);
     const [clarifyingDone, setClarifyingDone] = useState(false);
+    const [updatingGoal, setUpdatingGoal] = useState(false);
+    const preloadingRef = useRef(false);
 
     const [sessions, setSessions] = useState<SessionMeta[]>([]);
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
@@ -104,7 +143,11 @@ export function Home() {
     async function handleSave() {
         setSaving(true);
         try {
-            const body = { prompt, cwd, response, selectedModel, clarifyingRounds, clarifyingDone, requirements, tasks, summary };
+            const body: any = {
+                prompt, cwd, response, selectedModel,
+                goalIterations, allQuestions, allAnswers, questionsExhausted,
+                clarifyingDone, requirements, tasks, summary,
+            };
             if (currentSessionId) {
                 const res = await fetch(`/api/sessions/${currentSessionId}`, {
                     method: 'PUT',
@@ -137,18 +180,28 @@ export function Home() {
         try {
             const res = await fetch(`/api/sessions/${id}`);
             if (!res.ok) throw new Error();
-            const s: Session = await res.json();
+            const s: any = await res.json();
             setPrompt(s.prompt);
             setCwd(s.cwd ?? '');
             setResponse(s.response);
             setSelectedModel(s.selectedModel);
-            setClarifyingRounds(s.clarifyingRounds ?? []);
-            setClarifyingDone((s as any).clarifyingDone ?? (s.clarifyingRounds?.length > 0));
-            setCurrentQuestions([]);
-            setCurrentAnswers([]);
-            setRequirements(s.requirements);
-            setTasks(s.tasks);
-            setSummary(s.summary);
+            // New format
+            setGoalIterations(s.goalIterations ?? []);
+            setAllQuestions(s.allQuestions ?? []);
+            setAllAnswers(s.allAnswers ?? []);
+            setQuestionsExhausted(s.questionsExhausted ?? false);
+            // Backward compat: convert old clarifyingRounds
+            if (!s.goalIterations && s.clarifyingRounds?.length > 0) {
+                setGoalIterations(s.clarifyingRounds.map((r: any) => ({
+                    goalText: '',
+                    questions: r.questions,
+                    answers: r.answers,
+                })));
+            }
+            setClarifyingDone(s.clarifyingDone ?? false);
+            setRequirements(s.requirements ?? []);
+            setTasks(s.tasks ?? []);
+            setSummary(s.summary ?? '');
             setCurrentSessionId(s.id);
             setError('');
         } catch {
@@ -172,10 +225,12 @@ export function Home() {
         setPrompt('');
         setCwd('');
         setResponse('');
-        setClarifyingRounds([]);
-        setCurrentQuestions([]);
-        setCurrentAnswers([]);
+        setGoalIterations([]);
+        setAllQuestions([]);
+        setAllAnswers([]);
+        setQuestionsExhausted(false);
         setClarifyingDone(false);
+        setUpdatingGoal(false);
         setRequirements([]);
         setTasks([]);
         setSummary('');
@@ -183,20 +238,30 @@ export function Home() {
         setCurrentSessionId(null);
     }
 
-    async function handleGo() {
-        if (!prompt.trim() || loading) return;
+    // --- Question fetching ---
 
-        setResponse('');
+    async function fetchQuestions(
+        goalText: string,
+        iterations: GoalIteration[],
+        questions: ClarifyingQuestion[],
+        answers: ClarifyingAnswer[],
+        showLoading = true,
+    ) {
+        if (!goalText.trim()) return;
+        if (showLoading) setLoadingQuestions(true);
         setError('');
-        setLoading(true);
-        setPrompt('');
 
-        let fullText = '';
         try {
-            const res = await fetch('http://localhost:3001/api/stream', {
+            const rounds = buildPreviousRounds(iterations, questions, answers);
+            const res = await fetch('/api/clarifyingquestions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: selectedModel, cwd: cwd || undefined }),
+                body: JSON.stringify({
+                    prompt: goalText,
+                    model: selectedModel,
+                    cwd: cwd || undefined,
+                    previousRounds: rounds.length > 0 ? rounds : undefined,
+                }),
             });
 
             if (!res.ok) {
@@ -204,7 +269,87 @@ export function Home() {
                 throw new Error(body.error ?? `Server error: ${res.status}`);
             }
 
-            const reader = res.body.getReader();
+            const data = await res.json();
+            if (data.done || !data.questions?.length) {
+                setQuestionsExhausted(true);
+            } else {
+                setAllQuestions(prev => [...prev, ...data.questions]);
+                setAllAnswers(prev => [
+                    ...prev,
+                    ...data.questions.map(() => ({ selectedLabels: [], otherText: '', skipped: false })),
+                ]);
+            }
+        } catch (e) {
+            if (showLoading) {
+                setError(e instanceof Error ? e.message : 'Failed to generate questions');
+            }
+        } finally {
+            if (showLoading) setLoadingQuestions(false);
+            await refreshCallHistory();
+        }
+    }
+
+    function maybePreloadQuestions(currentAnswers: ClarifyingAnswer[]) {
+        if (questionsExhausted || preloadingRef.current || loadingQuestions || !response || allQuestions.length === 0) return;
+        const answeredCount = currentAnswers.filter(isAnswered).length;
+        if (allQuestions.length - answeredCount > 2) return;
+
+        preloadingRef.current = true;
+        const rounds = buildPreviousRounds(goalIterations, allQuestions, currentAnswers);
+        fetch('/api/clarifyingquestions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                prompt: response,
+                model: selectedModel,
+                cwd: cwd || undefined,
+                previousRounds: rounds.length > 0 ? rounds : undefined,
+            }),
+        })
+            .then(r => { if (!r.ok) throw new Error(); return r.json(); })
+            .then(data => {
+                if (data.done || !data.questions?.length) {
+                    setQuestionsExhausted(true);
+                } else {
+                    setAllQuestions(prev => [...prev, ...data.questions]);
+                    setAllAnswers(prev => [
+                        ...prev,
+                        ...data.questions.map(() => ({ selectedLabels: [], otherText: '', skipped: false })),
+                    ]);
+                }
+            })
+            .catch(() => {})
+            .finally(() => {
+                preloadingRef.current = false;
+                refreshCallHistory();
+            });
+    }
+
+    // --- Handlers ---
+
+    async function handleGo() {
+        if (!prompt.trim() || loading) return;
+
+        setResponse('');
+        setError('');
+        setLoading(true);
+        const originalPrompt = prompt;
+        setPrompt('');
+
+        let fullText = '';
+        try {
+            const res = await fetch('http://localhost:3001/api/stream', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ prompt: originalPrompt, model: selectedModel, cwd: cwd || undefined }),
+            });
+
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error ?? `Server error: ${res.status}`);
+            }
+
+            const reader = res.body!.getReader();
             const decoder = new TextDecoder();
 
             while (true) {
@@ -216,8 +361,7 @@ export function Home() {
             }
 
             setResponse(fullText);
-            // Auto-trigger clarifying questions after goal generation
-            await generateQuestions(fullText);
+            await fetchQuestions(fullText, [], [], []);
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Something went wrong');
         } finally {
@@ -226,80 +370,52 @@ export function Home() {
         }
     }
 
-    async function generateQuestions(responseText?: string) {
-        const text = responseText ?? response;
-        if (!text.trim() || loadingQuestions) return;
-
-        setError('');
-        setLoadingQuestions(true);
-
-        try {
-            const res = await fetch('/api/clarifyingquestions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: text,
-                    model: selectedModel,
-                    cwd: cwd || undefined,
-                    previousRounds: clarifyingRounds.length > 0 ? clarifyingRounds : undefined,
-                }),
-            });
-
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.error ?? `Server error: ${res.status}`);
-            }
-
-            const data = await res.json();
-            if (data.done || !data.questions?.length) {
-                setClarifyingDone(true);
-                setCurrentQuestions([]);
-                setCurrentAnswers([]);
-            } else {
-                setCurrentQuestions(data.questions);
-                setCurrentAnswers(data.questions.map(() => ({ selectedLabels: [], otherText: '', skipped: false })));
-            }
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to generate questions');
-        } finally {
-            setLoadingQuestions(false);
-            await refreshCallHistory();
-        }
-    }
-
     function handleUpdateAnswer(index: number, answer: ClarifyingAnswer) {
-        setCurrentAnswers(prev => {
-            const next = [...prev];
-            next[index] = answer;
-            return next;
-        });
+        const newAnswers = [...allAnswers];
+        newAnswers[index] = answer;
+        setAllAnswers(newAnswers);
+        maybePreloadQuestions(newAnswers);
     }
 
-    async function handleSubmitAnswers() {
-        // Save current round
-        const newRound: ClarifyingRound = {
-            questions: currentQuestions,
-            answers: currentAnswers,
-        };
-        const newRounds = [...clarifyingRounds, newRound];
-        setClarifyingRounds(newRounds);
-        setCurrentQuestions([]);
-        setCurrentAnswers([]);
+    async function handleUpdateGoal() {
+        if (updatingGoal || loading) return;
 
-        // Ask for next round
-        setLoadingQuestions(true);
+        // Save current iteration
+        const iteration: GoalIteration = {
+            goalText: prompt,
+            questions: allQuestions,
+            answers: allAnswers,
+        };
+        const newIterations = [...goalIterations, iteration];
+        setGoalIterations(newIterations);
+
+        // Reset current questions
+        setAllQuestions([]);
+        setAllAnswers([]);
+        setQuestionsExhausted(false);
+        preloadingRef.current = false;
+
+        // Build Q&A context for the prompt
+        const rounds = buildPreviousRounds(newIterations, [], []);
+        const roundsText = rounds.map(r =>
+            r.questions.map((q, i) => {
+                const a = r.answers[i];
+                return `Q: ${q.question}\nA: ${formatAnswer(a)}`;
+            }).join('\n\n')
+        ).join('\n\n');
+
+        const enhancedPrompt = `Here is a project goal description:\n\n${response}\n\nBased on the following clarifying Q&A, please update and improve the goal description to be more specific and comprehensive:\n\n${roundsText}`;
+
+        setUpdatingGoal(true);
+        setPrompt('');
         setError('');
 
+        let fullText = '';
         try {
-            const res = await fetch('/api/clarifyingquestions', {
+            const res = await fetch('http://localhost:3001/api/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: response,
-                    model: selectedModel,
-                    cwd: cwd || undefined,
-                    previousRounds: newRounds,
-                }),
+                body: JSON.stringify({ prompt: enhancedPrompt, model: selectedModel, cwd: cwd || undefined }),
             });
 
             if (!res.ok) {
@@ -307,25 +423,39 @@ export function Home() {
                 throw new Error(body.error ?? `Server error: ${res.status}`);
             }
 
-            const data = await res.json();
-            if (data.done || !data.questions?.length) {
-                setClarifyingDone(true);
-            } else {
-                setCurrentQuestions(data.questions);
-                setCurrentAnswers(data.questions.map(() => ({ selectedLabels: [], otherText: '', skipped: false })));
+            const reader = res.body!.getReader();
+            const decoder = new TextDecoder();
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                const chunk = decoder.decode(value);
+                fullText += chunk;
+                setPrompt(prev => prev + chunk);
             }
+
+            setResponse(fullText);
+            await fetchQuestions(fullText, newIterations, [], []);
         } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to generate questions');
+            setError(e instanceof Error ? e.message : 'Failed to update goal');
         } finally {
-            setLoadingQuestions(false);
+            setUpdatingGoal(false);
             await refreshCallHistory();
         }
     }
 
-    function handleSkipAll() {
+    function handleGenerateRequirementsDone() {
+        // Save final Q&A if any
+        if (allQuestions.length > 0) {
+            setGoalIterations(prev => [...prev, {
+                goalText: '',
+                questions: allQuestions,
+                answers: allAnswers,
+            }]);
+            setAllQuestions([]);
+            setAllAnswers([]);
+        }
         setClarifyingDone(true);
-        setCurrentQuestions([]);
-        setCurrentAnswers([]);
     }
 
     async function handleGenerateRequirements() {
@@ -335,9 +465,10 @@ export function Home() {
         setLoadingRequirements(true);
 
         const isGenerateMore = requirements.length > 0;
+        const rounds = buildPreviousRounds(goalIterations, allQuestions, allAnswers);
         const body = isGenerateMore
-            ? { prompt: response, model: selectedModel, cwd: cwd || undefined, existingRequirements: requirements, clarifyingRounds: clarifyingRounds.length > 0 ? clarifyingRounds : undefined }
-            : { prompt: response, model: selectedModel, cwd: cwd || undefined, clarifyingRounds: clarifyingRounds.length > 0 ? clarifyingRounds : undefined };
+            ? { prompt: response, model: selectedModel, cwd: cwd || undefined, existingRequirements: requirements, clarifyingRounds: rounds.length > 0 ? rounds : undefined }
+            : { prompt: response, model: selectedModel, cwd: cwd || undefined, clarifyingRounds: rounds.length > 0 ? rounds : undefined };
 
         try {
             const res = await fetch('/api/streamrequirements', {
@@ -455,6 +586,8 @@ export function Home() {
         }
     }
 
+    const anyBusy = loading || updatingGoal || loadingQuestions;
+
     return (
         <div class="home-layout">
             <aside class="sidebar">
@@ -499,40 +632,70 @@ export function Home() {
                 <div class="collapsible">
                     <button class="collapsible-header" onClick={() => toggleSection(0)}>
                         <span class="collapsible-title">Goal</span>
-                        {clarifyingRounds.length > 0 && (
-                            <span class="collapsible-badge">{clarifyingRounds.length} round{clarifyingRounds.length !== 1 ? 's' : ''}</span>
+                        {goalIterations.length > 0 && (
+                            <span class="collapsible-badge">{goalIterations.length} revision{goalIterations.length !== 1 ? 's' : ''}</span>
                         )}
                         <span class={`collapsible-chevron ${openSections.has(0) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                     </button>
                     <div class={`collapsible-body ${openSections.has(0) ? 'collapsible-body--open' : ''}`}>
                         <div class="collapsible-content">
+                            {/* Previous iterations (read-only) */}
+                            {goalIterations.map((iter, i) => (
+                                <div key={i} class="goal-iteration">
+                                    {iter.goalText && (
+                                        <textarea
+                                            class="textarea textarea--readonly"
+                                            value={iter.goalText}
+                                            readOnly
+                                        />
+                                    )}
+                                    {iter.questions.length > 0 && (
+                                        <div class="clarifying-round-summary">
+                                            <h4>Clarification Round {i + 1}</h4>
+                                            {iter.questions.map((q, qi) => (
+                                                <div key={qi} class="clarifying-round-qa">
+                                                    <div class="clarifying-round-q">{q.question}</div>
+                                                    <div class="clarifying-round-a">{formatAnswer(iter.answers[qi])}</div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
+                                </div>
+                            ))}
+
+                            {/* Current goal textarea */}
                             <textarea
                                 ref={goalTextareaRef}
                                 class="textarea"
                                 value={prompt}
                                 onInput={e => setPrompt(e.currentTarget.value)}
                                 placeholder="Describe your goal. What do you want to build?"
-                                disabled={loading}
+                                disabled={loading || updatingGoal}
                             />
-                            {response ? (
-                                <>
-                                    {clarifyingDone && currentQuestions.length === 0 && (
-                                        <div class="clarifying-done-message">
-                                            Clarification complete — ready to generate requirements.
-                                        </div>
-                                    )}
-                                    <ClarifyingQuestions
-                                        currentQuestions={currentQuestions}
-                                        currentAnswers={currentAnswers}
-                                        onUpdateAnswer={handleUpdateAnswer}
-                                        previousRounds={clarifyingRounds}
-                                        onSubmitAnswers={handleSubmitAnswers}
-                                        onSkipAll={handleSkipAll}
-                                        loading={loadingQuestions}
-                                    />
-                                </>
-                            ) : (
-                                <button class="button" onClick={handleGo} disabled={loading || !prompt.trim()}>
+
+                            {/* Clarifying questions (after first generation, before done) */}
+                            {response && !clarifyingDone && (
+                                <ClarifyingQuestions
+                                    questions={allQuestions}
+                                    answers={allAnswers}
+                                    onUpdateAnswer={handleUpdateAnswer}
+                                    onUpdateGoal={handleUpdateGoal}
+                                    onGenerateRequirements={handleGenerateRequirementsDone}
+                                    loading={loadingQuestions}
+                                    updatingGoal={updatingGoal}
+                                />
+                            )}
+
+                            {/* Done message */}
+                            {clarifyingDone && (
+                                <div class="clarifying-done-message">
+                                    Clarification complete — ready to generate requirements.
+                                </div>
+                            )}
+
+                            {/* Initial generate button (only before first response) */}
+                            {!response && (
+                                <button class="button" onClick={handleGo} disabled={anyBusy || !prompt.trim()}>
                                     {loading ? 'Generating\u2026' : 'Generate'}
                                 </button>
                             )}

@@ -1,94 +1,71 @@
 import { useState, useEffect } from 'preact/hooks';
-import type { ClarifyingQuestion, ClarifyingAnswer, ClarifyingRound } from './types';
+import type { ClarifyingQuestion, ClarifyingAnswer } from './types';
 
 type Props = {
-    currentQuestions: ClarifyingQuestion[];
-    currentAnswers: ClarifyingAnswer[];
+    questions: ClarifyingQuestion[];
+    answers: ClarifyingAnswer[];
     onUpdateAnswer: (index: number, answer: ClarifyingAnswer) => void;
-    previousRounds: ClarifyingRound[];
-    onSubmitAnswers: () => void;
-    onSkipAll: () => void;
+    onUpdateGoal: () => void;
+    onGenerateRequirements: () => void;
     loading: boolean;
+    updatingGoal: boolean;
 };
 
-function isAnswered(answer: ClarifyingAnswer | undefined): boolean {
-    if (!answer) return false;
-    return answer.skipped || answer.selectedLabels.length > 0 || answer.otherText.length > 0;
+function isAnswered(a: ClarifyingAnswer | undefined): boolean {
+    if (!a) return false;
+    return a.skipped || a.selectedLabels.length > 0 || a.otherText.length > 0;
 }
 
 export function ClarifyingQuestions({
-    currentQuestions,
-    currentAnswers,
+    questions,
+    answers,
     onUpdateAnswer,
-    previousRounds,
-    onSubmitAnswers,
-    onSkipAll,
+    onUpdateGoal,
+    onGenerateRequirements,
     loading,
+    updatingGoal,
 }: Props) {
     const [activeIndex, setActiveIndex] = useState(0);
 
-    // Reset to first question when a new set of questions arrives
+    // Clamp active index when questions shrink (e.g. after Update Goal resets)
     useEffect(() => {
-        setActiveIndex(0);
-    }, [currentQuestions]);
-
-    // Auto-advance when current question gets answered
-    useEffect(() => {
-        if (currentQuestions.length === 0) return;
-        const answer = currentAnswers[activeIndex];
-        if (isAnswered(answer) && activeIndex < currentQuestions.length - 1) {
-            const timer = setTimeout(() => setActiveIndex(prev => prev + 1), 400);
-            return () => clearTimeout(timer);
+        if (questions.length > 0 && activeIndex >= questions.length) {
+            setActiveIndex(questions.length - 1);
         }
-    }, [currentAnswers, activeIndex, currentQuestions.length]);
+        if (questions.length === 0) {
+            setActiveIndex(0);
+        }
+    }, [questions.length]);
 
-    if (currentQuestions.length === 0 && previousRounds.length === 0) return null;
+    if (questions.length === 0 && !loading) return null;
 
-    const q = currentQuestions[activeIndex];
-    const answer = currentAnswers[activeIndex] ?? { selectedLabels: [], otherText: '', skipped: false };
+    const q = questions[activeIndex];
+    const answer = answers[activeIndex] ?? { selectedLabels: [], otherText: '', skipped: false };
     const isIdk = answer.skipped;
-    const answeredCount = currentAnswers.filter(isAnswered).length;
+    const answeredCount = answers.filter(isAnswered).length;
+    const anyAnswered = answeredCount > 0;
 
     return (
         <div class="clarifying-questions">
-            {/* Previous rounds as compact pills */}
-            {previousRounds.map((round, ri) => (
-                <div key={ri} class="clarifying-round-summary">
-                    <h4>Round {ri + 1}</h4>
-                    {round.questions.map((rq, qi) => {
-                        const ans = round.answers[qi];
-                        let answerText = 'Skipped';
-                        if (ans && !ans.skipped) {
-                            const parts: string[] = [];
-                            if (ans.selectedLabels.length) parts.push(ans.selectedLabels.join(', '));
-                            if (ans.otherText) parts.push(`Other: ${ans.otherText}`);
-                            answerText = parts.length ? parts.join(' — ') : 'Skipped';
-                        }
-                        return (
-                            <div key={qi} class="clarifying-round-qa">
-                                <div class="clarifying-round-q">{rq.question}</div>
-                                <div class="clarifying-round-a">{answerText}</div>
-                            </div>
-                        );
-                    })}
-                </div>
-            ))}
+            {loading && questions.length === 0 && (
+                <div class="clarifying-loading">Generating questions...</div>
+            )}
 
-            {currentQuestions.length > 0 && q && (
+            {questions.length > 0 && q && (
                 <>
-                    {/* Horizontal dots + counter */}
+                    {/* Dot navigation + counter */}
                     <div class="clarifying-nav">
                         <div class="clarifying-dots">
-                            {currentQuestions.map((_, i) => (
+                            {questions.map((_, i) => (
                                 <button
                                     key={i}
-                                    class={`clarifying-dot${i === activeIndex ? ' clarifying-dot--active' : ''}${isAnswered(currentAnswers[i]) ? ' clarifying-dot--answered' : ''}`}
+                                    class={`clarifying-dot${i === activeIndex ? ' clarifying-dot--active' : ''}${isAnswered(answers[i]) ? ' clarifying-dot--answered' : ''}`}
                                     onClick={() => setActiveIndex(i)}
                                 />
                             ))}
                         </div>
                         <span class="clarifying-counter">
-                            {answeredCount}/{currentQuestions.length} answered
+                            {answeredCount}/{questions.length} answered
                         </span>
                     </div>
 
@@ -151,28 +128,55 @@ export function ClarifyingQuestions({
                                     type="checkbox"
                                     checked={isIdk}
                                     onChange={() => {
+                                        const newSkipped = !isIdk;
                                         onUpdateAnswer(activeIndex, {
                                             selectedLabels: [],
                                             otherText: '',
-                                            skipped: !isIdk,
+                                            skipped: newSkipped,
                                         });
                                     }}
                                 />
                                 I don't know
                             </label>
                         </div>
-                    </div>
-
-                    {/* Action buttons */}
-                    <div class="clarifying-actions">
-                        <button class="button" onClick={onSubmitAnswers} disabled={loading}>
-                            {loading ? 'Regenerating\u2026' : 'Regenerate'}
-                        </button>
-                        <button class="button button-secondary" onClick={onSkipAll} disabled={loading}>
-                            Continue
-                        </button>
+                        <div class="clarifying-card-nav">
+                            <button
+                                class="button button-small button-secondary"
+                                onClick={() => setActiveIndex(prev => prev - 1)}
+                                disabled={activeIndex === 0}
+                            >
+                                Previous
+                            </button>
+                            <button
+                                class="button button-small"
+                                onClick={() => setActiveIndex(prev => prev + 1)}
+                                disabled={activeIndex >= questions.length - 1}
+                            >
+                                Next
+                            </button>
+                        </div>
                     </div>
                 </>
+            )}
+
+            {/* Action buttons — always visible once we have questions */}
+            {(questions.length > 0 || loading) && (
+                <div class="clarifying-actions">
+                    <button
+                        class="button"
+                        onClick={onUpdateGoal}
+                        disabled={!anyAnswered || loading || updatingGoal}
+                    >
+                        {updatingGoal ? 'Updating Goal\u2026' : 'Update Goal'}
+                    </button>
+                    <button
+                        class="button button-secondary"
+                        onClick={onGenerateRequirements}
+                        disabled={loading || updatingGoal}
+                    >
+                        Generate Requirements
+                    </button>
+                </div>
             )}
         </div>
     );
