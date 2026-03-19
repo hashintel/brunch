@@ -500,6 +500,13 @@ export function Home() {
     }
 
     function handleClarifyingDone() {
+        // Compute rounds BEFORE clearing state so we capture current Q&A
+        const rounds = buildPreviousRounds(
+            [...goalIterations, ...(allQuestions.length > 0 ? [{ goalText: '', questions: allQuestions, answers: allAnswers } as GoalIteration] : [])],
+            [],
+            [],
+        );
+
         // Save final Q&A if any
         if (allQuestions.length > 0) {
             setGoalIterations(prev => [...prev, {
@@ -511,16 +518,16 @@ export function Home() {
             setAllAnswers([]);
         }
         setClarifyingDone(true);
-        handleGenerateAssumptions();
+        handleGenerateAssumptions(rounds);
     }
 
-    async function handleGenerateAssumptions() {
+    async function handleGenerateAssumptions(precomputedRounds?: { questions: ClarifyingQuestion[]; answers: ClarifyingAnswer[] }[]) {
         if (!response.trim() || loadingAssumptions) return;
         setLoadingAssumptions(true);
         setError('');
 
         try {
-            const rounds = buildPreviousRounds(goalIterations, allQuestions, allAnswers);
+            const rounds = precomputedRounds ?? buildPreviousRounds(goalIterations, allQuestions, allAnswers);
             const res = await fetch('/api/assumptions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -804,7 +811,7 @@ export function Home() {
                             {/* Done message */}
                             {clarifyingDone && (
                                 <div class="clarifying-done-message">
-                                    Clarification complete — ready to generate requirements.
+                                    Clarification complete — proceed to review assumptions.
                                 </div>
                             )}
 

@@ -51,7 +51,16 @@ export function AssumptionReview({ assumptions, onUpdate, onDone, loading }: Pro
     }
 
     if (assumptions.length === 0) {
-        return null;
+        return (
+            <div class="assumption-review">
+                <div class="clarifying-done-message">
+                    No assumptions generated yet.
+                </div>
+                <button class="button" onClick={onDone}>
+                    Proceed to Requirements
+                </button>
+            </div>
+        );
     }
 
     return (

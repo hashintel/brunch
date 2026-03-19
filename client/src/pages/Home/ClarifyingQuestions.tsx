@@ -174,7 +174,7 @@ export function ClarifyingQuestions({
                         onClick={onGenerateRequirements}
                         disabled={loading || updatingGoal}
                     >
-                        Generate Requirements
+                        Done
                     </button>
                 </div>
             )}
