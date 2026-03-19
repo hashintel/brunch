@@ -1,12 +1,13 @@
 import './style.css';
 import { useEffect, useRef, useState } from 'preact/hooks';
 import { useRoute, useLocation } from 'preact-iso';
-import type { Model, Requirement, SessionMeta, Session, ClarifyingQuestion, ClarifyingAnswer, GoalIteration, ClaudeCall } from './types';
+import type { Model, Requirement, SessionMeta, Session, ClarifyingQuestion, ClarifyingAnswer, GoalIteration, ClaudeCall, Assumption } from './types';
 import { RequirementList } from './RequirementList';
 import { SessionPanel } from './SessionPanel';
 import { ClarifyingQuestions } from './ClarifyingQuestions';
+import { AssumptionReview } from './AssumptionReview';
 
-const STEPS = ['Goal', 'Requirements'] as const;
+const STEPS = ['Goal', 'Assumptions', 'Requirements'] as const;
 
 function isAnswered(a: ClarifyingAnswer): boolean {
     return a.skipped || a.selectedLabels.length > 0 || a.otherText.length > 0;
@@ -79,6 +80,9 @@ export function Home() {
     const [loadingQuestions, setLoadingQuestions] = useState(false);
     const [questionsExhausted, setQuestionsExhausted] = useState(false);
     const [clarifyingDone, setClarifyingDone] = useState(false);
+    const [assumptions, setAssumptions] = useState<Assumption[]>([]);
+    const [assumptionsDone, setAssumptionsDone] = useState(false);
+    const [loadingAssumptions, setLoadingAssumptions] = useState(false);
     const [updatingGoal, setUpdatingGoal] = useState(false);
     const preloadingRef = useRef(false);
 
@@ -107,28 +111,32 @@ export function Home() {
         } catch {}
     }
 
-    // Derive step statuses (2 steps: Goal, Requirements)
+    // Derive step statuses (3 steps: Goal, Assumptions, Requirements)
     const stepCompleted = [
         clarifyingDone,
+        assumptionsDone,
         requirements.length > 0,
     ];
     const stepActive = [
         true,
         clarifyingDone,
+        assumptionsDone,
     ];
 
-    // Auto-open sections as they become active; collapse goal when in requirements phase
+    // Auto-open sections as they become active; collapse previous sections
     useEffect(() => {
         setOpenSections(prev => {
             const next = new Set(prev);
-            for (let i = 0; i < 2; i++) {
+            for (let i = 0; i < 3; i++) {
                 if (stepActive[i] && !stepCompleted[i]) next.add(i);
             }
-            // Collapse goal section when requirements phase is active
+            // Collapse goal when assumptions active
             if (stepActive[1]) next.delete(0);
+            // Collapse assumptions when requirements active
+            if (stepActive[2]) next.delete(1);
             return next;
         });
-    }, [response, clarifyingDone, requirements.length]);
+    }, [response, clarifyingDone, assumptionsDone, requirements.length]);
 
     function toggleSection(index: number) {
         setOpenSections(prev => {
@@ -175,7 +183,7 @@ export function Home() {
             const body: any = {
                 prompt, cwd, response, selectedModel,
                 goalIterations, allQuestions, allAnswers, questionsExhausted,
-                clarifyingDone, requirements,
+                clarifyingDone, assumptions, assumptionsDone, requirements,
             };
             if (currentSessionId) {
                 const res = await fetch(`/api/sessions/${currentSessionId}`, {
@@ -228,6 +236,8 @@ export function Home() {
                 })));
             }
             setClarifyingDone(s.clarifyingDone ?? false);
+            setAssumptions(s.assumptions ?? []);
+            setAssumptionsDone(s.assumptionsDone ?? false);
             // Load requirements with backward compat (old format without id/stage/tests/children)
             function migrateTests(r: any) {
                 if (r.tests && Array.isArray(r.tests)) return r.tests;
@@ -275,6 +285,8 @@ export function Home() {
         setAllAnswers([]);
         setQuestionsExhausted(false);
         setClarifyingDone(false);
+        setAssumptions([]);
+        setAssumptionsDone(false);
         setUpdatingGoal(false);
         setRequirements([]);
         setError('');
@@ -487,7 +499,7 @@ export function Home() {
         }
     }
 
-    function handleGenerateRequirementsDone() {
+    function handleClarifyingDone() {
         // Save final Q&A if any
         if (allQuestions.length > 0) {
             setGoalIterations(prev => [...prev, {
@@ -499,6 +511,52 @@ export function Home() {
             setAllAnswers([]);
         }
         setClarifyingDone(true);
+        handleGenerateAssumptions();
+    }
+
+    async function handleGenerateAssumptions() {
+        if (!response.trim() || loadingAssumptions) return;
+        setLoadingAssumptions(true);
+        setError('');
+
+        try {
+            const rounds = buildPreviousRounds(goalIterations, allQuestions, allAnswers);
+            const res = await fetch('/api/assumptions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    prompt: response,
+                    model: selectedModel,
+                    cwd: cwd || undefined,
+                    previousRounds: rounds.length > 0 ? rounds : undefined,
+                }),
+            });
+
+            if (!res.ok) {
+                const body = await res.json().catch(() => ({}));
+                throw new Error(body.error ?? `Server error: ${res.status}`);
+            }
+
+            const data = await res.json();
+            const items: Assumption[] = (data.assumptions ?? []).map((a: any) => ({
+                id: crypto.randomUUID(),
+                text: a.text,
+                rationale: a.rationale,
+                confidence: a.confidence,
+                impact: a.impact,
+                status: 'pending' as const,
+            }));
+            setAssumptions(items);
+        } catch (e) {
+            setError(e instanceof Error ? e.message : 'Failed to generate assumptions');
+        } finally {
+            setLoadingAssumptions(false);
+            await refreshCallHistory();
+        }
+    }
+
+    function handleAssumptionsDone() {
+        setAssumptionsDone(true);
     }
 
     async function handleGenerateRequirements() {
@@ -737,7 +795,7 @@ export function Home() {
                                     answers={allAnswers}
                                     onUpdateAnswer={handleUpdateAnswer}
                                     onUpdateGoal={handleUpdateGoal}
-                                    onGenerateRequirements={handleGenerateRequirementsDone}
+                                    onGenerateRequirements={handleClarifyingDone}
                                     loading={loadingQuestions}
                                     updatingGoal={updatingGoal}
                                 />
@@ -760,14 +818,44 @@ export function Home() {
                     </div>
                 </div>
 
-                {/* Section 1: Requirements */}
+                {/* Section 1: Assumptions */}
                 {stepActive[1] && (
                     <div class="collapsible">
                         <button class="collapsible-header" onClick={() => toggleSection(1)}>
-                            <span class="collapsible-title">Requirements</span>
+                            <span class="collapsible-title">Assumptions</span>
+                            {assumptions.length > 0 && (
+                                <span class="collapsible-badge">
+                                    {assumptions.filter(a => a.status !== 'pending').length}/{assumptions.length}
+                                </span>
+                            )}
                             <span class={`collapsible-chevron ${openSections.has(1) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                         </button>
                         <div class={`collapsible-body ${openSections.has(1) ? 'collapsible-body--open' : ''}`}>
+                            <div class="collapsible-content">
+                                <AssumptionReview
+                                    assumptions={assumptions}
+                                    onUpdate={setAssumptions}
+                                    onDone={handleAssumptionsDone}
+                                    loading={loadingAssumptions}
+                                />
+                                {assumptionsDone && (
+                                    <div class="clarifying-done-message">
+                                        Assumptions reviewed — ready to generate requirements.
+                                    </div>
+                                )}
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {/* Section 2: Requirements */}
+                {stepActive[2] && (
+                    <div class="collapsible">
+                        <button class="collapsible-header" onClick={() => toggleSection(2)}>
+                            <span class="collapsible-title">Requirements</span>
+                            <span class={`collapsible-chevron ${openSections.has(2) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
+                        </button>
+                        <div class={`collapsible-body ${openSections.has(2) ? 'collapsible-body--open' : ''}`}>
                             <div class="collapsible-content">
                                 {requirements.length > 0 && (
                                     <RequirementList

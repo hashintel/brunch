@@ -1,5 +1,18 @@
 export type Model = { id: string; label: string; provider: string };
 
+export type ConfidenceLevel = 'high' | 'medium' | 'low';
+export type ImpactLevel = 'high' | 'medium' | 'low';
+
+export type Assumption = {
+    id: string;
+    text: string;
+    rationale: string;
+    confidence: ConfidenceLevel;
+    impact: ImpactLevel;
+    status: 'pending' | 'confirmed' | 'edited' | 'rejected';
+    editedText?: string;
+};
+
 export type TestType = 'static_analysis' | 'programmatic_test' | 'llm_review' | 'human_review';
 
 export type TestCase = {

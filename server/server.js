@@ -58,7 +58,7 @@ app.use('/api', (req, res, next) => {
 });
 
 app.get('/', (_req, res) => {
-    res.json({ status: 'ok', endpoints: ['/api/models', '/api/stream', '/api/clarifyingquestions', '/api/streamrequirements', '/api/generatechildren', '/api/generatetests'] });
+    res.json({ status: 'ok', endpoints: ['/api/models', '/api/stream', '/api/clarifyingquestions', '/api/assumptions', '/api/streamrequirements', '/api/generatechildren', '/api/generatetests'] });
 });
 
 app.get('/api/models', (_req, res) => {
@@ -308,6 +308,72 @@ If the goal is already clear enough and no more clarification is needed, set "do
         console.error(`[${modelId}] error:`, err.message ?? err);
         if (!res.headersSent) {
             res.status(500).json({ error: 'Failed to generate clarifying questions' });
+        } else {
+            res.end();
+        }
+    }
+});
+
+// --- Assumptions ---
+
+const assumptionsSchema = {
+    type: 'object',
+    properties: {
+        assumptions: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    text: { type: 'string' },
+                    rationale: { type: 'string' },
+                    confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+                    impact: { type: 'string', enum: ['high', 'medium', 'low'] },
+                },
+                required: ['text', 'rationale', 'confidence', 'impact'],
+                additionalProperties: false,
+            },
+        },
+    },
+    required: ['assumptions'],
+    additionalProperties: false,
+};
+
+app.post('/api/assumptions', async (req, res) => {
+    const { prompt, model: modelId = DEFAULT_MODEL, cwd, previousRounds } = req.body;
+
+    if (!prompt?.trim()) {
+        return res.status(400).json({ error: 'prompt is required' });
+    }
+    if (!VALID_MODEL_IDS.has(modelId)) {
+        return res.status(400).json({ error: `invalid model: ${modelId}` });
+    }
+
+    console.log(`[${modelId}] assumptions`);
+
+    let userContent = `Goal description:\n${prompt}\n\n`;
+
+    const roundsText = formatClarifyingRounds(previousRounds);
+    if (roundsText) {
+        userContent += `Clarifying Q&A:\n${roundsText}\n\n`;
+    }
+
+    userContent += `You are a spec elicitation assistant. Based on the goal and clarifying answers above, surface 5-10 key assumptions you intend to build the specification on, ordered by importance.
+
+For each assumption:
+- "text": the assumption statement
+- "rationale": why you are making this assumption and how it affects the spec
+- "confidence": "high" (derived directly from user input), "medium" (inferred from patterns or context), or "low" (best guess with limited information)
+- "impact": "high" (large portion of the spec depends on this), "medium" (affects several requirements), or "low" (minor impact on spec shape)
+
+Focus on assumptions that, if wrong, would significantly change the specification. Include assumptions about technology choices, user expectations, scope boundaries, and constraints.`;
+
+    try {
+        const output = await queryStructured(userContent, modelId, assumptionsSchema, cwd);
+        res.json(output);
+    } catch (err) {
+        console.error(`[${modelId}] error:`, err.message ?? err);
+        if (!res.headersSent) {
+            res.status(500).json({ error: 'Failed to generate assumptions' });
         } else {
             res.end();
         }
