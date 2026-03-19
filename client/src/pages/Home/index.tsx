@@ -117,13 +117,15 @@ export function Home() {
         clarifyingDone,
     ];
 
-    // Auto-open sections as they become active
+    // Auto-open sections as they become active; collapse goal when in requirements phase
     useEffect(() => {
         setOpenSections(prev => {
             const next = new Set(prev);
             for (let i = 0; i < 2; i++) {
                 if (stepActive[i] && !stepCompleted[i]) next.add(i);
             }
+            // Collapse goal section when requirements phase is active
+            if (stepActive[1]) next.delete(0);
             return next;
         });
     }, [response, clarifyingDone, requirements.length]);
