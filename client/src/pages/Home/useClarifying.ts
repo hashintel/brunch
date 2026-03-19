@@ -14,10 +14,11 @@ interface UseClarifyingParams {
         questions: ClarifyingQuestion[],
         answers: ClarifyingAnswer[],
     ) => void;
+    onNoQuestions?: () => void;
 }
 
 export function useClarifying({
-    selectedModel, cwd, response, onError, onCallHistoryRefresh, onClarifyingDone,
+    selectedModel, cwd, response, onError, onCallHistoryRefresh, onClarifyingDone, onNoQuestions,
 }: UseClarifyingParams) {
     const [goalIterations, setGoalIterations] = useState<GoalIteration[]>([]);
     const [allQuestions, setAllQuestions] = useState<ClarifyingQuestion[]>([]);
@@ -53,6 +54,10 @@ export function useClarifying({
 
             if (data.done || !data.questions?.length) {
                 setQuestionsExhausted(true);
+                // No questions generated — goal likely needs refinement
+                if (allQuestions.length === 0) {
+                    onNoQuestions?.();
+                }
             } else {
                 setAllQuestions(prev => [...prev, ...data.questions!]);
                 setAllAnswers(prev => [

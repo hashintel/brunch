@@ -52,6 +52,14 @@ export function Home() {
             const rounds = buildPreviousRounds(iterations, questions, answers);
             assumptions.generate(rounds);
         },
+        onNoQuestions: () => {
+            // Reset goal so user can edit and re-generate
+            goal.setResponse('');
+            clarifying.reset();
+            assistant.openWithMessage(
+                'I wasn\'t able to generate clarifying questions from your input \u2014 it may need more detail to kick off the spec process.\n\nTry describing a concrete project or feature you want to build. For example:\n\u2022 What problem are you solving?\n\u2022 Who are the users?\n\u2022 What are the key features?\n\nEdit your goal in the text box and hit Generate again, or chat with me here and I\'ll help you shape it.'
+            );
+        },
     });
 
     const assumptions = useAssumptions({

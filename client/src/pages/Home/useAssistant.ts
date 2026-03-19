@@ -155,6 +155,21 @@ export function useAssistant({ selectedModel, cwd, getGoalResponse, getAssumptio
         }
     }
 
+    function open() {
+        setIsOpen(true);
+    }
+
+    function openWithMessage(content: string) {
+        const msg: AssistantMessage = {
+            id: crypto.randomUUID(),
+            role: 'assistant',
+            content,
+            timestamp: Date.now(),
+        };
+        setMessages(prev => [...prev, msg]);
+        setIsOpen(true);
+    }
+
     function dismissContext() {
         setPendingContext(null);
     }
@@ -167,6 +182,8 @@ export function useAssistant({ selectedModel, cwd, getGoalResponse, getAssumptio
         streamingContent,
         pendingContext,
         send,
+        open,
+        openWithMessage,
         openWithContext,
         toggle,
         close,
