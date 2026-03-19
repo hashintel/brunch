@@ -530,6 +530,20 @@ function buildRequirementTree(entries) {
     return buildLevel(null);
 }
 
+function serializeSession(pk) {
+    const project = db.prepare('SELECT * FROM project WHERE pk = ?').get(pk);
+    if (!project) return null;
+    const entries = db.prepare('SELECT * FROM entry WHERE project_id = ?').all(pk);
+    const clarifyingState = JSON.parse(project.clarifying_state || '{}');
+    return {
+        id: String(project.pk), name: project.name,
+        prompt: project.prompt, cwd: project.folder, response: project.goal,
+        selectedModel: project.model, requirements: buildRequirementTree(entries),
+        ...clarifyingState,
+        createdAt: project.created_at, updatedAt: project.updated_at,
+    };
+}
+
 app.get('/api/sessions', (_req, res) => {
     try {
         const rows = db.prepare('SELECT pk, name, updated_at FROM project ORDER BY updated_at DESC').all();
@@ -543,17 +557,9 @@ app.get('/api/sessions', (_req, res) => {
 app.get('/api/sessions/:id', (req, res) => {
     const { id } = req.params;
     try {
-        const project = db.prepare('SELECT * FROM project WHERE pk = ?').get(id);
-        if (!project) return res.status(404).json({ error: 'Session not found' });
-        const entries = db.prepare('SELECT * FROM entry WHERE project_id = ?').all(id);
-        const clarifyingState = JSON.parse(project.clarifying_state || '{}');
-        res.json({
-            id: String(project.pk), name: project.name,
-            prompt: project.prompt, cwd: project.folder, response: project.goal,
-            selectedModel: project.model, requirements: buildRequirementTree(entries),
-            ...clarifyingState,
-            createdAt: project.created_at, updatedAt: project.updated_at,
-        });
+        const session = serializeSession(id);
+        if (!session) return res.status(404).json({ error: 'Session not found' });
+        res.json(session);
     } catch (err) {
         console.error('[sessions] get error:', err.message);
         res.status(500).json({ error: 'Failed to load session' });
@@ -568,16 +574,7 @@ app.post('/api/sessions', (req, res) => {
         ).run(name, prompt, cwd, response, selectedModel, JSON.stringify(clarifying));
         const pk = info.lastInsertRowid;
         insertRequirements(pk, requirements ?? []);
-        const project = db.prepare('SELECT * FROM project WHERE pk = ?').get(pk);
-        const entries = db.prepare('SELECT * FROM entry WHERE project_id = ?').all(pk);
-        const state = JSON.parse(project.clarifying_state || '{}');
-        res.status(201).json({
-            id: String(project.pk), name: project.name,
-            prompt: project.prompt, cwd: project.folder, response: project.goal,
-            selectedModel: project.model, requirements: buildRequirementTree(entries),
-            ...state,
-            createdAt: project.created_at, updatedAt: project.updated_at,
-        });
+        res.status(201).json(serializeSession(pk));
     } catch (err) {
         console.error('[sessions] create error:', err.message);
         res.status(500).json({ error: 'Failed to create session' });
@@ -595,16 +592,7 @@ app.put('/api/sessions/:id', (req, res) => {
         ).run(name, prompt, cwd, response, selectedModel, JSON.stringify(clarifying), id);
         db.prepare('DELETE FROM entry WHERE project_id = ?').run(id);
         insertRequirements(Number(id), requirements ?? []);
-        const project = db.prepare('SELECT * FROM project WHERE pk = ?').get(id);
-        const entries = db.prepare('SELECT * FROM entry WHERE project_id = ?').all(id);
-        const state = JSON.parse(project.clarifying_state || '{}');
-        res.json({
-            id: String(project.pk), name: project.name,
-            prompt: project.prompt, cwd: project.folder, response: project.goal,
-            selectedModel: project.model, requirements: buildRequirementTree(entries),
-            ...state,
-            createdAt: project.created_at, updatedAt: project.updated_at,
-        });
+        res.json(serializeSession(id));
     } catch (err) {
         console.error('[sessions] update error:', err.message);
         res.status(500).json({ error: 'Failed to update session' });

@@ -1,3 +1,4 @@
+import type { ComponentChildren } from 'preact';
 import { useState, useMemo, useEffect, useRef } from 'preact/hooks';
 import {
     DndContext,
@@ -134,6 +135,42 @@ function getProjectedDepth(
     return overDepth;
 }
 
+// ── Modal Shell (shared backdrop, escape, header/footer) ──
+
+function ModalShell({
+    title,
+    onClose,
+    children,
+    footer,
+}: {
+    title: string;
+    onClose: () => void;
+    children: ComponentChildren;
+    footer: ComponentChildren;
+}) {
+    const backdropRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
+        window.addEventListener('keydown', onKey);
+        return () => window.removeEventListener('keydown', onKey);
+    }, [onClose]);
+
+    return (
+        <div class="modal-backdrop" ref={backdropRef}
+            onClick={e => { if (e.target === backdropRef.current) onClose(); }}>
+            <div class="modal">
+                <div class="modal-header">
+                    <strong>{title}</strong>
+                    <button class="modal-close" onClick={onClose}>&times;</button>
+                </div>
+                <div class="modal-body">{children}</div>
+                <div class="modal-footer">{footer}</div>
+            </div>
+        </div>
+    );
+}
+
 // ── Edit Modal ──
 
 function EditModal({
@@ -149,14 +186,6 @@ function EditModal({
     onCancel: () => void;
     title: string;
 }) {
-    const backdropRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onCancel(); }
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [onCancel]);
-
     function handleAddTest() {
         onChange({ ...draft, tests: [...draft.tests, { type: 'programmatic_test', description: '' }] });
     }
@@ -168,65 +197,55 @@ function EditModal({
     }
 
     return (
-        <div class="modal-backdrop" ref={backdropRef}
-            onClick={e => { if (e.target === backdropRef.current) onCancel(); }}>
-            <div class="modal">
-                <div class="modal-header">
-                    <strong>{title}</strong>
-                    <button class="modal-close" onClick={onCancel}>&times;</button>
+        <ModalShell title={title} onClose={onCancel} footer={<>
+            <button class="button button-small" onClick={onSave} disabled={!draft.title.trim()}>Save</button>
+            <button class="button button-small button-secondary" onClick={onCancel}>Cancel</button>
+        </>}>
+            <label class="modal-label">Title</label>
+            <input class="modal-input" value={draft.title}
+                onInput={e => onChange({ ...draft, title: e.currentTarget.value })}
+                placeholder="Requirement title" />
+            <label class="modal-label">Definition</label>
+            <textarea class="modal-textarea" value={draft.definition}
+                onInput={e => onChange({ ...draft, definition: e.currentTarget.value })}
+                placeholder="What does this requirement entail?" rows={3} />
+            <div class="modal-row">
+                <div>
+                    <label class="modal-label">Confidence</label>
+                    <input class="modal-input modal-input--short" type="number"
+                        min="0" max="1" step="0.05" value={draft.confidence}
+                        onInput={e => onChange({ ...draft, confidence: parseFloat(e.currentTarget.value) || 0 })} />
                 </div>
-                <div class="modal-body">
-                    <label class="modal-label">Title</label>
-                    <input class="modal-input" value={draft.title}
-                        onInput={e => onChange({ ...draft, title: e.currentTarget.value })}
-                        placeholder="Requirement title" />
-                    <label class="modal-label">Definition</label>
-                    <textarea class="modal-textarea" value={draft.definition}
-                        onInput={e => onChange({ ...draft, definition: e.currentTarget.value })}
-                        placeholder="What does this requirement entail?" rows={3} />
-                    <div class="modal-row">
-                        <div>
-                            <label class="modal-label">Confidence</label>
-                            <input class="modal-input modal-input--short" type="number"
-                                min="0" max="1" step="0.05" value={draft.confidence}
-                                onInput={e => onChange({ ...draft, confidence: parseFloat(e.currentTarget.value) || 0 })} />
-                        </div>
-                        <div>
-                            <label class="modal-label">Stage</label>
-                            <select class="modal-select" value={draft.stage}
-                                onChange={e => onChange({ ...draft, stage: e.currentTarget.value as Requirement['stage'] })}>
-                                {STAGE_ORDER.map(s => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
-                            </select>
-                        </div>
-                    </div>
-                    <label class="modal-label">Tests / Verification</label>
-                    <div class="modal-tests">
-                        {draft.tests.map((t, i) => (
-                            <div key={i} class="modal-test-row">
-                                <select class="modal-select modal-select--test-type" value={t.type}
-                                    onChange={e => handleUpdateTest(i, { ...t, type: e.currentTarget.value as TestType })}>
-                                    {TEST_TYPES.map(tt => <option key={tt} value={tt}>{TEST_TYPE_LABELS[tt]}</option>)}
-                                </select>
-                                <textarea class="modal-textarea modal-textarea--test-desc" value={t.description}
-                                    onInput={e => {
-                                        handleUpdateTest(i, { ...t, description: e.currentTarget.value });
-                                        e.currentTarget.style.height = 'auto';
-                                        e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
-                                    }}
-                                    ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
-                                    placeholder="Describe the test..." rows={1} />
-                                <button class="modal-test-remove" onClick={() => handleRemoveTest(i)} title="Remove test">&times;</button>
-                            </div>
-                        ))}
-                        <button class="requirement-add-btn" onClick={handleAddTest}>+ Add test</button>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="button button-small" onClick={onSave} disabled={!draft.title.trim()}>Save</button>
-                    <button class="button button-small button-secondary" onClick={onCancel}>Cancel</button>
+                <div>
+                    <label class="modal-label">Stage</label>
+                    <select class="modal-select" value={draft.stage}
+                        onChange={e => onChange({ ...draft, stage: e.currentTarget.value as Requirement['stage'] })}>
+                        {STAGE_ORDER.map(s => <option key={s} value={s}>{STAGE_LABELS[s]}</option>)}
+                    </select>
                 </div>
             </div>
-        </div>
+            <label class="modal-label">Tests / Verification</label>
+            <div class="modal-tests">
+                {draft.tests.map((t, i) => (
+                    <div key={i} class="modal-test-row">
+                        <select class="modal-select modal-select--test-type" value={t.type}
+                            onChange={e => handleUpdateTest(i, { ...t, type: e.currentTarget.value as TestType })}>
+                            {TEST_TYPES.map(tt => <option key={tt} value={tt}>{TEST_TYPE_LABELS[tt]}</option>)}
+                        </select>
+                        <textarea class="modal-textarea modal-textarea--test-desc" value={t.description}
+                            onInput={e => {
+                                handleUpdateTest(i, { ...t, description: e.currentTarget.value });
+                                e.currentTarget.style.height = 'auto';
+                                e.currentTarget.style.height = e.currentTarget.scrollHeight + 'px';
+                            }}
+                            ref={el => { if (el) { el.style.height = 'auto'; el.style.height = el.scrollHeight + 'px'; } }}
+                            placeholder="Describe the test..." rows={1} />
+                        <button class="modal-test-remove" onClick={() => handleRemoveTest(i)} title="Remove test">&times;</button>
+                    </div>
+                ))}
+                <button class="requirement-add-btn" onClick={handleAddTest}>+ Add test</button>
+            </div>
+        </ModalShell>
     );
 }
 
@@ -244,13 +263,6 @@ function ApproveTestsModal({
     onCancel: () => void;
 }) {
     const [checked, setChecked] = useState<boolean[]>(() => tests.map(() => true));
-    const backdropRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onCancel(); }
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [onCancel]);
 
     function toggleAll() {
         const allChecked = checked.every(Boolean);
@@ -260,45 +272,35 @@ function ApproveTestsModal({
     const selectedCount = checked.filter(Boolean).length;
 
     return (
-        <div class="modal-backdrop" ref={backdropRef}
-            onClick={e => { if (e.target === backdropRef.current) onCancel(); }}>
-            <div class="modal">
-                <div class="modal-header">
-                    <strong>Approve Generated Tests</strong>
-                    <button class="modal-close" onClick={onCancel}>&times;</button>
-                </div>
-                <div class="modal-body">
-                    <p class="approve-tests-subtitle">
-                        {tests.length} test{tests.length !== 1 ? 's' : ''} generated for <strong>{requirementTitle}</strong>. Select which to add:
-                    </p>
-                    <label class="approve-tests-select-all">
-                        <input type="checkbox" checked={checked.every(Boolean)}
-                            ref={el => { if (el) el.indeterminate = selectedCount > 0 && selectedCount < tests.length; }}
-                            onChange={toggleAll} />
-                        Select all
+        <ModalShell title="Approve Generated Tests" onClose={onCancel} footer={<>
+            <button class="button button-small" onClick={() => onApprove(tests.filter((_, i) => checked[i]))}
+                disabled={selectedCount === 0}>
+                Add {selectedCount} Test{selectedCount !== 1 ? 's' : ''}
+            </button>
+            <button class="button button-small button-secondary" onClick={onCancel}>Cancel</button>
+        </>}>
+            <p class="approve-tests-subtitle">
+                {tests.length} test{tests.length !== 1 ? 's' : ''} generated for <strong>{requirementTitle}</strong>. Select which to add:
+            </p>
+            <label class="approve-tests-select-all">
+                <input type="checkbox" checked={checked.every(Boolean)}
+                    ref={el => { if (el) el.indeterminate = selectedCount > 0 && selectedCount < tests.length; }}
+                    onChange={toggleAll} />
+                Select all
+            </label>
+            <div class="approve-tests-list">
+                {tests.map((t, i) => (
+                    <label key={i} class={`approve-test-item ${checked[i] ? 'approve-test-item--checked' : ''}`}>
+                        <input type="checkbox" checked={checked[i]}
+                            onChange={() => setChecked(prev => prev.map((v, j) => j === i ? !v : v))} />
+                        <div class="approve-test-item-content">
+                            <span class={`test-entry-type test-entry-type--${t.type}`}>{TEST_TYPE_LABELS[t.type]}</span>
+                            <span class="approve-test-item-desc">{t.description}</span>
+                        </div>
                     </label>
-                    <div class="approve-tests-list">
-                        {tests.map((t, i) => (
-                            <label key={i} class={`approve-test-item ${checked[i] ? 'approve-test-item--checked' : ''}`}>
-                                <input type="checkbox" checked={checked[i]}
-                                    onChange={() => setChecked(prev => prev.map((v, j) => j === i ? !v : v))} />
-                                <div class="approve-test-item-content">
-                                    <span class={`test-entry-type test-entry-type--${t.type}`}>{TEST_TYPE_LABELS[t.type]}</span>
-                                    <span class="approve-test-item-desc">{t.description}</span>
-                                </div>
-                            </label>
-                        ))}
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button class="button button-small" onClick={() => onApprove(tests.filter((_, i) => checked[i]))}
-                        disabled={selectedCount === 0}>
-                        Add {selectedCount} Test{selectedCount !== 1 ? 's' : ''}
-                    </button>
-                    <button class="button button-small button-secondary" onClick={onCancel}>Cancel</button>
-                </div>
+                ))}
             </div>
-        </div>
+        </ModalShell>
     );
 }
 
