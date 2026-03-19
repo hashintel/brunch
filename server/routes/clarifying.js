@@ -10,7 +10,7 @@ router.post('/clarifyingquestions', asyncHandler(async (req, res) => {
     const modelId = validatePromptAndModel(req, res);
     if (!modelId) return;
 
-    const { prompt, cwd, previousRounds } = req.body;
+    const { prompt, cwd, previousRounds, projectId } = req.body;
     console.log(`[${modelId}] clarifyingquestions`);
 
     let userContent = `Goal description:\n${prompt}\n\n`;
@@ -24,7 +24,7 @@ router.post('/clarifyingquestions', asyncHandler(async (req, res) => {
 
 If the goal is already clear enough and no more clarification is needed, set "done" to true and return an empty questions array.`;
 
-    const output = await queryStructured(userContent, modelId, clarifyingQuestionsSchema, cwd);
+    const output = await queryStructured(userContent, modelId, clarifyingQuestionsSchema, cwd, projectId);
     res.json(output);
 }));
 

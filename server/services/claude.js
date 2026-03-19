@@ -10,8 +10,8 @@ export function cwdOptions(cwd) {
 }
 
 const logClaudeCall = db.prepare(`
-    INSERT INTO claude_call (model, caller, prompt, response, input_tokens, output_tokens, turns, duration_ms, status, error, cwd)
-    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    INSERT INTO claude_call (model, caller, prompt, response, input_tokens, output_tokens, turns, duration_ms, status, error, cwd, project_id)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 `);
 
 export function extractUsage(messages) {
@@ -30,7 +30,7 @@ export function extractUsage(messages) {
     return { inputTokens, outputTokens, turns };
 }
 
-export async function streamQueryText(prompt, modelId, res, cwd) {
+export async function streamQueryText(prompt, modelId, res, cwd, projectId) {
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
     res.setHeader('Transfer-Encoding', 'chunked');
 
@@ -94,6 +94,7 @@ export async function streamQueryText(prompt, modelId, res, cwd) {
                 error ? 'error' : 'success',
                 error?.message ?? null,
                 cwd ?? null,
+                projectId ?? null,
             );
         } catch (e) {
             console.error('[db] failed to log claude call:', e.message);
@@ -102,7 +103,7 @@ export async function streamQueryText(prompt, modelId, res, cwd) {
     return fullText;
 }
 
-export async function queryStructured(prompt, modelId, schema, cwd) {
+export async function queryStructured(prompt, modelId, schema, cwd, projectId) {
     const start = Date.now();
     const allMessages = [];
     let result;
@@ -148,6 +149,7 @@ export async function queryStructured(prompt, modelId, schema, cwd) {
                 error ? 'error' : 'success',
                 error?.message ?? null,
                 cwd ?? null,
+                projectId ?? null,
             );
         } catch (e) {
             console.error('[db] failed to log claude call:', e.message);

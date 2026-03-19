@@ -30,11 +30,12 @@ export function Home() {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
     }, []);
 
-    const session = useSession({ onError: setError, cwd });
+    const session = useSession({ onError: setError });
 
     const goal = useGoal({
         selectedModel,
         cwd,
+        projectId: session.currentSessionId,
         onError: setError,
         onCallHistoryRefresh: session.refreshCallHistory,
         onGoalReady: (goalText, iterations, questions, answers) => {
@@ -45,6 +46,7 @@ export function Home() {
     const clarifying = useClarifying({
         selectedModel,
         cwd,
+        projectId: session.currentSessionId,
         response: goal.response,
         onError: setError,
         onCallHistoryRefresh: session.refreshCallHistory,
@@ -65,6 +67,7 @@ export function Home() {
     const assumptions = useAssumptions({
         selectedModel,
         cwd,
+        projectId: session.currentSessionId,
         response: goal.response,
         clarifyingDone: clarifying.clarifyingDone,
         onError: setError,
@@ -74,6 +77,7 @@ export function Home() {
     const req = useRequirements({
         selectedModel,
         cwd,
+        projectId: session.currentSessionId,
         response: goal.response,
         onError: setError,
         onCallHistoryRefresh: session.refreshCallHistory,
@@ -82,6 +86,7 @@ export function Home() {
     const assistant = useAssistant({
         selectedModel,
         cwd,
+        projectId: session.currentSessionId,
         getGoalResponse: () => goal.response,
         getAssumptions: () => assumptions.assumptions,
         getRequirements: () => req.requirements,

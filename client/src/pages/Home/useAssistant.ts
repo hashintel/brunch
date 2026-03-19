@@ -5,12 +5,13 @@ import { apiFetchStream, streamNDJSON } from './apiFetch';
 interface UseAssistantParams {
     selectedModel: string;
     cwd: string;
+    projectId: string | null;
     getGoalResponse: () => string;
     getAssumptions: () => Assumption[];
     getRequirements: () => Requirement[];
 }
 
-export function useAssistant({ selectedModel, cwd, getGoalResponse, getAssumptions, getRequirements }: UseAssistantParams) {
+export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, getAssumptions, getRequirements }: UseAssistantParams) {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<AssistantMessage[]>([]);
     const [loading, setLoading] = useState(false);
@@ -89,7 +90,7 @@ export function useAssistant({ selectedModel, cwd, getGoalResponse, getAssumptio
             const stream = await apiFetchStream('http://localhost:3001/api/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: selectedModel, cwd: cwd || undefined }),
+                body: JSON.stringify({ prompt, model: selectedModel, cwd: cwd || undefined, projectId: projectId || undefined }),
                 signal: abortRef.current.signal,
             });
 

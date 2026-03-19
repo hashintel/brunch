@@ -6,6 +6,7 @@ import { buildPreviousRounds, isAnswered } from './utils';
 interface UseClarifyingParams {
     selectedModel: string;
     cwd: string;
+    projectId: string | null;
     response: string;
     onError: (msg: string) => void;
     onCallHistoryRefresh: () => void;
@@ -18,7 +19,7 @@ interface UseClarifyingParams {
 }
 
 export function useClarifying({
-    selectedModel, cwd, response, onError, onCallHistoryRefresh, onClarifyingDone, onNoQuestions,
+    selectedModel, cwd, projectId, response, onError, onCallHistoryRefresh, onClarifyingDone, onNoQuestions,
 }: UseClarifyingParams) {
     const [goalIterations, setGoalIterations] = useState<GoalIteration[]>([]);
     const [allQuestions, setAllQuestions] = useState<ClarifyingQuestion[]>([]);
@@ -48,6 +49,7 @@ export function useClarifying({
                     prompt: goalText,
                     model: selectedModel,
                     cwd: cwd || undefined,
+                    projectId: projectId || undefined,
                     previousRounds: rounds.length > 0 ? rounds : undefined,
                 }),
             });

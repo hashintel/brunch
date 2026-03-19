@@ -9,10 +9,10 @@ router.post('/stream', asyncHandler(async (req, res) => {
     const modelId = validatePromptAndModel(req, res);
     if (!modelId) return;
 
-    const { prompt, cwd } = req.body;
+    const { prompt, cwd, projectId } = req.body;
     console.log(`[${modelId}]${cwd ? ` (${cwd})` : ''} ${prompt}`);
 
-    const text = await streamQueryText(prompt, modelId, res, cwd);
+    const text = await streamQueryText(prompt, modelId, res, cwd, projectId);
     console.log(`[${modelId}] response: ${text}`);
 }));
 

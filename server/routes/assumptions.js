@@ -10,7 +10,7 @@ router.post('/assumptions', asyncHandler(async (req, res) => {
     const modelId = validatePromptAndModel(req, res);
     if (!modelId) return;
 
-    const { prompt, cwd, previousRounds } = req.body;
+    const { prompt, cwd, previousRounds, projectId } = req.body;
     console.log(`[${modelId}] assumptions`);
 
     let userContent = `Goal description:\n${prompt}\n\n`;
@@ -30,7 +30,7 @@ For each assumption:
 
 Focus on assumptions that, if wrong, would significantly change the specification. Include assumptions about technology choices, user expectations, scope boundaries, and constraints.`;
 
-    const output = await queryStructured(userContent, modelId, assumptionsSchema, cwd);
+    const output = await queryStructured(userContent, modelId, assumptionsSchema, cwd, projectId);
     res.json(output);
 }));
 

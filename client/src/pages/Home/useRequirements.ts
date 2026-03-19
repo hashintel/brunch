@@ -6,6 +6,7 @@ import { buildPreviousRounds, makeRequirement } from './utils';
 interface UseRequirementsParams {
     selectedModel: string;
     cwd: string;
+    projectId: string | null;
     response: string;
     onError: (msg: string) => void;
     onCallHistoryRefresh: () => void;
@@ -28,7 +29,7 @@ function updateInTree(reqs: Requirement[], id: string, updater: (r: Requirement)
 }
 
 export function useRequirements({
-    selectedModel, cwd, response, onError, onCallHistoryRefresh,
+    selectedModel, cwd, projectId, response, onError, onCallHistoryRefresh,
 }: UseRequirementsParams) {
     const [requirements, setRequirements] = useState<Requirement[]>([]);
     const [loading, setLoading] = useState(false);
@@ -52,6 +53,7 @@ export function useRequirements({
         const confirmedAssumptions = assumptions.filter(a => a.status !== 'pending');
         const body: any = {
             prompt: response, model: selectedModel, cwd: cwd || undefined,
+            projectId: projectId || undefined,
             clarifyingRounds: rounds.length > 0 ? rounds : undefined,
             assumptions: confirmedAssumptions.length > 0 ? confirmedAssumptions : undefined,
         };
@@ -101,6 +103,7 @@ export function useRequirements({
                 body: JSON.stringify({
                     requirement: { title: targetReq.title, definition: targetReq.definition },
                     prompt: response, model: selectedModel, cwd: cwd || undefined,
+                    projectId: projectId || undefined,
                 }),
             });
             const newChildren: Requirement[] = (data.children ?? []).map((c: any) => makeRequirement(c));
@@ -130,6 +133,7 @@ export function useRequirements({
                 body: JSON.stringify({
                     requirement: { title: targetReq.title, definition: targetReq.definition },
                     prompt: response, model: selectedModel, cwd: cwd || undefined,
+                    projectId: projectId || undefined,
                 }),
             });
             const newTests = Array.isArray(data.tests) ? data.tests : [];

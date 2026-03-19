@@ -6,6 +6,7 @@ import { buildPreviousRounds } from './utils';
 interface UseAssumptionsParams {
     selectedModel: string;
     cwd: string;
+    projectId: string | null;
     response: string;
     clarifyingDone: boolean;
     onError: (msg: string) => void;
@@ -13,7 +14,7 @@ interface UseAssumptionsParams {
 }
 
 export function useAssumptions({
-    selectedModel, cwd, response, clarifyingDone,
+    selectedModel, cwd, projectId, response, clarifyingDone,
     onError, onCallHistoryRefresh,
 }: UseAssumptionsParams) {
     const [assumptions, setAssumptions] = useState<Assumption[]>([]);
@@ -42,6 +43,7 @@ export function useAssumptions({
                     prompt: response,
                     model: selectedModel,
                     cwd: cwd || undefined,
+                    projectId: projectId || undefined,
                     previousRounds: rounds.length > 0 ? rounds : undefined,
                 }),
             });

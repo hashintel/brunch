@@ -6,12 +6,13 @@ import { buildPreviousRounds, formatAnswer } from './utils';
 interface UseGoalParams {
     selectedModel: string;
     cwd: string;
+    projectId: string | null;
     onError: (msg: string) => void;
     onCallHistoryRefresh: () => void;
     onGoalReady: (goalText: string, iterations: GoalIteration[], questions: ClarifyingQuestion[], answers: ClarifyingAnswer[]) => void;
 }
 
-export function useGoal({ selectedModel, cwd, onError, onCallHistoryRefresh, onGoalReady }: UseGoalParams) {
+export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryRefresh, onGoalReady }: UseGoalParams) {
     const [prompt, setPrompt] = useState('');
     const [response, setResponse] = useState('');
     const [loading, setLoading] = useState(false);
@@ -42,7 +43,7 @@ export function useGoal({ selectedModel, cwd, onError, onCallHistoryRefresh, onG
             const stream = await apiFetchStream('http://localhost:3001/api/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: originalPrompt, model: selectedModel, cwd: cwd || undefined }),
+                body: JSON.stringify({ prompt: originalPrompt, model: selectedModel, cwd: cwd || undefined, projectId: projectId || undefined }),
             });
 
             for await (const event of streamNDJSON(stream)) {
@@ -102,7 +103,7 @@ export function useGoal({ selectedModel, cwd, onError, onCallHistoryRefresh, onG
             const stream = await apiFetchStream('http://localhost:3001/api/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: enhancedPrompt, model: selectedModel, cwd: cwd || undefined }),
+                body: JSON.stringify({ prompt: enhancedPrompt, model: selectedModel, cwd: cwd || undefined, projectId: projectId || undefined }),
             });
 
             for await (const event of streamNDJSON(stream)) {

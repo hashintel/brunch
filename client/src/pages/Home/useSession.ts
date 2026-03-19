@@ -5,10 +5,9 @@ import { apiFetch } from './apiFetch';
 
 interface UseSessionParams {
     onError: (msg: string) => void;
-    cwd?: string;
 }
 
-export function useSession({ onError, cwd }: UseSessionParams) {
+export function useSession({ onError }: UseSessionParams) {
     const { params } = useRoute();
     const { route } = useLocation();
     const [sessions, setSessions] = useState<SessionMeta[]>([]);
@@ -17,9 +16,12 @@ export function useSession({ onError, cwd }: UseSessionParams) {
     const [callHistory, setCallHistory] = useState<ClaudeCall[]>([]);
 
     async function refreshCallHistory() {
+        if (!currentSessionId) {
+            setCallHistory([]);
+            return;
+        }
         try {
-            let url = '/api/history/claude?limit=50';
-            if (cwd) url += `&cwd=${encodeURIComponent(cwd)}`;
+            const url = `/api/history/claude?limit=50&projectId=${encodeURIComponent(currentSessionId)}`;
             const data = await apiFetch<{ rows?: ClaudeCall[] }>(url);
             setCallHistory(data.rows ?? []);
         } catch {}
@@ -35,10 +37,10 @@ export function useSession({ onError, cwd }: UseSessionParams) {
         apiFetch<SessionMeta[]>('/api/sessions').then(setSessions).catch(() => {});
     }, []);
 
-    // Refresh call history on mount and when cwd changes
+    // Refresh call history when project changes
     useEffect(() => {
         refreshCallHistory();
-    }, [cwd]);
+    }, [currentSessionId]);
 
     // Load session from URL param on mount
     useEffect(() => {

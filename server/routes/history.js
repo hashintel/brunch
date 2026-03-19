@@ -8,6 +8,7 @@ router.get('/history/claude', (req, res) => {
     const offset = parseInt(req.query.offset) || 0;
     const model = req.query.model;
     const cwd = req.query.cwd;
+    const projectId = req.query.projectId;
 
     let sql = 'SELECT * FROM claude_call';
     const params = [];
@@ -20,6 +21,10 @@ router.get('/history/claude', (req, res) => {
     if (cwd) {
         conditions.push('cwd = ?');
         params.push(cwd);
+    }
+    if (projectId) {
+        conditions.push('project_id = ?');
+        params.push(projectId);
     }
 
     if (conditions.length > 0) {
@@ -37,6 +42,7 @@ router.get('/history/claude', (req, res) => {
         countSql += ' WHERE ' + conditions.join(' AND ');
         if (model) countParams.push(model);
         if (cwd) countParams.push(cwd);
+        if (projectId) countParams.push(projectId);
     }
     const total = db.prepare(countSql).get(...countParams);
 
