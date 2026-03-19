@@ -1793,6 +1793,174 @@ tr.requirement--drag-over td {
     .sortable-th:hover { color: #a07ee0; }
 }
 
+/* ── Project Setup (creation form) ── */
+.project-setup {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+    max-width: 480px;
+    margin: 2rem auto;
+}
+
+.project-setup-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    margin: 0 0 0.5rem;
+    color: #333;
+}
+
+.project-setup-label {
+    font-size: 0.85rem;
+    font-weight: 500;
+    color: #555;
+    margin-top: 0.25rem;
+}
+
+.project-setup-required {
+    color: #c00;
+}
+
+.project-setup-optional {
+    color: #999;
+    font-weight: 400;
+    font-size: 0.8rem;
+}
+
+/* ── Project Header (main area) ── */
+.project-header {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-bottom: 0.25rem;
+}
+
+.project-header-fields {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex: 1;
+}
+
+.project-header-name {
+    font-size: 1.1rem;
+    font-weight: 600;
+    font-family: inherit;
+    border: 1px solid transparent;
+    border-radius: 0.35rem;
+    padding: 0.3rem 0.5rem;
+    background: transparent;
+    color: #333;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+    min-width: 0;
+    flex: 1;
+}
+
+.project-header-name:hover {
+    border-color: #ddd;
+    background: #f9f9fb;
+}
+
+.project-header-name:focus {
+    outline: none;
+    border-color: #673ab8;
+    background: #fff;
+    box-shadow: 0 0 0 2px #673ab822;
+}
+
+.project-header-folder {
+    font-size: 0.85rem;
+    font-family: inherit;
+    border: 1px solid transparent;
+    border-radius: 0.35rem;
+    padding: 0.3rem 0.5rem;
+    background: transparent;
+    color: #888;
+    transition: border-color 0.15s ease, background-color 0.15s ease;
+    min-width: 0;
+    flex: 1;
+}
+
+.project-header-folder:hover {
+    border-color: #ddd;
+    background: #f9f9fb;
+}
+
+.project-header-folder:focus {
+    outline: none;
+    border-color: #673ab8;
+    background: #fff;
+    color: #333;
+    box-shadow: 0 0 0 2px #673ab822;
+}
+
+/* ── Sidebar Tabs ── */
+.sidebar-tabs {
+    display: flex;
+    gap: 0;
+    margin-bottom: 0.75rem;
+}
+
+.sidebar-tab {
+    flex: 1;
+    padding: 0.4rem 0.5rem;
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: inherit;
+    border: 1px solid #ddd;
+    background: #f5f5f7;
+    color: #888;
+    cursor: pointer;
+    transition: all 0.15s ease;
+    text-align: center;
+}
+
+.sidebar-tab:first-child {
+    border-radius: 0.35rem 0 0 0.35rem;
+}
+
+.sidebar-tab:last-child {
+    border-radius: 0 0.35rem 0.35rem 0;
+    border-left: none;
+}
+
+.sidebar-tab--active {
+    background: #673ab8;
+    border-color: #673ab8;
+    color: #fff;
+}
+
+/* ── Project Stats ── */
+.project-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+}
+
+.project-stat {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    min-width: 0;
+    padding: 0.3rem 0.2rem;
+    background-color: #f5f5f7;
+    border-radius: 0.35rem;
+}
+
+.project-stat-value {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: #333;
+}
+
+.project-stat-label {
+    font-size: 0.6rem;
+    color: #888;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    text-align: center;
+}
+
 .session-panel {
     border: 1px solid #e2e2e5;
     border-radius: 0.5rem;
@@ -2247,6 +2415,36 @@ tr.requirement--drag-over td {
 }
 
 @media (prefers-color-scheme: dark) {
+    .project-setup-title { color: #ccc; }
+    .project-setup-label { color: #999; }
+    .project-header-name {
+        color: #ccc;
+    }
+    .project-header-name:hover {
+        border-color: #444;
+        background: #2a2a2e;
+    }
+    .project-header-name:focus {
+        border-color: #a07ee0;
+        background: #252528;
+        box-shadow: 0 0 0 2px #a07ee022;
+    }
+    .project-header-folder {
+        color: #777;
+    }
+    .project-header-folder:hover {
+        border-color: #444;
+        background: #2a2a2e;
+    }
+    .project-header-folder:focus {
+        border-color: #a07ee0;
+        background: #252528;
+        color: #ccc;
+        box-shadow: 0 0 0 2px #a07ee022;
+    }
+}
+
+@media (prefers-color-scheme: dark) {
     .call-summary-stat {
         background-color: #252528;
     }
@@ -2330,6 +2528,28 @@ tr.requirement--drag-over td {
     .sidebar-input:disabled,
     .sidebar-select:disabled {
         background: #1f1f22;
+    }
+    .sidebar-tab {
+        background: #2a2a2e;
+        border-color: #444;
+        color: #888;
+    }
+    .sidebar-tab--active {
+        background: #a07ee0;
+        border-color: #a07ee0;
+        color: #fff;
+    }
+    .sidebar-tab:last-child {
+        border-left: none;
+    }
+    .project-stat {
+        background-color: #252528;
+    }
+    .project-stat-value {
+        color: #ccc;
+    }
+    .project-stat-label {
+        color: #777;
     }
     .session-panel {
         border-color: #333;

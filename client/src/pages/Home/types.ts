@@ -69,6 +69,7 @@ export type GoalIteration = {
 export type SessionMeta = Pick<Session, 'id' | 'name' | 'updatedAt'>;
 
 export interface SessionData {
+    name: string;
     prompt: string;
     cwd: string;
     response: string;

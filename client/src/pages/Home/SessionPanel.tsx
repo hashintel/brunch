@@ -34,15 +34,15 @@ type Props = {
     onNew: () => void;
     onSave: () => void;
     saving: boolean;
-    projectName: string;
-    onProjectNameChange: (v: string) => void;
-    cwd: string;
-    onCwdChange: (v: string) => void;
     models: Model[];
     selectedModel: string;
     onModelChange: (v: string) => void;
     callHistory: ClaudeCall[];
     disabled: boolean;
+    assumptionCount: number;
+    confirmedAssumptionCount: number;
+    requirementCount: number;
+    clarifyingRoundCount: number;
 };
 
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: any }) {
@@ -116,9 +116,10 @@ function CallDetailModal({ calls, onClose }: { calls: ClaudeCall[]; onClose: () 
 
 export function SessionPanel({
     sessions, currentSessionId, onLoad, onDelete, onNew, onSave, saving,
-    projectName, onProjectNameChange, cwd, onCwdChange,
     models, selectedModel, onModelChange, callHistory, disabled,
+    assumptionCount, confirmedAssumptionCount, requirementCount, clarifyingRoundCount,
 }: Props) {
+    const [activeTab, setActiveTab] = useState<'list' | 'detail'>('list');
     const [showCallModal, setShowCallModal] = useState(false);
 
     // Compute summary stats
@@ -128,103 +129,134 @@ export function SessionPanel({
     const totalDuration = callHistory.reduce((sum, c) => sum + (c.duration_ms ?? 0), 0);
     const recentCalls = callHistory.slice(0, 3);
 
+    function handleLoad(id: string) {
+        onLoad(id);
+        setActiveTab('detail');
+    }
+
+    function handleNew() {
+        onNew();
+        setActiveTab('list');
+    }
+
     return (
         <div class="sidebar-inner">
-                        <div class="sidebar-section">
-                <div class="session-panel-header">
-                    <strong class="sidebar-section-title">Sessions</strong>
-                    <div class="session-panel-actions">
-                        <button class="button button-small" onClick={onNew}>New</button>
-
-                    </div>
-                </div>
-                {sessions.length === 0 && <p class="session-empty">No saved sessions.</p>}
-                <ul class="session-list">
-                    {sessions.map(s => (
-                        <li key={s.id} class={`session-item${s.id === currentSessionId ? ' session-item-active' : ''}`}>
-                            <button class="session-item-name" onClick={() => onLoad(s.id)}>
-                                {s.name}
-                            </button>
-                            <span class="session-item-date">{new Date(s.updatedAt).toLocaleDateString()}</span>
-                            <button
-                                class="session-item-delete"
-                                onClick={() => onDelete(s.id)}
-                                title="Delete session"
-                            >×</button>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-            <div class="sidebar-section">
-                <strong class="sidebar-section-title">Configuration</strong>
-                <label class="sidebar-label">Project name</label>
-                <input
-                    class="sidebar-input"
-                    type="text"
-                    value={projectName}
-                    onInput={e => onProjectNameChange(e.currentTarget.value)}
-                    placeholder="My Project"
-                    disabled={disabled}
-                />
-                <label class="sidebar-label">Project folder</label>
-                <input
-                    class="sidebar-input"
-                    type="text"
-                    value={cwd}
-                    onInput={e => onCwdChange(e.currentTarget.value)}
-                    placeholder="/path/to/project"
-                    disabled={disabled}
-                />
-                <label class="sidebar-label">Model</label>
-                <select
-                    class="sidebar-select"
-                    value={selectedModel}
-                    onChange={e => onModelChange(e.currentTarget.value)}
-                    disabled={disabled}
+            <div class="sidebar-tabs">
+                <button
+                    class={`sidebar-tab${activeTab === 'list' ? ' sidebar-tab--active' : ''}`}
+                    onClick={() => setActiveTab('list')}
                 >
-                    {models.map(m => (
-                        <option key={m.id} value={m.id}>{m.provider} — {m.label}</option>
-                    ))}
-                </select>
-                         <button class="button button-small" onClick={onSave} disabled={saving}>
+                    Projects
+                </button>
+                <button
+                    class={`sidebar-tab${activeTab === 'detail' ? ' sidebar-tab--active' : ''}`}
+                    onClick={() => setActiveTab('detail')}
+                >
+                    Detail
+                </button>
+            </div>
+
+            {activeTab === 'list' && (
+                <div class="sidebar-section">
+                    <div class="session-panel-header">
+                        <strong class="sidebar-section-title">Projects</strong>
+                        <div class="session-panel-actions">
+                            <button class="button button-small" onClick={handleNew}>New</button>
+                        </div>
+                    </div>
+                    {sessions.length === 0 && <p class="session-empty">No saved projects.</p>}
+                    <ul class="session-list">
+                        {sessions.map(s => (
+                            <li key={s.id} class={`session-item${s.id === currentSessionId ? ' session-item-active' : ''}`}>
+                                <button class="session-item-name" onClick={() => handleLoad(s.id)}>
+                                    {s.name}
+                                </button>
+                                <span class="session-item-date">{new Date(s.updatedAt).toLocaleDateString()}</span>
+                                <button
+                                    class="session-item-delete"
+                                    onClick={() => onDelete(s.id)}
+                                    title="Delete project"
+                                >×</button>
+                            </li>
+                        ))}
+                    </ul>
+                </div>
+            )}
+
+            {activeTab === 'detail' && (
+                <>
+                    <div class="sidebar-section">
+                        <strong class="sidebar-section-title">Configuration</strong>
+                        <label class="sidebar-label">Model</label>
+                        <select
+                            class="sidebar-select"
+                            value={selectedModel}
+                            onChange={e => onModelChange(e.currentTarget.value)}
+                            disabled={disabled}
+                        >
+                            {models.map(m => (
+                                <option key={m.id} value={m.id}>{m.provider} — {m.label}</option>
+                            ))}
+                        </select>
+                        <button class="button button-small" onClick={onSave} disabled={saving}>
                             {saving ? 'Saving\u2026' : 'Save'}
                         </button>
-            </div>
+                    </div>
 
-            <div class="sidebar-section">
-                <strong class="sidebar-section-title">LLM Calls</strong>
-                {totalCalls === 0 && <p class="session-empty">No calls yet.</p>}
-                {totalCalls > 0 && (
-                    <>
-                        <div class="call-summary-stats">
-                            <div class="call-summary-stat">
-                                <span class="call-summary-stat-value">{totalCalls}</span>
-                                <span class="call-summary-stat-label">calls</span>
+                    <div class="sidebar-section">
+                        <strong class="sidebar-section-title">Stats</strong>
+                        <div class="project-stats">
+                            <div class="project-stat">
+                                <span class="project-stat-value">{confirmedAssumptionCount}/{assumptionCount}</span>
+                                <span class="project-stat-label">Assumptions</span>
                             </div>
-                            <div class="call-summary-stat">
-                                <span class="call-summary-stat-value">{formatNumber(totalInputTokens + totalOutputTokens)}</span>
-                                <span class="call-summary-stat-label">tokens</span>
+                            <div class="project-stat">
+                                <span class="project-stat-value">{requirementCount}</span>
+                                <span class="project-stat-label">Requirements</span>
                             </div>
-                            <div class="call-summary-stat">
-                                <span class="call-summary-stat-value">{formatDuration(totalDuration)}</span>
-                                <span class="call-summary-stat-label">total</span>
+                            <div class="project-stat">
+                                <span class="project-stat-value">{clarifyingRoundCount}</span>
+                                <span class="project-stat-label">Rounds</span>
                             </div>
                         </div>
-                        <div class="call-summary-recent">
-                            {recentCalls.map(call => (
-                                <div key={call.pk} class="call-summary-recent-item">
-                                    <span class={`call-history-status ${call.status === 'success' ? 'call-history-status--ok' : 'call-history-status--err'}`} />
-                                    <span class="call-summary-recent-caller">{callerLabel(call.caller)}</span>
-                                    <span class="call-summary-recent-duration">{formatDuration(call.duration_ms)}</span>
+                    </div>
+
+                    <div class="sidebar-section">
+                        <strong class="sidebar-section-title">LLM Calls</strong>
+                        {totalCalls === 0 && <p class="session-empty">No calls yet.</p>}
+                        {totalCalls > 0 && (
+                            <>
+                                <div class="call-summary-stats">
+                                    <div class="call-summary-stat">
+                                        <span class="call-summary-stat-value">{totalCalls}</span>
+                                        <span class="call-summary-stat-label">calls</span>
+                                    </div>
+                                    <div class="call-summary-stat">
+                                        <span class="call-summary-stat-value">{formatNumber(totalInputTokens + totalOutputTokens)}</span>
+                                        <span class="call-summary-stat-label">tokens</span>
+                                    </div>
+                                    <div class="call-summary-stat">
+                                        <span class="call-summary-stat-value">{formatDuration(totalDuration)}</span>
+                                        <span class="call-summary-stat-label">total</span>
+                                    </div>
                                 </div>
-                            ))}
-                        </div>
-                        <button class="button button-small button-secondary" onClick={() => setShowCallModal(true)}>
-                            View All
-                        </button>
-                    </>
-                )}
-            </div>
+                                <div class="call-summary-recent">
+                                    {recentCalls.map(call => (
+                                        <div key={call.pk} class="call-summary-recent-item">
+                                            <span class={`call-history-status ${call.status === 'success' ? 'call-history-status--ok' : 'call-history-status--err'}`} />
+                                            <span class="call-summary-recent-caller">{callerLabel(call.caller)}</span>
+                                            <span class="call-summary-recent-duration">{formatDuration(call.duration_ms)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <button class="button button-small button-secondary" onClick={() => setShowCallModal(true)}>
+                                    View All
+                                </button>
+                            </>
+                        )}
+                    </div>
+                </>
+            )}
 
             {showCallModal && createPortal(
                 <CallDetailModal calls={callHistory} onClose={() => setShowCallModal(false)} />,

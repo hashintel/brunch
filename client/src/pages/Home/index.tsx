@@ -108,6 +108,7 @@ export function Home() {
 
     function handleSave() {
         session.save({
+            name: projectName,
             prompt: goal.prompt,
             cwd,
             response: goal.response,
@@ -130,6 +131,7 @@ export function Home() {
         clarifying.restore(data);
         assumptions.restore(data);
         req.restore(data);
+        setProjectName(data.name);
         setCwd(data.cwd);
         setSelectedModel(data.selectedModel);
     }
@@ -144,6 +146,7 @@ export function Home() {
         setProjectName('');
         setCwd('');
         session.setCurrentSessionId(null);
+        session.setCallHistory([]);
     }
 
     function handleGenerateRequirements() {
@@ -153,6 +156,15 @@ export function Home() {
             clarifying.allAnswers,
             assumptions.assumptions,
         );
+    }
+
+    const [creatingProject, setCreatingProject] = useState(false);
+
+    async function handleCreateProject() {
+        if (!projectName.trim()) return;
+        setCreatingProject(true);
+        await session.createProject(projectName.trim(), cwd, selectedModel);
+        setCreatingProject(false);
     }
 
     const anyBusy = goal.loading || goal.updatingGoal || clarifying.loadingQuestions;
@@ -168,37 +180,90 @@ export function Home() {
                     onNew={handleNewSession}
                     onSave={handleSave}
                     saving={session.saving}
-                    projectName={projectName}
-                    onProjectNameChange={setProjectName}
-                    cwd={cwd}
-                    onCwdChange={setCwd}
                     models={models}
                     selectedModel={selectedModel}
                     onModelChange={setSelectedModel}
                     callHistory={session.callHistory}
                     disabled={goal.loading}
+                    assumptionCount={assumptions.assumptions.length}
+                    confirmedAssumptionCount={assumptions.assumptions.filter(a => a.status === 'confirmed').length}
+                    requirementCount={req.requirements.length}
+                    clarifyingRoundCount={clarifying.goalIterations.length}
                 />
             </aside>
             <div class="home">
-                {/* Progress Stepper */}
-                <div class="stepper">
-                    {STEPS.map((label, i) => (
-                        <div key={label} class="stepper-step">
-                            {i > 0 && (
-                                <div class={`stepper-line ${ui.stepCompleted[i - 1] ? 'stepper-line--filled' : ''}`} />
-                            )}
-                            <div class={`stepper-circle ${ui.stepCompleted[i] ? 'stepper-circle--completed' : ui.stepActive[i] ? 'stepper-circle--active' : ''}`}>
-                                {i + 1}
-                            </div>
-                            <span class={`stepper-label ${ui.stepActive[i] ? 'stepper-label--active' : ''}`}>{label}</span>
-                        </div>
-                    ))}
-                </div>
-
                 {error && <div class="error">{error}</div>}
 
-                {/* Section 0: Goal + Clarifying Questions */}
-                <div class="collapsible">
+                {/* Project creation form when no project is active */}
+                {!session.currentSessionId && (
+                    <div class="project-setup">
+                        <h2 class="project-setup-title">New Project</h2>
+                        <label class="project-setup-label">Project name <span class="project-setup-required">*</span></label>
+                        <input
+                            class="sidebar-input"
+                            type="text"
+                            value={projectName}
+                            onInput={e => setProjectName(e.currentTarget.value)}
+                            placeholder="My Project"
+                        />
+                        <label class="project-setup-label">Project folder <span class="project-setup-optional">(optional)</span></label>
+                        <input
+                            class="sidebar-input"
+                            type="text"
+                            value={cwd}
+                            onInput={e => setCwd(e.currentTarget.value)}
+                            placeholder="/path/to/project or URL"
+                        />
+                        <button
+                            class="button"
+                            onClick={handleCreateProject}
+                            disabled={!projectName.trim() || creatingProject}
+                        >
+                            {creatingProject ? 'Creating\u2026' : 'Create Project'}
+                        </button>
+                    </div>
+                )}
+
+                {/* Active project */}
+                {session.currentSessionId && (
+                    <>
+                        {/* Project header */}
+                        <div class="project-header">
+                            <div class="project-header-fields">
+                                <input
+                                    class="project-header-name"
+                                    type="text"
+                                    value={projectName}
+                                    onInput={e => setProjectName(e.currentTarget.value)}
+                                    placeholder="Project name"
+                                />
+                                <input
+                                    class="project-header-folder"
+                                    type="text"
+                                    value={cwd}
+                                    onInput={e => setCwd(e.currentTarget.value)}
+                                    placeholder="Project folder (optional)"
+                                />
+                            </div>
+                        </div>
+
+                        {/* Progress Stepper */}
+                        <div class="stepper">
+                            {STEPS.map((label, i) => (
+                                <div key={label} class="stepper-step">
+                                    {i > 0 && (
+                                        <div class={`stepper-line ${ui.stepCompleted[i - 1] ? 'stepper-line--filled' : ''}`} />
+                                    )}
+                                    <div class={`stepper-circle ${ui.stepCompleted[i] ? 'stepper-circle--completed' : ui.stepActive[i] ? 'stepper-circle--active' : ''}`}>
+                                        {i + 1}
+                                    </div>
+                                    <span class={`stepper-label ${ui.stepActive[i] ? 'stepper-label--active' : ''}`}>{label}</span>
+                                </div>
+                            ))}
+                        </div>
+
+                        {/* Section 0: Goal + Clarifying Questions */}
+                        <div class="collapsible">
                     <button class="collapsible-header" onClick={() => ui.toggleSection(0)}>
                         <span class="collapsible-title">Goal</span>
                         {clarifying.goalIterations.length > 0 && (
@@ -307,38 +372,40 @@ export function Home() {
                     </div>
                 )}
 
-                {/* Section 2: Requirements */}
-                {ui.stepActive[2] && (
-                    <div class="collapsible">
-                        <button class="collapsible-header" onClick={() => ui.toggleSection(2)}>
-                            <span class="collapsible-title">Requirements</span>
-                            <span class={`collapsible-chevron ${ui.openSections.has(2) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
-                        </button>
-                        <div class={`collapsible-body ${ui.openSections.has(2) ? 'collapsible-body--open' : ''}`}>
-                            <div class="collapsible-content">
-                                {req.requirements.length > 0 && (
-                                    <RequirementList
-                                        requirements={req.requirements}
-                                        onUpdate={req.setRequirements}
-                                        onGenerateChildren={req.generateChildren}
-                                        onGenerateTests={req.generateTests}
-                                        generatingChildrenId={req.generatingChildrenId}
-                                        generatingTestsId={req.generatingTestsId}
-                                        pendingTests={req.pendingTests}
-                                        onApprovePendingTests={req.approvePendingTests}
-                                        onCancelPendingTests={req.cancelPendingTests}
-                                    />
-                                )}
-                                <button
-                                    class="button"
-                                    onClick={handleGenerateRequirements}
-                                    disabled={req.loadingRequirements}
-                                >
-                                    {req.loadingRequirements ? 'Generating\u2026' : req.requirements.length > 0 ? 'Generate More' : 'Generate Requirements'}
+                        {/* Section 2: Requirements */}
+                        {ui.stepActive[2] && (
+                            <div class="collapsible">
+                                <button class="collapsible-header" onClick={() => ui.toggleSection(2)}>
+                                    <span class="collapsible-title">Requirements</span>
+                                    <span class={`collapsible-chevron ${ui.openSections.has(2) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                                 </button>
+                                <div class={`collapsible-body ${ui.openSections.has(2) ? 'collapsible-body--open' : ''}`}>
+                                    <div class="collapsible-content">
+                                        {req.requirements.length > 0 && (
+                                            <RequirementList
+                                                requirements={req.requirements}
+                                                onUpdate={req.setRequirements}
+                                                onGenerateChildren={req.generateChildren}
+                                                onGenerateTests={req.generateTests}
+                                                generatingChildrenId={req.generatingChildrenId}
+                                                generatingTestsId={req.generatingTestsId}
+                                                pendingTests={req.pendingTests}
+                                                onApprovePendingTests={req.approvePendingTests}
+                                                onCancelPendingTests={req.cancelPendingTests}
+                                            />
+                                        )}
+                                        <button
+                                            class="button"
+                                            onClick={handleGenerateRequirements}
+                                            disabled={req.loadingRequirements}
+                                        >
+                                            {req.loadingRequirements ? 'Generating\u2026' : req.requirements.length > 0 ? 'Generate More' : 'Generate Requirements'}
+                                        </button>
+                                    </div>
+                                </div>
                             </div>
-                        </div>
-                    </div>
+                        )}
+                    </>
                 )}
             </div>
 

@@ -59,24 +59,44 @@ export function useSession({ onError, cwd }: UseSessionParams) {
         }
     }, [currentSessionId]);
 
+    async function createProject(name: string, folder: string, selectedModel: string): Promise<string | null> {
+        try {
+            const created = await apiFetch<Session>('/api/sessions', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    name,
+                    prompt: '',
+                    cwd: folder,
+                    response: '',
+                    selectedModel,
+                    requirements: [],
+                }),
+            });
+            setCurrentSessionId(created.id);
+            setCallHistory([]);
+            await refreshSessions();
+            return created.id;
+        } catch {
+            onError('Failed to create project');
+            return null;
+        }
+    }
+
     async function save(data: SessionData) {
         setSaving(true);
         try {
-            const body: any = { ...data };
             if (currentSessionId) {
                 await apiFetch(`/api/sessions/${currentSessionId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
+                    body: JSON.stringify(data),
                 });
             } else {
-                const name = window.prompt('Session name:', data.prompt.slice(0, 60) || 'Untitled');
-                if (!name) { setSaving(false); return; }
-                body.name = name;
                 const created = await apiFetch<Session>('/api/sessions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
+                    body: JSON.stringify(data),
                 });
                 setCurrentSessionId(created.id);
             }
@@ -124,6 +144,7 @@ export function useSession({ onError, cwd }: UseSessionParams) {
             onError('');
 
             return {
+                name: s.name ?? '',
                 prompt: s.prompt,
                 cwd: s.cwd ?? '',
                 response: s.response,
@@ -160,7 +181,9 @@ export function useSession({ onError, cwd }: UseSessionParams) {
         setCurrentSessionId,
         saving,
         callHistory,
+        setCallHistory,
         refreshCallHistory,
+        createProject,
         save,
         load,
         deleteSession,
