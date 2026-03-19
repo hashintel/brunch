@@ -7,22 +7,38 @@ router.get('/history/claude', (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 500);
     const offset = parseInt(req.query.offset) || 0;
     const model = req.query.model;
+    const cwd = req.query.cwd;
 
     let sql = 'SELECT * FROM claude_call';
     const params = [];
+    const conditions = [];
 
     if (model) {
-        sql += ' WHERE model = ?';
+        conditions.push('model = ?');
         params.push(model);
+    }
+    if (cwd) {
+        conditions.push('cwd = ?');
+        params.push(cwd);
+    }
+
+    if (conditions.length > 0) {
+        sql += ' WHERE ' + conditions.join(' AND ');
     }
 
     sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
     const rows = db.prepare(sql).all(...params);
-    const total = db.prepare(
-        `SELECT COUNT(*) as count FROM claude_call${model ? ' WHERE model = ?' : ''}`
-    ).get(...(model ? [model] : []));
+
+    let countSql = 'SELECT COUNT(*) as count FROM claude_call';
+    const countParams = [];
+    if (conditions.length > 0) {
+        countSql += ' WHERE ' + conditions.join(' AND ');
+        if (model) countParams.push(model);
+        if (cwd) countParams.push(cwd);
+    }
+    const total = db.prepare(countSql).get(...countParams);
 
     res.json({ rows, total: total.count });
 });

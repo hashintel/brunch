@@ -30,7 +30,7 @@ export function Home() {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
     }, []);
 
-    const session = useSession({ onError: setError });
+    const session = useSession({ onError: setError, cwd });
 
     const goal = useGoal({
         selectedModel,

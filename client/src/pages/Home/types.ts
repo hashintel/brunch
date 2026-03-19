@@ -103,4 +103,6 @@ export interface ClaudeCall {
     status: string;
     error: string | null;
     created_at: string;
+    cwd: string | null;
+    turns: number | null;
 }

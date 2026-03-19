@@ -5,9 +5,10 @@ import { apiFetch } from './apiFetch';
 
 interface UseSessionParams {
     onError: (msg: string) => void;
+    cwd?: string;
 }
 
-export function useSession({ onError }: UseSessionParams) {
+export function useSession({ onError, cwd }: UseSessionParams) {
     const { params } = useRoute();
     const { route } = useLocation();
     const [sessions, setSessions] = useState<SessionMeta[]>([]);
@@ -17,7 +18,9 @@ export function useSession({ onError }: UseSessionParams) {
 
     async function refreshCallHistory() {
         try {
-            const data = await apiFetch<{ rows?: ClaudeCall[] }>('/api/history/claude?limit=50');
+            let url = '/api/history/claude?limit=50';
+            if (cwd) url += `&cwd=${encodeURIComponent(cwd)}`;
+            const data = await apiFetch<{ rows?: ClaudeCall[] }>(url);
             setCallHistory(data.rows ?? []);
         } catch {}
     }
@@ -27,11 +30,15 @@ export function useSession({ onError }: UseSessionParams) {
         setSessions(data);
     }
 
-    // Load sessions + call history on mount
+    // Load sessions on mount
     useEffect(() => {
         apiFetch<SessionMeta[]>('/api/sessions').then(setSessions).catch(() => {});
-        refreshCallHistory();
     }, []);
+
+    // Refresh call history on mount and when cwd changes
+    useEffect(() => {
+        refreshCallHistory();
+    }, [cwd]);
 
     // Load session from URL param on mount
     useEffect(() => {
