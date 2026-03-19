@@ -1,5 +1,5 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import db from '../db.js';
+import pool from '../db.js';
 
 const READ_TOOLS = ['Read', 'Glob', 'Grep'];
 const CWD_SYSTEM_PROMPT = 'You have access to a project directory. Use the Read, Glob, and Grep tools to explore the codebase and answer questions based on the actual files. Always investigate the project before responding.';
@@ -9,10 +9,10 @@ export function cwdOptions(cwd) {
     return { cwd, allowedTools: READ_TOOLS, systemPrompt: CWD_SYSTEM_PROMPT };
 }
 
-const logClaudeCall = db.prepare(`
+const LOG_SQL = `
     INSERT INTO claude_call (model, caller, prompt, response, input_tokens, output_tokens, turns, duration_ms, status, error, cwd, project_id)
     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-`);
+`;
 
 export function extractUsage(messages) {
     let inputTokens = 0;
@@ -86,7 +86,7 @@ export async function streamQueryText(prompt, modelId, res, cwd, projectId) {
     } finally {
         const { inputTokens, outputTokens, turns } = extractUsage(allMessages);
         try {
-            logClaudeCall.run(
+            await pool.execute(LOG_SQL, [
                 modelId, 'streamQueryText', prompt,
                 fullText || null,
                 inputTokens || null, outputTokens || null, turns || null,
@@ -95,7 +95,7 @@ export async function streamQueryText(prompt, modelId, res, cwd, projectId) {
                 error?.message ?? null,
                 cwd ?? null,
                 projectId ?? null,
-            );
+            ]);
         } catch (e) {
             console.error('[db] failed to log claude call:', e.message);
         }
@@ -141,7 +141,7 @@ export async function queryStructured(prompt, modelId, schema, cwd, projectId) {
             ? JSON.stringify(result.structured_output)
             : result?.result ?? null;
         try {
-            logClaudeCall.run(
+            await pool.execute(LOG_SQL, [
                 modelId, 'queryStructured', prompt,
                 response,
                 inputTokens || null, outputTokens || null, turns || null,
@@ -150,7 +150,7 @@ export async function queryStructured(prompt, modelId, schema, cwd, projectId) {
                 error?.message ?? null,
                 cwd ?? null,
                 projectId ?? null,
-            );
+            ]);
         } catch (e) {
             console.error('[db] failed to log claude call:', e.message);
         }

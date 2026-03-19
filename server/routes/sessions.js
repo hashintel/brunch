@@ -1,16 +1,20 @@
 import { Router } from 'express';
-import db from '../db.js';
+import pool from '../db.js';
+import { asyncHandler } from '../middleware/asyncHandler.js';
 
 const router = Router();
 
-function insertRequirements(projectPk, requirements, parentPk = null) {
-    const stmt = db.prepare(`INSERT INTO entry (title, description, test, stage, confidence, project_id, parent_id, sort_order)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+async function insertRequirements(conn, projectPk, requirements, parentPk = null) {
+    const sql = `INSERT INTO entry (title, description, test, stage, confidence, project_id, parent_id, sort_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
     for (let i = 0; i < requirements.length; i++) {
         const r = requirements[i];
-        const info = stmt.run(r.title, r.definition, JSON.stringify(r.tests ?? []), r.stage ?? 'proposal', r.confidence, projectPk, parentPk, i);
+        const [result] = await conn.execute(sql, [
+            r.title, r.definition, JSON.stringify(r.tests ?? []),
+            r.stage ?? 'proposal', r.confidence, projectPk, parentPk, i,
+        ]);
         if (r.children?.length > 0) {
-            insertRequirements(projectPk, r.children, info.lastInsertRowid);
+            await insertRequirements(conn, projectPk, r.children, result.insertId);
         }
     }
 }
@@ -39,10 +43,11 @@ function buildRequirementTree(entries) {
     return buildLevel(null);
 }
 
-function serializeSession(pk) {
-    const project = db.prepare('SELECT * FROM project WHERE pk = ?').get(pk);
+async function serializeSession(pk) {
+    const [projects] = await pool.execute('SELECT * FROM project WHERE pk = ?', [pk]);
+    const project = projects[0];
     if (!project) return null;
-    const entries = db.prepare('SELECT * FROM entry WHERE project_id = ?').all(pk);
+    const [entries] = await pool.execute('SELECT * FROM entry WHERE project_id = ?', [pk]);
     const clarifyingState = JSON.parse(project.clarifying_state || '{}');
     return {
         id: String(project.pk), name: project.name,
@@ -53,77 +58,83 @@ function serializeSession(pk) {
     };
 }
 
-router.get('/sessions', (_req, res) => {
-    try {
-        const rows = db.prepare('SELECT pk, name, updated_at FROM project ORDER BY updated_at DESC').all();
-        res.json(rows.map(r => ({ id: String(r.pk), name: r.name, updatedAt: r.updated_at })));
-    } catch (err) {
-        console.error('[sessions] list error:', err.message);
-        res.status(500).json({ error: 'Failed to list sessions' });
-    }
-});
+router.get('/sessions', asyncHandler(async (_req, res) => {
+    const [rows] = await pool.execute('SELECT pk, name, updated_at FROM project ORDER BY updated_at DESC');
+    res.json(rows.map(r => ({ id: String(r.pk), name: r.name, updatedAt: r.updated_at })));
+}));
 
-router.get('/sessions/:id', (req, res) => {
+router.get('/sessions/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
-    try {
-        const session = serializeSession(id);
-        if (!session) return res.status(404).json({ error: 'Session not found' });
-        res.json(session);
-    } catch (err) {
-        console.error('[sessions] get error:', err.message);
-        res.status(500).json({ error: 'Failed to load session' });
-    }
-});
+    const session = await serializeSession(id);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    res.json(session);
+}));
 
-router.post('/sessions', (req, res) => {
+router.post('/sessions', asyncHandler(async (req, res) => {
     const { name, prompt, cwd, response, selectedModel, requirements, ...clarifying } = req.body;
+    const conn = await pool.getConnection();
     try {
-        const info = db.prepare(
-            `INSERT INTO project (name, prompt, folder, goal, model, clarifying_state) VALUES (?, ?, ?, ?, ?, ?)`
-        ).run(name, prompt, cwd, response, selectedModel, JSON.stringify(clarifying));
-        const pk = info.lastInsertRowid;
-        insertRequirements(pk, requirements ?? []);
-        res.status(201).json(serializeSession(pk));
+        await conn.beginTransaction();
+        const [result] = await conn.execute(
+            `INSERT INTO project (name, prompt, folder, goal, model, clarifying_state) VALUES (?, ?, ?, ?, ?, ?)`,
+            [name, prompt, cwd, response, selectedModel, JSON.stringify(clarifying)]
+        );
+        const pk = result.insertId;
+        await insertRequirements(conn, pk, requirements ?? []);
+        await conn.commit();
+        res.status(201).json(await serializeSession(pk));
     } catch (err) {
-        console.error('[sessions] create error:', err.message);
-        res.status(500).json({ error: 'Failed to create session' });
+        await conn.rollback();
+        throw err;
+    } finally {
+        conn.release();
     }
-});
+}));
 
-router.put('/sessions/:id', (req, res) => {
+router.put('/sessions/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
     const { name, prompt, cwd, response, selectedModel, requirements, ...clarifying } = req.body;
-    try {
-        const existing = db.prepare('SELECT pk FROM project WHERE pk = ?').get(id);
-        if (!existing) return res.status(404).json({ error: 'Session not found' });
-        db.prepare(
-            `UPDATE project SET name=?, prompt=?, folder=?, goal=?, model=?, clarifying_state=?, updated_at=datetime('now') WHERE pk=?`
-        ).run(name, prompt, cwd, response, selectedModel, JSON.stringify(clarifying), id);
-        db.prepare('DELETE FROM entry WHERE project_id = ?').run(id);
-        insertRequirements(Number(id), requirements ?? []);
-        res.json(serializeSession(id));
-    } catch (err) {
-        console.error('[sessions] update error:', err.message);
-        res.status(500).json({ error: 'Failed to update session' });
-    }
-});
+    const [existing] = await pool.execute('SELECT pk FROM project WHERE pk = ?', [id]);
+    if (existing.length === 0) return res.status(404).json({ error: 'Session not found' });
 
-router.delete('/sessions/:id', (req, res) => {
-    const { id } = req.params;
+    const conn = await pool.getConnection();
     try {
-        const existing = db.prepare('SELECT pk FROM project WHERE pk = ?').get(id);
-        if (!existing) return res.status(404).json({ error: 'Session not found' });
-        const deleteProject = db.transaction((pk) => {
-            db.prepare('DELETE FROM entry WHERE project_id = ?').run(pk);
-            db.prepare('DELETE FROM claude_call WHERE project_id = ?').run(pk);
-            db.prepare('DELETE FROM project WHERE pk = ?').run(pk);
-        });
-        deleteProject(id);
+        await conn.beginTransaction();
+        await conn.execute(
+            `UPDATE project SET name=?, prompt=?, folder=?, goal=?, model=?, clarifying_state=?, updated_at=NOW() WHERE pk=?`,
+            [name, prompt, cwd, response, selectedModel, JSON.stringify(clarifying), id]
+        );
+        await conn.execute('DELETE FROM entry WHERE project_id = ?', [id]);
+        await insertRequirements(conn, Number(id), requirements ?? []);
+        await conn.commit();
+        res.json(await serializeSession(id));
+    } catch (err) {
+        await conn.rollback();
+        throw err;
+    } finally {
+        conn.release();
+    }
+}));
+
+router.delete('/sessions/:id', asyncHandler(async (req, res) => {
+    const { id } = req.params;
+    const [existing] = await pool.execute('SELECT pk FROM project WHERE pk = ?', [id]);
+    if (existing.length === 0) return res.status(404).json({ error: 'Session not found' });
+
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        await conn.execute('DELETE FROM entry WHERE project_id = ?', [id]);
+        await conn.execute('DELETE FROM claude_call WHERE project_id = ?', [id]);
+        await conn.execute('DELETE FROM project WHERE pk = ?', [id]);
+        await conn.commit();
         res.json({ ok: true });
     } catch (err) {
-        console.error('[sessions] delete error:', err.message);
-        res.status(500).json({ error: 'Failed to delete session' });
+        await conn.rollback();
+        throw err;
+    } finally {
+        conn.release();
     }
-});
+}));
 
 export default router;

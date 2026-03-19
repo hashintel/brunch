@@ -1,9 +1,10 @@
 import { Router } from 'express';
-import db from '../db.js';
+import pool from '../db.js';
+import { asyncHandler } from '../middleware/asyncHandler.js';
 
 const router = Router();
 
-router.get('/history/claude', (req, res) => {
+router.get('/history/claude', asyncHandler(async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 500);
     const offset = parseInt(req.query.offset) || 0;
     const model = req.query.model;
@@ -34,7 +35,7 @@ router.get('/history/claude', (req, res) => {
     sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    const rows = db.prepare(sql).all(...params);
+    const [rows] = await pool.execute(sql, params);
 
     let countSql = 'SELECT COUNT(*) as count FROM claude_call';
     const countParams = [];
@@ -44,12 +45,12 @@ router.get('/history/claude', (req, res) => {
         if (cwd) countParams.push(cwd);
         if (projectId) countParams.push(projectId);
     }
-    const total = db.prepare(countSql).get(...countParams);
+    const [countRows] = await pool.execute(countSql, countParams);
 
-    res.json({ rows, total: total.count });
-});
+    res.json({ rows, total: countRows[0].count });
+}));
 
-router.get('/history', (req, res) => {
+router.get('/history', asyncHandler(async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 500);
     const offset = parseInt(req.query.offset) || 0;
     const path = req.query.path;
@@ -65,12 +66,11 @@ router.get('/history', (req, res) => {
     sql += ' ORDER BY created_at DESC LIMIT ? OFFSET ?';
     params.push(limit, offset);
 
-    const rows = db.prepare(sql).all(...params);
-    const total = db.prepare(
-        `SELECT COUNT(*) as count FROM api_call${path ? ' WHERE path = ?' : ''}`
-    ).get(...(path ? [path] : []));
+    const [rows] = await pool.execute(sql, params);
+    const countSql = `SELECT COUNT(*) as count FROM api_call${path ? ' WHERE path = ?' : ''}`;
+    const [countRows] = await pool.execute(countSql, path ? [path] : []);
 
-    res.json({ rows, total: total.count });
-});
+    res.json({ rows, total: countRows[0].count });
+}));
 
 export default router;

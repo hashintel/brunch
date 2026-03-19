@@ -12,6 +12,8 @@ dist
 dist-ssr
 *.local
 
+.dolt
+
 # Database
 server/data/brunch.db
 server/data/brunch.db-wal

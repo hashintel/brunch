@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
-import type { Model, SessionMeta, ClaudeCall } from './types';
+import type { Model, SessionMeta, ClaudeCall, DoltCommit, DoltChange, DoltDiffRow } from './types';
 import type { SaveStatus } from './useAutoSave';
 
 function callerLabel(caller: string): string {
@@ -43,6 +43,18 @@ type Props = {
     confirmedAssumptionCount: number;
     requirementCount: number;
     clarifyingRoundCount: number;
+    // Version control
+    versionCommits: DoltCommit[];
+    versionChanges: DoltChange[];
+    versionCommitMessage: string;
+    onVersionCommitMessageChange: (v: string) => void;
+    versionCommitting: boolean;
+    onVersionCommit: (msg: string) => void;
+    onVersionViewDiff: (hash: string) => void;
+    onVersionRevert: (hash: string) => void;
+    versionSelectedDiff: { tables: Record<string, DoltDiffRow[]>; from: string; to: string } | null;
+    onVersionCloseDiff: () => void;
+    versionLoadingDiff: boolean;
 };
 
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: any }) {
@@ -114,10 +126,57 @@ function CallDetailModal({ calls, onClose }: { calls: ClaudeCall[]; onClose: () 
     );
 }
 
+function DiffModal({ diff, onClose }: { diff: { tables: Record<string, DoltDiffRow[]>; from: string; to: string }; onClose: () => void }) {
+    const tableNames = Object.keys(diff.tables);
+    return (
+        <ModalShell title={`Diff ${diff.from?.slice(0, 7) ?? '?'} → ${diff.to?.slice(0, 7) ?? '?'}`} onClose={onClose}>
+            {tableNames.length === 0 && <p class="session-empty">No changes in this commit.</p>}
+            {tableNames.map(table => {
+                const rows = diff.tables[table];
+                return (
+                    <div key={table} class="diff-table-section">
+                        <div class="diff-table-header">
+                            <strong>{table}</strong>
+                            <span class="diff-table-count">{rows.length} change{rows.length !== 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="diff-table-rows">
+                            {rows.map((row, i) => (
+                                <div key={i} class={`diff-row diff-row--${row.diff_type}`}>
+                                    <span class="diff-row-type">{row.diff_type}</span>
+                                    <span class="diff-row-detail">
+                                        {row.diff_type === 'modified'
+                                            ? Object.keys(row)
+                                                .filter(k => k.startsWith('from_') && row[k] !== row[k.replace('from_', 'to_')])
+                                                .map(k => {
+                                                    const field = k.replace('from_', '');
+                                                    const from = String(row[k] ?? '').slice(0, 80);
+                                                    const to = String(row[k.replace('from_', 'to_')] ?? '').slice(0, 80);
+                                                    return `${field}: ${from} → ${to}`;
+                                                })
+                                                .join('; ') || '(no visible changes)'
+                                            : Object.keys(row)
+                                                .filter(k => k.startsWith('to_') && row[k] != null)
+                                                .map(k => `${k.replace('to_', '')}: ${String(row[k]).slice(0, 80)}`)
+                                                .join('; ') || JSON.stringify(row).slice(0, 200)
+                                        }
+                                    </span>
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            })}
+        </ModalShell>
+    );
+}
+
 export function SessionPanel({
     sessions, currentSessionId, onLoad, onDelete, onNew, saveStatus,
     models, selectedModel, onModelChange, callHistory, disabled,
     assumptionCount, confirmedAssumptionCount, requirementCount, clarifyingRoundCount,
+    versionCommits, versionChanges, versionCommitMessage, onVersionCommitMessageChange,
+    versionCommitting, onVersionCommit, onVersionViewDiff, onVersionRevert,
+    versionSelectedDiff, onVersionCloseDiff, versionLoadingDiff,
 }: Props) {
     const [activeTab, setActiveTab] = useState<'list' | 'detail'>('list');
     const [showCallModal, setShowCallModal] = useState(false);
@@ -231,6 +290,51 @@ export function SessionPanel({
                     </div>
 
                     <div class="sidebar-section">
+                        <strong class="sidebar-section-title">Version History</strong>
+                        {versionChanges.length > 0 && (
+                            <span class="version-status-badge">{versionChanges.length} uncommitted change{versionChanges.length !== 1 ? 's' : ''}</span>
+                        )}
+                        <div class="version-commit-form">
+                            <input
+                                class="sidebar-input"
+                                type="text"
+                                placeholder="Commit message..."
+                                value={versionCommitMessage}
+                                onInput={e => onVersionCommitMessageChange(e.currentTarget.value)}
+                                onKeyDown={e => { if (e.key === 'Enter' && versionCommitMessage.trim()) onVersionCommit(versionCommitMessage); }}
+                                disabled={versionCommitting}
+                            />
+                            <button
+                                class="button button-small"
+                                onClick={() => onVersionCommit(versionCommitMessage)}
+                                disabled={versionCommitting || !versionCommitMessage.trim()}
+                            >
+                                {versionCommitting ? '...' : 'Commit'}
+                            </button>
+                        </div>
+                        {versionCommits.length === 0 && <p class="session-empty">No commits yet.</p>}
+                        {versionCommits.length > 0 && (
+                            <div class="version-log">
+                                {versionCommits.slice(0, 8).map(c => (
+                                    <div key={c.commit_hash} class="version-log-item">
+                                        <span class="version-log-hash">{c.commit_hash.slice(0, 7)}</span>
+                                        <span class="version-log-message">{c.message}</span>
+                                        <span class="version-log-date">{new Date(c.date).toLocaleDateString()}</span>
+                                        <span class="version-log-actions">
+                                            <button class="requirement-action" title="View diff" onClick={() => onVersionViewDiff(c.commit_hash)}>
+                                                {versionLoadingDiff ? '...' : '\u0394'}
+                                            </button>
+                                            <button class="requirement-action requirement-action-remove" title="Revert to this commit" onClick={() => onVersionRevert(c.commit_hash)}>
+                                                &#x21A9;
+                                            </button>
+                                        </span>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    <div class="sidebar-section">
                         <strong class="sidebar-section-title">LLM Calls</strong>
                         {totalCalls === 0 && <p class="session-empty">No calls yet.</p>}
                         {totalCalls > 0 && (
@@ -269,6 +373,10 @@ export function SessionPanel({
 
             {showCallModal && createPortal(
                 <CallDetailModal calls={callHistory} onClose={() => setShowCallModal(false)} />,
+                document.body,
+            )}
+            {versionSelectedDiff && createPortal(
+                <DiffModal diff={versionSelectedDiff} onClose={onVersionCloseDiff} />,
                 document.body,
             )}
         </div>

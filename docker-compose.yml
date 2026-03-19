@@ -1,0 +1,36 @@
+services:
+  dolt:
+    image: dolthub/dolt-sql-server:latest
+    ports:
+      - "3306:3306"
+    volumes:
+      - dolt-data:/var/lib/dolt
+      - ./server/migrations/dolt:/docker-entrypoint-initdb.d
+    environment:
+      DOLT_ROOT_PASSWORD: ""
+      DOLT_DATABASE: brunch
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  app:
+    build: .
+    ports:
+      - "3001:3001"
+    depends_on:
+      dolt:
+        condition: service_healthy
+    environment:
+      DOLT_HOST: dolt
+      DOLT_PORT: 3306
+      DOLT_USER: root
+      DOLT_PASSWORD: ""
+      DOLT_DATABASE: brunch
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
+
+volumes:
+  dolt-data:

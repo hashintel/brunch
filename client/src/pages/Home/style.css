@@ -2893,6 +2893,155 @@ tr.requirement--drag-over td {
     }
 }
 
+/* ── Version Control ── */
+.version-commit-form {
+    display: flex;
+    gap: 0.35rem;
+    align-items: center;
+}
+
+.version-commit-form .sidebar-input {
+    flex: 1;
+    min-width: 0;
+}
+
+.version-status-badge {
+    font-size: 0.78rem;
+    font-weight: 500;
+    color: #e08a00;
+}
+
+.version-log {
+    display: flex;
+    flex-direction: column;
+    gap: 0.15rem;
+}
+
+.version-log-item {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.2rem 0;
+    font-size: 0.78rem;
+    border-bottom: 1px solid #f0f0f2;
+}
+
+.version-log-item:last-child {
+    border-bottom: none;
+}
+
+.version-log-hash {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.72rem;
+    color: #673ab8;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.version-log-message {
+    flex: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: #555;
+}
+
+.version-log-date {
+    font-size: 0.68rem;
+    color: #999;
+    flex-shrink: 0;
+}
+
+.version-log-actions {
+    display: flex;
+    gap: 0.1rem;
+    flex-shrink: 0;
+}
+
+/* ── Diff Modal ── */
+.diff-table-section {
+    margin-bottom: 1rem;
+}
+
+.diff-table-header {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+}
+
+.diff-table-header strong {
+    font-size: 0.95rem;
+    text-transform: capitalize;
+}
+
+.diff-table-count {
+    font-size: 0.78rem;
+    color: #888;
+    font-weight: 500;
+}
+
+.diff-table-rows {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.diff-row {
+    display: flex;
+    align-items: baseline;
+    gap: 0.5rem;
+    padding: 0.4rem 0.6rem;
+    border-radius: 0.35rem;
+    font-size: 0.82rem;
+    line-height: 1.5;
+}
+
+.diff-row--added {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.diff-row--modified {
+    background-color: #f3e8ff;
+    color: #5b21b6;
+}
+
+.diff-row--removed,
+.diff-row--deleted {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.diff-row-type {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    flex-shrink: 0;
+    width: 4.5rem;
+}
+
+.diff-row-detail {
+    flex: 1;
+    min-width: 0;
+    word-break: break-word;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+}
+
+@media (prefers-color-scheme: dark) {
+    .version-status-badge { color: #fbbf24; }
+    .version-log-item { border-bottom-color: #333; }
+    .version-log-hash { color: #a07ee0; }
+    .version-log-message { color: #aaa; }
+    .version-log-date { color: #666; }
+    .diff-row--added { background-color: #064e3b; color: #d1fae5; }
+    .diff-row--modified { background-color: #3b1f6e; color: #e9d5ff; }
+    .diff-row--removed, .diff-row--deleted { background-color: #450a0a; color: #fecaca; }
+    .diff-table-count { color: #777; }
+}
+
 /* ── Save Status ── */
 .save-status {
     font-size: 0.78rem;

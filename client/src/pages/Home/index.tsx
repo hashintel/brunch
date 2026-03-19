@@ -15,6 +15,7 @@ import { useRequirements } from './useRequirements';
 import { useElicitation } from './useElicitation';
 import { useAssistant } from './useAssistant';
 import { useAutoSave } from './useAutoSave';
+import { useVersions } from './useVersions';
 import { AssistantPane } from './AssistantPane';
 import { AssistantTrigger } from './AssistantTrigger';
 
@@ -93,6 +94,8 @@ export function Home() {
         getRequirements: () => req.requirements,
     });
 
+    const versions = useVersions();
+
     const anyBusy = goal.loading || goal.updatingGoal || clarifying.loadingQuestions;
 
     const autoSaveData = {
@@ -110,6 +113,13 @@ export function Home() {
         assumptionsDone: assumptions.assumptionsDone,
         requirements: req.requirements,
     };
+
+    // Refresh version control when session changes
+    useEffect(() => {
+        if (session.currentSessionId) {
+            versions.refresh();
+        }
+    }, [session.currentSessionId]);
 
     const { saveStatus } = useAutoSave({
         currentSessionId: session.currentSessionId,
@@ -199,6 +209,17 @@ export function Home() {
                     confirmedAssumptionCount={assumptions.assumptions.filter(a => a.status === 'confirmed').length}
                     requirementCount={req.requirements.length}
                     clarifyingRoundCount={clarifying.goalIterations.length}
+                    versionCommits={versions.commits}
+                    versionChanges={versions.changes}
+                    versionCommitMessage={versions.commitMessage}
+                    onVersionCommitMessageChange={versions.setCommitMessage}
+                    versionCommitting={versions.committing}
+                    onVersionCommit={versions.commit}
+                    onVersionViewDiff={versions.viewDiff}
+                    onVersionRevert={versions.revert}
+                    versionSelectedDiff={versions.selectedDiff}
+                    onVersionCloseDiff={() => versions.setSelectedDiff(null)}
+                    versionLoadingDiff={versions.loadingDiff}
                 />
             </aside>
             <div class="home">
