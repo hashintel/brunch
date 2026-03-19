@@ -401,8 +401,17 @@ const requirementJsonSchema = {
     additionalProperties: false,
 };
 
+function formatAssumptionsContext(assumptions) {
+    if (!assumptions?.length) return '';
+    return assumptions.map((a, i) => {
+        const status = a.status ?? 'pending';
+        const text = status === 'edited' && a.editedText ? a.editedText : a.text;
+        return `${i + 1}. [${status.toUpperCase()}] (confidence: ${a.confidence}, impact: ${a.impact}) ${text}`;
+    }).join('\n');
+}
+
 app.post('/api/streamrequirements', async (req, res) => {
-    const { prompt, model: modelId = DEFAULT_MODEL, cwd, clarifyingRounds } = req.body;
+    const { prompt, model: modelId = DEFAULT_MODEL, cwd, clarifyingRounds, assumptions } = req.body;
 
     if (!prompt?.trim()) {
         return res.status(400).json({ error: 'prompt is required' });
@@ -417,6 +426,10 @@ app.post('/api/streamrequirements', async (req, res) => {
     const roundsContext = formatClarifyingRounds(clarifyingRounds);
     if (roundsContext) {
         fullPrompt = `${prompt}\n\nClarifying Q&A context:\n${roundsContext}`;
+    }
+    const assumptionsContext = formatAssumptionsContext(assumptions);
+    if (assumptionsContext) {
+        fullPrompt += `\n\nReviewed assumptions (use CONFIRMED and EDITED assumptions as foundations for the spec, IGNORE REJECTED ones):\n${assumptionsContext}`;
     }
 
     try {

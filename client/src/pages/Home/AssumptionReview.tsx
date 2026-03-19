@@ -5,14 +5,16 @@ type Props = {
     assumptions: Assumption[];
     onUpdate: (assumptions: Assumption[]) => void;
     onDone: () => void;
+    onRegenerate: () => void;
     loading: boolean;
+    done: boolean;
 };
 
 function badgeClass(level: string): string {
     return `assumption-badge assumption-badge--${level}`;
 }
 
-export function AssumptionReview({ assumptions, onUpdate, onDone, loading }: Props) {
+export function AssumptionReview({ assumptions, onUpdate, onDone, onRegenerate, loading, done }: Props) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editText, setEditText] = useState('');
 
@@ -50,15 +52,22 @@ export function AssumptionReview({ assumptions, onUpdate, onDone, loading }: Pro
         return <div class="clarifying-loading">Generating assumptions…</div>;
     }
 
+    const pending = assumptions.filter(a => a.status === 'pending').length;
+
     if (assumptions.length === 0) {
         return (
             <div class="assumption-review">
-                <div class="clarifying-done-message">
+                <div class="assumption-empty">
                     No assumptions generated yet.
                 </div>
-                <button class="button" onClick={onDone}>
-                    Proceed to Requirements
-                </button>
+                <div class="assumption-footer">
+                    <button class="button" onClick={onRegenerate} disabled={loading}>
+                        Generate Assumptions
+                    </button>
+                    <button class="button button-secondary" onClick={onDone}>
+                        Skip to Requirements
+                    </button>
+                </div>
             </div>
         );
     }
@@ -138,9 +147,25 @@ export function AssumptionReview({ assumptions, onUpdate, onDone, loading }: Pro
                 ))}
             </div>
 
-            <button class="button" onClick={onDone}>
-                Proceed to Requirements
-            </button>
+            {!done && (
+                <div class="assumption-footer">
+                    {pending > 0 && (
+                        <span class="assumption-pending-warning">
+                            {pending} assumption{pending !== 1 ? 's' : ''} still pending
+                        </span>
+                    )}
+                    <button class="button" onClick={onDone}>
+                        Proceed to Requirements
+                    </button>
+                    <button
+                        class="button button-small button-secondary"
+                        onClick={onRegenerate}
+                        disabled={loading}
+                    >
+                        Regenerate
+                    </button>
+                </div>
+            )}
         </div>
     );
 }

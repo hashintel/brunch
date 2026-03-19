@@ -1518,6 +1518,26 @@ tr.requirement--drag-over td {
     gap: 0.5rem;
 }
 
+.assumption-footer {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.assumption-pending-warning {
+    font-size: 0.82rem;
+    color: #92400e;
+    font-weight: 500;
+}
+
+.assumption-empty {
+    padding: 1rem;
+    text-align: center;
+    color: #888;
+    font-style: italic;
+}
+
 @media (prefers-color-scheme: dark) {
     .assumption-card { border-color: #555; background-color: #2a2a2a; }
     .assumption-card--confirmed { border-color: #22c55e44; background-color: #22c55e10; }
@@ -1538,6 +1558,8 @@ tr.requirement--drag-over td {
     .assumption-action-btn--reject:hover,
     .assumption-action-btn--reject.assumption-action-btn--active { border-color: #f87171; color: #f87171; background-color: #ef444415; }
     .assumption-edit-textarea { background: #333; border-color: #555; color: #ccc; }
+    .assumption-pending-warning { color: #fbbf24; }
+    .assumption-empty { color: #777; }
 }
 
 @media (prefers-color-scheme: dark) {

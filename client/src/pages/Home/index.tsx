@@ -92,6 +92,7 @@ export function Home() {
     const [openSections, setOpenSections] = useState<Set<number>>(() => new Set([0]));
     const [callHistory, setCallHistory] = useState<ClaudeCall[]>([]);
     const goalTextareaRef = useRef<HTMLTextAreaElement>(null);
+    const assumptionsSectionRef = useRef<HTMLDivElement>(null);
 
     // Auto-resize the goal textarea as content streams in
     useEffect(() => {
@@ -137,6 +138,13 @@ export function Home() {
             return next;
         });
     }, [response, clarifyingDone, assumptionsDone, requirements.length]);
+
+    // Scroll to assumptions section when it becomes active
+    useEffect(() => {
+        if (clarifyingDone && !assumptionsDone && assumptionsSectionRef.current) {
+            assumptionsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+    }, [clarifyingDone]);
 
     function toggleSection(index: number) {
         setOpenSections(prev => {
@@ -574,9 +582,13 @@ export function Home() {
 
         const isGenerateMore = requirements.length > 0;
         const rounds = buildPreviousRounds(goalIterations, allQuestions, allAnswers);
-        const body = isGenerateMore
-            ? { prompt: response, model: selectedModel, cwd: cwd || undefined, existingRequirements: requirements, clarifyingRounds: rounds.length > 0 ? rounds : undefined }
-            : { prompt: response, model: selectedModel, cwd: cwd || undefined, clarifyingRounds: rounds.length > 0 ? rounds : undefined };
+        const confirmedAssumptions = assumptions.filter(a => a.status !== 'pending');
+        const body: any = {
+            prompt: response, model: selectedModel, cwd: cwd || undefined,
+            clarifyingRounds: rounds.length > 0 ? rounds : undefined,
+            assumptions: confirmedAssumptions.length > 0 ? confirmedAssumptions : undefined,
+        };
+        if (isGenerateMore) body.existingRequirements = requirements;
 
         try {
             const res = await fetch('/api/streamrequirements', {
@@ -827,7 +839,7 @@ export function Home() {
 
                 {/* Section 1: Assumptions */}
                 {stepActive[1] && (
-                    <div class="collapsible">
+                    <div class="collapsible" ref={assumptionsSectionRef}>
                         <button class="collapsible-header" onClick={() => toggleSection(1)}>
                             <span class="collapsible-title">Assumptions</span>
                             {assumptions.length > 0 && (
@@ -843,13 +855,10 @@ export function Home() {
                                     assumptions={assumptions}
                                     onUpdate={setAssumptions}
                                     onDone={handleAssumptionsDone}
+                                    onRegenerate={() => handleGenerateAssumptions()}
                                     loading={loadingAssumptions}
+                                    done={assumptionsDone}
                                 />
-                                {assumptionsDone && (
-                                    <div class="clarifying-done-message">
-                                        Assumptions reviewed — ready to generate requirements.
-                                    </div>
-                                )}
                             </div>
                         </div>
                     </div>
