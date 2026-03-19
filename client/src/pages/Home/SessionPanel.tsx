@@ -1,4 +1,5 @@
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useRef } from 'preact/hooks';
+import { createPortal } from 'preact/compat';
 import type { Model, SessionMeta, ClaudeCall } from './types';
 
 function callerLabel(caller: string): string {
@@ -225,8 +226,9 @@ export function SessionPanel({
                 )}
             </div>
 
-            {showCallModal && (
-                <CallDetailModal calls={callHistory} onClose={() => setShowCallModal(false)} />
+            {showCallModal && createPortal(
+                <CallDetailModal calls={callHistory} onClose={() => setShowCallModal(false)} />,
+                document.body,
             )}
         </div>
     );
