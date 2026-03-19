@@ -55,7 +55,6 @@ export function Home() {
         cwd,
         response: goal.response,
         clarifyingDone: clarifying.clarifyingDone,
-        assumptionsDone: false, // initial; useAssumptions tracks its own done state
         onError: setError,
         onCallHistoryRefresh: session.refreshCallHistory,
     });

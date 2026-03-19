@@ -8,13 +8,12 @@ interface UseAssumptionsParams {
     cwd: string;
     response: string;
     clarifyingDone: boolean;
-    assumptionsDone: boolean;
     onError: (msg: string) => void;
     onCallHistoryRefresh: () => void;
 }
 
 export function useAssumptions({
-    selectedModel, cwd, response, clarifyingDone, assumptionsDone,
+    selectedModel, cwd, response, clarifyingDone,
     onError, onCallHistoryRefresh,
 }: UseAssumptionsParams) {
     const [assumptions, setAssumptions] = useState<Assumption[]>([]);
@@ -24,7 +23,7 @@ export function useAssumptions({
 
     // Scroll to assumptions section when it becomes active
     useEffect(() => {
-        if (clarifyingDone && !assumptionsDone && sectionRef.current) {
+        if (clarifyingDone && !done && sectionRef.current) {
             sectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
         }
     }, [clarifyingDone]);
