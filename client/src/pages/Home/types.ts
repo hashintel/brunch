@@ -68,6 +68,21 @@ export type GoalIteration = {
 
 export type SessionMeta = Pick<Session, 'id' | 'name' | 'updatedAt'>;
 
+export interface SessionData {
+    prompt: string;
+    cwd: string;
+    response: string;
+    selectedModel: string;
+    goalIterations: GoalIteration[];
+    allQuestions: ClarifyingQuestion[];
+    allAnswers: ClarifyingAnswer[];
+    questionsExhausted: boolean;
+    clarifyingDone: boolean;
+    assumptions: Assumption[];
+    assumptionsDone: boolean;
+    requirements: Requirement[];
+}
+
 export interface ClaudeCall {
     pk: number;
     model: string;

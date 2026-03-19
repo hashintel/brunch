@@ -1,738 +1,153 @@
 import './style.css';
-import { useEffect, useRef, useState } from 'preact/hooks';
-import { useRoute, useLocation } from 'preact-iso';
-import type { Model, Requirement, SessionMeta, Session, ClarifyingQuestion, ClarifyingAnswer, GoalIteration, ClaudeCall, Assumption } from './types';
+import { useEffect, useState } from 'preact/hooks';
+import type { Model } from './types';
 import { RequirementList } from './RequirementList';
 import { SessionPanel } from './SessionPanel';
 import { ClarifyingQuestions } from './ClarifyingQuestions';
 import { AssumptionReview } from './AssumptionReview';
+import { buildPreviousRounds, formatAnswer } from './utils';
+import { useSession } from './useSession';
+import { useGoal } from './useGoal';
+import { useClarifying } from './useClarifying';
+import { useAssumptions } from './useAssumptions';
+import { useRequirements } from './useRequirements';
+import { useElicitation } from './useElicitation';
 
 const STEPS = ['Goal', 'Assumptions', 'Requirements'] as const;
 
-function isAnswered(a: ClarifyingAnswer): boolean {
-    return a.skipped || a.selectedLabels.length > 0 || a.otherText.length > 0;
-}
-
-function formatAnswer(a: ClarifyingAnswer | undefined): string {
-    if (!a || a.skipped) return 'Skipped';
-    const parts: string[] = [];
-    if (a.selectedLabels.length) parts.push(a.selectedLabels.join(', '));
-    if (a.otherText) parts.push(`Other: ${a.otherText}`);
-    return parts.length ? parts.join(' — ') : 'Skipped';
-}
-
-function buildPreviousRounds(iterations: GoalIteration[], questions: ClarifyingQuestion[], answers: ClarifyingAnswer[]) {
-    const rounds: { questions: ClarifyingQuestion[]; answers: ClarifyingAnswer[] }[] = [];
-    for (const iter of iterations) {
-        if (iter.questions.length > 0) {
-            rounds.push({ questions: iter.questions, answers: iter.answers });
-        }
-    }
-    const answeredQs: ClarifyingQuestion[] = [];
-    const answeredAs: ClarifyingAnswer[] = [];
-    for (let i = 0; i < questions.length; i++) {
-        if (answers[i] && isAnswered(answers[i])) {
-            answeredQs.push(questions[i]);
-            answeredAs.push(answers[i]);
-        }
-    }
-    if (answeredQs.length > 0) {
-        rounds.push({ questions: answeredQs, answers: answeredAs });
-    }
-    return rounds;
-}
-
-function makeRequirement(r: { title: string; definition: string; confidence: number }): Requirement {
-    return {
-        id: crypto.randomUUID(),
-        title: r.title,
-        definition: r.definition,
-        confidence: r.confidence,
-        stage: 'proposal',
-        tests: [],
-        children: [],
-    };
-}
-
 export function Home() {
-    const { params } = useRoute();
-    const { route } = useLocation();
-    const [projectName, setProjectName] = useState('');
-    const [prompt, setPrompt] = useState('');
-    const [cwd, setCwd] = useState('');
-    const [response, setResponse] = useState('');
-    const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
-    const [models, setModels] = useState<Model[]>([]);
+    const [projectName, setProjectName] = useState('');
+    const [cwd, setCwd] = useState('');
     const [selectedModel, setSelectedModel] = useState('claude-haiku-4-5');
-    const [requirements, setRequirements] = useState<Requirement[]>([]);
-    const [loadingRequirements, setLoadingRequirements] = useState(false);
-    const [generatingChildrenId, setGeneratingChildrenId] = useState<string | null>(null);
-    const [generatingTestsId, setGeneratingTestsId] = useState<string | null>(null);
-    const [pendingTests, setPendingTests] = useState<{ reqId: string; tests: import('./types').TestCase[] } | null>(null);
-
-    // Goal iterations (previous revisions, read-only)
-    const [goalIterations, setGoalIterations] = useState<GoalIteration[]>([]);
-
-    // Flat question/answer lists (current active round)
-    const [allQuestions, setAllQuestions] = useState<ClarifyingQuestion[]>([]);
-    const [allAnswers, setAllAnswers] = useState<ClarifyingAnswer[]>([]);
-    const [loadingQuestions, setLoadingQuestions] = useState(false);
-    const [questionsExhausted, setQuestionsExhausted] = useState(false);
-    const [clarifyingDone, setClarifyingDone] = useState(false);
-    const [assumptions, setAssumptions] = useState<Assumption[]>([]);
-    const [assumptionsDone, setAssumptionsDone] = useState(false);
-    const [loadingAssumptions, setLoadingAssumptions] = useState(false);
-    const [updatingGoal, setUpdatingGoal] = useState(false);
-    const preloadingRef = useRef(false);
-
-    const [sessions, setSessions] = useState<SessionMeta[]>([]);
-    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
-    const [saving, setSaving] = useState(false);
-    const [openSections, setOpenSections] = useState<Set<number>>(() => new Set([0]));
-    const [callHistory, setCallHistory] = useState<ClaudeCall[]>([]);
-    const goalTextareaRef = useRef<HTMLTextAreaElement>(null);
-    const assumptionsSectionRef = useRef<HTMLDivElement>(null);
-
-    // Auto-resize the goal textarea as content streams in
-    useEffect(() => {
-        const el = goalTextareaRef.current;
-        if (el) {
-            el.style.height = 'auto';
-            el.style.height = el.scrollHeight + 'px';
-        }
-    }, [prompt]);
-
-    async function refreshCallHistory() {
-        try {
-            const res = await fetch('/api/history/claude?limit=50');
-            if (!res.ok) return;
-            const data = await res.json();
-            setCallHistory(data.rows ?? []);
-        } catch {}
-    }
-
-    // Derive step statuses (3 steps: Goal, Assumptions, Requirements)
-    const stepCompleted = [
-        clarifyingDone,
-        assumptionsDone,
-        requirements.length > 0,
-    ];
-    const stepActive = [
-        true,
-        clarifyingDone,
-        assumptionsDone,
-    ];
-
-    // Auto-open sections as they become active; collapse previous sections
-    useEffect(() => {
-        setOpenSections(prev => {
-            const next = new Set(prev);
-            for (let i = 0; i < 3; i++) {
-                if (stepActive[i] && !stepCompleted[i]) next.add(i);
-            }
-            // Collapse goal when assumptions active
-            if (stepActive[1]) next.delete(0);
-            // Collapse assumptions when requirements active
-            if (stepActive[2]) next.delete(1);
-            return next;
-        });
-    }, [response, clarifyingDone, assumptionsDone, requirements.length]);
-
-    // Scroll to assumptions section when it becomes active
-    useEffect(() => {
-        if (clarifyingDone && !assumptionsDone && assumptionsSectionRef.current) {
-            assumptionsSectionRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
-        }
-    }, [clarifyingDone]);
-
-    function toggleSection(index: number) {
-        setOpenSections(prev => {
-            const next = new Set(prev);
-            if (next.has(index)) next.delete(index);
-            else next.add(index);
-            return next;
-        });
-    }
+    const [models, setModels] = useState<Model[]>([]);
 
     useEffect(() => {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
-        fetch('/api/sessions').then(r => r.json()).then(setSessions).catch(() => {});
-        refreshCallHistory();
     }, []);
 
-    // Load session from URL param on mount
-    useEffect(() => {
-        if (params.id && params.id !== currentSessionId) {
-            handleLoadSession(params.id);
-        }
-    }, [params.id]);
+    const session = useSession({ onError: setError });
 
-    // Update URL when session changes
-    useEffect(() => {
-        if (currentSessionId) {
-            const target = `/session/${currentSessionId}`;
-            if (location.pathname !== target) {
-                route(target, true);
-            }
-        } else if (location.pathname !== '/') {
-            route('/', true);
-        }
-    }, [currentSessionId]);
+    const goal = useGoal({
+        selectedModel,
+        cwd,
+        onError: setError,
+        onCallHistoryRefresh: session.refreshCallHistory,
+        onGoalReady: (goalText, iterations, questions, answers) => {
+            clarifying.fetchQuestions(goalText, iterations, questions, answers);
+        },
+    });
 
-    async function refreshSessions() {
-        const res = await fetch('/api/sessions');
-        setSessions(await res.json());
-    }
-
-    async function handleSave() {
-        setSaving(true);
-        try {
-            const body: any = {
-                prompt, cwd, response, selectedModel,
-                goalIterations, allQuestions, allAnswers, questionsExhausted,
-                clarifyingDone, assumptions, assumptionsDone, requirements,
-            };
-            if (currentSessionId) {
-                const res = await fetch(`/api/sessions/${currentSessionId}`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
-                });
-                if (!res.ok) throw new Error('Failed to save');
-            } else {
-                const name = window.prompt('Session name:', prompt.slice(0, 60) || 'Untitled');
-                if (!name) { setSaving(false); return; }
-                body.name = name;
-                const res = await fetch('/api/sessions', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(body),
-                });
-                if (!res.ok) throw new Error('Failed to save');
-                const created: Session = await res.json();
-                setCurrentSessionId(created.id);
-            }
-            await refreshSessions();
-        } catch {
-            setError('Failed to save session');
-        } finally {
-            setSaving(false);
-        }
-    }
-
-    async function handleLoadSession(id: string) {
-        try {
-            const res = await fetch(`/api/sessions/${id}`);
-            if (!res.ok) throw new Error();
-            const s: any = await res.json();
-            setPrompt(s.prompt);
-            setCwd(s.cwd ?? '');
-            setResponse(s.response);
-            setSelectedModel(s.selectedModel);
-            // New format
-            setGoalIterations(s.goalIterations ?? []);
-            setAllQuestions(s.allQuestions ?? []);
-            setAllAnswers(s.allAnswers ?? []);
-            setQuestionsExhausted(s.questionsExhausted ?? false);
-            // Backward compat: convert old clarifyingRounds
-            if (!s.goalIterations && s.clarifyingRounds?.length > 0) {
-                setGoalIterations(s.clarifyingRounds.map((r: any) => ({
-                    goalText: '',
-                    questions: r.questions,
-                    answers: r.answers,
-                })));
-            }
-            setClarifyingDone(s.clarifyingDone ?? false);
-            setAssumptions(s.assumptions ?? []);
-            setAssumptionsDone(s.assumptionsDone ?? false);
-            // Load requirements with backward compat (old format without id/stage/tests/children)
-            function migrateTests(r: any) {
-                if (r.tests && Array.isArray(r.tests)) return r.tests;
-                if (r.test && typeof r.test === 'string') return [{ type: 'programmatic_test', description: r.test }];
-                return [];
-            }
-            function migrateReq(r: any): Requirement {
-                return {
-                    id: r.id ?? crypto.randomUUID(),
-                    title: r.title,
-                    definition: r.definition,
-                    confidence: r.confidence,
-                    stage: r.stage ?? 'proposal',
-                    tests: migrateTests(r),
-                    children: (r.children ?? []).map(migrateReq),
-                };
-            }
-            const loadedReqs = (s.requirements ?? []).map(migrateReq);
-            setRequirements(loadedReqs);
-            setCurrentSessionId(s.id);
-            setError('');
-        } catch {
-            setError('Failed to load session');
-        }
-    }
-
-    async function handleDeleteSession(id: string) {
-        if (!window.confirm('Delete this session?')) return;
-        try {
-            await fetch(`/api/sessions/${id}`, { method: 'DELETE' });
-            if (currentSessionId === id) setCurrentSessionId(null);
-            await refreshSessions();
-        } catch {
-            setError('Failed to delete session');
-        }
-    }
-
-    function handleNewSession() {
-        setProjectName('');
-        setPrompt('');
-        setCwd('');
-        setResponse('');
-        setGoalIterations([]);
-        setAllQuestions([]);
-        setAllAnswers([]);
-        setQuestionsExhausted(false);
-        setClarifyingDone(false);
-        setAssumptions([]);
-        setAssumptionsDone(false);
-        setUpdatingGoal(false);
-        setRequirements([]);
-        setError('');
-        setCurrentSessionId(null);
-    }
-
-    // --- Question fetching ---
-
-    async function fetchQuestions(
-        goalText: string,
-        iterations: GoalIteration[],
-        questions: ClarifyingQuestion[],
-        answers: ClarifyingAnswer[],
-        showLoading = true,
-    ) {
-        if (!goalText.trim()) return;
-        if (showLoading) setLoadingQuestions(true);
-        setError('');
-
-        try {
+    const clarifying = useClarifying({
+        selectedModel,
+        cwd,
+        response: goal.response,
+        onError: setError,
+        onCallHistoryRefresh: session.refreshCallHistory,
+        onClarifyingDone: (iterations, questions, answers) => {
             const rounds = buildPreviousRounds(iterations, questions, answers);
-            const res = await fetch('/api/clarifyingquestions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: goalText,
-                    model: selectedModel,
-                    cwd: cwd || undefined,
-                    previousRounds: rounds.length > 0 ? rounds : undefined,
-                }),
-            });
+            assumptions.generate(rounds);
+        },
+    });
 
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.error ?? `Server error: ${res.status}`);
-            }
+    const assumptions = useAssumptions({
+        selectedModel,
+        cwd,
+        response: goal.response,
+        clarifyingDone: clarifying.clarifyingDone,
+        assumptionsDone: false, // initial; useAssumptions tracks its own done state
+        onError: setError,
+        onCallHistoryRefresh: session.refreshCallHistory,
+    });
 
-            const data = await res.json();
-            if (data.done || !data.questions?.length) {
-                setQuestionsExhausted(true);
-            } else {
-                setAllQuestions(prev => [...prev, ...data.questions]);
-                setAllAnswers(prev => [
-                    ...prev,
-                    ...data.questions.map(() => ({ selectedLabels: [], otherText: '', skipped: false })),
-                ]);
-            }
-        } catch (e) {
-            if (showLoading) {
-                setError(e instanceof Error ? e.message : 'Failed to generate questions');
-            }
-        } finally {
-            if (showLoading) setLoadingQuestions(false);
-            await refreshCallHistory();
-        }
-    }
+    const req = useRequirements({
+        selectedModel,
+        cwd,
+        response: goal.response,
+        onError: setError,
+        onCallHistoryRefresh: session.refreshCallHistory,
+    });
 
-    function maybePreloadQuestions(currentAnswers: ClarifyingAnswer[]) {
-        if (questionsExhausted || preloadingRef.current || loadingQuestions || !response || allQuestions.length === 0) return;
-        const answeredCount = currentAnswers.filter(isAnswered).length;
-        if (allQuestions.length - answeredCount > 2) return;
-
-        preloadingRef.current = true;
-        const rounds = buildPreviousRounds(goalIterations, allQuestions, currentAnswers);
-        fetch('/api/clarifyingquestions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                prompt: response,
-                model: selectedModel,
-                cwd: cwd || undefined,
-                previousRounds: rounds.length > 0 ? rounds : undefined,
-            }),
-        })
-            .then(r => { if (!r.ok) throw new Error(); return r.json(); })
-            .then(data => {
-                if (data.done || !data.questions?.length) {
-                    setQuestionsExhausted(true);
-                } else {
-                    setAllQuestions(prev => [...prev, ...data.questions]);
-                    setAllAnswers(prev => [
-                        ...prev,
-                        ...data.questions.map(() => ({ selectedLabels: [], otherText: '', skipped: false })),
-                    ]);
-                }
-            })
-            .catch(() => {})
-            .finally(() => {
-                preloadingRef.current = false;
-                refreshCallHistory();
-            });
-    }
-
-    // --- Handlers ---
-
-    async function handleGo() {
-        if (!prompt.trim() || loading) return;
-
-        setResponse('');
-        setError('');
-        setLoading(true);
-        const originalPrompt = prompt;
-        setPrompt('');
-
-        let fullText = '';
-        try {
-            const res = await fetch('http://localhost:3001/api/stream', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: originalPrompt, model: selectedModel, cwd: cwd || undefined }),
-            });
-
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.error ?? `Server error: ${res.status}`);
-            }
-
-            const reader = res.body!.getReader();
-            const decoder = new TextDecoder();
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                const chunk = decoder.decode(value);
-                fullText += chunk;
-                setPrompt(prev => prev + chunk);
-            }
-
-            setResponse(fullText);
-            await fetchQuestions(fullText, [], [], []);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'Something went wrong');
-        } finally {
-            setLoading(false);
-            await refreshCallHistory();
-        }
-    }
-
-    function handleUpdateAnswer(index: number, answer: ClarifyingAnswer) {
-        const newAnswers = [...allAnswers];
-        newAnswers[index] = answer;
-        setAllAnswers(newAnswers);
-        maybePreloadQuestions(newAnswers);
-    }
+    const ui = useElicitation({
+        response: goal.response,
+        clarifyingDone: clarifying.clarifyingDone,
+        assumptionsDone: assumptions.assumptionsDone,
+        requirementsCount: req.requirements.length,
+    });
 
     async function handleUpdateGoal() {
-        if (updatingGoal || loading) return;
-
-        // Save current iteration
-        const iteration: GoalIteration = {
-            goalText: prompt,
-            questions: allQuestions,
-            answers: allAnswers,
-        };
-        const newIterations = [...goalIterations, iteration];
-        setGoalIterations(newIterations);
-
-        // Reset current questions
-        setAllQuestions([]);
-        setAllAnswers([]);
-        setQuestionsExhausted(false);
-        preloadingRef.current = false;
-
-        // Build Q&A context for the prompt
-        const rounds = buildPreviousRounds(newIterations, [], []);
-        const roundsText = rounds.map(r =>
-            r.questions.map((q, i) => {
-                const a = r.answers[i];
-                return `Q: ${q.question}\nA: ${formatAnswer(a)}`;
-            }).join('\n\n')
-        ).join('\n\n');
-
-        const enhancedPrompt = `Here is a project goal description:\n\n${response}\n\nBased on the following clarifying Q&A, please update and improve the goal description to be more specific and comprehensive:\n\n${roundsText}`;
-
-        setUpdatingGoal(true);
-        setPrompt('');
-        setError('');
-
-        let fullText = '';
-        try {
-            const res = await fetch('http://localhost:3001/api/stream', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: enhancedPrompt, model: selectedModel, cwd: cwd || undefined }),
-            });
-
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.error ?? `Server error: ${res.status}`);
-            }
-
-            const reader = res.body!.getReader();
-            const decoder = new TextDecoder();
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                const chunk = decoder.decode(value);
-                fullText += chunk;
-                setPrompt(prev => prev + chunk);
-            }
-
-            setResponse(fullText);
-            await fetchQuestions(fullText, newIterations, [], []);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to update goal');
-        } finally {
-            setUpdatingGoal(false);
-            await refreshCallHistory();
-        }
-    }
-
-    function handleClarifyingDone() {
-        // Compute rounds BEFORE clearing state so we capture current Q&A
-        const rounds = buildPreviousRounds(
-            [...goalIterations, ...(allQuestions.length > 0 ? [{ goalText: '', questions: allQuestions, answers: allAnswers } as GoalIteration] : [])],
-            [],
-            [],
+        const result = await goal.updateGoal(
+            clarifying.goalIterations,
+            clarifying.allQuestions,
+            clarifying.allAnswers,
         );
-
-        // Save final Q&A if any
-        if (allQuestions.length > 0) {
-            setGoalIterations(prev => [...prev, {
-                goalText: '',
-                questions: allQuestions,
-                answers: allAnswers,
-            }]);
-            setAllQuestions([]);
-            setAllAnswers([]);
-        }
-        setClarifyingDone(true);
-        handleGenerateAssumptions(rounds);
-    }
-
-    async function handleGenerateAssumptions(precomputedRounds?: { questions: ClarifyingQuestion[]; answers: ClarifyingAnswer[] }[]) {
-        if (!response.trim() || loadingAssumptions) return;
-        setLoadingAssumptions(true);
-        setError('');
-
-        try {
-            const rounds = precomputedRounds ?? buildPreviousRounds(goalIterations, allQuestions, allAnswers);
-            const res = await fetch('/api/assumptions', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    prompt: response,
-                    model: selectedModel,
-                    cwd: cwd || undefined,
-                    previousRounds: rounds.length > 0 ? rounds : undefined,
-                }),
-            });
-
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.error ?? `Server error: ${res.status}`);
-            }
-
-            const data = await res.json();
-            const items: Assumption[] = (data.assumptions ?? []).map((a: any) => ({
-                id: crypto.randomUUID(),
-                text: a.text,
-                rationale: a.rationale,
-                confidence: a.confidence,
-                impact: a.impact,
-                status: 'pending' as const,
-            }));
-            setAssumptions(items);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to generate assumptions');
-        } finally {
-            setLoadingAssumptions(false);
-            await refreshCallHistory();
+        if (result) {
+            clarifying.resetForNewRound(result.newIterations);
+            await clarifying.fetchQuestions(result.goalText, result.newIterations, [], []);
         }
     }
 
-    function handleAssumptionsDone() {
-        setAssumptionsDone(true);
-    }
-
-    async function handleGenerateRequirements() {
-        if (!response.trim() || loadingRequirements) return;
-
-        setError('');
-        setLoadingRequirements(true);
-
-        const isGenerateMore = requirements.length > 0;
-        const rounds = buildPreviousRounds(goalIterations, allQuestions, allAnswers);
-        const confirmedAssumptions = assumptions.filter(a => a.status !== 'pending');
-        const body: any = {
-            prompt: response, model: selectedModel, cwd: cwd || undefined,
-            clarifyingRounds: rounds.length > 0 ? rounds : undefined,
-            assumptions: confirmedAssumptions.length > 0 ? confirmedAssumptions : undefined,
-        };
-        if (isGenerateMore) body.existingRequirements = requirements;
-
-        try {
-            const res = await fetch('/api/streamrequirements', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(body),
-            });
-
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.error ?? `Server error: ${res.status}`);
-            }
-
-            const reader = res.body!.getReader();
-            const decoder = new TextDecoder();
-            let accumulated = '';
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                accumulated += decoder.decode(value);
-            }
-
-            const parsed = JSON.parse(accumulated);
-            const rawReqs: { title: string; definition: string; confidence: number }[] = Array.isArray(parsed) ? parsed : parsed.requirements ?? [];
-            const reqs: Requirement[] = rawReqs.map(makeRequirement);
-            setRequirements(prev => isGenerateMore ? [...prev, ...reqs] : reqs);
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to generate requirements');
-        } finally {
-            setLoadingRequirements(false);
-            await refreshCallHistory();
-        }
-    }
-
-    // Recursive tree helpers
-    function findInTree(reqs: Requirement[], id: string): Requirement | null {
-        for (const r of reqs) {
-            if (r.id === id) return r;
-            const found = findInTree(r.children, id);
-            if (found) return found;
-        }
-        return null;
-    }
-
-    function updateInTree(reqs: Requirement[], id: string, updater: (r: Requirement) => Requirement): Requirement[] {
-        return reqs.map(r => {
-            if (r.id === id) return updater(r);
-            return { ...r, children: updateInTree(r.children, id, updater) };
+    function handleSave() {
+        session.save({
+            prompt: goal.prompt,
+            cwd,
+            response: goal.response,
+            selectedModel,
+            goalIterations: clarifying.goalIterations,
+            allQuestions: clarifying.allQuestions,
+            allAnswers: clarifying.allAnswers,
+            questionsExhausted: clarifying.questionsExhausted,
+            clarifyingDone: clarifying.clarifyingDone,
+            assumptions: assumptions.assumptions,
+            assumptionsDone: assumptions.assumptionsDone,
+            requirements: req.requirements,
         });
     }
 
-    async function handleGenerateChildren(reqId: string) {
-        if (generatingChildrenId) return;
-        setGeneratingChildrenId(reqId);
+    async function handleLoadSession(id: string) {
+        const data = await session.load(id);
+        if (!data) return;
+        goal.restore(data);
+        clarifying.restore(data);
+        assumptions.restore(data);
+        req.restore(data);
+        setCwd(data.cwd);
+        setSelectedModel(data.selectedModel);
+    }
+
+    function handleNewSession() {
+        goal.reset();
+        clarifying.reset();
+        assumptions.reset();
+        req.reset();
         setError('');
-
-        const targetReq = findInTree(requirements, reqId);
-        if (!targetReq) { setGeneratingChildrenId(null); return; }
-
-        try {
-            const res = await fetch('/api/generatechildren', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    requirement: { title: targetReq.title, definition: targetReq.definition },
-                    prompt: response, model: selectedModel, cwd: cwd || undefined,
-                }),
-            });
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.error ?? `Server error: ${res.status}`);
-            }
-            const data = await res.json();
-            const newChildren: Requirement[] = (data.children ?? []).map((c: any) => makeRequirement(c));
-            setRequirements(prev => updateInTree(prev, reqId, r => ({
-                ...r, children: [...r.children, ...newChildren],
-            })));
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to generate sub-requirements');
-        } finally {
-            setGeneratingChildrenId(null);
-            await refreshCallHistory();
-        }
+        setProjectName('');
+        setCwd('');
+        session.setCurrentSessionId(null);
     }
 
-    async function handleGenerateTests(reqId: string) {
-        if (generatingTestsId) return;
-        setGeneratingTestsId(reqId);
-        setError('');
-
-        const targetReq = findInTree(requirements, reqId);
-        if (!targetReq) { setGeneratingTestsId(null); return; }
-
-        try {
-            const res = await fetch('/api/generatetests', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    requirement: { title: targetReq.title, definition: targetReq.definition },
-                    prompt: response, model: selectedModel, cwd: cwd || undefined,
-                }),
-            });
-            if (!res.ok) {
-                const body = await res.json().catch(() => ({}));
-                throw new Error(body.error ?? `Server error: ${res.status}`);
-            }
-            const data = await res.json();
-            const newTests = Array.isArray(data.tests) ? data.tests : [];
-            if (newTests.length > 0) {
-                setPendingTests({ reqId, tests: newTests });
-            }
-        } catch (e) {
-            setError(e instanceof Error ? e.message : 'Failed to generate tests');
-        } finally {
-            setGeneratingTestsId(null);
-            await refreshCallHistory();
-        }
+    function handleGenerateRequirements() {
+        req.generate(
+            clarifying.goalIterations,
+            clarifying.allQuestions,
+            clarifying.allAnswers,
+            assumptions.assumptions,
+        );
     }
 
-    function handleApprovePendingTests(approved: import('./types').TestCase[]) {
-        if (!pendingTests) return;
-        const { reqId } = pendingTests;
-        if (approved.length > 0) {
-            setRequirements(prev => updateInTree(prev, reqId, r => ({
-                ...r, tests: [...r.tests, ...approved],
-            })));
-        }
-        setPendingTests(null);
-    }
-
-    const anyBusy = loading || updatingGoal || loadingQuestions;
+    const anyBusy = goal.loading || goal.updatingGoal || clarifying.loadingQuestions;
 
     return (
         <div class="home-layout">
             <aside class="sidebar">
                 <SessionPanel
-                    sessions={sessions}
-                    currentSessionId={currentSessionId}
+                    sessions={session.sessions}
+                    currentSessionId={session.currentSessionId}
                     onLoad={handleLoadSession}
-                    onDelete={handleDeleteSession}
+                    onDelete={session.deleteSession}
                     onNew={handleNewSession}
                     onSave={handleSave}
-                    saving={saving}
+                    saving={session.saving}
                     projectName={projectName}
                     onProjectNameChange={setProjectName}
                     cwd={cwd}
@@ -740,8 +155,8 @@ export function Home() {
                     models={models}
                     selectedModel={selectedModel}
                     onModelChange={setSelectedModel}
-                    callHistory={callHistory}
-                    disabled={loading}
+                    callHistory={session.callHistory}
+                    disabled={goal.loading}
                 />
             </aside>
             <div class="home">
@@ -750,12 +165,12 @@ export function Home() {
                     {STEPS.map((label, i) => (
                         <div key={label} class="stepper-step">
                             {i > 0 && (
-                                <div class={`stepper-line ${stepCompleted[i - 1] ? 'stepper-line--filled' : ''}`} />
+                                <div class={`stepper-line ${ui.stepCompleted[i - 1] ? 'stepper-line--filled' : ''}`} />
                             )}
-                            <div class={`stepper-circle ${stepCompleted[i] ? 'stepper-circle--completed' : stepActive[i] ? 'stepper-circle--active' : ''}`}>
+                            <div class={`stepper-circle ${ui.stepCompleted[i] ? 'stepper-circle--completed' : ui.stepActive[i] ? 'stepper-circle--active' : ''}`}>
                                 {i + 1}
                             </div>
-                            <span class={`stepper-label ${stepActive[i] ? 'stepper-label--active' : ''}`}>{label}</span>
+                            <span class={`stepper-label ${ui.stepActive[i] ? 'stepper-label--active' : ''}`}>{label}</span>
                         </div>
                     ))}
                 </div>
@@ -764,17 +179,17 @@ export function Home() {
 
                 {/* Section 0: Goal + Clarifying Questions */}
                 <div class="collapsible">
-                    <button class="collapsible-header" onClick={() => toggleSection(0)}>
+                    <button class="collapsible-header" onClick={() => ui.toggleSection(0)}>
                         <span class="collapsible-title">Goal</span>
-                        {goalIterations.length > 0 && (
-                            <span class="collapsible-badge">{goalIterations.length} revision{goalIterations.length !== 1 ? 's' : ''}</span>
+                        {clarifying.goalIterations.length > 0 && (
+                            <span class="collapsible-badge">{clarifying.goalIterations.length} revision{clarifying.goalIterations.length !== 1 ? 's' : ''}</span>
                         )}
-                        <span class={`collapsible-chevron ${openSections.has(0) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
+                        <span class={`collapsible-chevron ${ui.openSections.has(0) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                     </button>
-                    <div class={`collapsible-body ${openSections.has(0) ? 'collapsible-body--open' : ''}`}>
+                    <div class={`collapsible-body ${ui.openSections.has(0) ? 'collapsible-body--open' : ''}`}>
                         <div class="collapsible-content">
                             {/* Previous iterations (read-only) */}
-                            {goalIterations.map((iter, i) => (
+                            {clarifying.goalIterations.map((iter, i) => (
                                 <div key={i} class="goal-iteration">
                                     {iter.goalText && (
                                         <textarea
@@ -799,38 +214,38 @@ export function Home() {
 
                             {/* Current goal textarea */}
                             <textarea
-                                ref={goalTextareaRef}
+                                ref={goal.goalTextareaRef}
                                 class="textarea"
-                                value={prompt}
-                                onInput={e => setPrompt(e.currentTarget.value)}
+                                value={goal.prompt}
+                                onInput={e => goal.setPrompt(e.currentTarget.value)}
                                 placeholder="Describe your goal. What do you want to build?"
-                                disabled={loading || updatingGoal}
+                                disabled={goal.loading || goal.updatingGoal}
                             />
 
                             {/* Clarifying questions (after first generation, before done) */}
-                            {response && !clarifyingDone && (
+                            {goal.response && !clarifying.clarifyingDone && (
                                 <ClarifyingQuestions
-                                    questions={allQuestions}
-                                    answers={allAnswers}
-                                    onUpdateAnswer={handleUpdateAnswer}
+                                    questions={clarifying.allQuestions}
+                                    answers={clarifying.allAnswers}
+                                    onUpdateAnswer={clarifying.updateAnswer}
                                     onUpdateGoal={handleUpdateGoal}
-                                    onGenerateRequirements={handleClarifyingDone}
-                                    loading={loadingQuestions}
-                                    updatingGoal={updatingGoal}
+                                    onGenerateRequirements={clarifying.done}
+                                    loading={clarifying.loadingQuestions}
+                                    updatingGoal={goal.updatingGoal}
                                 />
                             )}
 
                             {/* Done message */}
-                            {clarifyingDone && (
+                            {clarifying.clarifyingDone && (
                                 <div class="clarifying-done-message">
                                     Clarification complete — proceed to review assumptions.
                                 </div>
                             )}
 
                             {/* Initial generate button (only before first response) */}
-                            {!response && (
-                                <button class="button" onClick={handleGo} disabled={anyBusy || !prompt.trim()}>
-                                    {loading ? 'Generating\u2026' : 'Generate'}
+                            {!goal.response && (
+                                <button class="button" onClick={goal.go} disabled={anyBusy || !goal.prompt.trim()}>
+                                    {goal.loading ? 'Generating\u2026' : 'Generate'}
                                 </button>
                             )}
                         </div>
@@ -838,26 +253,26 @@ export function Home() {
                 </div>
 
                 {/* Section 1: Assumptions */}
-                {stepActive[1] && (
-                    <div class="collapsible" ref={assumptionsSectionRef}>
-                        <button class="collapsible-header" onClick={() => toggleSection(1)}>
+                {ui.stepActive[1] && (
+                    <div class="collapsible" ref={assumptions.assumptionsSectionRef}>
+                        <button class="collapsible-header" onClick={() => ui.toggleSection(1)}>
                             <span class="collapsible-title">Assumptions</span>
-                            {assumptions.length > 0 && (
+                            {assumptions.assumptions.length > 0 && (
                                 <span class="collapsible-badge">
-                                    {assumptions.filter(a => a.status !== 'pending').length}/{assumptions.length}
+                                    {assumptions.assumptions.filter(a => a.status !== 'pending').length}/{assumptions.assumptions.length}
                                 </span>
                             )}
-                            <span class={`collapsible-chevron ${openSections.has(1) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
+                            <span class={`collapsible-chevron ${ui.openSections.has(1) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                         </button>
-                        <div class={`collapsible-body ${openSections.has(1) ? 'collapsible-body--open' : ''}`}>
+                        <div class={`collapsible-body ${ui.openSections.has(1) ? 'collapsible-body--open' : ''}`}>
                             <div class="collapsible-content">
                                 <AssumptionReview
-                                    assumptions={assumptions}
-                                    onUpdate={setAssumptions}
-                                    onDone={handleAssumptionsDone}
-                                    onRegenerate={() => handleGenerateAssumptions()}
-                                    loading={loadingAssumptions}
-                                    done={assumptionsDone}
+                                    assumptions={assumptions.assumptions}
+                                    onUpdate={assumptions.setAssumptions}
+                                    onDone={assumptions.markDone}
+                                    onRegenerate={() => assumptions.generate()}
+                                    loading={assumptions.loadingAssumptions}
+                                    done={assumptions.assumptionsDone}
                                 />
                             </div>
                         </div>
@@ -865,33 +280,33 @@ export function Home() {
                 )}
 
                 {/* Section 2: Requirements */}
-                {stepActive[2] && (
+                {ui.stepActive[2] && (
                     <div class="collapsible">
-                        <button class="collapsible-header" onClick={() => toggleSection(2)}>
+                        <button class="collapsible-header" onClick={() => ui.toggleSection(2)}>
                             <span class="collapsible-title">Requirements</span>
-                            <span class={`collapsible-chevron ${openSections.has(2) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
+                            <span class={`collapsible-chevron ${ui.openSections.has(2) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
                         </button>
-                        <div class={`collapsible-body ${openSections.has(2) ? 'collapsible-body--open' : ''}`}>
+                        <div class={`collapsible-body ${ui.openSections.has(2) ? 'collapsible-body--open' : ''}`}>
                             <div class="collapsible-content">
-                                {requirements.length > 0 && (
+                                {req.requirements.length > 0 && (
                                     <RequirementList
-                                        requirements={requirements}
-                                        onUpdate={setRequirements}
-                                        onGenerateChildren={handleGenerateChildren}
-                                        onGenerateTests={handleGenerateTests}
-                                        generatingChildrenId={generatingChildrenId}
-                                        generatingTestsId={generatingTestsId}
-                                        pendingTests={pendingTests}
-                                        onApprovePendingTests={handleApprovePendingTests}
-                                        onCancelPendingTests={() => setPendingTests(null)}
+                                        requirements={req.requirements}
+                                        onUpdate={req.setRequirements}
+                                        onGenerateChildren={req.generateChildren}
+                                        onGenerateTests={req.generateTests}
+                                        generatingChildrenId={req.generatingChildrenId}
+                                        generatingTestsId={req.generatingTestsId}
+                                        pendingTests={req.pendingTests}
+                                        onApprovePendingTests={req.approvePendingTests}
+                                        onCancelPendingTests={req.cancelPendingTests}
                                     />
                                 )}
                                 <button
                                     class="button"
                                     onClick={handleGenerateRequirements}
-                                    disabled={loadingRequirements}
+                                    disabled={req.loadingRequirements}
                                 >
-                                    {loadingRequirements ? 'Generating\u2026' : requirements.length > 0 ? 'Generate More' : 'Generate Requirements'}
+                                    {req.loadingRequirements ? 'Generating\u2026' : req.requirements.length > 0 ? 'Generate More' : 'Generate Requirements'}
                                 </button>
                             </div>
                         </div>

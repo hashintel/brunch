@@ -1,0 +1,162 @@
+import { useEffect, useState } from 'preact/hooks';
+import { useRoute, useLocation } from 'preact-iso';
+import type { SessionMeta, Session, ClaudeCall, SessionData, Requirement } from './types';
+import { apiFetch } from './apiFetch';
+
+interface UseSessionParams {
+    onError: (msg: string) => void;
+}
+
+export function useSession({ onError }: UseSessionParams) {
+    const { params } = useRoute();
+    const { route } = useLocation();
+    const [sessions, setSessions] = useState<SessionMeta[]>([]);
+    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+    const [saving, setSaving] = useState(false);
+    const [callHistory, setCallHistory] = useState<ClaudeCall[]>([]);
+
+    async function refreshCallHistory() {
+        try {
+            const data = await apiFetch<{ rows?: ClaudeCall[] }>('/api/history/claude?limit=50');
+            setCallHistory(data.rows ?? []);
+        } catch {}
+    }
+
+    async function refreshSessions() {
+        const data = await apiFetch<SessionMeta[]>('/api/sessions');
+        setSessions(data);
+    }
+
+    // Load sessions + call history on mount
+    useEffect(() => {
+        apiFetch<SessionMeta[]>('/api/sessions').then(setSessions).catch(() => {});
+        refreshCallHistory();
+    }, []);
+
+    // Load session from URL param on mount
+    useEffect(() => {
+        if (params.id && params.id !== currentSessionId) {
+            setCurrentSessionId(params.id);
+        }
+    }, [params.id]);
+
+    // Update URL when session changes
+    useEffect(() => {
+        if (currentSessionId) {
+            const target = `/session/${currentSessionId}`;
+            if (location.pathname !== target) {
+                route(target, true);
+            }
+        } else if (location.pathname !== '/') {
+            route('/', true);
+        }
+    }, [currentSessionId]);
+
+    async function save(data: SessionData) {
+        setSaving(true);
+        try {
+            const body: any = { ...data };
+            if (currentSessionId) {
+                await apiFetch(`/api/sessions/${currentSessionId}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+            } else {
+                const name = window.prompt('Session name:', data.prompt.slice(0, 60) || 'Untitled');
+                if (!name) { setSaving(false); return; }
+                body.name = name;
+                const created = await apiFetch<Session>('/api/sessions', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(body),
+                });
+                setCurrentSessionId(created.id);
+            }
+            await refreshSessions();
+        } catch {
+            onError('Failed to save session');
+        } finally {
+            setSaving(false);
+        }
+    }
+
+    async function load(id: string): Promise<SessionData | null> {
+        try {
+            const s: any = await apiFetch(`/api/sessions/${id}`);
+
+            // Backward compat: convert old clarifyingRounds
+            let goalIterations = s.goalIterations ?? [];
+            if (!s.goalIterations && s.clarifyingRounds?.length > 0) {
+                goalIterations = s.clarifyingRounds.map((r: any) => ({
+                    goalText: '',
+                    questions: r.questions,
+                    answers: r.answers,
+                }));
+            }
+
+            // Migrate requirements
+            function migrateTests(r: any) {
+                if (r.tests && Array.isArray(r.tests)) return r.tests;
+                if (r.test && typeof r.test === 'string') return [{ type: 'programmatic_test', description: r.test }];
+                return [];
+            }
+            function migrateReq(r: any): Requirement {
+                return {
+                    id: r.id ?? crypto.randomUUID(),
+                    title: r.title,
+                    definition: r.definition,
+                    confidence: r.confidence,
+                    stage: r.stage ?? 'proposal',
+                    tests: migrateTests(r),
+                    children: (r.children ?? []).map(migrateReq),
+                };
+            }
+
+            setCurrentSessionId(s.id);
+            onError('');
+
+            return {
+                prompt: s.prompt,
+                cwd: s.cwd ?? '',
+                response: s.response,
+                selectedModel: s.selectedModel,
+                goalIterations,
+                allQuestions: s.allQuestions ?? [],
+                allAnswers: s.allAnswers ?? [],
+                questionsExhausted: s.questionsExhausted ?? false,
+                clarifyingDone: s.clarifyingDone ?? false,
+                assumptions: s.assumptions ?? [],
+                assumptionsDone: s.assumptionsDone ?? false,
+                requirements: (s.requirements ?? []).map(migrateReq),
+            };
+        } catch {
+            onError('Failed to load session');
+            return null;
+        }
+    }
+
+    async function deleteSession(id: string) {
+        if (!window.confirm('Delete this session?')) return;
+        try {
+            await apiFetch(`/api/sessions/${id}`, { method: 'DELETE' });
+            if (currentSessionId === id) setCurrentSessionId(null);
+            await refreshSessions();
+        } catch {
+            onError('Failed to delete session');
+        }
+    }
+
+    return {
+        sessions,
+        currentSessionId,
+        setCurrentSessionId,
+        saving,
+        callHistory,
+        refreshCallHistory,
+        save,
+        load,
+        deleteSession,
+        refreshSessions,
+    };
+}
