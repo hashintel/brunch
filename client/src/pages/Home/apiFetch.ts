@@ -16,3 +16,47 @@ export async function apiFetchStream(url: string, options?: RequestInit): Promis
     }
     return res.body!;
 }
+
+export type NDJSONEvent =
+    | { type: 'text'; text: string }
+    | { type: 'tool_start'; tool: string }
+    | { type: 'tool_end'; tool: string }
+    | { type: 'done' };
+
+export async function* streamNDJSON(stream: ReadableStream<Uint8Array>): AsyncGenerator<NDJSONEvent> {
+    const reader = stream.getReader();
+    const decoder = new TextDecoder();
+    let buffer = '';
+
+    try {
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+
+            const lines = buffer.split('\n');
+            // Keep the last (possibly incomplete) line in the buffer
+            buffer = lines.pop()!;
+
+            for (const line of lines) {
+                const trimmed = line.trim();
+                if (!trimmed) continue;
+                try {
+                    yield JSON.parse(trimmed) as NDJSONEvent;
+                } catch {
+                    // skip malformed lines
+                }
+            }
+        }
+        // Process any remaining buffer
+        if (buffer.trim()) {
+            try {
+                yield JSON.parse(buffer.trim()) as NDJSONEvent;
+            } catch {
+                // skip
+            }
+        }
+    } finally {
+        reader.releaseLock();
+    }
+}

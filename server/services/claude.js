@@ -31,13 +31,18 @@ export function extractUsage(messages) {
 }
 
 export async function streamQueryText(prompt, modelId, res, cwd) {
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8');
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
     res.setHeader('Transfer-Encoding', 'chunked');
 
     const start = Date.now();
     const allMessages = [];
     let fullText = '';
     let error = null;
+    let currentTool = null;
+
+    function sendEvent(obj) {
+        res.write(JSON.stringify(obj) + '\n');
+    }
 
     try {
         for await (const msg of query({
@@ -55,10 +60,25 @@ export async function streamQueryText(prompt, modelId, res, cwd) {
                 msg.event.type === 'content_block_delta' &&
                 msg.event.delta.type === 'text_delta'
             ) {
-                res.write(msg.event.delta.text);
+                sendEvent({ type: 'text', text: msg.event.delta.text });
                 fullText += msg.event.delta.text;
+            } else if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_start' &&
+                msg.event.content_block?.type === 'tool_use'
+            ) {
+                currentTool = msg.event.content_block.name;
+                sendEvent({ type: 'tool_start', tool: currentTool });
+            } else if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_stop' &&
+                currentTool
+            ) {
+                sendEvent({ type: 'tool_end', tool: currentTool });
+                currentTool = null;
             }
         }
+        sendEvent({ type: 'done' });
         res.end();
     } catch (e) {
         error = e;

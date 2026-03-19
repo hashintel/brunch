@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'preact/hooks';
 import type { ClarifyingQuestion, ClarifyingAnswer } from './types';
+import { LoadingIndicator } from '../../components/LoadingIndicator';
 
 type Props = {
     questions: ClarifyingQuestion[];
@@ -48,7 +49,7 @@ export function ClarifyingQuestions({
     return (
         <div class="clarifying-questions">
             {loading && questions.length === 0 && (
-                <div class="clarifying-loading">Generating questions...</div>
+                <LoadingIndicator message="Generating questions" />
             )}
 
             {questions.length > 0 && q && (

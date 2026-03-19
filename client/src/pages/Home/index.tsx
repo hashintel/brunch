@@ -5,6 +5,7 @@ import { RequirementList } from './RequirementList';
 import { SessionPanel } from './SessionPanel';
 import { ClarifyingQuestions } from './ClarifyingQuestions';
 import { AssumptionReview } from './AssumptionReview';
+import { LoadingIndicator } from '../../components/LoadingIndicator';
 import { buildPreviousRounds, formatAnswer } from './utils';
 import { useSession } from './useSession';
 import { useGoal } from './useGoal';
@@ -220,6 +221,14 @@ export function Home() {
                                 placeholder="Describe your goal. What do you want to build?"
                                 disabled={goal.loading || goal.updatingGoal}
                             />
+
+                            {/* Tool status during goal generation */}
+                            {(goal.loading || goal.updatingGoal) && (
+                                <LoadingIndicator
+                                    message={goal.updatingGoal ? 'Updating goal' : 'Generating goal'}
+                                    toolStatus={goal.toolStatus}
+                                />
+                            )}
 
                             {/* Clarifying questions (after first generation, before done) */}
                             {goal.response && !clarifying.clarifyingDone && (

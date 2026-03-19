@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ClarifyingAnswer, ClarifyingQuestion, GoalIteration, SessionData } from './types';
-import { apiFetchStream } from './apiFetch';
+import { apiFetchStream, streamNDJSON } from './apiFetch';
 import { buildPreviousRounds, formatAnswer } from './utils';
 
 interface UseGoalParams {
@@ -16,6 +16,7 @@ export function useGoal({ selectedModel, cwd, onError, onCallHistoryRefresh, onG
     const [response, setResponse] = useState('');
     const [loading, setLoading] = useState(false);
     const [updatingGoal, setUpdatingGoal] = useState(false);
+    const [toolStatus, setToolStatus] = useState<{ tool: string } | null>(null);
     const goalTextareaRef = useRef<HTMLTextAreaElement>(null);
 
     // Auto-resize the goal textarea as content streams in
@@ -44,15 +45,15 @@ export function useGoal({ selectedModel, cwd, onError, onCallHistoryRefresh, onG
                 body: JSON.stringify({ prompt: originalPrompt, model: selectedModel, cwd: cwd || undefined }),
             });
 
-            const reader = stream.getReader();
-            const decoder = new TextDecoder();
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                const chunk = decoder.decode(value);
-                fullText += chunk;
-                setPrompt(prev => prev + chunk);
+            for await (const event of streamNDJSON(stream)) {
+                if (event.type === 'text') {
+                    fullText += event.text;
+                    setPrompt(prev => prev + event.text);
+                } else if (event.type === 'tool_start') {
+                    setToolStatus({ tool: event.tool });
+                } else if (event.type === 'tool_end') {
+                    setToolStatus(null);
+                }
             }
 
             setResponse(fullText);
@@ -61,6 +62,7 @@ export function useGoal({ selectedModel, cwd, onError, onCallHistoryRefresh, onG
             onError(e instanceof Error ? e.message : 'Something went wrong');
         } finally {
             setLoading(false);
+            setToolStatus(null);
             onCallHistoryRefresh();
         }
     }
@@ -103,15 +105,15 @@ export function useGoal({ selectedModel, cwd, onError, onCallHistoryRefresh, onG
                 body: JSON.stringify({ prompt: enhancedPrompt, model: selectedModel, cwd: cwd || undefined }),
             });
 
-            const reader = stream.getReader();
-            const decoder = new TextDecoder();
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-                const chunk = decoder.decode(value);
-                fullText += chunk;
-                setPrompt(prev => prev + chunk);
+            for await (const event of streamNDJSON(stream)) {
+                if (event.type === 'text') {
+                    fullText += event.text;
+                    setPrompt(prev => prev + event.text);
+                } else if (event.type === 'tool_start') {
+                    setToolStatus({ tool: event.tool });
+                } else if (event.type === 'tool_end') {
+                    setToolStatus(null);
+                }
             }
 
             setResponse(fullText);
@@ -121,6 +123,7 @@ export function useGoal({ selectedModel, cwd, onError, onCallHistoryRefresh, onG
             return null;
         } finally {
             setUpdatingGoal(false);
+            setToolStatus(null);
             onCallHistoryRefresh();
         }
     }
@@ -141,6 +144,7 @@ export function useGoal({ selectedModel, cwd, onError, onCallHistoryRefresh, onG
         response, setResponse,
         loading,
         updatingGoal,
+        toolStatus,
         goalTextareaRef,
         go,
         updateGoal,

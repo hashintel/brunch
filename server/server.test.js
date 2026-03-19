@@ -7,8 +7,21 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 }));
 const { app, MODELS } = await import('./server.js');
 
-function makeTextStream(chunks) {
+function makeTextStream(chunks, { withToolEvents = false } = {}) {
     return async function* () {
+        if (withToolEvents) {
+            yield {
+                type: 'stream_event',
+                event: {
+                    type: 'content_block_start',
+                    content_block: { type: 'tool_use', name: 'Read' },
+                },
+            };
+            yield {
+                type: 'stream_event',
+                event: { type: 'content_block_stop' },
+            };
+        }
         for (const chunk of chunks) {
             yield {
                 type: 'stream_event',
@@ -24,6 +37,10 @@ function makeTextStream(chunks) {
             result: chunks.join(''),
         };
     };
+}
+
+function parseNDJSON(text) {
+    return text.split('\n').filter(line => line.trim()).map(line => JSON.parse(line));
 }
 
 function makeStructuredResult(output) {
@@ -57,7 +74,7 @@ describe('GET /api/models', () => {
 });
 
 describe('POST /api/stream', () => {
-    it('streams text response using the default model', async () => {
+    it('streams NDJSON text response using the default model', async () => {
         mockQuery.mockReturnValue(makeTextStream(['Hello', ', ', 'world!'])());
 
         const res = await request(app)
@@ -65,11 +82,29 @@ describe('POST /api/stream', () => {
             .send({ prompt: 'Say hello' });
 
         expect(res.status).toBe(200);
-        expect(res.text).toBe('Hello, world!');
+        const events = parseNDJSON(res.text);
+        const textEvents = events.filter(e => e.type === 'text');
+        expect(textEvents.map(e => e.text).join('')).toBe('Hello, world!');
+        expect(events[events.length - 1]).toEqual({ type: 'done' });
         expect(mockQuery).toHaveBeenCalledWith(expect.objectContaining({
             prompt: 'Say hello',
             options: expect.objectContaining({ model: 'claude-haiku-4-5' }),
         }));
+    });
+
+    it('streams tool events alongside text', async () => {
+        mockQuery.mockReturnValue(makeTextStream(['result'], { withToolEvents: true })());
+
+        const res = await request(app)
+            .post('/api/stream')
+            .send({ prompt: 'Read a file' });
+
+        expect(res.status).toBe(200);
+        const events = parseNDJSON(res.text);
+        expect(events).toContainEqual({ type: 'tool_start', tool: 'Read' });
+        expect(events).toContainEqual({ type: 'tool_end', tool: 'Read' });
+        expect(events).toContainEqual({ type: 'text', text: 'result' });
+        expect(events[events.length - 1]).toEqual({ type: 'done' });
     });
 
     it('uses the requested model when provided', async () => {

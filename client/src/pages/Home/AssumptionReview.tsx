@@ -1,5 +1,6 @@
 import { useState } from 'preact/hooks';
 import type { Assumption } from './types';
+import { LoadingIndicator } from '../../components/LoadingIndicator';
 
 type Props = {
     assumptions: Assumption[];
@@ -49,7 +50,7 @@ export function AssumptionReview({ assumptions, onUpdate, onDone, onRegenerate, 
     }
 
     if (loading) {
-        return <div class="clarifying-loading">Generating assumptions…</div>;
+        return <LoadingIndicator message="Generating assumptions" />;
     }
 
     const pending = assumptions.filter(a => a.status === 'pending').length;
