@@ -87,7 +87,7 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
 
         try {
             abortRef.current = new AbortController();
-            const stream = await apiFetchStream('http://localhost:3001/api/stream', {
+            const stream = await apiFetchStream('/api/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt, model: selectedModel, cwd: cwd || undefined, projectId: projectId || undefined }),

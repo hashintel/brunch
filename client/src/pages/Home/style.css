@@ -2893,6 +2893,35 @@ tr.requirement--drag-over td {
     }
 }
 
+/* ── Save Status ── */
+.save-status {
+    font-size: 0.78rem;
+    font-weight: 500;
+    min-height: 1.2em;
+}
+
+.save-status--idle {
+    color: transparent;
+}
+
+.save-status--saving {
+    color: #888;
+}
+
+.save-status--saved {
+    color: #22c55e;
+}
+
+.save-status--unsaved {
+    color: #e08a00;
+}
+
+@media (prefers-color-scheme: dark) {
+    .save-status--saving { color: #777; }
+    .save-status--saved { color: #4ade80; }
+    .save-status--unsaved { color: #fbbf24; }
+}
+
 img {
 	margin-bottom: 1.5rem;
 }

@@ -111,8 +111,14 @@ router.put('/sessions/:id', (req, res) => {
 router.delete('/sessions/:id', (req, res) => {
     const { id } = req.params;
     try {
-        const result = db.prepare('DELETE FROM project WHERE pk = ?').run(id);
-        if (result.changes === 0) return res.status(404).json({ error: 'Session not found' });
+        const existing = db.prepare('SELECT pk FROM project WHERE pk = ?').get(id);
+        if (!existing) return res.status(404).json({ error: 'Session not found' });
+        const deleteProject = db.transaction((pk) => {
+            db.prepare('DELETE FROM entry WHERE project_id = ?').run(pk);
+            db.prepare('DELETE FROM claude_call WHERE project_id = ?').run(pk);
+            db.prepare('DELETE FROM project WHERE pk = ?').run(pk);
+        });
+        deleteProject(id);
         res.json({ ok: true });
     } catch (err) {
         console.error('[sessions] delete error:', err.message);

@@ -40,7 +40,7 @@ export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryR
 
         let fullText = '';
         try {
-            const stream = await apiFetchStream('http://localhost:3001/api/stream', {
+            const stream = await apiFetchStream('/api/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt: originalPrompt, model: selectedModel, cwd: cwd || undefined, projectId: projectId || undefined }),
@@ -100,7 +100,7 @@ export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryR
 
         let fullText = '';
         try {
-            const stream = await apiFetchStream('http://localhost:3001/api/stream', {
+            const stream = await apiFetchStream('/api/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt: enhancedPrompt, model: selectedModel, cwd: cwd || undefined, projectId: projectId || undefined }),

@@ -167,7 +167,7 @@ export function useSession({ onError }: UseSessionParams) {
     }
 
     async function deleteSession(id: string) {
-        if (!window.confirm('Delete this session?')) return;
+        if (!window.confirm('Delete this project?')) return;
         try {
             await apiFetch(`/api/sessions/${id}`, { method: 'DELETE' });
             if (currentSessionId === id) setCurrentSessionId(null);

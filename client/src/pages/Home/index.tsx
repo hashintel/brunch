@@ -14,6 +14,7 @@ import { useAssumptions } from './useAssumptions';
 import { useRequirements } from './useRequirements';
 import { useElicitation } from './useElicitation';
 import { useAssistant } from './useAssistant';
+import { useAutoSave } from './useAutoSave';
 import { AssistantPane } from './AssistantPane';
 import { AssistantTrigger } from './AssistantTrigger';
 
@@ -92,6 +93,31 @@ export function Home() {
         getRequirements: () => req.requirements,
     });
 
+    const anyBusy = goal.loading || goal.updatingGoal || clarifying.loadingQuestions;
+
+    const autoSaveData = {
+        name: projectName,
+        prompt: goal.prompt,
+        cwd,
+        response: goal.response,
+        selectedModel,
+        goalIterations: clarifying.goalIterations,
+        allQuestions: clarifying.allQuestions,
+        allAnswers: clarifying.allAnswers,
+        questionsExhausted: clarifying.questionsExhausted,
+        clarifyingDone: clarifying.clarifyingDone,
+        assumptions: assumptions.assumptions,
+        assumptionsDone: assumptions.assumptionsDone,
+        requirements: req.requirements,
+    };
+
+    const { saveStatus } = useAutoSave({
+        currentSessionId: session.currentSessionId,
+        save: session.save,
+        data: autoSaveData,
+        busy: anyBusy || assumptions.loadingAssumptions || req.loadingRequirements,
+    });
+
     const ui = useElicitation({
         response: goal.response,
         clarifyingDone: clarifying.clarifyingDone,
@@ -109,24 +135,6 @@ export function Home() {
             clarifying.resetForNewRound(result.newIterations);
             await clarifying.fetchQuestions(result.goalText, result.newIterations, [], []);
         }
-    }
-
-    function handleSave() {
-        session.save({
-            name: projectName,
-            prompt: goal.prompt,
-            cwd,
-            response: goal.response,
-            selectedModel,
-            goalIterations: clarifying.goalIterations,
-            allQuestions: clarifying.allQuestions,
-            allAnswers: clarifying.allAnswers,
-            questionsExhausted: clarifying.questionsExhausted,
-            clarifyingDone: clarifying.clarifyingDone,
-            assumptions: assumptions.assumptions,
-            assumptionsDone: assumptions.assumptionsDone,
-            requirements: req.requirements,
-        });
     }
 
     async function handleLoadSession(id: string) {
@@ -172,8 +180,6 @@ export function Home() {
         setCreatingProject(false);
     }
 
-    const anyBusy = goal.loading || goal.updatingGoal || clarifying.loadingQuestions;
-
     return (
         <div class={`home-layout ${assistant.isOpen ? 'home-layout--assistant-open' : ''}`}>
             <aside class="sidebar">
@@ -183,8 +189,7 @@ export function Home() {
                     onLoad={handleLoadSession}
                     onDelete={session.deleteSession}
                     onNew={handleNewSession}
-                    onSave={handleSave}
-                    saving={session.saving}
+                    saveStatus={saveStatus}
                     models={models}
                     selectedModel={selectedModel}
                     onModelChange={setSelectedModel}

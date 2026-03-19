@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
 import type { Model, SessionMeta, ClaudeCall } from './types';
+import type { SaveStatus } from './useAutoSave';
 
 function callerLabel(caller: string): string {
     if (caller === 'streamQueryText') return 'Goal / Summary';
@@ -32,8 +33,7 @@ type Props = {
     onLoad: (id: string) => void;
     onDelete: (id: string) => void;
     onNew: () => void;
-    onSave: () => void;
-    saving: boolean;
+    saveStatus: SaveStatus;
     models: Model[];
     selectedModel: string;
     onModelChange: (v: string) => void;
@@ -115,7 +115,7 @@ function CallDetailModal({ calls, onClose }: { calls: ClaudeCall[]; onClose: () 
 }
 
 export function SessionPanel({
-    sessions, currentSessionId, onLoad, onDelete, onNew, onSave, saving,
+    sessions, currentSessionId, onLoad, onDelete, onNew, saveStatus,
     models, selectedModel, onModelChange, callHistory, disabled,
     assumptionCount, confirmedAssumptionCount, requirementCount, clarifyingRoundCount,
 }: Props) {
@@ -198,9 +198,9 @@ export function SessionPanel({
                                 <option key={m.id} value={m.id}>{m.provider} — {m.label}</option>
                             ))}
                         </select>
-                        <button class="button button-small" onClick={onSave} disabled={saving}>
-                            {saving ? 'Saving\u2026' : 'Save'}
-                        </button>
+                        <span class={`save-status save-status--${saveStatus}`}>
+                            {saveStatus === 'saving' ? 'Saving\u2026' : saveStatus === 'saved' ? 'Saved' : saveStatus === 'unsaved' ? 'Unsaved changes' : ''}
+                        </span>
                     </div>
 
                     <div class="sidebar-section">
