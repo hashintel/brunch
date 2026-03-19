@@ -13,6 +13,9 @@ import { useClarifying } from './useClarifying';
 import { useAssumptions } from './useAssumptions';
 import { useRequirements } from './useRequirements';
 import { useElicitation } from './useElicitation';
+import { useAssistant } from './useAssistant';
+import { AssistantPane } from './AssistantPane';
+import { AssistantTrigger } from './AssistantTrigger';
 
 const STEPS = ['Goal', 'Assumptions', 'Requirements'] as const;
 
@@ -68,6 +71,14 @@ export function Home() {
         onCallHistoryRefresh: session.refreshCallHistory,
     });
 
+    const assistant = useAssistant({
+        selectedModel,
+        cwd,
+        getGoalResponse: () => goal.response,
+        getAssumptions: () => assumptions.assumptions,
+        getRequirements: () => req.requirements,
+    });
+
     const ui = useElicitation({
         response: goal.response,
         clarifyingDone: clarifying.clarifyingDone,
@@ -120,6 +131,7 @@ export function Home() {
         clarifying.reset();
         assumptions.reset();
         req.reset();
+        assistant.reset();
         setError('');
         setProjectName('');
         setCwd('');
@@ -138,7 +150,7 @@ export function Home() {
     const anyBusy = goal.loading || goal.updatingGoal || clarifying.loadingQuestions;
 
     return (
-        <div class="home-layout">
+        <div class={`home-layout ${assistant.isOpen ? 'home-layout--assistant-open' : ''}`}>
             <aside class="sidebar">
                 <SessionPanel
                     sessions={session.sessions}
@@ -321,6 +333,23 @@ export function Home() {
                     </div>
                 )}
             </div>
+
+            <AssistantTrigger
+                isOpen={assistant.isOpen}
+                onToggle={assistant.toggle}
+                onOpenWithContext={assistant.openWithContext}
+            />
+            <AssistantPane
+                isOpen={assistant.isOpen}
+                messages={assistant.messages}
+                loading={assistant.loading}
+                toolStatus={assistant.toolStatus}
+                streamingContent={assistant.streamingContent}
+                pendingContext={assistant.pendingContext}
+                onSend={assistant.send}
+                onClose={assistant.close}
+                onDismissContext={assistant.dismissContext}
+            />
         </div>
     );
 }

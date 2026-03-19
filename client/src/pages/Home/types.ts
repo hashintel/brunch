@@ -83,6 +83,14 @@ export interface SessionData {
     requirements: Requirement[];
 }
 
+export type AssistantMessage = {
+    id: string;
+    role: 'user' | 'assistant';
+    content: string;
+    context?: { selectedText?: string; elementType?: string };
+    timestamp: number;
+};
+
 export interface ClaudeCall {
     pk: number;
     model: string;
