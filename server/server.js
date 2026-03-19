@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import { resolve } from 'node:path';
+import { existsSync } from 'node:fs';
 import { loggingMiddleware } from './middleware/logging.js';
 import { errorHandler } from './middleware/asyncHandler.js';
 import streamRouter from './routes/stream.js';
@@ -21,8 +22,8 @@ app.use(cors());
 app.use(express.json({ limit: '5mb' }));
 app.use('/api', loggingMiddleware);
 
-app.get('/', (_req, res) => {
-    res.json({ status: 'ok', endpoints: ['/api/models', '/api/stream', '/api/clarifyingquestions', '/api/assumptions', '/api/streamrequirements', '/api/generatechildren', '/api/generatetests'] });
+app.get('/api/health', (_req, res) => {
+    res.json({ status: 'ok' });
 });
 
 app.get('/api/models', (_req, res) => {
@@ -36,6 +37,15 @@ app.use('/api', requirementsRouter);
 app.use('/api', sessionsRouter);
 app.use('/api', historyRouter);
 app.use(errorHandler);
+
+// In production, serve the built frontend
+const distDir = resolve(new URL('.', import.meta.url).pathname, '..', 'dist');
+if (existsSync(distDir)) {
+    app.use(express.static(distDir));
+    app.get('/{*splat}', (_req, res) => {
+        res.sendFile(resolve(distDir, 'index.html'));
+    });
+}
 
 const PORT = process.env.PORT || 3001;
 
