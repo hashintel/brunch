@@ -121,6 +121,15 @@ export function SessionPanel({
 }: Props) {
     const [activeTab, setActiveTab] = useState<'list' | 'detail'>('list');
     const [showCallModal, setShowCallModal] = useState(false);
+    const prevSessionId = useRef(currentSessionId);
+
+    // Switch to detail tab when a project is created (null → id)
+    useEffect(() => {
+        if (prevSessionId.current === null && currentSessionId !== null) {
+            setActiveTab('detail');
+        }
+        prevSessionId.current = currentSessionId;
+    }, [currentSessionId]);
 
     // Compute summary stats
     const totalCalls = callHistory.length;
