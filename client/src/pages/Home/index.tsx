@@ -135,6 +135,16 @@ export function Home() {
         requirements: req.requirements,
     };
 
+    // Load session from URL on mount / navigation
+    useEffect(() => {
+        if (session.pendingUrlSessionId) {
+            session.clearPendingUrlSession();
+            session.load(session.pendingUrlSessionId).then(data => {
+                if (data) restoreSessionData(data);
+            });
+        }
+    }, [session.pendingUrlSessionId]);
+
     // Refresh version control when session changes
     useEffect(() => {
         versions.setProjectId(session.currentSessionId);

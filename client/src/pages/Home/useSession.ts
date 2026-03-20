@@ -42,10 +42,12 @@ export function useSession({ onError }: UseSessionParams) {
         refreshCallHistory();
     }, [currentSessionId]);
 
-    // Load session from URL param on mount
+    const [pendingUrlSessionId, setPendingUrlSessionId] = useState<string | null>(null);
+
+    // Detect session ID from URL param
     useEffect(() => {
         if (params.id && params.id !== currentSessionId) {
-            setCurrentSessionId(params.id);
+            setPendingUrlSessionId(params.id);
         }
     }, [params.id]);
 
@@ -192,6 +194,10 @@ export function useSession({ onError }: UseSessionParams) {
         }
     }
 
+    function clearPendingUrlSession() {
+        setPendingUrlSessionId(null);
+    }
+
     return {
         sessions,
         currentSessionId,
@@ -205,5 +211,7 @@ export function useSession({ onError }: UseSessionParams) {
         load,
         deleteSession,
         refreshSessions,
+        pendingUrlSessionId,
+        clearPendingUrlSession,
     };
 }
