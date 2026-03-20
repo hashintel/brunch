@@ -130,6 +130,53 @@ function CallDetailModal({ calls, onClose }: { calls: ClaudeCall[]; onClose: () 
     );
 }
 
+/** Fields to hide from diffs — internal/noisy columns */
+const DIFF_HIDDEN_FIELDS = new Set(['pk', 'diff_type', 'project_id', 'parent_id', 'sort_order', 'created_at', 'updated_at']);
+
+function formatCellValue(val: unknown): string {
+    if (val == null) return '(empty)';
+    const s = String(val);
+    return s.length > 120 ? s.slice(0, 120) + '\u2026' : s;
+}
+
+/** Extract field names from a diff row (strips from_/to_ prefixes) */
+function getFields(row: DoltDiffRow): string[] {
+    const fields = new Set<string>();
+    for (const k of Object.keys(row)) {
+        if (k.startsWith('from_')) fields.add(k.slice(5));
+        else if (k.startsWith('to_')) fields.add(k.slice(3));
+    }
+    return [...fields].filter(f => !DIFF_HIDDEN_FIELDS.has(f));
+}
+
+/** For added/removed rows, get the relevant values */
+function getRowValues(row: DoltDiffRow, prefix: 'from' | 'to'): Array<{ field: string; value: string }> {
+    return getFields(row)
+        .map(f => ({ field: f, value: formatCellValue(row[`${prefix}_${f}`]) }))
+        .filter(({ value }) => value !== '(empty)');
+}
+
+/** For modified rows, get only fields that changed */
+function getModifiedFields(row: DoltDiffRow): Array<{ field: string; from: string; to: string }> {
+    return getFields(row)
+        .filter(f => row[`from_${f}`] !== row[`to_${f}`])
+        .map(f => ({
+            field: f,
+            from: formatCellValue(row[`from_${f}`]),
+            to: formatCellValue(row[`to_${f}`]),
+        }));
+}
+
+/** Human-readable label for a row — pick a recognizable identifier */
+function rowLabel(row: DoltDiffRow): string | null {
+    const prefix = row.diff_type === 'removed' || row.diff_type === 'deleted' ? 'from' : 'to';
+    return (row[`${prefix}_title`] as string)
+        || (row[`${prefix}_name`] as string)
+        || (row[`${prefix}_text`] as string)?.slice(0, 50)
+        || (row[`${prefix}_uuid`] as string)
+        || null;
+}
+
 function DiffModal({ diff, onClose }: { diff: { tables: Record<string, DoltDiffRow[]>; from: string; to: string }; onClose: () => void }) {
     const tableNames = Object.keys(diff.tables);
     return (
@@ -144,28 +191,45 @@ function DiffModal({ diff, onClose }: { diff: { tables: Record<string, DoltDiffR
                             <span class="diff-table-count">{rows.length} change{rows.length !== 1 ? 's' : ''}</span>
                         </div>
                         <div class="diff-table-rows">
-                            {rows.map((row, i) => (
-                                <div key={i} class={`diff-row diff-row--${row.diff_type}`}>
-                                    <span class="diff-row-type">{row.diff_type}</span>
-                                    <span class="diff-row-detail">
-                                        {row.diff_type === 'modified'
-                                            ? Object.keys(row)
-                                                .filter(k => k.startsWith('from_') && row[k] !== row[k.replace('from_', 'to_')])
-                                                .map(k => {
-                                                    const field = k.replace('from_', '');
-                                                    const from = String(row[k] ?? '').slice(0, 80);
-                                                    const to = String(row[k.replace('from_', 'to_')] ?? '').slice(0, 80);
-                                                    return `${field}: ${from} → ${to}`;
-                                                })
-                                                .join('; ') || '(no visible changes)'
-                                            : Object.keys(row)
-                                                .filter(k => k.startsWith('to_') && row[k] != null)
-                                                .map(k => `${k.replace('to_', '')}: ${String(row[k]).slice(0, 80)}`)
-                                                .join('; ') || JSON.stringify(row).slice(0, 200)
-                                        }
-                                    </span>
-                                </div>
-                            ))}
+                            {rows.map((row, i) => {
+                                const label = rowLabel(row);
+                                if (row.diff_type === 'modified') {
+                                    const changes = getModifiedFields(row);
+                                    if (changes.length === 0) return null;
+                                    return (
+                                        <div key={i} class="diff-row diff-row--modified">
+                                            <span class="diff-row-type">modified</span>
+                                            <div class="diff-row-detail">
+                                                {label && <div class="diff-row-label">{label}</div>}
+                                                {changes.map(({ field, from, to }) => (
+                                                    <div key={field} class="diff-field">
+                                                        <span class="diff-field-name">{field}</span>
+                                                        <span class="diff-field-from">{from}</span>
+                                                        <span class="diff-field-arrow">{'\u2192'}</span>
+                                                        <span class="diff-field-to">{to}</span>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    );
+                                }
+                                const isRemoved = row.diff_type === 'removed' || row.diff_type === 'deleted';
+                                const values = getRowValues(row, isRemoved ? 'from' : 'to');
+                                return (
+                                    <div key={i} class={`diff-row diff-row--${row.diff_type}`}>
+                                        <span class="diff-row-type">{row.diff_type}</span>
+                                        <div class="diff-row-detail">
+                                            {label && <div class="diff-row-label">{label}</div>}
+                                            {values.map(({ field, value }) => (
+                                                <div key={field} class="diff-field">
+                                                    <span class="diff-field-name">{field}</span>
+                                                    <span class={isRemoved ? 'diff-field-from' : 'diff-field-to'}>{value}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     </div>
                 );

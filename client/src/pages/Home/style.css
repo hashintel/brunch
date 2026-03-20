@@ -3033,9 +3033,9 @@ tr.requirement--drag-over td {
 
 .diff-row {
     display: flex;
-    align-items: baseline;
+    align-items: flex-start;
     gap: 0.5rem;
-    padding: 0.4rem 0.6rem;
+    padding: 0.5rem 0.6rem;
     border-radius: 0.35rem;
     font-size: 0.82rem;
     line-height: 1.5;
@@ -3063,14 +3063,70 @@ tr.requirement--drag-over td {
     text-transform: uppercase;
     flex-shrink: 0;
     width: 4.5rem;
+    padding-top: 0.1rem;
 }
 
 .diff-row-detail {
     flex: 1;
     min-width: 0;
-    word-break: break-word;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.diff-row-label {
+    font-weight: 600;
+    font-size: 0.82rem;
+    margin-bottom: 0.1rem;
+}
+
+.diff-field {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
     font-family: 'SF Mono', 'Fira Code', monospace;
     font-size: 0.78rem;
+    line-height: 1.4;
+    flex-wrap: wrap;
+}
+
+.diff-field-name {
+    font-weight: 600;
+    flex-shrink: 0;
+    opacity: 0.7;
+}
+
+.diff-field-name::after {
+    content: ':';
+}
+
+.diff-field-from {
+    text-decoration: line-through;
+    opacity: 0.7;
+    word-break: break-word;
+}
+
+.diff-field-arrow {
+    flex-shrink: 0;
+    opacity: 0.5;
+}
+
+.diff-field-to {
+    word-break: break-word;
+}
+
+/* Highlight changed values within modified rows */
+.diff-row--modified .diff-field-from {
+    background: rgba(0, 0, 0, 0.06);
+    padding: 0 0.2rem;
+    border-radius: 0.2rem;
+}
+
+.diff-row--modified .diff-field-to {
+    background: rgba(0, 0, 0, 0.06);
+    padding: 0 0.2rem;
+    border-radius: 0.2rem;
+    font-weight: 600;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -3090,6 +3146,8 @@ tr.requirement--drag-over td {
     .diff-row--modified { background-color: #3b1f6e; color: #e9d5ff; }
     .diff-row--removed, .diff-row--deleted { background-color: #450a0a; color: #fecaca; }
     .diff-table-count { color: #777; }
+    .diff-row--modified .diff-field-from { background: rgba(255, 255, 255, 0.08); }
+    .diff-row--modified .diff-field-to { background: rgba(255, 255, 255, 0.1); }
 }
 
 /* ── Save Status ── */
