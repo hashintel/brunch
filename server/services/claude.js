@@ -104,7 +104,7 @@ export async function streamQueryText(prompt, modelId, res, cwd, projectId) {
     return fullText;
 }
 
-export function createSetGoalMcpServer() {
+export function createAssistantMcpServer() {
     return createSdkMcpServer({
         name: 'assistant-tools',
         version: '1.0.0',
@@ -116,6 +116,21 @@ export function createSetGoalMcpServer() {
                 async ({ goal }) => {
                     console.log('[set_goal] Tool called with goal:', goal.slice(0, 80));
                     return { content: [{ type: 'text', text: 'Goal has been set successfully in the form.' }] };
+                },
+            ),
+            tool(
+                'update_assumption',
+                'Update an assumption in the spec. Use this when the user wants to change the text, status, confidence, or impact of an assumption.',
+                {
+                    id: z.string().describe('The assumption ID to update'),
+                    text: z.string().optional().describe('New text for the assumption'),
+                    status: z.enum(['pending', 'confirmed', 'edited', 'rejected']).optional().describe('New status'),
+                    confidence: z.enum(['high', 'medium', 'low']).optional().describe('New confidence level'),
+                    impact: z.enum(['high', 'medium', 'low']).optional().describe('New impact level'),
+                },
+                async ({ id, text, status, confidence, impact }) => {
+                    console.log('[update_assumption] Tool called for id:', id);
+                    return { content: [{ type: 'text', text: `Assumption ${id} has been updated successfully.` }] };
                 },
             ),
         ],

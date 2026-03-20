@@ -9,13 +9,14 @@ type Props = {
     onRegenerate: () => void;
     loading: boolean;
     done: boolean;
+    onChat?: (assumption: Assumption) => void;
 };
 
 function badgeClass(level: string): string {
     return `assumption-badge assumption-badge--${level}`;
 }
 
-export function AssumptionReview({ assumptions, onUpdate, onDone, onRegenerate, loading, done }: Props) {
+export function AssumptionReview({ assumptions, onUpdate, onDone, onRegenerate, loading, done, onChat }: Props) {
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editText, setEditText] = useState('');
 
@@ -142,6 +143,15 @@ export function AssumptionReview({ assumptions, onUpdate, onDone, onRegenerate, 
                                 >
                                     Reject
                                 </button>
+                                {onChat && (
+                                    <button
+                                        class="assumption-action-btn assumption-action-btn--chat"
+                                        onClick={() => onChat(a)}
+                                        title="Discuss with assistant"
+                                    >
+                                        Chat
+                                    </button>
+                                )}
                             </div>
                         )}
                     </div>

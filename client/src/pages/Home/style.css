@@ -1495,6 +1495,16 @@ tr.requirement--drag-over td {
     background-color: #ef44440a;
 }
 
+.assumption-action-btn--chat {
+    margin-left: auto;
+}
+
+.assumption-action-btn--chat:hover {
+    border-color: #673ab8;
+    color: #673ab8;
+    background-color: #673ab80a;
+}
+
 .assumption-edit {
     display: flex;
     flex-direction: column;
@@ -1557,6 +1567,7 @@ tr.requirement--drag-over td {
     .assumption-action-btn--confirm.assumption-action-btn--active { border-color: #4ade80; color: #4ade80; background-color: #22c55e15; }
     .assumption-action-btn--reject:hover,
     .assumption-action-btn--reject.assumption-action-btn--active { border-color: #f87171; color: #f87171; background-color: #ef444415; }
+    .assumption-action-btn--chat:hover { border-color: #a07ee0; color: #a07ee0; background-color: #a07ee015; }
     .assumption-edit-textarea { background: #333; border-color: #555; color: #ccc; }
     .assumption-pending-warning { color: #fbbf24; }
     .assumption-empty { color: #777; }

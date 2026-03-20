@@ -1,6 +1,6 @@
 import './style.css';
-import { useEffect, useState } from 'preact/hooks';
-import type { Model } from './types';
+import { useEffect, useState, useRef } from 'preact/hooks';
+import type { Model, Assumption } from './types';
 import { RequirementList } from './RequirementList';
 import { SessionPanel } from './SessionPanel';
 import { ClarifyingQuestions } from './ClarifyingQuestions';
@@ -35,6 +35,9 @@ export function Home() {
     const [selectedModel, setSelectedModel] = useState('claude-haiku-4-5');
     const [models, setModels] = useState<Model[]>([]);
     const [showInvalidGoalSuggestions, setShowInvalidGoalSuggestions] = useState(false);
+    const [focusedAssumption, setFocusedAssumption] = useState<Assumption | null>(null);
+    const focusedAssumptionRef = useRef<Assumption | null>(null);
+    focusedAssumptionRef.current = focusedAssumption;
 
     useEffect(() => {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
@@ -111,6 +114,21 @@ export function Home() {
             goal.setPrompt(goalText);
             setShowInvalidGoalSuggestions(false);
             assistant.close();
+        },
+        getFocusedAssumption: () => focusedAssumptionRef.current,
+        onUpdateAssumption: (update) => {
+            assumptions.setAssumptions(prev =>
+                prev.map(a => {
+                    if (a.id !== update.id) return a;
+                    return {
+                        ...a,
+                        ...(update.text != null ? { text: update.text, editedText: update.text, status: 'edited' as const } : {}),
+                        ...(update.status != null ? { status: update.status as Assumption['status'] } : {}),
+                        ...(update.confidence != null ? { confidence: update.confidence as Assumption['confidence'] } : {}),
+                        ...(update.impact != null ? { impact: update.impact as Assumption['impact'] } : {}),
+                    };
+                }),
+            );
         },
     });
 
@@ -515,6 +533,12 @@ export function Home() {
                                     onRegenerate={() => assumptions.generate()}
                                     loading={assumptions.loadingAssumptions}
                                     done={assumptions.assumptionsDone}
+                                    onChat={(a) => {
+                                        setFocusedAssumption(a);
+                                        assistant.openWithMessage(
+                                            `Let's discuss this assumption:\n\n**"${a.editedText || a.text}"**\n\nConfidence: ${a.confidence} | Impact: ${a.impact} | Status: ${a.status}\n\nRationale: ${a.rationale}\n\nWhat would you like to know or change about this assumption?`
+                                        );
+                                    }}
                                 />
                             </div>
                         </div>
@@ -572,7 +596,7 @@ export function Home() {
                 pendingContext={assistant.pendingContext}
                 goalJustSet={assistant.goalJustSet}
                 onSend={assistant.send}
-                onClose={assistant.close}
+                onClose={() => { assistant.close(); setFocusedAssumption(null); }}
                 onDismissContext={assistant.dismissContext}
             />
         </div>
