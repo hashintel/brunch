@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { Assumption, ClarifyingAnswer, ClarifyingQuestion, SessionData } from './types';
 import { apiFetch } from './apiFetch';
 import { buildPreviousRounds } from './utils';
+import type { ProjectBus } from './projectBus';
 
 interface UseAssumptionsParams {
     selectedModel: string;
@@ -9,13 +10,11 @@ interface UseAssumptionsParams {
     projectId: string | null;
     response: string;
     clarifyingDone: boolean;
-    onError: (msg: string) => void;
-    onCallHistoryRefresh: () => void;
+    bus: ProjectBus;
 }
 
 export function useAssumptions({
-    selectedModel, cwd, projectId, response, clarifyingDone,
-    onError, onCallHistoryRefresh,
+    selectedModel, cwd, projectId, response, clarifyingDone, bus,
 }: UseAssumptionsParams) {
     const [assumptions, setAssumptions] = useState<Assumption[]>([]);
     const [done, setDone] = useState(false);
@@ -33,7 +32,7 @@ export function useAssumptions({
         const prompt = promptOverride || response;
         if (!prompt.trim() || loading) return;
         setLoading(true);
-        onError('');
+        bus.error('');
 
         try {
             const rounds = precomputedRounds ?? buildPreviousRounds([], [], []);
@@ -59,10 +58,10 @@ export function useAssumptions({
             }));
             setAssumptions(items);
         } catch (e) {
-            onError(e instanceof Error ? e.message : 'Failed to generate assumptions');
+            bus.error(e instanceof Error ? e.message : 'Failed to generate assumptions');
         } finally {
             setLoading(false);
-            onCallHistoryRefresh();
+            bus.callHistoryChanged();
         }
     }
 

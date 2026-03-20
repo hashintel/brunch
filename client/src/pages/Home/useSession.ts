@@ -2,12 +2,13 @@ import { useEffect, useState } from 'preact/hooks';
 import { useRoute, useLocation } from 'preact-iso';
 import type { SessionMeta, Session, ClaudeCall, SessionData, Requirement } from './types';
 import { apiFetch } from './apiFetch';
+import type { ProjectBus } from './projectBus';
 
 interface UseSessionParams {
-    onError: (msg: string) => void;
+    bus: ProjectBus;
 }
 
-export function useSession({ onError }: UseSessionParams) {
+export function useSession({ bus }: UseSessionParams) {
     const { params } = useRoute();
     const { route } = useLocation();
     const [sessions, setSessions] = useState<SessionMeta[]>([]);
@@ -82,7 +83,7 @@ export function useSession({ onError }: UseSessionParams) {
             await refreshSessions();
             return created.id;
         } catch {
-            onError('Failed to create project');
+            bus.error('Failed to create project');
             return null;
         }
     }
@@ -121,7 +122,7 @@ export function useSession({ onError }: UseSessionParams) {
             }
             await refreshSessions();
         } catch {
-            onError('Failed to save session');
+            bus.error('Failed to save session');
         } finally {
             setSaving(false);
         }
@@ -160,7 +161,7 @@ export function useSession({ onError }: UseSessionParams) {
             }
 
             setCurrentSessionId(s.id);
-            onError('');
+            bus.error('');
 
             return {
                 name: s.name ?? '',
@@ -178,7 +179,7 @@ export function useSession({ onError }: UseSessionParams) {
                 requirements: (s.requirements ?? []).map(migrateReq),
             };
         } catch {
-            onError('Failed to load session');
+            bus.error('Failed to load session');
             return null;
         }
     }
@@ -190,7 +191,7 @@ export function useSession({ onError }: UseSessionParams) {
             if (currentSessionId === id) setCurrentSessionId(null);
             await refreshSessions();
         } catch {
-            onError('Failed to delete session');
+            bus.error('Failed to delete session');
         }
     }
 

@@ -1,6 +1,7 @@
 import { useState, useRef, useCallback } from 'preact/hooks';
 import type { AssistantMessage, Assumption, Requirement, FocusedItem, ToolUpdate } from './types';
 import { apiFetchStream, streamNDJSON } from './apiFetch';
+import type { ProjectBus } from './projectBus';
 
 const focusedItemPrompt: Record<FocusedItem['type'], (item: any) => string> = {
     assumption(a: Assumption) {
@@ -34,16 +35,14 @@ interface UseAssistantParams {
     selectedModel: string;
     cwd: string;
     projectId: string | null;
+    bus: ProjectBus;
     getGoalResponse: () => string;
     getAssumptions: () => Assumption[];
     getRequirements: () => Requirement[];
-    onSetGoal?: (goal: string) => void;
     getFocusedItem?: () => FocusedItem | null;
-    onUpdateAssumption?: (update: { id: string; text?: string; status?: string; confidence?: string; impact?: string }) => void;
-    onUpdateRequirement?: (update: { id: string; title?: string; definition?: string; confidence?: number; stage?: string }) => void;
 }
 
-export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, getAssumptions, getRequirements, onSetGoal, getFocusedItem, onUpdateAssumption, onUpdateRequirement }: UseAssistantParams) {
+export function useAssistant({ selectedModel, cwd, projectId, bus, getGoalResponse, getAssumptions, getRequirements, getFocusedItem }: UseAssistantParams) {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<AssistantMessage[]>([]);
     const [loading, setLoading] = useState(false);
@@ -146,13 +145,13 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
                 } else if (event.type === 'tool_end') {
                     setToolStatus(null);
                 } else if (event.type === 'tool_use' && event.tool === 'set_goal') {
-                    onSetGoal?.(event.input.goal as string);
+                    bus.setGoal(event.input.goal as string);
                     setGoalJustSet(true);
                 } else if (event.type === 'tool_use' && event.tool === 'update_assumption') {
-                    onUpdateAssumption?.(event.input as { id: string; text?: string; status?: string; confidence?: string; impact?: string });
+                    bus.updateAssumption(event.input as any);
                     setToolUpdates(prev => [...prev, { tool: 'update_assumption', data: event.input as Record<string, any>, timestamp: Date.now() }]);
                 } else if (event.type === 'tool_use' && event.tool === 'update_requirement') {
-                    onUpdateRequirement?.(event.input as { id: string; title?: string; definition?: string; confidence?: number; stage?: string });
+                    bus.updateRequirement(event.input as any);
                     setToolUpdates(prev => [...prev, { tool: 'update_requirement', data: event.input as Record<string, any>, timestamp: Date.now() }]);
                 }
             }
@@ -180,7 +179,7 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
             setToolStatus(null);
             abortRef.current = null;
         }
-    }, [loading, pendingContext, messages, selectedModel, cwd, getGoalResponse, getAssumptions, getRequirements, onSetGoal, getFocusedItem, onUpdateAssumption, onUpdateRequirement]);
+    }, [loading, pendingContext, messages, selectedModel, cwd, getGoalResponse, getAssumptions, getRequirements, getFocusedItem]);
 
     function openWithContext(ctx: { selectedText?: string; elementType?: string }) {
         setPendingContext(ctx);

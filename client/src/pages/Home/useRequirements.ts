@@ -2,14 +2,14 @@ import { useState } from 'preact/hooks';
 import type { Assumption, ClarifyingAnswer, ClarifyingQuestion, GoalIteration, Requirement, SessionData, TestCase } from './types';
 import { apiFetch, apiFetchStream } from './apiFetch';
 import { buildPreviousRounds, makeRequirement } from './utils';
+import type { ProjectBus } from './projectBus';
 
 interface UseRequirementsParams {
     selectedModel: string;
     cwd: string;
     projectId: string | null;
     response: string;
-    onError: (msg: string) => void;
-    onCallHistoryRefresh: () => void;
+    bus: ProjectBus;
 }
 
 function findInTree(reqs: Requirement[], id: string): Requirement | null {
@@ -29,7 +29,7 @@ function updateInTree(reqs: Requirement[], id: string, updater: (r: Requirement)
 }
 
 export function useRequirements({
-    selectedModel, cwd, projectId, response, onError, onCallHistoryRefresh,
+    selectedModel, cwd, projectId, response, bus,
 }: UseRequirementsParams) {
     const [requirements, setRequirements] = useState<Requirement[]>([]);
     const [loading, setLoading] = useState(false);
@@ -45,7 +45,7 @@ export function useRequirements({
     ) {
         if (!response.trim() || loading) return;
 
-        onError('');
+        bus.error('');
         setLoading(true);
 
         const isGenerateMore = requirements.length > 0;
@@ -81,17 +81,17 @@ export function useRequirements({
             const reqs: Requirement[] = rawReqs.map(makeRequirement);
             setRequirements(prev => isGenerateMore ? [...prev, ...reqs] : reqs);
         } catch (e) {
-            onError(e instanceof Error ? e.message : 'Failed to generate requirements');
+            bus.error(e instanceof Error ? e.message : 'Failed to generate requirements');
         } finally {
             setLoading(false);
-            onCallHistoryRefresh();
+            bus.callHistoryChanged();
         }
     }
 
     async function generateChildren(reqId: string) {
         if (generatingChildrenId) return;
         setGeneratingChildrenId(reqId);
-        onError('');
+        bus.error('');
 
         const targetReq = findInTree(requirements, reqId);
         if (!targetReq) { setGeneratingChildrenId(null); return; }
@@ -111,17 +111,17 @@ export function useRequirements({
                 ...r, children: [...r.children, ...newChildren],
             })));
         } catch (e) {
-            onError(e instanceof Error ? e.message : 'Failed to generate sub-requirements');
+            bus.error(e instanceof Error ? e.message : 'Failed to generate sub-requirements');
         } finally {
             setGeneratingChildrenId(null);
-            onCallHistoryRefresh();
+            bus.callHistoryChanged();
         }
     }
 
     async function generateTests(reqId: string) {
         if (generatingTestsId) return;
         setGeneratingTestsId(reqId);
-        onError('');
+        bus.error('');
 
         const targetReq = findInTree(requirements, reqId);
         if (!targetReq) { setGeneratingTestsId(null); return; }
@@ -141,10 +141,10 @@ export function useRequirements({
                 setPendingTests({ reqId, tests: newTests });
             }
         } catch (e) {
-            onError(e instanceof Error ? e.message : 'Failed to generate tests');
+            bus.error(e instanceof Error ? e.message : 'Failed to generate tests');
         } finally {
             setGeneratingTestsId(null);
-            onCallHistoryRefresh();
+            bus.callHistoryChanged();
         }
     }
 

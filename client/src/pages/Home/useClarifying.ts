@@ -2,14 +2,14 @@ import { useRef, useState } from 'preact/hooks';
 import type { ClarifyingAnswer, ClarifyingQuestion, GoalIteration, SessionData } from './types';
 import { apiFetch } from './apiFetch';
 import { buildPreviousRounds, isAnswered } from './utils';
+import type { ProjectBus } from './projectBus';
 
 interface UseClarifyingParams {
     selectedModel: string;
     cwd: string;
     projectId: string | null;
     response: string;
-    onError: (msg: string) => void;
-    onCallHistoryRefresh: () => void;
+    bus: ProjectBus;
     onClarifyingDone: (
         iterations: GoalIteration[],
         questions: ClarifyingQuestion[],
@@ -20,7 +20,7 @@ interface UseClarifyingParams {
 }
 
 export function useClarifying({
-    selectedModel, cwd, projectId, response, onError, onCallHistoryRefresh, onClarifyingDone, onGoalClear, onGoalInvalid,
+    selectedModel, cwd, projectId, response, bus, onClarifyingDone, onGoalClear, onGoalInvalid,
 }: UseClarifyingParams) {
     const [goalIterations, setGoalIterations] = useState<GoalIteration[]>([]);
     const [allQuestions, setAllQuestions] = useState<ClarifyingQuestion[]>([]);
@@ -39,7 +39,7 @@ export function useClarifying({
     ) {
         if (!goalText.trim()) return;
         if (showLoading) setLoadingQuestions(true);
-        onError('');
+        bus.error('');
 
         try {
             const rounds = buildPreviousRounds(iterations, questions, answers);
@@ -75,11 +75,11 @@ export function useClarifying({
             }
         } catch (e) {
             if (showLoading) {
-                onError(e instanceof Error ? e.message : 'Failed to generate questions');
+                bus.error(e instanceof Error ? e.message : 'Failed to generate questions');
             }
         } finally {
             if (showLoading) setLoadingQuestions(false);
-            onCallHistoryRefresh();
+            bus.callHistoryChanged();
         }
     }
 
@@ -114,7 +114,7 @@ export function useClarifying({
             .catch(() => {})
             .finally(() => {
                 preloadingRef.current = false;
-                onCallHistoryRefresh();
+                bus.callHistoryChanged();
             });
     }
 

@@ -2,17 +2,17 @@ import { useEffect, useRef, useState } from 'preact/hooks';
 import type { ClarifyingAnswer, ClarifyingQuestion, GoalIteration, SessionData } from './types';
 import { apiFetchStream, streamNDJSON } from './apiFetch';
 import { buildPreviousRounds, formatAnswer } from './utils';
+import type { ProjectBus } from './projectBus';
 
 interface UseGoalParams {
     selectedModel: string;
     cwd: string;
     projectId: string | null;
-    onError: (msg: string) => void;
-    onCallHistoryRefresh: () => void;
+    bus: ProjectBus;
     onGoalReady: (goalText: string, iterations: GoalIteration[], questions: ClarifyingQuestion[], answers: ClarifyingAnswer[]) => void;
 }
 
-export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryRefresh, onGoalReady }: UseGoalParams) {
+export function useGoal({ selectedModel, cwd, projectId, bus, onGoalReady }: UseGoalParams) {
     const [prompt, setPrompt] = useState('');
     const [response, setResponse] = useState('');
     const [loading, setLoading] = useState(false);
@@ -33,7 +33,7 @@ export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryR
     async function go() {
         if (!prompt.trim() || loading) return;
 
-        onError('');
+        bus.error('');
         setLoading(true);
 
         try {
@@ -53,7 +53,7 @@ export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryR
         if (generatingDetailedGoal || updatingGoal) return null;
 
         setGeneratingDetailedGoal(true);
-        onError('');
+        bus.error('');
 
         // Build Q&A context if available
         let enhancedPrompt = `You are a spec elicitation assistant. Take the following raw project idea and expand it into a detailed, well-structured goal description. Be specific about features, target users, and technical scope.\n\nRaw idea:\n${rawPrompt}`;
@@ -97,13 +97,13 @@ export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryR
             setResponse(fullText);
             return fullText;
         } catch (e) {
-            onError(e instanceof Error ? e.message : 'Failed to generate detailed goal');
+            bus.error(e instanceof Error ? e.message : 'Failed to generate detailed goal');
             setPrompt(savedPrompt);
             return null;
         } finally {
             setGeneratingDetailedGoal(false);
             setToolStatus(null);
-            onCallHistoryRefresh();
+            bus.callHistoryChanged();
         }
     }
 
@@ -135,7 +135,7 @@ export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryR
 
         setUpdatingGoal(true);
         setPrompt('');
-        onError('');
+        bus.error('');
 
         let fullText = '';
         try {
@@ -159,12 +159,12 @@ export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryR
             setResponse(fullText);
             return { newIterations, goalText: fullText };
         } catch (e) {
-            onError(e instanceof Error ? e.message : 'Failed to update goal');
+            bus.error(e instanceof Error ? e.message : 'Failed to update goal');
             return null;
         } finally {
             setUpdatingGoal(false);
             setToolStatus(null);
-            onCallHistoryRefresh();
+            bus.callHistoryChanged();
         }
     }
 

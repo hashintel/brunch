@@ -1,5 +1,5 @@
 import './style.css';
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import type { Model, Assumption, Requirement } from './types';
 import { RequirementList } from './RequirementList';
 import { SessionPanel } from './SessionPanel';
@@ -19,6 +19,7 @@ import { useFocusedItem } from './useFocusedItem';
 import { useVersions } from './useVersions';
 import { AssistantPane } from './AssistantPane';
 import { AssistantTrigger } from './AssistantTrigger';
+import { createProjectBus } from './projectBus';
 
 const STEPS = ['Goal', 'Assumptions', 'Requirements'] as const;
 
@@ -36,20 +37,20 @@ export function Home() {
     const [selectedModel, setSelectedModel] = useState('claude-haiku-4-5');
     const [models, setModels] = useState<Model[]>([]);
     const [showInvalidGoalSuggestions, setShowInvalidGoalSuggestions] = useState(false);
+    const bus = useMemo(createProjectBus, []);
     const focused = useFocusedItem();
 
     useEffect(() => {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
     }, []);
 
-    const session = useSession({ onError: setError });
+    const session = useSession({ bus });
 
     const goal = useGoal({
         selectedModel,
         cwd,
         projectId: session.currentSessionId,
-        onError: setError,
-        onCallHistoryRefresh: session.refreshCallHistory,
+        bus,
         onGoalReady: (goalText, iterations, questions, answers) => {
             clarifying.fetchQuestions(goalText, iterations, questions, answers);
         },
@@ -60,23 +61,19 @@ export function Home() {
         cwd,
         projectId: session.currentSessionId,
         response: goal.response,
-        onError: setError,
-        onCallHistoryRefresh: session.refreshCallHistory,
+        bus,
         onClarifyingDone: (iterations, questions, answers) => {
-            // Pass raw prompt + Q&A rounds directly to assumptions (no goal regeneration)
             const rawPrompt = goal.prompt || goal.response;
             goal.setResponse(rawPrompt);
             const rounds = buildPreviousRounds(iterations, questions, answers);
             assumptions.generate(rounds, rawPrompt);
         },
         onGoalClear: (rawPrompt) => {
-            // Goal is already clear — go straight to assumptions with the raw prompt
             goal.setResponse(rawPrompt);
             clarifying.done({ skipCallback: true });
             assumptions.generate(undefined, rawPrompt);
         },
         onGoalInvalid: () => {
-            // Prompt is too vague/invalid — show suggestions
             setShowInvalidGoalSuggestions(true);
             goal.setResponse('');
             clarifying.reset();
@@ -89,8 +86,7 @@ export function Home() {
         projectId: session.currentSessionId,
         response: goal.response,
         clarifyingDone: clarifying.clarifyingDone,
-        onError: setError,
-        onCallHistoryRefresh: session.refreshCallHistory,
+        bus,
     });
 
     const req = useRequirements({
@@ -98,55 +94,59 @@ export function Home() {
         cwd,
         projectId: session.currentSessionId,
         response: goal.response,
-        onError: setError,
-        onCallHistoryRefresh: session.refreshCallHistory,
+        bus,
     });
 
     const assistant = useAssistant({
         selectedModel,
         cwd,
         projectId: session.currentSessionId,
+        bus,
         getGoalResponse: () => goal.response,
         getAssumptions: () => assumptions.assumptions,
         getRequirements: () => req.requirements,
-        onSetGoal: (goalText) => {
-            goal.setPrompt(goalText);
-            setShowInvalidGoalSuggestions(false);
-            assistant.close();
-        },
         getFocusedItem: focused.getFocused,
-        onUpdateAssumption: (update) => {
-            assumptions.setAssumptions(prev =>
-                prev.map(a => {
-                    if (a.id !== update.id) return a;
-                    return {
-                        ...a,
-                        ...(update.text != null ? { text: update.text, editedText: update.text, status: 'edited' as const } : {}),
-                        ...(update.status != null ? { status: update.status as Assumption['status'] } : {}),
-                        ...(update.confidence != null ? { confidence: update.confidence as Assumption['confidence'] } : {}),
-                        ...(update.impact != null ? { impact: update.impact as Assumption['impact'] } : {}),
-                    };
-                }),
-            );
-        },
-        onUpdateRequirement: (update) => {
-            function updateReqInTree(reqs: Requirement[]): Requirement[] {
-                return reqs.map(r => {
-                    if (r.id === update.id) {
-                        return {
-                            ...r,
-                            ...(update.title != null ? { title: update.title } : {}),
-                            ...(update.definition != null ? { definition: update.definition } : {}),
-                            ...(update.confidence != null ? { confidence: update.confidence } : {}),
-                            ...(update.stage != null ? { stage: update.stage as Requirement['stage'] } : {}),
-                        };
-                    }
-                    return { ...r, children: updateReqInTree(r.children) };
-                });
-            }
-            req.setRequirements(prev => updateReqInTree(prev));
-        },
     });
+
+    // Wire bus handlers — reassigned each render so closures stay fresh
+    bus.error = setError;
+    bus.callHistoryChanged = session.refreshCallHistory;
+    bus.setGoal = (goalText) => {
+        goal.setPrompt(goalText);
+        setShowInvalidGoalSuggestions(false);
+        assistant.close();
+    };
+    bus.updateAssumption = (update) => {
+        assumptions.setAssumptions(prev =>
+            prev.map(a => {
+                if (a.id !== update.id) return a;
+                return {
+                    ...a,
+                    ...(update.text != null ? { text: update.text, editedText: update.text, status: 'edited' as const } : {}),
+                    ...(update.status != null ? { status: update.status as Assumption['status'] } : {}),
+                    ...(update.confidence != null ? { confidence: update.confidence as Assumption['confidence'] } : {}),
+                    ...(update.impact != null ? { impact: update.impact as Assumption['impact'] } : {}),
+                };
+            }),
+        );
+    };
+    bus.updateRequirement = (update) => {
+        function updateReqInTree(reqs: Requirement[]): Requirement[] {
+            return reqs.map(r => {
+                if (r.id === update.id) {
+                    return {
+                        ...r,
+                        ...(update.title != null ? { title: update.title } : {}),
+                        ...(update.definition != null ? { definition: update.definition } : {}),
+                        ...(update.confidence != null ? { confidence: update.confidence } : {}),
+                        ...(update.stage != null ? { stage: update.stage as Requirement['stage'] } : {}),
+                    };
+                }
+                return { ...r, children: updateReqInTree(r.children) };
+            });
+        }
+        req.setRequirements(prev => updateReqInTree(prev));
+    };
 
     focused.bindOpenWithMessage(assistant.openWithMessage);
 
