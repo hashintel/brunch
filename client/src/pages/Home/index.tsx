@@ -198,10 +198,6 @@ export function Home() {
                     onModelChange={setSelectedModel}
                     callHistory={session.callHistory}
                     disabled={goal.loading}
-                    assumptionCount={assumptions.assumptions.length}
-                    confirmedAssumptionCount={assumptions.assumptions.filter(a => a.status === 'confirmed').length}
-                    requirementCount={req.requirements.length}
-                    clarifyingRoundCount={clarifying.goalIterations.length}
                     versions={versions}
                     onVersionRevert={handleVersionRevert}
                     onVersionCheckout={handleVersionCheckout}

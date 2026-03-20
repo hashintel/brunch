@@ -41,10 +41,6 @@ type Props = {
     onModelChange: (v: string) => void;
     callHistory: ClaudeCall[];
     disabled: boolean;
-    assumptionCount: number;
-    confirmedAssumptionCount: number;
-    requirementCount: number;
-    clarifyingRoundCount: number;
     versions: VersionsHandle;
     onVersionRevert: (hash: string) => void;
     onVersionCheckout: (hash: string) => void;
@@ -314,7 +310,6 @@ function DiffModal({ diff, onClose }: { diff: { tables: Record<string, DoltDiffR
 export function SessionPanel({
     sessions, currentSessionId, onLoad, onDelete, onNew, saveStatus,
     models, selectedModel, onModelChange, callHistory, disabled,
-    assumptionCount, confirmedAssumptionCount, requirementCount, clarifyingRoundCount,
     versions, onVersionRevert, onVersionCheckout,
 }: Props) {
     const [activeTab, setActiveTab] = useState<'list' | 'detail'>('list');
@@ -411,21 +406,38 @@ export function SessionPanel({
                     </div>
 
                     <div class="sidebar-section">
-                        <strong class="sidebar-section-title">Stats</strong>
-                        <div class="project-stats">
-                            <div class="project-stat">
-                                <span class="project-stat-value">{confirmedAssumptionCount}/{assumptionCount}</span>
-                                <span class="project-stat-label">Assumptions</span>
-                            </div>
-                            <div class="project-stat">
-                                <span class="project-stat-value">{requirementCount}</span>
-                                <span class="project-stat-label">Requirements</span>
-                            </div>
-                            <div class="project-stat">
-                                <span class="project-stat-value">{clarifyingRoundCount}</span>
-                                <span class="project-stat-label">Rounds</span>
-                            </div>
-                        </div>
+                        <strong class="sidebar-section-title">LLM Calls</strong>
+                        {totalCalls === 0 && <p class="session-empty">No calls yet.</p>}
+                        {totalCalls > 0 && (
+                            <>
+                                <div class="call-summary-stats">
+                                    <div class="call-summary-stat">
+                                        <span class="call-summary-stat-value">{totalCalls}</span>
+                                        <span class="call-summary-stat-label">calls</span>
+                                    </div>
+                                    <div class="call-summary-stat">
+                                        <span class="call-summary-stat-value">{formatNumber(totalInputTokens + totalOutputTokens)}</span>
+                                        <span class="call-summary-stat-label">tokens</span>
+                                    </div>
+                                    <div class="call-summary-stat">
+                                        <span class="call-summary-stat-value">{formatDuration(totalDuration)}</span>
+                                        <span class="call-summary-stat-label">total</span>
+                                    </div>
+                                </div>
+                                <div class="call-summary-recent">
+                                    {recentCalls.map(call => (
+                                        <div key={call.pk} class="call-summary-recent-item">
+                                            <span class={`call-history-status ${call.status === 'success' ? 'call-history-status--ok' : 'call-history-status--err'}`} />
+                                            <span class="call-summary-recent-caller">{callerLabel(call.caller)}</span>
+                                            <span class="call-summary-recent-duration">{formatDuration(call.duration_ms)}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                                <button class="button button-small button-secondary" onClick={() => setShowCallModal(true)}>
+                                    View All
+                                </button>
+                            </>
+                        )}
                     </div>
 
                     <div class="sidebar-section">
@@ -494,41 +506,6 @@ export function SessionPanel({
                                     );
                                 })}
                             </div>
-                        )}
-                    </div>
-
-                    <div class="sidebar-section">
-                        <strong class="sidebar-section-title">LLM Calls</strong>
-                        {totalCalls === 0 && <p class="session-empty">No calls yet.</p>}
-                        {totalCalls > 0 && (
-                            <>
-                                <div class="call-summary-stats">
-                                    <div class="call-summary-stat">
-                                        <span class="call-summary-stat-value">{totalCalls}</span>
-                                        <span class="call-summary-stat-label">calls</span>
-                                    </div>
-                                    <div class="call-summary-stat">
-                                        <span class="call-summary-stat-value">{formatNumber(totalInputTokens + totalOutputTokens)}</span>
-                                        <span class="call-summary-stat-label">tokens</span>
-                                    </div>
-                                    <div class="call-summary-stat">
-                                        <span class="call-summary-stat-value">{formatDuration(totalDuration)}</span>
-                                        <span class="call-summary-stat-label">total</span>
-                                    </div>
-                                </div>
-                                <div class="call-summary-recent">
-                                    {recentCalls.map(call => (
-                                        <div key={call.pk} class="call-summary-recent-item">
-                                            <span class={`call-history-status ${call.status === 'success' ? 'call-history-status--ok' : 'call-history-status--err'}`} />
-                                            <span class="call-summary-recent-caller">{callerLabel(call.caller)}</span>
-                                            <span class="call-summary-recent-duration">{formatDuration(call.duration_ms)}</span>
-                                        </div>
-                                    ))}
-                                </div>
-                                <button class="button button-small button-secondary" onClick={() => setShowCallModal(true)}>
-                                    View All
-                                </button>
-                            </>
                         )}
                     </div>
                 </>
