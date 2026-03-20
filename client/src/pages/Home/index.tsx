@@ -151,13 +151,7 @@ export function Home() {
     async function handleLoadSession(id: string) {
         const data = await session.load(id);
         if (!data) return;
-        goal.restore(data);
-        clarifying.restore(data);
-        assumptions.restore(data);
-        req.restore(data);
-        setProjectName(data.name);
-        setCwd(data.cwd);
-        setSelectedModel(data.selectedModel);
+        restoreSessionData(data);
     }
 
     function handleNewSession() {
@@ -191,9 +185,28 @@ export function Home() {
         setCreatingProject(false);
     }
 
-    function handleVersionCheckout(hash: string) {
+    function restoreSessionData(data: any) {
+        goal.restore(data);
+        clarifying.restore(data);
+        assumptions.restore(data);
+        req.restore(data);
+        setProjectName(data.name);
+        setCwd(data.cwd);
+        setSelectedModel(data.selectedModel);
+    }
+
+    async function handleVersionCheckout(hash: string) {
         if (!session.currentSessionId) return;
-        versions.checkout(hash, session.currentSessionId);
+        if (versions.checkedOutHash === hash) {
+            // Toggle off — reload live data
+            versions.exitCheckout();
+            await handleLoadSession(session.currentSessionId);
+            return;
+        }
+        const data = await versions.checkout(hash, session.currentSessionId);
+        if (data) {
+            restoreSessionData(data);
+        }
     }
 
     async function handleVersionRevert(hash: string) {
@@ -245,7 +258,7 @@ export function Home() {
                 {isCheckedOut && (
                     <div class="checkout-banner">
                         Viewing version <span class="checkout-banner-hash">{versions.checkedOutHash!.slice(0, 7)}</span> — read only
-                        <button class="checkout-banner-back" onClick={versions.exitCheckout}>Back to current</button>
+                        <button class="checkout-banner-back" onClick={() => handleVersionCheckout(versions.checkedOutHash!)}>Back to current</button>
                     </div>
                 )}
 

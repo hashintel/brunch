@@ -67,24 +67,20 @@ export function useVersions() {
         }
     }, []);
 
-    const checkout = useCallback(async (hash: string, sessionId: string) => {
-        if (checkedOutHash === hash) {
-            // Toggle off
-            setCheckedOutHash(null);
-            setCheckoutData(null);
-            return;
-        }
+    const checkout = useCallback(async (hash: string, sessionId: string): Promise<SessionData | null> => {
         setLoadingCheckoutHash(hash);
         try {
             const data = await apiFetch<SessionData>(`/api/versions/checkout/${hash}?sessionId=${sessionId}`);
             setCheckedOutHash(hash);
             setCheckoutData(data);
+            return data;
         } catch (e: any) {
             console.error('Checkout failed:', e.message);
+            return null;
         } finally {
             setLoadingCheckoutHash(null);
         }
-    }, [checkedOutHash]);
+    }, []);
 
     const exitCheckout = useCallback(() => {
         setCheckedOutHash(null);
