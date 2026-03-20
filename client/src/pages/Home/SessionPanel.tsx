@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
 import type { Model, SessionMeta, ClaudeCall, DoltCommit, DoltDiffRow } from './types';
 import type { SaveStatus } from './useAutoSave';
+import { Modal } from './Modal';
 
 function callerLabel(caller: string): string {
     if (caller === 'streamQueryText') return 'Goal / Summary';
@@ -63,35 +64,11 @@ type Props = {
     onVersionCheckout: (hash: string) => void;
 };
 
-function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: any }) {
-    useEffect(() => {
-        function onKey(e: KeyboardEvent) {
-            if (e.key === 'Escape') onClose();
-        }
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [onClose]);
-
-    return (
-        <div class="modal-backdrop" onClick={e => { if (e.target === e.currentTarget) onClose(); }}>
-            <div class="modal" style="width: 1000px; max-width: 95vw;">
-                <div class="modal-header">
-                    <strong>{title}</strong>
-                    <button class="modal-close" onClick={onClose}>&times;</button>
-                </div>
-                <div class="modal-body">
-                    {children}
-                </div>
-            </div>
-        </div>
-    );
-}
-
 function CallDetailModal({ calls, onClose }: { calls: ClaudeCall[]; onClose: () => void }) {
     const [expandedPk, setExpandedPk] = useState<number | null>(null);
 
     return (
-        <ModalShell title={`LLM Calls (${calls.length})`} onClose={onClose}>
+        <Modal title={`LLM Calls (${calls.length})`} onClose={onClose}>
             {calls.length === 0 && <p class="session-empty">No calls recorded.</p>}
             <div class="call-modal-list">
                 {calls.map(call => {
@@ -128,7 +105,7 @@ function CallDetailModal({ calls, onClose }: { calls: ClaudeCall[]; onClose: () 
                     );
                 })}
             </div>
-        </ModalShell>
+        </Modal>
     );
 }
 
@@ -280,7 +257,7 @@ function rowLabel(row: DoltDiffRow): string | null {
 function DiffModal({ diff, onClose }: { diff: { tables: Record<string, DoltDiffRow[]>; from: string; to: string }; onClose: () => void }) {
     const tableNames = Object.keys(diff.tables);
     return (
-        <ModalShell title={diff.from === 'HEAD' ? 'Uncommitted Changes' : `Diff ${diff.from?.slice(0, 7) ?? '?'} \u2192 ${diff.to?.slice(0, 7) ?? '?'}`} onClose={onClose}>
+        <Modal title={diff.from === 'HEAD' ? 'Uncommitted Changes' : `Diff ${diff.from?.slice(0, 7) ?? '?'} \u2192 ${diff.to?.slice(0, 7) ?? '?'}`} onClose={onClose}>
             {tableNames.length === 0 && <p class="session-empty">No changes in this commit.</p>}
             {tableNames.map(table => {
                 const rows = diff.tables[table];
@@ -344,7 +321,7 @@ function DiffModal({ diff, onClose }: { diff: { tables: Record<string, DoltDiffR
                     </div>
                 );
             })}
-        </ModalShell>
+        </Modal>
     );
 }
 

@@ -1,4 +1,3 @@
-import type { ComponentChildren } from 'preact';
 import { useState, useMemo, useEffect, useRef } from 'preact/hooks';
 import {
     DndContext,
@@ -19,6 +18,7 @@ import {
 } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Requirement, TestCase, TestType } from './types';
+import { Modal } from './Modal';
 
 interface Props {
     requirements: Requirement[];
@@ -136,42 +136,6 @@ function getProjectedDepth(
     return overDepth;
 }
 
-// ── Modal Shell (shared backdrop, escape, header/footer) ──
-
-function ModalShell({
-    title,
-    onClose,
-    children,
-    footer,
-}: {
-    title: string;
-    onClose: () => void;
-    children: ComponentChildren;
-    footer: ComponentChildren;
-}) {
-    const backdropRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        function onKey(e: KeyboardEvent) { if (e.key === 'Escape') onClose(); }
-        window.addEventListener('keydown', onKey);
-        return () => window.removeEventListener('keydown', onKey);
-    }, [onClose]);
-
-    return (
-        <div class="modal-backdrop" ref={backdropRef}
-            onClick={e => { if (e.target === backdropRef.current) onClose(); }}>
-            <div class="modal">
-                <div class="modal-header">
-                    <strong>{title}</strong>
-                    <button class="modal-close" onClick={onClose}>&times;</button>
-                </div>
-                <div class="modal-body">{children}</div>
-                <div class="modal-footer">{footer}</div>
-            </div>
-        </div>
-    );
-}
-
 // ── Edit Modal ──
 
 function EditModal({
@@ -198,7 +162,7 @@ function EditModal({
     }
 
     return (
-        <ModalShell title={title} onClose={onCancel} footer={<>
+        <Modal title={title} onClose={onCancel} footer={<>
             <button class="button button-small" onClick={onSave} disabled={!draft.title.trim()}>Save</button>
             <button class="button button-small button-secondary" onClick={onCancel}>Cancel</button>
         </>}>
@@ -246,7 +210,7 @@ function EditModal({
                 ))}
                 <button class="requirement-add-btn" onClick={handleAddTest}>+ Add test</button>
             </div>
-        </ModalShell>
+        </Modal>
     );
 }
 
@@ -273,7 +237,7 @@ function ApproveTestsModal({
     const selectedCount = checked.filter(Boolean).length;
 
     return (
-        <ModalShell title="Approve Generated Tests" onClose={onCancel} footer={<>
+        <Modal title="Approve Generated Tests" onClose={onCancel} footer={<>
             <button class="button button-small" onClick={() => onApprove(tests.filter((_, i) => checked[i]))}
                 disabled={selectedCount === 0}>
                 Add {selectedCount} Test{selectedCount !== 1 ? 's' : ''}
@@ -301,7 +265,7 @@ function ApproveTestsModal({
                     </label>
                 ))}
             </div>
-        </ModalShell>
+        </Modal>
     );
 }
 
