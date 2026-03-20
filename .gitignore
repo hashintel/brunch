@@ -34,3 +34,4 @@ dist-ssr
 bun.lock
 .notes.md
 brunch.db*
+todo.txt

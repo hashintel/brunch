@@ -1,6 +1,6 @@
 import './style.css';
-import { useEffect, useState, useRef } from 'preact/hooks';
-import type { Model, Assumption, Requirement, ClarifyingQuestion, FocusedItem } from './types';
+import { useEffect, useState } from 'preact/hooks';
+import type { Model, Assumption, Requirement } from './types';
 import { RequirementList } from './RequirementList';
 import { SessionPanel } from './SessionPanel';
 import { ClarifyingQuestions } from './ClarifyingQuestions';
@@ -15,6 +15,7 @@ import { useRequirements } from './useRequirements';
 import { useElicitation } from './useElicitation';
 import { useAssistant } from './useAssistant';
 import { useAutoSave } from './useAutoSave';
+import { useFocusedItem } from './useFocusedItem';
 import { useVersions } from './useVersions';
 import { AssistantPane } from './AssistantPane';
 import { AssistantTrigger } from './AssistantTrigger';
@@ -35,15 +36,7 @@ export function Home() {
     const [selectedModel, setSelectedModel] = useState('claude-haiku-4-5');
     const [models, setModels] = useState<Model[]>([]);
     const [showInvalidGoalSuggestions, setShowInvalidGoalSuggestions] = useState(false);
-    const [focusedAssumption, setFocusedAssumption] = useState<Assumption | null>(null);
-    const focusedAssumptionRef = useRef<Assumption | null>(null);
-    focusedAssumptionRef.current = focusedAssumption;
-    const [focusedRequirement, setFocusedRequirement] = useState<Requirement | null>(null);
-    const focusedRequirementRef = useRef<Requirement | null>(null);
-    focusedRequirementRef.current = focusedRequirement;
-    const [focusedQuestion, setFocusedQuestion] = useState<ClarifyingQuestion | null>(null);
-    const focusedQuestionRef = useRef<ClarifyingQuestion | null>(null);
-    focusedQuestionRef.current = focusedQuestion;
+    const focused = useFocusedItem();
 
     useEffect(() => {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
@@ -121,7 +114,7 @@ export function Home() {
             setShowInvalidGoalSuggestions(false);
             assistant.close();
         },
-        getFocusedAssumption: () => focusedAssumptionRef.current,
+        getFocusedItem: focused.getFocused,
         onUpdateAssumption: (update) => {
             assumptions.setAssumptions(prev =>
                 prev.map(a => {
@@ -136,8 +129,6 @@ export function Home() {
                 }),
             );
         },
-        getFocusedQuestion: () => focusedQuestionRef.current,
-        getFocusedRequirement: () => focusedRequirementRef.current,
         onUpdateRequirement: (update) => {
             function updateReqInTree(reqs: Requirement[]): Requirement[] {
                 return reqs.map(r => {
@@ -161,14 +152,6 @@ export function Home() {
     const isCheckedOut = !!versions.checkedOutHash;
 
     const anyBusy = goal.loading || goal.updatingGoal || goal.generatingDetailedGoal || clarifying.loadingQuestions;
-
-    const focusedItem: FocusedItem | null = focusedAssumption
-        ? { type: 'assumption', item: focusedAssumption }
-        : focusedRequirement
-        ? { type: 'requirement', item: focusedRequirement }
-        : focusedQuestion
-        ? { type: 'clarifying_question', item: focusedQuestion }
-        : null;
 
     const autoSaveData = {
         name: projectName,
@@ -526,9 +509,7 @@ export function Home() {
                                     loading={clarifying.loadingQuestions}
                                     updatingGoal={goal.updatingGoal}
                                     onChat={(q) => {
-                                        setFocusedQuestion(q);
-                                        setFocusedAssumption(null);
-                                        setFocusedRequirement(null);
+                                        focused.focus({ type: 'clarifying_question', item: q });
                                         assistant.openWithMessage(
                                             `Let's discuss this clarifying question:\n\n**"${q.question}"**\n\n${q.why}\n\n${q.options.length > 0 ? `Options: ${q.options.map(o => o.label).join(', ')}\n\n` : ''}What are your thoughts on this? I can help you think through the options.`
                                         );
@@ -575,9 +556,7 @@ export function Home() {
                                     loading={assumptions.loadingAssumptions}
                                     done={assumptions.assumptionsDone}
                                     onChat={(a) => {
-                                        setFocusedAssumption(a);
-                                        setFocusedRequirement(null);
-                                        setFocusedQuestion(null);
+                                        focused.focus({ type: 'assumption', item: a });
                                         assistant.openWithMessage(
                                             `Let's discuss this assumption:\n\n**"${a.editedText || a.text}"**\n\nConfidence: ${a.confidence} | Impact: ${a.impact} | Status: ${a.status}\n\nRationale: ${a.rationale}\n\nWhat would you like to know or change about this assumption?`
                                         );
@@ -609,9 +588,7 @@ export function Home() {
                                                 onApprovePendingTests={req.approvePendingTests}
                                                 onCancelPendingTests={req.cancelPendingTests}
                                                 onChat={(r) => {
-                                                    setFocusedRequirement(r);
-                                                    setFocusedAssumption(null);
-                                                    setFocusedQuestion(null);
+                                                    focused.focus({ type: 'requirement', item: r });
                                                     assistant.openWithMessage(
                                                         `Let's discuss this requirement:\n\n**"${r.title}"**\n\n${r.definition}\n\nConfidence: ${Math.round(r.confidence * 100)}% | Stage: ${r.stage}${r.tests.length > 0 ? `\n\nTests: ${r.tests.map(t => `${t.type}: ${t.description}`).join('; ')}` : ''}\n\nWhat would you like to know or change about this requirement?`
                                                     );
@@ -646,10 +623,10 @@ export function Home() {
                 streamingContent={assistant.streamingContent}
                 pendingContext={assistant.pendingContext}
                 goalJustSet={assistant.goalJustSet}
-                focusedItem={focusedItem}
+                focusedItem={focused.focusedItem}
                 toolUpdates={assistant.toolUpdates}
                 onSend={assistant.send}
-                onClose={() => { assistant.close(); setFocusedAssumption(null); setFocusedRequirement(null); setFocusedQuestion(null); }}
+                onClose={() => { assistant.close(); focused.clear(); }}
                 onDismissContext={assistant.dismissContext}
             />
         </div>

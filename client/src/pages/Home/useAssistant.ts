@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'preact/hooks';
-import type { AssistantMessage, Assumption, Requirement, ClarifyingQuestion, ToolUpdate } from './types';
+import type { AssistantMessage, Assumption, Requirement, FocusedItem, ToolUpdate } from './types';
 import { apiFetchStream, streamNDJSON } from './apiFetch';
 
 interface UseAssistantParams {
@@ -10,14 +10,12 @@ interface UseAssistantParams {
     getAssumptions: () => Assumption[];
     getRequirements: () => Requirement[];
     onSetGoal?: (goal: string) => void;
-    getFocusedAssumption?: () => Assumption | null;
+    getFocusedItem?: () => FocusedItem | null;
     onUpdateAssumption?: (update: { id: string; text?: string; status?: string; confidence?: string; impact?: string }) => void;
-    getFocusedRequirement?: () => Requirement | null;
     onUpdateRequirement?: (update: { id: string; title?: string; definition?: string; confidence?: number; stage?: string }) => void;
-    getFocusedQuestion?: () => ClarifyingQuestion | null;
 }
 
-export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, getAssumptions, getRequirements, onSetGoal, getFocusedAssumption, onUpdateAssumption, getFocusedRequirement, onUpdateRequirement, getFocusedQuestion }: UseAssistantParams) {
+export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, getAssumptions, getRequirements, onSetGoal, getFocusedItem, onUpdateAssumption, onUpdateRequirement }: UseAssistantParams) {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<AssistantMessage[]>([]);
     const [loading, setLoading] = useState(false);
@@ -51,16 +49,47 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
             prompt += '\n';
         }
 
-        const focused = getFocusedAssumption?.();
+        const focused = getFocusedItem?.();
         if (focused) {
-            prompt += '## Focused Assumption (the user is discussing this specific assumption)\n';
-            prompt += `ID: ${focused.id}\n`;
-            prompt += `Text: ${focused.editedText || focused.text}\n`;
-            prompt += `Rationale: ${focused.rationale}\n`;
-            prompt += `Status: ${focused.status}\n`;
-            prompt += `Confidence: ${focused.confidence}\n`;
-            prompt += `Impact: ${focused.impact}\n`;
-            prompt += 'When the user asks to modify this assumption, use the update_assumption tool with the ID above.\n\n';
+            switch (focused.type) {
+                case 'assumption': {
+                    const a = focused.item;
+                    prompt += '## Focused Assumption (the user is discussing this specific assumption)\n';
+                    prompt += `ID: ${a.id}\n`;
+                    prompt += `Text: ${a.editedText || a.text}\n`;
+                    prompt += `Rationale: ${a.rationale}\n`;
+                    prompt += `Status: ${a.status}\n`;
+                    prompt += `Confidence: ${a.confidence}\n`;
+                    prompt += `Impact: ${a.impact}\n`;
+                    prompt += 'When the user asks to modify this assumption, use the update_assumption tool with the ID above.\n\n';
+                    break;
+                }
+                case 'requirement': {
+                    const r = focused.item;
+                    prompt += '## Focused Requirement (the user is discussing this specific requirement)\n';
+                    prompt += `ID: ${r.id}\n`;
+                    prompt += `Title: ${r.title}\n`;
+                    prompt += `Definition: ${r.definition}\n`;
+                    prompt += `Confidence: ${Math.round(r.confidence * 100)}%\n`;
+                    prompt += `Stage: ${r.stage}\n`;
+                    if (r.tests.length > 0) {
+                        prompt += `Tests: ${r.tests.map(t => `${t.type}: ${t.description}`).join('; ')}\n`;
+                    }
+                    prompt += 'When the user asks to modify this requirement, use the update_requirement tool with the ID above.\n\n';
+                    break;
+                }
+                case 'clarifying_question': {
+                    const q = focused.item;
+                    prompt += '## Focused Clarifying Question (the user is discussing this specific question)\n';
+                    prompt += `Question: ${q.question}\n`;
+                    prompt += `Why: ${q.why}\n`;
+                    if (q.options.length > 0) {
+                        prompt += `Options: ${q.options.map(o => o.label).join(', ')}\n`;
+                    }
+                    prompt += 'Help the user think through this question and provide useful context.\n\n';
+                    break;
+                }
+            }
         }
 
         if (requirements.length > 0) {
@@ -69,31 +98,6 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
                 prompt += `- ${r.title}: ${r.definition} (confidence: ${r.confidence}%, stage: ${r.stage})\n`;
             }
             prompt += '\n';
-        }
-
-        const focusedReq = getFocusedRequirement?.();
-        if (focusedReq) {
-            prompt += '## Focused Requirement (the user is discussing this specific requirement)\n';
-            prompt += `ID: ${focusedReq.id}\n`;
-            prompt += `Title: ${focusedReq.title}\n`;
-            prompt += `Definition: ${focusedReq.definition}\n`;
-            prompt += `Confidence: ${Math.round(focusedReq.confidence * 100)}%\n`;
-            prompt += `Stage: ${focusedReq.stage}\n`;
-            if (focusedReq.tests.length > 0) {
-                prompt += `Tests: ${focusedReq.tests.map(t => `${t.type}: ${t.description}`).join('; ')}\n`;
-            }
-            prompt += 'When the user asks to modify this requirement, use the update_requirement tool with the ID above.\n\n';
-        }
-
-        const focusedQ = getFocusedQuestion?.();
-        if (focusedQ) {
-            prompt += '## Focused Clarifying Question (the user is discussing this specific question)\n';
-            prompt += `Question: ${focusedQ.question}\n`;
-            prompt += `Why: ${focusedQ.why}\n`;
-            if (focusedQ.options.length > 0) {
-                prompt += `Options: ${focusedQ.options.map(o => o.label).join(', ')}\n`;
-            }
-            prompt += 'Help the user think through this question and provide useful context.\n\n';
         }
 
         // Conversation history
@@ -186,7 +190,7 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
             setToolStatus(null);
             abortRef.current = null;
         }
-    }, [loading, pendingContext, messages, selectedModel, cwd, getGoalResponse, getAssumptions, getRequirements, onSetGoal, getFocusedAssumption, onUpdateAssumption, getFocusedRequirement, onUpdateRequirement]);
+    }, [loading, pendingContext, messages, selectedModel, cwd, getGoalResponse, getAssumptions, getRequirements, onSetGoal, getFocusedItem, onUpdateAssumption, onUpdateRequirement]);
 
     function openWithContext(ctx: { selectedText?: string; elementType?: string }) {
         setPendingContext(ctx);
