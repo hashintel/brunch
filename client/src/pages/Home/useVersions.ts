@@ -34,14 +34,18 @@ export function useVersions() {
     const [checkoutData, setCheckoutData] = useState<SessionData | null>(null);
     const [loadingCheckoutHash, setLoadingCheckoutHash] = useState<string | null>(null);
 
-    const refreshLog = useCallback(async () => {
+    const [projectId, setProjectId] = useState<string | null>(null);
+
+    const refreshLog = useCallback(async (pid?: string | null) => {
+        const id = pid ?? projectId;
         try {
-            const data = await apiFetch<{ commits: DoltCommit[] }>('/api/versions/log?limit=50');
+            const qs = id ? `?limit=50&projectId=${encodeURIComponent(id)}` : '?limit=50';
+            const data = await apiFetch<{ commits: DoltCommit[] }>(`/api/versions/log${qs}`);
             setCommits(data.commits);
         } catch {
             // Dolt may not be available
         }
-    }, []);
+    }, [projectId]);
 
     const refreshStatus = useCallback(async () => {
         try {
@@ -154,6 +158,7 @@ export function useVersions() {
         checkedOutHash,
         checkoutData,
         loadingCheckoutHash,
+        setProjectId,
         refresh,
         refreshLog,
         refreshStatus,

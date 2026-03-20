@@ -117,6 +117,7 @@ export function Home() {
 
     // Refresh version control when session changes
     useEffect(() => {
+        versions.setProjectId(session.currentSessionId);
         if (session.currentSessionId) {
             versions.refresh();
         }

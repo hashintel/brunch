@@ -30,9 +30,47 @@ router.post('/versions/commit', asyncHandler(async (req, res) => {
     }
 }));
 
-// GET /api/versions/log — commit history
+// GET /api/versions/log — commit history (optionally filtered by projectId)
 router.get('/versions/log', asyncHandler(async (req, res) => {
     const limit = Math.min(parseInt(req.query.limit) || 50, 500);
+    const { projectId } = req.query;
+
+    if (projectId) {
+        // Collect commit hashes where this project's data actually changed
+        // dolt_diff_<table> only contains rows for commits that modified data
+        const diffTables = [
+            { table: 'dolt_diff_project', toCol: 'to_pk', fromCol: 'from_pk' },
+            { table: 'dolt_diff_entry', toCol: 'to_project_id', fromCol: 'from_project_id' },
+            { table: 'dolt_diff_assumption', toCol: 'to_project_id', fromCol: 'from_project_id' },
+            { table: 'dolt_diff_goal_iteration', toCol: 'to_project_id', fromCol: 'from_project_id' },
+        ];
+        const hashSet = new Set();
+        for (const { table, toCol, fromCol } of diffTables) {
+            try {
+                const [rows] = await pool.execute(
+                    `SELECT DISTINCT to_commit AS h FROM ${table} WHERE ${toCol} = ?
+                     UNION
+                     SELECT DISTINCT from_commit AS h FROM ${table} WHERE ${fromCol} = ?`,
+                    [projectId, projectId]
+                );
+                for (const r of rows) if (r.h) hashSet.add(r.h);
+            } catch {
+                // Table may not exist in older schemas
+            }
+        }
+
+        if (hashSet.size === 0) {
+            return res.json({ commits: [] });
+        }
+
+        // Fetch full log and filter to relevant hashes
+        const [allRows] = await pool.execute(
+            'SELECT commit_hash, committer, message, date FROM dolt_log ORDER BY date DESC LIMIT 500'
+        );
+        const filtered = allRows.filter(r => hashSet.has(r.commit_hash)).slice(0, limit);
+        return res.json({ commits: filtered });
+    }
+
     const [rows] = await pool.execute(
         'SELECT commit_hash, committer, message, date FROM dolt_log ORDER BY date DESC LIMIT ?',
         [limit]
