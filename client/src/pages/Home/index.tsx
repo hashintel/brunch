@@ -95,6 +95,7 @@ export function Home() {
     });
 
     const versions = useVersions();
+    const isCheckedOut = !!versions.checkedOutHash;
 
     const anyBusy = goal.loading || goal.updatingGoal || clarifying.loadingQuestions;
 
@@ -125,7 +126,7 @@ export function Home() {
         currentSessionId: session.currentSessionId,
         save: session.save,
         data: autoSaveData,
-        busy: anyBusy || assumptions.loadingAssumptions || req.loadingRequirements,
+        busy: anyBusy || assumptions.loadingAssumptions || req.loadingRequirements || isCheckedOut,
     });
 
     const ui = useElicitation({
@@ -190,6 +191,19 @@ export function Home() {
         setCreatingProject(false);
     }
 
+    function handleVersionCheckout(hash: string) {
+        if (!session.currentSessionId) return;
+        versions.checkout(hash, session.currentSessionId);
+    }
+
+    async function handleVersionRevert(hash: string) {
+        await versions.revert(hash);
+        // Reload session data after revert
+        if (session.currentSessionId) {
+            await handleLoadSession(session.currentSessionId);
+        }
+    }
+
     return (
         <div class={`home-layout ${assistant.isOpen ? 'home-layout--assistant-open' : ''}`}>
             <aside class="sidebar">
@@ -216,14 +230,24 @@ export function Home() {
                     versionCommitting={versions.committing}
                     onVersionCommit={versions.commit}
                     onVersionViewDiff={versions.viewDiff}
-                    onVersionRevert={versions.revert}
+                    onVersionRevert={handleVersionRevert}
                     versionSelectedDiff={versions.selectedDiff}
                     onVersionCloseDiff={() => versions.setSelectedDiff(null)}
                     versionLoadingDiffHash={versions.loadingDiffHash}
+                    versionCheckedOutHash={versions.checkedOutHash}
+                    versionLoadingCheckoutHash={versions.loadingCheckoutHash}
+                    onVersionCheckout={handleVersionCheckout}
                 />
             </aside>
             <div class="home">
                 {error && <div class="error">{error}</div>}
+
+                {isCheckedOut && (
+                    <div class="checkout-banner">
+                        Viewing version <span class="checkout-banner-hash">{versions.checkedOutHash!.slice(0, 7)}</span> — read only
+                        <button class="checkout-banner-back" onClick={versions.exitCheckout}>Back to current</button>
+                    </div>
+                )}
 
                 {/* Project creation form when no project is active */}
                 {!session.currentSessionId && (
@@ -267,6 +291,7 @@ export function Home() {
                                     value={projectName}
                                     onInput={e => setProjectName(e.currentTarget.value)}
                                     placeholder="Project name"
+                                    disabled={isCheckedOut}
                                 />
                                 <input
                                     class="project-header-folder"
@@ -274,6 +299,7 @@ export function Home() {
                                     value={cwd}
                                     onInput={e => setCwd(e.currentTarget.value)}
                                     placeholder="Project folder (optional)"
+                                    disabled={isCheckedOut}
                                 />
                             </div>
                         </div>
@@ -335,7 +361,7 @@ export function Home() {
                                 value={goal.prompt}
                                 onInput={e => goal.setPrompt(e.currentTarget.value)}
                                 placeholder="Describe your goal. What do you want to build?"
-                                disabled={goal.loading || goal.updatingGoal}
+                                disabled={isCheckedOut || goal.loading || goal.updatingGoal}
                             />
 
                             {/* Tool status during goal generation */}
@@ -368,7 +394,7 @@ export function Home() {
 
                             {/* Initial generate button (only before first response) */}
                             {!goal.response && (
-                                <button class="button" onClick={goal.go} disabled={anyBusy || !goal.prompt.trim()}>
+                                <button class="button" onClick={goal.go} disabled={isCheckedOut || anyBusy || !goal.prompt.trim()}>
                                     {goal.loading ? 'Generating\u2026' : 'Generate'}
                                 </button>
                             )}
@@ -428,7 +454,7 @@ export function Home() {
                                         <button
                                             class="button"
                                             onClick={handleGenerateRequirements}
-                                            disabled={req.loadingRequirements}
+                                            disabled={isCheckedOut || req.loadingRequirements}
                                         >
                                             {req.loadingRequirements ? 'Generating\u2026' : req.requirements.length > 0 ? 'Generate More' : 'Generate Requirements'}
                                         </button>

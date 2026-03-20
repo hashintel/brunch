@@ -55,6 +55,10 @@ type Props = {
     versionSelectedDiff: { tables: Record<string, DoltDiffRow[]>; from: string; to: string } | null;
     onVersionCloseDiff: () => void;
     versionLoadingDiffHash: string | null;
+    // Checkout (time-travel)
+    versionCheckedOutHash: string | null;
+    versionLoadingCheckoutHash: string | null;
+    onVersionCheckout: (hash: string) => void;
 };
 
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: any }) {
@@ -177,6 +181,7 @@ export function SessionPanel({
     versionCommits, versionChanges, versionCommitMessage, onVersionCommitMessageChange,
     versionCommitting, onVersionCommit, onVersionViewDiff, onVersionRevert,
     versionSelectedDiff, onVersionCloseDiff, versionLoadingDiffHash,
+    versionCheckedOutHash, versionLoadingCheckoutHash, onVersionCheckout,
 }: Props) {
     const [activeTab, setActiveTab] = useState<'list' | 'detail'>('list');
     const [showCallModal, setShowCallModal] = useState(false);
@@ -292,7 +297,17 @@ export function SessionPanel({
                     <div class="sidebar-section">
                         <strong class="sidebar-section-title">Version History</strong>
                         {versionChanges.length > 0 && (
-                            <span class="version-status-badge">{versionChanges.length} uncommitted change{versionChanges.length !== 1 ? 's' : ''}</span>
+                            <div class="version-uncommitted">
+                                <span class="version-status-badge">{versionChanges.length} uncommitted change{versionChanges.length !== 1 ? 's' : ''}</span>
+                                <div class="version-uncommitted-list">
+                                    {versionChanges.map(c => (
+                                        <div key={c.table_name} class="version-uncommitted-item">
+                                            <span class={`version-uncommitted-status version-uncommitted-status--${c.status}`}>{c.status}</span>
+                                            <span class="version-uncommitted-table">{c.table_name}</span>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
                         )}
                         <div class="version-commit-form">
                             <input
@@ -302,12 +317,12 @@ export function SessionPanel({
                                 value={versionCommitMessage}
                                 onInput={e => onVersionCommitMessageChange(e.currentTarget.value)}
                                 onKeyDown={e => { if (e.key === 'Enter' && versionCommitMessage.trim()) onVersionCommit(versionCommitMessage); }}
-                                disabled={versionCommitting}
+                                disabled={versionCommitting || !!versionCheckedOutHash}
                             />
                             <button
                                 class="button button-small"
                                 onClick={() => onVersionCommit(versionCommitMessage)}
-                                disabled={versionCommitting || !versionCommitMessage.trim()}
+                                disabled={versionCommitting || !versionCommitMessage.trim() || !!versionCheckedOutHash}
                             >
                                 {versionCommitting ? '...' : 'Commit'}
                             </button>
@@ -315,21 +330,32 @@ export function SessionPanel({
                         {versionCommits.length === 0 && <p class="session-empty">No commits yet.</p>}
                         {versionCommits.length > 0 && (
                             <div class="version-log">
-                                {versionCommits.slice(0, 8).map(c => (
-                                    <div key={c.commit_hash} class="version-log-item">
-                                        <span class="version-log-hash">{c.commit_hash.slice(0, 7)}</span>
-                                        <span class="version-log-message">{c.message}</span>
-                                        <span class="version-log-date">{new Date(c.date).toLocaleDateString()}</span>
-                                        <span class="version-log-actions">
-                                            <button class="requirement-action" title="View diff" onClick={() => onVersionViewDiff(c.commit_hash)}>
-                                                {versionLoadingDiffHash === c.commit_hash ? '...' : '\u0394'}
-                                            </button>
-                                            <button class="requirement-action requirement-action-remove" title="Revert to this commit" onClick={() => onVersionRevert(c.commit_hash)}>
-                                                &#x21A9;
-                                            </button>
-                                        </span>
-                                    </div>
-                                ))}
+                                {versionCommits.slice(0, 8).map(c => {
+                                    const isChecked = versionCheckedOutHash === c.commit_hash;
+                                    const isLoadingCheckout = versionLoadingCheckoutHash === c.commit_hash;
+                                    return (
+                                        <div key={c.commit_hash} class={`version-log-item${isChecked ? ' version-log-item--checked-out' : ''}`}>
+                                            <span class="version-log-hash">{c.commit_hash.slice(0, 7)}</span>
+                                            <span class="version-log-message">{c.message}</span>
+                                            <span class="version-log-date">{new Date(c.date).toLocaleDateString()}</span>
+                                            <span class="version-log-actions">
+                                                <button
+                                                    class={`requirement-action${isChecked ? ' requirement-action--active' : ''}`}
+                                                    title={isChecked ? 'Exit checkout' : 'View at this version'}
+                                                    onClick={() => onVersionCheckout(c.commit_hash)}
+                                                >
+                                                    {isLoadingCheckout ? '...' : isChecked ? '\u25C9' : '\u25CB'}
+                                                </button>
+                                                <button class="requirement-action" title="View diff" onClick={() => onVersionViewDiff(c.commit_hash)}>
+                                                    {versionLoadingDiffHash === c.commit_hash ? '...' : '\u0394'}
+                                                </button>
+                                                <button class="requirement-action requirement-action-remove" title="Revert to this commit" onClick={() => onVersionRevert(c.commit_hash)}>
+                                                    &#x21A9;
+                                                </button>
+                                            </span>
+                                        </div>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>

@@ -2905,10 +2905,53 @@ tr.requirement--drag-over td {
     min-width: 0;
 }
 
+.version-uncommitted {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+}
+
 .version-status-badge {
     font-size: 0.78rem;
     font-weight: 500;
     color: #e08a00;
+}
+
+.version-uncommitted-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    padding: 0.3rem 0.5rem;
+    background: #fefce8;
+    border-radius: 4px;
+    border: 1px solid #fde68a;
+}
+
+.version-uncommitted-item {
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.75rem;
+}
+
+.version-uncommitted-status {
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+    min-width: 4.5em;
+}
+
+.version-uncommitted-status--modified { color: #d97706; }
+.version-uncommitted-status--added,
+.version-uncommitted-status--new { color: #16a34a; }
+.version-uncommitted-status--removed,
+.version-uncommitted-status--deleted { color: #dc2626; }
+
+.version-uncommitted-table {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.75rem;
+    color: #374151;
 }
 
 .version-log {
@@ -3032,6 +3075,13 @@ tr.requirement--drag-over td {
 
 @media (prefers-color-scheme: dark) {
     .version-status-badge { color: #fbbf24; }
+    .version-uncommitted-list { background: #2a2714; border-color: #4a3f1a; }
+    .version-uncommitted-status--modified { color: #fbbf24; }
+    .version-uncommitted-status--added,
+    .version-uncommitted-status--new { color: #4ade80; }
+    .version-uncommitted-status--removed,
+    .version-uncommitted-status--deleted { color: #f87171; }
+    .version-uncommitted-table { color: #aaa; }
     .version-log-item { border-bottom-color: #333; }
     .version-log-hash { color: #a07ee0; }
     .version-log-message { color: #aaa; }
@@ -3127,4 +3177,77 @@ img:hover {
 	.resource:hover {
 		border: 1px solid #bbb;
 	}
+}
+
+/* Checkout banner */
+.checkout-banner {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.6rem 1rem;
+    background-color: #fef3c7;
+    border: 1px solid #f59e0b;
+    border-radius: 0.5rem;
+    font-size: 0.85rem;
+    color: #92400e;
+}
+
+.checkout-banner-hash {
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-weight: 600;
+    color: #b45309;
+}
+
+.checkout-banner-back {
+    margin-left: auto;
+    padding: 0.3rem 0.7rem;
+    font-size: 0.78rem;
+    font-family: inherit;
+    background: #fff;
+    border: 1px solid #f59e0b;
+    border-radius: 0.35rem;
+    color: #92400e;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.15s ease;
+}
+
+.checkout-banner-back:hover {
+    background: #fde68a;
+}
+
+/* Checked-out commit row highlight */
+.version-log-item--checked-out {
+    background-color: #fef9c3;
+    border-radius: 0.25rem;
+}
+
+.requirement-action--active {
+    color: #7c3aed;
+    font-weight: 700;
+}
+
+@media (prefers-color-scheme: dark) {
+    .checkout-banner {
+        background-color: #422006;
+        border-color: #b45309;
+        color: #fde68a;
+    }
+    .checkout-banner-hash {
+        color: #fbbf24;
+    }
+    .checkout-banner-back {
+        background: #1c1917;
+        border-color: #b45309;
+        color: #fde68a;
+    }
+    .checkout-banner-back:hover {
+        background: #44403c;
+    }
+    .version-log-item--checked-out {
+        background-color: #422006;
+    }
+    .requirement-action--active {
+        color: #c4b5fd;
+    }
 }

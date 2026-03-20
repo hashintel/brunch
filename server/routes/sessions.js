@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import pool from '../db.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
+import { serializeProject } from './sessionHelpers.js';
 
 const router = Router();
 
@@ -19,43 +20,12 @@ async function insertRequirements(conn, projectPk, requirements, parentPk = null
     }
 }
 
-function buildRequirementTree(entries) {
-    const byParent = new Map();
-    for (const e of entries) {
-        const pid = e.parent_id ?? null;
-        if (!byParent.has(pid)) byParent.set(pid, []);
-        byParent.get(pid).push(e);
-    }
-    for (const [, group] of byParent) group.sort((a, b) => a.sort_order - b.sort_order);
-
-    function buildLevel(parentPk) {
-        const children = byParent.get(parentPk) ?? [];
-        return children.map(e => ({
-            id: String(e.pk),
-            title: e.title,
-            definition: e.description,
-            confidence: e.confidence,
-            stage: e.stage,
-            tests: JSON.parse(e.test || '[]'),
-            children: buildLevel(e.pk),
-        }));
-    }
-    return buildLevel(null);
-}
-
 async function serializeSession(pk) {
     const [projects] = await pool.execute('SELECT * FROM project WHERE pk = ?', [pk]);
     const project = projects[0];
     if (!project) return null;
     const [entries] = await pool.execute('SELECT * FROM entry WHERE project_id = ?', [pk]);
-    const clarifyingState = JSON.parse(project.clarifying_state || '{}');
-    return {
-        id: String(project.pk), name: project.name,
-        prompt: project.prompt, cwd: project.folder, response: project.goal,
-        selectedModel: project.model, requirements: buildRequirementTree(entries),
-        ...clarifyingState,
-        createdAt: project.created_at, updatedAt: project.updated_at,
-    };
+    return serializeProject(project, entries);
 }
 
 router.get('/sessions', asyncHandler(async (_req, res) => {

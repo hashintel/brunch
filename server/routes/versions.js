@@ -1,6 +1,7 @@
 import { Router } from 'express';
 import pool from '../db.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
+import { serializeProject } from './sessionHelpers.js';
 
 const router = Router();
 
@@ -85,6 +86,33 @@ router.post('/versions/revert/:commitHash', asyncHandler(async (req, res) => {
     } finally {
         conn.release();
     }
+}));
+
+// GET /api/versions/checkout/:commitHash — read data as of a past commit
+router.get('/versions/checkout/:commitHash', asyncHandler(async (req, res) => {
+    const { commitHash } = req.params;
+    const { sessionId } = req.query;
+
+    if (!COMMIT_HASH_RE.test(commitHash)) {
+        return res.status(400).json({ error: 'Invalid commit hash' });
+    }
+    if (!sessionId) {
+        return res.status(400).json({ error: 'sessionId query parameter is required' });
+    }
+
+    // Query tables AS OF the given commit hash
+    const [projects] = await pool.query(
+        `SELECT * FROM \`project\` AS OF '${commitHash}' WHERE pk = ?`, [sessionId]
+    );
+    const project = projects[0];
+    if (!project) {
+        return res.status(404).json({ error: 'Project not found at this commit' });
+    }
+    const [entries] = await pool.query(
+        `SELECT * FROM \`entry\` AS OF '${commitHash}' WHERE project_id = ?`, [sessionId]
+    );
+
+    res.json(serializeProject(project, entries));
 }));
 
 export default router;
