@@ -9,7 +9,7 @@
 		"build": "vite build",
 		"preview": "vite preview",
 		"test": "vitest run",
-		"dolt": "docker run -d --name brunch-dolt -p 3307:3306 -e DOLT_ROOT_PASSWORD= -e DOLT_DATABASE=brunch -v brunch-dolt:/var/lib/dolt dolthub/dolt-sql-server"
+		"dolt": "docker start brunch-dolt 2>/dev/null || docker run -d --name brunch-dolt -p 3307:3306 -e DOLT_ROOT_PASSWORD= -e DOLT_DATABASE=brunch -v brunch-dolt:/var/lib/dolt dolthub/dolt-sql-server"
 	},
 	"dependencies": {
 		"@anthropic-ai/claude-agent-sdk": "^0.2.77",

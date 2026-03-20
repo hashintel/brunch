@@ -8,7 +8,7 @@ export function useVersions() {
     const [commitMessage, setCommitMessage] = useState('');
     const [committing, setCommitting] = useState(false);
     const [selectedDiff, setSelectedDiff] = useState<{ tables: Record<string, DoltDiffRow[]>; from: string; to: string } | null>(null);
-    const [loadingDiff, setLoadingDiff] = useState(false);
+    const [loadingDiffHash, setLoadingDiffHash] = useState<string | null>(null);
 
     const refreshLog = useCallback(async () => {
         try {
@@ -51,7 +51,7 @@ export function useVersions() {
     }, [refresh]);
 
     const viewDiff = useCallback(async (hash: string) => {
-        setLoadingDiff(true);
+        setLoadingDiffHash(hash);
         try {
             const data = await apiFetch<{ tables: Record<string, DoltDiffRow[]>; from: string; to: string }>(
                 `/api/versions/diff/${hash}`
@@ -60,7 +60,7 @@ export function useVersions() {
         } catch (e: any) {
             console.error('Diff failed:', e.message);
         } finally {
-            setLoadingDiff(false);
+            setLoadingDiffHash(null);
         }
     }, []);
 
@@ -82,7 +82,7 @@ export function useVersions() {
         committing,
         selectedDiff,
         setSelectedDiff,
-        loadingDiff,
+        loadingDiffHash,
         refresh,
         refreshLog,
         refreshStatus,

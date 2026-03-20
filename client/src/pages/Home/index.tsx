@@ -219,7 +219,7 @@ export function Home() {
                     onVersionRevert={versions.revert}
                     versionSelectedDiff={versions.selectedDiff}
                     onVersionCloseDiff={() => versions.setSelectedDiff(null)}
-                    versionLoadingDiff={versions.loadingDiff}
+                    versionLoadingDiffHash={versions.loadingDiffHash}
                 />
             </aside>
             <div class="home">

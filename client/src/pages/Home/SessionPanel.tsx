@@ -54,7 +54,7 @@ type Props = {
     onVersionRevert: (hash: string) => void;
     versionSelectedDiff: { tables: Record<string, DoltDiffRow[]>; from: string; to: string } | null;
     onVersionCloseDiff: () => void;
-    versionLoadingDiff: boolean;
+    versionLoadingDiffHash: string | null;
 };
 
 function ModalShell({ title, onClose, children }: { title: string; onClose: () => void; children: any }) {
@@ -176,7 +176,7 @@ export function SessionPanel({
     assumptionCount, confirmedAssumptionCount, requirementCount, clarifyingRoundCount,
     versionCommits, versionChanges, versionCommitMessage, onVersionCommitMessageChange,
     versionCommitting, onVersionCommit, onVersionViewDiff, onVersionRevert,
-    versionSelectedDiff, onVersionCloseDiff, versionLoadingDiff,
+    versionSelectedDiff, onVersionCloseDiff, versionLoadingDiffHash,
 }: Props) {
     const [activeTab, setActiveTab] = useState<'list' | 'detail'>('list');
     const [showCallModal, setShowCallModal] = useState(false);
@@ -322,7 +322,7 @@ export function SessionPanel({
                                         <span class="version-log-date">{new Date(c.date).toLocaleDateString()}</span>
                                         <span class="version-log-actions">
                                             <button class="requirement-action" title="View diff" onClick={() => onVersionViewDiff(c.commit_hash)}>
-                                                {versionLoadingDiff ? '...' : '\u0394'}
+                                                {versionLoadingDiffHash === c.commit_hash ? '...' : '\u0394'}
                                             </button>
                                             <button class="requirement-action requirement-action-remove" title="Revert to this commit" onClick={() => onVersionRevert(c.commit_hash)}>
                                                 &#x21A9;

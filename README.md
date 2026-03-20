@@ -57,7 +57,7 @@ docker run -d \
 | `GOOGLE_GENERATIVE_AI_API_KEY` | At least one | Google Gemini API key |
 | `PORT` | No | Server port (default: `3001`) |
 | `DOLT_HOST` | No | Dolt host (default: `localhost`) |
-| `DOLT_PORT` | No | Dolt port (default: `3306`) |
+| `DOLT_PORT` | No | Dolt port (default: `3307`) |
 | `DOLT_USER` | No | Dolt user (default: `root`) |
 | `DOLT_PASSWORD` | No | Dolt password (default: empty) |
 | `DOLT_DATABASE` | No | Dolt database name (default: `brunch`) |
