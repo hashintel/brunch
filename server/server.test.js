@@ -5,8 +5,134 @@ const mockQuery = vi.fn();
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
     query: mockQuery,
 }));
+
+// Mock the mysql2 pool so tests don't need a running Dolt instance
+// In-memory stores to support session CRUD and history tests
+const projectStore = new Map();
+const entryStore = new Map();
+let autoIncrementPk = 100;
+
+function resetStores() {
+    projectStore.clear();
+    entryStore.clear();
+    autoIncrementPk = 100;
+}
+
+function routePoolExecute(sql, params) {
+    if (sql.includes('information_schema')) return [[{ cnt: 1 }]];
+    if (sql.includes('SELECT 1')) return [[{ 1: 1 }]];
+
+    // Sessions: list
+    if (sql.includes('SELECT pk, name, updated_at FROM project')) {
+        const rows = [...projectStore.values()].map(p => ({ pk: p.pk, name: p.name, updated_at: p.updated_at }));
+        rows.sort((a, b) => b.updated_at - a.updated_at);
+        return [rows];
+    }
+
+    // Sessions: get by pk
+    if (sql.includes('FROM project WHERE pk')) {
+        const pk = Number(params?.[0]);
+        const p = projectStore.get(pk);
+        return [p ? [p] : []];
+    }
+
+    // Sessions: get entries for project
+    if (sql.includes('FROM entry WHERE project_id')) {
+        const pid = Number(params?.[0]);
+        const rows = [...entryStore.values()].filter(e => e.project_id === pid);
+        return [rows];
+    }
+
+    // History: count
+    if (/SELECT COUNT\(\*\)/i.test(sql) && sql.includes('api_call')) return [[{ count: 0 }]];
+    if (/SELECT COUNT\(\*\)/i.test(sql) && sql.includes('claude_call')) return [[{ count: 0 }]];
+    if (/SELECT COUNT\(\*\)/i.test(sql)) return [[{ count: 0 }]];
+
+    // History: list
+    if (sql.includes('FROM api_call')) return [[]];
+    if (sql.includes('FROM claude_call')) return [[]];
+
+    return [[]];
+}
+
+function routeConnExecute(sql, params) {
+    // INSERT into project
+    if (sql.includes('INSERT INTO project')) {
+        const pk = ++autoIncrementPk;
+        const now = new Date().toISOString();
+        projectStore.set(pk, {
+            pk, name: params[0], prompt: params[1], folder: params[2],
+            goal: params[3], model: params[4], clarifying_state: params[5],
+            created_at: now, updated_at: now,
+        });
+        return [{ insertId: pk }];
+    }
+
+    // INSERT into entry
+    if (sql.includes('INSERT INTO entry')) {
+        const pk = ++autoIncrementPk;
+        entryStore.set(pk, {
+            pk, title: params[0], description: params[1], test: params[2],
+            stage: params[3], confidence: params[4], project_id: params[5],
+            parent_id: params[6], sort_order: params[7],
+        });
+        return [{ insertId: pk }];
+    }
+
+    // UPDATE project
+    if (sql.includes('UPDATE project SET')) {
+        const pk = Number(params[params.length - 1]);
+        const p = projectStore.get(pk);
+        if (p) {
+            Object.assign(p, {
+                name: params[0], prompt: params[1], folder: params[2],
+                goal: params[3], model: params[4], clarifying_state: params[5],
+                updated_at: new Date().toISOString(),
+            });
+        }
+        return [{ affectedRows: p ? 1 : 0 }];
+    }
+
+    // DELETE from entry
+    if (sql.includes('DELETE FROM entry WHERE project_id')) {
+        const pid = Number(params[0]);
+        for (const [k, e] of entryStore) if (e.project_id === pid) entryStore.delete(k);
+        return [{ affectedRows: 1 }];
+    }
+
+    // DELETE from claude_call
+    if (sql.includes('DELETE FROM claude_call')) return [{ affectedRows: 0 }];
+
+    // DELETE from project
+    if (sql.includes('DELETE FROM project WHERE pk')) {
+        const pk = Number(params[0]);
+        const deleted = projectStore.delete(pk);
+        return [{ affectedRows: deleted ? 1 : 0 }];
+    }
+
+    // SELECT (connection-level, used by serializeSession after commit)
+    return routePoolExecute(sql, params);
+}
+
+const mockConnection = {
+    execute: vi.fn(async (sql, params) => routeConnExecute(sql, params)),
+    beginTransaction: vi.fn(async () => {}),
+    commit: vi.fn(async () => {}),
+    rollback: vi.fn(async () => {}),
+    release: vi.fn(),
+};
+
+vi.mock('mysql2/promise', () => ({
+    default: {
+        createPool: () => ({
+            execute: vi.fn(async (sql, params) => routePoolExecute(sql, params)),
+            getConnection: vi.fn(async () => mockConnection),
+            end: vi.fn(async () => {}),
+        }),
+    },
+}));
+
 const { app, MODELS } = await import('./server.js');
-import db from './db.js';
 
 function makeTextStream(chunks, { withToolEvents = false } = {}) {
     return async function* () {
@@ -459,10 +585,12 @@ describe('POST /api/generatetests', () => {
     });
 });
 
-// ── Sessions CRUD ──
+// ── Sessions ──
 
 describe('Sessions API', () => {
     let sessionId;
+
+    beforeEach(() => resetStores());
 
     it('POST /api/sessions creates a session', async () => {
         const res = await request(app)
@@ -475,14 +603,9 @@ describe('Sessions API', () => {
                 selectedModel: 'claude-haiku-4-5',
                 requirements: [
                     {
-                        title: 'Req 1',
-                        definition: 'Do stuff',
-                        confidence: 0.9,
-                        stage: 'proposal',
-                        tests: [{ type: 'programmatic_test', description: 'unit test' }],
-                        children: [
-                            { title: 'Sub 1', definition: 'Sub stuff', confidence: 0.8, tests: [] },
-                        ],
+                        title: 'Req 1', definition: 'Def 1', confidence: 0.9,
+                        tests: [{ type: 'human_review', description: 'check' }],
+                        children: [{ title: 'Sub 1', definition: 'Sub def', confidence: 0.8 }],
                     },
                 ],
                 goalIterations: [],
@@ -506,6 +629,12 @@ describe('Sessions API', () => {
     });
 
     it('GET /api/sessions lists sessions', async () => {
+        // Create a session first
+        const create = await request(app).post('/api/sessions').send({
+            name: 'List Test', prompt: 'p', response: 'r', selectedModel: 'claude-haiku-4-5', requirements: [],
+        });
+        sessionId = create.body.id;
+
         const res = await request(app).get('/api/sessions');
         expect(res.status).toBe(200);
         expect(Array.isArray(res.body)).toBe(true);
@@ -513,9 +642,15 @@ describe('Sessions API', () => {
     });
 
     it('GET /api/sessions/:id loads a session', async () => {
+        const create = await request(app).post('/api/sessions').send({
+            name: 'Load Test', prompt: 'p', response: 'r', selectedModel: 'claude-haiku-4-5',
+            requirements: [{ title: 'R1', definition: 'D1', confidence: 0.9 }],
+        });
+        sessionId = create.body.id;
+
         const res = await request(app).get(`/api/sessions/${sessionId}`);
         expect(res.status).toBe(200);
-        expect(res.body.name).toBe('Test Session');
+        expect(res.body.name).toBe('Load Test');
         expect(res.body.requirements).toHaveLength(1);
     });
 
@@ -525,6 +660,11 @@ describe('Sessions API', () => {
     });
 
     it('PUT /api/sessions/:id updates a session', async () => {
+        const create = await request(app).post('/api/sessions').send({
+            name: 'Before Update', prompt: 'p', response: 'r', selectedModel: 'claude-haiku-4-5', requirements: [],
+        });
+        sessionId = create.body.id;
+
         const res = await request(app)
             .put(`/api/sessions/${sessionId}`)
             .send({
@@ -555,6 +695,11 @@ describe('Sessions API', () => {
     });
 
     it('DELETE /api/sessions/:id deletes a session', async () => {
+        const create = await request(app).post('/api/sessions').send({
+            name: 'To Delete', prompt: 'p', response: 'r', selectedModel: 'claude-haiku-4-5', requirements: [],
+        });
+        sessionId = create.body.id;
+
         const res = await request(app).delete(`/api/sessions/${sessionId}`);
         expect(res.status).toBe(200);
         expect(res.body).toEqual({ ok: true });
@@ -590,7 +735,6 @@ describe('History API', () => {
     it('GET /api/history supports path filter', async () => {
         const res = await request(app).get('/api/history?path=/models');
         expect(res.status).toBe(200);
-        // All returned rows should match the path filter
         for (const row of res.body.rows) {
             expect(row.path).toBe('/models');
         }

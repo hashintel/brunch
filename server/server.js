@@ -10,7 +10,8 @@ import assumptionsRouter from './routes/assumptions.js';
 import requirementsRouter from './routes/requirements.js';
 import sessionsRouter from './routes/sessions.js';
 import historyRouter from './routes/history.js';
-import db from './db.js';
+import versionsRouter from './routes/versions.js';
+import pool, { initDb } from './db.js';
 
 import { MODELS, VALID_MODEL_IDS, DEFAULT_MODEL } from './models.js';
 export { MODELS, VALID_MODEL_IDS, DEFAULT_MODEL };
@@ -36,6 +37,7 @@ app.use('/api', assumptionsRouter);
 app.use('/api', requirementsRouter);
 app.use('/api', sessionsRouter);
 app.use('/api', historyRouter);
+app.use('/api', versionsRouter);
 app.use(errorHandler);
 
 // In production, serve the built frontend
@@ -50,12 +52,13 @@ if (existsSync(distDir)) {
 const PORT = process.env.PORT || 3001;
 
 if (resolve(process.argv[1]) === import.meta.filename) {
+    await initDb();
     const server = app.listen(PORT, () => console.log(`API server running on http://localhost:${PORT}`));
 
     function shutdown(signal) {
         console.log(`\n[server] ${signal} received, shutting down...`);
         server.close(() => {
-            try { db.close(); } catch {}
+            pool.end().catch(() => {});
             console.log('[server] stopped.');
             process.exit(0);
         });

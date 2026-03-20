@@ -92,6 +92,24 @@ export type AssistantMessage = {
     timestamp: number;
 };
 
+export interface DoltCommit {
+    commit_hash: string;
+    committer: string;
+    message: string;
+    date: string;
+}
+
+export interface DoltChange {
+    table_name: string;
+    staged: boolean;
+    status: string;
+}
+
+export interface DoltDiffRow {
+    diff_type: 'added' | 'modified' | 'removed' | 'deleted';
+    [key: string]: any;
+}
+
 export interface ClaudeCall {
     pk: number;
     model: string;

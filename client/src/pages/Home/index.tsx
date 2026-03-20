@@ -15,6 +15,7 @@ import { useRequirements } from './useRequirements';
 import { useElicitation } from './useElicitation';
 import { useAssistant } from './useAssistant';
 import { useAutoSave } from './useAutoSave';
+import { useVersions } from './useVersions';
 import { AssistantPane } from './AssistantPane';
 import { AssistantTrigger } from './AssistantTrigger';
 
@@ -93,6 +94,9 @@ export function Home() {
         getRequirements: () => req.requirements,
     });
 
+    const versions = useVersions();
+    const isCheckedOut = !!versions.checkedOutHash;
+
     const anyBusy = goal.loading || goal.updatingGoal || clarifying.loadingQuestions;
 
     const autoSaveData = {
@@ -111,11 +115,20 @@ export function Home() {
         requirements: req.requirements,
     };
 
+    // Refresh version control when session changes
+    useEffect(() => {
+        versions.setProjectId(session.currentSessionId);
+        if (session.currentSessionId) {
+            versions.refresh();
+        }
+    }, [session.currentSessionId]);
+
     const { saveStatus } = useAutoSave({
         currentSessionId: session.currentSessionId,
         save: session.save,
         data: autoSaveData,
-        busy: anyBusy || assumptions.loadingAssumptions || req.loadingRequirements,
+        busy: anyBusy || assumptions.loadingAssumptions || req.loadingRequirements || isCheckedOut,
+        onSaved: versions.refreshStatus,
     });
 
     const ui = useElicitation({
@@ -140,13 +153,7 @@ export function Home() {
     async function handleLoadSession(id: string) {
         const data = await session.load(id);
         if (!data) return;
-        goal.restore(data);
-        clarifying.restore(data);
-        assumptions.restore(data);
-        req.restore(data);
-        setProjectName(data.name);
-        setCwd(data.cwd);
-        setSelectedModel(data.selectedModel);
+        restoreSessionData(data);
     }
 
     function handleNewSession() {
@@ -180,6 +187,48 @@ export function Home() {
         setCreatingProject(false);
     }
 
+    function restoreSessionData(data: any, { refetch = true } = {}) {
+        goal.restore(data);
+        clarifying.restore(data);
+        assumptions.restore(data);
+        req.restore(data);
+        setProjectName(data.name);
+        setCwd(data.cwd);
+        setSelectedModel(data.selectedModel);
+
+        // Recover from stuck state: have a goal response, clarifying not done, but no questions
+        if (refetch && data.response && !data.clarifyingDone && (data.allQuestions ?? []).length === 0) {
+            clarifying.fetchQuestions(
+                data.response,
+                data.goalIterations ?? [],
+                [],
+                [],
+            );
+        }
+    }
+
+    async function handleVersionCheckout(hash: string) {
+        if (!session.currentSessionId) return;
+        if (versions.checkedOutHash === hash) {
+            // Toggle off — reload live data
+            versions.exitCheckout();
+            await handleLoadSession(session.currentSessionId);
+            return;
+        }
+        const data = await versions.checkout(hash, session.currentSessionId);
+        if (data) {
+            restoreSessionData(data, { refetch: false });
+        }
+    }
+
+    async function handleVersionRevert(hash: string) {
+        await versions.revert(hash);
+        // Reload session data after revert
+        if (session.currentSessionId) {
+            await handleLoadSession(session.currentSessionId);
+        }
+    }
+
     return (
         <div class={`home-layout ${assistant.isOpen ? 'home-layout--assistant-open' : ''}`}>
             <aside class="sidebar">
@@ -199,10 +248,33 @@ export function Home() {
                     confirmedAssumptionCount={assumptions.assumptions.filter(a => a.status === 'confirmed').length}
                     requirementCount={req.requirements.length}
                     clarifyingRoundCount={clarifying.goalIterations.length}
+                    versionCommits={versions.commits}
+                    versionRealChangeCount={versions.realChangeCount}
+                    versionChangedTableNames={versions.changedTableNames}
+                    versionCommitMessage={versions.commitMessage}
+                    onVersionCommitMessageChange={versions.setCommitMessage}
+                    versionCommitting={versions.committing}
+                    onVersionCommit={versions.commit}
+                    onVersionViewDiff={versions.viewDiff}
+                    onVersionViewWorkingDiff={versions.viewWorkingDiff}
+                    onVersionRevert={handleVersionRevert}
+                    versionSelectedDiff={versions.selectedDiff}
+                    onVersionCloseDiff={() => versions.setSelectedDiff(null)}
+                    versionLoadingDiffHash={versions.loadingDiffHash}
+                    versionCheckedOutHash={versions.checkedOutHash}
+                    versionLoadingCheckoutHash={versions.loadingCheckoutHash}
+                    onVersionCheckout={handleVersionCheckout}
                 />
             </aside>
             <div class="home">
                 {error && <div class="error">{error}</div>}
+
+                {isCheckedOut && (
+                    <div class="checkout-banner">
+                        Viewing version <span class="checkout-banner-hash">{versions.checkedOutHash!.slice(0, 7)}</span> — read only
+                        <button class="checkout-banner-back" onClick={() => handleVersionCheckout(versions.checkedOutHash!)}>Back to current</button>
+                    </div>
+                )}
 
                 {/* Project creation form when no project is active */}
                 {!session.currentSessionId && (
@@ -246,6 +318,7 @@ export function Home() {
                                     value={projectName}
                                     onInput={e => setProjectName(e.currentTarget.value)}
                                     placeholder="Project name"
+                                    disabled={isCheckedOut}
                                 />
                                 <input
                                     class="project-header-folder"
@@ -253,6 +326,7 @@ export function Home() {
                                     value={cwd}
                                     onInput={e => setCwd(e.currentTarget.value)}
                                     placeholder="Project folder (optional)"
+                                    disabled={isCheckedOut}
                                 />
                             </div>
                         </div>
@@ -314,7 +388,7 @@ export function Home() {
                                 value={goal.prompt}
                                 onInput={e => goal.setPrompt(e.currentTarget.value)}
                                 placeholder="Describe your goal. What do you want to build?"
-                                disabled={goal.loading || goal.updatingGoal}
+                                disabled={isCheckedOut || goal.loading || goal.updatingGoal}
                             />
 
                             {/* Tool status during goal generation */}
@@ -347,7 +421,7 @@ export function Home() {
 
                             {/* Initial generate button (only before first response) */}
                             {!goal.response && (
-                                <button class="button" onClick={goal.go} disabled={anyBusy || !goal.prompt.trim()}>
+                                <button class="button" onClick={goal.go} disabled={isCheckedOut || anyBusy || !goal.prompt.trim()}>
                                     {goal.loading ? 'Generating\u2026' : 'Generate'}
                                 </button>
                             )}
@@ -407,7 +481,7 @@ export function Home() {
                                         <button
                                             class="button"
                                             onClick={handleGenerateRequirements}
-                                            disabled={req.loadingRequirements}
+                                            disabled={isCheckedOut || req.loadingRequirements}
                                         >
                                             {req.loadingRequirements ? 'Generating\u2026' : req.requirements.length > 0 ? 'Generate More' : 'Generate Requirements'}
                                         </button>

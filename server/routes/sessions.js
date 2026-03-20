@@ -1,129 +1,280 @@
 import { Router } from 'express';
-import db from '../db.js';
+import pool from '../db.js';
+import { asyncHandler } from '../middleware/asyncHandler.js';
+import { serializeSession } from './sessionHelpers.js';
+import { randomUUID } from 'node:crypto';
 
 const router = Router();
 
-function insertRequirements(projectPk, requirements, parentPk = null) {
-    const stmt = db.prepare(`INSERT INTO entry (title, description, test, stage, confidence, project_id, parent_id, sort_order)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`);
+// ── Helpers ──────────────────────────────────────────────────────────
+
+function ensureUuid(id) {
+    return id || randomUUID();
+}
+
+/**
+ * Upsert entries by uuid. Returns a Map<clientId, dbPk> for parent linking.
+ */
+async function upsertRequirements(conn, projectPk, requirements, existingByUuid, parentPk = null) {
     for (let i = 0; i < requirements.length; i++) {
         const r = requirements[i];
-        const info = stmt.run(r.title, r.definition, JSON.stringify(r.tests ?? []), r.stage ?? 'proposal', r.confidence, projectPk, parentPk, i);
+        const uuid = ensureUuid(r.id);
+        const existing = existingByUuid.get(uuid);
+
+        let pk;
+        if (existing) {
+            await conn.execute(
+                `UPDATE entry SET title=?, description=?, test=?, stage=?, confidence=?, parent_id=?, sort_order=?, uuid=?, updated_at=NOW() WHERE pk=?`,
+                [r.title, r.definition, JSON.stringify(r.tests ?? []), r.stage ?? 'proposal', r.confidence, parentPk, i, uuid, existing.pk]
+            );
+            pk = existing.pk;
+        } else {
+            const [result] = await conn.execute(
+                `INSERT INTO entry (title, description, test, stage, confidence, project_id, parent_id, sort_order, uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [r.title, r.definition, JSON.stringify(r.tests ?? []), r.stage ?? 'proposal', r.confidence, projectPk, parentPk, i, uuid]
+            );
+            pk = result.insertId;
+        }
+
         if (r.children?.length > 0) {
-            insertRequirements(projectPk, r.children, info.lastInsertRowid);
+            await upsertRequirements(conn, projectPk, r.children, existingByUuid, pk);
         }
     }
 }
 
-function buildRequirementTree(entries) {
-    const byParent = new Map();
-    for (const e of entries) {
-        const pid = e.parent_id ?? null;
-        if (!byParent.has(pid)) byParent.set(pid, []);
-        byParent.get(pid).push(e);
+function collectUuids(requirements) {
+    const uuids = new Set();
+    for (const r of requirements) {
+        if (r.id) uuids.add(r.id);
+        if (r.children?.length > 0) {
+            for (const u of collectUuids(r.children)) uuids.add(u);
+        }
     }
-    for (const [, group] of byParent) group.sort((a, b) => a.sort_order - b.sort_order);
-
-    function buildLevel(parentPk) {
-        const children = byParent.get(parentPk) ?? [];
-        return children.map(e => ({
-            id: String(e.pk),
-            title: e.title,
-            definition: e.description,
-            confidence: e.confidence,
-            stage: e.stage,
-            tests: JSON.parse(e.test || '[]'),
-            children: buildLevel(e.pk),
-        }));
-    }
-    return buildLevel(null);
+    return uuids;
 }
 
-function serializeSession(pk) {
-    const project = db.prepare('SELECT * FROM project WHERE pk = ?').get(pk);
+async function loadFullSession(pk) {
+    const [projects] = await pool.execute('SELECT * FROM project WHERE pk = ?', [pk]);
+    const project = projects[0];
     if (!project) return null;
-    const entries = db.prepare('SELECT * FROM entry WHERE project_id = ?').all(pk);
-    const clarifyingState = JSON.parse(project.clarifying_state || '{}');
-    return {
-        id: String(project.pk), name: project.name,
-        prompt: project.prompt, cwd: project.folder, response: project.goal,
-        selectedModel: project.model, requirements: buildRequirementTree(entries),
-        ...clarifyingState,
-        createdAt: project.created_at, updatedAt: project.updated_at,
-    };
+    const [entries] = await pool.execute('SELECT * FROM entry WHERE project_id = ?', [pk]);
+    const [assumptions] = await pool.execute('SELECT * FROM assumption WHERE project_id = ? ORDER BY sort_order', [pk]);
+    const [goalIterations] = await pool.execute('SELECT * FROM goal_iteration WHERE project_id = ? ORDER BY sort_order', [pk]);
+    return serializeSession(project, entries, assumptions, goalIterations);
 }
 
-router.get('/sessions', (_req, res) => {
-    try {
-        const rows = db.prepare('SELECT pk, name, updated_at FROM project ORDER BY updated_at DESC').all();
-        res.json(rows.map(r => ({ id: String(r.pk), name: r.name, updatedAt: r.updated_at })));
-    } catch (err) {
-        console.error('[sessions] list error:', err.message);
-        res.status(500).json({ error: 'Failed to list sessions' });
-    }
-});
+// ── Routes ───────────────────────────────────────────────────────────
 
-router.get('/sessions/:id', (req, res) => {
+router.get('/sessions', asyncHandler(async (_req, res) => {
+    const [rows] = await pool.execute('SELECT pk, name, updated_at FROM project ORDER BY updated_at DESC');
+    res.json(rows.map(r => ({ id: String(r.pk), name: r.name, updatedAt: r.updated_at })));
+}));
+
+router.get('/sessions/:id', asyncHandler(async (req, res) => {
+    const session = await loadFullSession(req.params.id);
+    if (!session) return res.status(404).json({ error: 'Session not found' });
+    res.json(session);
+}));
+
+router.post('/sessions', asyncHandler(async (req, res) => {
+    const {
+        name, prompt, cwd, response, selectedModel, requirements,
+        clarifyingDone, assumptionsDone, questionsExhausted,
+        allQuestions, allAnswers, assumptions, goalIterations,
+        ...rest
+    } = req.body;
+
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+        const [result] = await conn.execute(
+            `INSERT INTO project (name, prompt, folder, goal, model, clarifying_done, assumptions_done, questions_exhausted, current_questions, current_answers, clarifying_state)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            [
+                name, prompt, cwd, response, selectedModel,
+                clarifyingDone ? 1 : 0,
+                assumptionsDone ? 1 : 0,
+                questionsExhausted ? 1 : 0,
+                JSON.stringify(allQuestions ?? []),
+                JSON.stringify(allAnswers ?? []),
+                JSON.stringify(rest),
+            ]
+        );
+        const pk = result.insertId;
+
+        // Insert entries with uuids
+        for (let i = 0; i < (requirements ?? []).length; i++) {
+            await insertRequirementTree(conn, pk, requirements[i], null, i);
+        }
+
+        // Insert assumptions
+        for (let i = 0; i < (assumptions ?? []).length; i++) {
+            const a = assumptions[i];
+            await conn.execute(
+                `INSERT INTO assumption (uuid, project_id, text, rationale, confidence, impact, status, edited_text, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                [ensureUuid(a.id), pk, a.text, a.rationale, a.confidence, a.impact, a.status ?? 'pending', a.editedText ?? null, i]
+            );
+        }
+
+        // Insert goal iterations
+        for (let i = 0; i < (goalIterations ?? []).length; i++) {
+            const g = goalIterations[i];
+            await conn.execute(
+                `INSERT INTO goal_iteration (uuid, project_id, goal_text, questions, answers, sort_order) VALUES (?, ?, ?, ?, ?, ?)`,
+                [randomUUID(), pk, g.goalText ?? '', JSON.stringify(g.questions ?? []), JSON.stringify(g.answers ?? []), i]
+            );
+        }
+
+        await conn.commit();
+        res.status(201).json(await loadFullSession(pk));
+    } catch (err) {
+        await conn.rollback();
+        throw err;
+    } finally {
+        conn.release();
+    }
+}));
+
+async function insertRequirementTree(conn, projectPk, req, parentPk, sortOrder) {
+    const uuid = ensureUuid(req.id);
+    const [result] = await conn.execute(
+        `INSERT INTO entry (title, description, test, stage, confidence, project_id, parent_id, sort_order, uuid) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        [req.title, req.definition, JSON.stringify(req.tests ?? []), req.stage ?? 'proposal', req.confidence, projectPk, parentPk, sortOrder, uuid]
+    );
+    const pk = result.insertId;
+    for (let i = 0; i < (req.children ?? []).length; i++) {
+        await insertRequirementTree(conn, projectPk, req.children[i], pk, i);
+    }
+}
+
+router.put('/sessions/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
-    try {
-        const session = serializeSession(id);
-        if (!session) return res.status(404).json({ error: 'Session not found' });
-        res.json(session);
-    } catch (err) {
-        console.error('[sessions] get error:', err.message);
-        res.status(500).json({ error: 'Failed to load session' });
-    }
-});
+    const {
+        name, prompt, cwd, response, selectedModel, requirements,
+        clarifyingDone, assumptionsDone, questionsExhausted,
+        allQuestions, allAnswers, assumptions, goalIterations,
+        ...rest
+    } = req.body;
 
-router.post('/sessions', (req, res) => {
-    const { name, prompt, cwd, response, selectedModel, requirements, ...clarifying } = req.body;
-    try {
-        const info = db.prepare(
-            `INSERT INTO project (name, prompt, folder, goal, model, clarifying_state) VALUES (?, ?, ?, ?, ?, ?)`
-        ).run(name, prompt, cwd, response, selectedModel, JSON.stringify(clarifying));
-        const pk = info.lastInsertRowid;
-        insertRequirements(pk, requirements ?? []);
-        res.status(201).json(serializeSession(pk));
-    } catch (err) {
-        console.error('[sessions] create error:', err.message);
-        res.status(500).json({ error: 'Failed to create session' });
-    }
-});
+    const [existing] = await pool.execute('SELECT pk FROM project WHERE pk = ?', [id]);
+    if (existing.length === 0) return res.status(404).json({ error: 'Session not found' });
 
-router.put('/sessions/:id', (req, res) => {
+    const conn = await pool.getConnection();
+    try {
+        await conn.beginTransaction();
+
+        // Update project row
+        await conn.execute(
+            `UPDATE project SET name=?, prompt=?, folder=?, goal=?, model=?,
+             clarifying_done=?, assumptions_done=?, questions_exhausted=?,
+             current_questions=?, current_answers=?, clarifying_state=?, updated_at=NOW()
+             WHERE pk=?`,
+            [
+                name, prompt, cwd, response, selectedModel,
+                clarifyingDone ? 1 : 0,
+                assumptionsDone ? 1 : 0,
+                questionsExhausted ? 1 : 0,
+                JSON.stringify(allQuestions ?? []),
+                JSON.stringify(allAnswers ?? []),
+                JSON.stringify(rest),
+                id,
+            ]
+        );
+
+        // ── Upsert entries by uuid ──
+        const [existingEntries] = await conn.execute('SELECT pk, uuid FROM entry WHERE project_id = ?', [id]);
+        const existingByUuid = new Map();
+        for (const e of existingEntries) {
+            if (e.uuid) existingByUuid.set(e.uuid, e);
+        }
+
+        const incomingUuids = collectUuids(requirements ?? []);
+        await upsertRequirements(conn, Number(id), requirements ?? [], existingByUuid);
+
+        // Delete entries that are no longer present
+        for (const e of existingEntries) {
+            if (e.uuid && !incomingUuids.has(e.uuid)) {
+                await conn.execute('DELETE FROM entry WHERE pk = ?', [e.pk]);
+            }
+        }
+        // Delete entries without uuids (legacy)
+        for (const e of existingEntries) {
+            if (!e.uuid) {
+                await conn.execute('DELETE FROM entry WHERE pk = ?', [e.pk]);
+            }
+        }
+
+        // ── Upsert assumptions by uuid ──
+        const [existingAssumptions] = await conn.execute('SELECT pk, uuid FROM assumption WHERE project_id = ?', [id]);
+        const existingAssumpByUuid = new Map(existingAssumptions.filter(a => a.uuid).map(a => [a.uuid, a]));
+        const incomingAssumpUuids = new Set();
+
+        for (let i = 0; i < (assumptions ?? []).length; i++) {
+            const a = assumptions[i];
+            const uuid = ensureUuid(a.id);
+            incomingAssumpUuids.add(uuid);
+            const ex = existingAssumpByUuid.get(uuid);
+            if (ex) {
+                await conn.execute(
+                    `UPDATE assumption SET text=?, rationale=?, confidence=?, impact=?, status=?, edited_text=?, sort_order=?, updated_at=NOW() WHERE pk=?`,
+                    [a.text, a.rationale, a.confidence, a.impact, a.status ?? 'pending', a.editedText ?? null, i, ex.pk]
+                );
+            } else {
+                await conn.execute(
+                    `INSERT INTO assumption (uuid, project_id, text, rationale, confidence, impact, status, edited_text, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+                    [uuid, Number(id), a.text, a.rationale, a.confidence, a.impact, a.status ?? 'pending', a.editedText ?? null, i]
+                );
+            }
+        }
+        // Delete removed assumptions
+        for (const a of existingAssumptions) {
+            if (!incomingAssumpUuids.has(a.uuid)) {
+                await conn.execute('DELETE FROM assumption WHERE pk = ?', [a.pk]);
+            }
+        }
+
+        // ── Upsert goal iterations ──
+        // Goal iterations are append-mostly; we replace by sort_order position.
+        await conn.execute('DELETE FROM goal_iteration WHERE project_id = ?', [id]);
+        for (let i = 0; i < (goalIterations ?? []).length; i++) {
+            const g = goalIterations[i];
+            await conn.execute(
+                `INSERT INTO goal_iteration (uuid, project_id, goal_text, questions, answers, sort_order) VALUES (?, ?, ?, ?, ?, ?)`,
+                [randomUUID(), Number(id), g.goalText ?? '', JSON.stringify(g.questions ?? []), JSON.stringify(g.answers ?? []), i]
+            );
+        }
+
+        await conn.commit();
+        res.json(await loadFullSession(id));
+    } catch (err) {
+        await conn.rollback();
+        throw err;
+    } finally {
+        conn.release();
+    }
+}));
+
+router.delete('/sessions/:id', asyncHandler(async (req, res) => {
     const { id } = req.params;
-    const { name, prompt, cwd, response, selectedModel, requirements, ...clarifying } = req.body;
-    try {
-        const existing = db.prepare('SELECT pk FROM project WHERE pk = ?').get(id);
-        if (!existing) return res.status(404).json({ error: 'Session not found' });
-        db.prepare(
-            `UPDATE project SET name=?, prompt=?, folder=?, goal=?, model=?, clarifying_state=?, updated_at=datetime('now') WHERE pk=?`
-        ).run(name, prompt, cwd, response, selectedModel, JSON.stringify(clarifying), id);
-        db.prepare('DELETE FROM entry WHERE project_id = ?').run(id);
-        insertRequirements(Number(id), requirements ?? []);
-        res.json(serializeSession(id));
-    } catch (err) {
-        console.error('[sessions] update error:', err.message);
-        res.status(500).json({ error: 'Failed to update session' });
-    }
-});
+    const [existing] = await pool.execute('SELECT pk FROM project WHERE pk = ?', [id]);
+    if (existing.length === 0) return res.status(404).json({ error: 'Session not found' });
 
-router.delete('/sessions/:id', (req, res) => {
-    const { id } = req.params;
+    const conn = await pool.getConnection();
     try {
-        const existing = db.prepare('SELECT pk FROM project WHERE pk = ?').get(id);
-        if (!existing) return res.status(404).json({ error: 'Session not found' });
-        const deleteProject = db.transaction((pk) => {
-            db.prepare('DELETE FROM entry WHERE project_id = ?').run(pk);
-            db.prepare('DELETE FROM claude_call WHERE project_id = ?').run(pk);
-            db.prepare('DELETE FROM project WHERE pk = ?').run(pk);
-        });
-        deleteProject(id);
+        await conn.beginTransaction();
+        await conn.execute('DELETE FROM assumption WHERE project_id = ?', [id]);
+        await conn.execute('DELETE FROM goal_iteration WHERE project_id = ?', [id]);
+        await conn.execute('DELETE FROM entry WHERE project_id = ?', [id]);
+        await conn.execute('DELETE FROM claude_call WHERE project_id = ?', [id]);
+        await conn.execute('DELETE FROM project WHERE pk = ?', [id]);
+        await conn.commit();
         res.json({ ok: true });
     } catch (err) {
-        console.error('[sessions] delete error:', err.message);
-        res.status(500).json({ error: 'Failed to delete session' });
+        await conn.rollback();
+        throw err;
+    } finally {
+        conn.release();
     }
-});
+}));
 
 export default router;
