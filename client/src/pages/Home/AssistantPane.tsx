@@ -1,6 +1,7 @@
 import { useRef, useEffect, useState } from 'preact/hooks';
-import type { AssistantMessage } from './types';
+import type { AssistantMessage, FocusedItem, ToolUpdate } from './types';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
+import { FocusedItemCard } from './FocusedItemCard';
 
 interface AssistantPaneProps {
     isOpen: boolean;
@@ -10,6 +11,8 @@ interface AssistantPaneProps {
     streamingContent: string;
     pendingContext: { selectedText?: string; elementType?: string } | null;
     goalJustSet?: boolean;
+    focusedItem?: FocusedItem | null;
+    toolUpdates?: ToolUpdate[];
     onSend: (text: string) => void;
     onClose: () => void;
     onDismissContext: () => void;
@@ -23,6 +26,8 @@ export function AssistantPane({
     streamingContent,
     pendingContext,
     goalJustSet,
+    focusedItem,
+    toolUpdates,
     onSend,
     onClose,
     onDismissContext,
@@ -77,7 +82,11 @@ export function AssistantPane({
                 </button>
             </div>
 
-            {pendingContext?.selectedText && (
+            {focusedItem && (
+                <FocusedItemCard item={focusedItem} variant="banner" />
+            )}
+
+            {pendingContext?.selectedText && !focusedItem && (
                 <div class="assistant-context-badge">
                     <span class="assistant-context-badge-text">
                         {pendingContext.elementType && (
@@ -98,18 +107,41 @@ export function AssistantPane({
                     </div>
                 )}
 
-                {messages.map(msg => (
-                    <div key={msg.id} class={`assistant-message assistant-message--${msg.role}`}>
-                        {msg.context?.selectedText && (
-                            <div class="assistant-message-context">
-                                Re: &ldquo;{msg.context.selectedText.length > 60
-                                    ? msg.context.selectedText.slice(0, 60) + '\u2026'
-                                    : msg.context.selectedText}&rdquo;
+                {messages.map((msg, idx) => {
+                    // Find tool updates between this message and the next
+                    const nextMsg = messages[idx + 1];
+                    const updates = (toolUpdates || []).filter(u =>
+                        u.timestamp >= msg.timestamp &&
+                        (!nextMsg || u.timestamp < nextMsg.timestamp)
+                    );
+                    return (
+                        <>
+                            <div key={msg.id} class={`assistant-message assistant-message--${msg.role}`}>
+                                {msg.context?.selectedText && (
+                                    <div class="assistant-message-context">
+                                        Re: &ldquo;{msg.context.selectedText.length > 60
+                                            ? msg.context.selectedText.slice(0, 60) + '\u2026'
+                                            : msg.context.selectedText}&rdquo;
+                                    </div>
+                                )}
+                                <div class="assistant-message-content">{msg.content}</div>
                             </div>
-                        )}
-                        <div class="assistant-message-content">{msg.content}</div>
-                    </div>
-                ))}
+                            {updates.map(u => (
+                                <div key={u.timestamp} class="assistant-update-card">
+                                    <span class="assistant-update-card-icon">&#9998;</span>
+                                    <span class="assistant-update-card-text">
+                                        {u.tool === 'update_assumption' ? 'Updated assumption' : 'Updated requirement'}
+                                        {u.data.text && `: "${u.data.text.length > 60 ? u.data.text.slice(0, 60) + '\u2026' : u.data.text}"`}
+                                        {u.data.title && `: "${u.data.title}"`}
+                                        {u.data.status && ` \u2192 ${u.data.status}`}
+                                        {u.data.stage && ` \u2192 ${u.data.stage}`}
+                                        {u.data.confidence != null && ` (confidence: ${u.data.confidence}${typeof u.data.confidence === 'number' && u.data.confidence <= 1 ? '%' : ''})`}
+                                    </span>
+                                </div>
+                            ))}
+                        </>
+                    );
+                })}
 
                 {loading && streamingContent && (
                     <div class="assistant-message assistant-message--assistant">

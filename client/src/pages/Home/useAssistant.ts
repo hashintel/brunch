@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'preact/hooks';
-import type { AssistantMessage, Assumption, Requirement } from './types';
+import type { AssistantMessage, Assumption, Requirement, ClarifyingQuestion, ToolUpdate } from './types';
 import { apiFetchStream, streamNDJSON } from './apiFetch';
 
 interface UseAssistantParams {
@@ -14,9 +14,10 @@ interface UseAssistantParams {
     onUpdateAssumption?: (update: { id: string; text?: string; status?: string; confidence?: string; impact?: string }) => void;
     getFocusedRequirement?: () => Requirement | null;
     onUpdateRequirement?: (update: { id: string; title?: string; definition?: string; confidence?: number; stage?: string }) => void;
+    getFocusedQuestion?: () => ClarifyingQuestion | null;
 }
 
-export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, getAssumptions, getRequirements, onSetGoal, getFocusedAssumption, onUpdateAssumption, getFocusedRequirement, onUpdateRequirement }: UseAssistantParams) {
+export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, getAssumptions, getRequirements, onSetGoal, getFocusedAssumption, onUpdateAssumption, getFocusedRequirement, onUpdateRequirement, getFocusedQuestion }: UseAssistantParams) {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<AssistantMessage[]>([]);
     const [loading, setLoading] = useState(false);
@@ -24,6 +25,7 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
     const [streamingContent, setStreamingContent] = useState('');
     const [pendingContext, setPendingContext] = useState<{ selectedText?: string; elementType?: string } | null>(null);
     const [goalJustSet, setGoalJustSet] = useState(false);
+    const [toolUpdates, setToolUpdates] = useState<ToolUpdate[]>([]);
     const abortRef = useRef<AbortController | null>(null);
 
     function buildPrompt(userText: string, context: { selectedText?: string; elementType?: string } | null): string {
@@ -81,6 +83,17 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
                 prompt += `Tests: ${focusedReq.tests.map(t => `${t.type}: ${t.description}`).join('; ')}\n`;
             }
             prompt += 'When the user asks to modify this requirement, use the update_requirement tool with the ID above.\n\n';
+        }
+
+        const focusedQ = getFocusedQuestion?.();
+        if (focusedQ) {
+            prompt += '## Focused Clarifying Question (the user is discussing this specific question)\n';
+            prompt += `Question: ${focusedQ.question}\n`;
+            prompt += `Why: ${focusedQ.why}\n`;
+            if (focusedQ.options.length > 0) {
+                prompt += `Options: ${focusedQ.options.map(o => o.label).join(', ')}\n`;
+            }
+            prompt += 'Help the user think through this question and provide useful context.\n\n';
         }
 
         // Conversation history
@@ -143,8 +156,10 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
                     setGoalJustSet(true);
                 } else if (event.type === 'tool_use' && event.tool === 'update_assumption') {
                     onUpdateAssumption?.(event.input as { id: string; text?: string; status?: string; confidence?: string; impact?: string });
+                    setToolUpdates(prev => [...prev, { tool: 'update_assumption', data: event.input as Record<string, any>, timestamp: Date.now() }]);
                 } else if (event.type === 'tool_use' && event.tool === 'update_requirement') {
                     onUpdateRequirement?.(event.input as { id: string; title?: string; definition?: string; confidence?: number; stage?: string });
+                    setToolUpdates(prev => [...prev, { tool: 'update_requirement', data: event.input as Record<string, any>, timestamp: Date.now() }]);
                 }
             }
 
@@ -194,6 +209,7 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
         setPendingContext(null);
         setIsOpen(false);
         setGoalJustSet(false);
+        setToolUpdates([]);
         if (abortRef.current) {
             abortRef.current.abort();
             abortRef.current = null;
@@ -227,6 +243,7 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
         streamingContent,
         pendingContext,
         goalJustSet,
+        toolUpdates,
         send,
         open,
         openWithMessage,

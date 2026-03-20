@@ -10,6 +10,7 @@ type Props = {
     onGenerateRequirements: () => void;
     loading: boolean;
     updatingGoal: boolean;
+    onChat?: (question: ClarifyingQuestion) => void;
 };
 
 function isAnswered(a: ClarifyingAnswer | undefined): boolean {
@@ -25,6 +26,7 @@ export function ClarifyingQuestions({
     onGenerateRequirements,
     loading,
     updatingGoal,
+    onChat,
 }: Props) {
     const [activeIndex, setActiveIndex] = useState(0);
 
@@ -72,7 +74,18 @@ export function ClarifyingQuestions({
 
                     {/* Single question card */}
                     <div key={activeIndex} class="clarifying-card">
-                        <div class="clarifying-card-question">{q.question}</div>
+                        <div class="clarifying-card-question">
+                            {q.question}
+                            {onChat && (
+                                <button
+                                    class="clarifying-chat-btn"
+                                    onClick={() => onChat(q)}
+                                    title="Discuss with AI"
+                                >
+                                    &#128172;
+                                </button>
+                            )}
+                        </div>
                         <div class="clarifying-card-why">{q.why}</div>
                         <div class="clarifying-options">
                             {q.options.map((opt) => {

@@ -110,6 +110,17 @@ export interface DoltDiffRow {
     [key: string]: any;
 }
 
+export type FocusedItem =
+    | { type: 'assumption'; item: Assumption }
+    | { type: 'requirement'; item: Requirement }
+    | { type: 'clarifying_question'; item: ClarifyingQuestion };
+
+export type ToolUpdate = {
+    tool: string;
+    data: Record<string, any>;
+    timestamp: number;
+};
+
 export interface ClaudeCall {
     pk: number;
     model: string;
