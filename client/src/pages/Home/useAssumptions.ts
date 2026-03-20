@@ -29,8 +29,9 @@ export function useAssumptions({
         }
     }, [clarifyingDone]);
 
-    async function generate(precomputedRounds?: { questions: ClarifyingQuestion[]; answers: ClarifyingAnswer[] }[]) {
-        if (!response.trim() || loading) return;
+    async function generate(precomputedRounds?: { questions: ClarifyingQuestion[]; answers: ClarifyingAnswer[] }[], promptOverride?: string) {
+        const prompt = promptOverride || response;
+        if (!prompt.trim() || loading) return;
         setLoading(true);
         onError('');
 
@@ -40,7 +41,7 @@ export function useAssumptions({
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
-                    prompt: response,
+                    prompt,
                     model: selectedModel,
                     cwd: cwd || undefined,
                     projectId: projectId || undefined,

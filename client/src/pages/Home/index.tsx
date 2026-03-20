@@ -60,26 +60,18 @@ export function Home() {
         response: goal.response,
         onError: setError,
         onCallHistoryRefresh: session.refreshCallHistory,
-        onClarifyingDone: async (iterations, questions, answers) => {
-            // Generate detailed goal from raw prompt + Q&A, then proceed to assumptions
-            const detailedGoal = await goal.generateDetailedGoal(
-                goal.prompt || goal.response,
-                iterations,
-                questions,
-                answers,
-            );
-            if (detailedGoal) {
-                const rounds = buildPreviousRounds(iterations, questions, answers);
-                assumptions.generate(rounds);
-            }
+        onClarifyingDone: (iterations, questions, answers) => {
+            // Pass raw prompt + Q&A rounds directly to assumptions (no goal regeneration)
+            const rawPrompt = goal.prompt || goal.response;
+            goal.setResponse(rawPrompt);
+            const rounds = buildPreviousRounds(iterations, questions, answers);
+            assumptions.generate(rounds, rawPrompt);
         },
-        onGoalClear: async (rawPrompt) => {
-            // Goal is already clear — generate detailed goal, then auto-proceed to assumptions
-            const detailedGoal = await goal.generateDetailedGoal(rawPrompt);
-            if (detailedGoal) {
-                clarifying.done({ skipCallback: true });
-                assumptions.generate();
-            }
+        onGoalClear: (rawPrompt) => {
+            // Goal is already clear — go straight to assumptions with the raw prompt
+            goal.setResponse(rawPrompt);
+            clarifying.done({ skipCallback: true });
+            assumptions.generate(undefined, rawPrompt);
         },
         onGoalInvalid: () => {
             // Prompt is too vague/invalid — show suggestions
