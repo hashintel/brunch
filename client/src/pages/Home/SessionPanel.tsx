@@ -131,10 +131,18 @@ function CallDetailModal({ calls, onClose }: { calls: ClaudeCall[]; onClose: () 
 }
 
 /** Fields to hide from diffs — internal/noisy columns */
-const DIFF_HIDDEN_FIELDS = new Set(['pk', 'diff_type', 'project_id', 'parent_id', 'sort_order', 'created_at', 'updated_at']);
+const DIFF_HIDDEN_FIELDS = new Set([
+    'pk', 'diff_type', 'project_id', 'parent_id', 'sort_order', 'created_at', 'updated_at',
+    'commit', 'commit_date',  // Dolt metadata columns from DOLT_DIFF
+    'current_questions', 'current_answers', 'clarifying_state',  // transient/legacy blobs
+]);
 
 function formatCellValue(val: unknown): string {
     if (val == null) return '(empty)';
+    if (typeof val === 'object') {
+        const s = JSON.stringify(val);
+        return s.length > 120 ? s.slice(0, 120) + '\u2026' : s;
+    }
     const s = String(val);
     return s.length > 120 ? s.slice(0, 120) + '\u2026' : s;
 }
@@ -184,11 +192,15 @@ function DiffModal({ diff, onClose }: { diff: { tables: Record<string, DoltDiffR
             {tableNames.length === 0 && <p class="session-empty">No changes in this commit.</p>}
             {tableNames.map(table => {
                 const rows = diff.tables[table];
+                const realCount = rows.filter(r =>
+                    r.diff_type !== 'modified' || getModifiedFields(r).length > 0
+                ).length;
+                if (realCount === 0) return null;
                 return (
                     <div key={table} class="diff-table-section">
                         <div class="diff-table-header">
                             <strong>{table}</strong>
-                            <span class="diff-table-count">{rows.length} change{rows.length !== 1 ? 's' : ''}</span>
+                            <span class="diff-table-count">{realCount} change{realCount !== 1 ? 's' : ''}</span>
                         </div>
                         <div class="diff-table-rows">
                             {rows.map((row, i) => {
