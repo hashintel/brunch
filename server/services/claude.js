@@ -1,4 +1,5 @@
-import { query } from '@anthropic-ai/claude-agent-sdk';
+import { query, createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
+import { z } from 'zod';
 import pool from '../db.js';
 
 const READ_TOOLS = ['Read', 'Glob', 'Grep'];
@@ -88,6 +89,124 @@ export async function streamQueryText(prompt, modelId, res, cwd, projectId) {
         try {
             await pool.execute(LOG_SQL, [
                 modelId, 'streamQueryText', prompt,
+                fullText || null,
+                inputTokens || null, outputTokens || null, turns || null,
+                Date.now() - start,
+                error ? 'error' : 'success',
+                error?.message ?? null,
+                cwd ?? null,
+                projectId ?? null,
+            ]);
+        } catch (e) {
+            console.error('[db] failed to log claude call:', e.message);
+        }
+    }
+    return fullText;
+}
+
+export function createSetGoalMcpServer() {
+    return createSdkMcpServer({
+        name: 'assistant-tools',
+        version: '1.0.0',
+        tools: [
+            tool(
+                'set_goal',
+                'Set the goal text in the spec elicitation form. Use this when the user has agreed on a goal definition.',
+                { goal: z.string().describe('The goal text to set in the form') },
+                async ({ goal }) => {
+                    console.log('[set_goal] Tool called with goal:', goal.slice(0, 80));
+                    return { content: [{ type: 'text', text: 'Goal has been set successfully in the form.' }] };
+                },
+            ),
+        ],
+    });
+}
+
+export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projectId, mcpServers, mcpToolNames = new Set()) {
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
+
+    const start = Date.now();
+    const allMessages = [];
+    let fullText = '';
+    let error = null;
+    let currentTool = null;
+    let currentToolInput = '';
+
+    function sendEvent(obj) {
+        res.write(JSON.stringify(obj) + '\n');
+    }
+
+    try {
+        for await (const msg of query({
+            prompt,
+            options: {
+                model: modelId,
+                maxTurns: 10,
+                includePartialMessages: true,
+                mcpServers: mcpServers ?? {},
+                permissionMode: 'bypassPermissions',
+                allowDangerouslySkipPermissions: true,
+                ...cwdOptions(cwd),
+            },
+        })) {
+            allMessages.push(msg);
+            if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_delta' &&
+                msg.event.delta.type === 'text_delta'
+            ) {
+                sendEvent({ type: 'text', text: msg.event.delta.text });
+                fullText += msg.event.delta.text;
+            } else if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_delta' &&
+                msg.event.delta.type === 'input_json_delta' &&
+                currentTool && mcpToolNames.has(currentTool)
+            ) {
+                currentToolInput += msg.event.delta.partial_json ?? '';
+            } else if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_start' &&
+                msg.event.content_block?.type === 'tool_use'
+            ) {
+                currentTool = msg.event.content_block.name;
+                currentToolInput = '';
+                if (!mcpToolNames.has(currentTool)) {
+                    sendEvent({ type: 'tool_start', tool: currentTool });
+                }
+            } else if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_stop' &&
+                currentTool
+            ) {
+                if (mcpToolNames.has(currentTool)) {
+                    // Extract the original tool name (strip mcp__serverName__ prefix)
+                    const parts = currentTool.split('__');
+                    const originalName = parts.length >= 3 ? parts.slice(2).join('__') : currentTool;
+                    try {
+                        const input = JSON.parse(currentToolInput);
+                        sendEvent({ type: 'tool_use', tool: originalName, input });
+                    } catch {
+                        // If we can't parse the input, skip
+                    }
+                } else {
+                    sendEvent({ type: 'tool_end', tool: currentTool });
+                }
+                currentTool = null;
+                currentToolInput = '';
+            }
+        }
+        sendEvent({ type: 'done' });
+        res.end();
+    } catch (e) {
+        error = e;
+        throw e;
+    } finally {
+        const { inputTokens, outputTokens, turns } = extractUsage(allMessages);
+        try {
+            await pool.execute(LOG_SQL, [
+                modelId, 'streamQueryTextWithTools', prompt,
                 fullText || null,
                 inputTokens || null, outputTokens || null, turns || null,
                 Date.now() - start,

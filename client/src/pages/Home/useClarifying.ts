@@ -15,11 +15,12 @@ interface UseClarifyingParams {
         questions: ClarifyingQuestion[],
         answers: ClarifyingAnswer[],
     ) => void;
-    onNoQuestions?: () => void;
+    onGoalClear?: (rawPrompt: string) => void;
+    onGoalInvalid?: () => void;
 }
 
 export function useClarifying({
-    selectedModel, cwd, projectId, response, onError, onCallHistoryRefresh, onClarifyingDone, onNoQuestions,
+    selectedModel, cwd, projectId, response, onError, onCallHistoryRefresh, onClarifyingDone, onGoalClear, onGoalInvalid,
 }: UseClarifyingParams) {
     const [goalIterations, setGoalIterations] = useState<GoalIteration[]>([]);
     const [allQuestions, setAllQuestions] = useState<ClarifyingQuestion[]>([]);
@@ -42,7 +43,7 @@ export function useClarifying({
 
         try {
             const rounds = buildPreviousRounds(iterations, questions, answers);
-            const data = await apiFetch<{ done?: boolean; questions?: ClarifyingQuestion[] }>('/api/clarifyingquestions', {
+            const data = await apiFetch<{ done?: boolean; reason?: 'clear' | 'invalid'; questions?: ClarifyingQuestion[] }>('/api/clarifyingquestions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -56,9 +57,14 @@ export function useClarifying({
 
             if (data.done || !data.questions?.length) {
                 setQuestionsExhausted(true);
-                // No questions generated — goal likely needs refinement
-                if (allQuestions.length === 0) {
-                    onNoQuestions?.();
+                // No questions generated on first round — check reason
+                if (allQuestions.length === 0 && questions.length === 0) {
+                    if (data.reason === 'invalid') {
+                        onGoalInvalid?.();
+                    } else {
+                        // reason === 'clear' or unspecified with done=true
+                        onGoalClear?.(goalText);
+                    }
                 }
             } else {
                 setAllQuestions(prev => [...prev, ...data.questions!]);
@@ -119,7 +125,7 @@ export function useClarifying({
         maybePreloadQuestions(newAnswers);
     }
 
-    function done() {
+    function done({ skipCallback = false } = {}) {
         // Save final Q&A if any
         const finalIterations = allQuestions.length > 0
             ? [...goalIterations, { goalText: '', questions: allQuestions, answers: allAnswers }]
@@ -131,7 +137,9 @@ export function useClarifying({
             setAllAnswers([]);
         }
         setClarifyingDone(true);
-        onClarifyingDone(finalIterations, [], []);
+        if (!skipCallback) {
+            onClarifyingDone(finalIterations, [], []);
+        }
     }
 
     /** Called after goal update to reset Q&A for new round */

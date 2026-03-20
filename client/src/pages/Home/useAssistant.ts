@@ -9,15 +9,17 @@ interface UseAssistantParams {
     getGoalResponse: () => string;
     getAssumptions: () => Assumption[];
     getRequirements: () => Requirement[];
+    onSetGoal?: (goal: string) => void;
 }
 
-export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, getAssumptions, getRequirements }: UseAssistantParams) {
+export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, getAssumptions, getRequirements, onSetGoal }: UseAssistantParams) {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<AssistantMessage[]>([]);
     const [loading, setLoading] = useState(false);
     const [toolStatus, setToolStatus] = useState<{ tool: string } | null>(null);
     const [streamingContent, setStreamingContent] = useState('');
     const [pendingContext, setPendingContext] = useState<{ selectedText?: string; elementType?: string } | null>(null);
+    const [goalJustSet, setGoalJustSet] = useState(false);
     const abortRef = useRef<AbortController | null>(null);
 
     function buildPrompt(userText: string, context: { selectedText?: string; elementType?: string } | null): string {
@@ -27,6 +29,7 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
 
         let prompt = 'You are an AI assistant helping a user refine a project specification. ';
         prompt += 'Answer concisely and helpfully. When the user references parts of the spec, use the provided context.\n\n';
+        prompt += 'You have access to a set_goal tool. When the user has agreed on a goal definition or you have helped them refine their goal, use the set_goal tool to set it in the form.\n\n';
 
         if (goalResponse) {
             prompt += `## Current Goal\n${goalResponse}\n\n`;
@@ -81,6 +84,7 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
         setPendingContext(null);
         setLoading(true);
         setStreamingContent('');
+        setGoalJustSet(false);
 
         const prompt = buildPrompt(text, context);
         let fullText = '';
@@ -90,7 +94,7 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
             const stream = await apiFetchStream('/api/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: selectedModel, cwd: cwd || undefined, projectId: projectId || undefined }),
+                body: JSON.stringify({ prompt, model: selectedModel, cwd: cwd || undefined, projectId: projectId || undefined, assistant: true }),
                 signal: abortRef.current.signal,
             });
 
@@ -102,6 +106,9 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
                     setToolStatus({ tool: event.tool });
                 } else if (event.type === 'tool_end') {
                     setToolStatus(null);
+                } else if (event.type === 'tool_use' && event.tool === 'set_goal') {
+                    onSetGoal?.(event.input.goal);
+                    setGoalJustSet(true);
                 }
             }
 
@@ -128,7 +135,7 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
             setToolStatus(null);
             abortRef.current = null;
         }
-    }, [loading, pendingContext, messages, selectedModel, cwd, getGoalResponse, getAssumptions, getRequirements]);
+    }, [loading, pendingContext, messages, selectedModel, cwd, getGoalResponse, getAssumptions, getRequirements, onSetGoal]);
 
     function openWithContext(ctx: { selectedText?: string; elementType?: string }) {
         setPendingContext(ctx);
@@ -150,6 +157,7 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
         setLoading(false);
         setPendingContext(null);
         setIsOpen(false);
+        setGoalJustSet(false);
         if (abortRef.current) {
             abortRef.current.abort();
             abortRef.current = null;
@@ -182,6 +190,7 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
         toolStatus,
         streamingContent,
         pendingContext,
+        goalJustSet,
         send,
         open,
         openWithMessage,

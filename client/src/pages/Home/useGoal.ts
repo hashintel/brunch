@@ -17,6 +17,7 @@ export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryR
     const [response, setResponse] = useState('');
     const [loading, setLoading] = useState(false);
     const [updatingGoal, setUpdatingGoal] = useState(false);
+    const [generatingDetailedGoal, setGeneratingDetailedGoal] = useState(false);
     const [toolStatus, setToolStatus] = useState<{ tool: string } | null>(null);
     const goalTextareaRef = useRef<HTMLTextAreaElement>(null);
 
@@ -32,10 +33,46 @@ export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryR
     async function go() {
         if (!prompt.trim() || loading) return;
 
-        setResponse('');
         onError('');
         setLoading(true);
-        const originalPrompt = prompt;
+
+        try {
+            // Skip goal generation — go directly to clarifying questions with the raw prompt
+            onGoalReady(prompt, [], [], []);
+        } finally {
+            setLoading(false);
+        }
+    }
+
+    async function generateDetailedGoal(
+        rawPrompt: string,
+        goalIterations?: GoalIteration[],
+        allQuestions?: ClarifyingQuestion[],
+        allAnswers?: ClarifyingAnswer[],
+    ): Promise<string | null> {
+        if (generatingDetailedGoal || updatingGoal) return null;
+
+        setGeneratingDetailedGoal(true);
+        onError('');
+
+        // Build Q&A context if available
+        let enhancedPrompt = `You are a spec elicitation assistant. Take the following raw project idea and expand it into a detailed, well-structured goal description. Be specific about features, target users, and technical scope.\n\nRaw idea:\n${rawPrompt}`;
+
+        if (goalIterations?.length || (allQuestions?.length && allAnswers?.length)) {
+            const rounds = buildPreviousRounds(goalIterations ?? [], allQuestions ?? [], allAnswers ?? []);
+            const roundsText = rounds.map(r =>
+                r.questions.map((q, i) => {
+                    const a = r.answers[i];
+                    return `Q: ${q.question}\nA: ${formatAnswer(a)}`;
+                }).join('\n\n')
+            ).join('\n\n');
+
+            if (roundsText) {
+                enhancedPrompt += `\n\nThe user answered the following clarifying questions:\n\n${roundsText}\n\nIncorporate these answers into the detailed goal.`;
+            }
+        }
+
+        const savedPrompt = prompt;
         setPrompt('');
 
         let fullText = '';
@@ -43,7 +80,7 @@ export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryR
             const stream = await apiFetchStream('/api/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt: originalPrompt, model: selectedModel, cwd: cwd || undefined, projectId: projectId || undefined }),
+                body: JSON.stringify({ prompt: enhancedPrompt, model: selectedModel, cwd: cwd || undefined, projectId: projectId || undefined }),
             });
 
             for await (const event of streamNDJSON(stream)) {
@@ -58,11 +95,13 @@ export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryR
             }
 
             setResponse(fullText);
-            onGoalReady(fullText, [], [], []);
+            return fullText;
         } catch (e) {
-            onError(e instanceof Error ? e.message : 'Something went wrong');
+            onError(e instanceof Error ? e.message : 'Failed to generate detailed goal');
+            setPrompt(savedPrompt);
+            return null;
         } finally {
-            setLoading(false);
+            setGeneratingDetailedGoal(false);
             setToolStatus(null);
             onCallHistoryRefresh();
         }
@@ -138,6 +177,7 @@ export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryR
         setPrompt('');
         setResponse('');
         setUpdatingGoal(false);
+        setGeneratingDetailedGoal(false);
     }
 
     return {
@@ -145,9 +185,11 @@ export function useGoal({ selectedModel, cwd, projectId, onError, onCallHistoryR
         response, setResponse,
         loading,
         updatingGoal,
+        generatingDetailedGoal,
         toolStatus,
         goalTextareaRef,
         go,
+        generateDetailedGoal,
         updateGoal,
         restore,
         reset,

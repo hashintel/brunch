@@ -22,7 +22,11 @@ router.post('/clarifyingquestions', asyncHandler(async (req, res) => {
 
     userContent += `You are a spec elicitation assistant. Based on the goal above${previousRounds?.length ? ' and the previous answers' : ''}, generate 3-5 multi-choice clarifying questions about ambiguities that would change the shape of the specification if answered differently. Each question should have 2-5 options. For each question, explain why it matters for the spec in the "why" field.
 
-If the goal is already clear enough and no more clarification is needed, set "done" to true and return an empty questions array.`;
+If the goal is already clear enough and no more clarification is needed, set "done" to true, return an empty questions array, and set "reason" to "clear".
+
+If the prompt is too vague, meaningless, or not a real project description (e.g. random characters, single words without context, nonsensical input), set "done" to true, return an empty questions array, and set "reason" to "invalid".
+
+Only set "reason" when "done" is true.`;
 
     const output = await queryStructured(userContent, modelId, clarifyingQuestionsSchema, cwd, projectId);
     res.json(output);

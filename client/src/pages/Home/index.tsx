@@ -21,12 +21,20 @@ import { AssistantTrigger } from './AssistantTrigger';
 
 const STEPS = ['Goal', 'Assumptions', 'Requirements'] as const;
 
+const GOAL_SUGGESTIONS = [
+    'Build a todo list app',
+    'Build a weather app',
+    'Build a chat application',
+    'Build a blog platform',
+];
+
 export function Home() {
     const [error, setError] = useState('');
     const [projectName, setProjectName] = useState('');
     const [cwd, setCwd] = useState('');
     const [selectedModel, setSelectedModel] = useState('claude-haiku-4-5');
     const [models, setModels] = useState<Model[]>([]);
+    const [showInvalidGoalSuggestions, setShowInvalidGoalSuggestions] = useState(false);
 
     useEffect(() => {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
@@ -52,17 +60,32 @@ export function Home() {
         response: goal.response,
         onError: setError,
         onCallHistoryRefresh: session.refreshCallHistory,
-        onClarifyingDone: (iterations, questions, answers) => {
-            const rounds = buildPreviousRounds(iterations, questions, answers);
-            assumptions.generate(rounds);
+        onClarifyingDone: async (iterations, questions, answers) => {
+            // Generate detailed goal from raw prompt + Q&A, then proceed to assumptions
+            const detailedGoal = await goal.generateDetailedGoal(
+                goal.prompt || goal.response,
+                iterations,
+                questions,
+                answers,
+            );
+            if (detailedGoal) {
+                const rounds = buildPreviousRounds(iterations, questions, answers);
+                assumptions.generate(rounds);
+            }
         },
-        onNoQuestions: () => {
-            // Reset goal so user can edit and re-generate
+        onGoalClear: async (rawPrompt) => {
+            // Goal is already clear — generate detailed goal, then auto-proceed to assumptions
+            const detailedGoal = await goal.generateDetailedGoal(rawPrompt);
+            if (detailedGoal) {
+                clarifying.done({ skipCallback: true });
+                assumptions.generate();
+            }
+        },
+        onGoalInvalid: () => {
+            // Prompt is too vague/invalid — show suggestions
+            setShowInvalidGoalSuggestions(true);
             goal.setResponse('');
             clarifying.reset();
-            assistant.openWithMessage(
-                'I wasn\'t able to generate clarifying questions from your input \u2014 it may need more detail to kick off the spec process.\n\nTry describing a concrete project or feature you want to build. For example:\n\u2022 What problem are you solving?\n\u2022 Who are the users?\n\u2022 What are the key features?\n\nEdit your goal in the text box and hit Generate again, or chat with me here and I\'ll help you shape it.'
-            );
         },
     });
 
@@ -92,12 +115,17 @@ export function Home() {
         getGoalResponse: () => goal.response,
         getAssumptions: () => assumptions.assumptions,
         getRequirements: () => req.requirements,
+        onSetGoal: (goalText) => {
+            goal.setPrompt(goalText);
+            setShowInvalidGoalSuggestions(false);
+            assistant.close();
+        },
     });
 
     const versions = useVersions();
     const isCheckedOut = !!versions.checkedOutHash;
 
-    const anyBusy = goal.loading || goal.updatingGoal || clarifying.loadingQuestions;
+    const anyBusy = goal.loading || goal.updatingGoal || goal.generatingDetailedGoal || clarifying.loadingQuestions;
 
     const autoSaveData = {
         name: projectName,
@@ -165,6 +193,7 @@ export function Home() {
         setError('');
         setProjectName('');
         setCwd('');
+        setShowInvalidGoalSuggestions(false);
         session.setCurrentSessionId(null);
         session.setCallHistory([]);
     }
@@ -386,21 +415,55 @@ export function Home() {
                                 ref={goal.goalTextareaRef}
                                 class="textarea"
                                 value={goal.prompt}
-                                onInput={e => goal.setPrompt(e.currentTarget.value)}
+                                onInput={e => { goal.setPrompt(e.currentTarget.value); setShowInvalidGoalSuggestions(false); }}
                                 placeholder="Describe your goal. What do you want to build?"
-                                disabled={isCheckedOut || goal.loading || goal.updatingGoal}
+                                disabled={isCheckedOut || goal.loading || goal.updatingGoal || goal.generatingDetailedGoal}
                             />
 
                             {/* Tool status during goal generation */}
-                            {(goal.loading || goal.updatingGoal) && (
+                            {(goal.loading || goal.updatingGoal || goal.generatingDetailedGoal) && (
                                 <LoadingIndicator
-                                    message={goal.updatingGoal ? 'Updating goal' : 'Generating goal'}
+                                    message={goal.generatingDetailedGoal ? 'Generating detailed goal' : goal.updatingGoal ? 'Updating goal' : 'Checking goal'}
                                     toolStatus={goal.toolStatus}
                                 />
                             )}
 
-                            {/* Clarifying questions (after first generation, before done) */}
-                            {goal.response && !clarifying.clarifyingDone && (
+                            {/* Invalid goal suggestions */}
+                            {showInvalidGoalSuggestions && (
+                                <div class="invalid-goal-suggestions">
+                                    <p class="invalid-goal-message">Your prompt needs more detail to start the spec process. Try one of these:</p>
+                                    <div class="invalid-goal-buttons">
+                                        {GOAL_SUGGESTIONS.map(suggestion => (
+                                            <button
+                                                key={suggestion}
+                                                class="invalid-goal-suggestion"
+                                                onClick={() => { goal.setPrompt(suggestion); setShowInvalidGoalSuggestions(false); }}
+                                            >
+                                                {suggestion}
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <button
+                                        class="button button--secondary"
+                                        onClick={() => {
+                                            assistant.openWithMessage(
+                                                'Your prompt was too vague for me to generate clarifying questions. Let\u2019s work together to define a clear project goal.\n\nWhat kind of project are you thinking about? Tell me:\n\u2022 What problem are you solving?\n\u2022 Who are the users?\n\u2022 What are the key features?\n\nOnce we have a solid goal, I\u2019ll set it in the form for you.'
+                                            );
+                                            setShowInvalidGoalSuggestions(false);
+                                        }}
+                                    >
+                                        Open Assistant
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Loading indicator for initial clarifying questions fetch */}
+                            {clarifying.loadingQuestions && clarifying.allQuestions.length === 0 && !goal.loading && !goal.generatingDetailedGoal && (
+                                <LoadingIndicator message="Analyzing goal" toolStatus={null} />
+                            )}
+
+                            {/* Clarifying questions (after questions received, before done) */}
+                            {clarifying.allQuestions.length > 0 && !clarifying.clarifyingDone && (
                                 <ClarifyingQuestions
                                     questions={clarifying.allQuestions}
                                     answers={clarifying.allAnswers}
@@ -419,8 +482,8 @@ export function Home() {
                                 </div>
                             )}
 
-                            {/* Initial generate button (only before first response) */}
-                            {!goal.response && (
+                            {/* Initial generate button (only before clarifying questions or goal generated) */}
+                            {!goal.response && clarifying.allQuestions.length === 0 && !clarifying.loadingQuestions && (
                                 <button class="button" onClick={goal.go} disabled={isCheckedOut || anyBusy || !goal.prompt.trim()}>
                                     {goal.loading ? 'Generating\u2026' : 'Generate'}
                                 </button>
@@ -505,6 +568,7 @@ export function Home() {
                 toolStatus={assistant.toolStatus}
                 streamingContent={assistant.streamingContent}
                 pendingContext={assistant.pendingContext}
+                goalJustSet={assistant.goalJustSet}
                 onSend={assistant.send}
                 onClose={assistant.close}
                 onDismissContext={assistant.dismissContext}

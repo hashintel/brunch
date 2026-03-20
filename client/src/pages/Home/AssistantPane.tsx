@@ -9,6 +9,7 @@ interface AssistantPaneProps {
     toolStatus: { tool: string } | null;
     streamingContent: string;
     pendingContext: { selectedText?: string; elementType?: string } | null;
+    goalJustSet?: boolean;
     onSend: (text: string) => void;
     onClose: () => void;
     onDismissContext: () => void;
@@ -21,6 +22,7 @@ export function AssistantPane({
     toolStatus,
     streamingContent,
     pendingContext,
+    goalJustSet,
     onSend,
     onClose,
     onDismissContext,
@@ -112,6 +114,12 @@ export function AssistantPane({
                 {loading && streamingContent && (
                     <div class="assistant-message assistant-message--assistant">
                         <div class="assistant-message-content">{streamingContent}</div>
+                    </div>
+                )}
+
+                {goalJustSet && (
+                    <div class="assistant-goal-set-notice">
+                        Goal has been set in the form.
                     </div>
                 )}
 

@@ -21,6 +21,7 @@ export type NDJSONEvent =
     | { type: 'text'; text: string }
     | { type: 'tool_start'; tool: string }
     | { type: 'tool_end'; tool: string }
+    | { type: 'tool_use'; tool: string; input: Record<string, unknown> }
     | { type: 'done' };
 
 export async function* streamNDJSON(stream: ReadableStream<Uint8Array>): AsyncGenerator<NDJSONEvent> {

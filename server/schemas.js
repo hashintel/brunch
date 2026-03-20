@@ -23,6 +23,7 @@ export const clarifyingQuestionsSchema = {
             },
         },
         done: { type: 'boolean' },
+        reason: { type: 'string', enum: ['clear', 'invalid'] },
     },
     required: ['questions', 'done'],
     additionalProperties: false,
