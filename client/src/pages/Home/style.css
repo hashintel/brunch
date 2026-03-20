@@ -2906,9 +2906,7 @@ tr.requirement--drag-over td {
 }
 
 .version-uncommitted {
-    display: flex;
-    flex-direction: column;
-    gap: 0.3rem;
+    margin-bottom: 0.25rem;
 }
 
 .version-status-badge {
@@ -2917,41 +2915,36 @@ tr.requirement--drag-over td {
     color: #e08a00;
 }
 
-.version-uncommitted-list {
-    display: flex;
-    flex-direction: column;
-    gap: 0.1rem;
-    padding: 0.3rem 0.5rem;
-    background: #fefce8;
-    border-radius: 4px;
-    border: 1px solid #fde68a;
-}
-
-.version-uncommitted-item {
+.version-uncommitted-btn {
     display: flex;
     align-items: center;
-    gap: 0.4rem;
-    font-size: 0.75rem;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.35rem 0.5rem;
+    background: #fefce8;
+    border: 1px solid #fde68a;
+    border-radius: 4px;
+    cursor: pointer;
+    text-align: left;
 }
 
-.version-uncommitted-status {
-    font-size: 0.7rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
-    min-width: 4.5em;
+.version-uncommitted-btn:hover {
+    background: #fef9c3;
+    border-color: #fcd34d;
 }
 
-.version-uncommitted-status--modified { color: #d97706; }
-.version-uncommitted-status--added,
-.version-uncommitted-status--new { color: #16a34a; }
-.version-uncommitted-status--removed,
-.version-uncommitted-status--deleted { color: #dc2626; }
+.version-uncommitted-btn:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
 
-.version-uncommitted-table {
+.version-uncommitted-tables {
     font-family: 'SF Mono', 'Fira Code', monospace;
-    font-size: 0.75rem;
-    color: #374151;
+    font-size: 0.72rem;
+    color: #78716c;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .version-log {
@@ -3189,13 +3182,9 @@ tr.requirement--drag-over td {
 
 @media (prefers-color-scheme: dark) {
     .version-status-badge { color: #fbbf24; }
-    .version-uncommitted-list { background: #2a2714; border-color: #4a3f1a; }
-    .version-uncommitted-status--modified { color: #fbbf24; }
-    .version-uncommitted-status--added,
-    .version-uncommitted-status--new { color: #4ade80; }
-    .version-uncommitted-status--removed,
-    .version-uncommitted-status--deleted { color: #f87171; }
-    .version-uncommitted-table { color: #aaa; }
+    .version-uncommitted-btn { background: #2a2714; border-color: #4a3f1a; }
+    .version-uncommitted-btn:hover { background: #332f10; border-color: #5a4f1a; }
+    .version-uncommitted-tables { color: #888; }
     .version-log-item { border-bottom-color: #333; }
     .version-log-hash { color: #a07ee0; }
     .version-log-message { color: #aaa; }

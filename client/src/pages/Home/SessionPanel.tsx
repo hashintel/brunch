@@ -51,6 +51,7 @@ type Props = {
     versionCommitting: boolean;
     onVersionCommit: (msg: string) => void;
     onVersionViewDiff: (hash: string) => void;
+    onVersionViewWorkingDiff: () => void;
     onVersionRevert: (hash: string) => void;
     versionSelectedDiff: { tables: Record<string, DoltDiffRow[]>; from: string; to: string } | null;
     onVersionCloseDiff: () => void;
@@ -278,7 +279,7 @@ function rowLabel(row: DoltDiffRow): string | null {
 function DiffModal({ diff, onClose }: { diff: { tables: Record<string, DoltDiffRow[]>; from: string; to: string }; onClose: () => void }) {
     const tableNames = Object.keys(diff.tables);
     return (
-        <ModalShell title={`Diff ${diff.from?.slice(0, 7) ?? '?'} → ${diff.to?.slice(0, 7) ?? '?'}`} onClose={onClose}>
+        <ModalShell title={diff.from === 'HEAD' ? 'Uncommitted Changes' : `Diff ${diff.from?.slice(0, 7) ?? '?'} \u2192 ${diff.to?.slice(0, 7) ?? '?'}`} onClose={onClose}>
             {tableNames.length === 0 && <p class="session-empty">No changes in this commit.</p>}
             {tableNames.map(table => {
                 const rows = diff.tables[table];
@@ -351,7 +352,7 @@ export function SessionPanel({
     models, selectedModel, onModelChange, callHistory, disabled,
     assumptionCount, confirmedAssumptionCount, requirementCount, clarifyingRoundCount,
     versionCommits, versionChanges, versionCommitMessage, onVersionCommitMessageChange,
-    versionCommitting, onVersionCommit, onVersionViewDiff, onVersionRevert,
+    versionCommitting, onVersionCommit, onVersionViewDiff, onVersionViewWorkingDiff, onVersionRevert,
     versionSelectedDiff, onVersionCloseDiff, versionLoadingDiffHash,
     versionCheckedOutHash, versionLoadingCheckoutHash, onVersionCheckout,
 }: Props) {
@@ -470,15 +471,19 @@ export function SessionPanel({
                         <strong class="sidebar-section-title">Version History</strong>
                         {versionChanges.length > 0 && (
                             <div class="version-uncommitted">
-                                <span class="version-status-badge">{versionChanges.length} uncommitted change{versionChanges.length !== 1 ? 's' : ''}</span>
-                                <div class="version-uncommitted-list">
-                                    {versionChanges.map(c => (
-                                        <div key={c.table_name} class="version-uncommitted-item">
-                                            <span class={`version-uncommitted-status version-uncommitted-status--${c.status}`}>{c.status}</span>
-                                            <span class="version-uncommitted-table">{c.table_name}</span>
-                                        </div>
-                                    ))}
-                                </div>
+                                <button
+                                    class="version-uncommitted-btn"
+                                    onClick={onVersionViewWorkingDiff}
+                                    disabled={versionLoadingDiffHash === 'working'}
+                                    title="View uncommitted changes"
+                                >
+                                    <span class="version-status-badge">
+                                        {versionLoadingDiffHash === 'working' ? '...' : `${versionChanges.length} uncommitted change${versionChanges.length !== 1 ? 's' : ''}`}
+                                    </span>
+                                    <span class="version-uncommitted-tables">
+                                        {versionChanges.map(c => c.table_name).join(', ')}
+                                    </span>
+                                </button>
                             </div>
                         )}
                         <div class="version-commit-form">

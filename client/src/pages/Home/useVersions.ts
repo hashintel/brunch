@@ -67,6 +67,20 @@ export function useVersions() {
         }
     }, []);
 
+    const viewWorkingDiff = useCallback(async () => {
+        setLoadingDiffHash('working');
+        try {
+            const data = await apiFetch<{ tables: Record<string, DoltDiffRow[]>; from: string; to: string }>(
+                '/api/versions/diff/working'
+            );
+            setSelectedDiff(data);
+        } catch (e: any) {
+            console.error('Working diff failed:', e.message);
+        } finally {
+            setLoadingDiffHash(null);
+        }
+    }, []);
+
     const checkout = useCallback(async (hash: string, sessionId: string): Promise<SessionData | null> => {
         setLoadingCheckoutHash(hash);
         try {
@@ -115,6 +129,7 @@ export function useVersions() {
         refreshStatus,
         commit,
         viewDiff,
+        viewWorkingDiff,
         revert,
         checkout,
         exitCheckout,

@@ -253,6 +253,7 @@ export function Home() {
                     versionCommitting={versions.committing}
                     onVersionCommit={versions.commit}
                     onVersionViewDiff={versions.viewDiff}
+                    onVersionViewWorkingDiff={versions.viewWorkingDiff}
                     onVersionRevert={handleVersionRevert}
                     versionSelectedDiff={versions.selectedDiff}
                     onVersionCloseDiff={() => versions.setSelectedDiff(null)}

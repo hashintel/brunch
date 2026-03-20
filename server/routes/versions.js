@@ -38,6 +38,27 @@ router.get('/versions/log', asyncHandler(async (req, res) => {
     res.json({ commits: rows });
 }));
 
+// GET /api/versions/diff/working — diff HEAD vs working (uncommitted changes)
+router.get('/versions/diff/working', asyncHandler(async (_req, res) => {
+    const tables = {};
+    const tableNames = ['project', 'entry', 'assumption', 'goal_iteration'];
+
+    for (const table of tableNames) {
+        try {
+            const [rows] = await pool.query(
+                `SELECT * FROM DOLT_DIFF('HEAD', 'WORKING', '${table}')`
+            );
+            if (rows.length > 0) {
+                tables[table] = rows;
+            }
+        } catch (e) {
+            console.log(`[versions] working diff ${table}: ${e.message}`);
+        }
+    }
+
+    res.json({ tables, from: 'HEAD', to: 'WORKING' });
+}));
+
 // Dolt commit hashes are 32-char base-36 (0-9a-v)
 const COMMIT_HASH_RE = /^[0-9a-v]{32}$/;
 
