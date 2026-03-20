@@ -63,8 +63,9 @@ CREATE TABLE IF NOT EXISTS `claude_call` (
     `status`        VARCHAR(50) NOT NULL DEFAULT 'success',
     `error`         TEXT,
     `cwd`           TEXT,
-    `project_id`    INT REFERENCES `project`(`pk`),
-    `created_at`    DATETIME NOT NULL DEFAULT NOW()
+    `project_id`    INT,
+    `created_at`    DATETIME NOT NULL DEFAULT NOW(),
+    FOREIGN KEY (`project_id`) REFERENCES `project`(`pk`) ON DELETE SET NULL
 );
 
 CREATE INDEX `IDX_claude_call_model`      ON `claude_call`(`model`);

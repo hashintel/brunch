@@ -13,11 +13,7 @@ dist-ssr
 *.local
 
 .dolt
-
-# Database
-server/data/brunch.db
-server/data/brunch.db-wal
-server/data/brunch.db-shm
+.doltcfg
 
 # Environment
 .env
@@ -36,3 +32,5 @@ server/data/brunch.db-shm
 *.sw?
 
 bun.lock
+.notes.md
+brunch.db*

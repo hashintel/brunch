@@ -16,7 +16,21 @@ const pool = mysql.createPool({
 
 export default pool;
 
-export async function initDb() {
+export async function initDb({ retries = 10, delayMs = 2000 } = {}) {
+    // Wait for Dolt to be ready (relevant for `npm run dev` without docker-compose healthcheck)
+    for (let attempt = 1; attempt <= retries; attempt++) {
+        try {
+            await pool.execute('SELECT 1');
+            break;
+        } catch (err) {
+            if (attempt === retries) {
+                throw new Error(`[db] could not connect after ${retries} attempts: ${err.message}`);
+            }
+            console.log(`[db] waiting for Dolt (attempt ${attempt}/${retries})...`);
+            await new Promise(r => setTimeout(r, delayMs));
+        }
+    }
+
     // Check if tables exist; if not, run init.sql
     const [rows] = await pool.execute(
         `SELECT COUNT(*) AS cnt FROM information_schema.tables WHERE table_schema = ? AND table_name = 'project'`,
@@ -24,8 +38,8 @@ export async function initDb() {
     );
     if (rows[0].cnt === 0) {
         const initSql = readFileSync(resolve(__dirname, 'migrations', 'dolt', 'init.sql'), 'utf-8');
-        // Split on semicolons and execute each statement
-        const statements = initSql.split(';').map(s => s.trim()).filter(s => s.length > 0);
+        // Execute each statement individually (split on semicolons outside of strings)
+        const statements = initSql.split(/;\s*$/m).map(s => s.trim()).filter(s => s.length > 0);
         for (const stmt of statements) {
             await pool.execute(stmt);
         }

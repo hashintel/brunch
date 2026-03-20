@@ -2,7 +2,7 @@ services:
   dolt:
     image: dolthub/dolt-sql-server:latest
     ports:
-      - "3306:3306"
+      - "3307:3306"
     volumes:
       - dolt-data:/var/lib/dolt
       - ./server/migrations/dolt:/docker-entrypoint-initdb.d
@@ -24,7 +24,7 @@ services:
         condition: service_healthy
     environment:
       DOLT_HOST: dolt
-      DOLT_PORT: 3306
+      DOLT_PORT: 3306  # internal Docker network, not the host-mapped port
       DOLT_USER: root
       DOLT_PASSWORD: ""
       DOLT_DATABASE: brunch

@@ -37,12 +37,14 @@ router.get('/versions/log', asyncHandler(async (req, res) => {
     res.json({ commits: rows });
 }));
 
+// Dolt commit hashes are 32-char base-36 (0-9a-v)
+const COMMIT_HASH_RE = /^[0-9a-v]{32}$/;
+
 // GET /api/versions/diff/:commitHash — diff vs parent using DOLT_DIFF() table function
 router.get('/versions/diff/:commitHash', asyncHandler(async (req, res) => {
     const { commitHash } = req.params;
 
-    // Validate commitHash is alphanumeric (Dolt uses base-36: 0-9a-z, 32 chars)
-    if (!/^[0-9a-z]+$/i.test(commitHash)) {
+    if (!COMMIT_HASH_RE.test(commitHash)) {
         return res.status(400).json({ error: 'Invalid commit hash' });
     }
 
@@ -71,6 +73,11 @@ router.get('/versions/diff/:commitHash', asyncHandler(async (req, res) => {
 // POST /api/versions/revert/:commitHash — hard reset
 router.post('/versions/revert/:commitHash', asyncHandler(async (req, res) => {
     const { commitHash } = req.params;
+
+    if (!COMMIT_HASH_RE.test(commitHash)) {
+        return res.status(400).json({ error: 'Invalid commit hash' });
+    }
+
     const conn = await pool.getConnection();
     try {
         await conn.execute("CALL DOLT_RESET('--hard', ?)", [commitHash]);
