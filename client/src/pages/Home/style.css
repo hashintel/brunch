@@ -866,6 +866,16 @@ tr.requirement--drag-over td {
     gap: 0.5rem;
 }
 
+.requirement-chat-btn {
+    margin-left: auto;
+}
+
+.requirement-chat-btn:hover,
+.requirement-action-chat:hover {
+    border-color: #673ab8;
+    color: #673ab8;
+}
+
 /* ── Edit Modal ── */
 .modal-backdrop {
     position: fixed;
@@ -1654,6 +1664,11 @@ tr.requirement--drag-over td {
     }
     .requirement-action-remove:hover {
         color: #f88;
+    }
+    .requirement-chat-btn:hover,
+    .requirement-action-chat:hover {
+        border-color: #a07ee0;
+        color: #a07ee0;
     }
     .requirement-edit-input,
     .requirement-edit-textarea {

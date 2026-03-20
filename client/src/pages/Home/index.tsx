@@ -1,6 +1,6 @@
 import './style.css';
 import { useEffect, useState, useRef } from 'preact/hooks';
-import type { Model, Assumption } from './types';
+import type { Model, Assumption, Requirement } from './types';
 import { RequirementList } from './RequirementList';
 import { SessionPanel } from './SessionPanel';
 import { ClarifyingQuestions } from './ClarifyingQuestions';
@@ -38,6 +38,9 @@ export function Home() {
     const [focusedAssumption, setFocusedAssumption] = useState<Assumption | null>(null);
     const focusedAssumptionRef = useRef<Assumption | null>(null);
     focusedAssumptionRef.current = focusedAssumption;
+    const [focusedRequirement, setFocusedRequirement] = useState<Requirement | null>(null);
+    const focusedRequirementRef = useRef<Requirement | null>(null);
+    focusedRequirementRef.current = focusedRequirement;
 
     useEffect(() => {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
@@ -129,6 +132,24 @@ export function Home() {
                     };
                 }),
             );
+        },
+        getFocusedRequirement: () => focusedRequirementRef.current,
+        onUpdateRequirement: (update) => {
+            function updateReqInTree(reqs: Requirement[]): Requirement[] {
+                return reqs.map(r => {
+                    if (r.id === update.id) {
+                        return {
+                            ...r,
+                            ...(update.title != null ? { title: update.title } : {}),
+                            ...(update.definition != null ? { definition: update.definition } : {}),
+                            ...(update.confidence != null ? { confidence: update.confidence } : {}),
+                            ...(update.stage != null ? { stage: update.stage as Requirement['stage'] } : {}),
+                        };
+                    }
+                    return { ...r, children: updateReqInTree(r.children) };
+                });
+            }
+            req.setRequirements(prev => updateReqInTree(prev));
         },
     });
 
@@ -565,6 +586,12 @@ export function Home() {
                                                 pendingTests={req.pendingTests}
                                                 onApprovePendingTests={req.approvePendingTests}
                                                 onCancelPendingTests={req.cancelPendingTests}
+                                                onChat={(r) => {
+                                                    setFocusedRequirement(r);
+                                                    assistant.openWithMessage(
+                                                        `Let's discuss this requirement:\n\n**"${r.title}"**\n\n${r.definition}\n\nConfidence: ${Math.round(r.confidence * 100)}% | Stage: ${r.stage}${r.tests.length > 0 ? `\n\nTests: ${r.tests.map(t => `${t.type}: ${t.description}`).join('; ')}` : ''}\n\nWhat would you like to know or change about this requirement?`
+                                                    );
+                                                }}
                                             />
                                         )}
                                         <button
@@ -596,7 +623,7 @@ export function Home() {
                 pendingContext={assistant.pendingContext}
                 goalJustSet={assistant.goalJustSet}
                 onSend={assistant.send}
-                onClose={() => { assistant.close(); setFocusedAssumption(null); }}
+                onClose={() => { assistant.close(); setFocusedAssumption(null); setFocusedRequirement(null); }}
                 onDismissContext={assistant.dismissContext}
             />
         </div>

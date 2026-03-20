@@ -133,6 +133,21 @@ export function createAssistantMcpServer() {
                     return { content: [{ type: 'text', text: `Assumption ${id} has been updated successfully.` }] };
                 },
             ),
+            tool(
+                'update_requirement',
+                'Update a requirement in the spec. Use this when the user wants to change the title, definition, confidence, or stage of a requirement.',
+                {
+                    id: z.string().describe('The requirement ID to update'),
+                    title: z.string().optional().describe('New title for the requirement'),
+                    definition: z.string().optional().describe('New definition for the requirement'),
+                    confidence: z.number().min(0).max(1).optional().describe('New confidence level (0-1)'),
+                    stage: z.enum(['proposal', 'approved', 'completed']).optional().describe('New stage'),
+                },
+                async ({ id, title, definition, confidence, stage }) => {
+                    console.log('[update_requirement] Tool called for id:', id);
+                    return { content: [{ type: 'text', text: `Requirement ${id} has been updated successfully.` }] };
+                },
+            ),
         ],
     });
 }

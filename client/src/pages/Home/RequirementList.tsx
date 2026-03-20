@@ -30,6 +30,7 @@ interface Props {
     pendingTests: { reqId: string; tests: TestCase[] } | null;
     onApprovePendingTests: (approved: TestCase[]) => void;
     onCancelPendingTests: () => void;
+    onChat?: (requirement: Requirement) => void;
 }
 
 const STAGE_ORDER: Requirement['stage'][] = ['proposal', 'approved', 'completed'];
@@ -338,7 +339,7 @@ function TestEntries({ tests, visible, onToggle, compact }: { tests: TestCase[];
 // ── Sortable card (list view DnD) ──
 
 function SortableItem({
-    item, onEdit, onRemove, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId, testsVisible, onToggleTests, projectedDepth, isDragOverlay,
+    item, onEdit, onRemove, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId, testsVisible, onToggleTests, projectedDepth, isDragOverlay, onChat,
 }: {
     item: FlatItem;
     onEdit: (id: string) => void;
@@ -351,6 +352,7 @@ function SortableItem({
     onToggleTests: (id: string) => void;
     projectedDepth?: number;
     isDragOverlay?: boolean;
+    onChat?: (req: Requirement) => void;
 }) {
     const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id: item.id });
     const depth = projectedDepth ?? item.depth;
@@ -385,6 +387,11 @@ function SortableItem({
                 <button class="requirement-expand-btn" onClick={() => onGenerateTests(item.id)} disabled={generatingTestsId === item.id}>
                     {generatingTestsId === item.id ? 'Generating\u2026' : 'Generate Tests'}
                 </button>
+                {onChat && (
+                    <button class="requirement-expand-btn requirement-chat-btn" onClick={() => onChat(item.req)} title="Discuss with assistant">
+                        Chat
+                    </button>
+                )}
             </div>
         </div>
     );
@@ -466,7 +473,7 @@ function computeLayout(requirements: Requirement[]): Record<string, NodePos> {
 }
 
 function CanvasView({
-    requirements, onEdit, onRemove, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId, isTestsVisible, onToggleTests,
+    requirements, onEdit, onRemove, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId, isTestsVisible, onToggleTests, onChat,
 }: {
     requirements: Requirement[];
     onEdit: (id: string) => void;
@@ -477,6 +484,7 @@ function CanvasView({
     generatingTestsId: string | null;
     isTestsVisible: (id: string) => boolean;
     onToggleTests: (id: string) => void;
+    onChat?: (req: Requirement) => void;
 }) {
     const containerRef = useRef<HTMLDivElement>(null);
     const [positions, setPositions] = useState<Record<string, NodePos>>({});
@@ -607,6 +615,11 @@ function CanvasView({
                                 <button class="requirement-expand-btn" onClick={() => onGenerateTests(item.id)} disabled={generatingTestsId === item.id}>
                                     {generatingTestsId === item.id ? 'Generating\u2026' : 'Tests'}
                                 </button>
+                                {onChat && (
+                                    <button class="requirement-expand-btn requirement-chat-btn" onClick={() => onChat(item.req)} title="Discuss with assistant">
+                                        Chat
+                                    </button>
+                                )}
                             </div>
                         </div>
                     );
@@ -618,7 +631,7 @@ function CanvasView({
 
 // ── Main component ──
 
-export function RequirementList({ requirements, onUpdate, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId, pendingTests, onApprovePendingTests, onCancelPendingTests }: Props) {
+export function RequirementList({ requirements, onUpdate, onGenerateChildren, onGenerateTests, generatingChildrenId, generatingTestsId, pendingTests, onApprovePendingTests, onCancelPendingTests, onChat }: Props) {
     const [view, setView] = useState<'list' | 'table' | 'canvas'>('list');
     const [search, setSearch] = useState('');
     const [sort, setSort] = useState<SortField>('none');
@@ -860,6 +873,10 @@ export function RequirementList({ requirements, onUpdate, onGenerateChildren, on
                                             disabled={generatingChildrenId === item.id} title="Generate Subrequirements">&#8690;</button>
                                         <button class="requirement-action" onClick={() => onGenerateTests(item.id)}
                                             disabled={generatingTestsId === item.id} title="Generate Tests">&#9881;</button>
+                                        {onChat && (
+                                            <button class="requirement-action requirement-action-chat"
+                                                onClick={() => onChat(item.req)} title="Discuss with assistant">&#128172;</button>
+                                        )}
                                         <button class="requirement-action requirement-action-remove"
                                             onClick={() => handleRemoveById(item.id)} title="Remove">&times;</button>
                                     </td>
@@ -881,6 +898,7 @@ export function RequirementList({ requirements, onUpdate, onGenerateChildren, on
                         generatingTestsId={generatingTestsId}
                         isTestsVisible={isTestsVisible}
                         onToggleTests={toggleTestsForId}
+                        onChat={onChat}
                     />
                     <button class="requirement-add-btn" onClick={openAdd}>+ Add requirement</button>
                 </>
@@ -896,6 +914,7 @@ export function RequirementList({ requirements, onUpdate, onGenerateChildren, on
                                 onGenerateChildren={onGenerateChildren} onGenerateTests={onGenerateTests}
                                 generatingChildrenId={generatingChildrenId} generatingTestsId={generatingTestsId}
                                 testsVisible={isTestsVisible(item.id)} onToggleTests={toggleTestsForId}
+                                onChat={onChat}
                                 projectedDepth={
                                     activeId && overId && item.id !== activeId ? undefined
                                     : item.id === activeId && projectedDepth != null ? projectedDepth

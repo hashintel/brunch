@@ -12,9 +12,11 @@ interface UseAssistantParams {
     onSetGoal?: (goal: string) => void;
     getFocusedAssumption?: () => Assumption | null;
     onUpdateAssumption?: (update: { id: string; text?: string; status?: string; confidence?: string; impact?: string }) => void;
+    getFocusedRequirement?: () => Requirement | null;
+    onUpdateRequirement?: (update: { id: string; title?: string; definition?: string; confidence?: number; stage?: string }) => void;
 }
 
-export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, getAssumptions, getRequirements, onSetGoal, getFocusedAssumption, onUpdateAssumption }: UseAssistantParams) {
+export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, getAssumptions, getRequirements, onSetGoal, getFocusedAssumption, onUpdateAssumption, getFocusedRequirement, onUpdateRequirement }: UseAssistantParams) {
     const [isOpen, setIsOpen] = useState(false);
     const [messages, setMessages] = useState<AssistantMessage[]>([]);
     const [loading, setLoading] = useState(false);
@@ -32,7 +34,8 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
         let prompt = 'You are an AI assistant helping a user refine a project specification. ';
         prompt += 'Answer concisely and helpfully. When the user references parts of the spec, use the provided context.\n\n';
         prompt += 'You have access to a set_goal tool. When the user has agreed on a goal definition or you have helped them refine their goal, use the set_goal tool to set it in the form.\n';
-        prompt += 'You have access to an update_assumption tool. When the user wants to change an assumption\'s text, status, confidence, or impact, use this tool to update it directly.\n\n';
+        prompt += 'You have access to an update_assumption tool. When the user wants to change an assumption\'s text, status, confidence, or impact, use this tool to update it directly.\n';
+        prompt += 'You have access to an update_requirement tool. When the user wants to change a requirement\'s title, definition, confidence, or stage, use this tool to update it directly.\n\n';
 
         if (goalResponse) {
             prompt += `## Current Goal\n${goalResponse}\n\n`;
@@ -64,6 +67,20 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
                 prompt += `- ${r.title}: ${r.definition} (confidence: ${r.confidence}%, stage: ${r.stage})\n`;
             }
             prompt += '\n';
+        }
+
+        const focusedReq = getFocusedRequirement?.();
+        if (focusedReq) {
+            prompt += '## Focused Requirement (the user is discussing this specific requirement)\n';
+            prompt += `ID: ${focusedReq.id}\n`;
+            prompt += `Title: ${focusedReq.title}\n`;
+            prompt += `Definition: ${focusedReq.definition}\n`;
+            prompt += `Confidence: ${Math.round(focusedReq.confidence * 100)}%\n`;
+            prompt += `Stage: ${focusedReq.stage}\n`;
+            if (focusedReq.tests.length > 0) {
+                prompt += `Tests: ${focusedReq.tests.map(t => `${t.type}: ${t.description}`).join('; ')}\n`;
+            }
+            prompt += 'When the user asks to modify this requirement, use the update_requirement tool with the ID above.\n\n';
         }
 
         // Conversation history
@@ -126,6 +143,8 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
                     setGoalJustSet(true);
                 } else if (event.type === 'tool_use' && event.tool === 'update_assumption') {
                     onUpdateAssumption?.(event.input as { id: string; text?: string; status?: string; confidence?: string; impact?: string });
+                } else if (event.type === 'tool_use' && event.tool === 'update_requirement') {
+                    onUpdateRequirement?.(event.input as { id: string; title?: string; definition?: string; confidence?: number; stage?: string });
                 }
             }
 
@@ -152,7 +171,7 @@ export function useAssistant({ selectedModel, cwd, projectId, getGoalResponse, g
             setToolStatus(null);
             abortRef.current = null;
         }
-    }, [loading, pendingContext, messages, selectedModel, cwd, getGoalResponse, getAssumptions, getRequirements, onSetGoal, getFocusedAssumption, onUpdateAssumption]);
+    }, [loading, pendingContext, messages, selectedModel, cwd, getGoalResponse, getAssumptions, getRequirements, onSetGoal, getFocusedAssumption, onUpdateAssumption, getFocusedRequirement, onUpdateRequirement]);
 
     function openWithContext(ctx: { selectedText?: string; elementType?: string }) {
         setPendingContext(ctx);

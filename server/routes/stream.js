@@ -7,6 +7,7 @@ const MCP_SERVER_NAME = 'assistant-tools';
 const MCP_TOOL_NAMES = new Set([
     `mcp__${MCP_SERVER_NAME}__set_goal`,
     `mcp__${MCP_SERVER_NAME}__update_assumption`,
+    `mcp__${MCP_SERVER_NAME}__update_requirement`,
 ]);
 
 const router = Router();
