@@ -20,8 +20,10 @@ router.post('/versions/commit', asyncHandler(async (req, res) => {
     const conn = await pool.getConnection();
     try {
         await conn.execute("CALL DOLT_ADD('-A')");
-        const [result] = await conn.execute("CALL DOLT_COMMIT('-m', ?)", [message.trim()]);
-        const hash = result[0]?.hash ?? null;
+        const result = await conn.execute("CALL DOLT_COMMIT('-m', ?)", [message.trim()]);
+        // mysql2 CALL returns [[resultSet, OkPacket], fields] — resultSet may itself be an array of rows
+        const flat = result.flat(3);
+        const hash = flat.find(r => r?.hash)?.hash ?? null;
         res.json({ hash, message: message.trim() });
     } finally {
         conn.release();
