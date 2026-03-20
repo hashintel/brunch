@@ -137,14 +137,19 @@ const DIFF_HIDDEN_FIELDS = new Set([
     'current_questions', 'current_answers', 'clarifying_state',  // transient/legacy blobs
 ]);
 
+function toStr(val: unknown): string {
+    if (val == null) return '';
+    if (typeof val === 'object') return JSON.stringify(val);
+    return String(val);
+}
+
+function truncate(s: string, max = 120): string {
+    return s.length > max ? s.slice(0, max) + '\u2026' : s;
+}
+
 function formatCellValue(val: unknown): string {
-    if (val == null) return '(empty)';
-    if (typeof val === 'object') {
-        const s = JSON.stringify(val);
-        return s.length > 120 ? s.slice(0, 120) + '\u2026' : s;
-    }
-    const s = String(val);
-    return s.length > 120 ? s.slice(0, 120) + '\u2026' : s;
+    const s = toStr(val);
+    return s === '' ? '(empty)' : truncate(s);
 }
 
 /** Extract field names from a diff row (strips from_/to_ prefixes) */
@@ -164,15 +169,100 @@ function getRowValues(row: DoltDiffRow, prefix: 'from' | 'to'): Array<{ field: s
         .filter(({ value }) => value !== '(empty)');
 }
 
-/** For modified rows, get only fields that changed */
-function getModifiedFields(row: DoltDiffRow): Array<{ field: string; from: string; to: string }> {
+/** For modified rows, get only fields that changed (keeps raw values for text diff) */
+function getModifiedFields(row: DoltDiffRow): Array<{ field: string; from: string; to: string; rawFrom: string; rawTo: string }> {
     return getFields(row)
         .filter(f => row[`from_${f}`] !== row[`to_${f}`])
-        .map(f => ({
-            field: f,
-            from: formatCellValue(row[`from_${f}`]),
-            to: formatCellValue(row[`to_${f}`]),
-        }));
+        .map(f => {
+            const rawFrom = toStr(row[`from_${f}`]);
+            const rawTo = toStr(row[`to_${f}`]);
+            return {
+                field: f,
+                from: rawFrom === '' ? '(empty)' : truncate(rawFrom),
+                to: rawTo === '' ? '(empty)' : truncate(rawTo),
+                rawFrom,
+                rawTo,
+            };
+        });
+}
+
+/** Threshold: fields with combined text longer than this get an expandable word diff */
+const LONG_TEXT_THRESHOLD = 100;
+
+/** Simple word-level diff using LCS */
+type DiffOp = { type: 'equal' | 'add' | 'remove'; text: string };
+
+function wordDiff(a: string, b: string): DiffOp[] {
+    const wordsA = a.split(/(\s+)/);
+    const wordsB = b.split(/(\s+)/);
+    const m = wordsA.length, n = wordsB.length;
+
+    // Build LCS table
+    const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0));
+    for (let i = 1; i <= m; i++) {
+        for (let j = 1; j <= n; j++) {
+            dp[i][j] = wordsA[i - 1] === wordsB[j - 1]
+                ? dp[i - 1][j - 1] + 1
+                : Math.max(dp[i - 1][j], dp[i][j - 1]);
+        }
+    }
+
+    // Backtrack to produce ops
+    const ops: DiffOp[] = [];
+    let i = m, j = n;
+    while (i > 0 || j > 0) {
+        if (i > 0 && j > 0 && wordsA[i - 1] === wordsB[j - 1]) {
+            ops.push({ type: 'equal', text: wordsA[i - 1] });
+            i--; j--;
+        } else if (j > 0 && (i === 0 || dp[i][j - 1] >= dp[i - 1][j])) {
+            ops.push({ type: 'add', text: wordsB[j - 1] });
+            j--;
+        } else {
+            ops.push({ type: 'remove', text: wordsA[i - 1] });
+            i--;
+        }
+    }
+    ops.reverse();
+
+    // Merge consecutive ops of the same type
+    const merged: DiffOp[] = [];
+    for (const op of ops) {
+        const last = merged[merged.length - 1];
+        if (last && last.type === op.type) {
+            last.text += op.text;
+        } else {
+            merged.push({ ...op });
+        }
+    }
+    return merged;
+}
+
+function InlineTextDiff({ from, to }: { from: string; to: string }) {
+    const [expanded, setExpanded] = useState(false);
+
+    if (!expanded) {
+        return (
+            <button class="diff-expand-btn" onClick={() => setExpanded(true)} title="Show full text diff">
+                View diff
+            </button>
+        );
+    }
+
+    const ops = wordDiff(from, to);
+    return (
+        <div class="diff-text-inline">
+            <button class="diff-expand-btn diff-expand-btn--close" onClick={() => setExpanded(false)}>
+                Hide diff
+            </button>
+            <div class="diff-text-content">
+                {ops.map((op, i) => (
+                    <span key={i} class={op.type === 'equal' ? '' : op.type === 'add' ? 'diff-word-add' : 'diff-word-remove'}>
+                        {op.text}
+                    </span>
+                ))}
+            </div>
+        </div>
+    );
 }
 
 /** Human-readable label for a row — pick a recognizable identifier */
@@ -213,14 +303,20 @@ function DiffModal({ diff, onClose }: { diff: { tables: Record<string, DoltDiffR
                                             <span class="diff-row-type">modified</span>
                                             <div class="diff-row-detail">
                                                 {label && <div class="diff-row-label">{label}</div>}
-                                                {changes.map(({ field, from, to }) => (
-                                                    <div key={field} class="diff-field">
-                                                        <span class="diff-field-name">{field}</span>
-                                                        <span class="diff-field-from">{from}</span>
-                                                        <span class="diff-field-arrow">{'\u2192'}</span>
-                                                        <span class="diff-field-to">{to}</span>
-                                                    </div>
-                                                ))}
+                                                {changes.map(({ field, from, to, rawFrom, rawTo }) => {
+                                                    const isLong = rawFrom.length + rawTo.length > LONG_TEXT_THRESHOLD;
+                                                    return (
+                                                        <div key={field} class="diff-field">
+                                                            <div class="diff-field-header">
+                                                                <span class="diff-field-name">{field}</span>
+                                                                {!isLong && <span class="diff-field-from">{from}</span>}
+                                                                {!isLong && <span class="diff-field-arrow">{'\u2192'}</span>}
+                                                                {!isLong && <span class="diff-field-to">{to}</span>}
+                                                                {isLong && <InlineTextDiff from={rawFrom} to={rawTo} />}
+                                                            </div>
+                                                        </div>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     );

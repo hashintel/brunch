@@ -3115,6 +3115,13 @@ tr.requirement--drag-over td {
     word-break: break-word;
 }
 
+.diff-field-header {
+    display: flex;
+    align-items: baseline;
+    gap: 0.4rem;
+    flex-wrap: wrap;
+}
+
 /* Highlight changed values within modified rows */
 .diff-row--modified .diff-field-from {
     background: rgba(0, 0, 0, 0.06);
@@ -3127,6 +3134,57 @@ tr.requirement--drag-over td {
     padding: 0 0.2rem;
     border-radius: 0.2rem;
     font-weight: 600;
+}
+
+/* Expand/collapse button for long text diffs */
+.diff-expand-btn {
+    background: none;
+    border: 1px solid rgba(0, 0, 0, 0.15);
+    border-radius: 0.25rem;
+    padding: 0.1rem 0.4rem;
+    font-size: 0.72rem;
+    cursor: pointer;
+    color: inherit;
+    opacity: 0.7;
+}
+
+.diff-expand-btn:hover {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.05);
+}
+
+/* Inline text diff container */
+.diff-text-inline {
+    margin-top: 0.3rem;
+    width: 100%;
+}
+
+.diff-text-content {
+    margin-top: 0.3rem;
+    padding: 0.5rem;
+    background: rgba(0, 0, 0, 0.04);
+    border-radius: 0.35rem;
+    font-family: 'SF Mono', 'Fira Code', monospace;
+    font-size: 0.78rem;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.diff-word-add {
+    background-color: #bbf7d0;
+    color: #14532d;
+    padding: 0.05rem 0;
+    border-radius: 0.15rem;
+    text-decoration: none;
+}
+
+.diff-word-remove {
+    background-color: #fecaca;
+    color: #7f1d1d;
+    padding: 0.05rem 0;
+    border-radius: 0.15rem;
+    text-decoration: line-through;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -3148,6 +3206,11 @@ tr.requirement--drag-over td {
     .diff-table-count { color: #777; }
     .diff-row--modified .diff-field-from { background: rgba(255, 255, 255, 0.08); }
     .diff-row--modified .diff-field-to { background: rgba(255, 255, 255, 0.1); }
+    .diff-expand-btn { border-color: rgba(255, 255, 255, 0.15); }
+    .diff-expand-btn:hover { background: rgba(255, 255, 255, 0.08); }
+    .diff-text-content { background: rgba(255, 255, 255, 0.05); }
+    .diff-word-add { background-color: #064e3b; color: #bbf7d0; }
+    .diff-word-remove { background-color: #450a0a; color: #fecaca; }
 }
 
 /* ── Save Status ── */
