@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
-import type { Model, SessionMeta, ClaudeCall, DoltCommit, DoltChange, DoltDiffRow } from './types';
+import type { Model, SessionMeta, ClaudeCall, DoltCommit, DoltDiffRow } from './types';
 import type { SaveStatus } from './useAutoSave';
 
 function callerLabel(caller: string): string {
@@ -45,7 +45,8 @@ type Props = {
     clarifyingRoundCount: number;
     // Version control
     versionCommits: DoltCommit[];
-    versionChanges: DoltChange[];
+    versionRealChangeCount: number;
+    versionChangedTableNames: string[];
     versionCommitMessage: string;
     onVersionCommitMessageChange: (v: string) => void;
     versionCommitting: boolean;
@@ -351,7 +352,7 @@ export function SessionPanel({
     sessions, currentSessionId, onLoad, onDelete, onNew, saveStatus,
     models, selectedModel, onModelChange, callHistory, disabled,
     assumptionCount, confirmedAssumptionCount, requirementCount, clarifyingRoundCount,
-    versionCommits, versionChanges, versionCommitMessage, onVersionCommitMessageChange,
+    versionCommits, versionRealChangeCount, versionChangedTableNames, versionCommitMessage, onVersionCommitMessageChange,
     versionCommitting, onVersionCommit, onVersionViewDiff, onVersionViewWorkingDiff, onVersionRevert,
     versionSelectedDiff, onVersionCloseDiff, versionLoadingDiffHash,
     versionCheckedOutHash, versionLoadingCheckoutHash, onVersionCheckout,
@@ -469,19 +470,18 @@ export function SessionPanel({
 
                     <div class="sidebar-section">
                         <strong class="sidebar-section-title">Version History</strong>
-                        {versionChanges.length > 0 && (
+                        {versionRealChangeCount > 0 && (
                             <div class="version-uncommitted">
                                 <button
                                     class="version-uncommitted-btn"
                                     onClick={onVersionViewWorkingDiff}
-                                    disabled={versionLoadingDiffHash === 'working'}
                                     title="View uncommitted changes"
                                 >
                                     <span class="version-status-badge">
-                                        {versionLoadingDiffHash === 'working' ? '...' : `${versionChanges.length} uncommitted change${versionChanges.length !== 1 ? 's' : ''}`}
+                                        {`${versionRealChangeCount} uncommitted change${versionRealChangeCount !== 1 ? 's' : ''}`}
                                     </span>
                                     <span class="version-uncommitted-tables">
-                                        {versionChanges.map(c => c.table_name).join(', ')}
+                                        {versionChangedTableNames.join(', ')}
                                     </span>
                                 </button>
                             </div>

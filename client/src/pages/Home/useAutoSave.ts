@@ -8,9 +8,10 @@ interface UseAutoSaveParams {
     save: (data: SessionData) => Promise<void>;
     data: SessionData;
     busy: boolean;
+    onSaved?: () => void;
 }
 
-export function useAutoSave({ currentSessionId, save, data, busy }: UseAutoSaveParams) {
+export function useAutoSave({ currentSessionId, save, data, busy, onSaved }: UseAutoSaveParams) {
     const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
     const lastSavedRef = useRef<string>('');
     const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -45,6 +46,7 @@ export function useAutoSave({ currentSessionId, save, data, busy }: UseAutoSaveP
                 await save(data);
                 lastSavedRef.current = serialized;
                 setSaveStatus('saved');
+                onSaved?.();
             } catch {
                 setSaveStatus('unsaved');
             }

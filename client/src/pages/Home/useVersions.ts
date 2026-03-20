@@ -2,9 +2,30 @@ import { useState, useCallback } from 'preact/hooks';
 import type { DoltCommit, DoltChange, DoltDiffRow, SessionData } from './types';
 import { apiFetch } from './apiFetch';
 
+/** Fields that are Dolt metadata / internal — not real data changes */
+const DIFF_HIDDEN_FIELDS = new Set([
+    'pk', 'diff_type', 'project_id', 'parent_id', 'sort_order', 'created_at', 'updated_at',
+    'commit', 'commit_date',
+    'current_questions', 'current_answers', 'clarifying_state',
+]);
+
+/** Check if a diff row has any real (non-metadata) field changes */
+function hasRealChanges(row: DoltDiffRow): boolean {
+    if (row.diff_type !== 'modified') return true;
+    for (const k of Object.keys(row)) {
+        if (!k.startsWith('from_')) continue;
+        const field = k.slice(5);
+        if (DIFF_HIDDEN_FIELDS.has(field)) continue;
+        if (row[k] !== row[k.replace('from_', 'to_')]) return true;
+    }
+    return false;
+}
+
 export function useVersions() {
     const [commits, setCommits] = useState<DoltCommit[]>([]);
-    const [changes, setChanges] = useState<DoltChange[]>([]);
+    const [workingDiff, setWorkingDiff] = useState<{ tables: Record<string, DoltDiffRow[]>; from: string; to: string } | null>(null);
+    const [realChangeCount, setRealChangeCount] = useState(0);
+    const [changedTableNames, setChangedTableNames] = useState<string[]>([]);
     const [commitMessage, setCommitMessage] = useState('');
     const [committing, setCommitting] = useState(false);
     const [selectedDiff, setSelectedDiff] = useState<{ tables: Record<string, DoltDiffRow[]>; from: string; to: string } | null>(null);
@@ -24,10 +45,26 @@ export function useVersions() {
 
     const refreshStatus = useCallback(async () => {
         try {
-            const data = await apiFetch<{ changes: DoltChange[] }>('/api/versions/status');
-            setChanges(data.changes);
+            const data = await apiFetch<{ tables: Record<string, DoltDiffRow[]>; from: string; to: string }>(
+                '/api/versions/diff/working'
+            );
+            setWorkingDiff(data);
+            // Count only rows with real data changes
+            let count = 0;
+            const tables: string[] = [];
+            for (const [table, rows] of Object.entries(data.tables)) {
+                const realRows = rows.filter(hasRealChanges);
+                if (realRows.length > 0) {
+                    count += realRows.length;
+                    tables.push(table);
+                }
+            }
+            setRealChangeCount(count);
+            setChangedTableNames(tables);
         } catch {
-            // Dolt may not be available
+            setWorkingDiff(null);
+            setRealChangeCount(0);
+            setChangedTableNames([]);
         }
     }, []);
 
@@ -67,19 +104,11 @@ export function useVersions() {
         }
     }, []);
 
-    const viewWorkingDiff = useCallback(async () => {
-        setLoadingDiffHash('working');
-        try {
-            const data = await apiFetch<{ tables: Record<string, DoltDiffRow[]>; from: string; to: string }>(
-                '/api/versions/diff/working'
-            );
-            setSelectedDiff(data);
-        } catch (e: any) {
-            console.error('Working diff failed:', e.message);
-        } finally {
-            setLoadingDiffHash(null);
+    const viewWorkingDiff = useCallback(() => {
+        if (workingDiff) {
+            setSelectedDiff(workingDiff);
         }
-    }, []);
+    }, [workingDiff]);
 
     const checkout = useCallback(async (hash: string, sessionId: string): Promise<SessionData | null> => {
         setLoadingCheckoutHash(hash);
@@ -114,7 +143,8 @@ export function useVersions() {
 
     return {
         commits,
-        changes,
+        realChangeCount,
+        changedTableNames,
         commitMessage,
         setCommitMessage,
         committing,

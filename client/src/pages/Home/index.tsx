@@ -127,6 +127,7 @@ export function Home() {
         save: session.save,
         data: autoSaveData,
         busy: anyBusy || assumptions.loadingAssumptions || req.loadingRequirements || isCheckedOut,
+        onSaved: versions.refreshStatus,
     });
 
     const ui = useElicitation({
@@ -247,7 +248,8 @@ export function Home() {
                     requirementCount={req.requirements.length}
                     clarifyingRoundCount={clarifying.goalIterations.length}
                     versionCommits={versions.commits}
-                    versionChanges={versions.changes}
+                    versionRealChangeCount={versions.realChangeCount}
+                    versionChangedTableNames={versions.changedTableNames}
                     versionCommitMessage={versions.commitMessage}
                     onVersionCommitMessageChange={versions.setCommitMessage}
                     versionCommitting={versions.committing}
