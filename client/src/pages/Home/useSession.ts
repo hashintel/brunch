@@ -88,17 +88,32 @@ export function useSession({ onError }: UseSessionParams) {
     async function save(data: SessionData) {
         setSaving(true);
         try {
+            const payload = {
+                name: data.name,
+                prompt: data.prompt,
+                cwd: data.cwd,
+                response: data.response,
+                selectedModel: data.selectedModel,
+                requirements: data.requirements,
+                goalIterations: data.goalIterations,
+                allQuestions: data.allQuestions,
+                allAnswers: data.allAnswers,
+                questionsExhausted: data.questionsExhausted,
+                clarifyingDone: data.clarifyingDone,
+                assumptions: data.assumptions,
+                assumptionsDone: data.assumptionsDone,
+            };
             if (currentSessionId) {
                 await apiFetch(`/api/sessions/${currentSessionId}`, {
                     method: 'PUT',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data),
+                    body: JSON.stringify(payload),
                 });
             } else {
                 const created = await apiFetch<Session>('/api/sessions', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(data),
+                    body: JSON.stringify(payload),
                 });
                 setCurrentSessionId(created.id);
             }

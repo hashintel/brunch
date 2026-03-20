@@ -185,7 +185,7 @@ export function Home() {
         setCreatingProject(false);
     }
 
-    function restoreSessionData(data: any) {
+    function restoreSessionData(data: any, { refetch = true } = {}) {
         goal.restore(data);
         clarifying.restore(data);
         assumptions.restore(data);
@@ -193,6 +193,16 @@ export function Home() {
         setProjectName(data.name);
         setCwd(data.cwd);
         setSelectedModel(data.selectedModel);
+
+        // Recover from stuck state: have a goal response, clarifying not done, but no questions
+        if (refetch && data.response && !data.clarifyingDone && (data.allQuestions ?? []).length === 0) {
+            clarifying.fetchQuestions(
+                data.response,
+                data.goalIterations ?? [],
+                [],
+                [],
+            );
+        }
     }
 
     async function handleVersionCheckout(hash: string) {
@@ -205,7 +215,7 @@ export function Home() {
         }
         const data = await versions.checkout(hash, session.currentSessionId);
         if (data) {
-            restoreSessionData(data);
+            restoreSessionData(data, { refetch: false });
         }
     }
 

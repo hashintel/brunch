@@ -31,18 +31,33 @@ export async function initDb({ retries = 10, delayMs = 2000 } = {}) {
         }
     }
 
+    const dbName = process.env.DOLT_DATABASE || 'brunch';
+
     // Check if tables exist; if not, run init.sql
     const [rows] = await pool.execute(
         `SELECT COUNT(*) AS cnt FROM information_schema.tables WHERE table_schema = ? AND table_name = 'project'`,
-        [process.env.DOLT_DATABASE || 'brunch']
+        [dbName]
     );
     if (rows[0].cnt === 0) {
         const initSql = readFileSync(resolve(__dirname, 'migrations', 'dolt', 'init.sql'), 'utf-8');
-        // Execute each statement individually (split on semicolons outside of strings)
         const statements = initSql.split(/;\s*$/m).map(s => s.trim()).filter(s => s.length > 0);
         for (const stmt of statements) {
             await pool.execute(stmt);
         }
         console.log('[db] initialized schema from init.sql');
+    }
+
+    // Run 002_normalize migration if assumption table doesn't exist yet
+    const [normRows] = await pool.execute(
+        `SELECT COUNT(*) AS cnt FROM information_schema.tables WHERE table_schema = ? AND table_name = 'assumption'`,
+        [dbName]
+    );
+    if (normRows[0].cnt === 0) {
+        const migSql = readFileSync(resolve(__dirname, 'migrations', 'dolt', '002_normalize.sql'), 'utf-8');
+        const statements = migSql.split(/;\s*$/m).map(s => s.trim()).filter(s => s.length > 0);
+        for (const stmt of statements) {
+            await pool.execute(stmt);
+        }
+        console.log('[db] applied 002_normalize migration');
     }
 }

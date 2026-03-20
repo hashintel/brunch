@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import pool from '../db.js';
 import { asyncHandler } from '../middleware/asyncHandler.js';
-import { serializeProject } from './sessionHelpers.js';
+import { serializeSession } from './sessionHelpers.js';
 
 const router = Router();
 
@@ -50,12 +50,10 @@ router.get('/versions/diff/:commitHash', asyncHandler(async (req, res) => {
     }
 
     const tables = {};
-    const tableNames = ['project', 'entry'];
+    const tableNames = ['project', 'entry', 'assumption', 'goal_iteration'];
 
     for (const table of tableNames) {
         try {
-            // DOLT_DIFF doesn't support prepared statement bind vars,
-            // so we interpolate directly (commitHash is validated above, table is from allowlist)
             const [rows] = await pool.query(
                 `SELECT * FROM DOLT_DIFF('${commitHash}^', '${commitHash}', '${table}')`
             );
@@ -112,7 +110,27 @@ router.get('/versions/checkout/:commitHash', asyncHandler(async (req, res) => {
         `SELECT * FROM \`entry\` AS OF '${commitHash}' WHERE project_id = ?`, [sessionId]
     );
 
-    res.json(serializeProject(project, entries));
+    // These tables may not exist in older commits — gracefully handle
+    let assumptions = [];
+    let goalIterations = [];
+    try {
+        const [rows] = await pool.query(
+            `SELECT * FROM \`assumption\` AS OF '${commitHash}' WHERE project_id = ? ORDER BY sort_order`, [sessionId]
+        );
+        assumptions = rows;
+    } catch (e) {
+        console.log(`[versions] checkout assumption: ${e.message}`);
+    }
+    try {
+        const [rows] = await pool.query(
+            `SELECT * FROM \`goal_iteration\` AS OF '${commitHash}' WHERE project_id = ? ORDER BY sort_order`, [sessionId]
+        );
+        goalIterations = rows;
+    } catch (e) {
+        console.log(`[versions] checkout goal_iteration: ${e.message}`);
+    }
+
+    res.json(serializeSession(project, entries, assumptions, goalIterations));
 }));
 
 export default router;
