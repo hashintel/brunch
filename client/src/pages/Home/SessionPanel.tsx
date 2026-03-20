@@ -44,6 +44,8 @@ type Props = {
     versions: VersionsHandle;
     onVersionRevert: (hash: string) => void;
     onVersionCheckout: (hash: string) => void;
+    specProgress: number;
+    specLoading: boolean;
 };
 
 function CallDetailModal({ calls, onClose }: { calls: ClaudeCall[]; onClose: () => void }) {
@@ -311,6 +313,7 @@ export function SessionPanel({
     sessions, currentSessionId, onLoad, onDelete, onNew, saveStatus,
     models, selectedModel, onModelChange, callHistory, disabled,
     versions, onVersionRevert, onVersionCheckout,
+    specProgress, specLoading,
 }: Props) {
     const [activeTab, setActiveTab] = useState<'list' | 'detail'>('list');
     const [showCallModal, setShowCallModal] = useState(false);
@@ -404,6 +407,21 @@ export function SessionPanel({
                             {saveStatus === 'saving' ? 'Saving\u2026' : saveStatus === 'saved' ? 'Saved' : saveStatus === 'unsaved' ? 'Unsaved changes' : ''}
                         </span>
                     </div>
+
+                    {(specProgress > 0 || specLoading) && (
+                        <div class="sidebar-section">
+                            <strong class="sidebar-section-title">Spec Progress</strong>
+                            <div class="spec-progress-bar">
+                                <div
+                                    class={`spec-progress-fill ${specLoading ? 'spec-progress-fill--loading' : ''}`}
+                                    style={{ width: `${specProgress}%` }}
+                                />
+                            </div>
+                            <span class="spec-progress-label">
+                                {specLoading ? 'Generating...' : `${specProgress}%`}
+                            </span>
+                        </div>
+                    )}
 
                     <div class="sidebar-section">
                         <strong class="sidebar-section-title">LLM Calls</strong>

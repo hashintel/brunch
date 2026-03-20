@@ -11,6 +11,7 @@ import { useFocusedItem } from './useFocusedItem';
 import { useVersions } from './useVersions';
 import { AssistantPane } from './AssistantPane';
 import { AssistantTrigger } from './AssistantTrigger';
+import { SpecPane } from './SpecPane';
 import { GoalSection } from './GoalSection';
 import { AssumptionSection } from './AssumptionSection';
 import { RequirementSection } from './RequirementSection';
@@ -33,7 +34,8 @@ export function Home() {
 
     const session = useSession({ bus });
     const workflow = useWorkflow({ selectedModel, cwd, projectId: session.currentSessionId, bus });
-    const { goal, clarifying, assumptions, req } = workflow;
+    const { goal, clarifying, assumptions, req, spec } = workflow;
+    const [rightTab, setRightTab] = useState<'spec' | 'assistant'>('spec');
 
     const assistant = useAssistant({
         selectedModel,
@@ -184,7 +186,7 @@ export function Home() {
     }
 
     return (
-        <div class={`home-layout ${assistant.isOpen ? 'home-layout--assistant-open' : ''}`}>
+        <div class={`home-layout ${assistant.isOpen || (spec.spec || spec.loading) ? 'home-layout--assistant-open' : ''}`}>
             <aside class="sidebar">
                 <SessionPanel
                     sessions={session.sessions}
@@ -201,6 +203,8 @@ export function Home() {
                     versions={versions}
                     onVersionRevert={handleVersionRevert}
                     onVersionCheckout={handleVersionCheckout}
+                    specProgress={spec.progress}
+                    specLoading={spec.loading}
                 />
             </aside>
             <div class="home">
@@ -324,23 +328,58 @@ export function Home() {
 
             <AssistantTrigger
                 isOpen={assistant.isOpen}
-                onToggle={assistant.toggle}
-                onOpenWithContext={assistant.openWithContext}
+                onToggle={() => { assistant.toggle(); setRightTab('assistant'); }}
+                onOpenWithContext={(ctx) => { assistant.openWithContext(ctx); setRightTab('assistant'); }}
             />
-            <AssistantPane
-                isOpen={assistant.isOpen}
-                messages={assistant.messages}
-                loading={assistant.loading}
-                toolStatus={assistant.toolStatus}
-                streamingContent={assistant.streamingContent}
-                pendingContext={assistant.pendingContext}
-                goalJustSet={assistant.goalJustSet}
-                focusedItem={focused.focusedItem}
-                toolUpdates={assistant.toolUpdates}
-                onSend={assistant.send}
-                onClose={() => { assistant.close(); focused.clear(); }}
-                onDismissContext={assistant.dismissContext}
-            />
+
+            {/* Right sidebar with Spec/Assistant tabs */}
+            {(assistant.isOpen || (spec.spec || spec.loading)) && (
+                <div class={`right-pane ${assistant.isOpen || spec.spec || spec.loading ? 'right-pane--open' : ''}`}>
+                    <div class="right-pane-tabs">
+                        {(spec.spec || spec.loading) && (
+                            <button
+                                class={`right-pane-tab ${rightTab === 'spec' ? 'right-pane-tab--active' : ''}`}
+                                onClick={() => setRightTab('spec')}
+                            >
+                                Spec
+                            </button>
+                        )}
+                        <button
+                            class={`right-pane-tab ${rightTab === 'assistant' ? 'right-pane-tab--active' : ''}`}
+                            onClick={() => { setRightTab('assistant'); if (!assistant.isOpen) assistant.toggle(); }}
+                        >
+                            Assistant
+                        </button>
+                    </div>
+
+                    {rightTab === 'spec' && (
+                        <SpecPane
+                            spec={spec.spec}
+                            progress={spec.progress}
+                            loading={spec.loading}
+                            editable={req.requirements.length > 0}
+                            onSpecChange={spec.setSpec}
+                        />
+                    )}
+
+                    {rightTab === 'assistant' && (
+                        <AssistantPane
+                            isOpen={true}
+                            messages={assistant.messages}
+                            loading={assistant.loading}
+                            toolStatus={assistant.toolStatus}
+                            streamingContent={assistant.streamingContent}
+                            pendingContext={assistant.pendingContext}
+                            goalJustSet={assistant.goalJustSet}
+                            focusedItem={focused.focusedItem}
+                            toolUpdates={assistant.toolUpdates}
+                            onSend={assistant.send}
+                            onClose={() => { assistant.close(); focused.clear(); }}
+                            onDismissContext={assistant.dismissContext}
+                        />
+                    )}
+                </div>
+            )}
         </div>
     );
 }

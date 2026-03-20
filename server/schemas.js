@@ -124,6 +124,16 @@ export const generateTestsSchema = {
     additionalProperties: false,
 };
 
+export const specSchema = {
+    type: 'object',
+    properties: {
+        spec: { type: 'string', description: 'Full markdown spec document optimized for spec-driven development' },
+        progress: { type: 'number', description: 'Estimated spec completeness 0-100' },
+    },
+    required: ['spec', 'progress'],
+    additionalProperties: false,
+};
+
 export function formatClarifyingRounds(rounds) {
     if (!rounds?.length) return '';
     return rounds.map((round, i) => {

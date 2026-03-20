@@ -82,6 +82,8 @@ export interface SessionData {
     assumptions: Assumption[];
     assumptionsDone: boolean;
     requirements: Requirement[];
+    spec: string;
+    specProgress: number;
 }
 
 export type AssistantMessage = {
