@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'preact/hooks';
 import { createPortal } from 'preact/compat';
 import type { Model, SessionMeta, ClaudeCall, DoltCommit, DoltDiffRow } from './types';
 import type { SaveStatus } from './useAutoSave';
+import type { VersionsHandle } from './useVersions';
 import { Modal } from './Modal';
 
 function callerLabel(caller: string): string {
@@ -44,23 +45,8 @@ type Props = {
     confirmedAssumptionCount: number;
     requirementCount: number;
     clarifyingRoundCount: number;
-    // Version control
-    versionCommits: DoltCommit[];
-    versionRealChangeCount: number;
-    versionChangedTableNames: string[];
-    versionCommitMessage: string;
-    onVersionCommitMessageChange: (v: string) => void;
-    versionCommitting: boolean;
-    onVersionCommit: (msg: string) => void;
-    onVersionViewDiff: (hash: string) => void;
-    onVersionViewWorkingDiff: () => void;
+    versions: VersionsHandle;
     onVersionRevert: (hash: string) => void;
-    versionSelectedDiff: { tables: Record<string, DoltDiffRow[]>; from: string; to: string } | null;
-    onVersionCloseDiff: () => void;
-    versionLoadingDiffHash: string | null;
-    // Checkout (time-travel)
-    versionCheckedOutHash: string | null;
-    versionLoadingCheckoutHash: string | null;
     onVersionCheckout: (hash: string) => void;
 };
 
@@ -329,10 +315,7 @@ export function SessionPanel({
     sessions, currentSessionId, onLoad, onDelete, onNew, saveStatus,
     models, selectedModel, onModelChange, callHistory, disabled,
     assumptionCount, confirmedAssumptionCount, requirementCount, clarifyingRoundCount,
-    versionCommits, versionRealChangeCount, versionChangedTableNames, versionCommitMessage, onVersionCommitMessageChange,
-    versionCommitting, onVersionCommit, onVersionViewDiff, onVersionViewWorkingDiff, onVersionRevert,
-    versionSelectedDiff, onVersionCloseDiff, versionLoadingDiffHash,
-    versionCheckedOutHash, versionLoadingCheckoutHash, onVersionCheckout,
+    versions, onVersionRevert, onVersionCheckout,
 }: Props) {
     const [activeTab, setActiveTab] = useState<'list' | 'detail'>('list');
     const [showCallModal, setShowCallModal] = useState(false);
@@ -447,18 +430,18 @@ export function SessionPanel({
 
                     <div class="sidebar-section">
                         <strong class="sidebar-section-title">Version History</strong>
-                        {versionRealChangeCount > 0 && (
+                        {versions.realChangeCount > 0 && (
                             <div class="version-uncommitted">
                                 <button
                                     class="version-uncommitted-btn"
-                                    onClick={onVersionViewWorkingDiff}
+                                    onClick={versions.viewWorkingDiff}
                                     title="View uncommitted changes"
                                 >
                                     <span class="version-status-badge">
-                                        {`${versionRealChangeCount} uncommitted change${versionRealChangeCount !== 1 ? 's' : ''}`}
+                                        {`${versions.realChangeCount} uncommitted change${versions.realChangeCount !== 1 ? 's' : ''}`}
                                     </span>
                                     <span class="version-uncommitted-tables">
-                                        {versionChangedTableNames.join(', ')}
+                                        {versions.changedTableNames.join(', ')}
                                     </span>
                                 </button>
                             </div>
@@ -468,25 +451,25 @@ export function SessionPanel({
                                 class="sidebar-input"
                                 type="text"
                                 placeholder="Commit message..."
-                                value={versionCommitMessage}
-                                onInput={e => onVersionCommitMessageChange(e.currentTarget.value)}
-                                onKeyDown={e => { if (e.key === 'Enter' && versionCommitMessage.trim()) onVersionCommit(versionCommitMessage); }}
-                                disabled={versionCommitting || !!versionCheckedOutHash}
+                                value={versions.commitMessage}
+                                onInput={e => versions.setCommitMessage(e.currentTarget.value)}
+                                onKeyDown={e => { if (e.key === 'Enter' && versions.commitMessage.trim()) versions.commit(versions.commitMessage); }}
+                                disabled={versions.committing || !!versions.checkedOutHash}
                             />
                             <button
                                 class="button button-small"
-                                onClick={() => onVersionCommit(versionCommitMessage)}
-                                disabled={versionCommitting || !versionCommitMessage.trim() || !!versionCheckedOutHash}
+                                onClick={() => versions.commit(versions.commitMessage)}
+                                disabled={versions.committing || !versions.commitMessage.trim() || !!versions.checkedOutHash}
                             >
-                                {versionCommitting ? '...' : 'Commit'}
+                                {versions.committing ? '...' : 'Commit'}
                             </button>
                         </div>
-                        {versionCommits.length === 0 && <p class="session-empty">No commits yet.</p>}
-                        {versionCommits.length > 0 && (
+                        {versions.commits.length === 0 && <p class="session-empty">No commits yet.</p>}
+                        {versions.commits.length > 0 && (
                             <div class="version-log">
-                                {versionCommits.slice(0, 8).map(c => {
-                                    const isChecked = versionCheckedOutHash === c.commit_hash;
-                                    const isLoadingCheckout = versionLoadingCheckoutHash === c.commit_hash;
+                                {versions.commits.slice(0, 8).map(c => {
+                                    const isChecked = versions.checkedOutHash === c.commit_hash;
+                                    const isLoadingCheckout = versions.loadingCheckoutHash === c.commit_hash;
                                     return (
                                         <div key={c.commit_hash} class={`version-log-item${isChecked ? ' version-log-item--checked-out' : ''}`}>
                                             <span class="version-log-hash">{c.commit_hash.slice(0, 7)}</span>
@@ -500,8 +483,8 @@ export function SessionPanel({
                                                 >
                                                     {isLoadingCheckout ? '...' : isChecked ? '\u25C9' : '\u25CB'}
                                                 </button>
-                                                <button class="requirement-action" title="View diff" onClick={() => onVersionViewDiff(c.commit_hash)}>
-                                                    {versionLoadingDiffHash === c.commit_hash ? '...' : '\u0394'}
+                                                <button class="requirement-action" title="View diff" onClick={() => versions.viewDiff(c.commit_hash)}>
+                                                    {versions.loadingDiffHash === c.commit_hash ? '...' : '\u0394'}
                                                 </button>
                                                 <button class="requirement-action requirement-action-remove" title="Revert to this commit" onClick={() => onVersionRevert(c.commit_hash)}>
                                                     &#x21A9;
@@ -555,8 +538,8 @@ export function SessionPanel({
                 <CallDetailModal calls={callHistory} onClose={() => setShowCallModal(false)} />,
                 document.body,
             )}
-            {versionSelectedDiff && createPortal(
-                <DiffModal diff={versionSelectedDiff} onClose={onVersionCloseDiff} />,
+            {versions.selectedDiff && createPortal(
+                <DiffModal diff={versions.selectedDiff} onClose={() => versions.setSelectedDiff(null)} />,
                 document.body,
             )}
         </div>

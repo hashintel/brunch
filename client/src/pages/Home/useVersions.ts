@@ -170,3 +170,5 @@ export function useVersions() {
         exitCheckout,
     };
 }
+
+export type VersionsHandle = ReturnType<typeof useVersions>;
