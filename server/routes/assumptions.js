@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validatePromptAndModel } from '../middleware/validate.js';
-import { queryStructured } from '../services/claude.js';
+import { queryStructured } from '../services/dispatch.js';
 import { assumptionsSchema, formatClarifyingRounds } from '../schemas.js';
 
 const router = Router();

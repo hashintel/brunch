@@ -1,0 +1,20 @@
+{
+  "$schema": "https://opencode.ai/config.json",
+  "mcp": {
+    "brunch-assistant": {
+      "type": "local",
+      "command": ["node", "server/services/opencode-mcp-server.js"],
+      "environment": {
+        "DOLT_HOST": "{env:DOLT_HOST}",
+        "DOLT_PORT": "{env:DOLT_PORT}",
+        "DOLT_USER": "{env:DOLT_USER}",
+        "DOLT_PASSWORD": "{env:DOLT_PASSWORD}",
+        "DOLT_DATABASE": "{env:DOLT_DATABASE}"
+      }
+    }
+  },
+  "tools": {
+    "write": false,
+    "bash": false
+  }
+}

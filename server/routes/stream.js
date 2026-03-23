@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validatePromptAndModel } from '../middleware/validate.js';
-import { streamQueryText, streamQueryTextWithTools, createAssistantMcpServer } from '../services/claude.js';
+import { streamQueryText, streamQueryTextWithTools, createAssistantMcpServer } from '../services/dispatch.js';
 
 const MCP_SERVER_NAME = 'assistant-tools';
 const MCP_TOOL_NAMES = new Set([

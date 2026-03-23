@@ -202,15 +202,17 @@ describe('GET /api/health', () => {
 // ── Models ──
 
 describe('GET /api/models', () => {
-    it('returns the list of available models', async () => {
+    it('returns the list of available models (filtered by backend availability)', async () => {
         const res = await request(app).get('/api/models');
         expect(res.status).toBe(200);
-        expect(res.body).toEqual(MODELS);
+        // Without OPENCODE_URL, only Claude models are returned
+        const expected = MODELS.filter(m => m.backend !== 'opencode');
+        expect(res.body).toEqual(expected);
         expect(res.body.length).toBeGreaterThan(0);
         expect(res.body[0]).toMatchObject({ id: expect.any(String), label: expect.any(String), provider: expect.any(String) });
     });
 
-    it('only includes Anthropic models', async () => {
+    it('only includes Anthropic models when OPENCODE_URL is not set', async () => {
         const res = await request(app).get('/api/models');
         const providers = new Set(res.body.map(m => m.provider));
         expect(providers.size).toBe(1);
