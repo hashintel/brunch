@@ -4,7 +4,6 @@ import type { Model, SessionMeta, ClaudeCall, DoltCommit, DoltDiffRow } from './
 import type { SaveStatus } from './useAutoSave';
 import type { VersionsHandle } from './useVersions';
 import { Modal } from './Modal';
-import { AssistantPane } from './AssistantPane';
 
 function callerLabel(caller: string): string {
     if (caller === 'streamQueryText') return 'Goal / Summary';
@@ -47,10 +46,6 @@ type Props = {
     onVersionCheckout: (hash: string) => void;
     specProgress: number;
     specLoading: boolean;
-    assistant: any;
-    focused: any;
-    activeTab: 'list' | 'detail' | 'assistant';
-    onTabChange: (tab: 'list' | 'detail' | 'assistant') => void;
 };
 
 function CallDetailModal({ calls, onClose }: { calls: ClaudeCall[]; onClose: () => void }) {
@@ -319,9 +314,8 @@ export function SessionPanel({
     models, selectedModel, onModelChange, callHistory, disabled,
     versions, onVersionRevert, onVersionCheckout,
     specProgress, specLoading,
-    assistant, focused, activeTab, onTabChange,
 }: Props) {
-    const setActiveTab = onTabChange;
+    const [activeTab, setActiveTab] = useState<'list' | 'detail'>(currentSessionId ? 'detail' : 'list');
     const [showCallModal, setShowCallModal] = useState(false);
     const prevSessionId = useRef(currentSessionId);
 
@@ -364,12 +358,6 @@ export function SessionPanel({
                     onClick={() => setActiveTab('detail')}
                 >
                     Detail
-                </button>
-                <button
-                    class={`sidebar-tab${activeTab === 'assistant' ? ' sidebar-tab--active' : ''}`}
-                    onClick={() => { setActiveTab('assistant'); if (!assistant.isOpen) assistant.toggle(); }}
-                >
-                    Assistant
                 </button>
             </div>
 
@@ -539,25 +527,6 @@ export function SessionPanel({
                         )}
                     </div>
                 </>
-            )}
-
-            {activeTab === 'assistant' && (
-                <div class="sidebar-assistant-wrapper">
-                    <AssistantPane
-                        isOpen={true}
-                        messages={assistant.messages}
-                        loading={assistant.loading}
-                        toolStatus={assistant.toolStatus}
-                        streamingContent={assistant.streamingContent}
-                        pendingContext={assistant.pendingContext}
-                        goalJustSet={assistant.goalJustSet}
-                        focusedItem={focused.focusedItem}
-                        toolUpdates={assistant.toolUpdates}
-                        onSend={assistant.send}
-                        onClose={() => { assistant.close(); focused.clear(); setActiveTab('detail'); }}
-                        onDismissContext={assistant.dismissContext}
-                    />
-                </div>
             )}
 
             {showCallModal && createPortal(

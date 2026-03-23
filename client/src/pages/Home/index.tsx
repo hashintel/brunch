@@ -9,6 +9,7 @@ import { useAssistant } from './useAssistant';
 import { useAutoSave } from './useAutoSave';
 import { useFocusedItem } from './useFocusedItem';
 import { useVersions } from './useVersions';
+import { AssistantPane } from './AssistantPane';
 import { AssistantTrigger } from './AssistantTrigger';
 import { SpecPane } from './SpecPane';
 import { GoalSection } from './GoalSection';
@@ -17,6 +18,7 @@ import { RequirementSection } from './RequirementSection';
 import { createProjectBus } from './projectBus';
 import { useResizable } from './useResizable';
 import { ResizeHandle, SidebarExpandBtn } from './ResizeHandle';
+import { createPortal } from 'preact/compat';
 
 const STEPS = ['Goal', 'Assumptions', 'Requirements'] as const;
 
@@ -29,7 +31,6 @@ export function Home() {
     const bus = useMemo(createProjectBus, []);
     const focused = useFocusedItem();
     const leftSidebar = useResizable({ key: 'sidebar-left', defaultWidth: 270, minWidth: 200, maxWidth: 450, side: 'left' });
-    const [sidebarTab, setSidebarTab] = useState<'list' | 'detail' | 'assistant'>('list');
 
     useEffect(() => {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
@@ -133,6 +134,7 @@ export function Home() {
         clarifyingDone: clarifying.clarifyingDone,
         assumptionsDone: assumptions.assumptionsDone,
         requirementsCount: req.requirements.length,
+        hasSpec: !!(spec.spec || spec.loading),
     });
 
     async function handleLoadSession(id: string) {
@@ -222,10 +224,6 @@ export function Home() {
                     onVersionCheckout={handleVersionCheckout}
                     specProgress={spec.progress}
                     specLoading={spec.loading}
-                    assistant={assistant}
-                    focused={focused}
-                    activeTab={sidebarTab}
-                    onTabChange={setSidebarTab}
                 />
                 {!leftSidebar.collapsed && (
                     <ResizeHandle side="left" {...leftSidebar.handleProps} />
@@ -348,13 +346,24 @@ export function Home() {
                         )}
 
                         {(spec.spec || spec.loading) && (
-                            <SpecPane
-                                spec={spec.spec}
-                                progress={spec.progress}
-                                loading={spec.loading}
-                                editable={req.requirements.length > 0}
-                                onSpecChange={spec.setSpec}
-                            />
+                            <div class="collapsible">
+                                <button class="collapsible-header" onClick={() => ui.toggleSection(3)}>
+                                    <span class="collapsible-title">Spec</span>
+                                    {spec.loading && <span class="collapsible-badge">Generating...</span>}
+                                    <span class={`collapsible-chevron ${ui.openSections.has(3) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
+                                </button>
+                                <div class={`collapsible-body ${ui.openSections.has(3) ? 'collapsible-body--open' : ''}`}>
+                                    <div class="collapsible-content">
+                                        <SpecPane
+                                            spec={spec.spec}
+                                            progress={spec.progress}
+                                            loading={spec.loading}
+                                            editable={req.requirements.length > 0}
+                                            onSpecChange={spec.setSpec}
+                                        />
+                                    </div>
+                                </div>
+                            </div>
                         )}
                     </>
                 )}
@@ -362,9 +371,31 @@ export function Home() {
 
             <AssistantTrigger
                 isOpen={assistant.isOpen}
-                onToggle={() => { if (!assistant.isOpen) assistant.toggle(); setSidebarTab('assistant'); if (leftSidebar.collapsed) leftSidebar.toggle(); }}
-                onOpenWithContext={(ctx) => { assistant.openWithContext(ctx); setSidebarTab('assistant'); if (leftSidebar.collapsed) leftSidebar.toggle(); }}
+                onToggle={() => assistant.toggle()}
+                onOpenWithContext={(ctx) => assistant.openWithContext(ctx)}
             />
+
+            {assistant.isOpen && createPortal(
+                <div class="assistant-modal-backdrop" onClick={(e) => { if (e.target === e.currentTarget) { assistant.close(); focused.clear(); } }}>
+                    <div class="assistant-modal">
+                        <AssistantPane
+                            isOpen={true}
+                            messages={assistant.messages}
+                            loading={assistant.loading}
+                            toolStatus={assistant.toolStatus}
+                            streamingContent={assistant.streamingContent}
+                            pendingContext={assistant.pendingContext}
+                            goalJustSet={assistant.goalJustSet}
+                            focusedItem={focused.focusedItem}
+                            toolUpdates={assistant.toolUpdates}
+                            onSend={assistant.send}
+                            onClose={() => { assistant.close(); focused.clear(); }}
+                            onDismissContext={assistant.dismissContext}
+                        />
+                    </div>
+                </div>,
+                document.body,
+            )}
         </div>
     );
 }

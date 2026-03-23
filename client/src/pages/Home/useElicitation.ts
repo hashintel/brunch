@@ -5,9 +5,10 @@ interface UseElicitationParams {
     clarifyingDone: boolean;
     assumptionsDone: boolean;
     requirementsCount: number;
+    hasSpec?: boolean;
 }
 
-export function useElicitation({ response, clarifyingDone, assumptionsDone, requirementsCount }: UseElicitationParams) {
+export function useElicitation({ response, clarifyingDone, assumptionsDone, requirementsCount, hasSpec }: UseElicitationParams) {
     const [openSections, setOpenSections] = useState<Set<number>>(() => new Set([0]));
 
     const stepCompleted = [
@@ -32,9 +33,11 @@ export function useElicitation({ response, clarifyingDone, assumptionsDone, requ
             if (stepActive[1]) next.delete(0);
             // Collapse assumptions when requirements active
             if (stepActive[2]) next.delete(1);
+            // Auto-open spec section when spec appears
+            if (hasSpec) next.add(3);
             return next;
         });
-    }, [response, clarifyingDone, assumptionsDone, requirementsCount]);
+    }, [response, clarifyingDone, assumptionsDone, requirementsCount, hasSpec]);
 
     function toggleSection(index: number) {
         setOpenSections(prev => {
