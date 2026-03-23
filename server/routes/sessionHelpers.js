@@ -60,6 +60,8 @@ export function serializeSession(project, entries, assumptions = [], goalIterati
             questions: parseJson(g.questions),
             answers: parseJson(g.answers),
         })),
+        spec: project.spec ?? '',
+        specProgress: project.spec_progress ?? 0,
         createdAt: project.created_at,
         updatedAt: project.updated_at,
     };

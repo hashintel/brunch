@@ -81,6 +81,7 @@ router.post('/sessions', asyncHandler(async (req, res) => {
         name, prompt, cwd, response, selectedModel, requirements,
         clarifyingDone, assumptionsDone, questionsExhausted,
         allQuestions, allAnswers, assumptions, goalIterations,
+        spec, specProgress,
         ...rest
     } = req.body;
 
@@ -88,8 +89,8 @@ router.post('/sessions', asyncHandler(async (req, res) => {
     try {
         await conn.beginTransaction();
         const [result] = await conn.execute(
-            `INSERT INTO project (name, prompt, folder, goal, model, clarifying_done, assumptions_done, questions_exhausted, current_questions, current_answers, clarifying_state)
-             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+            `INSERT INTO project (name, prompt, folder, goal, model, clarifying_done, assumptions_done, questions_exhausted, current_questions, current_answers, clarifying_state, spec, spec_progress)
+             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
                 name, prompt, cwd, response, selectedModel,
                 clarifyingDone ? 1 : 0,
@@ -98,6 +99,8 @@ router.post('/sessions', asyncHandler(async (req, res) => {
                 JSON.stringify(allQuestions ?? []),
                 JSON.stringify(allAnswers ?? []),
                 JSON.stringify(rest),
+                spec ?? null,
+                specProgress ?? 0,
             ]
         );
         const pk = result.insertId;
@@ -153,6 +156,7 @@ router.put('/sessions/:id', asyncHandler(async (req, res) => {
         name, prompt, cwd, response, selectedModel, requirements,
         clarifyingDone, assumptionsDone, questionsExhausted,
         allQuestions, allAnswers, assumptions, goalIterations,
+        spec, specProgress,
         ...rest
     } = req.body;
 
@@ -167,7 +171,8 @@ router.put('/sessions/:id', asyncHandler(async (req, res) => {
         await conn.execute(
             `UPDATE project SET name=?, prompt=?, folder=?, goal=?, model=?,
              clarifying_done=?, assumptions_done=?, questions_exhausted=?,
-             current_questions=?, current_answers=?, clarifying_state=?, updated_at=NOW()
+             current_questions=?, current_answers=?, clarifying_state=?,
+             spec=?, spec_progress=?, updated_at=NOW()
              WHERE pk=?`,
             [
                 name, prompt, cwd, response, selectedModel,
@@ -177,6 +182,8 @@ router.put('/sessions/:id', asyncHandler(async (req, res) => {
                 JSON.stringify(allQuestions ?? []),
                 JSON.stringify(allAnswers ?? []),
                 JSON.stringify(rest),
+                spec ?? null,
+                specProgress ?? 0,
                 id,
             ]
         );

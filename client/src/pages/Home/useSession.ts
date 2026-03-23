@@ -105,6 +105,8 @@ export function useSession({ bus }: UseSessionParams) {
                 clarifyingDone: data.clarifyingDone,
                 assumptions: data.assumptions,
                 assumptionsDone: data.assumptionsDone,
+                spec: data.spec,
+                specProgress: data.specProgress,
             };
             if (currentSessionId) {
                 await apiFetch(`/api/sessions/${currentSessionId}`, {
@@ -177,6 +179,8 @@ export function useSession({ bus }: UseSessionParams) {
                 assumptions: s.assumptions ?? [],
                 assumptionsDone: s.assumptionsDone ?? false,
                 requirements: (s.requirements ?? []).map(migrateReq),
+                spec: s.spec ?? '',
+                specProgress: s.specProgress ?? 0,
             };
         } catch {
             bus.error('Failed to load session');
