@@ -1,60 +1,23 @@
-import { useState } from 'preact/hooks';
+import { useMemo, useState } from 'preact/hooks';
+import { marked } from 'marked';
 import { LoadingIndicator } from '../../components/LoadingIndicator';
 
 interface SpecPaneProps {
-    spec: string;
-    progress: number;
     loading: boolean;
+    progress: number;
+    spec: string;
     editable: boolean;
     onSpecChange: (spec: string) => void;
 }
 
-function renderMarkdown(md: string): string {
-    let html = md
-        // Headers
-        .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-        .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-        .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-        // Bold & italic
-        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-        .replace(/\*(.+?)\*/g, '<em>$1</em>')
-        // Code blocks
-        .replace(/```(\w*)\n([\s\S]*?)```/g, '<pre><code>$2</code></pre>')
-        // Inline code
-        .replace(/`([^`]+)`/g, '<code>$1</code>')
-        // Unordered lists
-        .replace(/^[*-] (.+)$/gm, '<li>$1</li>')
-        // Ordered lists
-        .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-        // Horizontal rules
-        .replace(/^---$/gm, '<hr />')
-        // Paragraphs (double newline)
-        .replace(/\n\n/g, '</p><p>');
-
-    // Wrap consecutive <li> in <ul>
-    html = html.replace(/((?:<li>.*<\/li>\s*)+)/g, '<ul>$1</ul>');
-
-    return `<p>${html}</p>`;
-}
-
-export function SpecPane({ spec, progress, loading, editable, onSpecChange }: SpecPaneProps) {
+export function SpecPane({ loading, progress, spec, editable, onSpecChange }: SpecPaneProps) {
     const [editing, setEditing] = useState(false);
     const [editText, setEditText] = useState('');
 
-    function startEditing() {
-        setEditText(spec);
-        setEditing(true);
-    }
-
-    function saveEdit() {
-        onSpecChange(editText);
-        setEditing(false);
-    }
-
-    function cancelEdit() {
-        setEditing(false);
-    }
+    const html = useMemo(() => {
+        if (!spec) return '';
+        return marked.parse(spec, { async: false }) as string;
+    }, [spec]);
 
     if (!spec && !loading) {
         return (
@@ -68,11 +31,13 @@ export function SpecPane({ spec, progress, loading, editable, onSpecChange }: Sp
         <div class="spec-pane">
             {editable && !editing && (
                 <div class="spec-pane-toolbar">
-                    <button class="button button-small" onClick={startEditing}>
+                    <button class="button button-small" onClick={() => { setEditText(spec); setEditing(true); }}>
                         Edit Spec
                     </button>
                 </div>
             )}
+
+            {loading && <LoadingIndicator message="Generating spec" />}
 
             {editing ? (
                 <div class="spec-pane-editor">
@@ -83,20 +48,17 @@ export function SpecPane({ spec, progress, loading, editable, onSpecChange }: Sp
                         rows={30}
                     />
                     <div class="spec-pane-editor-actions">
-                        <button class="button button-small" onClick={saveEdit}>Save</button>
-                        <button class="button button-small button-secondary" onClick={cancelEdit}>Cancel</button>
+                        <button class="button button-small" onClick={() => { onSpecChange(editText); setEditing(false); }}>Save</button>
+                        <button class="button button-small button-secondary" onClick={() => setEditing(false)}>Cancel</button>
                     </div>
                 </div>
             ) : (
-                <div class="spec-pane-content">
-                    {loading && <LoadingIndicator message="Generating spec" />}
-                    {spec && (
-                        <div
-                            class="spec-pane-markdown"
-                            dangerouslySetInnerHTML={{ __html: renderMarkdown(spec) }}
-                        />
-                    )}
-                </div>
+                spec && (
+                    <div
+                        class="spec-prose"
+                        dangerouslySetInnerHTML={{ __html: html }}
+                    />
+                )
             )}
         </div>
     );

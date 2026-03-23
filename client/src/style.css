@@ -50,7 +50,7 @@ header a:hover {
 main {
 	flex: auto;
 	display: flex;
-	text-align: center;
+	/* text-align: center; */
 	width: 100%;
 }
 
