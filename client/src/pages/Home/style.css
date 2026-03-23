@@ -66,6 +66,8 @@
     gap: 1.5rem;
     position: sticky;
     top: 1.25rem;
+    height: calc(100vh - 2.5rem);
+    overflow-y: auto;
 }
 
 .sidebar-section {
@@ -1992,6 +1994,9 @@ tr.requirement--drag-over td {
 
 .sidebar-tab:last-child {
     border-radius: 0 0.35rem 0.35rem 0;
+}
+
+.sidebar-tab + .sidebar-tab {
     border-left: none;
 }
 
@@ -2611,7 +2616,7 @@ tr.requirement--drag-over td {
         border-color: #a07ee0;
         color: #fff;
     }
-    .sidebar-tab:last-child {
+    .sidebar-tab + .sidebar-tab {
         border-left: none;
     }
     .project-stat {
@@ -2714,10 +2719,6 @@ tr.requirement--drag-over td {
 
 .assistant-pane--open {
     transform: translateX(0);
-}
-
-.home-layout--assistant-open .home {
-    transition: margin-right 0.25s ease;
 }
 
 .assistant-header {
@@ -3688,59 +3689,15 @@ img:hover {
     font-weight: 500;
 }
 
-/* ── Right Pane (Spec + Assistant tabs) ── */
-.right-pane {
-    position: fixed;
-    top: 0;
-    right: 0;
-    width: 380px;
-    height: 100vh;
+/* ── Assistant in sidebar ── */
+.sidebar-assistant-wrapper {
+    flex: 1;
     display: flex;
     flex-direction: column;
-    transition: width 0.2s ease, padding 0.2s ease;
-    background: #fff;
-    border-left: 1px solid #e2e2e5;
-    z-index: 100;
-    transform: translateX(100%);
-    transition: transform 0.25s ease;
-    box-shadow: -4px 0 20px rgba(0, 0, 0, 0.08);
+    min-height: 0;
 }
 
-.right-pane--open {
-    transform: translateX(0);
-}
-
-.right-pane-tabs {
-    display: flex;
-    border-bottom: 1px solid #e2e2e5;
-    flex-shrink: 0;
-}
-
-.right-pane-tab {
-    flex: 1;
-    padding: 0.6rem 0.75rem;
-    font-size: 0.8rem;
-    font-weight: 600;
-    font-family: inherit;
-    background: none;
-    border: none;
-    border-bottom: 2px solid transparent;
-    cursor: pointer;
-    color: #888;
-    transition: color 0.15s, border-color 0.15s;
-}
-
-.right-pane-tab:hover {
-    color: #555;
-}
-
-.right-pane-tab--active {
-    color: #673ab8;
-    border-bottom-color: #673ab8;
-}
-
-/* When right pane is showing, hide the standalone assistant pane */
-.right-pane .assistant-pane {
+.sidebar-assistant-wrapper .assistant-pane {
     position: static;
     width: 100%;
     height: 100%;
@@ -3749,17 +3706,19 @@ img:hover {
     border-left: none;
 }
 
-.right-pane .assistant-header {
+.sidebar-assistant-wrapper .assistant-header {
     display: none;
 }
 
 /* ── Spec Pane ── */
 .spec-pane {
-    flex: 1;
     display: flex;
     flex-direction: column;
     overflow-y: auto;
     padding: 0.75rem;
+    border: 1px solid #e2e2e5;
+    border-radius: 0.5rem;
+    background: #fafafa;
 }
 
 .spec-pane-empty {
@@ -3881,11 +3840,7 @@ img:hover {
     .spec-progress-bar { background: #333; }
     .spec-progress-fill { background: #a07ee0; }
     .spec-progress-label { color: #777; }
-    .right-pane { background: #1a1a1e; border-left-color: #333; box-shadow: -4px 0 20px rgba(0, 0, 0, 0.3); }
-    .right-pane-tabs { border-bottom-color: #333; }
-    .right-pane-tab { color: #666; }
-    .right-pane-tab:hover { color: #999; }
-    .right-pane-tab--active { color: #a07ee0; border-bottom-color: #a07ee0; }
+    .spec-pane { border-color: #333; background: #1a1a1e; }
     .spec-pane-empty { color: #666; }
     .spec-pane-toolbar { border-bottom-color: #333; }
     .spec-pane-markdown { color: #ccc; }
