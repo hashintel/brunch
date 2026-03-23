@@ -110,7 +110,7 @@ export function Home() {
             session.clearPendingUrlSession();
             session.load(session.pendingUrlSessionId).then(data => {
                 if (data) restoreSessionData(data);
-            });
+            }).finally(() => session.setInitializing(false));
         }
     }, [session.pendingUrlSessionId]);
 
@@ -187,6 +187,15 @@ export function Home() {
         if (session.currentSessionId) {
             await handleLoadSession(session.currentSessionId);
         }
+    }
+
+    if (session.initializing) {
+        return (
+            <div class="loading-screen">
+                <div class="loading-spinner" />
+                <p class="loading-text">Loading...</p>
+            </div>
+        );
     }
 
     return (

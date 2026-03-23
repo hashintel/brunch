@@ -15,6 +15,7 @@ export function useSession({ bus }: UseSessionParams) {
     const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
     const [saving, setSaving] = useState(false);
     const [callHistory, setCallHistory] = useState<ClaudeCall[]>([]);
+    const [initializing, setInitializing] = useState(true);
 
     async function refreshCallHistory() {
         if (!currentSessionId) {
@@ -35,7 +36,13 @@ export function useSession({ bus }: UseSessionParams) {
 
     // Load sessions on mount
     useEffect(() => {
-        apiFetch<SessionMeta[]>('/api/sessions').then(setSessions).catch(() => {});
+        apiFetch<SessionMeta[]>('/api/sessions')
+            .then(setSessions)
+            .catch(() => {})
+            .finally(() => {
+                // If there's no URL session to load, we're ready
+                if (!params.id) setInitializing(false);
+            });
     }, []);
 
     // Refresh call history when project changes
@@ -216,6 +223,8 @@ export function useSession({ bus }: UseSessionParams) {
         load,
         deleteSession,
         refreshSessions,
+        initializing,
+        setInitializing,
         pendingUrlSessionId,
         clearPendingUrlSession,
     };

@@ -315,7 +315,7 @@ export function SessionPanel({
     versions, onVersionRevert, onVersionCheckout,
     specProgress, specLoading,
 }: Props) {
-    const [activeTab, setActiveTab] = useState<'list' | 'detail'>('list');
+    const [activeTab, setActiveTab] = useState<'list' | 'detail'>(currentSessionId ? 'detail' : 'list');
     const [showCallModal, setShowCallModal] = useState(false);
     const prevSessionId = useRef(currentSessionId);
 

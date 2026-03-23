@@ -1,3 +1,39 @@
+/* ── Loading Screen ── */
+.loading-screen {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    width: 100%;
+    gap: 1rem;
+}
+
+.loading-spinner {
+    width: 32px;
+    height: 32px;
+    border: 3px solid #e2e2e5;
+    border-top-color: #673ab8;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+.loading-text {
+    color: #888;
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+@media (prefers-color-scheme: dark) {
+    .loading-screen { background: #121214; }
+    .loading-spinner { border-color: #333; border-top-color: #a07ee0; }
+    .loading-text { color: #666; }
+}
+
 .home-layout {
     display: flex;
     width: 100%;

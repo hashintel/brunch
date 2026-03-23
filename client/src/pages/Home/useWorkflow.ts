@@ -74,9 +74,16 @@ export function useWorkflow({ selectedModel, cwd, projectId, bus }: Params) {
         bus,
     });
 
+    // Guard: skip spec generation triggers during restore
+    const restoringRef = useRef(false);
+
     // Trigger spec generation when assumptions are done
     const prevAssumptionsDone = useRef(false);
     useEffect(() => {
+        if (restoringRef.current) {
+            prevAssumptionsDone.current = assumptions.assumptionsDone;
+            return;
+        }
         if (assumptions.assumptionsDone && !prevAssumptionsDone.current) {
             const prompt = goal.prompt || goal.response;
             if (prompt) {
@@ -95,6 +102,11 @@ export function useWorkflow({ selectedModel, cwd, projectId, bus }: Params) {
     // Trigger spec generation when requirements are generated
     const prevReqCount = useRef(0);
     useEffect(() => {
+        if (restoringRef.current) {
+            prevReqCount.current = req.requirements.length;
+            restoringRef.current = false;
+            return;
+        }
         if (req.requirements.length > 0 && prevReqCount.current === 0) {
             const prompt = goal.prompt || goal.response;
             if (prompt) {
@@ -135,6 +147,7 @@ export function useWorkflow({ selectedModel, cwd, projectId, bus }: Params) {
     }
 
     function restore(data: any, { refetch = true } = {}) {
+        restoringRef.current = true;
         goal.restore(data);
         clarifying.restore(data);
         assumptions.restore(data);
