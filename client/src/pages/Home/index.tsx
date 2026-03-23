@@ -16,6 +16,8 @@ import { GoalSection } from './GoalSection';
 import { AssumptionSection } from './AssumptionSection';
 import { RequirementSection } from './RequirementSection';
 import { createProjectBus } from './projectBus';
+import { useResizable } from './useResizable';
+import { ResizeHandle, SidebarExpandBtn } from './ResizeHandle';
 
 const STEPS = ['Goal', 'Assumptions', 'Requirements'] as const;
 
@@ -27,6 +29,8 @@ export function Home() {
     const [models, setModels] = useState<Model[]>([]);
     const bus = useMemo(createProjectBus, []);
     const focused = useFocusedItem();
+    const leftSidebar = useResizable({ key: 'sidebar-left', defaultWidth: 270, minWidth: 200, maxWidth: 450, side: 'left' });
+    const rightPane = useResizable({ key: 'sidebar-right', defaultWidth: 380, minWidth: 280, maxWidth: 600, side: 'right' });
 
     useEffect(() => {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
@@ -187,7 +191,13 @@ export function Home() {
 
     return (
         <div class={`home-layout ${assistant.isOpen || (spec.spec || spec.loading) ? 'home-layout--assistant-open' : ''}`}>
-            <aside class="sidebar">
+            {leftSidebar.collapsed && (
+                <SidebarExpandBtn side="left" onClick={leftSidebar.toggle} />
+            )}
+            <aside
+                class={`sidebar ${leftSidebar.collapsed ? 'sidebar--collapsed' : ''}`}
+                style={leftSidebar.collapsed ? undefined : { width: `${leftSidebar.width}px` }}
+            >
                 <SessionPanel
                     sessions={session.sessions}
                     currentSessionId={session.currentSessionId}
@@ -206,8 +216,11 @@ export function Home() {
                     specProgress={spec.progress}
                     specLoading={spec.loading}
                 />
+                {!leftSidebar.collapsed && (
+                    <ResizeHandle side="left" {...leftSidebar.handleProps} />
+                )}
             </aside>
-            <div class="home">
+            <div class="home" style={(assistant.isOpen || spec.spec || spec.loading) && !rightPane.collapsed ? { marginRight: `${rightPane.width}px` } : undefined}>
                 {error && <div class="error">{error}</div>}
 
                 {isCheckedOut && (
@@ -333,8 +346,17 @@ export function Home() {
             />
 
             {/* Right sidebar with Spec/Assistant tabs */}
+            {(assistant.isOpen || (spec.spec || spec.loading)) && rightPane.collapsed && (
+                <SidebarExpandBtn side="right" onClick={rightPane.toggle} />
+            )}
             {(assistant.isOpen || (spec.spec || spec.loading)) && (
-                <div class={`right-pane ${assistant.isOpen || spec.spec || spec.loading ? 'right-pane--open' : ''}`}>
+                <div
+                    class={`right-pane ${assistant.isOpen || spec.spec || spec.loading ? 'right-pane--open' : ''} ${rightPane.collapsed ? 'sidebar--collapsed' : ''}`}
+                    style={rightPane.collapsed ? undefined : { width: `${rightPane.width}px` }}
+                >
+                    {!rightPane.collapsed && (
+                        <ResizeHandle side="right" {...rightPane.handleProps} />
+                    )}
                     <div class="right-pane-tabs">
                         {(spec.spec || spec.loading) && (
                             <button
