@@ -46,6 +46,11 @@ type Props = {
     onVersionCheckout: (hash: string) => void;
     specProgress: number;
     specLoading: boolean;
+    projectName: string;
+    onProjectNameChange: (v: string) => void;
+    cwd: string;
+    onCwdChange: (v: string) => void;
+    isCheckedOut: boolean;
 };
 
 function CallDetailModal({ calls, onClose }: { calls: ClaudeCall[]; onClose: () => void }) {
@@ -314,6 +319,7 @@ export function SessionPanel({
     models, selectedModel, onModelChange, callHistory, disabled,
     versions, onVersionRevert, onVersionCheckout,
     specProgress, specLoading,
+    projectName, onProjectNameChange, cwd, onCwdChange, isCheckedOut,
 }: Props) {
     const [activeTab, setActiveTab] = useState<'list' | 'detail'>(currentSessionId ? 'detail' : 'list');
     const [showCallModal, setShowCallModal] = useState(false);
@@ -390,6 +396,26 @@ export function SessionPanel({
 
             {activeTab === 'detail' && (
                 <>
+                    <div class="sidebar-section">
+                        <strong class="sidebar-section-title">Project</strong>
+                        <input
+                            class="sidebar-input"
+                            type="text"
+                            value={projectName}
+                            onInput={e => onProjectNameChange(e.currentTarget.value)}
+                            placeholder="Project name"
+                            disabled={isCheckedOut}
+                        />
+                        <input
+                            class="sidebar-input"
+                            type="text"
+                            value={cwd}
+                            onInput={e => onCwdChange(e.currentTarget.value)}
+                            placeholder="Project folder (optional)"
+                            disabled={isCheckedOut}
+                        />
+                    </div>
+
                     <div class="sidebar-section">
                         <strong class="sidebar-section-title">Configuration</strong>
                         <label class="sidebar-label">Model</label>

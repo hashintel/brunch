@@ -73,6 +73,20 @@ export function Home() {
             }),
         );
     };
+    bus.createAssumption = (input) => {
+        const newAssumption: Assumption = {
+            id: input.id || crypto.randomUUID(),
+            text: input.text,
+            rationale: input.rationale,
+            confidence: input.confidence as Assumption['confidence'],
+            impact: input.impact as Assumption['impact'],
+            status: 'pending',
+        };
+        assumptions.setAssumptions(prev => [...prev, newAssumption]);
+    };
+    bus.deleteAssumption = (id) => {
+        assumptions.setAssumptions(prev => prev.filter(a => a.id !== id));
+    };
     bus.updateRequirement = (update) => {
         function updateReqInTree(reqs: Requirement[]): Requirement[] {
             return reqs.map(r => {
@@ -89,6 +103,39 @@ export function Home() {
             });
         }
         req.setRequirements(prev => updateReqInTree(prev));
+    };
+    bus.createRequirement = (input) => {
+        const newReq: Requirement = {
+            id: input.id || crypto.randomUUID(),
+            title: input.title,
+            definition: input.definition,
+            confidence: input.confidence ?? 0.5,
+            stage: 'proposal',
+            tests: [],
+            children: [],
+        };
+        if (input.parent_id) {
+            // Add as child of the specified parent
+            function addChild(reqs: Requirement[]): Requirement[] {
+                return reqs.map(r => {
+                    if (r.id === input.parent_id) {
+                        return { ...r, children: [...r.children, newReq] };
+                    }
+                    return { ...r, children: addChild(r.children) };
+                });
+            }
+            req.setRequirements(prev => addChild(prev));
+        } else {
+            req.setRequirements(prev => [...prev, newReq]);
+        }
+    };
+    bus.deleteRequirement = (id) => {
+        function removeFromTree(reqs: Requirement[]): Requirement[] {
+            return reqs
+                .filter(r => r.id !== id)
+                .map(r => ({ ...r, children: removeFromTree(r.children) }));
+        }
+        req.setRequirements(prev => removeFromTree(prev));
     };
 
     focused.bindOpenWithMessage(assistant.openWithMessage);
@@ -224,6 +271,11 @@ export function Home() {
                     onVersionCheckout={handleVersionCheckout}
                     specProgress={spec.progress}
                     specLoading={spec.loading}
+                    projectName={projectName}
+                    onProjectNameChange={setProjectName}
+                    cwd={cwd}
+                    onCwdChange={setCwd}
+                    isCheckedOut={isCheckedOut}
                 />
                 {!leftSidebar.collapsed && (
                     <ResizeHandle side="left" {...leftSidebar.handleProps} />
@@ -272,28 +324,6 @@ export function Home() {
                 {/* Active project */}
                 {session.currentSessionId && (
                     <>
-                        {/* Project header */}
-                        <div class="project-header">
-                            <div class="project-header-fields">
-                                <input
-                                    class="project-header-name"
-                                    type="text"
-                                    value={projectName}
-                                    onInput={e => setProjectName(e.currentTarget.value)}
-                                    placeholder="Project name"
-                                    disabled={isCheckedOut}
-                                />
-                                <input
-                                    class="project-header-folder"
-                                    type="text"
-                                    value={cwd}
-                                    onInput={e => setCwd(e.currentTarget.value)}
-                                    placeholder="Project folder (optional)"
-                                    disabled={isCheckedOut}
-                                />
-                            </div>
-                        </div>
-
                         {/* Progress Stepper */}
                         <div class="stepper">
                             {STEPS.map((label, i) => (

@@ -7,7 +7,11 @@ const MCP_SERVER_NAME = 'assistant-tools';
 const MCP_TOOL_NAMES = new Set([
     `mcp__${MCP_SERVER_NAME}__set_goal`,
     `mcp__${MCP_SERVER_NAME}__update_assumption`,
+    `mcp__${MCP_SERVER_NAME}__create_assumption`,
+    `mcp__${MCP_SERVER_NAME}__delete_assumption`,
     `mcp__${MCP_SERVER_NAME}__update_requirement`,
+    `mcp__${MCP_SERVER_NAME}__create_requirement`,
+    `mcp__${MCP_SERVER_NAME}__delete_requirement`,
 ]);
 
 const router = Router();
@@ -20,8 +24,8 @@ router.post('/stream', asyncHandler(async (req, res) => {
     console.log(`[${modelId}]${cwd ? ` (${cwd})` : ''}${assistant ? ' [assistant]' : ''} ${prompt}`);
 
     if (assistant) {
-        const mcpServer = createAssistantMcpServer();
-        const text = await streamQueryTextWithTools(prompt, modelId, res, cwd, projectId, { [MCP_SERVER_NAME]: mcpServer }, MCP_TOOL_NAMES);
+        const { server: mcpServer, toolResults } = createAssistantMcpServer(projectId);
+        const text = await streamQueryTextWithTools(prompt, modelId, res, cwd, projectId, { [MCP_SERVER_NAME]: mcpServer }, MCP_TOOL_NAMES, toolResults);
         console.log(`[${modelId}] assistant response: ${text}`);
     } else {
         const text = await streamQueryText(prompt, modelId, res, cwd, projectId);

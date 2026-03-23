@@ -62,7 +62,11 @@ export function useAssistant({ selectedModel, cwd, projectId, bus, getGoalRespon
         prompt += 'Answer concisely and helpfully. When the user references parts of the spec, use the provided context.\n\n';
         prompt += 'You have access to a set_goal tool. When the user has agreed on a goal definition or you have helped them refine their goal, use the set_goal tool to set it in the form.\n';
         prompt += 'You have access to an update_assumption tool. When the user wants to change an assumption\'s text, status, confidence, or impact, use this tool to update it directly.\n';
-        prompt += 'You have access to an update_requirement tool. When the user wants to change a requirement\'s title, definition, confidence, or stage, use this tool to update it directly.\n\n';
+        prompt += 'You have access to a create_assumption tool. When the user wants to add a new assumption, use this tool with text, rationale, confidence (high/medium/low), and impact (high/medium/low).\n';
+        prompt += 'You have access to a delete_assumption tool. When the user wants to remove an assumption, use this tool with the assumption id.\n';
+        prompt += 'You have access to an update_requirement tool. When the user wants to change a requirement\'s title, definition, confidence, or stage, use this tool to update it directly.\n';
+        prompt += 'You have access to a create_requirement tool. When the user wants to add a new requirement, use this tool with title, definition, and optionally confidence (0-1) and parent_id.\n';
+        prompt += 'You have access to a delete_requirement tool. When the user wants to remove a requirement, use this tool with the requirement id.\n\n';
 
         if (goalResponse) {
             prompt += `## Current Goal\n${goalResponse}\n\n`;
@@ -71,7 +75,7 @@ export function useAssistant({ selectedModel, cwd, projectId, bus, getGoalRespon
         if (assumptions.length > 0) {
             prompt += '## Assumptions\n';
             for (const a of assumptions) {
-                prompt += `- [${a.confidence} confidence, ${a.impact} impact, ${a.status}] ${a.editedText || a.text}\n`;
+                prompt += `- [id: ${a.id}] [${a.confidence} confidence, ${a.impact} impact, ${a.status}] ${a.editedText || a.text}\n`;
             }
             prompt += '\n';
         }
@@ -84,7 +88,7 @@ export function useAssistant({ selectedModel, cwd, projectId, bus, getGoalRespon
         if (requirements.length > 0) {
             prompt += '## Requirements\n';
             for (const r of requirements) {
-                prompt += `- ${r.title}: ${r.definition} (confidence: ${r.confidence}%, stage: ${r.stage})\n`;
+                prompt += `- [id: ${r.id}] ${r.title}: ${r.definition} (confidence: ${r.confidence}%, stage: ${r.stage})\n`;
             }
             prompt += '\n';
         }
@@ -150,9 +154,21 @@ export function useAssistant({ selectedModel, cwd, projectId, bus, getGoalRespon
                 } else if (event.type === 'tool_use' && event.tool === 'update_assumption') {
                     bus.updateAssumption(event.input as any);
                     setToolUpdates(prev => [...prev, { tool: 'update_assumption', data: event.input as Record<string, any>, timestamp: Date.now() }]);
+                } else if (event.type === 'tool_use' && event.tool === 'create_assumption') {
+                    bus.createAssumption({ ...event.input as any, id: event.createdId });
+                    setToolUpdates(prev => [...prev, { tool: 'create_assumption', data: event.input as Record<string, any>, timestamp: Date.now() }]);
+                } else if (event.type === 'tool_use' && event.tool === 'delete_assumption') {
+                    bus.deleteAssumption((event.input as any).id);
+                    setToolUpdates(prev => [...prev, { tool: 'delete_assumption', data: event.input as Record<string, any>, timestamp: Date.now() }]);
                 } else if (event.type === 'tool_use' && event.tool === 'update_requirement') {
                     bus.updateRequirement(event.input as any);
                     setToolUpdates(prev => [...prev, { tool: 'update_requirement', data: event.input as Record<string, any>, timestamp: Date.now() }]);
+                } else if (event.type === 'tool_use' && event.tool === 'create_requirement') {
+                    bus.createRequirement({ ...event.input as any, id: event.createdId });
+                    setToolUpdates(prev => [...prev, { tool: 'create_requirement', data: event.input as Record<string, any>, timestamp: Date.now() }]);
+                } else if (event.type === 'tool_use' && event.tool === 'delete_requirement') {
+                    bus.deleteRequirement((event.input as any).id);
+                    setToolUpdates(prev => [...prev, { tool: 'delete_requirement', data: event.input as Record<string, any>, timestamp: Date.now() }]);
                 }
             }
 

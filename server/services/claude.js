@@ -104,8 +104,10 @@ export async function streamQueryText(prompt, modelId, res, cwd, projectId) {
     return fullText;
 }
 
-export function createAssistantMcpServer() {
-    return createSdkMcpServer({
+export function createAssistantMcpServer(projectId) {
+    // Side-channel for passing generated UUIDs from create tools to the stream
+    const toolResults = {};
+    const server = createSdkMcpServer({
         name: 'assistant-tools',
         version: '1.0.0',
         tools: [
@@ -115,6 +117,9 @@ export function createAssistantMcpServer() {
                 { goal: z.string().describe('The goal text to set in the form') },
                 async ({ goal }) => {
                     console.log('[set_goal] Tool called with goal:', goal.slice(0, 80));
+                    if (projectId) {
+                        await pool.execute('UPDATE project SET goal = ?, updated_at = NOW() WHERE pk = ?', [goal, projectId]);
+                    }
                     return { content: [{ type: 'text', text: 'Goal has been set successfully in the form.' }] };
                 },
             ),
@@ -130,7 +135,58 @@ export function createAssistantMcpServer() {
                 },
                 async ({ id, text, status, confidence, impact }) => {
                     console.log('[update_assumption] Tool called for id:', id);
+                    if (projectId) {
+                        const sets = [];
+                        const params = [];
+                        if (text != null) { sets.push('`text` = ?', '`edited_text` = ?'); params.push(text, text); }
+                        if (status != null) { sets.push('`status` = ?'); params.push(status); }
+                        if (confidence != null) { sets.push('`confidence` = ?'); params.push(confidence); }
+                        if (impact != null) { sets.push('`impact` = ?'); params.push(impact); }
+                        if (sets.length > 0) {
+                            sets.push('`updated_at` = NOW()');
+                            params.push(id, projectId);
+                            await pool.execute(`UPDATE assumption SET ${sets.join(', ')} WHERE uuid = ? AND project_id = ?`, params);
+                        }
+                    }
                     return { content: [{ type: 'text', text: `Assumption ${id} has been updated successfully.` }] };
+                },
+            ),
+            tool(
+                'create_assumption',
+                'Create a new assumption in the spec. Use this when the user wants to add a new assumption.',
+                {
+                    text: z.string().describe('The assumption text'),
+                    rationale: z.string().describe('Why this assumption is being made'),
+                    confidence: z.enum(['high', 'medium', 'low']).describe('Confidence level'),
+                    impact: z.enum(['high', 'medium', 'low']).describe('Impact level'),
+                },
+                async ({ text, rationale, confidence, impact }) => {
+                    const uuid = crypto.randomUUID();
+                    toolResults.lastCreateId = uuid;
+                    console.log('[create_assumption] Tool called, uuid:', uuid);
+                    if (projectId) {
+                        const [maxRows] = await pool.execute('SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM assumption WHERE project_id = ?', [projectId]);
+                        const sortOrder = maxRows[0].next_order;
+                        await pool.execute(
+                            'INSERT INTO assumption (uuid, project_id, `text`, rationale, confidence, impact, status, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                            [uuid, projectId, text, rationale, confidence, impact, 'pending', sortOrder],
+                        );
+                    }
+                    return { content: [{ type: 'text', text: `Assumption created with id ${uuid}.` }] };
+                },
+            ),
+            tool(
+                'delete_assumption',
+                'Delete an assumption from the spec. Use this when the user wants to remove an assumption.',
+                {
+                    id: z.string().describe('The assumption ID to delete'),
+                },
+                async ({ id }) => {
+                    console.log('[delete_assumption] Tool called for id:', id);
+                    if (projectId) {
+                        await pool.execute('DELETE FROM assumption WHERE uuid = ? AND project_id = ?', [id, projectId]);
+                    }
+                    return { content: [{ type: 'text', text: `Assumption ${id} has been deleted.` }] };
                 },
             ),
             tool(
@@ -145,14 +201,71 @@ export function createAssistantMcpServer() {
                 },
                 async ({ id, title, definition, confidence, stage }) => {
                     console.log('[update_requirement] Tool called for id:', id);
+                    if (projectId) {
+                        const sets = [];
+                        const params = [];
+                        if (title != null) { sets.push('`title` = ?'); params.push(title); }
+                        if (definition != null) { sets.push('`description` = ?'); params.push(definition); }
+                        if (confidence != null) { sets.push('`confidence` = ?'); params.push(confidence); }
+                        if (stage != null) { sets.push('`stage` = ?'); params.push(stage); }
+                        if (sets.length > 0) {
+                            sets.push('`updated_at` = NOW()');
+                            params.push(id, projectId);
+                            await pool.execute(`UPDATE entry SET ${sets.join(', ')} WHERE uuid = ? AND project_id = ?`, params);
+                        }
+                    }
                     return { content: [{ type: 'text', text: `Requirement ${id} has been updated successfully.` }] };
+                },
+            ),
+            tool(
+                'create_requirement',
+                'Create a new requirement in the spec. Use this when the user wants to add a new requirement.',
+                {
+                    title: z.string().describe('The requirement title'),
+                    definition: z.string().describe('The requirement definition/description'),
+                    confidence: z.number().min(0).max(1).optional().describe('Confidence level (0-1), defaults to 0.5'),
+                    parent_id: z.string().optional().describe('Parent requirement ID for nesting'),
+                },
+                async ({ title, definition, confidence, parent_id }) => {
+                    const uuid = crypto.randomUUID();
+                    toolResults.lastCreateId = uuid;
+                    console.log('[create_requirement] Tool called, uuid:', uuid);
+                    if (projectId) {
+                        let parentPk = null;
+                        if (parent_id) {
+                            const [parentRows] = await pool.execute('SELECT pk FROM entry WHERE uuid = ? AND project_id = ?', [parent_id, projectId]);
+                            if (parentRows.length > 0) parentPk = parentRows[0].pk;
+                        }
+                        const [maxRows] = await pool.execute('SELECT COALESCE(MAX(sort_order), -1) + 1 AS next_order FROM entry WHERE project_id = ?', [projectId]);
+                        const sortOrder = maxRows[0].next_order;
+                        await pool.execute(
+                            'INSERT INTO entry (uuid, project_id, title, `description`, confidence, stage, parent_id, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+                            [uuid, projectId, title, definition, confidence ?? 0.5, 'proposal', parentPk, sortOrder],
+                        );
+                    }
+                    return { content: [{ type: 'text', text: `Requirement created with id ${uuid}.` }] };
+                },
+            ),
+            tool(
+                'delete_requirement',
+                'Delete a requirement from the spec. Use this when the user wants to remove a requirement.',
+                {
+                    id: z.string().describe('The requirement ID to delete'),
+                },
+                async ({ id }) => {
+                    console.log('[delete_requirement] Tool called for id:', id);
+                    if (projectId) {
+                        await pool.execute('DELETE FROM entry WHERE uuid = ? AND project_id = ?', [id, projectId]);
+                    }
+                    return { content: [{ type: 'text', text: `Requirement ${id} has been deleted.` }] };
                 },
             ),
         ],
     });
+    return { server, toolResults };
 }
 
-export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projectId, mcpServers, mcpToolNames = new Set()) {
+export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projectId, mcpServers, mcpToolNames = new Set(), toolResults = {}) {
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
     res.setHeader('Transfer-Encoding', 'chunked');
 
@@ -162,9 +275,22 @@ export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projec
     let error = null;
     let currentTool = null;
     let currentToolInput = '';
+    let pendingMcpEvents = []; // Queue MCP tool_use events until after tool handler executes
 
     function sendEvent(obj) {
         res.write(JSON.stringify(obj) + '\n');
+    }
+
+    function flushPendingMcpEvents() {
+        for (const evt of pendingMcpEvents) {
+            // For create tools, attach the server-generated UUID
+            if (evt.tool.startsWith('create_') && toolResults.lastCreateId) {
+                evt.createdId = toolResults.lastCreateId;
+                toolResults.lastCreateId = null;
+            }
+            sendEvent(evt);
+        }
+        pendingMcpEvents = [];
     }
 
     try {
@@ -181,6 +307,12 @@ export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projec
             },
         })) {
             allMessages.push(msg);
+
+            // Flush pending MCP events when a new turn starts (tool handler has executed)
+            if (msg.type === 'stream_event' && msg.event.type === 'message_start' && pendingMcpEvents.length > 0) {
+                flushPendingMcpEvents();
+            }
+
             if (
                 msg.type === 'stream_event' &&
                 msg.event.type === 'content_block_delta' &&
@@ -216,7 +348,8 @@ export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projec
                     const originalName = parts.length >= 3 ? parts.slice(2).join('__') : currentTool;
                     try {
                         const input = JSON.parse(currentToolInput);
-                        sendEvent({ type: 'tool_use', tool: originalName, input });
+                        // Queue the event — it will be flushed after the tool handler executes
+                        pendingMcpEvents.push({ type: 'tool_use', tool: originalName, input });
                     } catch {
                         // If we can't parse the input, skip
                     }
@@ -227,6 +360,8 @@ export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projec
                 currentToolInput = '';
             }
         }
+        // Flush any remaining pending events (e.g., if the last tool was an MCP tool)
+        flushPendingMcpEvents();
         sendEvent({ type: 'done' });
         res.end();
     } catch (e) {
