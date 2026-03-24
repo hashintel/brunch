@@ -12,6 +12,7 @@ import sessionsRouter from './routes/sessions.js';
 import historyRouter from './routes/history.js';
 import versionsRouter from './routes/versions.js';
 import specRouter from './routes/spec.js';
+import specWizardRouter from './routes/specWizard.js';
 import pool, { initDb } from './db.js';
 
 import { MODELS, VALID_MODEL_IDS, DEFAULT_MODEL } from './models.js';
@@ -51,6 +52,7 @@ app.use('/api', sessionsRouter);
 app.use('/api', historyRouter);
 app.use('/api', versionsRouter);
 app.use('/api', specRouter);
+app.use('/api', specWizardRouter);
 app.use(errorHandler);
 
 // In production, serve the built frontend

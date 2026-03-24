@@ -134,6 +134,75 @@ export const specSchema = {
     additionalProperties: false,
 };
 
+export const specQuestionsSchema = {
+    type: 'object',
+    properties: {
+        questions: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    id: { type: 'string' },
+                    question: { type: 'string' },
+                    why: { type: 'string' },
+                    impact: { type: 'string', enum: ['high', 'medium', 'low'] },
+                    selectionType: { type: 'string', enum: ['single', 'multi'] },
+                    options: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: { label: { type: 'string' } },
+                            required: ['label'],
+                            additionalProperties: false,
+                        },
+                    },
+                },
+                required: ['id', 'question', 'why', 'impact', 'selectionType', 'options'],
+                additionalProperties: false,
+            },
+        },
+    },
+    required: ['questions'],
+    additionalProperties: false,
+};
+
+export const structuredSpecSchema = {
+    type: 'object',
+    properties: {
+        overallConfidence: { type: 'number', description: 'Overall spec confidence 0-100' },
+        sections: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    type: { type: 'string', enum: ['purpose', 'success_criteria', 'deliverables', 'risks'] },
+                    confidence: { type: 'number' },
+                    content: { type: 'string' },
+                    items: { type: 'array', items: { type: 'string' } },
+                    risks: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                risk: { type: 'string' },
+                                severity: { type: 'string', enum: ['high', 'medium', 'low'] },
+                                mitigation: { type: 'string' },
+                            },
+                            required: ['risk', 'severity', 'mitigation'],
+                            additionalProperties: false,
+                        },
+                    },
+                    assumptions: { type: 'array', items: { type: 'string' } },
+                },
+                required: ['type', 'confidence', 'content'],
+                additionalProperties: false,
+            },
+        },
+    },
+    required: ['overallConfidence', 'sections'],
+    additionalProperties: false,
+};
+
 export function formatClarifyingRounds(rounds) {
     if (!rounds?.length) return '';
     return rounds.map((round, i) => {

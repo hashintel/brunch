@@ -1,0 +1,666 @@
+/* ============================================================
+   CreateSpec — scoped under .create-spec
+   Primary: #2070e6
+   ============================================================ */
+
+.create-spec {
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    min-height: 100vh;
+    background: #fff;
+}
+
+/* ---------- Header ---------- */
+
+.create-spec__header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.5rem;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.create-spec__back-link {
+    color: #555;
+    text-decoration: none;
+    font-size: 0.9rem;
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+}
+.create-spec__back-link:hover { color: #2070e6; }
+
+.create-spec__model-select {
+    padding: 0.35rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-size: 0.85rem;
+    background: #fff;
+    color: #333;
+}
+
+/* ---------- Landing Screen ---------- */
+
+.create-spec__landing {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 3rem 1.5rem;
+    max-width: 640px;
+    margin: 0 auto;
+}
+
+.create-spec__landing-illustration {
+    margin-bottom: 1.5rem;
+}
+
+.create-spec__landing-title {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #111;
+    margin: 0 0 0.5rem;
+}
+
+.create-spec__landing-subtitle {
+    font-size: 1rem;
+    color: #666;
+    text-align: center;
+    margin: 0 0 2rem;
+    max-width: 480px;
+    line-height: 1.6;
+}
+
+.create-spec__landing-form {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.create-spec__landing-textarea {
+    width: 100%;
+    padding: 0.875rem 1rem;
+    border: 2px solid #e5e7eb;
+    border-radius: 0.5rem;
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 120px;
+    transition: border-color 0.15s, box-shadow 0.15s;
+    box-sizing: border-box;
+}
+.create-spec__landing-textarea:focus {
+    outline: none;
+    border-color: #2070e6;
+    box-shadow: 0 0 0 3px rgba(32, 112, 230, 0.15);
+}
+
+/* ---------- Buttons ---------- */
+
+.create-spec__btn {
+    padding: 0.5rem 1.25rem;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.9rem;
+    font-family: inherit;
+    cursor: pointer;
+    transition: background-color 0.15s, opacity 0.15s;
+}
+.create-spec__btn:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.create-spec__btn--primary {
+    background: #2070e6;
+    color: #fff;
+}
+.create-spec__btn--primary:hover:not(:disabled) { background: #1a5fbf; }
+
+.create-spec__btn--secondary {
+    background: #e5e7eb;
+    color: #333;
+}
+.create-spec__btn--secondary:hover:not(:disabled) { background: #d1d5db; }
+
+.create-spec__btn--ghost {
+    background: transparent;
+    color: #666;
+}
+.create-spec__btn--ghost:hover:not(:disabled) { background: #f3f4f6; }
+
+.create-spec__btn--large {
+    padding: 0.75rem 2rem;
+    font-size: 1rem;
+}
+
+.create-spec__btn--small {
+    padding: 0.3rem 0.75rem;
+    font-size: 0.8rem;
+}
+
+.create-spec__btn--loading {
+    background: linear-gradient(90deg, #2070e6, #4a90f0, #2070e6);
+    background-size: 200% 100%;
+    animation: create-spec-shimmer-btn 1.5s infinite;
+}
+
+/* ---------- Loading Screen ---------- */
+
+.create-spec__loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    flex: 1;
+    padding: 3rem 1.5rem;
+    gap: 1.5rem;
+    max-width: 600px;
+    margin: 0 auto;
+}
+.create-spec__loading h2 {
+    color: #333;
+    font-size: 1.25rem;
+    font-weight: 600;
+}
+
+/* ---------- Clarify Screen (two-panel) ---------- */
+
+.create-spec__clarify {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+/* ---------- Question Panel (left) ---------- */
+
+.create-spec__question-panel {
+    flex: 1;
+    padding: 1.5rem 2rem;
+    overflow-y: auto;
+    border-right: 1px solid #e5e7eb;
+    display: flex;
+    flex-direction: column;
+    gap: 1.25rem;
+}
+
+.create-spec__question-panel-header { margin-bottom: 0.25rem; }
+
+.create-spec__question-panel-title {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #111;
+    margin: 0;
+}
+.create-spec__question-panel-subtitle {
+    font-size: 0.9rem;
+    color: #666;
+    margin: 0.25rem 0 0;
+}
+
+/* Progress */
+.create-spec__progress { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.create-spec__progress-bar-track {
+    height: 6px;
+    background: #e5e7eb;
+    border-radius: 3px;
+    overflow: hidden;
+}
+.create-spec__progress-bar-fill {
+    height: 100%;
+    background: #2070e6;
+    border-radius: 3px;
+    transition: width 0.3s ease;
+}
+
+.create-spec__progress-info {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #888;
+}
+
+/* Question Card */
+.create-spec__question-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.create-spec__question-card-header { display: flex; align-items: center; gap: 0.5rem; }
+.create-spec__question-text {
+    font-size: 1.05rem;
+    font-weight: 600;
+    color: #111;
+    margin: 0;
+}
+
+/* Options */
+.create-spec__options {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.create-spec__option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.625rem 0.875rem;
+    border: 1.5px solid #e5e7eb;
+    border-radius: 0.375rem;
+    cursor: pointer;
+    transition: border-color 0.15s, background-color 0.15s;
+    font-size: 0.9rem;
+}
+.create-spec__option:hover { border-color: #bfcfdf; background: #f9fafb; }
+.create-spec__option--selected {
+    border-color: #2070e6;
+    background: #eff6ff;
+}
+
+.create-spec__option input[type="radio"],
+.create-spec__option input[type="checkbox"] {
+    accent-color: #2070e6;
+    width: 16px;
+    height: 16px;
+    margin: 0;
+}
+
+.create-spec__option-label { color: #333; }
+
+/* Why card */
+.create-spec__why-card {
+    background: #f9fafb;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    font-size: 0.85rem;
+    color: #555;
+    line-height: 1.5;
+}
+.create-spec__why-card strong { color: #333; }
+
+/* Question actions */
+.create-spec__question-actions {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+
+.create-spec__skip-all-btn {
+    background: none;
+    border: none;
+    color: #888;
+    font-size: 0.8rem;
+    cursor: pointer;
+    text-decoration: underline;
+    padding: 0;
+    align-self: flex-start;
+}
+.create-spec__skip-all-btn:hover { color: #2070e6; }
+
+/* ---------- Preview Panel (right) ---------- */
+
+.create-spec__preview-panel {
+    width: 600px;
+    min-width: 400px;
+    padding: 1.5rem;
+    overflow-y: auto;
+    background: #fafbfc;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Confidence Bar */
+.create-spec__confidence-bar { display: flex; flex-direction: column; gap: 0.35rem; }
+
+.create-spec__confidence-bar-header {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.85rem;
+}
+.create-spec__confidence-bar-label { font-weight: 600; color: #333; }
+.create-spec__confidence-bar-value { font-weight: 700; color: #2070e6; }
+
+.create-spec__confidence-bar-track {
+    height: 8px;
+    background: #e5e7eb;
+    border-radius: 4px;
+    overflow: hidden;
+}
+.create-spec__confidence-bar-fill {
+    height: 100%;
+    border-radius: 4px;
+    transition: width 0.4s ease, background-color 0.3s;
+}
+.create-spec__confidence-bar-fill--high { background: #22c55e; }
+.create-spec__confidence-bar-fill--medium { background: #f59e0b; }
+.create-spec__confidence-bar-fill--low { background: #ef4444; }
+
+.create-spec__confidence-bar-message {
+    font-size: 0.8rem;
+    color: #888;
+    margin: 0;
+}
+
+/* Tabs */
+.create-spec__tabs {
+    display: flex;
+    gap: 0;
+    border-bottom: 2px solid #e5e7eb;
+}
+
+.create-spec__tab {
+    padding: 0.5rem 1rem;
+    border: none;
+    background: none;
+    font-size: 0.85rem;
+    color: #888;
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: color 0.15s, border-color 0.15s;
+}
+.create-spec__tab:hover { color: #555; }
+.create-spec__tab--active {
+    color: #2070e6;
+    border-bottom-color: #2070e6;
+    font-weight: 600;
+}
+
+.create-spec__tab-content {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+/* Empty card */
+.create-spec__empty-card {
+    border: 2px dashed #d1d5db;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    color: #999;
+    font-size: 0.9rem;
+}
+
+/* Updating indicator */
+.create-spec__updating-indicator {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #2070e6;
+    padding: 0.5rem;
+}
+
+/* ---------- Spec Section Card ---------- */
+
+.create-spec__section-card {
+    border: 1px solid #e5e7eb;
+    border-radius: 0.5rem;
+    padding: 1.25rem;
+    background: #fff;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.create-spec__section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.create-spec__section-title {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #111;
+    margin: 0;
+}
+.create-spec__section-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.create-spec__edit-btn {
+    background: none;
+    border: 1px solid #d1d5db;
+    border-radius: 0.25rem;
+    padding: 0.2rem 0.5rem;
+    font-size: 0.75rem;
+    color: #666;
+    cursor: pointer;
+}
+.create-spec__edit-btn:hover { border-color: #2070e6; color: #2070e6; }
+
+.create-spec__section-content {
+    font-size: 0.9rem;
+    color: #444;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.create-spec__section-list {
+    margin: 0;
+    padding-left: 1.25rem;
+    font-size: 0.9rem;
+    color: #444;
+    line-height: 1.7;
+}
+
+.create-spec__section-textarea {
+    width: 100%;
+    padding: 0.5rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    font-family: inherit;
+    font-size: 0.9rem;
+    resize: vertical;
+    box-sizing: border-box;
+}
+
+.create-spec__section-edit-actions {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Risks table */
+.create-spec__risks-table {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+
+.create-spec__risk-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.85rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #f3f4f6;
+}
+.create-spec__risk-row:last-child { border-bottom: none; }
+
+.create-spec__risk-severity {
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    white-space: nowrap;
+}
+.create-spec__risk-severity--high { background: #fef2f2; color: #dc2626; }
+.create-spec__risk-severity--medium { background: #fffbeb; color: #d97706; }
+.create-spec__risk-severity--low { background: #f0fdf4; color: #16a34a; }
+
+.create-spec__risk-text { flex: 1; color: #444; }
+.create-spec__risk-arrow { color: #ccc; }
+.create-spec__risk-mitigation { flex: 1; color: #555; }
+
+/* Assumptions sub-card */
+.create-spec__assumptions-card {
+    background: #f9fafb;
+    border-radius: 0.375rem;
+    padding: 0.75rem;
+    font-size: 0.85rem;
+    color: #555;
+}
+.create-spec__assumptions-card ul {
+    margin: 0.25rem 0 0;
+    padding-left: 1.25rem;
+}
+
+/* ---------- Badges ---------- */
+
+.create-spec__impact-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.025em;
+}
+.create-spec__impact-badge--high { background: #fef2f2; color: #dc2626; }
+.create-spec__impact-badge--medium { background: #fffbeb; color: #d97706; }
+.create-spec__impact-badge--low { background: #f3f4f6; color: #888; }
+
+.create-spec__confidence-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.15rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.7rem;
+    font-weight: 600;
+}
+.create-spec__confidence-badge--high { background: #f0fdf4; color: #16a34a; }
+.create-spec__confidence-badge--medium { background: #fffbeb; color: #d97706; }
+.create-spec__confidence-badge--low { background: #fef2f2; color: #dc2626; }
+
+/* ---------- Skeleton Loader ---------- */
+
+.create-spec__skeleton {
+    display: flex;
+    flex-direction: column;
+    gap: 0.625rem;
+    width: 100%;
+}
+
+.create-spec__skeleton-line {
+    height: 12px;
+    background: linear-gradient(90deg, #e5e7eb 25%, #f3f4f6 50%, #e5e7eb 75%);
+    background-size: 200% 100%;
+    border-radius: 6px;
+    animation: create-spec-shimmer 1.5s ease-in-out infinite;
+}
+
+.create-spec__skeleton-cards {
+    display: flex;
+    flex-direction: column;
+    gap: 1.5rem;
+}
+
+/* ---------- Error ---------- */
+
+.create-spec__error {
+    background: #fef2f2;
+    border: 1px solid #fecaca;
+    color: #dc2626;
+    padding: 0.75rem 1rem;
+    margin: 1rem;
+    border-radius: 0.375rem;
+    font-size: 0.9rem;
+}
+
+/* ---------- Animations ---------- */
+
+@keyframes create-spec-shimmer {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+@keyframes create-spec-shimmer-btn {
+    0% { background-position: -200% 0; }
+    100% { background-position: 200% 0; }
+}
+
+/* ---------- Dark Mode ---------- */
+
+@media (prefers-color-scheme: dark) {
+    .create-spec { background: #1a1a1a; }
+
+    .create-spec__header { border-bottom-color: #333; }
+    .create-spec__back-link { color: #aaa; }
+    .create-spec__model-select { background: #2a2a2a; color: #ccc; border-color: #444; }
+
+    .create-spec__landing-title { color: #eee; }
+    .create-spec__landing-subtitle { color: #999; }
+
+    .create-spec__landing-textarea {
+        background: #2a2a2a;
+        border-color: #444;
+        color: #ccc;
+    }
+    .create-spec__landing-textarea:focus {
+        border-color: #2070e6;
+        box-shadow: 0 0 0 3px rgba(32, 112, 230, 0.25);
+    }
+
+    .create-spec__loading h2 { color: #ccc; }
+
+    .create-spec__question-panel { border-right-color: #333; }
+    .create-spec__question-panel-title { color: #eee; }
+    .create-spec__question-panel-subtitle { color: #888; }
+
+    .create-spec__question-card { border-color: #333; background: #222; }
+    .create-spec__question-text { color: #eee; }
+
+    .create-spec__option { border-color: #444; }
+    .create-spec__option:hover { border-color: #555; background: #2a2a2a; }
+    .create-spec__option--selected { border-color: #2070e6; background: #1a2a40; }
+    .create-spec__option-label { color: #ccc; }
+
+    .create-spec__why-card { background: #252525; color: #999; }
+    .create-spec__why-card strong { color: #ccc; }
+
+    .create-spec__preview-panel { background: #1e1e1e; }
+
+    .create-spec__confidence-bar-label { color: #ccc; }
+    .create-spec__confidence-bar-track { background: #333; }
+
+    .create-spec__tabs { border-bottom-color: #333; }
+    .create-spec__tab { color: #888; }
+    .create-spec__tab:hover { color: #aaa; }
+
+    .create-spec__empty-card { border-color: #444; color: #666; }
+
+    .create-spec__section-card { border-color: #333; background: #222; }
+    .create-spec__section-title { color: #eee; }
+    .create-spec__section-content { color: #bbb; }
+    .create-spec__section-list { color: #bbb; }
+    .create-spec__section-textarea { background: #2a2a2a; border-color: #444; color: #ccc; }
+
+    .create-spec__edit-btn { border-color: #444; color: #999; }
+    .create-spec__edit-btn:hover { border-color: #2070e6; color: #2070e6; }
+
+    .create-spec__risk-row { border-bottom-color: #333; }
+    .create-spec__risk-text { color: #bbb; }
+    .create-spec__risk-mitigation { color: #aaa; }
+
+    .create-spec__assumptions-card { background: #252525; color: #999; }
+
+    .create-spec__skeleton-line {
+        background: linear-gradient(90deg, #333 25%, #444 50%, #333 75%);
+        background-size: 200% 100%;
+    }
+
+    .create-spec__error { background: #2a1515; border-color: #5c2a2a; }
+}
