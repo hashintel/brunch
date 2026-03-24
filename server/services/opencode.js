@@ -27,13 +27,9 @@ function getClient() {
 }
 
 function ocModel(modelId) {
-    return OC_MODELS[modelId] ?? { providerID: 'openai', modelID: modelId };
+    return OC_MODELS[modelId] ?? { providerID: 'opencode', modelID: modelId };
 }
 
-/**
- * Returns the set of connected provider IDs from the running OpenCode server.
- * Cached for 30s to avoid hammering the API.
- */
 let _connectedCache = { providers: null, ts: 0 };
 export async function getConnectedProviders() {
     const now = Date.now();
@@ -52,9 +48,6 @@ export async function getConnectedProviders() {
     }
 }
 
-/**
- * Returns the OC_MODELS entries whose providerID is connected.
- */
 export async function getAvailableModelIds() {
     const connected = await getConnectedProviders();
     return Object.keys(OC_MODELS).filter(id => connected.has(OC_MODELS[id].providerID));
@@ -67,7 +60,6 @@ function log(...args) {
 function dump(label, obj) {
     if (!DEBUG) return;
     const json = JSON.stringify(obj, (_k, v) => {
-        // Avoid dumping huge Response objects or buffers
         if (v?.constructor?.name === 'Response' || v?.constructor?.name === 'Request') return `[${v.constructor.name}]`;
         if (typeof v === 'string' && v.length > 500) return v.slice(0, 500) + '…';
         return v;
@@ -75,19 +67,16 @@ function dump(label, obj) {
     log(label, json?.slice(0, 2000));
 }
 
-/**
- * SDK calls return { data, request, response, error }.
- * .data is the parsed body, .response is the raw Response object.
- */
 function unwrap(result, label) {
     if (result.error) {
         const msg = typeof result.error === 'string' ? result.error : JSON.stringify(result.error);
         log(`${label} ERROR:`, msg);
         throw new Error(msg);
     }
-
     return result.data ?? result;
 }
+
+// ── queryStructured (sync prompt with json_schema) ──
 
 export async function queryStructured(prompt, modelId, schema, cwd, projectId) {
     const client = getClient();
@@ -97,37 +86,55 @@ export async function queryStructured(prompt, modelId, schema, cwd, projectId) {
 
     try {
         const session = unwrap(await client.session.create({ directory: cwd || undefined }), 'session.create');
-        log('queryStructured session:', session.id);
+        const sessionId = session.id;
+        log('queryStructured session:', sessionId);
 
-        const data = unwrap(await client.session.prompt({
-            sessionID: session.id,
+        // Use async prompt + SSE instead of sync prompt.
+        // The sync session.prompt hangs when the OpenCode agent does multi-turn tool use.
+        const sse = await client.event.subscribe();
+
+        unwrap(await client.session.promptAsync({
+            sessionID: sessionId,
             model: ocModel(modelId),
             format: { type: 'json_schema', schema },
             parts: [{ type: 'text', text: prompt }],
-        }), 'session.prompt');
+        }), 'session.promptAsync');
 
-        // OpenCode puts structured output in info.structured when using json_schema format
-        if (data.info?.structured) {
-            log('queryStructured: got structured output from info.structured');
-            response = JSON.stringify(data.info.structured);
-            return data.info.structured;
+        log('queryStructured: waiting for session.idle via SSE...');
+
+        // Listen for the final message.updated with info.structured, or session.idle
+        let structured = null;
+        let timedOut = false;
+        const timeout = setTimeout(() => { timedOut = true; }, 180_000);
+
+        for await (const event of sse.stream) {
+            if (timedOut) throw new Error('OpenCode queryStructured timed out after 180s');
+
+            const evtSessionId = event.properties?.sessionID ?? event.properties?.info?.sessionID;
+            if (evtSessionId && evtSessionId !== sessionId) continue;
+
+            if (event.type === 'message.updated') {
+                const info = event.properties?.info;
+                if (info?.role === 'assistant' && info?.structured) {
+                    structured = info.structured;
+                    log('queryStructured: got structured from message.updated');
+                }
+            } else if (event.type === 'session.idle') {
+                break;
+            } else if (event.type === 'session.error') {
+                const errMsg = event.properties?.error || 'OpenCode session error';
+                throw new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
+            }
+        }
+        clearTimeout(timeout);
+
+        if (structured) {
+            response = JSON.stringify(structured);
+            return structured;
         }
 
-        // Fallback: extract text from response parts
-        const parts = data.parts ?? [];
-        const textParts = (Array.isArray(parts) ? parts : []).filter(p => p.type === 'text');
-        log('queryStructured parts:', parts.length, 'text parts:', textParts.length);
-
-        const text = textParts.map(p => p.text).join('');
-
-        if (!text) {
-            log('queryStructured: no text parts. All part types:', parts.map(p => p.type));
-            dump('queryStructured full response', data);
-            throw new Error('No text in OpenCode response');
-        }
-
-        response = text;
-        return JSON.parse(text);
+        log('queryStructured: no structured output found in SSE events');
+        throw new Error('No structured output in OpenCode response');
     } catch (e) {
         error = e;
         throw e;
@@ -149,6 +156,16 @@ export async function queryStructured(prompt, modelId, schema, cwd, projectId) {
     }
 }
 
+// ── streamQueryText (async prompt + SSE) ──
+//
+// OpenCode SSE event flow:
+//   message.part.updated  (type=text, textLen=0)  → part created
+//   message.part.delta    (field=text, delta=...)  → text chunk (use this for streaming)
+//   message.part.updated  (type=text, textLen=N)   → part state updated
+//   message.part.updated  (type=tool, status=pending/running) → tool started
+//   message.part.updated  (type=tool, status=completed)       → tool finished
+//   session.idle                                    → done
+
 export async function streamQueryText(prompt, modelId, res, cwd, projectId) {
     res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
     res.setHeader('Transfer-Encoding', 'chunked');
@@ -167,7 +184,10 @@ export async function streamQueryText(prompt, modelId, res, cwd, projectId) {
         const sessionId = session.id;
         log('streamQueryText session:', sessionId);
 
-        const partTextLengths = {};
+        // Track which part IDs are text parts (learned from message.part.updated)
+        const textPartIds = new Set();
+        const emittedToolStarts = new Set();
+        const emittedToolEnds = new Set();
 
         const sse = await client.event.subscribe();
 
@@ -178,32 +198,28 @@ export async function streamQueryText(prompt, modelId, res, cwd, projectId) {
         }), 'session.promptAsync');
 
         for await (const event of sse.stream) {
-            // Filter to our session
             const evtSessionId = event.properties?.sessionID ?? event.properties?.part?.sessionID;
             if (evtSessionId && evtSessionId !== sessionId) continue;
 
             dump('sse event', { type: event.type, props: event.properties });
 
-            if (event.type === 'message.part.updated') {
+            if (event.type === 'message.part.delta') {
+                const { partID, field, delta } = event.properties;
+                // Only stream text field deltas for text parts (not reasoning)
+                if (field === 'text' && textPartIds.has(partID)) {
+                    sendEvent({ type: 'text', text: delta });
+                    fullText += delta;
+                }
+            } else if (event.type === 'message.part.updated') {
                 const part = event.properties.part;
-                const delta = event.properties.delta;
                 if (part.type === 'text') {
-                    if (delta != null) {
-                        sendEvent({ type: 'text', text: delta });
-                        fullText += delta;
-                    } else {
-                        const prevLen = partTextLengths[part.id] ?? 0;
-                        if (part.text.length > prevLen) {
-                            const textDelta = part.text.slice(prevLen);
-                            sendEvent({ type: 'text', text: textDelta });
-                            fullText += textDelta;
-                        }
-                        partTextLengths[part.id] = part.text.length;
-                    }
+                    textPartIds.add(part.id);
                 } else if (part.type === 'tool') {
-                    if (part.state.status === 'pending' || part.state.status === 'running') {
+                    if ((part.state.status === 'pending' || part.state.status === 'running') && !emittedToolStarts.has(part.id)) {
+                        emittedToolStarts.add(part.id);
                         sendEvent({ type: 'tool_start', tool: part.tool });
-                    } else if (part.state.status === 'completed' || part.state.status === 'error') {
+                    } else if ((part.state.status === 'completed' || part.state.status === 'error') && !emittedToolEnds.has(part.id)) {
+                        emittedToolEnds.add(part.id);
                         sendEvent({ type: 'tool_end', tool: part.tool });
                     }
                 }
@@ -240,7 +256,8 @@ export async function streamQueryText(prompt, modelId, res, cwd, projectId) {
     return fullText;
 }
 
-// Tool names that are our assistant MCP tools
+// ── streamQueryTextWithTools (async prompt + SSE + MCP tools) ──
+
 const ASSISTANT_TOOLS = new Set([
     'set_goal', 'update_assumption', 'create_assumption', 'delete_assumption',
     'update_requirement', 'create_requirement', 'delete_requirement',
@@ -266,7 +283,7 @@ export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projec
         const sessionId = session.id;
         log('streamQueryTextWithTools session:', sessionId);
 
-        const partTextLengths = {};
+        const textPartIds = new Set();
         const emittedToolStarts = new Set();
         const emittedToolEnds = new Set();
 
@@ -284,23 +301,17 @@ export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projec
 
             dump('sse event', { type: event.type, props: event.properties });
 
-            if (event.type === 'message.part.updated') {
+            if (event.type === 'message.part.delta') {
+                const { partID, field, delta } = event.properties;
+                if (field === 'text' && textPartIds.has(partID)) {
+                    sendEvent({ type: 'text', text: delta });
+                    fullText += delta;
+                }
+            } else if (event.type === 'message.part.updated') {
                 const part = event.properties.part;
-                const delta = event.properties.delta;
 
                 if (part.type === 'text') {
-                    if (delta != null) {
-                        sendEvent({ type: 'text', text: delta });
-                        fullText += delta;
-                    } else {
-                        const prevLen = partTextLengths[part.id] ?? 0;
-                        if (part.text.length > prevLen) {
-                            const textDelta = part.text.slice(prevLen);
-                            sendEvent({ type: 'text', text: textDelta });
-                            fullText += textDelta;
-                        }
-                        partTextLengths[part.id] = part.text.length;
-                    }
+                    textPartIds.add(part.id);
                 } else if (part.type === 'tool') {
                     const toolName = extractAssistantToolName(part.tool);
                     log('tool event:', part.tool, '→', toolName, 'status:', part.state.status);
@@ -358,11 +369,6 @@ export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projec
     return fullText;
 }
 
-/**
- * Extract the base assistant tool name from an OpenCode MCP tool name.
- * OpenCode may prefix tool names with the MCP server name, e.g. "brunch-assistant_set_goal"
- * or use double-underscore format "brunch-assistant__set_goal".
- */
 function extractAssistantToolName(toolName) {
     for (const name of ASSISTANT_TOOLS) {
         if (toolName === name) return name;
