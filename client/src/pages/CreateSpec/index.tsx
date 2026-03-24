@@ -7,11 +7,13 @@ import { AssumptionsScreen } from './AssumptionsScreen';
 import { RequirementsScreen } from './RequirementsScreen';
 import { OverviewScreen } from './OverviewScreen';
 import { SkeletonLoader } from './SkeletonLoader';
+import { AssistantPanel, AssistantToggle } from './AssistantPanel';
 import type { Model } from '../Home/types';
 
 export function CreateSpec() {
     const [selectedModel, setSelectedModel] = useState('claude-haiku-4-5');
     const [models, setModels] = useState<Model[]>([]);
+    const [assistantOpen, setAssistantOpen] = useState(false);
 
     useEffect(() => {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
@@ -125,6 +127,12 @@ export function CreateSpec() {
                 <div class="create-spec__error">
                     {wizard.questions.error || wizard.spec.error || wizard.assumptions.error || wizard.requirements.error}
                 </div>
+            )}
+
+            {assistantOpen ? (
+                <AssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} />
+            ) : (
+                <AssistantToggle onClick={() => setAssistantOpen(true)} />
             )}
         </div>
     );

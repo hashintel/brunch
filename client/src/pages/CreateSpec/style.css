@@ -1345,6 +1345,435 @@
     font-size: 0.875rem;
 }
 
+/* ============================================================
+   AI ASSISTANT PANEL
+   ============================================================ */
+
+.cs-assistant {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 588px;
+    height: 900px;
+    max-height: calc(100vh - 48px);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 16px;
+}
+
+/* Gradient glow behind the panel */
+.cs-assistant__glow {
+    position: absolute;
+    inset: -2px;
+    border-radius: 16px;
+    opacity: 0.25;
+    filter: blur(20px);
+    background: linear-gradient(120deg, #5424ff 4%, #fdb975 42%, #fe5dd3 74%, #ff00ae 117%);
+    pointer-events: none;
+}
+
+.cs-assistant__border {
+    position: absolute;
+    inset: 0;
+    border-radius: 16px;
+    border: 1.5px solid #5424ff;
+    opacity: 0.55;
+    filter: blur(1.5px);
+    pointer-events: none;
+}
+
+.cs-assistant__panel {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.7);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(255, 0, 174, 0.04);
+    border-radius: 16px;
+    padding: 8px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+}
+
+/* Top bar controls */
+.cs-assistant__top-left {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    z-index: 2;
+}
+
+.cs-assistant__close-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #5b5b5b;
+    box-shadow: 0 4px 4px -2px rgba(0,0,0,0.02), 0 2px 2px -1px rgba(0,0,0,0.02), 0 0 0 1px rgba(0,0,0,0.08);
+    z-index: 2;
+}
+.cs-assistant__close-btn:hover { background: #f5f5f5; }
+
+.cs-assistant__icon-btn {
+    width: 24px;
+    height: 24px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #fff;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #5b5b5b;
+    box-shadow: 0 4px 4px -2px rgba(0,0,0,0.02), 0 2px 2px -1px rgba(0,0,0,0.02), 0 0 0 1px rgba(0,0,0,0.08);
+}
+.cs-assistant__icon-btn:hover { background: #f5f5f5; }
+
+.cs-assistant__separator {
+    width: 1px;
+    height: 16px;
+    background: rgba(0, 0, 0, 0.08);
+    flex-shrink: 0;
+}
+
+.cs-assistant__tab {
+    height: 24px;
+    padding: 0 6px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    border-radius: 6px;
+    font-size: 14px;
+    font-weight: 500;
+    font-family: inherit;
+    color: #5b5b5b;
+    background: rgba(0, 0, 0, 0.04);
+    cursor: pointer;
+    white-space: nowrap;
+}
+.cs-assistant__tab:hover { background: rgba(0, 0, 0, 0.06); }
+.cs-assistant__tab--active {
+    background: #fff;
+    box-shadow: 0 4px 4px -2px rgba(0,0,0,0.02), 0 2px 2px -1px rgba(0,0,0,0.02), 0 0 0 1px rgba(0,0,0,0.08);
+}
+
+/* Chat area */
+.cs-assistant__chat-area {
+    flex: 1;
+    overflow-y: auto;
+    margin-top: 44px;
+    padding: 8px 4px;
+}
+
+/* Activity section */
+.cs-assistant__activity {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    padding: 0 4px;
+    margin-bottom: 4px;
+}
+
+.cs-assistant__activity-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.cs-assistant__activity-icon {
+    width: 16px;
+    height: 16px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.cs-assistant__activity-label {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    color: #5b5b5b;
+    margin: 0;
+    background: linear-gradient(to right, #5b5b5b, rgba(91,91,91,0.5) 26%, rgba(91,91,91,0.8) 52%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+    line-height: 1.6;
+}
+
+.cs-assistant__activity-time {
+    font-size: 14px;
+    font-weight: 500;
+    color: #5b5b5b;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.cs-assistant__activity-stop {
+    width: 16px;
+    height: 16px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: #5b5b5b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.cs-assistant__activity-stop:hover { color: #e14640; }
+
+.cs-assistant__activity-toggle {
+    width: 16px;
+    height: 16px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: #a6a6a6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+
+/* Activity steps with vertical line */
+.cs-assistant__activity-steps {
+    display: flex;
+    flex-direction: column;
+    gap: 0;
+    padding-left: 24px;
+    position: relative;
+}
+
+.cs-assistant__step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+    padding: 4px 0;
+}
+
+.cs-assistant__step-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: rgba(0, 0, 0, 0.15);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 1;
+}
+.cs-assistant__step-dot--done { background: rgba(0, 0, 0, 0.3); }
+
+.cs-assistant__step-line {
+    position: absolute;
+    left: 2.5px;
+    top: calc(50% + 3px);
+    bottom: calc(-50% + 3px);
+    width: 1px;
+    background: rgba(0, 0, 0, 0.08);
+}
+
+.cs-assistant__step-label {
+    font-size: 14px;
+    color: #5b5b5b;
+    line-height: 1.6;
+}
+
+/* Bottom section: queue + input */
+.cs-assistant__bottom {
+    background: #fafafa;
+    border: 1px solid #e3e3e3;
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    flex-shrink: 0;
+}
+
+/* Queue */
+.cs-assistant__queue {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 8px 12px;
+}
+
+.cs-assistant__queue-header {
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    cursor: pointer;
+}
+
+.cs-assistant__queue-label {
+    flex: 1;
+    font-size: 14px;
+    font-weight: 500;
+    color: #a6a6a6;
+    line-height: 1.6;
+}
+
+.cs-assistant__queue-header svg {
+    color: #a6a6a6;
+}
+
+.cs-assistant__queue-items {
+    display: flex;
+    flex-direction: column;
+}
+
+.cs-assistant__queue-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    height: 28px;
+    padding: 0 6px;
+    background: rgba(0, 0, 0, 0.03);
+    border-radius: 4px;
+}
+
+.cs-assistant__queue-text {
+    flex: 1;
+    font-size: 14px;
+    color: #202020;
+    line-height: 1.6;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cs-assistant__queue-remove {
+    width: 16px;
+    height: 16px;
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    color: #a6a6a6;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+}
+.cs-assistant__queue-remove:hover { color: #5b5b5b; }
+
+/* Input card */
+.cs-assistant__input-card {
+    background: #fff;
+    border-radius: 8px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    min-height: 120px;
+    box-shadow: 0 4px 4px -2px rgba(0,0,0,0.02), 0 2px 2px -1px rgba(0,0,0,0.02), 0 0 0 1px rgba(0,0,0,0.08);
+}
+
+.cs-assistant__input {
+    width: 100%;
+    border: none;
+    outline: none;
+    resize: none;
+    font-size: 14px;
+    font-family: inherit;
+    color: #202020;
+    background: transparent;
+    line-height: 1.6;
+    box-sizing: border-box;
+}
+.cs-assistant__input::placeholder { color: #a6a6a6; }
+
+.cs-assistant__input-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.cs-assistant__input-left {
+    display: flex;
+    gap: 4px;
+    align-items: center;
+}
+
+.cs-assistant__attach-btn,
+.cs-assistant__voice-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #f2f2f2;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #5b5b5b;
+}
+.cs-assistant__attach-btn:hover,
+.cs-assistant__voice-btn:hover { background: #e8e8e8; }
+
+.cs-assistant__voice-btn { background: transparent; }
+.cs-assistant__voice-btn:hover { background: #f2f2f2; }
+
+.cs-assistant__send-btn {
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: #202020;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    color: #fff;
+    box-shadow: 0 20px 20px -10px rgba(0,0,0,0.04), 0 8px 8px -4px rgba(0,0,0,0.04), 0 0 0 1px #101010;
+}
+.cs-assistant__send-btn:hover { background: #333; }
+.cs-assistant__send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* Toggle button */
+.cs-assistant-toggle {
+    position: fixed;
+    bottom: 24px;
+    right: 24px;
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: none;
+    cursor: pointer;
+    color: #fff;
+    z-index: 999;
+    background: linear-gradient(135deg, #5424ff 0%, #ff00ae 100%);
+    box-shadow: 0 8px 24px rgba(84, 36, 255, 0.3), 0 2px 8px rgba(0,0,0,0.1);
+    transition: transform 0.15s, box-shadow 0.15s;
+}
+.cs-assistant-toggle:hover {
+    transform: scale(1.08);
+    box-shadow: 0 10px 32px rgba(84, 36, 255, 0.4), 0 4px 12px rgba(0,0,0,0.15);
+}
+
 /* ---------- Animations ---------- */
 
 @keyframes create-spec-shimmer {
@@ -1481,4 +1910,27 @@
     .cs-overview__tab--active { color: #eee; border-bottom-color: #eee; }
     .cs-overview__req-card { background: #222; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }
     .cs-overview__req-title { color: #eee; }
+
+    /* Assistant dark */
+    .cs-assistant__panel { background: rgba(30, 30, 30, 0.85); border-color: rgba(255,0,174,0.06); }
+    .cs-assistant__close-btn { background: #2a2a2a; color: #aaa; box-shadow: 0 0 0 1px rgba(255,255,255,0.1); }
+    .cs-assistant__icon-btn { background: #2a2a2a; color: #aaa; box-shadow: 0 0 0 1px rgba(255,255,255,0.1); }
+    .cs-assistant__tab { background: rgba(255,255,255,0.06); color: #aaa; }
+    .cs-assistant__tab--active { background: #2a2a2a; box-shadow: 0 0 0 1px rgba(255,255,255,0.1); }
+    .cs-assistant__activity-label { color: #aaa; background: linear-gradient(to right, #aaa, rgba(170,170,170,0.5) 26%, rgba(170,170,170,0.8) 52%); -webkit-background-clip: text; background-clip: text; }
+    .cs-assistant__activity-time { color: #aaa; }
+    .cs-assistant__step-label { color: #888; }
+    .cs-assistant__step-dot { background: rgba(255,255,255,0.15); }
+    .cs-assistant__step-dot--done { background: rgba(255,255,255,0.3); }
+    .cs-assistant__step-line { background: rgba(255,255,255,0.08); }
+    .cs-assistant__bottom { background: #222; border-color: #333; }
+    .cs-assistant__queue-label { color: #666; }
+    .cs-assistant__queue-item { background: rgba(255,255,255,0.04); }
+    .cs-assistant__queue-text { color: #ccc; }
+    .cs-assistant__input-card { background: #1e1e1e; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }
+    .cs-assistant__input { color: #ccc; }
+    .cs-assistant__input::placeholder { color: #666; }
+    .cs-assistant__attach-btn { background: #333; color: #aaa; }
+    .cs-assistant__send-btn { background: #eee; color: #1a1a1a; box-shadow: 0 0 0 1px #ddd; }
+    .cs-assistant__separator { background: rgba(255,255,255,0.08); }
 }
