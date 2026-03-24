@@ -33,4 +33,48 @@ export interface StructuredSpec {
     sections: SpecSection[];
 }
 
-export type WizardScreen = 'landing' | 'loading' | 'clarify';
+// Assumptions
+export interface WizardAssumption {
+    id: string;
+    label: string;
+    text: string;
+    rationale: string;
+    impact: 'high' | 'medium' | 'low';
+    confidence: 'high' | 'medium' | 'low';
+    status: 'pending' | 'confirmed' | 'edited' | 'rejected';
+    editedText?: string;
+    options?: string[];
+}
+
+// Requirements
+export interface WizardCheck {
+    description: string;
+    type: 'benchmark' | 'e2e' | 'unit' | 'human_review' | 'static_analysis';
+    passed?: boolean;
+}
+
+export interface WizardRequirement {
+    id: string;
+    title: string;
+    checks: WizardCheck[];
+    status?: 'uncertain' | 'decision_node' | 'ok';
+    children: WizardRequirement[];
+    expanded?: boolean;
+}
+
+export interface RequirementsData {
+    title: string;
+    description: string;
+    stats: {
+        uncertain: number;
+        decisionNode: number;
+        checksTotal: number;
+        checksWithChecks: number;
+        automated: number;
+        humanReview: number;
+        totalRequirements: number;
+    };
+    requirements: WizardRequirement[];
+}
+
+export type WizardScreen = 'landing' | 'loading' | 'clarify' | 'assumptions' | 'requirements' | 'overview';

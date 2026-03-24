@@ -1,6 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'preact/hooks';
 import { useSpecQuestions } from './useSpecQuestions';
 import { useStructuredSpec } from './useStructuredSpec';
+import { useWizardAssumptions } from './useWizardAssumptions';
+import { useWizardRequirements } from './useWizardRequirements';
 import type { WizardScreen } from './types';
 
 interface UseSpecWizardParams {
@@ -13,6 +15,8 @@ export function useSpecWizard({ selectedModel }: UseSpecWizardParams) {
 
     const questions = useSpecQuestions({ selectedModel });
     const spec = useStructuredSpec({ selectedModel });
+    const assumptions = useWizardAssumptions({ selectedModel });
+    const requirements = useWizardRequirements({ selectedModel });
 
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastAnswerHash = useRef('');
@@ -52,11 +56,32 @@ export function useSpecWizard({ selectedModel }: UseSpecWizardParams) {
         spec.generate(prompt, answersData);
     }
 
+    async function goToAssumptions() {
+        setScreen('assumptions');
+        const answersData = questions.getAnswersWithQuestions();
+        await assumptions.generate(prompt, answersData);
+    }
+
+    async function goToRequirements() {
+        setScreen('requirements');
+        const answersData = questions.getAnswersWithQuestions();
+        await requirements.generate(prompt, answersData, assumptions.assumptions);
+    }
+
+    async function goToOverview() {
+        setScreen('overview');
+        // Regenerate spec with all context
+        const answersData = questions.getAnswersWithQuestions();
+        await spec.generate(prompt, answersData);
+    }
+
     function reset() {
         setScreen('landing');
         setPrompt('');
         questions.reset();
         spec.reset();
+        assumptions.reset();
+        requirements.reset();
         lastAnswerHash.current = '';
     }
 
@@ -67,7 +92,12 @@ export function useSpecWizard({ selectedModel }: UseSpecWizardParams) {
         submit,
         questions,
         spec,
+        assumptions,
+        requirements,
         skipAllAndGenerate,
+        goToAssumptions,
+        goToRequirements,
+        goToOverview,
         reset,
     };
 }

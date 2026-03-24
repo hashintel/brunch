@@ -134,6 +134,115 @@ export const specSchema = {
     additionalProperties: false,
 };
 
+export const wizardAssumptionsSchema = {
+    type: 'object',
+    properties: {
+        assumptions: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    id: { type: 'string' },
+                    label: { type: 'string', description: 'Short label like "Core Assumption", "A1", "A2"' },
+                    text: { type: 'string' },
+                    rationale: { type: 'string' },
+                    impact: { type: 'string', enum: ['high', 'medium', 'low'] },
+                    confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+                    options: { type: 'array', items: { type: 'string' }, description: 'Alternative options the user could choose instead' },
+                },
+                required: ['id', 'label', 'text', 'rationale', 'impact', 'confidence', 'options'],
+                additionalProperties: false,
+            },
+        },
+    },
+    required: ['assumptions'],
+    additionalProperties: false,
+};
+
+export const wizardRequirementsSchema = {
+    type: 'object',
+    properties: {
+        title: { type: 'string', description: 'Project title' },
+        description: { type: 'string', description: 'Brief project description' },
+        requirements: {
+            type: 'array',
+            items: {
+                type: 'object',
+                properties: {
+                    id: { type: 'string', description: 'Like R1, R2' },
+                    title: { type: 'string' },
+                    status: { type: 'string', enum: ['uncertain', 'decision_node', 'ok'] },
+                    checks: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                description: { type: 'string' },
+                                type: { type: 'string', enum: ['benchmark', 'e2e', 'unit', 'human_review', 'static_analysis'] },
+                            },
+                            required: ['description', 'type'],
+                            additionalProperties: false,
+                        },
+                    },
+                    children: {
+                        type: 'array',
+                        items: {
+                            type: 'object',
+                            properties: {
+                                id: { type: 'string', description: 'Like R1.1, R1.2' },
+                                title: { type: 'string' },
+                                status: { type: 'string', enum: ['uncertain', 'decision_node', 'ok'] },
+                                checks: {
+                                    type: 'array',
+                                    items: {
+                                        type: 'object',
+                                        properties: {
+                                            description: { type: 'string' },
+                                            type: { type: 'string', enum: ['benchmark', 'e2e', 'unit', 'human_review', 'static_analysis'] },
+                                        },
+                                        required: ['description', 'type'],
+                                        additionalProperties: false,
+                                    },
+                                },
+                                children: {
+                                    type: 'array',
+                                    items: {
+                                        type: 'object',
+                                        properties: {
+                                            id: { type: 'string' },
+                                            title: { type: 'string' },
+                                            checks: {
+                                                type: 'array',
+                                                items: {
+                                                    type: 'object',
+                                                    properties: {
+                                                        description: { type: 'string' },
+                                                        type: { type: 'string', enum: ['benchmark', 'e2e', 'unit', 'human_review', 'static_analysis'] },
+                                                    },
+                                                    required: ['description', 'type'],
+                                                    additionalProperties: false,
+                                                },
+                                            },
+                                        },
+                                        required: ['id', 'title', 'checks'],
+                                        additionalProperties: false,
+                                    },
+                                },
+                            },
+                            required: ['id', 'title', 'checks'],
+                            additionalProperties: false,
+                        },
+                    },
+                },
+                required: ['id', 'title', 'checks', 'children'],
+                additionalProperties: false,
+            },
+        },
+    },
+    required: ['title', 'description', 'requirements'],
+    additionalProperties: false,
+};
+
 export const specQuestionsSchema = {
     type: 'object',
     properties: {

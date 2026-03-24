@@ -2,7 +2,7 @@ import { Router } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validatePromptAndModel } from '../middleware/validate.js';
 import { queryStructured } from '../services/dispatch.js';
-import { specQuestionsSchema, structuredSpecSchema } from '../schemas.js';
+import { specQuestionsSchema, structuredSpecSchema, wizardAssumptionsSchema, wizardRequirementsSchema } from '../schemas.js';
 
 const router = Router();
 
@@ -74,6 +74,85 @@ Confidence guidelines:
 Always include all four section types. Be specific and actionable.`;
 
     const output = await queryStructured(userContent, modelId, structuredSpecSchema, cwd, projectId);
+    res.json(output);
+}));
+
+router.post('/spec-wizard/assumptions', asyncHandler(async (req, res) => {
+    const modelId = validatePromptAndModel(req, res);
+    if (!modelId) return;
+
+    const { prompt, cwd, projectId, answers } = req.body;
+    console.log(`[${modelId}] spec-wizard/assumptions`);
+
+    let userContent = `Project idea:\n${prompt}\n\n`;
+
+    if (answers?.length) {
+        const answersText = answers.map(a =>
+            `Q: ${a.question}\nA: ${a.skipped ? 'Skipped' : a.selectedLabels.join(', ')}${a.otherText ? ` (${a.otherText})` : ''}`
+        ).join('\n\n');
+        userContent += `Clarifying answers:\n${answersText}\n\n`;
+    }
+
+    userContent += `Based on the project idea and clarifying answers, extract the key assumptions we are making about this project.
+
+For each assumption:
+- "id": unique kebab-case identifier
+- "label": short label like "Core Assumption" for the first/most important one, or "A1", "A2", "A3", etc. for numbered ones
+- "text": the assumption statement (one sentence, clear and specific)
+- "rationale": why we're making this assumption based on available information (1-2 sentences)
+- "impact": "high" if changing this assumption would fundamentally change the project, "medium" for significant but manageable changes, "low" for minor adjustments
+- "confidence": "high" if explicitly stated or strongly implied, "medium" if reasonably inferred, "low" if speculative
+- "options": 2-4 alternative options the user could choose instead of this assumption
+
+Generate 5-8 assumptions, ordered by importance (highest impact first).
+The first assumption should use label "Core Assumption" and represent the most fundamental assumption.`;
+
+    const output = await queryStructured(userContent, modelId, wizardAssumptionsSchema, cwd, projectId);
+    res.json(output);
+}));
+
+router.post('/spec-wizard/requirements', asyncHandler(async (req, res) => {
+    const modelId = validatePromptAndModel(req, res);
+    if (!modelId) return;
+
+    const { prompt, cwd, projectId, answers, assumptions } = req.body;
+    console.log(`[${modelId}] spec-wizard/requirements`);
+
+    let userContent = `Project idea:\n${prompt}\n\n`;
+
+    if (answers?.length) {
+        const answersText = answers.map(a =>
+            `Q: ${a.question}\nA: ${a.skipped ? 'Skipped' : a.selectedLabels.join(', ')}${a.otherText ? ` (${a.otherText})` : ''}`
+        ).join('\n\n');
+        userContent += `Clarifying answers:\n${answersText}\n\n`;
+    }
+
+    if (assumptions?.length) {
+        const assumptionsText = assumptions.map((a, i) =>
+            `${i + 1}. [${a.status?.toUpperCase() || 'PENDING'}] (impact: ${a.impact}, confidence: ${a.confidence}) ${a.editedText || a.text}`
+        ).join('\n');
+        userContent += `Confirmed assumptions:\n${assumptionsText}\n\n`;
+    }
+
+    userContent += `Based on all available context, generate a hierarchical requirements breakdown.
+
+Return:
+- "title": a concise project title
+- "description": 1-2 sentence project description
+- "requirements": array of top-level requirements (3-5), each with:
+  - "id": like "R1", "R2", etc.
+  - "title": clear requirement statement
+  - "status": "ok" for well-defined, "uncertain" for needs-clarification, "decision_node" for requires a decision
+  - "checks": array of verification checks, each with "description" and "type" (benchmark, e2e, unit, human_review, static_analysis)
+  - "children": array of sub-requirements (2-4 each), with same structure plus their own children (0-3 each)
+    - Sub-requirement ids should be like "R1.1", "R1.2"
+    - Sub-sub-requirement ids like "R1.1.1", "R1.1.2"
+    - Each should have 1-3 checks
+
+Most requirements should have status "ok". 1-2 can be "uncertain". At most 1 "decision_node".
+Generate 2-3 checks per top-level requirement.`;
+
+    const output = await queryStructured(userContent, modelId, wizardRequirementsSchema, cwd, projectId);
     res.json(output);
 }));
 
