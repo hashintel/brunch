@@ -1,6 +1,7 @@
 import './style.css';
-import { useState, useEffect } from 'preact/hooks';
+import { useState, useEffect, useCallback } from 'preact/hooks';
 import { useSpecWizard } from './useSpecWizard';
+import { useAssistantChat } from './useAssistantChat';
 import { LandingScreen } from './LandingScreen';
 import { ClarifyScreen } from './ClarifyScreen';
 import { AssumptionsScreen } from './AssumptionsScreen';
@@ -20,6 +21,17 @@ export function CreateSpec() {
     }, []);
 
     const wizard = useSpecWizard({ selectedModel });
+
+    const chat = useAssistantChat({
+        screen: wizard.screen,
+        prompt: wizard.prompt,
+        selectedModel,
+        getQuestions: useCallback(() => wizard.questions.questions, [wizard.questions.questions]),
+        getAnswers: useCallback(() => wizard.questions.answers, [wizard.questions.answers]),
+        getSpec: useCallback(() => wizard.spec.spec, [wizard.spec.spec]),
+        getAssumptions: useCallback(() => wizard.assumptions.assumptions, [wizard.assumptions.assumptions]),
+        getRequirements: useCallback(() => wizard.requirements.data, [wizard.requirements.data]),
+    });
 
     return (
         <div class="create-spec">
@@ -130,7 +142,19 @@ export function CreateSpec() {
             )}
 
             {assistantOpen ? (
-                <AssistantPanel open={assistantOpen} onClose={() => setAssistantOpen(false)} />
+                <AssistantPanel
+                    open={assistantOpen}
+                    onClose={() => setAssistantOpen(false)}
+                    messages={chat.messages}
+                    loading={chat.loading}
+                    streamingContent={chat.streamingContent}
+                    activity={chat.activity}
+                    queue={chat.queue}
+                    onSend={chat.send}
+                    onStop={chat.stop}
+                    onRemoveFromQueue={chat.removeFromQueue}
+                    onNewChat={chat.newChat}
+                />
             ) : (
                 <AssistantToggle onClick={() => setAssistantOpen(true)} />
             )}

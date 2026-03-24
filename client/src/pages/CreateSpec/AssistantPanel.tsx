@@ -1,58 +1,57 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
-
-interface ActivityStep {
-    label: string;
-    done: boolean;
-}
-
-interface QueuedMessage {
-    id: string;
-    text: string;
-}
+import type { ChatMessage, ActivityInfo } from './useAssistantChat';
 
 interface Props {
     open: boolean;
     onClose: () => void;
+    messages: ChatMessage[];
+    loading: boolean;
+    streamingContent: string;
+    activity: ActivityInfo | null;
+    queue: { id: string; text: string }[];
+    onSend: (text: string) => void;
+    onStop: () => void;
+    onRemoveFromQueue: (id: string) => void;
+    onNewChat: () => void;
 }
 
-export function AssistantPanel({ open, onClose }: Props) {
-    const [tab, setTab] = useState<'new' | 'old'>('new');
+export function AssistantPanel({
+    open, onClose, messages, loading, streamingContent,
+    activity, queue, onSend, onStop, onRemoveFromQueue, onNewChat,
+}: Props) {
+    const [tab, setTab] = useState<'new' | 'history'>('new');
     const [input, setInput] = useState('');
     const [queueOpen, setQueueOpen] = useState(true);
     const [activityOpen, setActivityOpen] = useState(true);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
+    const messagesEndRef = useRef<HTMLDivElement>(null);
 
-    // Demo state — wire to real data later
-    const [activity] = useState<{
-        label: string;
-        elapsed: string;
-        steps: ActivityStep[];
-    } | null>({
-        label: 'Now generating the new questions...',
-        elapsed: '2:32',
-        steps: [
-            { label: 'Reviewing the prompt', done: true },
-            { label: 'Building the plan', done: true },
-            { label: 'Generating clarifying questions', done: false },
-        ],
-    });
-
-    const [queue] = useState<QueuedMessage[]>([
-        { id: '1', text: 'Can you review the prompt for me again?' },
-    ]);
-
+    // Auto-scroll
     useEffect(() => {
-        if (open && textareaRef.current) {
-            textareaRef.current.focus();
-        }
+        messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }, [messages, streamingContent]);
+
+    // Focus textarea
+    useEffect(() => {
+        if (open) textareaRef.current?.focus();
     }, [open]);
+
+    // Escape to close
+    useEffect(() => {
+        function handleKey(e: KeyboardEvent) {
+            if (e.key === 'Escape' && open) onClose();
+        }
+        document.addEventListener('keydown', handleKey);
+        return () => document.removeEventListener('keydown', handleKey);
+    }, [open, onClose]);
 
     if (!open) return null;
 
     function handleSend() {
-        if (!input.trim()) return;
-        // TODO: send message
+        const text = input.trim();
+        if (!text) return;
         setInput('');
+        onSend(text);
     }
 
     function handleKeyDown(e: KeyboardEvent) {
@@ -62,14 +61,8 @@ export function AssistantPanel({ open, onClose }: Props) {
         }
     }
 
-    function removeQueueItem(id: string) {
-        // TODO: remove from queue
-        void id;
-    }
-
     return (
         <div class="cs-assistant">
-            {/* Gradient glow */}
             <div class="cs-assistant__glow" />
             <div class="cs-assistant__border" />
 
@@ -84,13 +77,13 @@ export function AssistantPanel({ open, onClose }: Props) {
                     <div class="cs-assistant__separator" />
                     <button
                         class={`cs-assistant__tab ${tab === 'new' ? 'cs-assistant__tab--active' : ''}`}
-                        onClick={() => setTab('new')}
+                        onClick={() => { setTab('new'); onNewChat(); }}
                     >
                         New chat
                     </button>
                     <button
-                        class={`cs-assistant__tab ${tab === 'old' ? 'cs-assistant__tab--active' : ''}`}
-                        onClick={() => setTab('old')}
+                        class={`cs-assistant__tab ${tab === 'history' ? 'cs-assistant__tab--active' : ''}`}
+                        onClick={() => setTab('history')}
                     >
                         Old chat
                     </button>
@@ -102,9 +95,61 @@ export function AssistantPanel({ open, onClose }: Props) {
                     </svg>
                 </button>
 
-                {/* Chat area (scrollable, grows to fill) */}
+                {/* Chat area */}
                 <div class="cs-assistant__chat-area">
-                    {/* Messages would render here */}
+                    {messages.length === 0 && !loading && (
+                        <div class="cs-assistant__empty">
+                            <div class="cs-assistant__empty-icon">
+                                <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                                    <path d="M16 4l5 7L28 14l-5 6L24 28l-8-3-8 3 1-8L4 14l7-3L16 4z" stroke="#5424ff" stroke-width="1.5" fill="none" opacity="0.4" />
+                                </svg>
+                            </div>
+                            <p class="cs-assistant__empty-text">
+                                Ask me anything about your project spec. I can help refine ideas, suggest improvements, or explain sections.
+                            </p>
+                        </div>
+                    )}
+
+                    {messages.map(msg => (
+                        <div key={msg.id} class={`cs-assistant__msg cs-assistant__msg--${msg.role}`}>
+                            {msg.role === 'assistant' && (
+                                <div class="cs-assistant__msg-avatar">
+                                    <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                        <path d="M8 1l2.5 3.5L14 6l-2.5 3L12 13l-4-1.5L4 13l.5-4L2 6l3.5-1.5L8 1z" stroke="#5424ff" stroke-width="1.2" fill="none" />
+                                    </svg>
+                                </div>
+                            )}
+                            <div class="cs-assistant__msg-content">{msg.content}</div>
+                        </div>
+                    ))}
+
+                    {loading && streamingContent && (
+                        <div class="cs-assistant__msg cs-assistant__msg--assistant">
+                            <div class="cs-assistant__msg-avatar">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                    <path d="M8 1l2.5 3.5L14 6l-2.5 3L12 13l-4-1.5L4 13l.5-4L2 6l3.5-1.5L8 1z" stroke="#5424ff" stroke-width="1.2" fill="none" />
+                                </svg>
+                            </div>
+                            <div class="cs-assistant__msg-content">{streamingContent}</div>
+                        </div>
+                    )}
+
+                    {loading && !streamingContent && (
+                        <div class="cs-assistant__msg cs-assistant__msg--assistant">
+                            <div class="cs-assistant__msg-avatar">
+                                <svg width="14" height="14" viewBox="0 0 16 16" fill="none">
+                                    <path d="M8 1l2.5 3.5L14 6l-2.5 3L12 13l-4-1.5L4 13l.5-4L2 6l3.5-1.5L8 1z" stroke="#5424ff" stroke-width="1.2" fill="none" />
+                                </svg>
+                            </div>
+                            <div class="cs-assistant__msg-content cs-assistant__msg-typing">
+                                <span class="cs-assistant__dot" />
+                                <span class="cs-assistant__dot" />
+                                <span class="cs-assistant__dot" />
+                            </div>
+                        </div>
+                    )}
+
+                    <div ref={messagesEndRef} />
                 </div>
 
                 {/* Activity section */}
@@ -117,8 +162,8 @@ export function AssistantPanel({ open, onClose }: Props) {
                                 </svg>
                             </div>
                             <p class="cs-assistant__activity-label">{activity.label}</p>
-                            <span class="cs-assistant__activity-time">{activity.elapsed}</span>
-                            <button class="cs-assistant__activity-stop" title="Stop">
+                            <ElapsedTimer startTime={activity.startTime} />
+                            <button class="cs-assistant__activity-stop" title="Stop" onClick={onStop}>
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                     <rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" />
                                 </svg>
@@ -149,7 +194,6 @@ export function AssistantPanel({ open, onClose }: Props) {
 
                 {/* Bottom: queue + input */}
                 <div class="cs-assistant__bottom">
-                    {/* Queue */}
                     {queue.length > 0 && (
                         <div class="cs-assistant__queue">
                             <div class="cs-assistant__queue-header" onClick={() => setQueueOpen(!queueOpen)}>
@@ -163,7 +207,7 @@ export function AssistantPanel({ open, onClose }: Props) {
                                     {queue.map(item => (
                                         <div key={item.id} class="cs-assistant__queue-item">
                                             <span class="cs-assistant__queue-text">{item.text}</span>
-                                            <button class="cs-assistant__queue-remove" onClick={() => removeQueueItem(item.id)}>
+                                            <button class="cs-assistant__queue-remove" onClick={() => onRemoveFromQueue(item.id)}>
                                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                                     <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
                                                 </svg>
@@ -175,7 +219,6 @@ export function AssistantPanel({ open, onClose }: Props) {
                         </div>
                     )}
 
-                    {/* Input */}
                     <div class="cs-assistant__input-card">
                         <textarea
                             ref={textareaRef}
@@ -200,7 +243,11 @@ export function AssistantPanel({ open, onClose }: Props) {
                                     </svg>
                                 </button>
                             </div>
-                            <button class="cs-assistant__send-btn" onClick={handleSend} disabled={!input.trim()}>
+                            <button
+                                class="cs-assistant__send-btn"
+                                onClick={handleSend}
+                                disabled={!input.trim()}
+                            >
                                 <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
                                     <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
                                 </svg>
@@ -211,6 +258,25 @@ export function AssistantPanel({ open, onClose }: Props) {
             </div>
         </div>
     );
+}
+
+/** Live elapsed timer component */
+function ElapsedTimer({ startTime }: { startTime: number }) {
+    const [, setTick] = useState(0);
+
+    useEffect(() => {
+        const interval = setInterval(() => setTick(t => t + 1), 1000);
+        return () => clearInterval(interval);
+    }, [startTime]);
+
+    return <span class="cs-assistant__activity-time">{formatElapsed(Date.now() - startTime)}</span>;
+}
+
+function formatElapsed(ms: number): string {
+    const totalSec = Math.floor(ms / 1000);
+    const min = Math.floor(totalSec / 60);
+    const sec = totalSec % 60;
+    return `${min}:${sec.toString().padStart(2, '0')}`;
 }
 
 /** Small floating button to open the assistant */

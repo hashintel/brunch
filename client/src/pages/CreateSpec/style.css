@@ -1774,6 +1774,93 @@
     box-shadow: 0 10px 32px rgba(84, 36, 255, 0.4), 0 4px 12px rgba(0,0,0,0.15);
 }
 
+/* Assistant messages */
+.cs-assistant__empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 12px;
+    opacity: 0.6;
+}
+.cs-assistant__empty-icon { opacity: 0.5; }
+.cs-assistant__empty-text {
+    font-size: 14px;
+    color: #5b5b5b;
+    text-align: center;
+    max-width: 300px;
+    line-height: 1.6;
+    margin: 0;
+}
+
+.cs-assistant__msg {
+    display: flex;
+    gap: 8px;
+    padding: 6px 4px;
+    align-items: flex-start;
+}
+
+.cs-assistant__msg--user {
+    justify-content: flex-end;
+}
+
+.cs-assistant__msg--user .cs-assistant__msg-content {
+    background: #f0f0f0;
+    border-radius: 12px 12px 2px 12px;
+    padding: 8px 12px;
+    max-width: 80%;
+    font-size: 14px;
+    color: #202020;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.cs-assistant__msg--assistant .cs-assistant__msg-content {
+    background: transparent;
+    max-width: 90%;
+    font-size: 14px;
+    color: #202020;
+    line-height: 1.6;
+    white-space: pre-wrap;
+    word-break: break-word;
+}
+
+.cs-assistant__msg-avatar {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    background: rgba(84, 36, 255, 0.08);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* Typing dots */
+.cs-assistant__msg-typing {
+    display: flex;
+    gap: 4px;
+    padding: 10px 0;
+}
+
+.cs-assistant__dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #a6a6a6;
+    animation: cs-dot-bounce 1.2s infinite;
+}
+.cs-assistant__dot:nth-child(2) { animation-delay: 0.2s; }
+.cs-assistant__dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes cs-dot-bounce {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
+    30% { transform: translateY(-4px); opacity: 1; }
+}
+
 /* ---------- Animations ---------- */
 
 @keyframes create-spec-shimmer {
@@ -1933,4 +2020,9 @@
     .cs-assistant__attach-btn { background: #333; color: #aaa; }
     .cs-assistant__send-btn { background: #eee; color: #1a1a1a; box-shadow: 0 0 0 1px #ddd; }
     .cs-assistant__separator { background: rgba(255,255,255,0.08); }
+    .cs-assistant__msg--user .cs-assistant__msg-content { background: #333; color: #eee; }
+    .cs-assistant__msg--assistant .cs-assistant__msg-content { color: #ddd; }
+    .cs-assistant__msg-avatar { background: rgba(84, 36, 255, 0.15); }
+    .cs-assistant__empty-text { color: #888; }
+    .cs-assistant__dot { background: #666; }
 }
