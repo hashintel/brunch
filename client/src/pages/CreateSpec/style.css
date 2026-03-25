@@ -60,6 +60,62 @@
     color: #333;
 }
 
+/* ---------- Step Indicator ---------- */
+
+.cs-steps {
+    display: flex;
+    align-items: center;
+    gap: 0;
+}
+
+.cs-steps__item {
+    display: flex;
+    align-items: center;
+    gap: 0.375rem;
+}
+
+.cs-steps__circle {
+    width: 22px;
+    height: 22px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.7rem;
+    font-weight: 600;
+    flex-shrink: 0;
+}
+
+.cs-steps__item--upcoming .cs-steps__circle {
+    background: #e5e7eb;
+    color: #999;
+}
+.cs-steps__item--active .cs-steps__circle {
+    background: #2070e6;
+    color: #fff;
+}
+.cs-steps__item--complete .cs-steps__circle {
+    background: #22c55e;
+    color: #fff;
+}
+
+.cs-steps__label {
+    font-size: 0.8rem;
+    font-weight: 500;
+    white-space: nowrap;
+}
+.cs-steps__item--upcoming .cs-steps__label { color: #999; }
+.cs-steps__item--active .cs-steps__label { color: #2070e6; font-weight: 600; }
+.cs-steps__item--complete .cs-steps__label { color: #22c55e; }
+
+.cs-steps__connector {
+    width: 24px;
+    height: 1px;
+    background: #d1d5db;
+    margin: 0 0.375rem;
+    flex-shrink: 0;
+}
+
 /* ---------- Bottom Toolbar ---------- */
 
 .create-spec__toolbar {
@@ -251,6 +307,13 @@
     display: flex;
     flex-direction: column;
     gap: 1.25rem;
+}
+
+.create-spec__question-placeholder {
+    display: flex;
+    flex-direction: column;
+    gap: 0.875rem;
+    padding: 1.5rem 0;
 }
 
 .create-spec__question-panel-header { margin-bottom: 0.25rem; }
@@ -687,14 +750,44 @@
     justify-content: space-between;
     align-items: center;
 }
+.cs-assumptions__meta-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+}
 .cs-assumptions__count { font-size: 0.875rem; color: #a6a6a6; }
 .cs-assumptions__sort { font-size: 0.875rem; color: #202020; cursor: pointer; }
+
+.cs-assumptions__confirm-all-btn {
+    padding: 0.3rem 0.625rem;
+    background: #fff;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-weight: 500;
+    font-family: inherit;
+    color: #22c55e;
+    cursor: pointer;
+    box-shadow: 0 4px 4px -2px rgba(0,0,0,0.02), 0 2px 2px -1px rgba(0,0,0,0.02), 0 0 0 1px rgba(60,186,73,0.3);
+}
+.cs-assumptions__confirm-all-btn:hover { background: rgba(60,186,73,0.05); }
+
+.cs-assumptions__sticky-selected {
+    position: sticky;
+    top: 0;
+    z-index: 5;
+    padding-bottom: 0.5rem;
+    background: inherit;
+}
 
 .cs-assumptions__cards {
     display: flex;
     flex-direction: column;
     gap: 0.75rem;
-    max-width: 600px;
+}
+
+.cs-assumptions__card-anchor {
+    /* Placeholder for the selected card that's shown sticky */
 }
 
 .cs-assumptions__continue-wrap { margin-top: 0.5rem; }
@@ -2011,7 +2104,16 @@
     .create-spec__toolbar-back { background: #2a2a2a; color: #ccc; }
     .create-spec__toolbar-back:hover { background: #333; }
 
+    /* Step indicator dark */
+    .cs-steps__item--upcoming .cs-steps__circle { background: #333; color: #666; }
+    .cs-steps__item--upcoming .cs-steps__label { color: #666; }
+    .cs-steps__item--active .cs-steps__label { color: #5a9eff; }
+    .cs-steps__item--complete .cs-steps__label { color: #4ade80; }
+    .cs-steps__connector { background: #444; }
+
     /* Assumptions dark */
+    .cs-assumptions__confirm-all-btn { background: #2a2a2a; color: #4ade80; box-shadow: 0 0 0 1px rgba(74,222,128,0.3); }
+    .cs-assumptions__confirm-all-btn:hover { background: rgba(74,222,128,0.08); }
     .cs-assumptions__title { color: #eee; }
     .cs-assumptions__subtitle { color: #888; }
     .cs-assumptions__count { color: #666; }

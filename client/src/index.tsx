@@ -18,6 +18,7 @@ function AppInner() {
 					<Route path="/" component={Home} />
 					<Route path="/session/:id" component={Home} />
 					<Route path="/create-spec" component={CreateSpec} />
+					<Route path="/create-spec/:projectId/:step" component={CreateSpec} />
 					<Route default component={NotFound} />
 				</Router>
 			</main>

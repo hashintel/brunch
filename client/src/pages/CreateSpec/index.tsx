@@ -1,5 +1,6 @@
 import './style.css';
 import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useRoute } from 'preact-iso';
 import { useSpecWizard } from './useSpecWizard';
 import { useAssistantChat } from './useAssistantChat';
 import { LandingScreen } from './LandingScreen';
@@ -8,6 +9,7 @@ import { AssumptionsScreen } from './AssumptionsScreen';
 import { RequirementsScreen } from './RequirementsScreen';
 import { OverviewScreen } from './OverviewScreen';
 import { SkeletonLoader } from './SkeletonLoader';
+import { StepIndicator } from './StepIndicator';
 import { AssistantPanel, AssistantToggle } from './AssistantPanel';
 import type { Model } from '../Home/types';
 
@@ -16,11 +18,17 @@ export function CreateSpec() {
     const [models, setModels] = useState<Model[]>([]);
     const [assistantOpen, setAssistantOpen] = useState(false);
 
+    const { params } = useRoute();
+
     useEffect(() => {
         fetch('/api/models').then(r => r.json()).then((data: Model[]) => setModels(data)).catch(() => {});
     }, []);
 
-    const wizard = useSpecWizard({ selectedModel });
+    const wizard = useSpecWizard({
+        selectedModel,
+        projectId: params.projectId,
+        routeStep: params.step,
+    });
 
     const chat = useAssistantChat({
         screen: wizard.screen,
@@ -33,10 +41,13 @@ export function CreateSpec() {
         getRequirements: useCallback(() => wizard.requirements.data, [wizard.requirements.data]),
     });
 
+    const showStepIndicator = wizard.screen !== 'landing' && wizard.screen !== 'loading';
+
     return (
         <div class="create-spec">
             <div class="create-spec__header">
                 <a href="/" class="create-spec__back-link">&larr; Home</a>
+                {showStepIndicator && <StepIndicator screen={wizard.screen} />}
                 <div class="create-spec__header-right">
                     <select
                         class="create-spec__model-select"
@@ -47,17 +58,24 @@ export function CreateSpec() {
                             <option key={m.id} value={m.id}>{m.label}</option>
                         ))}
                     </select>
-                    {wizard.screen !== 'landing' && wizard.screen !== 'loading' && (
-                        <button class="create-spec__save-draft-btn">Save draft</button>
+                    {showStepIndicator && (
+                        <button class="create-spec__save-draft-btn" onClick={wizard.save}>Save draft</button>
                     )}
                 </div>
             </div>
 
-            {wizard.screen === 'landing' && (
+            {wizard.resuming && (
+                <div class="create-spec__loading">
+                    <h2>Restoring session...</h2>
+                    <SkeletonLoader lines={5} />
+                </div>
+            )}
+
+            {!wizard.resuming && wizard.screen === 'landing' && (
                 <LandingScreen onSubmit={wizard.submit} />
             )}
 
-            {wizard.screen === 'loading' && (
+            {!wizard.resuming && wizard.screen === 'loading' && (
                 <div class="create-spec__loading">
                     <h2>Analyzing your project idea...</h2>
                     <SkeletonLoader lines={5} />
@@ -65,7 +83,7 @@ export function CreateSpec() {
                 </div>
             )}
 
-            {wizard.screen === 'clarify' && (
+            {!wizard.resuming && wizard.screen === 'clarify' && (
                 <ClarifyScreen
                     questions={wizard.questions.questions}
                     answers={wizard.questions.answers}
@@ -83,7 +101,7 @@ export function CreateSpec() {
                 />
             )}
 
-            {wizard.screen === 'assumptions' && (
+            {!wizard.resuming && wizard.screen === 'assumptions' && (
                 wizard.assumptions.loading && wizard.assumptions.assumptions.length === 0 ? (
                     <div class="create-spec__loading">
                         <h2>Generating assumptions...</h2>
@@ -96,6 +114,7 @@ export function CreateSpec() {
                         selectedId={wizard.assumptions.selectedId}
                         onSelect={wizard.assumptions.setSelectedId}
                         onConfirm={wizard.assumptions.confirmAssumption}
+                        onConfirmAll={wizard.assumptions.confirmAll}
                         onEdit={wizard.assumptions.editAssumption}
                         onContinue={wizard.goToRequirements}
                         loading={wizard.assumptions.loading}
@@ -103,7 +122,7 @@ export function CreateSpec() {
                 )
             )}
 
-            {wizard.screen === 'requirements' && (
+            {!wizard.resuming && wizard.screen === 'requirements' && (
                 !wizard.requirements.data ? (
                     <div class="create-spec__loading">
                         <h2>Building requirements...</h2>
@@ -120,7 +139,7 @@ export function CreateSpec() {
                 )
             )}
 
-            {wizard.screen === 'overview' && wizard.spec.spec && (
+            {!wizard.resuming && wizard.screen === 'overview' && wizard.spec.spec && (
                 <OverviewScreen
                     title={wizard.requirements.data?.title ?? 'Project Spec'}
                     spec={wizard.spec.spec}
@@ -130,14 +149,14 @@ export function CreateSpec() {
                 />
             )}
 
-            {wizard.screen === 'overview' && !wizard.spec.spec && (
+            {!wizard.resuming && wizard.screen === 'overview' && !wizard.spec.spec && (
                 <div class="create-spec__loading">
                     <h2>Finalizing spec...</h2>
                     <SkeletonLoader lines={5} />
                 </div>
             )}
 
-            {wizard.screen !== 'landing' && wizard.screen !== 'loading' && (
+            {!wizard.resuming && wizard.screen !== 'landing' && wizard.screen !== 'loading' && (
                 <div class="create-spec__toolbar">
                     <button class="create-spec__toolbar-back" onClick={wizard.goBack}>
                         <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.5 3L4.5 7L8.5 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>

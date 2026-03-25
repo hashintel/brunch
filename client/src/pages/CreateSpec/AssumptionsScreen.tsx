@@ -7,10 +7,10 @@ const IMPACT_COLORS: Record<string, { color: string; label: string }> = {
     low: { color: '#3cba49', label: 'Low Impact' },
 };
 
-const CONFIDENCE_LABELS: Record<string, string> = {
-    high: 'High Confidence',
-    medium: 'Medium Confidence',
-    low: 'Low Confidence',
+const CONFIDENCE_COLORS: Record<string, { color: string; label: string }> = {
+    high: { color: '#22c55e', label: 'High Confidence' },
+    medium: { color: '#f59e0b', label: 'Medium Confidence' },
+    low: { color: '#ef4444', label: 'Low Confidence' },
 };
 
 interface Props {
@@ -18,13 +18,15 @@ interface Props {
     selectedId: string | null;
     onSelect: (id: string) => void;
     onConfirm: (id: string) => void;
+    onConfirmAll: () => void;
     onEdit: (id: string, text: string) => void;
     onContinue: () => void;
     loading?: boolean;
 }
 
-export function AssumptionsScreen({ assumptions, selectedId, onSelect, onConfirm, onEdit, onContinue, loading }: Props) {
+export function AssumptionsScreen({ assumptions, selectedId, onSelect, onConfirm, onConfirmAll, onEdit, onContinue, loading }: Props) {
     const selected = assumptions.find(a => a.id === selectedId) ?? null;
+    const allConfirmed = assumptions.length > 0 && assumptions.every(a => a.status === 'confirmed' || a.status === 'edited');
 
     return (
         <div class="cs-assumptions">
@@ -39,19 +41,42 @@ export function AssumptionsScreen({ assumptions, selectedId, onSelect, onConfirm
 
                 <div class="cs-assumptions__meta">
                     <span class="cs-assumptions__count">{assumptions.length} assumptions</span>
-                    <span class="cs-assumptions__sort">Most important &#9662;</span>
+                    <div class="cs-assumptions__meta-actions">
+                        {!allConfirmed && assumptions.length > 0 && (
+                            <button class="cs-assumptions__confirm-all-btn" onClick={onConfirmAll}>
+                                Confirm all
+                            </button>
+                        )}
+                        <span class="cs-assumptions__sort">Most important &#9662;</span>
+                    </div>
                 </div>
+
+                {selected && (
+                    <div class="cs-assumptions__sticky-selected">
+                        <AssumptionCard
+                            assumption={selected}
+                            isSelected={true}
+                            onSelect={() => {}}
+                            onConfirm={() => onConfirm(selected.id)}
+                            onEdit={onEdit}
+                        />
+                    </div>
+                )}
 
                 <div class="cs-assumptions__cards">
                     {assumptions.map(a => (
-                        <AssumptionCard
-                            key={a.id}
-                            assumption={a}
-                            isSelected={a.id === selectedId}
-                            onSelect={() => onSelect(a.id)}
-                            onConfirm={() => onConfirm(a.id)}
-                            onEdit={onEdit}
-                        />
+                        a.id === selectedId ? (
+                            <div key={a.id} class="cs-assumptions__card-anchor" />
+                        ) : (
+                            <AssumptionCard
+                                key={a.id}
+                                assumption={a}
+                                isSelected={false}
+                                onSelect={() => onSelect(a.id)}
+                                onConfirm={() => onConfirm(a.id)}
+                                onEdit={onEdit}
+                            />
+                        )
                     ))}
                 </div>
 
@@ -87,7 +112,7 @@ function AssumptionCard({ assumption: a, isSelected, onSelect, onConfirm, onEdit
     onEdit: (id: string, text: string) => void;
 }) {
     const impact = IMPACT_COLORS[a.impact];
-    const confLabel = CONFIDENCE_LABELS[a.confidence];
+    const conf = CONFIDENCE_COLORS[a.confidence];
 
     return (
         <div
@@ -105,8 +130,8 @@ function AssumptionCard({ assumption: a, isSelected, onSelect, onConfirm, onEdit
                         &#9679; {impact.label}
                     </span>
                     <span class="cs-assumption-card__divider" />
-                    <span class="cs-assumption-card__confidence">
-                        &#9608;&#9608; {confLabel}
+                    <span class="cs-assumption-card__confidence" style={{ color: conf.color }}>
+                        &#9608;&#9608; {conf.label}
                     </span>
                 </div>
                 <div class="cs-assumption-card__actions">
@@ -130,7 +155,7 @@ function AssumptionDetail({ assumption: a, onConfirm, onEdit }: {
     onEdit: (id: string, text: string) => void;
 }) {
     const impact = IMPACT_COLORS[a.impact];
-    const confLabel = CONFIDENCE_LABELS[a.confidence];
+    const conf = CONFIDENCE_COLORS[a.confidence];
     const [selectedOption, setSelectedOption] = useState<string | null>(null);
     const [otherText, setOtherText] = useState('');
 
@@ -148,7 +173,7 @@ function AssumptionDetail({ assumption: a, onConfirm, onEdit }: {
                 <div class="cs-assumption-detail__badges">
                     <span style={{ color: impact.color }}>&#9679; {impact.label}</span>
                     <span class="cs-assumption-detail__divider" />
-                    <span>&#9608;&#9608; {confLabel}</span>
+                    <span style={{ color: conf.color }}>&#9608;&#9608; {conf.label}</span>
                 </div>
                 {a.status === 'confirmed' ? (
                     <button class="cs-assumption-detail__confirm-btn cs-assumption-detail__confirm-btn--active">

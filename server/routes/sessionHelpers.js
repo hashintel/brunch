@@ -33,6 +33,7 @@ function parseJson(val) {
 }
 
 export function serializeSession(project, entries, assumptions = [], goalIterations = []) {
+    const clarifyingState = parseJson(project.clarifying_state);
     return {
         id: String(project.pk),
         name: project.name,
@@ -62,6 +63,9 @@ export function serializeSession(project, entries, assumptions = [], goalIterati
         })),
         spec: project.spec ?? '',
         specProgress: project.spec_progress ?? 0,
+        wizardStep: project.wizard_step ?? null,
+        wizardAssumptions: clarifyingState.wizardAssumptions ?? null,
+        wizardRequirements: clarifyingState.wizardRequirements ?? null,
         createdAt: project.created_at,
         updatedAt: project.updated_at,
     };

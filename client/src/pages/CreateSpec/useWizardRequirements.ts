@@ -54,13 +54,17 @@ export function useWizardRequirements({ selectedModel }: UseWizardRequirementsPa
         });
     }
 
+    function hydrate(saved: RequirementsData) {
+        setData(saved ?? null);
+    }
+
     function reset() {
         setData(null);
         setLoading(false);
         setError('');
     }
 
-    return { data, loading, error, generate, toggleExpand, reset };
+    return { data, loading, error, generate, toggleExpand, hydrate, reset };
 }
 
 function buildRequirementsData(title: string, description: string, reqs: WizardRequirement[]): RequirementsData {

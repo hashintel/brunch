@@ -80,6 +80,12 @@ export function useSpecQuestions({ selectedModel }: UseSpecQuestionsParams) {
         }));
     }
 
+    function hydrate(savedQuestions: SpecQuestion[], savedAnswers: SpecAnswer[]) {
+        setQuestions(savedQuestions ?? []);
+        setAnswers(savedAnswers ?? []);
+        setCurrentIndex(0);
+    }
+
     function reset() {
         setQuestions([]);
         setAnswers([]);
@@ -103,6 +109,7 @@ export function useSpecQuestions({ selectedModel }: UseSpecQuestionsParams) {
         goNext,
         goBack,
         getAnswersWithQuestions,
+        hydrate,
         reset,
     };
 }

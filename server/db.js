@@ -61,6 +61,20 @@ export async function initDb({ retries = 10, delayMs = 2000 } = {}) {
         console.log('[db] applied 002_normalize migration');
     }
 
+    // Run 007 migration if wizard_step column doesn't exist yet
+    const [wizardStepRows] = await pool.execute(
+        `SELECT COUNT(*) AS cnt FROM information_schema.columns WHERE table_schema = ? AND table_name = 'project' AND column_name = 'wizard_step'`,
+        [dbName]
+    );
+    if (wizardStepRows[0].cnt === 0) {
+        const migSql = readFileSync(resolve(__dirname, 'migrations', '007_add_wizard_step.sql'), 'utf-8');
+        const statements = migSql.split(/;\s*$/m).map(s => s.trim()).filter(s => s.length > 0);
+        for (const stmt of statements) {
+            await pool.execute(stmt);
+        }
+        console.log('[db] applied 007_add_wizard_step migration');
+    }
+
     // Run 006 migration if spec column doesn't exist yet
     const [specColRows] = await pool.execute(
         `SELECT COUNT(*) AS cnt FROM information_schema.columns WHERE table_schema = ? AND table_name = 'project' AND column_name = 'spec'`,

@@ -92,7 +92,7 @@ router.post('/sessions', asyncHandler(async (req, res) => {
             `INSERT INTO project (name, prompt, folder, goal, model, clarifying_done, assumptions_done, questions_exhausted, current_questions, current_answers, clarifying_state, spec, spec_progress)
              VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
             [
-                name, prompt, cwd, response, selectedModel,
+                name ?? null, prompt ?? null, cwd ?? null, response ?? null, selectedModel ?? null,
                 clarifyingDone ? 1 : 0,
                 assumptionsDone ? 1 : 0,
                 questionsExhausted ? 1 : 0,
@@ -156,7 +156,7 @@ router.put('/sessions/:id', asyncHandler(async (req, res) => {
         name, prompt, cwd, response, selectedModel, requirements,
         clarifyingDone, assumptionsDone, questionsExhausted,
         allQuestions, allAnswers, assumptions, goalIterations,
-        spec, specProgress,
+        spec, specProgress, wizardStep,
         ...rest
     } = req.body;
 
@@ -172,10 +172,10 @@ router.put('/sessions/:id', asyncHandler(async (req, res) => {
             `UPDATE project SET name=?, prompt=?, folder=?, goal=?, model=?,
              clarifying_done=?, assumptions_done=?, questions_exhausted=?,
              current_questions=?, current_answers=?, clarifying_state=?,
-             spec=?, spec_progress=?, updated_at=NOW()
+             spec=?, spec_progress=?, wizard_step=?, updated_at=NOW()
              WHERE pk=?`,
             [
-                name, prompt, cwd, response, selectedModel,
+                name ?? null, prompt ?? null, cwd ?? null, response ?? null, selectedModel ?? null,
                 clarifyingDone ? 1 : 0,
                 assumptionsDone ? 1 : 0,
                 questionsExhausted ? 1 : 0,
@@ -184,6 +184,7 @@ router.put('/sessions/:id', asyncHandler(async (req, res) => {
                 JSON.stringify(rest),
                 spec ?? null,
                 specProgress ?? 0,
+                wizardStep ?? null,
                 id,
             ]
         );

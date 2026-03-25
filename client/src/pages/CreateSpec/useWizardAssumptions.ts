@@ -48,10 +48,19 @@ export function useWizardAssumptions({ selectedModel }: UseWizardAssumptionsPara
         setAssumptions(prev => prev.map(a => a.id === id ? { ...a, status: 'confirmed' } : a));
     }
 
+    function confirmAll() {
+        setAssumptions(prev => prev.map(a => a.status === 'pending' ? { ...a, status: 'confirmed' } : a));
+    }
+
     function editAssumption(id: string, newText: string) {
         setAssumptions(prev => prev.map(a =>
             a.id === id ? { ...a, status: 'edited', editedText: newText } : a
         ));
+    }
+
+    function hydrate(saved: WizardAssumption[]) {
+        setAssumptions(saved ?? []);
+        if (saved?.length) setSelectedId(saved[0].id);
     }
 
     function reset() {
@@ -70,7 +79,9 @@ export function useWizardAssumptions({ selectedModel }: UseWizardAssumptionsPara
         error,
         generate,
         confirmAssumption,
+        confirmAll,
         editAssumption,
+        hydrate,
         reset,
     };
 }
