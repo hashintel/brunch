@@ -84,7 +84,7 @@ export function CreateSpec() {
             )}
 
             {wizard.screen === 'assumptions' && (
-                wizard.assumptions.loading ? (
+                wizard.assumptions.loading && wizard.assumptions.assumptions.length === 0 ? (
                     <div class="create-spec__loading">
                         <h2>Generating assumptions...</h2>
                         <SkeletonLoader lines={5} />
@@ -98,12 +98,13 @@ export function CreateSpec() {
                         onConfirm={wizard.assumptions.confirmAssumption}
                         onEdit={wizard.assumptions.editAssumption}
                         onContinue={wizard.goToRequirements}
+                        loading={wizard.assumptions.loading}
                     />
                 )
             )}
 
             {wizard.screen === 'requirements' && (
-                wizard.requirements.loading || !wizard.requirements.data ? (
+                !wizard.requirements.data ? (
                     <div class="create-spec__loading">
                         <h2>Building requirements...</h2>
                         <SkeletonLoader lines={5} />
@@ -114,6 +115,7 @@ export function CreateSpec() {
                         data={wizard.requirements.data}
                         onToggle={wizard.requirements.toggleExpand}
                         onContinue={wizard.goToOverview}
+                        loading={wizard.requirements.loading}
                     />
                 )
             )}
@@ -132,6 +134,27 @@ export function CreateSpec() {
                 <div class="create-spec__loading">
                     <h2>Finalizing spec...</h2>
                     <SkeletonLoader lines={5} />
+                </div>
+            )}
+
+            {wizard.screen !== 'landing' && wizard.screen !== 'loading' && (
+                <div class="create-spec__toolbar">
+                    <button class="create-spec__toolbar-back" onClick={wizard.goBack}>
+                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.5 3L4.5 7L8.5 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                        Back
+                    </button>
+                    {wizard.screen !== 'overview' && (
+                        <button
+                            class="create-spec__toolbar-review"
+                            onClick={
+                                wizard.screen === 'clarify' ? wizard.goToAssumptions
+                                : wizard.screen === 'assumptions' ? wizard.goToRequirements
+                                : wizard.goToOverview
+                            }
+                        >
+                            {wizard.screen === 'requirements' ? 'Review Spec' : 'Continue'}
+                        </button>
+                    )}
                 </div>
             )}
 

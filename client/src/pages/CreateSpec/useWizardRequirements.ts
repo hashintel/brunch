@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { apiFetch } from '../Home/apiFetch';
+import { apiFetchStream, streamNDJSON } from '../Home/apiFetch';
 import type { WizardRequirement, RequirementsData } from './types';
 
 interface UseWizardRequirementsParams {
@@ -13,44 +13,32 @@ export function useWizardRequirements({ selectedModel }: UseWizardRequirementsPa
 
     async function generate(prompt: string, answers?: any[], assumptions?: any[]) {
         setLoading(true);
+        setData(null);
         setError('');
+        let title = '';
+        let description = '';
+        const reqs: WizardRequirement[] = [];
         try {
-            const result = await apiFetch<{ title: string; description: string; requirements: WizardRequirement[] }>('/api/spec-wizard/requirements', {
+            const stream = await apiFetchStream('/api/spec-wizard/requirements', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt, model: selectedModel, answers, assumptions }),
             });
-
-            // Compute stats
-            const reqs = result.requirements;
-            let totalReqs = 0;
-            let uncertain = 0;
-            let decisionNode = 0;
-            let checksTotal = 0;
-            let checksWithChecks = 0;
-            let automated = 0;
-            let humanReview = 0;
-
-            function walk(r: WizardRequirement) {
-                totalReqs++;
-                if (r.status === 'uncertain') uncertain++;
-                if (r.status === 'decision_node') decisionNode++;
-                checksTotal += r.checks.length;
-                if (r.checks.length > 0) checksWithChecks++;
-                r.checks.forEach(c => {
-                    if (c.type === 'human_review') humanReview++;
-                    else automated++;
-                });
-                r.children?.forEach(walk);
+            for await (const event of streamNDJSON(stream)) {
+                if (event.type === 'tool_use' && event.tool === 'set_requirements_meta') {
+                    title = (event.input as any).title;
+                    description = (event.input as any).description;
+                } else if (event.type === 'tool_use' && event.tool === 'add_requirement') {
+                    reqs.push({ ...(event.input as any), expanded: false });
+                    setData(buildRequirementsData(title, description, reqs));
+                } else if (event.type === 'done') {
+                    break;
+                }
             }
-            reqs.forEach(walk);
-
-            setData({
-                title: result.title,
-                description: result.description,
-                stats: { uncertain, decisionNode, checksTotal, checksWithChecks, automated, humanReview, totalRequirements: totalReqs },
-                requirements: reqs.map(r => ({ ...r, expanded: false })),
-            });
+            // Final update in case no requirements were emitted yet
+            if (!data && (title || reqs.length)) {
+                setData(buildRequirementsData(title, description, reqs));
+            }
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to generate requirements');
         } finally {
@@ -73,6 +61,37 @@ export function useWizardRequirements({ selectedModel }: UseWizardRequirementsPa
     }
 
     return { data, loading, error, generate, toggleExpand, reset };
+}
+
+function buildRequirementsData(title: string, description: string, reqs: WizardRequirement[]): RequirementsData {
+    let totalReqs = 0;
+    let uncertain = 0;
+    let decisionNode = 0;
+    let checksTotal = 0;
+    let checksWithChecks = 0;
+    let automated = 0;
+    let humanReview = 0;
+
+    function walk(r: WizardRequirement) {
+        totalReqs++;
+        if (r.status === 'uncertain') uncertain++;
+        if (r.status === 'decision_node') decisionNode++;
+        checksTotal += r.checks?.length ?? 0;
+        if (r.checks?.length > 0) checksWithChecks++;
+        r.checks?.forEach(c => {
+            if (c.type === 'human_review') humanReview++;
+            else automated++;
+        });
+        r.children?.forEach(walk);
+    }
+    reqs.forEach(walk);
+
+    return {
+        title,
+        description,
+        stats: { uncertain, decisionNode, checksTotal, checksWithChecks, automated, humanReview, totalRequirements: totalReqs },
+        requirements: reqs.map(r => ({ ...r, expanded: r.expanded ?? false })),
+    };
 }
 
 function toggleInTree(reqs: WizardRequirement[], id: string): WizardRequirement[] {

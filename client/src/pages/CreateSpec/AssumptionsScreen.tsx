@@ -20,9 +20,10 @@ interface Props {
     onConfirm: (id: string) => void;
     onEdit: (id: string, text: string) => void;
     onContinue: () => void;
+    loading?: boolean;
 }
 
-export function AssumptionsScreen({ assumptions, selectedId, onSelect, onConfirm, onEdit, onContinue }: Props) {
+export function AssumptionsScreen({ assumptions, selectedId, onSelect, onConfirm, onEdit, onContinue, loading }: Props) {
     const selected = assumptions.find(a => a.id === selectedId) ?? null;
 
     return (
@@ -54,8 +55,12 @@ export function AssumptionsScreen({ assumptions, selectedId, onSelect, onConfirm
                     ))}
                 </div>
 
+                {loading && (
+                    <div class="cs-assumptions__streaming">Generating assumptions...</div>
+                )}
+
                 <div class="cs-assumptions__continue-wrap">
-                    <button class="cs-assumptions__continue-btn" onClick={onContinue}>
+                    <button class="cs-assumptions__continue-btn" onClick={onContinue} disabled={loading}>
                         Continue to Requirements
                     </button>
                 </div>

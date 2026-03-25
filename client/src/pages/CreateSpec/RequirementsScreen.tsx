@@ -5,9 +5,10 @@ interface Props {
     data: RequirementsData;
     onToggle: (id: string) => void;
     onContinue: () => void;
+    loading?: boolean;
 }
 
-export function RequirementsScreen({ data, onToggle, onContinue }: Props) {
+export function RequirementsScreen({ data, onToggle, onContinue, loading }: Props) {
     const { stats } = data;
 
     return (
@@ -54,8 +55,12 @@ export function RequirementsScreen({ data, onToggle, onContinue }: Props) {
                 </div>
             </div>
 
+            {loading && (
+                <div class="cs-reqs__streaming">Building requirements...</div>
+            )}
+
             <div class="cs-reqs__continue-wrap">
-                <button class="cs-reqs__continue-btn" onClick={onContinue}>
+                <button class="cs-reqs__continue-btn" onClick={onContinue} disabled={loading}>
                     Approve &amp; Continue
                 </button>
             </div>

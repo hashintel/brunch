@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { apiFetch } from '../Home/apiFetch';
+import { apiFetchStream, streamNDJSON } from '../Home/apiFetch';
 import type { SpecQuestion, SpecAnswer } from './types';
 
 interface UseSpecQuestionsParams {
@@ -18,16 +18,25 @@ export function useSpecQuestions({ selectedModel }: UseSpecQuestionsParams) {
 
     async function fetchQuestions(prompt: string) {
         setLoading(true);
+        setQuestions([]);
+        setAnswers([]);
+        setCurrentIndex(0);
         setError('');
         try {
-            const data = await apiFetch<{ questions: SpecQuestion[] }>('/api/spec-wizard/questions', {
+            const stream = await apiFetchStream('/api/spec-wizard/questions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt, model: selectedModel }),
             });
-            setQuestions(data.questions);
-            setAnswers(new Array(data.questions.length).fill(null));
-            setCurrentIndex(0);
+            for await (const event of streamNDJSON(stream)) {
+                if (event.type === 'tool_use' && event.tool === 'add_question') {
+                    const q = event.input as unknown as SpecQuestion;
+                    setQuestions(prev => [...prev, q]);
+                    setAnswers(prev => [...prev, null as unknown as SpecAnswer]);
+                } else if (event.type === 'done') {
+                    break;
+                }
+            }
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to load questions');
         } finally {

@@ -21,14 +21,11 @@ export function useSpecWizard({ selectedModel }: UseSpecWizardParams) {
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastAnswerHash = useRef('');
 
-    async function submit(text: string) {
+    function submit(text: string) {
         setPrompt(text);
-        setScreen('loading');
-        await Promise.all([
-            questions.fetchQuestions(text),
-            spec.generate(text),
-        ]);
         setScreen('clarify');
+        questions.fetchQuestions(text);
+        spec.generate(text);
     }
 
     // Debounced spec regeneration when answers change
@@ -75,6 +72,13 @@ export function useSpecWizard({ selectedModel }: UseSpecWizardParams) {
         await spec.generate(prompt, answersData);
     }
 
+    function goBack() {
+        if (screen === 'clarify') setScreen('landing');
+        else if (screen === 'assumptions') setScreen('clarify');
+        else if (screen === 'requirements') setScreen('assumptions');
+        else if (screen === 'overview') setScreen('requirements');
+    }
+
     function reset() {
         setScreen('landing');
         setPrompt('');
@@ -95,6 +99,7 @@ export function useSpecWizard({ selectedModel }: UseSpecWizardParams) {
         assumptions,
         requirements,
         skipAllAndGenerate,
+        goBack,
         goToAssumptions,
         goToRequirements,
         goToOverview,

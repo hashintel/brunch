@@ -312,6 +312,40 @@ export const structuredSpecSchema = {
     additionalProperties: false,
 };
 
+// ── Wizard streaming tool definitions ──
+
+export const addQuestionTool = {
+    name: 'add_question',
+    description: 'Add a clarifying question. Call this once per question.',
+    inputSchema: specQuestionsSchema.properties.questions.items,
+};
+
+export const addAssumptionTool = {
+    name: 'add_assumption',
+    description: 'Add a project assumption. Call this once per assumption.',
+    inputSchema: wizardAssumptionsSchema.properties.assumptions.items,
+};
+
+export const addRequirementTool = {
+    name: 'add_requirement',
+    description: 'Add a top-level requirement with children and checks. Call this once per requirement.',
+    inputSchema: wizardRequirementsSchema.properties.requirements.items,
+};
+
+export const setRequirementsMetaTool = {
+    name: 'set_requirements_meta',
+    description: 'Set the project title and description. Call this exactly once before adding requirements.',
+    inputSchema: {
+        type: 'object',
+        properties: {
+            title: { type: 'string', description: 'Project title' },
+            description: { type: 'string', description: 'Brief project description' },
+        },
+        required: ['title', 'description'],
+        additionalProperties: false,
+    },
+};
+
 export function formatClarifyingRounds(rounds) {
     if (!rounds?.length) return '';
     return rounds.map((round, i) => {

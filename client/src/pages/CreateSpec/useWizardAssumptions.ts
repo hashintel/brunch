@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { apiFetch } from '../Home/apiFetch';
+import { apiFetchStream, streamNDJSON } from '../Home/apiFetch';
 import type { WizardAssumption } from './types';
 
 interface UseWizardAssumptionsParams {
@@ -16,16 +16,27 @@ export function useWizardAssumptions({ selectedModel }: UseWizardAssumptionsPara
 
     async function generate(prompt: string, answers?: any[]) {
         setLoading(true);
+        setAssumptions([]);
+        setSelectedId(null);
         setError('');
         try {
-            const data = await apiFetch<{ assumptions: Omit<WizardAssumption, 'status'>[] }>('/api/spec-wizard/assumptions', {
+            const stream = await apiFetchStream('/api/spec-wizard/assumptions', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ prompt, model: selectedModel, answers }),
             });
-            const withStatus = data.assumptions.map(a => ({ ...a, status: 'pending' as const }));
-            setAssumptions(withStatus);
-            if (withStatus.length > 0) setSelectedId(withStatus[0].id);
+            for await (const event of streamNDJSON(stream)) {
+                if (event.type === 'tool_use' && event.tool === 'add_assumption') {
+                    const a = { ...event.input, status: 'pending' } as unknown as WizardAssumption;
+                    setAssumptions(prev => {
+                        const next = [...prev, a];
+                        if (next.length === 1) setSelectedId(a.id);
+                        return next;
+                    });
+                } else if (event.type === 'done') {
+                    break;
+                }
+            }
         } catch (e) {
             setError(e instanceof Error ? e.message : 'Failed to generate assumptions');
         } finally {

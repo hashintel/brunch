@@ -1,8 +1,8 @@
 import { Router } from 'express';
 import { asyncHandler } from '../middleware/asyncHandler.js';
 import { validatePromptAndModel } from '../middleware/validate.js';
-import { queryStructured } from '../services/dispatch.js';
-import { specQuestionsSchema, structuredSpecSchema, wizardAssumptionsSchema, wizardRequirementsSchema } from '../schemas.js';
+import { queryStructured, streamQueryWithTools } from '../services/dispatch.js';
+import { specQuestionsSchema, structuredSpecSchema, wizardAssumptionsSchema, wizardRequirementsSchema, addQuestionTool, addAssumptionTool, addRequirementTool, setRequirementsMetaTool } from '../schemas.js';
 
 const router = Router();
 
@@ -31,10 +31,11 @@ Each question should:
 - Include a "why" explanation of why this question matters for the spec
 
 Focus on questions about: target users, core features, technical constraints, success criteria, timeline, and risks.
-Generate a unique "id" for each question (short kebab-case string).`;
+Generate a unique "id" for each question (short kebab-case string).
 
-    const output = await queryStructured(userContent, modelId, specQuestionsSchema, cwd, projectId);
-    res.json(output);
+Call the add_question tool once for each question. Do not output any other text.`;
+
+    await streamQueryWithTools(userContent, modelId, res, [addQuestionTool], cwd, projectId);
 }));
 
 router.post('/spec-wizard/generate', asyncHandler(async (req, res) => {
@@ -105,10 +106,11 @@ For each assumption:
 - "options": 2-4 alternative options the user could choose instead of this assumption
 
 Generate 5-8 assumptions, ordered by importance (highest impact first).
-The first assumption should use label "Core Assumption" and represent the most fundamental assumption.`;
+The first assumption should use label "Core Assumption" and represent the most fundamental assumption.
 
-    const output = await queryStructured(userContent, modelId, wizardAssumptionsSchema, cwd, projectId);
-    res.json(output);
+Call the add_assumption tool once for each assumption. Do not output any other text.`;
+
+    await streamQueryWithTools(userContent, modelId, res, [addAssumptionTool], cwd, projectId);
 }));
 
 router.post('/spec-wizard/requirements', asyncHandler(async (req, res) => {
@@ -136,10 +138,8 @@ router.post('/spec-wizard/requirements', asyncHandler(async (req, res) => {
 
     userContent += `Based on all available context, generate a hierarchical requirements breakdown.
 
-Return:
-- "title": a concise project title
-- "description": 1-2 sentence project description
-- "requirements": array of top-level requirements (3-5), each with:
+First, call set_requirements_meta with a concise project title and 1-2 sentence description.
+Then, call add_requirement once for each top-level requirement (3-5 total). Each should include:
   - "id": like "R1", "R2", etc.
   - "title": clear requirement statement
   - "status": "ok" for well-defined, "uncertain" for needs-clarification, "decision_node" for requires a decision
@@ -150,10 +150,11 @@ Return:
     - Each should have 1-3 checks
 
 Most requirements should have status "ok". 1-2 can be "uncertain". At most 1 "decision_node".
-Generate 2-3 checks per top-level requirement.`;
+Generate 2-3 checks per top-level requirement.
 
-    const output = await queryStructured(userContent, modelId, wizardRequirementsSchema, cwd, projectId);
-    res.json(output);
+Do not output any other text.`;
+
+    await streamQueryWithTools(userContent, modelId, res, [setRequirementsMetaTool, addRequirementTool], cwd, projectId);
 }));
 
 export default router;

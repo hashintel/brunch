@@ -60,6 +60,52 @@
     color: #333;
 }
 
+/* ---------- Bottom Toolbar ---------- */
+
+.create-spec__toolbar {
+    position: sticky;
+    bottom: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1rem 1rem 1rem;
+    border-top: 1px solid #e0e0e0;
+    background: #fff;
+    z-index: 10;
+}
+
+.create-spec__toolbar-back {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 14px;
+    background: #f2f2f2;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    font-family: inherit;
+    color: #5b5b5b;
+    cursor: pointer;
+}
+.create-spec__toolbar-back:hover { background: #e8e8e8; }
+
+.create-spec__toolbar-review {
+    height: 32px;
+    padding: 0 12px;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.875rem;
+    font-weight: 500;
+    font-family: inherit;
+    color: #fff;
+    cursor: pointer;
+    background: linear-gradient(to bottom, #3484fa, #2070e6);
+    box-shadow: 0 20px 20px -10px rgba(0,0,0,0.04), 0 8px 8px -4px rgba(0,0,0,0.04), 0 4px 4px -2px rgba(0,0,0,0.04), 0 0 0 1px #1060d6, inset 0 1px 1px rgba(255,255,255,0.2);
+}
+.create-spec__toolbar-review:hover { background: linear-gradient(to bottom, #4090ff, #2878f0); }
+
 /* ---------- Landing Screen ---------- */
 
 .create-spec__landing {
@@ -665,6 +711,14 @@
     box-shadow: 0 0 0 1px #1060d6, inset 0 1px 1px rgba(255,255,255,0.2);
 }
 .cs-assumptions__continue-btn:hover { filter: brightness(1.05); }
+.cs-assumptions__continue-btn:disabled { opacity: 0.5; cursor: default; filter: none; }
+.cs-assumptions__streaming {
+    padding: 0.75rem 1rem;
+    color: #666;
+    font-size: 0.8125rem;
+    animation: pulse-opacity 1.5s ease-in-out infinite;
+}
+@keyframes pulse-opacity { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
 
 /* Assumption Card */
 .cs-assumption-card {
@@ -981,6 +1035,13 @@
     font-family: inherit;
     cursor: pointer;
     box-shadow: 0 0 0 1px #1060d6, inset 0 1px 1px rgba(255,255,255,0.2);
+}
+.cs-reqs__continue-btn:disabled { opacity: 0.5; cursor: default; }
+.cs-reqs__streaming {
+    padding: 0.75rem 1rem;
+    color: #666;
+    font-size: 0.8125rem;
+    animation: pulse-opacity 1.5s ease-in-out infinite;
 }
 
 /* Requirement card */
@@ -1945,6 +2006,10 @@
 
     .create-spec__error { background: #2a1515; border-color: #5c2a2a; }
     .create-spec__save-draft-btn { background: #2a2a2a; color: #ccc; box-shadow: 0 0 0 1px rgba(255,255,255,0.1); }
+
+    .create-spec__toolbar { background: #1a1a1a; border-top-color: #333; }
+    .create-spec__toolbar-back { background: #2a2a2a; color: #ccc; }
+    .create-spec__toolbar-back:hover { background: #333; }
 
     /* Assumptions dark */
     .cs-assumptions__title { color: #eee; }

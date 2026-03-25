@@ -256,6 +256,107 @@ export async function streamQueryText(prompt, modelId, res, cwd, projectId) {
     return fullText;
 }
 
+// ── streamQueryWithTools (async prompt + SSE, wizard tools via MCP) ──
+
+const WIZARD_TOOLS = new Set([
+    'add_question', 'add_assumption', 'add_requirement', 'set_requirements_meta',
+]);
+
+export async function streamQueryWithTools(prompt, modelId, res, tools, cwd, projectId) {
+    res.removeHeader('Content-Length');
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
+
+    const client = getClient();
+    const start = Date.now();
+    let fullText = '';
+    let error = null;
+
+    const toolNames = new Set(tools.map(t => t.name));
+
+    function sendEvent(obj) {
+        res.write(JSON.stringify(obj) + '\n');
+    }
+
+    try {
+        const session = unwrap(await client.session.create({ directory: cwd || undefined }), 'session.create');
+        const sessionId = session.id;
+        log('streamQueryWithTools session:', sessionId);
+
+        const textPartIds = new Set();
+        const emittedToolEnds = new Set();
+
+        const sse = await client.event.subscribe();
+
+        unwrap(await client.session.promptAsync({
+            sessionID: sessionId,
+            model: ocModel(modelId),
+            parts: [{ type: 'text', text: prompt }],
+        }), 'session.promptAsync');
+
+        for await (const event of sse.stream) {
+            const evtSessionId = event.properties?.sessionID ?? event.properties?.part?.sessionID;
+            if (evtSessionId && evtSessionId !== sessionId) continue;
+
+            if (event.type === 'message.part.delta') {
+                const { partID, field, delta } = event.properties;
+                if (field === 'text' && textPartIds.has(partID)) {
+                    sendEvent({ type: 'text', text: delta });
+                    fullText += delta;
+                }
+            } else if (event.type === 'message.part.updated') {
+                const part = event.properties.part;
+                if (part.type === 'text') {
+                    textPartIds.add(part.id);
+                } else if (part.type === 'tool') {
+                    const wizardName = extractWizardToolName(part.tool, toolNames);
+                    if (wizardName && part.state.status === 'completed' && !emittedToolEnds.has(part.id)) {
+                        emittedToolEnds.add(part.id);
+                        sendEvent({ type: 'tool_use', tool: wizardName, input: part.state.input });
+                    }
+                }
+            } else if (event.type === 'session.idle') {
+                break;
+            } else if (event.type === 'session.error') {
+                const errMsg = event.properties?.error || 'OpenCode session error';
+                throw new Error(typeof errMsg === 'string' ? errMsg : JSON.stringify(errMsg));
+            }
+        }
+
+        sendEvent({ type: 'done' });
+        res.end();
+    } catch (e) {
+        error = e;
+        throw e;
+    } finally {
+        log('streamQueryWithTools done in', Date.now() - start, 'ms');
+        try {
+            await pool.execute(LOG_SQL, [
+                modelId, 'streamQueryWithTools', prompt,
+                fullText || null,
+                null, null, null,
+                Date.now() - start,
+                error ? 'error' : 'success',
+                error?.message ?? null,
+                cwd ?? null,
+                projectId ?? null,
+            ]);
+        } catch (e) {
+            console.error('[db] failed to log opencode call:', e.message);
+        }
+    }
+    return fullText;
+}
+
+function extractWizardToolName(toolName, toolNames) {
+    for (const name of toolNames) {
+        if (toolName === name) return name;
+        if (toolName.endsWith('__' + name)) return name;
+        if (toolName.endsWith('_' + name)) return name;
+    }
+    return null;
+}
+
 // ── streamQueryTextWithTools (async prompt + SSE + MCP tools) ──
 
 const ASSISTANT_TOOLS = new Set([

@@ -387,6 +387,143 @@ export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projec
     return fullText;
 }
 
+export async function streamQueryWithTools(prompt, modelId, res, tools, cwd, projectId) {
+    res.removeHeader('Content-Length');
+    res.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
+    res.setHeader('Transfer-Encoding', 'chunked');
+
+    const start = Date.now();
+    const allMessages = [];
+    let fullText = '';
+    let error = null;
+    let currentTool = null;
+    let currentToolInput = '';
+    let toolCounter = 0;
+
+    // Convert JSON Schema tool defs to SDK tool() helpers
+    const sdkTools = tools.map(t =>
+        tool(t.name, t.description, buildZodSchema(t.inputSchema), async (input) => {
+            toolCounter++;
+            return { content: [{ type: 'text', text: `Added ${t.name} #${toolCounter}` }] };
+        })
+    );
+
+    function sendEvent(obj) {
+        res.write(JSON.stringify(obj) + '\n');
+    }
+
+    try {
+        const mcpServer = createSdkMcpServer({
+            name: 'wizard-tools',
+            version: '1.0.0',
+            tools: sdkTools,
+        });
+
+        for await (const msg of query({
+            prompt,
+            options: {
+                model: modelId,
+                maxTurns: 10,
+                includePartialMessages: true,
+                mcpServers: { 'wizard-tools': mcpServer },
+                permissionMode: 'bypassPermissions',
+                allowDangerouslySkipPermissions: true,
+                ...cwdOptions(cwd),
+            },
+        })) {
+            allMessages.push(msg);
+
+            if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_delta' &&
+                msg.event.delta.type === 'text_delta'
+            ) {
+                sendEvent({ type: 'text', text: msg.event.delta.text });
+                fullText += msg.event.delta.text;
+            } else if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_delta' &&
+                msg.event.delta.type === 'input_json_delta' &&
+                currentTool
+            ) {
+                currentToolInput += msg.event.delta.partial_json ?? '';
+            } else if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_start' &&
+                msg.event.content_block?.type === 'tool_use'
+            ) {
+                currentTool = msg.event.content_block.name;
+                currentToolInput = '';
+            } else if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_stop' &&
+                currentTool
+            ) {
+                // Strip mcp__serverName__ prefix
+                const parts = currentTool.split('__');
+                const originalName = parts.length >= 3 ? parts.slice(2).join('__') : currentTool;
+                try {
+                    const input = JSON.parse(currentToolInput);
+                    sendEvent({ type: 'tool_use', tool: originalName, input });
+                } catch {
+                    // skip unparseable
+                }
+                currentTool = null;
+                currentToolInput = '';
+            }
+        }
+        sendEvent({ type: 'done' });
+        res.end();
+    } catch (e) {
+        error = e;
+        throw e;
+    } finally {
+        const { inputTokens, outputTokens, turns } = extractUsage(allMessages);
+        try {
+            await pool.execute(LOG_SQL, [
+                modelId, 'streamQueryWithTools', prompt,
+                fullText || null,
+                inputTokens || null, outputTokens || null, turns || null,
+                Date.now() - start,
+                error ? 'error' : 'success',
+                error?.message ?? null,
+                cwd ?? null,
+                projectId ?? null,
+            ]);
+        } catch (e) {
+            console.error('[db] failed to log claude call:', e.message);
+        }
+    }
+    return fullText;
+}
+
+// Convert JSON Schema to Zod schema (basic subset needed for wizard tools)
+function buildZodSchema(jsonSchema) {
+    if (!jsonSchema || jsonSchema.type !== 'object') return z.object({});
+    const shape = {};
+    for (const [key, prop] of Object.entries(jsonSchema.properties ?? {})) {
+        shape[key] = jsonSchemaPropToZod(prop);
+        if (!jsonSchema.required?.includes(key)) {
+            shape[key] = shape[key].optional();
+        }
+    }
+    return z.object(shape);
+}
+
+function jsonSchemaPropToZod(prop) {
+    if (prop.enum) return z.enum(prop.enum);
+    if (prop.type === 'string') return z.string();
+    if (prop.type === 'number') return z.number();
+    if (prop.type === 'boolean') return z.boolean();
+    if (prop.type === 'array') {
+        if (prop.items?.type === 'object') return z.array(buildZodSchema(prop.items));
+        if (prop.items?.type === 'string') return z.array(z.string());
+        return z.array(z.any());
+    }
+    if (prop.type === 'object') return buildZodSchema(prop);
+    return z.any();
+}
+
 export async function queryStructured(prompt, modelId, schema, cwd, projectId) {
     const start = Date.now();
     const allMessages = [];

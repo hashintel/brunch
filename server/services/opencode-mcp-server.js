@@ -25,6 +25,70 @@ const pool = mysql.createPool({
     connectionLimit: 5,
 });
 
+// ── Wizard streaming tools (no DB, just acks) ──
+const WIZARD_TOOLS = [
+    {
+        name: 'add_question',
+        description: 'Add a clarifying question. Call this once per question.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                id: { type: 'string' },
+                question: { type: 'string' },
+                why: { type: 'string' },
+                impact: { type: 'string', enum: ['high', 'medium', 'low'] },
+                selectionType: { type: 'string', enum: ['single', 'multi'] },
+                options: { type: 'array', items: { type: 'object', properties: { label: { type: 'string' } }, required: ['label'] } },
+            },
+            required: ['id', 'question', 'why', 'impact', 'selectionType', 'options'],
+        },
+    },
+    {
+        name: 'add_assumption',
+        description: 'Add a project assumption. Call this once per assumption.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                id: { type: 'string' },
+                label: { type: 'string' },
+                text: { type: 'string' },
+                rationale: { type: 'string' },
+                impact: { type: 'string', enum: ['high', 'medium', 'low'] },
+                confidence: { type: 'string', enum: ['high', 'medium', 'low'] },
+                options: { type: 'array', items: { type: 'string' } },
+            },
+            required: ['id', 'label', 'text', 'rationale', 'impact', 'confidence', 'options'],
+        },
+    },
+    {
+        name: 'add_requirement',
+        description: 'Add a top-level requirement with children and checks. Call this once per requirement.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                id: { type: 'string' },
+                title: { type: 'string' },
+                status: { type: 'string', enum: ['uncertain', 'decision_node', 'ok'] },
+                checks: { type: 'array', items: { type: 'object', properties: { description: { type: 'string' }, type: { type: 'string', enum: ['benchmark', 'e2e', 'unit', 'human_review', 'static_analysis'] } }, required: ['description', 'type'] } },
+                children: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, title: { type: 'string' }, status: { type: 'string', enum: ['uncertain', 'decision_node', 'ok'] }, checks: { type: 'array', items: { type: 'object', properties: { description: { type: 'string' }, type: { type: 'string', enum: ['benchmark', 'e2e', 'unit', 'human_review', 'static_analysis'] } }, required: ['description', 'type'] } }, children: { type: 'array', items: { type: 'object', properties: { id: { type: 'string' }, title: { type: 'string' }, checks: { type: 'array', items: { type: 'object', properties: { description: { type: 'string' }, type: { type: 'string', enum: ['benchmark', 'e2e', 'unit', 'human_review', 'static_analysis'] } }, required: ['description', 'type'] } } }, required: ['id', 'title', 'checks'] } } }, required: ['id', 'title', 'checks'] } },
+            },
+            required: ['id', 'title', 'checks', 'children'],
+        },
+    },
+    {
+        name: 'set_requirements_meta',
+        description: 'Set the project title and description. Call this exactly once before adding requirements.',
+        inputSchema: {
+            type: 'object',
+            properties: {
+                title: { type: 'string' },
+                description: { type: 'string' },
+            },
+            required: ['title', 'description'],
+        },
+    },
+];
+
 const TOOLS = [
     {
         name: 'set_goal',
@@ -131,7 +195,7 @@ const server = new Server(
     { capabilities: { tools: {} } },
 );
 
-server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: TOOLS }));
+server.setRequestHandler(ListToolsRequestSchema, async () => ({ tools: [...TOOLS, ...WIZARD_TOOLS] }));
 
 server.setRequestHandler(CallToolRequestSchema, async (request) => {
     const { name, arguments: args } = request.params;
@@ -204,6 +268,12 @@ server.setRequestHandler(CallToolRequestSchema, async (request) => {
                 await pool.execute('DELETE FROM entry WHERE uuid = ? AND project_id = ?', [args.id, projectId]);
                 return { content: [{ type: 'text', text: `Requirement ${args.id} has been deleted.` }] };
             }
+            // Wizard streaming tools — just ack
+            case 'add_question':
+            case 'add_assumption':
+            case 'add_requirement':
+            case 'set_requirements_meta':
+                return { content: [{ type: 'text', text: `OK: ${name}` }] };
             default:
                 return { content: [{ type: 'text', text: `Unknown tool: ${name}` }], isError: true };
         }
