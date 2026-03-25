@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
+import { Markdown } from './Markdown';
 import type { ChatMessage, ActivityInfo } from './useAssistantChat';
 
 interface Props {
@@ -119,7 +120,11 @@ export function AssistantPanel({
                                     </svg>
                                 </div>
                             )}
-                            <div class="cs-assistant__msg-content">{msg.content}</div>
+                            {msg.role === 'assistant' ? (
+                                <Markdown content={msg.content} class="cs-assistant__msg-content" />
+                            ) : (
+                                <div class="cs-assistant__msg-content">{msg.content}</div>
+                            )}
                         </div>
                     ))}
 
@@ -130,7 +135,7 @@ export function AssistantPanel({
                                     <path d="M8 1l2.5 3.5L14 6l-2.5 3L12 13l-4-1.5L4 13l.5-4L2 6l3.5-1.5L8 1z" stroke="#5424ff" stroke-width="1.2" fill="none" />
                                 </svg>
                             </div>
-                            <div class="cs-assistant__msg-content">{streamingContent}</div>
+                            <Markdown content={streamingContent} class="cs-assistant__msg-content" />
                         </div>
                     )}
 

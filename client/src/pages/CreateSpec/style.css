@@ -1977,7 +1977,6 @@
     font-size: 14px;
     color: #202020;
     line-height: 1.6;
-    white-space: pre-wrap;
     word-break: break-word;
 }
 
@@ -2013,6 +2012,56 @@
 @keyframes cs-dot-bounce {
     0%, 60%, 100% { transform: translateY(0); opacity: 0.4; }
     30% { transform: translateY(-4px); opacity: 1; }
+}
+
+/* ---------- Markdown in Assistant ---------- */
+
+.cs-markdown {
+    line-height: 1.6;
+    white-space: normal;
+}
+.cs-markdown p { margin: 0 0 0.35em; }
+.cs-markdown p:last-child { margin-bottom: 0; }
+.cs-markdown ul, .cs-markdown ol { margin: 0.25em 0 0.5em; padding-left: 1.25em; }
+.cs-markdown li { margin-bottom: 0.15em; }
+.cs-markdown h1, .cs-markdown h2, .cs-markdown h3, .cs-markdown h4 {
+    margin: 0.75em 0 0.25em;
+    font-weight: 600;
+    line-height: 1.3;
+}
+.cs-markdown h1 { font-size: 1.15em; }
+.cs-markdown h2 { font-size: 1.05em; }
+.cs-markdown h3, .cs-markdown h4 { font-size: 1em; }
+.cs-markdown h1:first-child, .cs-markdown h2:first-child, .cs-markdown h3:first-child { margin-top: 0; }
+.cs-markdown code {
+    background: rgba(0,0,0,0.06);
+    padding: 0.1em 0.3em;
+    border-radius: 3px;
+    font-size: 0.875em;
+}
+.cs-markdown pre {
+    background: rgba(0,0,0,0.04);
+    border-radius: 6px;
+    padding: 0.625em 0.75em;
+    overflow-x: auto;
+    margin: 0.5em 0;
+}
+.cs-markdown pre code {
+    background: none;
+    padding: 0;
+    font-size: 0.8125em;
+}
+.cs-markdown strong { font-weight: 600; }
+.cs-markdown blockquote {
+    margin: 0.5em 0;
+    padding: 0.25em 0 0.25em 0.75em;
+    border-left: 3px solid rgba(0,0,0,0.15);
+    color: #666;
+}
+.cs-markdown hr {
+    border: none;
+    border-top: 1px solid rgba(0,0,0,0.1);
+    margin: 0.75em 0;
 }
 
 /* ---------- Animations ---------- */
@@ -2192,4 +2241,10 @@
     .cs-assistant__msg-avatar { background: rgba(84, 36, 255, 0.15); }
     .cs-assistant__empty-text { color: #888; }
     .cs-assistant__dot { background: #666; }
+
+    /* Markdown dark */
+    .cs-markdown code { background: rgba(255,255,255,0.08); }
+    .cs-markdown pre { background: rgba(255,255,255,0.06); }
+    .cs-markdown blockquote { border-left-color: rgba(255,255,255,0.15); color: #aaa; }
+    .cs-markdown hr { border-top-color: rgba(255,255,255,0.1); }
 }
