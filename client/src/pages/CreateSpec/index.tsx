@@ -9,7 +9,7 @@ import { AssumptionsScreen } from './AssumptionsScreen';
 import { RequirementsScreen } from './RequirementsScreen';
 import { OverviewScreen } from './OverviewScreen';
 import { SkeletonLoader } from './SkeletonLoader';
-import { StepIndicator } from './StepIndicator';
+import { ProgressSidebar } from './ProgressSidebar';
 import { AssistantPanel, AssistantToggle } from './AssistantPanel';
 import type { Model } from '../Home/types';
 
@@ -107,7 +107,6 @@ export function CreateSpec() {
         <div class="create-spec">
             <div class="create-spec__header">
                 <a href="/" class="create-spec__back-link">&larr; Home</a>
-                {showStepIndicator && <StepIndicator screen={wizard.screen} />}
                 <div class="create-spec__header-right">
                     <select
                         class="create-spec__model-select"
@@ -124,124 +123,137 @@ export function CreateSpec() {
                 </div>
             </div>
 
-            {wizard.resuming && (
-                <div class="create-spec__loading">
-                    <h2>Restoring session...</h2>
-                    <SkeletonLoader lines={5} />
-                </div>
-            )}
-
-            {!wizard.resuming && wizard.screen === 'landing' && (
-                <LandingScreen onSubmit={wizard.submit} />
-            )}
-
-            {!wizard.resuming && wizard.screen === 'loading' && (
-                <div class="create-spec__loading">
-                    <h2>Analyzing your project idea...</h2>
-                    <SkeletonLoader lines={5} />
-                    <SkeletonLoader lines={4} />
-                </div>
-            )}
-
-            {!wizard.resuming && wizard.screen === 'clarify' && (
-                <ClarifyScreen
-                    questions={wizard.questions.questions}
-                    answers={wizard.questions.answers}
-                    currentIndex={wizard.questions.currentIndex}
-                    answeredCount={wizard.questions.answeredCount}
-                    remainingCount={wizard.questions.remainingCount}
-                    onAnswer={wizard.questions.answerQuestion}
-                    onSkip={wizard.questions.skipQuestion}
-                    onNext={wizard.questions.goNext}
-                    onBack={wizard.questions.goBack}
-                    onSkipAll={wizard.goToAssumptions}
-                    spec={wizard.spec.spec}
-                    specLoading={wizard.spec.loading}
-                    onUpdateSection={wizard.spec.updateSection}
-                />
-            )}
-
-            {!wizard.resuming && wizard.screen === 'assumptions' && (
-                wizard.assumptions.loading && wizard.assumptions.assumptions.length === 0 ? (
-                    <div class="create-spec__loading">
-                        <h2>Generating assumptions...</h2>
-                        <SkeletonLoader lines={5} />
-                        <SkeletonLoader lines={4} />
-                    </div>
-                ) : (
-                    <AssumptionsScreen
-                        assumptions={wizard.assumptions.assumptions}
-                        selectedId={wizard.assumptions.selectedId}
-                        onSelect={wizard.assumptions.setSelectedId}
-                        onConfirm={wizard.assumptions.confirmAssumption}
-                        onConfirmAll={wizard.assumptions.confirmAll}
-                        onEdit={wizard.assumptions.editAssumption}
-                        onContinue={wizard.goToRequirements}
-                        loading={wizard.assumptions.loading}
+            <div class="create-spec__body">
+                {showStepIndicator && (
+                    <ProgressSidebar
+                        screen={wizard.screen}
+                        specLoading={wizard.spec.loading}
+                        assumptionsLoading={wizard.assumptions.loading}
+                        requirementsLoading={wizard.requirements.loading}
                     />
-                )
-            )}
+                )}
 
-            {!wizard.resuming && wizard.screen === 'requirements' && (
-                !wizard.requirements.data ? (
-                    <div class="create-spec__loading">
-                        <h2>Building requirements...</h2>
-                        <SkeletonLoader lines={5} />
-                        <SkeletonLoader lines={4} />
-                    </div>
-                ) : (
-                    <RequirementsScreen
-                        data={wizard.requirements.data}
-                        onToggle={wizard.requirements.toggleExpand}
-                        onContinue={wizard.goToOverview}
-                        loading={wizard.requirements.loading}
-                    />
-                )
-            )}
+                <div class="create-spec__content">
+                    {wizard.resuming && (
+                        <div class="create-spec__loading">
+                            <h2>Restoring session...</h2>
+                            <SkeletonLoader lines={5} />
+                        </div>
+                    )}
 
-            {!wizard.resuming && wizard.screen === 'overview' && wizard.spec.spec && (
-                <OverviewScreen
-                    title={wizard.requirements.data?.title ?? 'Project Spec'}
-                    spec={wizard.spec.spec}
-                    requirements={wizard.requirements.data}
-                    onUpdateSection={wizard.spec.updateSection}
-                    onApprove={() => { /* TODO: final approval action */ }}
-                />
-            )}
+                    {!wizard.resuming && wizard.screen === 'landing' && (
+                        <LandingScreen onSubmit={wizard.submit} />
+                    )}
 
-            {!wizard.resuming && wizard.screen === 'overview' && !wizard.spec.spec && (
-                <div class="create-spec__loading">
-                    <h2>Finalizing spec...</h2>
-                    <SkeletonLoader lines={5} />
-                </div>
-            )}
+                    {!wizard.resuming && wizard.screen === 'loading' && (
+                        <div class="create-spec__loading">
+                            <h2>Analyzing your project idea...</h2>
+                            <SkeletonLoader lines={5} />
+                            <SkeletonLoader lines={4} />
+                        </div>
+                    )}
 
-            {!wizard.resuming && wizard.screen !== 'landing' && wizard.screen !== 'loading' && (
-                <div class="create-spec__toolbar">
-                    <button class="create-spec__toolbar-back" onClick={wizard.goBack}>
-                        <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.5 3L4.5 7L8.5 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        Back
-                    </button>
-                    {wizard.screen !== 'overview' && (
-                        <button
-                            class="create-spec__toolbar-review"
-                            onClick={
-                                wizard.screen === 'clarify' ? wizard.goToAssumptions
-                                : wizard.screen === 'assumptions' ? wizard.goToRequirements
-                                : wizard.goToOverview
-                            }
-                        >
-                            {wizard.screen === 'requirements' ? 'Review Spec' : 'Continue'}
-                        </button>
+                    {!wizard.resuming && wizard.screen === 'clarify' && (
+                        <ClarifyScreen
+                            questions={wizard.questions.questions}
+                            answers={wizard.questions.answers}
+                            currentIndex={wizard.questions.currentIndex}
+                            answeredCount={wizard.questions.answeredCount}
+                            remainingCount={wizard.questions.remainingCount}
+                            onAnswer={wizard.questions.answerQuestion}
+                            onSkip={wizard.questions.skipQuestion}
+                            onNext={wizard.questions.goNext}
+                            onBack={wizard.questions.goBack}
+                            onSkipAll={wizard.goToAssumptions}
+                            spec={wizard.spec.spec}
+                            specLoading={wizard.spec.loading}
+                            onUpdateSection={wizard.spec.updateSection}
+                        />
+                    )}
+
+                    {!wizard.resuming && wizard.screen === 'assumptions' && (
+                        wizard.assumptions.loading && wizard.assumptions.assumptions.length === 0 ? (
+                            <div class="create-spec__loading">
+                                <h2>Generating assumptions...</h2>
+                                <SkeletonLoader lines={5} />
+                                <SkeletonLoader lines={4} />
+                            </div>
+                        ) : (
+                            <AssumptionsScreen
+                                assumptions={wizard.assumptions.assumptions}
+                                selectedId={wizard.assumptions.selectedId}
+                                onSelect={wizard.assumptions.setSelectedId}
+                                onConfirm={wizard.assumptions.confirmAssumption}
+                                onConfirmAll={wizard.assumptions.confirmAll}
+                                onEdit={wizard.assumptions.editAssumption}
+                                onContinue={wizard.goToRequirements}
+                                loading={wizard.assumptions.loading}
+                            />
+                        )
+                    )}
+
+                    {!wizard.resuming && wizard.screen === 'requirements' && (
+                        !wizard.requirements.data ? (
+                            <div class="create-spec__loading">
+                                <h2>Building requirements...</h2>
+                                <SkeletonLoader lines={5} />
+                                <SkeletonLoader lines={4} />
+                            </div>
+                        ) : (
+                            <RequirementsScreen
+                                data={wizard.requirements.data}
+                                onToggle={wizard.requirements.toggleExpand}
+                                onContinue={wizard.goToOverview}
+                                loading={wizard.requirements.loading}
+                            />
+                        )
+                    )}
+
+                    {!wizard.resuming && wizard.screen === 'overview' && wizard.spec.spec && (
+                        <OverviewScreen
+                            title={wizard.requirements.data?.title ?? 'Project Spec'}
+                            spec={wizard.spec.spec}
+                            requirements={wizard.requirements.data}
+                            onUpdateSection={wizard.spec.updateSection}
+                            onApprove={() => { /* TODO: final approval action */ }}
+                        />
+                    )}
+
+                    {!wizard.resuming && wizard.screen === 'overview' && !wizard.spec.spec && (
+                        <div class="create-spec__loading">
+                            <h2>Finalizing spec...</h2>
+                            <SkeletonLoader lines={5} />
+                        </div>
+                    )}
+
+                    {!wizard.resuming && wizard.screen !== 'landing' && wizard.screen !== 'loading' && (
+                        <div class="create-spec__toolbar">
+                            <button class="create-spec__toolbar-back" onClick={wizard.goBack}>
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.5 3L4.5 7L8.5 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                                Back
+                            </button>
+                            {wizard.screen !== 'overview' && (
+                                <button
+                                    class="create-spec__toolbar-review"
+                                    onClick={
+                                        wizard.screen === 'clarify' ? wizard.goToAssumptions
+                                        : wizard.screen === 'assumptions' ? wizard.goToRequirements
+                                        : wizard.goToOverview
+                                    }
+                                >
+                                    {wizard.screen === 'requirements' ? 'Review Spec' : 'Continue'}
+                                </button>
+                            )}
+                        </div>
+                    )}
+
+                    {(wizard.questions.error || wizard.spec.error || wizard.assumptions.error || wizard.requirements.error) && (
+                        <div class="create-spec__error">
+                            {wizard.questions.error || wizard.spec.error || wizard.assumptions.error || wizard.requirements.error}
+                        </div>
                     )}
                 </div>
-            )}
-
-            {(wizard.questions.error || wizard.spec.error || wizard.assumptions.error || wizard.requirements.error) && (
-                <div class="create-spec__error">
-                    {wizard.questions.error || wizard.spec.error || wizard.assumptions.error || wizard.requirements.error}
-                </div>
-            )}
+            </div>
 
             {assistantOpen ? (
                 <AssistantPanel
