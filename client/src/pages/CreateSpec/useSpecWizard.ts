@@ -24,6 +24,11 @@ const SCREEN_TO_STEP: Partial<Record<WizardScreen, StepParam>> = {
     overview: 'overview',
 };
 
+export interface AIQueueItem {
+    id: string;
+    label: string;
+}
+
 interface UseSpecWizardParams {
     selectedModel: string;
     projectId?: string;
@@ -46,6 +51,43 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
     const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
     const lastAnswerHash = useRef('');
     const resumedRef = useRef(false);
+
+    // =============================================
+    // AI Task Queue — one generation at a time
+    // =============================================
+    const [aiQueue, setAiQueue] = useState<AIQueueItem[]>([]);
+    const queueRef = useRef<Array<{ id: string; label: string; fn: () => Promise<void> }>>([]);
+    const drainingRef = useRef(false);
+
+    async function drainQueue() {
+        if (drainingRef.current) return;
+        drainingRef.current = true;
+        while (queueRef.current.length > 0) {
+            const task = queueRef.current[0];
+            // Remove from UI queue (it's now running, activity will show it)
+            setAiQueue(queueRef.current.slice(1).map(t => ({ id: t.id, label: t.label })));
+            try {
+                await task.fn();
+            } catch (e) {
+                console.error(`AI task "${task.label}" failed:`, e);
+            }
+            queueRef.current.shift();
+        }
+        setAiQueue([]);
+        drainingRef.current = false;
+    }
+
+    function enqueueAI(label: string, fn: () => Promise<void>) {
+        const id = crypto.randomUUID();
+        queueRef.current.push({ id, label, fn });
+        setAiQueue(queueRef.current.map(t => ({ id: t.id, label: t.label })));
+        drainQueue();
+    }
+
+    function removeFromAiQueue(id: string) {
+        queueRef.current = queueRef.current.filter(t => t.id !== id);
+        setAiQueue(queueRef.current.map(t => ({ id: t.id, label: t.label })));
+    }
 
     // --- Sync screen from URL step param ---
     useEffect(() => {
@@ -74,12 +116,11 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
             // Hydrate sub-hooks
             questions.hydrate(session.allQuestions, session.allAnswers);
 
-            // Hydrate assumptions — merge wizard-typed data from clarifying_state
+            // Hydrate assumptions
             const wizardAssumptions = session.wizardAssumptions;
             if (wizardAssumptions?.length) {
                 assumptions.hydrate(wizardAssumptions);
             } else if (session.assumptions?.length) {
-                // Fallback: map from session format
                 assumptions.hydrate(session.assumptions.map((a: any) => ({
                     id: a.id,
                     label: a.text?.slice(0, 50) ?? '',
@@ -92,7 +133,7 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
                 })));
             }
 
-            // Hydrate requirements — use wizard-typed data for exact round-trip
+            // Hydrate requirements
             const wizardRequirements = session.wizardRequirements;
             if (wizardRequirements) {
                 requirements.hydrate(wizardRequirements);
@@ -115,10 +156,11 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
                 : 'clarify';
             setScreen(targetScreen);
 
-            // If no saved spec and we have a prompt, regenerate it
+            // If no saved spec and we have a prompt, regenerate it (queued)
             if (!savedSpec && session.prompt) {
                 const answersData = questions.getAnswersWithQuestions();
-                spec.generate(session.prompt, answersData);
+                const p = session.prompt;
+                enqueueAI('Regenerating spec', () => spec.generate(p, answersData));
             }
         } catch (e) {
             console.error('Failed to resume session:', e);
@@ -162,7 +204,6 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
             response: requirements.data?.description ?? '',
             spec: spec.spec ? JSON.stringify(spec.spec) : '',
             wizardStep: SCREEN_TO_STEP[screen] ?? 'clarify',
-            // These go into ...rest → clarifying_state
             wizardAssumptions: assumptions.assumptions,
             wizardRequirements: requirements.data,
         };
@@ -213,45 +254,34 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
             console.error('Failed to create session:', e);
         }
 
-        // Fire these regardless — they work with the prompt
-        questions.fetchQuestions(text);
-        spec.generate(text);
+        // Queue: questions first, then spec generation
+        enqueueAI('Generating questions', () => questions.fetchQuestions(text));
+        enqueueAI('Generating spec', () => spec.generate(text));
     }
 
-    // --- Auto-save when questions or spec finish loading ---
+    // --- Auto-save when generation finishes ---
     const prevQuestionsLoading = useRef(false);
     const prevSpecLoading = useRef(false);
-
-    useEffect(() => {
-        // Save when questions finish streaming
-        if (prevQuestionsLoading.current && !questions.loading && questions.questions.length > 0) {
-            saveToDb();
-        }
-        prevQuestionsLoading.current = questions.loading;
-    }, [questions.loading]);
-
-    useEffect(() => {
-        // Save when spec finishes generating
-        if (prevSpecLoading.current && !spec.loading && spec.spec) {
-            saveToDb();
-        }
-        prevSpecLoading.current = spec.loading;
-    }, [spec.loading]);
-
     const prevAssumptionsLoading = useRef(false);
     const prevRequirementsLoading = useRef(false);
 
     useEffect(() => {
-        if (prevAssumptionsLoading.current && !assumptions.loading && assumptions.assumptions.length > 0) {
-            saveToDb();
-        }
+        if (prevQuestionsLoading.current && !questions.loading && questions.questions.length > 0) saveToDb();
+        prevQuestionsLoading.current = questions.loading;
+    }, [questions.loading]);
+
+    useEffect(() => {
+        if (prevSpecLoading.current && !spec.loading && spec.spec) saveToDb();
+        prevSpecLoading.current = spec.loading;
+    }, [spec.loading]);
+
+    useEffect(() => {
+        if (prevAssumptionsLoading.current && !assumptions.loading && assumptions.assumptions.length > 0) saveToDb();
         prevAssumptionsLoading.current = assumptions.loading;
     }, [assumptions.loading]);
 
     useEffect(() => {
-        if (prevRequirementsLoading.current && !requirements.loading && requirements.data) {
-            saveToDb();
-        }
+        if (prevRequirementsLoading.current && !requirements.loading && requirements.data) saveToDb();
         prevRequirementsLoading.current = requirements.loading;
     }, [requirements.loading]);
 
@@ -265,7 +295,7 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
 
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-            spec.generate(prompt, answersData);
+            enqueueAI('Updating spec', () => spec.generate(prompt, answersData));
         }, 500);
     }, [prompt, questions.answers]);
 
@@ -277,7 +307,7 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
 
     function skipAllAndGenerate() {
         const answersData = questions.getAnswersWithQuestions();
-        spec.generate(prompt, answersData);
+        enqueueAI('Generating spec', () => spec.generate(prompt, answersData));
     }
 
     // --- Step transitions ---
@@ -288,7 +318,7 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
             route(`/create-spec/${projectId}/assumptions`, true);
         }
         const answersData = questions.getAnswersWithQuestions();
-        await assumptions.generate(prompt, answersData);
+        enqueueAI('Generating assumptions', () => assumptions.generate(prompt, answersData));
     }
 
     async function goToRequirements() {
@@ -298,7 +328,7 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
             route(`/create-spec/${projectId}/requirements`, true);
         }
         const answersData = questions.getAnswersWithQuestions();
-        await requirements.generate(prompt, answersData, assumptions.assumptions);
+        enqueueAI('Generating requirements', () => requirements.generate(prompt, answersData, assumptions.assumptions));
     }
 
     async function goToOverview() {
@@ -308,7 +338,7 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
             route(`/create-spec/${projectId}/overview`, true);
         }
         const answersData = questions.getAnswersWithQuestions();
-        await spec.generate(prompt, answersData);
+        enqueueAI('Finalizing spec', () => spec.generate(prompt, answersData));
     }
 
     function goBack() {
@@ -337,6 +367,9 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
         requirements.reset();
         lastAnswerHash.current = '';
         resumedRef.current = false;
+        queueRef.current = [];
+        setAiQueue([]);
+        drainingRef.current = false;
     }
 
     const toolCallbacks: ToolCallbacks = {
@@ -358,6 +391,8 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
         projectId,
         resuming,
         wizardActivity,
+        aiQueue,
+        removeFromAiQueue,
         submit,
         save,
         questions,

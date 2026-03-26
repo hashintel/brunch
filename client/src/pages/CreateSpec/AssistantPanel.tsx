@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { Markdown } from './Markdown';
 import type { ChatMessage, ActivityInfo, ToolUpdate } from './useAssistantChat';
+import type { AIQueueItem } from './useSpecWizard';
 
 interface Props {
     open: boolean;
@@ -10,6 +11,8 @@ interface Props {
     streamingContent: string;
     activity: ActivityInfo | null;
     wizardActivity?: ActivityInfo | null;
+    aiQueue?: AIQueueItem[];
+    onRemoveFromAiQueue?: (id: string) => void;
     queue: { id: string; text: string }[];
     onSend: (text: string) => void;
     onStop: () => void;
@@ -20,7 +23,8 @@ interface Props {
 
 export function AssistantPanel({
     open, onClose, messages, loading, streamingContent,
-    activity, wizardActivity, queue, onSend, onStop, onRemoveFromQueue, onNewChat, toolUpdates,
+    activity, wizardActivity, aiQueue, onRemoveFromAiQueue,
+    queue, onSend, onStop, onRemoveFromQueue, onNewChat, toolUpdates,
 }: Props) {
     const [tab, setTab] = useState<'new' | 'history'>('new');
     const [input, setInput] = useState('');
@@ -190,7 +194,30 @@ export function AssistantPanel({
                     />
                 )}
 
-                {/* Bottom: queue + input */}
+                {/* AI generation queue */}
+                {aiQueue && aiQueue.length > 0 && (
+                    <div class="cs-assistant__queue cs-assistant__queue--ai">
+                        <div class="cs-assistant__queue-header">
+                            <span class="cs-assistant__queue-label">{aiQueue.length} queued task{aiQueue.length > 1 ? 's' : ''}</span>
+                        </div>
+                        <div class="cs-assistant__queue-items">
+                            {aiQueue.map(item => (
+                                <div key={item.id} class="cs-assistant__queue-item">
+                                    <span class="cs-assistant__queue-text">{item.label}</span>
+                                    {onRemoveFromAiQueue && (
+                                        <button class="cs-assistant__queue-remove" onClick={() => onRemoveFromAiQueue(item.id)}>
+                                            <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                                                <path d="M4.5 4.5l7 7M11.5 4.5l-7 7" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" />
+                                            </svg>
+                                        </button>
+                                    )}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                )}
+
+                {/* Bottom: chat queue + input */}
                 <div class="cs-assistant__bottom">
                     {queue.length > 0 && (
                         <div class="cs-assistant__queue">

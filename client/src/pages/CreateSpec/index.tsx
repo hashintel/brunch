@@ -264,6 +264,8 @@ export function CreateSpec() {
                     streamingContent={chat.streamingContent}
                     activity={chat.activity}
                     wizardActivity={wizard.wizardActivity}
+                    aiQueue={wizard.aiQueue}
+                    onRemoveFromAiQueue={wizard.removeFromAiQueue}
                     queue={chat.queue}
                     onSend={chat.send}
                     onStop={chat.stop}
