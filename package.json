@@ -3,7 +3,7 @@
 	"type": "module",
 	"scripts": {
 		"predev": "node scripts/kill-port.js",
-		"dev": "concurrently \"vite\" \"node --env-file=.env server/server.js\"",
+		"dev": "concurrently \"vite\" \"node --watch --env-file=.env server/server.js\"",
 		"preserver": "node scripts/kill-port.js",
 		"server": "node --env-file=.env server/server.js",
 		"build": "vite build",

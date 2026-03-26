@@ -124,36 +124,78 @@ export function useAssistantChat(ctx: WizardContext) {
         setMessages(updated);
         setLoading(true);
         setStreamingContent('');
+
+        const startTime = Date.now();
         setActivity({
             label: 'Thinking...',
-            startTime: Date.now(),
-            steps: [
-                { label: 'Processing your message', done: false },
-                { label: 'Generating response', done: false },
-            ],
+            startTime,
+            steps: [{ label: 'Sending request', done: false }],
         });
 
         const prompt = buildPrompt(text, currentMessages);
         let fullText = '';
+        let receivedFirstText = false;
 
         try {
             abortRef.current = new AbortController();
             const stream = await apiFetchStream('/api/stream', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ prompt, model: ctx.selectedModel }),
+                body: JSON.stringify({ prompt, model: ctx.selectedModel, assistant: true }),
                 signal: abortRef.current.signal,
             });
 
             setActivity(prev => prev ? {
                 ...prev,
-                steps: [{ label: 'Processing your message', done: true }, { label: 'Generating response', done: false }],
+                steps: [{ label: 'Sending request', done: true }],
             } : null);
 
             for await (const event of streamNDJSON(stream)) {
-                if (event.type === 'text') {
+                if (event.type === 'thinking_start') {
+                    setActivity(prev => prev ? {
+                        ...prev,
+                        label: 'Thinking...',
+                        steps: [...prev.steps, { label: 'Thinking', done: false }],
+                    } : null);
+                } else if (event.type === 'thinking_end') {
+                    setActivity(prev => {
+                        if (!prev) return null;
+                        const steps = prev.steps.map(s =>
+                            s.label === 'Thinking' && !s.done ? { ...s, done: true } : s
+                        );
+                        return { ...prev, steps };
+                    });
+                } else if (event.type === 'text') {
+                    if (!receivedFirstText) {
+                        receivedFirstText = true;
+                        setActivity(prev => prev ? {
+                            ...prev,
+                            label: 'Writing response...',
+                            steps: [...prev.steps, { label: 'Generating response', done: false }],
+                        } : null);
+                    }
                     fullText += event.text;
                     setStreamingContent(fullText);
+                } else if (event.type === 'tool_start') {
+                    const toolLabel = formatToolName(event.tool);
+                    setActivity(prev => prev ? {
+                        ...prev,
+                        label: toolLabel + '...',
+                        steps: [...prev.steps, { label: toolLabel, done: false }],
+                    } : null);
+                } else if (event.type === 'tool_end') {
+                    setActivity(prev => {
+                        if (!prev) return null;
+                        const steps = prev.steps.map(s => ({ ...s, done: true }));
+                        return { ...prev, steps };
+                    });
+                } else if (event.type === 'tool_use') {
+                    const toolLabel = formatToolName(event.tool);
+                    setActivity(prev => {
+                        if (!prev) return null;
+                        const steps = [...prev.steps.map(s => ({ ...s, done: true })), { label: toolLabel, done: true }];
+                        return { ...prev, steps };
+                    });
                 } else if (event.type === 'done') {
                     break;
                 }
@@ -238,4 +280,18 @@ export function useAssistantChat(ctx: WizardContext) {
         removeFromQueue,
         newChat,
     };
+}
+
+const TOOL_LABELS: Record<string, string> = {
+    set_goal: 'Setting goal',
+    update_assumption: 'Updating assumption',
+    create_assumption: 'Creating assumption',
+    delete_assumption: 'Deleting assumption',
+    update_requirement: 'Updating requirement',
+    create_requirement: 'Creating requirement',
+    delete_requirement: 'Deleting requirement',
+};
+
+function formatToolName(tool: string): string {
+    return TOOL_LABELS[tool] ?? tool.replace(/_/g, ' ').replace(/^\w/, c => c.toUpperCase());
 }

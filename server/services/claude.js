@@ -40,8 +40,12 @@ export async function streamQueryText(prompt, modelId, res, cwd, projectId) {
     let fullText = '';
     let error = null;
     let currentTool = null;
+    let isThinking = false;
 
     function sendEvent(obj) {
+        if (obj.type !== 'text') {
+            console.log(`[stream] ▸ ${JSON.stringify(obj)}`);
+        }
         res.write(JSON.stringify(obj) + '\n');
     }
 
@@ -57,6 +61,20 @@ export async function streamQueryText(prompt, modelId, res, cwd, projectId) {
         })) {
             allMessages.push(msg);
             if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_start' &&
+                msg.event.content_block?.type === 'thinking'
+            ) {
+                isThinking = true;
+                sendEvent({ type: 'thinking_start' });
+            } else if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_stop' &&
+                isThinking
+            ) {
+                isThinking = false;
+                sendEvent({ type: 'thinking_end' });
+            } else if (
                 msg.type === 'stream_event' &&
                 msg.event.type === 'content_block_delta' &&
                 msg.event.delta.type === 'text_delta'
@@ -275,9 +293,13 @@ export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projec
     let error = null;
     let currentTool = null;
     let currentToolInput = '';
+    let isThinking = false;
     let pendingMcpEvents = []; // Queue MCP tool_use events until after tool handler executes
 
     function sendEvent(obj) {
+        if (obj.type !== 'text') {
+            console.log(`[stream+tools] ▸ ${JSON.stringify(obj)}`);
+        }
         res.write(JSON.stringify(obj) + '\n');
     }
 
@@ -314,6 +336,20 @@ export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projec
             }
 
             if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_start' &&
+                msg.event.content_block?.type === 'thinking'
+            ) {
+                isThinking = true;
+                sendEvent({ type: 'thinking_start' });
+            } else if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_stop' &&
+                isThinking
+            ) {
+                isThinking = false;
+                sendEvent({ type: 'thinking_end' });
+            } else if (
                 msg.type === 'stream_event' &&
                 msg.event.type === 'content_block_delta' &&
                 msg.event.delta.type === 'text_delta'
@@ -398,6 +434,7 @@ export async function streamQueryWithTools(prompt, modelId, res, tools, cwd, pro
     let error = null;
     let currentTool = null;
     let currentToolInput = '';
+    let isThinking = false;
     let toolCounter = 0;
 
     // Convert JSON Schema tool defs to SDK tool() helpers
@@ -409,6 +446,9 @@ export async function streamQueryWithTools(prompt, modelId, res, tools, cwd, pro
     );
 
     function sendEvent(obj) {
+        if (obj.type !== 'text') {
+            console.log(`[wizard-tools] ▸ ${JSON.stringify(obj)}`);
+        }
         res.write(JSON.stringify(obj) + '\n');
     }
 
@@ -434,6 +474,20 @@ export async function streamQueryWithTools(prompt, modelId, res, tools, cwd, pro
             allMessages.push(msg);
 
             if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_start' &&
+                msg.event.content_block?.type === 'thinking'
+            ) {
+                isThinking = true;
+                sendEvent({ type: 'thinking_start' });
+            } else if (
+                msg.type === 'stream_event' &&
+                msg.event.type === 'content_block_stop' &&
+                isThinking
+            ) {
+                isThinking = false;
+                sendEvent({ type: 'thinking_end' });
+            } else if (
                 msg.type === 'stream_event' &&
                 msg.event.type === 'content_block_delta' &&
                 msg.event.delta.type === 'text_delta'

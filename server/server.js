@@ -33,13 +33,16 @@ app.get('/api/models', async (_req, res) => {
     if (!process.env.OPENCODE_URL) {
         return res.json(MODELS.filter(m => m.backend !== 'opencode'));
     }
-    // Only show OpenCode models whose provider is actually connected
+    // Only show OpenCode models whose provider is actually connected (with 3s timeout)
     try {
         const { getAvailableModelIds } = await import('./services/opencode.js');
-        const available = new Set(await getAvailableModelIds());
+        const available = new Set(await Promise.race([
+            getAvailableModelIds(),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
+        ]));
         res.json(MODELS.filter(m => m.backend !== 'opencode' || available.has(m.id)));
     } catch {
-        // If OpenCode is unreachable, just show Claude models
+        // If OpenCode is unreachable or times out, just show Claude models
         res.json(MODELS.filter(m => m.backend !== 'opencode'));
     }
 });
