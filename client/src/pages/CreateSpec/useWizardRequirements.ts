@@ -9,13 +9,17 @@ interface UseWizardRequirementsParams {
 
 export function useWizardRequirements({ selectedModel }: UseWizardRequirementsParams) {
     const [data, setData] = useState<RequirementsData | null>(null);
+    const [selectedId, setSelectedId] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [activity, setActivity] = useState<ActivityInfo | null>(null);
 
+    const selected = selectedId && data ? findInTree(data.requirements, selectedId) : null;
+
     async function generate(prompt: string, answers?: any[], assumptions?: any[]) {
         setLoading(true);
         setData(null);
+        setSelectedId(null);
         setError('');
         const startTime = Date.now();
         setActivity({ label: 'Generating requirements...', startTime, steps: [] });
@@ -72,6 +76,7 @@ export function useWizardRequirements({ selectedModel }: UseWizardRequirementsPa
 
     function reset() {
         setData(null);
+        setSelectedId(null);
         setLoading(false);
         setError('');
     }
@@ -98,7 +103,7 @@ export function useWizardRequirements({ selectedModel }: UseWizardRequirementsPa
         setData(buildRequirementsData(data.title, data.description, removeFromTree(data.requirements, id)));
     }
 
-    return { data, loading, error, activity, generate, toggleExpand, updateRequirement, addRequirement, deleteRequirement, hydrate, reset };
+    return { data, selectedId, setSelectedId, selected, loading, error, activity, generate, toggleExpand, updateRequirement, addRequirement, deleteRequirement, hydrate, reset };
 }
 
 function normalizeRequirement(r: any): WizardRequirement {
@@ -168,4 +173,15 @@ function removeFromTree(reqs: WizardRequirement[], id: string): WizardRequiremen
     return reqs
         .filter(r => r.id !== id)
         .map(r => r.children?.length ? { ...r, children: removeFromTree(r.children, id) } : r);
+}
+
+function findInTree(reqs: WizardRequirement[], id: string): WizardRequirement | null {
+    for (const r of reqs) {
+        if (r.id === id) return r;
+        if (r.children?.length) {
+            const found = findInTree(r.children, id);
+            if (found) return found;
+        }
+    }
+    return null;
 }

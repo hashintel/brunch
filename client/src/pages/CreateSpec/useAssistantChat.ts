@@ -1,6 +1,6 @@
 import { useState, useRef, useCallback } from 'preact/hooks';
 import { apiFetchStream, streamNDJSON } from '../Home/apiFetch';
-import type { StructuredSpec, WizardAssumption, WizardRequirement, RequirementsData, SpecAnswer, SpecQuestion } from './types';
+import type { StructuredSpec, WizardAssumption, WizardRequirement, RequirementsData, SpecAnswer, SpecQuestion, FocusedItem } from './types';
 
 export interface ChatMessage {
     id: string;
@@ -41,6 +41,7 @@ interface WizardContext {
     getAssumptions: () => WizardAssumption[];
     getRequirements: () => RequirementsData | null;
     getWizardStatus: () => string;
+    getFocusedItem?: () => FocusedItem;
     toolCallbacks?: ToolCallbacks;
 }
 
@@ -122,6 +123,45 @@ export function useAssistantChat(ctx: WizardContext) {
                 r.children?.forEach(c => walkReq(c, depth + 1));
             }
             reqs.requirements.forEach(r => walkReq(r, 0));
+            p += '\n';
+        }
+
+        const focused = ctx.getFocusedItem?.();
+        if (focused) {
+            p += '## Currently Focused Item\n';
+            p += 'The user has selected this item. Prioritize your response around it.\n';
+            if (focused.type === 'assumption') {
+                const a = focused.item;
+                p += `Type: Assumption\n`;
+                p += `Text: ${a.editedText || a.text}\n`;
+                p += `Rationale: ${a.rationale}\n`;
+                p += `Impact: ${a.impact} | Confidence: ${a.confidence} | Status: ${a.status}\n`;
+            } else if (focused.type === 'requirement') {
+                const r = focused.item;
+                p += `Type: Requirement\n`;
+                p += `ID: ${r.id}\n`;
+                p += `Title: ${r.title}\n`;
+                if (r.status) p += `Status: ${r.status}\n`;
+                if (r.checks.length > 0) {
+                    p += `Checks:\n`;
+                    r.checks.forEach(c => { p += `  - [${c.type}] ${c.description}\n`; });
+                }
+                if (r.children.length > 0) {
+                    p += `Sub-requirements: ${r.children.map(c => c.title).join(', ')}\n`;
+                }
+            } else if (focused.type === 'question') {
+                const q = focused.item;
+                p += `Type: Question\n`;
+                p += `Question: ${q.question}\n`;
+                p += `Why: ${q.why}\n`;
+                p += `Impact: ${q.impact}\n`;
+                if (focused.answer) {
+                    const a = focused.answer;
+                    p += `Answer: ${a.skipped ? '(skipped)' : a.selectedLabels.join(', ')}`;
+                    if (a.otherText) p += ` | Other: ${a.otherText}`;
+                    p += '\n';
+                }
+            }
             p += '\n';
         }
 

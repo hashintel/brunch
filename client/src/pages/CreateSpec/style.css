@@ -1228,6 +1228,8 @@
     border-bottom: 1px solid #e3e3e3;
 }
 .cs-req--nested:last-child { border-bottom: none; }
+.cs-req--selected { border-color: #5424ff; box-shadow: 0 0 0 1px #5424ff; }
+.cs-req--selected .cs-req__main { border-color: #5424ff; }
 
 .cs-req__main {
     background: #fff;
@@ -1935,6 +1937,27 @@
 }
 .cs-assistant__queue-remove:hover { color: #5b5b5b; }
 
+/* Focus chip */
+.cs-assistant__focus-chip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 4px 10px;
+    background: rgba(84, 36, 255, 0.08);
+    border: 1px solid rgba(84, 36, 255, 0.2);
+    border-radius: 999px;
+    color: #5424ff;
+    font-size: 12px;
+    font-weight: 500;
+    margin-bottom: 4px;
+    overflow: hidden;
+}
+.cs-assistant__focus-chip-text {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
 /* Input card */
 .cs-assistant__input-card {
     background: #fff;
@@ -2303,6 +2326,8 @@
     .cs-reqs__stat-label { color: #666; }
     .cs-reqs__stat-value { color: #eee; }
     .cs-req { background: #222; border-color: #333; }
+    .cs-req--selected { border-color: #7c5cff; box-shadow: 0 0 0 1px #7c5cff; }
+    .cs-req--selected .cs-req__main { border-color: #7c5cff; }
     .cs-req__main { background: #1e1e1e; border-color: #333; }
     .cs-req__header { border-bottom-color: #333; }
     .cs-req__title, .cs-req__title--sub { color: #eee; }
@@ -2341,6 +2366,7 @@
     .cs-assistant__queue-item { background: rgba(255,255,255,0.04); }
     .cs-assistant__queue-text { color: #ccc; }
     .cs-assistant__input-card { background: #1e1e1e; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }
+    .cs-assistant__focus-chip { background: rgba(124, 92, 255, 0.12); border-color: rgba(124, 92, 255, 0.3); color: #a78bfa; }
     .cs-assistant__input { color: #ccc; }
     .cs-assistant__input::placeholder { color: #666; }
     .cs-assistant__attach-btn { background: #333; color: #aaa; }

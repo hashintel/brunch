@@ -6,9 +6,11 @@ interface Props {
     onToggle: (id: string) => void;
     onContinue: () => void;
     loading?: boolean;
+    selectedId?: string | null;
+    onSelect?: (id: string) => void;
 }
 
-export function RequirementsScreen({ data, onToggle, onContinue, loading }: Props) {
+export function RequirementsScreen({ data, onToggle, onContinue, loading, selectedId, onSelect }: Props) {
     const { stats } = data;
 
     return (
@@ -50,7 +52,7 @@ export function RequirementsScreen({ data, onToggle, onContinue, loading }: Prop
                 <h3 class="cs-reqs__section-title">Requirements</h3>
                 <div class="cs-reqs__list">
                     {data.requirements.map(req => (
-                        <RequirementCard key={req.id} requirement={req} depth={0} onToggle={onToggle} />
+                        <RequirementCard key={req.id} requirement={req} depth={0} onToggle={onToggle} selectedId={selectedId} onSelect={onSelect} />
                     ))}
                 </div>
             </div>
@@ -84,10 +86,12 @@ function StatCard({ label, value, progress }: { label: string; value: string; pr
     );
 }
 
-function RequirementCard({ requirement: r, depth, onToggle }: {
+function RequirementCard({ requirement: r, depth, onToggle, selectedId, onSelect }: {
     requirement: WizardRequirement;
     depth: number;
     onToggle: (id: string) => void;
+    selectedId?: string | null;
+    onSelect?: (id: string) => void;
 }) {
     const [checksOpen, setChecksOpen] = useState(false);
     const hasChildren = r.children && r.children.length > 0;
@@ -96,10 +100,10 @@ function RequirementCard({ requirement: r, depth, onToggle }: {
     const totalChildren = countAllChildren(r);
 
     return (
-        <div class={`cs-req ${depth > 0 ? 'cs-req--nested' : ''}`}>
+        <div class={`cs-req ${depth > 0 ? 'cs-req--nested' : ''} ${r.id === selectedId ? 'cs-req--selected' : ''}`}>
             <div class="cs-req__main">
                 {/* Header row */}
-                <div class="cs-req__header" onClick={() => hasChildren && onToggle(r.id)}>
+                <div class="cs-req__header" onClick={() => { onSelect?.(r.id); if (hasChildren) onToggle(r.id); }}>
                     {depth > 0 && <span class="cs-req__branch">&#8627;</span>}
                     <div class="cs-req__info">
                         {depth === 0 && <span class="cs-req__id-label">{r.id}</span>}
@@ -136,7 +140,7 @@ function RequirementCard({ requirement: r, depth, onToggle }: {
                             <span class="cs-req__chevron cs-req__chevron--open">&#9654;</span>
                         </div>
                         {r.children.map(child => (
-                            <RequirementCard key={child.id} requirement={child} depth={depth + 1} onToggle={onToggle} />
+                            <RequirementCard key={child.id} requirement={child} depth={depth + 1} onToggle={onToggle} selectedId={selectedId} onSelect={onSelect} />
                         ))}
                     </div>
                 )}

@@ -12,6 +12,7 @@ import { SkeletonLoader } from './SkeletonLoader';
 import { ProgressSidebar } from './ProgressSidebar';
 import { AssistantPanel, AssistantToggle } from './AssistantPanel';
 import type { Model } from '../Home/types';
+import type { FocusedItem } from './types';
 
 export function CreateSpec() {
     const [selectedModel, setSelectedModel] = useState('claude-haiku-4-5');
@@ -98,8 +99,42 @@ export function CreateSpec() {
             wizard.assumptions.loading, wizard.assumptions.assumptions,
             wizard.requirements.loading, wizard.requirements.data,
         ]),
+        getFocusedItem: useCallback((): FocusedItem => {
+            if (wizard.screen === 'assumptions' && wizard.assumptions.selected) {
+                return { type: 'assumption', item: wizard.assumptions.selected };
+            }
+            if (wizard.screen === 'requirements' && wizard.requirements.selected) {
+                return { type: 'requirement', item: wizard.requirements.selected };
+            }
+            if (wizard.screen === 'clarify' && wizard.questions.questions.length > 0) {
+                const idx = wizard.questions.currentIndex;
+                const q = wizard.questions.questions[idx];
+                if (q) return { type: 'question', item: q, answer: wizard.questions.answers[idx] };
+            }
+            return null;
+        }, [
+            wizard.screen,
+            wizard.assumptions.selected,
+            wizard.requirements.selected,
+            wizard.questions.questions, wizard.questions.currentIndex, wizard.questions.answers,
+        ]),
         toolCallbacks: wizard.toolCallbacks,
     });
+
+    const focusedItem: FocusedItem = (() => {
+        if (wizard.screen === 'assumptions' && wizard.assumptions.selected) {
+            return { type: 'assumption', item: wizard.assumptions.selected };
+        }
+        if (wizard.screen === 'requirements' && wizard.requirements.selected) {
+            return { type: 'requirement', item: wizard.requirements.selected };
+        }
+        if (wizard.screen === 'clarify' && wizard.questions.questions.length > 0) {
+            const idx = wizard.questions.currentIndex;
+            const q = wizard.questions.questions[idx];
+            if (q) return { type: 'question', item: q, answer: wizard.questions.answers[idx] };
+        }
+        return null;
+    })();
 
     const showStepIndicator = wizard.screen !== 'landing' && wizard.screen !== 'loading';
 
@@ -205,6 +240,8 @@ export function CreateSpec() {
                                 onToggle={wizard.requirements.toggleExpand}
                                 onContinue={wizard.goToOverview}
                                 loading={wizard.requirements.loading}
+                                selectedId={wizard.requirements.selectedId}
+                                onSelect={wizard.requirements.setSelectedId}
                             />
                         )
                     )}
@@ -272,6 +309,7 @@ export function CreateSpec() {
                     onRemoveFromQueue={chat.removeFromQueue}
                     onNewChat={chat.newChat}
                     toolUpdates={chat.toolUpdates}
+                    focusedItem={focusedItem}
                 />
             ) : (
                 <AssistantToggle onClick={() => setAssistantOpen(true)} />

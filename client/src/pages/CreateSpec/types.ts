@@ -78,3 +78,9 @@ export interface RequirementsData {
 }
 
 export type WizardScreen = 'landing' | 'loading' | 'clarify' | 'assumptions' | 'requirements' | 'overview';
+
+export type FocusedItem =
+    | { type: 'assumption'; item: WizardAssumption }
+    | { type: 'requirement'; item: WizardRequirement }
+    | { type: 'question'; item: SpecQuestion; answer?: SpecAnswer }
+    | null;

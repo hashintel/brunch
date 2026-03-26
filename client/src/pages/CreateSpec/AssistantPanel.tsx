@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'preact/hooks';
 import { Markdown } from './Markdown';
 import type { ChatMessage, ActivityInfo, ToolUpdate } from './useAssistantChat';
 import type { AIQueueItem } from './useSpecWizard';
+import type { FocusedItem } from './types';
 
 interface Props {
     open: boolean;
@@ -19,12 +20,13 @@ interface Props {
     onRemoveFromQueue: (id: string) => void;
     onNewChat: () => void;
     toolUpdates?: ToolUpdate[];
+    focusedItem?: FocusedItem;
 }
 
 export function AssistantPanel({
     open, onClose, messages, loading, streamingContent,
     activity, wizardActivity, aiQueue, onRemoveFromAiQueue,
-    queue, onSend, onStop, onRemoveFromQueue, onNewChat, toolUpdates,
+    queue, onSend, onStop, onRemoveFromQueue, onNewChat, toolUpdates, focusedItem,
 }: Props) {
     const [tab, setTab] = useState<'new' | 'history'>('new');
     const [input, setInput] = useState('');
@@ -244,6 +246,18 @@ export function AssistantPanel({
                         </div>
                     )}
 
+                    {focusedItem && (
+                        <div class="cs-assistant__focus-chip">
+                            <svg width="12" height="12" viewBox="0 0 16 16" fill="none">
+                                <path d="M8 1l2.5 3.5L14 6l-2.5 3L12 13l-4-1.5L4 13l.5-4L2 6l3.5-1.5L8 1z" stroke="currentColor" stroke-width="1.5" fill="none" />
+                            </svg>
+                            <span class="cs-assistant__focus-chip-text">
+                                {focusedItem.type === 'assumption' ? `Assumption: ${(focusedItem.item.editedText || focusedItem.item.text).slice(0, 50)}` :
+                                 focusedItem.type === 'requirement' ? `Requirement: ${focusedItem.item.title.slice(0, 50)}` :
+                                 `Question: ${focusedItem.item.question.slice(0, 50)}`}
+                            </span>
+                        </div>
+                    )}
                     <div class="cs-assistant__input-card">
                         <textarea
                             ref={textareaRef}
