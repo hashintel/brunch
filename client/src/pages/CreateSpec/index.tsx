@@ -1,5 +1,5 @@
 import './style.css';
-import { useState, useEffect, useCallback } from 'preact/hooks';
+import { useState, useEffect, useCallback, useRef } from 'preact/hooks';
 import { useRoute } from 'preact-iso';
 import { useSpecWizard } from './useSpecWizard';
 import { useAssistantChat } from './useAssistantChat';
@@ -18,6 +18,8 @@ export function CreateSpec() {
     const [selectedModel, setSelectedModel] = useState('claude-haiku-4-5');
     const [models, setModels] = useState<Model[]>([]);
     const [assistantOpen, setAssistantOpen] = useState(false);
+    const [saveState, setSaveState] = useState<'idle' | 'saving' | 'saved' | 'error'>('idle');
+    const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
     const { params } = useRoute();
 
@@ -138,6 +140,20 @@ export function CreateSpec() {
 
     const showStepIndicator = wizard.screen !== 'landing' && wizard.screen !== 'loading';
 
+    async function handleSave() {
+        if (saveState === 'saving') return;
+        if (saveTimerRef.current) clearTimeout(saveTimerRef.current);
+        setSaveState('saving');
+        try {
+            await wizard.save();
+            setSaveState('saved');
+            saveTimerRef.current = setTimeout(() => setSaveState('idle'), 2000);
+        } catch {
+            setSaveState('error');
+            saveTimerRef.current = setTimeout(() => setSaveState('idle'), 3000);
+        }
+    }
+
     return (
         <div class="create-spec">
             <div class="create-spec__header">
@@ -153,12 +169,22 @@ export function CreateSpec() {
                         ))}
                     </select>
                     {showStepIndicator && (
-                        <button class="create-spec__save-draft-btn" onClick={wizard.save}>Save draft</button>
+                        <button
+                            class={`create-spec__save-draft-btn ${saveState !== 'idle' ? `create-spec__save-draft-btn--${saveState}` : ''}`}
+                            onClick={handleSave}
+                            disabled={saveState === 'saving'}
+                        >
+                            {saveState === 'saving' ? 'Saving...' :
+                             saveState === 'saved' ? '\u2713 Saved' :
+                             saveState === 'error' ? 'Failed' :
+                             'Save draft'}
+                        </button>
                     )}
                 </div>
             </div>
 
             <div class="create-spec__body">
+              <div class="create-spec__body-inner">
                 {showStepIndicator && (
                     <ProgressSidebar
                         screen={wizard.screen}
@@ -264,33 +290,34 @@ export function CreateSpec() {
                         </div>
                     )}
 
-                    {!wizard.resuming && wizard.screen !== 'landing' && wizard.screen !== 'loading' && (
-                        <div class="create-spec__toolbar">
-                            <button class="create-spec__toolbar-back" onClick={wizard.goBack}>
-                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.5 3L4.5 7L8.5 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                Back
-                            </button>
-                            {wizard.screen !== 'overview' && (
-                                <button
-                                    class="create-spec__toolbar-review"
-                                    onClick={
-                                        wizard.screen === 'clarify' ? wizard.goToAssumptions
-                                        : wizard.screen === 'assumptions' ? wizard.goToRequirements
-                                        : wizard.goToOverview
-                                    }
-                                >
-                                    {wizard.screen === 'requirements' ? 'Review Spec' : 'Continue'}
-                                </button>
-                            )}
-                        </div>
-                    )}
-
                     {(wizard.questions.error || wizard.spec.error || wizard.assumptions.error || wizard.requirements.error) && (
                         <div class="create-spec__error">
                             {wizard.questions.error || wizard.spec.error || wizard.assumptions.error || wizard.requirements.error}
                         </div>
                     )}
                 </div>
+              </div>
+
+                {!wizard.resuming && wizard.screen !== 'landing' && wizard.screen !== 'loading' && (
+                    <div class="create-spec__toolbar">
+                        <button class="create-spec__toolbar-back" onClick={wizard.goBack}>
+                            <svg width="14" height="14" viewBox="0 0 14 14" fill="none"><path d="M8.5 3L4.5 7L8.5 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+                            Back
+                        </button>
+                        {wizard.screen !== 'overview' && (
+                            <button
+                                class="create-spec__toolbar-review"
+                                onClick={
+                                    wizard.screen === 'clarify' ? wizard.goToAssumptions
+                                    : wizard.screen === 'assumptions' ? wizard.goToRequirements
+                                    : wizard.goToOverview
+                                }
+                            >
+                                {wizard.screen === 'requirements' ? 'Review Spec' : 'Continue'}
+                            </button>
+                        )}
+                    </div>
+                )}
             </div>
 
             {assistantOpen ? (

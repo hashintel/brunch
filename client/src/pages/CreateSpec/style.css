@@ -40,6 +40,10 @@
     box-shadow: 0 4px 4px -2px rgba(0,0,0,0.02), 0 2px 2px -1px rgba(0,0,0,0.02), 0 0 0 1px rgba(0,0,0,0.08);
 }
 .create-spec__save-draft-btn:hover { background: #fafafa; }
+.create-spec__save-draft-btn:disabled { cursor: default; opacity: 0.7; }
+.create-spec__save-draft-btn--saving { color: #888; }
+.create-spec__save-draft-btn--saved { color: #3cba49; box-shadow: 0 0 0 1px rgba(60,186,73,0.4); }
+.create-spec__save-draft-btn--error { color: #e14640; box-shadow: 0 0 0 1px rgba(225,70,64,0.4); }
 
 .create-spec__back-link {
     color: #555;
@@ -63,6 +67,13 @@
 /* ---------- Body Layout ---------- */
 
 .create-spec__body {
+    display: flex;
+    flex-direction: column;
+    flex: 1;
+    min-height: 0;
+}
+
+.create-spec__body-inner {
     display: flex;
     flex: 1;
     min-height: 0;
@@ -206,14 +217,13 @@
 /* ---------- Bottom Toolbar ---------- */
 
 .create-spec__toolbar {
-    position: sticky;
-    bottom: 0;
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 1rem 1rem 1rem 1rem;
+    padding: 0.75rem 1.5rem;
     border-top: 1px solid #e0e0e0;
     background: #fff;
+    flex-shrink: 0;
     z-index: 10;
 }
 
@@ -2485,6 +2495,9 @@
 
     .create-spec__error { background: #2a1515; border-color: #5c2a2a; }
     .create-spec__save-draft-btn { background: #2a2a2a; color: #ccc; box-shadow: 0 0 0 1px rgba(255,255,255,0.1); }
+    .create-spec__save-draft-btn--saving { color: #888; }
+    .create-spec__save-draft-btn--saved { color: #4ade80; box-shadow: 0 0 0 1px rgba(74,222,128,0.4); }
+    .create-spec__save-draft-btn--error { color: #f87171; box-shadow: 0 0 0 1px rgba(248,113,113,0.4); }
 
     .create-spec__toolbar { background: #1a1a1a; border-top-color: #333; }
     .create-spec__toolbar-back { background: #2a2a2a; color: #ccc; }
