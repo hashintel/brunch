@@ -51,32 +51,16 @@ export function AssumptionsScreen({ assumptions, selectedId, onSelect, onConfirm
                     </div>
                 </div>
 
-                {selected && (
-                    <div class="cs-assumptions__sticky-selected">
-                        <AssumptionCard
-                            assumption={selected}
-                            isSelected={true}
-                            onSelect={() => {}}
-                            onConfirm={() => onConfirm(selected.id)}
-                            onEdit={onEdit}
-                        />
-                    </div>
-                )}
-
                 <div class="cs-assumptions__cards">
                     {assumptions.map(a => (
-                        a.id === selectedId ? (
-                            <div key={a.id} class="cs-assumptions__card-anchor" />
-                        ) : (
-                            <AssumptionCard
-                                key={a.id}
-                                assumption={a}
-                                isSelected={false}
-                                onSelect={() => onSelect(a.id)}
-                                onConfirm={() => onConfirm(a.id)}
-                                onEdit={onEdit}
-                            />
-                        )
+                        <AssumptionCard
+                            key={a.id}
+                            assumption={a}
+                            isSelected={a.id === selectedId}
+                            onSelect={() => onSelect(a.id)}
+                            onConfirm={() => onConfirm(a.id)}
+                            onEdit={onEdit}
+                        />
                     ))}
                 </div>
 

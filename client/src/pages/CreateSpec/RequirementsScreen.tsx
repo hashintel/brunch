@@ -150,7 +150,7 @@ function RequirementCard({ requirement: r, depth, onToggle }: {
             </div>
 
             {/* Checks section */}
-            {depth === 0 && r.checks.length > 0 && (
+            {r.checks.length > 0 && (
                 <div class="cs-req__checks">
                     <div class="cs-req__checks-header" onClick={() => setChecksOpen(!checksOpen)}>
                         <span>Checks</span>

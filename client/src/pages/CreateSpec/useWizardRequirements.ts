@@ -67,6 +67,15 @@ export function useWizardRequirements({ selectedModel }: UseWizardRequirementsPa
     return { data, loading, error, generate, toggleExpand, hydrate, reset };
 }
 
+function normalizeRequirement(r: any): WizardRequirement {
+    return {
+        ...r,
+        checks: r.checks ?? [],
+        children: (r.children ?? []).map(normalizeRequirement),
+        expanded: r.expanded ?? false,
+    };
+}
+
 function buildRequirementsData(title: string, description: string, reqs: WizardRequirement[]): RequirementsData {
     let totalReqs = 0;
     let uncertain = 0;
@@ -80,21 +89,22 @@ function buildRequirementsData(title: string, description: string, reqs: WizardR
         totalReqs++;
         if (r.status === 'uncertain') uncertain++;
         if (r.status === 'decision_node') decisionNode++;
-        checksTotal += r.checks?.length ?? 0;
-        if (r.checks?.length > 0) checksWithChecks++;
-        r.checks?.forEach(c => {
+        checksTotal += r.checks.length;
+        if (r.checks.length > 0) checksWithChecks++;
+        r.checks.forEach(c => {
             if (c.type === 'human_review') humanReview++;
             else automated++;
         });
-        r.children?.forEach(walk);
+        r.children.forEach(walk);
     }
-    reqs.forEach(walk);
+    const normalized = reqs.map(normalizeRequirement);
+    normalized.forEach(walk);
 
     return {
         title,
         description,
         stats: { uncertain, decisionNode, checksTotal, checksWithChecks, automated, humanReview, totalRequirements: totalReqs },
-        requirements: reqs.map(r => ({ ...r, expanded: r.expanded ?? false })),
+        requirements: normalized,
     };
 }
 

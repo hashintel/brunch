@@ -772,13 +772,6 @@
 }
 .cs-assumptions__confirm-all-btn:hover { background: rgba(60,186,73,0.05); }
 
-.cs-assumptions__sticky-selected {
-    position: sticky;
-    top: 0;
-    z-index: 5;
-    padding-bottom: 0.5rem;
-    background: inherit;
-}
 
 .cs-assumptions__cards {
     display: flex;
@@ -786,9 +779,6 @@
     gap: 0.75rem;
 }
 
-.cs-assumptions__card-anchor {
-    /* Placeholder for the selected card that's shown sticky */
-}
 
 .cs-assumptions__continue-wrap { margin-top: 0.5rem; }
 .cs-assumptions__continue-btn {
