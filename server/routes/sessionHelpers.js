@@ -33,7 +33,7 @@ function parseJson(val) {
 }
 
 export function serializeSession(project, entries, assumptions = [], goalIterations = []) {
-    const clarifyingState = parseJson(project.clarifying_state);
+    const clarifyingState = parseJson(project.clarifying_state) || {};
     return {
         id: String(project.pk),
         name: project.name,

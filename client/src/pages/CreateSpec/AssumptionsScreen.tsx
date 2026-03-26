@@ -94,6 +94,7 @@ export function AssumptionsScreen({ assumptions, selectedId, onSelect, onConfirm
             <div class="cs-assumptions__detail">
                 {selected && (
                     <AssumptionDetail
+                        key={selected.id}
                         assumption={selected}
                         onConfirm={() => onConfirm(selected.id)}
                         onEdit={onEdit}

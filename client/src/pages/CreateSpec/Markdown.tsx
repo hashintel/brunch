@@ -1,5 +1,6 @@
 import { useMemo } from 'preact/hooks';
 import { marked } from 'marked';
+import DOMPurify from 'dompurify';
 
 marked.setOptions({
     breaks: false,
@@ -14,7 +15,8 @@ interface Props {
 export function Markdown({ content, class: className }: Props) {
     const html = useMemo(() => {
         if (!content) return '';
-        return marked.parse(content, { async: false }) as string;
+        const raw = marked.parse(content, { async: false }) as string;
+        return DOMPurify.sanitize(raw);
     }, [content]);
 
     return (

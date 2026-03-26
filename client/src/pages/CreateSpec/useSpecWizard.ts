@@ -97,14 +97,16 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
                 requirements.hydrate(wizardRequirements);
             }
 
-            // Hydrate spec
-            if (session.spec) {
-                // spec.hydrate would be ideal but we'll just regenerate if needed
-            }
-
             // Set screen from URL step param
-            if (routeStep && (VALID_STEPS as readonly string[]).includes(routeStep)) {
-                setScreen(STEP_TO_SCREEN[routeStep as StepParam]);
+            const targetScreen = (routeStep && (VALID_STEPS as readonly string[]).includes(routeStep))
+                ? STEP_TO_SCREEN[routeStep as StepParam]
+                : 'clarify';
+            setScreen(targetScreen);
+
+            // If resuming to overview, regenerate the spec
+            if (targetScreen === 'overview') {
+                const answersData = questions.getAnswersWithQuestions();
+                spec.generate(session.prompt ?? '', answersData);
             }
         } catch (e) {
             console.error('Failed to resume session:', e);
