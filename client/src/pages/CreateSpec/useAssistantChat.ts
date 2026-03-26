@@ -15,6 +15,22 @@ export interface ActivityInfo {
     steps: { label: string; done: boolean }[];
 }
 
+export interface ToolUpdate {
+    tool: string;
+    data: any;
+    timestamp: number;
+}
+
+export interface ToolCallbacks {
+    onSetGoal?: (goal: string) => void;
+    onUpdateAssumption?: (input: any) => void;
+    onCreateAssumption?: (input: any) => void;
+    onDeleteAssumption?: (id: string) => void;
+    onUpdateRequirement?: (input: any) => void;
+    onCreateRequirement?: (input: any) => void;
+    onDeleteRequirement?: (id: string) => void;
+}
+
 interface WizardContext {
     screen: string;
     prompt: string;
@@ -24,6 +40,8 @@ interface WizardContext {
     getSpec: () => StructuredSpec | null;
     getAssumptions: () => WizardAssumption[];
     getRequirements: () => RequirementsData | null;
+    getWizardStatus: () => string;
+    toolCallbacks?: ToolCallbacks;
 }
 
 export function useAssistantChat(ctx: WizardContext) {
@@ -32,6 +50,7 @@ export function useAssistantChat(ctx: WizardContext) {
     const [streamingContent, setStreamingContent] = useState('');
     const [activity, setActivity] = useState<ActivityInfo | null>(null);
     const [queue, setQueue] = useState<{ id: string; text: string }[]>([]);
+    const [toolUpdates, setToolUpdates] = useState<ToolUpdate[]>([]);
 
     const abortRef = useRef<AbortController | null>(null);
     const messagesRef = useRef<ChatMessage[]>([]);
@@ -46,6 +65,11 @@ export function useAssistantChat(ctx: WizardContext) {
         p += 'Help the user refine their project spec. Answer concisely. Use markdown formatting when helpful.\n\n';
 
         p += `## Current Wizard Screen: ${ctx.screen}\n\n`;
+
+        const status = ctx.getWizardStatus();
+        if (status) {
+            p += `## Current Activity\n${status}\n\n`;
+        }
 
         if (ctx.prompt) {
             p += `## Original Project Idea\n${ctx.prompt}\n\n`;
@@ -124,6 +148,7 @@ export function useAssistantChat(ctx: WizardContext) {
         setMessages(updated);
         setLoading(true);
         setStreamingContent('');
+        setToolUpdates([]);
 
         const startTime = Date.now();
         setActivity({
@@ -196,6 +221,19 @@ export function useAssistantChat(ctx: WizardContext) {
                         const steps = [...prev.steps.map(s => ({ ...s, done: true })), { label: toolLabel, done: true }];
                         return { ...prev, steps };
                     });
+
+                    // Dispatch tool callback
+                    const cb = ctx.toolCallbacks;
+                    if (cb) {
+                        if (event.tool === 'set_goal') cb.onSetGoal?.(event.input?.goal);
+                        else if (event.tool === 'update_assumption') cb.onUpdateAssumption?.(event.input);
+                        else if (event.tool === 'create_assumption') cb.onCreateAssumption?.(event.input);
+                        else if (event.tool === 'delete_assumption') cb.onDeleteAssumption?.(event.input?.id);
+                        else if (event.tool === 'update_requirement') cb.onUpdateRequirement?.(event.input);
+                        else if (event.tool === 'create_requirement') cb.onCreateRequirement?.(event.input);
+                        else if (event.tool === 'delete_requirement') cb.onDeleteRequirement?.(event.input?.id);
+                    }
+                    setToolUpdates(prev => [...prev, { tool: event.tool, data: event.input, timestamp: Date.now() }]);
                 } else if (event.type === 'done') {
                     break;
                 }
@@ -275,6 +313,7 @@ export function useAssistantChat(ctx: WizardContext) {
         streamingContent,
         activity,
         queue,
+        toolUpdates,
         send,
         stop,
         removeFromQueue,

@@ -1744,6 +1744,33 @@
     line-height: 1.6;
 }
 
+/* Tool update cards */
+.cs-assistant__updates {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 0 4px;
+}
+
+.cs-assistant__update-card {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 12px;
+    background: rgba(84, 36, 255, 0.06);
+    border: 1px solid rgba(84, 36, 255, 0.12);
+    border-radius: 8px;
+    font-size: 13px;
+    color: #444;
+    line-height: 1.4;
+}
+
+.cs-assistant__update-icon {
+    flex-shrink: 0;
+    font-size: 14px;
+    color: #5424ff;
+}
+
 /* Bottom section: queue + input */
 .cs-assistant__bottom {
     background: #fafafa;
@@ -2231,6 +2258,8 @@
     .cs-assistant__msg-avatar { background: rgba(84, 36, 255, 0.15); }
     .cs-assistant__empty-text { color: #888; }
     .cs-assistant__dot { background: #666; }
+    .cs-assistant__update-card { background: rgba(84, 36, 255, 0.1); border-color: rgba(84, 36, 255, 0.2); color: #ccc; }
+    .cs-assistant__update-icon { color: #7c5cff; }
 
     /* Markdown dark */
     .cs-markdown code { background: rgba(255,255,255,0.08); }

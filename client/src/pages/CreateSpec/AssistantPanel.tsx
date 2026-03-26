@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'preact/hooks';
 import { Markdown } from './Markdown';
-import type { ChatMessage, ActivityInfo } from './useAssistantChat';
+import type { ChatMessage, ActivityInfo, ToolUpdate } from './useAssistantChat';
 
 interface Props {
     open: boolean;
@@ -14,11 +14,12 @@ interface Props {
     onStop: () => void;
     onRemoveFromQueue: (id: string) => void;
     onNewChat: () => void;
+    toolUpdates?: ToolUpdate[];
 }
 
 export function AssistantPanel({
     open, onClose, messages, loading, streamingContent,
-    activity, queue, onSend, onStop, onRemoveFromQueue, onNewChat,
+    activity, queue, onSend, onStop, onRemoveFromQueue, onNewChat, toolUpdates,
 }: Props) {
     const [tab, setTab] = useState<'new' | 'history'>('new');
     const [input, setInput] = useState('');
@@ -154,6 +155,17 @@ export function AssistantPanel({
                         </div>
                     )}
 
+                    {toolUpdates && toolUpdates.length > 0 && (
+                        <div class="cs-assistant__updates">
+                            {toolUpdates.map((u, i) => (
+                                <div key={i} class="cs-assistant__update-card">
+                                    <span class="cs-assistant__update-icon">&#9998;</span>
+                                    <span>{formatToolUpdate(u)}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+
                     <div ref={messagesEndRef} />
                 </div>
 
@@ -282,6 +294,19 @@ function formatElapsed(ms: number): string {
     const min = Math.floor(totalSec / 60);
     const sec = totalSec % 60;
     return `${min}:${sec.toString().padStart(2, '0')}`;
+}
+
+function formatToolUpdate(u: ToolUpdate): string {
+    switch (u.tool) {
+        case 'set_goal': return `Set goal → ${u.data?.goal ?? ''}`;
+        case 'update_assumption': return `Updated assumption → ${u.data?.text ?? u.data?.confidence ?? u.data?.id ?? ''}`;
+        case 'create_assumption': return `Created assumption → ${u.data?.text?.slice(0, 50) ?? ''}`;
+        case 'delete_assumption': return `Deleted assumption`;
+        case 'update_requirement': return `Updated requirement → ${u.data?.title ?? u.data?.id ?? ''}`;
+        case 'create_requirement': return `Created requirement → ${u.data?.title?.slice(0, 50) ?? ''}`;
+        case 'delete_requirement': return `Deleted requirement`;
+        default: return u.tool.replace(/_/g, ' ');
+    }
 }
 
 /** Small floating button to open the assistant */

@@ -58,6 +58,34 @@ export function useWizardAssumptions({ selectedModel }: UseWizardAssumptionsPara
         ));
     }
 
+    function updateAssumption(input: { id: string; text?: string; status?: string; confidence?: string; impact?: string }) {
+        setAssumptions(prev => prev.map(a => a.id === input.id ? {
+            ...a,
+            ...(input.text != null && { text: input.text, editedText: input.text }),
+            ...(input.status != null && { status: input.status }),
+            ...(input.confidence != null && { confidence: input.confidence }),
+            ...(input.impact != null && { impact: input.impact }),
+        } : a));
+    }
+
+    function addAssumption(input: { id?: string; text: string; rationale: string; confidence: string; impact: string }) {
+        const a: WizardAssumption = {
+            id: input.id ?? crypto.randomUUID(),
+            label: input.text.slice(0, 40),
+            text: input.text,
+            rationale: input.rationale,
+            impact: input.impact as any,
+            confidence: input.confidence as any,
+            status: 'pending',
+            options: [],
+        };
+        setAssumptions(prev => [...prev, a]);
+    }
+
+    function deleteAssumption(id: string) {
+        setAssumptions(prev => prev.filter(a => a.id !== id));
+    }
+
     function hydrate(saved: WizardAssumption[]) {
         setAssumptions(saved ?? []);
         if (saved?.length) setSelectedId(saved[0].id);
@@ -81,6 +109,9 @@ export function useWizardAssumptions({ selectedModel }: UseWizardAssumptionsPara
         confirmAssumption,
         confirmAll,
         editAssumption,
+        updateAssumption,
+        addAssumption,
+        deleteAssumption,
         hydrate,
         reset,
     };

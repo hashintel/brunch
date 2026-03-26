@@ -64,7 +64,29 @@ export function useWizardRequirements({ selectedModel }: UseWizardRequirementsPa
         setError('');
     }
 
-    return { data, loading, error, generate, toggleExpand, hydrate, reset };
+    function updateRequirement(input: { id: string; title?: string; status?: string }) {
+        if (!data) return;
+        setData({ ...data, requirements: updateInTree(data.requirements, input) });
+    }
+
+    function addRequirement(input: { id?: string; title: string }) {
+        if (!data) return;
+        const r = normalizeRequirement({
+            id: input.id ?? `R${data.requirements.length + 1}`,
+            title: input.title,
+            status: 'ok',
+            checks: [],
+            children: [],
+        });
+        setData(buildRequirementsData(data.title, data.description, [...data.requirements, r]));
+    }
+
+    function deleteRequirement(id: string) {
+        if (!data) return;
+        setData(buildRequirementsData(data.title, data.description, removeFromTree(data.requirements, id)));
+    }
+
+    return { data, loading, error, generate, toggleExpand, updateRequirement, addRequirement, deleteRequirement, hydrate, reset };
 }
 
 function normalizeRequirement(r: any): WizardRequirement {
@@ -114,4 +136,24 @@ function toggleInTree(reqs: WizardRequirement[], id: string): WizardRequirement[
         if (r.children?.length) return { ...r, children: toggleInTree(r.children, id) };
         return r;
     });
+}
+
+function updateInTree(reqs: WizardRequirement[], input: { id: string; title?: string; status?: string }): WizardRequirement[] {
+    return reqs.map(r => {
+        if (r.id === input.id) {
+            return {
+                ...r,
+                ...(input.title != null && { title: input.title }),
+                ...(input.status != null && { status: input.status }),
+            };
+        }
+        if (r.children?.length) return { ...r, children: updateInTree(r.children, input) };
+        return r;
+    });
+}
+
+function removeFromTree(reqs: WizardRequirement[], id: string): WizardRequirement[] {
+    return reqs
+        .filter(r => r.id !== id)
+        .map(r => r.children?.length ? { ...r, children: removeFromTree(r.children, id) } : r);
 }

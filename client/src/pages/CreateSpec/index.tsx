@@ -39,6 +39,66 @@ export function CreateSpec() {
         getSpec: useCallback(() => wizard.spec.spec, [wizard.spec.spec]),
         getAssumptions: useCallback(() => wizard.assumptions.assumptions, [wizard.assumptions.assumptions]),
         getRequirements: useCallback(() => wizard.requirements.data, [wizard.requirements.data]),
+        getWizardStatus: useCallback(() => {
+            const parts: string[] = [];
+
+            // Questions / Clarify phase
+            if (wizard.screen === 'clarify') {
+                const total = wizard.questions.questions.length;
+                const answered = wizard.questions.answeredCount;
+                if (wizard.questions.loading) {
+                    parts.push('Generating clarifying questions...');
+                } else if (total > 0) {
+                    parts.push(`Clarify step: ${answered}/${total} questions answered.`);
+                }
+            }
+
+            // Spec
+            if (wizard.spec.loading) {
+                parts.push('Generating project spec...');
+            } else if (wizard.spec.spec) {
+                parts.push(`Spec ready (${wizard.spec.spec.sections.length} sections, ${Math.round(wizard.spec.spec.overallConfidence)}% confidence).`);
+            }
+
+            // Assumptions
+            if (wizard.screen === 'assumptions' || wizard.assumptions.assumptions.length > 0) {
+                if (wizard.assumptions.loading && wizard.assumptions.assumptions.length === 0) {
+                    parts.push('Generating assumptions...');
+                } else if (wizard.assumptions.loading) {
+                    parts.push(`Generating assumptions... (${wizard.assumptions.assumptions.length} so far)`);
+                } else if (wizard.assumptions.assumptions.length > 0) {
+                    const confirmed = wizard.assumptions.assumptions.filter(a => a.status === 'confirmed').length;
+                    const pending = wizard.assumptions.assumptions.filter(a => a.status === 'pending').length;
+                    parts.push(`${wizard.assumptions.assumptions.length} assumptions (${confirmed} confirmed, ${pending} pending).`);
+                }
+            }
+
+            // Requirements
+            if (wizard.screen === 'requirements' || wizard.requirements.data) {
+                if (wizard.requirements.loading && !wizard.requirements.data) {
+                    parts.push('Generating requirements...');
+                } else if (wizard.requirements.loading) {
+                    parts.push(`Generating requirements... (${wizard.requirements.data?.requirements.length ?? 0} so far)`);
+                } else if (wizard.requirements.data) {
+                    const s = wizard.requirements.data.stats;
+                    parts.push(`${s.totalRequirements} requirements (${s.uncertain} uncertain, ${s.checksTotal} checks).`);
+                }
+            }
+
+            // Overview
+            if (wizard.screen === 'overview') {
+                parts.push('User is reviewing the final spec overview.');
+            }
+
+            return parts.join(' ');
+        }, [
+            wizard.screen,
+            wizard.questions.loading, wizard.questions.questions.length, wizard.questions.answeredCount,
+            wizard.spec.loading, wizard.spec.spec,
+            wizard.assumptions.loading, wizard.assumptions.assumptions,
+            wizard.requirements.loading, wizard.requirements.data,
+        ]),
+        toolCallbacks: wizard.toolCallbacks,
     });
 
     const showStepIndicator = wizard.screen !== 'landing' && wizard.screen !== 'loading';
@@ -196,6 +256,7 @@ export function CreateSpec() {
                     onStop={chat.stop}
                     onRemoveFromQueue={chat.removeFromQueue}
                     onNewChat={chat.newChat}
+                    toolUpdates={chat.toolUpdates}
                 />
             ) : (
                 <AssistantToggle onClick={() => setAssistantOpen(true)} />

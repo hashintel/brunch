@@ -4,6 +4,7 @@ import { useSpecQuestions } from './useSpecQuestions';
 import { useStructuredSpec } from './useStructuredSpec';
 import { useWizardAssumptions } from './useWizardAssumptions';
 import { useWizardRequirements } from './useWizardRequirements';
+import type { ToolCallbacks } from './useAssistantChat';
 import type { WizardScreen } from './types';
 
 const VALID_STEPS = ['clarify', 'assumptions', 'requirements', 'overview'] as const;
@@ -290,6 +291,15 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
         resumedRef.current = false;
     }
 
+    const toolCallbacks: ToolCallbacks = {
+        onUpdateAssumption: assumptions.updateAssumption,
+        onCreateAssumption: (input: any) => assumptions.addAssumption({ ...input, id: input.createdId }),
+        onDeleteAssumption: (id: string) => assumptions.deleteAssumption(id),
+        onUpdateRequirement: requirements.updateRequirement,
+        onCreateRequirement: (input: any) => requirements.addRequirement({ ...input, id: input.createdId }),
+        onDeleteRequirement: (id: string) => requirements.deleteRequirement(id),
+    };
+
     return {
         screen,
         prompt,
@@ -302,6 +312,7 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
         spec,
         assumptions,
         requirements,
+        toolCallbacks,
         skipAllAndGenerate,
         goBack,
         goToAssumptions,
