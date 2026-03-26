@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { apiFetchStream, streamNDJSON } from '../Home/apiFetch';
 import type { SpecQuestion, SpecAnswer } from './types';
+import type { ActivityInfo } from './useAssistantChat';
 
 interface UseSpecQuestionsParams {
     selectedModel: string;
@@ -12,6 +13,7 @@ export function useSpecQuestions({ selectedModel }: UseSpecQuestionsParams) {
     const [currentIndex, setCurrentIndex] = useState(0);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [activity, setActivity] = useState<ActivityInfo | null>(null);
 
     const answeredCount = answers.filter(a => a && !a.skipped).length;
     const remainingCount = questions.length - answeredCount;
@@ -22,6 +24,8 @@ export function useSpecQuestions({ selectedModel }: UseSpecQuestionsParams) {
         setAnswers([]);
         setCurrentIndex(0);
         setError('');
+        const startTime = Date.now();
+        setActivity({ label: 'Generating questions...', startTime, steps: [] });
         try {
             const stream = await apiFetchStream('/api/spec-wizard/questions', {
                 method: 'POST',
@@ -29,10 +33,15 @@ export function useSpecQuestions({ selectedModel }: UseSpecQuestionsParams) {
                 body: JSON.stringify({ prompt, model: selectedModel }),
             });
             for await (const event of streamNDJSON(stream)) {
-                if (event.type === 'tool_use' && event.tool === 'add_question') {
+                if (event.type === 'thinking_start') {
+                    setActivity(prev => prev ? { ...prev, steps: [...prev.steps, { label: 'Thinking', done: false }] } : null);
+                } else if (event.type === 'thinking_end') {
+                    setActivity(prev => prev ? { ...prev, steps: prev.steps.map(s => s.label === 'Thinking' && !s.done ? { ...s, done: true } : s) } : null);
+                } else if (event.type === 'tool_use' && event.tool === 'add_question') {
                     const q = event.input as unknown as SpecQuestion;
                     setQuestions(prev => [...prev, q]);
                     setAnswers(prev => [...prev, null as unknown as SpecAnswer]);
+                    setActivity(prev => prev ? { ...prev, label: 'Generating questions...', steps: [...prev.steps, { label: `Added: ${q.question.slice(0, 40)}...`, done: true }] } : null);
                 } else if (event.type === 'done') {
                     break;
                 }
@@ -41,6 +50,7 @@ export function useSpecQuestions({ selectedModel }: UseSpecQuestionsParams) {
             setError(e instanceof Error ? e.message : 'Failed to load questions');
         } finally {
             setLoading(false);
+            setActivity(null);
         }
     }
 
@@ -101,6 +111,7 @@ export function useSpecQuestions({ selectedModel }: UseSpecQuestionsParams) {
         setCurrentIndex,
         loading,
         error,
+        activity,
         answeredCount,
         remainingCount,
         fetchQuestions,

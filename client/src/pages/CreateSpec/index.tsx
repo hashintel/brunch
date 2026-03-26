@@ -263,6 +263,7 @@ export function CreateSpec() {
                     loading={chat.loading}
                     streamingContent={chat.streamingContent}
                     activity={chat.activity}
+                    wizardActivity={wizard.wizardActivity}
                     queue={chat.queue}
                     onSend={chat.send}
                     onStop={chat.stop}

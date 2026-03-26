@@ -9,6 +9,7 @@ interface Props {
     loading: boolean;
     streamingContent: string;
     activity: ActivityInfo | null;
+    wizardActivity?: ActivityInfo | null;
     queue: { id: string; text: string }[];
     onSend: (text: string) => void;
     onStop: () => void;
@@ -19,12 +20,13 @@ interface Props {
 
 export function AssistantPanel({
     open, onClose, messages, loading, streamingContent,
-    activity, queue, onSend, onStop, onRemoveFromQueue, onNewChat, toolUpdates,
+    activity, wizardActivity, queue, onSend, onStop, onRemoveFromQueue, onNewChat, toolUpdates,
 }: Props) {
     const [tab, setTab] = useState<'new' | 'history'>('new');
     const [input, setInput] = useState('');
     const [queueOpen, setQueueOpen] = useState(true);
     const [activityOpen, setActivityOpen] = useState(true);
+    const [wizardActivityOpen, setWizardActivityOpen] = useState(true);
     const textareaRef = useRef<HTMLTextAreaElement>(null);
     const messagesEndRef = useRef<HTMLDivElement>(null);
 
@@ -169,44 +171,23 @@ export function AssistantPanel({
                     <div ref={messagesEndRef} />
                 </div>
 
-                {/* Activity section */}
+                {/* Activity section — chat activity */}
                 {activity && (
-                    <div class="cs-assistant__activity">
-                        <div class="cs-assistant__activity-header">
-                            <div class="cs-assistant__activity-icon">
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <path d="M8 1l2.5 3.5L14 6l-2.5 3L12 13l-4-1.5L4 13l.5-4L2 6l3.5-1.5L8 1z" stroke="#5424ff" stroke-width="1.2" fill="none" />
-                                </svg>
-                            </div>
-                            <p class="cs-assistant__activity-label">{activity.label}</p>
-                            <ElapsedTimer startTime={activity.startTime} />
-                            <button class="cs-assistant__activity-stop" title="Stop" onClick={onStop}>
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                                    <rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" />
-                                </svg>
-                            </button>
-                            <div class="cs-assistant__separator" />
-                            <button
-                                class="cs-assistant__activity-toggle"
-                                onClick={() => setActivityOpen(!activityOpen)}
-                            >
-                                <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: activityOpen ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
-                                    <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
-                                </svg>
-                            </button>
-                        </div>
-                        {activityOpen && (
-                            <div class="cs-assistant__activity-steps">
-                                {activity.steps.map((step, i) => (
-                                    <div key={i} class="cs-assistant__step">
-                                        <div class={`cs-assistant__step-dot ${step.done ? 'cs-assistant__step-dot--done' : ''}`} />
-                                        {i < activity.steps.length - 1 && <div class="cs-assistant__step-line" />}
-                                        <span class="cs-assistant__step-label">{step.label}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        )}
-                    </div>
+                    <ActivitySection
+                        activity={activity}
+                        open={activityOpen}
+                        onToggle={() => setActivityOpen(!activityOpen)}
+                        onStop={onStop}
+                    />
+                )}
+
+                {/* Wizard background activity */}
+                {wizardActivity && (
+                    <ActivitySection
+                        activity={wizardActivity}
+                        open={wizardActivityOpen}
+                        onToggle={() => setWizardActivityOpen(!wizardActivityOpen)}
+                    />
                 )}
 
                 {/* Bottom: queue + input */}
@@ -273,6 +254,52 @@ export function AssistantPanel({
                     </div>
                 </div>
             </div>
+        </div>
+    );
+}
+
+/** Reusable activity section */
+function ActivitySection({ activity, open, onToggle, onStop }: {
+    activity: ActivityInfo;
+    open: boolean;
+    onToggle: () => void;
+    onStop?: () => void;
+}) {
+    return (
+        <div class="cs-assistant__activity">
+            <div class="cs-assistant__activity-header">
+                <div class="cs-assistant__activity-icon">
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                        <path d="M8 1l2.5 3.5L14 6l-2.5 3L12 13l-4-1.5L4 13l.5-4L2 6l3.5-1.5L8 1z" stroke="#5424ff" stroke-width="1.2" fill="none" />
+                    </svg>
+                </div>
+                <p class="cs-assistant__activity-label">{activity.label}</p>
+                <ElapsedTimer startTime={activity.startTime} />
+                {onStop && (
+                    <button class="cs-assistant__activity-stop" title="Stop" onClick={onStop}>
+                        <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                            <rect x="4" y="4" width="8" height="8" rx="1.5" fill="currentColor" />
+                        </svg>
+                    </button>
+                )}
+                <div class="cs-assistant__separator" />
+                <button class="cs-assistant__activity-toggle" onClick={onToggle}>
+                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none" style={{ transform: open ? 'rotate(90deg)' : 'rotate(0deg)', transition: 'transform 0.15s' }}>
+                        <path d="M6 4l4 4-4 4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
+            </div>
+            {open && activity.steps.length > 0 && (
+                <div class="cs-assistant__activity-steps">
+                    {activity.steps.map((step, i) => (
+                        <div key={i} class="cs-assistant__step">
+                            <div class={`cs-assistant__step-dot ${step.done ? 'cs-assistant__step-dot--done' : ''}`} />
+                            {i < activity.steps.length - 1 && <div class="cs-assistant__step-line" />}
+                            <span class="cs-assistant__step-label">{step.label}</span>
+                        </div>
+                    ))}
+                </div>
+            )}
         </div>
     );
 }

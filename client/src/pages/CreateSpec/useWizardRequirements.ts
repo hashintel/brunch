@@ -1,6 +1,7 @@
 import { useState } from 'preact/hooks';
 import { apiFetchStream, streamNDJSON } from '../Home/apiFetch';
 import type { WizardRequirement, RequirementsData } from './types';
+import type { ActivityInfo } from './useAssistantChat';
 
 interface UseWizardRequirementsParams {
     selectedModel: string;
@@ -10,11 +11,14 @@ export function useWizardRequirements({ selectedModel }: UseWizardRequirementsPa
     const [data, setData] = useState<RequirementsData | null>(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [activity, setActivity] = useState<ActivityInfo | null>(null);
 
     async function generate(prompt: string, answers?: any[], assumptions?: any[]) {
         setLoading(true);
         setData(null);
         setError('');
+        const startTime = Date.now();
+        setActivity({ label: 'Generating requirements...', startTime, steps: [] });
         let title = '';
         let description = '';
         const reqs: WizardRequirement[] = [];
@@ -25,12 +29,19 @@ export function useWizardRequirements({ selectedModel }: UseWizardRequirementsPa
                 body: JSON.stringify({ prompt, model: selectedModel, answers, assumptions }),
             });
             for await (const event of streamNDJSON(stream)) {
-                if (event.type === 'tool_use' && event.tool === 'set_requirements_meta') {
+                if (event.type === 'thinking_start') {
+                    setActivity(prev => prev ? { ...prev, steps: [...prev.steps, { label: 'Thinking', done: false }] } : null);
+                } else if (event.type === 'thinking_end') {
+                    setActivity(prev => prev ? { ...prev, steps: prev.steps.map(s => s.label === 'Thinking' && !s.done ? { ...s, done: true } : s) } : null);
+                } else if (event.type === 'tool_use' && event.tool === 'set_requirements_meta') {
                     title = (event.input as any).title;
                     description = (event.input as any).description;
+                    setActivity(prev => prev ? { ...prev, steps: [...prev.steps, { label: `Set meta: ${title.slice(0, 40)}`, done: true }] } : null);
                 } else if (event.type === 'tool_use' && event.tool === 'add_requirement') {
-                    reqs.push({ ...(event.input as any), expanded: false });
+                    const req = { ...(event.input as any), expanded: false };
+                    reqs.push(req);
                     setData(buildRequirementsData(title, description, reqs));
+                    setActivity(prev => prev ? { ...prev, steps: [...prev.steps, { label: `Added: ${req.title?.slice(0, 40)}`, done: true }] } : null);
                 } else if (event.type === 'done') {
                     break;
                 }
@@ -43,6 +54,7 @@ export function useWizardRequirements({ selectedModel }: UseWizardRequirementsPa
             setError(e instanceof Error ? e.message : 'Failed to generate requirements');
         } finally {
             setLoading(false);
+            setActivity(null);
         }
     }
 
@@ -86,7 +98,7 @@ export function useWizardRequirements({ selectedModel }: UseWizardRequirementsPa
         setData(buildRequirementsData(data.title, data.description, removeFromTree(data.requirements, id)));
     }
 
-    return { data, loading, error, generate, toggleExpand, updateRequirement, addRequirement, deleteRequirement, hydrate, reset };
+    return { data, loading, error, activity, generate, toggleExpand, updateRequirement, addRequirement, deleteRequirement, hydrate, reset };
 }
 
 function normalizeRequirement(r: any): WizardRequirement {

@@ -98,16 +98,27 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
                 requirements.hydrate(wizardRequirements);
             }
 
+            // Hydrate spec if saved
+            const savedSpec = session.spec;
+            if (savedSpec) {
+                try {
+                    const parsed = typeof savedSpec === 'string' ? JSON.parse(savedSpec) : savedSpec;
+                    if (parsed && parsed.sections) {
+                        spec.hydrate(parsed);
+                    }
+                } catch {}
+            }
+
             // Set screen from URL step param
             const targetScreen = (routeStep && (VALID_STEPS as readonly string[]).includes(routeStep))
                 ? STEP_TO_SCREEN[routeStep as StepParam]
                 : 'clarify';
             setScreen(targetScreen);
 
-            // If resuming to overview, regenerate the spec
-            if (targetScreen === 'overview') {
+            // If no saved spec and we have a prompt, regenerate it
+            if (!savedSpec && session.prompt) {
                 const answersData = questions.getAnswersWithQuestions();
-                spec.generate(session.prompt ?? '', answersData);
+                spec.generate(session.prompt, answersData);
             }
         } catch (e) {
             console.error('Failed to resume session:', e);
@@ -207,6 +218,43 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
         spec.generate(text);
     }
 
+    // --- Auto-save when questions or spec finish loading ---
+    const prevQuestionsLoading = useRef(false);
+    const prevSpecLoading = useRef(false);
+
+    useEffect(() => {
+        // Save when questions finish streaming
+        if (prevQuestionsLoading.current && !questions.loading && questions.questions.length > 0) {
+            saveToDb();
+        }
+        prevQuestionsLoading.current = questions.loading;
+    }, [questions.loading]);
+
+    useEffect(() => {
+        // Save when spec finishes generating
+        if (prevSpecLoading.current && !spec.loading && spec.spec) {
+            saveToDb();
+        }
+        prevSpecLoading.current = spec.loading;
+    }, [spec.loading]);
+
+    const prevAssumptionsLoading = useRef(false);
+    const prevRequirementsLoading = useRef(false);
+
+    useEffect(() => {
+        if (prevAssumptionsLoading.current && !assumptions.loading && assumptions.assumptions.length > 0) {
+            saveToDb();
+        }
+        prevAssumptionsLoading.current = assumptions.loading;
+    }, [assumptions.loading]);
+
+    useEffect(() => {
+        if (prevRequirementsLoading.current && !requirements.loading && requirements.data) {
+            saveToDb();
+        }
+        prevRequirementsLoading.current = requirements.loading;
+    }, [requirements.loading]);
+
     // --- Debounced spec regeneration when answers change ---
     const regenerateSpec = useCallback(() => {
         if (!prompt) return;
@@ -300,12 +348,16 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
         onDeleteRequirement: (id: string) => requirements.deleteRequirement(id),
     };
 
+    // Aggregate wizard activity — first non-null wins
+    const wizardActivity = questions.activity || spec.activity || assumptions.activity || requirements.activity || null;
+
     return {
         screen,
         prompt,
         setPrompt,
         projectId,
         resuming,
+        wizardActivity,
         submit,
         save,
         questions,
