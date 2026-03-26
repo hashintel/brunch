@@ -242,6 +242,7 @@ export function CreateSpec() {
                                 loading={wizard.requirements.loading}
                                 selectedId={wizard.requirements.selectedId}
                                 onSelect={wizard.requirements.setSelectedId}
+                                onUpdate={wizard.requirements.updateRequirement}
                             />
                         )
                     )}

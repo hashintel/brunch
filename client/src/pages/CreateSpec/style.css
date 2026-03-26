@@ -1100,6 +1100,12 @@
    REQUIREMENTS SCREEN
    ============================================================ */
 
+.cs-reqs-layout {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
 .cs-reqs {
     flex: 1;
     padding: 1.75rem;
@@ -1108,7 +1114,6 @@
     flex-direction: column;
     gap: 1.75rem;
     max-width: 1000px;
-    margin: 0 auto;
     width: 100%;
 }
 
@@ -1212,6 +1217,211 @@
     color: #666;
     font-size: 0.8125rem;
     animation: pulse-opacity 1.5s ease-in-out infinite;
+}
+
+/* Requirement Detail (right panel) */
+.cs-reqs__detail {
+    width: 760px;
+    min-width: 500px;
+    border-left: 1px solid #e3e3e3;
+    padding: 2rem 2.5rem;
+    overflow-y: auto;
+    background: #fff;
+}
+
+.cs-req-detail { display: flex; flex-direction: column; gap: 1.75rem; }
+
+.cs-req-detail__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+.cs-req-detail__badges {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+}
+.cs-req-detail__id {
+    color: #888;
+    font-family: monospace;
+    font-size: 0.8125rem;
+}
+.cs-req-detail__divider {
+    width: 1px;
+    height: 1rem;
+    background: #e3e3e3;
+    display: inline-block;
+}
+.cs-req-detail__status { font-weight: 500; }
+.cs-req-detail__actions { display: flex; gap: 0.5rem; }
+
+.cs-req-detail__resolve-btn {
+    padding: 0.35rem 0.75rem;
+    background: #fff;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.875rem;
+    font-family: inherit;
+    font-weight: 500;
+    cursor: pointer;
+    box-shadow: 0 4px 4px -2px rgba(0,0,0,0.02), 0 2px 2px -1px rgba(0,0,0,0.02), 0 0 0 1px rgba(60,186,73,0.4);
+    color: #3cba49;
+}
+.cs-req-detail__resolve-btn:hover { background: rgba(60,186,73,0.05); }
+
+.cs-req-detail__content { display: flex; flex-direction: column; gap: 0.5rem; }
+.cs-req-detail__title-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.75rem;
+}
+.cs-req-detail__title {
+    font-size: 1.125rem;
+    font-weight: 500;
+    color: #202020;
+    margin: 0;
+    line-height: 1.5;
+}
+.cs-req-detail__edit-btn {
+    padding: 0.25rem 0.6rem;
+    background: #fff;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-family: inherit;
+    cursor: pointer;
+    color: #888;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+    flex-shrink: 0;
+}
+.cs-req-detail__edit-btn:hover { color: #2070e6; box-shadow: 0 0 0 1px #2070e6; }
+
+.cs-req-detail__edit-row {
+    display: flex;
+    gap: 0.5rem;
+    align-items: center;
+}
+.cs-req-detail__edit-input {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: none;
+    border-radius: 0.5rem;
+    font-size: 0.9375rem;
+    font-family: inherit;
+    background: #fff;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.1);
+}
+.cs-req-detail__edit-input:focus { outline: none; box-shadow: 0 0 0 2px #2070e6; }
+.cs-req-detail__save-btn,
+.cs-req-detail__cancel-btn {
+    padding: 0.35rem 0.75rem;
+    border: none;
+    border-radius: 0.375rem;
+    font-size: 0.8125rem;
+    font-family: inherit;
+    cursor: pointer;
+    font-weight: 500;
+}
+.cs-req-detail__save-btn { background: #2070e6; color: #fff; }
+.cs-req-detail__save-btn:hover { filter: brightness(1.1); }
+.cs-req-detail__cancel-btn { background: #f5f5f5; color: #888; }
+.cs-req-detail__cancel-btn:hover { background: #eee; }
+
+.cs-req-detail__divider-line {
+    border: none;
+    border-top: 1px solid #e3e3e3;
+    margin: 0;
+}
+
+.cs-req-detail__meta {
+    display: flex;
+    gap: 1rem;
+}
+.cs-req-detail__meta-item {
+    font-size: 0.8125rem;
+    color: #888;
+}
+
+.cs-req-detail__checks,
+.cs-req-detail__children {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+.cs-req-detail__section-title {
+    font-size: 0.8125rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #888;
+    margin: 0;
+}
+
+.cs-req-detail__checks-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+.cs-req-detail__check {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: #fafafa;
+    border-radius: 0.5rem;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.06);
+}
+.cs-req-detail__check-type {
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: #5424ff;
+    flex-shrink: 0;
+    min-width: 100px;
+}
+.cs-req-detail__check-desc {
+    font-size: 0.875rem;
+    color: #333;
+}
+
+.cs-req-detail__children-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.375rem;
+}
+.cs-req-detail__child {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: #fafafa;
+    border-radius: 0.5rem;
+    box-shadow: 0 0 0 1px rgba(0,0,0,0.06);
+}
+.cs-req-detail__child-id {
+    font-family: monospace;
+    font-size: 0.75rem;
+    color: #888;
+    flex-shrink: 0;
+}
+.cs-req-detail__child-title {
+    font-size: 0.875rem;
+    color: #333;
+    flex: 1;
+}
+.cs-req-detail__child-status {
+    font-size: 0.75rem;
+    font-weight: 500;
+    flex-shrink: 0;
+}
+.cs-req-detail__child-checks {
+    font-size: 0.75rem;
+    color: #3cba49;
+    flex-shrink: 0;
 }
 
 /* Requirement card */
@@ -2334,6 +2544,23 @@
     .cs-req__children-toggle { border-bottom-color: #333; color: #888; }
     .cs-req__check-item { background: #222; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }
     .cs-req__check-desc { color: #ccc; }
+    .cs-reqs__detail { background: #1e1e1e; border-left-color: #333; }
+    .cs-req-detail__id { color: #888; }
+    .cs-req-detail__divider { background: #444; }
+    .cs-req-detail__title { color: #eee; }
+    .cs-req-detail__divider-line { border-top-color: #333; }
+    .cs-req-detail__meta-item { color: #666; }
+    .cs-req-detail__section-title { color: #666; }
+    .cs-req-detail__check { background: #222; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }
+    .cs-req-detail__check-type { color: #7c5cff; }
+    .cs-req-detail__check-desc { color: #ccc; }
+    .cs-req-detail__child { background: #222; box-shadow: 0 0 0 1px rgba(255,255,255,0.08); }
+    .cs-req-detail__child-id { color: #666; }
+    .cs-req-detail__child-title { color: #ccc; }
+    .cs-req-detail__edit-btn { background: #2a2a2a; color: #999; box-shadow: 0 0 0 1px rgba(255,255,255,0.1); }
+    .cs-req-detail__edit-input { background: #2a2a2a; color: #ccc; box-shadow: 0 0 0 1px rgba(255,255,255,0.1); }
+    .cs-req-detail__cancel-btn { background: #333; color: #aaa; }
+    .cs-req-detail__resolve-btn { background: #2a2a2a; box-shadow: 0 0 0 1px rgba(60,186,73,0.3); }
 
     /* Overview dark */
     .cs-overview__title { color: #eee; }
