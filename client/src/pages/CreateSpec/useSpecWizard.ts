@@ -346,8 +346,10 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
             saveToDb();
             route(`/create-spec/${projectId}/assumptions`, true);
         }
-        const answersData = questions.getAnswersWithQuestions();
-        enqueueAI('Generating assumptions', () => assumptions.generate(prompt, answersData));
+        if (assumptions.assumptions.length === 0) {
+            const answersData = questions.getAnswersWithQuestions();
+            enqueueAI('Generating assumptions', () => assumptions.generate(prompt, answersData));
+        }
     }
 
     async function goToRequirements() {
@@ -356,8 +358,10 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
             saveToDb();
             route(`/create-spec/${projectId}/requirements`, true);
         }
-        const answersData = questions.getAnswersWithQuestions();
-        enqueueAI('Generating requirements', () => requirements.generate(prompt, answersData, assumptions.assumptions));
+        if (!requirements.data) {
+            const answersData = questions.getAnswersWithQuestions();
+            enqueueAI('Generating requirements', () => requirements.generate(prompt, answersData, assumptions.assumptions));
+        }
     }
 
     async function goToOverview() {
@@ -366,8 +370,10 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
             saveToDb();
             route(`/create-spec/${projectId}/overview`, true);
         }
-        const answersData = questions.getAnswersWithQuestions();
-        enqueueSpec('Finalizing spec', () => spec.generate(prompt, answersData));
+        if (!spec.spec) {
+            const answersData = questions.getAnswersWithQuestions();
+            enqueueSpec('Finalizing spec', () => spec.generate(prompt, answersData));
+        }
     }
 
     function goBack() {
