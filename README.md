@@ -1,39 +1,56 @@
 # Brunch — AI Spec Elicitation
 
-Brunch helps you turn natural-language project goals into structured specifications through an AI-guided clarification flow: goal input, clarifying questions, assumption review, and spec generation.
+Brunch is a prototype tool that turns natural-language project goals into structured specifications through an AI-guided workflow. A user describes what they want to build, and the system walks them through clarifying questions, assumption review, and hierarchical requirement generation — producing a spec document at each stage.
 
+Built as a trial project at HASH. The stack is **Preact + Vite** (frontend), **Express.js** (backend), **Dolt** (MySQL-compatible database with git-like version control), and **Anthropic Claude Agent SDK** as the primary AI backend.
 
-## Features
-There are two versions of the application, one runs at / (1) and other at /create-spec (2). Later version adheres to figma designs. Former is slightly more feature complete. 
+## What was built
 
-Set a goal. Version (1) gives you example prompts, or an option to open AI assistant if prompt is considered to be insufficient. Version (2) just goes with it. 
+### Two frontend versions
 
-Spec is regenerated after each step. Version (2) supports clarifyquestions single and multichoice. 
+There are two versions of the UI, both functional:
 
-It's possible to set a local folder and tell the system to define goal based on the files present. 
+1. **Home** (`/`, `/session/:id`) — the original, more feature-complete interface. Includes:
+   - Goal input with example prompts and AI assistant fallback for weak prompts
+   - Clarifying questions flow
+   - Assumption review with inline AI editing
+   - Hierarchical requirements with sub-requirements and test/check generation
+   - Three requirement views: list, table, and canvas with drag-and-drop reordering/nesting
+   - Dolt version control sidebar (commit, history, diff, checkout, revert)
+   - LLM call log viewer (model, tokens, duration, prompt/response)
+   - Model selector (switch models per query)
 
-Assumptions can be be edited by AI Assistant. Version (2) has nicer UX. 
+2. **CreateSpec wizard** (`/create-spec/:projectId/:step`) — a redesign adhering to Figma designs. Includes:
+   - Step-by-step wizard navigation with progress sidebar
+   - Clarifying questions with single-choice and multi-choice support
+   - Cleaner assumption editing UX
+   - Inline AI assistant panel
+   - Spec regenerated after each step
 
-Requirements have subrequirements and checks/tests. Currently these are just labeled descriptions. Code/Static Analysis tests are not valid, only instructions. Requirements in Version (1) can be displayed as list/table/canvas with drag and drop reordering/nesting. 
+### Backend
 
-Server uses dolt-db, and it needs to be running with database `brunch` created. Migration of tables happens automatically. Dolt features are visible in version (1). You can view uncommited changes, commit diffs, checkout to past version, or even revert (not recommended). This features are problematic as it works on the db-level, so changes across projects can get mixed. There are filters implemented so the UI is less confusing, but it's not possible to resolve this problem without using separate branch for each project.
+- Express.js API with streaming (NDJSON) responses
+- Multi-provider AI dispatch: Claude models use Anthropic SDK directly, other models route through OpenCode
+- MCP (Model Context Protocol) tool integration — the AI assistant can call tools to mutate goals, assumptions, and requirements
+- Structured output with JSON Schema validation for AI responses
+- Full request/response logging to database (`api_call` and `claude_call` tables)
+- Automatic database migration on startup
 
-LLM calls are recorded in db table `claude_call`, and displayed in version (1) - UI is updated only after response is handled. 
+### Database
 
-Models can be changed before each query. Currently it's setup to work with local Anthropic Agent SDK, and OpenCode models. 
+Dolt (MySQL-compatible) with 6 tables:
+- `project` — session metadata, goal, clarifying state, spec content
+- `entry` — hierarchical requirement tree (self-referencing via `parent_id`)
+- `assumption` — normalized assumptions with status tracking
+- `goal_iteration` — goal refinement history
+- `api_call` — HTTP request/response log
+- `claude_call` — LLM interaction log with token counts
 
-## How to improve
-To improve this I'd keep only single version of front-end 2) and turn 1) into admin dashboard. This was already attempted in `branch` branch. As already mentioned dolt should create a separate branch for each project, and merge only at strategic points. This would require us to keep track of active branches and apply migration scripts on each. Alternatively we could focus on improving changes tracking with traditional sql record-keeping approach. This was already tested a little bit in the beginning as you can see in db goal_iterations. 
+Dolt's git-like features (commit, diff, checkout, revert) are exposed in the v1 UI. These operate at the database level, so changes across projects can get mixed — filters are implemented to reduce confusion, but proper isolation would require per-project Dolt branches.
 
-If we want many users to install this keeping SQLite compatibility would make sense, but it was dropped with introduction of dolt. 
+### Tests
 
-I'd focus on improving the prompts, and potentially the workflow, so that the app generates more useful output. Right now clarify_questions tend to be useful, but after that it's largely a reiteration of what was already said with different UI. 
-
-I'd potentially add support for AI-sdk directly (it's dependency of OpenCode), for scenarios where we don't work with local filesystem. 
-
-I'd spend more time thinking about database structure, probably pushing it closer to something like `block` model. 
-
-I'd focus on generating valid test suite, and making complete tests cases with coding agents executing the output. 
+64 tests across 3 test files (server integration, schema validation, Claude service), all passing. Uses Vitest + Supertest.
 
 ## Quick start (local)
 
@@ -43,8 +60,13 @@ npm install
 # Create .env with your API keys (at least one provider required)
 cp .env.example .env
 
-# Start Dolt database (requires Docker)
+# Start Dolt database (requires Docker):
 npm run dolt
+# OR without Docker:
+dolt sql-server  # then: dolt sql -> CREATE DATABASE brunch;
+
+# Optionally run OpenCode for multi-model support
+opencode serve
 
 # Start dev server (frontend on :5173, API on :3001)
 npm run dev
@@ -52,20 +74,18 @@ npm run dev
 
 Open http://localhost:5173.
 
-## Docker Compose (recommended)
+## Docker Compose
 
 Starts both Dolt and the app in a single command:
 
 ```bash
-# Create .env with your API key (at least one provider required)
 cp .env.example .env
-# Edit .env and add your ANTHROPIC_API_KEY
+# Edit .env and add your ANTHROPIC_API_KEY (or another provider key)
 
-# Start everything
 docker compose up -d
 ```
 
-Open http://localhost:3001. The container serves both the frontend and API on a single port.
+Open http://localhost:3001. The container serves both frontend and API on a single port.
 
 ## Docker (app only)
 
@@ -86,12 +106,12 @@ docker run -d \
 
 | Variable | Required | Description |
 |---|---|---|
-| `ANTHROPIC_API_KEY` | At least one | Anthropic Claude API key |
-| `OPENAI_API_KEY` | At least one | OpenAI API key |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | At least one | Google Gemini API key |
+| `ANTHROPIC_API_KEY` | At least one provider key | Anthropic Claude API key |
+| `OPENAI_API_KEY` | At least one provider key | OpenAI API key |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | At least one provider key | Google Gemini API key |
 | `PORT` | No | Server port (default: `3001`) |
 | `DOLT_HOST` | No | Dolt host (default: `localhost`) |
-| `DOLT_PORT` | No | Dolt port (default: `3307`) |
+| `DOLT_PORT` | No | Dolt port (default: `3307` for local dev, `3306` inside Docker network) |
 | `DOLT_USER` | No | Dolt user (default: `root`) |
 | `DOLT_PASSWORD` | No | Dolt password (default: empty) |
 | `DOLT_DATABASE` | No | Dolt database name (default: `brunch`) |
@@ -101,62 +121,90 @@ docker run -d \
 
 | Command | Description |
 |---|---|
-| `npm run dev` | Start frontend + API in development mode |
+| `npm run dev` | Start frontend (Vite :5173) + API (:3001) concurrently |
 | `npm run server` | Start API server only |
-| `npm run build` | Build frontend for production |
-| `npm test` | Run tests |
-| `npm run dolt` | Start a Dolt container for local development |
-
-## OpenCode (optional — multi-model support)
-
-By default, Brunch uses the Anthropic Claude API directly. To unlock additional models (GPT-4o, Gemini 2.5 Flash, etc.), you can run [OpenCode](https://opencode.ai) as an alternative AI backend.
-
-### Setup
-
-1. Install OpenCode: `npm i -g opencode`
-2. Configure your providers in OpenCode (it reads `OPENAI_API_KEY`, `GOOGLE_GENERATIVE_AI_API_KEY`, etc. from your environment)
-3. Start the OpenCode server:
-
-```bash
-opencode serve
-```
-
-4. Point Brunch at it by setting `OPENCODE_URL` in your `.env`:
-
-```
-OPENCODE_URL=http://localhost:4096
-```
-
-5. Start Brunch normally (`npm run dev` or `docker compose up`). The model dropdown will now include GPT-4o and Gemini 2.5 Flash alongside the Claude models.
-
-### How it works
-
-- OpenCode runs as a separate process and exposes a REST+SSE API
-- Brunch connects to it via `@opencode-ai/sdk` when you select a non-Claude model
-- The `opencode.json` config in the project root registers Brunch's assistant tools (set goal, manage assumptions/requirements) as an MCP server that OpenCode spawns automatically
-- Claude models continue to use the Anthropic API directly — OpenCode is only used for other providers
-
-### Docker Compose
-
-Pass `OPENCODE_URL` to connect to an OpenCode server running on your host:
-
-```bash
-export OPENCODE_URL=http://host.docker.internal:4096
-docker compose up -d
-```
+| `npm run build` | Build frontend for production (`/dist`) |
+| `npm test` | Run Vitest test suite |
+| `npm run dolt` | Start a Dolt Docker container on port 3307 |
 
 ## Architecture
 
-- **Frontend**: Preact + Vite, served as static files in production
-- **Backend**: Express.js API server
-- **Database**: Dolt (MySQL-compatible with git-like version control)
-- **AI**: Multi-provider support (Anthropic, OpenAI, Google)
+```
+client/src/
+├── pages/
+│   ├── Home/           # v1 interface — hooks + components per feature
+│   └── CreateSpec/     # v2 wizard — step-based screens
+├── components/         # Shared (Header, LoadingIndicator)
+└── assets/
 
-### Version control
+server/
+├── server.js           # Express app, middleware, route registration
+├── db.js               # Dolt connection pool, auto-migration
+├── schemas.js          # JSON Schema definitions for AI responses
+├── models.js           # Available model definitions
+├── routes/             # One file per endpoint group
+│   ├── stream.js       # POST /api/stream (streaming queries)
+│   ├── clarifying.js   # POST /api/clarifyingquestions
+│   ├── requirements.js # Requirements CRUD + generation
+│   ├── assumptions.js  # Assumptions CRUD
+│   ├── sessions.js     # Session lifecycle
+│   ├── spec.js         # Spec generation/storage
+│   ├── specWizard.js   # Wizard-mode endpoints
+│   ├── versions.js     # Dolt version control
+│   └── history.js      # LLM call log
+├── services/
+│   ├── dispatch.js     # Route to Claude or OpenCode by model
+│   ├── claude.js       # Anthropic Claude SDK (streaming, tools, structured output)
+│   └── opencode.js     # OpenCode SDK wrapper
+├── middleware/          # Logging, validation, error handling
+└── migrations/         # SQL schema migrations (auto-applied)
+```
 
-Dolt provides git-like versioning for your database. The app exposes version control through the UI sidebar:
-- **Commit**: Save a snapshot of all project data with a message
-- **History**: View commit log with diffs showing what changed
-- **Revert**: Roll back to any previous commit
+### Data flow
 
-Data is persisted in the `dolt-data` Docker volume. For local development, the Dolt container stores data in the `brunch-dolt` volume.
+1. User input → Preact component → API call
+2. Express route → validation middleware → service layer
+3. Service dispatches to Claude SDK or OpenCode SDK (streaming NDJSON)
+4. AI response parsed → database upsert (Dolt)
+5. NDJSON stream → frontend hook → UI update
+
+### Key patterns
+
+- **Streaming**: All AI endpoints stream NDJSON chunks to the frontend
+- **Tool use**: Claude Agent SDK with MCP tools for mutations (set goal, manage assumptions/requirements)
+- **Hierarchical data**: Requirements are a self-referencing tree (`entry.parent_id`)
+- **UUID stability**: Entities use UUIDs for identity across AI-generated upserts
+- **Auto-migration**: `db.js` checks table/column existence on startup and applies missing migrations
+
+## OpenCode (optional — multi-model support)
+
+By default, Brunch uses the Anthropic Claude API directly. To use additional models (GPT-4o, Gemini, etc.), run [OpenCode](https://opencode.ai) as an alternative backend.
+
+1. Install: `npm i -g opencode`
+2. Start: `opencode serve`
+3. Set `OPENCODE_URL=http://localhost:4096` in `.env`
+4. Start Brunch normally — the model dropdown will include additional models
+
+OpenCode runs as a separate process with a REST+SSE API. The `opencode.json` config registers Brunch's assistant tools as an MCP server. Claude models always use the Anthropic API directly.
+
+For Docker Compose: `export OPENCODE_URL=http://host.docker.internal:4096` before `docker compose up`.
+
+## Next steps
+
+### DX / Architecture
+
+- **Consolidate to one frontend**: Keep the v2 wizard as the primary UI. Repurpose v1 as an admin/debug dashboard (LLM logs, Dolt version control). This was started on the `branch` branch.
+- **Fix Dolt project isolation**: Currently all projects share a single Dolt branch, so commits/reverts affect everything. Each project should get its own Dolt branch, merging only at strategic points. This requires tracking active branches and applying migrations per branch.
+- **Proper migration runner**: The current approach in `db.js` checks for specific tables/columns and runs migrations conditionally. A numbered migration runner with a `schema_version` table would be more maintainable.
+- **Consider SQLite compatibility**: Dolt is powerful but heavy for single-user local installs. Supporting SQLite as an alternative (dropped early on) would lower the barrier to entry.
+- **Use AI SDK (Vercel) directly**: Replace the OpenCode dependency with `ai` (Vercel AI SDK) for multi-provider support without requiring a separate server process. OpenCode's `@opencode-ai/sdk` already depends on it.
+- **Block-based data model**: The current schema (project → entries + assumptions) is rigid. A more flexible block-based model (like Notion) would better support evolving spec structures and richer content types.
+
+### User-facing improvements
+
+- **Better prompts and workflow**: Clarifying questions are the most useful step. After that, the spec tends to reiterate what was already said. The prompt engineering and workflow sequencing need work to produce genuinely additive output at each stage.
+- **Executable test generation**: Requirements currently generate test descriptions (plain text). The goal should be generating actual executable test cases that coding agents can run against implementations.
+- **Richer requirement editing**: Inline editing of requirements is basic. Support for markdown content, attachments, and linking between requirements would make the spec more useful as a working document.
+- **Export formats**: Generate specs in formats that integrate with existing tools (GitHub Issues, Linear, Markdown docs, YAML task definitions).
+- **Multi-user support**: Currently single-user. Adding auth and collaborative editing would make it usable in team settings.
+- **Feedback loop**: Let users rate AI-generated questions/assumptions/requirements so the system can improve over time.

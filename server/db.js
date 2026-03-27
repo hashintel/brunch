@@ -39,7 +39,7 @@ export async function initDb({ retries = 10, delayMs = 2000 } = {}) {
         [dbName]
     );
     if (rows[0].cnt === 0) {
-        const initSql = readFileSync(resolve(__dirname, 'migrations', 'dolt', 'init.sql'), 'utf-8');
+        const initSql = readFileSync(resolve(__dirname, 'migrations', 'dolt', '001_init.sql'), 'utf-8');
         const statements = initSql.split(/;\s*$/m).map(s => s.trim()).filter(s => s.length > 0);
         for (const stmt of statements) {
             await pool.execute(stmt);
