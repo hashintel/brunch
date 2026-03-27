@@ -3,7 +3,7 @@ import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const __dirname = new URL('.', import.meta.url).pathname;
-
+console.log('[db] connecting to database', process.env.DOLT_PORT);
 const pool = mysql.createPool({
     host: process.env.DOLT_HOST || 'localhost',
     port: parseInt(process.env.DOLT_PORT || '3307'),

@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { apiFetch } from '../Home/apiFetch';
+import { apiFetch } from '../../shared/apiFetch';
 import type { StructuredSpec, SpecSection } from './types';
 import type { ActivityInfo } from './useAssistantChat';
 

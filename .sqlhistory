@@ -1,0 +1,14 @@
+help  ñ ;
+show tables;
+show databases;
+CREATE DATABASE brunch ;
+show databases;
+use brunch show tables;
+;
+show tables;
+use brunch;
+show tables ;
+use brunch;
+show tables ;
+ls ;
+show tables;

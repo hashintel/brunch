@@ -1,5 +1,5 @@
 import { useState } from 'preact/hooks';
-import { apiFetchStream, streamNDJSON } from '../Home/apiFetch';
+import { apiFetchStream, streamNDJSON } from '../../shared/apiFetch';
 import type { WizardRequirement, RequirementsData } from './types';
 import type { ActivityInfo } from './useAssistantChat';
 

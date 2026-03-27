@@ -23,9 +23,11 @@ interface Props {
     selectedId?: string | null;
     onSelect?: (id: string) => void;
     onUpdate?: (input: { id: string; title?: string; status?: string }) => void;
+    onAddChild?: (parentId: string, title: string) => void;
+    onDelete?: (id: string) => void;
 }
 
-export function RequirementsScreen({ data, onToggle, onContinue, loading, selectedId, onSelect, onUpdate }: Props) {
+export function RequirementsScreen({ data, onToggle, onContinue, loading, selectedId, onSelect, onUpdate, onAddChild, onDelete }: Props) {
     const { stats } = data;
     const selected = selectedId ? findInTree(data.requirements, selectedId) : null;
 
@@ -91,6 +93,8 @@ export function RequirementsScreen({ data, onToggle, onContinue, loading, select
                         key={selected.id}
                         requirement={selected}
                         onUpdate={onUpdate}
+                        onAddChild={onAddChild}
+                        onDelete={onDelete}
                     />
                 )}
             </div>
@@ -241,12 +245,16 @@ function findInTree(reqs: WizardRequirement[], id: string): WizardRequirement | 
     return null;
 }
 
-function RequirementDetail({ requirement: r, onUpdate }: {
+function RequirementDetail({ requirement: r, onUpdate, onAddChild, onDelete }: {
     requirement: WizardRequirement;
     onUpdate?: (input: { id: string; title?: string; status?: string }) => void;
+    onAddChild?: (parentId: string, title: string) => void;
+    onDelete?: (id: string) => void;
 }) {
     const [editing, setEditing] = useState(false);
     const [editTitle, setEditTitle] = useState(r.title);
+    const [addingChild, setAddingChild] = useState(false);
+    const [childTitle, setChildTitle] = useState('');
     const status = STATUS_COLORS[r.status ?? 'ok'] ?? STATUS_COLORS.ok;
     const totalChecks = countChecks(r);
     const totalChildren = countAllChildren(r);
@@ -256,6 +264,14 @@ function RequirementDetail({ requirement: r, onUpdate }: {
             onUpdate?.({ id: r.id, title: editTitle.trim() });
         }
         setEditing(false);
+    }
+
+    function handleAddChild() {
+        if (childTitle.trim()) {
+            onAddChild?.(r.id, childTitle.trim());
+            setChildTitle('');
+            setAddingChild(false);
+        }
     }
 
     return (
@@ -275,6 +291,15 @@ function RequirementDetail({ requirement: r, onUpdate }: {
                             onClick={() => onUpdate?.({ id: r.id, status: 'ok' })}
                         >
                             Mark OK
+                        </button>
+                    )}
+                    {onDelete && (
+                        <button
+                            class="cs-req-detail__delete-btn"
+                            onClick={() => { if (window.confirm(`Delete requirement "${r.title}"?`)) onDelete(r.id); }}
+                            title="Delete requirement"
+                        >
+                            &times;
                         </button>
                     )}
                 </div>
@@ -350,6 +375,31 @@ function RequirementDetail({ requirement: r, onUpdate }: {
                             );
                         })}
                     </div>
+                </div>
+            )}
+
+            {/* Add sub-requirement */}
+            {onAddChild && (
+                <div class="cs-req-detail__add-child">
+                    {addingChild ? (
+                        <div class="cs-req-detail__add-child-form">
+                            <input
+                                type="text"
+                                class="cs-req-detail__edit-input"
+                                placeholder="Sub-requirement title..."
+                                value={childTitle}
+                                onInput={(e) => setChildTitle((e.target as HTMLInputElement).value)}
+                                onKeyDown={(e) => { if (e.key === 'Enter') handleAddChild(); if (e.key === 'Escape') setAddingChild(false); }}
+                                autoFocus
+                            />
+                            <button class="cs-req-detail__save-btn" onClick={handleAddChild}>Add</button>
+                            <button class="cs-req-detail__cancel-btn" onClick={() => setAddingChild(false)}>Cancel</button>
+                        </div>
+                    ) : (
+                        <button class="cs-req-detail__add-child-btn" onClick={() => setAddingChild(true)}>
+                            + Add sub-requirement
+                        </button>
+                    )}
                 </div>
             )}
         </div>

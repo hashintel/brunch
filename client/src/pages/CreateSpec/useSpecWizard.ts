@@ -40,6 +40,7 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
     const [prompt, setPrompt] = useState('');
     const [projectId, setProjectId] = useState<string | null>(routeProjectId ?? null);
     const [resuming, setResuming] = useState(false);
+    const [goalIterations, setGoalIterations] = useState<Array<{ goalText: string }>>([]);
 
     const { route } = useLocation();
 
@@ -234,6 +235,7 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
     // --- Submit (landing → clarify) ---
     async function submit(text: string) {
         setPrompt(text);
+        setGoalIterations([{ goalText: text }]);
         setScreen('clarify');
 
         try {
@@ -357,10 +359,22 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
         }
     }
 
+    function updatePrompt(newPrompt: string) {
+        // Save current prompt as an iteration before updating
+        if (prompt.trim()) {
+            setGoalIterations(prev => [...prev, { goalText: prompt }]);
+        }
+        setPrompt(newPrompt);
+        // Regenerate questions and spec with the new prompt
+        enqueueAI('Regenerating questions', () => questions.fetchQuestions(newPrompt));
+        enqueueAI('Regenerating spec', () => spec.generate(newPrompt, questions.getAnswersWithQuestions()));
+    }
+
     function reset() {
         setScreen('landing');
         setPrompt('');
         setProjectId(null);
+        setGoalIterations([]);
         questions.reset();
         spec.reset();
         assumptions.reset();
@@ -395,6 +409,8 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
         removeFromAiQueue,
         submit,
         save,
+        updatePrompt,
+        goalIterations,
         questions,
         spec,
         assumptions,

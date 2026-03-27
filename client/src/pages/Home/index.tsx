@@ -11,16 +11,17 @@ import { useFocusedItem } from './useFocusedItem';
 import { useVersions } from './useVersions';
 import { AssistantPane } from './AssistantPane';
 import { AssistantTrigger } from './AssistantTrigger';
-import { SpecPane } from './SpecPane';
-import { GoalSection } from './GoalSection';
-import { AssumptionSection } from './AssumptionSection';
-import { RequirementSection } from './RequirementSection';
 import { createProjectBus } from './projectBus';
 import { useResizable } from './useResizable';
 import { ResizeHandle, SidebarExpandBtn } from './ResizeHandle';
 import { createPortal } from 'preact/compat';
 
-const STEPS = ['Goal', 'Assumptions', 'Requirements'] as const;
+function countAllRequirements(reqs: Requirement[]): number {
+    let count = 0;
+    function walk(r: Requirement) { count++; r.children.forEach(walk); }
+    reqs.forEach(walk);
+    return count;
+}
 
 export function Home() {
     const [error, setError] = useState('');
@@ -51,7 +52,7 @@ export function Home() {
         getFocusedItem: focused.getFocused,
     });
 
-    // Wire bus handlers — reassigned each render so closures stay fresh
+    // Wire bus handlers
     bus.error = setError;
     bus.callHistoryChanged = session.refreshCallHistory;
     bus.setGoal = (goalText) => {
@@ -115,7 +116,6 @@ export function Home() {
             children: [],
         };
         if (input.parent_id) {
-            // Add as child of the specified parent
             function addChild(reqs: Requirement[]): Requirement[] {
                 return reqs.map(r => {
                     if (r.id === input.parent_id) {
@@ -236,6 +236,22 @@ export function Home() {
         }
     }
 
+    // Compute dashboard stats
+    const assumptionCount = assumptions.assumptions.length;
+    const confirmedAssumptions = assumptions.assumptions.filter(a => a.status === 'confirmed' || a.status === 'edited').length;
+    const requirementCount = countAllRequirements(req.requirements);
+    const hasGoal = !!goal.response;
+    const hasSpec = !!spec.spec;
+
+    // Determine wizard step for CreateSpec link
+    function getCreateSpecUrl(): string {
+        if (!session.currentSessionId) return '/create-spec';
+        if (requirementCount > 0) return `/create-spec/${session.currentSessionId}/overview`;
+        if (assumptionCount > 0) return `/create-spec/${session.currentSessionId}/requirements`;
+        if (hasGoal) return `/create-spec/${session.currentSessionId}/clarify`;
+        return `/create-spec/${session.currentSessionId}/clarify`;
+    }
+
     if (session.initializing) {
         return (
             <div class="loading-screen">
@@ -321,81 +337,73 @@ export function Home() {
                     </div>
                 )}
 
-                {/* Active project */}
+                {/* Dashboard — active project overview */}
                 {session.currentSessionId && (
-                    <>
-                        {/* Progress Stepper */}
-                        <div class="stepper">
-                            {STEPS.map((label, i) => (
-                                <div key={label} class="stepper-step">
-                                    {i > 0 && (
-                                        <div class={`stepper-line ${ui.stepCompleted[i - 1] ? 'stepper-line--filled' : ''}`} />
-                                    )}
-                                    <div class={`stepper-circle ${ui.stepCompleted[i] ? 'stepper-circle--completed' : ui.stepActive[i] ? 'stepper-circle--active' : ''}`}>
-                                        {i + 1}
-                                    </div>
-                                    <span class={`stepper-label ${ui.stepActive[i] ? 'stepper-label--active' : ''}`}>{label}</span>
-                                </div>
-                            ))}
+                    <div class="dashboard">
+                        <div class="dashboard__header">
+                            <div>
+                                <h1 class="dashboard__title">{projectName || 'Untitled Project'}</h1>
+                                {cwd && <p class="dashboard__cwd">{cwd}</p>}
+                            </div>
+                            <a
+                                class="dashboard__open-spec-btn"
+                                href={getCreateSpecUrl()}
+                            >
+                                Open in Spec Editor
+                                <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+                                    <path d="M5.5 3L9.5 7L5.5 11" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+                                </svg>
+                            </a>
                         </div>
 
-                        <GoalSection
-                            goal={goal}
-                            clarifying={clarifying}
-                            ui={ui}
-                            showInvalidGoalSuggestions={workflow.showInvalidGoalSuggestions}
-                            onDismissInvalidSuggestions={() => workflow.setShowInvalidGoalSuggestions(false)}
-                            onUpdateGoal={workflow.handleUpdateGoal}
-                            onOpenAssistantHelp={() => {
-                                assistant.openWithMessage(
-                                    'Your prompt was too vague for me to generate clarifying questions. Let\u2019s work together to define a clear project goal.\n\nWhat kind of project are you thinking about? Tell me:\n\u2022 What problem are you solving?\n\u2022 Who are the users?\n\u2022 What are the key features?\n\nOnce we have a solid goal, I\u2019ll set it in the form for you.'
-                                );
-                                workflow.setShowInvalidGoalSuggestions(false);
-                            }}
-                            onChatQuestion={focused.chatQuestion}
-                            isCheckedOut={isCheckedOut}
-                            anyBusy={workflow.anyBusy}
-                        />
+                        {/* Stats cards */}
+                        <div class="dashboard__stats">
+                            <div class={`dashboard__stat-card ${hasGoal ? 'dashboard__stat-card--ok' : ''}`}>
+                                <span class="dashboard__stat-value">{hasGoal ? 'Defined' : 'Not set'}</span>
+                                <span class="dashboard__stat-label">Goal</span>
+                            </div>
+                            <div class={`dashboard__stat-card ${assumptionCount > 0 ? 'dashboard__stat-card--ok' : ''}`}>
+                                <span class="dashboard__stat-value">
+                                    {assumptionCount > 0 ? `${confirmedAssumptions}/${assumptionCount}` : '0'}
+                                </span>
+                                <span class="dashboard__stat-label">Assumptions confirmed</span>
+                            </div>
+                            <div class={`dashboard__stat-card ${requirementCount > 0 ? 'dashboard__stat-card--ok' : ''}`}>
+                                <span class="dashboard__stat-value">{requirementCount}</span>
+                                <span class="dashboard__stat-label">Requirements</span>
+                            </div>
+                            <div class={`dashboard__stat-card ${hasSpec ? 'dashboard__stat-card--ok' : ''}`}>
+                                <span class="dashboard__stat-value">
+                                    {spec.loading ? 'Generating...' : hasSpec ? `${spec.progress}%` : 'Not started'}
+                                </span>
+                                <span class="dashboard__stat-label">Spec</span>
+                            </div>
+                        </div>
 
-                        {ui.stepActive[1] && (
-                            <AssumptionSection
-                                assumptions={assumptions}
-                                ui={ui}
-                                onChatAssumption={focused.chatAssumption}
-                            />
-                        )}
-
-                        {ui.stepActive[2] && (
-                            <RequirementSection
-                                req={req}
-                                ui={ui}
-                                onGenerateRequirements={workflow.handleGenerateRequirements}
-                                onChatRequirement={focused.chatRequirement}
-                                isCheckedOut={isCheckedOut}
-                            />
-                        )}
-
-                        {(spec.spec || spec.loading) && (
-                            <div class="collapsible">
-                                <button class="collapsible-header" onClick={() => ui.toggleSection(3)}>
-                                    <span class="collapsible-title">Spec</span>
-                                    {spec.loading && <span class="collapsible-badge">Generating...</span>}
-                                    <span class={`collapsible-chevron ${ui.openSections.has(3) ? 'collapsible-chevron--open' : ''}`}>&#9654;</span>
-                                </button>
-                                <div class={`collapsible-body ${ui.openSections.has(3) ? 'collapsible-body--open' : ''}`}>
-                                    <div class="collapsible-content">
-                                        <SpecPane
-                                            spec={spec.spec}
-                                            progress={spec.progress}
-                                            loading={spec.loading}
-                                            editable={req.requirements.length > 0}
-                                            onSpecChange={spec.setSpec}
-                                        />
-                                    </div>
-                                </div>
+                        {/* Goal summary */}
+                        {goal.response && (
+                            <div class="dashboard__section">
+                                <h3 class="dashboard__section-title">Goal</h3>
+                                <p class="dashboard__section-text">{goal.response.slice(0, 300)}{goal.response.length > 300 ? '...' : ''}</p>
                             </div>
                         )}
-                    </>
+
+                        {/* Spec preview */}
+                        {spec.spec && (
+                            <div class="dashboard__section">
+                                <h3 class="dashboard__section-title">Spec Preview</h3>
+                                <div class="dashboard__spec-preview">
+                                    {spec.spec.slice(0, 500)}{spec.spec.length > 500 ? '...' : ''}
+                                </div>
+                                <a
+                                    class="dashboard__view-full-btn"
+                                    href={getCreateSpecUrl()}
+                                >
+                                    View full spec in editor
+                                </a>
+                            </div>
+                        )}
+                    </div>
                 )}
             </div>
 

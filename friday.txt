@@ -1,0 +1,222 @@
+FRIDAY PLAN: Home → Dashboard + CreateSpec → Feature Complete
+==============================================================
+STATUS: ALL 6 TASKS COMPLETED
+
+GOAL:
+- CreateSpec becomes the primary spec-creation workflow (feature-complete)
+- Home becomes a dashboard: project selection, LLM call review, version history
+
+CURRENT STATE (AFTER IMPLEMENTATION):
+- Home: Dashboard with project overview cards, stats, "Open in Spec Editor" button, sidebar with version history + LLM calls
+- CreateSpec: Full-featured wizard with version history, LLM calls, goal refinement, sub-requirements, assumption editing
+- Both share overlapping logic for assumptions, requirements, spec generation, and assistant chat
+- Different type systems (Home: tests/stage, CreateSpec: checks/status)
+
+ARCHITECTURE DECISIONS:
+- CreateSpec keeps its wizard flow and adds missing features from Home
+- Home strips spec-creation UI, keeps project list + version history + LLM calls
+- Home gets a "Open in CreateSpec" button to launch into the wizard for a project
+- Shared hooks/types should be extracted where possible to reduce duplication
+
+==============================================================
+TASK BREAKDOWN (each task ~4 hours or less)
+==============================================================
+
+TASK 1: Wire CreateSpec to session/project persistence [DONE]
+------------------------------------------------------
+Currently CreateSpec has draft saves but Home has full session management
+(auto-save, session list, model selection). CreateSpec needs to:
+- Load/save to the same backend session system Home uses
+- Accept a projectId from Home's session list
+- Persist all wizard state (questions, assumptions, requirements, spec)
+  back to the shared session format
+- Add auto-save (reuse useAutoSave pattern from Home)
+
+Files to touch:
+  - CreateSpec/index.tsx (add session loading)
+  - CreateSpec/hooks/useSpecWizard.ts (integrate session save/load)
+  - Home hooks: useSession (ensure API compatibility)
+
+Definition of done:
+  - Can navigate from Home project list → CreateSpec with project loaded
+  - CreateSpec auto-saves to same backend as Home
+  - Returning to Home shows updated project data
+
+
+TASK 2: Add version history to CreateSpec [DONE]
+-----------------------------------------
+Port the Dolt-based version control from Home's SessionPanel into CreateSpec.
+This includes commit, checkout, diff, and revert.
+
+Work:
+- Extract useVersions hook to shared location (or import from Home)
+- Create a VersionHistoryPanel component for CreateSpec
+  (can be sidebar section or modal — match CreateSpec's design language)
+- Add commit action to CreateSpec's overview/approval step
+- Add diff viewer (port DiffModal + InlineTextDiff from Home)
+- Wire uncommitted changes display
+
+Files to touch:
+  - Home/SessionPanel.tsx (extract version UI into reusable component)
+  - Home/hooks/ (extract useVersions if not already shared)
+  - CreateSpec/index.tsx (add version history UI)
+  - New: shared/VersionHistoryPanel.tsx or CreateSpec/VersionHistoryPanel.tsx
+  - Port: DiffModal, InlineTextDiff, WordDiff components
+
+Definition of done:
+  - CreateSpec shows version history panel
+  - Can commit current spec state
+  - Can view diffs between versions
+  - Can revert to a previous version
+  - Can checkout (read-only view) a past version
+
+
+TASK 3: Add LLM calls history to CreateSpec [DONE]
+--------------------------------------------
+Port the LLM call tracking and display from Home into CreateSpec.
+
+Work:
+- Ensure CreateSpec's AI calls are logged to the same call history system
+- Add LLM calls summary panel (total calls, tokens, duration)
+- Port CallDetailModal for detailed call inspection
+- Integrate into CreateSpec's AssistantPanel (new tab or section)
+
+Files to touch:
+  - Home/SessionPanel.tsx (extract CallDetailModal to shared)
+  - CreateSpec/AssistantPanel.tsx (add calls history tab/section)
+  - CreateSpec hooks (wire call logging)
+
+Definition of done:
+  - All AI calls in CreateSpec are logged
+  - Can view call summary (count, tokens, duration)
+  - Can expand individual calls to see prompt/response
+  - Can filter/browse call history
+
+
+TASK 4: Add edit modals and iterative refinement to CreateSpec [DONE]
+--------------------------------------------------------------
+Home supports editing assumptions inline, iterative goal refinement
+(multiple rounds), and goal update without resetting progress.
+
+Work:
+- Add iterative goal refinement to CreateSpec:
+  - Show previous goal iterations on ClarifyScreen
+  - Allow updating the goal and re-running clarify without losing progress
+  - Show clarification round summaries
+- Enhance assumption editing in CreateSpec:
+  - Track editedText separately (like Home)
+  - Show original vs edited text
+- Add requirement editing capabilities matching Home's RequirementList:
+  - Generate child requirements
+  - Generate tests/checks for individual requirements
+  - Edit requirement title/definition inline
+
+Files to touch:
+  - CreateSpec/ClarifyScreen.tsx (goal iterations)
+  - CreateSpec/AssumptionsScreen.tsx (enhanced editing)
+  - CreateSpec/RequirementsScreen.tsx (enhanced editing)
+  - CreateSpec/hooks/useSpecQuestions.ts (iteration tracking)
+  - CreateSpec/hooks/useWizardAssumptions.ts (edit tracking)
+  - CreateSpec/hooks/useWizardRequirements.ts (child generation, test generation)
+
+Definition of done:
+  - Can refine goal multiple times, see iteration history
+  - Assumptions show original + edited text
+  - Can generate child requirements
+  - Can generate checks for individual requirements
+  - Can edit requirements inline
+
+
+TASK 5: Redesign Home as a dashboard [DONE]
+-------------------------------------
+Strip spec-creation workflow from Home. Keep project management,
+version history, and LLM calls. Add navigation to CreateSpec.
+
+Work:
+- Remove GoalSection, AssumptionSection, RequirementSection, SpecPane
+  from Home (or hide them behind a read-only summary)
+- Keep SessionPanel as primary UI (project list + detail)
+- Add "Open in CreateSpec" / "Continue editing" button per project
+- Add project overview cards showing:
+  - Last edited date
+  - Current wizard step (if in progress)
+  - Spec completeness/confidence
+  - Quick stats (requirements count, assumptions count)
+- Keep version history and LLM calls as primary Home features
+- Keep AssistantPane for project-level questions
+
+Files to touch:
+  - Home/index.tsx (major restructure)
+  - Home/SessionPanel.tsx (enhance as main dashboard panel)
+  - Remove or archive: GoalSection, AssumptionSection, RequirementSection
+  - New: Home/ProjectCard.tsx (dashboard card component)
+  - Update routing in client/src/index.tsx if needed
+
+Definition of done:
+  - Home shows project list as dashboard cards
+  - Each project card shows summary stats
+  - "Open in CreateSpec" navigates to wizard with project loaded
+  - Version history and LLM calls remain accessible
+  - No spec-creation workflow on Home page
+  - Assistant still available for project-level queries
+
+
+TASK 6: Unify types and extract shared code [DONE]
+--------------------------------------------
+Reduce duplication between Home and CreateSpec type systems and hooks.
+
+Work:
+- Create shared/types.ts with unified types:
+  - Merge Assumption + WizardAssumption (keep superset of fields)
+  - Merge Requirement + WizardRequirement (reconcile tests vs checks)
+  - Merge ClarifyingQuestion + SpecQuestion
+  - Shared SessionData type that both pages use
+- Extract shared hooks:
+  - useAssistant → shared (both pages use similar chat logic)
+  - useFocusedItem → shared
+  - useAutoSave → shared
+- Extract shared components:
+  - Markdown renderer
+  - LoadingIndicator
+  - Modal/portal wrapper
+
+Files to touch:
+  - New: client/src/shared/types.ts
+  - New: client/src/shared/hooks/
+  - New: client/src/shared/components/
+  - Home/types.ts (import from shared)
+  - CreateSpec/types.ts (import from shared)
+  - All components using old types (update imports)
+
+Definition of done:
+  - Single source of truth for shared types
+  - No duplicate hook logic
+  - Both pages import from shared modules
+  - All existing functionality still works
+
+
+==============================================================
+SUGGESTED ORDER OF EXECUTION
+==============================================================
+
+Phase 1 (Foundation):
+  Task 6 → Unify types first to avoid drift during other tasks
+  Task 1 → Wire persistence (everything else depends on this)
+
+Phase 2 (Feature parity):
+  Task 2 → Version history in CreateSpec
+  Task 3 → LLM calls in CreateSpec
+  Task 4 → Edit modals and refinement
+
+Phase 3 (Dashboard):
+  Task 5 → Redesign Home as dashboard
+
+Total estimated: 6 tasks x ~4 hours = ~24 hours of work
+
+==============================================================
+NOTES
+==============================================================
+- Each task should be validated by running the dev server and testing the flow end-to-end
+- CSS will need attention — Home uses flat class names, CreateSpec uses BEM-like .cs-* / .create-spec__* conventions
+- The ProjectBus event system (Home-only) may need to be shared or replaced with a simpler pattern
+- Dolt version control integration is a backend dependency — verify it works with CreateSpec's data format

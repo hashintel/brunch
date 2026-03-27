@@ -1,5 +1,5 @@
 import { useState, useRef, useCallback } from 'preact/hooks';
-import { apiFetchStream, streamNDJSON } from '../Home/apiFetch';
+import { apiFetchStream, streamNDJSON } from '../../shared/apiFetch';
 import type { StructuredSpec, WizardAssumption, WizardRequirement, RequirementsData, SpecAnswer, SpecQuestion, FocusedItem } from './types';
 
 export interface ChatMessage {

@@ -172,6 +172,12 @@ function AssumptionDetail({ assumption: a, onConfirm, onEdit }: {
             <div class="cs-assumption-detail__content">
                 <span class="cs-assumption-detail__label">{a.label}</span>
                 <p class="cs-assumption-detail__text">{a.editedText || a.text}</p>
+                {a.editedText && a.editedText !== a.text && (
+                    <div class="cs-assumption-detail__original">
+                        <span class="cs-assumption-detail__original-label">Original:</span>
+                        <span class="cs-assumption-detail__original-text">{a.text}</span>
+                    </div>
+                )}
                 <p class="cs-assumption-detail__rationale">{a.rationale}</p>
             </div>
 

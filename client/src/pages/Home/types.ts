@@ -1,7 +1,6 @@
-export type Model = { id: string; label: string; provider: string };
-
-export type ConfidenceLevel = 'high' | 'medium' | 'low';
-export type ImpactLevel = 'high' | 'medium' | 'low';
+// Re-export shared types
+export type { Model, ConfidenceLevel, ImpactLevel, ClaudeCall, DoltCommit, DoltChange, DoltDiffRow, SessionMeta } from '../../shared/types';
+import type { ConfidenceLevel, ImpactLevel } from '../../shared/types';
 
 export type Assumption = {
     id: string;
@@ -66,8 +65,6 @@ export type GoalIteration = {
     answers: ClarifyingAnswer[];
 };
 
-export type SessionMeta = Pick<Session, 'id' | 'name' | 'updatedAt'>;
-
 export interface SessionData {
     name: string;
     prompt: string;
@@ -94,23 +91,6 @@ export type AssistantMessage = {
     timestamp: number;
 };
 
-export interface DoltCommit {
-    commit_hash: string;
-    committer: string;
-    message: string;
-    date: string;
-}
-
-export interface DoltChange {
-    table_name: string;
-    staged: boolean;
-    status: string;
-}
-
-export interface DoltDiffRow {
-    diff_type: 'added' | 'modified' | 'removed' | 'deleted';
-    [key: string]: any;
-}
 
 export type FocusedItem =
     | { type: 'assumption'; item: Assumption }
@@ -123,18 +103,3 @@ export type ToolUpdate = {
     timestamp: number;
 };
 
-export interface ClaudeCall {
-    pk: number;
-    model: string;
-    caller: string;
-    prompt: string | null;
-    response: string | null;
-    input_tokens: number | null;
-    output_tokens: number | null;
-    duration_ms: number | null;
-    status: string;
-    error: string | null;
-    created_at: string;
-    cwd: string | null;
-    turns: number | null;
-}
