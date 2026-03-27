@@ -53,7 +53,7 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
     const resumedRef = useRef(false);
 
     // =============================================
-    // AI Task Queue — one generation at a time
+    // AI Task Queue — main workflow tasks (sequential)
     // =============================================
     const [aiQueue, setAiQueue] = useState<AIQueueItem[]>([]);
     const queueRef = useRef<Array<{ id: string; label: string; fn: () => Promise<void> }>>([]);
@@ -87,6 +87,35 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
     function removeFromAiQueue(id: string) {
         queueRef.current = queueRef.current.filter(t => t.id !== id);
         setAiQueue(queueRef.current.map(t => ({ id: t.id, label: t.label })));
+    }
+
+    // =============================================
+    // Spec queue — runs independently, never blocks main queue
+    // =============================================
+    const specQueueRef = useRef<Array<{ id: string; label: string; fn: () => Promise<void> }>>([]);
+    const specDrainingRef = useRef(false);
+
+    async function drainSpecQueue() {
+        if (specDrainingRef.current) return;
+        specDrainingRef.current = true;
+        while (specQueueRef.current.length > 0) {
+            const task = specQueueRef.current[0];
+            try {
+                await task.fn();
+            } catch (e) {
+                console.error(`Spec task "${task.label}" failed:`, e);
+            }
+            specQueueRef.current.shift();
+        }
+        specDrainingRef.current = false;
+    }
+
+    function enqueueSpec(label: string, fn: () => Promise<void>) {
+        // Drop any pending spec tasks — only the latest matters
+        specQueueRef.current = specQueueRef.current.slice(0, specDrainingRef.current ? 1 : 0);
+        const id = crypto.randomUUID();
+        specQueueRef.current.push({ id, label, fn });
+        drainSpecQueue();
     }
 
     // --- Sync screen from URL step param ---
@@ -156,11 +185,11 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
                 : 'clarify';
             setScreen(targetScreen);
 
-            // If no saved spec and we have a prompt, regenerate it (queued)
+            // If no saved spec and we have a prompt, regenerate it
             if (!savedSpec && session.prompt) {
                 const answersData = questions.getAnswersWithQuestions();
                 const p = session.prompt;
-                enqueueAI('Regenerating spec', () => spec.generate(p, answersData));
+                enqueueSpec('Regenerating spec', () => spec.generate(p, answersData));
             }
         } catch (e) {
             console.error('Failed to resume session:', e);
@@ -254,9 +283,9 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
             console.error('Failed to create session:', e);
         }
 
-        // Queue: questions first, then spec generation
+        // Questions go on main queue, spec runs independently
         enqueueAI('Generating questions', () => questions.fetchQuestions(text));
-        enqueueAI('Generating spec', () => spec.generate(text));
+        enqueueSpec('Generating spec', () => spec.generate(text));
     }
 
     // --- Auto-save when generation finishes ---
@@ -295,7 +324,7 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
 
         if (debounceRef.current) clearTimeout(debounceRef.current);
         debounceRef.current = setTimeout(() => {
-            enqueueAI('Updating spec', () => spec.generate(prompt, answersData));
+            enqueueSpec('Updating spec', () => spec.generate(prompt, answersData));
         }, 500);
     }, [prompt, questions.answers]);
 
@@ -307,7 +336,7 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
 
     function skipAllAndGenerate() {
         const answersData = questions.getAnswersWithQuestions();
-        enqueueAI('Generating spec', () => spec.generate(prompt, answersData));
+        enqueueSpec('Generating spec', () => spec.generate(prompt, answersData));
     }
 
     // --- Step transitions ---
@@ -338,7 +367,7 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
             route(`/create-spec/${projectId}/overview`, true);
         }
         const answersData = questions.getAnswersWithQuestions();
-        enqueueAI('Finalizing spec', () => spec.generate(prompt, answersData));
+        enqueueSpec('Finalizing spec', () => spec.generate(prompt, answersData));
     }
 
     function goBack() {
@@ -370,6 +399,8 @@ export function useSpecWizard({ selectedModel, projectId: routeProjectId, routeS
         queueRef.current = [];
         setAiQueue([]);
         drainingRef.current = false;
+        specQueueRef.current = [];
+        specDrainingRef.current = false;
     }
 
     const toolCallbacks: ToolCallbacks = {

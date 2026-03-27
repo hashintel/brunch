@@ -4,6 +4,7 @@ import type { WizardScreen } from './types';
 interface ProgressSidebarProps {
     screen: WizardScreen;
     specLoading: boolean;
+    specExists: boolean;
     assumptionsLoading: boolean;
     requirementsLoading: boolean;
 }
@@ -45,13 +46,13 @@ function StatusIcon({ state }: { state: ItemState }) {
     return <span class="cs-sidebar__icon cs-sidebar__icon--pending" />;
 }
 
-export function ProgressSidebar({ screen, specLoading, assumptionsLoading, requirementsLoading }: ProgressSidebarProps) {
+export function ProgressSidebar({ screen, specLoading, specExists, assumptionsLoading, requirementsLoading }: ProgressSidebarProps) {
     const [specOpen, setSpecOpen] = useState(true);
     const idx = getScreenIndex(screen);
 
-    // Defining: loading when spec is generating, complete once on clarify+, pending otherwise
+    // Defining: loading only during initial spec generation (not background updates)
     const definingState: ItemState =
-        specLoading ? 'loading'
+        (specLoading && !specExists) ? 'loading'
         : idx >= 0 ? 'complete'
         : 'pending';
 
@@ -62,11 +63,13 @@ export function ProgressSidebar({ screen, specLoading, assumptionsLoading, requi
         : 'pending';
 
     // Project Spec group: derives from children
-    const specGroupActive = definingState === 'loading' || definingState === 'current' || clarifyState === 'loading' || clarifyState === 'current';
+    const ds = definingState as ItemState;
+    const cs = clarifyState as ItemState;
+    const specGroupActive = ds === 'loading' || ds === 'current' || cs === 'loading' || cs === 'current';
     const specGroupState: ItemState =
-        definingState === 'loading' ? 'loading'
+        ds === 'loading' ? 'loading'
         : specGroupActive ? 'current'
-        : definingState === 'complete' && clarifyState === 'complete' ? 'complete'
+        : ds === 'complete' && cs === 'complete' ? 'complete'
         : 'pending';
 
     // Assumptions: loading only when AI is generating, current when on step but idle

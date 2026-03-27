@@ -189,6 +189,7 @@ export function CreateSpec() {
                     <ProgressSidebar
                         screen={wizard.screen}
                         specLoading={wizard.spec.loading}
+                        specExists={!!wizard.spec.spec}
                         assumptionsLoading={wizard.assumptions.loading}
                         requirementsLoading={wizard.requirements.loading}
                     />
