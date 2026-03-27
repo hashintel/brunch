@@ -57,7 +57,10 @@ export function useAssistantChat(ctx: WizardContext) {
     const messagesRef = useRef<ChatMessage[]>([]);
     const queueRef = useRef<{ id: string; text: string }[]>([]);
 
+    const ctxRef = useRef(ctx);
+
     // Keep refs in sync
+    ctxRef.current = ctx;
     messagesRef.current = messages;
     queueRef.current = queue;
 
@@ -107,7 +110,7 @@ export function useAssistantChat(ctx: WizardContext) {
         if (assumptions.length > 0) {
             p += '## Assumptions\n';
             for (const a of assumptions) {
-                p += `- [${a.impact} impact, ${a.confidence} confidence, ${a.status}] ${a.editedText || a.text}\n`;
+                p += `- ${a.id}: [${a.impact} impact, ${a.confidence} confidence, ${a.status}] ${a.editedText || a.text}\n`;
             }
             p += '\n';
         }
@@ -133,6 +136,7 @@ export function useAssistantChat(ctx: WizardContext) {
             if (focused.type === 'assumption') {
                 const a = focused.item;
                 p += `Type: Assumption\n`;
+                p += `ID: ${a.id}\n`;
                 p += `Text: ${a.editedText || a.text}\n`;
                 p += `Rationale: ${a.rationale}\n`;
                 p += `Impact: ${a.impact} | Confidence: ${a.confidence} | Status: ${a.status}\n`;
@@ -262,8 +266,8 @@ export function useAssistantChat(ctx: WizardContext) {
                         return { ...prev, steps };
                     });
 
-                    // Dispatch tool callback
-                    const cb = ctx.toolCallbacks;
+                    // Dispatch tool callback (use ref to avoid stale closure)
+                    const cb = ctxRef.current.toolCallbacks;
                     if (cb) {
                         if (event.tool === 'set_goal') cb.onSetGoal?.(event.input?.goal);
                         else if (event.tool === 'update_assumption') cb.onUpdateAssumption?.(event.input);

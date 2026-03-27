@@ -323,6 +323,7 @@ export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projec
                 maxTurns: 10,
                 includePartialMessages: true,
                 mcpServers: mcpServers ?? {},
+                allowedTools: [...mcpToolNames],
                 ...cwdOptions(cwd),
             },
         })) {
@@ -457,6 +458,8 @@ export async function streamQueryWithTools(prompt, modelId, res, tools, cwd, pro
             tools: sdkTools,
         });
 
+        const allowedTools = tools.map(t => `mcp__wizard-tools__${t.name}`);
+
         for await (const msg of query({
             prompt,
             options: {
@@ -464,6 +467,7 @@ export async function streamQueryWithTools(prompt, modelId, res, tools, cwd, pro
                 maxTurns: 10,
                 includePartialMessages: true,
                 mcpServers: { 'wizard-tools': mcpServer },
+                allowedTools,
                 ...cwdOptions(cwd),
             },
         })) {
