@@ -323,8 +323,6 @@ export async function streamQueryTextWithTools(prompt, modelId, res, cwd, projec
                 maxTurns: 10,
                 includePartialMessages: true,
                 mcpServers: mcpServers ?? {},
-                permissionMode: 'bypassPermissions',
-                allowDangerouslySkipPermissions: true,
                 ...cwdOptions(cwd),
             },
         })) {
@@ -466,8 +464,6 @@ export async function streamQueryWithTools(prompt, modelId, res, tools, cwd, pro
                 maxTurns: 10,
                 includePartialMessages: true,
                 mcpServers: { 'wizard-tools': mcpServer },
-                permissionMode: 'bypassPermissions',
-                allowDangerouslySkipPermissions: true,
                 ...cwdOptions(cwd),
             },
         })) {

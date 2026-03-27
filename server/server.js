@@ -62,7 +62,15 @@ app.use(errorHandler);
 const distDir = resolve(new URL('.', import.meta.url).pathname, '..', 'dist');
 if (existsSync(distDir)) {
     app.use(express.static(distDir));
-    app.get('/{*splat}', (_req, res) => {
+    app.get('/{*splat}', (req, res) => {
+        // Serve prerendered HTML for known route prefixes, fall back to root index
+        const segments = req.path.split('/').filter(Boolean);
+        for (let i = segments.length; i > 0; i--) {
+            const candidate = resolve(distDir, segments.slice(0, i).join('/'), 'index.html');
+            if (existsSync(candidate)) {
+                return res.sendFile(candidate);
+            }
+        }
         res.sendFile(resolve(distDir, 'index.html'));
     });
 }
