@@ -11,7 +11,7 @@ services:
       DOLT_ROOT_HOST: "%"
       DOLT_DATABASE: brunch
     healthcheck:
-      test: ["CMD", "dolt", "sql", "-q", "SELECT 1"]
+      test: ["CMD", "dolt", "--host", "127.0.0.1", "--port", "3306", "--no-tls", "sql", "-q", "SELECT 1"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -29,7 +29,7 @@ services:
       DOLT_USER: root
       DOLT_PASSWORD: ""
       DOLT_DATABASE: brunch
-      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       GOOGLE_GENERATIVE_AI_API_KEY: ${GOOGLE_GENERATIVE_AI_API_KEY:-}
       OPENCODE_URL: ${OPENCODE_URL:-}

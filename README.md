@@ -2,6 +2,39 @@
 
 Brunch helps you turn natural-language project goals into structured specifications through an AI-guided clarification flow: goal input, clarifying questions, assumption review, and spec generation.
 
+
+## Features
+There are two versions of the application, one runs at / (1) and other at /create-spec (2). Later version adheres to figma designs. Former is slightly more feature complete. 
+
+Set a goal. Version (1) gives you example prompts, or an option to open AI assistant if prompt is considered to be insufficient. Version (2) just goes with it. 
+
+Spec is regenerated after each step. Version (2) supports clarifyquestions single and multichoice. 
+
+It's possible to set a local folder and tell the system to define goal based on the files present. 
+
+Assumptions can be be edited by AI Assistant. Version (2) has nicer UX. 
+
+Requirements have subrequirements and checks/tests. Currently these are just labeled descriptions. Code/Static Analysis tests are not valid, only instructions. Requirements in Version (1) can be displayed as list/table/canvas with drag and drop reordering/nesting. 
+
+Server uses dolt-db, and it needs to be running with database `brunch` created. Migration of tables happens automatically. Dolt features are visible in version (1). You can view uncommited changes, commit diffs, checkout to past version, or even revert (not recommended). This features are problematic as it works on the db-level, so changes across projects can get mixed. There are filters implemented so the UI is less confusing, but it's not possible to resolve this problem without using separate branch for each project.
+
+LLM calls are recorded in db table `claude_call`, and displayed in version (1) - UI is updated only after response is handled. 
+
+Models can be changed before each query. Currently it's setup to work with local Anthropic Agent SDK, and OpenCode models. 
+
+## How to improve
+To improve this I'd keep only single version of front-end 2) and turn 1) into admin dashboard. This was already attempted in `branch` branch. As already mentioned dolt should create a separate branch for each project, and merge only at strategic points. This would require us to keep track of active branches and apply migration scripts on each. Alternatively we could focus on improving changes tracking with traditional sql record-keeping approach. This was already tested a little bit in the beginning as you can see in db goal_iterations. 
+
+If we want many users to install this keeping SQLite compatibility would make sense, but it was dropped with introduction of dolt. 
+
+I'd focus on improving the prompts, and potentially the workflow, so that the app generates more useful output. Right now clarify_questions tend to be useful, but after that it's largely a reiteration of what was already said with different UI. 
+
+I'd potentially add support for AI-sdk directly (it's dependency of OpenCode), for scenarios where we don't work with local filesystem. 
+
+I'd spend more time thinking about database structure, probably pushing it closer to something like `block` model. 
+
+I'd focus on generating valid test suite, and making complete tests cases with coding agents executing the output. 
+
 ## Quick start (local)
 
 ```bash
@@ -21,11 +54,12 @@ Open http://localhost:5173.
 
 ## Docker Compose (recommended)
 
-Starts both Dolt and the app together:
+Starts both Dolt and the app in a single command:
 
 ```bash
-# Set your API key
-export ANTHROPIC_API_KEY=sk-ant-...
+# Create .env with your API key (at least one provider required)
+cp .env.example .env
+# Edit .env and add your ANTHROPIC_API_KEY
 
 # Start everything
 docker compose up -d
