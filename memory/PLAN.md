@@ -19,109 +19,129 @@
 ### Slices
 
 1. **Walking skeleton: SDK → SSE → React** `FE-534` — Prove the integration seam: the highest-uncertainty slice, retires the most risk. `done`
-   - Requirements: → SPEC.md §Requirements #1, #3
+   - Requirements: → SPEC.md §Requirements #1, #4
    - Assumptions: → SPEC.md §Assumptions A1, A2, A8, A10
    - Invariants established: → SPEC.md §Invariants I1, I2, I3, I4
    - Acceptance: `npm run dev` opens browser, type a message, see streamed response with visible thinking and text. `useChat` manages all state
-   - Blocks: all subsequent slices
    - Branch: `ln/fe-534-walking-skeleton`
 
-2. **SQLite foundation + project persistence** `FE-535` — Replace Dolt with `better-sqlite3`. Schema: `project`, `message`. Auto-create DB on startup. Session CRUD. Conversation history replay via formatted prompt. `done`
-   - Requirements: → SPEC.md §Requirements #9
+2. **SQLite foundation + project persistence** `FE-535` — Replace Dolt with `better-sqlite3`. Basic persistence with project + message tables. Conversation history replay. `done`
+   - Requirements: → SPEC.md §Requirements #14
    - Assumptions: → SPEC.md §Assumptions A5 (validated), A11 (workaround validated), A12 (validated)
    - Invariants established: → SPEC.md §Invariants I5, I6
    - Invariants respected: → SPEC.md §Invariants I1, I2, I3
    - Acceptance: create project, send message, refresh page, see history, continue conversation
    - Branch: `ln/fe-535-sqlite-persistence`
 
-## Phase 2: Interview Core
+## Phase 2: Turn Model + Extraction
 
-<!-- Basic interview loop with entity extraction and dashboard. The product becomes usable. -->
+<!-- Migrate from flat chat to the turn-tree schema. Retire the two highest-risk
+     assumptions (A14: observer fidelity, A13: SDK skills) before building the
+     full interview flow. -->
 
-### Slices
+### Spikes
 
-3. **Interview Phase 1: scope establishment** `FE-536` — System prompt drives scope elicitation. LLM presents structured questions with options. Exchanges stored in `interview_exchange`. `not-started`
-   - Requirements: → SPEC.md §Requirements #2, #5
-   - Assumptions: → SPEC.md §Assumptions A7
-   - Acceptance: user describes goal, LLM asks structured scope questions, exchanges persisted
-   - Branch: `ln/fe-536-interview-phase-1`
-
-4. **Entity extraction pipeline** `FE-537` — After each exchange, separate `queryStructured` call extracts entities. Materialize into entity tables. Emit `data-entities` SSE event. `not-started`
-   - Requirements: → SPEC.md §Requirements #4
-   - Assumptions: → SPEC.md §Assumptions A3, A4
-   - Acceptance: entity dashboard shows extracted items within 1-3s of answering
-   - Branch: `ln/fe-537-entity-extraction`
-
-5. **Entity dashboard UI** `FE-538` — React sidebar showing accumulated entities by type. Updates live via `data-entities` events. Read-only. `not-started`
-   - Requirements: → SPEC.md §Requirements #4
-   - Assumptions: —
-   - Acceptance: entities appear in categorized lists as interview progresses
-   - Branch: `ln/fe-538-entity-dashboard`
-
-## Phase 3: Full Interview Flow
-
-<!-- All interview phases, transitions, side-channel. The interview experience is complete. -->
+1. **Observer extraction fidelity** — Can the LLM reliably extract decisions, assumptions, and dependency edges from a single turn's Q&A? Test with realistic fixture turns across different question types (scope, design, constraints). Measure extraction consistency across runs. `not-started`
+   - Assumptions: → SPEC.md §Assumptions A14, A3
+   - Time box: 2 hours
+   - Success: ≥80% of expected entities captured with correct dependency edges across 5+ fixture turns
 
 ### Slices
 
-6. **Phase transition: scope → design** `FE-539` — LLM proposes transition with summary. User confirms. Phase stored on project. Dashboard shows indicator. `not-started`
-   - Requirements: → SPEC.md §Requirements #7
-   - Assumptions: —
-   - Acceptance: LLM summarizes scope, user confirms, design phase begins
-   - Branch: `ln/fe-539-phase-transition`
+3. **Turn tree schema + API** — Migrate from message table to the full schema.dbml model (turn, option, decision, assumption, requirement, criterion + all join tables). Update API: POST /api/chat creates turns, GET /api/projects/current returns turns on the active path. Project gets `active_turn_id`. Tests verify turn tree CRUD and active path resolution. `not-started`
+   - Requirements: → SPEC.md §Requirements #14
+   - Assumptions: → SPEC.md §Assumptions A6
+   - Invariants to establish: turn tree persistence, active path resolution
+   - Invariants to respect: → SPEC.md §Invariants I1, I2, I3
+   - Acceptance: create project, create turns with parent chain, resolve active path, close and reopen with state intact
 
-7. **Interview Phase 2: design tree exploration** `FE-540` — LLM works down design tree with structured questions. Decisions extracted and materialized. `not-started`
-   - Requirements: → SPEC.md §Requirements #2, #5
-   - Assumptions: —
-   - Acceptance: design questions with options, decisions in dashboard
-   - Branch: `ln/fe-540-interview-phase-2`
+4. **Structured interview: scope phase** — Replace flat chat with structured turns. Implement the scope phase as an agent skill — the agent generates a question with options, grounding ("why this matters"), and impact signal. User selects an option or types a response. Turn persists with phase provenance. UI renders the turn card (question + options + grounding). `not-started`
+   - Requirements: → SPEC.md §Requirements #2, #3
+   - Assumptions: → SPEC.md §Assumptions A7, A13
+   - Invariants to respect: → SPEC.md §Invariants I1, I2, I3, I5, I6
+   - Acceptance: start a project, agent asks structured scope questions with options and grounding, user answers, turns persist with parent chain
 
-8. **Freeform side-channel** `FE-541` — "Ask about this" escape hatch. Separate `useChat` scoped to current question. Doesn't pollute main transcript. `not-started`
+5. **Observer agent + entity persistence** — After each answered turn, a second agent call extracts decisions and assumptions. Writes to decision/assumption tables with turn linkage (turn_decision, turn_assumption) and dependency edges (decision_parent_decision, decision_parent_assumption, assumption_parent_assumption). `not-started`
+   - Requirements: → SPEC.md §Requirements #5
+   - Assumptions: → SPEC.md §Assumptions A3, A4, A14 (validated by spike)
+   - Acceptance: answer a scope question, observer extracts decision + assumptions, dependency edges visible in DB, extraction completes within user think time
+
+6. **Decision + assumption dashboard** — React sidebar showing decisions and assumptions on the active path. Updates after each observer extraction. Dependency edges visible (what does this decision depend on?). `not-started`
    - Requirements: → SPEC.md §Requirements #6
    - Assumptions: —
-   - Acceptance: digress, get answer, return to main flow unchanged
-   - Branch: `ln/fe-541-side-channel`
+   - Acceptance: entities appear in categorized lists as interview progresses, dependency links navigable
 
-9. **Interview Phase 3: acceptance criteria validation** `FE-542` — LLM surfaces criteria, proposes additions, walks risks. `acceptance_criterion` and `risk` tables populated. `not-started`
-   - Requirements: → SPEC.md §Requirements #2
-   - Assumptions: —
-   - Acceptance: criteria and risks appear in dashboard after validation
-   - Branch: `ln/fe-542-interview-phase-3`
+## Phase 3: Full Interview
 
-## Phase 4: Distribution
-
-<!-- Export, versioning, and packaging. The product ships. -->
+<!-- All four phases working end-to-end. Phase transitions, resolution, and the review phases
+     for requirements and criteria. The product becomes usable. -->
 
 ### Slices
 
-10. **Spec export** `FE-543` — Flatten entity state to markdown. LLM generates from entities + exchanges. Download button. `not-started`
-    - Requirements: → SPEC.md §Requirements #8, #10
+7. **Phase transition + resolution** — Interviewing agent judges when scope phase is complete (is_resolution). Summary presented to user. User confirms to advance. UI shows phase completion state. `not-started`
+   - Requirements: → SPEC.md §Requirements #7, #8
+   - Assumptions: → SPEC.md §Assumptions A15
+   - Acceptance: agent marks resolution, summary shows, user confirms, UI reflects phase completion
+
+8. **Design drill-down phase** — Second agent skill. Walks the design tree with structured questions. Decisions extracted by observer. Continues until agent judges resolution. `not-started`
+   - Requirements: → SPEC.md §Requirements #2, #3
+   - Assumptions: → SPEC.md §Assumptions A13 (validated by slice 4)
+   - Acceptance: design questions with options, decisions extracted and shown in dashboard, agent resolves when understanding is reached
+
+9. **Requirements review phase** — Third agent skill. Walks accumulated requirements list. Agent checks for gaps, proposes additions. User confirms each. Requirements get `reviewed_at` stamped. `not-started`
+   - Requirements: → SPEC.md §Requirements #11
+   - Assumptions: —
+   - Acceptance: agent presents requirements, suggests gaps, user confirms, reviewed_at updated
+
+10. **Criteria phase** — Fourth agent skill. For each confirmed requirement, agent proposes testable criteria. User selects/edits/confirms. Criteria get `reviewed_at` stamped. `not-started`
+    - Requirements: → SPEC.md §Requirements #12
     - Assumptions: —
-    - Acceptance: click export, markdown downloads. Re-export after changes updates spec
-    - Branch: `ln/fe-543-spec-export`
+    - Acceptance: agent proposes criteria per requirement, user confirms, spec readiness predicate evaluable
 
-11. **Snapshot versioning** `FE-544` — `project_snapshot` table. Auto-snapshot at phase transitions. Restore from previous. `not-started`
-    - Requirements: → SPEC.md §Requirements #10
+## Phase 4: Revisit + Export
+
+<!-- Decision revisit (branch forking), soft invalidation, and spec export.
+     The product is complete when all phases are resolved and export works. -->
+
+### Slices
+
+11. **Decision revisit: turn tree branching** — Navigate to a previous decision in the dashboard. Fork a new branch from the source turn. Move HEAD. Abandoned branches can be restored (move HEAD back). Active path recomputation. `not-started`
+    - Requirements: → SPEC.md §Requirements #9, #10
     - Assumptions: → SPEC.md §Assumptions A6
-    - Acceptance: snapshot, change, restore, state reverts
-    - Branch: `ln/fe-544-snapshot-versioning`
+    - Acceptance: revisit a decision, new branch created, interview resumes from fork point, abandon returns to previous path
 
-12. **npx distribution** `FE-545` — `bin` entry, launcher script, single port, opens browser. Single env var: `ANTHROPIC_API_KEY`. `not-started`
+12. **Soft invalidation** — When HEAD moves to a new branch, requirements traced to superseded decisions are flagged (stale reviewed_at). Criteria inherit flag transitively. Dashboard shows invalidation state. Re-entering requirements/criteria phase re-qualifies flagged entities. `not-started`
+    - Requirements: → SPEC.md §Requirements #9
+    - Assumptions: —
+    - Acceptance: fork a branch, requirements show "needs review" state, re-review clears flags
+
+13. **Spec export** — Render markdown spec from active path entities (decisions, assumptions, requirements, criteria). Export enabled only when spec readiness predicate is true (all phases resolved + reviewed). Download button. `not-started`
+    - Requirements: → SPEC.md §Requirements #13
+    - Assumptions: —
+    - Acceptance: complete all phases, click export, markdown downloads with all active-path entities
+
+## Phase 5: Distribution
+
+<!-- Package and ship. -->
+
+### Slices
+
+14. **npx distribution** — `bin` entry, launcher starts Express (serves built Vite assets + API on one port), opens browser. Single env var: `ANTHROPIC_API_KEY`. `not-started`
     - Requirements: → SPEC.md §Requirements #1
-    - Assumptions: → SPEC.md §Assumptions A8
+    - Assumptions: → SPEC.md §Assumptions A8 (validated)
     - Acceptance: `npx brunch` with key in scope opens working app
-    - Branch: `ln/fe-545-npx-distribution`
 
-## Phase 5: Horizon
+## Horizon
 
-<!-- Future work not yet broken into slices. Revisit after Phase 4. -->
+<!-- Future work not yet broken into slices. Revisit after Phase 5. -->
 
-- Pre-prompting phase (Phase 0) — category-narrowing quiz
-- Decision DAG tracking (join tables, graph visualization)
-- Assumption↔decision links and belief invalidation
+- Exploratory pathway (for projects where the goal itself is unclear)
 - Multi-provider support via AI SDK server-side (if Claude Agent SDK becomes limiting)
 - Entity editing outside interview flow (direct CRUD on dashboard)
 - Export to GitHub Issues, Linear, YAML task definitions
+- Assumption graph visualization (explore dependency chains)
+- Decision graph visualization (tree/DAG view)
+- Project dashboard with phase completion overview (→ SPEC.md §Requirements #15)
 
 ## Dependencies
 
@@ -129,16 +149,18 @@
 
 ```
 Phase 1:  1 (skeleton) ──→ 2 (SQLite)
-Phase 2:  2 ──→ 3 (scope) ──→ 4 (extraction) ──→ 5 (dashboard)
-Phase 3:  5 ──→ 6 (transition) ──→ 7 (design) ──→ 9 (criteria)
-          3 ──→ 8 (side-channel) [independent after 3]
-Phase 4:  9 ──→ 10 (export)
-          2+5 ──→ 11 (snapshots) [independent after 2+5]
-          10 ──→ 12 (npx) [or parallelizable earlier]
+Phase 2:  2 ──→ 3 (turn schema) ──→ 4 (scope interview)
+          spike (observer) ──→ 5 (observer agent)
+          3 ──→ 5 (observer agent) ──→ 6 (dashboard)
+          4 ──→ 5
+Phase 3:  6 ──→ 7 (transitions) ──→ 8 (design) ──→ 9 (requirements) ──→ 10 (criteria)
+Phase 4:  6 ──→ 11 (branching) ──→ 12 (invalidation)
+          10 ──→ 13 (export)
+Phase 5:  13 ──→ 14 (npx)
 ```
 
 ### Parallelism opportunities
 
-- Slices 8 (side-channel) and 6-7 (phase transition + design) can run in parallel after slice 5
-- Slice 11 (snapshots) can run in parallel with slices 6-10
-- Slice 12 (npx) can start as soon as slice 1 is done (basic launcher), with full completion after slice 10
+- Slice 6 (dashboard) and slice 7 (transitions) can start in parallel once slice 5 lands
+- Slice 11 (branching) can start after slice 6, independent of slices 7-10
+- Slice 14 (npx) can start early with a basic launcher, completing after slice 13
