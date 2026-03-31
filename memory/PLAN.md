@@ -18,17 +18,19 @@
 
 ### Slices
 
-1. **Walking skeleton: SDK → SSE → React** `FE-534` — Prove the integration seam: the highest-uncertainty slice, retires the most risk. `not-started`
+1. **Walking skeleton: SDK → SSE → React** `FE-534` — Prove the integration seam: the highest-uncertainty slice, retires the most risk. `done`
    - Requirements: → SPEC.md §Requirements #1, #3
    - Assumptions: → SPEC.md §Assumptions A1, A2, A8, A10
+   - Invariants established: → SPEC.md §Invariants I1, I2, I3, I4
    - Acceptance: `npm run dev` opens browser, type a message, see streamed response with visible thinking and text. `useChat` manages all state
-   - Risks retired: SSE adapter correctness, AI SDK protocol conformance, React/Vite setup
    - Blocks: all subsequent slices
    - Branch: `ln/fe-534-walking-skeleton`
 
 2. **SQLite foundation + project persistence** `FE-535` — Replace Dolt with `better-sqlite3`. Schema: `project`, `interview_exchange`, `spec_output`. Auto-create DB on startup. Session CRUD. Resume via Claude Agent SDK `resume`. `not-started`
    - Requirements: → SPEC.md §Requirements #9
    - Assumptions: → SPEC.md §Assumptions A5
+   - Invariants to establish: DB lifecycle (create → persist → close → reopen → intact)
+   - Invariants to respect: → SPEC.md §Invariants I1, I2, I3
    - Acceptance: create project, close browser, reopen, resume conversation
    - Branch: `ln/fe-535-sqlite-persistence`
 

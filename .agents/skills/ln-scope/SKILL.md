@@ -47,22 +47,22 @@ High-risk unvalidated assumption → suggest `ln-spike` before `ln-build`. New a
 
 These become the spec tests written first in `ln-build`. Every criterion must be checkable by running a command.
 
-## Traceability
+## Traceability (mandatory — do before routing)
 
-- New assumptions surfaced during scoping → add to `memory/SPEC.md` §Assumptions with links to this slice
-- If scoping reveals requirements or decisions need updating → suggest `ln-spec`
-- If the slice doesn't fit the current plan → suggest `ln-plan`
+After the scope card is complete, do these before presenting routing options:
+
+1. New assumptions surfaced during scoping → add to `memory/SPEC.md` §Assumptions with links to this slice
 
 ## Routing
 
-After scoping, present these options to the user (use `tool-ask-question`):
+After traceability is complete, present these options to the user (use `tool-ask-question`):
 
-| #   | Label          | Target       | Why                                    |
-| --- | -------------- | ------------ | -------------------------------------- |
-| 1   | Build it       | `ln-build`   | Slice is defined, ready to implement   |
-| 2   | Spike first    | `ln-spike`   | Technical uncertainty needs resolution |
-| 3   | Update spec    | `ln-spec`    | Scoping surfaced spec-level changes    |
-| 4   | Revise plan    | `ln-plan`    | Slice doesn't fit the current plan     |
-| 5   | Back to triage | `ln-consult` | Scope revealed unclear state           |
+| #   | Label          | Target       | Why                                             |
+| --- | -------------- | ------------ | ----------------------------------------------- |
+| 1   | Build it       | `ln-build`   | Slice is defined, ready to implement            |
+| 2   | Spike first    | `ln-spike`   | Technical uncertainty needs resolution          |
+| 3   | Revise spec    | `ln-spec`    | Scoping revealed the spec needs structural revision |
+| 4   | Revise plan    | `ln-plan`    | Slice doesn't fit the current plan              |
+| 5   | Back to triage | `ln-consult` | Scope revealed unclear state                    |
 
 Recommended: **1** unless risks flagged a spike.

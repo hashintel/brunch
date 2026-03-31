@@ -34,23 +34,26 @@ The question and approach: $ARGUMENTS
 [Proceed with ln-scope, try a different approach, or abandon]
 ```
 
-After the verdict:
+## Traceability (mandatory — do before routing)
 
-- Update the assumption's confidence in `memory/SPEC.md` §Assumptions — retire if invalidated, promote if validated
-- If the verdict produces new decisions → add to `memory/SPEC.md` §Decisions
-- If the verdict surfaces new assumptions or questions → add to `memory/SPEC.md` §Assumptions
-- If the verdict changes slice feasibility → update affected slices in `memory/PLAN.md`
-- Mark the spike done in `memory/PLAN.md`
+After the verdict, do all of these before presenting routing options:
+
+1. Mark the spike `done` in `memory/PLAN.md`
+2. Update assumption confidence in `memory/SPEC.md` §Assumptions — set validated to `**validated**`, invalidated to `**invalidated**` and flag implicated slices in PLAN.md
+3. Add any new decisions to `memory/SPEC.md` §Decisions, new assumptions to §Assumptions
+4. If the verdict changes slice feasibility → update affected slices in `memory/PLAN.md`
+
+These are bookkeeping steps, not optional. Routing comes after.
 
 ## Routing
 
-After the verdict, present these options to the user (use `tool-ask-question`):
+After traceability is complete, present these options to the user (use `tool-ask-question`):
 
 | #   | Label           | Target       | Why                                               |
 | --- | --------------- | ------------ | ------------------------------------------------- |
 | 1   | Scope the slice | `ln-scope`   | Question answered — ready to define the slice     |
 | 2   | Spike again     | `ln-spike`   | New question emerged, needs another investigation |
-| 3   | Update spec     | `ln-spec`    | Verdict requires spec-level changes               |
+| 3   | Revise spec     | `ln-spec`    | Verdict revealed the spec needs structural revision |
 | 4   | Revise plan     | `ln-plan`    | Verdict changes what slices are needed            |
 | 5   | Back to triage  | `ln-consult` | Verdict changes the overall direction             |
 

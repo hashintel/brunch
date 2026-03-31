@@ -10,7 +10,9 @@ Implement **one** slice. Beck's red-green-refactor, one cycle, no scope creep.
 
 ## Input
 
-A scope card from `ln-scope`, or a clear behavior description: $ARGUMENTS
+A scope card from `ln-scope`: $ARGUMENTS
+
+The canonical path is `ln-scope` → `ln-build`. If no scope card exists, suggest `ln-scope` first. Accept a raw behavior description only for trivial changes where scoping would be ceremony.
 
 Extract: target behavior, boundary crossings, and acceptance criteria.
 
@@ -34,26 +36,29 @@ Tests are green. Now improve: align names to the lexicon in `memory/SPEC.md`, de
 
 Run the project's verification harness. All checks must pass. Commit: `feat: [target behavior in lowercase]`
 
-## Traceability
+## Traceability (mandatory — do before routing)
 
-After the slice lands:
+After the slice lands and verification passes, do all of these before presenting routing options:
 
-- Mark it done in `memory/PLAN.md`
-- If implementation validated or invalidated assumptions → update `memory/SPEC.md` §Assumptions, flag affected slices in `memory/PLAN.md`
-- If implementation produced new decisions or surfaced new assumptions → update `memory/SPEC.md` §Decisions / §Assumptions
-- If the plan needs significant revision → suggest `ln-plan`; if the spec needs revision → suggest `ln-spec`
+1. Mark the slice `done` in `memory/PLAN.md`
+2. Update assumption confidence in `memory/SPEC.md` §Assumptions — set validated assumptions to `**validated**`, invalidated ones to `**invalidated**` and flag implicated slices in PLAN.md
+3. Add new invariants to `memory/SPEC.md` §Invariants — each structural property now protected by tests. Update `memory/PLAN.md` slice with `Invariants established: I#`
+4. Add any new decisions to `memory/SPEC.md` §Decisions, new assumptions to §Assumptions
+5. Update `memory/SPEC.md` §Verification Design → Current Coverage with new test files and counts
+
+These are bookkeeping steps, not optional. Routing comes after.
 
 ## Routing
 
-After the slice lands, present these options to the user (use `tool-ask-question`):
+After traceability is complete, present these options to the user (use `tool-ask-question`):
 
-| #   | Label            | Target       | Why                                          |
-| --- | ---------------- | ------------ | -------------------------------------------- |
-| 1   | Scope next slice | `ln-scope`   | More slices remain on the plan               |
-| 2   | Review the code  | `ln-review`  | Assess quality after an implementation burst |
-| 3   | Update spec      | `ln-spec`    | Build surfaced spec-level changes            |
-| 4   | Revise plan      | `ln-plan`    | Revisit the plan or re-prioritize            |
-| 5   | Back to triage   | `ln-consult` | Direction needs reassessment                 |
+| #   | Label            | Target       | Why                                                          |
+| --- | ---------------- | ------------ | ------------------------------------------------------------ |
+| 1   | Scope next slice | `ln-scope`   | More slices remain on the plan                               |
+| 2   | Review the code  | `ln-review`  | Assess quality after an implementation burst                 |
+| 3   | Revise spec      | `ln-spec`    | Build revealed the spec needs structural revision            |
+| 4   | Revise plan      | `ln-plan`    | Revisit the plan or re-prioritize                            |
+| 5   | Back to triage   | `ln-consult` | Direction needs reassessment                                 |
 
 Recommended: **1** if pending slices exist, **2** after multiple consecutive builds.
 

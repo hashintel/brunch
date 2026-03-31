@@ -16,9 +16,9 @@ If context is unclear, ask **one** clarifying question — then recommend.
 | Idea is vague, needs fleshing out                        | `ln-grill`    |
 | Understanding exists, needs a written spec               | `ln-spec`     |
 | Spec exists, needs a plan with slices                    | `ln-plan`     |
-| Plan exists, need to define one slice precisely          | `ln-scope`    |
+| Plan exists, next slice needs a scope card               | `ln-scope`    |
 | Module interface needs exploration                       | `ln-design`   |
-| Slice is defined, ready to code                          | `ln-build`    |
+| Scope card exists (from `ln-scope`), ready to code       | `ln-build`    |
 | Technical uncertainty blocks a slice                     | `ln-spike`    |
 | Code works but needs restructuring                       | `ln-refactor` |
 | Code works but quality/architecture needs audit          | `ln-review`   |

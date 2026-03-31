@@ -2,46 +2,33 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"predev": "node scripts/kill-port.js",
-		"dev": "concurrently \"vite\" \"node --watch --env-file=.env server/server.js\"",
-		"preserver": "node scripts/kill-port.js",
-		"server": "node --env-file=.env server/server.js",
+		"dev": "concurrently \"vite\" \"npx tsx --env-file=.env --watch src/server/index.ts\"",
+		"server": "npx tsx --env-file=.env src/server/index.ts",
 		"build": "vite build",
-		"preview": "vite preview",
-		"test": "vitest run",
-		"dolt": "docker rm -f brunch-dolt 2>/dev/null; docker run -d --name brunch-dolt -p 3307:3306 -e DOLT_ROOT_PASSWORD= -e DOLT_DATABASE=brunch -v brunch-dolt:/var/lib/dolt dolthub/dolt-sql-server"
+		"test": "vitest run"
 	},
 	"dependencies": {
+		"@ai-sdk/react": "^3.0.143",
 		"@anthropic-ai/claude-agent-sdk": "^0.2.77",
-		"@dnd-kit/core": "^6.3.1",
-		"@dnd-kit/sortable": "^10.0.0",
-		"@dnd-kit/utilities": "^3.2.2",
 		"@modelcontextprotocol/sdk": "^1.27.1",
-		"@opencode-ai/sdk": "^1.3.0",
-		"@tanstack/react-table": "^8.21.3",
-		"cors": "^2.8.6",
-		"dompurify": "^3.3.3",
+		"@vitejs/plugin-react": "^5.2.0",
 		"express": "^5.2.1",
-		"marked": "^17.0.4",
-		"mysql2": "^3.20.0",
-		"preact": "^10.26.9",
-		"preact-iso": "^2.11.1",
-		"preact-render-to-string": "^6.6.6"
+		"react": "^19.2.4",
+		"react-dom": "^19.2.4"
 	},
 	"devDependencies": {
-		"@preact/preset-vite": "^2.10.2",
 		"@types/cors": "^2.8.19",
 		"@types/express": "^5.0.6",
+		"@types/react": "^19.2.14",
+		"@types/react-dom": "^19.2.3",
 		"@types/supertest": "^7.2.0",
 		"concurrently": "^9.2.1",
 		"eslint": "^9.39.4",
-		"eslint-config-preact": "^2.0.0",
 		"supertest": "^7.2.2",
+		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.0.4",
 		"vitest": "^4.1.0"
 	},
-	"eslintConfig": {
-		"extends": "preact"
-	}
+	"eslintConfig": {}
 }
