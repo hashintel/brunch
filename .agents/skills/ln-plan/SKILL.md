@@ -8,6 +8,10 @@ argument-hint: "[feature or project area to plan]"
 
 Break a feature into tracer-bullet slices and spikes (Hunt & Thomas), grouped into temporal phases. Slices are thin end-to-end paths through all integration layers. Order by uncertainty first, dependency second (Reinertsen: retire risk early, not just finish tasks early).
 
+**Epistemic horizon.** Plan depth must match confidence depth. If `memory/SPEC.md` §Assumptions contains low-confidence items that downstream slices depend on, the plan's horizon stops there — plan spikes that retire the uncertainty, not slices that assume it away.
+
+**Spike economics.** For each low-confidence assumption, evaluate: how many slices depend on it, how cheaply it can be falsified, what decisions it unlocks. High fan-out + low falsification cost → spike early. When uncertainty is broad, the first slices should be invariant-establishing (walking skeleton), not feature-delivering.
+
 ## Input
 
 The feature or project area: $ARGUMENTS

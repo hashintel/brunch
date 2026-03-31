@@ -7,12 +7,14 @@ This project uses symlinks for tool compatibility. Do not duplicate or overwrite
 - `CLAUDE.md` → `AGENTS.md` (same file; CLAUDE.md is what Claude Code reads, AGENTS.md is the canonical name)
 - `.claude/skills/` → `.agents/skills/` (skill definitions live in `.agents/skills/`)
 
-## git workflow
+## workflow
 
-- Branch naming: `ln/{param-case-issue-id}-{param-case-keywords}` (e.g. `ln/fe-534-walking-skeleton`)
-- Use Graphite (`gt`) for stacked PRs. Use `tool-graphite` skill for reference.
-- Use Linear CLI (`linear`) for issue management. Use `tool-linear-cli` skill for reference.
-- Parent issue: FE-531 (Spec elicitation deliverable)
+Slices and spikes in `memory/PLAN.md` are the unit of work. When starting one:
+
+1. Create a Linear issue under FE-531 — use `/cli-linear`
+2. Create a Graphite stacked branch: `ln/{issue-id}-{keywords}` (e.g. `ln/fe-534-walking-skeleton`) — use `/cli-graphite`
+
+One branch per slice/spike. Stacked branches mirror slice dependencies in PLAN.md. Graphite manages the stack; Linear tracks the issue.
 
 ## planning
 
