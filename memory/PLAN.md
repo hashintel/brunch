@@ -26,12 +26,12 @@
    - Blocks: all subsequent slices
    - Branch: `ln/fe-534-walking-skeleton`
 
-2. **SQLite foundation + project persistence** `FE-535` — Replace Dolt with `better-sqlite3`. Schema: `project`, `interview_exchange`, `spec_output`. Auto-create DB on startup. Session CRUD. Resume via Claude Agent SDK `resume`. `not-started`
+2. **SQLite foundation + project persistence** `FE-535` — Replace Dolt with `better-sqlite3`. Schema: `project`, `message`. Auto-create DB on startup. Session CRUD. Conversation history replay via formatted prompt. `done`
    - Requirements: → SPEC.md §Requirements #9
-   - Assumptions: → SPEC.md §Assumptions A5
-   - Invariants to establish: DB lifecycle (create → persist → close → reopen → intact)
-   - Invariants to respect: → SPEC.md §Invariants I1, I2, I3
-   - Acceptance: create project, close browser, reopen, resume conversation
+   - Assumptions: → SPEC.md §Assumptions A5 (validated), A11 (workaround validated), A12 (validated)
+   - Invariants established: → SPEC.md §Invariants I5, I6
+   - Invariants respected: → SPEC.md §Invariants I1, I2, I3
+   - Acceptance: create project, send message, refresh page, see history, continue conversation
    - Branch: `ln/fe-535-sqlite-persistence`
 
 ## Phase 2: Interview Core

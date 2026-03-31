@@ -64,12 +64,14 @@ The architecture:
 | A2  | Claude Agent SDK `query()` with `includePartialMessages` provides all streaming event types needed for CLI-quality feedback       | **validated** | D6                | Walking skeleton           | Validated: adapter translates stream_event messages correctly  |
 | A3  | Separating interviewer from entity extraction produces better interview quality than inline tool calling                          | medium     | D1                  | Entity extraction pipeline | Compare interview coherence with and without tool-calling load |
 | A4  | Entity extraction completes in 1-3s during user read/think time (10-60s), adding zero perceived latency                           | medium     | D1                  | Entity extraction pipeline | Measure extraction latency with realistic exchange payloads    |
-| A5  | `better-sqlite3` npm prebuilt binary works across macOS/Linux without native compilation issues                                   | high       | D5                  | SQLite foundation          | Widely tested; validate on CI matrix                           |
+| A5  | `better-sqlite3` npm prebuilt binary works across macOS/Linux without native compilation issues                                   | **validated** | D5                  | SQLite foundation          | Validated: installed on macOS without native compilation issues |
 | A6  | Snapshot-based versioning in SQLite is sufficient for undo/redo in a single-user tool                                             | high       | D5                  | Snapshot versioning        | Validate with realistic entity counts                          |
 | A7  | Users arriving at the tool have a reasonably defined goal                                                                         | medium     | —                   | Interview Phase 1          | User testing; exploratory pathway deferred if false            |
 | A8  | A single Express port serving API + static assets is sufficient for npx distribution                                              | **validated** | D8                | npx distribution           | Validated: Vite proxy to Express works in dev; single port     |
 | A9  | TanStack AI is too immature for a deliverable (alpha, v0)                                                                         | medium     | D7                  | —                          | Re-evaluate if AI SDK becomes constraining                     |
 | A10 | The `useChat` hook can consume custom SSE without AI SDK server runtime                                                           | **validated** | D7                | Walking skeleton           | Validated: useChat consumes custom SSE via DefaultChatTransport |
+| A11 | Claude Agent SDK `query()` supports multi-turn conversation — either via session resume or by accepting formatted conversation history | medium     | D6                  | SQLite foundation          | Workaround validated: formatting history into prompt works; native resume untested |
+| A12 | `useChat` hook accepts initial messages to hydrate conversation state from server-stored history                                    | **validated** | D7                  | SQLite foundation          | Validated: `useChat` doesn't have `initialMessages` prop but `setMessages` works for hydration |
 
 
 ## Decisions
@@ -101,6 +103,8 @@ The architecture:
 | I2  | Stream lifecycle correctness | Slice 1 (skeleton) | app.test.ts                       | D6     |
 | I3  | Thinking/text separation     | Slice 1 (skeleton) | sse-adapter.test.ts, app.test.ts  | D6     |
 | I4  | Vite proxy routing           | Slice 1 (skeleton) | vite.config.ts (manual)           | D8     |
+| I5  | DB lifecycle correctness     | Slice 2 (SQLite)   | db.test.ts                        | D5     |
+| I6  | Message persistence          | Slice 2 (SQLite)   | db.test.ts, app.test.ts           | D5     |
 
 ## Lexicon
 
@@ -165,10 +169,11 @@ End-to-end slices must be **user-testable**, not just programmatically tested. E
 
 ### Current Coverage
 
-| File                     | Tests | Protects     |
-| ------------------------ | ----- | ------------ |
-| sse-adapter.test.ts      | 10    | I1, I3       |
-| app.test.ts              | 5     | I2, I3       |
+| File                     | Tests | Protects         |
+| ------------------------ | ----- | ---------------- |
+| sse-adapter.test.ts      | 10    | I1, I3           |
+| app.test.ts              | 8     | I2, I3, I5, I6   |
+| db.test.ts               | 10    | I5, I6           |
 
 ## Acceptance Criteria (exit conditions)
 
