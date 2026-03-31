@@ -1,7 +1,7 @@
 import express from 'express';
 import type { Request, Response } from 'express';
 import { query } from '@anthropic-ai/claude-agent-sdk';
-import { translateEvent, formatSSE, resetAdapter } from './sse-adapter.js';
+import { createTranslator, formatSSE } from './sse-adapter.js';
 import { createDb, getOrCreateProject, saveMessage, getMessages } from './db.js';
 
 export function createApp(dbPath?: string) {
@@ -43,7 +43,7 @@ export function createApp(dbPath?: string) {
 		res.setHeader('Cache-Control', 'no-cache');
 		res.setHeader('Connection', 'keep-alive');
 
-		resetAdapter();
+		const { translateEvent } = createTranslator();
 		let assistantText = '';
 
 		try {
