@@ -1,6 +1,11 @@
-<!-- SPEC.md — the single source of truth for WHAT we're building and WHY.
+<!-- SPEC.md — single source of truth for WHAT we're building and WHY.
      Created by ln-spec · Read by all skills · Updated by ln-sync.
-     Authority: requirements, constraints, assumptions, decisions, domain language, verification strategy. -->
+     Authority: requirements, constraints, assumptions, decisions, domain language, verification strategy.
+
+     When re-running ln-spec: read this file first, preserve existing content, evolve sections that need change.
+     Cross-referenced by PLAN.md slices and spikes via §-prefixed section links. -->
+
+# [Project Name]
 
 ## Concept & Goal
 
@@ -12,7 +17,11 @@
 
 ## Requirements
 
-<!-- What the system must do. Extensive — cover all aspects. -->
+<!-- What the system must do. Extensive — cover all aspects.
+     Each numbered for cross-reference from PLAN.md slices. -->
+
+1. [Requirement]
+2. ...
 
 ## Assumptions
 
@@ -22,22 +31,23 @@
      When validated: promote to §Lexicon or §Decisions via ln-sync.
      When invalidated: record in §Decisions, flag implicated slices in PLAN.md. -->
 
-| Assumption   | Confidence      | Dependent decisions | Implicated slices | Validation approach |
-| ------------ | --------------- | ------------------- | ----------------- | ------------------- |
-| [hypothesis] | low/medium/high | [→ §Decisions #N]   | [→ PLAN.md slice] | [how to falsify]    |
+| #   | Assumption   | Confidence      | Dependent decisions | Implicated slices | Validation approach |
+| --- | ------------ | --------------- | ------------------- | ----------------- | ------------------- |
+| A1  | [hypothesis] | low/medium/high | [→ §Decisions #N]   | [→ PLAN.md slice] | [how to falsify]    |
 
 ## Decisions
 
 <!-- Ordered list — latter supersedes former.
-     Each decision names what it resolved and what assumptions it depends on.
+     Each names what it resolved and what assumptions it depends on.
      No file paths or code snippets — they go stale. -->
 
-1. **[Decision]** — [rationale]. Depends on: [§Assumptions]. Supersedes: [—|#N].
+1. **[Decision]** — [rationale]. Depends on: [A1, A2]. Supersedes: [—|#N].
 
 ## Lexicon
 
 <!-- Canonical terms. Code names must match.
-     Method terms come first, then project-specific domain terms. -->
+     Method terms come first, then project-specific domain terms.
+     Survey with ln-review; realign with ln-refactor. -->
 
 | Term            | Definition                                                                                    |
 | --------------- | --------------------------------------------------------------------------------------------- |
@@ -63,3 +73,6 @@
 ## Acceptance Criteria (exit conditions)
 
 <!-- Observable, testable targets for completion. -->
+
+1. [Criterion]
+2. ...

@@ -1,190 +1,165 @@
+<!-- SPEC.md — single source of truth for WHAT we're building and WHY.
+     Created by ln-spec · Read by all skills · Updated by ln-sync.
+     Authority: requirements, constraints, assumptions, decisions, domain language, verification strategy.
+
+     When re-running ln-spec: read this file first, preserve existing content, evolve sections that need change.
+     Cross-referenced by PLAN.md slices and spikes via §-prefixed section links. -->
+
 # Brunch v2 — Spec Elicitation Tool
 
-## Problem Statement
+## Concept & Goal
 
-Brunch is an inherited prototype that turns natural-language project goals into structured specifications through an AI-guided interview. The prototype works but is overbuilt: it requires Docker (Dolt), an optional OpenCode sidecar process, has two parallel frontend implementations, a hand-rolled NDJSON streaming protocol that drops ~80% of available agent events, and domain terminology that doesn't match what the entities actually represent.
+<!-- Why this exists and what success looks like. The "why" shapes the solution space. -->
 
-The tool cannot be launched with a single command. It requires multiple env vars, a running Docker container, and manual setup. The codebase is plain JS with no type safety, duplicated CRUD logic across two tool surfaces, and four near-identical streaming functions.
+Brunch is an AI-guided spec elicitation tool that turns natural-language project goals into structured specifications through a multi-phase interview. The current prototype works but is overbuilt: Docker (Dolt), optional OpenCode sidecar, two parallel frontends, hand-rolled NDJSON streaming that drops ~80% of available agent events, and domain terminology that doesn't match what the entities actually represent.
 
-The user needs a clean, focused v1 that can be installed and run with `npx brunch` and at most one or two environment variables.
-
-## Solution
-
-Rebuild Brunch as a single-command local tool that guides users through a structured AI interview to produce a fire-and-forget SPEC.md. The interview is driven by the Claude Agent SDK with the full event surface (thinking, tool progress, subagent events, permissions) streamed to a React frontend via the Vercel AI SDK's documented SSE protocol.
+The goal is a clean v2 that runs with `npx brunch` and one env var (`ANTHROPIC_API_KEY`). The interview is driven by the Claude Agent SDK with the full event surface (thinking, tool progress, subagent events, permissions) streamed to a React frontend via the Vercel AI SDK's documented SSE protocol. Output is a fire-and-forget SPEC.md.
 
 The architecture:
 
-- **Agent engine**: Claude Agent SDK (`query()`) — provides tool use, MCP, session resume, subagents, permissions, and rich streaming events
-- **Server**: Express.js (plain JS) — iterates SDK messages, translates them to AI SDK's SSE data stream protocol. No AI SDK runtime imported server-side; just emit conformant SSE
-- **Transport**: AI SDK UI Message Stream protocol (SSE with typed JSON events: `text-delta`, `reasoning-delta`, `tool-input-*`, `data-*` custom parts)
-- **Client**: React + Vite + `@ai-sdk/react` `useChat` hook — consumes the SSE stream natively, manages message state, provides status/stop/regenerate
-- **Database**: SQLite via `better-sqlite3` — zero-config, embedded, ships as npm prebuilt binary
+- **Agent engine**: Claude Agent SDK (`query()`) — tool use, MCP, session resume, subagents, permissions, rich streaming events
+- **Server**: Express.js — iterates SDK messages, translates to AI SDK's UI Message Stream SSE protocol. No AI SDK runtime server-side
+- **Transport**: AI SDK UI Message Stream protocol (SSE with typed JSON events)
+- **Client**: React + Vite + `@ai-sdk/react` `useChat` hook — consumes SSE natively
+- **Database**: SQLite via `better-sqlite3` — zero-config, embedded
 - **Output**: Flattened markdown SPEC.md exported on demand
 
-## User Stories
+## Constraints & Non-goals
 
-1. As a developer, I want to run `npx brunch` with just an `ANTHROPIC_API_KEY` env var and have the tool open in my browser, so that setup is instant.
+<!-- Boundaries and deliberate exclusions. What we will NOT do. -->
 
-2. As a user, I want to describe what I'm building and have the AI walk me through a structured interview, so that I produce a thorough spec without missing important decisions.
+- **Anthropic-only** — no multi-provider support (OpenAI, Gemini, Ollama)
+- **No decision DAG** — join tables and graph structure deferred; relationships captured in spec text
+- **No belief invalidation / cascading** — fire-and-forget; no runtime propagation
+- **No task planning** — consumers of the spec, not part of this tool
+- **No exploratory pathway** — assumes user has a reasonably defined goal
+- **Single-user** — no collaborative editing
+- **No custom model selection UI** — single model, configurable via env var at most
+- **No Dolt** — replaced by SQLite snapshots
+- **No AG-UI / CopilotKit** — AI SDK SSE protocol is sufficient
 
-3. As a user, I want to see the AI's thinking process, tool usage, and progress in real-time as it streams, so that I have CLI-quality visibility into what the agent is doing.
+## Requirements
 
-4. As a user, I want to see accumulated entities (decisions, assumptions, requirements, acceptance criteria) appear in a dashboard as the interview progresses, so that I can see what's been established so far.
+<!-- What the system must do. Extensive — cover all aspects.
+     Each numbered for cross-reference from PLAN.md slices. -->
 
-5. As a user, I want the AI to present structured questions with at least two options and a recommendation, so that each design fork is explicit and my choices are recorded.
+1. Run `npx brunch` with just `ANTHROPIC_API_KEY` and have the tool open in the browser — setup is instant
+2. Describe what you're building and have the AI walk through a structured interview — thorough spec without missing important decisions
+3. See the AI's thinking process, tool usage, and progress in real-time — CLI-quality visibility
+4. See accumulated entities (decisions, assumptions, requirements, acceptance criteria) in a dashboard as the interview progresses
+5. AI presents structured questions with ≥2 options and a recommendation — each design fork explicit and recorded
+6. Ask clarifying questions or push back without derailing the main flow — explore before committing
+7. Summary and confirmation gate at each phase transition — review what's been captured before moving on
+8. Export the spec as markdown at any time — hand to a coding agent or share
+9. Close the browser and resume later — not forced to complete in one sitting
+10. Revisit and change previous decisions, then re-export — spec evolves as understanding deepens
 
-6. As a user, I want to be able to ask clarifying questions or push back on any interview question without derailing the main flow, so that I can explore before committing.
+## Assumptions
 
-7. As a user, I want a summary and confirmation gate at each phase transition (scope → design → criteria), so that I can review what's been captured before moving on.
+<!-- Falsifiable beliefs accepted as true but not yet verified.
+     Low-confidence assumptions are spike candidates during planning.
+     Each links to the decisions it supports and the slices it implicates.
+     When validated: promote to §Lexicon or §Decisions via ln-sync.
+     When invalidated: record in §Decisions, flag implicated slices in PLAN.md. -->
 
-8. As a user, I want to export the current spec as a markdown file at any time, so that I can hand it to a coding agent or share it with my team.
+| #   | Assumption                                                                                                                      | Confidence | Dependent decisions | Implicated slices              | Validation approach                                                 |
+| --- | ------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------- | ------------------------------ | ------------------------------------------------------------------- |
+| A1  | AI SDK's UI Message Stream SSE protocol is documented and stable enough to emit conformantly without importing AI SDK server-side | high       | D6                  | Walking skeleton               | Spike: build minimal SSE emitter, verify useChat consumes it        |
+| A2  | Claude Agent SDK `query()` with `includePartialMessages` provides all streaming event types needed for CLI-quality feedback       | high       | D6                  | Walking skeleton               | Proven in prototype; validate full event taxonomy in skeleton        |
+| A3  | Separating interviewer from entity extraction produces better interview quality than inline tool calling                          | medium     | D1                  | Entity extraction pipeline     | Compare interview coherence with and without tool-calling load       |
+| A4  | Entity extraction completes in 1-3s during user read/think time (10-60s), adding zero perceived latency                          | medium     | D1                  | Entity extraction pipeline     | Measure extraction latency with realistic exchange payloads          |
+| A5  | `better-sqlite3` npm prebuilt binary works across macOS/Linux without native compilation issues                                  | high       | D5                  | SQLite foundation              | Widely tested; validate on CI matrix                                 |
+| A6  | Snapshot-based versioning in SQLite is sufficient for undo/redo in a single-user tool                                            | high       | D5                  | Snapshot versioning            | Validate with realistic entity counts                                |
+| A7  | Users arriving at the tool have a reasonably defined goal                                                                        | medium     | —                   | Interview Phase 1              | User testing; exploratory pathway deferred if false                  |
+| A8  | A single Express port serving API + static assets is sufficient for npx distribution                                             | high       | D8                  | npx distribution               | Standard pattern; validate in skeleton                               |
+| A9  | TanStack AI is too immature for a deliverable (alpha, v0)                                                                        | medium     | D7                  | —                              | Re-evaluate if AI SDK becomes constraining                           |
+| A10 | The `useChat` hook can consume custom SSE without AI SDK server runtime                                                          | high       | D7                  | Walking skeleton               | Validated by protocol docs; confirm in skeleton                      |
 
-9. As a user, I want to close the browser and come back later to resume my interview where I left off, so that I'm not forced to complete it in one sitting.
+## Decisions
 
-10. As a user, I want to revisit and change previous decisions, then re-export, so that the spec evolves as my understanding deepens.
+<!-- Ordered list — latter supersedes former.
+     Each names what it resolved and what assumptions it depends on.
+     No file paths or code snippets — they go stale.
+     Q&A rationale is folded into each decision's description. -->
 
-## Implementation Decisions
+1. **Two-LLM-call pattern (interviewer + extractor)** — The interviewer focuses solely on conducting a high-quality interview; it does not call entity CRUD tools. After each exchange, a separate structured-output call extracts entities from the exchange + current state. Runs during user read/think time. Extraction can use a cheaper/faster model (e.g. Haiku). Keeps the interviewer prompt clean and extraction independently testable. Depends on: A3, A4. Supersedes: —.
 
-### Architecture: two-LLM-call pattern (interviewer + extractor)
+2. **Three interview phases with confirm gates** — (0) optional pre-prompting, (1) scope establishment, (2) design tree exploration, (3) acceptance criteria validation. Phase transitions are LLM-proposed, user-confirmed. The summary-and-confirm pattern serves as both UX checkpoint and entity consolidation moment. Interview length is emergent, not predetermined. Depends on: A7. Supersedes: —.
 
-The interviewer LLM focuses solely on conducting a high-quality interview — asking questions, providing options, responding to answers. It does not call entity CRUD tools.
+3. **Guided chat with structured escape hatch** — Main flow is LLM-driven with structured questions (≥2 options + recommendation + open-ended). Freeform digressions happen via a separate LLM call scoped to current question context, so tangents don't pollute the interview transcript or entity extraction. Depends on: —. Supersedes: —.
 
-After each exchange completes, a separate structured-output LLM call extracts entities (decisions, assumptions, requirements, etc.) from the exchange + current entity state. This runs during user read/think time (zero perceived latency). The extraction call can use a cheaper/faster model (e.g. Haiku).
+4. **Entity model: materialized for UI, derived from exchanges** — Entities materialize into SQLite for the dashboard, but the interview exchange is the source of truth. Tables: `project`, `interview_exchange`, `goal`, `scope`, `decision`, `assumption`, `requirement`, `acceptance_criterion`, `risk`, `spec_output`. Join tables deferred to v2 — relationships captured in spec text, not enforced in schema. Depends on: A3. Supersedes: —.
 
-Rationale: separating interviewer from entity extraction keeps the interview prompt clean and the extraction testable independently.
+5. **SQLite via better-sqlite3 replaces Dolt** — Zero-config embedded DB. Snapshot versioning via `project_snapshot` table (serialized entity state, created at phase transitions and on-demand). Diff is client-side JSON comparison. Undo = restore from snapshot. Dolt's differentiator (cell-level merge across concurrent writers) is a multi-user problem this single-user tool doesn't have. Depends on: A5, A6. Supersedes: Dolt (docker-based).
 
-### Interview phases
+6. **Express.js server emits AI SDK-conformant SSE** — Plain JS. Iterates SDK's `query()` async generator, translates each `SDKMessage` into SSE events matching AI SDK's UI Message Stream protocol. Event mapping: `SDKPartialAssistantMessage` → `text-delta`/`reasoning-delta`/`tool-input-*`; `SDKToolProgressMessage` → `data-tool-progress`; `SDKResultMessage` → `finish`; domain events use `data-*` custom part pattern. No AI SDK runtime imported server-side — value is purely the documented protocol and the React hook. Depends on: A1, A2. Supersedes: hand-rolled NDJSON streaming.
 
-0. **Pre-prompting** (optional) — category-narrowing quiz to set context
-1. **Scope establishment** — user states intent, LLM interviews to surface boundaries, hard requirements, non-goals. Initial acceptance criteria accumulate in background.
-2. **Design tree exploration** — LLM works down every aspect of how things should work. Every question is a fork with ≥2 options + recommendation + open-ended "something else." Sub-routines may include feature exploration (shape-up style) and module design.
-3. **Acceptance criteria validation** — all criteria (explicit + background) surfaced and validated. LLM proposes additional criteria, walks risks, failure modes, caveats.
+7. **React + Vite + @ai-sdk/react client** — `useChat` for conversation (streaming, status, stop, message state). Custom components for entity dashboard (updated via `data-*` events). Phase indicator. Freeform side-panel as separate `useChat` instance. AG-UI was rejected (no Claude Agent SDK integration; CopilotKit component model fights the custom interview UI). TanStack AI was too young (alpha, v0). Depends on: A9, A10. Supersedes: Preact, both existing frontends.
 
-Phase transitions: LLM proposes, user confirms. The summary-and-confirm pattern serves as both UX checkpoint and entity consolidation moment.
+8. **npx-launchable single-command distribution** — `bin` entry, launcher starts Express (serves built Vite assets + API on one port), opens browser. Single env var: `ANTHROPIC_API_KEY`. DB auto-created in project directory or `~/.brunch/`. Depends on: A8. Supersedes: multi-step Docker + env var setup.
 
-Interview length is emergent, not predetermined. The LLM drives the conversation until shared understanding is reached.
+9. **Drop list** — Dolt/mysql2, OpenCode sidecar, Preact, both existing frontend implementations, NDJSON protocol, JSON Schema definitions (→ Zod), @tanstack/react-table, @dnd-kit/\*, dompurify, marked, four streaming functions in claude.js, dispatch.js. Depends on: —. Supersedes: —.
 
-### Interaction model: guided chat with structured escape hatch
+10. **Reference list** — Claude Agent SDK integration pattern (`query()` + `includePartialMessages`), Express server structure, Vite config (adapted for React), test structure (Vitest + Supertest), REMODEL.md domain model. Depends on: —. Supersedes: —.
 
-The main flow is LLM-driven: it presents structured questions, user responds. But at any question, the user can enter a freeform digression ("ask me about this"). Freeform chat is a separate LLM call scoped to the current question's context, so tangents don't pollute the interview transcript or entity extraction.
+## Lexicon
 
-### Entity model (materialized for UI, derived from exchanges)
+<!-- Canonical terms. Code names must match.
+     Method terms come first, then project-specific domain terms.
+     Survey with ln-review; realign with ln-refactor. -->
 
-Entities are materialized into SQLite for the dashboard, but the interview exchange is the source of truth. The extraction step creates/updates entities after each exchange.
+| Term                    | Definition                                                                                                       |
+| ----------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| **assumption**          | A falsifiable belief accepted as true; tracked with confidence, linked to decisions and slices                    |
+| **decision**            | A recorded choice that resolves a question; ordered, with supersession chain                                     |
+| **requirement**         | A capability the system must provide                                                                             |
+| **slice**               | A thin end-to-end tracer-bullet path through all integration layers                                             |
+| **spike**               | A time-boxed throwaway investigation to answer one hard question                                                |
+| **phase** (plan)        | A temporal grouping of slices and spikes in PLAN.md                                                             |
+| **exchange**            | The universal interaction primitive: one question-answer pair in the interview. Stored in `interview_exchange`    |
+| **entity**              | A structured data item extracted from exchanges: decision, assumption, requirement, acceptance criterion, risk, goal, scope |
+| **extraction**          | The process of deriving entities from an exchange via a separate LLM call                                        |
+| **interviewer**         | The primary LLM role: conducts the interview, presents structured questions. Does not call entity CRUD tools     |
+| **extractor**           | The secondary LLM role: derives entities from exchanges. Runs post-exchange during user think time               |
+| **interview phase**     | A stage of the interview flow: scope establishment → design tree exploration → acceptance criteria validation     |
+| **phase transition**    | An LLM-proposed, user-confirmed checkpoint between interview phases, with summary review                         |
+| **structured question** | A question with ≥2 options, a recommendation, and an open-ended "something else" escape                         |
+| **side-channel**        | A freeform digression scoped to the current question, isolated from the main interview transcript                |
+| **dashboard**           | The UI sidebar showing accumulated entities by type, updated live via SSE events                                 |
+| **snapshot**            | A serialized dump of all entity state for a project, stored in `project_snapshot` for undo/redo                  |
+| **spec output**         | The flattened markdown SPEC.md generated from entity state + exchanges                                           |
+| **pathway**             | The interview approach (currently: structured; future: exploratory). Stored on the project                       |
 
-**Tables:**
+## Verification Design
 
-- `project` — identity, phase, pathway, model, timestamps
-- `interview_exchange` — the universal interaction primitive: question, why, options, recommendation, answer, phase, lens, sort_order
-- `goal` — versioned refined goal text
-- `scope` — inclusions, exclusions, constraints (linked to source exchange)
-- `decision` — resolved design forks with options considered, chosen, rationale, lens (linked to source exchange)
-- `assumption` — falsifiable beliefs with confidence and impact_if_wrong (linked to source exchange)
-- `requirement` — what the system must do, with rationale and priority (linked to source exchange)
-- `acceptance_criterion` — testable conditions linked to requirements, with verification_type
-- `risk` — failure modes with severity, likelihood, mitigation
-- `spec_output` — versioned rendered markdown specs
+<!-- Three-tier feedback loops, cheapest first.
+     Inner: agent-autonomous, always-on (ms–seconds).
+     Middle: regression gates (seconds–minutes).
+     Outer: human observer, strategy redirect (minutes–hours). -->
 
-Join tables deferred to v2: `decision_assumption`, `decision_dependency`, `risk_decision`, `risk_criterion`. For v1, relationships are captured in the spec text, not enforced in schema.
+- **Inner loop** (ms–seconds): type checks, fast unit tests, linting — agent-autonomous, always-on
+  - SSE adapter: given an `SDKMessage`, assert correct SSE event string output
+  - Entity extraction: given an exchange + entity state, assert correct entity operations (snapshot fixtures)
+  - Snapshot versioning: create → snapshot → modify → snapshot → restore → assert state match
+- **Middle loop** (seconds–minutes): integration tests, regression gates
+  - Interview flow: POST user message via Supertest, assert SSE stream contains expected event types in order
+  - DB lifecycle: create project → persist exchanges → close → reopen → assert state intact
+  - Prior art: existing Vitest + Supertest suite (64 tests, 3 files) — same pattern, new tests
+- **Outer loop** (minutes–hours): e2e, human observer
+  - Full interview walkthrough in browser: structured questions render, entities appear in dashboard, phase transitions work, export produces valid markdown
+  - Resume test: close browser mid-interview, reopen, verify conversation and entity state intact
 
-### Snapshot-based versioning (replaces Dolt)
+## Acceptance Criteria (exit conditions)
 
-A `project_snapshot` table with `(project_id, version, snapshot_json, created_at)`. The snapshot is a serialized dump of all entity state for the project. Created at phase transitions and on-demand. Diff is client-side JSON comparison. Undo = restore from previous snapshot.
+<!-- Observable, testable targets for completion. -->
 
-### Server: Express.js, plain JS
-
-The server stays plain JS. The Claude Agent SDK's `query()` async generator is iterated in an Express route handler. Each `SDKMessage` is translated into an SSE event conforming to AI SDK's UI Message Stream protocol:
-
-- `SDKPartialAssistantMessage` (type `stream_event`) → `text-delta`, `reasoning-delta`, `tool-input-*` events
-- `SDKToolProgressMessage` → `data-tool-progress` custom event
-- `SDKResultMessage` → `finish` event with usage metadata
-- `SDKSystemMessage` → `data-system-init` custom event
-- `SDKTaskStartedMessage` / `SDKTaskProgressMessage` → `data-task-*` custom events
-
-Response headers: `Content-Type: text/event-stream`, `x-vercel-ai-ui-message-stream: v1`.
-
-Domain-specific events (entity extraction results, phase transitions) use AI SDK's `data-*` custom part pattern.
-
-### Client: React + Vite + @ai-sdk/react
-
-- `useChat` hook for the conversation column (streaming, status, stop, message state)
-- Custom React components for the entity dashboard (reads from app state, updated via `data-*` stream events)
-- Phase indicator (scope → design → criteria → complete)
-- Freeform "explore this" side-panel as a separate `useChat` instance scoped to current question context
-
-### Distribution: npx-launchable
-
-- `bin` entry in package.json pointing to a launcher script
-- Launcher: starts Express server (serves built Vite assets + API on one port), opens browser
-- Single required env var: `ANTHROPIC_API_KEY`
-- SQLite DB file created automatically in project directory or `~/.brunch/`
-- `vite build` produces static assets; Express serves them from `/dist`
-
-### What gets dropped from current codebase
-
-- Dolt and all `mysql2` code
-- OpenCode sidecar (`opencode.js`, `opencode-mcp-server.js`, `opencode.json`)
-- Preact (replaced by React)
-- Both existing frontend page implementations (Home/ and CreateSpec/)
-- Hand-rolled NDJSON streaming protocol
-- JSON Schema definitions (replaced by Zod)
-- `@tanstack/react-table`, `@dnd-kit/*`, `dompurify`, `marked` (dead or replaceable deps)
-- Four streaming functions in `claude.js` (replaced by one adapter)
-- `dispatch.js` (no longer routing between backends)
-
-### What survives as reference
-
-- The Claude Agent SDK integration pattern (proof that `query()` + `includePartialMessages` works)
-- Express server structure (routes, middleware)
-- Vite config (adapted for React)
-- Test structure (Vitest + Supertest pattern)
-- REMODEL.md domain model (entity definitions, relationship thinking)
-
-## Testing Decisions
-
-- **Entity extraction**: unit-testable. Given an exchange and current entity state, does the extractor produce correct entity operations? Use snapshot fixtures from real interview exchanges.
-- **SSE adapter**: unit-testable. Given an `SDKMessage`, does the adapter emit the correct SSE event string? Mock the SDK message types, assert output format.
-- **Interview flow**: integration-testable via Supertest. POST a user message, assert SSE stream contains expected event types in expected order.
-- **Snapshot versioning**: unit-testable. Create entities, snapshot, modify, snapshot again, restore, assert state matches.
-- **Prior art**: existing test suite uses Vitest + Supertest with 64 tests across 3 files. Same pattern, new tests.
-
-## Out of Scope
-
-- **Multi-provider support** — v1 is Anthropic-only via Claude Agent SDK. No OpenAI, Gemini, or Ollama.
-- **Decision DAG tracking** — join tables and graph structure deferred. Relationships captured in spec text.
-- **Belief invalidation / cascading updates** — fire-and-forget model; no runtime propagation.
-- **Task planning / execution orchestration** — consumers of the spec, not part of this tool.
-- **Exploratory pathway** — assumes user has a reasonably defined goal.
-- **Multi-user / collaborative editing** — single-user local tool.
-- **Custom model selection UI** — single model, configurable via env var at most.
-- **Dolt version control UI** — replaced by snapshot tables.
-- **AG-UI / CopilotKit integration** — not needed; AI SDK SSE protocol is sufficient.
-
-## Q&A
-
-**Q: Why keep the Claude Agent SDK instead of using AI SDK end-to-end?**
-A: The Claude Agent SDK is the full Claude Code engine — it provides MCP support, session resume, subagent orchestration, permission flow, file checkpointing, tool progress events, and 20+ typed message types. AI SDK's Anthropic provider is a thinner wrapper that loses all of this. For CLI-quality feedback in the UI, the rich event surface matters.
-
-**Q: How does AI SDK fit if we're not using its server functions?**
-A: AI SDK's value here is purely the documented SSE protocol and the React `useChat` hook. The server emits SSE events matching AI SDK's UI Message Stream format (documented, public, stable). The client imports only `@ai-sdk/react`. No AI SDK runtime code on the server. Clean seam.
-
-**Q: Why not AG-UI?**
-A: AG-UI is a protocol for multi-backend interop; the actual React components come from CopilotKit. No Claude Agent SDK integration exists. Adopting it means coupling to CopilotKit's component model, which fights the custom interview UI. The AI SDK SSE protocol gives us what we need without the abstraction tax.
-
-**Q: Why not TanStack AI?**
-A: Alpha software (v0, 269 commits). Promising — has `ThinkingPart` first-class, flexible connection adapters — but too young for a deliverable. Worth revisiting if AI SDK becomes constraining.
-
-**Q: Why SQLite over Dolt?**
-A: The product needs versioning/time-travel (undo to previous spec state) but not branching/merging. Dolt's differentiator is cell-level merge conflict resolution across concurrent writers — a multi-user, multi-branch problem this single-user tool doesn't have. A `project_snapshot` table on SQLite gives undo/redo with zero external dependencies. Dolt embedded mode (no Docker) still requires users to `brew install dolt` before `npx brunch` works.
-
-**Q: Why separate the interviewer from entity extraction?**
-A: The interview quality is the core product differentiator. Loading the interviewer prompt with "also call these 12 entity CRUD tools as you go" splits its attention. The current codebase shows this tension — the prompts try to do both and the spec output tends to reiterate rather than add. Pattern B (separate extraction) keeps the interviewer focused and makes extraction independently testable.
-
-**Q: Does entity extraction add latency?**
-A: No perceived latency. The extraction call fires as soon as the LLM's question streams to completion. It runs during user read/think time (typically 10-60 seconds). A structured-output call to a fast model completes in 1-3 seconds.
-
-**Q: Does the interview need to survive browser refresh?**
-A: Yes. Sessions are persistent — user can close the tab and resume later. The Claude Agent SDK has built-in `resume` (pass a session_id). Application state (phase, entities, exchange history) persists in SQLite.
-
-**Q: What's the interaction model — wizard or chat?**
-A: Guided chat with structure. The LLM drives the conversation (not a fixed-step wizard), but each question has structured options. The user can enter freeform digressions via a side-channel without polluting the main interview transcript. Phase transitions are explicit confirm gates.
+1. `npx brunch` with `ANTHROPIC_API_KEY` in scope opens a working app in the browser
+2. Typing a message produces a streamed response with visible thinking and text
+3. AI conducts a structured interview with options and recommendations
+4. Entities appear in the dashboard within seconds of answering
+5. Phase transitions show summary, require user confirmation
+6. Freeform digressions don't pollute the main interview transcript
+7. Closing and reopening the browser resumes the interview
+8. Clicking export produces a valid markdown spec
+9. Snapshot restore reverts entity state to a previous point
+10. All inner and middle loop tests pass
