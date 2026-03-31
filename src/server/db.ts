@@ -2,6 +2,7 @@ import Database from 'better-sqlite3';
 import { randomUUID } from 'crypto';
 
 export type DB = Database.Database;
+export type Role = 'user' | 'assistant';
 
 export interface Project {
 	id: string;
@@ -12,7 +13,7 @@ export interface Project {
 export interface Message {
 	id: string;
 	project_id: string;
-	role: string;
+	role: Role;
 	content: string;
 	created_at: string;
 }
@@ -45,7 +46,7 @@ export function getOrCreateProject(db: DB, name = 'default'): Project {
 	return db.prepare('SELECT * FROM project WHERE id = ?').get(id) as Project;
 }
 
-export function saveMessage(db: DB, projectId: string, role: string, content: string): Message {
+export function saveMessage(db: DB, projectId: string, role: Role, content: string): Message {
 	const id = randomUUID();
 	db.prepare('INSERT INTO message (id, project_id, role, content) VALUES (?, ?, ?, ?)').run(id, projectId, role, content);
 	return db.prepare('SELECT * FROM message WHERE id = ?').get(id) as Message;
