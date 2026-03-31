@@ -1,0 +1,68 @@
+---
+name: ln-scope
+description: "Define one thin vertical slice with target behavior, risks, and acceptance criteria. Use when scoping the next piece of work before building, or when a slice from PLAN.md needs precise definition."
+argument-hint: "[behavior to deliver in this slice]"
+---
+
+# Dev Scope
+
+Define **one** tracer-bullet slice (Hunt & Thomas) — a thin end-to-end path, not a horizontal layer. If the target behavior needs "and", split it.
+
+## Input
+
+The behavior to deliver: $ARGUMENTS
+
+If `memory/SPEC.md` exists, use its lexicon and respect its invariants.
+
+## Scope Card
+
+### Target Behavior
+
+What is true when this slice is done? Single declarative sentence — observable, testable, no conjunctions.
+
+### Boundary Crossings
+
+Every boundary the slice passes through, entry to exit:
+```
+→ [entry point]
+→ [layer/boundary]
+→ [exit point]
+```
+
+### Risks and Assumptions
+
+```
+- RISK: [what might not work] → MITIGATION: [how to handle it]
+- ASSUMPTION: [what we're assuming] → VALIDATE: [how we'll know] → [→ SPEC.md §Assumptions]
+```
+
+High-risk unvalidated assumption → suggest `ln-spike` before `ln-build`. New assumptions must be added to `memory/SPEC.md` §Assumptions.
+
+### Acceptance Criteria
+
+```
+✓ [test name] — [observable assertion]
+✓ [test name] — [observable assertion]
+```
+
+These become the spec tests written first in `ln-build`. Every criterion must be checkable by running a command.
+
+## Traceability
+
+- New assumptions surfaced during scoping → add to `memory/SPEC.md` §Assumptions with links to this slice
+- If scoping reveals requirements or decisions need updating → suggest `ln-spec`
+- If the slice doesn't fit the current plan → suggest `ln-plan`
+
+## Routing
+
+After scoping, present these options to the user (use `tool-ask-question`):
+
+| #   | Label          | Target       | Why                                    |
+| --- | -------------- | ------------ | -------------------------------------- |
+| 1   | Build it       | `ln-build`   | Slice is defined, ready to implement   |
+| 2   | Spike first    | `ln-spike`   | Technical uncertainty needs resolution |
+| 3   | Update spec    | `ln-spec`    | Scoping surfaced spec-level changes    |
+| 4   | Revise plan    | `ln-plan`    | Slice doesn't fit the current plan     |
+| 5   | Back to triage | `ln-consult` | Scope revealed unclear state           |
+
+Recommended: **1** unless risks flagged a spike.
