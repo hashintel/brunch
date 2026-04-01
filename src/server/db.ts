@@ -44,6 +44,19 @@ export function getOrCreateProject(db: DB, name = 'default'): Project {
 	return result as Project;
 }
 
+export function listProjects(db: DB): Project[] {
+	return db.select().from(schema.project).orderBy(desc(schema.project.updated_at)).all() as Project[];
+}
+
+export function createProject(db: DB, name: string): Project {
+	const result = db.insert(schema.project).values({ name }).returning().get();
+	return result as Project;
+}
+
+export function getProject(db: DB, id: number): Project | undefined {
+	return db.select().from(schema.project).where(eq(schema.project.id, id)).get() as Project | undefined;
+}
+
 export function createTurn(db: DB, projectId: number, input: CreateTurnInput): Turn {
 	const result = db.insert(schema.turn).values({
 		project_id: projectId,

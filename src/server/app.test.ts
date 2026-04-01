@@ -76,12 +76,99 @@ function mockTextStream(text = 'Hi') {
 	]);
 }
 
-describe('POST /api/chat', () => {
+/** Helper: create a project and return its ID */
+async function createTestProject(name = 'Test Project'): Promise<number> {
+	const res = await request(app)
+		.post('/api/projects')
+		.send({ name });
+	return res.body.id;
+}
+
+describe('GET /api/projects', () => {
+	it('returns empty array when no projects exist', async () => {
+		const res = await request(app)
+			.get('/api/projects')
+			.expect(200);
+
+		expect(res.body).toEqual([]);
+	});
+
+	it('returns project list after creation', async () => {
+		await createTestProject('Alpha');
+		await createTestProject('Beta');
+
+		const res = await request(app)
+			.get('/api/projects')
+			.expect(200);
+
+		expect(res.body).toHaveLength(2);
+		expect(res.body[0].name).toBeDefined();
+		expect(res.body[1].name).toBeDefined();
+	});
+});
+
+describe('POST /api/projects', () => {
+	it('creates a new project and returns it', async () => {
+		const res = await request(app)
+			.post('/api/projects')
+			.send({ name: 'My Spec' })
+			.expect(201);
+
+		expect(res.body.name).toBe('My Spec');
+		expect(res.body.id).toBeDefined();
+	});
+
+	it('returns 400 when name is missing', async () => {
+		await request(app)
+			.post('/api/projects')
+			.send({})
+			.expect(400);
+	});
+});
+
+describe('GET /api/projects/:id', () => {
+	it('returns a project with empty turns when no history exists', async () => {
+		const projectId = await createTestProject('Test');
+
+		const res = await request(app)
+			.get(`/api/projects/${projectId}`)
+			.expect(200);
+
+		expect(res.body.project).toMatchObject({ name: 'Test' });
+		expect(res.body.turns).toEqual([]);
+	});
+
+	it('returns 404 for non-existent project', async () => {
+		await request(app)
+			.get('/api/projects/9999')
+			.expect(404);
+	});
+
+	it('returns turns on active path after a chat exchange', async () => {
+		const projectId = await createTestProject('Chat Test');
+		mockQuery.mockReturnValue(mockTextStream('Hi'));
+
+		await request(app)
+			.post(`/api/projects/${projectId}/chat`)
+			.send({ messages: [{ role: 'user', content: 'hello' }] });
+
+		const res = await request(app)
+			.get(`/api/projects/${projectId}`)
+			.expect(200);
+
+		expect(res.body.turns).toHaveLength(1);
+		expect(res.body.turns[0].answer).toBe('hello');
+		expect(res.body.turns[0].question).toContain('Hi');
+	});
+});
+
+describe('POST /api/projects/:id/chat', () => {
 	it('returns Content-Type text/event-stream', async () => {
+		const projectId = await createTestProject();
 		mockQuery.mockReturnValue(mockTextStream());
 
 		const res = await request(app)
-			.post('/api/chat')
+			.post(`/api/projects/${projectId}/chat`)
 			.send({ messages: [{ role: 'user', content: 'hello' }] })
 			.expect('Content-Type', /text\/event-stream/);
 
@@ -89,6 +176,7 @@ describe('POST /api/chat', () => {
 	});
 
 	it('produces well-formed SSE lines with data: prefix and double newline delimiters', async () => {
+		const projectId = await createTestProject();
 		mockQuery.mockReturnValue(makeMockStream([
 			{
 				type: 'stream_event',
@@ -105,7 +193,7 @@ describe('POST /api/chat', () => {
 		]));
 
 		const res = await request(app)
-			.post('/api/chat')
+			.post(`/api/projects/${projectId}/chat`)
 			.send({ messages: [{ role: 'user', content: 'hello' }] });
 
 		const body = await collectSSE(res);
@@ -116,10 +204,11 @@ describe('POST /api/chat', () => {
 	});
 
 	it('contains at least one text-delta event with non-empty text', async () => {
+		const projectId = await createTestProject();
 		mockQuery.mockReturnValue(mockTextStream('Hello!'));
 
 		const res = await request(app)
-			.post('/api/chat')
+			.post(`/api/projects/${projectId}/chat`)
 			.send({ messages: [{ role: 'user', content: 'hello' }] });
 
 		const events = parseSSELines(await collectSSE(res));
@@ -129,10 +218,11 @@ describe('POST /api/chat', () => {
 	});
 
 	it('ends with finish event and [DONE]', async () => {
+		const projectId = await createTestProject();
 		mockQuery.mockReturnValue(mockTextStream());
 
 		const res = await request(app)
-			.post('/api/chat')
+			.post(`/api/projects/${projectId}/chat`)
 			.send({ messages: [{ role: 'user', content: 'hello' }] });
 
 		const events = parseSSELines(await collectSSE(res));
@@ -143,6 +233,7 @@ describe('POST /api/chat', () => {
 	});
 
 	it('emits reasoning-delta events for thinking content', async () => {
+		const projectId = await createTestProject();
 		mockQuery.mockReturnValue(makeMockStream([
 			{
 				type: 'stream_event',
@@ -179,7 +270,7 @@ describe('POST /api/chat', () => {
 		]));
 
 		const res = await request(app)
-			.post('/api/chat')
+			.post(`/api/projects/${projectId}/chat`)
 			.send({ messages: [{ role: 'user', content: 'hello' }] });
 
 		const events = parseSSELines(await collectSSE(res));
@@ -198,8 +289,9 @@ describe('POST /api/chat', () => {
 	});
 });
 
-describe('POST /api/chat — tool calls', () => {
+describe('POST /api/projects/:id/chat — tool calls', () => {
 	it('emits tool-call SSE events for tool-using mock stream', async () => {
+		const projectId = await createTestProject();
 		mockQuery.mockReturnValue(makeMockStream([
 			{
 				type: 'stream_event',
@@ -236,7 +328,7 @@ describe('POST /api/chat — tool calls', () => {
 		]));
 
 		const res = await request(app)
-			.post('/api/chat')
+			.post(`/api/projects/${projectId}/chat`)
 			.send({ messages: [{ role: 'user', content: 'weather?' }] });
 
 		const events = parseSSELines(await collectSSE(res));
@@ -259,18 +351,20 @@ describe('POST /api/chat — tool calls', () => {
 	});
 });
 
-describe('POST /api/chat — turn persistence', () => {
+describe('POST /api/projects/:id/chat — turn persistence', () => {
 	it('creates a turn with user answer and advances HEAD', async () => {
+		const projectId = await createTestProject();
 		mockQuery.mockReturnValue(mockTextStream('Hi there'));
 
 		await request(app)
-			.post('/api/chat')
+			.post(`/api/projects/${projectId}/chat`)
 			.send({ messages: [{ role: 'user', content: 'hello' }] });
 
-		const { getOrCreateProject, getActivePath } = await import('./db.js');
-		const project = getOrCreateProject(db);
-		expect(project.active_turn_id).not.toBeNull();
-		const turns = getActivePath(db, project.id);
+		const { getProject, getActivePath } = await import('./db.js');
+		const project = getProject(db, projectId);
+		expect(project).toBeDefined();
+		expect(project!.active_turn_id).not.toBeNull();
+		const turns = getActivePath(db, projectId);
 		expect(turns).toHaveLength(1);
 		expect(turns[0].answer).toBe('hello');
 		expect(turns[0].question).toContain('Hi there');
@@ -278,49 +372,22 @@ describe('POST /api/chat — turn persistence', () => {
 	});
 
 	it('chains turns with parent pointers across exchanges', async () => {
+		const projectId = await createTestProject();
 		mockQuery.mockReturnValue(mockTextStream('First response'));
 		await request(app)
-			.post('/api/chat')
+			.post(`/api/projects/${projectId}/chat`)
 			.send({ messages: [{ role: 'user', content: 'first' }] });
 
 		mockQuery.mockReturnValue(mockTextStream('Second response'));
 		await request(app)
-			.post('/api/chat')
+			.post(`/api/projects/${projectId}/chat`)
 			.send({ messages: [{ role: 'user', content: 'second' }] });
 
-		const { getOrCreateProject, getActivePath } = await import('./db.js');
-		const project = getOrCreateProject(db);
-		const turns = getActivePath(db, project.id);
+		const { getActivePath } = await import('./db.js');
+		const turns = getActivePath(db, projectId);
 		expect(turns).toHaveLength(2);
 		expect(turns[0].answer).toBe('first');
 		expect(turns[1].answer).toBe('second');
 		expect(turns[1].parent_turn_id).toBe(turns[0].id);
-	});
-});
-
-describe('GET /api/projects/current', () => {
-	it('returns a project with empty turns when no history exists', async () => {
-		const res = await request(app)
-			.get('/api/projects/current')
-			.expect(200);
-
-		expect(res.body.project).toMatchObject({ name: 'default' });
-		expect(res.body.turns).toEqual([]);
-	});
-
-	it('returns turns on active path after a chat exchange', async () => {
-		mockQuery.mockReturnValue(mockTextStream('Hi'));
-
-		await request(app)
-			.post('/api/chat')
-			.send({ messages: [{ role: 'user', content: 'hello' }] });
-
-		const res = await request(app)
-			.get('/api/projects/current')
-			.expect(200);
-
-		expect(res.body.turns).toHaveLength(1);
-		expect(res.body.turns[0].answer).toBe('hello');
-		expect(res.body.turns[0].question).toContain('Hi');
 	});
 });

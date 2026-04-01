@@ -1,7 +1,8 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import {
-	getOrCreateProject, getActivePath, createTurn, updateTurn, advanceHead,
-	type Turn, type DB,
+	getOrCreateProject, getProject, getActivePath, createTurn, updateTurn, advanceHead,
+	listProjects, createProject,
+	type Turn, type DB, type Project,
 } from './db.js';
 
 /** Domain events yielded by conductTurn(). Transport-agnostic. */
@@ -58,10 +59,11 @@ export async function* conductTurn(
 	projectId: number,
 	userMessage: string,
 ): AsyncGenerator<DomainEvent> {
-	const project = getOrCreateProject(db);
-	const activePath = getActivePath(db, project.id);
+	const project = getProject(db, projectId);
+	if (!project) throw new Error(`Project ${projectId} not found`);
+	const activePath = getActivePath(db, projectId);
 
-	const turn = createTurn(db, project.id, {
+	const turn = createTurn(db, projectId, {
 		parent_turn_id: project.active_turn_id,
 		phase: 'scope',
 		question: '',
@@ -143,13 +145,24 @@ export async function* conductTurn(
 		if (assistantText) {
 			updateTurn(db, turn.id, { question: assistantText });
 		}
-		advanceHead(db, project.id, turn.id);
+		advanceHead(db, projectId, turn.id);
 	}
 }
 
 /** Get project state: project + active path turns. */
-export function getProjectState(db: DB) {
-	const project = getOrCreateProject(db);
-	const turns = getActivePath(db, project.id);
+export function getProjectState(db: DB, projectId: number) {
+	const project = getProject(db, projectId);
+	if (!project) return null;
+	const turns = getActivePath(db, projectId);
 	return { project, turns };
+}
+
+/** List all projects. */
+export function listProjectStates(db: DB): Project[] {
+	return listProjects(db);
+}
+
+/** Create a new project with the given name. */
+export function createNewProject(db: DB, name: string): Project {
+	return createProject(db, name);
 }

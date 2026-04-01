@@ -1,7 +1,7 @@
 import express from 'express';
 import type { Request, Response } from 'express';
 import { createDb } from './db.js';
-import { conductTurn, extractPrompt, getProjectState } from './core.js';
+import { conductTurn, extractPrompt, getProjectState, listProjectStates, createNewProject } from './core.js';
 import { createDomainAdapter, formatSSE } from './sse-adapter.js';
 
 export function createApp(dbPath?: string) {
@@ -9,15 +9,47 @@ export function createApp(dbPath?: string) {
 	const app = express();
 	app.use(express.json());
 
-	app.get('/api/projects/current', (_req: Request, res: Response) => {
-		res.json(getProjectState(db));
+	// List all projects
+	app.get('/api/projects', (_req: Request, res: Response) => {
+		res.json(listProjectStates(db));
 	});
 
-	app.post('/api/chat', async (req: Request, res: Response) => {
-		const prompt = extractPrompt(req.body.messages ?? []);
-		console.log('POST /api/chat — prompt:', JSON.stringify(prompt).substring(0, 100));
+	// Create a new project
+	app.post('/api/projects', (req: Request, res: Response) => {
+		const name = req.body.name;
+		if (!name || typeof name !== 'string') {
+			res.status(400).json({ error: 'name is required' });
+			return;
+		}
+		const project = createNewProject(db, name.trim());
+		res.status(201).json(project);
+	});
 
-		const project = getProjectState(db).project;
+	// Get a specific project + active path
+	app.get('/api/projects/:id', (req: Request, res: Response) => {
+		const id = Number(req.params.id);
+		if (Number.isNaN(id)) {
+			res.status(400).json({ error: 'Invalid project ID' });
+			return;
+		}
+		const state = getProjectState(db, id);
+		if (!state) {
+			res.status(404).json({ error: 'Project not found' });
+			return;
+		}
+		res.json(state);
+	});
+
+	// Conduct turn for a specific project
+	app.post('/api/projects/:id/chat', async (req: Request, res: Response) => {
+		const id = Number(req.params.id);
+		if (Number.isNaN(id)) {
+			res.status(400).json({ error: 'Invalid project ID' });
+			return;
+		}
+
+		const prompt = extractPrompt(req.body.messages ?? []);
+		console.log(`POST /api/projects/${id}/chat — prompt:`, JSON.stringify(prompt).substring(0, 100));
 
 		res.setHeader('Content-Type', 'text/event-stream');
 		res.setHeader('Cache-Control', 'no-cache');
@@ -25,10 +57,15 @@ export function createApp(dbPath?: string) {
 
 		const { translate } = createDomainAdapter();
 
-		for await (const domainEvent of conductTurn(db, project.id, prompt)) {
-			for (const sseEvent of translate(domainEvent)) {
-				res.write(formatSSE(sseEvent));
+		try {
+			for await (const domainEvent of conductTurn(db, id, prompt)) {
+				for (const sseEvent of translate(domainEvent)) {
+					res.write(formatSSE(sseEvent));
+				}
 			}
+		} catch (err) {
+			const message = err instanceof Error ? err.message : 'Unknown error';
+			res.write(formatSSE({ type: 'error', errorText: message }));
 		}
 
 		res.write(formatSSE('[DONE]'));

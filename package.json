@@ -11,6 +11,7 @@
 		"@ai-sdk/react": "^3.0.143",
 		"@anthropic-ai/claude-agent-sdk": "^0.2.77",
 		"@modelcontextprotocol/sdk": "^1.27.1",
+		"@tanstack/react-router": "^1.168.10",
 		"@vitejs/plugin-react": "^5.2.0",
 		"better-sqlite3": "^12.8.0",
 		"drizzle-orm": "^0.45.2",

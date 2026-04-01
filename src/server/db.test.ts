@@ -11,6 +11,9 @@ import {
 	createOption,
 	getActivePath,
 	advanceHead,
+	listProjects,
+	createProject,
+	getProject,
 	type DB,
 } from './db.js';
 
@@ -216,6 +219,51 @@ describe('advanceHead', () => {
 		advanceHead(db, project.id, turn.id);
 		const updated = getOrCreateProject(db);
 		expect(updated.active_turn_id).toBe(turn.id);
+	});
+});
+
+describe('listProjects', () => {
+	it('returns all projects', () => {
+		createProject(db, 'Alpha');
+		createProject(db, 'Beta');
+		createProject(db, 'Gamma');
+		const projects = listProjects(db);
+		expect(projects).toHaveLength(3);
+		const names = projects.map((p) => p.name).sort();
+		expect(names).toEqual(['Alpha', 'Beta', 'Gamma']);
+	});
+
+	it('returns empty array when no projects exist', () => {
+		expect(listProjects(db)).toEqual([]);
+	});
+});
+
+describe('createProject', () => {
+	it('creates a named project and returns it', () => {
+		const project = createProject(db, 'My Spec');
+		expect(project.name).toBe('My Spec');
+		expect(project.id).toBeDefined();
+		expect(project.active_turn_id).toBeNull();
+		expect(project.created_at).toBeDefined();
+	});
+
+	it('creates multiple projects with distinct IDs', () => {
+		const p1 = createProject(db, 'First');
+		const p2 = createProject(db, 'Second');
+		expect(p1.id).not.toBe(p2.id);
+	});
+});
+
+describe('getProject', () => {
+	it('returns project by ID', () => {
+		const created = createProject(db, 'Test');
+		const found = getProject(db, created.id);
+		expect(found).toBeDefined();
+		expect(found!.name).toBe('Test');
+	});
+
+	it('returns undefined for non-existent ID', () => {
+		expect(getProject(db, 9999)).toBeUndefined();
 	});
 });
 
