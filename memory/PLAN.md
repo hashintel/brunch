@@ -58,11 +58,13 @@
     - Acceptance: 51 tests pass (39 existing + 12 new core tests); Drizzle migrate() auto-applies at startup; conductTurn() yields DomainEvents consumed by Express adapter via createDomainAdapter()
     - Branch: `ln/fe-552-drizzle-core-extraction`
 
-3d. **Multi-project routing** `FE-553` — Install `@tanstack/react-router`. Three client routes: project list (`/`), interview workspace (`/project/:id`), export preview (`/project/:id/export`). Route loaders replace `useEffect` hydration. Server API becomes project-scoped (`/api/projects/:id/...`). Project list page with phase badges. `not-started`
+3d. **Multi-project routing** `FE-553` — TanStack Router with three routes: project list (`/`), interview workspace (`/project/:id`), export preview placeholder (`/project/:id/export`). Route loaders replace `useEffect` hydration. Server API project-scoped (`/api/projects`, `/api/projects/:id`, `/api/projects/:id/chat`). `done`
     - Requirements: → SPEC.md §Requirements #1, #15
     - Decisions: → SPEC.md §Decisions D9 (updated)
-    - Invariants to respect: → SPEC.md §Invariants I1, I2, I3, I6, I9, I10
-    - Acceptance: navigate between project list and interview workspace; create new project from list; project-scoped API routes work; route loaders fetch data on navigation
+    - Invariants established: → SPEC.md §Invariants I14, I15
+    - Invariants respected: → SPEC.md §Invariants I1, I2, I3, I6, I9, I10
+    - Acceptance: 72 tests pass (11 new: 6 db, 5 app); project-scoped API routes; TanStack Router with code-based routing; route loaders fetch data; DefaultChatTransport for project-scoped chat endpoint
+    - Branch: `ln/fe-553-multi-project-routing`
     - Ref: → docs/design/BREADBOARD.md §Places, §Wiring
 
 ## Phase 3: Interview Engine
@@ -80,12 +82,12 @@
 
 ### Slices
 
-3b. **Rich chat UI: tool calls + reasoning rendering** `FE-541` — Extend SSE adapter to emit tool-call events for SDK `tool_use` content blocks. Install AI Elements components (`Tool`, `Reasoning`, `ChainOfThought`, `Message`, `PromptInput`) via `npx ai-elements`, restyle to match brunch design. Replace hand-rolled message rendering with part-type switching. `not-started`
+3b. **Rich chat UI: tool calls + reasoning rendering** `FE-541` — Extend SSE adapter and core to emit tool-call lifecycle events for SDK `tool_use` content blocks. Part-type rendering for tool calls (with state indicator) and reasoning (collapsible block). AI Elements deferred — hand-built rendering sufficient for now. `done`
     - Requirements: → SPEC.md §Requirements #4
-    - Assumptions: → SPEC.md §Assumptions A16, A17
-    - Invariants to establish: → SPEC.md §Invariants I7, I8
-    - Invariants to respect: → SPEC.md §Invariants I1, I2, I3
-    - Acceptance: send a message that triggers tool use, see tool call with state transitions, reasoning in collapsible block, all via AI Elements. SSE adapter tests cover tool_use content blocks.
+    - Assumptions: → SPEC.md §Assumptions A16 (partially validated — SSE + client work, browser outer-loop pending), A17 (not yet tested — AI Elements not installed)
+    - Invariants established: → SPEC.md §Invariants I7
+    - Invariants respected: → SPEC.md §Invariants I1, I2, I3
+    - Acceptance: 61 tests pass (10 new: 6 SSE adapter, 3 core, 1 app integration); tool-call-streaming-start/delta/tool-call SSE events emitted for SDK tool_use blocks; client renders dynamic-tool parts with state labels
     - Branch: `ln/fe-541-rich-chat-ui`
 
 4. **Structured interview: scope phase** — Replace flat chat with structured turns. Implement the scope phase as an agent skill — the agent generates a question with options, grounding ("why this matters"), and impact signal. User selects an option or types a response. Turn persists with phase provenance. UI renders the turn card (question + options + grounding). `not-started`

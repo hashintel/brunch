@@ -78,7 +78,7 @@ The architecture (layered: db → core → adapters):
 | A13 | Claude Agent SDK supports defining interview phases as agent skills with distinct system prompts and tool sets                                                                                                                                                                                                            | medium        | D2                  | Interview phases  | Test SDK skill/agent configuration API                                                                                                                                                                                               |
 | A14 | A second-thread observer agent can reliably extract decisions, assumptions, and dependency edges from a single turn's Q&A                                                                                                                                                                                                 | medium        | D1                  | Observer agent    | Probe with realistic interview exchanges; measure extraction fidelity                                                                                                                                                                |
 | A15 | The LLM can reliably judge when a phase interview has reached sufficient understanding (is_resolution)                                                                                                                                                                                                                    | medium        | D3                  | Phase resolution  | Probe across varied project types; measure false-positive resolution rate                                                                                                                                                            |
-| A16 | AI SDK `useChat` hook's `ToolUIPart` state machine (`input-streaming` → `input-available` → `output-available` / `output-error` / `approval-requested` → `approval-responded` / `output-denied`) models all permutations of pending, error, and success for both interim (thinking, tool calls) and final (response) data | high          | D14                 | Rich chat UI      | Validate by extending SSE adapter to emit tool-call events, confirm `useChat` surfaces all states                                                                                                                                    |
+| A16 | AI SDK `useChat` hook's `ToolUIPart` state machine (`input-streaming` → `input-available` → `output-available` / `output-error` / `approval-requested` → `approval-responded` / `output-denied`) models all permutations of pending, error, and success for both interim (thinking, tool calls) and final (response) data | high          | D14                 | Rich chat UI      | Partially validated: SSE adapter emits tool-call events, client renders `dynamic-tool` parts with state labels (input-streaming, input-available, output-available, output-error). Browser outer-loop pending.                         |
 | A17 | AI Elements copy-paste components can be restyled without forking — they are ownable source files, not npm-locked dependencies                                                                                                                                                                                            | high          | D14                 | Rich chat UI      | Install via CLI, inspect source, confirm no hidden npm runtime dependency                                                                                                                                                            |
 | A18 | Drizzle ORM migration runner reliably auto-applies schema changes from a migrations folder at startup with better-sqlite3                                                                                                                                                                                                 | **validated** | D18                 | Drizzle refactor  | Validated: migrate() auto-applies at startup in createDb(); all 39 existing tests pass against Drizzle-managed schema                                                                                                                |
 | A19 | `AsyncIterable<DomainEvent>` from core can be consumed by both SSE streaming (web) and line-by-line terminal output (CLI) without buffering issues                                                                                                                                                                        | **validated** | D19                 | Core extraction   | Validated: conductTurn() yields DomainEvents consumed by Express SSE adapter; 12 new core tests + 9 app integration tests pass                                                                                                       |
@@ -137,6 +137,8 @@ The architecture (layered: db → core → adapters):
 | I11 | Drizzle migration auto-apply | Slice 3c (Drizzle)  | db.test.ts                       | D18     |
 | I12 | DomainEvent streaming        | Slice 3c (Drizzle)  | core.test.ts                     | D19     |
 | I13 | Core/adapter separation      | Slice 3c (Drizzle)  | core.test.ts, app.test.ts        | D19     |
+| I14 | Project-scoped API routes    | Slice 3d (routing)  | app.test.ts                      | D9      |
+| I15 | Route loader hydration       | Slice 3d (routing)  | manual (outer loop)              | D9      |
 
 ## Lexicon
 
@@ -223,12 +225,12 @@ End-to-end slices must be **user-testable**, not just programmatically tested. E
 
 <!-- Updated by ln-build traceability after each slice. -->
 
-| File                | Tests | Protects                |
-| ------------------- | ----- | ----------------------- |
-| sse-adapter.test.ts | 12    | I1, I3                  |
-| db.test.ts          | 18    | I5, I6, I9, I10, I11    |
-| app.test.ts         | 9     | I2, I3, I6, I13         |
-| core.test.ts        | 12    | I12, I13                |
+| File                | Tests | Protects                    |
+| ------------------- | ----- | --------------------------- |
+| sse-adapter.test.ts | 18    | I1, I3, I7                  |
+| db.test.ts          | 24    | I5, I6, I9, I10, I11        |
+| app.test.ts         | 15    | I2, I3, I6, I7, I13, I14    |
+| core.test.ts        | 15    | I12, I13                    |
 
 ## Acceptance Criteria (exit conditions)
 
