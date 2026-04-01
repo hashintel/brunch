@@ -10,7 +10,9 @@
 		"lint:fix": "oxlint --type-aware --type-check --fix src/",
 		"fmt": "oxfmt src/",
 		"fmt:check": "oxfmt --check src/",
-		"verify": "npm run fmt:check && npm run lint && npm run test && npm run build"
+		"fix": "npm run lint:fix && npm run fmt",
+		"check": "npm run fmt:check && npm run lint",
+		"verify": "npm run check && npm run test && npm run build"
 	},
 	"dependencies": {
 		"@ai-sdk/react": "^3.0.143",

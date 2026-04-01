@@ -43,7 +43,19 @@ The `/ln-*` skills at `.agents/skills/` follow this flow:
 
 ### verification
 
-Verification strategy is defined per-project in SPEC.md §Verification Design (three-tier feedback loops). The global verification harness in `~/.claude/CLAUDE.md` provides the execution stack.
+**Inner loop** (run after every meaningful edit): `npm run fix` — lint-fixes then auto-formats. This is the fast feedback cycle; fixable issues are resolved automatically so you only see real errors.
+
+**Gate** (run before committing): `npm run verify` — check (fmt + lint, no writes) → test → build. All must pass.
+
+| Script | Purpose | Writes? |
+| --- | --- | --- |
+| `npm run fix` | lint:fix + fmt (inner loop) | yes |
+| `npm run check` | fmt:check + lint (CI gate) | no |
+| `npm run verify` | check + test + build (full gate) | no |
+
+Tooling: oxlint (lint + type-aware + type-check via tsgolint), oxfmt (format). Replaces eslint + `tsc --noEmit`.
+
+Verification strategy details in SPEC.md §Verification Design.
 
 ### manual testing
 
