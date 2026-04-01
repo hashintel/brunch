@@ -1,6 +1,6 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import {
-	getOrCreateProject, getProject, getActivePath, createTurn, updateTurn, advanceHead,
+	getProject, getActivePath, createTurn, updateTurn, advanceHead,
 	listProjects, createProject,
 	type Turn, type DB, type Project,
 } from './db.js';

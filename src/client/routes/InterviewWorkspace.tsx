@@ -70,6 +70,21 @@ export function InterviewWorkspace() {
 									</details>
 								);
 							}
+							if (part.type === 'dynamic-tool') {
+								const toolPart = part as { type: 'dynamic-tool'; toolName: string; state: string; toolCallId: string };
+								const statusLabel =
+									toolPart.state === 'input-streaming' ? 'Streaming input...' :
+									toolPart.state === 'input-available' ? 'Running...' :
+									toolPart.state === 'output-available' ? 'Done' :
+									toolPart.state === 'output-error' ? 'Error' :
+									toolPart.state;
+								return (
+									<div key={i} style={{ margin: '4px 0', padding: 8, background: '#eef6ff', borderRadius: 4, border: '1px solid #c0d8f0', fontSize: 13 }}>
+										<span style={{ fontWeight: 600 }}>Tool: {toolPart.toolName}</span>
+										<span style={{ marginLeft: 8, color: '#666' }}>{statusLabel}</span>
+									</div>
+								);
+							}
 							if (part.type === 'text') {
 								return <p key={i} style={{ margin: '4px 0' }}>{part.text}</p>;
 							}
