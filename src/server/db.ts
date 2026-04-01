@@ -31,6 +31,7 @@ export interface CreateOptionInput {
 export function createDb(path: string = ':memory:'): DB {
 	const sqlite = new Database(path);
 	sqlite.pragma('journal_mode = WAL');
+	sqlite.pragma('foreign_keys = ON');
 	const db = drizzle(sqlite, { schema });
 	migrate(db, { migrationsFolder: './drizzle' });
 	return db;
