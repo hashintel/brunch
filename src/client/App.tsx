@@ -8,17 +8,29 @@ export function App() {
 	const { messages, sendMessage, setMessages, status, error } = useChat();
 	const isLoading = status === 'submitted' || status === 'streaming';
 
-	// Fetch conversation history on mount
+	// Fetch conversation history on mount — hydrate turns into useChat messages
 	useEffect(() => {
 		fetch('/api/projects/current')
 			.then((res) => res.json())
 			.then((data) => {
-				if (data.messages?.length > 0) {
-					const msgs: UIMessage[] = data.messages.map((m: { id: string; role: string; content: string }) => ({
-						id: m.id,
-						role: m.role as 'user' | 'assistant',
-						parts: [{ type: 'text' as const, text: m.content }],
-					}));
+				if (data.turns?.length > 0) {
+					const msgs: UIMessage[] = [];
+					for (const turn of data.turns as Array<{ id: number; answer: string | null; question: string | null }>) {
+						if (turn.answer) {
+							msgs.push({
+								id: `turn-${turn.id}-answer`,
+								role: 'user',
+								parts: [{ type: 'text' as const, text: turn.answer }],
+							});
+						}
+						if (turn.question) {
+							msgs.push({
+								id: `turn-${turn.id}-question`,
+								role: 'assistant',
+								parts: [{ type: 'text' as const, text: turn.question }],
+							});
+						}
+					}
 					setMessages(msgs);
 				}
 				setLoading(false);

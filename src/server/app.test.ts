@@ -198,35 +198,56 @@ describe('POST /api/chat', () => {
 	});
 });
 
-describe('POST /api/chat — persistence', () => {
-	it('persists user and assistant messages to the database', async () => {
+describe('POST /api/chat — turn persistence', () => {
+	it('creates a turn with user answer and advances HEAD', async () => {
 		mockQuery.mockReturnValue(mockTextStream('Hi there'));
 
 		await request(app)
 			.post('/api/chat')
 			.send({ messages: [{ role: 'user', content: 'hello' }] });
 
-		const { getOrCreateProject, getMessages } = await import('./db.js');
+		const { getOrCreateProject, getActivePath } = await import('./db.js');
 		const project = getOrCreateProject(db);
-		const messages = getMessages(db, project.id);
-		expect(messages).toHaveLength(2);
-		expect(messages[0]).toMatchObject({ role: 'user', content: 'hello' });
-		expect(messages[1]).toMatchObject({ role: 'assistant' });
-		expect(messages[1].content).toContain('Hi there');
+		expect(project.active_turn_id).not.toBeNull();
+		const turns = getActivePath(db, project.id);
+		expect(turns).toHaveLength(1);
+		expect(turns[0].answer).toBe('hello');
+		expect(turns[0].question).toContain('Hi there');
+		expect(turns[0].phase).toBe('scope');
+	});
+
+	it('chains turns with parent pointers across exchanges', async () => {
+		mockQuery.mockReturnValue(mockTextStream('First response'));
+		await request(app)
+			.post('/api/chat')
+			.send({ messages: [{ role: 'user', content: 'first' }] });
+
+		mockQuery.mockReturnValue(mockTextStream('Second response'));
+		await request(app)
+			.post('/api/chat')
+			.send({ messages: [{ role: 'user', content: 'second' }] });
+
+		const { getOrCreateProject, getActivePath } = await import('./db.js');
+		const project = getOrCreateProject(db);
+		const turns = getActivePath(db, project.id);
+		expect(turns).toHaveLength(2);
+		expect(turns[0].answer).toBe('first');
+		expect(turns[1].answer).toBe('second');
+		expect(turns[1].parent_turn_id).toBe(turns[0].id);
 	});
 });
 
 describe('GET /api/projects/current', () => {
-	it('returns a project with empty messages when no history exists', async () => {
+	it('returns a project with empty turns when no history exists', async () => {
 		const res = await request(app)
 			.get('/api/projects/current')
 			.expect(200);
 
 		expect(res.body.project).toMatchObject({ name: 'default' });
-		expect(res.body.messages).toEqual([]);
+		expect(res.body.turns).toEqual([]);
 	});
 
-	it('returns existing messages after a chat exchange', async () => {
+	it('returns turns on active path after a chat exchange', async () => {
 		mockQuery.mockReturnValue(mockTextStream('Hi'));
 
 		await request(app)
@@ -237,7 +258,8 @@ describe('GET /api/projects/current', () => {
 			.get('/api/projects/current')
 			.expect(200);
 
-		expect(res.body.messages).toHaveLength(2);
-		expect(res.body.messages[0]).toMatchObject({ role: 'user', content: 'hello' });
+		expect(res.body.turns).toHaveLength(1);
+		expect(res.body.turns[0].answer).toBe('hello');
+		expect(res.body.turns[0].question).toContain('Hi');
 	});
 });

@@ -48,12 +48,13 @@
 
 ### Slices
 
-3. **Turn tree schema + API** `FE-544` — Migrate from message table to the full schema.dbml model (turn, option, decision, assumption, requirement, criterion + all join tables). Update API: POST /api/chat creates turns, GET /api/projects/current returns turns on the active path. Project gets `active_turn_id`. Tests verify turn tree CRUD and active path resolution. `not-started`
+3. **Turn tree schema + API** `FE-544` — Migrate from message table to the full schema.dbml model (turn, option, decision, assumption, requirement, criterion + all join tables). Update API: POST /api/chat creates turns, GET /api/projects/current returns turns on the active path. Project gets `active_turn_id`. Tests verify turn tree CRUD and active path resolution. `done`
    - Requirements: → SPEC.md §Requirements #14
    - Assumptions: → SPEC.md §Assumptions A6
-   - Invariants to establish: turn tree persistence, active path resolution
-   - Invariants to respect: → SPEC.md §Invariants I1, I2, I3
+   - Invariants established: → SPEC.md §Invariants I6 (updated), I9, I10
+   - Invariants respected: → SPEC.md §Invariants I1, I2, I3
    - Acceptance: create project, create turns with parent chain, resolve active path, close and reopen with state intact
+   - Branch: `ln/fe-544-turn-tree-schema`
 
 3b. **Rich chat UI: tool calls + reasoning rendering** `FE-541` — Extend SSE adapter to emit `tool-call-streaming-start`, `tool-call-delta`, `tool-call`, and `tool-result` events for SDK `tool_use` content blocks. Install AI Elements components (`Tool`, `Reasoning`, `ChainOfThought`, `Message`, `PromptInput`) via `npx ai-elements`, restyle to match brunch design. Replace hand-rolled `App.tsx` message rendering with part-type switching (`text`, `reasoning`, `tool-{name}`, `step-start`). Establish user-testability for the streaming pipeline per verification policy — all part types visible in browser. `not-started`
     - Requirements: → SPEC.md §Requirements #4

@@ -2,7 +2,7 @@ import express from 'express';
 import type { Request, Response } from 'express';
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { createTranslator, formatSSE, type AIEvent } from './sse-adapter.js';
-import { createDb, getOrCreateProject, saveMessage, getMessages, type Message } from './db.js';
+import { createDb, getOrCreateProject, createTurn, updateTurn, getActivePath, advanceHead, type Turn } from './db.js';
 
 /** Extract user text from a UIMessage (parts[]) or legacy format (content string). */
 function extractPrompt(messages: unknown[]): string {
@@ -13,13 +13,16 @@ function extractPrompt(messages: unknown[]): string {
 	return parts?.filter((p) => p.type === 'text').map((p) => p.text).join('') ?? '';
 }
 
-/** Format conversation history for multi-turn context (A11 workaround). */
-function formatHistory(history: Message[], currentPrompt: string): string {
-	if (history.length === 0) return currentPrompt;
-	const historyText = history
-		.map((m) => `${m.role === 'user' ? 'User' : 'Assistant'}: ${m.content}`)
-		.join('\n');
-	return `Previous conversation:\n${historyText}\n\n---\nUser: ${currentPrompt}`;
+/** Format conversation history from active-path turns for multi-turn context. */
+function formatHistory(turns: Turn[], currentPrompt: string): string {
+	if (turns.length === 0) return currentPrompt;
+	const lines: string[] = [];
+	for (const turn of turns) {
+		if (turn.answer) lines.push(`User: ${turn.answer}`);
+		if (turn.question) lines.push(`Assistant: ${turn.question}`);
+	}
+	if (lines.length === 0) return currentPrompt;
+	return `Previous conversation:\n${lines.join('\n')}\n\n---\nUser: ${currentPrompt}`;
 }
 
 /** Collect assistant text content from translated SSE events. */
@@ -37,8 +40,8 @@ export function createApp(dbPath?: string) {
 
 	app.get('/api/projects/current', (_req: Request, res: Response) => {
 		const project = getOrCreateProject(db);
-		const messages = getMessages(db, project.id);
-		res.json({ project, messages });
+		const turns = getActivePath(db, project.id);
+		res.json({ project, turns });
 	});
 
 	app.post('/api/chat', async (req: Request, res: Response) => {
@@ -47,10 +50,17 @@ export function createApp(dbPath?: string) {
 		console.log('POST /api/chat — prompt:', JSON.stringify(prompt).substring(0, 100));
 
 		const project = getOrCreateProject(db);
-		const history = getMessages(db, project.id);
-		saveMessage(db, project.id, 'user', prompt);
+		const activePath = getActivePath(db, project.id);
 
-		const fullPrompt = formatHistory(history, prompt);
+		// Create turn: answer = user's message, question = '' (filled after streaming)
+		const turn = createTurn(db, project.id, {
+			parent_turn_id: project.active_turn_id,
+			phase: 'scope',
+			question: '',
+			answer: prompt,
+		});
+
+		const fullPrompt = formatHistory(activePath, prompt);
 
 		res.setHeader('Content-Type', 'text/event-stream');
 		res.setHeader('Cache-Control', 'no-cache');
@@ -85,8 +95,9 @@ export function createApp(dbPath?: string) {
 		}
 
 		if (assistantText) {
-			saveMessage(db, project.id, 'assistant', assistantText);
+			updateTurn(db, turn.id, { question: assistantText });
 		}
+		advanceHead(db, project.id, turn.id);
 
 		res.write(formatSSE('[DONE]'));
 		res.end();

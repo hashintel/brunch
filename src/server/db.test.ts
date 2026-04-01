@@ -3,7 +3,16 @@ import { existsSync, unlinkSync, mkdirSync } from 'fs';
 import { join } from 'path';
 import { tmpdir } from 'os';
 import { randomUUID } from 'crypto';
-import { createDb, getOrCreateProject, saveMessage, getMessages, type DB } from './db.js';
+import {
+	createDb,
+	getOrCreateProject,
+	createTurn,
+	updateTurn,
+	createOption,
+	getActivePath,
+	advanceHead,
+	type DB,
+} from './db.js';
 
 let db: DB;
 
@@ -16,13 +25,29 @@ afterEach(() => {
 });
 
 describe('createDb', () => {
-	it('creates project and message tables', () => {
+	it('creates all 13 tables from schema.dbml', () => {
 		const tables = db
 			.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
 			.all() as Array<{ name: string }>;
 		const names = tables.map((t) => t.name);
-		expect(names).toContain('project');
-		expect(names).toContain('message');
+		const expected = [
+			'project',
+			'turn',
+			'option',
+			'decision',
+			'assumption',
+			'requirement',
+			'criterion',
+			'turn_decision',
+			'turn_assumption',
+			'decision_parent_decision',
+			'decision_parent_assumption',
+			'assumption_parent_assumption',
+			'requirement_decision',
+		];
+		for (const table of expected) {
+			expect(names).toContain(table);
+		}
 	});
 
 	it('creates database file on disk when given a path', () => {
@@ -48,9 +73,9 @@ describe('createDb', () => {
 });
 
 describe('getOrCreateProject', () => {
-	it('creates a default project when none exists', () => {
+	it('creates a default project with null active_turn_id', () => {
 		const project = getOrCreateProject(db);
-		expect(project).toMatchObject({ name: 'default' });
+		expect(project).toMatchObject({ name: 'default', active_turn_id: null });
 		expect(project.id).toBeDefined();
 		expect(project.created_at).toBeDefined();
 	});
@@ -62,43 +87,140 @@ describe('getOrCreateProject', () => {
 	});
 });
 
-describe('saveMessage / getMessages', () => {
-	it('persists user and assistant messages', () => {
+describe('turn CRUD', () => {
+	it('creates a root turn with no parent', () => {
 		const project = getOrCreateProject(db);
-		saveMessage(db, project.id, 'user', 'hello');
-		saveMessage(db, project.id, 'assistant', 'hi there');
-		const messages = getMessages(db, project.id);
-		expect(messages).toHaveLength(2);
-		expect(messages[0]).toMatchObject({ role: 'user', content: 'hello' });
-		expect(messages[1]).toMatchObject({ role: 'assistant', content: 'hi there' });
+		const turn = createTurn(db, project.id, {
+			phase: 'scope',
+			question: 'What is the project about?',
+			answer: 'A chat app',
+		});
+		expect(turn.id).toBeDefined();
+		expect(turn.parent_turn_id).toBeNull();
+		expect(turn.phase).toBe('scope');
+		expect(turn.question).toBe('What is the project about?');
+		expect(turn.answer).toBe('A chat app');
+		expect(turn.is_resolution).toBe(0);
 	});
 
-	it('returns messages ordered by creation time', () => {
+	it('creates child turns with parent chain', () => {
 		const project = getOrCreateProject(db);
-		saveMessage(db, project.id, 'user', 'first');
-		saveMessage(db, project.id, 'assistant', 'second');
-		saveMessage(db, project.id, 'user', 'third');
-		const messages = getMessages(db, project.id);
-		expect(messages.map((m) => m.content)).toEqual(['first', 'second', 'third']);
+		const t1 = createTurn(db, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+		const t2 = createTurn(db, project.id, { phase: 'scope', question: 'Q2', answer: 'A2', parent_turn_id: t1.id });
+		const t3 = createTurn(db, project.id, { phase: 'scope', question: 'Q3', answer: 'A3', parent_turn_id: t2.id });
+		expect(t2.parent_turn_id).toBe(t1.id);
+		expect(t3.parent_turn_id).toBe(t2.id);
 	});
 
-	it('assigns unique IDs to each message', () => {
+	it('creates options for a turn', () => {
 		const project = getOrCreateProject(db);
-		saveMessage(db, project.id, 'user', 'a');
-		saveMessage(db, project.id, 'assistant', 'b');
-		const messages = getMessages(db, project.id);
-		expect(messages[0].id).not.toBe(messages[1].id);
+		const turn = createTurn(db, project.id, { phase: 'scope', question: 'Pick one' });
+		const opt1 = createOption(db, turn.id, { position: 0, content: 'Option A', is_recommended: true });
+		const opt2 = createOption(db, turn.id, { position: 1, content: 'Option B' });
+		expect(opt1.is_recommended).toBe(1);
+		expect(opt1.content).toBe('Option A');
+		expect(opt2.is_recommended).toBe(0);
 	});
 
-	it('returns empty array for project with no messages', () => {
+	it('enforces unique (turn_id, position) on options', () => {
 		const project = getOrCreateProject(db);
-		const messages = getMessages(db, project.id);
-		expect(messages).toEqual([]);
+		const turn = createTurn(db, project.id, { phase: 'scope', question: 'Pick one' });
+		createOption(db, turn.id, { position: 0, content: 'Option A' });
+		expect(() => createOption(db, turn.id, { position: 0, content: 'Duplicate' })).toThrow();
+	});
+
+	it('updates turn answer and question', () => {
+		const project = getOrCreateProject(db);
+		const turn = createTurn(db, project.id, { phase: 'scope', question: '' });
+		updateTurn(db, turn.id, { question: 'Updated Q', answer: 'User said this' });
+		const updated = db.prepare('SELECT * FROM turn WHERE id = ?').get(turn.id) as any;
+		expect(updated.question).toBe('Updated Q');
+		expect(updated.answer).toBe('User said this');
+	});
+
+	it('partial update only changes specified fields', () => {
+		const project = getOrCreateProject(db);
+		const turn = createTurn(db, project.id, { phase: 'scope', question: 'Original Q', answer: 'Original A' });
+		updateTurn(db, turn.id, { question: 'New Q' });
+		const updated = db.prepare('SELECT * FROM turn WHERE id = ?').get(turn.id) as any;
+		expect(updated.question).toBe('New Q');
+		expect(updated.answer).toBe('Original A');
 	});
 });
 
-describe('DB lifecycle', () => {
-	it('create → persist → close → reopen → state intact', () => {
+describe('active path resolution', () => {
+	it('returns empty array when no HEAD is set', () => {
+		const project = getOrCreateProject(db);
+		const path = getActivePath(db, project.id);
+		expect(path).toEqual([]);
+	});
+
+	it('resolves linear chain from root to HEAD', () => {
+		const project = getOrCreateProject(db);
+		const t1 = createTurn(db, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+		const t2 = createTurn(db, project.id, { phase: 'scope', question: 'Q2', answer: 'A2', parent_turn_id: t1.id });
+		const t3 = createTurn(db, project.id, { phase: 'scope', question: 'Q3', answer: 'A3', parent_turn_id: t2.id });
+		advanceHead(db, project.id, t3.id);
+
+		const path = getActivePath(db, project.id);
+		expect(path).toHaveLength(3);
+		expect(path.map((t) => t.id)).toEqual([t1.id, t2.id, t3.id]);
+	});
+
+	it('resolves correct branch after fork', () => {
+		const project = getOrCreateProject(db);
+		const t1 = createTurn(db, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+		const t2a = createTurn(db, project.id, { phase: 'scope', question: 'Q2a', answer: 'A2a', parent_turn_id: t1.id });
+		const t2b = createTurn(db, project.id, { phase: 'scope', question: 'Q2b', answer: 'A2b', parent_turn_id: t1.id });
+
+		// HEAD at branch b
+		advanceHead(db, project.id, t2b.id);
+		const pathB = getActivePath(db, project.id);
+		expect(pathB.map((t) => t.id)).toEqual([t1.id, t2b.id]);
+
+		// Switch HEAD to branch a
+		advanceHead(db, project.id, t2a.id);
+		const pathA = getActivePath(db, project.id);
+		expect(pathA.map((t) => t.id)).toEqual([t1.id, t2a.id]);
+	});
+
+	it('handles single-turn tree (root = HEAD)', () => {
+		const project = getOrCreateProject(db);
+		const t1 = createTurn(db, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+		advanceHead(db, project.id, t1.id);
+		const path = getActivePath(db, project.id);
+		expect(path).toHaveLength(1);
+		expect(path[0].id).toBe(t1.id);
+	});
+
+	it('resolves deep fork correctly', () => {
+		const project = getOrCreateProject(db);
+		const t1 = createTurn(db, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+		const t2 = createTurn(db, project.id, { phase: 'scope', question: 'Q2', answer: 'A2', parent_turn_id: t1.id });
+		const t3 = createTurn(db, project.id, { phase: 'scope', question: 'Q3', answer: 'A3', parent_turn_id: t2.id });
+		// Fork from t2 (not from t3)
+		const t4 = createTurn(db, project.id, { phase: 'design', question: 'Q4', answer: 'A4', parent_turn_id: t2.id });
+		const t5 = createTurn(db, project.id, { phase: 'design', question: 'Q5', answer: 'A5', parent_turn_id: t4.id });
+
+		advanceHead(db, project.id, t5.id);
+		const path = getActivePath(db, project.id);
+		expect(path.map((t) => t.id)).toEqual([t1.id, t2.id, t4.id, t5.id]);
+		// t3 is on the other branch — not in the active path
+	});
+});
+
+describe('advanceHead', () => {
+	it('updates project active_turn_id', () => {
+		const project = getOrCreateProject(db);
+		const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q1' });
+		advanceHead(db, project.id, turn.id);
+		const updated = getOrCreateProject(db);
+		expect(updated.active_turn_id).toBe(turn.id);
+	});
+});
+
+describe('DB lifecycle — turn tree persistence', () => {
+	it('create → persist turns → close → reopen → state intact', () => {
 		const dir = join(tmpdir(), `brunch-test-${randomUUID()}`);
 		mkdirSync(dir, { recursive: true });
 		const dbPath = join(dir, 'lifecycle.db');
@@ -106,21 +228,28 @@ describe('DB lifecycle', () => {
 		// Create and populate
 		const db1 = createDb(dbPath);
 		const project = getOrCreateProject(db1);
-		saveMessage(db1, project.id, 'user', 'hello');
-		saveMessage(db1, project.id, 'assistant', 'world');
+		const t1 = createTurn(db1, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+		const t2 = createTurn(db1, project.id, { phase: 'scope', question: 'Q2', answer: 'A2', parent_turn_id: t1.id });
+		createOption(db1, t1.id, { position: 0, content: 'Opt A', is_recommended: true });
+		createOption(db1, t1.id, { position: 1, content: 'Opt B' });
+		advanceHead(db1, project.id, t2.id);
 		db1.close();
 
 		// Reopen and verify
 		const db2 = createDb(dbPath);
-		const reopenedProject = getOrCreateProject(db2);
-		expect(reopenedProject.id).toBe(project.id);
-		const messages = getMessages(db2, reopenedProject.id);
-		expect(messages).toHaveLength(2);
-		expect(messages[0]).toMatchObject({ role: 'user', content: 'hello' });
-		expect(messages[1]).toMatchObject({ role: 'assistant', content: 'world' });
+		const reopened = getOrCreateProject(db2);
+		expect(reopened.id).toBe(project.id);
+		expect(reopened.active_turn_id).toBe(t2.id);
+		const path = getActivePath(db2, reopened.id);
+		expect(path).toHaveLength(2);
+		expect(path[0].question).toBe('Q1');
+		expect(path[1].question).toBe('Q2');
+		// Verify options survived
+		const options = db2.prepare('SELECT * FROM option WHERE turn_id = ? ORDER BY position').all(t1.id) as any[];
+		expect(options).toHaveLength(2);
+		expect(options[0].content).toBe('Opt A');
 		db2.close();
 
-		// Cleanup
 		unlinkSync(dbPath);
 	});
 });

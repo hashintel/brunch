@@ -119,9 +119,11 @@ The architecture:
 | I3  | Thinking/text separation     | Slice 1 (skeleton) | sse-adapter.test.ts, app.test.ts  | D8     |
 | I4  | Vite proxy routing           | Slice 1 (skeleton) | vite.config.ts (manual)           | D10    |
 | I5  | DB lifecycle correctness     | Slice 2 (SQLite)   | db.test.ts                        | D7     |
-| I6  | Message persistence          | Slice 2 (SQLite)   | db.test.ts, app.test.ts           | D7     |
+| I6  | Turn persistence             | Slice 3 (turn tree) | db.test.ts, app.test.ts          | D1, D7 |
 | I7  | Tool call SSE conformance    | Slice 3b (rich UI) | sse-adapter.test.ts               | D8, D14 |
 | I8  | Tool part state rendering    | Slice 3b (rich UI) | manual (outer loop)               | D14    |
+| I9  | Turn tree parent chain       | Slice 3 (turn tree) | db.test.ts                       | D1     |
+| I10 | Active path resolution       | Slice 3 (turn tree) | db.test.ts                       | D1     |
 
 ## Lexicon
 
@@ -202,11 +204,11 @@ End-to-end slices must be **user-testable**, not just programmatically tested. E
 
 <!-- Updated by ln-build traceability after each slice. -->
 
-| File                     | Tests | Protects         |
-| ------------------------ | ----- | ---------------- |
-| sse-adapter.test.ts      | 10    | I1, I3           |
-| app.test.ts              | 8     | I2, I3, I5, I6   |
-| db.test.ts               | 10    | I5, I6           |
+| File                     | Tests | Protects              |
+| ------------------------ | ----- | --------------------- |
+| sse-adapter.test.ts      | 12    | I1, I3                |
+| db.test.ts               | 18    | I5, I6, I9, I10       |
+| app.test.ts              | 9     | I2, I3, I6            |
 
 ## Acceptance Criteria (exit conditions)
 
