@@ -204,8 +204,8 @@ Phase 6:  13 ──→ 14 (npx + CLI)
 
 ### Parallelism opportunities
 
-- Slice 3b (rich chat UI) and 3d (routing) can proceed in parallel after 3c lands
-- Observer spike can proceed any time after slice 3 — independent of 3c/3d
+- ~~Slice 3b and 3d can proceed in parallel after 3c~~ (done — both landed)
+- Observer spike and slice 4 can proceed in parallel now — spike is independent, slice 4 is on the critical path
 - Slice 7 (transitions) and 11 (branching) can start in parallel once slice 6 lands
 - Slice 12 (entity lifecycle API) can proceed in parallel with slice 11
 - Slice 14 (npx) can start early with a basic launcher, completing after slice 13
