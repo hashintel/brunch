@@ -17,12 +17,12 @@ export function createApp(dbPath?: string) {
 
   // Create a new project
   app.post('/api/projects', (req: Request, res: Response) => {
-    const name = req.body.name;
-    if (!name || typeof name !== 'string') {
+    const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
+    if (!name) {
       res.status(400).json({ error: 'name is required' });
       return;
     }
-    const project = createNewProject(db, name.trim());
+    const project = createNewProject(db, name);
     res.status(201).json(project);
   });
 
@@ -50,6 +50,10 @@ export function createApp(dbPath?: string) {
     }
 
     const prompt = extractPrompt(req.body.messages ?? []);
+    if (!prompt.trim()) {
+      res.status(400).json({ error: 'message content is required' });
+      return;
+    }
     console.log(`POST /api/projects/${id}/chat — prompt:`, JSON.stringify(prompt).substring(0, 100));
 
     res.setHeader('Content-Type', 'text/event-stream');

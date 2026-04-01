@@ -14,10 +14,10 @@ export function InterviewWorkspace() {
   const { messages, sendMessage, setMessages, status } = useChat({ transport });
   const isLoading = status === 'submitted' || status === 'streaming';
 
-  // Hydrate turns into useChat messages on mount
+  // Hydrate turns into useChat messages on project change
   useEffect(() => {
+    const msgs: UIMessage[] = [];
     if (turns?.length > 0) {
-      const msgs: UIMessage[] = [];
       for (const turn of turns) {
         if (turn.answer) {
           msgs.push({
@@ -34,9 +34,9 @@ export function InterviewWorkspace() {
           });
         }
       }
-      setMessages(msgs);
     }
-  }, [project.id]);
+    setMessages(msgs);
+  }, [project.id, turns]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
