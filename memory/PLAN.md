@@ -58,7 +58,7 @@
     - Acceptance: 51 tests pass (39 existing + 12 new core tests); Drizzle migrate() auto-applies at startup; conductTurn() yields DomainEvents consumed by Express adapter via createDomainAdapter()
     - Branch: `ln/fe-552-drizzle-core-extraction`
 
-3d. **Multi-project routing** — Install `@tanstack/react-router`. Three client routes: project list (`/`), interview workspace (`/project/:id`), export preview (`/project/:id/export`). Route loaders replace `useEffect` hydration. Server API becomes project-scoped (`/api/projects/:id/...`). Project list page with phase badges. `not-started`
+3d. **Multi-project routing** `FE-553` — Install `@tanstack/react-router`. Three client routes: project list (`/`), interview workspace (`/project/:id`), export preview (`/project/:id/export`). Route loaders replace `useEffect` hydration. Server API becomes project-scoped (`/api/projects/:id/...`). Project list page with phase badges. `not-started`
     - Requirements: → SPEC.md §Requirements #1, #15
     - Decisions: → SPEC.md §Decisions D9 (updated)
     - Invariants to respect: → SPEC.md §Invariants I1, I2, I3, I6, I9, I10
