@@ -20,10 +20,16 @@ If context is thin, run a brief interview (not a full `ln-grill`) to fill gaps.
 
 ## Plan
 
+**Mode detection.** If the user is inserting or reordering specific slices — not replanning from scratch — this is a **patch**. Read PLAN.md, make the targeted edits, then jump to the post-edit checklist (step 5).
+
 1. If `memory/PLAN.md` exists, read it first. Retire completed slices (mark `done`). Assess what remains and what's changed.
 2. Explore the codebase. Identify architectural constraints the slices must respect (routes, schema, auth, third-party boundaries).
 3. Draft or revise phases and slices. Each slice must be independently demoable and independently grabbable where possible. Group into temporal phases. For each, name dependent requirements and assumptions from `memory/SPEC.md`.
 4. Confirm with user — adjust granularity, reorder, split or merge.
+5. **Post-edit checklist** — after any addition, removal, or reordering:
+   - Update the `## Dependencies` ASCII graph to reflect new/changed edges
+   - Update `### Parallelism opportunities` if new concurrent paths opened
+   - Verify every new slice names its requirements, assumptions, invariants to establish, and invariants to respect from SPEC.md
 
 ## Output
 

@@ -14,6 +14,8 @@ The behavior to deliver: $ARGUMENTS
 
 If `memory/SPEC.md` exists, use its lexicon and respect its invariants.
 
+**Parallelism check.** If `memory/PLAN.md` exists, check `## Dependencies` and `### Parallelism opportunities`. If the current state (completed slices) unblocks multiple slices, surface them: "Slices X and Y are both unblocked — which to scope?" If the user names one, note the other(s) as available for concurrent work (e.g. a separate agent thread or session).
+
 ## Scope Card
 
 ### Target Behavior

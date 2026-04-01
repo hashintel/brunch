@@ -16,6 +16,13 @@ Slices and spikes in `memory/PLAN.md` are the unit of work. When starting one:
 
 One branch per slice/spike. Stacked branches mirror slice dependencies in PLAN.md. Graphite manages the stack; Linear tracks the issue.
 
+### naming conventions
+
+- **Branch**: `ln/{issue-id}-{keywords}` (e.g. `ln/fe-534-walking-skeleton`)
+- **PR title**: `{issue-id | upper}: {Linear issue title in sentence case}` (e.g. `FE-534: Walking skeleton SDK to SSE to React`)
+
+PR descriptions are written only when tying off a branch — not during active development.
+
 ## planning
 
 Two canonical documents in `memory/`:

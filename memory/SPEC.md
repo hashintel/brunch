@@ -38,6 +38,7 @@ The architecture:
 - **No custom model selection UI** — single model, configurable via env var at most
 - **No Dolt** — replaced by SQLite with turn-tree versioning
 - **No AG-UI / CopilotKit** — AI SDK SSE protocol is sufficient
+- **No assistant-ui** — its runtime abstraction layer (`AssistantRuntimeProvider`) adds unnecessary indirection over `useChat`; brunch emits custom SSE from Express, not from AI SDK server-side, so the adapter chain (useChat → useChatRuntime → AssistantRuntimeProvider) is overhead without benefit
 
 ## Requirements
 
@@ -71,11 +72,13 @@ The architecture:
 | A8  | A single Express port serving API + static assets is sufficient for npx distribution                                              | **validated** | D10                | npx distribution           | Validated: Vite proxy to Express works in dev; single port     |
 | A9  | TanStack AI is too immature for a deliverable (alpha, v0)                                                                         | medium     | D9                  | —                          | Re-evaluate if AI SDK becomes constraining                     |
 | A10 | The `useChat` hook can consume custom SSE without AI SDK server runtime                                                           | **validated** | D9                | Walking skeleton           | Validated: useChat consumes custom SSE via DefaultChatTransport |
-| A11 | Claude Agent SDK `query()` supports multi-turn conversation — either via session resume or by accepting formatted conversation history | medium     | D8                | SQLite foundation          | Workaround validated: formatting history into prompt works; native resume untested |
+| A11 | Stateless `query()` with prompt-stuffed history is sufficient for multi-turn interviewing — SDK session persistence is unnecessary and undesirable | **validated** | D8, D12           | SQLite foundation          | Validated: formatting history into prompt works. SDK sessions rejected as competing source of truth — opaque, machine-local, incompatible with portable data goals (atomic YAML / git-versionable). Turn tree is sole session model. |
 | A12 | `useChat` hook accepts initial messages to hydrate conversation state from server-stored history                                    | **validated** | D9                | SQLite foundation          | Validated: `useChat` doesn't have `initialMessages` prop but `setMessages` works for hydration |
 | A13 | Claude Agent SDK supports defining interview phases as agent skills with distinct system prompts and tool sets                      | medium     | D2                  | Interview phases           | Test SDK skill/agent configuration API                         |
 | A14 | A second-thread observer agent can reliably extract decisions, assumptions, and dependency edges from a single turn's Q&A          | medium     | D1                  | Observer agent             | Probe with realistic interview exchanges; measure extraction fidelity |
 | A15 | The LLM can reliably judge when a phase interview has reached sufficient understanding (is_resolution)                             | medium     | D3                  | Phase resolution           | Probe across varied project types; measure false-positive resolution rate |
+| A16 | AI SDK `useChat` hook's `ToolUIPart` state machine (`input-streaming` → `input-available` → `output-available` / `output-error` / `approval-requested` → `approval-responded` / `output-denied`) models all permutations of pending, error, and success for both interim (thinking, tool calls) and final (response) data | high | D14 | Rich chat UI | Validate by extending SSE adapter to emit tool-call events, confirm `useChat` surfaces all states |
+| A17 | AI Elements copy-paste components can be restyled without forking — they are ownable source files, not npm-locked dependencies      | high       | D14                 | Rich chat UI               | Install via CLI, inspect source, confirm no hidden npm runtime dependency |
 
 ## Decisions
 
@@ -87,6 +90,11 @@ The architecture:
 4. **Two-agent pattern (interviewer + observer)** — The interviewer focuses solely on conducting the interview with structured questions. After each answered turn, a separate observer agent extracts decisions, assumptions, and dependency edges. The observer can use a cheaper/faster model. Keeps the interviewer prompt clean and extraction independently testable. Depends on: A3, A4, A14. Supersedes: —.
 5. **Decision dependency graph** — Decisions depend on prior decisions and/or assumptions via `decision_parent_decision` and `decision_parent_assumption` join tables. Assumptions can depend on prior assumptions via `assumption_parent_assumption`. The observer agent captures these edges during extraction. Depends on: A14. Supersedes: —.
 6. **Soft invalidation for requirements and criteria** — When a decision is revisited (branch fork), requirements traced to that decision are flagged for re-review via stale `reviewed_at` timestamps. Criteria inherit the flag transitively from their requirements. The agent handles re-qualification holistically, not mechanistically. Depends on: —. Supersedes: —.
+
+12. **Stateless SDK integration — no session persistence** — Each `query()` call uses `persistSession: false`. Conversation context is reconstructed from the turn tree's active path and injected as formatted history + structured entity summaries. SDK sessions (`resume`, `fork`, session IDs) are not used. The turn tree is the sole session model. Rationale: SDK sessions are an opaque, machine-local competing source of truth incompatible with brunch's branching semantics and future portable-data goals (atomic YAML, git-versionable). Depends on: A11. Supersedes: implicit reliance on SDK session state.
+13. **Observer captures derived intelligence** — The observer agent's extraction mandate extends beyond decisions and assumptions to include derived observations (e.g. codebase analysis, domain insights) that the interviewer surfaced through tool use during a turn. These are persisted so subsequent stateless `query()` calls can inject them as context. The exact entity model is TBD — candidates include a dedicated `observation` table, enriched `decision.rationale`, or a `notes` field on `turn`. Depends on: A14, D12. Supersedes: —.
+
+14. **AI Elements for rich chat UI components** — Copy-paste component source files (via `npx ai-elements`) from Vercel's AI Elements registry, built on shadcn/ui + Radix. Components directly consume AI SDK's `ToolUIPart` types and `useChat` hook state. Provides `Tool` (7-state lifecycle), `Reasoning` (collapsible), `ChainOfThought` (groups reasoning + tool calls), `Message`, `Conversation`, `PromptInput`. Source files are owned, not npm-locked — full restyle control. No runtime abstraction layer. Depends on: A16, A17. Supersedes: hand-rolled message rendering in App.tsx.
 
 ### Technical stack
 
@@ -112,6 +120,8 @@ The architecture:
 | I4  | Vite proxy routing           | Slice 1 (skeleton) | vite.config.ts (manual)           | D10    |
 | I5  | DB lifecycle correctness     | Slice 2 (SQLite)   | db.test.ts                        | D7     |
 | I6  | Message persistence          | Slice 2 (SQLite)   | db.test.ts, app.test.ts           | D7     |
+| I7  | Tool call SSE conformance    | Slice 3b (rich UI) | sse-adapter.test.ts               | D8, D14 |
+| I8  | Tool part state rendering    | Slice 3b (rich UI) | manual (outer loop)               | D14    |
 
 ## Lexicon
 
@@ -176,11 +186,13 @@ End-to-end slices must be **user-testable**, not just programmatically tested. E
   - Turn persistence: given a turn with options, assert correct storage and retrieval → protects I5, I6
   - Observer extraction: given a turn's Q&A, assert correct decision/assumption output (snapshot fixtures)
   - Active path: given a branched turn tree, assert correct entity resolution from HEAD
+  - Tool call SSE: given an SDK `tool_use` content block, assert correct `tool-call-streaming-start`, `tool-call-delta`, `tool-call` events → protects I7
 - **Middle loop** (seconds–minutes): integration tests, regression gates
   - Interview flow: POST user message via Supertest, assert SSE stream contains expected event types in order → protects I2
   - DB lifecycle: create project → persist turns → close → reopen → assert state intact → protects I5
   - Decision revisit: create branch → verify active path resolves correctly → verify soft invalidation flags
 - **Outer loop** (minutes–hours): e2e, human observer
+  - Rich chat rendering: tool calls show all 7 states (input-streaming, input-available, approval-requested, approval-responded, output-available, output-error, output-denied), reasoning collapses, message parts render by type → protects I8
   - Full interview walkthrough in browser: structured questions render with options/grounding/impact, decisions appear in dashboard, phase transitions work
   - Resume test: close browser mid-interview, reopen, verify turn tree and entity state intact
   - Decision revisit: navigate to a previous decision, fork, verify dashboard updates and invalidation
