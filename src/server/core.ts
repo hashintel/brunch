@@ -69,6 +69,7 @@ export async function* conductTurn(
 
 	const fullPrompt = formatHistory(activePath, userMessage);
 	let assistantText = '';
+	let errored = false;
 
 	try {
 		const stream = query({
@@ -107,14 +108,17 @@ export async function* conductTurn(
 			}
 		}
 	} catch (err) {
+		errored = true;
 		const message = err instanceof Error ? err.message : 'Unknown error';
 		yield { type: 'error', message };
 	}
 
-	if (assistantText) {
-		updateTurn(db, turn.id, { question: assistantText });
+	if (!errored) {
+		if (assistantText) {
+			updateTurn(db, turn.id, { question: assistantText });
+		}
+		advanceHead(db, project.id, turn.id);
 	}
-	advanceHead(db, project.id, turn.id);
 }
 
 /** Get project state: project + active path turns. */
