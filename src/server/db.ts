@@ -76,11 +76,26 @@ export function createTurn(db: DB, projectId: number, input: CreateTurnInput): T
   return result as Turn;
 }
 
-export function updateTurn(db: DB, turnId: number, updates: { question?: string; answer?: string }): void {
-  if (updates.question === undefined && updates.answer === undefined) return;
-  const values: Record<string, string> = {};
+export interface UpdateTurnInput {
+  question?: string;
+  answer?: string;
+  why?: string | null;
+  impact?: Impact | null;
+}
+
+export function updateTurn(db: DB, turnId: number, updates: UpdateTurnInput): void {
+  if (
+    updates.question === undefined &&
+    updates.answer === undefined &&
+    updates.why === undefined &&
+    updates.impact === undefined
+  )
+    return;
+  const values: Record<string, unknown> = {};
   if (updates.question !== undefined) values.question = updates.question;
   if (updates.answer !== undefined) values.answer = updates.answer;
+  if (updates.why !== undefined) values.why = updates.why;
+  if (updates.impact !== undefined) values.impact = updates.impact;
   db.update(schema.turn).set(values).where(eq(schema.turn.id, turnId)).run();
 }
 
@@ -117,6 +132,25 @@ export function getActivePath(db: DB, projectId: number): Turn[] {
 		SELECT * FROM path ORDER BY id ASC
 	`);
   return rows as Turn[];
+}
+
+export function getOptionsForTurn(db: DB, turnId: number): Option[] {
+  return db
+    .select()
+    .from(schema.option)
+    .where(eq(schema.option.turn_id, turnId))
+    .orderBy(schema.option.position)
+    .all() as Option[];
+}
+
+export function selectOption(db: DB, turnId: number, position: number): void {
+  // Clear any previous selection for this turn
+  db.update(schema.option).set({ is_selected: false }).where(eq(schema.option.turn_id, turnId)).run();
+  // Select the chosen option
+  db.update(schema.option)
+    .set({ is_selected: true })
+    .where(sql`${schema.option.turn_id} = ${turnId} AND ${schema.option.position} = ${position}`)
+    .run();
 }
 
 export function advanceHead(db: DB, projectId: number, turnId: number): void {

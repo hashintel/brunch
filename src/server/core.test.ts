@@ -6,6 +6,13 @@ import type { DB } from './db.js';
 const mockQuery = vi.fn();
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   query: mockQuery,
+  createSdkMcpServer: () => ({ name: 'interview', instance: {} }),
+  tool: (name: string, desc: string, schema: any, handler: any) => ({
+    name,
+    description: desc,
+    inputSchema: schema,
+    handler,
+  }),
 }));
 
 const { conductTurn, extractPrompt, formatHistory } = await import('./core.js');
@@ -52,8 +59,8 @@ describe('formatHistory', () => {
   it('formats turns into conversation history', () => {
     const turns = [{ answer: 'Hi', question: 'Hello back' }] as any[];
     const result = formatHistory(turns, 'next');
-    expect(result).toContain('User: Hi');
-    expect(result).toContain('Assistant: Hello back');
+    expect(result).toContain('Answer: Hi');
+    expect(result).toContain('Question: Hello back');
     expect(result).toContain('User: next');
   });
 });

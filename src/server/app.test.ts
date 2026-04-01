@@ -7,6 +7,13 @@ import type { DB } from './db.js';
 const mockQuery = vi.fn();
 vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   query: mockQuery,
+  createSdkMcpServer: () => ({ name: 'interview', instance: {} }),
+  tool: (name: string, desc: string, schema: any, handler: any) => ({
+    name,
+    description: desc,
+    inputSchema: schema,
+    handler,
+  }),
 }));
 
 // Import app factory after mocking

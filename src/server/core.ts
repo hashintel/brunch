@@ -12,6 +12,7 @@ import {
   type DB,
   type Project,
 } from './db.js';
+import { getSystemPrompt, createInterviewMcpServer } from './interview.js';
 
 /** Domain events yielded by conductTurn(). Transport-agnostic. */
 export type DomainEvent =
@@ -44,8 +45,13 @@ export function formatHistory(turns: Turn[], currentPrompt: string): string {
   if (turns.length === 0) return currentPrompt;
   const lines: string[] = [];
   for (const turn of turns) {
-    if (turn.answer) lines.push(`User: ${turn.answer}`);
-    if (turn.question) lines.push(`Assistant: ${turn.question}`);
+    if (turn.question) {
+      let questionLine = `Question: ${turn.question}`;
+      if (turn.why) questionLine += `\n  Why it matters: ${turn.why}`;
+      if (turn.impact) questionLine += `\n  Impact: ${turn.impact}`;
+      lines.push(questionLine);
+    }
+    if (turn.answer) lines.push(`Answer: ${turn.answer}`);
   }
   if (lines.length === 0) return currentPrompt;
   return `Previous conversation:\n${lines.join('\n')}\n\n---\nUser: ${currentPrompt}`;
@@ -85,9 +91,13 @@ export async function* conductTurn(
 
   yield { type: 'turn-created', turn };
 
+  const phase = turn.phase;
   const fullPrompt = formatHistory(activePath, userMessage);
   let assistantText = '';
   let errored = false;
+
+  // Create per-turn MCP server — tool handler persists structured data via closure
+  const interviewServer = createInterviewMcpServer(db, turn.id);
 
   try {
     const stream = query({
@@ -96,7 +106,8 @@ export async function* conductTurn(
         model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
         maxTurns: 1,
         includePartialMessages: true,
-        systemPrompt: 'You are a helpful assistant.',
+        systemPrompt: getSystemPrompt(phase),
+        mcpServers: { interview: interviewServer },
       },
     });
 
@@ -163,7 +174,9 @@ export async function* conductTurn(
   }
 
   if (!errored) {
-    if (assistantText) {
+    // Only persist raw text if no structured question was set via MCP tool handler
+    const updatedTurn = getActivePath(db, projectId).find((t) => t.id === turn.id);
+    if (assistantText && (!updatedTurn?.question || updatedTurn.question === '')) {
       updateTurn(db, turn.id, { question: assistantText });
     }
     advanceHead(db, projectId, turn.id);
