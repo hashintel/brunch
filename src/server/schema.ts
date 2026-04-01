@@ -20,7 +20,7 @@ export const turn = sqliteTable('turn', {
 	why: text(),
 	impact: text({ enum: ['high', 'medium', 'low'] }),
 	answer: text(),
-	is_resolution: integer().notNull().default(0),
+	is_resolution: integer({ mode: 'boolean' }).notNull().default(false),
 	created_at: text().notNull().default(sql`(datetime('now'))`),
 });
 
@@ -29,8 +29,8 @@ export const option = sqliteTable('option', {
 	turn_id: integer().notNull().references(() => turn.id),
 	position: integer().notNull(),
 	content: text().notNull(),
-	is_recommended: integer().notNull().default(0),
-	is_selected: integer().notNull().default(0),
+	is_recommended: integer({ mode: 'boolean' }).notNull().default(false),
+	is_selected: integer({ mode: 'boolean' }).notNull().default(false),
 }, (table) => [
 	uniqueIndex('option_turn_position_unique').on(table.turn_id, table.position),
 ]);

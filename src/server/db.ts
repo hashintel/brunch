@@ -1,42 +1,15 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { eq, sql } from 'drizzle-orm';
+import { eq, sql, type InferSelectModel } from 'drizzle-orm';
 import * as schema from './schema.js';
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
-export type Phase = 'scope' | 'design' | 'requirements' | 'criteria';
-export type Impact = 'high' | 'medium' | 'low';
-
-export interface Project {
-	id: number;
-	name: string;
-	active_turn_id: number | null;
-	created_at: string;
-	updated_at: string;
-}
-
-export interface Turn {
-	id: number;
-	project_id: number;
-	parent_turn_id: number | null;
-	phase: Phase;
-	question: string;
-	why: string | null;
-	impact: Impact | null;
-	answer: string | null;
-	is_resolution: number;
-	created_at: string;
-}
-
-export interface Option {
-	id: number;
-	turn_id: number;
-	position: number;
-	content: string;
-	is_recommended: number;
-	is_selected: number;
-}
+export type Project = InferSelectModel<typeof schema.project>;
+export type Turn = InferSelectModel<typeof schema.turn>;
+export type Option = InferSelectModel<typeof schema.option>;
+export type Phase = Turn['phase'];
+export type Impact = NonNullable<Turn['impact']>;
 
 export interface CreateTurnInput {
 	parent_turn_id?: number | null;
@@ -80,7 +53,7 @@ export function createTurn(db: DB, projectId: number, input: CreateTurnInput): T
 		why: input.why ?? null,
 		impact: input.impact ?? null,
 		answer: input.answer ?? null,
-		is_resolution: input.is_resolution ? 1 : 0,
+		is_resolution: input.is_resolution ?? false,
 	}).returning().get();
 	return result as Turn;
 }
@@ -98,8 +71,8 @@ export function createOption(db: DB, turnId: number, input: CreateOptionInput): 
 		turn_id: turnId,
 		position: input.position,
 		content: input.content,
-		is_recommended: input.is_recommended ? 1 : 0,
-		is_selected: input.is_selected ? 1 : 0,
+		is_recommended: input.is_recommended ?? false,
+		is_selected: input.is_selected ?? false,
 	}).returning().get();
 	return result as Option;
 }

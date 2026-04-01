@@ -100,7 +100,7 @@ describe('turn CRUD', () => {
 		expect(turn.phase).toBe('scope');
 		expect(turn.question).toBe('What is the project about?');
 		expect(turn.answer).toBe('A chat app');
-		expect(turn.is_resolution).toBe(0);
+		expect(turn.is_resolution).toBe(false);
 	});
 
 	it('creates child turns with parent chain', () => {
@@ -117,9 +117,9 @@ describe('turn CRUD', () => {
 		const turn = createTurn(db, project.id, { phase: 'scope', question: 'Pick one' });
 		const opt1 = createOption(db, turn.id, { position: 0, content: 'Option A', is_recommended: true });
 		const opt2 = createOption(db, turn.id, { position: 1, content: 'Option B' });
-		expect(opt1.is_recommended).toBe(1);
+		expect(opt1.is_recommended).toBe(true);
 		expect(opt1.content).toBe('Option A');
-		expect(opt2.is_recommended).toBe(0);
+		expect(opt2.is_recommended).toBe(false);
 	});
 
 	it('enforces unique (turn_id, position) on options', () => {
