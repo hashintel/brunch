@@ -17,6 +17,9 @@ export type AIEvent =
 	| { type: 'reasoning-start'; id: string }
 	| { type: 'reasoning-delta'; id: string; delta: string }
 	| { type: 'reasoning-end'; id: string }
+	| { type: 'tool-call-streaming-start'; id: string; toolName: string }
+	| { type: 'tool-call-delta'; id: string; delta: string }
+	| { type: 'tool-call'; id: string; toolName: string; args: string }
 	| { type: 'finish-step' }
 	| { type: 'finish'; finishReason: string }
 	| { type: 'error'; errorText: string };
@@ -28,8 +31,8 @@ interface SDKStreamEvent {
 		type: string;
 		index?: number;
 		message?: { id: string; role: string; content: unknown[] };
-		content_block?: { type: string; thinking?: string; text?: string };
-		delta?: { type: string; text?: string; thinking?: string };
+		content_block?: { type: string; thinking?: string; text?: string; name?: string; id?: string };
+		delta?: { type: string; text?: string; thinking?: string; partial_json?: string };
 	};
 }
 
@@ -54,6 +57,7 @@ export function formatSSE(payload: AIEvent | '[DONE]'): string {
 export function createTranslator() {
 	const thinkingBlocks = new Set<number>();
 	const textBlocks = new Set<number>();
+	const toolUseBlocks = new Map<number, { toolName: string; toolCallId: string; argsJson: string }>();
 
 	function translateEvent(sdkMessage: SDKMessage): AIEvent[] {
 		if (sdkMessage.type !== 'stream_event') return [];
@@ -74,6 +78,10 @@ export function createTranslator() {
 					textBlocks.add(event.index!);
 					return [{ type: 'text-start', id: `text-${event.index}` }];
 				}
+				if (block.type === 'tool_use') {
+					toolUseBlocks.set(event.index!, { toolName: block.name!, toolCallId: block.id!, argsJson: '' });
+					return [{ type: 'tool-call-streaming-start', id: block.id!, toolName: block.name! }];
+				}
 				return [];
 			}
 
@@ -89,6 +97,13 @@ export function createTranslator() {
 				if (delta.type === 'text_delta') {
 					return [{ type: 'text-delta', id: `text-${event.index}`, delta: delta.text! }];
 				}
+				if (delta.type === 'input_json_delta') {
+					const toolBlock = toolUseBlocks.get(event.index!);
+					if (toolBlock) {
+						toolBlock.argsJson += delta.partial_json ?? '';
+						return [{ type: 'tool-call-delta', id: toolBlock.toolCallId, delta: delta.partial_json! }];
+					}
+				}
 				return [];
 			}
 
@@ -100,6 +115,11 @@ export function createTranslator() {
 				if (textBlocks.has(event.index!)) {
 					textBlocks.delete(event.index!);
 					return [{ type: 'text-end', id: `text-${event.index}` }];
+				}
+				const toolBlock = toolUseBlocks.get(event.index!);
+				if (toolBlock) {
+					toolUseBlocks.delete(event.index!);
+					return [{ type: 'tool-call', id: toolBlock.toolCallId, toolName: toolBlock.toolName, args: toolBlock.argsJson }];
 				}
 				return [];
 			}
@@ -124,7 +144,8 @@ export function createTranslator() {
  */
 export function createDomainAdapter() {
 	let blockIndex = 0;
-	let currentBlock: 'thinking' | 'text' | null = null;
+	let currentBlock: 'thinking' | 'text' | 'tool-call' | null = null;
+	let currentToolArgsJson = '';
 
 	function translate(event: DomainEvent): AIEvent[] {
 		switch (event.type) {
@@ -154,6 +175,34 @@ export function createDomainAdapter() {
 				}
 				events.push({ type: 'text-delta', id: `text-${blockIndex}`, delta: event.delta });
 				return events;
+			}
+
+			case 'tool-call-start': {
+				const events: AIEvent[] = [];
+				if (currentBlock === 'thinking') {
+					events.push({ type: 'reasoning-end', id: `reasoning-${blockIndex}` });
+					blockIndex++;
+				} else if (currentBlock === 'text') {
+					events.push({ type: 'text-end', id: `text-${blockIndex}` });
+					blockIndex++;
+				}
+				currentBlock = 'tool-call';
+				currentToolArgsJson = '';
+				events.push({ type: 'tool-call-streaming-start', id: event.toolCallId, toolName: event.toolName });
+				return events;
+			}
+
+			case 'tool-call-delta': {
+				currentToolArgsJson += event.delta;
+				return [{ type: 'tool-call-delta', id: `tool-call-${blockIndex}`, delta: event.delta }];
+			}
+
+			case 'tool-call-end': {
+				currentBlock = null;
+				const toolCallEvent: AIEvent = { type: 'tool-call', id: event.toolCallId, toolName: '', args: currentToolArgsJson };
+				currentToolArgsJson = '';
+				blockIndex++;
+				return [toolCallEvent];
 			}
 
 			case 'stream-end': {

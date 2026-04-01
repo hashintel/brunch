@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { createTranslator, formatSSE } from './sse-adapter.js';
+import { createTranslator, createDomainAdapter, formatSSE } from './sse-adapter.js';
 
 describe('formatSSE', () => {
 	it('wraps a JSON object in SSE data line', () => {
@@ -142,5 +142,92 @@ describe('translateEvent', () => {
 		};
 		const events = translateEvent(sdkMessage);
 		expect(events).toEqual([]);
+	});
+
+	it('translates tool_use content_block_start to tool-call-streaming-start', () => {
+		const sdkMessage = {
+			type: 'stream_event',
+			event: {
+				type: 'content_block_start',
+				index: 2,
+				content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' },
+			},
+		};
+		const events = translateEvent(sdkMessage);
+		expect(events).toEqual([{ type: 'tool-call-streaming-start', id: 'toolu_01', toolName: 'get_weather' }]);
+	});
+
+	it('translates input_json_delta to tool-call-delta', () => {
+		// Register a tool_use block first
+		translateEvent({
+			type: 'stream_event',
+			event: {
+				type: 'content_block_start',
+				index: 2,
+				content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' },
+			},
+		});
+		const sdkMessage = {
+			type: 'stream_event',
+			event: {
+				type: 'content_block_delta',
+				index: 2,
+				delta: { type: 'input_json_delta', partial_json: '{"city":"' },
+			},
+		};
+		const events = translateEvent(sdkMessage);
+		expect(events).toEqual([{ type: 'tool-call-delta', id: 'toolu_01', delta: '{"city":"' }]);
+	});
+
+	it('translates tool_use content_block_stop to tool-call (finished)', () => {
+		// Register and feed a tool_use block
+		translateEvent({
+			type: 'stream_event',
+			event: {
+				type: 'content_block_start',
+				index: 2,
+				content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' },
+			},
+		});
+		translateEvent({
+			type: 'stream_event',
+			event: {
+				type: 'content_block_delta',
+				index: 2,
+				delta: { type: 'input_json_delta', partial_json: '{"city":"NYC"}' },
+			},
+		});
+		const sdkMessage = {
+			type: 'stream_event',
+			event: { type: 'content_block_stop', index: 2 },
+		};
+		const events = translateEvent(sdkMessage);
+		expect(events).toEqual([{ type: 'tool-call', id: 'toolu_01', toolName: 'get_weather', args: '{"city":"NYC"}' }]);
+	});
+});
+
+describe('createDomainAdapter — tool-call events', () => {
+	it('translates tool-call-start to tool-call-streaming-start', () => {
+		const { translate } = createDomainAdapter();
+		translate({ type: 'stream-start', messageId: 'msg-1' });
+		const events = translate({ type: 'tool-call-start', toolName: 'search', toolCallId: 'tc-1' });
+		expect(events).toEqual([{ type: 'tool-call-streaming-start', id: 'tc-1', toolName: 'search' }]);
+	});
+
+	it('translates tool-call-delta to tool-call-delta', () => {
+		const { translate } = createDomainAdapter();
+		translate({ type: 'stream-start', messageId: 'msg-1' });
+		translate({ type: 'tool-call-start', toolName: 'search', toolCallId: 'tc-1' });
+		const events = translate({ type: 'tool-call-delta', delta: '{"q":"test"}' });
+		expect(events).toEqual([{ type: 'tool-call-delta', id: 'tool-call-0', delta: '{"q":"test"}' }]);
+	});
+
+	it('translates tool-call-end to tool-call (finished)', () => {
+		const { translate } = createDomainAdapter();
+		translate({ type: 'stream-start', messageId: 'msg-1' });
+		translate({ type: 'tool-call-start', toolName: 'search', toolCallId: 'tc-1' });
+		translate({ type: 'tool-call-delta', delta: '{"q":"test"}' });
+		const events = translate({ type: 'tool-call-end', toolCallId: 'tc-1' });
+		expect(events).toEqual([{ type: 'tool-call', id: 'tc-1', toolName: '', args: '{"q":"test"}' }]);
 	});
 });

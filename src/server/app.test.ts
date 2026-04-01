@@ -198,6 +198,67 @@ describe('POST /api/chat', () => {
 	});
 });
 
+describe('POST /api/chat — tool calls', () => {
+	it('emits tool-call SSE events for tool-using mock stream', async () => {
+		mockQuery.mockReturnValue(makeMockStream([
+			{
+				type: 'stream_event',
+				event: { type: 'message_start', message: { id: 'msg-1', role: 'assistant', content: [] } },
+			},
+			{
+				type: 'stream_event',
+				event: { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' } },
+			},
+			{
+				type: 'stream_event',
+				event: { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"city":"NYC"}' } },
+			},
+			{
+				type: 'stream_event',
+				event: { type: 'content_block_stop', index: 0 },
+			},
+			{
+				type: 'stream_event',
+				event: { type: 'content_block_start', index: 1, content_block: { type: 'text', text: '' } },
+			},
+			{
+				type: 'stream_event',
+				event: { type: 'content_block_delta', index: 1, delta: { type: 'text_delta', text: 'Weather result' } },
+			},
+			{
+				type: 'stream_event',
+				event: { type: 'content_block_stop', index: 1 },
+			},
+			{
+				type: 'stream_event',
+				event: { type: 'message_stop' },
+			},
+		]));
+
+		const res = await request(app)
+			.post('/api/chat')
+			.send({ messages: [{ role: 'user', content: 'weather?' }] });
+
+		const events = parseSSELines(await collectSSE(res));
+
+		const toolStart = events.find((e: any) => e.type === 'tool-call-streaming-start');
+		expect(toolStart).toBeDefined();
+		expect(toolStart.toolName).toBe('get_weather');
+
+		const toolDelta = events.find((e: any) => e.type === 'tool-call-delta');
+		expect(toolDelta).toBeDefined();
+		expect(toolDelta.delta).toBe('{"city":"NYC"}');
+
+		const toolCall = events.find((e: any) => e.type === 'tool-call');
+		expect(toolCall).toBeDefined();
+		expect(toolCall.args).toBe('{"city":"NYC"}');
+
+		const textDelta = events.find((e: any) => e.type === 'text-delta');
+		expect(textDelta).toBeDefined();
+		expect(textDelta.delta).toBe('Weather result');
+	});
+});
+
 describe('POST /api/chat — turn persistence', () => {
 	it('creates a turn with user answer and advances HEAD', async () => {
 		mockQuery.mockReturnValue(mockTextStream('Hi there'));

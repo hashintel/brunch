@@ -9,6 +9,9 @@ export type DomainEvent =
 	| { type: 'stream-start'; messageId: string }
 	| { type: 'thinking'; delta: string }
 	| { type: 'text-delta'; delta: string }
+	| { type: 'tool-call-start'; toolName: string; toolCallId: string }
+	| { type: 'tool-call-delta'; delta: string }
+	| { type: 'tool-call-end'; toolCallId: string }
 	| { type: 'stream-end' }
 	| { type: 'turn-created'; turn: Turn }
 	| { type: 'error'; message: string };
@@ -41,8 +44,8 @@ interface SDKStreamEvent {
 		type: string;
 		index?: number;
 		message?: { id: string };
-		content_block?: { type: string };
-		delta?: { type: string; text?: string; thinking?: string };
+		content_block?: { type: string; name?: string; id?: string };
+		delta?: { type: string; text?: string; thinking?: string; partial_json?: string };
 	};
 }
 
@@ -82,6 +85,8 @@ export async function* conductTurn(
 			},
 		});
 
+		const toolUseBlocks = new Map<number, { toolName: string; toolCallId: string }>();
+
 		for await (const sdkMessage of stream) {
 			if (sdkMessage.type !== 'stream_event') continue;
 			const event = (sdkMessage as SDKStreamEvent).event;
@@ -91,6 +96,15 @@ export async function* conductTurn(
 					yield { type: 'stream-start', messageId: event.message!.id };
 					break;
 
+				case 'content_block_start': {
+					const block = event.content_block!;
+					if (block.type === 'tool_use') {
+						toolUseBlocks.set(event.index!, { toolName: block.name!, toolCallId: block.id! });
+						yield { type: 'tool-call-start', toolName: block.name!, toolCallId: block.id! };
+					}
+					break;
+				}
+
 				case 'content_block_delta': {
 					const delta = event.delta!;
 					if (delta.type === 'thinking_delta' && delta.thinking) {
@@ -98,6 +112,17 @@ export async function* conductTurn(
 					} else if (delta.type === 'text_delta' && delta.text) {
 						assistantText += delta.text;
 						yield { type: 'text-delta', delta: delta.text };
+					} else if (delta.type === 'input_json_delta' && delta.partial_json) {
+						yield { type: 'tool-call-delta', delta: delta.partial_json };
+					}
+					break;
+				}
+
+				case 'content_block_stop': {
+					const toolBlock = toolUseBlocks.get(event.index!);
+					if (toolBlock) {
+						yield { type: 'tool-call-end', toolCallId: toolBlock.toolCallId };
+						toolUseBlocks.delete(event.index!);
 					}
 					break;
 				}
