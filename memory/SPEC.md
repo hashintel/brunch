@@ -192,11 +192,15 @@ The architecture (layered: db → core → adapters):
 
 ### Verification Commands
 
-| Step | Check         | Command            |
-| ---- | ------------- | ------------------ |
-| 1    | Type checking | `npx tsc --noEmit` |
-| 2    | Unit tests    | `npx vitest run`   |
-| 3    | Build         | `npx vite build`   |
+| Step | Check              | Command                                   |
+| ---- | ------------------ | ----------------------------------------- |
+| 1    | Formatting         | `npm run fmt:check`                       |
+| 2    | Lint + type check  | `npm run lint`                            |
+| 3    | Unit tests         | `npm run test`                            |
+| 4    | Build              | `npm run build`                           |
+| all  | Full pipeline      | `npm run verify`                          |
+
+Tooling: oxfmt (formatting), oxlint + tsgolint (lint + type-aware + type-check), vitest (tests), vite (build). Replaces eslint + `tsc --noEmit`.
 
 ### Verification Policy
 

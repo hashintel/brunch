@@ -5,7 +5,12 @@
 		"dev": "concurrently \"vite\" \"npx tsx --env-file=.env --watch src/server/index.ts\"",
 		"server": "npx tsx --env-file=.env src/server/index.ts",
 		"build": "vite build",
-		"test": "vitest run"
+		"test": "vitest run",
+		"lint": "oxlint --type-aware --type-check src/",
+		"lint:fix": "oxlint --type-aware --type-check --fix src/",
+		"fmt": "oxfmt src/",
+		"fmt:check": "oxfmt --check src/",
+		"verify": "npm run fmt:check && npm run lint && npm run test && npm run build"
 	},
 	"dependencies": {
 		"@ai-sdk/react": "^3.0.143",
@@ -28,12 +33,13 @@
 		"@types/supertest": "^7.2.0",
 		"concurrently": "^9.2.1",
 		"drizzle-kit": "^0.31.10",
-		"eslint": "^9.39.4",
+		"oxfmt": "^0.43.0",
+		"oxlint": "^1.58.0",
+		"oxlint-tsgolint": "^0.19.0",
 		"supertest": "^7.2.2",
 		"tsx": "^4.21.0",
 		"typescript": "^5.9.3",
 		"vite": "^7.0.4",
 		"vitest": "^4.1.0"
-	},
-	"eslintConfig": {}
+	}
 }

@@ -1,76 +1,77 @@
 import express from 'express';
 import type { Request, Response } from 'express';
-import { createDb } from './db.js';
+
 import { conductTurn, extractPrompt, getProjectState, listProjectStates, createNewProject } from './core.js';
+import { createDb } from './db.js';
 import { createDomainAdapter, formatSSE } from './sse-adapter.js';
 
 export function createApp(dbPath?: string) {
-	const db = createDb(dbPath);
-	const app = express();
-	app.use(express.json());
+  const db = createDb(dbPath);
+  const app = express();
+  app.use(express.json());
 
-	// List all projects
-	app.get('/api/projects', (_req: Request, res: Response) => {
-		res.json(listProjectStates(db));
-	});
+  // List all projects
+  app.get('/api/projects', (_req: Request, res: Response) => {
+    res.json(listProjectStates(db));
+  });
 
-	// Create a new project
-	app.post('/api/projects', (req: Request, res: Response) => {
-		const name = req.body.name;
-		if (!name || typeof name !== 'string') {
-			res.status(400).json({ error: 'name is required' });
-			return;
-		}
-		const project = createNewProject(db, name.trim());
-		res.status(201).json(project);
-	});
+  // Create a new project
+  app.post('/api/projects', (req: Request, res: Response) => {
+    const name = req.body.name;
+    if (!name || typeof name !== 'string') {
+      res.status(400).json({ error: 'name is required' });
+      return;
+    }
+    const project = createNewProject(db, name.trim());
+    res.status(201).json(project);
+  });
 
-	// Get a specific project + active path
-	app.get('/api/projects/:id', (req: Request, res: Response) => {
-		const id = Number(req.params.id);
-		if (Number.isNaN(id)) {
-			res.status(400).json({ error: 'Invalid project ID' });
-			return;
-		}
-		const state = getProjectState(db, id);
-		if (!state) {
-			res.status(404).json({ error: 'Project not found' });
-			return;
-		}
-		res.json(state);
-	});
+  // Get a specific project + active path
+  app.get('/api/projects/:id', (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: 'Invalid project ID' });
+      return;
+    }
+    const state = getProjectState(db, id);
+    if (!state) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+    res.json(state);
+  });
 
-	// Conduct turn for a specific project
-	app.post('/api/projects/:id/chat', async (req: Request, res: Response) => {
-		const id = Number(req.params.id);
-		if (Number.isNaN(id)) {
-			res.status(400).json({ error: 'Invalid project ID' });
-			return;
-		}
+  // Conduct turn for a specific project
+  app.post('/api/projects/:id/chat', async (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: 'Invalid project ID' });
+      return;
+    }
 
-		const prompt = extractPrompt(req.body.messages ?? []);
-		console.log(`POST /api/projects/${id}/chat — prompt:`, JSON.stringify(prompt).substring(0, 100));
+    const prompt = extractPrompt(req.body.messages ?? []);
+    console.log(`POST /api/projects/${id}/chat — prompt:`, JSON.stringify(prompt).substring(0, 100));
 
-		res.setHeader('Content-Type', 'text/event-stream');
-		res.setHeader('Cache-Control', 'no-cache');
-		res.setHeader('Connection', 'keep-alive');
+    res.setHeader('Content-Type', 'text/event-stream');
+    res.setHeader('Cache-Control', 'no-cache');
+    res.setHeader('Connection', 'keep-alive');
 
-		const { translate } = createDomainAdapter();
+    const { translate } = createDomainAdapter();
 
-		try {
-			for await (const domainEvent of conductTurn(db, id, prompt)) {
-				for (const sseEvent of translate(domainEvent)) {
-					res.write(formatSSE(sseEvent));
-				}
-			}
-		} catch (err) {
-			const message = err instanceof Error ? err.message : 'Unknown error';
-			res.write(formatSSE({ type: 'error', errorText: message }));
-		}
+    try {
+      for await (const domainEvent of conductTurn(db, id, prompt)) {
+        for (const sseEvent of translate(domainEvent)) {
+          res.write(formatSSE(sseEvent));
+        }
+      }
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Unknown error';
+      res.write(formatSSE({ type: 'error', errorText: message }));
+    }
 
-		res.write(formatSSE('[DONE]'));
-		res.end();
-	});
+    res.write(formatSSE('[DONE]'));
+    res.end();
+  });
 
-	return { app, db };
+  return { app, db };
 }

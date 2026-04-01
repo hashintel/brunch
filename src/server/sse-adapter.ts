@@ -10,34 +10,34 @@ import type { DomainEvent } from './core.js';
 
 /** AI SDK protocol event types we emit */
 export type AIEvent =
-	| { type: 'start'; messageId: string }
-	| { type: 'text-start'; id: string }
-	| { type: 'text-delta'; id: string; delta: string }
-	| { type: 'text-end'; id: string }
-	| { type: 'reasoning-start'; id: string }
-	| { type: 'reasoning-delta'; id: string; delta: string }
-	| { type: 'reasoning-end'; id: string }
-	| { type: 'tool-call-streaming-start'; id: string; toolName: string }
-	| { type: 'tool-call-delta'; id: string; delta: string }
-	| { type: 'tool-call'; id: string; toolName: string; args: string }
-	| { type: 'finish-step' }
-	| { type: 'finish'; finishReason: string }
-	| { type: 'error'; errorText: string };
+  | { type: 'start'; messageId: string }
+  | { type: 'text-start'; id: string }
+  | { type: 'text-delta'; id: string; delta: string }
+  | { type: 'text-end'; id: string }
+  | { type: 'reasoning-start'; id: string }
+  | { type: 'reasoning-delta'; id: string; delta: string }
+  | { type: 'reasoning-end'; id: string }
+  | { type: 'tool-call-streaming-start'; id: string; toolName: string }
+  | { type: 'tool-call-delta'; id: string; delta: string }
+  | { type: 'tool-call'; id: string; toolName: string; args: string }
+  | { type: 'finish-step' }
+  | { type: 'finish'; finishReason: string }
+  | { type: 'error'; errorText: string };
 
 /** Minimal shape of an SDKPartialAssistantMessage from the Claude Agent SDK */
 interface SDKStreamEvent {
-	type: 'stream_event';
-	event: {
-		type: string;
-		index?: number;
-		message?: { id: string; role: string; content: unknown[] };
-		content_block?: { type: string; thinking?: string; text?: string; name?: string; id?: string };
-		delta?: { type: string; text?: string; thinking?: string; partial_json?: string };
-	};
+  type: 'stream_event';
+  event: {
+    type: string;
+    index?: number;
+    message?: { id: string; role: string; content: unknown[] };
+    content_block?: { type: string; thinking?: string; text?: string; name?: string; id?: string };
+    delta?: { type: string; text?: string; thinking?: string; partial_json?: string };
+  };
 }
 
 interface SDKOtherMessage {
-	type: string;
+  type: string;
 }
 
 type SDKMessage = SDKStreamEvent | SDKOtherMessage;
@@ -46,8 +46,8 @@ type SDKMessage = SDKStreamEvent | SDKOtherMessage;
  * Format a payload as an SSE data line.
  */
 export function formatSSE(payload: AIEvent | '[DONE]'): string {
-	if (payload === '[DONE]') return 'data: [DONE]\n\n';
-	return `data: ${JSON.stringify(payload)}\n\n`;
+  if (payload === '[DONE]') return 'data: [DONE]\n\n';
+  return `data: ${JSON.stringify(payload)}\n\n`;
 }
 
 /**
@@ -55,87 +55,97 @@ export function formatSSE(payload: AIEvent | '[DONE]'): string {
  * Each request gets its own instance — no shared mutable state.
  */
 export function createTranslator() {
-	const thinkingBlocks = new Set<number>();
-	const textBlocks = new Set<number>();
-	const toolUseBlocks = new Map<number, { toolName: string; toolCallId: string; argsJson: string }>();
+  const thinkingBlocks = new Set<number>();
+  const textBlocks = new Set<number>();
+  const toolUseBlocks = new Map<number, { toolName: string; toolCallId: string; argsJson: string }>();
 
-	function translateEvent(sdkMessage: SDKMessage): AIEvent[] {
-		if (sdkMessage.type !== 'stream_event') return [];
+  function translateEvent(sdkMessage: SDKMessage): AIEvent[] {
+    if (sdkMessage.type !== 'stream_event') return [];
 
-		const event = (sdkMessage as SDKStreamEvent).event;
+    const event = (sdkMessage as SDKStreamEvent).event;
 
-		switch (event.type) {
-			case 'message_start':
-				return [{ type: 'start', messageId: event.message!.id }];
+    switch (event.type) {
+      case 'message_start':
+        return [{ type: 'start', messageId: event.message!.id }];
 
-			case 'content_block_start': {
-				const block = event.content_block!;
-				if (block.type === 'thinking') {
-					thinkingBlocks.add(event.index!);
-					return [{ type: 'reasoning-start', id: `reasoning-${event.index}` }];
-				}
-				if (block.type === 'text') {
-					textBlocks.add(event.index!);
-					return [{ type: 'text-start', id: `text-${event.index}` }];
-				}
-				if (block.type === 'tool_use') {
-					toolUseBlocks.set(event.index!, { toolName: block.name!, toolCallId: block.id!, argsJson: '' });
-					return [{ type: 'tool-call-streaming-start', id: block.id!, toolName: block.name! }];
-				}
-				return [];
-			}
+      case 'content_block_start': {
+        const block = event.content_block!;
+        if (block.type === 'thinking') {
+          thinkingBlocks.add(event.index!);
+          return [{ type: 'reasoning-start', id: `reasoning-${event.index}` }];
+        }
+        if (block.type === 'text') {
+          textBlocks.add(event.index!);
+          return [{ type: 'text-start', id: `text-${event.index}` }];
+        }
+        if (block.type === 'tool_use') {
+          toolUseBlocks.set(event.index!, {
+            toolName: block.name!,
+            toolCallId: block.id!,
+            argsJson: '',
+          });
+          return [{ type: 'tool-call-streaming-start', id: block.id!, toolName: block.name! }];
+        }
+        return [];
+      }
 
-			case 'content_block_delta': {
-				const delta = event.delta!;
-				if (delta.type === 'thinking_delta') {
-					return [{
-						type: 'reasoning-delta',
-						id: `reasoning-${event.index}`,
-						delta: delta.thinking!,
-					}];
-				}
-				if (delta.type === 'text_delta') {
-					return [{ type: 'text-delta', id: `text-${event.index}`, delta: delta.text! }];
-				}
-				if (delta.type === 'input_json_delta') {
-					const toolBlock = toolUseBlocks.get(event.index!);
-					if (toolBlock) {
-						toolBlock.argsJson += delta.partial_json ?? '';
-						return [{ type: 'tool-call-delta', id: toolBlock.toolCallId, delta: delta.partial_json! }];
-					}
-				}
-				return [];
-			}
+      case 'content_block_delta': {
+        const delta = event.delta!;
+        if (delta.type === 'thinking_delta') {
+          return [
+            {
+              type: 'reasoning-delta',
+              id: `reasoning-${event.index}`,
+              delta: delta.thinking!,
+            },
+          ];
+        }
+        if (delta.type === 'text_delta') {
+          return [{ type: 'text-delta', id: `text-${event.index}`, delta: delta.text! }];
+        }
+        if (delta.type === 'input_json_delta') {
+          const toolBlock = toolUseBlocks.get(event.index!);
+          if (toolBlock) {
+            toolBlock.argsJson += delta.partial_json ?? '';
+            return [{ type: 'tool-call-delta', id: toolBlock.toolCallId, delta: delta.partial_json! }];
+          }
+        }
+        return [];
+      }
 
-			case 'content_block_stop': {
-				if (thinkingBlocks.has(event.index!)) {
-					thinkingBlocks.delete(event.index!);
-					return [{ type: 'reasoning-end', id: `reasoning-${event.index}` }];
-				}
-				if (textBlocks.has(event.index!)) {
-					textBlocks.delete(event.index!);
-					return [{ type: 'text-end', id: `text-${event.index}` }];
-				}
-				const toolBlock = toolUseBlocks.get(event.index!);
-				if (toolBlock) {
-					toolUseBlocks.delete(event.index!);
-					return [{ type: 'tool-call', id: toolBlock.toolCallId, toolName: toolBlock.toolName, args: toolBlock.argsJson }];
-				}
-				return [];
-			}
+      case 'content_block_stop': {
+        if (thinkingBlocks.has(event.index!)) {
+          thinkingBlocks.delete(event.index!);
+          return [{ type: 'reasoning-end', id: `reasoning-${event.index}` }];
+        }
+        if (textBlocks.has(event.index!)) {
+          textBlocks.delete(event.index!);
+          return [{ type: 'text-end', id: `text-${event.index}` }];
+        }
+        const toolBlock = toolUseBlocks.get(event.index!);
+        if (toolBlock) {
+          toolUseBlocks.delete(event.index!);
+          return [
+            {
+              type: 'tool-call',
+              id: toolBlock.toolCallId,
+              toolName: toolBlock.toolName,
+              args: toolBlock.argsJson,
+            },
+          ];
+        }
+        return [];
+      }
 
-			case 'message_stop':
-				return [
-					{ type: 'finish-step' },
-					{ type: 'finish', finishReason: 'stop' },
-				];
+      case 'message_stop':
+        return [{ type: 'finish-step' }, { type: 'finish', finishReason: 'stop' }];
 
-			default:
-				return [];
-		}
-	}
+      default:
+        return [];
+    }
+  }
 
-	return { translateEvent };
+  return { translateEvent };
 }
 
 /**
@@ -143,92 +153,98 @@ export function createTranslator() {
  * Manages block lifecycle (start/end) for the SSE protocol.
  */
 export function createDomainAdapter() {
-	let blockIndex = 0;
-	let currentBlock: 'thinking' | 'text' | 'tool-call' | null = null;
-	let currentToolArgsJson = '';
-	let currentToolName = '';
+  let blockIndex = 0;
+  let currentBlock: 'thinking' | 'text' | 'tool-call' | null = null;
+  let currentToolArgsJson = '';
 
-	function translate(event: DomainEvent): AIEvent[] {
-		switch (event.type) {
-			case 'stream-start':
-				return [{ type: 'start', messageId: event.messageId }];
+  function translate(event: DomainEvent): AIEvent[] {
+    switch (event.type) {
+      case 'stream-start':
+        return [{ type: 'start', messageId: event.messageId }];
 
-			case 'thinking': {
-				if (currentBlock !== 'thinking') {
-					currentBlock = 'thinking';
-					return [
-						{ type: 'reasoning-start', id: `reasoning-${blockIndex}` },
-						{ type: 'reasoning-delta', id: `reasoning-${blockIndex}`, delta: event.delta },
-					];
-				}
-				return [{ type: 'reasoning-delta', id: `reasoning-${blockIndex}`, delta: event.delta }];
-			}
+      case 'thinking': {
+        if (currentBlock !== 'thinking') {
+          currentBlock = 'thinking';
+          return [
+            { type: 'reasoning-start', id: `reasoning-${blockIndex}` },
+            { type: 'reasoning-delta', id: `reasoning-${blockIndex}`, delta: event.delta },
+          ];
+        }
+        return [{ type: 'reasoning-delta', id: `reasoning-${blockIndex}`, delta: event.delta }];
+      }
 
-			case 'text-delta': {
-				const events: AIEvent[] = [];
-				if (currentBlock === 'thinking') {
-					events.push({ type: 'reasoning-end', id: `reasoning-${blockIndex}` });
-					blockIndex++;
-				}
-				if (currentBlock !== 'text') {
-					currentBlock = 'text';
-					events.push({ type: 'text-start', id: `text-${blockIndex}` });
-				}
-				events.push({ type: 'text-delta', id: `text-${blockIndex}`, delta: event.delta });
-				return events;
-			}
+      case 'text-delta': {
+        const events: AIEvent[] = [];
+        if (currentBlock === 'thinking') {
+          events.push({ type: 'reasoning-end', id: `reasoning-${blockIndex}` });
+          blockIndex++;
+        }
+        if (currentBlock !== 'text') {
+          currentBlock = 'text';
+          events.push({ type: 'text-start', id: `text-${blockIndex}` });
+        }
+        events.push({ type: 'text-delta', id: `text-${blockIndex}`, delta: event.delta });
+        return events;
+      }
 
-			case 'tool-call-start': {
-				const events: AIEvent[] = [];
-				if (currentBlock === 'thinking') {
-					events.push({ type: 'reasoning-end', id: `reasoning-${blockIndex}` });
-					blockIndex++;
-				} else if (currentBlock === 'text') {
-					events.push({ type: 'text-end', id: `text-${blockIndex}` });
-					blockIndex++;
-				}
-				currentBlock = 'tool-call';
-				currentToolArgsJson = '';
-				currentToolName = event.toolName;
-				events.push({ type: 'tool-call-streaming-start', id: event.toolCallId, toolName: event.toolName });
-				return events;
-			}
+      case 'tool-call-start': {
+        const events: AIEvent[] = [];
+        if (currentBlock === 'thinking') {
+          events.push({ type: 'reasoning-end', id: `reasoning-${blockIndex}` });
+          blockIndex++;
+        } else if (currentBlock === 'text') {
+          events.push({ type: 'text-end', id: `text-${blockIndex}` });
+          blockIndex++;
+        }
+        currentBlock = 'tool-call';
+        currentToolArgsJson = '';
+        events.push({
+          type: 'tool-call-streaming-start',
+          id: event.toolCallId,
+          toolName: event.toolName,
+        });
+        return events;
+      }
 
-			case 'tool-call-delta': {
-				currentToolArgsJson += event.delta;
-				return [{ type: 'tool-call-delta', id: event.toolCallId, delta: event.delta }];
-			}
+      case 'tool-call-delta': {
+        currentToolArgsJson += event.delta;
+        return [{ type: 'tool-call-delta', id: event.toolCallId, delta: event.delta }];
+      }
 
-			case 'tool-call-end': {
-				currentBlock = null;
-				const toolCallEvent: AIEvent = { type: 'tool-call', id: event.toolCallId, toolName: event.toolName, args: currentToolArgsJson };
-				currentToolArgsJson = '';
-				currentToolName = '';
-				blockIndex++;
-				return [toolCallEvent];
-			}
+      case 'tool-call-end': {
+        currentBlock = null;
+        const toolCallEvent: AIEvent = {
+          type: 'tool-call',
+          id: event.toolCallId,
+          toolName: event.toolName,
+          args: currentToolArgsJson,
+        };
+        currentToolArgsJson = '';
+        blockIndex++;
+        return [toolCallEvent];
+      }
 
-			case 'stream-end': {
-				const events: AIEvent[] = [];
-				if (currentBlock === 'thinking') {
-					events.push({ type: 'reasoning-end', id: `reasoning-${blockIndex}` });
-				} else if (currentBlock === 'text') {
-					events.push({ type: 'text-end', id: `text-${blockIndex}` });
-				}
-				events.push({ type: 'finish-step' }, { type: 'finish', finishReason: 'stop' });
-				return events;
-			}
+      case 'stream-end': {
+        const events: AIEvent[] = [];
+        if (currentBlock === 'thinking') {
+          events.push({ type: 'reasoning-end', id: `reasoning-${blockIndex}` });
+        } else if (currentBlock === 'text') {
+          events.push({ type: 'text-end', id: `text-${blockIndex}` });
+        }
+        events.push({ type: 'finish-step' }, { type: 'finish', finishReason: 'stop' });
+        return events;
+      }
 
-			case 'error':
-				return [{ type: 'error', errorText: event.message }];
+      case 'error':
+        return [{ type: 'error', errorText: event.message }];
 
-			case 'turn-created':
-				return []; // No SSE representation
+      case 'turn-created':
+        return []; // No SSE representation
 
-			default:
-				return [];
-		}
-	}
+      default:
+        return [];
+    }
+  }
 
-	return { translate };
+  return { translate };
 }

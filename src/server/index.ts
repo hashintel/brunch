@@ -6,6 +6,6 @@ const DB_PATH = process.env.BRUNCH_DB || './brunch.db';
 const { app } = createApp(DB_PATH);
 
 app.listen(PORT, () => {
-	console.log(`Brunch server listening on http://localhost:${PORT}`);
-	console.log(`Database: ${DB_PATH}`);
+  console.log(`Brunch server listening on http://localhost:${PORT}`);
+  console.log(`Database: ${DB_PATH}`);
 });
