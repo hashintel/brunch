@@ -1,7 +1,7 @@
 import Database from 'better-sqlite3';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
-import { eq, sql, type InferSelectModel } from 'drizzle-orm';
+import { desc, eq, sql, type InferSelectModel } from 'drizzle-orm';
 import * as schema from './schema.js';
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
@@ -38,11 +38,10 @@ export function createDb(path: string = ':memory:'): DB {
 }
 
 export function getOrCreateProject(db: DB, name = 'default'): Project {
-	const existing = db.select().from(schema.project).orderBy(schema.project.created_at).limit(1).get();
+	const existing = db.select().from(schema.project).orderBy(desc(schema.project.created_at)).limit(1).get();
 	if (existing) return existing as Project;
-	db.insert(schema.project).values({ name }).run();
-	const created = db.select().from(schema.project).orderBy(schema.project.id).limit(1).get();
-	return created as Project;
+	const result = db.insert(schema.project).values({ name }).returning().get();
+	return result as Project;
 }
 
 export function createTurn(db: DB, projectId: number, input: CreateTurnInput): Turn {
