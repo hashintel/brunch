@@ -22,7 +22,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	db.close();
+	db.$client.close();
 });
 
 /** Helper: collect full SSE body as string */
