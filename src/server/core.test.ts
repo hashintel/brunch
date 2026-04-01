@@ -210,10 +210,11 @@ describe('conductTurn', () => {
 
 		const toolDelta = events.find(e => e.type === 'tool-call-delta');
 		expect(toolDelta).toBeDefined();
+		expect(toolDelta.toolCallId).toBe('toolu_01');
 		expect(toolDelta.delta).toBe('{"city":"NYC"}');
 	});
 
-	it('yields tool-call-end for tool_use block stop', async () => {
+	it('yields tool-call-end with toolCallId and toolName', async () => {
 		mockQuery.mockReturnValue(makeMockStream([
 			{ type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
 			{ type: 'stream_event', event: { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' } } },
@@ -231,6 +232,7 @@ describe('conductTurn', () => {
 		const toolEnd = events.find(e => e.type === 'tool-call-end');
 		expect(toolEnd).toBeDefined();
 		expect(toolEnd.toolCallId).toBe('toolu_01');
+		expect(toolEnd.toolName).toBe('get_weather');
 	});
 
 	it('chains turns with parent pointers', async () => {

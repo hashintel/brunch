@@ -10,8 +10,8 @@ export type DomainEvent =
 	| { type: 'thinking'; delta: string }
 	| { type: 'text-delta'; delta: string }
 	| { type: 'tool-call-start'; toolName: string; toolCallId: string }
-	| { type: 'tool-call-delta'; delta: string }
-	| { type: 'tool-call-end'; toolCallId: string }
+	| { type: 'tool-call-delta'; toolCallId: string; delta: string }
+	| { type: 'tool-call-end'; toolCallId: string; toolName: string }
 	| { type: 'stream-end' }
 	| { type: 'turn-created'; turn: Turn }
 	| { type: 'error'; message: string };
@@ -113,7 +113,8 @@ export async function* conductTurn(
 						assistantText += delta.text;
 						yield { type: 'text-delta', delta: delta.text };
 					} else if (delta.type === 'input_json_delta' && delta.partial_json) {
-						yield { type: 'tool-call-delta', delta: delta.partial_json };
+						const toolBlock = toolUseBlocks.get(event.index!);
+						yield { type: 'tool-call-delta', toolCallId: toolBlock?.toolCallId ?? '', delta: delta.partial_json };
 					}
 					break;
 				}
@@ -121,7 +122,7 @@ export async function* conductTurn(
 				case 'content_block_stop': {
 					const toolBlock = toolUseBlocks.get(event.index!);
 					if (toolBlock) {
-						yield { type: 'tool-call-end', toolCallId: toolBlock.toolCallId };
+						yield { type: 'tool-call-end', toolCallId: toolBlock.toolCallId, toolName: toolBlock.toolName };
 						toolUseBlocks.delete(event.index!);
 					}
 					break;

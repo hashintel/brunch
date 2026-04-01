@@ -214,20 +214,20 @@ describe('createDomainAdapter — tool-call events', () => {
 		expect(events).toEqual([{ type: 'tool-call-streaming-start', id: 'tc-1', toolName: 'search' }]);
 	});
 
-	it('translates tool-call-delta to tool-call-delta', () => {
+	it('translates tool-call-delta with toolCallId', () => {
 		const { translate } = createDomainAdapter();
 		translate({ type: 'stream-start', messageId: 'msg-1' });
 		translate({ type: 'tool-call-start', toolName: 'search', toolCallId: 'tc-1' });
-		const events = translate({ type: 'tool-call-delta', delta: '{"q":"test"}' });
-		expect(events).toEqual([{ type: 'tool-call-delta', id: 'tool-call-0', delta: '{"q":"test"}' }]);
+		const events = translate({ type: 'tool-call-delta', toolCallId: 'tc-1', delta: '{"q":"test"}' });
+		expect(events).toEqual([{ type: 'tool-call-delta', id: 'tc-1', delta: '{"q":"test"}' }]);
 	});
 
-	it('translates tool-call-end to tool-call (finished)', () => {
+	it('translates tool-call-end with toolName and args', () => {
 		const { translate } = createDomainAdapter();
 		translate({ type: 'stream-start', messageId: 'msg-1' });
 		translate({ type: 'tool-call-start', toolName: 'search', toolCallId: 'tc-1' });
-		translate({ type: 'tool-call-delta', delta: '{"q":"test"}' });
-		const events = translate({ type: 'tool-call-end', toolCallId: 'tc-1' });
-		expect(events).toEqual([{ type: 'tool-call', id: 'tc-1', toolName: '', args: '{"q":"test"}' }]);
+		translate({ type: 'tool-call-delta', toolCallId: 'tc-1', delta: '{"q":"test"}' });
+		const events = translate({ type: 'tool-call-end', toolCallId: 'tc-1', toolName: 'search' });
+		expect(events).toEqual([{ type: 'tool-call', id: 'tc-1', toolName: 'search', args: '{"q":"test"}' }]);
 	});
 });

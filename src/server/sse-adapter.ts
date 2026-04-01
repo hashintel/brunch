@@ -146,6 +146,7 @@ export function createDomainAdapter() {
 	let blockIndex = 0;
 	let currentBlock: 'thinking' | 'text' | 'tool-call' | null = null;
 	let currentToolArgsJson = '';
+	let currentToolName = '';
 
 	function translate(event: DomainEvent): AIEvent[] {
 		switch (event.type) {
@@ -188,19 +189,21 @@ export function createDomainAdapter() {
 				}
 				currentBlock = 'tool-call';
 				currentToolArgsJson = '';
+				currentToolName = event.toolName;
 				events.push({ type: 'tool-call-streaming-start', id: event.toolCallId, toolName: event.toolName });
 				return events;
 			}
 
 			case 'tool-call-delta': {
 				currentToolArgsJson += event.delta;
-				return [{ type: 'tool-call-delta', id: `tool-call-${blockIndex}`, delta: event.delta }];
+				return [{ type: 'tool-call-delta', id: event.toolCallId, delta: event.delta }];
 			}
 
 			case 'tool-call-end': {
 				currentBlock = null;
-				const toolCallEvent: AIEvent = { type: 'tool-call', id: event.toolCallId, toolName: '', args: currentToolArgsJson };
+				const toolCallEvent: AIEvent = { type: 'tool-call', id: event.toolCallId, toolName: event.toolName, args: currentToolArgsJson };
 				currentToolArgsJson = '';
+				currentToolName = '';
 				blockIndex++;
 				return [toolCallEvent];
 			}
