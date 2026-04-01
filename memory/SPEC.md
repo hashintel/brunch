@@ -95,6 +95,7 @@ The architecture:
 13. **Observer captures derived intelligence** — The observer agent's extraction mandate extends beyond decisions and assumptions to include derived observations (e.g. codebase analysis, domain insights) that the interviewer surfaced through tool use during a turn. These are persisted so subsequent stateless `query()` calls can inject them as context. The exact entity model is TBD — candidates include a dedicated `observation` table, enriched `decision.rationale`, or a `notes` field on `turn`. Depends on: A14, D12. Supersedes: —.
 
 14. **AI Elements for rich chat UI components** — Copy-paste component source files (via `npx ai-elements`) from Vercel's AI Elements registry, built on shadcn/ui + Radix. Components directly consume AI SDK's `ToolUIPart` types and `useChat` hook state. Provides `Tool` (7-state lifecycle), `Reasoning` (collapsible), `ChainOfThought` (groups reasoning + tool calls), `Message`, `Conversation`, `PromptInput`. Source files are owned, not npm-locked — full restyle control. No runtime abstraction layer. Depends on: A16, A17. Supersedes: hand-rolled message rendering in App.tsx.
+15. **Transitional turn-field inversion** — During the pre-structured-interview phase (slices 1–3), `turn.answer` holds the user's chat message and `turn.question` holds the agent's streamed response. This inverts the canonical interview semantics where the agent asks (`question`) and the user answers (`answer`). The inversion is temporary — slice 4 (structured interview) populates turns in their canonical direction. No schema change needed; the fields carry correct types, just with flipped temporal ordering. Client hydrates `useChat` by mapping each turn to two `UIMessage` entries (answer → user, question → assistant). Depends on: D1. Supersedes: flat `message` table with `role` field from slice 2.
 
 ### Technical stack
 
@@ -103,6 +104,7 @@ The architecture:
 9. **React + Vite + @ai-sdk/react client** — `useChat` for conversation streaming. Custom components for decision/entity dashboard. Phase indicator and navigation. Depends on: A9, A10. Supersedes: Preact, both existing frontends.
 10. **npx-launchable single-command distribution** — `bin` entry, launcher starts Express (serves built Vite assets + API on one port), opens browser. Single env var: `ANTHROPIC_API_KEY`. DB auto-created in project directory or `~/.brunch/`. Depends on: A8. Supersedes: multi-step Docker + env var setup.
 11. **Drop list** — Dolt/mysql2, OpenCode sidecar, Preact, both existing frontend implementations, NDJSON protocol, JSON Schema definitions (→ Zod), @tanstack/react-table, @dnd-kit/, dompurify, marked, four streaming functions in claude.js, dispatch.js. Depends on: —. Supersedes: —.
+16. **Integer autoincrement primary keys** — All entity tables use `INTEGER PRIMARY KEY AUTOINCREMENT` instead of `TEXT` UUIDs. SQLite ROWID alias is simpler, matches schema.dbml, avoids UUID generation. No external systems reference these IDs. Client coerces to strings for `useChat` hydration (`turn-${id}-answer`, `turn-${id}-question`). Depends on: D7. Supersedes: `randomUUID()` TEXT PKs from slice 2.
 
 ## Invariants
 
