@@ -79,6 +79,7 @@
    - Assumptions: → SPEC.md §Assumptions A14, A3
    - Time box: 2 hours
    - Success: ≥80% of expected entities captured with correct dependency edges across 5+ fixture turns
+   - **Verification approach**: differential oracle — fixture turns (input) → observer extraction (output) → compare against hand-labeled golden master. Spike must produce ≥5 reusable fixtures with expected entities as proof artifact. → SPEC.md §Oracle Strategy (middle loop), §Observer History Projection
 
 ### Slices
 
@@ -95,11 +96,13 @@
    - Assumptions: → SPEC.md §Assumptions A7, A13
    - Invariants to respect: → SPEC.md §Invariants I1, I2, I3, I5, I6
    - Acceptance: start a project, agent asks structured scope questions with options and grounding, user answers, turns persist with parent chain
+   - **Verification approach**: inner — schema validation on agent tool output (Zod parse, establishes I16); unit tests for phase-tagged turn persistence. Middle — round-trip: structured turn → persist → active path query → verify phase provenance intact. Outer — manual interview walkthrough, assess question quality. → SPEC.md §Oracle Strategy, §Acknowledged Blind Spots (interview quality)
 
 5. **Observer agent + entity persistence** — After each answered turn, core invokes a second agent call that extracts decisions and assumptions. Writes to decision/assumption tables with turn linkage and dependency edges. Core yields `observer-complete` DomainEvent; web adapter signals client to refetch entities. `not-started`
    - Requirements: → SPEC.md §Requirements #5
    - Assumptions: → SPEC.md §Assumptions A3, A4, A14 (validated by spike)
    - Acceptance: answer a scope question, observer extracts decision + assumptions, dependency edges in DB, extraction within user think time, sidebar refetch triggered
+   - **Verification approach**: inner — unit tests for entity writes with dependency edges, observer-complete DomainEvent emission. Middle — differential oracle from spike fixtures (observer extraction vs golden master, ≥80% capture). Outer — debug mode: raw observer extraction visible per-turn in UI; fixture capture from confirmed-good manual runs. → SPEC.md §Oracle Strategy, §Observer History Projection, §Acknowledged Blind Spots (extraction variance, cumulative graph integrity)
 
 6. **Entity sidebar (read-only)** — React sidebar in interview workspace showing decisions, assumptions, requirements, and criteria on the active path. Tabbed display. Updates after each observer extraction via `observer-complete` event. Dependency edges visible. Stale badges for soft-invalidated entities. `not-started`
    - Requirements: → SPEC.md §Requirements #6
@@ -107,6 +110,7 @@
    - Invariants to respect: → SPEC.md §Invariants I9, I10
    - Acceptance: entities appear in categorized tabs as interview progresses, dependency links navigable, stale badges render correctly
    - Ref: → docs/design/BREADBOARD.md §UI Affordances → P2 Entity sidebar
+   - **Verification approach**: inner — unit tests for entity query on active path, stale badge computation. Outer — manual visual inspection (entities render correctly, tabs work, stale badges appear). Debug mode overlay (observer extraction detail per-turn) should land here or in slice 5. → SPEC.md §Oracle Strategy (outer loop), §Acknowledged Blind Spots (cumulative graph integrity)
 
 ## Phase 4: Full Interview
 

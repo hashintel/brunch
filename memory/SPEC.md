@@ -186,10 +186,31 @@ The architecture (layered: db → core → adapters):
 
 ## Verification Design
 
-<!-- Three-tier feedback loops, cheapest first.
+<!-- Verification is first-class work, not accessory. Designing and creating oracles is
+     second only to building the product itself. Every slice must declare its verification
+     approach as part of scoping; a slice without an oracle strategy is not scoped.
+
+     Three-tier feedback loops, cheapest first.
      Inner: agent-autonomous, always-on (ms–seconds).
      Middle: regression gates (seconds–minutes).
-     Outer: human observer, strategy redirect (minutes–hours). -->
+     Outer: human observer, strategy redirect (minutes–hours).
+
+     Oracle taxonomy (Regehr): the best oracle removes the most bad degrees of freedom
+     per unit time. Coverage is easy to game; choose oracles that constrain actual wrongness. -->
+
+### Verification Stance
+
+Verification is not a phase that follows implementation — it is integral to every slice. A slice that ships code without declaring and building its oracles is incomplete. The `ln-scope` skill must name the oracle strategy; `ln-build` must implement it alongside the production code; `ln-review` must audit oracle coverage alongside code quality.
+
+### Diagnostic Assessment
+
+Scored per the arc-oracle diagnostic framework (high / partial / low):
+
+| Dimension | Score | Notes |
+| --- | --- | --- |
+| **Observability** | partial | Inner/middle: high (all text-native — tests, SSE, DB). Outer: low for observer extraction quality (hidden from surface UI) and LLM judgment calls (phase resolution, interview quality). Mitigated by debug mode (planned) and differential testing (spike). |
+| **Reproducibility** | partial | Deterministic systems (turn tree, DB, SSE encoding): high. LLM boundary (interviewer output, observer extraction): low — non-deterministic. Mitigated by schema validation (structural) and golden master fixtures with capture-rate thresholds (statistical). |
+| **Controllability** | high | Single-user, local SQLite, no external dependencies beyond Claude API. Agent drives full inner loop autonomously (`npm run fix` / `npm run verify`). Human review reserved for outer loop. |
 
 ### Verification Commands
 
@@ -207,24 +228,60 @@ Tooling: oxfmt (formatting), oxlint + tsgolint (lint + type-aware + type-check),
 
 End-to-end slices must be **user-testable**, not just programmatically tested. Each slice that touches the user-facing boundary should be manually verifiable via `npm run dev` (or equivalent). Use `/cli-cmux` for dev server panes and `/cli-cdp` for browser interaction during outer-loop verification.
 
-### Feedback Loops
+### Oracle Strategy by Loop Tier
 
-- **Inner loop** (ms–seconds): type checks, fast unit tests, linting — agent-autonomous, always-on
-  - SSE adapter: given an `SDKMessage`, assert correct SSE event string output → protects I1, I3
-  - Turn persistence: given a turn with options, assert correct storage and retrieval → protects I5, I6
-  - Observer extraction: given a turn's Q&A, assert correct decision/assumption output (snapshot fixtures)
-  - Active path: given a branched turn tree, assert correct entity resolution from HEAD
-  - Tool call SSE: given an SDK `tool_use` content block, assert correct `tool-call-streaming-start`, `tool-call-delta`, `tool-call` events → protects I7
-- **Middle loop** (seconds–minutes): integration tests, regression gates
-  - Interview flow: POST user message via Supertest, assert SSE stream contains expected event types in order → protects I2
-  - DB lifecycle: create project → persist turns → close → reopen → assert state intact → protects I5
-  - Decision revisit: create branch → verify active path resolves correctly → verify soft invalidation flags
-- **Outer loop** (minutes–hours): e2e, human observer
-  - Rich chat rendering: tool calls show all 7 states (input-streaming, input-available, approval-requested, approval-responded, output-available, output-error, output-denied), reasoning collapses, message parts render by type → protects I8
-  - Full interview walkthrough in browser: structured questions render with options/grounding/impact, decisions appear in dashboard, phase transitions work
-  - Resume test: close browser mid-interview, reopen, verify turn tree and entity state intact
-  - Decision revisit: navigate to a previous decision, fork, verify dashboard updates and invalidation
-  - Export test: complete all phases, export spec, verify markdown contains all active-path entities
+<!-- Oracle families drawn from Regehr's taxonomy. Each oracle is mapped to the invariant
+     or claim it proves, the loop tier it belongs to, and its cost/signal tradeoff.
+     The combination principle: the best oracle is often a pair of independent artifacts. -->
+
+**Inner loop** (ms–seconds): agent-autonomous, always-on
+
+| Oracle family | What it proves | Protects | Cost |
+| --- | --- | --- | --- |
+| Schema validation | Agent tool output conforms to structured turn schema (question, options, grounding, impact) | I16 (planned) | Negligible — Zod parse on tool output |
+| Fast unit tests — SSE | `SDKMessage` → correct SSE event strings | I1, I3, I7 | ms |
+| Fast unit tests — DB | Turn persistence with phase provenance, entity writes with dependency edges | I5, I6, I9, I10, I11 | ms |
+| Fast unit tests — core | DomainEvent streaming, core/adapter separation, structured turn creation | I12, I13 | ms |
+| Type-aware linting | Semantic static checks (oxlint + tsgolint) | All | ms |
+
+**Middle loop** (seconds–minutes): regression gates
+
+| Oracle family | What it proves | Protects | Cost |
+| --- | --- | --- | --- |
+| Differential testing (observer) | Observer extraction meets ≥80% entity capture rate against golden master fixtures | A14 | seconds per fixture; requires Claude API |
+| Round-trip oracle (turn tree) | Structured turns → active path → entity resolution intact | I6, I9, I10 | ms |
+| Integration tests | SSE stream contains expected event types in order; DB lifecycle survives close/reopen | I2, I5, I13, I14 | seconds |
+
+**Outer loop** (minutes–hours): human observer
+
+| Oracle family | What it proves | Cost |
+| --- | --- | --- |
+| Debug mode (observer visibility) | Observer extraction is inspectable per-turn during manual testing | UI delta on slice 5/6 |
+| Manual interview walkthrough | Structured questions render correctly; interview quality is acceptable | Human time |
+| Fixture capture from manual runs | Bootstrap golden master fixtures by querying DB after confirmed-good sessions | Human judgment + SQL query |
+| Rich chat rendering | Tool call states, reasoning collapse, message parts render by type | Human + `/cli-cdp` |
+| Resume test | Close/reopen browser, verify state intact | Human + browser |
+
+### Observer History Projection
+
+<!-- Design note for the observer's verification context. -->
+
+The observer and interviewer receive the same conversation but through different projections. The interviewer receives conversational context ("where are we in the design space"). The observer receives extraction context: the existing entity graph (decisions, assumptions, edges established so far) plus the current turn's Q&A. This makes each extraction incremental — "given what we already know, what did *this turn* add?" — which sharpens the differential oracle: comparing the delta, not the total.
+
+This projection difference is a deliberate design choice, not an implementation detail. It affects prompt design, fixture structure, and evaluation criteria.
+
+### Acknowledged Blind Spots
+
+<!-- Arc-oracle requires naming what verification does NOT cover and why.
+     A verification design with no blind spots is incomplete. -->
+
+| Blind spot | Why uncovered | Mitigation | Revisit trigger |
+| --- | --- | --- | --- |
+| Interview quality | LLM judgment; no programmatic oracle. Skill paradigm (D2) is the primary quality lever. | Manual outer-loop testing. | If interview quality proves inconsistent across project types. |
+| Observer extraction variance | Spike measures capture rate single-shot per fixture; multi-run variance not measured. | Acceptable for initial delivery. | If extraction consistency degrades as history grows. |
+| Cumulative entity graph integrity | Individual extractions may be correct but compose into an incoherent graph over 15-20 turns. No programmatic check for drift. | Debug mode (human eyeballs the growing graph). Future: structural property tests (no orphaned edges, no DAG cycles, monotonic entity count). | After observer slice lands and manual testing reveals graph-level issues. |
+| Phase transition UX | Summary quality, resolution timing, confirmation flow. Fully visual. | Manual testing during slices 7-10. | If phase transitions feel wrong during testing. |
+| Performance under realistic load | 20+ turns, growing history summaries, observer latency. No budget oracle. | Acceptable for single-user tool. | If latency becomes noticeable during manual testing. |
 
 ### Current Coverage
 

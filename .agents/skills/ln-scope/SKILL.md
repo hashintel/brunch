@@ -49,6 +49,18 @@ High-risk unvalidated assumption → suggest `ln-spike` before `ln-build`. New a
 
 These become the spec tests written first in `ln-build`. Every criterion must be checkable by running a command.
 
+### Verification Approach
+
+Name the oracle strategy for this slice. If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, pick from the families already selected. If it doesn't, suggest running `ln-oracles` first.
+
+```
+- Inner: [oracle family] — [what it proves]
+- Middle: [oracle family] — [what it proves] (if applicable)
+- Outer: [oracle family] — [what it proves] (if applicable)
+```
+
+A slice without a verification approach is not fully scoped. At minimum, inner-loop oracles must be named. Middle/outer are required when the slice touches LLM boundaries, visual rendering, or compositional behavior.
+
 ## Traceability (mandatory — do before routing)
 
 After the scope card is complete, do these before presenting routing options:

@@ -36,10 +36,12 @@ Traceability: assumptions in SPEC.md link to decisions and slices in PLAN.md. Sk
 
 The `/ln-*` skills at `.agents/skills/` follow this flow:
 
-- **Knowledge**: /ln-grill → /ln-spec → /ln-plan
+- **Knowledge**: /ln-grill → /ln-spec → /ln-plan → /ln-oracles
 - **Execution**: /ln-scope → /ln-spike (optional) → /ln-build
 - **Quality**: /ln-review → /ln-refactor (optional) → /ln-sync
 - **Process**: /ln-consult (triage), /ln-handoff (state capture), /ln-design (interface exploration)
+
+Note: /ln-spec owns inner-loop verification (commands, policy). /ln-oracles owns middle/outer loop strategy, diagnostic assessment, and blind spots. /ln-scope applies the oracle strategy per slice. /ln-review audits oracle coverage.
 
 ### verification
 
