@@ -140,6 +140,7 @@ The architecture (layered: db → core → adapters):
 | I13 | Core/adapter separation      | Slice 3c (Drizzle)  | core.test.ts, app.test.ts        | D19     |
 | I14 | Project-scoped API routes    | Slice 3d (routing)  | app.test.ts                      | D9      |
 | I15 | Route loader hydration       | Slice 3d (routing)  | manual (outer loop)              | D9      |
+| I16 | Schema validation on agent tool output | Slice 4 (scope interview) | interview.test.ts | D2, A13 |
 
 ## Lexicon
 
@@ -172,9 +173,11 @@ The architecture (layered: db → core → adapters):
 | **active path**       | The branch from HEAD to root in the turn tree. Determines which turns, decisions, and assumptions are currently active                                                                                            |
 | **branch** (verb)     | Fork the turn tree from a given turn, creating a new path and moving HEAD. Analogous to git branch + checkout                                                                                                    |
 | **checkout** (verb)   | Move HEAD to an existing turn on a different branch without creating new turns. Analogous to git checkout                                                                                                        |
-| **phase**             | A stage of the interview: `scope`, `design`, `requirements`, `criteria`. Immutable provenance on each turn. Each phase is backed by an agent skill                                                                |
+| **phase**             | A stage of the interview: `scope`, `design`, `requirements`, `criteria`. Immutable provenance on each turn. Each phase is implemented via `getSystemPrompt(phase)` + a per-turn MCP tool server (`createInterviewMcpServer`). See D2, A13 |
 | **phase resolution**  | LLM judgment that shared understanding has been reached for a phase. Marked by `turn.is_resolution = true` on the last turn of a phase                                                                            |
-| **interviewer**       | The primary agent role: conducts the interview with structured questions, grounding, and impact signals. Does not extract entities                                                                                |
+| **ask_question tool** | The MCP tool the interviewer must use each turn. Accepts `{ question, why, impact, options[] }`, validated by `structuredQuestionSchema` (Zod). The tool handler persists structured data to the turn and options tables via closure over `db` + `turnId`. Defined in `interview.ts` |
+| **interview MCP server** | A per-turn MCP server created by `createInterviewMcpServer(db, turnId)`. Exposes the `ask_question` tool. The closure captures the current turn ID so the tool handler writes to the correct row. Passed to `query()` via `mcpServers` option. Defined in `interview.ts` |
+| **interviewer**       | The primary agent role: conducts the interview with structured questions, grounding, and impact signals. Must use the `ask_question` tool every turn. Does not extract entities                                    |
 | **observer**          | The secondary agent role: extracts decisions, assumptions, and dependency edges from each answered turn. Runs post-answer during user read time                                                                   |
 | **core**              | The interface-agnostic service layer between the database and transport adapters. Owns interview orchestration, entity lifecycle, observer invocation. Returns `AsyncIterable<DomainEvent>` for streaming          |
 | **domain event**      | A typed event yielded by `conductTurn()` — `stream-start`, `thinking`, `text-delta`, `tool-call-start`, `tool-call-delta`, `tool-call-end`, `stream-end`, `turn-created`, `error`. Future: `observer-complete`, `phase-resolved`. Each adapter translates to its transport format (SSE, terminal, MCP) |
@@ -291,8 +294,9 @@ This projection difference is a deliberate design choice, not an implementation 
 | ------------------- | ----- | --------------------------- |
 | sse-adapter.test.ts | 18    | I1, I3, I7                  |
 | db.test.ts          | 24    | I5, I6, I9, I10, I11        |
-| app.test.ts         | 15    | I2, I3, I6, I7, I13, I14    |
+| app.test.ts         | 17    | I2, I3, I6, I7, I13, I14    |
 | core.test.ts        | 15    | I12, I13                    |
+| interview.test.ts   | 16    | I16                         |
 
 ## Acceptance Criteria (exit conditions)
 

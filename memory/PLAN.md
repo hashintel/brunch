@@ -91,11 +91,14 @@
     - Acceptance: 61 tests pass (10 new: 6 SSE adapter, 3 core, 1 app integration); tool-call-streaming-start/delta/tool-call SSE events emitted for SDK tool_use blocks; client renders dynamic-tool parts with state labels
     - Branch: `ln/fe-541-rich-chat-ui`
 
-4. **Structured interview: scope phase** — Replace flat chat with structured turns. Implement the scope phase as an agent skill — the agent generates a question with options, grounding ("why this matters"), and impact signal. User selects an option or types a response. Turn persists with phase provenance. UI renders the turn card (question + options + grounding). `not-started`
+4. **Structured interview: scope phase** `FE-554` — Replace flat chat with structured turns. Implement the scope phase as an agent skill — the agent generates a question with options, grounding ("why this matters"), and impact signal via `ask_question` MCP tool. Turn persists with phase provenance (question, why, impact, options). Client renders turn cards with option selection. `in-progress`
    - Requirements: → SPEC.md §Requirements #2, #3
-   - Assumptions: → SPEC.md §Assumptions A7, A13
-   - Invariants to respect: → SPEC.md §Invariants I1, I2, I3, I5, I6
-   - Acceptance: start a project, agent asks structured scope questions with options and grounding, user answers, turns persist with parent chain
+   - Assumptions: → SPEC.md §Assumptions A7, A13 (validated)
+   - Invariants established: → SPEC.md §Invariants I16
+   - Invariants respected: → SPEC.md §Invariants I1, I2, I3, I5, I6, I12, I13
+   - Acceptance (server — done): 90 tests pass (16 new interview tests, 2 new app integration); `ask_question` MCP tool validates agent output via Zod schema; per-turn MCP server created via closure over db + turnId; `getSystemPrompt(phase)` returns phase-specific prompt; structured turn fields (question, why, impact, options) persist correctly
+   - Acceptance (client — pending): turn card rendering (question + options + grounding + impact badge); option selection UI (persist `is_selected` + answer); outer-loop visual verification via `/cli-cdp`
+   - Branch: `ln/fe-554-structured-interview`
    - **Verification approach**: inner — schema validation on agent tool output (Zod parse, establishes I16); unit tests for phase-tagged turn persistence. Middle — round-trip: structured turn → persist → active path query → verify phase provenance intact. Outer — manual interview walkthrough, assess question quality. → SPEC.md §Oracle Strategy, §Acknowledged Blind Spots (interview quality)
 
 5. **Observer agent + entity persistence** — After each answered turn, core invokes a second agent call that extracts decisions and assumptions. Writes to decision/assumption tables with turn linkage and dependency edges. Core yields `observer-complete` DomainEvent; web adapter signals client to refetch entities. `not-started`
@@ -209,7 +212,7 @@ Phase 6:  13 ──→ 14 (npx + CLI)
 ### Parallelism opportunities
 
 - ~~Slice 3b and 3d can proceed in parallel after 3c~~ (done — both landed)
-- Observer spike and slice 4 can proceed in parallel now — spike is independent, slice 4 is on the critical path
+- ~~Observer spike and slice 4 can proceed in parallel~~ (slice 4 done — spike is next on critical path)
 - Slice 7 (transitions) and 11 (branching) can start in parallel once slice 6 lands
 - Slice 12 (entity lifecycle API) can proceed in parallel with slice 11
 - Slice 14 (npx) can start early with a basic launcher, completing after slice 13
