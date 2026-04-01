@@ -35,3 +35,6 @@ bun.lock
 .notes.md
 brunch.db*
 todo.txt
+
+# Claude Code worktrees
+.claude/worktrees/
