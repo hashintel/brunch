@@ -48,20 +48,20 @@
 
 ### Slices
 
-3. **Turn tree schema + API** — Migrate from message table to the full schema.dbml model (turn, option, decision, assumption, requirement, criterion + all join tables). Update API: POST /api/chat creates turns, GET /api/projects/current returns turns on the active path. Project gets `active_turn_id`. Tests verify turn tree CRUD and active path resolution. `not-started`
+3. **Turn tree schema + API** `FE-544` — Migrate from message table to the full schema.dbml model (turn, option, decision, assumption, requirement, criterion + all join tables). Update API: POST /api/chat creates turns, GET /api/projects/current returns turns on the active path. Project gets `active_turn_id`. Tests verify turn tree CRUD and active path resolution. `not-started`
    - Requirements: → SPEC.md §Requirements #14
    - Assumptions: → SPEC.md §Assumptions A6
    - Invariants to establish: turn tree persistence, active path resolution
    - Invariants to respect: → SPEC.md §Invariants I1, I2, I3
    - Acceptance: create project, create turns with parent chain, resolve active path, close and reopen with state intact
 
-3b. **Rich chat UI: tool calls + reasoning rendering** — Extend SSE adapter to emit `tool-call-streaming-start`, `tool-call-delta`, `tool-call`, and `tool-result` events for SDK `tool_use` content blocks. Install AI Elements components (`Tool`, `Reasoning`, `ChainOfThought`, `Message`, `PromptInput`) via `npx ai-elements`, restyle to match brunch design. Replace hand-rolled `App.tsx` message rendering with part-type switching (`text`, `reasoning`, `tool-{name}`, `step-start`). Establish user-testability for the streaming pipeline per verification policy — all part types visible in browser. `not-started`
+3b. **Rich chat UI: tool calls + reasoning rendering** `FE-541` — Extend SSE adapter to emit `tool-call-streaming-start`, `tool-call-delta`, `tool-call`, and `tool-result` events for SDK `tool_use` content blocks. Install AI Elements components (`Tool`, `Reasoning`, `ChainOfThought`, `Message`, `PromptInput`) via `npx ai-elements`, restyle to match brunch design. Replace hand-rolled `App.tsx` message rendering with part-type switching (`text`, `reasoning`, `tool-{name}`, `step-start`). Establish user-testability for the streaming pipeline per verification policy — all part types visible in browser. `not-started`
     - Requirements: → SPEC.md §Requirements #4
     - Assumptions: → SPEC.md §Assumptions A16, A17
     - Invariants to establish: → SPEC.md §Invariants I7, I8
     - Invariants to respect: → SPEC.md §Invariants I1, I2, I3
     - Acceptance: `npm run dev`, send a message that triggers tool use, see tool call with state transitions (pending → running → completed/error), see reasoning in collapsible block, all rendered via AI Elements components. SSE adapter tests cover tool_use content blocks.
-    - Branch: `ln/fe-xxx-rich-chat-ui`
+    - Branch: `ln/fe-541-rich-chat-ui`
 
 4. **Structured interview: scope phase** — Replace flat chat with structured turns. Implement the scope phase as an agent skill — the agent generates a question with options, grounding ("why this matters"), and impact signal. User selects an option or types a response. Turn persists with phase provenance. UI renders the turn card (question + options + grounding). `not-started`
    - Requirements: → SPEC.md §Requirements #2, #3
