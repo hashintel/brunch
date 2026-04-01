@@ -49,7 +49,7 @@
    - Acceptance: create project, create turns with parent chain, resolve active path, close and reopen with state intact
    - Branch: `ln/fe-544-turn-tree-schema`
 
-3c. **Drizzle ORM + core extraction** — Migrate raw DDL to Drizzle schema (`drizzle/schema.ts`) with migration runner. Extract interview orchestration from `app.ts` into `core.ts` — `conductTurn()` returns `AsyncIterable<DomainEvent>`. Express handler becomes a thin adapter translating DomainEvents to SSE. `not-started`
+3c. **Drizzle ORM + core extraction** `FE-552` — Migrate raw DDL to Drizzle schema (`drizzle/schema.ts`) with migration runner. Extract interview orchestration from `app.ts` into `core.ts` — `conductTurn()` returns `AsyncIterable<DomainEvent>`. Express handler becomes a thin adapter translating DomainEvents to SSE. `not-started`
     - Requirements: → SPEC.md §Requirements #14
     - Assumptions: → SPEC.md §Assumptions A18, A19
     - Decisions: → SPEC.md §Decisions D18, D19
