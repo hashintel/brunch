@@ -1,7 +1,10 @@
 import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 /**
- * Interview module — structured question schema, phase prompts, and tool definitions.
- * Pure domain logic; no I/O except for the MCP tool handler which persists structured data.
+ * Interview module — structured question schema, phase prompts, and MCP tool server.
+ *
+ * Pure domain: structuredQuestionSchema, getSystemPrompt, SYSTEM_PROMPTS.
+ * Shell boundary: createInterviewMcpServer — the tool handler captures db + turnId
+ * via closure and persists structured data when the agent uses ask_question.
  */
 import { z } from 'zod';
 
@@ -77,24 +80,7 @@ export function createInterviewMcpServer(db: DB, turnId: number) {
       tool(
         'ask_question',
         'Ask the user a structured interview question with options, strategic grounding, and impact signal.',
-        {
-          question: z.string().describe('The question text to present to the user.'),
-          why: z
-            .string()
-            .describe('Why this question matters for the spec — strategic grounding for the user.'),
-          impact: z
-            .enum(['high', 'medium', 'low'])
-            .describe('How much this decision affects downstream choices.'),
-          options: z
-            .array(
-              z.object({
-                content: z.string().describe('The option text.'),
-                is_recommended: z.boolean().describe('Whether this is the recommended option.'),
-              }),
-            )
-            .min(2)
-            .describe('At least 2 options representing meaningfully different directions.'),
-        },
+        structuredQuestionSchema.shape,
         async (args) => {
           // Persist structured data to the turn
           updateTurn(db, turnId, {

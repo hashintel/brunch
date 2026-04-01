@@ -21,7 +21,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 }));
 
 const { conductTurn, formatHistory } = await import('./core.js');
-const { createDb, getOrCreateProject, getActivePath, createTurn } = await import('./db.js');
+const { createDb, getOrCreateProject, createTurn } = await import('./db.js');
 
 let db: DB;
 
@@ -226,7 +226,7 @@ describe('conductTurn with interview config', () => {
 // --- Acceptance criterion: history-includes-structure ---
 
 describe('formatHistory with structured turns', () => {
-  it('includes selected option and grounding in history', () => {
+  it('includes grounding and impact in history', () => {
     const turns = [
       {
         question: 'What is the primary goal?',
@@ -238,8 +238,65 @@ describe('formatHistory with structured turns', () => {
     const result = formatHistory(turns, 'next question');
     expect(result).toContain('Build a new product');
     expect(result).toContain('What is the primary goal?');
-    // Structured history should include grounding context
     expect(result).toContain('Understanding the goal');
+    expect(result).toContain('Impact: high');
+  });
+
+  it('includes options with recommendation and selection markers', () => {
+    const turns = [
+      {
+        question: 'What is the primary goal?',
+        answer: 'Build a new product',
+        why: 'Shapes downstream decisions.',
+        impact: 'high',
+        options: [
+          { content: 'Build a new product', is_recommended: false, is_selected: true },
+          { content: 'Improve an existing product', is_recommended: true, is_selected: false },
+        ],
+      },
+    ] as any[];
+    const result = formatHistory(turns, 'next');
+    expect(result).toContain('Build a new product');
+    expect(result).toContain('[selected]');
+    expect(result).toContain('(recommended)');
+  });
+});
+
+// --- Round-trip oracle: structured turn → persist → active path ---
+
+describe('round-trip: structured turn persistence', () => {
+  it('persisted structured turn is retrievable via active path', async () => {
+    const { createOption, getOptionsForTurn, advanceHead: advance } = await import('./db.js');
+    const project = getOrCreateProject(db);
+    const turn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What is the primary goal?',
+      why: 'Understanding the goal shapes all downstream decisions.',
+      impact: 'high',
+      answer: 'Build a new product',
+    });
+    createOption(db, turn.id, {
+      position: 0,
+      content: 'Build a new product',
+      is_recommended: false,
+      is_selected: true,
+    });
+    createOption(db, turn.id, { position: 1, content: 'Improve existing', is_recommended: true });
+    advance(db, project.id, turn.id);
+
+    const { getActivePath } = await import('./db.js');
+    const turns = getActivePath(db, project.id);
+    expect(turns).toHaveLength(1);
+    expect(turns[0].question).toBe('What is the primary goal?');
+    expect(turns[0].why).toBe('Understanding the goal shapes all downstream decisions.');
+    expect(turns[0].impact).toBe('high');
+    expect(turns[0].phase).toBe('scope');
+    expect(turns[0].answer).toBe('Build a new product');
+
+    const options = getOptionsForTurn(db, turns[0].id);
+    expect(options).toHaveLength(2);
+    expect(options[0].is_selected).toBe(true);
+    expect(options[1].is_recommended).toBe(true);
   });
 });
 

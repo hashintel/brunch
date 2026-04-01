@@ -58,6 +58,10 @@ export function getProject(db: DB, id: number): Project | undefined {
   return db.select().from(schema.project).where(eq(schema.project.id, id)).get() as Project | undefined;
 }
 
+export function getTurn(db: DB, turnId: number): Turn | undefined {
+  return db.select().from(schema.turn).where(eq(schema.turn.id, turnId)).get() as Turn | undefined;
+}
+
 export function createTurn(db: DB, projectId: number, input: CreateTurnInput): Turn {
   const result = db
     .insert(schema.turn)
