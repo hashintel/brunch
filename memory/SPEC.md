@@ -341,9 +341,9 @@ This projection difference is a deliberate design choice, not an implementation 
 | ------------------- | ----- | --------------------------- |
 | sse-adapter.test.ts | 8     | I1, I7, I21                 |
 | db.test.ts          | 32    | I5, I6, I9, I10, I11, I18, I20 |
-| app.test.ts         | 22    | I2, I3, I6, I7, I13, I14    |
-| core.test.ts        | 16    | I12, I13, I18, I22           |
-| interview.test.ts   | 16    | I16                         |
+| app.test.ts         | 21    | I2, I3, I6, I7, I13, I14    |
+| core.test.ts        | 15    | I12, I13, I18, I22           |
+| interview.test.ts   | 15    | I16, A27                    |
 | parts.test.ts       | 23    | I17, I18                    |
 | context.test.ts     | 8     | I19                         |
 | sdk.test.ts         | 7     | I22                         |

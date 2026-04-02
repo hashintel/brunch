@@ -161,7 +161,17 @@
    - Branch: `ln/spike-raw-anthropic-sdk`
    - **Implication**: Slices 7+ unblocked. New migration slice needed (SDK swap) before phase transitions can proceed.
 
-## Phase 4: Full Interview
+   6b. **SDK migration: replace Agent SDK with raw Anthropic SDK** `FE-559` — Replace `@anthropic-ai/claude-agent-sdk` (`query()`, `createSdkMcpServer()`, `tool()`) with `@anthropic-ai/sdk` (`client.messages.stream()`, `client.messages.create()`). Hand-written tool JSON schema with `tool_choice` forcing. Observer uses direct API + system-prompt JSON + Zod parse. Translator accepts raw events (no `stream_event` envelope). Metrics from raw API `usage` + local wall-clock timing. `done`
+   - Requirements: → SPEC.md §Requirements #2, #3, #5
+   - Assumptions: → SPEC.md §Assumptions A26 (**validated**), A27 (new)
+   - Decisions: → SPEC.md §Decisions D30
+   - Invariants established: → SPEC.md §Invariants I22 (updated — raw events), I16 (preserved)
+   - Invariants respected: → SPEC.md §Invariants I1, I5, I6, I12, I13, I20, I21
+   - Acceptance: 135 tests pass (all updated mocks); `@anthropic-ai/claude-agent-sdk` removed from `package.json` and all imports; `npm run verify` passes
+   - Branch: `ln/fe-559-migrate-sdk`
+   - **Verification approach**: inner — translator raw events (I22 updated), tool handler persistence (I16), observer entity extraction (I20, I21). Middle — `npm run verify`. Outer — manual interview end-to-end (first real `ask_question` via raw SDK).
+
+   ## Phase 4: Full Interview
 
 <!-- All four phases working end-to-end. Phase transitions, resolution, and the review phases
      for requirements and criteria. The product becomes usable. -->
@@ -248,7 +258,8 @@ Phase 2:  2 ──→ 3 (turn schema) ──→ 3c (Drizzle+core) ──→ 3d (
 Phase 3:  3c ──→ 3b (rich chat UI) ──→ 4 (scope server) ──→ 4a (parts+context) ──→ 4b (client UI) ──→ 4c (UI foundation) ──→ 5 (observer)
           spike (observer fidelity) ──→ 5
           3d + 5 ──→ 6 (entity sidebar)
-Phase 4:  6 ──→ 7 (transitions) ──→ 8 (design) ──→ 9 (requirements) ──→ 10 (criteria)
+          spike 2 ──→ 6b (SDK migration)
+Phase 4:  6b ──→ 7 (transitions) ──→ 8 (design) ──→ 9 (requirements) ──→ 10 (criteria)
 Phase 5:  6 ──→ 11 (branching)
           6 ──→ 12 (entity lifecycle API)
           10 ──→ 13 (export)
