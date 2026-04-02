@@ -34,7 +34,23 @@ const projectRoute = createRoute({
     if (!res.ok) throw new Error('Failed to load project');
     return res.json() as Promise<{
       project: { id: number; name: string; active_turn_id: number | null };
-      turns: Array<{ id: number; answer: string | null; question: string | null }>;
+      turns: Array<{
+        id: number;
+        answer: string | null;
+        question: string | null;
+        why: string | null;
+        impact: string | null;
+        phase: string;
+        user_parts: string | null;
+        assistant_parts: string | null;
+        options: Array<{
+          id: number;
+          position: number;
+          content: string;
+          is_recommended: boolean;
+          is_selected: boolean;
+        }>;
+      }>;
     }>;
   },
   component: InterviewWorkspace,

@@ -6,6 +6,8 @@ import {
   assembleAssistantParts,
   serializeParts,
   deserializeAssistantParts,
+  safeDeserializeAssistantParts,
+  safeDeserializeUserParts,
   dataOptionSelectionSchema,
   dataConfirmationSchema,
   type AssistantPart,
@@ -155,6 +157,45 @@ describe('data-part-schemas', () => {
 
   it('rejects data-confirmation with string confirmed', () => {
     expect(() => dataConfirmationSchema.parse({ turnId: 5, confirmed: 'yes' })).toThrow();
+  });
+});
+
+// --- Validated deserialization ---
+
+describe('validated-deserialization', () => {
+  it('returns parsed parts for valid assistant JSON', () => {
+    const valid: AssistantPart[] = [
+      { type: 'reasoning', text: 'thinking' },
+      { type: 'text', text: 'answer' },
+    ];
+    const result = safeDeserializeAssistantParts(JSON.stringify(valid));
+    expect(result).toEqual(valid);
+  });
+
+  it('returns empty array for malformed JSON', () => {
+    const result = safeDeserializeAssistantParts('not-json{{{');
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array for null input', () => {
+    const result = safeDeserializeAssistantParts(null);
+    expect(result).toEqual([]);
+  });
+
+  it('returns empty array for non-array JSON', () => {
+    const result = safeDeserializeAssistantParts('{"not":"array"}');
+    expect(result).toEqual([]);
+  });
+
+  it('returns parsed user parts with valid data-option-selection', () => {
+    const valid = [{ type: 'data-option-selection', data: { turnId: 1, selectedOptionId: 2 } }];
+    const result = safeDeserializeUserParts(JSON.stringify(valid));
+    expect(result).toEqual(valid);
+  });
+
+  it('returns empty array for malformed user parts JSON', () => {
+    const result = safeDeserializeUserParts('garbage');
+    expect(result).toEqual([]);
   });
 });
 
