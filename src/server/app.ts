@@ -2,7 +2,14 @@ import express from 'express';
 import type { Request, Response } from 'express';
 
 import { conductTurn, extractPrompt, getProjectState, listProjectStates, createNewProject } from './core.js';
-import { createDb, getTurn, getOptionsForTurn, selectOption, updateTurn } from './db.js';
+import {
+  createDb,
+  getTurn,
+  getOptionsForTurn,
+  selectOption,
+  updateTurn,
+  getEntitiesForProject,
+} from './db.js';
 import { serializeParts, type DataOptionSelectionPart } from './parts.js';
 import { createDomainAdapter, formatSSE } from './sse-adapter.js';
 
@@ -79,6 +86,16 @@ export function createApp(dbPath?: string) {
     });
 
     res.json({ ok: true });
+  });
+
+  // Get entities for a project
+  app.get('/api/projects/:id/entities', (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: 'Invalid project ID' });
+      return;
+    }
+    res.json(getEntitiesForProject(db, id));
   });
 
   // Conduct turn for a specific project

@@ -139,6 +139,18 @@ describe('POST /api/projects', () => {
   });
 });
 
+describe('GET /api/projects/:id/entities', () => {
+  it('returns empty entities for a new project', async () => {
+    const projectId = await createTestProject('Test');
+    const res = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(res.body).toEqual({ decisions: [], assumptions: [] });
+  });
+
+  it('returns 400 for invalid project ID', async () => {
+    await request(app).get('/api/projects/abc/entities').expect(400);
+  });
+});
+
 describe('GET /api/projects/:id', () => {
   it('returns a project with empty turns when no history exists', async () => {
     const projectId = await createTestProject('Test');
