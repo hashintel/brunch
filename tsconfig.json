@@ -6,7 +6,10 @@
 		"noEmit": true,
 		"strict": true,
 		"jsx": "react-jsx",
-		"skipLibCheck": true
+		"skipLibCheck": true,
+		"paths": {
+			"@/*": ["./src/client/*"]
+		}
 	},
 	"include": ["src", "node_modules/vite/client.d.ts"]
 }

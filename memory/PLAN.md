@@ -120,6 +120,15 @@
     - Branch: `ln/fe-556-interview-client-ui`
     - **Verification approach**: inner — validated deserialization rejects malformed JSON (I17 strengthened); DB lifecycle round-trip covers parts (I18 strengthened); unit tests for select endpoint. Outer — manual interview walkthrough via `/cli-cdp`. → SPEC.md §Acknowledged Blind Spots (interview quality)
 
+4c. **UI foundation: shadcn/ui + Tailwind 4 + AI Elements** `FE-558` — Infrastructure realignment before slice 5. Install Tailwind 4 + `@tailwindcss/vite`, run `shadcn init`, install AI Elements core chat components (conversation, message, reasoning, tool, prompt-input, shimmer). Update `ai` + `@ai-sdk/react` to latest. Migrate InterviewWorkspace to AI Elements, ProjectList + root layout to shadcn + Tailwind. Zero server-side changes. `done`
+    - Requirements: → SPEC.md §Requirements #4
+    - Assumptions: → SPEC.md §Assumptions A17 (validates)
+    - Decisions: → SPEC.md §Decisions D14 (completes — AI Elements adopted)
+    - Invariants respected: → SPEC.md §Invariants I1, I7, I8, I15, I17, I18
+    - Acceptance: `npm run verify` passes; AI Elements render messages/reasoning/tool states; shadcn Card/Button on project list; zero changes to src/server/*, src/core/*, drizzle/*
+    - Branch: `ln/fe-558-ui-foundation`
+    - **Verification approach**: inner — `npm run verify` (lint, format, type-check, all tests, build). Outer — manual visual inspection of interview workspace and project list in dev mode.
+
 5. **Observer agent + entity persistence** — After each answered turn, core invokes a second agent call that extracts decisions and assumptions. Writes to decision/assumption tables with turn linkage and dependency edges. Core yields `observer-complete` DomainEvent **post-commit** (after SQLite transaction); SSE adapter emits as typed data part on existing chat stream (in-band sync per D22). Context builders upgraded to use `md-pen` for structured entity rendering (tables, checklists) in observer context. `not-started`
    - Requirements: → SPEC.md §Requirements #5
    - Assumptions: → SPEC.md §Assumptions A3, A4, A14 (validated by spike), A20
@@ -220,7 +229,7 @@
 ```
 Phase 1:  1 (skeleton) ──→ 2 (SQLite)
 Phase 2:  2 ──→ 3 (turn schema) ──→ 3c (Drizzle+core) ──→ 3d (routing)
-Phase 3:  3c ──→ 3b (rich chat UI) ──→ 4 (scope server) ──→ 4a (parts+context) ──→ 4b (client UI) ──→ 5 (observer)
+Phase 3:  3c ──→ 3b (rich chat UI) ──→ 4 (scope server) ──→ 4a (parts+context) ──→ 4b (client UI) ──→ 4c (UI foundation) ──→ 5 (observer)
           spike (observer fidelity) ──→ 5
           3d + 5 ──→ 6 (entity sidebar)
 Phase 4:  6 ──→ 7 (transitions) ──→ 8 (design) ──→ 9 (requirements) ──→ 10 (criteria)
