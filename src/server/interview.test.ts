@@ -28,6 +28,23 @@ let db: DB;
 beforeEach(() => {
   mockQuery.mockReset();
   mockCreateSdkMcpServer.mockClear();
+  // Default: observer gets empty result for any call not covered by mockReturnValueOnce
+  mockQuery.mockImplementation(() =>
+    makeMockStream([
+      {
+        type: 'result',
+        subtype: 'success',
+        duration_ms: 500,
+        duration_api_ms: 300,
+        total_cost_usd: 0.0005,
+        is_error: false,
+        num_turns: 1,
+        usage: { input_tokens: 100, output_tokens: 50 },
+        result: '',
+        structured_output: { decisions: [], assumptions: [] },
+      },
+    ]),
+  );
   db = createDb();
 });
 
@@ -195,28 +212,30 @@ describe('conductTurn with interview config', () => {
   }
 
   it('passes scope system prompt to SDK query', async () => {
-    mockQuery.mockReturnValue(mockMinimalStream());
+    mockQuery.mockReturnValueOnce(mockMinimalStream());
 
     const project = getOrCreateProject(db);
     for await (const _ of conductTurn(db, project.id, 'hello')) {
       /* consume */
     }
 
-    expect(mockQuery).toHaveBeenCalledOnce();
+    // First call is interviewer; second is observer (may fail gracefully)
+    expect(mockQuery).toHaveBeenCalled();
     const callArgs = mockQuery.mock.calls[0][0];
     expect(callArgs.options.systemPrompt).toContain('scope');
     expect(callArgs.options.systemPrompt).not.toBe('You are a helpful assistant.');
   });
 
   it('passes interview MCP server to SDK query', async () => {
-    mockQuery.mockReturnValue(mockMinimalStream());
+    mockQuery.mockReturnValueOnce(mockMinimalStream());
 
     const project = getOrCreateProject(db);
     for await (const _ of conductTurn(db, project.id, 'hello')) {
       /* consume */
     }
 
-    expect(mockQuery).toHaveBeenCalledOnce();
+    // First call is interviewer; second is observer (may fail gracefully)
+    expect(mockQuery).toHaveBeenCalled();
     const callArgs = mockQuery.mock.calls[0][0];
     expect(callArgs.options.mcpServers).toBeDefined();
     expect(callArgs.options.mcpServers.interview).toBeDefined();

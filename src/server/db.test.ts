@@ -16,6 +16,14 @@ import {
   listProjects,
   createProject,
   getProject,
+  createDecision,
+  createAssumption,
+  linkDecisionToTurn,
+  linkAssumptionToTurn,
+  addDecisionParentDecision,
+  addDecisionParentAssumption,
+  addAssumptionParentAssumption,
+  getEntitiesForProject,
   type DB,
 } from './db.js';
 
@@ -398,5 +406,71 @@ describe('DB lifecycle — turn tree persistence', () => {
     db2.$client.close();
 
     unlinkSync(dbPath);
+  });
+});
+
+describe('entity persistence — decisions and assumptions', () => {
+  it('creates a decision with project linkage', () => {
+    const project = createProject(db, 'Test');
+    const d = createDecision(db, project.id, 'Use SQLite for persistence');
+    expect(d.id).toBeDefined();
+    expect(d.content).toBe('Use SQLite for persistence');
+    expect(d.project_id).toBe(project.id);
+  });
+
+  it('creates an assumption with project linkage', () => {
+    const project = createProject(db, 'Test');
+    const a = createAssumption(db, project.id, 'SQLite handles concurrent writes');
+    expect(a.id).toBeDefined();
+    expect(a.content).toBe('SQLite handles concurrent writes');
+    expect(a.project_id).toBe(project.id);
+  });
+
+  it('links a decision to a turn', () => {
+    const project = createProject(db, 'Test');
+    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const d = createDecision(db, project.id, 'Use React');
+    linkDecisionToTurn(db, d.id, turn.id);
+    const entities = getEntitiesForProject(db, project.id);
+    expect(entities.decisions).toHaveLength(1);
+    expect(entities.decisions[0].content).toBe('Use React');
+  });
+
+  it('links an assumption to a turn', () => {
+    const project = createProject(db, 'Test');
+    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const a = createAssumption(db, project.id, 'Users have API keys');
+    linkAssumptionToTurn(db, a.id, turn.id);
+    const entities = getEntitiesForProject(db, project.id);
+    expect(entities.assumptions).toHaveLength(1);
+    expect(entities.assumptions[0].content).toBe('Users have API keys');
+  });
+
+  it('creates dependency edges between decisions', () => {
+    const project = createProject(db, 'Test');
+    const d1 = createDecision(db, project.id, 'Use Express');
+    const d2 = createDecision(db, project.id, 'Use SSE for streaming');
+    addDecisionParentDecision(db, d2.id, d1.id);
+    const entities = getEntitiesForProject(db, project.id);
+    expect(entities.decisions).toHaveLength(2);
+  });
+
+  it('creates dependency edges between decisions and assumptions', () => {
+    const project = createProject(db, 'Test');
+    const a = createAssumption(db, project.id, 'SDK supports streaming');
+    const d = createDecision(db, project.id, 'Use SDK streaming');
+    addDecisionParentAssumption(db, d.id, a.id);
+    const entities = getEntitiesForProject(db, project.id);
+    expect(entities.decisions).toHaveLength(1);
+    expect(entities.assumptions).toHaveLength(1);
+  });
+
+  it('creates dependency edges between assumptions', () => {
+    const project = createProject(db, 'Test');
+    const a1 = createAssumption(db, project.id, 'Single user');
+    const a2 = createAssumption(db, project.id, 'No concurrent writes');
+    addAssumptionParentAssumption(db, a2.id, a1.id);
+    const entities = getEntitiesForProject(db, project.id);
+    expect(entities.assumptions).toHaveLength(2);
   });
 });

@@ -22,6 +22,23 @@ let db: DB;
 
 beforeEach(() => {
   mockQuery.mockReset();
+  // Default: observer gets empty result for any call not covered by mockReturnValueOnce
+  mockQuery.mockImplementation(() =>
+    makeMockStream([
+      {
+        type: 'result',
+        subtype: 'success',
+        duration_ms: 500,
+        duration_api_ms: 300,
+        total_cost_usd: 0.0005,
+        is_error: false,
+        num_turns: 1,
+        usage: { input_tokens: 100, output_tokens: 50 },
+        result: '',
+        structured_output: { decisions: [], assumptions: [] },
+      },
+    ]),
+  );
   db = createDb();
 });
 
@@ -67,7 +84,7 @@ describe('formatHistory', () => {
 
 describe('conductTurn', () => {
   it('yields turn-created as first event', async () => {
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
         { type: 'stream_event', event: { type: 'message_stop' } },
@@ -86,7 +103,7 @@ describe('conductTurn', () => {
   });
 
   it('yields stream-start with message ID', async () => {
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-42' } } },
         { type: 'stream_event', event: { type: 'message_stop' } },
@@ -105,7 +122,7 @@ describe('conductTurn', () => {
   });
 
   it('yields thinking events for thinking_delta', async () => {
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
         {
@@ -132,7 +149,7 @@ describe('conductTurn', () => {
   });
 
   it('yields text-delta events and persists assistant text', async () => {
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
         {
@@ -165,7 +182,7 @@ describe('conductTurn', () => {
   });
 
   it('yields stream-end and advances HEAD', async () => {
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
         {
@@ -195,7 +212,7 @@ describe('conductTurn', () => {
   });
 
   it('yields error event on SDK failure', async () => {
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       // oxlint-disable-next-line require-yield -- intentional: tests error before first yield
       (async function* () {
         throw new Error('API rate limit');
@@ -214,7 +231,7 @@ describe('conductTurn', () => {
   });
 
   it('yields tool-call-start for tool_use content blocks', async () => {
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
         {
@@ -243,7 +260,7 @@ describe('conductTurn', () => {
   });
 
   it('yields tool-call-delta for input_json_delta', async () => {
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
         {
@@ -280,7 +297,7 @@ describe('conductTurn', () => {
   });
 
   it('yields tool-call-end with toolCallId and toolName', async () => {
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
         {
@@ -318,7 +335,7 @@ describe('conductTurn', () => {
 
   it('chains turns with parent pointers', async () => {
     // First turn
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
         {
@@ -339,7 +356,7 @@ describe('conductTurn', () => {
     }
 
     // Second turn
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-2' } } },
         {
@@ -364,7 +381,7 @@ describe('conductTurn', () => {
   });
 
   it('persists assistant_parts after stream finish', async () => {
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
         {

@@ -232,4 +232,38 @@ describe('createDomainAdapter — tool-call events', () => {
     const events = translate({ type: 'tool-call-end', toolCallId: 'tc-1', toolName: 'search' });
     expect(events).toEqual([{ type: 'tool-call', id: 'tc-1', toolName: 'search', args: '{"q":"test"}' }]);
   });
+
+  it('translates observer-complete to data event', () => {
+    const { translate } = createDomainAdapter();
+    const events = translate({
+      type: 'observer-complete',
+      entityIds: { decisions: [1, 2], assumptions: [3] },
+    } as any);
+    expect(events).toEqual([
+      {
+        type: 'data',
+        data: { type: 'data-observer-result', entityIds: { decisions: [1, 2], assumptions: [3] } },
+      },
+    ]);
+  });
+
+  it('translates observer-error to error event', () => {
+    const { translate } = createDomainAdapter();
+    const events = translate({ type: 'observer-error', message: 'extraction failed' } as any);
+    expect(events).toEqual([{ type: 'error', errorText: 'Observer: extraction failed' }]);
+  });
+
+  it('translates agent-metrics to empty array (internal only)', () => {
+    const { translate } = createDomainAdapter();
+    const events = translate({
+      type: 'agent-metrics',
+      agent: 'observer',
+      durationMs: 1500,
+      durationApiMs: 1000,
+      totalCostUsd: 0.001,
+      inputTokens: 300,
+      outputTokens: 100,
+    } as any);
+    expect(events).toEqual([]);
+  });
 });

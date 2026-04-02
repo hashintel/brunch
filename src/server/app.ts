@@ -113,6 +113,9 @@ export function createApp(dbPath?: string) {
       res.write(formatSSE({ type: 'error', errorText: message }));
     }
 
+    // Protocol termination: finish-step + finish after all events (including observer)
+    res.write(formatSSE({ type: 'finish-step' }));
+    res.write(formatSSE({ type: 'finish', finishReason: 'stop' }));
     res.write(formatSSE('[DONE]'));
     res.end();
   });

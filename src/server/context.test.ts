@@ -184,4 +184,38 @@ describe('observer-context-projection', () => {
     // Should NOT contain the full Q&A pairs from earlier turns
     expect(result).not.toContain('Previous conversation:');
   });
+
+  it('renders entity tables with md-pen (not hand-rolled strings)', () => {
+    const turn: Turn = {
+      id: 5,
+      project_id: 1,
+      parent_turn_id: 4,
+      phase: 'scope',
+      question: 'Q5',
+      answer: 'A5',
+      why: null,
+      impact: null,
+      is_resolution: false,
+      user_parts: null,
+      assistant_parts: null,
+      created_at: '2026-01-01',
+    };
+
+    const result = buildObserverContext({
+      turn,
+      activePathSummary: '',
+      entities: {
+        decisions: [{ id: 1, content: 'Use React' }],
+        assumptions: [{ id: 2, content: 'Users have browsers' }],
+      },
+    });
+
+    // md-pen table() produces pipe-separated markdown tables
+    expect(result).toContain('| ID | Content |');
+    expect(result).toContain('| 1 | Use React |');
+    expect(result).toContain('| 2 | Users have browsers |');
+    // md-pen h3() produces ### headings
+    expect(result).toContain('### Existing Decisions');
+    expect(result).toContain('### Existing Assumptions');
+  });
 });

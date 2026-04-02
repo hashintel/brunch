@@ -1,14 +1,18 @@
-import { createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
+import { query, createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 /**
- * Interview module — structured question schema, phase prompts, and MCP tool server.
+ * Interview module — structured question schema, phase prompts, MCP tool server,
+ * and runInterviewer() generator that owns the full interviewer pipeline.
  *
  * Pure domain: structuredQuestionSchema, getSystemPrompt, SYSTEM_PROMPTS.
- * Shell boundary: createInterviewMcpServer — the tool handler captures db + turnId
- * via closure and persists structured data when the agent uses ask_question.
+ * Shell boundary: createInterviewMcpServer, runInterviewer.
  */
 import { z } from 'zod';
 
-import { createOption, updateTurn, type DB, type Impact, type Phase } from './db.js';
+import { buildInterviewerContext } from './context.js';
+import type { TurnWithOptions, DomainEvent } from './core.js';
+import { createOption, updateTurn, getTurn, type DB, type Turn, type Impact, type Phase } from './db.js';
+import { assembleAssistantParts, serializeParts } from './parts.js';
+import { createStreamTranslator, extractMetrics, type SdkResultMessage } from './sdk.js';
 
 /** Zod schema for the ask_question tool output. */
 export const structuredQuestionSchema = z.object({
@@ -101,5 +105,64 @@ export function createInterviewMcpServer(db: DB, turnId: number) {
         },
       ),
     ],
+  });
+}
+
+/**
+ * Run the interviewer agent. Streams DomainEvents from the SDK query
+ * and persists turn-level data (assistant text, parts) when done.
+ * Each call owns its full pipeline: prompt, tools, streaming, persistence.
+ */
+export async function* runInterviewer(
+  db: DB,
+  turn: Turn,
+  activePath: TurnWithOptions[],
+  userMessage: string,
+  phase: Phase,
+): AsyncGenerator<DomainEvent> {
+  const fullPrompt = buildInterviewerContext(activePath, userMessage);
+  const interviewServer = createInterviewMcpServer(db, turn.id);
+  const { translate } = createStreamTranslator();
+
+  let assistantText = '';
+  const collectedEvents: DomainEvent[] = [];
+
+  const stream = query({
+    prompt: fullPrompt,
+    options: {
+      model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+      maxTurns: 1,
+      includePartialMessages: true,
+      systemPrompt: getSystemPrompt(phase),
+      mcpServers: { interview: interviewServer },
+      persistSession: false,
+    },
+  });
+
+  for await (const msg of stream) {
+    // Translate SDK stream events to DomainEvents
+    for (const event of translate(msg)) {
+      collectedEvents.push(event);
+      if (event.type === 'text-delta') {
+        assistantText += event.delta;
+      }
+      yield event;
+    }
+
+    // Capture ResultMessage for metrics
+    if ((msg as Record<string, unknown>).type === 'result') {
+      yield extractMetrics('interviewer', msg as unknown as SdkResultMessage);
+    }
+  }
+
+  // Persist turn-level data
+  const currentTurn = getTurn(db, turn.id);
+  const parts = assembleAssistantParts(collectedEvents);
+
+  updateTurn(db, turn.id, {
+    ...(assistantText && (!currentTurn?.question || currentTurn.question === '')
+      ? { question: assistantText }
+      : {}),
+    ...(parts.length > 0 ? { assistant_parts: serializeParts(parts) } : {}),
   });
 }
