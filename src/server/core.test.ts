@@ -173,6 +173,68 @@ describe('conductTurn', () => {
 		expect(error.message).toBe('API rate limit');
 	});
 
+	it('yields tool-call-start for tool_use content blocks', async () => {
+		mockQuery.mockReturnValue(makeMockStream([
+			{ type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
+			{ type: 'stream_event', event: { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' } } },
+			{ type: 'stream_event', event: { type: 'content_block_stop', index: 0 } },
+			{ type: 'stream_event', event: { type: 'message_stop' } },
+		]));
+
+		const project = getOrCreateProject(db);
+		const events: any[] = [];
+		for await (const event of conductTurn(db, project.id, 'weather?')) {
+			events.push(event);
+		}
+
+		const toolStart = events.find(e => e.type === 'tool-call-start');
+		expect(toolStart).toBeDefined();
+		expect(toolStart.toolName).toBe('get_weather');
+		expect(toolStart.toolCallId).toBe('toolu_01');
+	});
+
+	it('yields tool-call-delta for input_json_delta', async () => {
+		mockQuery.mockReturnValue(makeMockStream([
+			{ type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
+			{ type: 'stream_event', event: { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' } } },
+			{ type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"city":"NYC"}' } } },
+			{ type: 'stream_event', event: { type: 'content_block_stop', index: 0 } },
+			{ type: 'stream_event', event: { type: 'message_stop' } },
+		]));
+
+		const project = getOrCreateProject(db);
+		const events: any[] = [];
+		for await (const event of conductTurn(db, project.id, 'weather?')) {
+			events.push(event);
+		}
+
+		const toolDelta = events.find(e => e.type === 'tool-call-delta');
+		expect(toolDelta).toBeDefined();
+		expect(toolDelta.toolCallId).toBe('toolu_01');
+		expect(toolDelta.delta).toBe('{"city":"NYC"}');
+	});
+
+	it('yields tool-call-end with toolCallId and toolName', async () => {
+		mockQuery.mockReturnValue(makeMockStream([
+			{ type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
+			{ type: 'stream_event', event: { type: 'content_block_start', index: 0, content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' } } },
+			{ type: 'stream_event', event: { type: 'content_block_delta', index: 0, delta: { type: 'input_json_delta', partial_json: '{"city":"NYC"}' } } },
+			{ type: 'stream_event', event: { type: 'content_block_stop', index: 0 } },
+			{ type: 'stream_event', event: { type: 'message_stop' } },
+		]));
+
+		const project = getOrCreateProject(db);
+		const events: any[] = [];
+		for await (const event of conductTurn(db, project.id, 'weather?')) {
+			events.push(event);
+		}
+
+		const toolEnd = events.find(e => e.type === 'tool-call-end');
+		expect(toolEnd).toBeDefined();
+		expect(toolEnd.toolCallId).toBe('toolu_01');
+		expect(toolEnd.toolName).toBe('get_weather');
+	});
+
 	it('chains turns with parent pointers', async () => {
 		// First turn
 		mockQuery.mockReturnValue(makeMockStream([
