@@ -1,0 +1,39 @@
+# brunch
+
+## symlinks
+
+This project uses symlinks for tool compatibility. Do not duplicate or overwrite these — edit the target file.
+
+- `CLAUDE.md` → `AGENTS.md` (same file; CLAUDE.md is what Claude Code reads, AGENTS.md is the canonical name)
+- `.claude/skills/` → `.agents/skills/` (skill definitions live in `.agents/skills/`)
+
+## workflow
+
+Slices and spikes in `memory/PLAN.md` are the unit of work. When starting one:
+
+1. Create a Linear issue under FE-531 — use `/cli-linear`
+2. Create a Graphite stacked branch: `ln/{issue-id}-{keywords}` (e.g. `ln/fe-534-walking-skeleton`) — use `/cli-graphite`
+
+One branch per slice/spike. Stacked branches mirror slice dependencies in PLAN.md. Graphite manages the stack; Linear tracks the issue.
+
+## planning
+
+Two canonical documents in `memory/`:
+
+- **SPEC.md** [create: /ln-spec · read: all · update: /ln-sync] — what and why
+- **PLAN.md** [create: /ln-plan · read: all · update: /ln-sync, /ln-build, /ln-spike] — what's next
+
+Traceability: assumptions in SPEC.md link to decisions and slices in PLAN.md. Skills that touch planning or completion (/ln-spec, /ln-plan, /ln-build, /ln-spike) maintain these cross-references.
+
+### skills
+
+The `/ln-*` skills at `.agents/skills/` follow this flow:
+
+- **Knowledge**: /ln-grill → /ln-spec → /ln-plan
+- **Execution**: /ln-scope → /ln-spike (optional) → /ln-build
+- **Quality**: /ln-review → /ln-refactor (optional) → /ln-sync
+- **Process**: /ln-consult (triage), /ln-handoff (state capture), /ln-design (interface exploration)
+
+### verification
+
+Verification strategy is defined per-project in SPEC.md §Verification Design (three-tier feedback loops). The global verification harness in `~/.claude/CLAUDE.md` provides the execution stack.
