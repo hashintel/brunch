@@ -335,7 +335,7 @@ This projection difference is a deliberate design choice, not an implementation 
 
 | File                | Tests | Protects                    |
 | ------------------- | ----- | --------------------------- |
-| sse-adapter.test.ts | 21    | I1, I3, I7, I21             |
+| sse-adapter.test.ts | 8     | I1, I7, I21                 |
 | db.test.ts          | 32    | I5, I6, I9, I10, I11, I18, I20 |
 | app.test.ts         | 22    | I2, I3, I6, I7, I13, I14    |
 | core.test.ts        | 16    | I12, I13, I18, I22           |
