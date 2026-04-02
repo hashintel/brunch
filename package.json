@@ -15,7 +15,7 @@
 	"scripts": {
 		"build": "vite build",
 		"check": "npm run fmt:check && npm run lint",
-		"dev": "concurrently \"vite\" \"npx tsx --env-file=.env --watch src/server/index.ts\"",
+		"dev": "agent-tail run 'vite: vite' 'api: npx tsx --env-file=.env --watch src/server/index.ts'",
 		"fix": "npm run lint:fix && npm run fmt",
 		"fmt": "oxfmt src/",
 		"fmt:check": "oxfmt --check src/",
@@ -68,6 +68,7 @@
 		"@types/react": "^19.2.14",
 		"@types/react-dom": "^19.2.3",
 		"@types/supertest": "^7.2.0",
+		"agent-tail": "^0.4.0",
 		"concurrently": "^9.2.1",
 		"drizzle-kit": "^0.31.10",
 		"oxfmt": "^0.43.0",

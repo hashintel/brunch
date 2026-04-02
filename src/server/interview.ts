@@ -148,11 +148,12 @@ export async function* runInterviewer(
 
   const stream = client.messages.stream({
     model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-    max_tokens: 4096,
+    max_tokens: 16000,
+    thinking: { type: 'enabled', budget_tokens: 10000 },
     system: getSystemPrompt(phase),
     messages: [{ role: 'user', content: fullPrompt }],
     tools: [ASK_QUESTION_TOOL],
-    tool_choice: { type: 'tool', name: 'ask_question' },
+    tool_choice: { type: 'auto' },
   });
 
   for await (const rawEvent of stream) {

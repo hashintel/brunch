@@ -224,7 +224,7 @@ describe('conductTurn with interview config', () => {
 
     expect(mockStream).toHaveBeenCalled();
     const callArgs = mockStream.mock.calls[0][0];
-    expect(callArgs.tool_choice).toEqual({ type: 'tool', name: 'ask_question' });
+    expect(callArgs.tool_choice).toEqual({ type: 'auto' });
     expect(callArgs.tools).toBeDefined();
     expect(callArgs.tools[0].name).toBe('ask_question');
   });
