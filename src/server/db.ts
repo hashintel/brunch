@@ -85,6 +85,8 @@ export interface UpdateTurnInput {
   answer?: string;
   why?: string | null;
   impact?: Impact | null;
+  user_parts?: string | null;
+  assistant_parts?: string | null;
 }
 
 export function updateTurn(db: DB, turnId: number, updates: UpdateTurnInput): void {
@@ -92,7 +94,9 @@ export function updateTurn(db: DB, turnId: number, updates: UpdateTurnInput): vo
     updates.question === undefined &&
     updates.answer === undefined &&
     updates.why === undefined &&
-    updates.impact === undefined
+    updates.impact === undefined &&
+    updates.user_parts === undefined &&
+    updates.assistant_parts === undefined
   )
     return;
   const values: Record<string, unknown> = {};
@@ -100,6 +104,8 @@ export function updateTurn(db: DB, turnId: number, updates: UpdateTurnInput): vo
   if (updates.answer !== undefined) values.answer = updates.answer;
   if (updates.why !== undefined) values.why = updates.why;
   if (updates.impact !== undefined) values.impact = updates.impact;
+  if (updates.user_parts !== undefined) values.user_parts = updates.user_parts;
+  if (updates.assistant_parts !== undefined) values.assistant_parts = updates.assistant_parts;
   db.update(schema.turn).set(values).where(eq(schema.turn.id, turnId)).run();
 }
 

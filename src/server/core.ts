@@ -1,5 +1,6 @@
 import { query } from '@anthropic-ai/claude-agent-sdk';
 
+import { buildInterviewerContext } from './context.js';
 import {
   getProject,
   getActivePath,
@@ -15,6 +16,7 @@ import {
   type Project,
 } from './db.js';
 import { getSystemPrompt, createInterviewMcpServer } from './interview.js';
+import { assembleAssistantParts, serializeParts } from './parts.js';
 
 /** Domain events yielded by conductTurn(). Transport-agnostic. */
 export type DomainEvent =
@@ -47,31 +49,12 @@ export interface TurnWithOptions extends Turn {
   options?: Array<{ content: string; is_recommended: boolean; is_selected: boolean }>;
 }
 
-/** Format conversation history from active-path turns for multi-turn context. */
+/**
+ * Format conversation history from active-path turns for multi-turn context.
+ * @deprecated Use buildInterviewerContext from context.ts directly.
+ */
 export function formatHistory(turns: TurnWithOptions[], currentPrompt: string): string {
-  if (turns.length === 0) return currentPrompt;
-  const lines: string[] = [];
-  for (const turn of turns) {
-    if (turn.question) {
-      let questionLine = `Question: ${turn.question}`;
-      if (turn.why) questionLine += `\n  Why it matters: ${turn.why}`;
-      if (turn.impact) questionLine += `\n  Impact: ${turn.impact}`;
-      if (turn.options?.length) {
-        const optionList = turn.options
-          .map((o, i) => {
-            const rec = o.is_recommended ? ' (recommended)' : '';
-            const sel = o.is_selected ? ' [selected]' : '';
-            return `    ${i + 1}. ${o.content}${rec}${sel}`;
-          })
-          .join('\n');
-        questionLine += `\n  Options:\n${optionList}`;
-      }
-      lines.push(questionLine);
-    }
-    if (turn.answer) lines.push(`Answer: ${turn.answer}`);
-  }
-  if (lines.length === 0) return currentPrompt;
-  return `Previous conversation:\n${lines.join('\n')}\n\n---\nUser: ${currentPrompt}`;
+  return buildInterviewerContext(turns, currentPrompt);
 }
 
 /** SDK stream event shapes we consume */
@@ -113,11 +96,16 @@ export async function* conductTurn(
 
   yield { type: 'turn-created', turn };
 
-  const fullPrompt = formatHistory(activePath, userMessage);
+  const fullPrompt = buildInterviewerContext(activePath, userMessage);
   let assistantText = '';
   let errored = false;
+  const collectedEvents: DomainEvent[] = [];
 
-  // Create per-turn MCP server — tool handler persists structured data via closure
+  function emit(ev: DomainEvent): DomainEvent {
+    collectedEvents.push(ev);
+    return ev;
+  }
+
   const interviewServer = createInterviewMcpServer(db, turn.id);
 
   try {
@@ -140,14 +128,14 @@ export async function* conductTurn(
 
       switch (event.type) {
         case 'message_start':
-          yield { type: 'stream-start', messageId: event.message!.id };
+          yield emit({ type: 'stream-start', messageId: event.message!.id });
           break;
 
         case 'content_block_start': {
           const block = event.content_block!;
           if (block.type === 'tool_use') {
             toolUseBlocks.set(event.index!, { toolName: block.name!, toolCallId: block.id! });
-            yield { type: 'tool-call-start', toolName: block.name!, toolCallId: block.id! };
+            yield emit({ type: 'tool-call-start', toolName: block.name!, toolCallId: block.id! });
           }
           break;
         }
@@ -155,17 +143,17 @@ export async function* conductTurn(
         case 'content_block_delta': {
           const delta = event.delta!;
           if (delta.type === 'thinking_delta' && delta.thinking) {
-            yield { type: 'thinking', delta: delta.thinking };
+            yield emit({ type: 'thinking', delta: delta.thinking });
           } else if (delta.type === 'text_delta' && delta.text) {
             assistantText += delta.text;
-            yield { type: 'text-delta', delta: delta.text };
+            yield emit({ type: 'text-delta', delta: delta.text });
           } else if (delta.type === 'input_json_delta' && delta.partial_json) {
             const toolBlock = toolUseBlocks.get(event.index!);
-            yield {
+            yield emit({
               type: 'tool-call-delta',
               toolCallId: toolBlock?.toolCallId ?? '',
               delta: delta.partial_json,
-            };
+            });
           }
           break;
         }
@@ -173,18 +161,18 @@ export async function* conductTurn(
         case 'content_block_stop': {
           const toolBlock = toolUseBlocks.get(event.index!);
           if (toolBlock) {
-            yield {
+            yield emit({
               type: 'tool-call-end',
               toolCallId: toolBlock.toolCallId,
               toolName: toolBlock.toolName,
-            };
+            });
             toolUseBlocks.delete(event.index!);
           }
           break;
         }
 
         case 'message_stop':
-          yield { type: 'stream-end' };
+          yield emit({ type: 'stream-end' });
           break;
       }
     }
@@ -195,11 +183,16 @@ export async function* conductTurn(
   }
 
   if (!errored) {
-    // Only persist raw text if no structured question was set via MCP tool handler
     const currentTurn = getTurn(db, turn.id);
-    if (assistantText && (!currentTurn?.question || currentTurn.question === '')) {
-      updateTurn(db, turn.id, { question: assistantText });
-    }
+    const parts = assembleAssistantParts(collectedEvents);
+
+    updateTurn(db, turn.id, {
+      ...(assistantText && (!currentTurn?.question || currentTurn.question === '')
+        ? { question: assistantText }
+        : {}),
+      ...(parts.length > 0 ? { assistant_parts: serializeParts(parts) } : {}),
+    });
+
     advanceHead(db, projectId, turn.id);
   }
 }
