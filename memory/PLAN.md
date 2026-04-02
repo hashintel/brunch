@@ -75,7 +75,7 @@
 
 ### Spikes
 
-1. **Observer extraction fidelity** — Can the LLM reliably extract decisions, assumptions, and dependency edges from a single turn's Q&A? Test with realistic fixture turns across different question types (scope, design, constraints). Measure extraction consistency across runs. `not-started`
+1. **Observer extraction fidelity** `FE-557` — Can the LLM reliably extract decisions, assumptions, and dependency edges from a single turn's Q&A? Test with realistic fixture turns across different question types (scope, design, constraints). Measure extraction consistency across runs. `done`
    - Assumptions: → SPEC.md §Assumptions A14, A3
    - Time box: 2 hours
    - Success: ≥80% of expected entities captured with correct dependency edges across 5+ fixture turns
