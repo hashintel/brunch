@@ -150,6 +150,17 @@
    - Ref: → docs/design/BREADBOARD.md §UI Affordances → P2 Entity sidebar
    - **Verification approach**: inner — unit tests for entity query on active path, stale badge computation. Middle — validate A21: `onData` → `setQueryData` updates sidebar without stale closure (if stale, fall back to parallel `EventSource`). Outer — manual visual inspection (entities render correctly, tabs work, stale badges appear). Debug mode overlay (observer extraction detail per-turn) should land here or in slice 5. → SPEC.md §Oracle Strategy (outer loop), §Acknowledged Blind Spots (cumulative graph integrity)
 
+### Spikes
+
+2. **Raw Anthropic SDK for tool execution** — Can we replace `@anthropic-ai/claude-agent-sdk` `query()` with `@anthropic-ai/sdk` `client.messages.stream()` for reliable tool calls? Agent SDK MCP tool registration is broken (A2 invalidated). `done`
+   - Assumptions: → SPEC.md §Assumptions A2 (**invalidated**), A24 (**invalidated**), A25 (**invalidated**), A26 (**validated**)
+   - Decisions: → SPEC.md §Decisions D30
+   - Time box: 2 hours
+   - Success: ✅ All 3 tests pass — (1) forced `tool_choice` produces structured `ask_question` call, (2) raw streaming events match `content_block_start/delta/stop` format, (3) observer JSON extraction works via direct API call
+   - Evidence: `spike/raw-sdk-tool-use.ts`
+   - Branch: `ln/spike-raw-anthropic-sdk`
+   - **Implication**: Slices 7+ unblocked. New migration slice needed (SDK swap) before phase transitions can proceed.
+
 ## Phase 4: Full Interview
 
 <!-- All four phases working end-to-end. Phase transitions, resolution, and the review phases
