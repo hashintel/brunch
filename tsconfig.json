@@ -7,7 +7,6 @@
 		"strict": true,
 		"jsx": "react-jsx",
 		"skipLibCheck": true,
-		"baseUrl": ".",
 		"paths": {
 			"@/*": ["./src/client/*"]
 		}

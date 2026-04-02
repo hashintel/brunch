@@ -1,6 +1,9 @@
 import { useLoaderData, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
+import { Button } from '@/components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+
 export function ProjectList() {
   const projects = useLoaderData({ from: '/' });
   const navigate = useNavigate();
@@ -25,40 +28,31 @@ export function ProjectList() {
   };
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto', padding: 24 }}>
-      <h1>Brunch</h1>
-      <p>AI-guided spec elicitation</p>
+    <div className="mx-auto max-w-2xl p-6">
+      <h1 className="text-2xl font-bold">Brunch</h1>
+      <p className="mt-1 text-muted-foreground">AI-guided spec elicitation</p>
 
-      <button
-        onClick={handleCreate}
-        disabled={creating}
-        style={{ marginBottom: 24, padding: '8px 16px', fontSize: 14 }}
-      >
+      <Button onClick={handleCreate} disabled={creating} className="mt-6 mb-6">
         {creating ? 'Creating...' : 'New project'}
-      </button>
+      </Button>
 
       {projects.length === 0 ? (
-        <p style={{ color: '#666' }}>No projects yet. Create one to get started.</p>
+        <p className="text-muted-foreground">No projects yet. Create one to get started.</p>
       ) : (
-        <ul style={{ listStyle: 'none', padding: 0 }}>
+        <div className="flex flex-col gap-2">
           {projects.map((p) => (
-            <li
+            <Card
               key={p.id}
+              className="cursor-pointer transition-colors hover:bg-muted/50"
               onClick={() => navigate({ to: '/project/$id', params: { id: String(p.id) } })}
-              style={{
-                padding: 16,
-                marginBottom: 8,
-                border: '1px solid #ddd',
-                borderRadius: 8,
-                cursor: 'pointer',
-              }}
             >
-              <strong>{p.name}</strong>
-              <br />
-              <small style={{ color: '#888' }}>Created: {new Date(p.created_at).toLocaleDateString()}</small>
-            </li>
+              <CardHeader>
+                <CardTitle>{p.name}</CardTitle>
+                <CardDescription>Created: {new Date(p.created_at).toLocaleDateString()}</CardDescription>
+              </CardHeader>
+            </Card>
           ))}
-        </ul>
+        </div>
       )}
     </div>
   );

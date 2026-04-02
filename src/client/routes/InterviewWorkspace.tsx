@@ -1,8 +1,26 @@
 import { useChat } from '@ai-sdk/react';
-import type { UIMessage } from '@ai-sdk/react';
 import { useLoaderData, useParams, Link, useRouter } from '@tanstack/react-router';
+import type { UIMessage } from 'ai';
 import { DefaultChatTransport } from 'ai';
 import { useState, useEffect, useMemo, useCallback } from 'react';
+
+import {
+  Conversation,
+  ConversationContent,
+  ConversationScrollButton,
+} from '@/components/ai-elements/conversation';
+import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
+import {
+  PromptInput,
+  PromptInputBody,
+  PromptInputFooter,
+  PromptInputSubmit,
+  PromptInputTextarea,
+  type PromptInputMessage,
+} from '@/components/ai-elements/prompt-input';
+import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
+import { Tool, ToolHeader, ToolContent, type ToolPart } from '@/components/ai-elements/tool';
+import { cn } from '@/lib/utils';
 
 type LoaderTurn = {
   id: number;
@@ -56,10 +74,10 @@ function hydrateMessages(turns: LoaderTurn[]): UIMessage[] {
   return msgs;
 }
 
-const impactColors: Record<string, { bg: string; text: string }> = {
-  high: { bg: '#fef2f2', text: '#991b1b' },
-  medium: { bg: '#fffbeb', text: '#92400e' },
-  low: { bg: '#f0fdf4', text: '#166534' },
+const impactStyles: Record<string, string> = {
+  high: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200',
+  medium: 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200',
+  low: 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200',
 };
 
 function TurnCard({
@@ -72,43 +90,25 @@ function TurnCard({
   disabled: boolean;
 }) {
   const hasSelection = turn.options.some((o) => o.is_selected);
-  const impact = turn.impact ? impactColors[turn.impact] : null;
 
   return (
-    <div
-      style={{
-        margin: '12px 0',
-        padding: 16,
-        border: '1px solid #e0e0e0',
-        borderRadius: 8,
-        background: '#fafafa',
-      }}
-    >
-      <div style={{ fontWeight: 600, fontSize: 15, marginBottom: 8 }}>{turn.question}</div>
+    <div className="my-3 rounded-lg border bg-card p-4">
+      <div className="mb-2 text-[15px] font-semibold">{turn.question}</div>
 
-      {turn.why && (
-        <div style={{ fontSize: 13, color: '#555', marginBottom: 8, fontStyle: 'italic' }}>{turn.why}</div>
-      )}
+      {turn.why && <div className="mb-2 text-[13px] italic text-muted-foreground">{turn.why}</div>}
 
-      {impact && (
+      {turn.impact && (
         <span
-          style={{
-            display: 'inline-block',
-            fontSize: 11,
-            fontWeight: 600,
-            padding: '2px 8px',
-            borderRadius: 4,
-            background: impact.bg,
-            color: impact.text,
-            marginBottom: 8,
-            textTransform: 'uppercase',
-          }}
+          className={cn(
+            'mb-2 inline-block rounded px-2 py-0.5 text-[11px] font-semibold uppercase',
+            impactStyles[turn.impact] ?? 'bg-muted text-muted-foreground',
+          )}
         >
           {turn.impact} impact
         </span>
       )}
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: 6, marginTop: 8 }}>
+      <div className="mt-2 flex flex-col gap-1.5">
         {turn.options.map((opt) => {
           const isSelected = opt.is_selected;
           return (
@@ -117,27 +117,20 @@ function TurnCard({
               type="button"
               disabled={disabled || hasSelection}
               onClick={() => onSelect(turn.id, opt.position)}
-              style={{
-                padding: '8px 12px',
-                border: isSelected ? '2px solid #2563eb' : '1px solid #d0d0d0',
-                borderRadius: 6,
-                background: isSelected ? '#eff6ff' : '#fff',
-                cursor: disabled || hasSelection ? 'default' : 'pointer',
-                textAlign: 'left',
-                fontSize: 14,
-                opacity: hasSelection && !isSelected ? 0.5 : 1,
-              }}
+              className={cn(
+                'rounded-md border px-3 py-2 text-left text-sm transition-colors',
+                isSelected
+                  ? 'border-primary bg-primary/5 font-medium'
+                  : 'border-border bg-background hover:bg-muted',
+                hasSelection && !isSelected && 'opacity-50',
+              )}
             >
               {opt.content}
               {opt.is_recommended && (
-                <span style={{ marginLeft: 8, fontSize: 11, color: '#2563eb', fontWeight: 600 }}>
-                  Recommended
-                </span>
+                <span className="ml-2 text-[11px] font-semibold text-primary">Recommended</span>
               )}
               {isSelected && (
-                <span style={{ marginLeft: 8, fontSize: 11, color: '#16a34a', fontWeight: 600 }}>
-                  ✓ Selected
-                </span>
+                <span className="ml-2 text-[11px] font-semibold text-green-600">✓ Selected</span>
               )}
             </button>
           );
@@ -147,11 +140,49 @@ function TurnCard({
   );
 }
 
+function renderParts(msg: UIMessage, isStreaming: boolean) {
+  return msg.parts?.map((part, i) => {
+    if (part.type === 'reasoning') {
+      return (
+        <Reasoning key={i} isStreaming={isStreaming && i === msg.parts.length - 1}>
+          <ReasoningTrigger />
+          <ReasoningContent>{part.text}</ReasoningContent>
+        </Reasoning>
+      );
+    }
+    if (part.type === 'tool-invocation' || part.type === 'dynamic-tool') {
+      const toolPart = part as unknown as ToolPart & { toolName?: string };
+      if (toolPart.toolName === 'ask_question') return null;
+      const toolName = toolPart.toolName ?? (toolPart.type === 'dynamic-tool' ? 'unknown' : undefined);
+      return (
+        <Tool
+          key={i}
+          defaultOpen={toolPart.state === 'output-available' || toolPart.state === 'output-error'}
+        >
+          {toolPart.type === 'dynamic-tool' ? (
+            <ToolHeader type="dynamic-tool" state={toolPart.state} toolName={toolName!} />
+          ) : (
+            <ToolHeader type={toolPart.type} state={toolPart.state} />
+          )}
+          <ToolContent />
+        </Tool>
+      );
+    }
+    if (part.type === 'text') {
+      return (
+        <MessageResponse key={i} isAnimating={isStreaming}>
+          {part.text}
+        </MessageResponse>
+      );
+    }
+    return null;
+  });
+}
+
 export function InterviewWorkspace() {
   const { project, turns } = useLoaderData({ from: '/project/$id' });
   const { id } = useParams({ from: '/project/$id' });
   const router = useRouter();
-  const [input, setInput] = useState('');
   const [selecting, setSelecting] = useState(false);
 
   const transport = useMemo(() => new DefaultChatTransport({ api: `/api/projects/${id}/chat` }), [id]);
@@ -189,94 +220,58 @@ export function InterviewWorkspace() {
     [id, lastTurn, router, sendMessage],
   );
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!input.trim() || isLoading) return;
-    void sendMessage({ text: input });
-    setInput('');
-  };
+  const handleSubmit = useCallback(
+    (message: PromptInputMessage) => {
+      if (!message.text?.trim() || isLoading) return;
+      void sendMessage({ text: message.text });
+    },
+    [isLoading, sendMessage],
+  );
 
   return (
-    <div style={{ maxWidth: 640, margin: '0 auto', padding: 24, fontFamily: 'system-ui' }}>
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-        <Link to="/" style={{ textDecoration: 'none', fontSize: 14 }}>
-          &larr; Projects
+    <div className="flex h-screen flex-col">
+      <header className="flex items-center gap-3 border-b px-6 py-3">
+        <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
+          ← Projects
         </Link>
-        <h1 style={{ margin: 0 }}>{project.name}</h1>
-      </div>
+        <h1 className="text-lg font-semibold">{project.name}</h1>
+      </header>
 
-      <div style={{ marginBottom: 16 }}>
-        {messages.map((msg) => (
-          <div key={msg.id} style={{ marginBottom: 12 }}>
-            <strong>{msg.role === 'user' ? 'You' : 'Assistant'}:</strong>
-            {msg.parts?.map((part, i) => {
-              if (part.type === 'reasoning') {
-                return (
-                  <details
-                    key={i}
-                    style={{ margin: '4px 0', padding: 8, background: '#f5f5f5', borderRadius: 4 }}
-                  >
-                    <summary style={{ cursor: 'pointer', color: '#666' }}>Thinking...</summary>
-                    <pre style={{ whiteSpace: 'pre-wrap', fontSize: 13 }}>{part.text}</pre>
-                  </details>
-                );
-              }
-              if (part.type === 'tool-invocation' || part.type === 'dynamic-tool') {
-                const toolPart = part as { toolName: string; state: string; toolCallId: string };
-                if (toolPart.toolName === 'ask_question') return null;
-                const stateLabel =
-                  toolPart.state === 'input-streaming'
-                    ? 'Streaming...'
-                    : toolPart.state === 'result' || toolPart.state === 'output-available'
-                      ? 'Done'
-                      : toolPart.state;
-                return (
-                  <div
-                    key={i}
-                    style={{
-                      margin: '4px 0',
-                      padding: 8,
-                      background: '#eef6ff',
-                      borderRadius: 4,
-                      border: '1px solid #c0d8f0',
-                      fontSize: 13,
-                    }}
-                  >
-                    <span style={{ fontWeight: 600 }}>Tool: {toolPart.toolName}</span>
-                    <span style={{ marginLeft: 8, color: '#666' }}>{stateLabel}</span>
-                  </div>
-                );
-              }
-              if (part.type === 'text') {
-                return (
-                  <p key={i} style={{ margin: '4px 0' }}>
-                    {part.text}
-                  </p>
-                );
-              }
-              return null;
-            })}
-          </div>
-        ))}
-      </div>
+      <Conversation className="flex-1">
+        <ConversationContent className="mx-auto max-w-2xl">
+          {messages.map((msg, msgIdx) => {
+            const isLastAssistant = msg.role === 'assistant' && msgIdx === messages.length - 1;
+            return (
+              <Message key={msg.id} from={msg.role}>
+                <MessageContent>
+                  {msg.role === 'user'
+                    ? msg.parts?.filter((p) => p.type === 'text').map((p, i) => <span key={i}>{p.text}</span>)
+                    : renderParts(msg, isLastAssistant && status === 'streaming')}
+                </MessageContent>
+              </Message>
+            );
+          })}
 
-      {showTurnCard && !isLoading && (
-        <TurnCard turn={lastTurn!} onSelect={handleSelect} disabled={selecting || isLoading} />
-      )}
+          {showTurnCard && !isLoading && (
+            <TurnCard turn={lastTurn!} onSelect={handleSelect} disabled={selecting || isLoading} />
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
       {(!showTurnCard || lastTurnHasSelection) && (
-        <form onSubmit={handleSubmit} style={{ display: 'flex', gap: 8 }}>
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            placeholder="Type a message..."
-            disabled={isLoading || selecting}
-            style={{ flex: 1, padding: 8, fontSize: 14 }}
-          />
-          <button type="submit" disabled={isLoading || selecting} style={{ padding: '8px 16px' }}>
-            Send
-          </button>
-        </form>
+        <div className="border-t px-4 py-3">
+          <div className="mx-auto max-w-2xl">
+            <PromptInput onSubmit={handleSubmit}>
+              <PromptInputBody>
+                <PromptInputTextarea placeholder="Type a message..." disabled={isLoading || selecting} />
+              </PromptInputBody>
+              <PromptInputFooter>
+                <PromptInputSubmit status={status} />
+              </PromptInputFooter>
+            </PromptInput>
+          </div>
+        </div>
       )}
     </div>
   );

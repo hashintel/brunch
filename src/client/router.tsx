@@ -7,7 +7,7 @@ import { ProjectList } from './routes/ProjectList.js';
 // Root layout
 const rootRoute = createRootRoute({
   component: () => (
-    <div style={{ fontFamily: 'system-ui' }}>
+    <div className="min-h-screen bg-background font-sans text-foreground antialiased">
       <Outlet />
     </div>
   ),
