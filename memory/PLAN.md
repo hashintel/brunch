@@ -100,7 +100,7 @@
    - Branch: `ln/fe-554-structured-interview`
    - **Verification approach**: inner — schema validation on agent tool output (Zod parse, establishes I16); unit tests for phase-tagged turn persistence. Middle — round-trip: structured turn → persist → active path query → verify phase provenance intact. Outer — manual interview walkthrough, assess question quality. → SPEC.md §Oracle Strategy, §Acknowledged Blind Spots (interview quality)
 
-4a. **Parts-based persistence + context builders** `FE-555` — Schema migration: add `user_parts` and `assistant_parts` JSON columns to turn table. Server-side: assemble final assistant `parts[]` from DomainEvents on stream finish, persist alongside scalars. Define `BrunchUIMessage` type with custom Data Parts (`data-option-selection`, `data-confirmation`). Extract `formatHistory()` into typed context builders (`buildInterviewerContext`, `buildObserverContext`). No backward-compatible fallback — DB can be re-initialized if needed. `in-progress`
+4a. **Parts-based persistence + context builders** `FE-555` — Schema migration: add `user_parts` and `assistant_parts` JSON columns to turn table. Server-side: assemble final assistant `parts[]` from DomainEvents on stream finish, persist alongside scalars. Define `BrunchUIMessage` type with custom Data Parts (`data-option-selection`, `data-confirmation`). Extract `formatHistory()` into typed context builders (`buildInterviewerContext`, `buildObserverContext`). No backward-compatible fallback — DB can be re-initialized if needed. `done`
     - Requirements: → SPEC.md §Requirements #4, #14
     - Assumptions: → SPEC.md §Assumptions A22, A23
     - Decisions: → SPEC.md §Decisions D23, D24, D25
