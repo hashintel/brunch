@@ -165,6 +165,36 @@ describe('runObserver', () => {
     expect((metrics as any).durationMs).toBeGreaterThanOrEqual(0);
   });
 
+  it('handles code-fence-wrapped JSON from model', async () => {
+    const jsonStr = JSON.stringify({
+      decisions: [
+        { content: 'Use REST', rationale: 'Simple', parentDecisionIds: [], parentAssumptionIds: [] },
+      ],
+      assumptions: [],
+    });
+    // Model wraps in ```json ... ```
+    mockCreate.mockResolvedValue({
+      id: 'msg-obs-1',
+      content: [{ type: 'text', text: '```json\n' + jsonStr + '\n```' }],
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 200, output_tokens: 80 },
+    });
+
+    const project = createProject(db, 'Test');
+    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+
+    const events: DomainEvent[] = [];
+    for await (const event of runObserver(db, turn, project.id)) {
+      events.push(event);
+    }
+
+    const complete = events.find((e) => e.type === 'observer-complete') as any;
+    expect(complete.entityIds.decisions).toHaveLength(1);
+
+    const entities = getEntitiesForProject(db, project.id);
+    expect(entities.decisions[0].content).toBe('Use REST');
+  });
+
   it('handles empty extraction gracefully', async () => {
     mockObserverResponse({
       decisions: [],

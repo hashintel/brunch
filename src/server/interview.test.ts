@@ -139,6 +139,33 @@ describe('getSystemPrompt', () => {
   });
 });
 
+// --- Oracle: A27 — Zod/JSON schema sync ---
+
+describe('A27: structuredQuestionSchema and ASK_QUESTION_TOOL stay in sync', () => {
+  it('fixture data valid for the JSON schema also passes Zod parse', async () => {
+    const { ASK_QUESTION_TOOL } = await import('./interview.js');
+    const fixture = {
+      question: 'What platform are you targeting?',
+      why: 'Platform choice affects architecture.',
+      impact: 'high',
+      options: [
+        { content: 'Web only', is_recommended: true },
+        { content: 'Desktop and mobile', is_recommended: false },
+      ],
+    };
+
+    // Verify fixture matches JSON schema shape
+    const schema = ASK_QUESTION_TOOL.input_schema as Record<string, unknown>;
+    expect(schema.type).toBe('object');
+    expect((schema.required as string[]).sort()).toEqual(['impact', 'options', 'question', 'why']);
+
+    // Verify same fixture passes Zod
+    const result = structuredQuestionSchema.parse(fixture);
+    expect(result.question).toBe(fixture.question);
+    expect(result.options).toHaveLength(2);
+  });
+});
+
 // --- Acceptance criterion: tool handler persistence ---
 
 describe('ask_question tool handler', () => {
