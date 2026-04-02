@@ -1,5 +1,6 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import request from 'supertest';
+import type { DB } from './db.js';
 
 // Mock the Claude Agent SDK
 const mockQuery = vi.fn();
@@ -7,8 +8,22 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 	query: mockQuery,
 }));
 
-// Import app after mocking
-const { app } = await import('./app.js');
+// Import app factory after mocking
+const { createApp } = await import('./app.js');
+
+let app: ReturnType<typeof createApp>['app'];
+let db: DB;
+
+beforeEach(() => {
+	mockQuery.mockReset();
+	const result = createApp();
+	app = result.app;
+	db = result.db;
+});
+
+afterEach(() => {
+	db.close();
+});
 
 /** Helper: collect full SSE body as string */
 function collectSSE(res: request.Response): string {
@@ -35,34 +50,35 @@ async function* makeMockStream(messages: Record<string, unknown>[]) {
 	}
 }
 
-describe('POST /api/chat', () => {
-	beforeEach(() => {
-		mockQuery.mockReset();
-	});
+/** Standard mock stream that produces a text response */
+function mockTextStream(text = 'Hi') {
+	return makeMockStream([
+		{
+			type: 'stream_event',
+			event: { type: 'message_start', message: { id: 'msg-1', role: 'assistant', content: [] } },
+		},
+		{
+			type: 'stream_event',
+			event: { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
+		},
+		{
+			type: 'stream_event',
+			event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } },
+		},
+		{
+			type: 'stream_event',
+			event: { type: 'content_block_stop', index: 0 },
+		},
+		{
+			type: 'stream_event',
+			event: { type: 'message_stop' },
+		},
+	]);
+}
 
+describe('POST /api/chat', () => {
 	it('returns Content-Type text/event-stream', async () => {
-		mockQuery.mockReturnValue(makeMockStream([
-			{
-				type: 'stream_event',
-				event: { type: 'message_start', message: { id: 'msg-1', role: 'assistant', content: [] } },
-			},
-			{
-				type: 'stream_event',
-				event: { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
-			},
-			{
-				type: 'stream_event',
-				event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Hi' } },
-			},
-			{
-				type: 'stream_event',
-				event: { type: 'content_block_stop', index: 0 },
-			},
-			{
-				type: 'stream_event',
-				event: { type: 'message_stop' },
-			},
-		]));
+		mockQuery.mockReturnValue(mockTextStream());
 
 		const res = await request(app)
 			.post('/api/chat')
@@ -93,7 +109,6 @@ describe('POST /api/chat', () => {
 			.send({ messages: [{ role: 'user', content: 'hello' }] });
 
 		const body = await collectSSE(res);
-		// Every non-empty chunk should start with "data: "
 		const lines = body.split('\n\n').filter(Boolean);
 		for (const line of lines) {
 			expect(line).toMatch(/^data: /);
@@ -101,20 +116,7 @@ describe('POST /api/chat', () => {
 	});
 
 	it('contains at least one text-delta event with non-empty text', async () => {
-		mockQuery.mockReturnValue(makeMockStream([
-			{
-				type: 'stream_event',
-				event: { type: 'message_start', message: { id: 'msg-1', role: 'assistant', content: [] } },
-			},
-			{
-				type: 'stream_event',
-				event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Hello!' } },
-			},
-			{
-				type: 'stream_event',
-				event: { type: 'message_stop' },
-			},
-		]));
+		mockQuery.mockReturnValue(mockTextStream('Hello!'));
 
 		const res = await request(app)
 			.post('/api/chat')
@@ -127,20 +129,7 @@ describe('POST /api/chat', () => {
 	});
 
 	it('ends with finish event and [DONE]', async () => {
-		mockQuery.mockReturnValue(makeMockStream([
-			{
-				type: 'stream_event',
-				event: { type: 'message_start', message: { id: 'msg-1', role: 'assistant', content: [] } },
-			},
-			{
-				type: 'stream_event',
-				event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text: 'Hi' } },
-			},
-			{
-				type: 'stream_event',
-				event: { type: 'message_stop' },
-			},
-		]));
+		mockQuery.mockReturnValue(mockTextStream());
 
 		const res = await request(app)
 			.post('/api/chat')
@@ -195,7 +184,6 @@ describe('POST /api/chat', () => {
 
 		const events = parseSSELines(await collectSSE(res));
 
-		// Should have reasoning events
 		const reasoningStart = events.find((e: any) => e.type === 'reasoning-start');
 		const reasoningDelta = events.find((e: any) => e.type === 'reasoning-delta');
 		const reasoningEnd = events.find((e: any) => e.type === 'reasoning-end');
@@ -204,9 +192,52 @@ describe('POST /api/chat', () => {
 		expect(reasoningDelta.delta).toBe('Hmm...');
 		expect(reasoningEnd).toBeDefined();
 
-		// Should also have text
 		const textDelta = events.find((e: any) => e.type === 'text-delta');
 		expect(textDelta).toBeDefined();
 		expect(textDelta.delta).toBe('Answer');
+	});
+});
+
+describe('POST /api/chat — persistence', () => {
+	it('persists user and assistant messages to the database', async () => {
+		mockQuery.mockReturnValue(mockTextStream('Hi there'));
+
+		await request(app)
+			.post('/api/chat')
+			.send({ messages: [{ role: 'user', content: 'hello' }] });
+
+		const { getOrCreateProject, getMessages } = await import('./db.js');
+		const project = getOrCreateProject(db);
+		const messages = getMessages(db, project.id);
+		expect(messages).toHaveLength(2);
+		expect(messages[0]).toMatchObject({ role: 'user', content: 'hello' });
+		expect(messages[1]).toMatchObject({ role: 'assistant' });
+		expect(messages[1].content).toContain('Hi there');
+	});
+});
+
+describe('GET /api/projects/current', () => {
+	it('returns a project with empty messages when no history exists', async () => {
+		const res = await request(app)
+			.get('/api/projects/current')
+			.expect(200);
+
+		expect(res.body.project).toMatchObject({ name: 'default' });
+		expect(res.body.messages).toEqual([]);
+	});
+
+	it('returns existing messages after a chat exchange', async () => {
+		mockQuery.mockReturnValue(mockTextStream('Hi'));
+
+		await request(app)
+			.post('/api/chat')
+			.send({ messages: [{ role: 'user', content: 'hello' }] });
+
+		const res = await request(app)
+			.get('/api/projects/current')
+			.expect(200);
+
+		expect(res.body.messages).toHaveLength(2);
+		expect(res.body.messages[0]).toMatchObject({ role: 'user', content: 'hello' });
 	});
 });

@@ -16,6 +16,13 @@ Slices and spikes in `memory/PLAN.md` are the unit of work. When starting one:
 
 One branch per slice/spike. Stacked branches mirror slice dependencies in PLAN.md. Graphite manages the stack; Linear tracks the issue.
 
+### naming conventions
+
+- **Branch**: `ln/{issue-id}-{keywords}` (e.g. `ln/fe-534-walking-skeleton`)
+- **PR title**: `{issue-id | upper}: {Linear issue title in sentence case}` (e.g. `FE-534: Walking skeleton SDK to SSE to React`)
+
+PR descriptions are written only when tying off a branch — not during active development.
+
 ## planning
 
 Two canonical documents in `memory/`:
@@ -37,3 +44,12 @@ The `/ln-*` skills at `.agents/skills/` follow this flow:
 ### verification
 
 Verification strategy is defined per-project in SPEC.md §Verification Design (three-tier feedback loops). The global verification harness in `~/.claude/CLAUDE.md` provides the execution stack.
+
+### manual testing
+
+When a slice requires manual UI testing (outer-loop verification):
+
+1. **Dev server**: use `/tool-cmux` to open a terminal pane, run `npm run dev` there
+2. **Browser**: use `/tool-cdp-cli` to launch Chrome with DevTools Protocol, open the dev URL, and interact (snapshot, fill, click, eval, console)
+
+This keeps the dev server and browser observable without leaving the agent session.

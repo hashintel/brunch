@@ -40,7 +40,7 @@ Run the project's verification harness. All checks must pass. Commit: `feat: [ta
 
 After the slice lands and verification passes, do all of these before presenting routing options:
 
-1. Mark the slice `done` in `memory/PLAN.md`
+1. Mark the slice `done` in `memory/PLAN.md`. Check `## Dependencies` — if this slice unblocked multiple downstream slices, note them as newly available (some may be parallelizable)
 2. Update assumption confidence in `memory/SPEC.md` §Assumptions — set validated assumptions to `**validated**`, invalidated ones to `**invalidated**` and flag implicated slices in PLAN.md
 3. Add new invariants to `memory/SPEC.md` §Invariants — each structural property now protected by tests. Update `memory/PLAN.md` slice with `Invariants established: I#`
 4. Add any new decisions to `memory/SPEC.md` §Decisions, new assumptions to §Assumptions
@@ -54,7 +54,7 @@ After traceability is complete, present these options to the user (use `tool-ask
 
 | #   | Label            | Target       | Why                                                          |
 | --- | ---------------- | ------------ | ------------------------------------------------------------ |
-| 1   | Scope next slice | `ln-scope`   | More slices remain on the plan                               |
+| 1   | Scope next slice | `ln-scope`   | More slices remain — if multiple were unblocked, name them   |
 | 2   | Review the code  | `ln-review`  | Assess quality after an implementation burst                 |
 | 3   | Revise spec      | `ln-spec`    | Build revealed the spec needs structural revision            |
 | 4   | Revise plan      | `ln-plan`    | Revisit the plan or re-prioritize                            |

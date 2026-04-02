@@ -1,5 +1,5 @@
-import { describe, it, expect } from 'vitest';
-import { translateEvent, formatSSE } from './sse-adapter.js';
+import { describe, it, expect, beforeEach } from 'vitest';
+import { createTranslator, formatSSE } from './sse-adapter.js';
 
 describe('formatSSE', () => {
 	it('wraps a JSON object in SSE data line', () => {
@@ -15,6 +15,11 @@ describe('formatSSE', () => {
 
 describe('translateEvent', () => {
 	const messageId = 'msg-001';
+	let translateEvent: ReturnType<typeof createTranslator>['translateEvent'];
+
+	beforeEach(() => {
+		({ translateEvent } = createTranslator());
+	});
 
 	it('translates message_start to start event', () => {
 		const sdkMessage = {
@@ -94,16 +99,15 @@ describe('translateEvent', () => {
 	});
 
 	it('translates thinking content_block_stop to reasoning-end', () => {
-		// First register a thinking block
-		const startMsg = {
+		// Register a thinking block first
+		translateEvent({
 			type: 'stream_event',
 			event: {
 				type: 'content_block_start',
 				index: 0,
 				content_block: { type: 'thinking', thinking: '' },
 			},
-		};
-		translateEvent(startMsg);
+		});
 
 		const sdkMessage = {
 			type: 'stream_event',

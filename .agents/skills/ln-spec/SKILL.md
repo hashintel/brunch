@@ -16,6 +16,8 @@ The feature or problem: $ARGUMENTS
 
 ## Procedure
 
+**Mode detection.** If the user provides a specific finding, research result, or decision to record — not a new feature area — this is a **patch**, not a full pass. Skip to step 5.
+
 1. **Capture the problem** from the user's perspective — what they want and *why*. The *why* shapes the solution space.
 2. **Explore the codebase** to verify assertions, understand current state, and find existing patterns. If `memory/SPEC.md` exists, read it first — this is an update, not a blank-slate write.
 3. **Interview** (if understanding is thin), to close remaining gaps. Walk each branch of the design tree. For each question, provide your recommended answer. If the codebase can answer a question, explore it instead of asking. Use `/ln-grill` if it hasn't already been run.
@@ -29,6 +31,16 @@ Write or update `./memory/SPEC.md` following the template at `@resources/spec-te
 ### Traceability
 
 If `memory/PLAN.md` exists, verify that changed assumptions and decisions still align with affected slices.
+
+### Cross-reference integrity
+
+Every amendment must close its reference chain. After editing, verify:
+
+- **New assumption** → has: dependent decision(s), implicated slice(s) in PLAN.md, validation approach
+- **New decision** → has: dependent assumption(s), supersession note
+- **New invariant** → has: establishing slice in PLAN.md, protecting test (or `manual (outer loop)`), proved decision
+- **New constraint** → has: rationale for exclusion
+- **New feedback loop item** → names the invariant(s) it protects
 
 ## Routing
 

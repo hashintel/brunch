@@ -1,20 +1,46 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useChat } from '@ai-sdk/react';
+import type { UIMessage } from '@ai-sdk/react';
 
 export function App() {
 	const [input, setInput] = useState('');
-	const { messages, sendMessage, status, error } = useChat();
+	const [loading, setLoading] = useState(true);
+	const { messages, sendMessage, setMessages, status, error } = useChat();
 	const isLoading = status === 'submitted' || status === 'streaming';
 
-	console.log('Chat status:', status, 'messages:', messages.length, 'error:', error?.message);
+	// Fetch conversation history on mount
+	useEffect(() => {
+		fetch('/api/projects/current')
+			.then((res) => res.json())
+			.then((data) => {
+				if (data.messages?.length > 0) {
+					const msgs: UIMessage[] = data.messages.map((m: { id: string; role: string; content: string }) => ({
+						id: m.id,
+						role: m.role as 'user' | 'assistant',
+						parts: [{ type: 'text' as const, text: m.content }],
+					}));
+					setMessages(msgs);
+				}
+				setLoading(false);
+			})
+			.catch(() => setLoading(false));
+	}, []);
 
 	const handleSubmit = (e: React.FormEvent) => {
 		e.preventDefault();
 		if (!input.trim() || isLoading) return;
-		console.log('Sending message:', input);
 		sendMessage({ text: input });
 		setInput('');
 	};
+
+	if (loading) {
+		return (
+			<div style={{ maxWidth: 640, margin: '0 auto', padding: 24, fontFamily: 'system-ui' }}>
+				<h1>Brunch</h1>
+				<p>Loading...</p>
+			</div>
+		);
+	}
 
 	return (
 		<div style={{ maxWidth: 640, margin: '0 auto', padding: 24, fontFamily: 'system-ui' }}>
