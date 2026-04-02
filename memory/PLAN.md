@@ -49,15 +49,16 @@
    - Acceptance: create project, create turns with parent chain, resolve active path, close and reopen with state intact
    - Branch: `ln/fe-544-turn-tree-schema`
 
-3c. **Drizzle ORM + core extraction** — Migrate raw DDL to Drizzle schema (`drizzle/schema.ts`) with migration runner. Extract interview orchestration from `app.ts` into `core.ts` — `conductTurn()` returns `AsyncIterable<DomainEvent>`. Express handler becomes a thin adapter translating DomainEvents to SSE. `not-started`
+3c. **Drizzle ORM + core extraction** `FE-552` — Migrate raw DDL to Drizzle schema (`drizzle/schema.ts`) with migration runner. Extract interview orchestration from `app.ts` into `core.ts` — `conductTurn()` returns `AsyncIterable<DomainEvent>`. Express handler becomes a thin adapter translating DomainEvents to SSE. `done`
     - Requirements: → SPEC.md §Requirements #14
-    - Assumptions: → SPEC.md §Assumptions A18, A19
+    - Assumptions: → SPEC.md §Assumptions A18 (validated), A19 (validated)
     - Decisions: → SPEC.md §Decisions D18, D19
-    - Invariants to establish: Drizzle migration auto-apply, DomainEvent streaming
-    - Invariants to respect: → SPEC.md §Invariants I1, I2, I3, I5, I6, I9, I10
-    - Acceptance: existing 39 tests pass against Drizzle schema; stale DB auto-migrates on startup; `conductTurn()` yields DomainEvents consumed by Express adapter; Drizzle Studio inspectable
+    - Invariants established: → SPEC.md §Invariants I11, I12, I13
+    - Invariants respected: → SPEC.md §Invariants I1, I2, I3, I5, I6, I9, I10
+    - Acceptance: 51 tests pass (39 existing + 12 new core tests); Drizzle migrate() auto-applies at startup; conductTurn() yields DomainEvents consumed by Express adapter via createDomainAdapter()
+    - Branch: `ln/fe-552-drizzle-core-extraction`
 
-3d. **Multi-project routing** — Install `@tanstack/react-router`. Three client routes: project list (`/`), interview workspace (`/project/:id`), export preview (`/project/:id/export`). Route loaders replace `useEffect` hydration. Server API becomes project-scoped (`/api/projects/:id/...`). Project list page with phase badges. `not-started`
+3d. **Multi-project routing** `FE-553` — Install `@tanstack/react-router`. Three client routes: project list (`/`), interview workspace (`/project/:id`), export preview (`/project/:id/export`). Route loaders replace `useEffect` hydration. Server API becomes project-scoped (`/api/projects/:id/...`). Project list page with phase badges. `not-started`
     - Requirements: → SPEC.md §Requirements #1, #15
     - Decisions: → SPEC.md §Decisions D9 (updated)
     - Invariants to respect: → SPEC.md §Invariants I1, I2, I3, I6, I9, I10

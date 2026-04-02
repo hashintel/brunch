@@ -21,12 +21,12 @@ beforeEach(() => {
 });
 
 afterEach(() => {
-	db.close();
+	db.$client.close();
 });
 
 describe('createDb', () => {
 	it('creates all 13 tables from schema.dbml', () => {
-		const tables = db
+		const tables = db.$client
 			.prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
 			.all() as Array<{ name: string }>;
 		const names = tables.map((t) => t.name);
@@ -56,7 +56,7 @@ describe('createDb', () => {
 		const dbPath = join(dir, 'test.db');
 		const diskDb = createDb(dbPath);
 		expect(existsSync(dbPath)).toBe(true);
-		diskDb.close();
+		diskDb.$client.close();
 		unlinkSync(dbPath);
 	});
 
@@ -65,9 +65,9 @@ describe('createDb', () => {
 		mkdirSync(dir, { recursive: true });
 		const dbPath = join(dir, 'wal-test.db');
 		const fileDb = createDb(dbPath);
-		const row = fileDb.prepare('PRAGMA journal_mode').get() as { journal_mode: string };
+		const row = fileDb.$client.prepare('PRAGMA journal_mode').get() as { journal_mode: string };
 		expect(row.journal_mode).toBe('wal');
-		fileDb.close();
+		fileDb.$client.close();
 		unlinkSync(dbPath);
 	});
 });
@@ -100,7 +100,7 @@ describe('turn CRUD', () => {
 		expect(turn.phase).toBe('scope');
 		expect(turn.question).toBe('What is the project about?');
 		expect(turn.answer).toBe('A chat app');
-		expect(turn.is_resolution).toBe(0);
+		expect(turn.is_resolution).toBe(false);
 	});
 
 	it('creates child turns with parent chain', () => {
@@ -117,9 +117,9 @@ describe('turn CRUD', () => {
 		const turn = createTurn(db, project.id, { phase: 'scope', question: 'Pick one' });
 		const opt1 = createOption(db, turn.id, { position: 0, content: 'Option A', is_recommended: true });
 		const opt2 = createOption(db, turn.id, { position: 1, content: 'Option B' });
-		expect(opt1.is_recommended).toBe(1);
+		expect(opt1.is_recommended).toBe(true);
 		expect(opt1.content).toBe('Option A');
-		expect(opt2.is_recommended).toBe(0);
+		expect(opt2.is_recommended).toBe(false);
 	});
 
 	it('enforces unique (turn_id, position) on options', () => {
@@ -133,7 +133,7 @@ describe('turn CRUD', () => {
 		const project = getOrCreateProject(db);
 		const turn = createTurn(db, project.id, { phase: 'scope', question: '' });
 		updateTurn(db, turn.id, { question: 'Updated Q', answer: 'User said this' });
-		const updated = db.prepare('SELECT * FROM turn WHERE id = ?').get(turn.id) as any;
+		const updated = db.$client.prepare('SELECT * FROM turn WHERE id = ?').get(turn.id) as any;
 		expect(updated.question).toBe('Updated Q');
 		expect(updated.answer).toBe('User said this');
 	});
@@ -142,7 +142,7 @@ describe('turn CRUD', () => {
 		const project = getOrCreateProject(db);
 		const turn = createTurn(db, project.id, { phase: 'scope', question: 'Original Q', answer: 'Original A' });
 		updateTurn(db, turn.id, { question: 'New Q' });
-		const updated = db.prepare('SELECT * FROM turn WHERE id = ?').get(turn.id) as any;
+		const updated = db.$client.prepare('SELECT * FROM turn WHERE id = ?').get(turn.id) as any;
 		expect(updated.question).toBe('New Q');
 		expect(updated.answer).toBe('Original A');
 	});
@@ -233,7 +233,7 @@ describe('DB lifecycle — turn tree persistence', () => {
 		createOption(db1, t1.id, { position: 0, content: 'Opt A', is_recommended: true });
 		createOption(db1, t1.id, { position: 1, content: 'Opt B' });
 		advanceHead(db1, project.id, t2.id);
-		db1.close();
+		db1.$client.close();
 
 		// Reopen and verify
 		const db2 = createDb(dbPath);
@@ -245,10 +245,10 @@ describe('DB lifecycle — turn tree persistence', () => {
 		expect(path[0].question).toBe('Q1');
 		expect(path[1].question).toBe('Q2');
 		// Verify options survived
-		const options = db2.prepare('SELECT * FROM option WHERE turn_id = ? ORDER BY position').all(t1.id) as any[];
+		const options = db2.$client.prepare('SELECT * FROM option WHERE turn_id = ? ORDER BY position').all(t1.id) as any[];
 		expect(options).toHaveLength(2);
 		expect(options[0].content).toBe('Opt A');
-		db2.close();
+		db2.$client.close();
 
 		unlinkSync(dbPath);
 	});

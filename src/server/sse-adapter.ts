@@ -1,10 +1,12 @@
 /**
- * SSE Adapter — translates Claude Agent SDK stream events into
- * AI SDK UI Message Stream protocol events.
+ * SSE Adapter — translates events into AI SDK UI Message Stream protocol.
  *
- * createTranslator() returns a per-request translator with scoped state.
- * formatSSE() is a standalone pure function.
+ * createTranslator() — SDK stream events → AIEvent (used directly or by tests).
+ * createDomainAdapter() — DomainEvent → AIEvent (used by Express adapter).
+ * formatSSE() — standalone pure function for SSE wire format.
  */
+
+import type { DomainEvent } from './core.js';
 
 /** AI SDK protocol event types we emit */
 export type AIEvent =
@@ -114,4 +116,67 @@ export function createTranslator() {
 	}
 
 	return { translateEvent };
+}
+
+/**
+ * Create a per-request DomainEvent → AIEvent adapter.
+ * Manages block lifecycle (start/end) for the SSE protocol.
+ */
+export function createDomainAdapter() {
+	let blockIndex = 0;
+	let currentBlock: 'thinking' | 'text' | null = null;
+
+	function translate(event: DomainEvent): AIEvent[] {
+		switch (event.type) {
+			case 'stream-start':
+				return [{ type: 'start', messageId: event.messageId }];
+
+			case 'thinking': {
+				if (currentBlock !== 'thinking') {
+					currentBlock = 'thinking';
+					return [
+						{ type: 'reasoning-start', id: `reasoning-${blockIndex}` },
+						{ type: 'reasoning-delta', id: `reasoning-${blockIndex}`, delta: event.delta },
+					];
+				}
+				return [{ type: 'reasoning-delta', id: `reasoning-${blockIndex}`, delta: event.delta }];
+			}
+
+			case 'text-delta': {
+				const events: AIEvent[] = [];
+				if (currentBlock === 'thinking') {
+					events.push({ type: 'reasoning-end', id: `reasoning-${blockIndex}` });
+					blockIndex++;
+				}
+				if (currentBlock !== 'text') {
+					currentBlock = 'text';
+					events.push({ type: 'text-start', id: `text-${blockIndex}` });
+				}
+				events.push({ type: 'text-delta', id: `text-${blockIndex}`, delta: event.delta });
+				return events;
+			}
+
+			case 'stream-end': {
+				const events: AIEvent[] = [];
+				if (currentBlock === 'thinking') {
+					events.push({ type: 'reasoning-end', id: `reasoning-${blockIndex}` });
+				} else if (currentBlock === 'text') {
+					events.push({ type: 'text-end', id: `text-${blockIndex}` });
+				}
+				events.push({ type: 'finish-step' }, { type: 'finish', finishReason: 'stop' });
+				return events;
+			}
+
+			case 'error':
+				return [{ type: 'error', errorText: event.message }];
+
+			case 'turn-created':
+				return []; // No SSE representation
+
+			default:
+				return [];
+		}
+	}
+
+	return { translate };
 }

@@ -55,7 +55,7 @@ After traceability is complete, present these options to the user (use `tool-ask
 | #   | Label            | Target       | Why                                                          |
 | --- | ---------------- | ------------ | ------------------------------------------------------------ |
 | 1   | Scope next slice | `ln-scope`   | More slices remain — if multiple were unblocked, name them   |
-| 2   | Review the code  | `ln-review`  | Assess quality after an implementation burst                 |
+| 2   | Review the code  | `ln-review`  | Assess quality after an implementation burst (chains to `ln-refactor` if structural issues found) |
 | 3   | Revise spec      | `ln-spec`    | Build revealed the spec needs structural revision            |
 | 4   | Revise plan      | `ln-plan`    | Revisit the plan or re-prioritize                            |
 | 5   | Back to triage   | `ln-consult` | Direction needs reassessment                                 |
