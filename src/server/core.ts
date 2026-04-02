@@ -30,8 +30,6 @@ export type DomainEvent =
       type: 'agent-metrics';
       agent: string;
       durationMs: number;
-      durationApiMs: number;
-      totalCostUsd: number;
       inputTokens: number;
       outputTokens: number;
     };

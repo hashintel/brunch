@@ -69,8 +69,6 @@ describe('createDomainAdapter — tool-call events', () => {
       type: 'agent-metrics',
       agent: 'observer',
       durationMs: 1500,
-      durationApiMs: 1000,
-      totalCostUsd: 0.001,
       inputTokens: 300,
       outputTokens: 100,
     } as any);

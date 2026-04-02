@@ -2,18 +2,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import type { DB } from './db.js';
 
-// Mock the Claude Agent SDK
-const mockQuery = vi.fn();
-vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
-  query: mockQuery,
-  createSdkMcpServer: () => ({ name: 'interview', instance: {} }),
-  tool: (name: string, desc: string, schema: any, handler: any) => ({
-    name,
-    description: desc,
-    inputSchema: schema,
-    handler,
-  }),
+// Mock the Anthropic SDK
+const { mockStream, mockCreate } = vi.hoisted(() => ({
+  mockStream: vi.fn(),
+  mockCreate: vi.fn(),
 }));
+vi.mock('@anthropic-ai/sdk', () => {
+  return {
+    default: class MockAnthropic {
+      messages = {
+        stream: mockStream,
+        create: mockCreate,
+      };
+    },
+  };
+});
 
 const { conductTurn, extractPrompt } = await import('./core.js');
 const { buildInterviewerContext } = await import('./context.js');
@@ -21,38 +24,50 @@ const { createDb, getOrCreateProject, getActivePath, getTurn } = await import('.
 
 let db: DB;
 
+/** Create a mock MessageStream that emits raw events */
+function makeMockMessageStream(rawEvents: Record<string, unknown>[]) {
+  const asyncIter = (async function* () {
+    for (const event of rawEvents) {
+      yield event;
+    }
+  })();
+
+  return {
+    [Symbol.asyncIterator]: () => asyncIter[Symbol.asyncIterator](),
+    on: vi.fn().mockReturnThis(),
+    finalMessage: vi.fn().mockResolvedValue({
+      id: 'msg-1',
+      content: [],
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 100, output_tokens: 50 },
+    }),
+  };
+}
+
+/** Mock a successful observer response */
+function mockObserverDefaults() {
+  mockCreate.mockResolvedValue({
+    id: 'msg-obs-1',
+    content: [{ type: 'text', text: JSON.stringify({ decisions: [], assumptions: [] }) }],
+    stop_reason: 'end_turn',
+    usage: { input_tokens: 100, output_tokens: 50 },
+  });
+}
+
 beforeEach(() => {
-  mockQuery.mockReset();
-  // Default: observer gets empty result for any call not covered by mockReturnValueOnce
-  mockQuery.mockImplementation(() =>
-    makeMockStream([
-      {
-        type: 'result',
-        subtype: 'success',
-        duration_ms: 500,
-        duration_api_ms: 300,
-        total_cost_usd: 0.0005,
-        is_error: false,
-        num_turns: 1,
-        usage: { input_tokens: 100, output_tokens: 50 },
-        result: '',
-        structured_output: { decisions: [], assumptions: [] },
-      },
-    ]),
+  mockStream.mockReset();
+  mockCreate.mockReset();
+  // Default: interviewer returns empty stream, observer returns empty result
+  mockStream.mockReturnValue(
+    makeMockMessageStream([{ type: 'message_start', message: { id: 'msg-1' } }, { type: 'message_stop' }]),
   );
+  mockObserverDefaults();
   db = createDb();
 });
 
 afterEach(() => {
   db.$client.close();
 });
-
-/** Create a mock async generator of SDK messages */
-async function* makeMockStream(messages: Record<string, unknown>[]) {
-  for (const msg of messages) {
-    yield msg;
-  }
-}
 
 describe('extractPrompt', () => {
   it('extracts content string from legacy format', () => {
@@ -85,13 +100,6 @@ describe('buildInterviewerContext', () => {
 
 describe('conductTurn', () => {
   it('yields turn-created as first event', async () => {
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
-        { type: 'stream_event', event: { type: 'message_stop' } },
-      ]),
-    );
-
     const project = getOrCreateProject(db);
     const events: any[] = [];
     for await (const event of conductTurn(db, project.id, 'hello')) {
@@ -104,11 +112,8 @@ describe('conductTurn', () => {
   });
 
   it('yields stream-start with message ID', async () => {
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-42' } } },
-        { type: 'stream_event', event: { type: 'message_stop' } },
-      ]),
+    mockStream.mockReturnValueOnce(
+      makeMockMessageStream([{ type: 'message_start', message: { id: 'msg-42' } }, { type: 'message_stop' }]),
     );
 
     const project = getOrCreateProject(db);
@@ -123,18 +128,15 @@ describe('conductTurn', () => {
   });
 
   it('yields thinking events for thinking_delta', async () => {
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
+    mockStream.mockReturnValueOnce(
+      makeMockMessageStream([
+        { type: 'message_start', message: { id: 'msg-1' } },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'thinking_delta', thinking: 'Let me think...' },
-          },
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'thinking_delta', thinking: 'Let me think...' },
         },
-        { type: 'stream_event', event: { type: 'message_stop' } },
+        { type: 'message_stop' },
       ]),
     );
 
@@ -150,18 +152,15 @@ describe('conductTurn', () => {
   });
 
   it('yields text-delta events and persists assistant text', async () => {
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
+    mockStream.mockReturnValueOnce(
+      makeMockMessageStream([
+        { type: 'message_start', message: { id: 'msg-1' } },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 1,
-            delta: { type: 'text_delta', text: 'Hello!' },
-          },
+          type: 'content_block_delta',
+          index: 1,
+          delta: { type: 'text_delta', text: 'Hello!' },
         },
-        { type: 'stream_event', event: { type: 'message_stop' } },
+        { type: 'message_stop' },
       ]),
     );
 
@@ -175,7 +174,6 @@ describe('conductTurn', () => {
     expect(textDelta).toBeDefined();
     expect(textDelta.delta).toBe('Hello!');
 
-    // Verify turn was persisted with assistant text
     const turns = getActivePath(db, project.id);
     expect(turns).toHaveLength(1);
     expect(turns[0].question).toBe('Hello!');
@@ -183,21 +181,6 @@ describe('conductTurn', () => {
   });
 
   it('yields stream-end and advances HEAD', async () => {
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
-        {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'text_delta', text: 'Hi' },
-          },
-        },
-        { type: 'stream_event', event: { type: 'message_stop' } },
-      ]),
-    );
-
     const project = getOrCreateProject(db);
     const events: any[] = [];
     for await (const event of conductTurn(db, project.id, 'hello')) {
@@ -207,18 +190,20 @@ describe('conductTurn', () => {
     const streamEnd = events.find((e) => e.type === 'stream-end');
     expect(streamEnd).toBeDefined();
 
-    // HEAD should be advanced
     const updated = getOrCreateProject(db);
     expect(updated.active_turn_id).not.toBeNull();
   });
 
   it('yields error event on SDK failure', async () => {
-    mockQuery.mockReturnValueOnce(
-      // oxlint-disable-next-line require-yield -- intentional: tests error before first yield
-      (async function* () {
-        throw new Error('API rate limit');
-      })(),
-    );
+    const failStream = {
+      [Symbol.asyncIterator]: () =>
+        (async function* () {
+          throw new Error('API rate limit');
+        })()[Symbol.asyncIterator](),
+      on: vi.fn().mockReturnThis(),
+      finalMessage: vi.fn().mockRejectedValue(new Error('API rate limit')),
+    };
+    mockStream.mockReturnValueOnce(failStream);
 
     const project = getOrCreateProject(db);
     const events: any[] = [];
@@ -232,19 +217,16 @@ describe('conductTurn', () => {
   });
 
   it('yields tool-call-start for tool_use content blocks', async () => {
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
+    mockStream.mockReturnValueOnce(
+      makeMockMessageStream([
+        { type: 'message_start', message: { id: 'msg-1' } },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_start',
-            index: 0,
-            content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' },
-          },
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' },
         },
-        { type: 'stream_event', event: { type: 'content_block_stop', index: 0 } },
-        { type: 'stream_event', event: { type: 'message_stop' } },
+        { type: 'content_block_stop', index: 0 },
+        { type: 'message_stop' },
       ]),
     );
 
@@ -261,27 +243,21 @@ describe('conductTurn', () => {
   });
 
   it('yields tool-call-delta for input_json_delta', async () => {
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
+    mockStream.mockReturnValueOnce(
+      makeMockMessageStream([
+        { type: 'message_start', message: { id: 'msg-1' } },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_start',
-            index: 0,
-            content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' },
-          },
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' },
         },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'input_json_delta', partial_json: '{"city":"NYC"}' },
-          },
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'input_json_delta', partial_json: '{"city":"NYC"}' },
         },
-        { type: 'stream_event', event: { type: 'content_block_stop', index: 0 } },
-        { type: 'stream_event', event: { type: 'message_stop' } },
+        { type: 'content_block_stop', index: 0 },
+        { type: 'message_stop' },
       ]),
     );
 
@@ -298,27 +274,21 @@ describe('conductTurn', () => {
   });
 
   it('yields tool-call-end with toolCallId and toolName', async () => {
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
+    mockStream.mockReturnValueOnce(
+      makeMockMessageStream([
+        { type: 'message_start', message: { id: 'msg-1' } },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_start',
-            index: 0,
-            content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' },
-          },
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' },
         },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'input_json_delta', partial_json: '{"city":"NYC"}' },
-          },
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'input_json_delta', partial_json: '{"city":"NYC"}' },
         },
-        { type: 'stream_event', event: { type: 'content_block_stop', index: 0 } },
-        { type: 'stream_event', event: { type: 'message_stop' } },
+        { type: 'content_block_stop', index: 0 },
+        { type: 'message_stop' },
       ]),
     );
 
@@ -335,41 +305,13 @@ describe('conductTurn', () => {
   });
 
   it('chains turns with parent pointers', async () => {
-    // First turn
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
-        {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'text_delta', text: 'First' },
-          },
-        },
-        { type: 'stream_event', event: { type: 'message_stop' } },
-      ]),
-    );
-
     const project = getOrCreateProject(db);
     for await (const _ of conductTurn(db, project.id, 'first')) {
       /* consume */
     }
 
-    // Second turn
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-2' } } },
-        {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'text_delta', text: 'Second' },
-          },
-        },
-        { type: 'stream_event', event: { type: 'message_stop' } },
-      ]),
+    mockStream.mockReturnValueOnce(
+      makeMockMessageStream([{ type: 'message_start', message: { id: 'msg-2' } }, { type: 'message_stop' }]),
     );
 
     for await (const _ of conductTurn(db, project.id, 'second')) {
@@ -382,26 +324,20 @@ describe('conductTurn', () => {
   });
 
   it('persists assistant_parts after stream finish', async () => {
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
+    mockStream.mockReturnValueOnce(
+      makeMockMessageStream([
+        { type: 'message_start', message: { id: 'msg-1' } },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'thinking_delta', thinking: 'Let me think...' },
-          },
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'thinking_delta', thinking: 'Let me think...' },
         },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 1,
-            delta: { type: 'text_delta', text: 'My answer.' },
-          },
+          type: 'content_block_delta',
+          index: 1,
+          delta: { type: 'text_delta', text: 'My answer.' },
         },
-        { type: 'stream_event', event: { type: 'message_stop' } },
+        { type: 'message_stop' },
       ]),
     );
 

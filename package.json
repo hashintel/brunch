@@ -27,7 +27,6 @@
 	},
 	"dependencies": {
 		"@ai-sdk/react": "^3.0.145",
-		"@anthropic-ai/claude-agent-sdk": "^0.2.77",
 		"@anthropic-ai/sdk": "^0.82.0",
 		"@fontsource-variable/geist": "^5.2.8",
 		"@modelcontextprotocol/sdk": "^1.27.1",

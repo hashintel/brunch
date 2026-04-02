@@ -3,18 +3,21 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import type { DB } from './db.js';
 
-// Mock the Claude Agent SDK
-const mockQuery = vi.fn();
-vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
-  query: mockQuery,
-  createSdkMcpServer: () => ({ name: 'interview', instance: {} }),
-  tool: (name: string, desc: string, schema: any, handler: any) => ({
-    name,
-    description: desc,
-    inputSchema: schema,
-    handler,
-  }),
+// Mock the Anthropic SDK
+const { mockStream, mockCreate } = vi.hoisted(() => ({
+  mockStream: vi.fn(),
+  mockCreate: vi.fn(),
 }));
+vi.mock('@anthropic-ai/sdk', () => {
+  return {
+    default: class MockAnthropic {
+      messages = {
+        stream: mockStream,
+        create: mockCreate,
+      };
+    },
+  };
+});
 
 // Import app factory after mocking
 const { createApp } = await import('./app.js');
@@ -22,25 +25,71 @@ const { createApp } = await import('./app.js');
 let app: ReturnType<typeof createApp>['app'];
 let db: DB;
 
+/** Create a mock MessageStream that emits raw events */
+function makeMockMessageStream(rawEvents: Record<string, unknown>[]) {
+  const asyncIter = (async function* () {
+    for (const event of rawEvents) {
+      yield event;
+    }
+  })();
+
+  return {
+    [Symbol.asyncIterator]: () => asyncIter[Symbol.asyncIterator](),
+    on: vi.fn().mockReturnThis(),
+    finalMessage: vi.fn().mockResolvedValue({
+      id: 'msg-1',
+      content: [],
+      stop_reason: 'end_turn',
+      usage: { input_tokens: 100, output_tokens: 50 },
+    }),
+  };
+}
+
+/** Standard mock stream that produces a text response */
+function mockTextStream(text = 'Hi') {
+  return makeMockMessageStream([
+    {
+      type: 'message_start',
+      message: { id: 'msg-1', role: 'assistant', content: [] },
+    },
+    {
+      type: 'content_block_start',
+      index: 0,
+      content_block: { type: 'text', text: '' },
+    },
+    {
+      type: 'content_block_delta',
+      index: 0,
+      delta: { type: 'text_delta', text },
+    },
+    {
+      type: 'content_block_stop',
+      index: 0,
+    },
+    {
+      type: 'message_stop',
+    },
+  ]);
+}
+
+/** Mock a successful observer response */
+function mockObserverDefaults() {
+  mockCreate.mockResolvedValue({
+    id: 'msg-obs-1',
+    content: [{ type: 'text', text: JSON.stringify({ decisions: [], assumptions: [] }) }],
+    stop_reason: 'end_turn',
+    usage: { input_tokens: 100, output_tokens: 50 },
+  });
+}
+
 beforeEach(() => {
-  mockQuery.mockReset();
-  // Default: observer gets empty result for any call not covered by mockReturnValueOnce
-  mockQuery.mockImplementation(() =>
-    makeMockStream([
-      {
-        type: 'result',
-        subtype: 'success',
-        duration_ms: 500,
-        duration_api_ms: 300,
-        total_cost_usd: 0.0005,
-        is_error: false,
-        num_turns: 1,
-        usage: { input_tokens: 100, output_tokens: 50 },
-        result: '',
-        structured_output: { decisions: [], assumptions: [] },
-      },
-    ]),
+  mockStream.mockReset();
+  mockCreate.mockReset();
+  // Default: interviewer returns empty stream, observer returns empty result
+  mockStream.mockReturnValue(
+    makeMockMessageStream([{ type: 'message_start', message: { id: 'msg-1' } }, { type: 'message_stop' }]),
   );
+  mockObserverDefaults();
   const result = createApp();
   app = result.app;
   db = result.db;
@@ -66,39 +115,6 @@ function parseSSELines(body: string): any[] {
       if (line === '[DONE]') return '[DONE]';
       return JSON.parse(line);
     });
-}
-
-/** Create a mock async generator of SDK messages */
-async function* makeMockStream(messages: Record<string, unknown>[]) {
-  for (const msg of messages) {
-    yield msg;
-  }
-}
-
-/** Standard mock stream that produces a text response */
-function mockTextStream(text = 'Hi') {
-  return makeMockStream([
-    {
-      type: 'stream_event',
-      event: { type: 'message_start', message: { id: 'msg-1', role: 'assistant', content: [] } },
-    },
-    {
-      type: 'stream_event',
-      event: { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
-    },
-    {
-      type: 'stream_event',
-      event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } },
-    },
-    {
-      type: 'stream_event',
-      event: { type: 'content_block_stop', index: 0 },
-    },
-    {
-      type: 'stream_event',
-      event: { type: 'message_stop' },
-    },
-  ]);
 }
 
 /** Helper: create a project and return its ID */
@@ -167,7 +183,7 @@ describe('GET /api/projects/:id', () => {
 
   it('returns turns on active path after a chat exchange', async () => {
     const projectId = await createTestProject('Chat Test');
-    mockQuery.mockReturnValueOnce(mockTextStream('Hi'));
+    mockStream.mockReturnValueOnce(mockTextStream('Hi'));
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -184,7 +200,7 @@ describe('GET /api/projects/:id', () => {
 describe('POST /api/projects/:id/chat', () => {
   it('returns Content-Type text/event-stream', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream());
+    mockStream.mockReturnValueOnce(mockTextStream());
 
     const res = await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -196,26 +212,19 @@ describe('POST /api/projects/:id/chat', () => {
 
   it('produces well-formed SSE lines with data: prefix and double newline delimiters', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
+    mockStream.mockReturnValueOnce(
+      makeMockMessageStream([
         {
-          type: 'stream_event',
-          event: {
-            type: 'message_start',
-            message: { id: 'msg-1', role: 'assistant', content: [] },
-          },
+          type: 'message_start',
+          message: { id: 'msg-1', role: 'assistant', content: [] },
         },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'text_delta', text: 'Hi' },
-          },
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'text_delta', text: 'Hi' },
         },
         {
-          type: 'stream_event',
-          event: { type: 'message_stop' },
+          type: 'message_stop',
         },
       ]),
     );
@@ -233,7 +242,7 @@ describe('POST /api/projects/:id/chat', () => {
 
   it('contains at least one text-delta event with non-empty text', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream('Hello!'));
+    mockStream.mockReturnValueOnce(mockTextStream('Hello!'));
 
     const res = await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -247,7 +256,7 @@ describe('POST /api/projects/:id/chat', () => {
 
   it('ends with finish event and [DONE]', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream());
+    mockStream.mockReturnValueOnce(mockTextStream());
 
     const res = await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -256,64 +265,49 @@ describe('POST /api/projects/:id/chat', () => {
     const events = parseSSELines(collectSSE(res));
     const last = events[events.length - 1];
     const secondToLast = events[events.length - 2];
+
     expect(last).toBe('[DONE]');
     expect(secondToLast.type).toBe('finish');
   });
 
-  it('emits reasoning-delta events for thinking content', async () => {
+  it('separates thinking from text content', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
+    mockStream.mockReturnValueOnce(
+      makeMockMessageStream([
         {
-          type: 'stream_event',
-          event: {
-            type: 'message_start',
-            message: { id: 'msg-1', role: 'assistant', content: [] },
-          },
+          type: 'message_start',
+          message: { id: 'msg-1', role: 'assistant', content: [] },
         },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_start',
-            index: 0,
-            content_block: { type: 'thinking', thinking: '' },
-          },
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'thinking', thinking: '' },
         },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'thinking_delta', thinking: 'Hmm...' },
-          },
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'thinking_delta', thinking: 'Hmm...' },
         },
         {
-          type: 'stream_event',
-          event: { type: 'content_block_stop', index: 0 },
+          type: 'content_block_stop',
+          index: 0,
         },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_start',
-            index: 1,
-            content_block: { type: 'text', text: '' },
-          },
+          type: 'content_block_start',
+          index: 1,
+          content_block: { type: 'text', text: '' },
         },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 1,
-            delta: { type: 'text_delta', text: 'Answer' },
-          },
+          type: 'content_block_delta',
+          index: 1,
+          delta: { type: 'text_delta', text: 'Answer' },
         },
         {
-          type: 'stream_event',
-          event: { type: 'content_block_stop', index: 1 },
+          type: 'content_block_stop',
+          index: 1,
         },
         {
-          type: 'stream_event',
-          event: { type: 'message_stop' },
+          type: 'message_stop',
         },
       ]),
     );
@@ -341,58 +335,42 @@ describe('POST /api/projects/:id/chat', () => {
 describe('POST /api/projects/:id/chat — tool calls', () => {
   it('emits tool-call SSE events for tool-using mock stream', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
+    mockStream.mockReturnValueOnce(
+      makeMockMessageStream([
         {
-          type: 'stream_event',
-          event: {
-            type: 'message_start',
-            message: { id: 'msg-1', role: 'assistant', content: [] },
-          },
+          type: 'message_start',
+          message: { id: 'msg-1', role: 'assistant', content: [] },
         },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_start',
-            index: 0,
-            content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' },
-          },
+          type: 'content_block_start',
+          index: 0,
+          content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' },
         },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'input_json_delta', partial_json: '{"city":"NYC"}' },
-          },
+          type: 'content_block_delta',
+          index: 0,
+          delta: { type: 'input_json_delta', partial_json: '{"city":"NYC"}' },
         },
         {
-          type: 'stream_event',
-          event: { type: 'content_block_stop', index: 0 },
+          type: 'content_block_stop',
+          index: 0,
         },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_start',
-            index: 1,
-            content_block: { type: 'text', text: '' },
-          },
+          type: 'content_block_start',
+          index: 1,
+          content_block: { type: 'text', text: '' },
         },
         {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 1,
-            delta: { type: 'text_delta', text: 'Weather result' },
-          },
+          type: 'content_block_delta',
+          index: 1,
+          delta: { type: 'text_delta', text: 'Weather result' },
         },
         {
-          type: 'stream_event',
-          event: { type: 'content_block_stop', index: 1 },
+          type: 'content_block_stop',
+          index: 1,
         },
         {
-          type: 'stream_event',
-          event: { type: 'message_stop' },
+          type: 'message_stop',
         },
       ]),
     );
@@ -424,13 +402,12 @@ describe('POST /api/projects/:id/chat — tool calls', () => {
 describe('GET /api/projects/:id — enriched state', () => {
   it('returns turns with options after structured question', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream('Hi'));
+    mockStream.mockReturnValueOnce(mockTextStream('Hi'));
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({ messages: [{ role: 'user', content: 'hello' }] });
 
-    // Manually add options to the turn (simulating MCP tool handler)
     const { getActivePath, createOption } = await import('./db.js');
     const turns = getActivePath(db, projectId);
     createOption(db, turns[0].id, { position: 0, content: 'Option A', is_recommended: true });
@@ -448,7 +425,7 @@ describe('GET /api/projects/:id — enriched state', () => {
 describe('POST /api/projects/:id/turns/:turnId/select', () => {
   it('persists option selection and sets answer', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream('Hi'));
+    mockStream.mockReturnValueOnce(mockTextStream('Hi'));
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -480,7 +457,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
 
   it('returns 400 for missing position', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream('Hi'));
+    mockStream.mockReturnValueOnce(mockTextStream('Hi'));
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -502,7 +479,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
 describe('POST /api/projects/:id/chat — turn persistence', () => {
   it('creates a turn with user answer and advances HEAD', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream('Hi there'));
+    mockStream.mockReturnValueOnce(mockTextStream('Hi there'));
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -521,12 +498,12 @@ describe('POST /api/projects/:id/chat — turn persistence', () => {
 
   it('chains turns with parent pointers across exchanges', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream('First response'));
+    mockStream.mockReturnValueOnce(mockTextStream('First response'));
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({ messages: [{ role: 'user', content: 'first' }] });
 
-    mockQuery.mockReturnValueOnce(mockTextStream('Second response'));
+    mockStream.mockReturnValueOnce(mockTextStream('Second response'));
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({ messages: [{ role: 'user', content: 'second' }] });

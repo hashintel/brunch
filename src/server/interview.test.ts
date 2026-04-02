@@ -1,24 +1,22 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 
 import type { DB, Turn } from './db.js';
-import { structuredQuestionSchema, getSystemPrompt, createInterviewMcpServer } from './interview.js';
+import { structuredQuestionSchema, getSystemPrompt } from './interview.js';
 import type { StructuredQuestion } from './interview.js';
 
-// Mock the Claude Agent SDK — hoisted, so no local variable references in factory
-const { mockQuery, mockCreateSdkMcpServer } = vi.hoisted(() => ({
-  mockQuery: vi.fn(),
-  mockCreateSdkMcpServer: vi.fn().mockReturnValue({ name: 'interview', instance: {} }),
+// Mock the Anthropic SDK — hoisted, so no local variable references in factory
+const { mockStream } = vi.hoisted(() => ({
+  mockStream: vi.fn(),
 }));
-vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
-  query: mockQuery,
-  createSdkMcpServer: (...args: any[]) => mockCreateSdkMcpServer(...args),
-  tool: (name: string, desc: string, schema: any, handler: any) => ({
-    name,
-    description: desc,
-    inputSchema: schema,
-    handler,
-  }),
-}));
+vi.mock('@anthropic-ai/sdk', () => {
+  return {
+    default: class MockAnthropic {
+      messages = {
+        stream: mockStream,
+      };
+    },
+  };
+});
 
 const { conductTurn } = await import('./core.js');
 const { buildInterviewerContext } = await import('./context.js');
@@ -26,25 +24,33 @@ const { createDb, getOrCreateProject, createTurn } = await import('./db.js');
 
 let db: DB;
 
-beforeEach(() => {
-  mockQuery.mockReset();
-  mockCreateSdkMcpServer.mockClear();
-  // Default: observer gets empty result for any call not covered by mockReturnValueOnce
-  mockQuery.mockImplementation(() =>
-    makeMockStream([
-      {
-        type: 'result',
-        subtype: 'success',
-        duration_ms: 500,
-        duration_api_ms: 300,
-        total_cost_usd: 0.0005,
-        is_error: false,
-        num_turns: 1,
+/** Create a mock MessageStream that emits raw events and has a finalMessage() */
+function makeMockMessageStream(rawEvents: Record<string, unknown>[], finalMsg?: Record<string, unknown>) {
+  const asyncIter = (async function* () {
+    for (const event of rawEvents) {
+      yield event;
+    }
+  })();
+
+  return {
+    [Symbol.asyncIterator]: () => asyncIter[Symbol.asyncIterator](),
+    on: vi.fn().mockReturnThis(),
+    finalMessage: vi.fn().mockResolvedValue(
+      finalMsg ?? {
+        id: 'msg-1',
+        content: [],
+        stop_reason: 'end_turn',
         usage: { input_tokens: 100, output_tokens: 50 },
-        result: '',
-        structured_output: { decisions: [], assumptions: [] },
       },
-    ]),
+    ),
+  };
+}
+
+beforeEach(() => {
+  mockStream.mockReset();
+  // Default: return an empty stream
+  mockStream.mockReturnValue(
+    makeMockMessageStream([{ type: 'message_start', message: { id: 'msg-1' } }, { type: 'message_stop' }]),
   );
   db = createDb();
 });
@@ -52,13 +58,6 @@ beforeEach(() => {
 afterEach(() => {
   db.$client.close();
 });
-
-/** Create a mock async generator of SDK messages */
-async function* makeMockStream(messages: Record<string, unknown>[]) {
-  for (const msg of messages) {
-    yield msg;
-  }
-}
 
 // --- Acceptance criterion: structured-turn-schema ---
 
@@ -140,32 +139,19 @@ describe('getSystemPrompt', () => {
   });
 });
 
-// --- Acceptance criterion: tool definition ---
+// --- Acceptance criterion: tool handler persistence ---
 
-describe('createInterviewMcpServer', () => {
-  it('creates an MCP server with an ask_question tool', () => {
-    const project = getOrCreateProject(db);
-    const turn = createTurn(db, project.id, { phase: 'scope', question: '' });
-
-    createInterviewMcpServer(db, turn.id);
-
-    expect(mockCreateSdkMcpServer).toHaveBeenCalledOnce();
-    const opts = mockCreateSdkMcpServer.mock.calls[0][0];
-    expect(opts.name).toBe('interview');
-    expect(opts.tools).toHaveLength(1);
-    expect(opts.tools[0].name).toBe('ask_question');
-  });
-
+describe('ask_question tool handler', () => {
   it('tool handler persists structured data to the turn', async () => {
+    const { persistStructuredQuestion } = await import('./interview.js');
     const { getOptionsForTurn } = await import('./db.js');
+    const { eq } = await import('drizzle-orm');
+    const { turn: turnTable } = await import('./schema.js');
+
     const project = getOrCreateProject(db);
     const turn = createTurn(db, project.id, { phase: 'scope', question: '' });
 
-    createInterviewMcpServer(db, turn.id);
-
-    // Extract and invoke the handler from the mock call
-    const toolDef = mockCreateSdkMcpServer.mock.calls[0][0].tools[0];
-    const result = await toolDef.handler({
+    persistStructuredQuestion(db, turn.id, {
       question: 'What is the primary goal?',
       why: 'Understanding the goal shapes all downstream decisions.',
       impact: 'high',
@@ -175,9 +161,6 @@ describe('createInterviewMcpServer', () => {
       ],
     });
 
-    // Verify persistence — read turn directly (HEAD not advanced)
-    const { eq } = await import('drizzle-orm');
-    const { turn: turnTable } = await import('./schema.js');
     const updatedTurn = db.select().from(turnTable).where(eq(turnTable.id, turn.id)).get();
     expect(updatedTurn?.question).toBe('What is the primary goal?');
     expect(updatedTurn?.why).toBe('Understanding the goal shapes all downstream decisions.');
@@ -188,58 +171,35 @@ describe('createInterviewMcpServer', () => {
     expect(options[0].content).toBe('Build a new product');
     expect(options[1].content).toBe('Improve an existing product');
     expect(options[1].is_recommended).toBe(true);
-
-    // Tool returns a result
-    expect(result.content[0].text).toBe('Question presented to user.');
   });
 });
 
 // --- Acceptance criterion: conductTurn uses interview config ---
 
 describe('conductTurn with interview config', () => {
-  function mockMinimalStream() {
-    return makeMockStream([
-      { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
-      {
-        type: 'stream_event',
-        event: {
-          type: 'content_block_delta',
-          index: 0,
-          delta: { type: 'text_delta', text: 'Hello' },
-        },
-      },
-      { type: 'stream_event', event: { type: 'message_stop' } },
-    ]);
-  }
-
-  it('passes scope system prompt to SDK query', async () => {
-    mockQuery.mockReturnValueOnce(mockMinimalStream());
-
+  it('passes scope system prompt to SDK', async () => {
     const project = getOrCreateProject(db);
     for await (const _ of conductTurn(db, project.id, 'hello')) {
       /* consume */
     }
 
-    // First call is interviewer; second is observer (may fail gracefully)
-    expect(mockQuery).toHaveBeenCalled();
-    const callArgs = mockQuery.mock.calls[0][0];
-    expect(callArgs.options.systemPrompt).toContain('scope');
-    expect(callArgs.options.systemPrompt).not.toBe('You are a helpful assistant.');
+    expect(mockStream).toHaveBeenCalled();
+    const callArgs = mockStream.mock.calls[0][0];
+    expect(callArgs.system).toContain('scope');
+    expect(callArgs.system).not.toBe('You are a helpful assistant.');
   });
 
-  it('passes interview MCP server to SDK query', async () => {
-    mockQuery.mockReturnValueOnce(mockMinimalStream());
-
+  it('passes tool_choice forcing to SDK', async () => {
     const project = getOrCreateProject(db);
     for await (const _ of conductTurn(db, project.id, 'hello')) {
       /* consume */
     }
 
-    // First call is interviewer; second is observer (may fail gracefully)
-    expect(mockQuery).toHaveBeenCalled();
-    const callArgs = mockQuery.mock.calls[0][0];
-    expect(callArgs.options.mcpServers).toBeDefined();
-    expect(callArgs.options.mcpServers.interview).toBeDefined();
+    expect(mockStream).toHaveBeenCalled();
+    const callArgs = mockStream.mock.calls[0][0];
+    expect(callArgs.tool_choice).toEqual({ type: 'tool', name: 'ask_question' });
+    expect(callArgs.tools).toBeDefined();
+    expect(callArgs.tools[0].name).toBe('ask_question');
   });
 });
 

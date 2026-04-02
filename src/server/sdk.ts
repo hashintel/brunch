@@ -1,52 +1,50 @@
 /**
- * SDK utilities — shared stream event translation for agents that call query().
+ * SDK utilities — shared stream event translation and client factory.
  *
- * createStreamTranslator() — per-message SDK stream_event → DomainEvent translator.
- * Each agent owns its own query() call; this handles the shared translation logic.
- * Streaming agents use it; silent agents (observer) don't.
+ * createStreamTranslator() — translates raw Anthropic API streaming events
+ * to DomainEvents. Raw events arrive directly (message_start, content_block_start, etc.)
+ * without any wrapper envelope.
+ *
+ * createAnthropicClient() — thin seam over the Anthropic SDK client.
+ * Centralizes instantiation so tests can mock a single import.
  */
+
+import Anthropic from '@anthropic-ai/sdk';
 
 import type { DomainEvent } from './core.js';
 
-/** Minimal shape of an SDK stream_event message. */
-export interface SdkStreamEvent {
-  type: 'stream_event';
-  event: {
-    type: string;
-    index?: number;
-    message?: { id: string };
-    content_block?: { type: string; name?: string; id?: string };
-    delta?: { type: string; text?: string; thinking?: string; partial_json?: string };
-  };
+/** Raw Anthropic streaming event (directly from client.messages.stream/create with stream:true). */
+export interface RawStreamEvent {
+  type: string;
+  index?: number;
+  message?: { id: string };
+  content_block?: { type: string; name?: string; id?: string };
+  delta?: { type: string; text?: string; thinking?: string; partial_json?: string };
 }
 
-/** Shape of SDK ResultMessage (success or error). */
-export interface SdkResultMessage {
-  type: 'result';
-  subtype: 'success' | 'error_during_execution' | 'error_max_turns' | 'error_max_budget_usd';
-  duration_ms: number;
-  duration_api_ms: number;
-  total_cost_usd: number;
-  is_error: boolean;
-  num_turns: number;
-  usage: { input_tokens: number; output_tokens: number };
-  result?: string;
-  structured_output?: unknown;
+/** Input for extractMetrics — raw API usage + wall-clock timing. */
+export interface RawMetricsInput {
+  inputTokens: number;
+  outputTokens: number;
+  durationMs: number;
+}
+
+/** Create the Anthropic SDK client. Thin seam for testability. */
+export function createAnthropicClient(): Anthropic {
+  return new Anthropic();
 }
 
 /**
  * Create a per-request stream translator with scoped state.
- * Maps individual SDK stream_event messages to DomainEvent arrays.
+ * Maps raw Anthropic streaming events to DomainEvent arrays.
  * Tracks tool_use block lifecycle (start → delta → stop).
  */
 export function createStreamTranslator() {
   const toolUseBlocks = new Map<number, { toolName: string; toolCallId: string }>();
 
-  function translate(sdkMessage: unknown): DomainEvent[] {
-    const msg = sdkMessage as Record<string, unknown>;
-    if (msg.type !== 'stream_event') return [];
+  function translate(rawEvent: unknown): DomainEvent[] {
+    const event = rawEvent as RawStreamEvent;
 
-    const event = (msg as unknown as SdkStreamEvent).event;
     switch (event.type) {
       case 'message_start':
         return [{ type: 'stream-start', messageId: event.message!.id }];
@@ -101,15 +99,13 @@ export function createStreamTranslator() {
   return { translate };
 }
 
-/** Extract agent-metrics DomainEvent from an SDK ResultMessage. */
-export function extractMetrics(agent: string, msg: SdkResultMessage): DomainEvent {
+/** Extract agent-metrics DomainEvent from raw API usage + wall-clock timing. */
+export function extractMetrics(agent: string, metrics: RawMetricsInput): DomainEvent {
   return {
     type: 'agent-metrics',
     agent,
-    durationMs: msg.duration_ms,
-    durationApiMs: msg.duration_api_ms,
-    totalCostUsd: msg.total_cost_usd,
-    inputTokens: msg.usage.input_tokens,
-    outputTokens: msg.usage.output_tokens,
+    durationMs: metrics.durationMs,
+    inputTokens: metrics.inputTokens,
+    outputTokens: metrics.outputTokens,
   };
 }

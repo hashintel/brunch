@@ -1,18 +1,18 @@
-import { query, createSdkMcpServer, tool } from '@anthropic-ai/claude-agent-sdk';
 /**
- * Interview module — structured question schema, phase prompts, MCP tool server,
+ * Interview module — structured question schema, phase prompts, tool schema,
  * and runInterviewer() generator that owns the full interviewer pipeline.
  *
- * Pure domain: structuredQuestionSchema, getSystemPrompt, SYSTEM_PROMPTS.
- * Shell boundary: createInterviewMcpServer, runInterviewer.
+ * Pure domain: structuredQuestionSchema, getSystemPrompt, SYSTEM_PROMPTS, ASK_QUESTION_TOOL.
+ * Shell boundary: persistStructuredQuestion, runInterviewer.
  */
+import type Anthropic from '@anthropic-ai/sdk';
 import { z } from 'zod';
 
 import { buildInterviewerContext } from './context.js';
 import type { TurnWithOptions, DomainEvent } from './core.js';
 import { createOption, updateTurn, getTurn, type DB, type Turn, type Impact, type Phase } from './db.js';
 import { assembleAssistantParts, serializeParts } from './parts.js';
-import { createStreamTranslator, extractMetrics, type SdkResultMessage } from './sdk.js';
+import { createAnthropicClient, createStreamTranslator, extractMetrics } from './sdk.js';
 
 /** Zod schema for the ask_question tool output. */
 export const structuredQuestionSchema = z.object({
@@ -30,6 +30,38 @@ export const structuredQuestionSchema = z.object({
 });
 
 export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
+
+/**
+ * Hand-written JSON schema for the ask_question tool.
+ * Kept in sync with structuredQuestionSchema by test (A27).
+ * Hand-written to avoid Zod-to-JSON-Schema edge cases (minItems, etc.).
+ */
+export const ASK_QUESTION_TOOL: Anthropic.Messages.Tool = {
+  name: 'ask_question',
+  description:
+    'Ask the user a structured interview question with options, strategic grounding, and impact signal.',
+  input_schema: {
+    type: 'object' as const,
+    properties: {
+      question: { type: 'string', description: 'The interview question' },
+      why: { type: 'string', description: 'Why this question matters for the spec' },
+      impact: { type: 'string', enum: ['high', 'medium', 'low'] },
+      options: {
+        type: 'array',
+        items: {
+          type: 'object',
+          properties: {
+            content: { type: 'string' },
+            is_recommended: { type: 'boolean' },
+          },
+          required: ['content', 'is_recommended'],
+        },
+        minItems: 2,
+      },
+    },
+    required: ['question', 'why', 'impact', 'options'],
+  },
+};
 
 const SYSTEM_PROMPTS: Record<Phase, string> = {
   scope: `You are a spec elicitation interviewer conducting the SCOPE phase.
@@ -74,43 +106,27 @@ export function getSystemPrompt(phase: Phase): string {
 }
 
 /**
- * Create an in-process MCP server with the ask_question tool.
- * The tool handler persists structured data to the given turn.
+ * Persist structured question data from tool call args to the turn and options tables.
+ * Extracted as a helper for testability — called after parsing tool_use block from stream.
  */
-export function createInterviewMcpServer(db: DB, turnId: number) {
-  return createSdkMcpServer({
-    name: 'interview',
-    tools: [
-      tool(
-        'ask_question',
-        'Ask the user a structured interview question with options, strategic grounding, and impact signal.',
-        structuredQuestionSchema.shape,
-        async (args) => {
-          // Persist structured data to the turn
-          updateTurn(db, turnId, {
-            question: args.question,
-            why: args.why,
-            impact: args.impact as Impact,
-          });
-          for (let i = 0; i < args.options.length; i++) {
-            createOption(db, turnId, {
-              position: i,
-              content: args.options[i].content,
-              is_recommended: args.options[i].is_recommended,
-            });
-          }
-          return {
-            content: [{ type: 'text' as const, text: 'Question presented to user.' }],
-          };
-        },
-      ),
-    ],
+export function persistStructuredQuestion(db: DB, turnId: number, args: StructuredQuestion) {
+  updateTurn(db, turnId, {
+    question: args.question,
+    why: args.why,
+    impact: args.impact as Impact,
   });
+  for (let i = 0; i < args.options.length; i++) {
+    createOption(db, turnId, {
+      position: i,
+      content: args.options[i].content,
+      is_recommended: args.options[i].is_recommended,
+    });
+  }
 }
 
 /**
- * Run the interviewer agent. Streams DomainEvents from the SDK query
- * and persists turn-level data (assistant text, parts) when done.
+ * Run the interviewer agent. Streams DomainEvents from the raw Anthropic SDK
+ * and persists turn-level data (assistant text, parts, structured question) when done.
  * Each call owns its full pipeline: prompt, tools, streaming, persistence.
  */
 export async function* runInterviewer(
@@ -120,38 +136,47 @@ export async function* runInterviewer(
   userMessage: string,
   phase: Phase,
 ): AsyncGenerator<DomainEvent> {
+  const client = createAnthropicClient();
   const fullPrompt = buildInterviewerContext(activePath, userMessage);
-  const interviewServer = createInterviewMcpServer(db, turn.id);
   const { translate } = createStreamTranslator();
 
   let assistantText = '';
   const collectedEvents: DomainEvent[] = [];
+  let toolCallArgs = '';
 
-  const stream = query({
-    prompt: fullPrompt,
-    options: {
-      model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
-      maxTurns: 1,
-      includePartialMessages: true,
-      systemPrompt: getSystemPrompt(phase),
-      mcpServers: { interview: interviewServer },
-      persistSession: false,
-    },
+  const startMs = Date.now();
+
+  const stream = client.messages.stream({
+    model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
+    max_tokens: 4096,
+    system: getSystemPrompt(phase),
+    messages: [{ role: 'user', content: fullPrompt }],
+    tools: [ASK_QUESTION_TOOL],
+    tool_choice: { type: 'tool', name: 'ask_question' },
   });
 
-  for await (const msg of stream) {
-    // Translate SDK stream events to DomainEvents
-    for (const event of translate(msg)) {
+  for await (const rawEvent of stream) {
+    for (const event of translate(rawEvent)) {
       collectedEvents.push(event);
       if (event.type === 'text-delta') {
         assistantText += event.delta;
       }
+      if (event.type === 'tool-call-delta') {
+        toolCallArgs += event.delta;
+      }
       yield event;
     }
+  }
 
-    // Capture ResultMessage for metrics
-    if ((msg as Record<string, unknown>).type === 'result') {
-      yield extractMetrics('interviewer', msg as unknown as SdkResultMessage);
+  const durationMs = Date.now() - startMs;
+
+  // Parse and persist structured question from tool call
+  if (toolCallArgs) {
+    try {
+      const parsed = structuredQuestionSchema.parse(JSON.parse(toolCallArgs));
+      persistStructuredQuestion(db, turn.id, parsed);
+    } catch {
+      // Tool args failed validation — fall through to text-based persistence
     }
   }
 
@@ -164,5 +189,13 @@ export async function* runInterviewer(
       ? { question: assistantText }
       : {}),
     ...(parts.length > 0 ? { assistant_parts: serializeParts(parts) } : {}),
+  });
+
+  // Yield metrics from raw API
+  const finalMessage = await stream.finalMessage();
+  yield extractMetrics('interviewer', {
+    inputTokens: finalMessage.usage.input_tokens,
+    outputTokens: finalMessage.usage.output_tokens,
+    durationMs,
   });
 }
