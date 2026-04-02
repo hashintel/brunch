@@ -252,6 +252,7 @@ End-to-end slices must be **user-testable**, not just programmatically tested. E
 | Fast unit tests — SSE | `SDKMessage` → correct SSE event strings | I1, I3, I7 | ms |
 | Fast unit tests — DB | Turn persistence with phase provenance, entity writes with dependency edges | I5, I6, I9, I10, I11 | ms |
 | Fast unit tests — core | DomainEvent streaming, core/adapter separation, structured turn creation | I12, I13 | ms |
+| Fast unit tests — observer sync | `observer-complete` emitted post-commit with entity IDs matching DB state; SSE adapter encodes as typed data part | D22, A20 | ms |
 | Type-aware linting | Semantic static checks (oxlint + tsgolint) | All | ms |
 
 **Middle loop** (seconds–minutes): regression gates
@@ -261,6 +262,7 @@ End-to-end slices must be **user-testable**, not just programmatically tested. E
 | Differential testing (observer) | Observer extraction meets ≥80% entity capture rate against golden master fixtures | A14 | seconds per fixture; requires Claude API |
 | Round-trip oracle (turn tree) | Structured turns → active path → entity resolution intact | I6, I9, I10 | ms |
 | Integration tests | SSE stream contains expected event types in order; DB lifecycle survives close/reopen | I2, I5, I13, I14 | seconds |
+| Round-trip oracle (observer sync) | Full `conductTurn()` with observer → `observer-complete` is last event before `stream-end` → entity IDs in event match committed DB rows | D22 | seconds; requires Claude API |
 
 **Outer loop** (minutes–hours): human observer
 
@@ -271,6 +273,7 @@ End-to-end slices must be **user-testable**, not just programmatically tested. E
 | Fixture capture from manual runs | Bootstrap golden master fixtures by querying DB after confirmed-good sessions | Human judgment + SQL query |
 | Rich chat rendering | Tool call states, reasoning collapse, message parts render by type | Human + `/cli-cdp` |
 | Resume test | Close/reopen browser, verify state intact | Human + browser |
+| Observer → sidebar reactivity | `onData` → `setQueryData` bridge updates sidebar after observer extraction; validates A21 | Human + `/cli-cdp` (slice 6) |
 
 ### Observer History Projection
 
@@ -292,6 +295,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | Cumulative entity graph integrity | Individual extractions may be correct but compose into an incoherent graph over 15-20 turns. No programmatic check for drift. | Debug mode (human eyeballs the growing graph). Future: structural property tests (no orphaned edges, no DAG cycles, monotonic entity count). | After observer slice lands and manual testing reveals graph-level issues. |
 | Phase transition UX | Summary quality, resolution timing, confirmation flow. Fully visual. | Manual testing during slices 7-10. | If phase transitions feel wrong during testing. |
 | Performance under realistic load | 20+ turns, growing history summaries, observer latency. No budget oracle. | Acceptable for single-user tool. | If latency becomes noticeable during manual testing. |
+| `onData` stale-closure correctness | Client-side `useChat` `onData` → `queryClient.setQueryData` bridge cannot be tested in inner/middle loop (requires browser runtime). Known `onFinish` stale-closure bug (ai-sdk#550) may affect `onData`. | Manual outer-loop validation in slice 6; if broken, fall back to parallel `EventSource` (D22 Option 2). | If sidebar fails to update after observer extraction during manual testing. |
 
 ### Current Coverage
 
