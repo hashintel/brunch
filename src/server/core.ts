@@ -3,6 +3,8 @@ import { query } from '@anthropic-ai/claude-agent-sdk';
 import {
   getProject,
   getActivePath,
+  getOptionsForTurn,
+  getTurn,
   createTurn,
   updateTurn,
   advanceHead,
@@ -12,6 +14,7 @@ import {
   type DB,
   type Project,
 } from './db.js';
+import { getSystemPrompt, createInterviewMcpServer } from './interview.js';
 
 /** Domain events yielded by conductTurn(). Transport-agnostic. */
 export type DomainEvent =
@@ -39,13 +42,33 @@ export function extractPrompt(messages: unknown[]): string {
   );
 }
 
+/** Turn with optional options for richer history formatting. */
+export interface TurnWithOptions extends Turn {
+  options?: Array<{ content: string; is_recommended: boolean; is_selected: boolean }>;
+}
+
 /** Format conversation history from active-path turns for multi-turn context. */
-export function formatHistory(turns: Turn[], currentPrompt: string): string {
+export function formatHistory(turns: TurnWithOptions[], currentPrompt: string): string {
   if (turns.length === 0) return currentPrompt;
   const lines: string[] = [];
   for (const turn of turns) {
-    if (turn.answer) lines.push(`User: ${turn.answer}`);
-    if (turn.question) lines.push(`Assistant: ${turn.question}`);
+    if (turn.question) {
+      let questionLine = `Question: ${turn.question}`;
+      if (turn.why) questionLine += `\n  Why it matters: ${turn.why}`;
+      if (turn.impact) questionLine += `\n  Impact: ${turn.impact}`;
+      if (turn.options?.length) {
+        const optionList = turn.options
+          .map((o, i) => {
+            const rec = o.is_recommended ? ' (recommended)' : '';
+            const sel = o.is_selected ? ' [selected]' : '';
+            return `    ${i + 1}. ${o.content}${rec}${sel}`;
+          })
+          .join('\n');
+        questionLine += `\n  Options:\n${optionList}`;
+      }
+      lines.push(questionLine);
+    }
+    if (turn.answer) lines.push(`Answer: ${turn.answer}`);
   }
   if (lines.length === 0) return currentPrompt;
   return `Previous conversation:\n${lines.join('\n')}\n\n---\nUser: ${currentPrompt}`;
@@ -71,14 +94,19 @@ export async function* conductTurn(
   db: DB,
   projectId: number,
   userMessage: string,
+  phase: Turn['phase'] = 'scope',
 ): AsyncGenerator<DomainEvent> {
   const project = getProject(db, projectId);
   if (!project) throw new Error(`Project ${projectId} not found`);
-  const activePath = getActivePath(db, projectId);
+  const rawActivePath = getActivePath(db, projectId);
+  const activePath = rawActivePath.map((t) => ({
+    ...t,
+    options: getOptionsForTurn(db, t.id),
+  }));
 
   const turn = createTurn(db, projectId, {
     parent_turn_id: project.active_turn_id,
-    phase: 'scope',
+    phase,
     question: '',
     answer: userMessage,
   });
@@ -89,6 +117,9 @@ export async function* conductTurn(
   let assistantText = '';
   let errored = false;
 
+  // Create per-turn MCP server — tool handler persists structured data via closure
+  const interviewServer = createInterviewMcpServer(db, turn.id);
+
   try {
     const stream = query({
       prompt: fullPrompt,
@@ -96,7 +127,8 @@ export async function* conductTurn(
         model: process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514',
         maxTurns: 1,
         includePartialMessages: true,
-        systemPrompt: 'You are a helpful assistant.',
+        systemPrompt: getSystemPrompt(phase),
+        mcpServers: { interview: interviewServer },
       },
     });
 
@@ -163,7 +195,9 @@ export async function* conductTurn(
   }
 
   if (!errored) {
-    if (assistantText) {
+    // Only persist raw text if no structured question was set via MCP tool handler
+    const currentTurn = getTurn(db, turn.id);
+    if (assistantText && (!currentTurn?.question || currentTurn.question === '')) {
       updateTurn(db, turn.id, { question: assistantText });
     }
     advanceHead(db, projectId, turn.id);

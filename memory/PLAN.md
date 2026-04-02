@@ -91,26 +91,49 @@
     - Acceptance: 61 tests pass (10 new: 6 SSE adapter, 3 core, 1 app integration); tool-call-streaming-start/delta/tool-call SSE events emitted for SDK tool_use blocks; client renders dynamic-tool parts with state labels
     - Branch: `ln/fe-541-rich-chat-ui`
 
-4. **Structured interview: scope phase** — Replace flat chat with structured turns. Implement the scope phase as an agent skill — the agent generates a question with options, grounding ("why this matters"), and impact signal. User selects an option or types a response. Turn persists with phase provenance. UI renders the turn card (question + options + grounding). `not-started`
+4. **Structured interview: scope phase (server)** `FE-554` — Replace flat chat with structured turns. Implement the scope phase as an agent skill — the agent generates a question with options, grounding ("why this matters"), and impact signal via `ask_question` MCP tool. Turn persists with phase provenance (question, why, impact, options). `done`
    - Requirements: → SPEC.md §Requirements #2, #3
-   - Assumptions: → SPEC.md §Assumptions A7, A13
-   - Invariants to respect: → SPEC.md §Invariants I1, I2, I3, I5, I6
-   - Acceptance: start a project, agent asks structured scope questions with options and grounding, user answers, turns persist with parent chain
+   - Assumptions: → SPEC.md §Assumptions A7, A13 (validated)
+   - Invariants established: → SPEC.md §Invariants I16
+   - Invariants respected: → SPEC.md §Invariants I1, I2, I3, I5, I6, I12, I13
+   - Acceptance: 90 tests pass (16 new interview tests, 2 new app integration); `ask_question` MCP tool validates agent output via Zod schema; per-turn MCP server created via closure over db + turnId; `getSystemPrompt(phase)` returns phase-specific prompt; structured turn fields (question, why, impact, options) persist correctly
+   - Branch: `ln/fe-554-structured-interview`
    - **Verification approach**: inner — schema validation on agent tool output (Zod parse, establishes I16); unit tests for phase-tagged turn persistence. Middle — round-trip: structured turn → persist → active path query → verify phase provenance intact. Outer — manual interview walkthrough, assess question quality. → SPEC.md §Oracle Strategy, §Acknowledged Blind Spots (interview quality)
 
-5. **Observer agent + entity persistence** — After each answered turn, core invokes a second agent call that extracts decisions and assumptions. Writes to decision/assumption tables with turn linkage and dependency edges. Core yields `observer-complete` DomainEvent; web adapter signals client to refetch entities. `not-started`
-   - Requirements: → SPEC.md §Requirements #5
-   - Assumptions: → SPEC.md §Assumptions A3, A4, A14 (validated by spike)
-   - Acceptance: answer a scope question, observer extracts decision + assumptions, dependency edges in DB, extraction within user think time, sidebar refetch triggered
-   - **Verification approach**: inner — unit tests for entity writes with dependency edges, observer-complete DomainEvent emission. Middle — differential oracle from spike fixtures (observer extraction vs golden master, ≥80% capture). Outer — debug mode: raw observer extraction visible per-turn in UI; fixture capture from confirmed-good manual runs. → SPEC.md §Oracle Strategy, §Observer History Projection, §Acknowledged Blind Spots (extraction variance, cumulative graph integrity)
+4a. **Parts-based persistence + context builders** — Schema migration: add `user_parts` and `assistant_parts` JSON columns to turn table. Server-side: assemble final assistant `parts[]` from DomainEvents on stream finish, persist alongside scalars. Define `BrunchUIMessage` type with custom Data Parts (`data-option-selection`, `data-confirmation`). Extract `formatHistory()` into typed context builders (`buildInterviewerContext`, `buildObserverContext`). No backward-compatible fallback — DB can be re-initialized if needed. `not-started`
+    - Requirements: → SPEC.md §Requirements #4, #14
+    - Assumptions: → SPEC.md §Assumptions A22, A23
+    - Decisions: → SPEC.md §Decisions D23, D24, D25
+    - Invariants established: → SPEC.md §Invariants I17, I18, I19
+    - Invariants respected: → SPEC.md §Invariants I1, I5, I6, I11, I12, I13, I16
+    - Acceptance: schema migration adds parts columns; assistant parts persisted on stream finish (reasoning, tool-call states, text); Data Part schemas validated via Zod on write/read (I17); parts round-trip: DomainEvents → assemble → persist → load → hydrate matches original (I18); `buildInterviewerContext()` produces equivalent output to current `formatHistory()` (I19); observer context builder produces extraction-optimized projection
+    - Branch: `ln/fe-554-structured-interview` (continues current branch)
+    - **Verification approach**: inner — round-trip oracle for parts fidelity (I18); Zod schema validation on Data Parts (I17); unit tests for context builder output shape and equivalence (I19). → SPEC.md §Oracle Strategy (inner: fast unit tests — parts). Middle — integration: full `conductTurn()` → parts persisted → reload → hydration matches live state. Outer — manual resume test via `/cli-cdp` (reasoning + tool states visible on refresh). → SPEC.md §Acknowledged Blind Spots (parts/scalar consistency).
 
-6. **Entity sidebar (read-only)** — React sidebar in interview workspace showing decisions, assumptions, requirements, and criteria on the active path. Tabbed display. Updates after each observer extraction via `observer-complete` event. Dependency edges visible. Stale badges for soft-invalidated entities. `not-started`
+4b. **Structured interview: client UI** — Turn card rendering (question + options + grounding + impact badge). Option selection UI using `data-option-selection` Data Part (persist `is_selected` + structured answer). Outer-loop visual verification via `/cli-cdp`. `not-started`
+    - Requirements: → SPEC.md §Requirements #2, #3
+    - Assumptions: → SPEC.md §Assumptions A22, A23
+    - Decisions: → SPEC.md §Decisions D23, D24
+    - Invariants respected: → SPEC.md §Invariants I1, I16
+    - Acceptance: turn card rendering (question text, option list, grounding block, impact badge); option selection persists as `data-option-selection` Data Part in `user_parts` + `is_selected` on option row; outer-loop visual verification via `/cli-cdp`
+    - Branch: `ln/fe-554-structured-interview` (continues current branch)
+    - **Verification approach**: outer — manual interview walkthrough, assess rendering quality and option selection flow. → SPEC.md §Acknowledged Blind Spots (interview quality)
+
+5. **Observer agent + entity persistence** — After each answered turn, core invokes a second agent call that extracts decisions and assumptions. Writes to decision/assumption tables with turn linkage and dependency edges. Core yields `observer-complete` DomainEvent **post-commit** (after SQLite transaction); SSE adapter emits as typed data part on existing chat stream (in-band sync per D22). `not-started`
+   - Requirements: → SPEC.md §Requirements #5
+   - Assumptions: → SPEC.md §Assumptions A3, A4, A14 (validated by spike), A20
+   - Decisions: → SPEC.md §Decisions D22 (in-band sync — observer-complete as data part)
+   - Acceptance: answer a scope question, observer extracts decision + assumptions, dependency edges in DB, `observer-complete` event emitted post-commit with entity IDs, extraction within user think time
+   - **Verification approach**: inner — unit tests for entity writes with dependency edges, observer-complete DomainEvent emission post-commit, SSE adapter data-part encoding. Middle — differential oracle from spike fixtures (observer extraction vs golden master, ≥80% capture). Outer — debug mode: raw observer extraction visible per-turn in UI; fixture capture from confirmed-good manual runs. → SPEC.md §Oracle Strategy, §Observer History Projection, §Acknowledged Blind Spots (extraction variance, cumulative graph integrity)
+
+6. **Entity sidebar (read-only)** — React sidebar in interview workspace showing decisions, assumptions, requirements, and criteria on the active path. Tabbed display. TanStack Query (`useQuery`) for entity data; cache populated via `queryClient.setQueryData` from `useChat`'s `onData` callback when `observer-complete` data parts arrive (in-band sync per D22). Dependency edges visible. Stale badges for soft-invalidated entities. `not-started`
    - Requirements: → SPEC.md §Requirements #6
-   - Assumptions: —
+   - Assumptions: → SPEC.md §Assumptions A21
+   - Decisions: → SPEC.md §Decisions D22 (TanStack Query + in-band sync)
    - Invariants to respect: → SPEC.md §Invariants I9, I10
-   - Acceptance: entities appear in categorized tabs as interview progresses, dependency links navigable, stale badges render correctly
+   - Acceptance: entities appear in categorized tabs as interview progresses, `onData` → `setQueryData` reactively updates sidebar, dependency links navigable, stale badges render correctly
    - Ref: → docs/design/BREADBOARD.md §UI Affordances → P2 Entity sidebar
-   - **Verification approach**: inner — unit tests for entity query on active path, stale badge computation. Outer — manual visual inspection (entities render correctly, tabs work, stale badges appear). Debug mode overlay (observer extraction detail per-turn) should land here or in slice 5. → SPEC.md §Oracle Strategy (outer loop), §Acknowledged Blind Spots (cumulative graph integrity)
+   - **Verification approach**: inner — unit tests for entity query on active path, stale badge computation. Middle — validate A21: `onData` → `setQueryData` updates sidebar without stale closure (if stale, fall back to parallel `EventSource`). Outer — manual visual inspection (entities render correctly, tabs work, stale badges appear). Debug mode overlay (observer extraction detail per-turn) should land here or in slice 5. → SPEC.md §Oracle Strategy (outer loop), §Acknowledged Blind Spots (cumulative graph integrity)
 
 ## Phase 4: Full Interview
 
@@ -196,7 +219,7 @@
 ```
 Phase 1:  1 (skeleton) ──→ 2 (SQLite)
 Phase 2:  2 ──→ 3 (turn schema) ──→ 3c (Drizzle+core) ──→ 3d (routing)
-Phase 3:  3c ──→ 3b (rich chat UI) ──→ 4 (scope interview) ──→ 5 (observer)
+Phase 3:  3c ──→ 3b (rich chat UI) ──→ 4 (scope server) ──→ 4a (parts+context) ──→ 4b (client UI) ──→ 5 (observer)
           spike (observer fidelity) ──→ 5
           3d + 5 ──→ 6 (entity sidebar)
 Phase 4:  6 ──→ 7 (transitions) ──→ 8 (design) ──→ 9 (requirements) ──→ 10 (criteria)
@@ -209,7 +232,8 @@ Phase 6:  13 ──→ 14 (npx + CLI)
 ### Parallelism opportunities
 
 - ~~Slice 3b and 3d can proceed in parallel after 3c~~ (done — both landed)
-- Observer spike and slice 4 can proceed in parallel now — spike is independent, slice 4 is on the critical path
+- ~~Observer spike and slice 4 can proceed in parallel~~ (slice 4 server done — spike is next on critical path)
+- Observer spike can proceed in parallel with 4a (parts persistence)
 - Slice 7 (transitions) and 11 (branching) can start in parallel once slice 6 lands
 - Slice 12 (entity lifecycle API) can proceed in parallel with slice 11
 - Slice 14 (npx) can start early with a basic launcher, completing after slice 13
