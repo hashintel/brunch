@@ -16,7 +16,7 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
 }));
 
 const { conductTurn, extractPrompt, formatHistory } = await import('./core.js');
-const { createDb, getOrCreateProject, getActivePath } = await import('./db.js');
+const { createDb, getOrCreateProject, getActivePath, getTurn } = await import('./db.js');
 
 let db: DB;
 
@@ -361,5 +361,44 @@ describe('conductTurn', () => {
     const turns = getActivePath(db, project.id);
     expect(turns).toHaveLength(2);
     expect(turns[1].parent_turn_id).toBe(turns[0].id);
+  });
+
+  it('persists assistant_parts after stream finish', async () => {
+    mockQuery.mockReturnValue(
+      makeMockStream([
+        { type: 'stream_event', event: { type: 'message_start', message: { id: 'msg-1' } } },
+        {
+          type: 'stream_event',
+          event: {
+            type: 'content_block_delta',
+            index: 0,
+            delta: { type: 'thinking_delta', thinking: 'Let me think...' },
+          },
+        },
+        {
+          type: 'stream_event',
+          event: {
+            type: 'content_block_delta',
+            index: 1,
+            delta: { type: 'text_delta', text: 'My answer.' },
+          },
+        },
+        { type: 'stream_event', event: { type: 'message_stop' } },
+      ]),
+    );
+
+    const project = getOrCreateProject(db);
+    const events: any[] = [];
+    for await (const event of conductTurn(db, project.id, 'test')) {
+      events.push(event);
+    }
+
+    const turnCreated = events.find((e) => e.type === 'turn-created');
+    const savedTurn = getTurn(db, turnCreated.turn.id);
+    expect(savedTurn?.assistant_parts).not.toBeNull();
+
+    const parts = JSON.parse(savedTurn!.assistant_parts!);
+    expect(parts.some((p: any) => p.type === 'reasoning')).toBe(true);
+    expect(parts.some((p: any) => p.type === 'text')).toBe(true);
   });
 });

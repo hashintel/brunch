@@ -15,6 +15,13 @@
       "when": 1775048687009,
       "tag": "0001_clear_romulus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "6",
+      "when": 1775127507844,
+      "tag": "0002_bright_master_mold",
+      "breakpoints": true
     }
   ]
 }

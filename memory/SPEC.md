@@ -85,8 +85,8 @@ The architecture (layered: db → core → adapters):
 | A19 | `AsyncIterable<DomainEvent>` from core can be consumed by both SSE streaming (web) and line-by-line terminal output (CLI) without buffering issues                                                                                                                                                                        | **validated** | D19                 | Core extraction   | Validated: conductTurn() yields DomainEvents consumed by Express SSE adapter; 12 new core tests + 9 app integration tests pass                                                                                                       |
 | A20 | Observer results can be delivered as typed data parts on the existing chat SSE stream without holding the connection open unacceptably long — observer is synchronous, runs within the same `conductTurn()` request, completes during user read time                                                                        | high          | D22                 | Observer agent, Entity sidebar | Measure observer latency in slice 5; if >5s, fall back to out-of-band SSE (Option 2 in research doc)                                                                                                                                 |
 | A21 | `useChat` `onData` callback reliably bridges to `queryClient.setQueryData` without stale-closure issues — known `onFinish` stale-closure bug (ai-sdk#550) may or may not affect `onData`                                                                                                                                   | medium        | D22                 | Entity sidebar    | Test in slice 6: verify `setQueryData` from `onData` updates sidebar reactively; if stale, use parallel `EventSource` instead                                                                                                        |
-| A22 | AI SDK `UIMessage.parts[]` with custom Data Parts (typed via `dataPartsSchema`) persisted as JSON on the turn table is sufficient for faithful UI resume — no separate `turn_message` table needed for current scope                                                                                                         | high          | D23, D24            | Parts persistence | Validate by implementing parts persistence in slice 4a: hydrate `useChat` from persisted parts, verify reasoning + tool-call state round-trip on refresh                                                                              |
-| A23 | Custom Data Parts for structured user input (option selection, confirmation) can replace scalar `turn.answer` as the primary user-response model without breaking `formatHistory()` or observer context                                                                                                                      | high          | D24                 | Parts persistence | Validate in slice 4a: structured user input round-trips through persistence → hydration → re-rendering                                                                                                                               |
+| A22 | AI SDK `UIMessage.parts[]` with custom Data Parts (typed via `dataPartsSchema`) persisted as JSON on the turn table is sufficient for faithful UI resume — no separate `turn_message` table needed for current scope                                                                                                         | **validated** | D23, D24            | Parts persistence | Validated: parts assembler converts DomainEvents to typed parts, round-trips through JSON persistence (I18). Client hydration from parts deferred to 4b (outer-loop). |
+| A23 | Custom Data Parts for structured user input (option selection, confirmation) can replace scalar `turn.answer` as the primary user-response model without breaking `formatHistory()` or observer context                                                                                                                      | **validated** | D24                 | Parts persistence | Validated: Data Part schemas defined with Zod (I17), context builders read scalars not parts (I19), structured user input round-trip tested. Full UI wiring deferred to 4b. |
 
 ## Decisions
 
@@ -153,9 +153,9 @@ The architecture (layered: db → core → adapters):
 | I14 | Project-scoped API routes    | Slice 3d (routing)  | app.test.ts                      | D9      |
 | I15 | Route loader hydration       | Slice 3d (routing)  | manual (outer loop)              | D9      |
 | I16 | Schema validation on agent tool output | Slice 4 (scope interview) | interview.test.ts | D2, A13 |
-| I17 | Data Part schema validation | Slice 4a (parts persistence) | parts.test.ts | D24 |
-| I18 | Parts round-trip fidelity | Slice 4a (parts persistence) | parts.test.ts | D23 |
-| I19 | Context builder equivalence | Slice 4a (parts persistence) | context.test.ts | D25 |
+| I17 | Data Part schema validation | Slice 4a (parts persistence) | parts.test.ts (7 tests) | D24 |
+| I18 | Parts round-trip fidelity | Slice 4a (parts persistence) | parts.test.ts (8 tests), core.test.ts | D23 |
+| I19 | Context builder equivalence | Slice 4a (parts persistence) | context.test.ts (7 tests) | D25 |
 
 ## Lexicon
 
@@ -324,8 +324,10 @@ This projection difference is a deliberate design choice, not an implementation 
 | sse-adapter.test.ts | 18    | I1, I3, I7                  |
 | db.test.ts          | 24    | I5, I6, I9, I10, I11        |
 | app.test.ts         | 17    | I2, I3, I6, I7, I13, I14    |
-| core.test.ts        | 15    | I12, I13                    |
+| core.test.ts        | 16    | I12, I13, I18               |
 | interview.test.ts   | 16    | I16                         |
+| parts.test.ts       | 17    | I17, I18                    |
+| context.test.ts     | 7     | I19                         |
 
 ## Acceptance Criteria (exit conditions)
 

@@ -27,6 +27,8 @@ export const turn = sqliteTable('turn', {
   impact: text({ enum: ['high', 'medium', 'low'] }),
   answer: text(),
   is_resolution: integer({ mode: 'boolean' }).notNull().default(false),
+  user_parts: text(),
+  assistant_parts: text(),
   created_at: text()
     .notNull()
     .default(sql`(datetime('now'))`),
