@@ -392,6 +392,84 @@ describe('POST /api/projects/:id/chat — tool calls', () => {
   });
 });
 
+describe('GET /api/projects/:id — enriched state', () => {
+  it('returns turns with options after structured question', async () => {
+    const projectId = await createTestProject();
+    mockQuery.mockReturnValue(mockTextStream('Hi'));
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({ messages: [{ role: 'user', content: 'hello' }] });
+
+    // Manually add options to the turn (simulating MCP tool handler)
+    const { getActivePath, createOption } = await import('./db.js');
+    const turns = getActivePath(db, projectId);
+    createOption(db, turns[0].id, { position: 0, content: 'Option A', is_recommended: true });
+    createOption(db, turns[0].id, { position: 1, content: 'Option B' });
+
+    const res = await request(app).get(`/api/projects/${projectId}`).expect(200);
+
+    expect(res.body.turns[0].options).toBeDefined();
+    expect(res.body.turns[0].options).toHaveLength(2);
+    expect(res.body.turns[0].options[0].content).toBe('Option A');
+    expect(res.body.turns[0].options[0].is_recommended).toBe(true);
+  });
+});
+
+describe('POST /api/projects/:id/turns/:turnId/select', () => {
+  it('persists option selection and sets answer', async () => {
+    const projectId = await createTestProject();
+    mockQuery.mockReturnValue(mockTextStream('Hi'));
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({ messages: [{ role: 'user', content: 'hello' }] });
+
+    const { getActivePath, createOption, getOptionsForTurn, getTurn } = await import('./db.js');
+    const turns = getActivePath(db, projectId);
+    const turnId = turns[0].id;
+    createOption(db, turnId, { position: 0, content: 'Option A', is_recommended: true });
+    createOption(db, turnId, { position: 1, content: 'Option B' });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/turns/${turnId}/select`)
+      .send({ position: 1 })
+      .expect(200);
+
+    expect(res.body.ok).toBe(true);
+
+    const options = getOptionsForTurn(db, turnId);
+    expect(options[0].is_selected).toBe(false);
+    expect(options[1].is_selected).toBe(true);
+
+    const turn = getTurn(db, turnId);
+    expect(turn!.answer).toBe('Option B');
+    expect(turn!.user_parts).not.toBeNull();
+    const userParts = JSON.parse(turn!.user_parts!);
+    expect(userParts[0].type).toBe('data-option-selection');
+  });
+
+  it('returns 400 for missing position', async () => {
+    const projectId = await createTestProject();
+    mockQuery.mockReturnValue(mockTextStream('Hi'));
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({ messages: [{ role: 'user', content: 'hello' }] });
+
+    const { getActivePath } = await import('./db.js');
+    const turns = getActivePath(db, projectId);
+
+    await request(app).post(`/api/projects/${projectId}/turns/${turns[0].id}/select`).send({}).expect(400);
+  });
+
+  it('returns 404 for non-existent turn', async () => {
+    const projectId = await createTestProject();
+
+    await request(app).post(`/api/projects/${projectId}/turns/9999/select`).send({ position: 0 }).expect(404);
+  });
+});
+
 describe('POST /api/projects/:id/chat — turn persistence', () => {
   it('creates a turn with user answer and advances HEAD', async () => {
     const projectId = await createTestProject();

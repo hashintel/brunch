@@ -90,6 +90,8 @@ The architecture (layered: db → core → adapters):
 
 ## Decisions
 
+26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
+
 ### Domain model
 
 1. **Turn tree as version history** — The conversation is a tree, not a flat log. Each turn points to its parent. Revisiting a decision forks a new branch. `project.active_turn_id` is the HEAD pointer. The active path determines which entities are current — no snapshot tables needed. Depends on: A6. Supersedes: D5-old snapshot versioning model.

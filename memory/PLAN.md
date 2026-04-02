@@ -110,19 +110,20 @@
     - Branch: `ln/fe-555-parts-persistence`
     - **Verification approach**: inner — round-trip oracle for parts fidelity (I18); Zod schema validation on Data Parts (I17); unit tests for context builder output shape and equivalence (I19). → SPEC.md §Oracle Strategy (inner: fast unit tests — parts). Middle — integration: full `conductTurn()` → parts persisted → reload → hydration matches live state. Outer — manual resume test via `/cli-cdp` (reasoning + tool states visible on refresh). → SPEC.md §Acknowledged Blind Spots (parts/scalar consistency).
 
-4b. **Structured interview: client UI** — Turn card rendering (question + options + grounding + impact badge). Option selection UI using `data-option-selection` Data Part (persist `is_selected` + structured answer). Outer-loop visual verification via `/cli-cdp`. `not-started`
+4b. **Structured interview: client UI** `FE-556` — Turn card rendering (question + options + grounding + impact badge). Option selection UI using `data-option-selection` Data Part (persist `is_selected` + structured answer). Enriched API: turns with options + validated parts deserialization. Hydration from `assistant_parts`. Outer-loop visual verification via `/cli-cdp`. Also addresses review findings: validated deserialization (review #1) and DB lifecycle parts round-trip test (review #2). `in-progress`
     - Requirements: → SPEC.md §Requirements #2, #3
     - Assumptions: → SPEC.md §Assumptions A22, A23
     - Decisions: → SPEC.md §Decisions D23, D24
+    - Invariants established: → SPEC.md §Invariants I17 (strengthened), I18 (strengthened)
     - Invariants respected: → SPEC.md §Invariants I1, I16
-    - Acceptance: turn card rendering (question text, option list, grounding block, impact badge); option selection persists as `data-option-selection` Data Part in `user_parts` + `is_selected` on option row; outer-loop visual verification via `/cli-cdp`
-    - Branch: `ln/fe-554-structured-interview` (continues current branch)
-    - **Verification approach**: outer — manual interview walkthrough, assess rendering quality and option selection flow. → SPEC.md §Acknowledged Blind Spots (interview quality)
+    - Acceptance: enriched API returns turns with options + validated parts; turn card rendering; option selection persists as data-option-selection + is_selected; hydration from assistant_parts; refresh preserves state; outer-loop visual verification via `/cli-cdp`
+    - Branch: `ln/fe-556-interview-client-ui`
+    - **Verification approach**: inner — validated deserialization rejects malformed JSON (I17 strengthened); DB lifecycle round-trip covers parts (I18 strengthened); unit tests for select endpoint. Outer — manual interview walkthrough via `/cli-cdp`. → SPEC.md §Acknowledged Blind Spots (interview quality)
 
-5. **Observer agent + entity persistence** — After each answered turn, core invokes a second agent call that extracts decisions and assumptions. Writes to decision/assumption tables with turn linkage and dependency edges. Core yields `observer-complete` DomainEvent **post-commit** (after SQLite transaction); SSE adapter emits as typed data part on existing chat stream (in-band sync per D22). `not-started`
+5. **Observer agent + entity persistence** — After each answered turn, core invokes a second agent call that extracts decisions and assumptions. Writes to decision/assumption tables with turn linkage and dependency edges. Core yields `observer-complete` DomainEvent **post-commit** (after SQLite transaction); SSE adapter emits as typed data part on existing chat stream (in-band sync per D22). Context builders upgraded to use `md-pen` for structured entity rendering (tables, checklists) in observer context. `not-started`
    - Requirements: → SPEC.md §Requirements #5
    - Assumptions: → SPEC.md §Assumptions A3, A4, A14 (validated by spike), A20
-   - Decisions: → SPEC.md §Decisions D22 (in-band sync — observer-complete as data part)
+   - Decisions: → SPEC.md §Decisions D22 (in-band sync — observer-complete as data part), D26 (md-pen for markdown rendering)
    - Acceptance: answer a scope question, observer extracts decision + assumptions, dependency edges in DB, `observer-complete` event emitted post-commit with entity IDs, extraction within user think time
    - **Verification approach**: inner — unit tests for entity writes with dependency edges, observer-complete DomainEvent emission post-commit, SSE adapter data-part encoding. Middle — differential oracle from spike fixtures (observer extraction vs golden master, ≥80% capture). Outer — debug mode: raw observer extraction visible per-turn in UI; fixture capture from confirmed-good manual runs. → SPEC.md §Oracle Strategy, §Observer History Projection, §Acknowledged Blind Spots (extraction variance, cumulative graph integrity)
 

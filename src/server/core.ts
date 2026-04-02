@@ -197,11 +197,15 @@ export async function* conductTurn(
   }
 }
 
-/** Get project state: project + active path turns. */
+/** Get project state: project + active path turns enriched with options. */
 export function getProjectState(db: DB, projectId: number) {
   const project = getProject(db, projectId);
   if (!project) return null;
-  const turns = getActivePath(db, projectId);
+  const rawTurns = getActivePath(db, projectId);
+  const turns = rawTurns.map((t) => ({
+    ...t,
+    options: getOptionsForTurn(db, t.id),
+  }));
   return { project, turns };
 }
 

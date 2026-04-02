@@ -2,7 +2,8 @@ import express from 'express';
 import type { Request, Response } from 'express';
 
 import { conductTurn, extractPrompt, getProjectState, listProjectStates, createNewProject } from './core.js';
-import { createDb } from './db.js';
+import { createDb, getTurn, getOptionsForTurn, selectOption, updateTurn } from './db.js';
+import { serializeParts, type DataOptionSelectionPart } from './parts.js';
 import { createDomainAdapter, formatSSE } from './sse-adapter.js';
 
 export function createApp(dbPath?: string) {
@@ -39,6 +40,45 @@ export function createApp(dbPath?: string) {
       return;
     }
     res.json(state);
+  });
+
+  // Select an option on a turn
+  app.post('/api/projects/:id/turns/:turnId/select', (req: Request, res: Response) => {
+    const projectId = Number(req.params.id);
+    const turnId = Number(req.params.turnId);
+    const position = req.body?.position;
+
+    if (Number.isNaN(projectId) || Number.isNaN(turnId)) {
+      res.status(400).json({ error: 'Invalid IDs' });
+      return;
+    }
+    if (typeof position !== 'number') {
+      res.status(400).json({ error: 'position is required (number)' });
+      return;
+    }
+
+    const turn = getTurn(db, turnId);
+    if (!turn || turn.project_id !== projectId) {
+      res.status(404).json({ error: 'Turn not found' });
+      return;
+    }
+
+    selectOption(db, turnId, position);
+
+    const options = getOptionsForTurn(db, turnId);
+    const selected = options.find((o) => o.position === position);
+
+    const dataPart: DataOptionSelectionPart = {
+      type: 'data-option-selection',
+      data: { turnId, selectedOptionId: position },
+    };
+
+    updateTurn(db, turnId, {
+      answer: selected?.content ?? '',
+      user_parts: serializeParts([dataPart]),
+    });
+
+    res.json({ ok: true });
   });
 
   // Conduct turn for a specific project

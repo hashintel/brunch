@@ -327,6 +327,38 @@ describe('getProject', () => {
   });
 });
 
+describe('DB lifecycle — parts persistence', () => {
+  it('create → persist parts → close → reopen → parts intact', () => {
+    const dir = join(tmpdir(), `brunch-test-${randomUUID()}`);
+    mkdirSync(dir, { recursive: true });
+    const dbPath = join(dir, 'parts-lifecycle.db');
+
+    const db1 = createDb(dbPath);
+    const project = getOrCreateProject(db1);
+    const turn = createTurn(db1, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+    const parts = JSON.stringify([
+      { type: 'reasoning', text: 'thinking' },
+      { type: 'text', text: 'answer' },
+    ]);
+    const userParts = JSON.stringify([
+      { type: 'data-option-selection', data: { turnId: turn.id, selectedOptionId: 0 } },
+    ]);
+    updateTurn(db1, turn.id, { assistant_parts: parts, user_parts: userParts });
+    advanceHead(db1, project.id, turn.id);
+    db1.$client.close();
+
+    const db2 = createDb(dbPath);
+    const reopened = getOrCreateProject(db2);
+    const path = getActivePath(db2, reopened.id);
+    expect(path).toHaveLength(1);
+    expect(path[0].assistant_parts).toBe(parts);
+    expect(path[0].user_parts).toBe(userParts);
+    db2.$client.close();
+
+    unlinkSync(dbPath);
+  });
+});
+
 describe('DB lifecycle — turn tree persistence', () => {
   it('create → persist turns → close → reopen → state intact', () => {
     const dir = join(tmpdir(), `brunch-test-${randomUUID()}`);

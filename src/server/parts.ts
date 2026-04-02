@@ -131,3 +131,24 @@ export function deserializeAssistantParts(json: string): AssistantPart[] {
 export function deserializeUserParts(json: string): UserPart[] {
   return JSON.parse(json) as UserPart[];
 }
+
+/** Safe deserialization — returns empty array for malformed or null input. */
+export function safeDeserializeAssistantParts(json: string | null | undefined): AssistantPart[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? (parsed as AssistantPart[]) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function safeDeserializeUserParts(json: string | null | undefined): UserPart[] {
+  if (!json) return [];
+  try {
+    const parsed = JSON.parse(json);
+    return Array.isArray(parsed) ? (parsed as UserPart[]) : [];
+  } catch {
+    return [];
+  }
+}
