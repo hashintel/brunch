@@ -1,4 +1,3 @@
-import { buildInterviewerContext } from './context.js';
 import {
   getProject,
   getActivePath,
@@ -54,14 +53,6 @@ export function extractPrompt(messages: unknown[]): string {
 /** Turn with optional options for richer history formatting. */
 export interface TurnWithOptions extends Turn {
   options?: Array<{ content: string; is_recommended: boolean; is_selected: boolean }>;
-}
-
-/**
- * Format conversation history from active-path turns for multi-turn context.
- * @deprecated Use buildInterviewerContext from context.ts directly.
- */
-export function formatHistory(turns: TurnWithOptions[], currentPrompt: string): string {
-  return buildInterviewerContext(turns, currentPrompt);
 }
 
 /**
