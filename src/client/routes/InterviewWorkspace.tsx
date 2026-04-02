@@ -193,13 +193,14 @@ export function InterviewWorkspace() {
   const isLoading = status === 'submitted' || status === 'streaming';
   const prevStatusRef = useRef(status);
 
-  // Invalidate entities query when chat finishes (observer has persisted entities)
+  // Refresh data when chat finishes: entities (observer) + turns (ask_question TurnCard)
   useEffect(() => {
     if (prevStatusRef.current === 'streaming' && status === 'ready') {
       void queryClient.invalidateQueries({ queryKey: ['entities', Number(id)] });
+      void router.invalidate(); // Refresh turn data so TurnCard appears after ask_question
     }
     prevStatusRef.current = status;
-  }, [status, queryClient, id]);
+  }, [status, queryClient, id, router]);
 
   useEffect(() => {
     setMessages(hydrateMessages(turns));
