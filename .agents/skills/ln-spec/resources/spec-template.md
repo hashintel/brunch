@@ -74,10 +74,9 @@
 
 ## Verification Design
 
-<!-- Three-tier feedback loops, cheapest first.
-     Inner: agent-autonomous, always-on (ms–seconds).
-     Middle: regression gates (seconds–minutes).
-     Outer: human observer, strategy redirect (minutes–hours). -->
+<!-- Verification is first-class work. ln-spec owns the inner loop (commands, policy,
+     inner-loop oracle items). ln-oracles owns the middle/outer loop strategy, diagnostic
+     assessment, and blind spots. See ln-oracles SKILL.md for the boundary. -->
 
 ### Verification Commands
 
@@ -90,14 +89,19 @@
 | 2    | Unit tests     | [command]   |
 | 3    | Build          | [command]   |
 
-### Feedback Loops
+### Verification Policy
 
-- **Inner loop** (ms–seconds): type checks, fast unit tests, linting — agent-autonomous, always-on
-  - [specific test description] → protects [I#]
-- **Middle loop** (seconds–minutes): integration tests, contract tests, property tests — regression gates
-  - [specific test description] → protects [I#]
-- **Outer loop** (minutes–hours): e2e tests, visual review, human observer — strategy redirect
-  - [specific test description]
+<!-- General verification policy — e.g. "slices must be user-testable." -->
+
+<!-- === Sections below are written by ln-oracles, not ln-spec ===
+     When running ln-spec, preserve these sections if they exist.
+
+### Verification Stance
+### Diagnostic Assessment
+### Oracle Strategy by Loop Tier (inner items from ln-spec, middle/outer from ln-oracles)
+### Design notes (project-specific oracle design decisions)
+### Acknowledged Blind Spots
+-->
 
 ### Current Coverage
 

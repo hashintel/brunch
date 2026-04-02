@@ -14,11 +14,13 @@ A scope card from `ln-scope`: $ARGUMENTS
 
 The canonical path is `ln-scope` → `ln-build`. If no scope card exists, suggest `ln-scope` first. Accept a raw behavior description only for trivial changes where scoping would be ceremony.
 
-Extract: target behavior, boundary crossings, and acceptance criteria.
+Extract: target behavior, boundary crossings, acceptance criteria, and **verification approach**.
 
 ## Red
 
-Translate acceptance criteria into failing tests. Run them. Confirm each fails for the expected reason — a test that fails with an error is not red, it is broken.
+Translate acceptance criteria into failing tests. If the scope card includes a verification approach, the oracle strategy informs test design — schema validation oracles become Zod parse assertions, differential oracles become golden master comparisons, round-trip oracles become persist-then-query cycles.
+
+Run them. Confirm each fails for the expected reason — a test that fails with an error is not red, it is broken.
 
 If tests pass unexpectedly, the scope was wrong. Tighten assertions or revisit `ln-scope`.
 

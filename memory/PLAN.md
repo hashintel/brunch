@@ -58,11 +58,13 @@
     - Acceptance: 51 tests pass (39 existing + 12 new core tests); Drizzle migrate() auto-applies at startup; conductTurn() yields DomainEvents consumed by Express adapter via createDomainAdapter()
     - Branch: `ln/fe-552-drizzle-core-extraction`
 
-3d. **Multi-project routing** `FE-553` — Install `@tanstack/react-router`. Three client routes: project list (`/`), interview workspace (`/project/:id`), export preview (`/project/:id/export`). Route loaders replace `useEffect` hydration. Server API becomes project-scoped (`/api/projects/:id/...`). Project list page with phase badges. `not-started`
+3d. **Multi-project routing** `FE-553` — TanStack Router with three routes: project list (`/`), interview workspace (`/project/:id`), export preview placeholder (`/project/:id/export`). Route loaders replace `useEffect` hydration. Server API project-scoped (`/api/projects`, `/api/projects/:id`, `/api/projects/:id/chat`). `done`
     - Requirements: → SPEC.md §Requirements #1, #15
     - Decisions: → SPEC.md §Decisions D9 (updated)
-    - Invariants to respect: → SPEC.md §Invariants I1, I2, I3, I6, I9, I10
-    - Acceptance: navigate between project list and interview workspace; create new project from list; project-scoped API routes work; route loaders fetch data on navigation
+    - Invariants established: → SPEC.md §Invariants I14, I15
+    - Invariants respected: → SPEC.md §Invariants I1, I2, I3, I6, I9, I10
+    - Acceptance: 72 tests pass (11 new: 6 db, 5 app); project-scoped API routes; TanStack Router with code-based routing; route loaders fetch data; DefaultChatTransport for project-scoped chat endpoint
+    - Branch: `ln/fe-553-multi-project-routing`
     - Ref: → docs/design/BREADBOARD.md §Places, §Wiring
 
 ## Phase 3: Interview Engine
@@ -77,15 +79,16 @@
    - Assumptions: → SPEC.md §Assumptions A14, A3
    - Time box: 2 hours
    - Success: ≥80% of expected entities captured with correct dependency edges across 5+ fixture turns
+   - **Verification approach**: differential oracle — fixture turns (input) → observer extraction (output) → compare against hand-labeled golden master. Spike must produce ≥5 reusable fixtures with expected entities as proof artifact. → SPEC.md §Oracle Strategy (middle loop), §Observer History Projection
 
 ### Slices
 
-3b. **Rich chat UI: tool calls + reasoning rendering** `FE-541` — Extend SSE adapter to emit tool-call events for SDK `tool_use` content blocks. Install AI Elements components (`Tool`, `Reasoning`, `ChainOfThought`, `Message`, `PromptInput`) via `npx ai-elements`, restyle to match brunch design. Replace hand-rolled message rendering with part-type switching. `not-started`
+3b. **Rich chat UI: tool calls + reasoning rendering** `FE-541` — Extend SSE adapter and core to emit tool-call lifecycle events for SDK `tool_use` content blocks. Part-type rendering for tool calls (with state indicator) and reasoning (collapsible block). AI Elements deferred — hand-built rendering sufficient for now. `done`
     - Requirements: → SPEC.md §Requirements #4
-    - Assumptions: → SPEC.md §Assumptions A16, A17
-    - Invariants to establish: → SPEC.md §Invariants I7, I8
-    - Invariants to respect: → SPEC.md §Invariants I1, I2, I3
-    - Acceptance: send a message that triggers tool use, see tool call with state transitions, reasoning in collapsible block, all via AI Elements. SSE adapter tests cover tool_use content blocks.
+    - Assumptions: → SPEC.md §Assumptions A16 (partially validated — SSE + client work, browser outer-loop pending), A17 (not yet tested — AI Elements not installed)
+    - Invariants established: → SPEC.md §Invariants I7
+    - Invariants respected: → SPEC.md §Invariants I1, I2, I3
+    - Acceptance: 61 tests pass (10 new: 6 SSE adapter, 3 core, 1 app integration); tool-call-streaming-start/delta/tool-call SSE events emitted for SDK tool_use blocks; client renders dynamic-tool parts with state labels
     - Branch: `ln/fe-541-rich-chat-ui`
 
 4. **Structured interview: scope phase** — Replace flat chat with structured turns. Implement the scope phase as an agent skill — the agent generates a question with options, grounding ("why this matters"), and impact signal. User selects an option or types a response. Turn persists with phase provenance. UI renders the turn card (question + options + grounding). `not-started`
@@ -93,11 +96,13 @@
    - Assumptions: → SPEC.md §Assumptions A7, A13
    - Invariants to respect: → SPEC.md §Invariants I1, I2, I3, I5, I6
    - Acceptance: start a project, agent asks structured scope questions with options and grounding, user answers, turns persist with parent chain
+   - **Verification approach**: inner — schema validation on agent tool output (Zod parse, establishes I16); unit tests for phase-tagged turn persistence. Middle — round-trip: structured turn → persist → active path query → verify phase provenance intact. Outer — manual interview walkthrough, assess question quality. → SPEC.md §Oracle Strategy, §Acknowledged Blind Spots (interview quality)
 
 5. **Observer agent + entity persistence** — After each answered turn, core invokes a second agent call that extracts decisions and assumptions. Writes to decision/assumption tables with turn linkage and dependency edges. Core yields `observer-complete` DomainEvent; web adapter signals client to refetch entities. `not-started`
    - Requirements: → SPEC.md §Requirements #5
    - Assumptions: → SPEC.md §Assumptions A3, A4, A14 (validated by spike)
    - Acceptance: answer a scope question, observer extracts decision + assumptions, dependency edges in DB, extraction within user think time, sidebar refetch triggered
+   - **Verification approach**: inner — unit tests for entity writes with dependency edges, observer-complete DomainEvent emission. Middle — differential oracle from spike fixtures (observer extraction vs golden master, ≥80% capture). Outer — debug mode: raw observer extraction visible per-turn in UI; fixture capture from confirmed-good manual runs. → SPEC.md §Oracle Strategy, §Observer History Projection, §Acknowledged Blind Spots (extraction variance, cumulative graph integrity)
 
 6. **Entity sidebar (read-only)** — React sidebar in interview workspace showing decisions, assumptions, requirements, and criteria on the active path. Tabbed display. Updates after each observer extraction via `observer-complete` event. Dependency edges visible. Stale badges for soft-invalidated entities. `not-started`
    - Requirements: → SPEC.md §Requirements #6
@@ -105,6 +110,7 @@
    - Invariants to respect: → SPEC.md §Invariants I9, I10
    - Acceptance: entities appear in categorized tabs as interview progresses, dependency links navigable, stale badges render correctly
    - Ref: → docs/design/BREADBOARD.md §UI Affordances → P2 Entity sidebar
+   - **Verification approach**: inner — unit tests for entity query on active path, stale badge computation. Outer — manual visual inspection (entities render correctly, tabs work, stale badges appear). Debug mode overlay (observer extraction detail per-turn) should land here or in slice 5. → SPEC.md §Oracle Strategy (outer loop), §Acknowledged Blind Spots (cumulative graph integrity)
 
 ## Phase 4: Full Interview
 
@@ -202,8 +208,8 @@ Phase 6:  13 ──→ 14 (npx + CLI)
 
 ### Parallelism opportunities
 
-- Slice 3b (rich chat UI) and 3d (routing) can proceed in parallel after 3c lands
-- Observer spike can proceed any time after slice 3 — independent of 3c/3d
+- ~~Slice 3b and 3d can proceed in parallel after 3c~~ (done — both landed)
+- Observer spike and slice 4 can proceed in parallel now — spike is independent, slice 4 is on the critical path
 - Slice 7 (transitions) and 11 (branching) can start in parallel once slice 6 lands
 - Slice 12 (entity lifecycle API) can proceed in parallel with slice 11
 - Slice 14 (npx) can start early with a basic launcher, completing after slice 13

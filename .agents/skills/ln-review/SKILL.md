@@ -22,6 +22,17 @@ Check the functional core / imperative shell boundary (Gary Bernhardt, "Boundari
 
 Make invalid states unrepresentable (Yaron Minsky). Split optional fields into distinct types. Use branded types for domain-distinct values.
 
+### Oracle coverage
+
+If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent slices implemented the oracles their scope cards declared. Look for:
+
+- Scope card promised schema validation → is there a Zod parse in the test?
+- Scope card promised differential oracle → are there golden master fixtures?
+- Scope card promised round-trip oracle → is there a persist-then-query test?
+- SPEC.md §Acknowledged Blind Spots → has anything changed that should promote a blind spot to "needs an oracle now"?
+
+Collect gaps as numbered findings (category: `oracle-coverage`).
+
 ### Lexicon alignment
 
 If `memory/SPEC.md` exists, survey how §Lexicon terms (both method and domain) appear across:

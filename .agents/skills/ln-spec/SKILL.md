@@ -28,6 +28,10 @@ The feature or problem: $ARGUMENTS
 
 Write or update `./memory/SPEC.md` following the template at `@resources/spec-template.md`. If the file already exists, read it first — preserve existing content, evolve sections that need change.
 
+### Verification Design boundary
+
+ln-spec owns the **inner loop** of verification design: verification commands, verification policy, and inner-loop oracle items (type checks, fast unit tests, linting). Middle and outer loop oracle strategy, diagnostic assessment, and blind spots are owned by `ln-oracles`. When writing or updating §Verification Design, preserve any content written by ln-oracles (§Verification Stance, §Diagnostic Assessment, §Oracle Strategy middle/outer tiers, §Design notes, §Acknowledged Blind Spots).
+
 ### Traceability
 
 If `memory/PLAN.md` exists, verify that changed assumptions and decisions still align with affected slices.
@@ -40,19 +44,20 @@ Every amendment must close its reference chain. After editing, verify:
 - **New decision** → has: dependent assumption(s), supersession note
 - **New invariant** → has: establishing slice in PLAN.md, protecting test (or `manual (outer loop)`), proved decision
 - **New constraint** → has: rationale for exclusion
-- **New feedback loop item** → names the invariant(s) it protects
+- **New inner-loop oracle item** → names the invariant(s) it protects
 
 ## Routing
 
 After filing the spec, present these options to the user (use `tool-ask-question`):
 
-| #   | Label          | Target       | Why                                          |
-| --- | -------------- | ------------ | -------------------------------------------- |
-| 1   | Plan slices    | `ln-plan`    | Spec is complete, break it into slices       |
-| 2   | Grill it more  | `ln-grill`   | Spec has gaps that need deeper understanding |
-| 3   | Back to triage | `ln-consult` | Direction needs reassessment                 |
+| #   | Label            | Target        | Why                                               |
+| --- | ---------------- | ------------- | ------------------------------------------------- |
+| 1   | Plan slices      | `ln-plan`     | Spec is complete, break it into slices            |
+| 2   | Design oracles   | `ln-oracles`  | Spec needs middle/outer loop verification design  |
+| 3   | Grill it more    | `ln-grill`    | Spec has gaps that need deeper understanding      |
+| 4   | Back to triage   | `ln-consult`  | Direction needs reassessment                      |
 
-Recommended: **1**
+Recommended: **1** (then **2** after planning, or **2** now if verification is the pressing concern)
 
 ---
 *Adapted from [mattpocock/skills/write-a-prd](https://github.com/mattpocock/skills/tree/main/write-a-prd).*
