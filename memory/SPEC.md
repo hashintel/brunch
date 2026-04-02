@@ -169,6 +169,7 @@ The architecture (layered: db → core → adapters):
 | I20 | Entity persistence with turn linkage | Slice 5 (observer) | db.test.ts (7 tests), observer.test.ts | D4, D5 |
 | I21 | Observer-complete post-commit | Slice 5 (observer) | observer.test.ts (6 tests), sse-adapter.test.ts (3 tests) | D22 |
 | I22 | Agent generator composition | Slice 5 (observer) | core.test.ts, sdk.test.ts (7 tests) | D27 |
+| I23 | Entity sidebar reactive update | Slice 6 (sidebar) | app.test.ts (2 tests), manual (outer loop) | D22 |
 
 ## Lexicon
 

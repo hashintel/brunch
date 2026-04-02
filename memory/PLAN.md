@@ -139,12 +139,14 @@
    - Branch: `ln/fe-537-observer-agent`
    - **Verification approach**: inner — unit tests for entity writes with dependency edges, observer-complete DomainEvent emission post-commit, SSE adapter data-part encoding, sdk translateStreamEvents parity, observer-error non-fatality, agent-metrics shape. Middle — differential oracle from spike fixtures (deferred to manual testing). Outer — debug mode and fixture capture (deferred to slice 6). → SPEC.md §Oracle Strategy
 
-6. **Entity sidebar (read-only)** — React sidebar in interview workspace showing decisions, assumptions, requirements, and criteria on the active path. Tabbed display. TanStack Query (`useQuery`) for entity data; cache populated via `queryClient.setQueryData` from `useChat`'s `onData` callback when `observer-complete` data parts arrive (in-band sync per D22). Dependency edges visible. Stale badges for soft-invalidated entities. `not-started`
+6. **Entity sidebar (read-only)** `FE-538` — React sidebar in interview workspace showing decisions and assumptions in categorized tabs. TanStack Query manages entity state via `useQuery`; cache invalidated on chat stream completion (status transition `streaming` → `ready`). Entities API at `GET /api/projects/:id/entities`. Note: `onData` → `setQueryData` bridge from D22 not used — AI SDK `useChat` doesn't expose an `onData` callback for custom data parts; status-based invalidation used instead. Dependency edge display and stale badges deferred (require slices 11/12 infrastructure). `done`
    - Requirements: → SPEC.md §Requirements #6
-   - Assumptions: → SPEC.md §Assumptions A21
-   - Decisions: → SPEC.md §Decisions D22 (TanStack Query + in-band sync)
-   - Invariants to respect: → SPEC.md §Invariants I9, I10
-   - Acceptance: entities appear in categorized tabs as interview progresses, `onData` → `setQueryData` reactively updates sidebar, dependency links navigable, stale badges render correctly
+   - Assumptions: → SPEC.md §Assumptions A21 (partially validated — status-based invalidation works; onData bridge not needed)
+   - Decisions: → SPEC.md §Decisions D22 (TanStack Query — yes; in-band onData sync — replaced with status-based invalidation)
+   - Invariants established: → SPEC.md §Invariants I23
+   - Invariants respected: → SPEC.md §Invariants I9, I10, I14, I20, I21
+   - Acceptance: 149 tests (2 new API tests); entities API returns decisions + assumptions; sidebar renders in categorized tabs; TanStack Query cache invalidated on stream completion; entities appear as interview progresses
+   - Branch: `ln/fe-538-entity-sidebar`
    - Ref: → docs/design/BREADBOARD.md §UI Affordances → P2 Entity sidebar
    - **Verification approach**: inner — unit tests for entity query on active path, stale badge computation. Middle — validate A21: `onData` → `setQueryData` updates sidebar without stale closure (if stale, fall back to parallel `EventSource`). Outer — manual visual inspection (entities render correctly, tabs work, stale badges appear). Debug mode overlay (observer extraction detail per-turn) should land here or in slice 5. → SPEC.md §Oracle Strategy (outer loop), §Acknowledged Blind Spots (cumulative graph integrity)
 
