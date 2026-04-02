@@ -18,20 +18,21 @@ The core data model:
 - **Assumption graph** — Assumptions are the falsifiable beliefs that decisions rest on. They have their own dependency structure (assumptions can rest on prior assumptions).
 - **Requirements & criteria** — Downstream projections. Requirements accumulate during the decision drill-down and are reviewed in a dedicated phase. Criteria are proposed against confirmed requirements.
 
-The architecture:
+The architecture (layered: db → core → adapters):
 
-- **Agent engine**: Claude Agent SDK (`query()`) — tool use, MCP, session resume, subagents, permissions, rich streaming events. Each interview phase is an agent skill.
-- **Observer agent**: Separate extraction call after each turn — captures decisions, assumptions, and their dependency edges
-- **Server**: Express.js — iterates SDK messages, translates to AI SDK's UI Message Stream SSE protocol. No AI SDK runtime server-side
-- **Transport**: AI SDK UI Message Stream protocol (SSE with typed JSON events)
-- **Client**: React + Vite + `@ai-sdk/react` `useChat` hook — consumes SSE natively
-- **Database**: SQLite via `better-sqlite3` — zero-config, embedded
+- **Database**: SQLite via Drizzle ORM + `better-sqlite3` — TypeScript schema is single source of truth for types, DDL, and migrations. Auto-applies at startup.
+- **Core**: Interface-agnostic service layer — turn tree operations, interview orchestration, entity lifecycle, observer, phase management, export. `conductTurn()` returns `AsyncIterable<DomainEvent>` for streaming. No transport knowledge.
+- **Agent engine**: Claude Agent SDK (`query()`) — tool use, MCP, session resume, subagents, permissions, rich streaming events. Each interview phase is an agent skill. Called by core, not by adapters.
+- **Observer agent**: Separate extraction call after each turn — captures decisions, assumptions, and their dependency edges. Invoked by core after turn completion.
+- **Web adapter**: Express.js translates `DomainEvent` stream to AI SDK UI Message Stream SSE. React + Vite + `@ai-sdk/react` `useChat` client.
+- **CLI adapter**: (future) Terminal I/O consuming the same `DomainEvent` stream
+- **MCP adapter**: (future) MCP server exposing core operations as tools
 - **Output**: Flattened markdown spec exported on demand from the active path's entities
 
 ## Constraints & Non-goals
 
 - **Anthropic-only** — no multi-provider support (OpenAI, Gemini, Ollama)
-- **No belief invalidation cascading** — revisiting a decision soft-invalidates downstream (flags for review), but there is no automatic runtime propagation through the graph
+- **No automatic deletion cascading** — invalidation flags entities for review but does not delete or modify them. Two mechanisms: path exclusion (lazy, via HEAD movement) and flag propagation (eager, via dependency graph walk). See D17
 - **No task planning** — consumers of the spec, not part of this tool
 - **No exploratory pathway** — assumes user has a reasonably defined goal
 - **Single-user** — no collaborative editing
@@ -60,25 +61,27 @@ The architecture:
 
 ## Assumptions
 
-| #   | Assumption                                                                                                                        | Confidence | Dependent decisions | Implicated slices          | Validation approach                                            |
-| --- | --------------------------------------------------------------------------------------------------------------------------------- | ---------- | ------------------- | -------------------------- | -------------------------------------------------------------- |
-| A1  | AI SDK's UI Message Stream SSE protocol is documented and stable enough to emit conformantly without importing AI SDK server-side | **validated** | D8                | Walking skeleton           | Validated: skeleton emits conformant SSE, 15 tests pass        |
-| A2  | Claude Agent SDK `query()` with `includePartialMessages` provides all streaming event types needed for CLI-quality feedback       | **validated** | D8                | Walking skeleton           | Validated: adapter translates stream_event messages correctly  |
-| A3  | Separating interviewer from observer produces better interview quality than inline tool calling                                   | medium     | D1                  | Observer agent             | Compare interview coherence with and without tool-calling load |
-| A4  | Observer extraction completes in 1-3s during user read/think time (10-60s), adding zero perceived latency                         | medium     | D1                  | Observer agent             | Measure extraction latency with realistic turn payloads        |
-| A5  | `better-sqlite3` npm prebuilt binary works across macOS/Linux without native compilation issues                                   | **validated** | D7                | SQLite foundation          | Validated: installed on macOS without native compilation issues |
-| A6  | Turn-tree branching in SQLite is sufficient for decision revisit and undo in a single-user tool                                   | high       | D7                  | Turn tree                  | Validate with realistic branch/merge scenarios                 |
-| A7  | Users arriving at the tool have a reasonably defined goal                                                                         | medium     | —                   | Scope phase                | User testing; exploratory pathway deferred if false            |
-| A8  | A single Express port serving API + static assets is sufficient for npx distribution                                              | **validated** | D10                | npx distribution           | Validated: Vite proxy to Express works in dev; single port     |
-| A9  | TanStack AI is too immature for a deliverable (alpha, v0)                                                                         | medium     | D9                  | —                          | Re-evaluate if AI SDK becomes constraining                     |
-| A10 | The `useChat` hook can consume custom SSE without AI SDK server runtime                                                           | **validated** | D9                | Walking skeleton           | Validated: useChat consumes custom SSE via DefaultChatTransport |
-| A11 | Stateless `query()` with prompt-stuffed history is sufficient for multi-turn interviewing — SDK session persistence is unnecessary and undesirable | **validated** | D8, D12           | SQLite foundation          | Validated: formatting history into prompt works. SDK sessions rejected as competing source of truth — opaque, machine-local, incompatible with portable data goals (atomic YAML / git-versionable). Turn tree is sole session model. |
-| A12 | `useChat` hook accepts initial messages to hydrate conversation state from server-stored history                                    | **validated** | D9                | SQLite foundation          | Validated: `useChat` doesn't have `initialMessages` prop but `setMessages` works for hydration |
-| A13 | Claude Agent SDK supports defining interview phases as agent skills with distinct system prompts and tool sets                      | medium     | D2                  | Interview phases           | Test SDK skill/agent configuration API                         |
-| A14 | A second-thread observer agent can reliably extract decisions, assumptions, and dependency edges from a single turn's Q&A          | medium     | D1                  | Observer agent             | Probe with realistic interview exchanges; measure extraction fidelity |
-| A15 | The LLM can reliably judge when a phase interview has reached sufficient understanding (is_resolution)                             | medium     | D3                  | Phase resolution           | Probe across varied project types; measure false-positive resolution rate |
-| A16 | AI SDK `useChat` hook's `ToolUIPart` state machine (`input-streaming` → `input-available` → `output-available` / `output-error` / `approval-requested` → `approval-responded` / `output-denied`) models all permutations of pending, error, and success for both interim (thinking, tool calls) and final (response) data | high | D14 | Rich chat UI | Validate by extending SSE adapter to emit tool-call events, confirm `useChat` surfaces all states |
-| A17 | AI Elements copy-paste components can be restyled without forking — they are ownable source files, not npm-locked dependencies      | high       | D14                 | Rich chat UI               | Install via CLI, inspect source, confirm no hidden npm runtime dependency |
+| #   | Assumption                                                                                                                                                                                                                                                                                                                | Confidence    | Dependent decisions | Implicated slices | Validation approach                                                                                                                                                                                                                  |
+| --- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | ------------------- | ----------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| A1  | AI SDK's UI Message Stream SSE protocol is documented and stable enough to emit conformantly without importing AI SDK server-side                                                                                                                                                                                         | **validated** | D8                  | Walking skeleton  | Validated: skeleton emits conformant SSE, 15 tests pass                                                                                                                                                                              |
+| A2  | Claude Agent SDK `query()` with `includePartialMessages` provides all streaming event types needed for CLI-quality feedback                                                                                                                                                                                               | **validated** | D8                  | Walking skeleton  | Validated: adapter translates stream_event messages correctly                                                                                                                                                                        |
+| A3  | Separating interviewer from observer produces better interview quality than inline tool calling                                                                                                                                                                                                                           | medium        | D1                  | Observer agent    | Compare interview coherence with and without tool-calling load                                                                                                                                                                       |
+| A4  | Observer extraction completes in 1-3s during user read/think time (10-60s), adding zero perceived latency                                                                                                                                                                                                                 | medium        | D1                  | Observer agent    | Measure extraction latency with realistic turn payloads                                                                                                                                                                              |
+| A5  | `better-sqlite3` npm prebuilt binary works across macOS/Linux without native compilation issues                                                                                                                                                                                                                           | **validated** | D7                  | SQLite foundation | Validated: installed on macOS without native compilation issues                                                                                                                                                                      |
+| A6  | Turn-tree branching in SQLite is sufficient for decision revisit and undo in a single-user tool                                                                                                                                                                                                                           | high          | D7                  | Turn tree         | Validate with realistic branch/merge scenarios                                                                                                                                                                                       |
+| A7  | Users arriving at the tool have a reasonably defined goal                                                                                                                                                                                                                                                                 | medium        | —                   | Scope phase       | User testing; exploratory pathway deferred if false                                                                                                                                                                                  |
+| A8  | A single Express port serving API + static assets is sufficient for npx distribution                                                                                                                                                                                                                                      | **validated** | D10                 | npx distribution  | Validated: Vite proxy to Express works in dev; single port                                                                                                                                                                           |
+| A9  | TanStack AI is too immature for a deliverable (alpha, v0)                                                                                                                                                                                                                                                                 | medium        | D9                  | —                 | Re-evaluate if AI SDK becomes constraining                                                                                                                                                                                           |
+| A10 | The `useChat` hook can consume custom SSE without AI SDK server runtime                                                                                                                                                                                                                                                   | **validated** | D9                  | Walking skeleton  | Validated: useChat consumes custom SSE via DefaultChatTransport                                                                                                                                                                      |
+| A11 | Stateless `query()` with prompt-stuffed history is sufficient for multi-turn interviewing — SDK session persistence is unnecessary and undesirable                                                                                                                                                                        | **validated** | D8, D12             | SQLite foundation | Validated: formatting history into prompt works. SDK sessions rejected as competing source of truth — opaque, machine-local, incompatible with portable data goals (atomic YAML / git-versionable). Turn tree is sole session model. |
+| A12 | `useChat` hook accepts initial messages to hydrate conversation state from server-stored history                                                                                                                                                                                                                          | **validated** | D9                  | SQLite foundation | Validated: `useChat` doesn't have `initialMessages` prop but `setMessages` works for hydration                                                                                                                                       |
+| A13 | Claude Agent SDK supports defining interview phases as agent skills with distinct system prompts and tool sets                                                                                                                                                                                                            | medium        | D2                  | Interview phases  | Test SDK skill/agent configuration API                                                                                                                                                                                               |
+| A14 | A second-thread observer agent can reliably extract decisions, assumptions, and dependency edges from a single turn's Q&A                                                                                                                                                                                                 | medium        | D1                  | Observer agent    | Probe with realistic interview exchanges; measure extraction fidelity                                                                                                                                                                |
+| A15 | The LLM can reliably judge when a phase interview has reached sufficient understanding (is_resolution)                                                                                                                                                                                                                    | medium        | D3                  | Phase resolution  | Probe across varied project types; measure false-positive resolution rate                                                                                                                                                            |
+| A16 | AI SDK `useChat` hook's `ToolUIPart` state machine (`input-streaming` → `input-available` → `output-available` / `output-error` / `approval-requested` → `approval-responded` / `output-denied`) models all permutations of pending, error, and success for both interim (thinking, tool calls) and final (response) data | high          | D14                 | Rich chat UI      | Validate by extending SSE adapter to emit tool-call events, confirm `useChat` surfaces all states                                                                                                                                    |
+| A17 | AI Elements copy-paste components can be restyled without forking — they are ownable source files, not npm-locked dependencies                                                                                                                                                                                            | high          | D14                 | Rich chat UI      | Install via CLI, inspect source, confirm no hidden npm runtime dependency                                                                                                                                                            |
+| A18 | Drizzle ORM migration runner reliably auto-applies schema changes from a migrations folder at startup with better-sqlite3                                                                                                                                                                                                 | medium        | D18                 | Drizzle refactor  | Test with schema change on existing DB file                                                                                                                                                                                          |
+| A19 | `AsyncIterable<DomainEvent>` from core can be consumed by both SSE streaming (web) and line-by-line terminal output (CLI) without buffering issues                                                                                                                                                                        | high          | D19                 | Core extraction   | Validate with web adapter and simple terminal consumer                                                                                                                                                                               |
 
 ## Decisions
 
@@ -89,20 +92,27 @@ The architecture:
 3. **Phase resolution via LLM judgment** — A turn's `is_resolution` flag is set by the interviewing agent when it judges that shared understanding has been reached for that phase. The active path is resolved for a phase when its latest turn has `is_resolution = true`. Spec export requires all phases resolved. Depends on: A15. Supersedes: —.
 4. **Two-agent pattern (interviewer + observer)** — The interviewer focuses solely on conducting the interview with structured questions. After each answered turn, a separate observer agent extracts decisions, assumptions, and dependency edges. The observer can use a cheaper/faster model. Keeps the interviewer prompt clean and extraction independently testable. Depends on: A3, A4, A14. Supersedes: —.
 5. **Decision dependency graph** — Decisions depend on prior decisions and/or assumptions via `decision_parent_decision` and `decision_parent_assumption` join tables. Assumptions can depend on prior assumptions via `assumption_parent_assumption`. The observer agent captures these edges during extraction. Depends on: A14. Supersedes: —.
-6. **Soft invalidation for requirements and criteria** — When a decision is revisited (branch fork), requirements traced to that decision are flagged for re-review via stale `reviewed_at` timestamps. Criteria inherit the flag transitively from their requirements. The agent handles re-qualification holistically, not mechanistically. Depends on: —. Supersedes: —.
+6. **Soft invalidation for requirements and criteria** — When a decision is revisited (branch fork), requirements traced to that decision are flagged for re-review via stale `reviewed_at` timestamps. Criteria inherit the flag transitively from their requirements. Mechanism specified in D17. Depends on: —. Supersedes: —.
+
+17. **Two invalidation mechanisms — path exclusion and flag propagation** — Path exclusion (lazy): `revisitDecision` → `branch()` moves HEAD; entities on the abandoned branch leave the active path. Requirements are stale when their source decision is not on the active path — computed by the active-path query, no eager writes. Flag propagation (eager): `falsifyAssumption` walks dependency graph edges (`assumption_parent_assumption`, `decision_parent_assumption`), marks dependents. `updateRequirement` nulls `reviewed_at` on traced criteria. Cascade model: falsify assumption → walk graph → flag dependents; revisit decision → branch → path exclusion; update requirement → flag criteria. Depends on: D1, D5, D6. Supersedes: D6's unspecified "holistic" re-qualification.
 
 12. **Stateless SDK integration — no session persistence** — Each `query()` call uses `persistSession: false`. Conversation context is reconstructed from the turn tree's active path and injected as formatted history + structured entity summaries. SDK sessions (`resume`, `fork`, session IDs) are not used. The turn tree is the sole session model. Rationale: SDK sessions are an opaque, machine-local competing source of truth incompatible with brunch's branching semantics and future portable-data goals (atomic YAML, git-versionable). Depends on: A11. Supersedes: implicit reliance on SDK session state.
 13. **Observer captures derived intelligence** — The observer agent's extraction mandate extends beyond decisions and assumptions to include derived observations (e.g. codebase analysis, domain insights) that the interviewer surfaced through tool use during a turn. These are persisted so subsequent stateless `query()` calls can inject them as context. The exact entity model is TBD — candidates include a dedicated `observation` table, enriched `decision.rationale`, or a `notes` field on `turn`. Depends on: A14, D12. Supersedes: —.
 
 14. **AI Elements for rich chat UI components** — Copy-paste component source files (via `npx ai-elements`) from Vercel's AI Elements registry, built on shadcn/ui + Radix. Components directly consume AI SDK's `ToolUIPart` types and `useChat` hook state. Provides `Tool` (7-state lifecycle), `Reasoning` (collapsible), `ChainOfThought` (groups reasoning + tool calls), `Message`, `Conversation`, `PromptInput`. Source files are owned, not npm-locked — full restyle control. No runtime abstraction layer. Depends on: A16, A17. Supersedes: hand-rolled message rendering in App.tsx.
+15. **Transitional turn-field inversion** — During the pre-structured-interview phase (slices 1–3), `turn.answer` holds the user's chat message and `turn.question` holds the agent's streamed response. This inverts the canonical interview semantics where the agent asks (`question`) and the user answers (`answer`). The inversion is temporary — slice 4 (structured interview) populates turns in their canonical direction. No schema change needed; the fields carry correct types, just with flipped temporal ordering. Client hydrates `useChat` by mapping each turn to two `UIMessage` entries (answer → user, question → assistant). Depends on: D1. Supersedes: flat `message` table with `role` field from slice 2.
 
 ### Technical stack
 
-7. **SQLite via better-sqlite3** — Zero-config embedded DB. Turn tree, decisions, assumptions, requirements, criteria all in SQLite tables. Schema defined in `docs/design/schema.dbml`. Depends on: A5, A6. Supersedes: Dolt (docker-based).
+7. **SQLite via better-sqlite3** — Zero-config embedded DB. Turn tree, decisions, assumptions, requirements, criteria all in SQLite tables. Schema defined in Drizzle (see D18; `docs/design/schema.dbml` retained as historical reference). Depends on: A5, A6. Supersedes: Dolt (docker-based).
 8. **Express.js server emits AI SDK-conformant SSE** — Iterates SDK's `query()` async generator, translates each `SDKMessage` into SSE events matching AI SDK's UI Message Stream protocol via per-request translator factory. No AI SDK runtime imported server-side. Depends on: A1, A2. Supersedes: hand-rolled NDJSON streaming.
-9. **React + Vite + @ai-sdk/react client** — `useChat` for conversation streaming. Custom components for decision/entity dashboard. Phase indicator and navigation. Depends on: A9, A10. Supersedes: Preact, both existing frontends.
+9. **React + Vite + @ai-sdk/react + @tanstack/react-router client** — `useChat` for conversation streaming. TanStack Router for type-safe routing with route loaders for data fetching on navigation (replaces manual `useEffect` hydration). Three routes for MVP: project list (`/`), interview workspace (`/project/:id`), export preview (`/project/:id/export`). See `docs/design/BREADBOARD.md`. Depends on: A9, A10. Supersedes: Preact, both existing frontends, single-page no-routing layout.
 10. **npx-launchable single-command distribution** — `bin` entry, launcher starts Express (serves built Vite assets + API on one port), opens browser. Single env var: `ANTHROPIC_API_KEY`. DB auto-created in project directory or `~/.brunch/`. Depends on: A8. Supersedes: multi-step Docker + env var setup.
 11. **Drop list** — Dolt/mysql2, OpenCode sidecar, Preact, both existing frontend implementations, NDJSON protocol, JSON Schema definitions (→ Zod), @tanstack/react-table, @dnd-kit/, dompurify, marked, four streaming functions in claude.js, dispatch.js. Depends on: —. Supersedes: —.
+16. **Integer autoincrement primary keys** — All entity tables use `INTEGER PRIMARY KEY AUTOINCREMENT` instead of `TEXT` UUIDs. SQLite ROWID alias is simpler, matches schema.dbml, avoids UUID generation. No external systems reference these IDs. Client coerces to strings for `useChat` hydration (`turn-${id}-answer`, `turn-${id}-question`). Depends on: D7. Supersedes: `randomUUID()` TEXT PKs from slice 2.
+18. **Drizzle ORM replaces raw DDL** — TypeScript schema definition (`drizzle/schema.ts`) is single source of truth for types, DDL, and migrations. Auto-applies from `drizzle/migrations/` at startup. Drizzle Studio available for DB inspection during development. Depends on: A18, D7. Supersedes: raw DDL strings in db.ts, `docs/design/schema.dbml` as design document, hand-written TypeScript interfaces.
+19. **Layered architecture with DomainEvent streaming** — Core interview orchestration extracted from Express handlers into interface-agnostic service layer. Core operations: turn tree (createProject, conductTurn, getActivePath, branch, checkout), entity lifecycle (revisitDecision, falsifyAssumption, verifyAssumption, CRUD for requirements/criteria, reviewRequirement/reviewCriterion), observer (runObserver), phase (getPhaseStatus), export (exportSpec). `conductTurn()` returns `AsyncIterable<DomainEvent>` — domain events (`thinking`, `text-delta`, `turn-created`, `observer-complete`) that each adapter translates to its transport format. Web (Express+SSE), CLI, and MCP adapters are thin transport layers. Depends on: A19, D8, D12. Supersedes: interview logic embedded in Express POST handler.
+20. **CLI executable with subcommands** — `npx brunch` launches web UI (default). `npx brunch [command]` for CLI operations on the same DB. Future: sidecar MCP server. Depends on: D10, D19. Supersedes: web-only distribution model in D10.
 
 ## Invariants
 
@@ -112,16 +122,18 @@ The architecture:
      Established by ln-build/ln-spike traceability.
      Referenced by PLAN.md slices (to establish / to respect). -->
 
-| #   | Invariant                    | Established by     | Protected by                      | Proves |
-| --- | ---------------------------- | ------------------ | --------------------------------- | ------ |
-| I1  | SSE protocol conformance     | Slice 1 (skeleton) | sse-adapter.test.ts               | D8     |
-| I2  | Stream lifecycle correctness | Slice 1 (skeleton) | app.test.ts                       | D8     |
-| I3  | Thinking/text separation     | Slice 1 (skeleton) | sse-adapter.test.ts, app.test.ts  | D8     |
-| I4  | Vite proxy routing           | Slice 1 (skeleton) | vite.config.ts (manual)           | D10    |
-| I5  | DB lifecycle correctness     | Slice 2 (SQLite)   | db.test.ts                        | D7     |
-| I6  | Message persistence          | Slice 2 (SQLite)   | db.test.ts, app.test.ts           | D7     |
-| I7  | Tool call SSE conformance    | Slice 3b (rich UI) | sse-adapter.test.ts               | D8, D14 |
-| I8  | Tool part state rendering    | Slice 3b (rich UI) | manual (outer loop)               | D14    |
+| #   | Invariant                    | Established by      | Protected by                     | Proves  |
+| --- | ---------------------------- | ------------------- | -------------------------------- | ------- |
+| I1  | SSE protocol conformance     | Slice 1 (skeleton)  | sse-adapter.test.ts              | D8      |
+| I2  | Stream lifecycle correctness | Slice 1 (skeleton)  | app.test.ts                      | D8      |
+| I3  | Thinking/text separation     | Slice 1 (skeleton)  | sse-adapter.test.ts, app.test.ts | D8      |
+| I4  | Vite proxy routing           | Slice 1 (skeleton)  | vite.config.ts (manual)          | D10     |
+| I5  | DB lifecycle correctness     | Slice 2 (SQLite)    | db.test.ts                       | D7      |
+| I6  | Turn persistence             | Slice 3 (turn tree) | db.test.ts, app.test.ts          | D1, D7  |
+| I7  | Tool call SSE conformance    | Slice 3b (rich UI)  | sse-adapter.test.ts              | D8, D14 |
+| I8  | Tool part state rendering    | Slice 3b (rich UI)  | manual (outer loop)              | D14     |
+| I9  | Turn tree parent chain       | Slice 3 (turn tree) | db.test.ts                       | D1      |
+| I10 | Active path resolution       | Slice 3 (turn tree) | db.test.ts                       | D1      |
 
 ## Lexicon
 
@@ -131,34 +143,40 @@ The architecture:
 
 ### Method terms
 
-| Term            | Definition                                                                                    |
-| --------------- | --------------------------------------------------------------------------------------------- |
+| Term            | Definition                                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------------- |
 | **assumption**  | A falsifiable belief accepted as true; tracked with confidence, linked to decisions and slices |
-| **decision**    | A recorded choice that resolves a question; ordered, with supersession chain                  |
-| **invariant**   | A structural property proven by implementation and protected by tests; must not regress       |
-| **requirement** | A capability the system must provide                                                          |
-| **slice**       | A thin end-to-end tracer-bullet path through all integration layers                          |
-| **spike**       | A time-boxed throwaway investigation to answer one hard question                             |
+| **decision**    | A recorded choice that resolves a question; ordered, with supersession chain                   |
+| **invariant**   | A structural property proven by implementation and protected by tests; must not regress        |
+| **requirement** | A capability the system must provide                                                           |
+| **slice**       | A thin end-to-end tracer-bullet path through all integration layers                            |
+| **spike**       | A time-boxed throwaway investigation to answer one hard question                               |
 
 ### Domain terms
 
-| Term                    | Definition                                                                                                                  |
-| ----------------------- | --------------------------------------------------------------------------------------------------------------------------- |
-| **project**             | A spec elicitation session. Has a name, a HEAD pointer (`active_turn_id`), and phase completion state                      |
-| **turn**                | One question-answer pair in the interview. Carries phase provenance, options, grounding ("why"), impact signal, and the user's answer. Points to its parent turn — the turn tree is the version history |
-| **option**              | A structured alternative presented in a turn. At least two per turn. One may be recommended; one is selected by the user   |
-| **decision**            | A resolved fork in the design tree. Extracted by the observer from an answered turn. Depends on prior decisions and/or assumptions. Traced back to its source turn via `turn_decision` |
-| **assumption**          | A falsifiable belief a decision rests on. Extracted by the observer. Can depend on prior assumptions. Traced back to its source turn via `turn_assumption` |
-| **requirement**         | What the system must do. Accumulated during the design drill-down, confirmed during the requirements review phase. Traced to source decisions via `requirement_decision`. Has `reviewed_at` for soft-invalidation |
-| **criterion**           | A testable condition verifying a requirement. Proposed by the agent during the criteria phase, confirmed by the user. Has `reviewed_at` for soft-invalidation |
-| **active path**         | The branch from HEAD to root in the turn tree. Determines which turns, decisions, and assumptions are currently active     |
-| **phase**               | A stage of the interview: `scope`, `design`, `requirements`, `criteria`. Immutable provenance on each turn. Each phase is backed by an agent skill |
-| **phase resolution**    | LLM judgment that shared understanding has been reached for a phase. Marked by `turn.is_resolution = true` on the last turn of a phase |
-| **interviewer**         | The primary agent role: conducts the interview with structured questions, grounding, and impact signals. Does not extract entities |
-| **observer**            | The secondary agent role: extracts decisions, assumptions, and dependency edges from each answered turn. Runs post-answer during user read time |
-| **decision graph**      | The DAG of decisions and their dependencies (on prior decisions and assumptions). Revisiting a decision forks the turn tree |
-| **soft invalidation**   | When a decision is revisited, requirements traced to it are flagged for re-review (stale `reviewed_at`). Criteria inherit the flag transitively. The agent re-qualifies holistically |
-| **spec readiness**      | Compound predicate: all four phases resolved AND requirements reviewed AND criteria confirmed. Only then is export enabled |
+| Term                  | Definition                                                                                                                                                                                                        |
+| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **project**           | A spec elicitation session. Has a name, a HEAD pointer (`active_turn_id`), and phase completion state                                                                                                             |
+| **turn**              | One question-answer pair in the interview. Carries phase provenance, options, grounding ("why"), impact signal, and the user's answer. Points to its parent turn — the turn tree is the version history           |
+| **option**            | A structured alternative presented in a turn. At least two per turn. One may be recommended; one is selected by the user                                                                                          |
+| **decision**          | A resolved fork in the design tree. Extracted by the observer from an answered turn. Depends on prior decisions and/or assumptions. Traced back to its source turn via `turn_decision`                            |
+| **assumption**        | A falsifiable belief a decision rests on. Extracted by the observer. Can depend on prior assumptions. Traced back to its source turn via `turn_assumption`                                                        |
+| **requirement**       | What the system must do. Accumulated during the design drill-down, confirmed during the requirements review phase. Traced to source decisions via `requirement_decision`. Has `reviewed_at` for soft-invalidation |
+| **criterion**         | A testable condition verifying a requirement. Proposed by the agent during the criteria phase, confirmed by the user. Has `reviewed_at` for soft-invalidation                                                     |
+| **active path**       | The branch from HEAD to root in the turn tree. Determines which turns, decisions, and assumptions are currently active                                                                                            |
+| **branch** (verb)     | Fork the turn tree from a given turn, creating a new path and moving HEAD. Analogous to git branch + checkout                                                                                                    |
+| **checkout** (verb)   | Move HEAD to an existing turn on a different branch without creating new turns. Analogous to git checkout                                                                                                        |
+| **phase**             | A stage of the interview: `scope`, `design`, `requirements`, `criteria`. Immutable provenance on each turn. Each phase is backed by an agent skill                                                                |
+| **phase resolution**  | LLM judgment that shared understanding has been reached for a phase. Marked by `turn.is_resolution = true` on the last turn of a phase                                                                            |
+| **interviewer**       | The primary agent role: conducts the interview with structured questions, grounding, and impact signals. Does not extract entities                                                                                |
+| **observer**          | The secondary agent role: extracts decisions, assumptions, and dependency edges from each answered turn. Runs post-answer during user read time                                                                   |
+| **core**              | The interface-agnostic service layer between the database and transport adapters. Owns interview orchestration, entity lifecycle, observer invocation. Returns `AsyncIterable<DomainEvent>` for streaming          |
+| **domain event**      | A typed event yielded by `conductTurn()` — `thinking`, `text-delta`, `turn-created`, `observer-complete`, etc. Each adapter translates to its transport format (SSE, terminal, MCP)                               |
+| **decision graph**    | The DAG of decisions and their dependencies (on prior decisions and assumptions). Revisiting a decision forks the turn tree                                                                                       |
+| **path exclusion**    | Invalidation by moving HEAD so entities on the abandoned branch leave the active path. Lazy — computed by the active-path query, no eager writes. Triggered by `revisitDecision` / `branch`                       |
+| **flag propagation**  | Invalidation by walking dependency graph edges and marking entities stale (nulling `reviewed_at`). Eager — triggered by `falsifyAssumption` or `updateRequirement`                                                |
+| **soft invalidation** | Umbrella term for both path exclusion and flag propagation. Entities are flagged for re-review but never deleted or modified. See D17                                                                             |
+| **spec readiness**    | Compound predicate: all four phases resolved AND requirements reviewed AND criteria confirmed. Only then is export enabled                                                                                        |
 
 ## Verification Design
 
@@ -169,15 +187,15 @@ The architecture:
 
 ### Verification Commands
 
-| Step | Check          | Command                |
-| ---- | -------------- | ---------------------- |
-| 1    | Type checking  | `npx tsc --noEmit`     |
-| 2    | Unit tests     | `npx vitest run`       |
-| 3    | Build          | `npx vite build`       |
+| Step | Check         | Command            |
+| ---- | ------------- | ------------------ |
+| 1    | Type checking | `npx tsc --noEmit` |
+| 2    | Unit tests    | `npx vitest run`   |
+| 3    | Build         | `npx vite build`   |
 
 ### Verification Policy
 
-End-to-end slices must be **user-testable**, not just programmatically tested. Each slice that touches the user-facing boundary should be manually verifiable via `npm run dev` (or equivalent). Use `/tool-cmux` for dev server panes and `/tool-cdp-cli` for browser interaction during outer-loop verification.
+End-to-end slices must be **user-testable**, not just programmatically tested. Each slice that touches the user-facing boundary should be manually verifiable via `npm run dev` (or equivalent). Use `/cli-cmux` for dev server panes and `/cli-cdp` for browser interaction during outer-loop verification.
 
 ### Feedback Loops
 
@@ -202,11 +220,11 @@ End-to-end slices must be **user-testable**, not just programmatically tested. E
 
 <!-- Updated by ln-build traceability after each slice. -->
 
-| File                     | Tests | Protects         |
-| ------------------------ | ----- | ---------------- |
-| sse-adapter.test.ts      | 10    | I1, I3           |
-| app.test.ts              | 8     | I2, I3, I5, I6   |
-| db.test.ts               | 10    | I5, I6           |
+| File                | Tests | Protects        |
+| ------------------- | ----- | --------------- |
+| sse-adapter.test.ts | 12    | I1, I3          |
+| db.test.ts          | 18    | I5, I6, I9, I10 |
+| app.test.ts         | 9     | I2, I3, I6      |
 
 ## Acceptance Criteria (exit conditions)
 

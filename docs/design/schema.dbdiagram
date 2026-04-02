@@ -1,0 +1,405 @@
+{
+  "version": "1.0.0",
+  "darkMode": true,
+  "gridEnabling": false,
+  "detailLevel": "All",
+  "tablePositions": [
+    {
+      "name": "project",
+      "schemaName": "public",
+      "x": 538.5830078125,
+      "y": 73
+    },
+    {
+      "name": "turn",
+      "schemaName": "public",
+      "x": 12,
+      "y": 32
+    },
+    {
+      "name": "option",
+      "schemaName": "public",
+      "x": 538.5830078125,
+      "y": 311
+    },
+    {
+      "name": "decision",
+      "schemaName": "public",
+      "x": 1072.5625,
+      "y": 94
+    },
+    {
+      "name": "assumption",
+      "schemaName": "public",
+      "x": 1072.5625,
+      "y": 506
+    },
+    {
+      "name": "requirement",
+      "schemaName": "public",
+      "x": 1072.5625,
+      "y": 300
+    },
+    {
+      "name": "criterion",
+      "schemaName": "public",
+      "x": 1640.06396484375,
+      "y": 174
+    },
+    {
+      "name": "turn_decision",
+      "schemaName": "public",
+      "x": 1640.06396484375,
+      "y": 32
+    },
+    {
+      "name": "turn_assumption",
+      "schemaName": "public",
+      "x": 1640.06396484375,
+      "y": 980
+    },
+    {
+      "name": "decision_parent_decision",
+      "schemaName": "public",
+      "x": 1640.06396484375,
+      "y": 412
+    },
+    {
+      "name": "decision_parent_assumption",
+      "schemaName": "public",
+      "x": 1640.06396484375,
+      "y": 696
+    },
+    {
+      "name": "assumption_parent_assumption",
+      "schemaName": "public",
+      "x": 1640.06396484375,
+      "y": 838
+    },
+    {
+      "name": "requirement_decision",
+      "schemaName": "public",
+      "x": 1640.06396484375,
+      "y": 554
+    }
+  ],
+  "tableGroupCollapseStates": [],
+  "stickyNoteLayouts": [],
+  "referencePaths": [
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "turn",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "active_turn_id"
+      ],
+      "secondTableName": "project",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "project",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "project_id"
+      ],
+      "secondTableName": "turn",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "turn",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "parent_turn_id"
+      ],
+      "secondTableName": "turn",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "turn",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "turn_id"
+      ],
+      "secondTableName": "option",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "project",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "project_id"
+      ],
+      "secondTableName": "decision",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "project",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "project_id"
+      ],
+      "secondTableName": "assumption",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "project",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "project_id"
+      ],
+      "secondTableName": "requirement",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "project",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "project_id"
+      ],
+      "secondTableName": "criterion",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "requirement",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "requirement_id"
+      ],
+      "secondTableName": "criterion",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "turn",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "turn_id"
+      ],
+      "secondTableName": "turn_decision",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "decision",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "decision_id"
+      ],
+      "secondTableName": "turn_decision",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "turn",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "turn_id"
+      ],
+      "secondTableName": "turn_assumption",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "assumption",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "assumption_id"
+      ],
+      "secondTableName": "turn_assumption",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "decision",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "decision_id"
+      ],
+      "secondTableName": "decision_parent_decision",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "decision",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "parent_decision_id"
+      ],
+      "secondTableName": "decision_parent_decision",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "decision",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "decision_id"
+      ],
+      "secondTableName": "decision_parent_assumption",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "assumption",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "parent_assumption_id"
+      ],
+      "secondTableName": "decision_parent_assumption",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "assumption",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "assumption_id"
+      ],
+      "secondTableName": "assumption_parent_assumption",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "assumption",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "parent_assumption_id"
+      ],
+      "secondTableName": "assumption_parent_assumption",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "requirement",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "requirement_id"
+      ],
+      "secondTableName": "requirement_decision",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    },
+    {
+      "firstFieldNames": [
+        "id"
+      ],
+      "firstTableName": "decision",
+      "firstSchemaName": "public",
+      "firstRelation": "1",
+      "secondFieldNames": [
+        "decision_id"
+      ],
+      "secondTableName": "requirement_decision",
+      "secondSchemaName": "public",
+      "secondRelation": "*",
+      "checkPoints": []
+    }
+  ]
+}
