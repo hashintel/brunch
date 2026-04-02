@@ -15,9 +15,6 @@ const queryClient = new QueryClient({
   },
 });
 
-// Export for use in onData bridge (observer-complete → setQueryData)
-export { queryClient };
-
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
