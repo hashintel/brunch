@@ -166,6 +166,9 @@ The architecture (layered: db → core → adapters):
 | I17 | Data Part schema validation | Slice 4a (parts persistence) | parts.test.ts (7 tests) | D24 |
 | I18 | Parts round-trip fidelity | Slice 4a (parts persistence) | parts.test.ts (8 tests), core.test.ts | D23 |
 | I19 | Context builder equivalence | Slice 4a (parts persistence) | context.test.ts (7 tests) | D25 |
+| I20 | Entity persistence with turn linkage | Slice 5 (observer) | db.test.ts (7 tests), observer.test.ts | D4, D5 |
+| I21 | Observer-complete post-commit | Slice 5 (observer) | observer.test.ts (6 tests), sse-adapter.test.ts (3 tests) | D22 |
+| I22 | Agent generator composition | Slice 5 (observer) | core.test.ts, sdk.test.ts (7 tests) | D27 |
 
 ## Lexicon
 
@@ -331,13 +334,15 @@ This projection difference is a deliberate design choice, not an implementation 
 
 | File                | Tests | Protects                    |
 | ------------------- | ----- | --------------------------- |
-| sse-adapter.test.ts | 18    | I1, I3, I7                  |
-| db.test.ts          | 25    | I5, I6, I9, I10, I11, I18   |
+| sse-adapter.test.ts | 21    | I1, I3, I7, I21             |
+| db.test.ts          | 32    | I5, I6, I9, I10, I11, I18, I20 |
 | app.test.ts         | 22    | I2, I3, I6, I7, I13, I14    |
-| core.test.ts        | 16    | I12, I13, I18               |
+| core.test.ts        | 16    | I12, I13, I18, I22           |
 | interview.test.ts   | 16    | I16                         |
 | parts.test.ts       | 23    | I17, I18                    |
-| context.test.ts     | 7     | I19                         |
+| context.test.ts     | 8     | I19                         |
+| sdk.test.ts         | 7     | I22                         |
+| observer.test.ts    | 6     | I20, I21                    |
 
 ## Acceptance Criteria (exit conditions)
 
