@@ -324,11 +324,11 @@ This projection difference is a deliberate design choice, not an implementation 
 | File                | Tests | Protects                    |
 | ------------------- | ----- | --------------------------- |
 | sse-adapter.test.ts | 18    | I1, I3, I7                  |
-| db.test.ts          | 24    | I5, I6, I9, I10, I11        |
-| app.test.ts         | 17    | I2, I3, I6, I7, I13, I14    |
+| db.test.ts          | 25    | I5, I6, I9, I10, I11, I18   |
+| app.test.ts         | 22    | I2, I3, I6, I7, I13, I14    |
 | core.test.ts        | 16    | I12, I13, I18               |
 | interview.test.ts   | 16    | I16                         |
-| parts.test.ts       | 17    | I17, I18                    |
+| parts.test.ts       | 23    | I17, I18                    |
 | context.test.ts     | 7     | I19                         |
 
 ## Acceptance Criteria (exit conditions)

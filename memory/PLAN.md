@@ -110,7 +110,7 @@
     - Branch: `ln/fe-555-parts-persistence`
     - **Verification approach**: inner — round-trip oracle for parts fidelity (I18); Zod schema validation on Data Parts (I17); unit tests for context builder output shape and equivalence (I19). → SPEC.md §Oracle Strategy (inner: fast unit tests — parts). Middle — integration: full `conductTurn()` → parts persisted → reload → hydration matches live state. Outer — manual resume test via `/cli-cdp` (reasoning + tool states visible on refresh). → SPEC.md §Acknowledged Blind Spots (parts/scalar consistency).
 
-4b. **Structured interview: client UI** `FE-556` — Turn card rendering (question + options + grounding + impact badge). Option selection UI using `data-option-selection` Data Part (persist `is_selected` + structured answer). Enriched API: turns with options + validated parts deserialization. Hydration from `assistant_parts`. Outer-loop visual verification via `/cli-cdp`. Also addresses review findings: validated deserialization (review #1) and DB lifecycle parts round-trip test (review #2). `in-progress`
+4b. **Structured interview: client UI** `FE-556` — Turn card rendering (question + options + grounding + impact badge). Option selection UI using `data-option-selection` Data Part (persist `is_selected` + structured answer). Enriched API: turns with options + validated parts deserialization. Hydration from `assistant_parts`. Outer-loop visual verification via `/cli-cdp`. Also addresses review findings: validated deserialization (review #1) and DB lifecycle parts round-trip test (review #2). `done`
     - Requirements: → SPEC.md §Requirements #2, #3
     - Assumptions: → SPEC.md §Assumptions A22, A23
     - Decisions: → SPEC.md §Decisions D23, D24
