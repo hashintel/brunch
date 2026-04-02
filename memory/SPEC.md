@@ -153,6 +153,9 @@ The architecture (layered: db → core → adapters):
 | I14 | Project-scoped API routes    | Slice 3d (routing)  | app.test.ts                      | D9      |
 | I15 | Route loader hydration       | Slice 3d (routing)  | manual (outer loop)              | D9      |
 | I16 | Schema validation on agent tool output | Slice 4 (scope interview) | interview.test.ts | D2, A13 |
+| I17 | Data Part schema validation | Slice 4a (parts persistence) | parts.test.ts | D24 |
+| I18 | Parts round-trip fidelity | Slice 4a (parts persistence) | parts.test.ts | D23 |
+| I19 | Context builder equivalence | Slice 4a (parts persistence) | context.test.ts | D25 |
 
 ## Lexicon
 
@@ -265,6 +268,7 @@ End-to-end slices must be **user-testable**, not just programmatically tested. E
 | Fast unit tests — SSE | `SDKMessage` → correct SSE event strings | I1, I3, I7 | ms |
 | Fast unit tests — DB | Turn persistence with phase provenance, entity writes with dependency edges | I5, I6, I9, I10, I11 | ms |
 | Fast unit tests — core | DomainEvent streaming, core/adapter separation, structured turn creation | I12, I13 | ms |
+| Fast unit tests — parts | Parts round-trip (DomainEvents → assemble → persist JSON → load → hydrate); Data Part schema validation (Zod parse on structured user input); context builder output shape | I17, I18, I19 | ms |
 | Fast unit tests — observer sync | `observer-complete` emitted post-commit with entity IDs matching DB state; SSE adapter encodes as typed data part | D22, A20 | ms |
 | Type-aware linting | Semantic static checks (oxlint + tsgolint) | All | ms |
 
@@ -309,6 +313,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | Phase transition UX | Summary quality, resolution timing, confirmation flow. Fully visual. | Manual testing during slices 7-10. | If phase transitions feel wrong during testing. |
 | Performance under realistic load | 20+ turns, growing history summaries, observer latency. No budget oracle. | Acceptable for single-user tool. | If latency becomes noticeable during manual testing. |
 | `onData` stale-closure correctness | Client-side `useChat` `onData` → `queryClient.setQueryData` bridge cannot be tested in inner/middle loop (requires browser runtime). Known `onFinish` stale-closure bug (ai-sdk#550) may affect `onData`. | Manual outer-loop validation in slice 6; if broken, fall back to parallel `EventSource` (D22 Option 2). | If sidebar fails to update after observer extraction during manual testing. |
+| Parts/scalar consistency | Persisted `assistant_parts` and scalar fields (`question`, `why`, `impact`, options) are two representations of the same turn content. No programmatic check that they agree. | Acceptable for initial delivery — scalars are written by MCP tool handler, parts assembled from stream. Both derive from the same `query()` call. Future: metamorphic oracle (text in parts matches scalars). | If turns appear correct in one view (parts-based UI) but wrong in another (scalar-based entity queries or export). |
 
 ### Current Coverage
 
