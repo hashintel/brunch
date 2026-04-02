@@ -1,17 +1,28 @@
 {
+	"name": "@hashintel/brunch",
 	"private": true,
+	"description": "AI chat interface built on HASH",
+	"homepage": "https://github.com/hashintel/brunch#readme",
+	"bugs": {
+		"url": "https://github.com/hashintel/brunch/issues"
+	},
+	"repository": {
+		"type": "git",
+		"url": "https://github.com/hashintel/brunch.git"
+	},
+	"license": "(MIT OR Apache-2.0)",
 	"type": "module",
 	"scripts": {
-		"dev": "concurrently \"vite\" \"npx tsx --env-file=.env --watch src/server/index.ts\"",
-		"server": "npx tsx --env-file=.env src/server/index.ts",
 		"build": "vite build",
-		"test": "vitest run",
-		"lint": "oxlint --type-aware --type-check src/",
-		"lint:fix": "oxlint --type-aware --type-check --fix src/",
+		"check": "npm run fmt:check && npm run lint",
+		"dev": "concurrently \"vite\" \"npx tsx --env-file=.env --watch src/server/index.ts\"",
+		"fix": "npm run lint:fix && npm run fmt",
 		"fmt": "oxfmt src/",
 		"fmt:check": "oxfmt --check src/",
-		"fix": "npm run lint:fix && npm run fmt",
-		"check": "npm run fmt:check && npm run lint",
+		"lint": "oxlint --type-aware --type-check src/",
+		"lint:fix": "oxlint --type-aware --type-check --fix src/",
+		"server": "npx tsx --env-file=.env src/server/index.ts",
+		"test": "vitest run",
 		"verify": "npm run check && npm run test && npm run build"
 	},
 	"dependencies": {

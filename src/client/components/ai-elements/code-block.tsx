@@ -10,14 +10,12 @@ import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { cn } from '@/lib/utils';
 
-// Shiki uses bitflags for font styles: 1=italic, 2=bold, 4=underline
-// oxlint-disable-next-line eslint(no-bitwise)
+// Shiki encodes font styles as bitflags: 1=italic, 2=bold, 4=underline
+/* oxlint-disable eslint(no-bitwise) -- shiki bitflag decoding */
 const isItalic = (fontStyle: number | undefined) => fontStyle && fontStyle & 1;
-// oxlint-disable-next-line eslint(no-bitwise)
 const isBold = (fontStyle: number | undefined) => fontStyle && fontStyle & 2;
-const isUnderline = (fontStyle: number | undefined) =>
-  // oxlint-disable-next-line eslint(no-bitwise)
-  fontStyle && fontStyle & 4;
+const isUnderline = (fontStyle: number | undefined) => fontStyle && fontStyle & 4;
+/* oxlint-enable eslint(no-bitwise) */
 
 // Transform tokens to include pre-computed keys to avoid noArrayIndexKey lint
 interface KeyedToken {

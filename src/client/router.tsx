@@ -1,5 +1,6 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 
+import { ComponentDebug } from './routes/ComponentDebug.js';
 import { ExportPreview } from './routes/ExportPreview.js';
 import { InterviewWorkspace } from './routes/InterviewWorkspace.js';
 import { ProjectList } from './routes/ProjectList.js';
@@ -63,7 +64,13 @@ const exportRoute = createRoute({
   component: ExportPreview,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, projectRoute, exportRoute]);
+const debugRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/debug',
+  component: ComponentDebug,
+});
+
+const routeTree = rootRoute.addChildren([indexRoute, projectRoute, exportRoute, debugRoute]);
 
 export const router = createRouter({ routeTree });
 

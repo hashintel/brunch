@@ -49,18 +49,20 @@ export const Reasoning = memo(
     isStreaming = false,
     open,
     defaultOpen,
-    onOpenChange,
+    // oxlint-disable-next-line typescript-eslint(unbound-method) -- callback prop, not a bound method
+    onOpenChange: onOpenChangeProp,
     duration: durationProp,
     children,
     ...props
   }: ReasoningProps) => {
     const resolvedDefaultOpen = defaultOpen ?? isStreaming;
-    // Track if defaultOpen was explicitly set to false (to prevent auto-open)
     const isExplicitlyClosed = defaultOpen === false;
+
+    const notifyOpenChange = useCallback((value: boolean) => onOpenChangeProp?.(value), [onOpenChangeProp]);
 
     const [isOpen, setIsOpen] = useControllableState<boolean>({
       defaultProp: resolvedDefaultOpen,
-      onChange: onOpenChange,
+      onChange: notifyOpenChange,
       prop: open,
     });
     const [duration, setDuration] = useControllableState<number | undefined>({
