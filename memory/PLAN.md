@@ -178,9 +178,19 @@
 
 ### Slices
 
-7. **Phase transition + resolution** — Agent judges when scope phase is complete (`is_resolution`). Core yields `phase-resolved` DomainEvent. Client shows summary modal. User confirms to advance. Phase indicator updates. `not-started`
+6c. **Agent loop: stream → tool_use → execute → re-submit** — Implement a thin custom agent loop in `src/server/agent-loop.ts` modeled after `badlogic/pi-mono` `packages/agent/src/agent-loop.ts`. The loop: streams a response via `client.messages.stream()`, checks `stop_reason`, if `tool_use` executes registered tool handlers and re-submits with `tool_result` messages, repeats until `end_turn` or `maxTurns`. Yields `DomainEvent`s during streaming. Tool registry: `{ name, inputSchema, execute }[]`. `runInterviewer` refactored to call `agentLoop()` with phase-specific config. No changes to observer (single-shot, no loop). `not-started`
+    - Requirements: → SPEC.md §Requirements #2, #3, #7
+    - Assumptions: → SPEC.md §Assumptions A28
+    - Decisions: → SPEC.md §Decisions D31
+    - Invariants to establish: I24 (agent loop re-submission — tool_use stop → tool_result → model sees result)
+    - Invariants to respect: → SPEC.md §Invariants I16, I22
+    - Acceptance: `agentLoop()` yields correct DomainEvents for single-tool forced call (backward compat with current interviewer); `agentLoop()` re-submits tool results when `stop_reason === 'tool_use'` and stops on `end_turn`; `runInterviewer` passes all existing tests unchanged after refactor to use `agentLoop()`; `npm run verify` passes
+    - **Verification approach**: inner — unit tests for loop lifecycle (single-turn, multi-turn, maxTurns guard, tool execution, error handling). Middle — existing interview + core + app tests pass unchanged (backward compat). Outer — manual interview end-to-end.
+    - **Reference implementation**: `~/Clones/badlogic/pi-mono/packages/agent/src/agent-loop.ts` — specifically `runLoop()` (L155-232), `streamAssistantResponse()` (L238-320), `executeToolCalls()` (L322-388). Brunch adapts the inner loop and tool execution; omits steering/follow-up messages, parallel execution, provider abstraction, `convertToLlm`, `beforeToolCall`/`afterToolCall` hooks, AbortSignal.
+
+7. **Phase transition + resolution** — Agent judges when scope phase is complete (`is_resolution`). Core yields `phase-resolved` DomainEvent. Client shows summary modal. User confirms to advance. Phase indicator updates. Requires agent loop (6c) — the agent must call `ask_question` AND optionally signal resolution in the same turn, which requires multi-step tool use or `tool_choice: auto`. `not-started`
    - Requirements: → SPEC.md §Requirements #7, #8
-   - Assumptions: → SPEC.md §Assumptions A15
+   - Assumptions: → SPEC.md §Assumptions A15, A28
    - Acceptance: agent marks resolution, summary shows, user confirms, phase indicator reflects completion
 
 8. **Design drill-down phase** — Second agent skill. Walks the design tree with structured questions. Decisions extracted by observer. Continues until agent judges resolution. `not-started`
@@ -194,9 +204,9 @@
    - Acceptance: agent presents requirements, suggests gaps, user confirms, reviewed_at updated
 
 10. **Criteria phase** — Fourth agent skill. For each confirmed requirement, agent proposes testable criteria. User selects/edits/confirms. Criteria get `reviewed_at` stamped. `not-started`
-    - Requirements: → SPEC.md §Requirements #12
-    - Assumptions: —
-    - Acceptance: agent proposes criteria per requirement, user confirms, spec readiness predicate evaluable
+     - Requirements: → SPEC.md §Requirements #12
+     - Assumptions: —
+     - Acceptance: agent proposes criteria per requirement, user confirms, spec readiness predicate evaluable
 
 ## Phase 5: Revisit + Export
 
@@ -258,8 +268,8 @@ Phase 2:  2 ──→ 3 (turn schema) ──→ 3c (Drizzle+core) ──→ 3d (
 Phase 3:  3c ──→ 3b (rich chat UI) ──→ 4 (scope server) ──→ 4a (parts+context) ──→ 4b (client UI) ──→ 4c (UI foundation) ──→ 5 (observer)
           spike (observer fidelity) ──→ 5
           3d + 5 ──→ 6 (entity sidebar)
-          spike 2 ──→ 6b (SDK migration)
-Phase 4:  6b ──→ 7 (transitions) ──→ 8 (design) ──→ 9 (requirements) ──→ 10 (criteria)
+          spike 2 ──→ 6b (SDK migration) ──→ 6c (agent loop)
+Phase 4:  6c ──→ 7 (transitions) ──→ 8 (design) ──→ 9 (requirements) ──→ 10 (criteria)
 Phase 5:  6 ──→ 11 (branching)
           6 ──→ 12 (entity lifecycle API)
           10 ──→ 13 (export)
