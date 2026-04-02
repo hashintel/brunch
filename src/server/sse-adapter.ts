@@ -1,7 +1,6 @@
 /**
- * SSE Adapter — translates events into AI SDK UI Message Stream protocol.
+ * SSE Adapter — translates DomainEvents into AI SDK UI Message Stream protocol.
  *
- * createTranslator() — SDK stream events → AIEvent (used directly or by tests).
  * createDomainAdapter() — DomainEvent → AIEvent (used by Express adapter).
  * formatSSE() — standalone pure function for SSE wire format.
  */
@@ -25,128 +24,12 @@ export type AIEvent =
   | { type: 'error'; errorText: string }
   | { type: 'data'; data: unknown };
 
-/** Minimal shape of an SDKPartialAssistantMessage from the Claude Agent SDK */
-interface SDKStreamEvent {
-  type: 'stream_event';
-  event: {
-    type: string;
-    index?: number;
-    message?: { id: string; role: string; content: unknown[] };
-    content_block?: { type: string; thinking?: string; text?: string; name?: string; id?: string };
-    delta?: { type: string; text?: string; thinking?: string; partial_json?: string };
-  };
-}
-
-interface SDKOtherMessage {
-  type: string;
-}
-
-type SDKMessage = SDKStreamEvent | SDKOtherMessage;
-
 /**
  * Format a payload as an SSE data line.
  */
 export function formatSSE(payload: AIEvent | '[DONE]'): string {
   if (payload === '[DONE]') return 'data: [DONE]\n\n';
   return `data: ${JSON.stringify(payload)}\n\n`;
-}
-
-/**
- * Create a per-request translator with scoped state.
- * Each request gets its own instance — no shared mutable state.
- */
-export function createTranslator() {
-  const thinkingBlocks = new Set<number>();
-  const textBlocks = new Set<number>();
-  const toolUseBlocks = new Map<number, { toolName: string; toolCallId: string; argsJson: string }>();
-
-  function translateEvent(sdkMessage: SDKMessage): AIEvent[] {
-    if (sdkMessage.type !== 'stream_event') return [];
-
-    const event = (sdkMessage as SDKStreamEvent).event;
-
-    switch (event.type) {
-      case 'message_start':
-        return [{ type: 'start', messageId: event.message!.id }];
-
-      case 'content_block_start': {
-        const block = event.content_block!;
-        if (block.type === 'thinking') {
-          thinkingBlocks.add(event.index!);
-          return [{ type: 'reasoning-start', id: `reasoning-${event.index}` }];
-        }
-        if (block.type === 'text') {
-          textBlocks.add(event.index!);
-          return [{ type: 'text-start', id: `text-${event.index}` }];
-        }
-        if (block.type === 'tool_use') {
-          toolUseBlocks.set(event.index!, {
-            toolName: block.name!,
-            toolCallId: block.id!,
-            argsJson: '',
-          });
-          return [{ type: 'tool-call-streaming-start', id: block.id!, toolName: block.name! }];
-        }
-        return [];
-      }
-
-      case 'content_block_delta': {
-        const delta = event.delta!;
-        if (delta.type === 'thinking_delta') {
-          return [
-            {
-              type: 'reasoning-delta',
-              id: `reasoning-${event.index}`,
-              delta: delta.thinking!,
-            },
-          ];
-        }
-        if (delta.type === 'text_delta') {
-          return [{ type: 'text-delta', id: `text-${event.index}`, delta: delta.text! }];
-        }
-        if (delta.type === 'input_json_delta') {
-          const toolBlock = toolUseBlocks.get(event.index!);
-          if (toolBlock) {
-            toolBlock.argsJson += delta.partial_json ?? '';
-            return [{ type: 'tool-call-delta', id: toolBlock.toolCallId, delta: delta.partial_json! }];
-          }
-        }
-        return [];
-      }
-
-      case 'content_block_stop': {
-        if (thinkingBlocks.has(event.index!)) {
-          thinkingBlocks.delete(event.index!);
-          return [{ type: 'reasoning-end', id: `reasoning-${event.index}` }];
-        }
-        if (textBlocks.has(event.index!)) {
-          textBlocks.delete(event.index!);
-          return [{ type: 'text-end', id: `text-${event.index}` }];
-        }
-        const toolBlock = toolUseBlocks.get(event.index!);
-        if (toolBlock) {
-          toolUseBlocks.delete(event.index!);
-          return [
-            {
-              type: 'tool-call',
-              id: toolBlock.toolCallId,
-              toolName: toolBlock.toolName,
-              args: toolBlock.argsJson,
-            },
-          ];
-        }
-        return [];
-      }
-
-      case 'message_stop':
-        return [{ type: 'finish-step' }, { type: 'finish', finishReason: 'stop' }];
-
-      default:
-        return [];
-    }
-  }
-
-  return { translateEvent };
 }
 
 /**
