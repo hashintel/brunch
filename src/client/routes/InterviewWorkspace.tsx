@@ -1,9 +1,8 @@
 import { useChat } from '@ai-sdk/react';
 import { useQueryClient } from '@tanstack/react-query';
 import { useLoaderData, useParams, Link, useRouter } from '@tanstack/react-router';
-import type { UIMessage } from 'ai';
 import { DefaultChatTransport } from 'ai';
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 
 import {
   Conversation,
@@ -20,49 +19,64 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
-import { Tool, ToolHeader, ToolContent, type ToolPart } from '@/components/ai-elements/tool';
+import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { EntitySidebar } from '@/components/EntitySidebar';
 import { cn } from '@/lib/utils';
 
-type LoaderTurn = {
-  id: number;
-  answer: string | null;
-  question: string | null;
-  why: string | null;
-  impact: string | null;
-  phase: string;
-  user_parts: string | null;
-  assistant_parts: string | null;
-  options: Array<{
-    id: number;
-    position: number;
-    content: string;
-    is_recommended: boolean;
-    is_selected: boolean;
-  }>;
-};
+import type { ProjectStateTurn } from '../../shared/api-types.js';
+import {
+  assistantPartsSchema,
+  brunchDataPartSchemas,
+  isAskQuestionUIPart,
+  type BrunchAssistantPart,
+  type BrunchUIMessage,
+  type BrunchUserPart,
+  userPartsSchema,
+} from '../../shared/chat.js';
 
-function hydrateMessages(turns: LoaderTurn[]): UIMessage[] {
-  const msgs: UIMessage[] = [];
+function parseAssistantParts(json: string | null): BrunchAssistantPart[] {
+  if (!json) return [];
+  try {
+    return assistantPartsSchema.parse(JSON.parse(json)) as BrunchAssistantPart[];
+  } catch {
+    return [];
+  }
+}
+
+function parseUserParts(json: string | null): BrunchUserPart[] {
+  if (!json) return [];
+  try {
+    return userPartsSchema.parse(JSON.parse(json));
+  } catch {
+    return [];
+  }
+}
+
+function hydrateMessages(turns: ProjectStateTurn[]): BrunchUIMessage[] {
+  const msgs: BrunchUIMessage[] = [];
   for (const turn of turns) {
-    if (turn.answer) {
+    const hydratedUserParts = parseUserParts(turn.user_parts);
+    const userParts =
+      hydratedUserParts.length > 0
+        ? hydratedUserParts.some((part) => part.type === 'text') || !turn.answer
+          ? hydratedUserParts
+          : ([{ type: 'text', text: turn.answer }, ...hydratedUserParts] as BrunchUserPart[])
+        : turn.answer
+          ? ([{ type: 'text', text: turn.answer }] as BrunchUserPart[])
+          : [];
+
+    if (userParts.length > 0) {
       msgs.push({
         id: `turn-${turn.id}-answer`,
         role: 'user',
-        parts: [{ type: 'text' as const, text: turn.answer }],
+        parts: userParts,
       });
     }
 
-    if (turn.assistant_parts) {
-      try {
-        const parts = JSON.parse(turn.assistant_parts);
-        if (Array.isArray(parts) && parts.length > 0) {
-          msgs.push({ id: `turn-${turn.id}-assistant`, role: 'assistant', parts });
-          continue;
-        }
-      } catch {
-        // fall through to scalar synthesis
-      }
+    const assistantParts = parseAssistantParts(turn.assistant_parts);
+    if (assistantParts.length > 0) {
+      msgs.push({ id: `turn-${turn.id}-assistant`, role: 'assistant', parts: assistantParts });
+      continue;
     }
 
     if (turn.question) {
@@ -87,11 +101,12 @@ function TurnCard({
   onSelect,
   disabled,
 }: {
-  turn: LoaderTurn;
+  turn: ProjectStateTurn;
   onSelect: (turnId: number, position: number) => void;
   disabled: boolean;
 }) {
-  const hasSelection = turn.options.some((o) => o.is_selected);
+  const options = turn.options ?? [];
+  const hasSelection = options.some((o) => o.is_selected);
 
   return (
     <div className="my-3 rounded-lg border bg-card p-4">
@@ -111,7 +126,7 @@ function TurnCard({
       )}
 
       <div className="mt-2 flex flex-col gap-1.5">
-        {turn.options.map((opt) => {
+        {options.map((opt) => {
           const isSelected = opt.is_selected;
           return (
             <button
@@ -142,7 +157,7 @@ function TurnCard({
   );
 }
 
-function renderParts(msg: UIMessage, isStreaming: boolean) {
+function renderParts(msg: BrunchUIMessage, isStreaming: boolean) {
   return msg.parts?.map((part, i) => {
     if (part.type === 'reasoning') {
       return (
@@ -152,21 +167,20 @@ function renderParts(msg: UIMessage, isStreaming: boolean) {
         </Reasoning>
       );
     }
-    if (part.type === 'tool-invocation' || part.type === 'dynamic-tool') {
-      const toolPart = part as unknown as ToolPart & { toolName?: string };
-      if (toolPart.toolName === 'ask_question') return null;
-      const toolName = toolPart.toolName ?? (toolPart.type === 'dynamic-tool' ? 'unknown' : undefined);
+    if (isAskQuestionUIPart(part)) {
+      return null;
+    }
+    if (part.type === 'data-observer-result' || part.type === 'data-phase-summary') {
+      return null;
+    }
+    if (part.type === 'dynamic-tool') {
       return (
-        <Tool
-          key={i}
-          defaultOpen={toolPart.state === 'output-available' || toolPart.state === 'output-error'}
-        >
-          {toolPart.type === 'dynamic-tool' ? (
-            <ToolHeader type="dynamic-tool" state={toolPart.state} toolName={toolName!} />
-          ) : (
-            <ToolHeader type={toolPart.type} state={toolPart.state} />
-          )}
-          <ToolContent />
+        <Tool key={i} defaultOpen={part.state === 'output-available' || part.state === 'output-error'}>
+          <ToolHeader type={part.type} state={part.state} toolName={part.toolName} />
+          <ToolContent>
+            <ToolInput input={part.input} />
+            <ToolOutput output={part.output} errorText={part.errorText} />
+          </ToolContent>
         </Tool>
       );
     }
@@ -188,25 +202,28 @@ export function InterviewWorkspace() {
   const [selecting, setSelecting] = useState(false);
 
   const queryClient = useQueryClient();
+  const initialMessages = useMemo(() => hydrateMessages(turns), [project.id]);
   const transport = useMemo(() => new DefaultChatTransport({ api: `/api/projects/${id}/chat` }), [id]);
-  const { messages, sendMessage, setMessages, status } = useChat({ transport });
+  const { messages, sendMessage, setMessages, status } = useChat<BrunchUIMessage>({
+    transport,
+    messages: initialMessages,
+    dataPartSchemas: brunchDataPartSchemas,
+    onData: (dataPart) => {
+      if (dataPart.type === 'data-observer-result') {
+        void queryClient.invalidateQueries({ queryKey: ['entities', Number(id)] });
+      }
+    },
+    onFinish: () => {
+      void router.invalidate();
+    },
+  });
   const isLoading = status === 'submitted' || status === 'streaming';
-  const prevStatusRef = useRef(status);
-
-  // Refresh data when chat finishes: entities (observer) + turns (ask_question TurnCard)
-  useEffect(() => {
-    if (prevStatusRef.current === 'streaming' && status === 'ready') {
-      void queryClient.invalidateQueries({ queryKey: ['entities', Number(id)] });
-      void router.invalidate(); // Refresh turn data so TurnCard appears after ask_question
-    }
-    prevStatusRef.current = status;
-  }, [status, queryClient, id, router]);
 
   useEffect(() => {
     setMessages(hydrateMessages(turns));
-  }, [project.id, turns]);
+  }, [project.id, setMessages]);
 
-  const lastTurn = turns[turns.length - 1] as LoaderTurn | undefined;
+  const lastTurn = turns[turns.length - 1] as ProjectStateTurn | undefined;
   const showTurnCard = lastTurn?.options?.length && lastTurn.options.length > 0;
   const lastTurnHasSelection = lastTurn?.options?.some((o) => o.is_selected) ?? false;
 
@@ -221,7 +238,8 @@ export function InterviewWorkspace() {
         });
         if (!res.ok) return;
 
-        const selected = lastTurn?.options.find((o) => o.position === position);
+        const options = lastTurn?.options ?? [];
+        const selected = options.find((o) => o.position === position);
         if (selected) {
           await router.invalidate();
           void sendMessage({ text: selected.content });

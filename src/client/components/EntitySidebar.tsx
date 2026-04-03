@@ -4,13 +4,7 @@ import { useState } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 
-type Decision = { id: number; project_id: number; content: string; rationale: string | null };
-type Assumption = { id: number; project_id: number; content: string };
-
-type EntitiesData = {
-  decisions: Decision[];
-  assumptions: Assumption[];
-};
+import type { EntitiesData } from '../../shared/api-types.js';
 
 const tabs = ['Decisions', 'Assumptions'] as const;
 type Tab = (typeof tabs)[number];

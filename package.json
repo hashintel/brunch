@@ -27,6 +27,7 @@
 		"verify": "npm run check && npm run test && npm run build"
 	},
 	"dependencies": {
+		"@ai-sdk/anthropic": "^3.0.66",
 		"@ai-sdk/react": "^3.0.145",
 		"@anthropic-ai/sdk": "^0.82.0",
 		"@fontsource-variable/geist": "^5.2.8",

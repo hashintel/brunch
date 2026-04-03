@@ -139,13 +139,13 @@
    - Branch: `ln/fe-537-observer-agent`
    - **Verification approach**: inner — unit tests for entity writes with dependency edges, observer-complete DomainEvent emission post-commit, SSE adapter data-part encoding, sdk translateStreamEvents parity, observer-error non-fatality, agent-metrics shape. Middle — differential oracle from spike fixtures (deferred to manual testing). Outer — debug mode and fixture capture (deferred to slice 6). → SPEC.md §Oracle Strategy
 
-6. **Entity sidebar (read-only)** `FE-538` — React sidebar in interview workspace showing decisions and assumptions in categorized tabs. TanStack Query manages entity state via `useQuery`; cache invalidated on chat stream completion (status transition `streaming` → `ready`). Entities API at `GET /api/projects/:id/entities`. Note: `onData` → `setQueryData` bridge from D22 not used — AI SDK `useChat` doesn't expose an `onData` callback for custom data parts; status-based invalidation used instead. Dependency edge display and stale badges deferred (require slices 11/12 infrastructure). `done`
+6. **Entity sidebar (read-only)** `FE-538` — React sidebar in interview workspace showing decisions and assumptions in categorized tabs. TanStack Query manages entity state via `useQuery`; observer-result data parts on the chat stream drive cache invalidation from `useChat` `onData`. Entities API at `GET /api/projects/:id/entities`. Dependency edge display and stale badges deferred (require slices 11/12 infrastructure). `done`
    - Requirements: → SPEC.md §Requirements #6
-   - Assumptions: → SPEC.md §Assumptions A21 (partially validated — status-based invalidation works; onData bridge not needed)
-   - Decisions: → SPEC.md §Decisions D22 (TanStack Query — yes; in-band onData sync — replaced with status-based invalidation)
+   - Assumptions: → SPEC.md §Assumptions A21 (partially validated — in-band `onData` invalidation path is implemented; browser outer-loop still pending)
+   - Decisions: → SPEC.md §Decisions D22
    - Invariants established: → SPEC.md §Invariants I23
    - Invariants respected: → SPEC.md §Invariants I9, I10, I14, I20, I21
-   - Acceptance: 149 tests (2 new API tests); entities API returns decisions + assumptions; sidebar renders in categorized tabs; TanStack Query cache invalidated on stream completion; entities appear as interview progresses
+   - Acceptance: entities API returns decisions + assumptions; sidebar renders in categorized tabs; TanStack Query invalidates entity state from typed `data-observer-result` parts; entities appear as interview progresses
    - Branch: `ln/fe-538-entity-sidebar`
    - Ref: → docs/design/BREADBOARD.md §UI Affordances → P2 Entity sidebar
    - **Verification approach**: inner — unit tests for entity query on active path, stale badge computation. Middle — validate A21: `onData` → `setQueryData` updates sidebar without stale closure (if stale, fall back to parallel `EventSource`). Outer — manual visual inspection (entities render correctly, tabs work, stale badges appear). Debug mode overlay (observer extraction detail per-turn) should land here or in slice 5. → SPEC.md §Oracle Strategy (outer loop), §Acknowledged Blind Spots (cumulative graph integrity)
@@ -161,15 +161,15 @@
    - Branch: `ln/spike-raw-anthropic-sdk`
    - **Implication**: Slices 7+ unblocked. New migration slice needed (SDK swap) before phase transitions can proceed.
 
-   6b. **SDK migration: replace Agent SDK with raw Anthropic SDK** `FE-559` — Replace `@anthropic-ai/claude-agent-sdk` (`query()`, `createSdkMcpServer()`, `tool()`) with `@anthropic-ai/sdk` (`client.messages.stream()`, `client.messages.create()`). Hand-written tool JSON schema with `tool_choice` forcing. Observer uses direct API + system-prompt JSON + Zod parse. Translator accepts raw events (no `stream_event` envelope). Metrics from raw API `usage` + local wall-clock timing. `done`
+   6b. **AI SDK-native chat pivot** `FE-559` — Replace the remaining hand-written Anthropic stream translation path with `@ai-sdk/anthropic` plus AI SDK-native UI message streaming. Shared `BrunchUIMessage` contracts now span server request validation, persisted `parts[]`, SSE response streaming, and client hydration. Observer results stay in-band as typed data parts. `done`
    - Requirements: → SPEC.md §Requirements #2, #3, #5
-   - Assumptions: → SPEC.md §Assumptions A26 (**validated**), A27 (new)
-   - Decisions: → SPEC.md §Decisions D30
-   - Invariants established: → SPEC.md §Invariants I22 (updated — raw events), I16 (preserved)
-   - Invariants respected: → SPEC.md §Invariants I1, I5, I6, I12, I13, I20, I21
-   - Acceptance: 135 tests pass (all updated mocks); `@anthropic-ai/claude-agent-sdk` removed from `package.json` and all imports; `npm run verify` passes
+   - Assumptions: → SPEC.md §Assumptions A21, A22, A23
+   - Decisions: → SPEC.md §Decisions D8, D19, D22, D30, D31
+   - Invariants established: → SPEC.md §Invariants I21, I22, I23
+   - Invariants respected: → SPEC.md §Invariants I1, I5, I6, I14, I16, I17, I18, I19, I20
+   - Acceptance: `@ai-sdk/anthropic` powers the interviewer and observer path; `sdk.ts` and `sse-adapter.ts` are retired; shared UI message/data-part contracts replace handwritten protocol unions; `npm run verify` passes
    - Branch: `ln/fe-559-migrate-sdk`
-   - **Verification approach**: inner — translator raw events (I22 updated), tool handler persistence (I16), observer entity extraction (I20, I21). Middle — `npm run verify`. Outer — manual interview end-to-end (first real `ask_question` via raw SDK).
+   - **Verification approach**: inner — typed contract and persistence tests (`core.test.ts`, `interview.test.ts`, `observer.test.ts`, `parts.test.ts`); route stream tests (`app.test.ts`). Middle — `npm run verify`. Outer — manual interview end-to-end with typed observer/sidebar sync.
 
    ## Phase 4: Full Interview
 
@@ -178,15 +178,14 @@
 
 ### Slices
 
-6c. **Agent loop: stream → tool_use → execute → re-submit** — Implement a thin custom agent loop in `src/server/agent-loop.ts` modeled after `badlogic/pi-mono` `packages/agent/src/agent-loop.ts`. The loop: streams a response via `client.messages.stream()`, checks `stop_reason`, if `tool_use` executes registered tool handlers and re-submits with `tool_result` messages, repeats until `end_turn` or `maxTurns`. Yields `DomainEvent`s during streaming. Tool registry: `{ name, inputSchema, execute }[]`. `runInterviewer` refactored to call `agentLoop()` with phase-specific config. No changes to observer (single-shot, no loop). `not-started`
+6c. **Interviewer loop hardening** — Extend the current AI SDK-native interviewer beyond the single visible `ask_question` flow when phase resolution or multi-step tool behavior requires it. Default path is `ToolLoopAgent`; if product needs tighter step control, replace or wrap it with an explicit loop over typed model/tool messages. `not-started`
     - Requirements: → SPEC.md §Requirements #2, #3, #7
     - Assumptions: → SPEC.md §Assumptions A28
     - Decisions: → SPEC.md §Decisions D31
-    - Invariants to establish: I24 (agent loop re-submission — tool_use stop → tool_result → model sees result)
+    - Invariants to establish: I24 (multi-step interviewer control path is explicit and tested)
     - Invariants to respect: → SPEC.md §Invariants I16, I22
-    - Acceptance: `agentLoop()` yields correct DomainEvents for single-tool forced call (backward compat with current interviewer); `agentLoop()` re-submits tool results when `stop_reason === 'tool_use'` and stops on `end_turn`; `runInterviewer` passes all existing tests unchanged after refactor to use `agentLoop()`; `npm run verify` passes
-    - **Verification approach**: inner — unit tests for loop lifecycle (single-turn, multi-turn, maxTurns guard, tool execution, error handling). Middle — existing interview + core + app tests pass unchanged (backward compat). Outer — manual interview end-to-end.
-    - **Reference implementation**: `~/Clones/badlogic/pi-mono/packages/agent/src/agent-loop.ts` — specifically `runLoop()` (L155-232), `streamAssistantResponse()` (L238-320), `executeToolCalls()` (L322-388). Brunch adapts the inner loop and tool execution; omits steering/follow-up messages, parallel execution, provider abstraction, `convertToLlm`, `beforeToolCall`/`afterToolCall` hooks, AbortSignal.
+    - Acceptance: interviewer can execute tool steps, continue, and resolve a phase without regressing the shared `BrunchUIMessage` contract; `npm run verify` passes
+    - **Verification approach**: inner — unit tests for multi-step interviewer lifecycle and phase-resolution paths. Middle — existing interview/app tests stay green. Outer — manual interview end-to-end across a phase boundary.
 
 7. **Phase transition + resolution** — Agent judges when scope phase is complete (`is_resolution`). Core yields `phase-resolved` DomainEvent. Client shows summary modal. User confirms to advance. Phase indicator updates. Requires agent loop (6c) — the agent must call `ask_question` AND optionally signal resolution in the same turn, which requires multi-step tool use or `tool_choice: auto`. `not-started`
    - Requirements: → SPEC.md §Requirements #7, #8

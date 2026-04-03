@@ -1,5 +1,6 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 
+import type { ProjectListItem, ProjectState } from '../shared/api-types.js';
 import { ComponentDebug } from './routes/ComponentDebug.js';
 import { ExportPreview } from './routes/ExportPreview.js';
 import { InterviewWorkspace } from './routes/InterviewWorkspace.js';
@@ -21,7 +22,7 @@ const indexRoute = createRoute({
   loader: async () => {
     const res = await fetch('/api/projects');
     if (!res.ok) throw new Error('Failed to load projects');
-    return res.json() as Promise<Array<{ id: number; name: string; created_at: string; updated_at: string }>>;
+    return res.json() as Promise<ProjectListItem[]>;
   },
   component: ProjectList,
 });
@@ -33,26 +34,7 @@ const projectRoute = createRoute({
   loader: async ({ params }) => {
     const res = await fetch(`/api/projects/${params.id}`);
     if (!res.ok) throw new Error('Failed to load project');
-    return res.json() as Promise<{
-      project: { id: number; name: string; active_turn_id: number | null };
-      turns: Array<{
-        id: number;
-        answer: string | null;
-        question: string | null;
-        why: string | null;
-        impact: string | null;
-        phase: string;
-        user_parts: string | null;
-        assistant_parts: string | null;
-        options: Array<{
-          id: number;
-          position: number;
-          content: string;
-          is_recommended: boolean;
-          is_selected: boolean;
-        }>;
-      }>;
-    }>;
+    return res.json() as Promise<ProjectState>;
   },
   component: InterviewWorkspace,
 });

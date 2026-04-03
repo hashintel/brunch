@@ -51,8 +51,8 @@ describe('buildInterviewerContext', () => {
         assistant_parts: null,
         created_at: '2026-01-01',
         options: [
-          { content: 'Build a new product', is_recommended: false, is_selected: true },
-          { content: 'Improve existing', is_recommended: true, is_selected: false },
+          { id: 11, position: 0, content: 'Build a new product', is_recommended: false, is_selected: true },
+          { id: 12, position: 1, content: 'Improve existing', is_recommended: true, is_selected: false },
         ],
       },
     ];

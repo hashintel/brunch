@@ -1,15 +1,8 @@
-/**
- * Observer agent — extracts decisions and assumptions from answered turns.
- *
- * Runs silently after the interviewer completes. Uses client.messages.create()
- * with system-prompt-guided JSON extraction + Zod parse.
- * No streaming, no MCP tools.
- * Persists entities to the DB in a transaction, then yields observer-complete.
- */
+import { anthropic } from '@ai-sdk/anthropic';
+import { generateObject } from 'ai';
 import { z } from 'zod';
 
 import { buildObserverContext } from './context.js';
-import type { DomainEvent } from './core.js';
 import {
   createDecision,
   createAssumption,
@@ -22,7 +15,6 @@ import {
   type DB,
   type Turn,
 } from './db.js';
-import { createAnthropicClient, extractMetrics } from './sdk.js';
 
 /** Schema for observer structured output. */
 export const observerOutputSchema = z.object({
@@ -63,10 +55,13 @@ Rules:
 
 /**
  * Run the observer agent. Extracts entities from the completed turn,
- * persists them to the DB, and yields observer-complete with entity IDs.
+ * persists them to the DB, and returns created entity IDs.
  */
-export async function* runObserver(db: DB, turn: Turn, projectId: number): AsyncGenerator<DomainEvent> {
-  const client = createAnthropicClient();
+export async function runObserver(
+  db: DB,
+  turn: Turn,
+  projectId: number,
+): Promise<{ decisions: number[]; assumptions: number[] }> {
   const entities = getEntitiesForProject(db, projectId);
   const context = buildObserverContext({
     turn,
@@ -74,29 +69,15 @@ export async function* runObserver(db: DB, turn: Turn, projectId: number): Async
     entities,
   });
 
-  const startMs = Date.now();
-
-  const response = await client.messages.create({
-    model: process.env.OBSERVER_MODEL || 'claude-haiku-4-5-20251001',
-    max_tokens: 2048,
+  const result = await generateObject({
+    model: anthropic(process.env.OBSERVER_MODEL || 'claude-haiku-4-5-20251001'),
+    maxOutputTokens: 2048,
     system: OBSERVER_SYSTEM_PROMPT,
-    messages: [{ role: 'user', content: context }],
+    prompt: context,
+    schema: observerOutputSchema,
   });
 
-  const durationMs = Date.now() - startMs;
-
-  // Extract text content from response
-  const textBlock = response.content.find(
-    (block): block is Extract<(typeof response.content)[number], { type: 'text' }> => block.type === 'text',
-  );
-
-  if (!textBlock) {
-    throw new Error('Observer extraction failed: no text block in response');
-  }
-
-  // Parse JSON — strip markdown code fences if present
-  const jsonStr = textBlock.text.replace(/^```json\n?/, '').replace(/\n?```$/, '');
-  const parsed = observerOutputSchema.parse(JSON.parse(jsonStr));
+  const parsed = result.object;
 
   // Persist entities in a transaction-like sequence
   const createdDecisionIds: number[] = [];
@@ -125,16 +106,5 @@ export async function* runObserver(db: DB, turn: Turn, projectId: number): Async
     }
   }
 
-  // Yield observer-complete post-commit
-  yield {
-    type: 'observer-complete',
-    entityIds: { decisions: createdDecisionIds, assumptions: createdAssumptionIds },
-  };
-
-  // Yield agent metrics
-  yield extractMetrics('observer', {
-    inputTokens: response.usage.input_tokens,
-    outputTokens: response.usage.output_tokens,
-    durationMs,
-  });
+  return { decisions: createdDecisionIds, assumptions: createdAssumptionIds };
 }

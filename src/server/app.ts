@@ -1,7 +1,25 @@
+import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessages } from 'ai';
 import express from 'express';
 import type { Request, Response } from 'express';
 
-import { conductTurn, extractPrompt, getProjectState, listProjectStates, createNewProject } from './core.js';
+import type { ProjectState, ProjectListItem, EntitiesData } from '../shared/api-types.js';
+import {
+  assistantPartsSchema,
+  brunchDataPartSchemas,
+  brunchValidationTools,
+  extractTextFromMessage,
+  type BrunchAssistantPart,
+  type BrunchUIMessage,
+  type BrunchUserPart,
+} from '../shared/chat.js';
+import {
+  extractPrompt,
+  finalizeTurn,
+  getProjectState,
+  listProjectStates,
+  createNewProject,
+  prepareTurn,
+} from './core.js';
 import {
   createDb,
   getTurn,
@@ -10,8 +28,9 @@ import {
   updateTurn,
   getEntitiesForProject,
 } from './db.js';
-import { serializeParts, type DataOptionSelectionPart } from './parts.js';
-import { createDomainAdapter, formatSSE } from './sse-adapter.js';
+import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
+import { runObserver } from './observer.js';
+import { serializeParts } from './parts.js';
 
 export function createApp(dbPath?: string) {
   const db = createDb(dbPath);
@@ -20,7 +39,7 @@ export function createApp(dbPath?: string) {
 
   // List all projects
   app.get('/api/projects', (_req: Request, res: Response) => {
-    res.json(listProjectStates(db));
+    res.json(listProjectStates(db) satisfies ProjectListItem[]);
   });
 
   // Create a new project
@@ -46,7 +65,7 @@ export function createApp(dbPath?: string) {
       res.status(404).json({ error: 'Project not found' });
       return;
     }
-    res.json(state);
+    res.json(state satisfies ProjectState);
   });
 
   // Select an option on a turn
@@ -75,14 +94,17 @@ export function createApp(dbPath?: string) {
     const options = getOptionsForTurn(db, turnId);
     const selected = options.find((o) => o.position === position);
 
-    const dataPart: DataOptionSelectionPart = {
+    const dataPart = {
       type: 'data-option-selection',
-      data: { turnId, selectedOptionId: position },
-    };
+      data: { turnId, selectedOptionId: selected?.id ?? position },
+    } as const satisfies Extract<BrunchUserPart, { type: 'data-option-selection' }>;
 
     updateTurn(db, turnId, {
       answer: selected?.content ?? '',
-      user_parts: serializeParts([dataPart]),
+      user_parts: serializeParts([
+        ...(selected?.content ? ([{ type: 'text', text: selected.content }] as const) : []),
+        dataPart,
+      ] satisfies BrunchUserPart[]),
     });
 
     res.json({ ok: true });
@@ -95,7 +117,7 @@ export function createApp(dbPath?: string) {
       res.status(400).json({ error: 'Invalid project ID' });
       return;
     }
-    res.json(getEntitiesForProject(db, id));
+    res.json(getEntitiesForProject(db, id) satisfies EntitiesData);
   });
 
   // Conduct turn for a specific project
@@ -106,35 +128,90 @@ export function createApp(dbPath?: string) {
       return;
     }
 
-    const prompt = extractPrompt(req.body.messages ?? []);
+    let messages: BrunchUIMessage[];
+    try {
+      messages = await validateUIMessages<BrunchUIMessage>({
+        messages: req.body.messages ?? [],
+        dataSchemas: brunchDataPartSchemas,
+        tools: brunchValidationTools,
+      });
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Invalid chat payload';
+      res.status(400).json({ error: message });
+      return;
+    }
+
+    const prompt = extractPrompt(messages);
     if (!prompt.trim()) {
       res.status(400).json({ error: 'message content is required' });
       return;
     }
-    console.log(`POST /api/projects/${id}/chat — prompt:`, JSON.stringify(prompt).substring(0, 100));
 
-    res.setHeader('Content-Type', 'text/event-stream');
-    res.setHeader('Cache-Control', 'no-cache');
-    res.setHeader('Connection', 'keep-alive');
+    const lastUserMessage = messages.at(-1);
+    const userParts: BrunchUserPart[] =
+      lastUserMessage?.role === 'user' && lastUserMessage.parts.length > 0
+        ? lastUserMessage.parts.filter(
+            (part): part is BrunchUserPart =>
+              part.type === 'text' ||
+              part.type === 'data-option-selection' ||
+              part.type === 'data-confirmation',
+          )
+        : [{ type: 'text', text: prompt }];
 
-    const { translate } = createDomainAdapter();
-
+    let prepared: ReturnType<typeof prepareTurn>;
     try {
-      for await (const domainEvent of conductTurn(db, id, prompt)) {
-        for (const sseEvent of translate(domainEvent)) {
-          res.write(formatSSE(sseEvent));
-        }
-      }
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
-      res.write(formatSSE({ type: 'error', errorText: message }));
+      prepared = prepareTurn(db, id, prompt, userParts);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unknown error';
+      res.status(404).json({ error: message });
+      return;
     }
 
-    // Protocol termination: finish-step + finish after all events (including observer)
-    res.write(formatSSE({ type: 'finish-step' }));
-    res.write(formatSSE({ type: 'finish', finishReason: 'stop' }));
-    res.write(formatSSE('[DONE]'));
-    res.end();
+    const stream = createUIMessageStream<BrunchUIMessage>({
+      async execute({ writer }) {
+        const interviewer = await streamInterviewer(
+          db,
+          prepared.turn,
+          prepared.activePath,
+          prompt,
+          prepared.turn.phase,
+        );
+
+        writer.merge(
+          interviewer.toUIMessageStream<BrunchUIMessage>({
+            sendReasoning: true,
+            sendFinish: false,
+          }),
+        );
+
+        const finishReason = await interviewer.finishReason;
+        finalizeTurn(db, id, prepared.turn.id);
+
+        try {
+          const persistedTurn = getTurn(db, prepared.turn.id) ?? prepared.turn;
+          const entityIds = await runObserver(db, persistedTurn, id);
+          writer.write({
+            type: 'data-observer-result',
+            data: { entityIds },
+          });
+        } catch {
+          // Observer failures are non-fatal to the interviewer turn.
+        }
+
+        writer.write({ type: 'finish', finishReason });
+      },
+      async onFinish({ responseMessage }) {
+        const assistantText = extractTextFromMessage(responseMessage);
+        persistFallbackQuestionText(db, prepared.turn.id, assistantText);
+        const assistantParts = assistantPartsSchema.parse(responseMessage.parts) as BrunchAssistantPart[];
+        updateTurn(db, prepared.turn.id, {
+          assistant_parts: serializeParts(assistantParts),
+        });
+      },
+      onError: (error) => (error instanceof Error ? error.message : 'Unknown error'),
+    });
+
+    pipeUIMessageStreamToResponse({ response: res, stream });
   });
 
   return { app, db };
