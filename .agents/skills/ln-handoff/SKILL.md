@@ -51,7 +51,7 @@ What IS on disk:
 
 ### 4. Produce handoff
 
-Write structured markdown following `@resources/handoff-template.md`.
+Write structured markdown following `./assets/handoff-template.md`.
 
 Write to the path given as argument, or `HANDOFF.md` at the nearest workspace root. In a monorepo, this is the workspace (package) the session was working in — not the repository root. Determine the workspace from the files touched during the session: look for the nearest `package.json`, `Cargo.toml`, `go.mod`, or similar project marker up from the most-edited files.
 

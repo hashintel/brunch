@@ -32,6 +32,20 @@ For each invalidated assumption:
 - Mark as `invalidated` in §Assumptions
 - Flag all implicated slices in `memory/PLAN.md`
 
+### 2b. Pruning check
+
+Tracked items accumulate. Large assumption and decision tables become a confusion surface — new sessions inherit stale context and make wrong inferences. After graduation, assess each remaining item for removal:
+
+| State | Criterion | Action |
+| --- | --- | --- |
+| **Embedded** | Validated and now a structural property of the code — restating it as a tracked question adds noise, not clarity | Remove — the code is the proof |
+| **Moot** | Invalidated and the concern no longer applies (e.g. the technology it worried about was replaced entirely) | Remove |
+| **Superseded** | Replaced by a newer decision or assumption | Remove, note in the replacement |
+
+When pruning, leave a comment noting which IDs were removed and why (e.g. `<!-- Pruned 2026-04-03: removed A1, A2 ... — embedded in architecture -->`). Do not renumber surviving items — IDs are stable. Dereference removed items from PLAN.md slice cross-references.
+
+The same logic applies to §Decisions: a decision that is now simply how the code works, with no live alternative being weighed, can be removed. Keep decisions that record a *choice between alternatives* that future work might revisit.
+
 ### 3. Staleness check
 
 - **PLAN.md**: Are completed slices still marked in-progress? Are active items still relevant? Do slice/spike cross-references to SPEC.md §Requirements and §Assumptions still hold?
@@ -54,6 +68,9 @@ Present findings, then update docs with user confirmation:
 
 ### Graduations
 - [assumption] → [promoted to Lexicon/Design Decisions]
+
+### Pruned
+- [items removed as embedded/moot/superseded, with rationale]
 
 ### Stale items
 - [item] in [file] — [what's wrong]

@@ -33,7 +33,7 @@ If context is thin, run a brief interview (not a full `ln-grill`) to fill gaps.
 
 ## Output
 
-Write or update `./memory/PLAN.md` following the template at `@resources/plan-template.md`.
+Write or update `./memory/PLAN.md` following the template at `./assets/plan-template.md`.
 
 ### Traceability
 

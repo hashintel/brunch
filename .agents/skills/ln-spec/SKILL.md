@@ -26,7 +26,7 @@ The feature or problem: $ARGUMENTS
 
 ## Output
 
-Write or update `./memory/SPEC.md` following the template at `@resources/spec-template.md`. If the file already exists, read it first — preserve existing content, evolve sections that need change.
+Write or update `./memory/SPEC.md` following the template at `./assets/spec-template.md`. If the file already exists, read it first — preserve existing content, evolve sections that need change.
 
 ### Verification Design boundary
 
@@ -35,6 +35,10 @@ ln-spec owns the **inner loop** of verification design: verification commands, v
 ### Traceability
 
 If `memory/PLAN.md` exists, verify that changed assumptions and decisions still align with affected slices.
+
+### Weight management
+
+Spec documents accumulate. Each ln-sync pass may prune items that are embedded, moot, or superseded (see ln-sync §Pruning check). When *adding* items, consider whether an existing item should be retired to make room. A spec with 30 assumptions is not more rigorous than one with 10 — it's harder to read and more likely to mislead a new session.
 
 ### Cross-reference integrity
 

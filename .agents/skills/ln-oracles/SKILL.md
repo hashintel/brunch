@@ -10,7 +10,7 @@ Design what proves the system works before choosing how to build it.
 
 The best oracle removes the most bad degrees of freedom per unit time (Regehr). A system without feedback is open-loop -- it cannot correct errors (Wiener). Verification is first-class work, not accessory: second only to building the product itself. A slice without an oracle strategy is not scoped.
 
-Read `@resources/diagnostic-framework.md` and `@resources/oracle-taxonomy.md` before starting.
+Read `./assets/diagnostic-framework.md` and `./assets/oracle-taxonomy.md` before starting.
 
 ## Input
 
@@ -24,7 +24,7 @@ This is an **interactive process** -- each step involves presenting analysis and
 
 ### 1. Diagnose
 
-Score **Observability**, **Reproducibility**, and **Controllability** (see `@resources/diagnostic-framework.md`). Present the scoring table to the user with specific notes per dimension. Low scores constrain which oracle families are feasible and must be addressed before oracle selection proceeds.
+Score **Observability**, **Reproducibility**, and **Controllability** (see `./assets/diagnostic-framework.md`). Present the scoring table to the user with specific notes per dimension. Low scores constrain which oracle families are feasible and must be addressed before oracle selection proceeds.
 
 **Grill**: For each dimension scored below `high`, ask: is this a deliberate deferral, a blind spot, or something we should address now? What would change the score?
 
@@ -40,7 +40,7 @@ From SPEC.md invariant bundles, acceptance criteria, and PLAN.md slice definitio
 
 ### 3. Select oracle families
 
-Using `@resources/oracle-taxonomy.md`, select families ranked by ROI for this project's verification needs. Apply the combination principle: the best oracle is a pair of independent artifacts. Prefer pairs when they compound; don't force them when a single oracle suffices.
+Using `./assets/oracle-taxonomy.md`, select families ranked by ROI for this project's verification needs. Apply the combination principle: the best oracle is a pair of independent artifacts. Prefer pairs when they compound; don't force them when a single oracle suffices.
 
 **Grill**: For each selected family, present: what it proves, what it costs, and what it misses. Ask the user which tradeoffs are acceptable given timeline and confidence levels.
 
