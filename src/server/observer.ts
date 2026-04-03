@@ -1,6 +1,6 @@
 import { anthropic } from '@ai-sdk/anthropic';
 import { generateObject } from 'ai';
-import { z } from 'zod';
+import * as z from 'zod/v4';
 
 import { buildObserverContext } from './context.js';
 import {

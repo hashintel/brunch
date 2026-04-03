@@ -18,193 +18,75 @@
 
 ### Slices
 
-1. **Walking skeleton: SDK → SSE → React** `FE-534` — Prove the integration seam: the highest-uncertainty slice, retires the most risk. `done`
-   - Requirements: → SPEC.md §Requirements #1, #4
-   - Assumptions: → SPEC.md §Assumptions A1, A2, A8, A10
-   - Invariants established: → SPEC.md §Invariants I1, I2, I3, I4
-   - Acceptance: `npm run dev` opens browser, type a message, see streamed response with visible thinking and text. `useChat` manages all state
-   - Branch: `ln/fe-534-walking-skeleton`
+1. **Walking skeleton: SDK → SSE → React** `FE-534` `done` — I1, I2, I3, I4
+2. **SQLite foundation + project persistence** `FE-535` `done` — I5, I6
 
-2. **SQLite foundation + project persistence** `FE-535` — Replace Dolt with `better-sqlite3`. Basic persistence with project + message tables. Conversation history replay. `done`
-   - Requirements: → SPEC.md §Requirements #14
-   - Assumptions: → SPEC.md §Assumptions A5 (validated), A11 (validated), A12 (validated)
-   - Invariants established: → SPEC.md §Invariants I5, I6
-   - Invariants respected: → SPEC.md §Invariants I1, I2, I3
-   - Acceptance: create project, send message, refresh page, see history, continue conversation
-   - Branch: `ln/fe-535-sqlite-persistence`
+## Phase 2: Architecture `done`
 
-## Phase 2: Architecture
+3. **Turn tree schema + API** `FE-544` `done` — I6, I9, I10
+3c. **Drizzle ORM + core extraction** `FE-552` `done` — I11, I12, I13
+3d. **Multi-project routing** `FE-553` `done` — I14, I15
 
-<!-- Migrate to the turn-tree schema, then evolve the stack: Drizzle for migrations,
-     core service layer for interface-agnostic logic, TanStack Router for client routing.
-     Infrastructure that makes every subsequent slice cheaper. -->
+## Phase 3: Interview Engine `done`
 
-### Slices
+<!-- Spikes -->
+- Spike: **Observer extraction fidelity** `FE-557` `done` — validated A14 (≥80% capture rate)
+- Spike: **Raw Anthropic SDK** `done` — invalidated A2, validated A26, led to D30
 
-3. **Turn tree schema + API** `FE-544` — Migrate from message table to the full schema.dbml model (turn, option, decision, assumption, requirement, criterion + all join tables). Update API: POST /api/chat creates turns, GET /api/projects/current returns turns on the active path. Project gets `active_turn_id`. Tests verify turn tree CRUD and active path resolution. `done`
-   - Requirements: → SPEC.md §Requirements #14
-   - Assumptions: → SPEC.md §Assumptions A6
-   - Invariants established: → SPEC.md §Invariants I6 (updated), I9, I10
-   - Invariants respected: → SPEC.md §Invariants I1, I2, I3
-   - Acceptance: create project, create turns with parent chain, resolve active path, close and reopen with state intact
-   - Branch: `ln/fe-544-turn-tree-schema`
+<!-- Slices -->
+3b. **Rich chat UI** `FE-541` `done` — I7
+4. **Structured interview: scope phase** `FE-554` `done` — I16
+4a. **Parts-based persistence + context builders** `FE-555` `done` — I17, I18, I19
+4b. **Structured interview: client UI** `FE-556` `done` — I17↑, I18↑
+4c. **UI foundation: shadcn/ui + Tailwind 4 + AI Elements** `FE-558` `done`
+5. **Observer agent + entity persistence** `FE-537` `done` — I20, I21, I22
+6. **Entity sidebar (read-only)** `FE-538` `done` — I23
+6b. **AI SDK-native chat pivot** `FE-559` `done` — I21↑, I22↑, I23↑; core tools spike proven (A29)
+6b1. **Workspace seam characterization oracle** `done` — I24, I25
+    - Purpose: add a client integration harness around the interview workspace before the state-ownership refactor
+    - Coverage: initial hydration from persisted turns, same-project refresh stability, observer-result sidebar reactivity, option-selection follow-through
+    - Unblocks: 6c live streaming fix, workspace state-ownership refactor commits
 
-3c. **Drizzle ORM + core extraction** `FE-552` — Migrate raw DDL to Drizzle schema (`drizzle/schema.ts`) with migration runner. Extract interview orchestration from `app.ts` into `core.ts` — `conductTurn()` returns `AsyncIterable<DomainEvent>`. Express handler becomes a thin adapter translating DomainEvents to SSE. `done`
-    - Requirements: → SPEC.md §Requirements #14
-    - Assumptions: → SPEC.md §Assumptions A18 (validated), A19 (validated)
-    - Decisions: → SPEC.md §Decisions D18, D19
-    - Invariants established: → SPEC.md §Invariants I11, I12, I13
-    - Invariants respected: → SPEC.md §Invariants I1, I2, I3, I5, I6, I9, I10
-    - Acceptance: 51 tests pass (39 existing + 12 new core tests); Drizzle migrate() auto-applies at startup; conductTurn() yields DomainEvents consumed by Express adapter via createDomainAdapter()
-    - Branch: `ln/fe-552-drizzle-core-extraction`
+## Phase 4: Full Interview
 
-3d. **Multi-project routing** `FE-553` — TanStack Router with three routes: project list (`/`), interview workspace (`/project/:id`), export preview placeholder (`/project/:id/export`). Route loaders replace `useEffect` hydration. Server API project-scoped (`/api/projects`, `/api/projects/:id`, `/api/projects/:id/chat`). `done`
-    - Requirements: → SPEC.md §Requirements #1, #15
-    - Decisions: → SPEC.md §Decisions D9 (updated)
-    - Invariants established: → SPEC.md §Invariants I14, I15
-    - Invariants respected: → SPEC.md §Invariants I1, I2, I3, I6, I9, I10
-    - Acceptance: 72 tests pass (11 new: 6 db, 5 app); project-scoped API routes; TanStack Router with code-based routing; route loaders fetch data; DefaultChatTransport for project-scoped chat endpoint
-    - Branch: `ln/fe-553-multi-project-routing`
-    - Ref: → docs/design/BREADBOARD.md §Places, §Wiring
-
-## Phase 3: Interview Engine
-
-<!-- Build the structured interview with observer extraction. Retire the two highest-risk
-     assumptions (A14: observer fidelity, A13: SDK skills) before building the full flow.
-     Rich chat UI comes first to establish the rendering foundation. -->
-
-### Spikes
-
-1. **Observer extraction fidelity** `FE-557` — Can the LLM reliably extract decisions, assumptions, and dependency edges from a single turn's Q&A? Test with realistic fixture turns across different question types (scope, design, constraints). Measure extraction consistency across runs. `done`
-   - Assumptions: → SPEC.md §Assumptions A14, A3
-   - Time box: 2 hours
-   - Success: ≥80% of expected entities captured with correct dependency edges across 5+ fixture turns
-   - **Verification approach**: differential oracle — fixture turns (input) → observer extraction (output) → compare against hand-labeled golden master. Spike must produce ≥5 reusable fixtures with expected entities as proof artifact. → SPEC.md §Oracle Strategy (middle loop), §Observer History Projection
+<!-- All four phases working end-to-end. The live rendering regression must be fixed first,
+     then phase transitions, tool composition, and the remaining interview phases.
+     The product becomes usable at the end of this phase. -->
 
 ### Slices
 
-3b. **Rich chat UI: tool calls + reasoning rendering** `FE-541` — Extend SSE adapter and core to emit tool-call lifecycle events for SDK `tool_use` content blocks. Part-type rendering for tool calls (with state indicator) and reasoning (collapsible block). AI Elements deferred — hand-built rendering sufficient for now. `done`
-    - Requirements: → SPEC.md §Requirements #4
-    - Assumptions: → SPEC.md §Assumptions A16 (partially validated — SSE + client work, browser outer-loop pending), A17 (not yet tested — AI Elements not installed)
-    - Invariants established: → SPEC.md §Invariants I7
-    - Invariants respected: → SPEC.md §Invariants I1, I2, I3
-    - Acceptance: 61 tests pass (10 new: 6 SSE adapter, 3 core, 1 app integration); tool-call-streaming-start/delta/tool-call SSE events emitted for SDK tool_use blocks; client renders dynamic-tool parts with state labels
-    - Branch: `ln/fe-541-rich-chat-ui`
+6c. **Live streaming fix** — Fix the turn-card rendering regression: during live SSE streaming, the structured turn card (question + options + impact + why) does not render until page refresh. Thinking streams live; server persists correctly; hydration from DB works. The type-strictness refactor (6b) provides typed seams for diagnosis. Root cause is in the interaction between `toUIMessageStream()`, `useChat` part accumulation, and the `ask_question` tool-part lifecycle. `not-started`
+    - Requirements: → SPEC.md §Requirements #2, #3, #4
+    - Assumptions: → SPEC.md §Assumptions A16, A28
+    - Invariants to establish: I24 (live tool-part rendering matches persisted state after refresh)
+    - Invariants to respect: → SPEC.md §Invariants I16, I17, I18, I22
+    - Acceptance: send a message in dev, see the structured turn card appear live without refresh; `npm run verify` passes
+    - **Verification approach**: inner — unit tests for tool-part state transitions in the stream. Outer — manual interview: turn card renders live, matches post-refresh state.
 
-4. **Structured interview: scope phase (server)** `FE-554` — Replace flat chat with structured turns. Implement the scope phase as an agent skill — the agent generates a question with options, grounding ("why this matters"), and impact signal via `ask_question` MCP tool. Turn persists with phase provenance (question, why, impact, options). `done`
-   - Requirements: → SPEC.md §Requirements #2, #3
-   - Assumptions: → SPEC.md §Assumptions A7, A13 (validated)
-   - Invariants established: → SPEC.md §Invariants I16
-   - Invariants respected: → SPEC.md §Invariants I1, I2, I3, I5, I6, I12, I13
-   - Acceptance: 90 tests pass (16 new interview tests, 2 new app integration); `ask_question` MCP tool validates agent output via Zod schema; per-turn MCP server created via closure over db + turnId; `getSystemPrompt(phase)` returns phase-specific prompt; structured turn fields (question, why, impact, options) persist correctly
-   - Branch: `ln/fe-554-structured-interview`
-   - **Verification approach**: inner — schema validation on agent tool output (Zod parse, establishes I16); unit tests for phase-tagged turn persistence. Middle — round-trip: structured turn → persist → active path query → verify phase provenance intact. Outer — manual interview walkthrough, assess question quality. → SPEC.md §Oracle Strategy, §Acknowledged Blind Spots (interview quality)
-
-4a. **Parts-based persistence + context builders** `FE-555` — Schema migration: add `user_parts` and `assistant_parts` JSON columns to turn table. Server-side: assemble final assistant `parts[]` from DomainEvents on stream finish, persist alongside scalars. Define `BrunchUIMessage` type with custom Data Parts (`data-option-selection`, `data-confirmation`). Extract `formatHistory()` into typed context builders (`buildInterviewerContext`, `buildObserverContext`). No backward-compatible fallback — DB can be re-initialized if needed. `done`
-    - Requirements: → SPEC.md §Requirements #4, #14
-    - Assumptions: → SPEC.md §Assumptions A22, A23
-    - Decisions: → SPEC.md §Decisions D23, D24, D25
-    - Invariants established: → SPEC.md §Invariants I17, I18, I19
-    - Invariants respected: → SPEC.md §Invariants I1, I5, I6, I11, I12, I13, I16
-    - Acceptance: schema migration adds parts columns; assistant parts persisted on stream finish (reasoning, tool-call states, text); Data Part schemas validated via Zod on write/read (I17); parts round-trip: DomainEvents → assemble → persist → load → hydrate matches original (I18); `buildInterviewerContext()` produces equivalent output to current `formatHistory()` (I19); observer context builder produces extraction-optimized projection
-    - Branch: `ln/fe-555-parts-persistence`
-    - **Verification approach**: inner — round-trip oracle for parts fidelity (I18); Zod schema validation on Data Parts (I17); unit tests for context builder output shape and equivalence (I19). → SPEC.md §Oracle Strategy (inner: fast unit tests — parts). Middle — integration: full `conductTurn()` → parts persisted → reload → hydration matches live state. Outer — manual resume test via `/cli-cdp` (reasoning + tool states visible on refresh). → SPEC.md §Acknowledged Blind Spots (parts/scalar consistency).
-
-4b. **Structured interview: client UI** `FE-556` — Turn card rendering (question + options + grounding + impact badge). Option selection UI using `data-option-selection` Data Part (persist `is_selected` + structured answer). Enriched API: turns with options + validated parts deserialization. Hydration from `assistant_parts`. Outer-loop visual verification via `/cli-cdp`. Also addresses review findings: validated deserialization (review #1) and DB lifecycle parts round-trip test (review #2). `done`
-    - Requirements: → SPEC.md §Requirements #2, #3
-    - Assumptions: → SPEC.md §Assumptions A22, A23
-    - Decisions: → SPEC.md §Decisions D23, D24
-    - Invariants established: → SPEC.md §Invariants I17 (strengthened), I18 (strengthened)
-    - Invariants respected: → SPEC.md §Invariants I1, I16
-    - Acceptance: enriched API returns turns with options + validated parts; turn card rendering; option selection persists as data-option-selection + is_selected; hydration from assistant_parts; refresh preserves state; outer-loop visual verification via `/cli-cdp`
-    - Branch: `ln/fe-556-interview-client-ui`
-    - **Verification approach**: inner — validated deserialization rejects malformed JSON (I17 strengthened); DB lifecycle round-trip covers parts (I18 strengthened); unit tests for select endpoint. Outer — manual interview walkthrough via `/cli-cdp`. → SPEC.md §Acknowledged Blind Spots (interview quality)
-
-4c. **UI foundation: shadcn/ui + Tailwind 4 + AI Elements** `FE-558` — Infrastructure realignment before slice 5. Install Tailwind 4 + `@tailwindcss/vite`, run `shadcn init`, install AI Elements core chat components (conversation, message, reasoning, tool, prompt-input, shimmer). Update `ai` + `@ai-sdk/react` to latest. Migrate InterviewWorkspace to AI Elements, ProjectList + root layout to shadcn + Tailwind. Zero server-side changes. `done`
-    - Requirements: → SPEC.md §Requirements #4
-    - Assumptions: → SPEC.md §Assumptions A17 (validates)
-    - Decisions: → SPEC.md §Decisions D14 (completes — AI Elements adopted)
-    - Invariants respected: → SPEC.md §Invariants I1, I7, I8, I15, I17, I18
-    - Acceptance: `npm run verify` passes; AI Elements render messages/reasoning/tool states; shadcn Card/Button on project list; zero changes to src/server/*, src/core/*, drizzle/*
-    - Branch: `ln/fe-558-ui-foundation`
-    - **Verification approach**: inner — `npm run verify` (lint, format, type-check, all tests, build). Outer — manual visual inspection of interview workspace and project list in dev mode.
-
-5. **Observer agent + entity persistence** `FE-537` — After each answered turn, core invokes a second agent call that extracts decisions and assumptions. Writes to decision/assumption tables with turn linkage and dependency edges. Core yields `observer-complete` DomainEvent **post-commit** (after SQLite transaction); SSE adapter emits as typed data part on existing chat stream (in-band sync per D22). Context builders upgraded to use `md-pen` for structured entity rendering (tables, checklists) in observer context. Agent pattern refactored: conductTurn() is thin sequencer, each agent is async generator composed via yield* (D27). Observer uses outputFormat for structured JSON extraction (D28). ResultMessage inspection for agent metrics (D29). `done`
-   - Requirements: → SPEC.md §Requirements #5
-   - Assumptions: → SPEC.md §Assumptions A3, A4, A14 (validated by spike), A20, A24, A25
-   - Decisions: → SPEC.md §Decisions D22 (in-band sync — observer-complete as data part), D26 (md-pen), D27 (agent generator composition), D28 (outputFormat), D29 (ResultMessage metrics)
-   - Invariants established: → SPEC.md §Invariants I20, I21, I22
-   - Invariants respected: → SPEC.md §Invariants I1, I5, I6, I9, I10, I12, I13, I17, I19
-   - Acceptance: 147 tests pass (24 new); agent pattern refactored; observer persists entities with turn linkage and dependency edges; observer-complete emitted post-commit; SSE adapter encodes as data-observer-result; observer errors non-fatal; context uses md-pen; agent-metrics emitted
-   - Branch: `ln/fe-537-observer-agent`
-   - **Verification approach**: inner — unit tests for entity writes with dependency edges, observer-complete DomainEvent emission post-commit, SSE adapter data-part encoding, sdk translateStreamEvents parity, observer-error non-fatality, agent-metrics shape. Middle — differential oracle from spike fixtures (deferred to manual testing). Outer — debug mode and fixture capture (deferred to slice 6). → SPEC.md §Oracle Strategy
-
-6. **Entity sidebar (read-only)** `FE-538` — React sidebar in interview workspace showing decisions and assumptions in categorized tabs. TanStack Query manages entity state via `useQuery`; observer-result data parts on the chat stream drive cache invalidation from `useChat` `onData`. Entities API at `GET /api/projects/:id/entities`. Dependency edge display and stale badges deferred (require slices 11/12 infrastructure). `done`
-   - Requirements: → SPEC.md §Requirements #6
-   - Assumptions: → SPEC.md §Assumptions A21 (partially validated — in-band `onData` invalidation path is implemented; browser outer-loop still pending)
-   - Decisions: → SPEC.md §Decisions D22
-   - Invariants established: → SPEC.md §Invariants I23
-   - Invariants respected: → SPEC.md §Invariants I9, I10, I14, I20, I21
-   - Acceptance: entities API returns decisions + assumptions; sidebar renders in categorized tabs; TanStack Query invalidates entity state from typed `data-observer-result` parts; entities appear as interview progresses
-   - Branch: `ln/fe-538-entity-sidebar`
-   - Ref: → docs/design/BREADBOARD.md §UI Affordances → P2 Entity sidebar
-   - **Verification approach**: inner — unit tests for entity query on active path, stale badge computation. Middle — validate A21: `onData` → `setQueryData` updates sidebar without stale closure (if stale, fall back to parallel `EventSource`). Outer — manual visual inspection (entities render correctly, tabs work, stale badges appear). Debug mode overlay (observer extraction detail per-turn) should land here or in slice 5. → SPEC.md §Oracle Strategy (outer loop), §Acknowledged Blind Spots (cumulative graph integrity)
-
-### Spikes
-
-2. **Raw Anthropic SDK for tool execution** — Can we replace `@anthropic-ai/claude-agent-sdk` `query()` with `@anthropic-ai/sdk` `client.messages.stream()` for reliable tool calls? Agent SDK MCP tool registration is broken (A2 invalidated). `done`
-   - Assumptions: → SPEC.md §Assumptions A2 (**invalidated**), A24 (**invalidated**), A25 (**invalidated**), A26 (**validated**)
-   - Decisions: → SPEC.md §Decisions D30
-   - Time box: 2 hours
-   - Success: ✅ All 3 tests pass — (1) forced `tool_choice` produces structured `ask_question` call, (2) raw streaming events match `content_block_start/delta/stop` format, (3) observer JSON extraction works via direct API call
-   - Evidence: `spike/raw-sdk-tool-use.ts`
-   - Branch: `ln/spike-raw-anthropic-sdk`
-   - **Implication**: Slices 7+ unblocked. New migration slice needed (SDK swap) before phase transitions can proceed.
-
-   6b. **AI SDK-native chat pivot** `FE-559` — Replace the remaining hand-written Anthropic stream translation path with `@ai-sdk/anthropic` plus AI SDK-native UI message streaming. Shared `BrunchUIMessage` contracts now span server request validation, persisted `parts[]`, SSE response streaming, and client hydration. Observer results stay in-band as typed data parts. `done`
-   - Requirements: → SPEC.md §Requirements #2, #3, #5
-   - Assumptions: → SPEC.md §Assumptions A21, A22, A23
-   - Decisions: → SPEC.md §Decisions D8, D19, D22, D30, D31
-   - Invariants established: → SPEC.md §Invariants I21, I22, I23
-   - Invariants respected: → SPEC.md §Invariants I1, I5, I6, I14, I16, I17, I18, I19, I20
-   - Acceptance: `@ai-sdk/anthropic` powers the interviewer and observer path; `sdk.ts` and `sse-adapter.ts` are retired; shared UI message/data-part contracts replace handwritten protocol unions; `npm run verify` passes
-   - Branch: `ln/fe-559-migrate-sdk`
-   - **Verification approach**: inner — typed contract and persistence tests (`core.test.ts`, `interview.test.ts`, `observer.test.ts`, `parts.test.ts`); route stream tests (`app.test.ts`). Middle — `npm run verify`. Outer — manual interview end-to-end with typed observer/sidebar sync.
-
-   ## Phase 4: Full Interview
-
-<!-- All four phases working end-to-end. Phase transitions, resolution, and the review phases
-     for requirements and criteria. The product becomes usable. -->
-
-### Slices
-
-6c. **Interviewer loop hardening** — Extend the current AI SDK-native interviewer beyond the single visible `ask_question` flow when phase resolution or multi-step tool behavior requires it. Default path is `ToolLoopAgent`; if product needs tighter step control, replace or wrap it with an explicit loop over typed model/tool messages. `not-started`
-    - Requirements: → SPEC.md §Requirements #2, #3, #7
-    - Assumptions: → SPEC.md §Assumptions A28
-    - Decisions: → SPEC.md §Decisions D31
-    - Invariants to establish: I24 (multi-step interviewer control path is explicit and tested)
+6d. **Tool composition: `activeTools` + `prepareCall`** — Enable per-phase tool sets on the `ToolLoopAgent`. Register core tools + `ask_question` in the agent's full toolset; use `activeTools` or `prepareCall` to gate which are available per step. Scope phase: `ask_question` only. Future kickoff mode: core tools only. This is the wiring layer between `createCoreTools()` and `createInterviewerAgent()`. `not-started`
+    - Requirements: → SPEC.md §Requirements #2, #7
+    - Assumptions: → SPEC.md §Assumptions A28, A29
+    - Decisions: → SPEC.md §Decisions D31, D32
+    - Invariants to establish: I25 (tool gating — only declared tools callable per step)
     - Invariants to respect: → SPEC.md §Invariants I16, I22
-    - Acceptance: interviewer can execute tool steps, continue, and resolve a phase without regressing the shared `BrunchUIMessage` contract; `npm run verify` passes
-    - **Verification approach**: inner — unit tests for multi-step interviewer lifecycle and phase-resolution paths. Middle — existing interview/app tests stay green. Outer — manual interview end-to-end across a phase boundary.
+    - Acceptance: interviewer agent has core tools registered but only `ask_question` active during scope phase; `npm run verify` passes
+    - **Verification approach**: inner — unit test that agent receives only active tools per step. Middle — existing interview tests pass unchanged.
 
-7. **Phase transition + resolution** — Agent judges when scope phase is complete (`is_resolution`). Core yields `phase-resolved` DomainEvent. Client shows summary modal. User confirms to advance. Phase indicator updates. Requires agent loop (6c) — the agent must call `ask_question` AND optionally signal resolution in the same turn, which requires multi-step tool use or `tool_choice: auto`. `not-started`
+7. **Phase transition + resolution** — Agent judges when scope phase is complete. Add `resolve_phase` tool alongside `ask_question`. Agent calls `ask_question` for questions and `resolve_phase` when understanding is reached. Client shows phase summary + confirmation UI. Phase indicator updates. `not-started`
    - Requirements: → SPEC.md §Requirements #7, #8
    - Assumptions: → SPEC.md §Assumptions A15, A28
    - Acceptance: agent marks resolution, summary shows, user confirms, phase indicator reflects completion
 
 8. **Design drill-down phase** — Second agent skill. Walks the design tree with structured questions. Decisions extracted by observer. Continues until agent judges resolution. `not-started`
    - Requirements: → SPEC.md §Requirements #2, #3
-   - Assumptions: → SPEC.md §Assumptions A13 (validated by slice 4)
    - Acceptance: design questions with options, decisions extracted and shown in sidebar, agent resolves when understanding is reached
 
 9. **Requirements review phase** — Third agent skill. Walks accumulated requirements list. Agent checks for gaps, proposes additions. User confirms each. Requirements get `reviewed_at` stamped. `not-started`
    - Requirements: → SPEC.md §Requirements #11
-   - Assumptions: —
    - Acceptance: agent presents requirements, suggests gaps, user confirms, reviewed_at updated
 
 10. **Criteria phase** — Fourth agent skill. For each confirmed requirement, agent proposes testable criteria. User selects/edits/confirms. Criteria get `reviewed_at` stamped. `not-started`
      - Requirements: → SPEC.md §Requirements #12
-     - Assumptions: —
      - Acceptance: agent proposes criteria per requirement, user confirms, spec readiness predicate evaluable
 
 ## Phase 5: Revisit + Export
@@ -241,7 +123,6 @@
 
 14. **npx distribution + CLI** — `bin` entry, launcher starts Express (serves built Vite assets + API on one port), opens browser. `npx brunch` for web UI. `npx brunch [command]` for CLI operations. Single env var: `ANTHROPIC_API_KEY`. `not-started`
     - Requirements: → SPEC.md §Requirements #1
-    - Assumptions: → SPEC.md §Assumptions A8 (validated)
     - Decisions: → SPEC.md §Decisions D20
     - Acceptance: `npx brunch` with key in scope opens working app
 
@@ -254,7 +135,8 @@
 - Turn tree visualization (git-log-style branch graph in sidebar)
 - Entity graph visualization (decision + assumption DAG view)
 - Exploratory pathway (for projects where the goal itself is unclear)
-- Multi-provider support via AI SDK server-side (if Claude Agent SDK becomes limiting)
+- Project characterization kickoff mode (ToolLoopAgent with core tools explores existing codebase before interview)
+- Multi-provider support via AI SDK provider abstraction (architecturally possible now)
 - Export to GitHub Issues, Linear, YAML task definitions
 
 ## Dependencies
@@ -262,13 +144,16 @@
 <!-- Blocking relationships between slices. Update when slices are added or retired. -->
 
 ```
-Phase 1:  1 (skeleton) ──→ 2 (SQLite)
-Phase 2:  2 ──→ 3 (turn schema) ──→ 3c (Drizzle+core) ──→ 3d (routing)
-Phase 3:  3c ──→ 3b (rich chat UI) ──→ 4 (scope server) ──→ 4a (parts+context) ──→ 4b (client UI) ──→ 4c (UI foundation) ──→ 5 (observer)
-          spike (observer fidelity) ──→ 5
-          3d + 5 ──→ 6 (entity sidebar)
-          spike 2 ──→ 6b (SDK migration) ──→ 6c (agent loop)
-Phase 4:  6c ──→ 7 (transitions) ──→ 8 (design) ──→ 9 (requirements) ──→ 10 (criteria)
+done ─────────────────────────────────────────────────────────────┐
+  Phase 1:  1 (skeleton) ──→ 2 (SQLite)                          │
+  Phase 2:  2 ──→ 3 ──→ 3c ──→ 3d                                │
+  Phase 3:  3c ──→ 3b ──→ 4 ──→ 4a ──→ 4b ──→ 4c ──→ 5 ──→ 6   │
+            spikes ──→ 6b (AI SDK pivot)                          │
+──────────────────────────────────────────────────────────────────┘
+                        │
+Phase 4:  6b ──→ 6b1 (workspace oracle) ──→ 6c (live streaming fix)
+          6c ──→ 6d (tool composition)
+          6d ──→ 7 (transitions) ──→ 8 (design) ──→ 9 (requirements) ──→ 10 (criteria)
 Phase 5:  6 ──→ 11 (branching)
           6 ──→ 12 (entity lifecycle API)
           10 ──→ 13 (export)
@@ -277,9 +162,7 @@ Phase 6:  13 ──→ 14 (npx + CLI)
 
 ### Parallelism opportunities
 
-- ~~Slice 3b and 3d can proceed in parallel after 3c~~ (done — both landed)
-- ~~Observer spike and slice 4 can proceed in parallel~~ (slice 4 server done — spike is next on critical path)
-- Observer spike can proceed in parallel with 4a (parts persistence)
-- Slice 7 (transitions) and 11 (branching) can start in parallel once slice 6 lands
+- 6c (live streaming fix) and 6d (tool composition) are independent — 6c fixes rendering, 6d wires tools. Can proceed in parallel if 6c doesn't require tool-part changes that affect 6d.
+- Slice 7 (transitions) and 11 (branching) can start in parallel once 6d lands
 - Slice 12 (entity lifecycle API) can proceed in parallel with slice 11
 - Slice 14 (npx) can start early with a basic launcher, completing after slice 13

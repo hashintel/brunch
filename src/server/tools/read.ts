@@ -2,7 +2,7 @@ import { readFile, access, constants } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
 
 import { tool } from 'ai';
-import { z } from 'zod';
+import * as z from 'zod/v4';
 
 const MAX_LINES = 500;
 const MAX_BYTES = 64 * 1024;

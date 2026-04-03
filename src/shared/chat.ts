@@ -1,5 +1,5 @@
 import { tool, type UIMessage, type UIMessagePart, type UITools } from 'ai';
-import { z } from 'zod';
+import * as z from 'zod/v4';
 
 export const structuredQuestionSchema = z.object({
   question: z.string().min(1),

@@ -2,7 +2,7 @@ import { execSync } from 'node:child_process';
 import { resolve, relative } from 'node:path';
 
 import { tool } from 'ai';
-import { z } from 'zod';
+import * as z from 'zod/v4';
 
 const DEFAULT_LIMIT = 200;
 const MAX_BYTES = 64 * 1024;

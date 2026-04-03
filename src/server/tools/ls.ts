@@ -2,7 +2,7 @@ import { readdir } from 'node:fs/promises';
 import { resolve, relative } from 'node:path';
 
 import { tool } from 'ai';
-import { z } from 'zod';
+import * as z from 'zod/v4';
 
 const DEFAULT_LIMIT = 200;
 

@@ -6,6 +6,9 @@
         "shadcn@latest",
         "mcp"
       ]
+    },
+    "forge_extension": {
+      "url": "http://localhost:58459/mcp"
     }
   }
 }

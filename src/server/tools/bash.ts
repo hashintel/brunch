@@ -1,7 +1,7 @@
 import { spawn } from 'node:child_process';
 
 import { tool } from 'ai';
-import { z } from 'zod';
+import * as z from 'zod/v4';
 
 const DEFAULT_TIMEOUT_SECONDS = 30;
 const MAX_LINES = 500;
