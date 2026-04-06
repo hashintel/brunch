@@ -109,6 +109,12 @@ The architecture (layered: db → core → adapters):
 
 41. **Render-sensitive client primitives use explicit lifecycle boundaries** — Code highlighting now uses an effect-owned async path with cache reads kept synchronous and side-effect-free, message-branch bookkeeping re-synchronizes when branch identity changes and clamps stale indices when branch sets shrink, and transient copy-feedback timers are cleared explicitly on replacement or unmount. Depends on: D34, D39, D40. Supersedes: render-time state resets, callback-style async highlighting orchestration, and branch bookkeeping that only tracked collection length.
 
+42. **Advanced rendering boundaries expose explicit preload surfaces without contaminating first paint** — Markdown and code-highlighting capabilities now export preload hooks so pointer, focus, or touch intent can warm rich rendering before full use, while the transcript keeps the plain path during active animation and the build oracle enforces both chunk separation and a default-entry size ceiling. Depends on: D34, D35, D36, D41. Supersedes: lazy-only enhancement with no intent-preload or budget guardrail.
+
+43. **Workspace orchestration reads through one controller boundary backed by a pure core and imperative shells** — Route components now consume a single workspace controller interface, while durable-state shaping, transcript seeding, and view projection live in pure functions and React Query/chat side effects live in dedicated shells. Depends on: D37, D38, D39. Supersedes: workspace ownership spread across route components plus loosely coordinated helper modules.
+
+44. **Domain-shaped client mutations own success choreography above the shared transport seam** — `client-mutation.ts` remains the shared POST/error boundary, but project creation and turn-option selection now flow through domain hooks that own navigation, invalidation, and chat follow-through so route/controller callsites do not repeat workflow logic. Depends on: D40, D43. Supersedes: route- or controller-local success choreography on top of the generic mutation helper.
+
 26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
 
 ### Domain model
@@ -193,6 +199,10 @@ The architecture (layered: db → core → adapters):
 | I36 | Client-triggered writes surface consistent visible failure states instead of silent no-ops | Refactor commit 8 (shared client mutations) | InterviewWorkspace.test.tsx, ProjectList.test.tsx | D40 |
 | I37 | Code highlighting upgrades from lifecycle-owned async work and ignores stale completions during prop churn | Refactor commit 9 (render-sensitive primitive purity) | code-block.test.tsx | D41 |
 | I38 | Message branch navigation stays aligned with the current branch set after replacement or shrink | Refactor commit 9 (render-sensitive primitive purity) | message.test.tsx | D41 |
+| I39 | Advanced rendering boundaries expose intent-preload seams while keeping animated transcript content on the plain first-paint path | Refactor commit 10 (intent preloading + performance guardrails) | markdown-rendering.test.tsx, code-block.test.tsx, capability-boundaries.test.ts | D42 |
+| I40 | The default client entry remains under an explicit size budget while excluding debug and rich-rendering payloads | Refactor commit 10 (intent preloading + performance guardrails) | build-boundary.test.ts | D42 |
+| I41 | Workspace controller behavior is protected below the route boundary for loader seeding and same-project refresh stability | Refactor commit 14 (controller seam oracles) | workspace-controller.test.tsx | D43 |
+| I42 | Shared client mutation transport reports network, non-JSON, and malformed-success failures consistently | Refactor commit 14 (mutation seam oracles) | client-mutation.test.ts | D44 |
 
 ## Lexicon
 
@@ -370,13 +380,15 @@ This projection difference is a deliberate design choice, not an implementation 
 | observer.test.ts | 2     | I20, I21                |
 | InterviewWorkspace.test.tsx | 6 | I24, I25, I23, I33, I34, I35, I36 |
 | ProjectList.test.tsx | 2 | I36 |
-| workspace-data.test.ts | 2 | I33 |
+| workspace-data.test.ts | 4 | I33 |
 | chat-hydration.test.ts | 3 | I35 |
-| code-block.test.tsx | 3 | I26, I37 |
-| markdown-rendering.test.tsx | 2 | I31 |
+| workspace-controller.test.tsx | 2 | I41 |
+| client-mutation.test.ts | 3 | I42 |
+| code-block.test.tsx | 4 | I26, I37, I39 |
+| markdown-rendering.test.tsx | 3 | I31, I39 |
 | message.test.tsx | 2 | I27, I38 |
-| build-boundary.test.ts | 1 | I28, I30, I32 |
-| capability-boundaries.test.ts | 2 | I29 |
+| build-boundary.test.ts | 1 | I28, I30, I32, I40 |
+| capability-boundaries.test.ts | 2 | I29, I39 |
 
 ## Acceptance Criteria (exit conditions)
 

@@ -43,4 +43,26 @@ describe('MarkdownRenderer', () => {
       expect(screen.getByText(/const answer = 42/).closest('[data-rendering-mode="rich"]')).toBeTruthy();
     });
   });
+
+  it('keeps rich markdown on the plain first-paint path while the message is animating', async () => {
+    const { MarkdownRenderer } = await import('./markdown-rendering.js');
+    const content = '```typescript\nconst answer = 42\n```';
+
+    const { container, rerender } = render(<MarkdownRenderer isAnimating>{content}</MarkdownRenderer>);
+
+    expect(container.querySelector('[data-rendering-mode="plain"]')?.textContent).toContain(
+      'const answer = 42',
+    );
+
+    await Promise.resolve();
+    expect(container.querySelector('[data-rendering-mode="rich"]')).toBeNull();
+
+    rerender(<MarkdownRenderer isAnimating={false}>{content}</MarkdownRenderer>);
+
+    await waitFor(() => {
+      expect(container.querySelector('[data-rendering-mode="rich"]')?.textContent).toContain(
+        'const answer = 42',
+      );
+    });
+  });
 });

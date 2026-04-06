@@ -1,8 +1,9 @@
 'use client';
 
 import type { ComponentType } from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 
+import { preloadRichCodeHighlighter } from '@/capabilities/code-highlighting';
 import { cn } from '@/lib/utils';
 
 export interface MarkdownRendererProps {
@@ -28,8 +29,22 @@ const MARKDOWN_ENHANCEMENT_PATTERNS = [
 export const needsRichMarkdownRendering = (content: string) =>
   MARKDOWN_ENHANCEMENT_PATTERNS.some((pattern) => pattern.test(content));
 
-const PlainTextRenderer = ({ className, children }: MarkdownRendererProps) => (
-  <div className={cn('whitespace-pre-wrap break-words', className)} data-rendering-mode="plain">
+const CODE_FENCE_PATTERN = /```[\s\S]+?```/m;
+
+const shouldPreloadCodeHighlighting = (content: string) => CODE_FENCE_PATTERN.test(content);
+
+const PlainTextRenderer = ({
+  className,
+  children,
+  onIntentToEnhance,
+}: MarkdownRendererProps & { onIntentToEnhance?: () => void }) => (
+  <div
+    className={cn('whitespace-pre-wrap break-words', className)}
+    data-rendering-mode="plain"
+    onFocusCapture={onIntentToEnhance}
+    onPointerEnter={onIntentToEnhance}
+    onTouchStart={onIntentToEnhance}
+  >
     {children}
   </div>
 );
@@ -46,13 +61,25 @@ const loadRichMarkdownRenderer = () => {
   return richMarkdownRendererPromise;
 };
 
+export const preloadRichMarkdownRenderer = () => loadRichMarkdownRenderer();
+
 export const MarkdownRenderer = ({ children, ...props }: MarkdownRendererProps) => {
   const content = typeof children === 'string' ? children : '';
   const shouldEnhance = useMemo(() => needsRichMarkdownRendering(content), [content]);
   const [RichRenderer, setRichRenderer] = useState<ComponentType<MarkdownRendererProps> | null>(null);
+  const warmEnhancementBoundary = useCallback(() => {
+    if (!shouldEnhance) {
+      return;
+    }
+
+    void preloadRichMarkdownRenderer();
+    if (shouldPreloadCodeHighlighting(content)) {
+      void preloadRichCodeHighlighter();
+    }
+  }, [content, shouldEnhance]);
 
   useEffect(() => {
-    if (!shouldEnhance) {
+    if (!shouldEnhance || props.isAnimating) {
       return;
     }
 
@@ -67,10 +94,14 @@ export const MarkdownRenderer = ({ children, ...props }: MarkdownRendererProps) 
     return () => {
       cancelled = true;
     };
-  }, [shouldEnhance]);
+  }, [props.isAnimating, shouldEnhance]);
 
   if (!shouldEnhance || !RichRenderer) {
-    return <PlainTextRenderer {...props}>{content}</PlainTextRenderer>;
+    return (
+      <PlainTextRenderer {...props} onIntentToEnhance={warmEnhancementBoundary}>
+        {content}
+      </PlainTextRenderer>
+    );
   }
 
   return <RichRenderer {...props}>{content}</RichRenderer>;

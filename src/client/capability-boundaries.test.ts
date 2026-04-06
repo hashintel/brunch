@@ -17,6 +17,7 @@ describe('client capability boundaries', () => {
     const reasoningCapabilitySource = readClientFile('capabilities/reasoning-rendering.tsx');
 
     expect(markdownCapabilitySource).toContain("import('./rich-markdown-rendering.js')");
+    expect(markdownCapabilitySource).toContain('export const preloadRichMarkdownRenderer');
     expect(markdownCapabilitySource).not.toContain("from 'streamdown'");
     expect(richMarkdownCapabilitySource).toContain("from 'streamdown'");
     expect(richMarkdownCapabilitySource).toContain("from '@streamdown/mermaid'");
@@ -39,9 +40,11 @@ describe('client capability boundaries', () => {
     const debugSurfaceSource = readClientFile('routes/debug-surface.tsx');
 
     expect(codeHighlightingSource).toContain("import('./rich-code-highlighting.js')");
+    expect(codeHighlightingSource).toContain('export const preloadRichCodeHighlighter');
     expect(codeHighlightingSource).not.toContain("import { createHighlighter } from 'shiki'");
     expect(richCodeHighlightingSource).toContain("from 'shiki'");
     expect(codeBlockSource).toContain("from '@/capabilities/code-highlighting'");
+    expect(codeBlockSource).toContain('preloadRichCodeHighlighter');
     expect(codeBlockSource).not.toContain("from 'shiki'");
 
     expect(debugSurfaceSource).toContain("import('./ComponentDebug.js')");

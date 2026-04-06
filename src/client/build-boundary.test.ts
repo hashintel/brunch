@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -16,14 +16,14 @@ describe('client build boundary', () => {
     }
   });
 
-  it('keeps debug and rich markdown rendering out of the default client entrypoint', async () => {
+  const buildClient = async ({ minify }: { minify: boolean }) => {
     const outDir = mkdtempSync(join(tmpdir(), 'brunch-client-build-'));
     tempDirs.push(outDir);
 
     await build({
       build: {
         manifest: true,
-        minify: false,
+        minify,
         outDir,
       },
       configFile: 'vite.config.ts',
@@ -35,51 +35,64 @@ describe('client build boundary', () => {
       string,
       { file?: string; isEntry?: boolean }
     >;
-
     const entry = manifest['index.html'];
+
     expect(entry?.isEntry).toBe(true);
     expect(entry?.file).toBeTruthy();
 
-    const entryFile = readFileSync(join(outDir, entry.file!), 'utf8');
+    return {
+      entryFile: readFileSync(join(outDir, entry.file!), 'utf8'),
+      entryPath: join(outDir, entry.file!),
+      manifest,
+      outDir,
+      entry,
+    };
+  };
 
-    expect(entryFile).toContain('/debug');
-    expect(entryFile).toContain('/project/$id');
-    expect(entryFile).not.toContain('Component Debug');
-    expect(entryFile).not.toContain('outer-loop testing');
-    expect(entryFile).not.toContain('streamdown');
-    expect(entryFile).not.toContain('createHighlighter');
+  it('keeps debug and rich markdown rendering out of the default client entrypoint', async () => {
+    const readableBuild = await buildClient({ minify: false });
 
-    const richRenderingChunk = Object.values(manifest).find((chunk) => {
-      if (!chunk.file || chunk.file === entry.file) {
+    expect(readableBuild.entryFile).toContain('/debug');
+    expect(readableBuild.entryFile).toContain('/project/$id');
+    expect(readableBuild.entryFile).not.toContain('Component Debug');
+    expect(readableBuild.entryFile).not.toContain('outer-loop testing');
+    expect(readableBuild.entryFile).not.toContain('streamdown');
+    expect(readableBuild.entryFile).not.toContain('createHighlighter');
+
+    const richRenderingChunk = Object.values(readableBuild.manifest).find((chunk) => {
+      if (!chunk.file || chunk.file === readableBuild.entry.file) {
         return false;
       }
 
-      const chunkSource = readFileSync(join(outDir, chunk.file), 'utf8');
+      const chunkSource = readFileSync(join(readableBuild.outDir, chunk.file), 'utf8');
       return chunkSource.includes('streamdown');
     });
 
     expect(richRenderingChunk?.file).toBeTruthy();
 
-    const highlighterChunk = Object.values(manifest).find((chunk) => {
-      if (!chunk.file || chunk.file === entry.file) {
+    const highlighterChunk = Object.values(readableBuild.manifest).find((chunk) => {
+      if (!chunk.file || chunk.file === readableBuild.entry.file) {
         return false;
       }
 
-      const chunkSource = readFileSync(join(outDir, chunk.file), 'utf8');
+      const chunkSource = readFileSync(join(readableBuild.outDir, chunk.file), 'utf8');
       return chunkSource.includes('createHighlighter');
     });
 
     expect(highlighterChunk?.file).toBeTruthy();
 
-    const debugChunk = Object.values(manifest).find((chunk) => {
-      if (!chunk.file || chunk.file === entry.file) {
+    const debugChunk = Object.values(readableBuild.manifest).find((chunk) => {
+      if (!chunk.file || chunk.file === readableBuild.entry.file) {
         return false;
       }
 
-      const chunkSource = readFileSync(join(outDir, chunk.file), 'utf8');
+      const chunkSource = readFileSync(join(readableBuild.outDir, chunk.file), 'utf8');
       return chunkSource.includes('Component Debug');
     });
 
     expect(debugChunk?.file).toBeTruthy();
-  }, 20_000);
+
+    const minifiedBuild = await buildClient({ minify: true });
+    expect(statSync(minifiedBuild.entryPath).size).toBeLessThan(950_000);
+  }, 30_000);
 });

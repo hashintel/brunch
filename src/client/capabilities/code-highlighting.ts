@@ -32,6 +32,8 @@ const loadRichCodeHighlighter = () => {
   return richCodeHighlighterPromise;
 };
 
+export const preloadRichCodeHighlighter = () => loadRichCodeHighlighter();
+
 export const createPlainCodeTokens = (code: string): TokenizedCode => ({
   bg: 'transparent',
   fg: 'inherit',

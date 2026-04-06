@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createPlainCodeTokensMock = vi.fn((code: string) => ({
@@ -10,11 +10,13 @@ const createPlainCodeTokensMock = vi.fn((code: string) => ({
 }));
 const getCachedHighlightedCodeMock = vi.fn(() => null);
 const highlightCodeMock = vi.fn();
+const preloadRichCodeHighlighterMock = vi.fn();
 
 vi.mock('@/capabilities/code-highlighting', () => ({
   createPlainCodeTokens: createPlainCodeTokensMock,
   getCachedHighlightedCode: getCachedHighlightedCodeMock,
   highlightCode: highlightCodeMock,
+  preloadRichCodeHighlighter: preloadRichCodeHighlighterMock,
 }));
 
 describe('CodeBlockContent', () => {
@@ -23,6 +25,7 @@ describe('CodeBlockContent', () => {
     getCachedHighlightedCodeMock.mockReset();
     getCachedHighlightedCodeMock.mockReturnValue(null);
     highlightCodeMock.mockReset();
+    preloadRichCodeHighlighterMock.mockReset();
     highlightCodeMock.mockResolvedValue({
       bg: '#111111',
       fg: '#eeeeee',
@@ -31,6 +34,7 @@ describe('CodeBlockContent', () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.useRealTimers();
     vi.unstubAllGlobals();
     vi.resetModules();
@@ -132,6 +136,24 @@ describe('CodeBlockContent', () => {
     });
   });
 
+  it('preloads the rich highlighter when the user signals intent on the container', async () => {
+    const { CodeBlockContainer } = await import('./code-block.js');
+
+    const { container } = render(
+      <CodeBlockContainer language="typescript">
+        <button type="button">Focus me</button>
+      </CodeBlockContainer>,
+    );
+
+    const codeBlock = container.querySelector('[data-language="typescript"]');
+    expect(codeBlock).toBeTruthy();
+
+    fireEvent.pointerEnter(codeBlock!);
+    fireEvent.focus(screen.getByRole('button', { name: 'Focus me' }));
+
+    expect(preloadRichCodeHighlighterMock).toHaveBeenCalledTimes(2);
+  });
+
   it('clears the copy-reset timer on unmount', async () => {
     vi.useFakeTimers();
     const writeTextMock = vi.fn(async () => {});
@@ -139,14 +161,14 @@ describe('CodeBlockContent', () => {
 
     const { CodeBlock, CodeBlockCopyButton } = await import('./code-block.js');
 
-    const { unmount } = render(
+    const { container, unmount } = render(
       <CodeBlock code={'const answer = 42'} language={'typescript'}>
         <CodeBlockCopyButton />
       </CodeBlock>,
     );
 
     await act(async () => {
-      fireEvent.click(screen.getByRole('button'));
+      fireEvent.click(container.querySelector('[data-slot="button"]')!);
       await Promise.resolve();
     });
 

@@ -8,6 +8,7 @@ import {
   createPlainCodeTokens,
   getCachedHighlightedCode,
   highlightCode,
+  preloadRichCodeHighlighter,
   type CodeLanguage,
   type CodeToken,
   type TokenizedCode,
@@ -152,23 +153,44 @@ CodeBlockBody.displayName = 'CodeBlockBody';
 export const CodeBlockContainer = ({
   className,
   language,
+  onFocusCapture,
+  onPointerEnter,
+  onTouchStart,
   style,
   ...props
-}: HTMLAttributes<HTMLDivElement> & { language: string }) => (
-  <div
-    className={cn(
-      'group relative w-full overflow-hidden rounded-md border bg-background text-foreground',
-      className,
-    )}
-    data-language={language}
-    style={{
-      containIntrinsicSize: 'auto 200px',
-      contentVisibility: 'auto',
-      ...style,
-    }}
-    {...props}
-  />
-);
+}: HTMLAttributes<HTMLDivElement> & { language: string }) => {
+  const warmHighlighter = useCallback(() => {
+    void preloadRichCodeHighlighter();
+  }, []);
+
+  return (
+    <div
+      className={cn(
+        'group relative w-full overflow-hidden rounded-md border bg-background text-foreground',
+        className,
+      )}
+      data-language={language}
+      onFocusCapture={(event) => {
+        warmHighlighter();
+        onFocusCapture?.(event);
+      }}
+      onPointerEnter={(event) => {
+        warmHighlighter();
+        onPointerEnter?.(event);
+      }}
+      onTouchStart={(event) => {
+        warmHighlighter();
+        onTouchStart?.(event);
+      }}
+      style={{
+        containIntrinsicSize: 'auto 200px',
+        contentVisibility: 'auto',
+        ...style,
+      }}
+      {...props}
+    />
+  );
+};
 
 export const CodeBlockHeader = ({ children, className, ...props }: HTMLAttributes<HTMLDivElement>) => (
   <div
