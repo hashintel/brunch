@@ -2,6 +2,8 @@
 
 Date: 2026-04-06
 
+> Note: this document captures the comparative assessment at the time it was written. Several `ln-*` WIP gaps named below were subsequently tightened in local skill/template edits on 2026-04-06, but the analysis remains useful as a snapshot of what needed alignment.
+
 ## Purpose
 
 This note captures a comparative assessment of the `dev-*` skill family in `dot-agents` against the `ln-*` rewrite in `brunch`.
@@ -143,6 +145,19 @@ The `ln-plan` template still includes live fields for:
 - `Branch`
 
 Those are not just provenance notes; they shape output. That makes the current `ln-*` document model partly brunch-local.
+
+### 7. Internal contract drift is now a bigger problem than wording drift
+
+The strongest `ln-*` ideas now depend on a richer document schema than the actual templates reliably provide.
+
+Examples:
+
+- `ln-scope`, `ln-plan`, and `ln-build` assume `PLAN.md` can carry parallelism, verification approach, and invariant-establishment bookkeeping, but the template does not fully support those fields.
+- `SPEC.md` models assumptions primarily by confidence, while `ln-build`, `ln-spike`, and `ln-sync` talk as though assumptions have validation states (`validated` / `invalidated`) as first-class values.
+- Several `ln-*` files still carry visible fork residue (`# Dev ...`, `roadmap`, `PRD`) that weakens the sense of a coherent local method.
+- `ln-handoff` says to write at the workspace root while its template resume prompt tells the next thread to read from the project root.
+
+This means the next round of `ln-*` work should prioritize **schema and lifecycle alignment** before deeper methodological expansion.
 
 ## The Core Architectural Difference
 

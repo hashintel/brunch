@@ -4,7 +4,7 @@ description: "Plan a refactor as a sequence of tiny safe commits via interview a
 argument-hint: "[area or module to refactor]"
 ---
 
-# Dev Refactor
+# Ln Refactor
 
 "Make the change easy, then make the easy change" (Beck). Plan a refactor as tiny commits that each leave the codebase working (Fowler). Preparatory refactoring first, behavioral changes last.
 
@@ -66,13 +66,13 @@ What this refactor deliberately excludes.
 
 After filing the refactor plan, present these options to the user (use `tool-ask-question`):
 
-| #   | Label              | Target       | Why                                        |
-| --- | ------------------ | ------------ | ------------------------------------------ |
-| 1   | Build first commit | `ln-build`   | Refactor plan is clear, start implementing |
-| 2   | Scope a commit     | `ln-scope`   | A commit needs more precise definition     |
-| 3   | Back to triage     | `ln-consult` | Plan needs reassessment                    |
+| #   | Label              | Target       | Why                                                          |
+| --- | ------------------ | ------------ | ------------------------------------------------------------ |
+| 1   | Build first commit | `ln-build`   | Refactor plan is clear; implement one commit-sized step from `memory/REFACTOR.md` |
+| 2   | Scope a commit     | `ln-scope`   | A commit needs more precise behavior/acceptance definition   |
+| 3   | Back to triage     | `ln-consult` | Plan needs reassessment                                      |
 
-Recommended: **1**
+Recommended: **1** when the first commit step is concrete enough to execute; otherwise **2**
 
 ---
 *Adapted from [mattpocock/skills/request-refactor-plan](https://github.com/mattpocock/skills/tree/main/request-refactor-plan).*

@@ -4,7 +4,7 @@ description: "Audit code quality focusing on deep modules, naming, model hygiene
 argument-hint: "[area of codebase to review, or 'recent' for recently changed files]"
 ---
 
-# Dev Review
+# Ln Review
 
 Explore the codebase. Surface structural improvement opportunities. Be opinionated.
 
@@ -24,7 +24,7 @@ Make invalid states unrepresentable (Yaron Minsky). Split optional fields into d
 
 ### Oracle coverage
 
-If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent slices implemented the oracles their scope cards declared. Look for:
+If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent slices implemented the oracles their persisted `memory/PLAN.md` verification approaches declare. If a scope card is available in session context, use it as a higher-resolution supplement, not the primary source of truth. Look for:
 
 - Scope card promised schema validation → is there a Zod parse in the test?
 - Scope card promised differential oracle → are there golden master fixtures?

@@ -4,7 +4,7 @@ description: "Time-boxed throwaway investigation to answer one hard question. Us
 argument-hint: "[question to answer and what you'll try]"
 ---
 
-# Dev Spike
+# Ln Spike
 
 Retire one uncertainty. Output is knowledge, not code — spike code is throwaway, never promoted directly (Beck, XP). One question per spike; if multiple unknowns exist, run multiple spikes.
 
@@ -39,7 +39,7 @@ The question and approach: $ARGUMENTS
 After the verdict, do all of these before presenting routing options:
 
 1. Mark the spike `done` in `memory/PLAN.md`
-2. Update assumption confidence in `memory/SPEC.md` §Assumptions — set validated to `**validated**`, invalidated to `**invalidated**` and flag implicated slices in PLAN.md
+2. Update `memory/SPEC.md` §Assumptions — set `Status` to `validated` or `invalidated` as evidence warrants, update `Confidence` if the evidence changed it, and flag implicated slices in PLAN.md
 3. Add any new decisions to `memory/SPEC.md` §Decisions, new assumptions to §Assumptions
 4. If the verdict changes slice feasibility → update affected slices in `memory/PLAN.md`
 
@@ -57,4 +57,4 @@ After traceability is complete, present these options to the user (use `tool-ask
 | 4   | Revise plan     | `ln-plan`    | Verdict changes what slices are needed            |
 | 5   | Back to triage  | `ln-consult` | Verdict changes the overall direction             |
 
-Recommended: **1** if the spike validated, **3** if it invalidated.
+Recommended: **1** if the spike validated. If it invalidated an architectural or requirement-level assumption, prefer **3**; if it mainly changes slice feasibility, ordering, or dependencies, prefer **4**.

@@ -3,7 +3,7 @@ name: ln-sync
 description: "Refresh memory/SPEC.md and memory/PLAN.md — graduate assumptions, archive stale items, and flag drift between docs and code. Use periodically or when docs feel out of date."
 ---
 
-# Dev Sync
+# Ln Sync
 
 Audit and refresh the two project documents. Create any that are missing.
 
@@ -22,14 +22,14 @@ If either is missing, prompt `ln-spec` or `ln-plan` to create it.
 
 ### 2. Graduation check
 
-For each validated assumption in `memory/SPEC.md` §Assumptions:
+For each assumption in `memory/SPEC.md` §Assumptions whose `Status` is `validated`:
 - If it establishes a durable truth → promote to §Lexicon as an invariant or term
 - If it resolved a choice → promote to §Decisions
-- Mark as `validated` in §Assumptions
+- Preserve `Status: validated` in §Assumptions
 
-For each invalidated assumption:
+For each assumption whose `Status` is `invalidated`:
 - If it led to an alternative choice → record in §Decisions (superseding the prior decision)
-- Mark as `invalidated` in §Assumptions
+- Preserve `Status: invalidated` in §Assumptions
 - Flag all implicated slices in `memory/PLAN.md`
 
 ### 2b. Pruning check
@@ -38,11 +38,13 @@ Tracked items accumulate. Large assumption and decision tables become a confusio
 
 | State | Criterion | Action |
 | --- | --- | --- |
-| **Embedded** | Validated and now a structural property of the code — restating it as a tracked question adds noise, not clarity | Remove — the code is the proof |
-| **Moot** | Invalidated and the concern no longer applies (e.g. the technology it worried about was replaced entirely) | Remove |
+| **Embedded** | Status `validated`, and now a structural property of the code — restating it as a tracked question adds noise, not clarity | Remove — the code is the proof |
+| **Moot** | Status `invalidated`, and the concern no longer applies (e.g. the technology it worried about was replaced entirely) | Remove |
 | **Superseded** | Replaced by a newer decision or assumption | Remove, note in the replacement |
 
 When pruning, leave a comment noting which IDs were removed and why (e.g. `<!-- Pruned 2026-04-03: removed A1, A2 ... — embedded in architecture -->`). Do not renumber surviving items — IDs are stable. Dereference removed items from PLAN.md slice cross-references.
+
+After pruning, repair or replace any dangling cross-references in `memory/SPEC.md` and `memory/PLAN.md` that pointed at removed assumptions, decisions, invariants, or verification notes.
 
 The same logic applies to §Decisions: a decision that is now simply how the code works, with no live alternative being weighed, can be removed. Keep decisions that record a *choice between alternatives* that future work might revisit.
 

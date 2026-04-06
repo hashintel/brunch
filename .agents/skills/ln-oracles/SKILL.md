@@ -1,14 +1,16 @@
 ---
 name: ln-oracles
-description: "Design verification strategy: diagnose observability, select oracle families, map to loop tiers, surface blind spots. Use after ln-plan when slices need oracle design, or when verification coverage has drifted."
+description: "Design verification strategy: diagnose observability, select oracle families, map to loop tiers, surface blind spots. Use after ln-plan when slices need oracle design — especially for LLM, visual, or compositional work — or when verification coverage has drifted."
 argument-hint: "[slices to design oracles for, or 'all' for full reassessment]"
 ---
 
-# Dev Oracles
+# Ln Oracles
 
 Design what proves the system works before choosing how to build it.
 
 The best oracle removes the most bad degrees of freedom per unit time (Regehr). A system without feedback is open-loop -- it cannot correct errors (Wiener). Verification is first-class work, not accessory: second only to building the product itself. A slice without an oracle strategy is not scoped.
+
+Not every slice needs a full oracle-design pass. For trivial, purely structural slices, `ln-scope` may name the inner-loop checks directly. Use `ln-oracles` when the verification strategy itself is uncertain or materially shapes implementation order.
 
 Read `./assets/diagnostic-framework.md` and `./assets/oracle-taxonomy.md` before starting.
 
@@ -48,7 +50,7 @@ Using `./assets/oracle-taxonomy.md`, select families ranked by ROI for this proj
 
 Assign each selected oracle to inner (ms, agent-autonomous), middle (seconds-minutes, regression/fitness), or outer (slow hardening). Apply verification economics: cheapest checks first, expensive checks less often.
 
-**Boundary with ln-spec**: ln-spec owns the inner loop (verification commands, policy, fast automated checks). ln-oracles owns the middle and outer loops, plus strategic framing (diagnostic, stance, blind spots). When updating, preserve ln-spec's inner loop content and extend with middle/outer strategy.
+**Boundary with ln-spec**: ln-spec owns project-wide inner-loop verification commands, policy, and fast automated checks. ln-oracles owns the middle and outer loops, plus strategic framing (diagnostic, stance, blind spots), and may recommend slice-specific inner-loop oracle families when they affect implementation strategy. When updating, preserve ln-spec's command/policy content and extend with middle/outer strategy.
 
 **Grill**: For middle-loop oracles that require external resources (API calls, fixtures), ask: how will fixtures be created? What bootstraps ground truth? Is single-shot measurement sufficient or do we need multi-run variance?
 
