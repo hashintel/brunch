@@ -38,7 +38,7 @@ Target state:
 11. [done] Extract a single workspace controller boundary that owns loader-seeded durable state, chat hydration policy, observer-result invalidation, and workspace write follow-through so the interview route becomes primarily a rendering shell.
 12. [done] Split the workspace controller into a pure projection core and an imperative React shell so durable-state shaping, transcript seeding, and query/mutation side effects no longer live in the same module.
 13. [done] Replace generic shared client write callsites with domain-specific workspace and project mutations that hide navigation, invalidation, and follow-through choreography behind small interfaces.
-14. Strengthen the new refactor seams with focused seam-level oracles: shared client mutation tests for network and malformed-response failures, plus controller-level tests that protect loader seeding and same-project refresh behavior without depending only on route components.
+14. [done] Strengthen the new refactor seams with focused seam-level oracles: shared client mutation tests for network and malformed-response failures, plus controller-level tests that protect loader seeding and same-project refresh behavior without depending only on route components.
 
 ## Decisions
 
