@@ -80,6 +80,7 @@ The architecture (layered: db → core → adapters):
 | A28 | AI SDK `ToolLoopAgent` with `stopWhen: stepCountIs(N)` is sufficient for brunch's multi-step tool execution needs — no custom agent loop required | high | D31 | Agent loop, Phase transitions | Validate with phase resolution slice (slice 7): agent must call `ask_question` AND judge `is_resolution`, requiring multi-step tool use with `tool_choice: auto`. |
 | A29 | Models can reliably compose generic filesystem tools (read, write, edit, bash, grep, find, ls) to explore and characterize an existing project | **validated** | D32 | Characterization kickoff | Validated (spike): `ToolLoopAgent` with 7 core tools explored brunch in 22 tool calls across 23 steps. See `spike/filesystem-tools.ts`. |
 | A30 | The client can detect when assistant content actually needs rich markdown or diagram enhancement and keep plain text rendering as the immediate default without creating a hydration or streaming mismatch | **validated** | D34, D36 | Refactor commit 4 — progressive rendering split | Validated by `src/client/capabilities/markdown-rendering.test.tsx` (plain path stays immediate, fenced code upgrades after lazy load) plus `src/client/build-boundary.test.ts` (entry excludes `streamdown` and eager highlighter implementation). |
+| A31 | A workspace data adapter can centralize the boundary between durable project snapshots, durable entity snapshots, and ephemeral chat state without changing current user-visible behavior before concurrency and hydration policy changes land | **validated** | D37 | Refactor commits 5-7 — workspace state ownership | Validated by `src/client/workspace/workspace-data.test.ts` (durable vs ephemeral separation is explicit, hydration key remains project-scoped) plus unchanged green `src/client/routes/InterviewWorkspace.test.tsx` characterization coverage. |
 
 ## Decisions
 
@@ -96,6 +97,8 @@ The architecture (layered: db → core → adapters):
 35. **Developer debug surface is route-lazy, not startup-eager** — The `/debug` route remains declared in the main router, but its UI loads through a lazy client boundary so the default interview entrypoint does not inline developer-only debug content into the initial application chunk. This keeps the route available without charging normal startup for the debug surface. Depends on: D9, D34. Supersedes: eager debug-route component loading from the main router.
 
 36. **Assistant rich rendering is progressive enhancement, not the baseline path** — Message and reasoning text render immediately through a plain text-safe boundary. Rich markdown, diagram rendering, and Shiki-backed highlighting load only after the content proves enhancement is needed, with the rich implementation and highlighter runtime emitted outside the default entry bundle. Depends on: D14, D34. Supersedes: startup-eager `streamdown` + highlighting on the default transcript path.
+
+37. **Workspace state ownership lives behind a data adapter before semantics change** — The client reads workspace data through an explicit adapter that separates durable project snapshots, durable entity snapshots, and ephemeral chat seed state. This commit preserves current behavior, including the current project-scoped chat hydration boundary, while giving later commits one place to change fetch concurrency and hydration policy without another cross-cutting rewrite. Depends on: D19, D22. Supersedes: inline workspace ownership logic spread across `InterviewWorkspace` and `EntitySidebar`.
 
 26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
 
@@ -175,6 +178,7 @@ The architecture (layered: db → core → adapters):
 | I30 | Default entry excludes debug surface code | Refactor commit 3 (lazy debug route boundary) | build-boundary.test.ts | D35 |
 | I31 | Assistant transcript rendering stays text-first until enhancement is needed | Refactor commit 4 (progressive rich rendering split) | markdown-rendering.test.tsx | D36 |
 | I32 | Default entry excludes rich rendering and eager highlighting implementation | Refactor commit 4 (progressive rich rendering split) | build-boundary.test.ts | D36 |
+| I33 | Workspace state ownership is explicit even while current hydration semantics are preserved | Refactor commit 5 (workspace data adapter) | workspace-data.test.ts, InterviewWorkspace.test.tsx | D37 |
 
 ## Lexicon
 
@@ -350,7 +354,8 @@ This projection difference is a deliberate design choice, not an implementation 
 | parts.test.ts    | 7     | I17, I18                |
 | context.test.ts  | 8     | I19                     |
 | observer.test.ts | 2     | I20, I21                |
-| InterviewWorkspace.test.tsx | 4 | I24, I25, I23 |
+| InterviewWorkspace.test.tsx | 4 | I24, I25, I23, I33 |
+| workspace-data.test.ts | 2 | I33 |
 | code-block.test.tsx | 1 | I26 |
 | markdown-rendering.test.tsx | 2 | I31 |
 | message.test.tsx | 1 | I27 |

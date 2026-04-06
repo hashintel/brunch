@@ -1,31 +1,15 @@
-import { useQuery } from '@tanstack/react-query';
 import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-
-import type { EntitiesData } from '../../shared/api-types.js';
+import type { WorkspaceDurableEntityState } from '@/workspace/workspace-data';
 
 const tabs = ['Decisions', 'Assumptions'] as const;
 type Tab = (typeof tabs)[number];
 
-export function useEntities(projectId: number) {
-  return useQuery<EntitiesData>({
-    queryKey: ['entities', projectId],
-    queryFn: async () => {
-      const res = await fetch(`/api/projects/${projectId}/entities`);
-      if (!res.ok) throw new Error('Failed to fetch entities');
-      return res.json();
-    },
-  });
-}
-
-export function EntitySidebar({ projectId }: { projectId: number }) {
+export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEntityState }) {
   const [activeTab, setActiveTab] = useState<Tab>('Decisions');
-  const { data, isLoading } = useEntities(projectId);
-
-  const decisions = data?.decisions ?? [];
-  const assumptions = data?.assumptions ?? [];
+  const { decisions, assumptions, isLoading } = entityState;
 
   return (
     <div className="flex h-full w-72 flex-col border-l bg-card">

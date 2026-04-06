@@ -1,5 +1,4 @@
 import { useChat } from '@ai-sdk/react';
-import { useQueryClient } from '@tanstack/react-query';
 import { useLoaderData, useParams, Link, useRouter } from '@tanstack/react-router';
 import { DefaultChatTransport } from 'ai';
 import { useState, useEffect, useMemo, useCallback } from 'react';
@@ -24,71 +23,8 @@ import { EntitySidebar } from '@/components/EntitySidebar';
 import { cn } from '@/lib/utils';
 
 import type { ProjectStateTurn } from '../../shared/api-types.js';
-import {
-  assistantPartsSchema,
-  brunchDataPartSchemas,
-  isAskQuestionUIPart,
-  type BrunchAssistantPart,
-  type BrunchUIMessage,
-  type BrunchUserPart,
-  userPartsSchema,
-} from '../../shared/chat.js';
-
-function parseAssistantParts(json: string | null): BrunchAssistantPart[] {
-  if (!json) return [];
-  try {
-    return assistantPartsSchema.parse(JSON.parse(json)) as BrunchAssistantPart[];
-  } catch {
-    return [];
-  }
-}
-
-function parseUserParts(json: string | null): BrunchUserPart[] {
-  if (!json) return [];
-  try {
-    return userPartsSchema.parse(JSON.parse(json));
-  } catch {
-    return [];
-  }
-}
-
-function hydrateMessages(turns: ProjectStateTurn[]): BrunchUIMessage[] {
-  const msgs: BrunchUIMessage[] = [];
-  for (const turn of turns) {
-    const hydratedUserParts = parseUserParts(turn.user_parts);
-    const userParts =
-      hydratedUserParts.length > 0
-        ? hydratedUserParts.some((part) => part.type === 'text') || !turn.answer
-          ? hydratedUserParts
-          : ([{ type: 'text', text: turn.answer }, ...hydratedUserParts] as BrunchUserPart[])
-        : turn.answer
-          ? ([{ type: 'text', text: turn.answer }] as BrunchUserPart[])
-          : [];
-
-    if (userParts.length > 0) {
-      msgs.push({
-        id: `turn-${turn.id}-answer`,
-        role: 'user',
-        parts: userParts,
-      });
-    }
-
-    const assistantParts = parseAssistantParts(turn.assistant_parts);
-    if (assistantParts.length > 0) {
-      msgs.push({ id: `turn-${turn.id}-assistant`, role: 'assistant', parts: assistantParts });
-      continue;
-    }
-
-    if (turn.question) {
-      msgs.push({
-        id: `turn-${turn.id}-assistant`,
-        role: 'assistant',
-        parts: [{ type: 'text' as const, text: turn.question }],
-      });
-    }
-  }
-  return msgs;
-}
+import { brunchDataPartSchemas, isAskQuestionUIPart, type BrunchUIMessage } from '../../shared/chat.js';
+import { useWorkspaceDataAdapter } from '../workspace/workspace-data';
 
 const impactStyles: Record<string, string> = {
   high: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200',
@@ -196,23 +132,20 @@ function renderParts(msg: BrunchUIMessage, isStreaming: boolean) {
 }
 
 export function InterviewWorkspace() {
-  const { project, turns } = useLoaderData({ from: '/project/$id' });
+  const projectState = useLoaderData({ from: '/project/$id' });
   const { id } = useParams({ from: '/project/$id' });
   const router = useRouter();
   const [selecting, setSelecting] = useState(false);
 
-  const queryClient = useQueryClient();
-  const initialMessages = useMemo(() => hydrateMessages(turns), [project.id]);
+  const workspaceData = useWorkspaceDataAdapter(projectState, Number(id));
+  const { durableProject, durableEntities, ephemeralChat, handleDataPart } = workspaceData;
+  const { project, lastTurn, showTurnCard, lastTurnHasSelection } = durableProject;
   const transport = useMemo(() => new DefaultChatTransport({ api: `/api/projects/${id}/chat` }), [id]);
   const { messages, sendMessage, setMessages, status } = useChat<BrunchUIMessage>({
     transport,
-    messages: initialMessages,
+    messages: ephemeralChat.seedMessages,
     dataPartSchemas: brunchDataPartSchemas,
-    onData: (dataPart) => {
-      if (dataPart.type === 'data-observer-result') {
-        void queryClient.invalidateQueries({ queryKey: ['entities', Number(id)] });
-      }
-    },
+    onData: handleDataPart,
     onFinish: () => {
       void router.invalidate();
     },
@@ -220,12 +153,8 @@ export function InterviewWorkspace() {
   const isLoading = status === 'submitted' || status === 'streaming';
 
   useEffect(() => {
-    setMessages(hydrateMessages(turns));
-  }, [project.id, setMessages]);
-
-  const lastTurn = turns[turns.length - 1] as ProjectStateTurn | undefined;
-  const showTurnCard = lastTurn?.options?.length && lastTurn.options.length > 0;
-  const lastTurnHasSelection = lastTurn?.options?.some((o) => o.is_selected) ?? false;
+    setMessages(ephemeralChat.seedMessages);
+  }, [ephemeralChat, setMessages]);
 
   const handleSelect = useCallback(
     async (turnId: number, position: number) => {
@@ -310,7 +239,7 @@ export function InterviewWorkspace() {
           )}
         </div>
 
-        <EntitySidebar projectId={Number(id)} />
+        <EntitySidebar entityState={durableEntities} />
       </div>
     </div>
   );
