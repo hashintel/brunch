@@ -6,6 +6,7 @@ import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRe
 
 import {
   createPlainCodeTokens,
+  getCachedHighlightedCode,
   highlightCode,
   type CodeLanguage,
   type CodeToken,
@@ -208,37 +209,35 @@ export const CodeBlockContent = ({
   language: CodeLanguage;
   showLineNumbers?: boolean;
 }) => {
-  // Memoized raw tokens for immediate display
   const rawTokens = useMemo(() => createPlainCodeTokens(code), [code]);
-
-  // Synchronous cache lookup — avoids setState in effect for cached results
-  const syncTokens = useMemo(() => highlightCode(code, language) ?? rawTokens, [code, language, rawTokens]);
-
-  // Async highlighting result (populated after shiki loads)
-  const [asyncTokens, setAsyncTokens] = useState<TokenizedCode | null>(null);
-  const asyncKeyRef = useRef({ code, language });
-
-  // Invalidate stale async tokens synchronously during render
-  if (asyncKeyRef.current.code !== code || asyncKeyRef.current.language !== language) {
-    asyncKeyRef.current = { code, language };
-    setAsyncTokens(null);
-  }
+  const cachedTokens = useMemo(() => getCachedHighlightedCode(code, language), [code, language]);
+  const [asyncTokens, setAsyncTokens] = useState<TokenizedCode | null>(cachedTokens);
 
   useEffect(() => {
     let cancelled = false;
 
-    highlightCode(code, language, (result) => {
-      if (!cancelled) {
-        setAsyncTokens(result);
-      }
-    });
+    setAsyncTokens(cachedTokens);
+
+    if (cachedTokens) {
+      return;
+    }
+
+    void highlightCode(code, language)
+      .then((result) => {
+        if (!cancelled) {
+          setAsyncTokens(result);
+        }
+      })
+      .catch((error) => {
+        console.error('Failed to highlight code:', error);
+      });
 
     return () => {
       cancelled = true;
     };
-  }, [code, language]);
+  }, [cachedTokens, code, language]);
 
-  const tokenized = asyncTokens ?? syncTokens;
+  const tokenized = asyncTokens ?? rawTokens;
 
   return (
     <div className="relative overflow-auto">
@@ -282,7 +281,7 @@ export const CodeBlockCopyButton = ({
   ...props
 }: CodeBlockCopyButtonProps) => {
   const [isCopied, setIsCopied] = useState(false);
-  const timeoutRef = useRef<number>(0);
+  const timeoutRef = useRef<number | null>(null);
   const { code } = useContext(CodeBlockContext);
 
   const copyToClipboard = useCallback(async () => {
@@ -296,7 +295,13 @@ export const CodeBlockCopyButton = ({
         await navigator.clipboard.writeText(code);
         setIsCopied(true);
         onCopy?.();
-        timeoutRef.current = window.setTimeout(() => setIsCopied(false), timeout);
+        if (timeoutRef.current !== null) {
+          window.clearTimeout(timeoutRef.current);
+        }
+        timeoutRef.current = window.setTimeout(() => {
+          setIsCopied(false);
+          timeoutRef.current = null;
+        }, timeout);
       }
     } catch (error) {
       onError?.(error as Error);
@@ -305,7 +310,10 @@ export const CodeBlockCopyButton = ({
 
   useEffect(
     () => () => {
-      window.clearTimeout(timeoutRef.current);
+      if (timeoutRef.current !== null) {
+        window.clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
     },
     [],
   );

@@ -33,7 +33,7 @@ Target state:
 6. [done] Change workspace loading so project and entity snapshots start together from a single project-scoped data entrypoint, eliminating the current route-to-sidebar waterfall while preserving the same visible data.
 7. [done] Tighten chat hydration policy so persisted turns seed the transcript only on initial project entry or explicit project navigation. Same-project refreshes should update durable snapshots and derived UI affordances without implicitly rewriting the in-flight transcript.
 8. [done] Convert workspace-side writes into typed shared mutations with explicit success and failure handling. Selection, project creation, and similar actions should all report failure states consistently and stop relying on silent early returns.
-9. Refactor render-sensitive primitives so they stay pure under React retries: async highlighting starts from declared effects or loaders, derived branch state tracks content changes rather than only list length, and temporary UI timers or subscriptions remain cleanup-safe.
+9. [done] Refactor render-sensitive primitives so they stay pure under React retries: async highlighting starts from declared effects or loaders, derived branch state tracks content changes rather than only list length, and temporary UI timers or subscriptions remain cleanup-safe.
 10. Add intent-based preloading and final performance guardrails for advanced rendering features so the client stays lean on first paint while still feeling fast once the user signals intent to use those features.
 
 ## Decisions

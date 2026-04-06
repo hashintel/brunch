@@ -12,7 +12,7 @@ export interface TokenizedCode {
 }
 
 const tokensCache = new Map<string, TokenizedCode>();
-const subscribers = new Map<string, Set<(result: TokenizedCode) => void>>();
+const inFlightHighlights = new Map<string, Promise<TokenizedCode>>();
 let richCodeHighlighterPromise: Promise<typeof import('./rich-code-highlighting').highlightCodeRich> | null =
   null;
 
@@ -47,11 +47,12 @@ export const createPlainCodeTokens = (code: string): TokenizedCode => ({
   ),
 });
 
-export const highlightCode = (
-  code: string,
-  language: CodeLanguage,
-  callback?: (result: TokenizedCode) => void,
-): TokenizedCode | null => {
+export const getCachedHighlightedCode = (code: string, language: CodeLanguage): TokenizedCode | null => {
+  const tokensCacheKey = getTokensCacheKey(code, language);
+  return tokensCache.get(tokensCacheKey) ?? null;
+};
+
+export const highlightCode = async (code: string, language: CodeLanguage): Promise<TokenizedCode> => {
   const tokensCacheKey = getTokensCacheKey(code, language);
   const cached = tokensCache.get(tokensCacheKey);
 
@@ -59,30 +60,23 @@ export const highlightCode = (
     return cached;
   }
 
-  if (callback) {
-    if (!subscribers.has(tokensCacheKey)) {
-      subscribers.set(tokensCacheKey, new Set());
-    }
-    subscribers.get(tokensCacheKey)?.add(callback);
+  const existingRequest = inFlightHighlights.get(tokensCacheKey);
+  if (existingRequest) {
+    return existingRequest;
   }
 
-  void loadRichCodeHighlighter()
+  const request = loadRichCodeHighlighter()
     .then((highlightCodeRich) => highlightCodeRich(code, language))
     .then((tokenized) => {
       tokensCache.set(tokensCacheKey, tokenized);
-
-      const pendingSubscribers = subscribers.get(tokensCacheKey);
-      if (pendingSubscribers) {
-        for (const subscriber of pendingSubscribers) {
-          subscriber(tokenized);
-        }
-        subscribers.delete(tokensCacheKey);
-      }
+      inFlightHighlights.delete(tokensCacheKey);
+      return tokenized;
     })
     .catch((error) => {
-      console.error('Failed to highlight code:', error);
-      subscribers.delete(tokensCacheKey);
+      inFlightHighlights.delete(tokensCacheKey);
+      throw error;
     });
 
-  return null;
+  inFlightHighlights.set(tokensCacheKey, request);
+  return request;
 };

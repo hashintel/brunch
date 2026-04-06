@@ -91,11 +91,27 @@ interface MessageBranchContextType {
   totalBranches: number;
   goToPrevious: () => void;
   goToNext: () => void;
-  branches: ReactElement[];
+  branchSignature: string;
   setBranches: (branches: ReactElement[]) => void;
 }
 
 const MessageBranchContext = createContext<MessageBranchContextType | null>(null);
+
+const getBranchSignature = (branches: ReactElement[]) =>
+  branches
+    .map((branch, index) => {
+      const key = branch.key === null ? `index-${index}` : String(branch.key);
+      const type = (() => {
+        if (typeof branch.type === 'string') {
+          return branch.type;
+        }
+
+        const componentType = branch.type as { displayName?: string; name?: string };
+        return componentType.displayName ?? componentType.name ?? 'component';
+      })();
+      return `${key}:${type}`;
+    })
+    .join('|');
 
 const useMessageBranch = () => {
   const context = useContext(MessageBranchContext);
@@ -120,6 +136,8 @@ export const MessageBranch = ({
 }: MessageBranchProps) => {
   const [currentBranch, setCurrentBranch] = useState(defaultBranch);
   const [branches, setBranches] = useState<ReactElement[]>([]);
+  const totalBranches = branches.length;
+  const branchSignature = useMemo(() => getBranchSignature(branches), [branches]);
 
   const handleBranchChange = useCallback(
     (newBranch: number) => {
@@ -130,25 +148,35 @@ export const MessageBranch = ({
   );
 
   const goToPrevious = useCallback(() => {
-    const newBranch = currentBranch > 0 ? currentBranch - 1 : branches.length - 1;
+    const newBranch = currentBranch > 0 ? currentBranch - 1 : totalBranches - 1;
     handleBranchChange(newBranch);
-  }, [currentBranch, branches.length, handleBranchChange]);
+  }, [currentBranch, handleBranchChange, totalBranches]);
 
   const goToNext = useCallback(() => {
-    const newBranch = currentBranch < branches.length - 1 ? currentBranch + 1 : 0;
+    const newBranch = currentBranch < totalBranches - 1 ? currentBranch + 1 : 0;
     handleBranchChange(newBranch);
-  }, [currentBranch, branches.length, handleBranchChange]);
+  }, [currentBranch, handleBranchChange, totalBranches]);
+
+  useEffect(() => {
+    if (totalBranches === 0) {
+      return;
+    }
+
+    if (currentBranch >= totalBranches) {
+      handleBranchChange(totalBranches - 1);
+    }
+  }, [currentBranch, handleBranchChange, totalBranches]);
 
   const contextValue = useMemo<MessageBranchContextType>(
     () => ({
-      branches,
+      branchSignature,
       currentBranch,
       goToNext,
       goToPrevious,
       setBranches,
-      totalBranches: branches.length,
+      totalBranches,
     }),
-    [branches, currentBranch, goToNext, goToPrevious],
+    [branchSignature, currentBranch, goToNext, goToPrevious, totalBranches],
   );
 
   return (
@@ -161,15 +189,15 @@ export const MessageBranch = ({
 export type MessageBranchContentProps = HTMLAttributes<HTMLDivElement>;
 
 export const MessageBranchContent = ({ children, ...props }: MessageBranchContentProps) => {
-  const { currentBranch, setBranches, branches } = useMessageBranch();
+  const { currentBranch, setBranches, branchSignature } = useMessageBranch();
   const childrenArray = useMemo(() => (Array.isArray(children) ? children : [children]), [children]);
+  const nextBranchSignature = useMemo(() => getBranchSignature(childrenArray), [childrenArray]);
 
-  // Use useEffect to update branches when they change
   useEffect(() => {
-    if (branches.length !== childrenArray.length) {
+    if (branchSignature !== nextBranchSignature) {
       setBranches(childrenArray);
     }
-  }, [childrenArray, branches, setBranches]);
+  }, [branchSignature, childrenArray, nextBranchSignature, setBranches]);
 
   return childrenArray.map((branch, index) => (
     <div

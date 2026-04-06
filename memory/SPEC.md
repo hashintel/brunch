@@ -107,6 +107,8 @@ The architecture (layered: db → core → adapters):
 
 40. **Client writes use a shared typed mutation boundary with visible failure states** — Project creation, option selection, and similar client-triggered writes go through one shared POST-mutation helper plus React Query mutation state. Server `error` payloads are surfaced as visible UI feedback instead of being swallowed by silent early returns, while successful writes keep their existing navigation or route-refresh follow-through. Depends on: D22, D37, D39. Supersedes: ad hoc `fetch` calls in route components with inconsistent error handling.
 
+41. **Render-sensitive client primitives use explicit lifecycle boundaries** — Code highlighting now uses an effect-owned async path with cache reads kept synchronous and side-effect-free, message-branch bookkeeping re-synchronizes when branch identity changes and clamps stale indices when branch sets shrink, and transient copy-feedback timers are cleared explicitly on replacement or unmount. Depends on: D34, D39, D40. Supersedes: render-time state resets, callback-style async highlighting orchestration, and branch bookkeeping that only tracked collection length.
+
 26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
 
 ### Domain model
@@ -189,6 +191,8 @@ The architecture (layered: db → core → adapters):
 | I34 | Workspace project and entity snapshots enter together through one project-scoped loader boundary | Refactor commit 6 (workspace loading concurrency) | InterviewWorkspace.test.tsx | D38 |
 | I35 | Persisted chat state hydrates only on initial project entry or explicit project navigation | Refactor commit 7 (explicit chat hydration policy) | InterviewWorkspace.test.tsx, chat-hydration.test.ts | D39 |
 | I36 | Client-triggered writes surface consistent visible failure states instead of silent no-ops | Refactor commit 8 (shared client mutations) | InterviewWorkspace.test.tsx, ProjectList.test.tsx | D40 |
+| I37 | Code highlighting upgrades from lifecycle-owned async work and ignores stale completions during prop churn | Refactor commit 9 (render-sensitive primitive purity) | code-block.test.tsx | D41 |
+| I38 | Message branch navigation stays aligned with the current branch set after replacement or shrink | Refactor commit 9 (render-sensitive primitive purity) | message.test.tsx | D41 |
 
 ## Lexicon
 
@@ -368,9 +372,9 @@ This projection difference is a deliberate design choice, not an implementation 
 | ProjectList.test.tsx | 2 | I36 |
 | workspace-data.test.ts | 2 | I33 |
 | chat-hydration.test.ts | 3 | I35 |
-| code-block.test.tsx | 1 | I26 |
+| code-block.test.tsx | 3 | I26, I37 |
 | markdown-rendering.test.tsx | 2 | I31 |
-| message.test.tsx | 1 | I27 |
+| message.test.tsx | 2 | I27, I38 |
 | build-boundary.test.ts | 1 | I28, I30, I32 |
 | capability-boundaries.test.ts | 2 | I29 |
 
