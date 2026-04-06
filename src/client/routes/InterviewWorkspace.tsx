@@ -132,12 +132,12 @@ function renderParts(msg: BrunchUIMessage, isStreaming: boolean) {
 }
 
 export function InterviewWorkspace() {
-  const projectState = useLoaderData({ from: '/project/$id' });
+  const workspaceLoaderData = useLoaderData({ from: '/project/$id' });
   const { id } = useParams({ from: '/project/$id' });
   const router = useRouter();
   const [selecting, setSelecting] = useState(false);
 
-  const workspaceData = useWorkspaceDataAdapter(projectState, Number(id));
+  const workspaceData = useWorkspaceDataAdapter(workspaceLoaderData, Number(id));
   const { durableProject, durableEntities, ephemeralChat, handleDataPart } = workspaceData;
   const { project, lastTurn, showTurnCard, lastTurnHasSelection } = durableProject;
   const transport = useMemo(() => new DefaultChatTransport({ api: `/api/projects/${id}/chat` }), [id]);

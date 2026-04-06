@@ -1,5 +1,5 @@
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo } from 'react';
 
 import type { EntitiesData, ProjectState, ProjectStateTurn } from '../../shared/api-types.js';
 import {
@@ -9,6 +9,7 @@ import {
   type BrunchUserPart,
   userPartsSchema,
 } from '../../shared/chat.js';
+import type { WorkspaceLoaderData } from './workspace-loader.js';
 
 export interface WorkspaceDurableProjectState {
   project: ProjectState['project'];
@@ -126,33 +127,56 @@ async function fetchWorkspaceEntities(projectId: number): Promise<EntitiesData> 
   return response.json();
 }
 
-export function useWorkspaceDataAdapter(projectState: ProjectState, projectId: number): WorkspaceDataAdapter {
+function getWorkspaceEntitiesQueryKey(projectId: number) {
+  return ['entities', projectId] as const;
+}
+
+export function useWorkspaceDataAdapter(
+  workspaceLoaderData: WorkspaceLoaderData,
+  projectId: number,
+): WorkspaceDataAdapter {
   const queryClient = useQueryClient();
+  const entityQueryKey = useMemo(() => getWorkspaceEntitiesQueryKey(projectId), [projectId]);
+
+  useEffect(() => {
+    queryClient.setQueryData(entityQueryKey, workspaceLoaderData.entitySnapshot);
+  }, [entityQueryKey, queryClient, workspaceLoaderData.entitySnapshot]);
+
   const { data, isLoading } = useQuery<EntitiesData>({
-    queryKey: ['entities', projectId],
+    queryKey: entityQueryKey,
     queryFn: () => fetchWorkspaceEntities(projectId),
+    initialData: workspaceLoaderData.entitySnapshot,
+    staleTime: Number.POSITIVE_INFINITY,
   });
 
-  const durableProject = useMemo(() => createWorkspaceDurableProjectState(projectState), [projectState]);
+  const durableProject = useMemo(
+    () => createWorkspaceDurableProjectState(workspaceLoaderData.projectState),
+    [workspaceLoaderData.projectState],
+  );
   const durableEntities = useMemo<WorkspaceDurableEntityState>(
     () => ({
-      decisions: data?.decisions ?? [],
-      assumptions: data?.assumptions ?? [],
+      decisions: data?.decisions ?? workspaceLoaderData.entitySnapshot.decisions,
+      assumptions: data?.assumptions ?? workspaceLoaderData.entitySnapshot.assumptions,
       isLoading,
     }),
-    [data, isLoading],
+    [
+      data,
+      isLoading,
+      workspaceLoaderData.entitySnapshot.assumptions,
+      workspaceLoaderData.entitySnapshot.decisions,
+    ],
   );
   const ephemeralChat = useMemo(
-    () => createWorkspaceEphemeralChatState(projectState),
-    [projectState.project.id],
+    () => createWorkspaceEphemeralChatState(workspaceLoaderData.projectState),
+    [workspaceLoaderData.projectState.project.id],
   );
   const handleDataPart = useCallback(
     (dataPart: { type: string; data?: unknown }) => {
       if (dataPart.type === 'data-observer-result') {
-        void queryClient.invalidateQueries({ queryKey: ['entities', projectId] });
+        void queryClient.invalidateQueries({ queryKey: entityQueryKey });
       }
     },
-    [projectId, queryClient],
+    [entityQueryKey, queryClient],
   );
 
   return {

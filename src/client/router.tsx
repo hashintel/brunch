@@ -1,10 +1,11 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 
-import type { ProjectListItem, ProjectState } from '../shared/api-types.js';
+import type { ProjectListItem } from '../shared/api-types.js';
 import { DebugSurfaceRouteComponent } from './routes/debug-surface.js';
 import { ExportPreview } from './routes/ExportPreview.js';
 import { InterviewWorkspace } from './routes/InterviewWorkspace.js';
 import { ProjectList } from './routes/ProjectList.js';
+import { fetchWorkspaceLoaderData } from './workspace/workspace-loader.js';
 
 // Root layout
 const rootRoute = createRootRoute({
@@ -27,15 +28,11 @@ const indexRoute = createRoute({
   component: ProjectList,
 });
 
-// GET /api/projects/:id → interview workspace
+// GET /api/projects/:id + /entities → interview workspace
 const projectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/project/$id',
-  loader: async ({ params }) => {
-    const res = await fetch(`/api/projects/${params.id}`);
-    if (!res.ok) throw new Error('Failed to load project');
-    return res.json() as Promise<ProjectState>;
-  },
+  loader: async ({ params }) => fetchWorkspaceLoaderData(params.id),
   component: InterviewWorkspace,
 });
 

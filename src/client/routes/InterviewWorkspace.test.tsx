@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EntitiesData, ProjectState } from '../../shared/api-types.js';
 import type { BrunchUIMessage } from '../../shared/chat.js';
+import type { WorkspaceLoaderData } from '../workspace/workspace-loader.js';
 import { InterviewWorkspace } from './InterviewWorkspace.js';
 
 type UseChatOptions = {
@@ -22,7 +23,7 @@ type UseChatHarness = {
   onFinish?: UseChatOptions['onFinish'];
 };
 
-let currentLoaderData: ProjectState;
+let currentLoaderData: WorkspaceLoaderData;
 const routerInvalidate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 let useChatImpl: (options: UseChatOptions) => {
@@ -38,7 +39,7 @@ vi.mock('@tanstack/react-router', () => ({
     <a {...props}>{children}</a>
   ),
   useLoaderData: () => currentLoaderData,
-  useParams: () => ({ id: String(currentLoaderData.project.id) }),
+  useParams: () => ({ id: String(currentLoaderData.projectState.project.id) }),
   useRouter: () => ({ invalidate: routerInvalidate }),
 }));
 
@@ -135,6 +136,31 @@ function createProjectState({
   };
 }
 
+function createWorkspaceLoaderData({
+  projectId = 1,
+  assistantText = 'What should we build first?',
+  answer = 'Build the web app',
+  options = [],
+  entitySnapshot = { decisions: [], assumptions: [] } satisfies EntitiesData,
+}: {
+  projectId?: number;
+  assistantText?: string;
+  answer?: string;
+  options?: Array<{
+    id: number;
+    position: number;
+    content: string;
+    is_recommended: boolean;
+    is_selected: boolean;
+  }>;
+  entitySnapshot?: EntitiesData;
+} = {}): WorkspaceLoaderData {
+  return {
+    projectState: createProjectState({ projectId, assistantText, answer, options }),
+    entitySnapshot,
+  };
+}
+
 function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'ready'): (
   options: UseChatOptions,
 ) => {
@@ -196,7 +222,7 @@ function renderWorkspace() {
 }
 
 beforeEach(() => {
-  currentLoaderData = createProjectState();
+  currentLoaderData = createWorkspaceLoaderData();
   routerInvalidate.mockClear();
   fetchMock.mockReset();
   useChatImpl = createUseChatHarness();
@@ -209,34 +235,55 @@ afterEach(() => {
 });
 
 describe('InterviewWorkspace', () => {
-  it('hydrates stored turns into visible user and assistant messages on initial load', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ decisions: [], assumptions: [] } satisfies EntitiesData), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+  it('hydrates transcript and sidebar state from the route loader without a post-mount entity fetch', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        decisions: [
+          {
+            id: 7,
+            project_id: 1,
+            content: 'Start with the web app',
+            rationale: 'Fastest launch path',
+          },
+        ],
+        assumptions: [],
+      },
+    });
 
     renderWorkspace();
 
     expect(await screen.findByText('Build the web app')).toBeTruthy();
     expect(screen.getByText('What should we build first?')).toBeTruthy();
+    expect(screen.getByText('Start with the web app')).toBeTruthy();
+    expect(fetchMock).not.toHaveBeenCalled();
   });
 
-  it('keeps the existing chat state when loader data refreshes for the same project', async () => {
-    fetchMock.mockResolvedValue(
-      new Response(JSON.stringify({ decisions: [], assumptions: [] } satisfies EntitiesData), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
+  it('refreshes durable loader-owned state for the same project without rewriting the live transcript', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        decisions: [],
+        assumptions: [],
+      },
+    });
 
     const rendered = renderWorkspace();
     expect(await screen.findByText('What should we build first?')).toBeTruthy();
+    expect(screen.getByText("No decisions yet. They'll appear as the interview progresses.")).toBeTruthy();
 
-    currentLoaderData = createProjectState({
+    currentLoaderData = createWorkspaceLoaderData({
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
+      entitySnapshot: {
+        decisions: [
+          {
+            id: 8,
+            project_id: 1,
+            content: 'Prefer the desktop app',
+            rationale: 'Matches the updated brief',
+          },
+        ],
+        assumptions: [],
+      },
     });
     rendered.rerender(
       <QueryClientProvider client={rendered.queryClient}>
@@ -247,35 +294,38 @@ describe('InterviewWorkspace', () => {
     expect(screen.getByText('What should we build first?')).toBeTruthy();
     expect(screen.queryByText('Which platform should we target now?')).toBeNull();
     expect(screen.queryByText('Ship the desktop app')).toBeNull();
+
+    await waitFor(() => {
+      expect(screen.getByText('Prefer the desktop app')).toBeTruthy();
+    });
   });
 
   it('refetches sidebar entities when the chat stream emits an observer result', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ decisions: [], assumptions: [] } satisfies EntitiesData), {
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        decisions: [],
+        assumptions: [],
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          decisions: [
+            {
+              id: 7,
+              project_id: 1,
+              content: 'Start with the web app',
+              rationale: 'Fastest launch path',
+            },
+          ],
+          assumptions: [],
+        } satisfies EntitiesData),
+        {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
-        }),
-      )
-      .mockResolvedValueOnce(
-        new Response(
-          JSON.stringify({
-            decisions: [
-              {
-                id: 7,
-                project_id: 1,
-                content: 'Start with the web app',
-                rationale: 'Fastest launch path',
-              },
-            ],
-            assumptions: [],
-          } satisfies EntitiesData),
-          {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          },
-        ),
-      );
+        },
+      ),
+    );
 
     renderWorkspace();
     expect(
@@ -291,31 +341,24 @@ describe('InterviewWorkspace', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Start with the web app')).toBeTruthy();
-      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
     });
   });
 
   it('posts option selections, refreshes project state, and forwards the selected text back into chat', async () => {
-    currentLoaderData = createProjectState({
+    currentLoaderData = createWorkspaceLoaderData({
       options: [
         { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
         { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
       ],
     });
 
-    fetchMock
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ decisions: [], assumptions: [] } satisfies EntitiesData), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ok: true }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
 
     renderWorkspace();
 
