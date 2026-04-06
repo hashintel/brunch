@@ -3,14 +3,13 @@ import { useLoaderData, useParams, useRouter } from '@tanstack/react-router';
 import { DefaultChatTransport, type ChatStatus } from 'ai';
 import { useCallback, useMemo } from 'react';
 
-import { postJsonMutation, useClientMutation } from '@/mutations/client-mutation';
+import { useSelectTurnOptionMutation } from '@/mutations/workspace-mutations';
 
 import type { ProjectStateTurn } from '../../shared/api-types.js';
 import { brunchDataPartSchemas, type BrunchUIMessage } from '../../shared/chat.js';
 import { useChatHydrationBoundary } from './chat-hydration.js';
 import {
   createWorkspaceControllerViewState,
-  findTurnOptionByPosition,
   type WorkspaceDurableEntityState,
   type WorkspaceDurableProjectState,
 } from './workspace-controller-core.js';
@@ -28,7 +27,7 @@ export interface WorkspaceControllerTurnCardState {
   turn: ProjectStateTurn;
   disabled: boolean;
   errorMessage: string | null;
-  selectOption: (turnId: number, position: number) => Promise<void>;
+  selectOption: (position: number) => Promise<void>;
 }
 
 export interface WorkspaceControllerPromptInputState {
@@ -66,13 +65,11 @@ export function useWorkspaceController(): WorkspaceController {
       void router.invalidate();
     },
   });
-  const selectOptionMutation = useClientMutation((variables: { turnId: number; position: number }) =>
-    postJsonMutation<{ ok: boolean }, { position: number }>(
-      `/api/projects/${projectId}/turns/${variables.turnId}/select`,
-      { position: variables.position },
-      'Failed to save selection',
-    ),
-  );
+  const selectOptionMutation = useSelectTurnOptionMutation({
+    projectId,
+    turn: durableProject.lastTurn,
+    sendMessage,
+  });
   const isLoading = status === 'submitted' || status === 'streaming';
 
   useChatHydrationBoundary(durableProject.project.id, ephemeralChat.seedMessages, setMessages);
@@ -80,24 +77,6 @@ export function useWorkspaceController(): WorkspaceController {
   const viewState = useMemo(
     () => createWorkspaceControllerViewState(durableProject, isLoading),
     [durableProject, isLoading],
-  );
-
-  const selectOption = useCallback(
-    async (turnId: number, position: number) => {
-      const selected = findTurnOptionByPosition(durableProject.lastTurn, position);
-      if (!selected) {
-        return;
-      }
-
-      try {
-        await selectOptionMutation.run({ turnId, position });
-        await router.invalidate();
-        await sendMessage({ text: selected.content });
-      } catch {
-        // The shared mutation hook surfaces the failure state in the UI.
-      }
-    },
-    [durableProject.lastTurn, router, selectOptionMutation, sendMessage],
   );
 
   const submitText = useCallback(
@@ -126,7 +105,7 @@ export function useWorkspaceController(): WorkspaceController {
           turn: viewState.turnCard.turn,
           disabled: selectOptionMutation.isPending || isLoading,
           errorMessage: selectOptionMutation.errorMessage,
-          selectOption,
+          selectOption: selectOptionMutation.selectOption,
         }
       : null,
     promptInput: {

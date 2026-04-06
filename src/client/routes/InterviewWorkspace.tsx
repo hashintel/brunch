@@ -35,7 +35,7 @@ function TurnCard({
   disabled,
 }: {
   turn: ProjectStateTurn;
-  onSelect: (turnId: number, position: number) => void | Promise<void>;
+  onSelect: (position: number) => void | Promise<void>;
   disabled: boolean;
 }) {
   const options = turn.options ?? [];
@@ -66,7 +66,7 @@ function TurnCard({
               key={opt.position}
               type="button"
               disabled={disabled || hasSelection}
-              onClick={() => onSelect(turn.id, opt.position)}
+              onClick={() => onSelect(opt.position)}
               className={cn(
                 'rounded-md border px-3 py-2 text-left text-sm transition-colors',
                 isSelected

@@ -2,28 +2,19 @@ import { useLoaderData, useNavigate } from '@tanstack/react-router';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { useClientMutation, postJsonMutation } from '@/mutations/client-mutation';
-
-import type { ProjectListItem } from '../../shared/api-types.js';
+import { useCreateProjectMutation } from '@/mutations/project-mutations';
 
 export function ProjectList() {
   const projects = useLoaderData({ from: '/' });
   const navigate = useNavigate();
-  const createProjectMutation = useClientMutation((variables: { name: string }) =>
-    postJsonMutation<ProjectListItem, { name: string }>(
-      '/api/projects',
-      variables,
-      'Failed to create project',
-    ),
-  );
+  const createProjectMutation = useCreateProjectMutation();
 
   const handleCreate = async () => {
     const name = prompt('Project name:');
     if (!name?.trim()) return;
 
     try {
-      const project = await createProjectMutation.run({ name: name.trim() });
-      void navigate({ to: '/project/$id', params: { id: String(project.id) } });
+      await createProjectMutation.createProject(name.trim());
     } catch {
       // The shared mutation hook surfaces the failure state in the UI.
     }
