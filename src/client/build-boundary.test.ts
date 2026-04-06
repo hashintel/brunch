@@ -16,7 +16,7 @@ describe('client build boundary', () => {
     }
   });
 
-  it('keeps the debug route out of the default client entrypoint', async () => {
+  it('keeps debug and rich markdown rendering out of the default client entrypoint', async () => {
     const outDir = mkdtempSync(join(tmpdir(), 'brunch-client-build-'));
     tempDirs.push(outDir);
 
@@ -46,6 +46,30 @@ describe('client build boundary', () => {
     expect(entryFile).toContain('/project/$id');
     expect(entryFile).not.toContain('Component Debug');
     expect(entryFile).not.toContain('outer-loop testing');
+    expect(entryFile).not.toContain('streamdown');
+    expect(entryFile).not.toContain('createHighlighter');
+
+    const richRenderingChunk = Object.values(manifest).find((chunk) => {
+      if (!chunk.file || chunk.file === entry.file) {
+        return false;
+      }
+
+      const chunkSource = readFileSync(join(outDir, chunk.file), 'utf8');
+      return chunkSource.includes('streamdown');
+    });
+
+    expect(richRenderingChunk?.file).toBeTruthy();
+
+    const highlighterChunk = Object.values(manifest).find((chunk) => {
+      if (!chunk.file || chunk.file === entry.file) {
+        return false;
+      }
+
+      const chunkSource = readFileSync(join(outDir, chunk.file), 'utf8');
+      return chunkSource.includes('createHighlighter');
+    });
+
+    expect(highlighterChunk?.file).toBeTruthy();
 
     const debugChunk = Object.values(manifest).find((chunk) => {
       if (!chunk.file || chunk.file === entry.file) {

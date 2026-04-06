@@ -79,6 +79,7 @@ The architecture (layered: db → core → adapters):
 | A21 | `useChat` `onData` callback reliably bridges to `queryClient.invalidateQueries` without stale-closure issues | **validated** | D22 | Entity sidebar | Validated: `InterviewWorkspace.test.tsx` covers `data-observer-result` → query invalidation → sidebar refresh, plus manual outer-loop verification remains for live browser/runtime behavior. |
 | A28 | AI SDK `ToolLoopAgent` with `stopWhen: stepCountIs(N)` is sufficient for brunch's multi-step tool execution needs — no custom agent loop required | high | D31 | Agent loop, Phase transitions | Validate with phase resolution slice (slice 7): agent must call `ask_question` AND judge `is_resolution`, requiring multi-step tool use with `tool_choice: auto`. |
 | A29 | Models can reliably compose generic filesystem tools (read, write, edit, bash, grep, find, ls) to explore and characterize an existing project | **validated** | D32 | Characterization kickoff | Validated (spike): `ToolLoopAgent` with 7 core tools explored brunch in 22 tool calls across 23 steps. See `spike/filesystem-tools.ts`. |
+| A30 | The client can detect when assistant content actually needs rich markdown or diagram enhancement and keep plain text rendering as the immediate default without creating a hydration or streaming mismatch | **validated** | D34, D36 | Refactor commit 4 — progressive rendering split | Validated by `src/client/capabilities/markdown-rendering.test.tsx` (plain path stays immediate, fenced code upgrades after lazy load) plus `src/client/build-boundary.test.ts` (entry excludes `streamdown` and eager highlighter implementation). |
 
 ## Decisions
 
@@ -93,6 +94,8 @@ The architecture (layered: db → core → adapters):
 34. **Heavy client capabilities live behind named boundaries before perf changes** — Streamed markdown rendering, reasoning rendering, code highlighting, and the developer debug route are each imported through dedicated client boundary modules (`src/client/capabilities/*`, `src/client/routes/debug-surface.tsx`) rather than directly from feature components. This keeps runtime behavior unchanged now while giving later refactor commits one place to introduce lazy loading, deferred enhancement, or alternative adapters without another cross-cutting import rewrite. Depends on: D9, D14. Supersedes: direct heavy-dependency imports from message, reasoning, code-block, and router modules.
 
 35. **Developer debug surface is route-lazy, not startup-eager** — The `/debug` route remains declared in the main router, but its UI loads through a lazy client boundary so the default interview entrypoint does not inline developer-only debug content into the initial application chunk. This keeps the route available without charging normal startup for the debug surface. Depends on: D9, D34. Supersedes: eager debug-route component loading from the main router.
+
+36. **Assistant rich rendering is progressive enhancement, not the baseline path** — Message and reasoning text render immediately through a plain text-safe boundary. Rich markdown, diagram rendering, and Shiki-backed highlighting load only after the content proves enhancement is needed, with the rich implementation and highlighter runtime emitted outside the default entry bundle. Depends on: D14, D34. Supersedes: startup-eager `streamdown` + highlighting on the default transcript path.
 
 26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
 
@@ -170,6 +173,8 @@ The architecture (layered: db → core → adapters):
 | I28 | Client build boundary observability | Refactor commit 1 (client characterization coverage) | build-boundary.test.ts | — |
 | I29 | Heavy client dependency indirection | Refactor commit 2 (client capability boundaries) | capability-boundaries.test.ts | D34 |
 | I30 | Default entry excludes debug surface code | Refactor commit 3 (lazy debug route boundary) | build-boundary.test.ts | D35 |
+| I31 | Assistant transcript rendering stays text-first until enhancement is needed | Refactor commit 4 (progressive rich rendering split) | markdown-rendering.test.tsx | D36 |
+| I32 | Default entry excludes rich rendering and eager highlighting implementation | Refactor commit 4 (progressive rich rendering split) | build-boundary.test.ts | D36 |
 
 ## Lexicon
 
@@ -347,8 +352,9 @@ This projection difference is a deliberate design choice, not an implementation 
 | observer.test.ts | 2     | I20, I21                |
 | InterviewWorkspace.test.tsx | 4 | I24, I25, I23 |
 | code-block.test.tsx | 1 | I26 |
+| markdown-rendering.test.tsx | 2 | I31 |
 | message.test.tsx | 1 | I27 |
-| build-boundary.test.ts | 1 | I28, I30 |
+| build-boundary.test.ts | 1 | I28, I30, I32 |
 | capability-boundaries.test.ts | 2 | I29 |
 
 ## Acceptance Criteria (exit conditions)

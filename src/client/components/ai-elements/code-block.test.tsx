@@ -1,18 +1,24 @@
 // @vitest-environment happy-dom
 
 import { act, render, screen, waitFor } from '@testing-library/react';
-import type { BundledLanguage } from 'shiki';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const createHighlighterMock = vi.fn();
+const createPlainCodeTokensMock = vi.fn((code: string) => ({
+  bg: 'transparent',
+  fg: 'inherit',
+  tokens: [[{ color: 'inherit', content: code }]],
+}));
+const highlightCodeMock = vi.fn();
 
-vi.mock('shiki', () => ({
-  createHighlighter: createHighlighterMock,
+vi.mock('@/capabilities/code-highlighting', () => ({
+  createPlainCodeTokens: createPlainCodeTokensMock,
+  highlightCode: highlightCodeMock,
 }));
 
 describe('CodeBlockContent', () => {
   beforeEach(() => {
-    createHighlighterMock.mockReset();
+    createPlainCodeTokensMock.mockClear();
+    highlightCodeMock.mockReset();
   });
 
   afterEach(() => {
@@ -20,32 +26,27 @@ describe('CodeBlockContent', () => {
   });
 
   it('renders plain code immediately before async highlighting completes', async () => {
-    let resolveHighlighter:
+    let resolveHighlight:
       | ((value: {
-          getLoadedLanguages: () => BundledLanguage[];
-          codeToTokens: (
-            code: string,
-            options: unknown,
-          ) => {
-            bg: string;
-            fg: string;
-            tokens: Array<Array<{ content: string; color: string }>>;
-          };
+          bg: string;
+          fg: string;
+          tokens: Array<Array<{ content: string; color: string }>>;
         }) => void)
       | null = null;
 
-    createHighlighterMock.mockImplementation(
-      () =>
-        new Promise((resolve) => {
-          resolveHighlighter = resolve;
-        }),
+    highlightCodeMock.mockImplementation(
+      (_code: string, _language: string, callback?: (value: unknown) => void) => {
+        if (callback) {
+          resolveHighlight = callback as typeof resolveHighlight;
+        }
+
+        return null;
+      },
     );
 
     const { CodeBlockContent } = await import('./code-block.js');
 
-    const { container } = render(
-      <CodeBlockContent code={'const answer = 42'} language={'typescript' as BundledLanguage} />,
-    );
+    const { container } = render(<CodeBlockContent code={'const answer = 42'} language={'typescript'} />);
 
     const pre = container.querySelector('pre');
     expect(pre).toBeTruthy();
@@ -53,18 +54,15 @@ describe('CodeBlockContent', () => {
     expect(pre?.style.backgroundColor).toBe('transparent');
 
     await act(async () => {
-      resolveHighlighter?.({
-        getLoadedLanguages: () => ['typescript' as BundledLanguage],
-        codeToTokens: () => ({
-          bg: '#111111',
-          fg: '#eeeeee',
-          tokens: [
-            [
-              { color: '#ff0000', content: 'const' },
-              { color: '#00ff00', content: ' answer = 42' },
-            ],
+      resolveHighlight?.({
+        bg: '#111111',
+        fg: '#eeeeee',
+        tokens: [
+          [
+            { color: '#ff0000', content: 'const' },
+            { color: '#00ff00', content: ' answer = 42' },
           ],
-        }),
+        ],
       });
     });
 

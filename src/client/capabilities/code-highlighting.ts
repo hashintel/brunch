@@ -1,7 +1,6 @@
 'use client';
 
-import type { BundledLanguage, BundledTheme, HighlighterGeneric, ThemedToken } from 'shiki';
-import { createHighlighter } from 'shiki';
+import type { BundledLanguage, ThemedToken } from 'shiki';
 
 export type CodeLanguage = BundledLanguage;
 export type CodeToken = ThemedToken;
@@ -12,9 +11,10 @@ export interface TokenizedCode {
   bg: string;
 }
 
-const highlighterCache = new Map<string, Promise<HighlighterGeneric<BundledLanguage, BundledTheme>>>();
 const tokensCache = new Map<string, TokenizedCode>();
 const subscribers = new Map<string, Set<(result: TokenizedCode) => void>>();
+let richCodeHighlighterPromise: Promise<typeof import('./rich-code-highlighting').highlightCodeRich> | null =
+  null;
 
 const getTokensCacheKey = (code: string, language: CodeLanguage) => {
   const start = code.slice(0, 100);
@@ -22,21 +22,14 @@ const getTokensCacheKey = (code: string, language: CodeLanguage) => {
   return `${language}:${code.length}:${start}:${end}`;
 };
 
-const getHighlighter = (
-  language: CodeLanguage,
-): Promise<HighlighterGeneric<BundledLanguage, BundledTheme>> => {
-  const cached = highlighterCache.get(language);
-  if (cached) {
-    return cached;
+const loadRichCodeHighlighter = () => {
+  if (!richCodeHighlighterPromise) {
+    richCodeHighlighterPromise = import('./rich-code-highlighting.js').then(
+      (module) => module.highlightCodeRich,
+    );
   }
 
-  const highlighterPromise = createHighlighter({
-    langs: [language],
-    themes: ['github-light', 'github-dark'],
-  });
-
-  highlighterCache.set(language, highlighterPromise);
-  return highlighterPromise;
+  return richCodeHighlighterPromise;
 };
 
 export const createPlainCodeTokens = (code: string): TokenizedCode => ({
@@ -60,8 +53,8 @@ export const highlightCode = (
   callback?: (result: TokenizedCode) => void,
 ): TokenizedCode | null => {
   const tokensCacheKey = getTokensCacheKey(code, language);
-
   const cached = tokensCache.get(tokensCacheKey);
+
   if (cached) {
     return cached;
   }
@@ -73,25 +66,9 @@ export const highlightCode = (
     subscribers.get(tokensCacheKey)?.add(callback);
   }
 
-  getHighlighter(language)
-    .then((highlighter) => {
-      const availableLangs = highlighter.getLoadedLanguages();
-      const langToUse = availableLangs.includes(language) ? language : 'text';
-
-      const result = highlighter.codeToTokens(code, {
-        lang: langToUse,
-        themes: {
-          dark: 'github-dark',
-          light: 'github-light',
-        },
-      });
-
-      const tokenized: TokenizedCode = {
-        bg: result.bg ?? 'transparent',
-        fg: result.fg ?? 'inherit',
-        tokens: result.tokens,
-      };
-
+  void loadRichCodeHighlighter()
+    .then((highlightCodeRich) => highlightCodeRich(code, language))
+    .then((tokenized) => {
       tokensCache.set(tokensCacheKey, tokenized);
 
       const pendingSubscribers = subscribers.get(tokensCacheKey);
