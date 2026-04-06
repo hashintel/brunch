@@ -63,7 +63,6 @@ describe('workspace data adapter', () => {
     expect(durableProject.showTurnCard).toBe(true);
     expect(durableProject.lastTurnHasSelection).toBe(false);
 
-    expect(ephemeralChat.hydrationKey).toBe(projectState.project.id);
     expect(ephemeralChat.seedMessages).toEqual([
       {
         id: 'turn-1-answer',
@@ -78,7 +77,7 @@ describe('workspace data adapter', () => {
     ]);
   });
 
-  it('keeps chat hydration keyed to project identity for same-project refreshes', () => {
+  it('derives fresh seed messages from persisted turns without owning hydration timing', () => {
     const initialProjectState = createProjectState({
       assistantText: 'What should we build first?',
       answer: 'Build the web app',
@@ -92,7 +91,6 @@ describe('workspace data adapter', () => {
     const initialChat = createWorkspaceEphemeralChatState(initialProjectState);
     const refreshedChat = createWorkspaceEphemeralChatState(refreshedProjectState);
 
-    expect(refreshedChat.hydrationKey).toBe(initialChat.hydrationKey);
     expect(refreshedChat.seedMessages).not.toEqual(initialChat.seedMessages);
   });
 });

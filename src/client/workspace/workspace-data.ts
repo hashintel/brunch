@@ -26,7 +26,6 @@ export interface WorkspaceDurableEntityState {
 }
 
 export interface WorkspaceEphemeralChatState {
-  hydrationKey: number;
   seedMessages: BrunchUIMessage[];
 }
 
@@ -113,7 +112,6 @@ export function createWorkspaceDurableProjectState(projectState: ProjectState): 
 
 export function createWorkspaceEphemeralChatState(projectState: ProjectState): WorkspaceEphemeralChatState {
   return {
-    hydrationKey: projectState.project.id,
     seedMessages: hydrateMessages(projectState.turns),
   };
 }

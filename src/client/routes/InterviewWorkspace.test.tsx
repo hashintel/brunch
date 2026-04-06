@@ -270,6 +270,11 @@ describe('InterviewWorkspace', () => {
     expect(await screen.findByText('What should we build first?')).toBeTruthy();
     expect(screen.getByText("No decisions yet. They'll appear as the interview progresses.")).toBeTruthy();
 
+    await waitFor(() => {
+      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
+    });
+    useChatHarness.setMessages.mockClear();
+
     currentLoaderData = createWorkspaceLoaderData({
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
@@ -294,10 +299,54 @@ describe('InterviewWorkspace', () => {
     expect(screen.getByText('What should we build first?')).toBeTruthy();
     expect(screen.queryByText('Which platform should we target now?')).toBeNull();
     expect(screen.queryByText('Ship the desktop app')).toBeNull();
+    expect(useChatHarness.setMessages).not.toHaveBeenCalled();
 
     await waitFor(() => {
       expect(screen.getByText('Prefer the desktop app')).toBeTruthy();
     });
+  });
+
+  it('hydrates persisted transcript state when navigating to a different project', async () => {
+    const rendered = renderWorkspace();
+    expect(await screen.findByText('What should we build first?')).toBeTruthy();
+
+    await waitFor(() => {
+      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
+    });
+    useChatHarness.setMessages.mockClear();
+
+    currentLoaderData = createWorkspaceLoaderData({
+      projectId: 2,
+      assistantText: 'How should project two start?',
+      answer: 'Begin with the API',
+      entitySnapshot: {
+        decisions: [],
+        assumptions: [],
+      },
+    });
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <InterviewWorkspace />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(useChatHarness.setMessages).toHaveBeenCalledWith([
+        {
+          id: 'turn-1-answer',
+          role: 'user',
+          parts: [{ type: 'text', text: 'Begin with the API' }],
+        },
+        {
+          id: 'turn-1-assistant',
+          role: 'assistant',
+          parts: [{ type: 'text', text: 'How should project two start?' }],
+        },
+      ]);
+    });
+
+    expect(screen.getByText('How should project two start?')).toBeTruthy();
+    expect(screen.getByText('Begin with the API')).toBeTruthy();
   });
 
   it('refetches sidebar entities when the chat stream emits an observer result', async () => {

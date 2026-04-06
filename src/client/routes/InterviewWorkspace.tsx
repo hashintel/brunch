@@ -1,7 +1,7 @@
 import { useChat } from '@ai-sdk/react';
 import { useLoaderData, useParams, Link, useRouter } from '@tanstack/react-router';
 import { DefaultChatTransport } from 'ai';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 
 import {
   Conversation,
@@ -24,6 +24,7 @@ import { cn } from '@/lib/utils';
 
 import type { ProjectStateTurn } from '../../shared/api-types.js';
 import { brunchDataPartSchemas, isAskQuestionUIPart, type BrunchUIMessage } from '../../shared/chat.js';
+import { useChatHydrationBoundary } from '../workspace/chat-hydration';
 import { useWorkspaceDataAdapter } from '../workspace/workspace-data';
 
 const impactStyles: Record<string, string> = {
@@ -152,9 +153,7 @@ export function InterviewWorkspace() {
   });
   const isLoading = status === 'submitted' || status === 'streaming';
 
-  useEffect(() => {
-    setMessages(ephemeralChat.seedMessages);
-  }, [ephemeralChat, setMessages]);
+  useChatHydrationBoundary(project.id, ephemeralChat.seedMessages, setMessages);
 
   const handleSelect = useCallback(
     async (turnId: number, position: number) => {

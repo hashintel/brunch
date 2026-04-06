@@ -80,7 +80,7 @@ The architecture (layered: db → core → adapters):
 | A28 | AI SDK `ToolLoopAgent` with `stopWhen: stepCountIs(N)` is sufficient for brunch's multi-step tool execution needs — no custom agent loop required | high | D31 | Agent loop, Phase transitions | Validate with phase resolution slice (slice 7): agent must call `ask_question` AND judge `is_resolution`, requiring multi-step tool use with `tool_choice: auto`. |
 | A29 | Models can reliably compose generic filesystem tools (read, write, edit, bash, grep, find, ls) to explore and characterize an existing project | **validated** | D32 | Characterization kickoff | Validated (spike): `ToolLoopAgent` with 7 core tools explored brunch in 22 tool calls across 23 steps. See `spike/filesystem-tools.ts`. |
 | A30 | The client can detect when assistant content actually needs rich markdown or diagram enhancement and keep plain text rendering as the immediate default without creating a hydration or streaming mismatch | **validated** | D34, D36 | Refactor commit 4 — progressive rendering split | Validated by `src/client/capabilities/markdown-rendering.test.tsx` (plain path stays immediate, fenced code upgrades after lazy load) plus `src/client/build-boundary.test.ts` (entry excludes `streamdown` and eager highlighter implementation). |
-| A31 | A workspace data adapter can centralize the boundary between durable project snapshots, durable entity snapshots, and ephemeral chat state without changing current user-visible behavior before concurrency and hydration policy changes land | **validated** | D37 | Refactor commits 5-7 — workspace state ownership | Validated by `src/client/workspace/workspace-data.test.ts` (durable vs ephemeral separation is explicit, hydration key remains project-scoped) plus unchanged green `src/client/routes/InterviewWorkspace.test.tsx` characterization coverage. |
+| A31 | A workspace data adapter can centralize the boundary between durable project snapshots, durable entity snapshots, and ephemeral chat state without changing current user-visible behavior before concurrency and hydration policy changes land | **validated** | D37 | Refactor commits 5-7 — workspace state ownership | Validated by `src/client/workspace/workspace-data.test.ts` (durable vs ephemeral seed state separation is explicit and hydration timing is not owned by the adapter) plus unchanged green `src/client/routes/InterviewWorkspace.test.tsx` characterization coverage. |
 | A32 | A project-scoped workspace loader can start durable project and entity snapshots together while seeding the entity query cache without reintroducing transcript hydration drift | **validated** | D38 | Refactor commit 6 — workspace loading concurrency | Validated by `src/client/routes/InterviewWorkspace.test.tsx` (initial sidebar data comes from the route loader with no post-mount entity fetch, same-project durable refresh updates sidebar state without rewriting the visible transcript, and observer-result invalidation still refetches entities through the same query boundary). |
 
 ## Decisions
@@ -102,6 +102,8 @@ The architecture (layered: db → core → adapters):
 37. **Workspace state ownership lives behind a data adapter before semantics change** — The client reads workspace data through an explicit adapter that separates durable project snapshots, durable entity snapshots, and ephemeral chat seed state. This commit preserves current behavior, including the current project-scoped chat hydration boundary, while giving later commits one place to change fetch concurrency and hydration policy without another cross-cutting rewrite. Depends on: D19, D22. Supersedes: inline workspace ownership logic spread across `InterviewWorkspace` and `EntitySidebar`.
 
 38. **Workspace route loading is the project-scoped durable-data entrypoint** — The interview route loader now starts project and entity snapshot fetches together, then seeds the entity query cache from that loader result so the sidebar can render from the same project entry boundary without a post-mount waterfall. Later observer-result invalidations still refetch through the entity query key, while same-project loader refreshes can update durable snapshots without implicitly rewriting the visible transcript. Depends on: D9, D22, D37. Supersedes: project-only route loading plus post-mount entity fetch from the sidebar path.
+
+39. **Chat hydration is an explicit workspace boundary policy** — Persisted turns seed `useChat` only on initial project entry or when navigation changes the active project. Same-project route invalidations may refresh durable project/entity snapshots and derived affordances, but they do not rewrite the current in-flight transcript. The policy lives in a dedicated client boundary instead of being inferred indirectly from adapter memoization. Depends on: D19, D37, D38. Supersedes: implicit project-id-keyed hydration behavior hidden inside workspace adapter wiring.
 
 26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
 
@@ -183,6 +185,7 @@ The architecture (layered: db → core → adapters):
 | I32 | Default entry excludes rich rendering and eager highlighting implementation | Refactor commit 4 (progressive rich rendering split) | build-boundary.test.ts | D36 |
 | I33 | Workspace state ownership is explicit even while current hydration semantics are preserved | Refactor commit 5 (workspace data adapter) | workspace-data.test.ts, InterviewWorkspace.test.tsx | D37 |
 | I34 | Workspace project and entity snapshots enter together through one project-scoped loader boundary | Refactor commit 6 (workspace loading concurrency) | InterviewWorkspace.test.tsx | D38 |
+| I35 | Persisted chat state hydrates only on initial project entry or explicit project navigation | Refactor commit 7 (explicit chat hydration policy) | InterviewWorkspace.test.tsx, chat-hydration.test.ts | D39 |
 
 ## Lexicon
 
@@ -358,8 +361,9 @@ This projection difference is a deliberate design choice, not an implementation 
 | parts.test.ts    | 7     | I17, I18                |
 | context.test.ts  | 8     | I19                     |
 | observer.test.ts | 2     | I20, I21                |
-| InterviewWorkspace.test.tsx | 4 | I24, I25, I23, I33 |
+| InterviewWorkspace.test.tsx | 5 | I24, I25, I23, I33, I34, I35 |
 | workspace-data.test.ts | 2 | I33 |
+| chat-hydration.test.ts | 3 | I35 |
 | code-block.test.tsx | 1 | I26 |
 | markdown-rendering.test.tsx | 2 | I31 |
 | message.test.tsx | 1 | I27 |
