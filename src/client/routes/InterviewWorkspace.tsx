@@ -1,7 +1,7 @@
 import { useChat } from '@ai-sdk/react';
 import { useLoaderData, useParams, Link, useRouter } from '@tanstack/react-router';
 import { DefaultChatTransport } from 'ai';
-import { useState, useMemo, useCallback } from 'react';
+import { useMemo, useCallback } from 'react';
 
 import {
   Conversation,
@@ -21,6 +21,7 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-e
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { EntitySidebar } from '@/components/EntitySidebar';
 import { cn } from '@/lib/utils';
+import { useClientMutation, postJsonMutation } from '@/mutations/client-mutation';
 
 import type { ProjectStateTurn } from '../../shared/api-types.js';
 import { brunchDataPartSchemas, isAskQuestionUIPart, type BrunchUIMessage } from '../../shared/chat.js';
@@ -136,7 +137,6 @@ export function InterviewWorkspace() {
   const workspaceLoaderData = useLoaderData({ from: '/project/$id' });
   const { id } = useParams({ from: '/project/$id' });
   const router = useRouter();
-  const [selecting, setSelecting] = useState(false);
 
   const workspaceData = useWorkspaceDataAdapter(workspaceLoaderData, Number(id));
   const { durableProject, durableEntities, ephemeralChat, handleDataPart } = workspaceData;
@@ -151,32 +151,34 @@ export function InterviewWorkspace() {
       void router.invalidate();
     },
   });
+  const selectOptionMutation = useClientMutation((variables: { turnId: number; position: number }) =>
+    postJsonMutation<{ ok: boolean }, { position: number }>(
+      `/api/projects/${id}/turns/${variables.turnId}/select`,
+      { position: variables.position },
+      'Failed to save selection',
+    ),
+  );
   const isLoading = status === 'submitted' || status === 'streaming';
 
   useChatHydrationBoundary(project.id, ephemeralChat.seedMessages, setMessages);
 
   const handleSelect = useCallback(
     async (turnId: number, position: number) => {
-      setSelecting(true);
-      try {
-        const res = await fetch(`/api/projects/${id}/turns/${turnId}/select`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ position }),
-        });
-        if (!res.ok) return;
+      const options = lastTurn?.options ?? [];
+      const selected = options.find((option) => option.position === position);
+      if (!selected) {
+        return;
+      }
 
-        const options = lastTurn?.options ?? [];
-        const selected = options.find((o) => o.position === position);
-        if (selected) {
-          await router.invalidate();
-          void sendMessage({ text: selected.content });
-        }
-      } finally {
-        setSelecting(false);
+      try {
+        await selectOptionMutation.run({ turnId, position });
+        await router.invalidate();
+        await sendMessage({ text: selected.content });
+      } catch {
+        // The shared mutation hook surfaces the failure state in the UI.
       }
     },
-    [id, lastTurn, router, sendMessage],
+    [lastTurn, router, selectOptionMutation, sendMessage],
   );
 
   const handleSubmit = useCallback(
@@ -216,7 +218,17 @@ export function InterviewWorkspace() {
               })}
 
               {showTurnCard && !isLoading && (
-                <TurnCard turn={lastTurn!} onSelect={handleSelect} disabled={selecting || isLoading} />
+                <TurnCard
+                  turn={lastTurn!}
+                  onSelect={handleSelect}
+                  disabled={selectOptionMutation.isPending || isLoading}
+                />
+              )}
+
+              {selectOptionMutation.errorMessage && (
+                <p role="alert" className="mx-auto mt-3 max-w-2xl text-sm text-destructive">
+                  {selectOptionMutation.errorMessage}
+                </p>
               )}
             </ConversationContent>
             <ConversationScrollButton />
@@ -227,7 +239,10 @@ export function InterviewWorkspace() {
               <div className="mx-auto max-w-2xl">
                 <PromptInput onSubmit={handleSubmit}>
                   <PromptInputBody>
-                    <PromptInputTextarea placeholder="Type a message..." disabled={isLoading || selecting} />
+                    <PromptInputTextarea
+                      placeholder="Type a message..."
+                      disabled={isLoading || selectOptionMutation.isPending}
+                    />
                   </PromptInputBody>
                   <PromptInputFooter>
                     <PromptInputSubmit status={status} />

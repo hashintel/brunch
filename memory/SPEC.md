@@ -105,6 +105,8 @@ The architecture (layered: db → core → adapters):
 
 39. **Chat hydration is an explicit workspace boundary policy** — Persisted turns seed `useChat` only on initial project entry or when navigation changes the active project. Same-project route invalidations may refresh durable project/entity snapshots and derived affordances, but they do not rewrite the current in-flight transcript. The policy lives in a dedicated client boundary instead of being inferred indirectly from adapter memoization. Depends on: D19, D37, D38. Supersedes: implicit project-id-keyed hydration behavior hidden inside workspace adapter wiring.
 
+40. **Client writes use a shared typed mutation boundary with visible failure states** — Project creation, option selection, and similar client-triggered writes go through one shared POST-mutation helper plus React Query mutation state. Server `error` payloads are surfaced as visible UI feedback instead of being swallowed by silent early returns, while successful writes keep their existing navigation or route-refresh follow-through. Depends on: D22, D37, D39. Supersedes: ad hoc `fetch` calls in route components with inconsistent error handling.
+
 26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
 
 ### Domain model
@@ -186,6 +188,7 @@ The architecture (layered: db → core → adapters):
 | I33 | Workspace state ownership is explicit even while current hydration semantics are preserved | Refactor commit 5 (workspace data adapter) | workspace-data.test.ts, InterviewWorkspace.test.tsx | D37 |
 | I34 | Workspace project and entity snapshots enter together through one project-scoped loader boundary | Refactor commit 6 (workspace loading concurrency) | InterviewWorkspace.test.tsx | D38 |
 | I35 | Persisted chat state hydrates only on initial project entry or explicit project navigation | Refactor commit 7 (explicit chat hydration policy) | InterviewWorkspace.test.tsx, chat-hydration.test.ts | D39 |
+| I36 | Client-triggered writes surface consistent visible failure states instead of silent no-ops | Refactor commit 8 (shared client mutations) | InterviewWorkspace.test.tsx, ProjectList.test.tsx | D40 |
 
 ## Lexicon
 
@@ -361,7 +364,8 @@ This projection difference is a deliberate design choice, not an implementation 
 | parts.test.ts    | 7     | I17, I18                |
 | context.test.ts  | 8     | I19                     |
 | observer.test.ts | 2     | I20, I21                |
-| InterviewWorkspace.test.tsx | 5 | I24, I25, I23, I33, I34, I35 |
+| InterviewWorkspace.test.tsx | 6 | I24, I25, I23, I33, I34, I35, I36 |
+| ProjectList.test.tsx | 2 | I36 |
 | workspace-data.test.ts | 2 | I33 |
 | chat-hydration.test.ts | 3 | I35 |
 | code-block.test.tsx | 1 | I26 |

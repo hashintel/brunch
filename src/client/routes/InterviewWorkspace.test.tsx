@@ -429,4 +429,28 @@ describe('InterviewWorkspace', () => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Desktop' });
     });
   });
+
+  it('shows a visible error when saving an option selection fails', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      options: [
+        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+      ],
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Selection could not be saved' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.click(await screen.findByRole('button', { name: /desktop/i }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Selection could not be saved');
+    expect(routerInvalidate).not.toHaveBeenCalled();
+    expect(useChatHarness.sendMessage).not.toHaveBeenCalled();
+  });
 });
