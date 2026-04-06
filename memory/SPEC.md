@@ -90,6 +90,10 @@ The architecture (layered: db → core → adapters):
 
 33. **Component-level workspace oracle before state refactors** — The interview workspace has a client integration harness (`InterviewWorkspace.test.tsx`) that uses the real React Query cache and component tree while mocking `useChat` transport boundaries. It locks four seam behaviors before state-ownership refactors: initial hydration from persisted turns, same-project refresh preserving local chat state, `data-observer-result` invalidating entities into the sidebar, and option selection flowing through route refresh and chat submission. Depends on: D19, D22. Supersedes: manual-only workspace seam verification.
 
+34. **Heavy client capabilities live behind named boundaries before perf changes** — Streamed markdown rendering, reasoning rendering, code highlighting, and the developer debug route are each imported through dedicated client boundary modules (`src/client/capabilities/*`, `src/client/routes/debug-surface.tsx`) rather than directly from feature components. This keeps runtime behavior unchanged now while giving later refactor commits one place to introduce lazy loading, deferred enhancement, or alternative adapters without another cross-cutting import rewrite. Depends on: D9, D14. Supersedes: direct heavy-dependency imports from message, reasoning, code-block, and router modules.
+
+35. **Developer debug surface is route-lazy, not startup-eager** — The `/debug` route remains declared in the main router, but its UI loads through a lazy client boundary so the default interview entrypoint does not inline developer-only debug content into the initial application chunk. This keeps the route available without charging normal startup for the debug surface. Depends on: D9, D34. Supersedes: eager debug-route component loading from the main router.
+
 26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
 
 ### Domain model
@@ -161,6 +165,11 @@ The architecture (layered: db → core → adapters):
 | I23 | Entity sidebar reactive update | Slice 6 (sidebar) | app.test.ts, manual (outer loop) | D22 |
 | I24 | Workspace hydration boundary stability | Slice 6b1 (workspace oracle) | InterviewWorkspace.test.tsx | D19, D22 |
 | I25 | Workspace event bridge correctness | Slice 6b1 (workspace oracle) | InterviewWorkspace.test.tsx | D9, D22 |
+| I26 | Progressive code-render fallback | Refactor commit 1 (client characterization coverage) | code-block.test.tsx | D14 |
+| I27 | Equal-length branch replacement stability | Refactor commit 1 (client characterization coverage) | message.test.tsx | D14 |
+| I28 | Client build boundary observability | Refactor commit 1 (client characterization coverage) | build-boundary.test.ts | — |
+| I29 | Heavy client dependency indirection | Refactor commit 2 (client capability boundaries) | capability-boundaries.test.ts | D34 |
+| I30 | Default entry excludes debug surface code | Refactor commit 3 (lazy debug route boundary) | build-boundary.test.ts | D35 |
 
 ## Lexicon
 
@@ -337,6 +346,10 @@ This projection difference is a deliberate design choice, not an implementation 
 | context.test.ts  | 8     | I19                     |
 | observer.test.ts | 2     | I20, I21                |
 | InterviewWorkspace.test.tsx | 4 | I24, I25, I23 |
+| code-block.test.tsx | 1 | I26 |
+| message.test.tsx | 1 | I27 |
+| build-boundary.test.ts | 1 | I28, I30 |
+| capability-boundaries.test.ts | 2 | I29 |
 
 ## Acceptance Criteria (exit conditions)
 

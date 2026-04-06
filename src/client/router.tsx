@@ -1,7 +1,7 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 
 import type { ProjectListItem, ProjectState } from '../shared/api-types.js';
-import { ComponentDebug } from './routes/ComponentDebug.js';
+import { DebugSurfaceRouteComponent } from './routes/debug-surface.js';
 import { ExportPreview } from './routes/ExportPreview.js';
 import { InterviewWorkspace } from './routes/InterviewWorkspace.js';
 import { ProjectList } from './routes/ProjectList.js';
@@ -49,7 +49,7 @@ const exportRoute = createRoute({
 const debugRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/debug',
-  component: ComponentDebug,
+  component: DebugSurfaceRouteComponent,
 });
 
 const routeTree = rootRoute.addChildren([indexRoute, projectRoute, exportRoute, debugRoute]);

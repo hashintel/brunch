@@ -1,59 +1,69 @@
 ## Problem Statement
 
-The interview flow is carrying convergence debt across four connected seams:
+The client currently has three connected forms of debt that make it slower, harder to reason about, and more failure-prone than it needs to be.
 
-- durable project state is split across route loaders, local chat state, and query state
-- the runtime model still advertises multi-phase interviewing while the live product is effectively scope-only
-- the client/server boundary is "shared" through inferred server module types rather than explicit seam contracts
-- the highest-risk client sync path still lacks a browser-level oracle
+First, the default interview path carries too much optional rendering machinery on the critical path. Rich markdown, code-highlighting, diagram support, and the development debug surface are wired in as if they were always needed. That inflates the initial bundle and makes the main workspace pay for capabilities that are either rare, deferred, or developer-only.
 
-From the developer's perspective, the app mostly works because several mechanisms happen to line up, not because the ownership model is explicit. That makes the live streaming regression harder to diagnose and puts later phase work on top of unstable footing.
+Second, workspace state ownership is split across multiple authorities. Durable project snapshots, durable entity snapshots, and live in-flight chat messages are refreshed through different mechanisms with different timing. The result is a route-level data waterfall, duplicated invalidation logic, and a hydration policy that is implicit rather than declared. Same-project refreshes currently avoid clobbering local chat state, but they do so by accident of dependency selection rather than by an explicit rule.
+
+Third, several client primitives are structurally weak. Some components kick off async work during render, some update derived bookkeeping only when counts change rather than when content changes, and several user actions fail silently. None of these are catastrophic on their own, but together they create the kind of low-grade flakiness that makes later feature work expensive.
+
+From the developer's perspective, the client works today because optional concerns, durable state, and transient stream state are all interleaved in one runtime. That makes performance regressions, hydration drift, and "button did nothing" failures harder to diagnose than they should be.
 
 ## Solution
 
-Make the workspace state model explicit before adding more interview behavior.
+Refactor the client around explicit boundaries: a lean default interview path, a single durable workspace data model, and pure render primitives.
 
 Target state:
 
-- TanStack Query owns durable server snapshots for project state and entities
-- the chat stream owns only live in-flight UI message state
-- hydration happens only at explicit boundaries, not on generic invalidation
-- the current runtime is honest about being scope-first until phase transitions are implemented
-- project and entity payloads are owned by explicit boundary contracts rather than inferred from server module layout
-- a browser-level integration oracle protects observer reactivity and same-project hydration behavior
+- The default interview path is optimized for the common case: text-first conversation, question cards, and sidebar state. Heavy developer and rich-rendering capabilities load only when the user or route actually needs them.
+- Durable workspace state has one owner. Project snapshots and entity snapshots are fetched and refreshed through one coherent query model, while the chat stream owns only transient in-flight message state.
+- Chat hydration happens only at declared boundaries: initial project entry and explicit project navigation. Same-project refreshes update durable snapshots without implicitly resetting or rehydrating the visible transcript.
+- Client writes use shared mutation patterns with visible error handling, so network and browser failures become diagnosable UI states instead of silent no-ops.
+- Render primitives remain pure under React's retry and Strict Mode behavior: no render-time state resets, no async work started as an incidental side effect of rendering, and no stale derived bookkeeping based only on child counts.
+- Development-only and advanced-rendering capabilities remain available, but they are layered on top of the core experience rather than embedded into it.
 
 ## Commits
 
-1. Add characterization coverage for the current workspace seam: initial hydration, same-project refresh behavior, observer-result sidebar updates, and option-selection follow-through. This commit establishes the missing browser oracle before any structural changes.
-2. Extract explicit project-state and entity boundary contracts, plus shared fetch/query helpers, without changing runtime behavior. This makes the client/server seam stable before state ownership moves.
-3. Introduce a workspace state adapter that centralizes chat hydration and message rehydration rules behind one interface. Keep behavior the same while making the current ownership model visible and testable.
-4. Move durable project state onto TanStack Query and change route loaders into query-seeding entry points rather than parallel data authorities. Leave the chat stream behavior unchanged in this step.
-5. Move entity synchronization fully behind the same query model and replace ad hoc invalidation wiring with typed stream-driven query updates. Keep the observer payload semantics unchanged.
-6. Restrict chat hydration to explicit boundaries only: initial workspace load and project navigation. Remove same-project loader invalidation as an implicit chat reset mechanism.
-7. Convert option selection and other workspace-side writes into typed mutations integrated with the shared state adapter, so the turn tree, chat stream, and query cache advance through one coordinated path.
-8. Make the runtime phase model honest: either freeze the current public flow as scope-only or thread explicit phase provenance through the web path without implying that later phases are already operational. This is the last step because it changes surface semantics, not just structure.
+1. [done] Add characterization coverage for the risky client seams before moving structure: preserve current workspace hydration behavior, observer-driven sidebar refresh, option-selection follow-through, progressive code-render fallback behavior, branch-selector replacement behavior, and a build-level oracle for what the default interview entrypoint is allowed to ship.
+2. [done] Extract explicit client capability boundaries for streamed markdown rendering, reasoning rendering, code highlighting, and developer-only debug surfaces, without changing runtime behavior. This commit turns concrete heavy dependencies into named interfaces the rest of the client can depend on.
+3. [done] Move the development debug surface behind a lazy route boundary so the normal interview startup path no longer eagerly imports developer-only code and its rendering dependencies.
+4. Split advanced code-highlighting and diagram-capable rendering from the text-first message path, keeping immediate plain rendering available and loading richer enhancement only when the content or user action actually needs it.
+5. Introduce a workspace data adapter that clearly separates durable project state, durable entity state, and ephemeral chat state, while preserving the current user-visible behavior. The goal of this commit is clarity of ownership, not changed semantics.
+6. Change workspace loading so project and entity snapshots start together from a single project-scoped data entrypoint, eliminating the current route-to-sidebar waterfall while preserving the same visible data.
+7. Tighten chat hydration policy so persisted turns seed the transcript only on initial project entry or explicit project navigation. Same-project refreshes should update durable snapshots and derived UI affordances without implicitly rewriting the in-flight transcript.
+8. Convert workspace-side writes into typed shared mutations with explicit success and failure handling. Selection, project creation, and similar actions should all report failure states consistently and stop relying on silent early returns.
+9. Refactor render-sensitive primitives so they stay pure under React retries: async highlighting starts from declared effects or loaders, derived branch state tracks content changes rather than only list length, and temporary UI timers or subscriptions remain cleanup-safe.
+10. Add intent-based preloading and final performance guardrails for advanced rendering features so the client stays lean on first paint while still feeling fast once the user signals intent to use those features.
 
 ## Decisions
 
-- This refactor is centered on state ownership and seam integrity, not on adding new interview behavior.
-- The durable web-path state model will be query-first, with the chat stream treated as ephemeral UI state layered on top.
-- Boundary contracts are first-class modules, not incidental return-type aliases from server internals.
-- The current multi-phase domain model stays in the schema, but the web runtime must stop implying behavior that has not been implemented yet.
-- The live streaming regression is treated as a downstream symptom of unclear ownership; the refactor establishes the footing needed to fix it safely.
-- The README update is considered already handled and is not part of this refactor.
+- This refactor is a client-architecture pass, not a feature-expansion pass. It is intended to make upcoming interview and phase work cheaper and safer.
+- The default interview experience is text-first. Rich markdown, syntax highlighting, diagrams, and developer tooling are treated as progressive enhancement rather than baseline cost.
+- Durable state is query-owned. Live streamed chat state is ephemeral and layered over the durable workspace snapshot rather than competing with it.
+- Hydration is an explicit policy decision, not an incidental consequence of effect dependencies. The client must say when it is allowed to replace visible chat state from persistence.
+- Mutations must have a shared error model. Browser capability failures, fetch failures, and non-success server responses should all be visible and diagnosable.
+- Render-phase purity is a non-negotiable constraint for reusable primitives. Async work and state resets belong in explicit lifecycle boundaries, not in render.
+- The development debug surface remains part of the codebase, but it is not part of the default production-critical path.
+- This refactor intentionally treats the current streaming/rendering regressions and bundle bloat as symptoms of unclear boundaries rather than isolated one-line bugs.
 
 ## Testing Decisions
 
-- Good tests here prove user-visible behavior at the seam: chat resumes correctly, sidebar data updates after observer output, and same-project refreshes do not silently clobber or stale the workspace.
-- The first new oracle should run at the browser or client-integration layer, because the current risk is specifically in the runtime interplay between chat hooks, query cache, and route invalidation.
-- Contract tests should protect project-state and entity payloads independently from server module structure.
-- Query-state tests should assert cache ownership and synchronization behavior, not implementation details such as which hook calls invalidate first.
-- Prior art already exists in the backend-focused app, parts, context, and DB tests; this refactor adds the missing client-facing oracle rather than replacing those tests.
+- Coverage is now sufficient to begin structural movement, but not to relax oracle discipline. The workspace oracle is now joined by characterization coverage for progressive code rendering, branch replacement stability, and build-level client-boundary inspection.
+- Good tests here assert observable behavior rather than hook choreography. Examples: the transcript shown to the user does or does not reset at the right boundary, the sidebar updates after observer data arrives, a failed mutation produces visible feedback, and a code block renders immediately before richer enhancement arrives.
+- Build-level verification matters for this refactor. A passing unit suite is not enough if the default entry bundle still pulls in developer-only or advanced-rendering code. The refactor needs a repeatable artifact-level check for that boundary.
+- Query and loader tests should assert ownership and concurrency semantics, not the exact implementation shape. The important thing is that durable project and entity data begin loading together and settle into one coherent cache model.
+- Component tests for render primitives should explicitly protect React safety properties: no render-time state update loops, stable cleanup, correct behavior when props change rapidly, and correct replacement when equal-length child collections change content.
+- Prior art exists in the existing client integration harness and the server-side invariants. This refactor extends those oracles rather than replacing them.
+- Structural movement also needs a source-level oracle: `capability-boundaries.test.ts` now proves that heavy client dependencies are imported only through named capability and route boundary modules, so later lazy-loading work can swap implementations without another wide mechanical rewrite.
+- The build-boundary oracle now checks a stronger performance boundary as well: the default client entry still knows the `/debug` path exists, but it no longer inlines the debug surface itself, which must ship in a separate lazy chunk.
 
 ## Out of Scope
 
-- Implementing phase transitions, resolution tools, or the later design, requirements, and criteria phases
-- Expanding tool composition beyond what the current scope interview needs
-- Reworking the observer's extraction logic or entity model
-- Export, revisit/branch UX, CLI, or MCP adapters
-- Additional documentation cleanup beyond the README work that already landed
+- Implementing new interview phases, phase transitions, or changing the interviewer / observer product behavior
+- Reworking the server-side extraction model, turn-tree persistence model, or domain schema
+- Replacing the current markdown, highlighting, or router libraries with entirely different vendors
+- Multi-tab, offline-first, or collaborative state models
+- Branching UX, export UX, CLI, or MCP work
+- Broad visual redesign unrelated to state clarity, feedback quality, or performance boundaries
+- Any change whose only purpose is aesthetic cleanup without improving ownership, performance, or runtime safety
