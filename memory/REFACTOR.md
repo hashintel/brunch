@@ -35,6 +35,10 @@ Target state:
 8. [done] Convert workspace-side writes into typed shared mutations with explicit success and failure handling. Selection, project creation, and similar actions should all report failure states consistently and stop relying on silent early returns.
 9. [done] Refactor render-sensitive primitives so they stay pure under React retries: async highlighting starts from declared effects or loaders, derived branch state tracks content changes rather than only list length, and temporary UI timers or subscriptions remain cleanup-safe.
 10. Add intent-based preloading and final performance guardrails for advanced rendering features so the client stays lean on first paint while still feeling fast once the user signals intent to use those features.
+11. [done] Extract a single workspace controller boundary that owns loader-seeded durable state, chat hydration policy, observer-result invalidation, and workspace write follow-through so the interview route becomes primarily a rendering shell.
+12. [done] Split the workspace controller into a pure projection core and an imperative React shell so durable-state shaping, transcript seeding, and query/mutation side effects no longer live in the same module.
+13. Replace generic shared client write callsites with domain-specific workspace and project mutations that hide navigation, invalidation, and follow-through choreography behind small interfaces.
+14. Strengthen the new refactor seams with focused seam-level oracles: shared client mutation tests for network and malformed-response failures, plus controller-level tests that protect loader seeding and same-project refresh behavior without depending only on route components.
 
 ## Decisions
 
@@ -46,6 +50,9 @@ Target state:
 - Render-phase purity is a non-negotiable constraint for reusable primitives. Async work and state resets belong in explicit lifecycle boundaries, not in render.
 - The development debug surface remains part of the codebase, but it is not part of the default production-critical path.
 - This refactor intentionally treats the current streaming/rendering regressions and bundle bloat as symptoms of unclear boundaries rather than isolated one-line bugs.
+- The follow-up parts after 10 are a depth pass, not a behavior-expansion pass: they consolidate the newly introduced seams into deeper modules instead of adding more route-level choreography.
+- The workspace should have one primary client boundary. Loader entry, durable-state shaping, hydration policy, observer sync, and option-selection follow-through should read as one mechanism even if the implementation remains internally layered.
+- Shared client mutation infrastructure should expose domain-shaped actions where the success choreography is part of the abstraction, not left behind in route components.
 
 ## Testing Decisions
 
@@ -57,6 +64,9 @@ Target state:
 - Prior art exists in the existing client integration harness and the server-side invariants. This refactor extends those oracles rather than replacing them.
 - Structural movement also needs a source-level oracle: `capability-boundaries.test.ts` now proves that heavy client dependencies are imported only through named capability and route boundary modules, so later lazy-loading work can swap implementations without another wide mechanical rewrite.
 - The build-boundary oracle now checks a stronger performance boundary as well: the default client entry still knows the `/debug` path exists, but it no longer inlines the debug surface itself, which must ship in a separate lazy chunk.
+- Existing route-level characterization coverage is sufficient to start the follow-up depth pass; no new broad characterization step is required before parts 11-14.
+- Good follow-up tests should move down to the new seams: controller tests for workspace orchestration, pure projection tests for workspace shaping, and direct mutation helper tests for network errors, non-JSON failures, and malformed success bodies.
+- The route components should keep a small number of smoke-level tests, but the main protection should shift toward deeper module oracles so route refactors stop paying a full component-mock tax.
 
 ## Out of Scope
 
@@ -67,3 +77,5 @@ Target state:
 - Branching UX, export UX, CLI, or MCP work
 - Broad visual redesign unrelated to state clarity, feedback quality, or performance boundaries
 - Any change whose only purpose is aesthetic cleanup without improving ownership, performance, or runtime safety
+- Changing the visible interview UX, prompt-input interaction model, or project-creation UX beyond surfacing failures already promised by the existing refactor
+- Broad renames outside the workspace/mutation boundaries unless they directly support the new deeper module seams

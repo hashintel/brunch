@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ProjectState } from '../../shared/api-types.js';
-import { createWorkspaceDurableProjectState, createWorkspaceEphemeralChatState } from './workspace-data.js';
+import type { EntitiesData, ProjectState } from '../../shared/api-types.js';
+import {
+  createWorkspaceControllerViewState,
+  createWorkspaceDurableEntityState,
+  createWorkspaceDurableProjectState,
+  createWorkspaceEphemeralChatState,
+} from './workspace-controller-core.js';
 
 function createProjectState({
   projectId = 1,
@@ -48,7 +53,7 @@ function createProjectState({
   };
 }
 
-describe('workspace data adapter', () => {
+describe('workspace controller core', () => {
   it('separates durable project state from ephemeral chat seed state', () => {
     const projectState = createProjectState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
@@ -92,5 +97,57 @@ describe('workspace data adapter', () => {
     const refreshedChat = createWorkspaceEphemeralChatState(refreshedProjectState);
 
     expect(refreshedChat.seedMessages).not.toEqual(initialChat.seedMessages);
+  });
+
+  it('prefers refreshed entity query data while preserving loader snapshot fallback', () => {
+    const entitySnapshot: EntitiesData = {
+      decisions: [{ id: 1, project_id: 1, content: 'Loader decision', rationale: null }],
+      assumptions: [{ id: 2, project_id: 1, content: 'Loader assumption' }],
+    };
+    const refreshedEntities: EntitiesData = {
+      decisions: [{ id: 3, project_id: 1, content: 'Refetched decision', rationale: 'Newer' }],
+      assumptions: [],
+    };
+
+    expect(createWorkspaceDurableEntityState(entitySnapshot, undefined, true)).toEqual({
+      decisions: entitySnapshot.decisions,
+      assumptions: entitySnapshot.assumptions,
+      isLoading: true,
+    });
+
+    expect(createWorkspaceDurableEntityState(entitySnapshot, refreshedEntities, false)).toEqual({
+      decisions: refreshedEntities.decisions,
+      assumptions: refreshedEntities.assumptions,
+      isLoading: false,
+    });
+  });
+
+  it('projects prompt and turn-card visibility without embedding side effects', () => {
+    const pendingSelection = createWorkspaceDurableProjectState(
+      createProjectState({
+        options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+      }),
+    );
+    const selectedTurn = createWorkspaceDurableProjectState(
+      createProjectState({
+        options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: true }],
+      }),
+    );
+
+    expect(createWorkspaceControllerViewState(pendingSelection, false)).toEqual({
+      project: pendingSelection.project,
+      turnCard: { turn: pendingSelection.lastTurn! },
+      promptInput: { visible: false },
+    });
+    expect(createWorkspaceControllerViewState(pendingSelection, true)).toEqual({
+      project: pendingSelection.project,
+      turnCard: null,
+      promptInput: { visible: false },
+    });
+    expect(createWorkspaceControllerViewState(selectedTurn, false)).toEqual({
+      project: selectedTurn.project,
+      turnCard: { turn: selectedTurn.lastTurn! },
+      promptInput: { visible: true },
+    });
   });
 });

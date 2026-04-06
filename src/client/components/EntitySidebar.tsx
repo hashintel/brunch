@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
-import type { WorkspaceDurableEntityState } from '@/workspace/workspace-data';
+import type { WorkspaceDurableEntityState } from '@/workspace/workspace-controller-core';
 
 const tabs = ['Decisions', 'Assumptions'] as const;
 type Tab = (typeof tabs)[number];

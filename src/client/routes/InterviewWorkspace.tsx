@@ -1,7 +1,4 @@
-import { useChat } from '@ai-sdk/react';
-import { useLoaderData, useParams, Link, useRouter } from '@tanstack/react-router';
-import { DefaultChatTransport } from 'ai';
-import { useMemo, useCallback } from 'react';
+import { Link } from '@tanstack/react-router';
 
 import {
   Conversation,
@@ -21,12 +18,10 @@ import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-e
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { EntitySidebar } from '@/components/EntitySidebar';
 import { cn } from '@/lib/utils';
-import { useClientMutation, postJsonMutation } from '@/mutations/client-mutation';
 
 import type { ProjectStateTurn } from '../../shared/api-types.js';
-import { brunchDataPartSchemas, isAskQuestionUIPart, type BrunchUIMessage } from '../../shared/chat.js';
-import { useChatHydrationBoundary } from '../workspace/chat-hydration';
-import { useWorkspaceDataAdapter } from '../workspace/workspace-data';
+import { isAskQuestionUIPart, type BrunchUIMessage } from '../../shared/chat.js';
+import { useWorkspaceController } from '../workspace/workspace-controller';
 
 const impactStyles: Record<string, string> = {
   high: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200',
@@ -40,7 +35,7 @@ function TurnCard({
   disabled,
 }: {
   turn: ProjectStateTurn;
-  onSelect: (turnId: number, position: number) => void;
+  onSelect: (turnId: number, position: number) => void | Promise<void>;
   disabled: boolean;
 }) {
   const options = turn.options ?? [];
@@ -134,60 +129,12 @@ function renderParts(msg: BrunchUIMessage, isStreaming: boolean) {
 }
 
 export function InterviewWorkspace() {
-  const workspaceLoaderData = useLoaderData({ from: '/project/$id' });
-  const { id } = useParams({ from: '/project/$id' });
-  const router = useRouter();
+  const workspace = useWorkspaceController();
+  const { chat, entityState, project, promptInput, turnCard } = workspace;
 
-  const workspaceData = useWorkspaceDataAdapter(workspaceLoaderData, Number(id));
-  const { durableProject, durableEntities, ephemeralChat, handleDataPart } = workspaceData;
-  const { project, lastTurn, showTurnCard, lastTurnHasSelection } = durableProject;
-  const transport = useMemo(() => new DefaultChatTransport({ api: `/api/projects/${id}/chat` }), [id]);
-  const { messages, sendMessage, setMessages, status } = useChat<BrunchUIMessage>({
-    transport,
-    messages: ephemeralChat.seedMessages,
-    dataPartSchemas: brunchDataPartSchemas,
-    onData: handleDataPart,
-    onFinish: () => {
-      void router.invalidate();
-    },
-  });
-  const selectOptionMutation = useClientMutation((variables: { turnId: number; position: number }) =>
-    postJsonMutation<{ ok: boolean }, { position: number }>(
-      `/api/projects/${id}/turns/${variables.turnId}/select`,
-      { position: variables.position },
-      'Failed to save selection',
-    ),
-  );
-  const isLoading = status === 'submitted' || status === 'streaming';
-
-  useChatHydrationBoundary(project.id, ephemeralChat.seedMessages, setMessages);
-
-  const handleSelect = useCallback(
-    async (turnId: number, position: number) => {
-      const options = lastTurn?.options ?? [];
-      const selected = options.find((option) => option.position === position);
-      if (!selected) {
-        return;
-      }
-
-      try {
-        await selectOptionMutation.run({ turnId, position });
-        await router.invalidate();
-        await sendMessage({ text: selected.content });
-      } catch {
-        // The shared mutation hook surfaces the failure state in the UI.
-      }
-    },
-    [lastTurn, router, selectOptionMutation, sendMessage],
-  );
-
-  const handleSubmit = useCallback(
-    (message: PromptInputMessage) => {
-      if (!message.text?.trim() || isLoading) return;
-      void sendMessage({ text: message.text });
-    },
-    [isLoading, sendMessage],
-  );
+  const handleSubmit = (message: PromptInputMessage) => {
+    workspace.chat.submitText(message.text ?? '');
+  };
 
   return (
     <div className="flex h-screen flex-col">
@@ -202,8 +149,8 @@ export function InterviewWorkspace() {
         <div className="flex flex-1 flex-col">
           <Conversation className="flex-1">
             <ConversationContent className="mx-auto max-w-2xl">
-              {messages.map((msg, msgIdx) => {
-                const isLastAssistant = msg.role === 'assistant' && msgIdx === messages.length - 1;
+              {chat.messages.map((msg, msgIdx) => {
+                const isLastAssistant = msg.role === 'assistant' && msgIdx === chat.messages.length - 1;
                 return (
                   <Message key={msg.id} from={msg.role}>
                     <MessageContent>
@@ -211,41 +158,38 @@ export function InterviewWorkspace() {
                         ? msg.parts
                             ?.filter((p) => p.type === 'text')
                             .map((p, i) => <span key={i}>{p.text}</span>)
-                        : renderParts(msg, isLastAssistant && status === 'streaming')}
+                        : renderParts(msg, isLastAssistant && chat.isStreaming)}
                     </MessageContent>
                   </Message>
                 );
               })}
 
-              {showTurnCard && !isLoading && (
+              {turnCard && (
                 <TurnCard
-                  turn={lastTurn!}
-                  onSelect={handleSelect}
-                  disabled={selectOptionMutation.isPending || isLoading}
+                  turn={turnCard.turn}
+                  onSelect={turnCard.selectOption}
+                  disabled={turnCard.disabled}
                 />
               )}
 
-              {selectOptionMutation.errorMessage && (
+              {turnCard?.errorMessage && (
                 <p role="alert" className="mx-auto mt-3 max-w-2xl text-sm text-destructive">
-                  {selectOptionMutation.errorMessage}
+                  {turnCard.errorMessage}
                 </p>
               )}
             </ConversationContent>
             <ConversationScrollButton />
           </Conversation>
 
-          {(!showTurnCard || lastTurnHasSelection) && (
+          {promptInput.visible && (
             <div className="border-t px-4 py-3">
               <div className="mx-auto max-w-2xl">
                 <PromptInput onSubmit={handleSubmit}>
                   <PromptInputBody>
-                    <PromptInputTextarea
-                      placeholder="Type a message..."
-                      disabled={isLoading || selectOptionMutation.isPending}
-                    />
+                    <PromptInputTextarea placeholder="Type a message..." disabled={promptInput.disabled} />
                   </PromptInputBody>
                   <PromptInputFooter>
-                    <PromptInputSubmit status={status} />
+                    <PromptInputSubmit status={chat.status} />
                   </PromptInputFooter>
                 </PromptInput>
               </div>
@@ -253,7 +197,7 @@ export function InterviewWorkspace() {
           )}
         </div>
 
-        <EntitySidebar entityState={durableEntities} />
+        <EntitySidebar entityState={entityState} />
       </div>
     </div>
   );
