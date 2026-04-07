@@ -522,7 +522,7 @@ describe('InterviewWorkspace', () => {
     expect(await screen.findByText('Start with the web app')).toBeTruthy();
   });
 
-  it('refetches sidebar entities when the chat stream emits observer-created framing', async () => {
+  it('refetches sidebar entities when the chat stream emits observer-created constraints', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
         framing: [],
@@ -547,7 +547,16 @@ describe('InterviewWorkspace', () => {
               rationale: 'The user is still establishing the problem context',
             },
           ],
-          constraints: [],
+          constraints: [
+            {
+              id: 8,
+              project_id: 1,
+              kind: 'constraint',
+              subtype: 'non-goal',
+              content: 'Keep setup instant',
+              rationale: 'The launcher should stay lightweight',
+            },
+          ],
           requirements: [],
           criteria: [],
           decisions: [],
@@ -569,7 +578,7 @@ describe('InterviewWorkspace', () => {
     await act(async () => {
       useChatHarness.onData?.({
         type: 'data-observer-result',
-        data: { entityIds: { framing: [7], decisions: [], assumptions: [] } },
+        data: { entityIds: { framing: [7], constraints: [8], decisions: [], assumptions: [] } },
       });
     });
 
@@ -577,6 +586,8 @@ describe('InterviewWorkspace', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
 
+    fireEvent.click(screen.getByRole('button', { name: /constraints/i }));
+    expect(await screen.findByText('Keep setup instant')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /framing/i }));
     expect(await screen.findByText('The project starts from a fuzzy brief')).toBeTruthy();
   });

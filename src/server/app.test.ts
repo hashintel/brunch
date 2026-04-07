@@ -121,7 +121,7 @@ beforeEach(() => {
   mockStreamInterviewer.mockReset();
   mockRunObserver.mockReset();
   mockStreamInterviewer.mockImplementation(async () => makeTextInterviewer('Hi'));
-  mockRunObserver.mockResolvedValue({ framing: [], decisions: [], assumptions: [] });
+  mockRunObserver.mockResolvedValue({ framing: [], constraints: [], decisions: [], assumptions: [] });
 
   const result = createApp();
   app = result.app;
@@ -172,11 +172,11 @@ describe('POST /api/projects/:id/chat', () => {
     expect(turns[0].assistant_parts).not.toBeNull();
   });
 
-  it('emits widened observer results and persists framing through the entities API', async () => {
+  it('emits widened observer results and persists scope-mode constraints through the entities API', async () => {
     const projectId = await createTestProject();
     mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
       const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
-      const item = createKnowledgeItem(
+      const framing = createKnowledgeItem(
         dbArg as DB,
         projectIdArg as number,
         'framing',
@@ -185,8 +185,19 @@ describe('POST /api/projects/:id/chat', () => {
           rationale: 'The user is still establishing the problem context',
         },
       );
-      linkKnowledgeItemToTurn(dbArg as DB, item.id, (turnArg as { id: number }).id);
-      return { framing: [item.id], decisions: [], assumptions: [] };
+      const constraint = createKnowledgeItem(
+        dbArg as DB,
+        projectIdArg as number,
+        'constraint',
+        'Keep setup instant',
+        {
+          subtype: 'non-goal',
+          rationale: 'The launcher should stay lightweight',
+        },
+      );
+      linkKnowledgeItemToTurn(dbArg as DB, framing.id, (turnArg as { id: number }).id);
+      linkKnowledgeItemToTurn(dbArg as DB, constraint.id, (turnArg as { id: number }).id);
+      return { framing: [framing.id], constraints: [constraint.id], decisions: [], assumptions: [] };
     });
 
     const res = await request(app)
@@ -201,7 +212,7 @@ describe('POST /api/projects/:id/chat', () => {
 
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
-      data: { entityIds: { framing: [1], decisions: [], assumptions: [] } },
+      data: { entityIds: { framing: [1], constraints: [2], decisions: [], assumptions: [] } },
     });
 
     const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
@@ -213,6 +224,16 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'The project starts from a fuzzy brief',
         rationale: 'The user is still establishing the problem context',
+      },
+    ]);
+    expect(entitiesRes.body.constraints).toEqual([
+      {
+        id: 2,
+        project_id: projectId,
+        kind: 'constraint',
+        subtype: 'non-goal',
+        content: 'Keep setup instant',
+        rationale: 'The launcher should stay lightweight',
       },
     ]);
   });

@@ -34,13 +34,20 @@ afterEach(() => {
 });
 
 describe('runObserver', () => {
-  it('persists scope-mode framing items with turn provenance and returns their ids', async () => {
+  it('persists scope-mode framing and constraint items with turn provenance and returns their ids', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         framing: [
           {
             content: 'The project starts from an ambiguous brief',
             rationale: 'The user is still clarifying the problem space',
+          },
+        ],
+        constraints: [
+          {
+            content: 'Keep setup instant',
+            rationale: 'The launcher should stay lightweight',
+            subtype: 'non-goal',
           },
         ],
         decisions: [],
@@ -58,6 +65,7 @@ describe('runObserver', () => {
       .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
 
     expect(entityIds.framing).toHaveLength(1);
+    expect(entityIds.constraints).toHaveLength(1);
     expect(entityIds.decisions).toEqual([]);
     expect(entityIds.assumptions).toEqual([]);
     expect(entities.framing[0]).toMatchObject({
@@ -65,19 +73,31 @@ describe('runObserver', () => {
       content: 'The project starts from an ambiguous brief',
       rationale: 'The user is still clarifying the problem space',
     });
+    expect(entities.constraints[0]).toMatchObject({
+      kind: 'constraint',
+      subtype: 'non-goal',
+      content: 'Keep setup instant',
+      rationale: 'The launcher should stay lightweight',
+    });
     expect(provenanceRows).toEqual([
       {
         turn_id: turn.id,
         item_id: entityIds.framing[0],
         relation: 'captured',
       },
+      {
+        turn_id: turn.id,
+        item_id: entityIds.constraints[0],
+        relation: 'captured',
+      },
     ]);
   });
 
-  it('calls generateText with a scope-biased framing prompt and existing framing context', async () => {
+  it('calls generateText with a scope-biased framing/constraint prompt and existing generic context', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         framing: [],
+        constraints: [],
         decisions: [],
         assumptions: [],
       },
@@ -86,10 +106,14 @@ describe('runObserver', () => {
     const { createKnowledgeItem } = await import('./db.js');
     const project = createProject(db, 'Spec');
     createKnowledgeItem(db, project.id, 'framing', 'The project starts as a fuzzy brief');
+    createKnowledgeItem(db, project.id, 'constraint', 'Avoid heavyweight setup', {
+      subtype: 'non-goal',
+      rationale: 'Onboarding should stay instant',
+    });
     const turn = createTurn(db, project.id, {
       phase: 'scope',
-      question: 'What problem are we solving?',
-      answer: 'We need to clarify the project before choosing a design.',
+      question: 'What should we avoid?',
+      answer: 'We should avoid any heavyweight setup flow.',
     });
 
     await runObserver(db, turn, project.id);
@@ -97,13 +121,13 @@ describe('runObserver', () => {
     expect(mockAnthropic).toHaveBeenCalled();
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining('framing'),
+        system: expect.stringContaining('constraint'),
         output: expect.objectContaining({
           name: 'object',
           parseCompleteOutput: expect.any(Function),
           parsePartialOutput: expect.any(Function),
         }),
-        prompt: expect.stringContaining('The project starts as a fuzzy brief'),
+        prompt: expect.stringContaining('Avoid heavyweight setup'),
       }),
     );
   });

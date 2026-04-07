@@ -108,6 +108,7 @@ describe('assistant part round-trip', () => {
         data: {
           entityIds: {
             framing: [3],
+            constraints: [4],
             decisions: [1],
             assumptions: [2],
           },

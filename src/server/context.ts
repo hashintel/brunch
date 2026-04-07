@@ -57,6 +57,7 @@ export interface ObserverContextInput {
   activePathSummary: string;
   entities: {
     framing: Array<{ id: number; content: string }>;
+    constraints: Array<{ id: number; content: string }>;
     decisions: Array<{ id: number; content: string }>;
     assumptions: Array<{ id: number; content: string }>;
   };
@@ -73,6 +74,7 @@ export function buildObserverContext(input: ObserverContextInput): string {
 
   if (
     input.entities.framing.length > 0 ||
+    input.entities.constraints.length > 0 ||
     input.entities.decisions.length > 0 ||
     input.entities.assumptions.length > 0
   ) {
@@ -82,6 +84,16 @@ export function buildObserverContext(input: ObserverContextInput): string {
           '\n' +
           table(
             input.entities.framing.map((item) => ({ ID: item.id, Content: item.content })),
+            { columns: ['ID', 'Content'] },
+          ),
+      );
+    }
+    if (input.entities.constraints.length > 0) {
+      sections.push(
+        h3('Existing Constraints') +
+          '\n' +
+          table(
+            input.entities.constraints.map((item) => ({ ID: item.id, Content: item.content })),
             { columns: ['ID', 'Content'] },
           ),
       );
