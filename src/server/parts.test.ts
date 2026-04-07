@@ -47,6 +47,25 @@ describe('data schemas', () => {
     expect(userPartsSchema.parse(value)).toEqual(value);
   });
 
+  it('validates free-text-only data-turn-response payloads and rejects empty ones', () => {
+    const validValue = [
+      {
+        type: 'data-turn-response',
+        data: { turnId: 1, selectedOptionIds: [], freeText: 'None of these fit our use case' },
+      },
+    ];
+
+    expect(userPartsSchema.parse(validValue)).toEqual(validValue);
+    expect(() =>
+      userPartsSchema.parse([
+        {
+          type: 'data-turn-response',
+          data: { turnId: 1, selectedOptionIds: [] },
+        },
+      ]),
+    ).toThrow();
+  });
+
   it('validates data-confirmation payloads', () => {
     const value = { turnId: 5, confirmed: true };
     expect(dataConfirmationSchema.parse(value)).toEqual(value);

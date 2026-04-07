@@ -254,4 +254,60 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
       },
     ]);
   });
+
+  it('persists a free-text-only turn response when no option is selected', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const { getActivePath, getTurn, getOptionsForTurn } = await import('./db.js');
+    const turn = getActivePath(db, projectId)[0];
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
+      .send({ freeText: 'None of these fit our use case' })
+      .expect(200);
+
+    expect(getOptionsForTurn(db, turn.id).every((option) => !option.is_selected)).toBe(true);
+    expect(getTurn(db, turn.id)?.answer).toBe('None of these fit our use case');
+
+    const userParts = JSON.parse(getTurn(db, turn.id)?.user_parts ?? '[]');
+    expect(userParts).toEqual([
+      { type: 'text', text: 'None of these fit our use case' },
+      {
+        type: 'data-turn-response',
+        data: { turnId: turn.id, selectedOptionIds: [], freeText: 'None of these fit our use case' },
+      },
+    ]);
+  });
+
+  it('rejects a free-text-only turn response when no free text is provided', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const { getActivePath } = await import('./db.js');
+    const turn = getActivePath(db, projectId)[0];
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
+      .send({ freeText: '   ' })
+      .expect(400);
+  });
 });

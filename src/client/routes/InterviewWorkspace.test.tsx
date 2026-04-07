@@ -495,6 +495,46 @@ describe('InterviewWorkspace', () => {
     });
   });
 
+  it('posts free-text-only turn responses and forwards the text into chat', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      options: [
+        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+      ],
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'None of these fit our use case' },
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /submit free-text response/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/turns/1/select',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ freeText: 'None of these fit our use case' }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'None of these fit our use case' });
+    });
+  });
+
   it('shows a visible error when saving an option selection fails', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       options: [

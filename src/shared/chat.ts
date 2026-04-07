@@ -28,11 +28,21 @@ export const observerResultSchema = z.object({
   }),
 });
 
-export const dataTurnResponseSchema = z.object({
-  turnId: z.number(),
-  selectedOptionIds: z.array(z.number()).min(1),
-  freeText: z.string().min(1).optional(),
-});
+export const dataTurnResponseSchema = z
+  .object({
+    turnId: z.number(),
+    selectedOptionIds: z.array(z.number()),
+    freeText: z.string().trim().min(1).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.selectedOptionIds.length === 0 && !value.freeText) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'freeText is required when no options are selected',
+        path: ['freeText'],
+      });
+    }
+  });
 
 export const dataConfirmationSchema = z.object({
   turnId: z.number(),

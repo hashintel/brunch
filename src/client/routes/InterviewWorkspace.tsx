@@ -32,16 +32,17 @@ const impactStyles: Record<string, string> = {
 
 function TurnCard({
   turn,
-  onSelect,
+  onSubmitResponse,
   disabled,
 }: {
   turn: ProjectStateTurn;
-  onSelect: (position: number, freeText?: string) => void | Promise<void>;
+  onSubmitResponse: (position?: number, freeText?: string) => void | Promise<void>;
   disabled: boolean;
 }) {
   const options = turn.options ?? [];
   const hasSelection = options.some((o) => o.is_selected);
   const [freeText, setFreeText] = useState('');
+  const hasFreeText = freeText.trim().length > 0;
 
   return (
     <div className="my-3 rounded-lg border bg-card p-4">
@@ -70,9 +71,24 @@ function TurnCard({
           value={freeText}
           onChange={(event) => setFreeText(event.target.value)}
           disabled={disabled || hasSelection}
-          placeholder="Optional details to send with your selection"
+          placeholder="Optional details to send with your selection, or required if no option fits"
           className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
         />
+        <div className="mt-2 flex justify-end">
+          <button
+            type="button"
+            disabled={disabled || hasSelection || !hasFreeText}
+            onClick={() => onSubmitResponse(undefined, freeText)}
+            className={cn(
+              'rounded-md border px-3 py-2 text-sm transition-colors',
+              disabled || hasSelection || !hasFreeText
+                ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+                : 'border-border bg-background hover:bg-muted',
+            )}
+          >
+            Submit free-text response
+          </button>
+        </div>
       </div>
 
       <div className="mt-2 flex flex-col gap-1.5">
@@ -83,7 +99,7 @@ function TurnCard({
               key={opt.position}
               type="button"
               disabled={disabled || hasSelection}
-              onClick={() => onSelect(opt.position, freeText)}
+              onClick={() => onSubmitResponse(opt.position, freeText)}
               className={cn(
                 'rounded-md border px-3 py-2 text-left text-sm transition-colors',
                 isSelected
@@ -184,7 +200,7 @@ export function InterviewWorkspace() {
               {turnCard && (
                 <TurnCard
                   turn={turnCard.turn}
-                  onSelect={turnCard.selectOption}
+                  onSubmitResponse={turnCard.submitTurnResponse}
                   disabled={turnCard.disabled}
                 />
               )}

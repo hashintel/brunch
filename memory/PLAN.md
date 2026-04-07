@@ -69,13 +69,17 @@
 6d. **Flexible turn-response model** — Replace the single-select answer assumption with typed turn responses that support zero/one/many selections plus unified free-text response content. Keep structured interviewer guidance, recommendation, and strategic grounding, but stop assuming every turn maps to one categorical choice or one scalar answer string. `in-progress`
     - Requirements: → SPEC.md §Requirements #3, #6
     - Assumptions: → SPEC.md §Assumptions A16, A28, A33
-    - Decisions: → SPEC.md §Decisions D23, D24, D25, D45, D46
+    - Decisions: → SPEC.md §Decisions D23, D24, D25, D45, D46, D47
     - Candidate invariant goals: turn-response payload round-trip fidelity; multi-select/custom-answer state hydrates and replays correctly
     - Invariants to respect: → SPEC.md §Invariants I17, I18, I19, I22
-    - Invariants established: → SPEC.md §Invariants I44, I45
+    - Invariants established: → SPEC.md §Invariants I44, I45, I46
     - Acceptance: a turn can be answered with one-or-more selections plus optional free-text response or with zero selections plus required free-text response; transcript, persistence, interviewer context, and resume stay aligned
-    - **Observed current state (2026-04-07, tracer bullet 1):** single selected option + optional free-text now persists as `data-turn-response`, stores a user-visible summary seam, rehydrates through the workspace path, and projects into interviewer context as chosen options plus free-text. The remaining work is zero-selection free-text-only handling plus widening from one selected option to true many-selection UX.
+    - **Observed current state (2026-04-07, tracer bullets 1–2):** single selected option + optional free-text and zero-selection + required free-text now both persist as `data-turn-response`, store a user-visible summary seam, rehydrate through the workspace path, and project into interviewer context coherently. The remaining work is widening from one selected option to true many-selection UX.
     - **Verification approach**: inner — response-schema + projection characterization tests (`SPEC.md` §Verification Design, inner loop) prove cardinality and response-shaped context projection; middle — round-trip integration from submit → persistence → hydration → interviewer-context composition (`SPEC.md` §Verification Design, middle loop) validates A33 while protecting I17, I18, I19, and I22; outer — manual interview with option + free-text and free-text-only responses confirms coherent follow-through (`SPEC.md` §Verification Design, outer loop).
+    - Tracer bullets:
+      - `6d.1` Single selected option + optional free-text response. `done`
+      - `6d.2` Zero selections + required free-text-only response. `done`
+      - `6d.3` True many-selection UX + persistence/hydration. `not-started`
 
 6e. **Generic knowledge layer schema + sidebar projection** — Introduce the broader semantic layer (`framing`, `constraint`, `decision`, `assumption`, `requirement`, `criterion`) with generic provenance and graph edges, then project it cleanly into the sidebar without regressing existing reads. `not-started`
     - Requirements: → SPEC.md §Requirements #5, #6, #14

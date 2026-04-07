@@ -5,7 +5,7 @@ import { formatTurnResponseText } from '../../shared/chat.js';
 import { findTurnOptionByPosition } from '../workspace/workspace-controller-core.js';
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
-export function useSelectTurnOptionMutation({
+export function useSubmitTurnResponseMutation({
   projectId,
   turn,
   sendMessage,
@@ -15,31 +15,39 @@ export function useSelectTurnOptionMutation({
   sendMessage: (message: { text: string }) => Promise<void> | void;
 }) {
   const router = useRouter();
-  const mutation = useClientMutation((variables: { turnId: number; position: number; freeText?: string }) =>
-    postJsonMutation<{ ok: boolean }, { position: number; freeText?: string }>(
+  const mutation = useClientMutation((variables: { turnId: number; position?: number; freeText?: string }) =>
+    postJsonMutation<{ ok: boolean }, { position?: number; freeText?: string }>(
       `/api/projects/${projectId}/turns/${variables.turnId}/select`,
-      { position: variables.position, ...(variables.freeText ? { freeText: variables.freeText } : {}) },
-      'Failed to save selection',
+      {
+        ...(typeof variables.position === 'number' ? { position: variables.position } : {}),
+        ...(variables.freeText ? { freeText: variables.freeText } : {}),
+      },
+      'Failed to save response',
     ),
   );
 
   return {
-    selectOption: async (position: number, freeText?: string) => {
-      const selected = findTurnOptionByPosition(turn, position);
-      if (!selected || !turn) {
+    submitTurnResponse: async (position?: number, freeText?: string) => {
+      if (!turn) {
+        return;
+      }
+      const selected = typeof position === 'number' ? findTurnOptionByPosition(turn, position) : undefined;
+      if (typeof position === 'number' && !selected) {
         return;
       }
       const trimmedFreeText = freeText?.trim();
+      const responseText = formatTurnResponseText({
+        selectedOptionContents: selected ? [selected.content] : [],
+        freeText: trimmedFreeText,
+      });
+      if (!responseText) {
+        return;
+      }
 
       try {
         await mutation.run({ turnId: turn.id, position, freeText: trimmedFreeText || undefined });
         await router.invalidate();
-        await sendMessage({
-          text: formatTurnResponseText({
-            selectedOptionContents: [selected.content],
-            freeText: trimmedFreeText,
-          }),
-        });
+        await sendMessage({ text: responseText });
       } catch {
         // The shared mutation hook surfaces the failure state in the UI.
       }

@@ -74,16 +74,16 @@ export function createApp(dbPath?: string) {
     const projectId = Number(req.params.id);
     const turnId = Number(req.params.turnId);
     const position = req.body?.position;
+    const freeText = typeof req.body.freeText === 'string' ? req.body.freeText.trim() : undefined;
 
     if (Number.isNaN(projectId) || Number.isNaN(turnId)) {
       res.status(400).json({ error: 'Invalid IDs' });
       return;
     }
-    if (typeof position !== 'number') {
-      res.status(400).json({ error: 'position is required (number)' });
+    if (typeof position !== 'number' && !freeText) {
+      res.status(400).json({ error: 'position is required unless freeText is provided' });
       return;
     }
-    const freeText = typeof req.body.freeText === 'string' ? req.body.freeText.trim() : undefined;
 
     const turn = getTurn(db, turnId);
     if (!turn || turn.project_id !== projectId) {
@@ -91,18 +91,26 @@ export function createApp(dbPath?: string) {
       return;
     }
 
-    selectOption(db, turnId, position);
-
     const options = getOptionsForTurn(db, turnId);
-    const selected = options.find((o) => o.position === position);
+    const selected = typeof position === 'number' ? options.find((o) => o.position === position) : undefined;
+    if (typeof position === 'number' && !selected) {
+      res.status(400).json({ error: 'Selected option not found' });
+      return;
+    }
+    if (selected) {
+      selectOption(db, turnId, position);
+    }
+
+    const selectedOptionIds = selected ? [selected.id] : [];
+    const selectedOptionContents = selected ? [selected.content] : [];
     const responseText = formatTurnResponseText({
-      selectedOptionContents: selected?.content ? [selected.content] : [],
+      selectedOptionContents,
       freeText,
     });
 
     const dataPart = {
       type: 'data-turn-response',
-      data: { turnId, selectedOptionIds: [selected?.id ?? position], ...(freeText ? { freeText } : {}) },
+      data: { turnId, selectedOptionIds, ...(freeText ? { freeText } : {}) },
     } as const satisfies Extract<BrunchUserPart, { type: 'data-turn-response' }>;
 
     updateTurn(db, turnId, {
