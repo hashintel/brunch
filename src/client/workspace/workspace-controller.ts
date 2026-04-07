@@ -27,7 +27,7 @@ export interface WorkspaceControllerTurnCardState {
   turn: ProjectStateTurn;
   disabled: boolean;
   errorMessage: string | null;
-  submitTurnResponse: (position?: number, freeText?: string) => Promise<void>;
+  submitTurnResponse: (positions: number[], freeText?: string) => Promise<void>;
 }
 
 export interface WorkspaceControllerPromptInputState {

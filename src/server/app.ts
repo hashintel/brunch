@@ -25,7 +25,7 @@ import {
   createDb,
   getTurn,
   getOptionsForTurn,
-  selectOption,
+  selectOptions,
   updateTurn,
   getEntitiesForProject,
 } from './db.js';
@@ -69,19 +69,24 @@ export function createApp(dbPath?: string) {
     res.json(state satisfies ProjectState);
   });
 
-  // Select an option on a turn
+  // Submit a turn response on a turn
   app.post('/api/projects/:id/turns/:turnId/select', (req: Request, res: Response) => {
     const projectId = Number(req.params.id);
     const turnId = Number(req.params.turnId);
-    const position = req.body?.position;
+    const positions: number[] = Array.isArray(req.body?.positions)
+      ? req.body.positions.filter((value: unknown): value is number => typeof value === 'number')
+      : typeof req.body?.position === 'number'
+        ? [req.body.position]
+        : [];
+    const uniquePositions: number[] = [...new Set(positions)];
     const freeText = typeof req.body.freeText === 'string' ? req.body.freeText.trim() : undefined;
 
     if (Number.isNaN(projectId) || Number.isNaN(turnId)) {
       res.status(400).json({ error: 'Invalid IDs' });
       return;
     }
-    if (typeof position !== 'number' && !freeText) {
-      res.status(400).json({ error: 'position is required unless freeText is provided' });
+    if (uniquePositions.length === 0 && !freeText) {
+      res.status(400).json({ error: 'positions are required unless freeText is provided' });
       return;
     }
 
@@ -92,17 +97,15 @@ export function createApp(dbPath?: string) {
     }
 
     const options = getOptionsForTurn(db, turnId);
-    const selected = typeof position === 'number' ? options.find((o) => o.position === position) : undefined;
-    if (typeof position === 'number' && !selected) {
+    const selectedOptions = options.filter((option) => uniquePositions.includes(option.position));
+    if (selectedOptions.length !== uniquePositions.length) {
       res.status(400).json({ error: 'Selected option not found' });
       return;
     }
-    if (selected) {
-      selectOption(db, turnId, position);
-    }
+    selectOptions(db, turnId, uniquePositions);
 
-    const selectedOptionIds = selected ? [selected.id] : [];
-    const selectedOptionContents = selected ? [selected.content] : [];
+    const selectedOptionIds = selectedOptions.map((option) => option.id);
+    const selectedOptionContents = selectedOptions.map((option) => option.content);
     const responseText = formatTurnResponseText({
       selectedOptionContents,
       freeText,

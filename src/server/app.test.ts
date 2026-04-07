@@ -235,7 +235,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
-      .send({ position: 1, freeText: 'Best fit for our launch' })
+      .send({ positions: [1], freeText: 'Best fit for our launch' })
       .expect(200);
 
     expect(getOptionsForTurn(db, turn.id)[1].is_selected).toBe(true);
@@ -250,6 +250,45 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
           turnId: turn.id,
           selectedOptionIds: [getOptionsForTurn(db, turn.id)[1].id],
           freeText: 'Best fit for our launch',
+        },
+      },
+    ]);
+  });
+
+  it('persists many selected options and free-text turn responses into answer and user parts', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const { getActivePath, getTurn, getOptionsForTurn } = await import('./db.js');
+    const turn = getActivePath(db, projectId)[0];
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
+      .send({ positions: [0, 1], freeText: 'Covers both launch paths' })
+      .expect(200);
+
+    const selectedOptions = getOptionsForTurn(db, turn.id).filter((option) => option.is_selected);
+    expect(selectedOptions.map((option) => option.content)).toEqual(['Web', 'Desktop']);
+    expect(getTurn(db, turn.id)?.answer).toBe('Web, Desktop — Covers both launch paths');
+
+    const userParts = JSON.parse(getTurn(db, turn.id)?.user_parts ?? '[]');
+    expect(userParts).toEqual([
+      { type: 'text', text: 'Web, Desktop — Covers both launch paths' },
+      {
+        type: 'data-turn-response',
+        data: {
+          turnId: turn.id,
+          selectedOptionIds: selectedOptions.map((option) => option.id),
+          freeText: 'Covers both launch paths',
         },
       },
     ]);

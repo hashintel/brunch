@@ -1,5 +1,5 @@
 import Database from 'better-sqlite3';
-import { desc, eq, sql, type InferSelectModel } from 'drizzle-orm';
+import { and, desc, eq, inArray, sql, type InferSelectModel } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 
@@ -157,13 +157,20 @@ export function getOptionsForTurn(db: DB, turnId: number): Option[] {
     .all() as Option[];
 }
 
-export function selectOption(db: DB, turnId: number, position: number): void {
+export function selectOptions(db: DB, turnId: number, positions: number[]): void {
+  const uniquePositions = [...new Set(positions)];
+
   // Clear any previous selection for this turn
   db.update(schema.option).set({ is_selected: false }).where(eq(schema.option.turn_id, turnId)).run();
-  // Select the chosen option
+
+  if (uniquePositions.length === 0) {
+    return;
+  }
+
+  // Select the chosen options
   db.update(schema.option)
     .set({ is_selected: true })
-    .where(sql`${schema.option.turn_id} = ${turnId} AND ${schema.option.position} = ${position}`)
+    .where(and(eq(schema.option.turn_id, turnId), inArray(schema.option.position, uniquePositions)))
     .run();
 }
 

@@ -47,6 +47,17 @@ describe('data schemas', () => {
     expect(userPartsSchema.parse(value)).toEqual(value);
   });
 
+  it('validates data-turn-response payloads with many selected options', () => {
+    const value = [
+      {
+        type: 'data-turn-response',
+        data: { turnId: 1, selectedOptionIds: [2, 3], freeText: 'Need both' },
+      },
+    ];
+
+    expect(userPartsSchema.parse(value)).toEqual(value);
+  });
+
   it('validates free-text-only data-turn-response payloads and rejects empty ones', () => {
     const validValue = [
       {
@@ -114,6 +125,16 @@ describe('user part round-trip', () => {
       { type: 'text', text: 'Web first — Best fit' },
       { type: 'data-turn-response', data: { turnId: 4, selectedOptionIds: [9], freeText: 'Best fit' } },
       { type: 'data-confirmation', data: { turnId: 4, confirmed: true } },
+    ];
+
+    const json = serializeParts(parts);
+    expect(deserializeUserParts(json)).toEqual(parts);
+  });
+
+  it('round-trips persisted user parts with many selected option ids', () => {
+    const parts: BrunchUserPart[] = [
+      { type: 'text', text: 'Web, Desktop — Need both' },
+      { type: 'data-turn-response', data: { turnId: 4, selectedOptionIds: [9, 10], freeText: 'Need both' } },
     ];
 
     const json = serializeParts(parts);
