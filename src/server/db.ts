@@ -169,3 +169,76 @@ export function advanceHead(db: DB, projectId: number, turnId: number): void {
     .where(eq(schema.project.id, projectId))
     .run();
 }
+
+// --- Entity persistence (decisions, assumptions, dependency edges) ---
+
+export type Decision = InferSelectModel<typeof schema.decision>;
+export type Assumption = InferSelectModel<typeof schema.assumption>;
+
+export function createDecision(
+  db: DB,
+  projectId: number,
+  content: string,
+  rationale?: string | null,
+): Decision {
+  return db
+    .insert(schema.decision)
+    .values({ project_id: projectId, content, rationale: rationale ?? null })
+    .returning()
+    .get() as Decision;
+}
+
+export function createAssumption(db: DB, projectId: number, content: string): Assumption {
+  return db
+    .insert(schema.assumption)
+    .values({ project_id: projectId, content })
+    .returning()
+    .get() as Assumption;
+}
+
+export function linkDecisionToTurn(db: DB, decisionId: number, turnId: number): void {
+  db.insert(schema.turnDecision).values({ turn_id: turnId, decision_id: decisionId }).run();
+}
+
+export function linkAssumptionToTurn(db: DB, assumptionId: number, turnId: number): void {
+  db.insert(schema.turnAssumption).values({ turn_id: turnId, assumption_id: assumptionId }).run();
+}
+
+export function addDecisionParentDecision(db: DB, decisionId: number, parentDecisionId: number): void {
+  db.insert(schema.decisionParentDecision)
+    .values({ decision_id: decisionId, parent_decision_id: parentDecisionId })
+    .run();
+}
+
+export function addDecisionParentAssumption(db: DB, decisionId: number, parentAssumptionId: number): void {
+  db.insert(schema.decisionParentAssumption)
+    .values({ decision_id: decisionId, parent_assumption_id: parentAssumptionId })
+    .run();
+}
+
+export function addAssumptionParentAssumption(
+  db: DB,
+  assumptionId: number,
+  parentAssumptionId: number,
+): void {
+  db.insert(schema.assumptionParentAssumption)
+    .values({ assumption_id: assumptionId, parent_assumption_id: parentAssumptionId })
+    .run();
+}
+
+export function getEntitiesForProject(
+  db: DB,
+  projectId: number,
+): { decisions: Decision[]; assumptions: Assumption[] } {
+  const decisions = db
+    .select()
+    .from(schema.decision)
+    .where(eq(schema.decision.project_id, projectId))
+    .all() as Decision[];
+  const assumptions = db
+    .select()
+    .from(schema.assumption)
+    .where(eq(schema.assumption.project_id, projectId))
+    .all() as Assumption[];
+  return { decisions, assumptions };
+}

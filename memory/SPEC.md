@@ -87,8 +87,16 @@ The architecture (layered: db → core → adapters):
 | A21 | `useChat` `onData` callback reliably bridges to `queryClient.setQueryData` without stale-closure issues — known `onFinish` stale-closure bug (ai-sdk#550) may or may not affect `onData`                                                                                                                                   | medium        | D22                 | Entity sidebar    | Test in slice 6: verify `setQueryData` from `onData` updates sidebar reactively; if stale, use parallel `EventSource` instead                                                                                                        |
 | A22 | AI SDK `UIMessage.parts[]` with custom Data Parts (typed via `dataPartsSchema`) persisted as JSON on the turn table is sufficient for faithful UI resume — no separate `turn_message` table needed for current scope                                                                                                         | **validated** | D23, D24            | Parts persistence | Validated: parts assembler converts DomainEvents to typed parts, round-trips through JSON persistence (I18). Client hydration from parts deferred to 4b (outer-loop). |
 | A23 | Custom Data Parts for structured user input (option selection, confirmation) can replace scalar `turn.answer` as the primary user-response model without breaking `formatHistory()` or observer context                                                                                                                      | **validated** | D24                 | Parts persistence | Validated: Data Part schemas defined with Zod (I17), context builders read scalars not parts (I19), structured user input round-trip tested. Full UI wiring deferred to 4b. |
+| A24 | SDK `outputFormat` with JSON schema produces equally reliable entity extraction as MCP tool-based extraction — structurally simpler (one API call, no tool round-trip), schema validation built into SDK response via `structured_output` field on `SDKResultMessage`                                                          | high          | D28                 | Observer agent    | Validate in slice 5: compare extraction quality with outputFormat vs spike's MCP tool approach. If outputFormat produces malformed or lower-quality extraction, fall back to MCP tool pattern |
+| A25 | `SDKResultMessage` provides accurate `duration_ms`, `total_cost_usd`, and `usage` for per-agent observability — types confirmed in TS SDK (`SDKResultSuccess`, `SDKResultError`)                                                                                                                                             | high          | D29                 | Observer agent    | Validate in slice 5: inspect ResultMessage after query() iteration, confirm fields are populated |
 
 ## Decisions
+
+27. **Agent module pattern — generator composition** — Each agent (interviewer, observer, future phase agents) is an async generator function yielding `DomainEvent`s. `conductTurn()` is a thin sequencer composing agents via `yield*`. No wrapper around `query()` — each agent calls the SDK directly with whatever options it needs (`outputFormat`, `effort`, `mcpServers`, etc.). A shared `translateStreamEvents()` utility in `sdk.ts` maps SDK `stream_event` messages to DomainEvents; streaming agents use it, silent agents don't. File layout: `interviewer.ts` (evolves from `interview.ts`), `observer.ts` (new), `sdk.ts` (new). Research: `docs/research/claude-agent-sdk-cookbook-patterns-vs-brunch-usage.md`. Depends on: D19. Supersedes: monolithic `conductTurn()` with inline `query()` call and stream parsing.
+
+28. **Observer uses `outputFormat` (structured JSON output)** — The observer agent returns extracted entities via SDK `outputFormat` with a Zod-derived JSON schema, not via MCP tools. The SDK validates the response and places the parsed result in `SDKResultMessage.structured_output`. This is simpler than tool-based extraction (one API call, no tool round-trip) and better suited to the observer's pure-extraction job (no side effects during the call). The interviewer retains MCP tools because `ask_question` has side effects (DB writes during the call). Depends on: A24. Supersedes: MCP tool-based observer extraction from spike.
+
+29. **`ResultMessage` inspection for agent observability** — After each `query()` call, the agent inspects `SDKResultMessage` for `duration_ms`, `duration_api_ms`, `total_cost_usd`, and `usage`. Emitted as `agent-metrics` DomainEvent. Primary use: validate A4 (observer latency) and track cost per turn. Secondary: surface in future debug mode overlay. Depends on: A25. Supersedes: discarding `ResultMessage` (gap #1 in cookbook research).
 
 26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
 
@@ -158,6 +166,9 @@ The architecture (layered: db → core → adapters):
 | I17 | Data Part schema validation | Slice 4a (parts persistence) | parts.test.ts (7 tests) | D24 |
 | I18 | Parts round-trip fidelity | Slice 4a (parts persistence) | parts.test.ts (8 tests), core.test.ts | D23 |
 | I19 | Context builder equivalence | Slice 4a (parts persistence) | context.test.ts (7 tests) | D25 |
+| I20 | Entity persistence with turn linkage | Slice 5 (observer) | db.test.ts (7 tests), observer.test.ts | D4, D5 |
+| I21 | Observer-complete post-commit | Slice 5 (observer) | observer.test.ts (6 tests), sse-adapter.test.ts (3 tests) | D22 |
+| I22 | Agent generator composition | Slice 5 (observer) | core.test.ts, sdk.test.ts (7 tests) | D27 |
 
 ## Lexicon
 
@@ -323,13 +334,15 @@ This projection difference is a deliberate design choice, not an implementation 
 
 | File                | Tests | Protects                    |
 | ------------------- | ----- | --------------------------- |
-| sse-adapter.test.ts | 18    | I1, I3, I7                  |
-| db.test.ts          | 25    | I5, I6, I9, I10, I11, I18   |
+| sse-adapter.test.ts | 21    | I1, I3, I7, I21             |
+| db.test.ts          | 32    | I5, I6, I9, I10, I11, I18, I20 |
 | app.test.ts         | 22    | I2, I3, I6, I7, I13, I14    |
-| core.test.ts        | 16    | I12, I13, I18               |
+| core.test.ts        | 16    | I12, I13, I18, I22           |
 | interview.test.ts   | 16    | I16                         |
 | parts.test.ts       | 23    | I17, I18                    |
-| context.test.ts     | 7     | I19                         |
+| context.test.ts     | 8     | I19                         |
+| sdk.test.ts         | 7     | I22                         |
+| observer.test.ts    | 6     | I20, I21                    |
 
 ## Acceptance Criteria (exit conditions)
 

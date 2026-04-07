@@ -1,3 +1,5 @@
+import { table, h3 } from 'md-pen';
+
 import type { TurnWithOptions } from './core.js';
 import type { Turn } from './db.js';
 
@@ -51,14 +53,26 @@ export function buildObserverContext(input: ObserverContextInput): string {
   const sections: string[] = [];
 
   if (input.entities.decisions.length > 0 || input.entities.assumptions.length > 0) {
-    const entityLines: string[] = ['Existing entities:'];
-    for (const d of input.entities.decisions) {
-      entityLines.push(`  Decision #${d.id}: ${d.content}`);
+    if (input.entities.decisions.length > 0) {
+      sections.push(
+        h3('Existing Decisions') +
+          '\n' +
+          table(
+            input.entities.decisions.map((d) => ({ ID: d.id, Content: d.content })),
+            { columns: ['ID', 'Content'] },
+          ),
+      );
     }
-    for (const a of input.entities.assumptions) {
-      entityLines.push(`  Assumption #${a.id}: ${a.content}`);
+    if (input.entities.assumptions.length > 0) {
+      sections.push(
+        h3('Existing Assumptions') +
+          '\n' +
+          table(
+            input.entities.assumptions.map((a) => ({ ID: a.id, Content: a.content })),
+            { columns: ['ID', 'Content'] },
+          ),
+      );
     }
-    sections.push(entityLines.join('\n'));
   }
 
   if (input.activePathSummary) {

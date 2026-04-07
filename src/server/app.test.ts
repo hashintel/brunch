@@ -24,6 +24,23 @@ let db: DB;
 
 beforeEach(() => {
   mockQuery.mockReset();
+  // Default: observer gets empty result for any call not covered by mockReturnValueOnce
+  mockQuery.mockImplementation(() =>
+    makeMockStream([
+      {
+        type: 'result',
+        subtype: 'success',
+        duration_ms: 500,
+        duration_api_ms: 300,
+        total_cost_usd: 0.0005,
+        is_error: false,
+        num_turns: 1,
+        usage: { input_tokens: 100, output_tokens: 50 },
+        result: '',
+        structured_output: { decisions: [], assumptions: [] },
+      },
+    ]),
+  );
   const result = createApp();
   app = result.app;
   db = result.db;
@@ -138,7 +155,7 @@ describe('GET /api/projects/:id', () => {
 
   it('returns turns on active path after a chat exchange', async () => {
     const projectId = await createTestProject('Chat Test');
-    mockQuery.mockReturnValue(mockTextStream('Hi'));
+    mockQuery.mockReturnValueOnce(mockTextStream('Hi'));
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -155,7 +172,7 @@ describe('GET /api/projects/:id', () => {
 describe('POST /api/projects/:id/chat', () => {
   it('returns Content-Type text/event-stream', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValue(mockTextStream());
+    mockQuery.mockReturnValueOnce(mockTextStream());
 
     const res = await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -167,7 +184,7 @@ describe('POST /api/projects/:id/chat', () => {
 
   it('produces well-formed SSE lines with data: prefix and double newline delimiters', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         {
           type: 'stream_event',
@@ -204,7 +221,7 @@ describe('POST /api/projects/:id/chat', () => {
 
   it('contains at least one text-delta event with non-empty text', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValue(mockTextStream('Hello!'));
+    mockQuery.mockReturnValueOnce(mockTextStream('Hello!'));
 
     const res = await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -218,7 +235,7 @@ describe('POST /api/projects/:id/chat', () => {
 
   it('ends with finish event and [DONE]', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValue(mockTextStream());
+    mockQuery.mockReturnValueOnce(mockTextStream());
 
     const res = await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -233,7 +250,7 @@ describe('POST /api/projects/:id/chat', () => {
 
   it('emits reasoning-delta events for thinking content', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         {
           type: 'stream_event',
@@ -312,7 +329,7 @@ describe('POST /api/projects/:id/chat', () => {
 describe('POST /api/projects/:id/chat — tool calls', () => {
   it('emits tool-call SSE events for tool-using mock stream', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValue(
+    mockQuery.mockReturnValueOnce(
       makeMockStream([
         {
           type: 'stream_event',
@@ -395,7 +412,7 @@ describe('POST /api/projects/:id/chat — tool calls', () => {
 describe('GET /api/projects/:id — enriched state', () => {
   it('returns turns with options after structured question', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValue(mockTextStream('Hi'));
+    mockQuery.mockReturnValueOnce(mockTextStream('Hi'));
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -419,7 +436,7 @@ describe('GET /api/projects/:id — enriched state', () => {
 describe('POST /api/projects/:id/turns/:turnId/select', () => {
   it('persists option selection and sets answer', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValue(mockTextStream('Hi'));
+    mockQuery.mockReturnValueOnce(mockTextStream('Hi'));
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -451,7 +468,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
 
   it('returns 400 for missing position', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValue(mockTextStream('Hi'));
+    mockQuery.mockReturnValueOnce(mockTextStream('Hi'));
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -473,7 +490,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
 describe('POST /api/projects/:id/chat — turn persistence', () => {
   it('creates a turn with user answer and advances HEAD', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValue(mockTextStream('Hi there'));
+    mockQuery.mockReturnValueOnce(mockTextStream('Hi there'));
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -492,12 +509,12 @@ describe('POST /api/projects/:id/chat — turn persistence', () => {
 
   it('chains turns with parent pointers across exchanges', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValue(mockTextStream('First response'));
+    mockQuery.mockReturnValueOnce(mockTextStream('First response'));
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({ messages: [{ role: 'user', content: 'first' }] });
 
-    mockQuery.mockReturnValue(mockTextStream('Second response'));
+    mockQuery.mockReturnValueOnce(mockTextStream('Second response'));
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({ messages: [{ role: 'user', content: 'second' }] });

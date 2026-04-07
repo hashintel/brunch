@@ -22,7 +22,8 @@ export type AIEvent =
   | { type: 'tool-call'; id: string; toolName: string; args: string }
   | { type: 'finish-step' }
   | { type: 'finish'; finishReason: string }
-  | { type: 'error'; errorText: string };
+  | { type: 'error'; errorText: string }
+  | { type: 'data'; data: unknown };
 
 /** Minimal shape of an SDKPartialAssistantMessage from the Claude Agent SDK */
 interface SDKStreamEvent {
@@ -225,13 +226,14 @@ export function createDomainAdapter() {
       }
 
       case 'stream-end': {
+        // Close any open blocks; finish-step + finish are emitted by the Express adapter
+        // after all events (including observer) have been processed.
         const events: AIEvent[] = [];
         if (currentBlock === 'thinking') {
           events.push({ type: 'reasoning-end', id: `reasoning-${blockIndex}` });
         } else if (currentBlock === 'text') {
           events.push({ type: 'text-end', id: `text-${blockIndex}` });
         }
-        events.push({ type: 'finish-step' }, { type: 'finish', finishReason: 'stop' });
         return events;
       }
 
@@ -240,6 +242,23 @@ export function createDomainAdapter() {
 
       case 'turn-created':
         return []; // No SSE representation
+
+      case 'observer-complete':
+        return [
+          {
+            type: 'data',
+            data: {
+              type: 'data-observer-result',
+              entityIds: event.entityIds,
+            },
+          },
+        ];
+
+      case 'observer-error':
+        return [{ type: 'error', errorText: `Observer: ${event.message}` }];
+
+      case 'agent-metrics':
+        return []; // Internal only — not sent to client
 
       default:
         return [];
