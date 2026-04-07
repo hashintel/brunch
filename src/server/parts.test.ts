@@ -2,9 +2,9 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   dataConfirmationSchema,
-  dataOptionSelectionSchema,
   type BrunchAssistantPart,
   type BrunchUserPart,
+  userPartsSchema,
 } from '../shared/chat.js';
 import { createDb, type DB } from './db.js';
 import {
@@ -36,9 +36,15 @@ describe('migration-adds-parts-columns', () => {
 });
 
 describe('data schemas', () => {
-  it('validates data-option-selection payloads', () => {
-    const value = { turnId: 1, selectedOptionId: 2, rationale: 'Best fit' };
-    expect(dataOptionSelectionSchema.parse(value)).toEqual(value);
+  it('validates data-turn-response payloads', () => {
+    const value = [
+      {
+        type: 'data-turn-response',
+        data: { turnId: 1, selectedOptionIds: [2], freeText: 'Best fit' },
+      },
+    ];
+
+    expect(userPartsSchema.parse(value)).toEqual(value);
   });
 
   it('validates data-confirmation payloads', () => {
@@ -86,8 +92,8 @@ describe('assistant part round-trip', () => {
 describe('user part round-trip', () => {
   it('round-trips persisted user parts', () => {
     const parts: BrunchUserPart[] = [
-      { type: 'text', text: 'Web first' },
-      { type: 'data-option-selection', data: { turnId: 4, selectedOptionId: 9 } },
+      { type: 'text', text: 'Web first — Best fit' },
+      { type: 'data-turn-response', data: { turnId: 4, selectedOptionIds: [9], freeText: 'Best fit' } },
       { type: 'data-confirmation', data: { turnId: 4, confirmed: true } },
     ];
 

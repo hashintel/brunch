@@ -65,6 +65,42 @@ describe('buildInterviewerContext', () => {
     expect(result).toContain('[selected]');
   });
 
+  it('projects selected options and free-text response as structured history', () => {
+    const turns: TurnWithOptions[] = [
+      {
+        id: 1,
+        project_id: 1,
+        parent_turn_id: null,
+        phase: 'scope',
+        question: 'Which platform should we target?',
+        answer: 'Desktop — Best fit for our launch',
+        why: 'Platform shapes the first build.',
+        impact: 'high',
+        is_resolution: false,
+        user_parts: JSON.stringify([
+          { type: 'text', text: 'Desktop — Best fit for our launch' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
+          },
+        ]),
+        assistant_parts: null,
+        created_at: '2026-01-01',
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: true },
+        ],
+      },
+    ];
+
+    const result = buildInterviewerContext(turns, 'next');
+
+    expect(result).toContain('Turn response:');
+    expect(result).toContain('Chosen options: Desktop');
+    expect(result).toContain('Free-text response: Best fit for our launch');
+    expect(result).not.toContain('Answer: Desktop — Best fit for our launch');
+  });
+
   it('handles multi-turn history', () => {
     const turns: TurnWithOptions[] = [
       {

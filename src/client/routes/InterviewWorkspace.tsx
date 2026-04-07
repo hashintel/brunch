@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { useState } from 'react';
 
 import {
   Conversation,
@@ -35,11 +36,12 @@ function TurnCard({
   disabled,
 }: {
   turn: ProjectStateTurn;
-  onSelect: (position: number) => void | Promise<void>;
+  onSelect: (position: number, freeText?: string) => void | Promise<void>;
   disabled: boolean;
 }) {
   const options = turn.options ?? [];
   const hasSelection = options.some((o) => o.is_selected);
+  const [freeText, setFreeText] = useState('');
 
   return (
     <div className="my-3 rounded-lg border bg-card p-4">
@@ -58,6 +60,21 @@ function TurnCard({
         </span>
       )}
 
+      <div className="mt-3">
+        <label className="mb-1 block text-sm font-medium" htmlFor={`turn-response-${turn.id}`}>
+          Additional response context
+        </label>
+        <textarea
+          id={`turn-response-${turn.id}`}
+          aria-label="Additional response context"
+          value={freeText}
+          onChange={(event) => setFreeText(event.target.value)}
+          disabled={disabled || hasSelection}
+          placeholder="Optional details to send with your selection"
+          className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+        />
+      </div>
+
       <div className="mt-2 flex flex-col gap-1.5">
         {options.map((opt) => {
           const isSelected = opt.is_selected;
@@ -66,7 +83,7 @@ function TurnCard({
               key={opt.position}
               type="button"
               disabled={disabled || hasSelection}
-              onClick={() => onSelect(opt.position)}
+              onClick={() => onSelect(opt.position, freeText)}
               className={cn(
                 'rounded-md border px-3 py-2 text-left text-sm transition-colors',
                 isSelected

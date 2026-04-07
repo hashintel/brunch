@@ -217,7 +217,7 @@ describe('GET /api/projects/:id', () => {
 });
 
 describe('POST /api/projects/:id/turns/:turnId/select', () => {
-  it('persists the selected option into answer and user parts', async () => {
+  it('persists the selected option and free-text turn response into answer and user parts', async () => {
     const projectId = await createTestProject();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
@@ -235,13 +235,23 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
-      .send({ position: 1 })
+      .send({ position: 1, freeText: 'Best fit for our launch' })
       .expect(200);
 
     expect(getOptionsForTurn(db, turn.id)[1].is_selected).toBe(true);
-    expect(getTurn(db, turn.id)?.answer).toBe('Desktop');
+    expect(getTurn(db, turn.id)?.answer).toBe('Desktop — Best fit for our launch');
 
     const userParts = JSON.parse(getTurn(db, turn.id)?.user_parts ?? '[]');
-    expect(userParts.some((part: { type: string }) => part.type === 'data-option-selection')).toBe(true);
+    expect(userParts).toEqual([
+      { type: 'text', text: 'Desktop — Best fit for our launch' },
+      {
+        type: 'data-turn-response',
+        data: {
+          turnId: turn.id,
+          selectedOptionIds: [getOptionsForTurn(db, turn.id)[1].id],
+          freeText: 'Best fit for our launch',
+        },
+      },
+    ]);
   });
 });

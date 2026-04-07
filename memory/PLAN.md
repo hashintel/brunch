@@ -54,26 +54,28 @@
 
 ### Slices
 
-6c. **Live streaming fix** — Fix the turn-card rendering regression: during live SSE streaming, the structured turn card does not render until page refresh. Thinking streams live; server persists correctly; hydration from DB works. Root cause is in the interaction between `toUIMessageStream()`, `useChat` part accumulation, and the tool-part lifecycle. `in-progress`
+6c. **Live streaming fix** — Fix the turn-card rendering regression: during live SSE streaming, the structured turn card does not render until page refresh. Thinking streams live; server persists correctly; hydration from DB works. Root cause is in the interaction between `toUIMessageStream()`, `useChat` part accumulation, and the tool-part lifecycle. `done`
     - Requirements: → SPEC.md §Requirements #2, #3, #4
     - Assumptions: → SPEC.md §Assumptions A16, A28
     - Candidate invariant goals: live tool-part rendering matches persisted state after refresh
     - Invariants to respect: → SPEC.md §Invariants I16, I17, I18, I22
     - Invariants established: → SPEC.md §Invariants I43
     - Acceptance: send a message in dev, see the structured turn card appear live without refresh; `npm run verify` passes
-    - **Observed current state (2026-04-07, post-build):** the workspace controller now projects the latest streamed `tool-ask_question` input into the visible `TurnCard` before `onFinish` route invalidation, and targeted regression tests (`InterviewWorkspace`, `workspace-controller`, `workspace-data`, `app`) are green. The slice is still not safely retireable because manual browser verification is pending and `npm run verify` is currently blocked by unrelated repo-wide deprecation lint errors in `src/shared/chat.ts`, `src/client/components/ai-elements/prompt-input.tsx`, and `src/server/observer.ts`.
+    - **Observed current state (2026-04-07, post-build):** the workspace controller now projects the latest streamed `tool-ask_question` input into the visible `TurnCard` before `onFinish` route invalidation, targeted regression tests (`InterviewWorkspace`, `workspace-controller`, `workspace-data`, `app`) are green, the branch's latest full `npm run verify` passed before the docs-only SPEC commit, and manual browser verification confirmed the live turn card now appears without refresh.
     - **Observed code seam:** `InterviewWorkspace.renderParts()` still drops `tool-ask_question` transcript parts, but `workspace-controller-core.ts` now projects the latest streamed tool input into a temporary visible turn card while loading; durable loader state still owns the post-finish turn card after router invalidation.
-    - **Recommended next move for the implementing agent:** run a manual dev/browser walkthrough to confirm the turn card appears live in the real runtime, then retire 6c once the branch's unrelated lint baseline is resolved and `npm run verify` passes.
+    - **Recommended next move for the implementing agent:** retire 6c and move on to 6d's response-model remodeling work.
     - **Verification approach**: inner — unit/integration tests for tool-part state transitions or alternate live render path. Outer — manual interview: turn card renders live, matches post-refresh state.
 
-6d. **Flexible turn-response model** — Replace the single-select answer assumption with typed response payloads that support zero/one/many selections, rationale, and custom answers. Keep structured interviewer guidance, recommendation, and strategic grounding, but stop assuming every turn maps to one categorical choice. `not-started`
+6d. **Flexible turn-response model** — Replace the single-select answer assumption with typed turn responses that support zero/one/many selections plus unified free-text response content. Keep structured interviewer guidance, recommendation, and strategic grounding, but stop assuming every turn maps to one categorical choice or one scalar answer string. `in-progress`
     - Requirements: → SPEC.md §Requirements #3, #6
-    - Assumptions: → SPEC.md §Assumptions A16, A28
-    - Decisions: → SPEC.md §Decisions D23, D24
+    - Assumptions: → SPEC.md §Assumptions A16, A28, A33
+    - Decisions: → SPEC.md §Decisions D23, D24, D25, D45, D46
     - Candidate invariant goals: turn-response payload round-trip fidelity; multi-select/custom-answer state hydrates and replays correctly
     - Invariants to respect: → SPEC.md §Invariants I17, I18, I19, I22
-    - Acceptance: a turn can be answered with multiple selections + rationale or with a custom answer; transcript, persistence, and resume stay aligned
-    - **Verification approach**: inner — schema + serialization tests for new prompt/response payloads. Outer — manual interview with multi-select and none-of-the-above answers.
+    - Invariants established: → SPEC.md §Invariants I44, I45
+    - Acceptance: a turn can be answered with one-or-more selections plus optional free-text response or with zero selections plus required free-text response; transcript, persistence, interviewer context, and resume stay aligned
+    - **Observed current state (2026-04-07, tracer bullet 1):** single selected option + optional free-text now persists as `data-turn-response`, stores a user-visible summary seam, rehydrates through the workspace path, and projects into interviewer context as chosen options plus free-text. The remaining work is zero-selection free-text-only handling plus widening from one selected option to true many-selection UX.
+    - **Verification approach**: inner — response-schema + projection characterization tests (`SPEC.md` §Verification Design, inner loop) prove cardinality and response-shaped context projection; middle — round-trip integration from submit → persistence → hydration → interviewer-context composition (`SPEC.md` §Verification Design, middle loop) validates A33 while protecting I17, I18, I19, and I22; outer — manual interview with option + free-text and free-text-only responses confirms coherent follow-through (`SPEC.md` §Verification Design, outer loop).
 
 6e. **Generic knowledge layer schema + sidebar projection** — Introduce the broader semantic layer (`framing`, `constraint`, `decision`, `assumption`, `requirement`, `criterion`) with generic provenance and graph edges, then project it cleanly into the sidebar without regressing existing reads. `not-started`
     - Requirements: → SPEC.md §Requirements #5, #6, #14

@@ -455,7 +455,7 @@ describe('InterviewWorkspace', () => {
     });
   });
 
-  it('posts option selections, refreshes project state, and forwards the selected text back into chat', async () => {
+  it('posts single-option turn responses with optional free-text and forwards a combined summary into chat', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       options: [
         { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
@@ -472,6 +472,10 @@ describe('InterviewWorkspace', () => {
 
     renderWorkspace();
 
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'Best fit for our launch' },
+    });
+
     fireEvent.click(await screen.findByRole('button', { name: /desktop/i }));
 
     await waitFor(() => {
@@ -480,14 +484,14 @@ describe('InterviewWorkspace', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ position: 1 }),
+          body: JSON.stringify({ position: 1, freeText: 'Best fit for our launch' }),
         }),
       );
     });
 
     await waitFor(() => {
       expect(routerInvalidate).toHaveBeenCalledTimes(1);
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Desktop' });
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Desktop — Best fit for our launch' });
     });
   });
 

@@ -8,6 +8,7 @@ import {
   brunchDataPartSchemas,
   brunchValidationTools,
   extractTextFromMessage,
+  formatTurnResponseText,
   type BrunchAssistantPart,
   type BrunchUIMessage,
   type BrunchUserPart,
@@ -82,6 +83,7 @@ export function createApp(dbPath?: string) {
       res.status(400).json({ error: 'position is required (number)' });
       return;
     }
+    const freeText = typeof req.body.freeText === 'string' ? req.body.freeText.trim() : undefined;
 
     const turn = getTurn(db, turnId);
     if (!turn || turn.project_id !== projectId) {
@@ -93,16 +95,20 @@ export function createApp(dbPath?: string) {
 
     const options = getOptionsForTurn(db, turnId);
     const selected = options.find((o) => o.position === position);
+    const responseText = formatTurnResponseText({
+      selectedOptionContents: selected?.content ? [selected.content] : [],
+      freeText,
+    });
 
     const dataPart = {
-      type: 'data-option-selection',
-      data: { turnId, selectedOptionId: selected?.id ?? position },
-    } as const satisfies Extract<BrunchUserPart, { type: 'data-option-selection' }>;
+      type: 'data-turn-response',
+      data: { turnId, selectedOptionIds: [selected?.id ?? position], ...(freeText ? { freeText } : {}) },
+    } as const satisfies Extract<BrunchUserPart, { type: 'data-turn-response' }>;
 
     updateTurn(db, turnId, {
-      answer: selected?.content ?? '',
+      answer: responseText,
       user_parts: serializeParts([
-        ...(selected?.content ? ([{ type: 'text', text: selected.content }] as const) : []),
+        ...(responseText ? ([{ type: 'text', text: responseText }] as const) : []),
         dataPart,
       ] satisfies BrunchUserPart[]),
     });
@@ -152,9 +158,7 @@ export function createApp(dbPath?: string) {
       lastUserMessage?.role === 'user' && lastUserMessage.parts.length > 0
         ? lastUserMessage.parts.filter(
             (part): part is BrunchUserPart =>
-              part.type === 'text' ||
-              part.type === 'data-option-selection' ||
-              part.type === 'data-confirmation',
+              part.type === 'text' || part.type === 'data-turn-response' || part.type === 'data-confirmation',
           )
         : [{ type: 'text', text: prompt }];
 

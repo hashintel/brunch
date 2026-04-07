@@ -7,9 +7,9 @@ import {
 
 export type AssistantPart = BrunchAssistantPart;
 export type UserPart = BrunchUserPart;
-export type DataOptionSelection = import('../shared/chat.js').DataOptionSelection;
+export type DataTurnResponse = import('../shared/chat.js').DataTurnResponse;
 export type DataConfirmation = import('../shared/chat.js').DataConfirmation;
-export type DataOptionSelectionPart = Extract<UserPart, { type: 'data-option-selection' }>;
+export type DataTurnResponsePart = Extract<UserPart, { type: 'data-turn-response' }>;
 export type DataConfirmationPart = Extract<UserPart, { type: 'data-confirmation' }>;
 
 /** Serialize parts to JSON for persistence. */

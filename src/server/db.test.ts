@@ -349,7 +349,7 @@ describe('DB lifecycle — parts persistence', () => {
       { type: 'text', text: 'answer' },
     ]);
     const userParts = JSON.stringify([
-      { type: 'data-option-selection', data: { turnId: turn.id, selectedOptionId: 0 } },
+      { type: 'data-turn-response', data: { turnId: turn.id, selectedOptionIds: [0] } },
     ]);
     updateTurn(db1, turn.id, { assistant_parts: parts, user_parts: userParts });
     advanceHead(db1, project.id, turn.id);
