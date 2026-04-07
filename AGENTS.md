@@ -68,3 +68,4 @@ Read these before the relevant activity:
 - **`docs/praxis/graphite-workflow.md`** — before creating branches, submitting PRs, or reintegrating parallel work
 - **`docs/praxis/worktree-agents.md`** — before spawning parallel agent builds with `isolation: "worktree"`
 - **`docs/praxis/manual-testing.md`** — before outer-loop UI testing or fixture capture
+- **`docs/praxis/dev-server-logs.md`** — before reading runtime logs from the dev server or browser

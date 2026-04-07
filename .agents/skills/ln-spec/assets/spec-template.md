@@ -1,5 +1,5 @@
 <!-- SPEC.md — single source of truth for WHAT we're building and WHY.
-     Created by ln-spec · Read by all skills · Updated by ln-sync.
+     Created by ln-spec · Read by all skills · Updated by ln-sync, ln-build, ln-spike, ln-scope, and ln-oracles.
      Authority: requirements, constraints, assumptions, decisions, invariants, domain language, verification strategy.
 
      When re-running ln-spec: read this file first, preserve existing content, evolve sections that need change.
@@ -28,12 +28,14 @@
 <!-- Falsifiable beliefs accepted as true but not yet verified.
      Low-confidence assumptions are spike candidates during planning.
      Each links to the decisions it supports and the slices it implicates.
+     Confidence tracks how strongly we believe it today: low | medium | high.
+     Status tracks validation state: open | validated | invalidated.
      When validated: promote to §Lexicon or §Decisions via ln-sync.
      When invalidated: record in §Decisions, flag implicated slices in PLAN.md. -->
 
-| #   | Assumption   | Confidence      | Dependent decisions | Implicated slices | Validation approach |
-| --- | ------------ | --------------- | ------------------- | ----------------- | ------------------- |
-| A1  | [hypothesis] | low/medium/high | [→ §Decisions #N]   | [→ PLAN.md slice] | [how to falsify]    |
+| #   | Assumption   | Confidence      | Status                     | Dependent decisions | Implicated slices | Validation approach |
+| --- | ------------ | --------------- | -------------------------- | ------------------- | ----------------- | ------------------- |
+| A1  | [hypothesis] | low/medium/high | open/validated/invalidated | [→ §Decisions #N]   | [→ PLAN.md slice] | [how to falsify]    |
 
 ## Decisions
 
@@ -63,7 +65,7 @@
 
 | Term            | Definition                                                                                    |
 | --------------- | --------------------------------------------------------------------------------------------- |
-| **assumption**  | A falsifiable belief accepted as true; tracked with confidence, linked to decisions and slices |
+| **assumption**  | A falsifiable belief accepted as true; tracked with confidence and status, linked to decisions and slices |
 | **decision**    | A recorded choice that resolves a question; ordered, with supersession chain                  |
 | **invariant**   | A structural property proven by implementation and protected by tests; must not regress       |
 | **requirement** | A capability the system must provide                                                          |

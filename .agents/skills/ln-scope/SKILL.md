@@ -4,7 +4,7 @@ description: "Define one thin vertical slice with target behavior, risks, and ac
 argument-hint: "[behavior to deliver in this slice]"
 ---
 
-# Dev Scope
+# Ln Scope
 
 Define **one** tracer-bullet slice (Hunt & Thomas) — a thin end-to-end path, not a horizontal layer. If the target behavior needs "and", split it.
 
@@ -51,7 +51,7 @@ These become the spec tests written first in `ln-build`. Every criterion must be
 
 ### Verification Approach
 
-Name the oracle strategy for this slice. If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, pick from the families already selected. If it doesn't, suggest running `ln-oracles` first.
+Name the oracle strategy for this slice. If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, pick from the families already selected. If it doesn't, suggest running `ln-oracles` first unless the slice is trivial and purely structural, in which case naming the inner-loop checks directly may be sufficient.
 
 ```
 - Inner: [oracle family] — [what it proves]
@@ -59,7 +59,7 @@ Name the oracle strategy for this slice. If `memory/SPEC.md` §Oracle Strategy b
 - Outer: [oracle family] — [what it proves] (if applicable)
 ```
 
-A slice without a verification approach is not fully scoped. At minimum, inner-loop oracles must be named. Middle/outer are required when the slice touches LLM boundaries, visual rendering, or compositional behavior.
+A slice without a verification approach is not fully scoped. At minimum, inner-loop oracles must be named. Middle/outer are required when the slice touches LLM boundaries, visual rendering, or compositional behavior. Those slices should run through `ln-oracles` before `ln-build`.
 
 ## Traceability (mandatory — do before routing)
 
@@ -71,12 +71,13 @@ After the scope card is complete, do these before presenting routing options:
 
 After traceability is complete, present these options to the user (use `tool-ask-question`):
 
-| #   | Label          | Target       | Why                                             |
-| --- | -------------- | ------------ | ----------------------------------------------- |
-| 1   | Build it       | `ln-build`   | Slice is defined, ready to implement            |
-| 2   | Spike first    | `ln-spike`   | Technical uncertainty needs resolution          |
-| 3   | Revise spec    | `ln-spec`    | Scoping revealed the spec needs structural revision |
-| 4   | Revise plan    | `ln-plan`    | Slice doesn't fit the current plan              |
-| 5   | Back to triage | `ln-consult` | Scope revealed unclear state                    |
+| #   | Label          | Target       | Why                                                  |
+| --- | -------------- | ------------ | ---------------------------------------------------- |
+| 1   | Build it       | `ln-build`   | Slice is defined and its verification strategy exists |
+| 2   | Design oracles | `ln-oracles` | Slice needs explicit oracle design before implementation |
+| 3   | Spike first    | `ln-spike`   | Technical uncertainty needs resolution               |
+| 4   | Revise spec    | `ln-spec`    | Scoping revealed the spec needs structural revision  |
+| 5   | Revise plan    | `ln-plan`    | Slice doesn't fit the current plan                   |
+| 6   | Back to triage | `ln-consult` | Scope revealed unclear state                         |
 
-Recommended: **1** unless risks flagged a spike.
+Recommended: **2** if the slice lacks oracle strategy and is not trivial/purely structural; otherwise **1** unless risks flagged a spike.

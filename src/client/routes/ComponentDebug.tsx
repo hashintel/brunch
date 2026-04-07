@@ -1,5 +1,4 @@
 import { Link } from '@tanstack/react-router';
-import type { ToolUIPart, UIMessage } from 'ai';
 import { useState, useCallback } from 'react';
 
 import {
@@ -34,7 +33,9 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { cn } from '@/lib/utils';
 
-const FIXTURE_MESSAGES: UIMessage[] = [
+import type { BrunchUIMessage } from '../../shared/chat.js';
+
+const FIXTURE_MESSAGES: BrunchUIMessage[] = [
   {
     id: 'debug-1',
     role: 'user',
@@ -64,51 +65,46 @@ const FIXTURE_MESSAGES: UIMessage[] = [
     role: 'assistant',
     parts: [
       {
-        type: 'tool-invocation',
-        toolInvocationId: 'debug-tool-1',
-        toolName: 'ask_question',
+        type: 'tool-ask_question',
+        toolCallId: 'debug-tool-1',
         state: 'output-available',
-        step: 0,
-        args: {
+        input: {
           question: 'What concurrency model should the event system use?',
           why: 'This determines how multiple observers can process events without blocking the main interview flow.',
           impact: 'high',
           options: [
             { content: 'Single-threaded with async/await', is_recommended: true },
-            { content: 'Worker threads for heavy extraction' },
-            { content: 'Queue-based with retry semantics' },
+            { content: 'Worker threads for heavy extraction', is_recommended: false },
+            { content: 'Queue-based with retry semantics', is_recommended: false },
           ],
         },
         output: {
-          success: true,
+          ok: true,
           turnId: 42,
+          optionCount: 3,
         },
-      } as unknown as ToolUIPart,
+      },
       {
         type: 'text',
-        text: "Here's how the structured question would appear. The `ask_question` tool validates the output via Zod schema before persisting.",
+        text: "Here's how the structured question tool appears on the AI SDK-native stream before the workspace renders the matching turn card.",
       },
     ],
   },
 ];
 
-const FIXTURE_CODE = `export async function* conductTurn(
-  db: Database,
-  projectId: number,
-  userAnswer: string,
-): AsyncIterable<DomainEvent> {
-  const turn = await db.createTurn(projectId, userAnswer);
+const FIXTURE_CODE = `const stream = createUIMessageStream<BrunchUIMessage>({
+  async execute({ writer }) {
+    writer.merge(
+      interviewer.toUIMessageStream({
+        sendReasoning: true,
+        sendFinish: false,
+      }),
+    );
 
-  yield { type: 'turn-created', turnId: turn.id };
-
-  const response = await callAgent(turn);
-
-  for (const entity of response.extractedEntities) {
-    await db.persistEntity(entity);
-    yield { type: 'entity-extracted', entity };
-  }
-
-  yield { type: 'turn-complete', turnId: turn.id };
+    const entityIds = await runObserver(db, persistedTurn, projectId);
+    writer.write({ type: 'data-observer-result', data: { entityIds } });
+    writer.write({ type: 'finish', finishReason: 'stop' });
+  },
 }`;
 
 const impactStyles: Record<string, string> = {
@@ -165,18 +161,13 @@ export function ComponentDebug() {
                               </Reasoning>
                             );
                           }
-                          if (part.type === 'tool-invocation') {
-                            const toolPart = part as unknown as ToolUIPart & { toolName?: string };
+                          if (part.type === 'tool-ask_question') {
                             return (
                               <Tool key={i} defaultOpen>
-                                <ToolHeader
-                                  type={toolPart.type}
-                                  state={toolPart.state}
-                                  title={toolPart.toolName}
-                                />
+                                <ToolHeader type={part.type} state={part.state} />
                                 <ToolContent>
-                                  <ToolInput input={(toolPart as unknown as { args: unknown }).args} />
-                                  <ToolOutput output={toolPart.output} errorText={undefined} />
+                                  <ToolInput input={part.input} />
+                                  <ToolOutput output={part.output} errorText={part.errorText} />
                                 </ToolContent>
                               </Tool>
                             );
@@ -209,7 +200,7 @@ export function ComponentDebug() {
                 ] as const
               ).map((state) => (
                 <Tool key={state}>
-                  <ToolHeader type="tool-invocation" state={state} title={`example_tool (${state})`} />
+                  <ToolHeader type="tool-ask_question" state={state} title={`ask_question (${state})`} />
                 </Tool>
               ))}
             </div>

@@ -2,12 +2,13 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
+import { agentTail } from 'agent-tail/vite';
 import { defineConfig } from 'vite';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-	plugins: [react(), tailwindcss()],
+	plugins: [react(), tailwindcss(), agentTail()],
 	resolve: {
 		alias: {
 			'@': resolve(__dirname, './src/client'),

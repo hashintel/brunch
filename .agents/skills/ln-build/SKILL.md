@@ -4,17 +4,17 @@ description: "Implement one scoped slice using TDD red-green-refactor. Use when 
 argument-hint: "[paste or reference a ln-scope card]"
 ---
 
-# Dev Build
+# Ln Build
 
 Implement **one** slice. Beck's red-green-refactor, one cycle, no scope creep.
 
 ## Input
 
-A scope card from `ln-scope`: $ARGUMENTS
+A scope card from `ln-scope`, or one commit-sized step from `memory/REFACTOR.md`: $ARGUMENTS
 
-The canonical path is `ln-scope` → `ln-build`. If no scope card exists, suggest `ln-scope` first. Accept a raw behavior description only for trivial changes where scoping would be ceremony.
+The canonical path is `ln-scope` → `ln-build`. For refactors, `ln-refactor` may hand off one commit-sized step to implement. If neither a scope card nor a single refactor step exists, suggest `ln-scope` or `ln-refactor` first. Accept a raw behavior description only for trivial changes where scoping would be ceremony.
 
-Extract: target behavior, boundary crossings, acceptance criteria, and **verification approach**.
+Extract: target behavior, boundary crossings, acceptance criteria, and **verification approach**. For refactor steps, derive these from the selected commit step and existing tests before writing new code.
 
 ## Red
 
@@ -42,9 +42,9 @@ Run the project's verification harness. All checks must pass. Commit: `feat: [ta
 
 After the slice lands and verification passes, do all of these before presenting routing options:
 
-1. Mark the slice `done` in `memory/PLAN.md`. Check `## Dependencies` — if this slice unblocked multiple downstream slices, note them as newly available (some may be parallelizable)
-2. Update assumption confidence in `memory/SPEC.md` §Assumptions — set validated assumptions to `**validated**`, invalidated ones to `**invalidated**` and flag implicated slices in PLAN.md
-3. Add new invariants to `memory/SPEC.md` §Invariants — each structural property now protected by tests. Update `memory/PLAN.md` slice with `Invariants established: I#`
+1. If working from `memory/PLAN.md`, mark the slice `done`. Check `## Dependencies` — if this slice unblocked multiple downstream slices, note them as newly available (some may be parallelizable). If working from `memory/REFACTOR.md`, mark the commit step complete there instead
+2. Update `memory/SPEC.md` §Assumptions — set `Status` to `validated` or `invalidated` as evidence warrants, update `Confidence` if the evidence changed it, and flag implicated slices in PLAN.md
+3. Add new invariants to `memory/SPEC.md` §Invariants — each structural property now protected by tests. If working from `memory/PLAN.md`, update the `Invariants established` field on the corresponding slice
 4. Add any new decisions to `memory/SPEC.md` §Decisions, new assumptions to §Assumptions
 5. Update `memory/SPEC.md` §Verification Design → Current Coverage with new test files and counts
 

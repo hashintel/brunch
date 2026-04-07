@@ -1,9 +1,11 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 
-import { ComponentDebug } from './routes/ComponentDebug.js';
+import type { ProjectListItem } from '../shared/api-types.js';
+import { DebugSurfaceRouteComponent } from './routes/debug-surface.js';
 import { ExportPreview } from './routes/ExportPreview.js';
 import { InterviewWorkspace } from './routes/InterviewWorkspace.js';
 import { ProjectList } from './routes/ProjectList.js';
+import { fetchWorkspaceLoaderData } from './workspace/workspace-loader.js';
 
 // Root layout
 const rootRoute = createRootRoute({
@@ -21,39 +23,16 @@ const indexRoute = createRoute({
   loader: async () => {
     const res = await fetch('/api/projects');
     if (!res.ok) throw new Error('Failed to load projects');
-    return res.json() as Promise<Array<{ id: number; name: string; created_at: string; updated_at: string }>>;
+    return res.json() as Promise<ProjectListItem[]>;
   },
   component: ProjectList,
 });
 
-// GET /api/projects/:id → interview workspace
+// GET /api/projects/:id + /entities → interview workspace
 const projectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/project/$id',
-  loader: async ({ params }) => {
-    const res = await fetch(`/api/projects/${params.id}`);
-    if (!res.ok) throw new Error('Failed to load project');
-    return res.json() as Promise<{
-      project: { id: number; name: string; active_turn_id: number | null };
-      turns: Array<{
-        id: number;
-        answer: string | null;
-        question: string | null;
-        why: string | null;
-        impact: string | null;
-        phase: string;
-        user_parts: string | null;
-        assistant_parts: string | null;
-        options: Array<{
-          id: number;
-          position: number;
-          content: string;
-          is_recommended: boolean;
-          is_selected: boolean;
-        }>;
-      }>;
-    }>;
-  },
+  loader: async ({ params }) => fetchWorkspaceLoaderData(params.id),
   component: InterviewWorkspace,
 });
 
@@ -67,7 +46,7 @@ const exportRoute = createRoute({
 const debugRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/debug',
-  component: ComponentDebug,
+  component: DebugSurfaceRouteComponent,
 });
 
 const routeTree = rootRoute.addChildren([indexRoute, projectRoute, exportRoute, debugRoute]);

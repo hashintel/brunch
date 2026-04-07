@@ -13,7 +13,7 @@
 
 - **Last completed skill**: `ln-<skill>` — [what it produced]
 - **Current skill**: `ln-handoff` (or other if handoff is mid-skill)
-- **Flow position**: `grill → spec → plan → scope → [spike] → build → review → [sync]`
+- **Flow position**: `grill → spec → plan → [design] → [oracles] → scope → [spike] → build → review → [refactor] → [sync]`
 - **Handoff trigger**: [why the handoff is happening]
 
 ## In-flight work
@@ -21,8 +21,8 @@
 > CRITICAL: These artifacts exist only in the prior conversation, not on disk.
 > Reproduce them here with full fidelity.
 
-[Scope cards, spike verdicts, plan drafts, grill insights,
- decisions — in their native format, not summarized]
+[Scope cards, plan drafts, design alternatives, oracle designs (including verification state), spike verdicts,
+ refactor plans, grill insights, decisions — in their native format, not summarized]
 
 ### Review findings
 
@@ -75,7 +75,7 @@
 
 Paste this into a new session:
 
-> Read `HANDOFF.md` in the project root. It contains the full state of in-progress work.
+> Read `HANDOFF.md` in the workspace root for this work area. It contains the full state of in-progress work.
 > The immediate next step is: [first action from Next steps].
 > Start by [specific instruction — e.g., "reviewing the scope card in the In-flight section and running ln-build"].
 ```

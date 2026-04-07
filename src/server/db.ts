@@ -20,6 +20,8 @@ export interface CreateTurnInput {
   impact?: Impact | null;
   answer?: string | null;
   is_resolution?: boolean;
+  user_parts?: string | null;
+  assistant_parts?: string | null;
 }
 
 export interface CreateOptionInput {
@@ -74,6 +76,8 @@ export function createTurn(db: DB, projectId: number, input: CreateTurnInput): T
       impact: input.impact ?? null,
       answer: input.answer ?? null,
       is_resolution: input.is_resolution ?? false,
+      user_parts: input.user_parts ?? null,
+      assistant_parts: input.assistant_parts ?? null,
     })
     .returning()
     .get();

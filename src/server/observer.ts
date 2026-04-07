@@ -1,16 +1,8 @@
-/**
- * Observer agent — extracts decisions and assumptions from answered turns.
- *
- * Runs silently after the interviewer completes. Uses outputFormat (structured JSON)
- * for entity extraction — no MCP tools, no streaming events.
- * Persists entities to the DB in a transaction, then yields observer-complete.
- */
-import { query } from '@anthropic-ai/claude-agent-sdk';
-import { z } from 'zod';
-import { toJSONSchema } from 'zod/v4/core';
+import { anthropic } from '@ai-sdk/anthropic';
+import { generateObject } from 'ai';
+import * as z from 'zod/v4';
 
 import { buildObserverContext } from './context.js';
-import type { DomainEvent } from './core.js';
 import {
   createDecision,
   createAssumption,
@@ -23,7 +15,6 @@ import {
   type DB,
   type Turn,
 } from './db.js';
-import { extractMetrics, type SdkResultMessage } from './sdk.js';
 
 /** Schema for observer structured output. */
 export const observerOutputSchema = z.object({
@@ -58,13 +49,19 @@ Rules:
 - Only extract entities that are NEW in this turn — do not re-extract existing entities.
 - Be precise: a decision is a concrete choice; an assumption is a belief that could be wrong.
 - If no new entities are evident in this turn, return empty arrays.
-- Reference parent entity IDs only when a clear dependency exists.`;
+- Reference parent entity IDs only when a clear dependency exists.
+- Return ONLY valid JSON matching this exact schema: { "decisions": [...], "assumptions": [...] }
+- Do NOT wrap the JSON in markdown code fences.`;
 
 /**
  * Run the observer agent. Extracts entities from the completed turn,
- * persists them to the DB, and yields observer-complete with entity IDs.
+ * persists them to the DB, and returns created entity IDs.
  */
-export async function* runObserver(db: DB, turn: Turn, projectId: number): AsyncGenerator<DomainEvent> {
+export async function runObserver(
+  db: DB,
+  turn: Turn,
+  projectId: number,
+): Promise<{ decisions: number[]; assumptions: number[] }> {
   const entities = getEntitiesForProject(db, projectId);
   const context = buildObserverContext({
     turn,
@@ -72,35 +69,15 @@ export async function* runObserver(db: DB, turn: Turn, projectId: number): Async
     entities,
   });
 
-  const stream = query({
+  const result = await generateObject({
+    model: anthropic(process.env.OBSERVER_MODEL || 'claude-haiku-4-5-20251001'),
+    maxOutputTokens: 2048,
+    system: OBSERVER_SYSTEM_PROMPT,
     prompt: context,
-    options: {
-      model: process.env.OBSERVER_MODEL || 'claude-haiku-4-5-20251001',
-      maxTurns: 1,
-      persistSession: false,
-      effort: 'low',
-      systemPrompt: OBSERVER_SYSTEM_PROMPT,
-      outputFormat: {
-        type: 'json_schema',
-        schema: toJSONSchema(observerOutputSchema),
-      },
-    },
+    schema: observerOutputSchema,
   });
 
-  let resultMessage: SdkResultMessage | undefined;
-
-  for await (const msg of stream) {
-    if ((msg as Record<string, unknown>).type === 'result') {
-      resultMessage = msg as unknown as SdkResultMessage;
-    }
-  }
-
-  if (!resultMessage || resultMessage.is_error) {
-    throw new Error(`Observer extraction failed: ${resultMessage ? 'SDK error' : 'no result message'}`);
-  }
-
-  // Parse structured output
-  const parsed = observerOutputSchema.parse(resultMessage.structured_output);
+  const parsed = result.object;
 
   // Persist entities in a transaction-like sequence
   const createdDecisionIds: number[] = [];
@@ -129,14 +106,5 @@ export async function* runObserver(db: DB, turn: Turn, projectId: number): Async
     }
   }
 
-  // Yield observer-complete post-commit
-  yield {
-    type: 'observer-complete',
-    entityIds: { decisions: createdDecisionIds, assumptions: createdAssumptionIds },
-  };
-
-  // Yield agent metrics
-  if (resultMessage) {
-    yield extractMetrics('observer', resultMessage);
-  }
+  return { decisions: createdDecisionIds, assumptions: createdAssumptionIds };
 }

@@ -4,7 +4,7 @@ description: "Capture volatile session state into a structured handoff document 
 argument-hint: "[optional: path for handoff file, default HANDOFF.md]"
 ---
 
-# Dev Handoff
+# Ln Handoff
 
 Capture what lives in chat but not on disk. Git can reconstruct file changes. But a half-formed scope card, a spike 60% through its investigation, a plan discussion that hasn't hit `memory/PLAN.md` — those are gone on compaction.
 
@@ -17,7 +17,7 @@ The handoff must let a new thread act immediately without asking clarifying ques
 Which `ln-*` skill was most recently active? Where in the flow is the work?
 
 ```
-grill → spec → plan → scope → [spike] → build → review → [sync]
+grill → spec → plan → [design] → [oracles] → scope → [spike] → build → review → [refactor] → [sync]
 ```
 
 Be precise about state:
@@ -32,8 +32,11 @@ This is the critical step. Scan the conversation for volatile artifacts — info
 
 - **Scope cards** from `ln-scope` — target behavior, boundary crossings, acceptance criteria
 - **Plan drafts** from `ln-plan` — slice lists, ordering decisions, dependency reasoning not yet in `memory/PLAN.md`
+- **Design outputs** from `ln-design` — alternative module shapes considered, the chosen shape, and rejected tradeoffs
+- **Oracle design outputs** from `ln-oracles` — O/R/C assessment, selected oracle families, per-slice verification approaches, acknowledged blind spots, and whether slice verification design is complete / pending / stale relative to the code
 - **Spike state** from `ln-spike` — the question, what was tried, partial findings, verdict if reached
 - **Review findings** from `ln-review` — **ALL findings, not just the one being acted on.** Review debt is critical context. Name every finding, its status (addressed / in-progress / deferred), and any remaining implications. A fresh thread that only knows about the active finding will lose track of deferred review debt.
+- **Refactor state** from `ln-refactor` — commit sequence, target structure, and any constraints on safe ordering
 - **Grill insights** from `ln-grill` — constraints surfaced, decisions reached
 - **Decisions and assumptions** discussed but not yet in `memory/SPEC.md`
 - **Evidence that informed diagnoses** — concrete proof points (API responses, test output, log lines, specific data) that caused the investigation to shift direction or a hypothesis to be confirmed/rejected. Without this, a new thread inherits conclusions but not the reasoning, and may re-investigate or contradict settled evidence.
@@ -51,7 +54,7 @@ What IS on disk:
 
 ### 4. Produce handoff
 
-Write structured markdown following `@resources/handoff-template.md`.
+Write structured markdown following `./assets/handoff-template.md`.
 
 Write to the path given as argument, or `HANDOFF.md` at the nearest workspace root. In a monorepo, this is the workspace (package) the session was working in — not the repository root. Determine the workspace from the files touched during the session: look for the nearest `package.json`, `Cargo.toml`, `go.mod`, or similar project marker up from the most-edited files.
 

@@ -1,13 +1,15 @@
 ---
 name: ln-consult
-description: "Lightweight triage for the ln-* skill set. Use when unsure which dev skill to use next, starting work on something new, or when the user asks for guidance on their development process."
+description: "Lightweight triage for the ln-* skill set. Use when unsure which ln skill to use next, starting work on something new, or when the user asks for guidance on their development process."
 ---
 
-# Dev Consult
+# Ln Consult
 
 Assess where the user is and suggest one `ln-*` skill.
 
 If context is unclear, ask **one** clarifying question — then recommend.
+
+Canonical flow is usually `ln-grill → ln-spec → ln-plan → [ln-design when interface shape is uncertain] → [ln-oracles when verification strategy needs explicit design] → ln-scope → [ln-spike] → ln-build → ln-review → [ln-refactor] → [ln-sync]`.
 
 ## Routing table
 
@@ -16,6 +18,7 @@ If context is unclear, ask **one** clarifying question — then recommend.
 | Idea is vague, needs fleshing out                        | `ln-grill`    |
 | Understanding exists, needs a written spec               | `ln-spec`     |
 | Spec exists, needs a plan with slices                    | `ln-plan`     |
+| Plan/spec exists, needs explicit verification strategy   | `ln-oracles`  |
 | Plan exists, next slice needs a scope card               | `ln-scope`    |
 | Module interface needs exploration                       | `ln-design`   |
 | Scope card exists (from `ln-scope`), ready to code       | `ln-build`    |

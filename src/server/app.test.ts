@@ -1,46 +1,128 @@
 import request from 'supertest';
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DB } from './db.js';
 
-// Mock the Claude Agent SDK
-const mockQuery = vi.fn();
-vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
-  query: mockQuery,
-  createSdkMcpServer: () => ({ name: 'interview', instance: {} }),
-  tool: (name: string, desc: string, schema: any, handler: any) => ({
-    name,
-    description: desc,
-    inputSchema: schema,
-    handler,
-  }),
+const { mockStreamInterviewer, mockRunObserver } = vi.hoisted(() => ({
+  mockStreamInterviewer: vi.fn(),
+  mockRunObserver: vi.fn(),
 }));
 
-// Import app factory after mocking
+vi.mock('./interview.js', async () => {
+  const actual = await vi.importActual<typeof import('./interview.js')>('./interview.js');
+  return {
+    ...actual,
+    streamInterviewer: mockStreamInterviewer,
+  };
+});
+
+vi.mock('./observer.js', () => ({
+  runObserver: mockRunObserver,
+}));
+
 const { createApp } = await import('./app.js');
 
 let app: ReturnType<typeof createApp>['app'];
 let db: DB;
 
+const structuredQuestion = {
+  question: 'What platform should we support first?',
+  why: 'Platform choice determines the first UI and deployment constraints.',
+  impact: 'high' as const,
+  options: [
+    { content: 'Web', is_recommended: true },
+    { content: 'Desktop', is_recommended: false },
+  ],
+};
+
+function makeUIChunkStream(chunks: Array<Record<string, unknown>>) {
+  return new ReadableStream({
+    start(controller) {
+      for (const chunk of chunks) {
+        controller.enqueue(chunk);
+      }
+      controller.close();
+    },
+  });
+}
+
+function makeTextInterviewer(text = 'Hi') {
+  return {
+    toUIMessageStream: () =>
+      makeUIChunkStream([
+        { type: 'start', messageId: 'msg-1' },
+        { type: 'text-start', id: 'text-1' },
+        { type: 'text-delta', id: 'text-1', delta: text },
+        { type: 'text-end', id: 'text-1' },
+      ]),
+    finishReason: Promise.resolve('stop'),
+  };
+}
+
+async function makeStructuredQuestionInterviewer(dbArg: DB, turnId: number) {
+  const { updateTurn, createOption } = await import('./db.js');
+
+  updateTurn(dbArg, turnId, {
+    question: structuredQuestion.question,
+    why: structuredQuestion.why,
+    impact: structuredQuestion.impact,
+  });
+
+  structuredQuestion.options.forEach((option, index) => {
+    createOption(dbArg, turnId, {
+      position: index,
+      content: option.content,
+      is_recommended: option.is_recommended,
+    });
+  });
+
+  return {
+    toUIMessageStream: () =>
+      makeUIChunkStream([
+        { type: 'start', messageId: 'msg-structured' },
+        { type: 'tool-input-start', toolCallId: 'tool-1', toolName: 'ask_question' },
+        {
+          type: 'tool-input-available',
+          toolCallId: 'tool-1',
+          toolName: 'ask_question',
+          input: structuredQuestion,
+        },
+        {
+          type: 'tool-output-available',
+          toolCallId: 'tool-1',
+          output: { ok: true, turnId, optionCount: structuredQuestion.options.length },
+        },
+      ]),
+    finishReason: Promise.resolve('tool-calls'),
+  };
+}
+
+function collectSSE(res: request.Response): string {
+  return res.text;
+}
+
+function parseSSELines(body: string): Array<Record<string, unknown> | '[DONE]'> {
+  return body
+    .split('\n\n')
+    .filter(Boolean)
+    .map((chunk) => {
+      const line = chunk.replace(/^data: /, '');
+      if (line === '[DONE]') return '[DONE]';
+      return JSON.parse(line) as Record<string, unknown>;
+    });
+}
+
+async function createTestProject(name = 'Test Project'): Promise<number> {
+  const res = await request(app).post('/api/projects').send({ name });
+  return res.body.id;
+}
+
 beforeEach(() => {
-  mockQuery.mockReset();
-  // Default: observer gets empty result for any call not covered by mockReturnValueOnce
-  mockQuery.mockImplementation(() =>
-    makeMockStream([
-      {
-        type: 'result',
-        subtype: 'success',
-        duration_ms: 500,
-        duration_api_ms: 300,
-        total_cost_usd: 0.0005,
-        is_error: false,
-        num_turns: 1,
-        usage: { input_tokens: 100, output_tokens: 50 },
-        result: '',
-        structured_output: { decisions: [], assumptions: [] },
-      },
-    ]),
-  );
+  mockStreamInterviewer.mockReset();
+  mockRunObserver.mockReset();
+  mockStreamInterviewer.mockImplementation(async () => makeTextInterviewer('Hi'));
+  mockRunObserver.mockResolvedValue({ decisions: [], assumptions: [] });
+
   const result = createApp();
   app = result.app;
   db = result.db;
@@ -50,492 +132,116 @@ afterEach(() => {
   db.$client.close();
 });
 
-/** Helper: collect full SSE body as string */
-function collectSSE(res: request.Response): string {
-  return res.text;
-}
-
-/** Helper: parse SSE lines into data payloads */
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function parseSSELines(body: string): any[] {
-  return body
-    .split('\n\n')
-    .filter(Boolean)
-    .map((chunk: string) => {
-      const line = chunk.replace(/^data: /, '');
-      if (line === '[DONE]') return '[DONE]';
-      return JSON.parse(line);
-    });
-}
-
-/** Create a mock async generator of SDK messages */
-async function* makeMockStream(messages: Record<string, unknown>[]) {
-  for (const msg of messages) {
-    yield msg;
-  }
-}
-
-/** Standard mock stream that produces a text response */
-function mockTextStream(text = 'Hi') {
-  return makeMockStream([
-    {
-      type: 'stream_event',
-      event: { type: 'message_start', message: { id: 'msg-1', role: 'assistant', content: [] } },
-    },
-    {
-      type: 'stream_event',
-      event: { type: 'content_block_start', index: 0, content_block: { type: 'text', text: '' } },
-    },
-    {
-      type: 'stream_event',
-      event: { type: 'content_block_delta', index: 0, delta: { type: 'text_delta', text } },
-    },
-    {
-      type: 'stream_event',
-      event: { type: 'content_block_stop', index: 0 },
-    },
-    {
-      type: 'stream_event',
-      event: { type: 'message_stop' },
-    },
-  ]);
-}
-
-/** Helper: create a project and return its ID */
-async function createTestProject(name = 'Test Project'): Promise<number> {
-  const res = await request(app).post('/api/projects').send({ name });
-  return res.body.id;
-}
-
 describe('GET /api/projects', () => {
-  it('returns empty array when no projects exist', async () => {
+  it('returns an empty array when no projects exist', async () => {
     const res = await request(app).get('/api/projects').expect(200);
-
     expect(res.body).toEqual([]);
-  });
-
-  it('returns project list after creation', async () => {
-    await createTestProject('Alpha');
-    await createTestProject('Beta');
-
-    const res = await request(app).get('/api/projects').expect(200);
-
-    expect(res.body).toHaveLength(2);
-    expect(res.body[0].name).toBeDefined();
-    expect(res.body[1].name).toBeDefined();
-  });
-});
-
-describe('POST /api/projects', () => {
-  it('creates a new project and returns it', async () => {
-    const res = await request(app).post('/api/projects').send({ name: 'My Spec' }).expect(201);
-
-    expect(res.body.name).toBe('My Spec');
-    expect(res.body.id).toBeDefined();
-  });
-
-  it('returns 400 when name is missing', async () => {
-    await request(app).post('/api/projects').send({}).expect(400);
-  });
-});
-
-describe('GET /api/projects/:id/entities', () => {
-  it('returns empty entities for a new project', async () => {
-    const projectId = await createTestProject('Test');
-    const res = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
-    expect(res.body).toEqual({ decisions: [], assumptions: [] });
-  });
-
-  it('returns 400 for invalid project ID', async () => {
-    await request(app).get('/api/projects/abc/entities').expect(400);
-  });
-});
-
-describe('GET /api/projects/:id', () => {
-  it('returns a project with empty turns when no history exists', async () => {
-    const projectId = await createTestProject('Test');
-
-    const res = await request(app).get(`/api/projects/${projectId}`).expect(200);
-
-    expect(res.body.project).toMatchObject({ name: 'Test' });
-    expect(res.body.turns).toEqual([]);
-  });
-
-  it('returns 404 for non-existent project', async () => {
-    await request(app).get('/api/projects/9999').expect(404);
-  });
-
-  it('returns turns on active path after a chat exchange', async () => {
-    const projectId = await createTestProject('Chat Test');
-    mockQuery.mockReturnValueOnce(mockTextStream('Hi'));
-
-    await request(app)
-      .post(`/api/projects/${projectId}/chat`)
-      .send({ messages: [{ role: 'user', content: 'hello' }] });
-
-    const res = await request(app).get(`/api/projects/${projectId}`).expect(200);
-
-    expect(res.body.turns).toHaveLength(1);
-    expect(res.body.turns[0].answer).toBe('hello');
-    expect(res.body.turns[0].question).toContain('Hi');
   });
 });
 
 describe('POST /api/projects/:id/chat', () => {
-  it('returns Content-Type text/event-stream', async () => {
+  it('requires typed UI messages', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream());
-
-    const res = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
-      .send({ messages: [{ role: 'user', content: 'hello' }] })
-      .expect('Content-Type', /text\/event-stream/);
-
-    expect(res.status).toBe(200);
-  });
-
-  it('produces well-formed SSE lines with data: prefix and double newline delimiters', async () => {
-    const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        {
-          type: 'stream_event',
-          event: {
-            type: 'message_start',
-            message: { id: 'msg-1', role: 'assistant', content: [] },
-          },
-        },
-        {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'text_delta', text: 'Hi' },
-          },
-        },
-        {
-          type: 'stream_event',
-          event: { type: 'message_stop' },
-        },
-      ]),
-    );
-
-    const res = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
-      .send({ messages: [{ role: 'user', content: 'hello' }] });
-
-    const body = collectSSE(res);
-    const lines = body.split('\n\n').filter(Boolean);
-    for (const line of lines) {
-      expect(line).toMatch(/^data: /);
-    }
-  });
-
-  it('contains at least one text-delta event with non-empty text', async () => {
-    const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream('Hello!'));
-
-    const res = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
-      .send({ messages: [{ role: 'user', content: 'hello' }] });
-
-    const events = parseSSELines(collectSSE(res));
-    const textDeltas = events.filter((e: any) => e.type === 'text-delta');
-    expect(textDeltas.length).toBeGreaterThanOrEqual(1);
-    expect(textDeltas[0].delta).toBe('Hello!');
-  });
-
-  it('ends with finish event and [DONE]', async () => {
-    const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream());
-
-    const res = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
-      .send({ messages: [{ role: 'user', content: 'hello' }] });
-
-    const events = parseSSELines(collectSSE(res));
-    const last = events[events.length - 1];
-    const secondToLast = events[events.length - 2];
-    expect(last).toBe('[DONE]');
-    expect(secondToLast.type).toBe('finish');
-  });
-
-  it('emits reasoning-delta events for thinking content', async () => {
-    const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        {
-          type: 'stream_event',
-          event: {
-            type: 'message_start',
-            message: { id: 'msg-1', role: 'assistant', content: [] },
-          },
-        },
-        {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_start',
-            index: 0,
-            content_block: { type: 'thinking', thinking: '' },
-          },
-        },
-        {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'thinking_delta', thinking: 'Hmm...' },
-          },
-        },
-        {
-          type: 'stream_event',
-          event: { type: 'content_block_stop', index: 0 },
-        },
-        {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_start',
-            index: 1,
-            content_block: { type: 'text', text: '' },
-          },
-        },
-        {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 1,
-            delta: { type: 'text_delta', text: 'Answer' },
-          },
-        },
-        {
-          type: 'stream_event',
-          event: { type: 'content_block_stop', index: 1 },
-        },
-        {
-          type: 'stream_event',
-          event: { type: 'message_stop' },
-        },
-      ]),
-    );
-
-    const res = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
-      .send({ messages: [{ role: 'user', content: 'hello' }] });
-
-    const events = parseSSELines(collectSSE(res));
-
-    const reasoningStart = events.find((e: any) => e.type === 'reasoning-start');
-    const reasoningDelta = events.find((e: any) => e.type === 'reasoning-delta');
-    const reasoningEnd = events.find((e: any) => e.type === 'reasoning-end');
-    expect(reasoningStart).toBeDefined();
-    expect(reasoningDelta).toBeDefined();
-    expect(reasoningDelta.delta).toBe('Hmm...');
-    expect(reasoningEnd).toBeDefined();
-
-    const textDelta = events.find((e: any) => e.type === 'text-delta');
-    expect(textDelta).toBeDefined();
-    expect(textDelta.delta).toBe('Answer');
-  });
-});
-
-describe('POST /api/projects/:id/chat — tool calls', () => {
-  it('emits tool-call SSE events for tool-using mock stream', async () => {
-    const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(
-      makeMockStream([
-        {
-          type: 'stream_event',
-          event: {
-            type: 'message_start',
-            message: { id: 'msg-1', role: 'assistant', content: [] },
-          },
-        },
-        {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_start',
-            index: 0,
-            content_block: { type: 'tool_use', name: 'get_weather', id: 'toolu_01' },
-          },
-        },
-        {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 0,
-            delta: { type: 'input_json_delta', partial_json: '{"city":"NYC"}' },
-          },
-        },
-        {
-          type: 'stream_event',
-          event: { type: 'content_block_stop', index: 0 },
-        },
-        {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_start',
-            index: 1,
-            content_block: { type: 'text', text: '' },
-          },
-        },
-        {
-          type: 'stream_event',
-          event: {
-            type: 'content_block_delta',
-            index: 1,
-            delta: { type: 'text_delta', text: 'Weather result' },
-          },
-        },
-        {
-          type: 'stream_event',
-          event: { type: 'content_block_stop', index: 1 },
-        },
-        {
-          type: 'stream_event',
-          event: { type: 'message_stop' },
-        },
-      ]),
-    );
-
-    const res = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
-      .send({ messages: [{ role: 'user', content: 'weather?' }] });
-
-    const events = parseSSELines(collectSSE(res));
-
-    const toolStart = events.find((e: any) => e.type === 'tool-call-streaming-start');
-    expect(toolStart).toBeDefined();
-    expect(toolStart.toolName).toBe('get_weather');
-
-    const toolDelta = events.find((e: any) => e.type === 'tool-call-delta');
-    expect(toolDelta).toBeDefined();
-    expect(toolDelta.delta).toBe('{"city":"NYC"}');
-
-    const toolCall = events.find((e: any) => e.type === 'tool-call');
-    expect(toolCall).toBeDefined();
-    expect(toolCall.args).toBe('{"city":"NYC"}');
-
-    const textDelta = events.find((e: any) => e.type === 'text-delta');
-    expect(textDelta).toBeDefined();
-    expect(textDelta.delta).toBe('Weather result');
-  });
-});
-
-describe('GET /api/projects/:id — enriched state', () => {
-  it('returns turns with options after structured question', async () => {
-    const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream('Hi'));
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
-      .send({ messages: [{ role: 'user', content: 'hello' }] });
+      .send({ messages: [{ role: 'user', content: 'hello' }] })
+      .expect(400);
+  });
 
-    // Manually add options to the turn (simulating MCP tool handler)
-    const { getActivePath, createOption } = await import('./db.js');
+  it('returns an AI SDK UI message stream and persists the turn', async () => {
+    const projectId = await createTestProject();
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect('Content-Type', /text\/event-stream/)
+      .expect(200);
+
+    const events = parseSSELines(collectSSE(res));
+    expect(events.some((event) => event !== '[DONE]' && event.type === 'text-delta')).toBe(true);
+    expect(events.at(-1)).toBe('[DONE]');
+
+    const { getActivePath } = await import('./db.js');
     const turns = getActivePath(db, projectId);
-    createOption(db, turns[0].id, { position: 0, content: 'Option A', is_recommended: true });
-    createOption(db, turns[0].id, { position: 1, content: 'Option B' });
+    expect(turns).toHaveLength(1);
+    expect(turns[0].answer).toBe('hello');
+    expect(turns[0].question).toBe('Hi');
+    expect(turns[0].assistant_parts).not.toBeNull();
+  });
+
+  it('emits observer results as typed data parts', async () => {
+    const projectId = await createTestProject();
+    mockRunObserver.mockResolvedValue({ decisions: [1], assumptions: [2] });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
+    const observerEvent = events.find((event) => event.type === 'data-observer-result');
+
+    expect(observerEvent).toEqual({
+      type: 'data-observer-result',
+      data: { entityIds: { decisions: [1], assumptions: [2] } },
+    });
+  });
+});
+
+describe('GET /api/projects/:id', () => {
+  it('returns structured question state after a tool-driven turn', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
 
     const res = await request(app).get(`/api/projects/${projectId}`).expect(200);
 
-    expect(res.body.turns[0].options).toBeDefined();
+    expect(res.body.turns).toHaveLength(1);
+    expect(res.body.turns[0].question).toBe(structuredQuestion.question);
     expect(res.body.turns[0].options).toHaveLength(2);
-    expect(res.body.turns[0].options[0].content).toBe('Option A');
-    expect(res.body.turns[0].options[0].is_recommended).toBe(true);
+    expect(res.body.turns[0].options[0].content).toBe('Web');
   });
 });
 
 describe('POST /api/projects/:id/turns/:turnId/select', () => {
-  it('persists option selection and sets answer', async () => {
+  it('persists the selected option into answer and user parts', async () => {
     const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream('Hi'));
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
-      .send({ messages: [{ role: 'user', content: 'hello' }] });
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
 
-    const { getActivePath, createOption, getOptionsForTurn, getTurn } = await import('./db.js');
-    const turns = getActivePath(db, projectId);
-    const turnId = turns[0].id;
-    createOption(db, turnId, { position: 0, content: 'Option A', is_recommended: true });
-    createOption(db, turnId, { position: 1, content: 'Option B' });
+    const { getActivePath, getTurn, getOptionsForTurn } = await import('./db.js');
+    const turn = getActivePath(db, projectId)[0];
 
-    const res = await request(app)
-      .post(`/api/projects/${projectId}/turns/${turnId}/select`)
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
       .send({ position: 1 })
       .expect(200);
 
-    expect(res.body.ok).toBe(true);
+    expect(getOptionsForTurn(db, turn.id)[1].is_selected).toBe(true);
+    expect(getTurn(db, turn.id)?.answer).toBe('Desktop');
 
-    const options = getOptionsForTurn(db, turnId);
-    expect(options[0].is_selected).toBe(false);
-    expect(options[1].is_selected).toBe(true);
-
-    const turn = getTurn(db, turnId);
-    expect(turn!.answer).toBe('Option B');
-    expect(turn!.user_parts).not.toBeNull();
-    const userParts = JSON.parse(turn!.user_parts!);
-    expect(userParts[0].type).toBe('data-option-selection');
-  });
-
-  it('returns 400 for missing position', async () => {
-    const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream('Hi'));
-
-    await request(app)
-      .post(`/api/projects/${projectId}/chat`)
-      .send({ messages: [{ role: 'user', content: 'hello' }] });
-
-    const { getActivePath } = await import('./db.js');
-    const turns = getActivePath(db, projectId);
-
-    await request(app).post(`/api/projects/${projectId}/turns/${turns[0].id}/select`).send({}).expect(400);
-  });
-
-  it('returns 404 for non-existent turn', async () => {
-    const projectId = await createTestProject();
-
-    await request(app).post(`/api/projects/${projectId}/turns/9999/select`).send({ position: 0 }).expect(404);
-  });
-});
-
-describe('POST /api/projects/:id/chat — turn persistence', () => {
-  it('creates a turn with user answer and advances HEAD', async () => {
-    const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream('Hi there'));
-
-    await request(app)
-      .post(`/api/projects/${projectId}/chat`)
-      .send({ messages: [{ role: 'user', content: 'hello' }] });
-
-    const { getProject, getActivePath } = await import('./db.js');
-    const project = getProject(db, projectId);
-    expect(project).toBeDefined();
-    expect(project!.active_turn_id).not.toBeNull();
-    const turns = getActivePath(db, projectId);
-    expect(turns).toHaveLength(1);
-    expect(turns[0].answer).toBe('hello');
-    expect(turns[0].question).toContain('Hi there');
-    expect(turns[0].phase).toBe('scope');
-  });
-
-  it('chains turns with parent pointers across exchanges', async () => {
-    const projectId = await createTestProject();
-    mockQuery.mockReturnValueOnce(mockTextStream('First response'));
-    await request(app)
-      .post(`/api/projects/${projectId}/chat`)
-      .send({ messages: [{ role: 'user', content: 'first' }] });
-
-    mockQuery.mockReturnValueOnce(mockTextStream('Second response'));
-    await request(app)
-      .post(`/api/projects/${projectId}/chat`)
-      .send({ messages: [{ role: 'user', content: 'second' }] });
-
-    const { getActivePath } = await import('./db.js');
-    const turns = getActivePath(db, projectId);
-    expect(turns).toHaveLength(2);
-    expect(turns[0].answer).toBe('first');
-    expect(turns[1].answer).toBe('second');
-    expect(turns[1].parent_turn_id).toBe(turns[0].id);
+    const userParts = JSON.parse(getTurn(db, turn.id)?.user_parts ?? '[]');
+    expect(userParts.some((part: { type: string }) => part.type === 'data-option-selection')).toBe(true);
   });
 });

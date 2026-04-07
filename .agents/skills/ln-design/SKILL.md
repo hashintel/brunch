@@ -4,7 +4,7 @@ description: "Explore radically different module shapes before committing to one
 argument-hint: "[module or API boundary to explore]"
 ---
 
-# Dev Design
+# Ln Design
 
 Apply Ousterhout's "Design It Twice": generate **3+ radically different module shapes**, compare on depth, and synthesize. The goal is deep modules — small API surfaces hiding significant complexity. Do not implement; this is purely about the shape of the boundary.
 

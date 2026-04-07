@@ -4,7 +4,7 @@ description: "Crystallize shared understanding into a reviewable spec, or update
 argument-hint: "[feature or problem to specify]"
 ---
 
-# Dev Spec
+# Ln Spec
 
 Crystallize understanding into a **spec** — the reviewable decision record between shared agreement and actionable plan. Every section should close a decision; a spec that restates the conversation instead of narrowing the solution space has failed.
 
@@ -20,29 +20,33 @@ The feature or problem: $ARGUMENTS
 
 1. **Capture the problem** from the user's perspective — what they want and *why*. The *why* shapes the solution space.
 2. **Explore the codebase** to verify assertions, understand current state, and find existing patterns. If `memory/SPEC.md` exists, read it first — this is an update, not a blank-slate write.
-3. **Interview** (if understanding is thin), to close remaining gaps. Walk each branch of the design tree. For each question, provide your recommended answer. If the codebase can answer a question, explore it instead of asking. Use `/ln-grill` if it hasn't already been run.
-4. **Sketch modules** to build or modify. Apply Ousterhout's depth test — favor deep modules with small interfaces and large hidden implementations, testable in isolation. Check with the user that modules match expectations. Use `/ln-design` if it hasn't already been run.
+3. **Interview** (if understanding is thin), to close remaining gaps. Walk each branch of the design tree. For each question, provide your recommended answer. If the codebase can answer a question, explore it instead of asking. Use `ln-grill` if it hasn't already been run.
+4. **Sketch modules** to build or modify. Apply Ousterhout's depth test — favor deep modules with small interfaces and large hidden implementations, testable in isolation. Check with the user that modules match expectations. Use `ln-design` if it hasn't already been run.
 5. **Write or update** `./memory/SPEC.md`.
 
 ## Output
 
-Write or update `./memory/SPEC.md` following the template at `@resources/spec-template.md`. If the file already exists, read it first — preserve existing content, evolve sections that need change.
+Write or update `./memory/SPEC.md` following the template at `./assets/spec-template.md`. If the file already exists, read it first — preserve existing content, evolve sections that need change.
 
 ### Verification Design boundary
 
-ln-spec owns the **inner loop** of verification design: verification commands, verification policy, and inner-loop oracle items (type checks, fast unit tests, linting). Middle and outer loop oracle strategy, diagnostic assessment, and blind spots are owned by `ln-oracles`. When writing or updating §Verification Design, preserve any content written by ln-oracles (§Verification Stance, §Diagnostic Assessment, §Oracle Strategy middle/outer tiers, §Design notes, §Acknowledged Blind Spots).
+ln-spec owns the **inner loop** of verification design: verification commands, verification policy, and inner-loop oracle items (type checks, fast unit tests, linting). Middle and outer loop oracle strategy, diagnostic assessment, and blind spots are owned by `ln-oracles`. Not every slice requires a full oracle-design pass, but slices involving LLM behavior, visual rendering, or compositional/system-level claims should route through `ln-oracles` before implementation. When writing or updating §Verification Design, preserve any content written by ln-oracles (§Verification Stance, §Diagnostic Assessment, §Oracle Strategy middle/outer tiers, §Design notes, §Acknowledged Blind Spots).
 
 ### Traceability
 
-If `memory/PLAN.md` exists, verify that changed assumptions and decisions still align with affected slices.
+If `memory/PLAN.md` exists, verify that changed assumptions and decisions still align with affected slices. If it does not exist yet, close the reference chain as far as current artifacts allow: assumptions should still name dependent decisions and validation approaches, and slice links can be added later by `ln-plan`.
+
+### Weight management
+
+Spec documents accumulate. Each ln-sync pass may prune items that are embedded, moot, or superseded (see ln-sync §Pruning check). When *adding* items, consider whether an existing item should be retired to make room. A spec with 30 assumptions is not more rigorous than one with 10 — it's harder to read and more likely to mislead a new session.
 
 ### Cross-reference integrity
 
-Every amendment must close its reference chain. After editing, verify:
+Every amendment must close its reference chain as far as the current lifecycle stage allows. After editing, verify:
 
-- **New assumption** → has: dependent decision(s), implicated slice(s) in PLAN.md, validation approach
+- **New assumption** → has: dependent decision(s), validation approach, and implicated slice(s) in PLAN.md **if PLAN.md already exists**
 - **New decision** → has: dependent assumption(s), supersession note
-- **New invariant** → has: establishing slice in PLAN.md, protecting test (or `manual (outer loop)`), proved decision
+- **New invariant** → has: establishing slice in PLAN.md **if known**, protecting test (or `manual (outer loop)`), proved decision
 - **New constraint** → has: rationale for exclusion
 - **New inner-loop oracle item** → names the invariant(s) it protects
 

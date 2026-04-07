@@ -1,9 +1,4 @@
-import { useChat } from '@ai-sdk/react';
-import { useQueryClient } from '@tanstack/react-query';
-import { useLoaderData, useParams, Link, useRouter } from '@tanstack/react-router';
-import type { UIMessage } from 'ai';
-import { DefaultChatTransport } from 'ai';
-import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
+import { Link } from '@tanstack/react-router';
 
 import {
   Conversation,
@@ -20,61 +15,13 @@ import {
   type PromptInputMessage,
 } from '@/components/ai-elements/prompt-input';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
-import { Tool, ToolHeader, ToolContent, type ToolPart } from '@/components/ai-elements/tool';
+import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { EntitySidebar } from '@/components/EntitySidebar';
 import { cn } from '@/lib/utils';
 
-type LoaderTurn = {
-  id: number;
-  answer: string | null;
-  question: string | null;
-  why: string | null;
-  impact: string | null;
-  phase: string;
-  user_parts: string | null;
-  assistant_parts: string | null;
-  options: Array<{
-    id: number;
-    position: number;
-    content: string;
-    is_recommended: boolean;
-    is_selected: boolean;
-  }>;
-};
-
-function hydrateMessages(turns: LoaderTurn[]): UIMessage[] {
-  const msgs: UIMessage[] = [];
-  for (const turn of turns) {
-    if (turn.answer) {
-      msgs.push({
-        id: `turn-${turn.id}-answer`,
-        role: 'user',
-        parts: [{ type: 'text' as const, text: turn.answer }],
-      });
-    }
-
-    if (turn.assistant_parts) {
-      try {
-        const parts = JSON.parse(turn.assistant_parts);
-        if (Array.isArray(parts) && parts.length > 0) {
-          msgs.push({ id: `turn-${turn.id}-assistant`, role: 'assistant', parts });
-          continue;
-        }
-      } catch {
-        // fall through to scalar synthesis
-      }
-    }
-
-    if (turn.question) {
-      msgs.push({
-        id: `turn-${turn.id}-assistant`,
-        role: 'assistant',
-        parts: [{ type: 'text' as const, text: turn.question }],
-      });
-    }
-  }
-  return msgs;
-}
+import type { ProjectStateTurn } from '../../shared/api-types.js';
+import { isAskQuestionUIPart, type BrunchUIMessage } from '../../shared/chat.js';
+import { useWorkspaceController } from '../workspace/workspace-controller';
 
 const impactStyles: Record<string, string> = {
   high: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200',
@@ -87,11 +34,12 @@ function TurnCard({
   onSelect,
   disabled,
 }: {
-  turn: LoaderTurn;
-  onSelect: (turnId: number, position: number) => void;
+  turn: ProjectStateTurn;
+  onSelect: (position: number) => void | Promise<void>;
   disabled: boolean;
 }) {
-  const hasSelection = turn.options.some((o) => o.is_selected);
+  const options = turn.options ?? [];
+  const hasSelection = options.some((o) => o.is_selected);
 
   return (
     <div className="my-3 rounded-lg border bg-card p-4">
@@ -111,14 +59,14 @@ function TurnCard({
       )}
 
       <div className="mt-2 flex flex-col gap-1.5">
-        {turn.options.map((opt) => {
+        {options.map((opt) => {
           const isSelected = opt.is_selected;
           return (
             <button
               key={opt.position}
               type="button"
               disabled={disabled || hasSelection}
-              onClick={() => onSelect(turn.id, opt.position)}
+              onClick={() => onSelect(opt.position)}
               className={cn(
                 'rounded-md border px-3 py-2 text-left text-sm transition-colors',
                 isSelected
@@ -142,7 +90,7 @@ function TurnCard({
   );
 }
 
-function renderParts(msg: UIMessage, isStreaming: boolean) {
+function renderParts(msg: BrunchUIMessage, isStreaming: boolean) {
   return msg.parts?.map((part, i) => {
     if (part.type === 'reasoning') {
       return (
@@ -152,21 +100,20 @@ function renderParts(msg: UIMessage, isStreaming: boolean) {
         </Reasoning>
       );
     }
-    if (part.type === 'tool-invocation' || part.type === 'dynamic-tool') {
-      const toolPart = part as unknown as ToolPart & { toolName?: string };
-      if (toolPart.toolName === 'ask_question') return null;
-      const toolName = toolPart.toolName ?? (toolPart.type === 'dynamic-tool' ? 'unknown' : undefined);
+    if (isAskQuestionUIPart(part)) {
+      return null;
+    }
+    if (part.type === 'data-observer-result' || part.type === 'data-phase-summary') {
+      return null;
+    }
+    if (part.type === 'dynamic-tool') {
       return (
-        <Tool
-          key={i}
-          defaultOpen={toolPart.state === 'output-available' || toolPart.state === 'output-error'}
-        >
-          {toolPart.type === 'dynamic-tool' ? (
-            <ToolHeader type="dynamic-tool" state={toolPart.state} toolName={toolName!} />
-          ) : (
-            <ToolHeader type={toolPart.type} state={toolPart.state} />
-          )}
-          <ToolContent />
+        <Tool key={i} defaultOpen={part.state === 'output-available' || part.state === 'output-error'}>
+          <ToolHeader type={part.type} state={part.state} toolName={part.toolName} />
+          <ToolContent>
+            <ToolInput input={part.input} />
+            <ToolOutput output={part.output} errorText={part.errorText} />
+          </ToolContent>
         </Tool>
       );
     }
@@ -182,64 +129,12 @@ function renderParts(msg: UIMessage, isStreaming: boolean) {
 }
 
 export function InterviewWorkspace() {
-  const { project, turns } = useLoaderData({ from: '/project/$id' });
-  const { id } = useParams({ from: '/project/$id' });
-  const router = useRouter();
-  const [selecting, setSelecting] = useState(false);
+  const workspace = useWorkspaceController();
+  const { chat, entityState, project, promptInput, turnCard } = workspace;
 
-  const queryClient = useQueryClient();
-  const transport = useMemo(() => new DefaultChatTransport({ api: `/api/projects/${id}/chat` }), [id]);
-  const { messages, sendMessage, setMessages, status } = useChat({ transport });
-  const isLoading = status === 'submitted' || status === 'streaming';
-  const prevStatusRef = useRef(status);
-
-  // Refresh data when chat finishes: entities (observer) + turns (ask_question TurnCard)
-  useEffect(() => {
-    if (prevStatusRef.current === 'streaming' && status === 'ready') {
-      void queryClient.invalidateQueries({ queryKey: ['entities', Number(id)] });
-      void router.invalidate(); // Refresh turn data so TurnCard appears after ask_question
-    }
-    prevStatusRef.current = status;
-  }, [status, queryClient, id, router]);
-
-  useEffect(() => {
-    setMessages(hydrateMessages(turns));
-  }, [project.id, turns]);
-
-  const lastTurn = turns[turns.length - 1] as LoaderTurn | undefined;
-  const showTurnCard = lastTurn?.options?.length && lastTurn.options.length > 0;
-  const lastTurnHasSelection = lastTurn?.options?.some((o) => o.is_selected) ?? false;
-
-  const handleSelect = useCallback(
-    async (turnId: number, position: number) => {
-      setSelecting(true);
-      try {
-        const res = await fetch(`/api/projects/${id}/turns/${turnId}/select`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ position }),
-        });
-        if (!res.ok) return;
-
-        const selected = lastTurn?.options.find((o) => o.position === position);
-        if (selected) {
-          await router.invalidate();
-          void sendMessage({ text: selected.content });
-        }
-      } finally {
-        setSelecting(false);
-      }
-    },
-    [id, lastTurn, router, sendMessage],
-  );
-
-  const handleSubmit = useCallback(
-    (message: PromptInputMessage) => {
-      if (!message.text?.trim() || isLoading) return;
-      void sendMessage({ text: message.text });
-    },
-    [isLoading, sendMessage],
-  );
+  const handleSubmit = (message: PromptInputMessage) => {
+    workspace.chat.submitText(message.text ?? '');
+  };
 
   return (
     <div className="flex h-screen flex-col">
@@ -254,8 +149,8 @@ export function InterviewWorkspace() {
         <div className="flex flex-1 flex-col">
           <Conversation className="flex-1">
             <ConversationContent className="mx-auto max-w-2xl">
-              {messages.map((msg, msgIdx) => {
-                const isLastAssistant = msg.role === 'assistant' && msgIdx === messages.length - 1;
+              {chat.messages.map((msg, msgIdx) => {
+                const isLastAssistant = msg.role === 'assistant' && msgIdx === chat.messages.length - 1;
                 return (
                   <Message key={msg.id} from={msg.role}>
                     <MessageContent>
@@ -263,28 +158,38 @@ export function InterviewWorkspace() {
                         ? msg.parts
                             ?.filter((p) => p.type === 'text')
                             .map((p, i) => <span key={i}>{p.text}</span>)
-                        : renderParts(msg, isLastAssistant && status === 'streaming')}
+                        : renderParts(msg, isLastAssistant && chat.isStreaming)}
                     </MessageContent>
                   </Message>
                 );
               })}
 
-              {showTurnCard && !isLoading && (
-                <TurnCard turn={lastTurn!} onSelect={handleSelect} disabled={selecting || isLoading} />
+              {turnCard && (
+                <TurnCard
+                  turn={turnCard.turn}
+                  onSelect={turnCard.selectOption}
+                  disabled={turnCard.disabled}
+                />
+              )}
+
+              {turnCard?.errorMessage && (
+                <p role="alert" className="mx-auto mt-3 max-w-2xl text-sm text-destructive">
+                  {turnCard.errorMessage}
+                </p>
               )}
             </ConversationContent>
             <ConversationScrollButton />
           </Conversation>
 
-          {(!showTurnCard || lastTurnHasSelection) && (
+          {promptInput.visible && (
             <div className="border-t px-4 py-3">
               <div className="mx-auto max-w-2xl">
                 <PromptInput onSubmit={handleSubmit}>
                   <PromptInputBody>
-                    <PromptInputTextarea placeholder="Type a message..." disabled={isLoading || selecting} />
+                    <PromptInputTextarea placeholder="Type a message..." disabled={promptInput.disabled} />
                   </PromptInputBody>
                   <PromptInputFooter>
-                    <PromptInputSubmit status={status} />
+                    <PromptInputSubmit status={chat.status} />
                   </PromptInputFooter>
                 </PromptInput>
               </div>
@@ -292,7 +197,7 @@ export function InterviewWorkspace() {
           )}
         </div>
 
-        <EntitySidebar projectId={Number(id)} />
+        <EntitySidebar entityState={entityState} />
       </div>
     </div>
   );
