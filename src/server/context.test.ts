@@ -1,25 +1,23 @@
 import { describe, it, expect } from 'vitest';
 
 import { buildInterviewerContext, buildObserverContext } from './context.js';
-import { formatHistory, type TurnWithOptions } from './core.js';
+import type { TurnWithOptions } from './core.js';
 import type { Turn } from './db.js';
 
-// --- Interviewer context equivalence (I19) ---
+// --- Interviewer context (I19) ---
 
-describe('interviewer-context-equivalence', () => {
-  it('returns prompt as-is when no turns — matches formatHistory', () => {
-    const result = buildInterviewerContext([], 'hello');
-    const expected = formatHistory([], 'hello');
-    expect(result).toBe(expected);
+describe('buildInterviewerContext', () => {
+  it('returns prompt as-is when no turns', () => {
+    expect(buildInterviewerContext([], 'hello')).toBe('hello');
   });
 
-  it('formats turns into conversation history — matches formatHistory', () => {
-    const turns = [
+  it('formats turns into conversation history', () => {
+    const turns: TurnWithOptions[] = [
       {
         id: 1,
         project_id: 1,
         parent_turn_id: null,
-        phase: 'scope' as const,
+        phase: 'scope',
         question: 'What is the project about?',
         answer: 'A chat app',
         why: null,
@@ -29,14 +27,15 @@ describe('interviewer-context-equivalence', () => {
         assistant_parts: null,
         created_at: '2026-01-01',
       },
-    ] satisfies TurnWithOptions[];
+    ];
 
     const result = buildInterviewerContext(turns, 'next question');
-    const expected = formatHistory(turns, 'next question');
-    expect(result).toBe(expected);
+    expect(result).toContain('Question: What is the project about?');
+    expect(result).toContain('Answer: A chat app');
+    expect(result).toContain('User: next question');
   });
 
-  it('includes grounding, impact, and options — matches formatHistory', () => {
+  it('includes grounding, impact, and options', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
@@ -59,11 +58,14 @@ describe('interviewer-context-equivalence', () => {
     ];
 
     const result = buildInterviewerContext(turns, 'next');
-    const expected = formatHistory(turns, 'next');
-    expect(result).toBe(expected);
+    expect(result).toContain('Why it matters: Shapes downstream decisions.');
+    expect(result).toContain('Impact: high');
+    expect(result).toContain('Build a new product');
+    expect(result).toContain('(recommended)');
+    expect(result).toContain('[selected]');
   });
 
-  it('handles multi-turn history — matches formatHistory', () => {
+  it('handles multi-turn history', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
@@ -96,8 +98,11 @@ describe('interviewer-context-equivalence', () => {
     ];
 
     const result = buildInterviewerContext(turns, 'Q3?');
-    const expected = formatHistory(turns, 'Q3?');
-    expect(result).toBe(expected);
+    expect(result).toContain('Q1');
+    expect(result).toContain('A1');
+    expect(result).toContain('Q2');
+    expect(result).toContain('A2');
+    expect(result).toContain('User: Q3?');
   });
 });
 

@@ -15,7 +15,8 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   }),
 }));
 
-const { conductTurn, extractPrompt, formatHistory } = await import('./core.js');
+const { conductTurn, extractPrompt } = await import('./core.js');
+const { buildInterviewerContext } = await import('./context.js');
 const { createDb, getOrCreateProject, getActivePath, getTurn } = await import('./db.js');
 
 let db: DB;
@@ -68,14 +69,14 @@ describe('extractPrompt', () => {
   });
 });
 
-describe('formatHistory', () => {
+describe('buildInterviewerContext', () => {
   it('returns prompt as-is when no turns', () => {
-    expect(formatHistory([], 'hello')).toBe('hello');
+    expect(buildInterviewerContext([], 'hello')).toBe('hello');
   });
 
   it('formats turns into conversation history', () => {
     const turns = [{ answer: 'Hi', question: 'Hello back' }] as any[];
-    const result = formatHistory(turns, 'next');
+    const result = buildInterviewerContext(turns, 'next');
     expect(result).toContain('Answer: Hi');
     expect(result).toContain('Question: Hello back');
     expect(result).toContain('User: next');

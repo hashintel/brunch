@@ -1,8 +1,9 @@
 import { useChat } from '@ai-sdk/react';
+import { useQueryClient } from '@tanstack/react-query';
 import { useLoaderData, useParams, Link, useRouter } from '@tanstack/react-router';
 import type { UIMessage } from 'ai';
 import { DefaultChatTransport } from 'ai';
-import { useState, useEffect, useMemo, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 
 import {
   Conversation,
@@ -20,6 +21,7 @@ import {
 } from '@/components/ai-elements/prompt-input';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Tool, ToolHeader, ToolContent, type ToolPart } from '@/components/ai-elements/tool';
+import { EntitySidebar } from '@/components/EntitySidebar';
 import { cn } from '@/lib/utils';
 
 type LoaderTurn = {
@@ -185,9 +187,20 @@ export function InterviewWorkspace() {
   const router = useRouter();
   const [selecting, setSelecting] = useState(false);
 
+  const queryClient = useQueryClient();
   const transport = useMemo(() => new DefaultChatTransport({ api: `/api/projects/${id}/chat` }), [id]);
   const { messages, sendMessage, setMessages, status } = useChat({ transport });
   const isLoading = status === 'submitted' || status === 'streaming';
+  const prevStatusRef = useRef(status);
+
+  // Refresh data when chat finishes: entities (observer) + turns (ask_question TurnCard)
+  useEffect(() => {
+    if (prevStatusRef.current === 'streaming' && status === 'ready') {
+      void queryClient.invalidateQueries({ queryKey: ['entities', Number(id)] });
+      void router.invalidate(); // Refresh turn data so TurnCard appears after ask_question
+    }
+    prevStatusRef.current = status;
+  }, [status, queryClient, id, router]);
 
   useEffect(() => {
     setMessages(hydrateMessages(turns));
@@ -237,42 +250,50 @@ export function InterviewWorkspace() {
         <h1 className="text-lg font-semibold">{project.name}</h1>
       </header>
 
-      <Conversation className="flex-1">
-        <ConversationContent className="mx-auto max-w-2xl">
-          {messages.map((msg, msgIdx) => {
-            const isLastAssistant = msg.role === 'assistant' && msgIdx === messages.length - 1;
-            return (
-              <Message key={msg.id} from={msg.role}>
-                <MessageContent>
-                  {msg.role === 'user'
-                    ? msg.parts?.filter((p) => p.type === 'text').map((p, i) => <span key={i}>{p.text}</span>)
-                    : renderParts(msg, isLastAssistant && status === 'streaming')}
-                </MessageContent>
-              </Message>
-            );
-          })}
+      <div className="flex flex-1 overflow-hidden">
+        <div className="flex flex-1 flex-col">
+          <Conversation className="flex-1">
+            <ConversationContent className="mx-auto max-w-2xl">
+              {messages.map((msg, msgIdx) => {
+                const isLastAssistant = msg.role === 'assistant' && msgIdx === messages.length - 1;
+                return (
+                  <Message key={msg.id} from={msg.role}>
+                    <MessageContent>
+                      {msg.role === 'user'
+                        ? msg.parts
+                            ?.filter((p) => p.type === 'text')
+                            .map((p, i) => <span key={i}>{p.text}</span>)
+                        : renderParts(msg, isLastAssistant && status === 'streaming')}
+                    </MessageContent>
+                  </Message>
+                );
+              })}
 
-          {showTurnCard && !isLoading && (
-            <TurnCard turn={lastTurn!} onSelect={handleSelect} disabled={selecting || isLoading} />
+              {showTurnCard && !isLoading && (
+                <TurnCard turn={lastTurn!} onSelect={handleSelect} disabled={selecting || isLoading} />
+              )}
+            </ConversationContent>
+            <ConversationScrollButton />
+          </Conversation>
+
+          {(!showTurnCard || lastTurnHasSelection) && (
+            <div className="border-t px-4 py-3">
+              <div className="mx-auto max-w-2xl">
+                <PromptInput onSubmit={handleSubmit}>
+                  <PromptInputBody>
+                    <PromptInputTextarea placeholder="Type a message..." disabled={isLoading || selecting} />
+                  </PromptInputBody>
+                  <PromptInputFooter>
+                    <PromptInputSubmit status={status} />
+                  </PromptInputFooter>
+                </PromptInput>
+              </div>
+            </div>
           )}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
-
-      {(!showTurnCard || lastTurnHasSelection) && (
-        <div className="border-t px-4 py-3">
-          <div className="mx-auto max-w-2xl">
-            <PromptInput onSubmit={handleSubmit}>
-              <PromptInputBody>
-                <PromptInputTextarea placeholder="Type a message..." disabled={isLoading || selecting} />
-              </PromptInputBody>
-              <PromptInputFooter>
-                <PromptInputSubmit status={status} />
-              </PromptInputFooter>
-            </PromptInput>
-          </div>
         </div>
-      )}
+
+        <EntitySidebar projectId={Number(id)} />
+      </div>
     </div>
   );
 }

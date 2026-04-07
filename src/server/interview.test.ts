@@ -20,7 +20,8 @@ vi.mock('@anthropic-ai/claude-agent-sdk', () => ({
   }),
 }));
 
-const { conductTurn, formatHistory } = await import('./core.js');
+const { conductTurn } = await import('./core.js');
+const { buildInterviewerContext } = await import('./context.js');
 const { createDb, getOrCreateProject, createTurn } = await import('./db.js');
 
 let db: DB;
@@ -244,7 +245,7 @@ describe('conductTurn with interview config', () => {
 
 // --- Acceptance criterion: history-includes-structure ---
 
-describe('formatHistory with structured turns', () => {
+describe('buildInterviewerContext with structured turns', () => {
   it('includes grounding and impact in history', () => {
     const turns = [
       {
@@ -254,7 +255,7 @@ describe('formatHistory with structured turns', () => {
         impact: 'high',
       },
     ] as Turn[];
-    const result = formatHistory(turns, 'next question');
+    const result = buildInterviewerContext(turns, 'next question');
     expect(result).toContain('Build a new product');
     expect(result).toContain('What is the primary goal?');
     expect(result).toContain('Understanding the goal');
@@ -274,7 +275,7 @@ describe('formatHistory with structured turns', () => {
         ],
       },
     ] as any[];
-    const result = formatHistory(turns, 'next');
+    const result = buildInterviewerContext(turns, 'next');
     expect(result).toContain('Build a new product');
     expect(result).toContain('[selected]');
     expect(result).toContain('(recommended)');

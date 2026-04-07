@@ -7,6 +7,7 @@
  */
 import { query } from '@anthropic-ai/claude-agent-sdk';
 import { z } from 'zod';
+import { toJSONSchema } from 'zod/v4/core';
 
 import { buildObserverContext } from './context.js';
 import type { DomainEvent } from './core.js';
@@ -81,36 +82,7 @@ export async function* runObserver(db: DB, turn: Turn, projectId: number): Async
       systemPrompt: OBSERVER_SYSTEM_PROMPT,
       outputFormat: {
         type: 'json_schema',
-        schema: {
-          type: 'object',
-          properties: {
-            decisions: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  content: { type: 'string' },
-                  rationale: { type: 'string', nullable: true },
-                  parentDecisionIds: { type: 'array', items: { type: 'number' } },
-                  parentAssumptionIds: { type: 'array', items: { type: 'number' } },
-                },
-                required: ['content', 'rationale', 'parentDecisionIds', 'parentAssumptionIds'],
-              },
-            },
-            assumptions: {
-              type: 'array',
-              items: {
-                type: 'object',
-                properties: {
-                  content: { type: 'string' },
-                  parentAssumptionIds: { type: 'array', items: { type: 'number' } },
-                },
-                required: ['content', 'parentAssumptionIds'],
-              },
-            },
-          },
-          required: ['decisions', 'assumptions'],
-        },
+        schema: toJSONSchema(observerOutputSchema),
       },
     },
   });

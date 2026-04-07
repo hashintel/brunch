@@ -169,6 +169,7 @@ The architecture (layered: db → core → adapters):
 | I20 | Entity persistence with turn linkage | Slice 5 (observer) | db.test.ts (7 tests), observer.test.ts | D4, D5 |
 | I21 | Observer-complete post-commit | Slice 5 (observer) | observer.test.ts (6 tests), sse-adapter.test.ts (3 tests) | D22 |
 | I22 | Agent generator composition | Slice 5 (observer) | core.test.ts, sdk.test.ts (7 tests) | D27 |
+| I23 | Entity sidebar reactive update | Slice 6 (sidebar) | app.test.ts (2 tests), manual (outer loop) | D22 |
 
 ## Lexicon
 
@@ -334,7 +335,7 @@ This projection difference is a deliberate design choice, not an implementation 
 
 | File                | Tests | Protects                    |
 | ------------------- | ----- | --------------------------- |
-| sse-adapter.test.ts | 21    | I1, I3, I7, I21             |
+| sse-adapter.test.ts | 8     | I1, I7, I21                 |
 | db.test.ts          | 32    | I5, I6, I9, I10, I11, I18, I20 |
 | app.test.ts         | 22    | I2, I3, I6, I7, I13, I14    |
 | core.test.ts        | 16    | I12, I13, I18, I22           |
