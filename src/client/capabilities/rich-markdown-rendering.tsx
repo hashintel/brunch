@@ -10,7 +10,11 @@ import type { MarkdownRendererProps } from './markdown-rendering';
 
 const markdownRenderingPlugins = { cjk, code, math, mermaid };
 
-export const RichMarkdownRenderer = ({ children, ...props }: MarkdownRendererProps) => (
+export const RichMarkdownRenderer = ({
+  children,
+  isAnimating: _isAnimating,
+  ...props
+}: MarkdownRendererProps) => (
   <div data-rendering-mode="rich">
     <Streamdown plugins={markdownRenderingPlugins} {...props}>
       {children}

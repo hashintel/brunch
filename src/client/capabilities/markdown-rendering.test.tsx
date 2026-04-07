@@ -47,22 +47,29 @@ describe('MarkdownRenderer', () => {
   it('keeps rich markdown on the plain first-paint path while the message is animating', async () => {
     const { MarkdownRenderer } = await import('./markdown-rendering.js');
     const content = '```typescript\nconst answer = 42\n```';
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    const { container, rerender } = render(<MarkdownRenderer isAnimating>{content}</MarkdownRenderer>);
+    try {
+      const { container, rerender } = render(<MarkdownRenderer isAnimating>{content}</MarkdownRenderer>);
 
-    expect(container.querySelector('[data-rendering-mode="plain"]')?.textContent).toContain(
-      'const answer = 42',
-    );
-
-    await Promise.resolve();
-    expect(container.querySelector('[data-rendering-mode="rich"]')).toBeNull();
-
-    rerender(<MarkdownRenderer isAnimating={false}>{content}</MarkdownRenderer>);
-
-    await waitFor(() => {
-      expect(container.querySelector('[data-rendering-mode="rich"]')?.textContent).toContain(
+      expect(container.querySelector('[data-rendering-mode="plain"]')?.textContent).toContain(
         'const answer = 42',
       );
-    });
+
+      await Promise.resolve();
+      expect(container.querySelector('[data-rendering-mode="rich"]')).toBeNull();
+
+      rerender(<MarkdownRenderer isAnimating={false}>{content}</MarkdownRenderer>);
+
+      await waitFor(() => {
+        expect(container.querySelector('[data-rendering-mode="rich"]')?.textContent).toContain(
+          'const answer = 42',
+        );
+      });
+
+      expect(consoleError.mock.calls.some((call) => String(call[0]).includes('isAnimating'))).toBe(false);
+    } finally {
+      consoleError.mockRestore();
+    }
   });
 });
