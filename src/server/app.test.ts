@@ -193,6 +193,30 @@ describe('POST /api/projects/:id/chat', () => {
   });
 });
 
+describe('GET /api/projects/:id/entities', () => {
+  it('returns a framing collection alongside legacy decisions and assumptions', async () => {
+    const projectId = await createTestProject();
+    const { createDecision, createAssumption, createKnowledgeItem } = await import('./db.js');
+
+    createKnowledgeItem(db, projectId, 'framing', 'The project starts from an ambiguous brief');
+    createDecision(db, projectId, 'Start with the web app');
+    createAssumption(db, projectId, 'Users arrive with a concrete goal');
+
+    const res = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+
+    expect(res.body).toMatchObject({
+      framing: [
+        {
+          kind: 'framing',
+          content: 'The project starts from an ambiguous brief',
+        },
+      ],
+      decisions: [{ content: 'Start with the web app' }],
+      assumptions: [{ content: 'Users arrive with a concrete goal' }],
+    });
+  });
+});
+
 describe('GET /api/projects/:id', () => {
   it('returns structured question state after a tool-driven turn', async () => {
     const projectId = await createTestProject();

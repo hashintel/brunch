@@ -166,7 +166,7 @@ function createWorkspaceLoaderData({
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
   options = [],
-  entitySnapshot = { decisions: [], assumptions: [] } satisfies EntitiesData,
+  entitySnapshot = { framing: [], decisions: [], assumptions: [] } satisfies EntitiesData,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -299,6 +299,7 @@ describe('InterviewWorkspace', () => {
   it('hydrates transcript and sidebar state from the route loader without a post-mount entity fetch', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
+        framing: [],
         decisions: [
           {
             id: 7,
@@ -322,6 +323,7 @@ describe('InterviewWorkspace', () => {
   it('refreshes durable loader-owned state for the same project without rewriting the live transcript', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
+        framing: [],
         decisions: [],
         assumptions: [],
       },
@@ -340,6 +342,7 @@ describe('InterviewWorkspace', () => {
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
       entitySnapshot: {
+        framing: [],
         decisions: [
           {
             id: 8,
@@ -381,6 +384,7 @@ describe('InterviewWorkspace', () => {
       assistantText: 'How should project two start?',
       answer: 'Begin with the API',
       entitySnapshot: {
+        framing: [],
         decisions: [],
         assumptions: [],
       },
@@ -410,9 +414,45 @@ describe('InterviewWorkspace', () => {
     expect(screen.getByText('Begin with the API')).toBeTruthy();
   });
 
+  it('renders framing items in the sidebar without regressing the decisions tab', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        framing: [
+          {
+            id: 9,
+            project_id: 1,
+            kind: 'framing',
+            subtype: null,
+            content: 'The tool starts from an ambiguous brief',
+            rationale: null,
+          },
+        ],
+        decisions: [
+          {
+            id: 7,
+            project_id: 1,
+            content: 'Start with the web app',
+            rationale: 'Fastest launch path',
+          },
+        ],
+        assumptions: [],
+      } as EntitiesData,
+    });
+
+    renderWorkspace();
+
+    expect(await screen.findByText('Start with the web app')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /framing/i }));
+    expect(await screen.findByText('The tool starts from an ambiguous brief')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /decisions/i }));
+    expect(await screen.findByText('Start with the web app')).toBeTruthy();
+  });
+
   it('refetches sidebar entities when the chat stream emits an observer result', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
+        framing: [],
         decisions: [],
         assumptions: [],
       },
@@ -420,6 +460,7 @@ describe('InterviewWorkspace', () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
+          framing: [],
           decisions: [
             {
               id: 7,

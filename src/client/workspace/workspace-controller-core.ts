@@ -19,6 +19,7 @@ export interface WorkspaceDurableProjectState {
 }
 
 export interface WorkspaceDurableEntityState {
+  framing: EntitiesData['framing'];
   decisions: EntitiesData['decisions'];
   assumptions: EntitiesData['assumptions'];
   isLoading: boolean;
@@ -116,6 +117,7 @@ export function createWorkspaceDurableEntityState(
   isLoading: boolean,
 ): WorkspaceDurableEntityState {
   return {
+    framing: queryData?.framing ?? entitySnapshot.framing,
     decisions: queryData?.decisions ?? entitySnapshot.decisions,
     assumptions: queryData?.assumptions ?? entitySnapshot.assumptions,
     isLoading,

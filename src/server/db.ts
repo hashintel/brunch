@@ -181,10 +181,12 @@ export function advanceHead(db: DB, projectId: number, turnId: number): void {
     .run();
 }
 
-// --- Entity persistence (decisions, assumptions, dependency edges) ---
+// --- Entity persistence (legacy decisions/assumptions + generic knowledge items) ---
 
 export type Decision = InferSelectModel<typeof schema.decision>;
 export type Assumption = InferSelectModel<typeof schema.assumption>;
+export type KnowledgeItem = InferSelectModel<typeof schema.knowledgeItem>;
+export type KnowledgeKind = KnowledgeItem['kind'];
 
 export function createDecision(
   db: DB,
@@ -215,6 +217,35 @@ export function linkAssumptionToTurn(db: DB, assumptionId: number, turnId: numbe
   db.insert(schema.turnAssumption).values({ turn_id: turnId, assumption_id: assumptionId }).run();
 }
 
+export function createKnowledgeItem(
+  db: DB,
+  projectId: number,
+  kind: KnowledgeKind,
+  content: string,
+  options?: { subtype?: string | null; rationale?: string | null },
+): KnowledgeItem {
+  return db
+    .insert(schema.knowledgeItem)
+    .values({
+      project_id: projectId,
+      kind,
+      subtype: options?.subtype ?? null,
+      content,
+      rationale: options?.rationale ?? null,
+    })
+    .returning()
+    .get() as KnowledgeItem;
+}
+
+export function linkKnowledgeItemToTurn(
+  db: DB,
+  itemId: number,
+  turnId: number,
+  relation: InferSelectModel<typeof schema.turnKnowledgeItem>['relation'] = 'captured',
+): void {
+  db.insert(schema.turnKnowledgeItem).values({ turn_id: turnId, item_id: itemId, relation }).run();
+}
+
 export function addDecisionParentDecision(db: DB, decisionId: number, parentDecisionId: number): void {
   db.insert(schema.decisionParentDecision)
     .values({ decision_id: decisionId, parent_decision_id: parentDecisionId })
@@ -240,7 +271,12 @@ export function addAssumptionParentAssumption(
 export function getEntitiesForProject(
   db: DB,
   projectId: number,
-): { decisions: Decision[]; assumptions: Assumption[] } {
+): { framing: KnowledgeItem[]; decisions: Decision[]; assumptions: Assumption[] } {
+  const framing = db
+    .select()
+    .from(schema.knowledgeItem)
+    .where(and(eq(schema.knowledgeItem.project_id, projectId), eq(schema.knowledgeItem.kind, 'framing')))
+    .all() as KnowledgeItem[];
   const decisions = db
     .select()
     .from(schema.decision)
@@ -251,5 +287,5 @@ export function getEntitiesForProject(
     .from(schema.assumption)
     .where(eq(schema.assumption.project_id, projectId))
     .all() as Assumption[];
-  return { decisions, assumptions };
+  return { framing, decisions, assumptions };
 }

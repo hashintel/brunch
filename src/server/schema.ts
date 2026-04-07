@@ -89,6 +89,19 @@ export const criterion = sqliteTable('criterion', {
   reviewed_at: text(),
 });
 
+export const knowledgeItem = sqliteTable('knowledge_item', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  project_id: integer()
+    .notNull()
+    .references(() => project.id),
+  kind: text({
+    enum: ['framing', 'constraint', 'decision', 'assumption', 'requirement', 'criterion'],
+  }).notNull(),
+  subtype: text(),
+  content: text().notNull(),
+  rationale: text(),
+});
+
 // --- Join tables (provenance + dependency DAGs) ---
 
 export const turnDecision = sqliteTable(
@@ -115,6 +128,22 @@ export const turnAssumption = sqliteTable(
       .references(() => assumption.id),
   },
   (table) => [primaryKey({ columns: [table.turn_id, table.assumption_id] })],
+);
+
+export const turnKnowledgeItem = sqliteTable(
+  'turn_knowledge_item',
+  {
+    turn_id: integer()
+      .notNull()
+      .references(() => turn.id),
+    item_id: integer()
+      .notNull()
+      .references(() => knowledgeItem.id),
+    relation: text({ enum: ['captured', 'confirmed', 'edited', 'invalidated', 'reviewed'] })
+      .notNull()
+      .default('captured'),
+  },
+  (table) => [primaryKey({ columns: [table.turn_id, table.item_id, table.relation] })],
 );
 
 export const decisionParentDecision = sqliteTable(

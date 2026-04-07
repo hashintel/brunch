@@ -101,21 +101,34 @@ describe('workspace controller core', () => {
 
   it('prefers refreshed entity query data while preserving loader snapshot fallback', () => {
     const entitySnapshot: EntitiesData = {
+      framing: [],
       decisions: [{ id: 1, project_id: 1, content: 'Loader decision', rationale: null }],
       assumptions: [{ id: 2, project_id: 1, content: 'Loader assumption' }],
     };
     const refreshedEntities: EntitiesData = {
+      framing: [
+        {
+          id: 4,
+          project_id: 1,
+          kind: 'framing',
+          subtype: null,
+          content: 'Refetched framing item',
+          rationale: null,
+        },
+      ],
       decisions: [{ id: 3, project_id: 1, content: 'Refetched decision', rationale: 'Newer' }],
       assumptions: [],
     };
 
     expect(createWorkspaceDurableEntityState(entitySnapshot, undefined, true)).toEqual({
+      framing: entitySnapshot.framing,
       decisions: entitySnapshot.decisions,
       assumptions: entitySnapshot.assumptions,
       isLoading: true,
     });
 
     expect(createWorkspaceDurableEntityState(entitySnapshot, refreshedEntities, false)).toEqual({
+      framing: refreshedEntities.framing,
       decisions: refreshedEntities.decisions,
       assumptions: refreshedEntities.assumptions,
       isLoading: false,

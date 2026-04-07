@@ -18,8 +18,10 @@ import {
   getProject,
   createDecision,
   createAssumption,
+  createKnowledgeItem,
   linkDecisionToTurn,
   linkAssumptionToTurn,
+  linkKnowledgeItemToTurn,
   addDecisionParentDecision,
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
@@ -38,7 +40,7 @@ afterEach(() => {
 });
 
 describe('createDb', () => {
-  it('creates all 13 tables from schema.dbml', () => {
+  it('creates all 15 tables from schema.dbml', () => {
     const tables = db.$client
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
       .all() as Array<{ name: string }>;
@@ -51,8 +53,10 @@ describe('createDb', () => {
       'assumption',
       'requirement',
       'criterion',
+      'knowledge_item',
       'turn_decision',
       'turn_assumption',
+      'turn_knowledge_item',
       'decision_parent_decision',
       'decision_parent_assumption',
       'assumption_parent_assumption',
@@ -409,7 +413,7 @@ describe('DB lifecycle — turn tree persistence', () => {
   });
 });
 
-describe('entity persistence — decisions and assumptions', () => {
+describe('entity persistence — decisions, assumptions, and framing items', () => {
   it('creates a decision with project linkage', () => {
     const project = createProject(db, 'Test');
     const d = createDecision(db, project.id, 'Use SQLite for persistence');
@@ -444,6 +448,26 @@ describe('entity persistence — decisions and assumptions', () => {
     const entities = getEntitiesForProject(db, project.id);
     expect(entities.assumptions).toHaveLength(1);
     expect(entities.assumptions[0].content).toBe('Users have API keys');
+  });
+
+  it('persists a framing item with project linkage and turn provenance', () => {
+    const project = createProject(db, 'Test');
+    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const item = createKnowledgeItem(db, project.id, 'framing', 'The brief starts ambiguous');
+    linkKnowledgeItemToTurn(db, item.id, turn.id);
+
+    const entities = getEntitiesForProject(db, project.id);
+    expect(entities.framing).toHaveLength(1);
+    expect(entities.framing[0]).toMatchObject({
+      project_id: project.id,
+      kind: 'framing',
+      content: 'The brief starts ambiguous',
+    });
+
+    const provenance = db.$client
+      .prepare('SELECT * FROM turn_knowledge_item WHERE turn_id = ? AND item_id = ?')
+      .get(turn.id, item.id) as { relation: string } | undefined;
+    expect(provenance?.relation).toBe('captured');
   });
 
   it('creates dependency edges between decisions', () => {
