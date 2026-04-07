@@ -522,7 +522,7 @@ describe('InterviewWorkspace', () => {
     expect(await screen.findByText('Start with the web app')).toBeTruthy();
   });
 
-  it('refetches sidebar entities when the chat stream emits an observer result', async () => {
+  it('refetches sidebar entities when the chat stream emits observer-created framing', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
         framing: [],
@@ -537,18 +537,20 @@ describe('InterviewWorkspace', () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          framing: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [
+          framing: [
             {
               id: 7,
               project_id: 1,
-              content: 'Start with the web app',
-              rationale: 'Fastest launch path',
+              kind: 'framing',
+              subtype: null,
+              content: 'The project starts from a fuzzy brief',
+              rationale: 'The user is still establishing the problem context',
             },
           ],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [],
           assumptions: [],
           relationships: [],
         } satisfies EntitiesData),
@@ -567,14 +569,16 @@ describe('InterviewWorkspace', () => {
     await act(async () => {
       useChatHarness.onData?.({
         type: 'data-observer-result',
-        data: { entityIds: { decisions: [7], assumptions: [] } },
+        data: { entityIds: { framing: [7], decisions: [], assumptions: [] } },
       });
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Start with the web app')).toBeTruthy();
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+
+    fireEvent.click(screen.getByRole('button', { name: /framing/i }));
+    expect(await screen.findByText('The project starts from a fuzzy brief')).toBeTruthy();
   });
 
   it('posts single-option turn responses with optional free-text and forwards a combined summary into chat', async () => {

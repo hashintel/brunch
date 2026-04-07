@@ -96,14 +96,21 @@
       - `6e.2a` Legacy dependency edges through the generic entity seam. `done`
       - `6e.2b` Remaining kind widening through the sidebar seam. `done`
 
-6f. **Phase-aware observer extraction** — Teach the observer to bias extraction by mode: scope prefers framing/constraints, design prefers decisions/assumptions, later modes can surface requirements/criteria and revisions. Keep the observer as a single structured extraction pass, but give it richer context and a broader ontology. `not-started`
+6f. **Phase-aware observer extraction** — Teach the observer to bias extraction by mode: scope prefers framing/constraints, design prefers decisions/assumptions, later modes can surface requirements/criteria and revisions. Keep the observer as a single structured extraction pass, but give it richer context and a broader ontology. `in-progress`
     - Requirements: → SPEC.md §Requirements #5, #6, #11, #12
     - Assumptions: → SPEC.md §Assumptions A14, A20
-    - Decisions: → SPEC.md §Decisions D4, D5, D13, D25
+    - Decisions: → SPEC.md §Decisions D4, D5, D13, D25, D52
     - Candidate invariant goals: observer extracts framing without assumption inflation; phase-aware extraction deltas stay attributable to source turns
     - Invariants to respect: → SPEC.md §Invariants I20, I21, I23
+    - **Observed current state (2026-04-07, tracer bullet 6f.1):** scope-mode observer output now widens to generic `framing`, the observer context includes existing framing alongside legacy decisions/assumptions, persisted assistant parts and SSE `data-observer-result` payloads carry created framing IDs, and sidebar invalidation can refetch and render observer-created framing through the generic entity seam.
     - Acceptance: scope turns primarily yield framing/constraints; design turns primarily yield decisions/assumptions; observer results still stream in-band to the sidebar
-    - **Verification approach**: middle — golden-master observer fixtures across scope/design examples. Outer — inspect project 18–style sessions for ontology fit.
+    - **Verification approach**: inner — schema + DB/parts tests prove widened observer contracts and generic persistence; middle — mocked observer-sync round-trip proves observer result → entities API → sidebar refresh coherence without gating on live-model quality; outer — manual scope/design walkthroughs judge ontology fit and seed future observer fixtures. See SPEC.md §Verification Design.
+    - Tracer bullets:
+      - `6f.1` Scope-mode framing extraction through the generic observer seam. `done`
+        - Invariants established: → SPEC.md §Invariants I54, I55
+      - `6f.2` Scope-mode constraint extraction through the generic observer seam. `not-started`
+      - `6f.3` Design-mode observer bias over decisions/assumptions with generic spillover. `not-started`
+      - `6f.4` Later-mode requirement/criterion emergence through the observer seam. `not-started`
 
 ## Phase 5: Mode Closure + Full Interview
 

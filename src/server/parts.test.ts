@@ -107,6 +107,7 @@ describe('assistant part round-trip', () => {
         type: 'data-observer-result',
         data: {
           entityIds: {
+            framing: [3],
             decisions: [1],
             assumptions: [2],
           },

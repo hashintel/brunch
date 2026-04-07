@@ -6,8 +6,10 @@ import { buildObserverContext } from './context.js';
 import {
   createDecision,
   createAssumption,
+  createKnowledgeItem,
   linkDecisionToTurn,
   linkAssumptionToTurn,
+  linkKnowledgeItemToTurn,
   addDecisionParentDecision,
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
@@ -18,6 +20,12 @@ import {
 
 /** Schema for observer structured output. */
 export const observerOutputSchema = z.object({
+  framing: z.array(
+    z.object({
+      content: z.string().min(1),
+      rationale: z.string().nullable(),
+    }),
+  ),
   decisions: z.array(
     z.object({
       content: z.string().min(1),
@@ -36,22 +44,32 @@ export const observerOutputSchema = z.object({
 
 export type ObserverOutput = z.infer<typeof observerOutputSchema>;
 
-const OBSERVER_SYSTEM_PROMPT = `You are an observer agent analyzing a spec elicitation interview turn.
+function buildObserverSystemPrompt(phase: Turn['phase']): string {
+  const phaseBias =
+    phase === 'scope'
+      ? `For scope-mode turns, prioritize **framing** items: contextual truth, project intent, problem context, and other facts that shape the solution space. Do not force ordinary framing facts into assumptions. Leave decisions and assumptions empty unless the turn makes them genuinely explicit.`
+      : `For non-scope turns, decisions and assumptions remain primary. Only emit framing when the turn clearly revises or adds project context rather than making a commitment or stating a belief.`;
 
-Your job is to extract decisions and assumptions from the Q&A exchange. For each turn, identify:
+  return `You are an observer agent analyzing a spec elicitation interview turn.
 
-1. **Decisions** — explicit choices the user made (e.g., "use SQLite", "support only macOS"). Include the rationale if stated.
-2. **Assumptions** — implicit or explicit beliefs underlying the decisions (e.g., "single-user tool", "users have API keys").
+Your job is to extract framing, decisions, and assumptions from the Q&A exchange. For each turn, identify:
 
-For each entity, identify dependency edges to previously extracted entities by their IDs.
+1. **Framing** — contextual truth, project intent, or problem context that clarifies what the project is about.
+2. **Decisions** — explicit choices the user made (e.g., "use SQLite", "support only macOS"). Include the rationale if stated.
+3. **Assumptions** — implicit or explicit beliefs underlying the decisions (e.g., "single-user tool", "users have API keys").
+
+${phaseBias}
+
+For decisions and assumptions, identify dependency edges to previously extracted entities by their IDs.
 
 Rules:
 - Only extract entities that are NEW in this turn — do not re-extract existing entities.
-- Be precise: a decision is a concrete choice; an assumption is a belief that could be wrong.
+- Be precise: framing is context, a decision is a concrete choice, and an assumption is a belief that could be wrong.
 - If no new entities are evident in this turn, return empty arrays.
 - Reference parent entity IDs only when a clear dependency exists.
-- Return ONLY valid JSON matching this exact schema: { "decisions": [...], "assumptions": [...] }
+- Return ONLY valid JSON matching this exact schema: { "framing": [...], "decisions": [...], "assumptions": [...] }
 - Do NOT wrap the JSON in markdown code fences.`;
+}
 
 /**
  * Run the observer agent. Extracts entities from the completed turn,
@@ -61,7 +79,7 @@ export async function runObserver(
   db: DB,
   turn: Turn,
   projectId: number,
-): Promise<{ decisions: number[]; assumptions: number[] }> {
+): Promise<{ framing: number[]; decisions: number[]; assumptions: number[] }> {
   const entities = getEntitiesForProject(db, projectId);
   const context = buildObserverContext({
     turn,
@@ -72,7 +90,7 @@ export async function runObserver(
   const result = await generateText({
     model: anthropic(process.env.OBSERVER_MODEL || 'claude-haiku-4-5-20251001'),
     maxOutputTokens: 2048,
-    system: OBSERVER_SYSTEM_PROMPT,
+    system: buildObserverSystemPrompt(turn.phase),
     prompt: context,
     output: Output.object({ schema: observerOutputSchema }),
   });
@@ -80,8 +98,17 @@ export async function runObserver(
   const parsed = result.output;
 
   // Persist entities in a transaction-like sequence
+  const createdFramingIds: number[] = [];
   const createdDecisionIds: number[] = [];
   const createdAssumptionIds: number[] = [];
+
+  for (const item of parsed.framing) {
+    const framing = createKnowledgeItem(db, projectId, 'framing', item.content, {
+      rationale: item.rationale,
+    });
+    linkKnowledgeItemToTurn(db, framing.id, turn.id);
+    createdFramingIds.push(framing.id);
+  }
 
   for (const d of parsed.decisions) {
     const decision = createDecision(db, projectId, d.content, d.rationale);
@@ -106,5 +133,5 @@ export async function runObserver(
     }
   }
 
-  return { decisions: createdDecisionIds, assumptions: createdAssumptionIds };
+  return { framing: createdFramingIds, decisions: createdDecisionIds, assumptions: createdAssumptionIds };
 }

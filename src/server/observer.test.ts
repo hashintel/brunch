@@ -34,18 +34,17 @@ afterEach(() => {
 });
 
 describe('runObserver', () => {
-  it('persists extracted decisions and assumptions and returns their ids', async () => {
+  it('persists scope-mode framing items with turn provenance and returns their ids', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
-        decisions: [
+        framing: [
           {
-            content: 'Use SQLite',
-            rationale: 'Simple and local',
-            parentDecisionIds: [],
-            parentAssumptionIds: [],
+            content: 'The project starts from an ambiguous brief',
+            rationale: 'The user is still clarifying the problem space',
           },
         ],
-        assumptions: [{ content: 'Single-user tool', parentAssumptionIds: [] }],
+        decisions: [],
+        assumptions: [],
       },
     });
 
@@ -54,26 +53,43 @@ describe('runObserver', () => {
 
     const entityIds = await runObserver(db, turn, project.id);
     const entities = getEntitiesForProject(db, project.id);
+    const provenanceRows = db.$client
+      .prepare('SELECT turn_id, item_id, relation FROM turn_knowledge_item ORDER BY item_id ASC')
+      .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
 
-    expect(entityIds.decisions).toHaveLength(1);
-    expect(entityIds.assumptions).toHaveLength(1);
-    expect(entities.decisions[0].content).toBe('Use SQLite');
-    expect(entities.assumptions[0].content).toBe('Single-user tool');
+    expect(entityIds.framing).toHaveLength(1);
+    expect(entityIds.decisions).toEqual([]);
+    expect(entityIds.assumptions).toEqual([]);
+    expect(entities.framing[0]).toMatchObject({
+      kind: 'framing',
+      content: 'The project starts from an ambiguous brief',
+      rationale: 'The user is still clarifying the problem space',
+    });
+    expect(provenanceRows).toEqual([
+      {
+        turn_id: turn.id,
+        item_id: entityIds.framing[0],
+        relation: 'captured',
+      },
+    ]);
   });
 
-  it('calls generateText with structured output and turn context', async () => {
+  it('calls generateText with a scope-biased framing prompt and existing framing context', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
+        framing: [],
         decisions: [],
         assumptions: [],
       },
     });
 
+    const { createKnowledgeItem } = await import('./db.js');
     const project = createProject(db, 'Spec');
+    createKnowledgeItem(db, project.id, 'framing', 'The project starts as a fuzzy brief');
     const turn = createTurn(db, project.id, {
       phase: 'scope',
-      question: 'What database?',
-      answer: 'SQLite',
+      question: 'What problem are we solving?',
+      answer: 'We need to clarify the project before choosing a design.',
     });
 
     await runObserver(db, turn, project.id);
@@ -81,12 +97,13 @@ describe('runObserver', () => {
     expect(mockAnthropic).toHaveBeenCalled();
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
+        system: expect.stringContaining('framing'),
         output: expect.objectContaining({
           name: 'object',
           parseCompleteOutput: expect.any(Function),
           parsePartialOutput: expect.any(Function),
         }),
-        prompt: expect.stringContaining('What database?'),
+        prompt: expect.stringContaining('The project starts as a fuzzy brief'),
       }),
     );
   });

@@ -56,6 +56,7 @@ export interface ObserverContextInput {
   turn: Turn;
   activePathSummary: string;
   entities: {
+    framing: Array<{ id: number; content: string }>;
     decisions: Array<{ id: number; content: string }>;
     assumptions: Array<{ id: number; content: string }>;
   };
@@ -70,7 +71,21 @@ export interface ObserverContextInput {
 export function buildObserverContext(input: ObserverContextInput): string {
   const sections: string[] = [];
 
-  if (input.entities.decisions.length > 0 || input.entities.assumptions.length > 0) {
+  if (
+    input.entities.framing.length > 0 ||
+    input.entities.decisions.length > 0 ||
+    input.entities.assumptions.length > 0
+  ) {
+    if (input.entities.framing.length > 0) {
+      sections.push(
+        h3('Existing Framing') +
+          '\n' +
+          table(
+            input.entities.framing.map((item) => ({ ID: item.id, Content: item.content })),
+            { columns: ['ID', 'Content'] },
+          ),
+      );
+    }
     if (input.entities.decisions.length > 0) {
       sections.push(
         h3('Existing Decisions') +
@@ -97,7 +112,7 @@ export function buildObserverContext(input: ObserverContextInput): string {
     sections.push(`Interview summary:\n${input.activePathSummary}`);
   }
 
-  const turnLines = [`Current turn #${input.turn.id}:`];
+  const turnLines = [`Current turn #${input.turn.id}:`, `  Phase: ${input.turn.phase}`];
   if (input.turn.question) turnLines.push(`  Question: ${input.turn.question}`);
   if (input.turn.why) turnLines.push(`  Why: ${input.turn.why}`);
   if (input.turn.impact) turnLines.push(`  Impact: ${input.turn.impact}`);

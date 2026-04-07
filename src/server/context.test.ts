@@ -236,7 +236,7 @@ describe('observer-context-projection', () => {
     const result = buildObserverContext({
       turn,
       activePathSummary: '',
-      entities: { decisions: [], assumptions: [] },
+      entities: { framing: [], decisions: [], assumptions: [] },
     });
 
     expect(result).toContain('What is the target audience?');
@@ -263,11 +263,13 @@ describe('observer-context-projection', () => {
       turn,
       activePathSummary: 'Turn 1: goal defined. Turn 2: audience chosen.',
       entities: {
+        framing: [{ id: 3, content: 'The project starts from a fuzzy brief' }],
         decisions: [{ id: 1, content: 'Use TypeScript' }],
         assumptions: [{ id: 1, content: 'Team knows TS' }],
       },
     });
 
+    expect(result).toContain('The project starts from a fuzzy brief');
     expect(result).toContain('Use TypeScript');
     expect(result).toContain('Team knows TS');
   });
@@ -291,7 +293,7 @@ describe('observer-context-projection', () => {
     const result = buildObserverContext({
       turn,
       activePathSummary: 'Turn 1: goal. Turn 2: audience.',
-      entities: { decisions: [], assumptions: [] },
+      entities: { framing: [], decisions: [], assumptions: [] },
     });
 
     // Should NOT contain the full Q&A pairs from earlier turns
@@ -318,6 +320,7 @@ describe('observer-context-projection', () => {
       turn,
       activePathSummary: '',
       entities: {
+        framing: [{ id: 3, content: 'The project is still being clarified' }],
         decisions: [{ id: 1, content: 'Use React' }],
         assumptions: [{ id: 2, content: 'Users have browsers' }],
       },
@@ -325,9 +328,11 @@ describe('observer-context-projection', () => {
 
     // md-pen table() produces pipe-separated markdown tables
     expect(result).toContain('| ID | Content |');
+    expect(result).toContain('| 3 | The project is still being clarified |');
     expect(result).toContain('| 1 | Use React |');
     expect(result).toContain('| 2 | Users have browsers |');
     // md-pen h3() produces ### headings
+    expect(result).toContain('### Existing Framing');
     expect(result).toContain('### Existing Decisions');
     expect(result).toContain('### Existing Assumptions');
   });

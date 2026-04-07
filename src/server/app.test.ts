@@ -121,7 +121,7 @@ beforeEach(() => {
   mockStreamInterviewer.mockReset();
   mockRunObserver.mockReset();
   mockStreamInterviewer.mockImplementation(async () => makeTextInterviewer('Hi'));
-  mockRunObserver.mockResolvedValue({ decisions: [], assumptions: [] });
+  mockRunObserver.mockResolvedValue({ framing: [], decisions: [], assumptions: [] });
 
   const result = createApp();
   app = result.app;
@@ -172,9 +172,22 @@ describe('POST /api/projects/:id/chat', () => {
     expect(turns[0].assistant_parts).not.toBeNull();
   });
 
-  it('emits observer results as typed data parts', async () => {
+  it('emits widened observer results and persists framing through the entities API', async () => {
     const projectId = await createTestProject();
-    mockRunObserver.mockResolvedValue({ decisions: [1], assumptions: [2] });
+    mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
+      const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
+      const item = createKnowledgeItem(
+        dbArg as DB,
+        projectIdArg as number,
+        'framing',
+        'The project starts from a fuzzy brief',
+        {
+          rationale: 'The user is still establishing the problem context',
+        },
+      );
+      linkKnowledgeItemToTurn(dbArg as DB, item.id, (turnArg as { id: number }).id);
+      return { framing: [item.id], decisions: [], assumptions: [] };
+    });
 
     const res = await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -188,8 +201,20 @@ describe('POST /api/projects/:id/chat', () => {
 
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
-      data: { entityIds: { decisions: [1], assumptions: [2] } },
+      data: { entityIds: { framing: [1], decisions: [], assumptions: [] } },
     });
+
+    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.framing).toEqual([
+      {
+        id: 1,
+        project_id: projectId,
+        kind: 'framing',
+        subtype: null,
+        content: 'The project starts from a fuzzy brief',
+        rationale: 'The user is still establishing the problem context',
+      },
+    ]);
   });
 });
 
