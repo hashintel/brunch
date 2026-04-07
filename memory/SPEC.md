@@ -9,25 +9,27 @@
 
 ## Concept & Goal
 
-Brunch is an AI-guided spec elicitation tool that turns natural-language project goals into structured specifications through a multi-phase interview. The interview is driven by an agent that relentlessly asks structured questions — each with options, a recommendation, and strategic grounding ("why this matters") — until shared understanding is reached. A second observer agent extracts decisions and assumptions from each turn, building a dependency graph. The output is a fire-and-forget specification document.
+Brunch is an AI-guided spec elicitation tool that turns natural-language project goals into structured specifications through one branching interview that moves through four workflow modes: **scope** (framing), **design** (commitment / exploration), **requirements** (audit / completeness), and **criteria** (verification). The interviewer agent leads the conversation with structured prompts, recommendations, and strategic grounding. A second observer agent extracts typed knowledge items from each turn and links them into a dependency graph. The output is a fire-and-forget specification document built from the active path.
 
 The core data model:
 
-- **Turn tree** — The conversation is a tree of turns (question + options + answer), not a flat log. Turns branch when a decision is revisited. The active path from HEAD determines the current state. The turn tree *is* the version history — no snapshots needed.
-- **Decision graph** — Decisions are the atoms of the spec. Each is a resolved fork with options, a chosen path, and a rationale. Decisions depend on prior decisions and assumptions, forming a DAG. Revisiting a decision forks the turn tree and soft-invalidates downstream entities.
-- **Assumption graph** — Assumptions are the falsifiable beliefs that decisions rest on. They have their own dependency structure (assumptions can rest on prior assumptions).
-- **Requirements & criteria** — Downstream projections. Requirements accumulate during the decision drill-down and are reviewed in a dedicated phase. Criteria are proposed against confirmed requirements.
+- **Turn tree** — The conversation is a tree of turns, not a flat log. Turns branch when an earlier turn is revisited. The active path from HEAD determines the current state. The turn tree *is* the version history — no snapshots needed.
+- **Knowledge graph** — The interview can surface more than just decisions and assumptions. Durable knowledge kinds are: `framing`, `constraint`, `decision`, `assumption`, `requirement`, and `criterion`. These items can surface in any mode, link back to source turns, and connect through typed graph edges (`depends_on`, `derived_from`, `constrains`, `verifies`, `refines`).
+- **Capture-anytime / review-in-phase** — Modes are workflow controls, not exclusive capture windows. Any mode may surface any knowledge kind, but each mode owns the review/closure of the item families it is responsible for.
+- **Readiness layer** — Export readiness is not just "the last turn felt done." Each mode produces an explicit phase outcome, and item families carry explicit review state. Revisit invalidates readiness from the affected turn frontier forward.
 
 The architecture (layered: db → core → adapters):
 
 - **Database**: SQLite via Drizzle ORM + `better-sqlite3` — TypeScript schema is single source of truth for types, DDL, and migrations. Auto-applies at startup.
-- **Core**: Interface-agnostic service layer — turn tree operations, project-state loading, typed prompt/context building, entity lifecycle, observer invocation, phase management, export. No transport knowledge.
+- **Core**: Interface-agnostic service layer — turn tree operations, project-state loading, typed prompt/context building, knowledge-item lifecycle, observer invocation, phase management, readiness management, and export. No transport knowledge.
 - **Agent engine**: AI SDK + Anthropic provider (`ai`, `@ai-sdk/anthropic`) — `ToolLoopAgent` powers the interviewer and `generateObject` powers the observer. Shared `BrunchUIMessage` / data-part contracts span request validation, persistence, server streaming, and client hydration. Future multi-step hardening builds on the AI SDK loop surface rather than a handwritten raw-event translator. (D30, D31)
-- **Observer agent**: Separate extraction call after each turn — captures decisions, assumptions, and their dependency edges. Invoked by core after turn completion.
+- **Observer agent**: Separate extraction call after each turn — captures typed knowledge items plus dependency / derivation edges using a phase-aware extraction policy. Invoked by core after turn completion.
 - **Web adapter**: Express.js returns AI SDK UI Message Stream SSE directly via `createUIMessageStream`. React + Vite + `@ai-sdk/react` `useChat` client consume the same typed message contract.
 - **CLI adapter**: (future) Terminal I/O consuming the same `DomainEvent` stream
 - **MCP adapter**: (future) MCP server exposing core operations as tools
-- **Output**: Flattened markdown spec exported on demand from the active path's entities
+- **Output**: Flattened markdown spec exported on demand from the active path's reviewed knowledge items
+
+Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 ## Constraints & Non-goals
 
@@ -45,20 +47,20 @@ The architecture (layered: db → core → adapters):
 ## Requirements
 
 1. Run `npx brunch` with just `ANTHROPIC_API_KEY` and have the tool open in the browser — setup is instant
-2. Start a new project and have the agent begin a structured interview — framing questions establish context before the design drill-down
-3. Each turn presents a question with ≥2 options, a recommendation, and a "why this matters" grounding block — the user sees the strategic significance of each fork
+2. Start a new project and have the agent begin a structured interview — scope/framing questions establish context before the design drill-down
+3. Exploratory turns provide structured guidance (question, strategic grounding, options, recommendation when appropriate), but the user can answer with zero/one/many selections, rationale, and a custom answer when none of the options fit
 4. See the AI's thinking process, tool usage, and progress in real-time — CLI-quality visibility of the agent's streaming output
-5. The observer agent extracts decisions and assumptions from each answered turn, building the dependency graph in the background
-6. See accumulated decisions, assumptions, requirements, and criteria in a dashboard as the interview progresses
-7. The interviewing agent determines when shared understanding is reached and marks the phase resolved — interview length is emergent, not predetermined
-8. Phase transitions show a summary and require user confirmation before moving on
-9. Revisit any previous decision by navigating the turn tree — this forks a new branch and soft-invalidates dependent entities for re-review
+5. The observer agent extracts typed knowledge items from each answered turn — `framing`, `constraint`, `decision`, `assumption`, `requirement`, `criterion` — plus dependency / derivation edges in the background
+6. See the accumulated knowledge layer and readiness state in a dashboard as the interview progresses
+7. Each workflow mode has its own closure condition; the interviewing agent determines when closure can be proposed, but user confirmation is required to mark the mode resolved
+8. Phase / mode transitions show a summary and require user confirmation before moving on
+9. Revisit any previous turn by navigating the turn tree — this forks a new branch and soft-invalidates dependent downstream readiness for re-review
 10. Abandon a revisit branch to return to the previous path — like git checkout
-11. The requirements review phase walks the accumulated requirements list, checks for gaps, and confirms completeness
-12. The criteria phase proposes testable acceptance criteria against confirmed requirements
-13. Export the spec as markdown when all phases are resolved — spec readiness is the compound predicate of phase resolution + requirements reviewed + criteria confirmed
-14. Close the browser and resume later — the turn tree, decisions, and assumptions persist in SQLite
-15. The project dashboard shows all projects with their phase completion status
+11. The requirements review mode gathers tentative requirements already surfaced, synthesizes a full requirement set from the knowledge layer, checks for gaps, and confirms completeness
+12. The criteria review mode gathers tentative criteria already surfaced, synthesizes verification conditions from the knowledge layer plus approved requirements, and confirms coverage
+13. Export the spec as markdown when all workflow modes are resolved, in-scope requirements and criteria are review-complete, and no upstream staleness remains on the active path
+14. Close the browser and resume later — the turn tree, knowledge items, and readiness state persist in SQLite
+15. The project dashboard shows all projects with their workflow completion status
 
 ## Assumptions
 
@@ -72,12 +74,12 @@ The architecture (layered: db → core → adapters):
 | A4  | Observer extraction completes in 1-3s during user read/think time (10-60s), adding zero perceived latency | medium | D1 | Observer agent | Spike measured 14-17s with Sonnet. Haiku expected 2-5s — validate with `generateObject` model switch. |
 | A6  | Turn-tree branching in SQLite is sufficient for decision revisit and undo in a single-user tool | high | D7 | Turn tree, Branching | Validate with realistic branch/merge scenarios |
 | A7  | Users arriving at the tool have a reasonably defined goal | medium | — | Scope phase | User testing; characterization kickoff mode mitigates if false |
-| A14 | A second-thread observer agent can reliably extract decisions, assumptions, and dependency edges from a single turn's Q&A | **validated** | D1 | Observer agent | Validated (spike): decisions 100% capture, assumptions ~80% semantic overlap. Observer now uses `generateObject` with Zod schema. |
-| A15 | The LLM can reliably judge when a phase interview has reached sufficient understanding (is_resolution) | medium | D3 | Phase resolution | Probe across varied project types; measure false-positive resolution rate |
+| A14 | A second-thread observer agent can reliably extract typed knowledge items and graph edges from a turn plus accumulated context | medium | D4, D5, D13 | Observer agent, Knowledge layer | Validated narrowly for decisions/assumptions; broadened ontology still needs probes across framing, constraints, requirements, and criteria-like signals. |
+| A15 | The LLM can reliably judge when a workflow mode has reached sufficient closure to propose a phase outcome | medium | D3 | Phase resolution | Probe across varied project types; measure false-positive closure rate and user override frequency |
 | A16 | AI SDK `useChat` hook's `ToolUIPart` state machine models all permutations of pending, error, and success for tool calls | high | D14 | Rich chat UI | Partially validated: typed `tool-ask_question` parts render with correct state labels. Browser outer-loop pending. |
 | A20 | Observer results can be delivered as typed data parts on the existing chat stream without holding the connection open unacceptably long | high | D22 | Observer agent, Entity sidebar | Measure observer latency with `generateObject`; if >5s, fall back to out-of-band SSE |
 | A21 | `useChat` `onData` callback reliably bridges to `queryClient.invalidateQueries` without stale-closure issues | **validated** | D22 | Entity sidebar | Validated: `InterviewWorkspace.test.tsx` covers `data-observer-result` → query invalidation → sidebar refresh, plus manual outer-loop verification remains for live browser/runtime behavior. |
-| A28 | AI SDK `ToolLoopAgent` with `stopWhen: stepCountIs(N)` is sufficient for brunch's multi-step tool execution needs — no custom agent loop required | high | D31 | Agent loop, Phase transitions | Validate with phase resolution slice (slice 7): agent must call `ask_question` AND judge `is_resolution`, requiring multi-step tool use with `tool_choice: auto`. |
+| A28 | AI SDK `ToolLoopAgent` with `stopWhen: stepCountIs(N)` is sufficient for brunch's multi-step interviewing, review, and phase-transition needs — no custom agent loop required | high | D31 | Agent loop, Phase transitions | Validate with mode-transition and review slices: agent must ask, synthesize, and propose closure without a handwritten loop. |
 | A29 | Models can reliably compose generic filesystem tools (read, write, edit, bash, grep, find, ls) to explore and characterize an existing project | **validated** | D32 | Characterization kickoff | Validated (spike): `ToolLoopAgent` with 7 core tools explored brunch in 22 tool calls across 23 steps. See `spike/filesystem-tools.ts`. |
 | A30 | The client can detect when assistant content actually needs rich markdown or diagram enhancement and keep plain text rendering as the immediate default without creating a hydration or streaming mismatch | **validated** | D34, D36 | Refactor commit 4 — progressive rendering split | Validated by `src/client/capabilities/markdown-rendering.test.tsx` (plain path stays immediate, fenced code upgrades after lazy load) plus `src/client/build-boundary.test.ts` (entry excludes `streamdown` and eager highlighter implementation). |
 | A31 | A workspace data adapter can centralize the boundary between durable project snapshots, durable entity snapshots, and ephemeral chat state without changing current user-visible behavior before concurrency and hydration policy changes land | **validated** | D37 | Refactor commits 5-7 — workspace state ownership | Validated by `src/client/workspace/workspace-data.test.ts` (durable vs ephemeral seed state separation is explicit and hydration timing is not owned by the adapter) plus unchanged green `src/client/routes/InterviewWorkspace.test.tsx` characterization coverage. |
@@ -119,28 +121,22 @@ The architecture (layered: db → core → adapters):
 
 ### Domain model
 
-1. **Turn tree as version history** — The conversation is a tree, not a flat log. Each turn points to its parent. Revisiting a decision forks a new branch. `project.active_turn_id` is the HEAD pointer. The active path determines which entities are current — no snapshot tables needed. Depends on: A6. Supersedes: D5-old snapshot versioning model.
-2. **Interview phases as agent skills** — Each phase (scope, design, requirements, criteria) is a separate agent skill with its own system prompt and tool configuration. The server orchestrates which skill to invoke based on phase completion state. Phases can be composed, reordered, or replaced independently. Depends on: A13. Supersedes: —.
-3. **Phase resolution via LLM judgment** — A turn's `is_resolution` flag is set by the interviewing agent when it judges that shared understanding has been reached for that phase. The active path is resolved for a phase when its latest turn has `is_resolution = true`. Spec export requires all phases resolved. Depends on: A15. Supersedes: —.
-4. **Two-agent pattern (interviewer + observer)** — The interviewer focuses solely on conducting the interview with structured questions. After each answered turn, a separate observer agent extracts decisions, assumptions, and dependency edges. The observer can use a cheaper/faster model. Keeps the interviewer prompt clean and extraction independently testable. Depends on: A3, A4, A14. Supersedes: —.
-5. **Decision dependency graph** — Decisions depend on prior decisions and/or assumptions via `decision_parent_decision` and `decision_parent_assumption` join tables. Assumptions can depend on prior assumptions via `assumption_parent_assumption`. The observer agent captures these edges during extraction. Depends on: A14. Supersedes: —.
-6. **Soft invalidation for requirements and criteria** — When a decision is revisited (branch fork), requirements traced to that decision are flagged for re-review via stale `reviewed_at` timestamps. Criteria inherit the flag transitively from their requirements. Mechanism specified in D17. Depends on: —. Supersedes: —.
-
-17. **Two invalidation mechanisms — path exclusion and flag propagation** — Path exclusion (lazy): `revisitDecision` → `branch()` moves HEAD; entities on the abandoned branch leave the active path. Requirements are stale when their source decision is not on the active path — computed by the active-path query, no eager writes. Flag propagation (eager): `falsifyAssumption` walks dependency graph edges (`assumption_parent_assumption`, `decision_parent_assumption`), marks dependents. `updateRequirement` nulls `reviewed_at` on traced criteria. Cascade model: falsify assumption → walk graph → flag dependents; revisit decision → branch → path exclusion; update requirement → flag criteria. Depends on: D1, D5, D6. Supersedes: D6's unspecified "holistic" re-qualification.
-
-13. **Observer captures derived intelligence** — The observer agent's extraction mandate extends beyond decisions and assumptions to include derived observations (e.g. codebase analysis, domain insights) that the interviewer surfaced through tool use during a turn. These are persisted so subsequent stateless `query()` calls can inject them as context. The exact entity model is TBD — candidates include a dedicated `observation` table, enriched `decision.rationale`, or a `notes` field on `turn`. Depends on: A14, D12. Supersedes: —.
-
+1. **Turn tree as version history** — The conversation is a tree, not a flat log. Each turn points to its parent. Revisiting an earlier turn forks a new branch. `project.active_turn_id` is the HEAD pointer. The active path determines which interview history and downstream readiness are current — no snapshot tables needed. Depends on: A6. Supersedes: D5-old snapshot versioning model.
+2. **Workflow phases are interview modes, not exclusive capture windows** — `scope`, `design`, `requirements`, and `criteria` are workflow modes that change interviewer behavior, observer extraction bias, and closure logic. Any mode may surface any knowledge kind, but each mode owns review and closure for the item families it is responsible for. Supersedes: phase model that implied entities first appear only inside their named phase.
+3. **Explicit phase outcomes replace turn-local phase booleans as the target readiness model** — A phase is not truly resolved because one turn was marked special; it is resolved because the active path has a confirmed, non-invalidated phase outcome for that mode. The current `turn.is_resolution` field is an implementation seam on the way to explicit `phase_outcome` records. Depends on: A15. Supersedes: pure latest-turn `is_resolution` semantics.
+4. **Two-agent pattern (interviewer + observer)** — The interviewer focuses solely on conducting the interview. After each answered turn, a separate observer agent performs a structured extraction pass over the completed turn plus accumulated knowledge context. The observer can use a cheaper/faster model. Keeps the interviewer prompt clean and extraction independently testable. Depends on: A3, A4, A14. Supersedes: —.
+5. **Generic knowledge graph replaces the decision/assumption-only model** — The durable semantic layer is a typed knowledge graph: `framing`, `constraint`, `decision`, `assumption`, `requirement`, and `criterion`, with subtype support where needed. Items link back to source turns and connect through typed edges (`depends_on`, `derived_from`, `constrains`, `verifies`, `refines`). Supersedes: separate decision / assumption graph as the sole semantic core.
+6. **Capture-anytime, review-in-phase** — Knowledge kinds may surface in any mode. Later modes synthesize and review rather than pretending to capture everything from scratch: scope closes framing sufficiency, design closes commitment coherence, requirements closes requirement completeness, and criteria closes verification coverage. Supersedes: rigid first-capture boundaries between scope, design, requirements, and criteria.
+17. **Soft invalidation tracks readiness staleness from turn-local frontiers** — Revisit invalidates trust from the affected turn frontier forward. Path exclusion (lazy): changing HEAD removes abandoned-branch artifacts from the active path. Readiness staleness (eager): downstream `phase_outcome` and per-item review records become stale or superseded when upstream knowledge they depend on changes. Cascades include: framing change → design + later reviews stale; design change → requirement + criteria reviews stale; requirement change → criteria reviews stale. Supersedes: requirement/criterion-only invalidation model tied narrowly to `reviewed_at`.
+13. **Observer captures typed knowledge items plus derived intelligence** — The observer's extraction mandate extends beyond decisions and assumptions to include framing facts, constraints, emerging requirements, criteria-like signals, and derived observations that the interviewer surfaced during the turn. These are persisted in the knowledge layer so subsequent context builders can inject them as context. Supersedes: decisions/assumptions-only observer ontology.
 14. **Part-type rendering via AI Elements** — Client renders message parts using AI Elements copy-paste components: `Reasoning` (auto-open/close collapsible with duration), `MessageResponse` (streaming markdown via `streamdown`), `Tool` (7-state collapsible with status badges). `Conversation` provides auto-scroll. `PromptInput` provides `ChatStatus`-aware submit/stop button. shadcn/ui (radix-nova preset) + Tailwind 4 as the styling foundation. Depends on: A16, A17. Supersedes: hand-rolled inline-styled message rendering.
-
-23. **Parts-based persistence model (UIMessage/ModelMessage split)** — Two separate data layers: (1) **UI render state** (`UIMessage.parts[]` JSON) persisted per turn for faithful resume — captures reasoning blocks, tool-call lifecycle states, text, and custom Data Parts. (2) **Inference context** (`ModelMessage`-equivalent) derived at call time by typed context builders, never persisted. Turn table gains `user_parts` and `assistant_parts` JSON columns (nullable). On stream finish, core assembles final assistant `parts[]` from DomainEvents and persists alongside scalar fields. Hydration reads persisted parts when available, falls back to scalar synthesis for older turns. The turn tree remains canonical for domain semantics (branching, phase, entity joins); parts are the source of truth for rendering. Research: `docs/research/chat-application-data-models-conversation-turns-structured-data-generative-ui-persistence.md`. Depends on: A22. Supersedes: D15's scalar-only persistence model.
-
-24. **Custom Data Parts for structured user input** — User responses are not always plain text. AI SDK Data Parts (`data-{name}` typed via Zod schema) model structured user input: `data-option-selection` (`{ turnId, selectedOptionId, rationale? }`), `data-confirmation` (`{ turnId, confirmed: boolean }`), plain `text` for freeform responses. Defined as a `BrunchDataParts` type passed as generic to `UIMessage<Metadata, DataParts, Tools>` for full-stack type safety. Assistant messages use the same mechanism for domain-specific content not covered by built-in part types: `data-phase-summary`, `data-observer-result`, `data-entity-snapshot`. Depends on: A22, A23. Supersedes: implicit assumption that `turn.answer` is always a text string.
-
-25. **Typed context builders replace monolithic `formatHistory()`** — Different consumers of the turn tree need different projections of the same data. `buildInterviewerContext(activePath, currentInput, entities, phase)` for conversational continuity. `buildObserverContext(turn, activePathSummary, linkedEntities)` for extraction-optimized context (see §Observer History Projection). Future: `buildPhaseResolutionContext(...)`, `buildRequirementsReviewContext(...)`. Each builder reads from the domain model (turn scalars + entity tables), NOT from persisted `UIMessage.parts[]`. The parts are for rendering; context builders are for inference. Depends on: D23, D12. Supersedes: single `formatHistory()` function in core.ts.
+23. **Parts-based persistence model (UIMessage/ModelMessage split)** — Two separate data layers: (1) **UI render state** (`UIMessage.parts[]` JSON) persisted per turn for faithful resume — captures reasoning blocks, tool-call lifecycle states, text, and custom Data Parts. (2) **Inference context** (`ModelMessage`-equivalent) derived at call time by typed context builders, never persisted. The turn tree remains canonical for branching history; parts remain the source of truth for rendering. Prompt/response payload evolution can move independently of persisted UI parts. Research: `docs/research/chat-application-data-models-conversation-turns-structured-data-generative-ui-persistence.md`. Depends on: A22. Supersedes: D15's scalar-only persistence model.
+24. **Custom Data Parts model structured user responses beyond single-select choice** — User responses are not always plain text or one categorical pick. AI SDK Data Parts model structured input such as zero/one/many option selections, rationale, custom answer overrides, confirmations, and later review actions. Assistant messages use the same mechanism for domain-specific output such as phase summaries, observer results, and entity snapshots. Depends on: A22, A23. Supersedes: implicit assumption that `turn.answer` is always a text string and that every structured answer is a single selected option.
+25. **Typed context builders are phase-aware projections over history + knowledge + readiness** — Different consumers of the turn tree need different projections of the same underlying state. `buildInterviewerContext(...)` provides conversational continuity. `buildObserverContext(...)` provides extraction-optimized context over the current turn plus accumulated knowledge and relevant history summary. Future builders include readiness / review projections for phase-outcome proposal and review modes. Each builder reads from the domain model, not from persisted `UIMessage.parts[]`. Supersedes: single `formatHistory()` function in core.ts.
 
 ### Technical stack
 
-7. **SQLite via better-sqlite3** — Zero-config embedded DB. Turn tree, decisions, assumptions, requirements, criteria all in SQLite tables. Schema defined in Drizzle (see D18). Depends on: A5, A6. Supersedes: Dolt (docker-based).
+7. **SQLite via better-sqlite3** — Zero-config embedded DB. Turn tree, knowledge items, graph edges, and readiness artifacts all live in SQLite tables. Schema defined in Drizzle (see D18). Depends on: A5, A6. Supersedes: Dolt (docker-based).
 8. **Express.js server emits AI SDK UI message streams directly** — The chat route validates incoming `BrunchUIMessage[]`, persists the new turn, merges the interviewer stream into `createUIMessageStream`, emits typed observer-result data parts in-band, and pipes the result to the response. No handwritten stream-translation layer remains on the web path. Depends on: A1, A19, D19. Supersedes: hand-rolled NDJSON and DomainEvent-to-SSE translation.
 9. **React + Vite + @ai-sdk/react + @tanstack/react-router client** — `useChat` for conversation streaming. TanStack Router for type-safe routing with route loaders for data fetching on navigation (replaces manual `useEffect` hydration). Three routes for MVP: project list (`/`), interview workspace (`/project/:id`), export preview (`/project/:id/export`). See `docs/design/BREADBOARD.md`. Depends on: A9, A10. Supersedes: Preact, both existing frontends, single-page no-routing layout.
 10. **npx-launchable single-command distribution** — `bin` entry, launcher starts Express (serves built Vite assets + API on one port), opens browser. Single env var: `ANTHROPIC_API_KEY`. DB auto-created in project directory or `~/.brunch/`. Depends on: A8. Supersedes: multi-step Docker + env var setup.
@@ -223,42 +219,45 @@ The architecture (layered: db → core → adapters):
 
 ### Domain terms
 
-| Term                  | Definition                                                                                                                                                                                                        |
-| --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **project**           | A spec elicitation session. Has a name, a HEAD pointer (`active_turn_id`), and phase completion state                                                                                                             |
-| **turn**              | One question-answer pair in the interview. Carries phase provenance, options, grounding ("why"), impact signal, and the user's answer. Points to its parent turn — the turn tree is the version history           |
-| **option**            | A structured alternative presented in a turn. At least two per turn. One may be recommended; one is selected by the user                                                                                          |
-| **decision**          | A resolved fork in the design tree. Extracted by the observer from an answered turn. Depends on prior decisions and/or assumptions. Traced back to its source turn via `turn_decision`                            |
-| **assumption**        | A falsifiable belief a decision rests on. Extracted by the observer. Can depend on prior assumptions. Traced back to its source turn via `turn_assumption`                                                        |
-| **requirement**       | What the system must do. Accumulated during the design drill-down, confirmed during the requirements review phase. Traced to source decisions via `requirement_decision`. Has `reviewed_at` for soft-invalidation |
-| **criterion**         | A testable condition verifying a requirement. Proposed by the agent during the criteria phase, confirmed by the user. Has `reviewed_at` for soft-invalidation                                                     |
-| **active path**       | The branch from HEAD to root in the turn tree. Determines which turns, decisions, and assumptions are currently active                                                                                            |
-| **branch** (verb)     | Fork the turn tree from a given turn, creating a new path and moving HEAD. Analogous to git branch + checkout                                                                                                    |
-| **checkout** (verb)   | Move HEAD to an existing turn on a different branch without creating new turns. Analogous to git checkout                                                                                                        |
-| **phase**             | A stage of the interview: `scope`, `design`, `requirements`, `criteria`. Immutable provenance on each turn. Each phase is implemented via `getSystemPrompt(phase)` plus typed AI SDK tools. See D2, A13 |
-| **phase resolution**  | LLM judgment that shared understanding has been reached for a phase. Marked by `turn.is_resolution = true` on the last turn of a phase                                                                            |
-| **ask_question tool** | The typed AI SDK tool the interviewer must use each turn. Accepts `{ question, why, impact, options[] }`, validated by `structuredQuestionSchema` (Zod). The tool handler persists structured data to the turn and options tables via closure over `db` + `turnId`. Defined in `interview.ts` |
-| **agent loop**        | The stepwise interviewer control path. Today this is provided by AI SDK `ToolLoopAgent`; future phase-resolution work may wrap or replace it for tighter multi-step control. See D31 |
-| **interviewer**       | The primary agent role: conducts the interview with structured questions, grounding, and impact signals. Must use the `ask_question` tool every turn. Does not extract entities                                    |
-| **observer**          | The secondary agent role: extracts decisions, assumptions, and dependency edges from each answered turn. Runs post-answer during user read time                                                                   |
-| **core**              | The interface-agnostic service layer between the database and transport adapters. Owns turn preparation/finalization, context building, project state, and entity lifecycle. The web chat stream is assembled in Express over shared `BrunchUIMessage` contracts |
-| **decision graph**    | The DAG of decisions and their dependencies (on prior decisions and assumptions). Revisiting a decision forks the turn tree                                                                                       |
-| **path exclusion**    | Invalidation by moving HEAD so entities on the abandoned branch leave the active path. Lazy — computed by the active-path query, no eager writes. Triggered by `revisitDecision` / `branch`                       |
-| **flag propagation**  | Invalidation by walking dependency graph edges and marking entities stale (nulling `reviewed_at`). Eager — triggered by `falsifyAssumption` or `updateRequirement`                                                |
-| **soft invalidation** | Umbrella term for both path exclusion and flag propagation. Entities are flagged for re-review but never deleted or modified. See D17                                                                             |
-| **spec readiness**    | Compound predicate: all four phases resolved AND requirements reviewed AND criteria confirmed. Only then is export enabled                                                                                        |
-| **UIMessage**         | AI SDK source of truth for UI state. `{ id, role, parts[], metadata? }`. Persisted for faithful resume. Reconstructed from stored `user_parts`/`assistant_parts` JSON on hydration. See D23                       |
-| **ModelMessage**      | AI SDK representation optimized for LLM inference. Derived at call time by context builders (D25), never persisted. Leaner than `UIMessage` — no tool states, no reasoning, no custom data parts                  |
-| **parts[]**           | Ordered array of typed content blocks in a `UIMessage`. Built-in types: `text`, `reasoning`, `tool-{name}` (4 states), `file`. Custom types via Data Parts: `data-option-selection`, `data-confirmation`, `data-phase-summary`, etc. Source of truth for rendering. See D23, D24 |
-| **Data Part**         | Custom typed `UIMessage` part (`data-{name}`) defined via Zod schema. Enables structured user input (option selection, confirmation) and domain-specific assistant output (phase summary, observer result). Persisted in `parts[]` JSON. See D24 |
-| **context builder**   | A typed function that projects turn-tree + entity data into inference context for a specific consumer (interviewer, observer, phase judge). Reads from domain model, not from persisted parts. See D25              |
-| **in-band sync**      | Observer entity updates delivered as typed data parts on the existing chat SSE stream. Default mechanism — zero additional infrastructure (D22)                                                                     |
-| **out-of-band sync**  | Observer entity updates delivered via a dedicated `EventSource` SSE channel (`/api/events/:projectId`). Fallback mechanism if observer becomes async (D22)                                                        |
-| **cache invalidation** | Signaling TanStack Query that cached data is stale. In the current web path, `useChat` `onData` invalidates the entity query from `data-observer-result`, while route invalidation refreshes project state on stream completion |
-| **ToolLoopAgent**     | AI SDK's built-in agent class that manages the model → tool-call → execute → re-submit loop. Powers the interviewer. Configured with `tools`, `stopWhen`, `providerOptions`. Methods: `generate()` (non-streaming), `stream()` (streaming). See D31 |
-| **generateObject**    | AI SDK function for structured output. Takes a Zod schema, returns a validated object. Powers the observer's entity extraction. No JSON parsing needed. See D30 |
-| **core tools**        | 7 generic filesystem tools (read, write, edit, bash, grep, find, ls) in `src/server/tools/`. Factory: `createCoreTools(cwd)`. Follow pi-mono's pattern. See D32 |
-| **BrunchUIMessage**   | `UIMessage<BrunchMessageMetadata, BrunchDataParts, BrunchUITools>` — the typed message contract spanning server validation, persistence, SSE streaming, and client hydration. Defined in `src/shared/chat.ts` |
+| Term | Definition |
+| --- | --- |
+| **project** | A spec elicitation session. Has a name, a HEAD pointer (`active_turn_id`), and workflow/readiness state. |
+| **turn** | A branching checkpoint in the interview history. Carries phase provenance plus typed interaction payloads and UI parts. Points to its parent turn — the turn tree is the version history. |
+| **active path** | The branch from HEAD to root in the turn tree. Determines which turns, knowledge items, phase outcomes, and review state are currently trusted. |
+| **phase** / **mode** | A workflow stage of the interview: `scope`, `design`, `requirements`, `criteria`. Modes change interviewer behavior, observer extraction bias, and closure logic. They are not exclusive capture windows. |
+| **choice turn** | An exploratory interaction turn where the interviewer proposes structured options and strategic grounding. Supports zero/one/many selections, rationale, and custom answers. |
+| **review turn** | A review interaction turn where the interviewer asks the user to approve, edit, reject, merge, or add to a synthesized item set. |
+| **framing** | A contextual truth or intent statement: project goal, actor, user need, workflow context, domain fact, or problem statement. |
+| **constraint** | A boundary on the acceptable solution space, including hard limits, exclusions, and non-goals. |
+| **decision** | A chosen fork or commitment in the design tree. Depends on earlier knowledge and can carry rationale. |
+| **assumption** | A falsifiable belief that downstream choices rely on and that could prove false. |
+| **requirement** | A must-do capability of the system. Can surface in any mode, but is normalized and confirmed in requirements review. |
+| **criterion** | A verifiable success condition for a requirement. Can surface early, but is normalized and confirmed in criteria review. |
+| **knowledge item** | A generic semantic record in the knowledge layer. Durable kinds are `framing`, `constraint`, `decision`, `assumption`, `requirement`, and `criterion`, with subtype support where needed. |
+| **knowledge graph** | The graph of knowledge items linked by typed edges such as `depends_on`, `derived_from`, `constrains`, `verifies`, and `refines`. |
+| **capture-anytime** | Rule that any knowledge kind may surface in any conversational mode. |
+| **review-in-phase** | Rule that each mode owns the closure / approval of the item families it is responsible for. |
+| **phase outcome** | The explicit readiness artifact for a workflow mode: a proposed, confirmed, or superseded closure record tied back to the turn tree. |
+| **knowledge review** | An explicit per-item review record (`pending`, `approved`, `edited`, `rejected`, `stale`) tied to the mode responsible for closing that item family. |
+| **branch** (verb) | Fork the turn tree from a given turn, creating a new path and moving HEAD. Analogous to git branch + checkout. |
+| **checkout** (verb) | Move HEAD to an existing turn on a different branch without creating new turns. Analogous to git checkout. |
+| **soft invalidation** | Readiness staleness caused by upstream change. Some invalidation is lazy via path exclusion; some is eager via stale/superseded readiness records. Entities are not automatically deleted. See D17. |
+| **interviewer** | The primary agent role: conducts the interview and review modes. It should propose structure, ask for rationale, and surface tradeoffs; it does not own semantic extraction. |
+| **observer** | The secondary agent role: performs a structured extraction pass after each answered turn, producing knowledge items and graph edges from a phase-aware context projection. |
+| **core** | The interface-agnostic service layer between the database and transport adapters. Owns turn preparation/finalization, context building, project state, knowledge lifecycle, readiness lifecycle, and export. |
+| **spec readiness** | Compound predicate: each mode has a confirmed, non-invalidated phase outcome, all in-scope requirements and criteria are review-complete, and no unresolved upstream staleness remains. |
+| **UIMessage** | AI SDK source of truth for UI state. `{ id, role, parts[], metadata? }`. Persisted for faithful resume. Reconstructed from stored `user_parts`/`assistant_parts` JSON on hydration. See D23. |
+| **ModelMessage** | AI SDK representation optimized for LLM inference. Derived at call time by context builders (D25), never persisted. Leaner than `UIMessage` — no tool states, no reasoning, no custom data parts. |
+| **parts[]** | Ordered array of typed content blocks in a `UIMessage`. Built-in types: `text`, `reasoning`, `tool-{name}`, `file`. Custom types via Data Parts: structured selections, confirmations, summaries, observer results, review actions, etc. Source of truth for rendering. See D23, D24. |
+| **Data Part** | Custom typed `UIMessage` part (`data-{name}`) defined via Zod schema. Enables structured user input and domain-specific assistant output. Persisted in `parts[]` JSON. See D24. |
+| **context builder** | A typed function that projects turn-tree + knowledge + readiness data into inference context for a specific consumer (interviewer, observer, phase closure, review modes). Reads from the domain model, not from persisted parts. See D25. |
+| **in-band sync** | Observer knowledge updates delivered as typed data parts on the existing chat SSE stream. Default mechanism — zero additional infrastructure (D22). |
+| **out-of-band sync** | Observer knowledge updates delivered via a dedicated `EventSource` SSE channel (`/api/events/:projectId`). Fallback mechanism if observer becomes async (D22). |
+| **cache invalidation** | Signaling TanStack Query that cached data is stale. In the current web path, `useChat` `onData` invalidates the entity query from observer results, while route invalidation refreshes durable project state on stream completion. |
+| **ToolLoopAgent** | AI SDK's built-in agent class that manages the model → tool-call → execute → re-submit loop. Powers the interviewer. Configured with `tools`, `stopWhen`, `providerOptions`. Methods: `generate()` (non-streaming), `stream()` (streaming). See D31. |
+| **generateObject** | AI SDK function for structured output. Takes a Zod schema and returns a validated object. Powers the observer's extraction pass. See D30. |
+| **core tools** | 7 generic filesystem tools (read, write, edit, bash, grep, find, ls) in `src/server/tools/`. Factory: `createCoreTools(cwd)`. Follow pi-mono's pattern. See D32. |
+| **BrunchUIMessage** | `UIMessage<BrunchMessageMetadata, BrunchDataParts, BrunchUITools>` — the typed message contract spanning server validation, persistence, SSE streaming, and client hydration. Defined in `src/shared/chat.ts`. |
 
 ## Verification Design
 
@@ -314,7 +313,7 @@ End-to-end slices must be **user-testable**, not just programmatically tested. E
 
 | Oracle family | What it proves | Protects | Cost |
 | --- | --- | --- | --- |
-| Schema validation | Agent tool output conforms to structured turn schema (question, options, grounding, impact) | I16 (planned) | Negligible — Zod parse on tool output |
+| Schema validation | Agent tool output conforms to the active turn/review payload schema for the current mode | I16 (planned) | Negligible — Zod parse on tool output |
 | Fast unit tests — SSE | `SDKMessage` → correct SSE event strings | I1, I3, I7 | ms |
 | Fast unit tests — DB | Turn persistence with phase provenance, entity writes with dependency edges | I5, I6, I9, I10, I11 | ms |
 | Fast unit tests — core | DomainEvent streaming, core/adapter separation, structured turn creation | I12, I13 | ms |
@@ -346,7 +345,7 @@ End-to-end slices must be **user-testable**, not just programmatically tested. E
 
 <!-- Design note for the observer's verification context. -->
 
-The observer and interviewer receive the same conversation but through different projections. The interviewer receives conversational context ("where are we in the design space"). The observer receives extraction context: the existing entity graph (decisions, assumptions, edges established so far) plus the current turn's Q&A. This makes each extraction incremental — "given what we already know, what did *this turn* add?" — which sharpens the differential oracle: comparing the delta, not the total.
+The observer and interviewer receive the same conversation but through different projections. The interviewer receives conversational context ("where are we in the design space"). The observer receives extraction context: the existing knowledge graph (knowledge items, edges, and relevant readiness hints established so far) plus the current turn's Q&A. This makes each extraction incremental — "given what we already know, what did *this turn* add or revise?" — which sharpens the differential oracle: comparing the delta, not the total.
 
 This projection difference is a deliberate design choice, not an implementation detail. It affects prompt design, fixture structure, and evaluation criteria.
 
@@ -393,14 +392,14 @@ This projection difference is a deliberate design choice, not an implementation 
 ## Acceptance Criteria (exit conditions)
 
 1. `npx brunch` with `ANTHROPIC_API_KEY` in scope opens a working app in the browser
-2. Starting a new project launches an interview with structured turns (question + options + grounding + impact)
-3. The observer extracts decisions and assumptions from each answered turn, visible in the dashboard
-4. The decision dependency graph is navigable — user can see what each decision depends on
-5. Phase transitions show a summary, require user confirmation, and mark `is_resolution`
-6. Revisiting a decision forks the turn tree and soft-invalidates downstream requirements
+2. Starting a new project launches an interview in scope mode with structured exploratory turns that support rationale and custom answers
+3. The observer extracts typed knowledge items and graph edges from each answered turn, visible in the dashboard
+4. The knowledge graph is navigable — user can see what each important item depends on, derives from, constrains, or verifies
+5. Each workflow mode proposes closure with a summary, requires user confirmation, and records an explicit phase outcome
+6. Revisiting an upstream turn forks the turn tree and soft-invalidates downstream readiness from the affected frontier
 7. Abandoning a branch restores the previous active path
-8. Requirements review phase walks the list, agent suggests gaps, user confirms
-9. Criteria phase proposes testable conditions for each requirement
-10. Export produces valid markdown spec when all phases are resolved and entities reviewed
-11. Closing and reopening the browser resumes the interview from the active turn
+8. Requirements review mode synthesizes the requirement set from the knowledge layer, surfaces gaps, and records explicit review state
+9. Criteria review mode synthesizes verification conditions from approved requirements plus the knowledge layer, and records explicit review state
+10. Export produces valid markdown spec only when all workflow modes are resolved, all in-scope requirement/criteria reviews are complete, and no unresolved upstream staleness remains
+11. Closing and reopening the browser resumes the interview from the active turn with knowledge and readiness state intact
 12. All inner and middle loop tests pass

@@ -30,7 +30,7 @@
 ## Phase 3: Interview Engine `done`
 
 <!-- Spikes -->
-- Spike: **Observer extraction fidelity** `FE-557` `done` — validated A14 (≥80% capture rate)
+- Spike: **Observer extraction fidelity** `FE-557` `done` — narrowly validated observer extraction for the original decisions/assumptions ontology (≥80% capture rate); broadened knowledge-layer extraction still needs follow-up coverage
 - Spike: **Raw Anthropic SDK** `done` — invalidated A2, validated A26, led to D30
 
 <!-- Slices -->
@@ -47,75 +47,129 @@
     - Coverage: initial hydration from persisted turns, same-project refresh stability, observer-result sidebar reactivity, option-selection follow-through
     - Unblocks: 6c live streaming fix, workspace state-ownership refactor commits
 
-## Phase 4: Full Interview
+## Phase 4: Interaction + Knowledge Foundations
 
-<!-- All four phases working end-to-end. The live rendering regression must be fixed first,
-     then phase transitions, tool composition, and the remaining interview phases.
-     The product becomes usable at the end of this phase. -->
+<!-- The live rendering regression must be fixed first. Then the interview model widens:
+     richer answer semantics, generic knowledge capture, and phase-aware observer behavior. -->
 
 ### Slices
 
-6c. **Live streaming fix** — Fix the turn-card rendering regression: during live SSE streaming, the structured turn card (question + options + impact + why) does not render until page refresh. Thinking streams live; server persists correctly; hydration from DB works. The type-strictness refactor (6b) provides typed seams for diagnosis. Root cause is in the interaction between `toUIMessageStream()`, `useChat` part accumulation, and the `ask_question` tool-part lifecycle. `not-started`
+6c. **Live streaming fix** — Fix the turn-card rendering regression: during live SSE streaming, the structured turn card does not render until page refresh. Thinking streams live; server persists correctly; hydration from DB works. Root cause is in the interaction between `toUIMessageStream()`, `useChat` part accumulation, and the tool-part lifecycle. `in-progress`
     - Requirements: → SPEC.md §Requirements #2, #3, #4
     - Assumptions: → SPEC.md §Assumptions A16, A28
-    - Invariants to establish: I24 (live tool-part rendering matches persisted state after refresh)
+    - Candidate invariant goals: live tool-part rendering matches persisted state after refresh
     - Invariants to respect: → SPEC.md §Invariants I16, I17, I18, I22
     - Acceptance: send a message in dev, see the structured turn card appear live without refresh; `npm run verify` passes
-    - **Verification approach**: inner — unit tests for tool-part state transitions in the stream. Outer — manual interview: turn card renders live, matches post-refresh state.
+    - **Observed current state (2026-04-07):** recent workspace/controller refactors likely changed the seam, and targeted regression tests (`InterviewWorkspace`, `workspace-controller`, `app`) are green, but there is still no oracle that proves live streaming renders the turn card before `onFinish` route invalidation.
+    - **Observed code seam:** `InterviewWorkspace.renderParts()` currently drops `tool-ask_question` parts, while the visible `TurnCard` is driven from durable loader state (`workspace-controller-core.ts`) that refreshes on router invalidation. That suggests the slice is not safely retireable yet without either (a) a characterization proving current browser behavior is already correct, or (b) a targeted fix.
+    - **Recommended next move for the implementing agent:** characterize the live browser behavior first, then either retire this slice as already satisfied and add the missing oracle coverage, or land the minimal render-path fix with tests.
+    - **Verification approach**: inner — unit/integration tests for tool-part state transitions or alternate live render path. Outer — manual interview: turn card renders live, matches post-refresh state.
 
-6d. **Tool composition: `activeTools` + `prepareCall`** — Enable per-phase tool sets on the `ToolLoopAgent`. Register core tools + `ask_question` in the agent's full toolset; use `activeTools` or `prepareCall` to gate which are available per step. Scope phase: `ask_question` only. Future kickoff mode: core tools only. This is the wiring layer between `createCoreTools()` and `createInterviewerAgent()`. `not-started`
-    - Requirements: → SPEC.md §Requirements #2, #7
-    - Assumptions: → SPEC.md §Assumptions A28, A29
-    - Decisions: → SPEC.md §Decisions D31, D32
-    - Invariants to establish: I25 (tool gating — only declared tools callable per step)
-    - Invariants to respect: → SPEC.md §Invariants I16, I22
-    - Acceptance: interviewer agent has core tools registered but only `ask_question` active during scope phase; `npm run verify` passes
-    - **Verification approach**: inner — unit test that agent receives only active tools per step. Middle — existing interview tests pass unchanged.
+6d. **Flexible turn-response model** — Replace the single-select answer assumption with typed response payloads that support zero/one/many selections, rationale, and custom answers. Keep structured interviewer guidance, recommendation, and strategic grounding, but stop assuming every turn maps to one categorical choice. `not-started`
+    - Requirements: → SPEC.md §Requirements #3, #6
+    - Assumptions: → SPEC.md §Assumptions A16, A28
+    - Decisions: → SPEC.md §Decisions D23, D24
+    - Candidate invariant goals: turn-response payload round-trip fidelity; multi-select/custom-answer state hydrates and replays correctly
+    - Invariants to respect: → SPEC.md §Invariants I17, I18, I19, I22
+    - Acceptance: a turn can be answered with multiple selections + rationale or with a custom answer; transcript, persistence, and resume stay aligned
+    - **Verification approach**: inner — schema + serialization tests for new prompt/response payloads. Outer — manual interview with multi-select and none-of-the-above answers.
 
-7. **Phase transition + resolution** — Agent judges when scope phase is complete. Add `resolve_phase` tool alongside `ask_question`. Agent calls `ask_question` for questions and `resolve_phase` when understanding is reached. Client shows phase summary + confirmation UI. Phase indicator updates. `not-started`
-   - Requirements: → SPEC.md §Requirements #7, #8
-   - Assumptions: → SPEC.md §Assumptions A15, A28
-   - Acceptance: agent marks resolution, summary shows, user confirms, phase indicator reflects completion
+6e. **Generic knowledge layer schema + sidebar projection** — Introduce the broader semantic layer (`framing`, `constraint`, `decision`, `assumption`, `requirement`, `criterion`) with generic provenance and graph edges, then project it cleanly into the sidebar without regressing existing reads. `not-started`
+    - Requirements: → SPEC.md §Requirements #5, #6, #14
+    - Assumptions: → SPEC.md §Assumptions A14
+    - Decisions: → SPEC.md §Decisions D5, D13, D25
+    - Candidate invariant goals: generic knowledge-item persistence with turn linkage; graph-edge fidelity across item kinds
+    - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I34
+    - Acceptance: project state can load and display generic knowledge items and edges from the active path without losing current resume behavior
+    - **Verification approach**: inner — DB/core tests for generic item persistence and projection. Middle — workspace integration tests for sidebar hydration.
 
-8. **Design drill-down phase** — Second agent skill. Walks the design tree with structured questions. Decisions extracted by observer. Continues until agent judges resolution. `not-started`
-   - Requirements: → SPEC.md §Requirements #2, #3
-   - Acceptance: design questions with options, decisions extracted and shown in sidebar, agent resolves when understanding is reached
+6f. **Phase-aware observer extraction** — Teach the observer to bias extraction by mode: scope prefers framing/constraints, design prefers decisions/assumptions, later modes can surface requirements/criteria and revisions. Keep the observer as a single structured extraction pass, but give it richer context and a broader ontology. `not-started`
+    - Requirements: → SPEC.md §Requirements #5, #6, #11, #12
+    - Assumptions: → SPEC.md §Assumptions A14, A20
+    - Decisions: → SPEC.md §Decisions D4, D5, D13, D25
+    - Candidate invariant goals: observer extracts framing without assumption inflation; phase-aware extraction deltas stay attributable to source turns
+    - Invariants to respect: → SPEC.md §Invariants I20, I21, I23
+    - Acceptance: scope turns primarily yield framing/constraints; design turns primarily yield decisions/assumptions; observer results still stream in-band to the sidebar
+    - **Verification approach**: middle — golden-master observer fixtures across scope/design examples. Outer — inspect project 18–style sessions for ontology fit.
 
-9. **Requirements review phase** — Third agent skill. Walks accumulated requirements list. Agent checks for gaps, proposes additions. User confirms each. Requirements get `reviewed_at` stamped. `not-started`
-   - Requirements: → SPEC.md §Requirements #11
-   - Acceptance: agent presents requirements, suggests gaps, user confirms, reviewed_at updated
+## Phase 5: Mode Closure + Full Interview
 
-10. **Criteria phase** — Fourth agent skill. For each confirmed requirement, agent proposes testable criteria. User selects/edits/confirms. Criteria get `reviewed_at` stamped. `not-started`
-     - Requirements: → SPEC.md §Requirements #12
-     - Acceptance: agent proposes criteria per requirement, user confirms, spec readiness predicate evaluable
-
-## Phase 5: Revisit + Export
-
-<!-- Decision revisit (branching), entity lifecycle (sidebar writes), soft invalidation,
-     and spec export. The product is complete. -->
+<!-- Once turns and knowledge capture fit the real interview, add explicit readiness artifacts,
+     then implement the remaining workflow modes on top of that foundation. -->
 
 ### Slices
 
-11. **Decision revisit: branch + checkout** — Click "revisit" on a decision in the sidebar → confirmation → `POST /api/projects/:id/branch` → HEAD moves to fork point → conversation rewinds → stale entities leave active path (path exclusion). Branch dropdown shows available branches. Checkout to switch. `not-started`
-    - Requirements: → SPEC.md §Requirements #9, #10
+7. **Explicit phase outcomes + scope closure** — Replace pure `is_resolution` semantics with explicit phase outcomes and user-confirmed scope closure. Scope mode closes when framing sufficiency is reached, not just when the model feels done. `not-started`
+   - Requirements: → SPEC.md §Requirements #7, #8
+   - Assumptions: → SPEC.md §Assumptions A15, A28
+   - Decisions: → SPEC.md §Decisions D2, D3, D6
+   - Candidate invariant goals: confirmed scope outcome survives refresh and invalidates correctly when upstream turns change
+   - Invariants to respect: → SPEC.md §Invariants I18, I24, I25
+   - Acceptance: scope mode proposes closure with a summary, user confirms, explicit phase outcome persists, and the project shows updated workflow state
+   - **Verification approach**: inner — DB/core tests for phase outcome lifecycle. Outer — manual closure/confirmation walkthrough.
+
+8. **Design mode (commitment / exploration)** — Implement the second workflow mode on the new turn and knowledge model. The interviewer walks design forks; the observer captures decisions, assumptions, new constraints, and emerging requirements. `not-started`
+   - Requirements: → SPEC.md §Requirements #2, #3, #5, #6
+   - Assumptions: → SPEC.md §Assumptions A14, A15, A28
+   - Decisions: → SPEC.md §Decisions D2, D5, D6
+   - Candidate invariant goals: mode transition preserves interview continuity; design-mode turns produce coherent decision/assumption graph growth
+   - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I22
+   - Acceptance: after confirmed scope closure, the interview enters design mode; design turns yield coherent commitments and assumptions and can propose design closure
+   - **Verification approach**: inner — mode-transition/controller tests. Outer — manual design walkthrough from a confirmed scope session.
+
+9. **Requirements-review mode** — Synthesize the requirement set from the full knowledge layer, then let the user approve, edit, merge, reject, and add requirements through review turns. `not-started`
+   - Requirements: → SPEC.md §Requirements #6, #11, #13
+   - Assumptions: → SPEC.md §Assumptions A15, A28
+   - Decisions: → SPEC.md §Decisions D2, D5, D6
+   - Candidate invariant goals: requirements are capture-anytime but review-complete only through explicit review state
+   - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I24
+   - Acceptance: requirements-review mode presents a synthesized requirement set, records explicit approval/edit state, and can close only when in-scope requirements are resolved
+   - **Verification approach**: inner — review-state lifecycle tests. Outer — manual requirement review with approvals, edits, and missing-item additions.
+
+10. **Criteria-review mode** — Synthesize verification conditions from approved requirements plus any earlier criteria-like signals, then drive review turns until coverage is complete. `not-started`
+     - Requirements: → SPEC.md §Requirements #6, #12, #13
+     - Assumptions: → SPEC.md §Assumptions A15, A28
+     - Decisions: → SPEC.md §Decisions D2, D5, D6, D17
+     - Candidate invariant goals: criteria verify requirements explicitly and track review completeness separately from requirement state
+     - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I24
+     - Acceptance: criteria-review mode presents synthesized criteria, records explicit review state, and can close only when approved requirements have sufficient verification coverage
+     - **Verification approach**: inner — criterion/review edge tests. Outer — manual criteria review with edits and coverage checks.
+
+## Phase 6: Revisit + Export
+
+<!-- Generalize revisit semantics from decisions-only branching to active-path readiness invalidation,
+     then export from the reviewed knowledge layer. -->
+
+### Slices
+
+11. **Generalized revisit: branch + readiness invalidation** — Revisit any earlier turn, not just a decision card. Branch from that turn, restore the interview there, and invalidate downstream phase outcomes / review state from the affected frontier. `not-started`
+    - Requirements: → SPEC.md §Requirements #9, #10, #13
     - Assumptions: → SPEC.md §Assumptions A6
-    - Decisions: → SPEC.md §Decisions D17 (path exclusion)
-    - Acceptance: revisit a decision, new branch created, interview resumes from fork point, checkout returns to previous path
-    - Ref: → docs/design/BREADBOARD.md §Wiring → Decision revisit
+    - Decisions: → SPEC.md §Decisions D1, D3, D17
+    - Candidate invariant goals: active-path switch hides abandoned-branch readiness; downstream stale state is attributed to the correct frontier
+    - Invariants to respect: → SPEC.md §Invariants I9, I10, I24, I25
+    - Acceptance: revisit a scope/design/review turn, new branch created, interview resumes from that point, and downstream closure/review state becomes stale until re-walked
+    - **Verification approach**: inner — branching + readiness invalidation tests. Outer — manual revisit across multiple modes.
 
-12. **Entity lifecycle API** — CRUD + review + verify/falsify endpoints for sidebar writes. `PUT .../assumptions/:id` with action (verify/falsify/update) triggers flag propagation per D17. `PUT .../requirements/:id` cascades to criteria. `PUT .../requirements/:id/review` and `.../criteria/:id/review` stamp `reviewed_at`. `not-started`
-    - Requirements: → SPEC.md §Requirements #9, #11, #12
-    - Decisions: → SPEC.md §Decisions D17 (flag propagation)
-    - Acceptance: falsify an assumption → dependent entities flagged; edit a requirement → criteria flagged; review stamps reviewed_at
-    - Ref: → docs/design/BREADBOARD.md §Code Affordances → Entity lifecycle
+12. **Knowledge review lifecycle API + sidebar edits** — CRUD/review endpoints for the broader knowledge layer. Editing or reviewing items should be provenance-bearing and update readiness state without becoming invisible side mutations. `not-started`
+    - Requirements: → SPEC.md §Requirements #6, #11, #12, #13
+    - Assumptions: → SPEC.md §Assumptions A14
+    - Decisions: → SPEC.md §Decisions D5, D17
+    - Candidate invariant goals: review/edit actions are reflected in both knowledge state and readiness state; sidebar writes are visible and recoverable
+    - Invariants to respect: → SPEC.md §Invariants I23, I36, I41, I42
+    - Acceptance: edit/review framing, constraints, requirements, or criteria from the sidebar; affected readiness updates visibly and persists across refresh/resume
+    - **Verification approach**: inner — mutation + invalidation tests. Outer — manual sidebar edit/review walkthrough.
 
-13. **Spec export** — Render markdown spec from active path entities (decisions, assumptions, requirements, criteria). Export route (`/project/:id/export`) shows preview. Download button. Enabled only when spec readiness predicate is true (all phases resolved + reviewed). `not-started`
+13. **Spec export from the reviewed knowledge layer** — Render markdown export from active-path, reviewed knowledge items and explicit phase outcomes. Export is enabled only when the new readiness predicate is satisfied. `not-started`
     - Requirements: → SPEC.md §Requirements #13
     - Assumptions: —
-    - Acceptance: complete all phases, navigate to export, markdown preview with all active-path entities, download .md file
-    - Ref: → docs/design/BREADBOARD.md §Places → P3
+    - Decisions: → SPEC.md §Decisions D5, D17, D26
+    - Candidate invariant goals: export reflects active-path reviewed knowledge only; readiness predicate gates export correctly
+    - Invariants to respect: → SPEC.md §Invariants I18, I21
+    - Acceptance: complete all modes, satisfy review completeness, navigate to export, see markdown preview from the reviewed knowledge layer, download `.md` file
+    - **Verification approach**: inner — export projection tests. Outer — manual export after a full walkthrough and after a revisit-induced stale state.
 
-## Phase 6: Distribution
+## Phase 7: Distribution
 
 <!-- Package and ship. -->
 
@@ -124,16 +178,18 @@
 14. **npx distribution + CLI** — `bin` entry, launcher starts Express (serves built Vite assets + API on one port), opens browser. `npx brunch` for web UI. `npx brunch [command]` for CLI operations. Single env var: `ANTHROPIC_API_KEY`. `not-started`
     - Requirements: → SPEC.md §Requirements #1
     - Decisions: → SPEC.md §Decisions D20
+    - Candidate invariant goals: packaged launcher preserves working DB lifecycle and browser boot flow
+    - Invariants to respect: → SPEC.md §Invariants I1, I2, I4, I5
     - Acceptance: `npx brunch` with key in scope opens working app
 
 ## Horizon
 
-<!-- Future work not yet broken into slices. Revisit after Phase 6. -->
+<!-- Future work not yet broken into slices. Revisit after Phase 7. -->
 
 - CLI interactive interview mode (terminal-based interview using core's DomainEvent stream)
 - MCP server adapter (expose core operations as MCP tools)
 - Turn tree visualization (git-log-style branch graph in sidebar)
-- Entity graph visualization (decision + assumption DAG view)
+- Knowledge graph visualization (framing / constraints / decisions / requirements / criteria view)
 - Exploratory pathway (for projects where the goal itself is unclear)
 - Project characterization kickoff mode (ToolLoopAgent with core tools explores existing codebase before interview)
 - Multi-provider support via AI SDK provider abstraction (architecturally possible now)
@@ -152,17 +208,20 @@ done ─────────────────────────
 ──────────────────────────────────────────────────────────────────┘
                         │
 Phase 4:  6b ──→ 6b1 (workspace oracle) ──→ 6c (live streaming fix)
-          6c ──→ 6d (tool composition)
-          6d ──→ 7 (transitions) ──→ 8 (design) ──→ 9 (requirements) ──→ 10 (criteria)
-Phase 5:  6 ──→ 11 (branching)
-          6 ──→ 12 (entity lifecycle API)
+          6c ──→ 6d (flexible turn-response model)
+          6d ──→ 6e (generic knowledge layer)
+          6e ──→ 6f (phase-aware observer)
+Phase 5:  6f ──→ 7 (explicit phase outcomes + scope closure)
+          7 ──→ 8 (design mode) ──→ 9 (requirements-review) ──→ 10 (criteria-review)
+Phase 6:  7 ──→ 11 (generalized revisit)
+          9 ──→ 12 (knowledge review lifecycle API)
           10 ──→ 13 (export)
-Phase 6:  13 ──→ 14 (npx + CLI)
+Phase 7:  13 ──→ 14 (npx + CLI)
 ```
 
 ### Parallelism opportunities
 
-- 6c (live streaming fix) and 6d (tool composition) are independent — 6c fixes rendering, 6d wires tools. Can proceed in parallel if 6c doesn't require tool-part changes that affect 6d.
-- Slice 7 (transitions) and 11 (branching) can start in parallel once 6d lands
-- Slice 12 (entity lifecycle API) can proceed in parallel with slice 11
-- Slice 14 (npx) can start early with a basic launcher, completing after slice 13
+- 6c (live streaming fix) and design work on 6d (flexible turn-response model) are mostly independent if 6d does not need to rewrite the live tool-part rendering seam.
+- 6e (generic knowledge layer) can begin in parallel with 6d after agreeing on the payload shape boundary.
+- 11 (generalized revisit) can begin once explicit phase outcomes (7) exist; it does not need requirements/criteria review UX to start proving readiness invalidation mechanics.
+- 14 (npx) can start early with a basic launcher, completing after slice 13 when the new export predicate stabilizes.
