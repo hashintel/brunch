@@ -413,7 +413,7 @@ describe('DB lifecycle — turn tree persistence', () => {
   });
 });
 
-describe('entity persistence — decisions, assumptions, and framing items', () => {
+describe('entity persistence — decisions, assumptions, and generic knowledge items', () => {
   it('creates a decision with project linkage', () => {
     const project = createProject(db, 'Test');
     const d = createDecision(db, project.id, 'Use SQLite for persistence');
@@ -450,24 +450,57 @@ describe('entity persistence — decisions, assumptions, and framing items', () 
     expect(entities.assumptions[0].content).toBe('Users have API keys');
   });
 
-  it('persists a framing item with project linkage and turn provenance', () => {
+  it('persists remaining generic knowledge kinds with project linkage, metadata, and turn provenance', () => {
     const project = createProject(db, 'Test');
     const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
-    const item = createKnowledgeItem(db, project.id, 'framing', 'The brief starts ambiguous');
-    linkKnowledgeItemToTurn(db, item.id, turn.id);
+    const constraint = createKnowledgeItem(db, project.id, 'constraint', 'Must run locally', {
+      subtype: 'non-goal',
+      rationale: 'Keep setup instant',
+    });
+    const requirement = createKnowledgeItem(db, project.id, 'requirement', 'Support resumable interviews', {
+      rationale: 'Users will leave and come back',
+    });
+    const criterion = createKnowledgeItem(db, project.id, 'criterion', 'Resume works after browser restart', {
+      subtype: 'acceptance',
+      rationale: 'Protects the persistence seam',
+    });
+    linkKnowledgeItemToTurn(db, constraint.id, turn.id);
+    linkKnowledgeItemToTurn(db, requirement.id, turn.id);
+    linkKnowledgeItemToTurn(db, criterion.id, turn.id);
 
     const entities = getEntitiesForProject(db, project.id);
-    expect(entities.framing).toHaveLength(1);
-    expect(entities.framing[0]).toMatchObject({
-      project_id: project.id,
-      kind: 'framing',
-      content: 'The brief starts ambiguous',
-    });
+    expect(entities.constraints).toEqual([
+      expect.objectContaining({
+        project_id: project.id,
+        kind: 'constraint',
+        subtype: 'non-goal',
+        content: 'Must run locally',
+        rationale: 'Keep setup instant',
+      }),
+    ]);
+    expect(entities.requirements).toEqual([
+      expect.objectContaining({
+        project_id: project.id,
+        kind: 'requirement',
+        subtype: null,
+        content: 'Support resumable interviews',
+        rationale: 'Users will leave and come back',
+      }),
+    ]);
+    expect(entities.criteria).toEqual([
+      expect.objectContaining({
+        project_id: project.id,
+        kind: 'criterion',
+        subtype: 'acceptance',
+        content: 'Resume works after browser restart',
+        rationale: 'Protects the persistence seam',
+      }),
+    ]);
 
-    const provenance = db.$client
-      .prepare('SELECT * FROM turn_knowledge_item WHERE turn_id = ? AND item_id = ?')
-      .get(turn.id, item.id) as { relation: string } | undefined;
-    expect(provenance?.relation).toBe('captured');
+    const provenanceRows = db.$client
+      .prepare('SELECT relation FROM turn_knowledge_item WHERE turn_id = ? ORDER BY item_id')
+      .all(turn.id) as Array<{ relation: string }>;
+    expect(provenanceRows.map((row) => row.relation)).toEqual(['captured', 'captured', 'captured']);
   });
 
   it('creates dependency edges between decisions', () => {

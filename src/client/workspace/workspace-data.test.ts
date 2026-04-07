@@ -102,6 +102,27 @@ describe('workspace controller core', () => {
   it('prefers refreshed entity query data while preserving loader snapshot fallback', () => {
     const entitySnapshot: EntitiesData = {
       framing: [],
+      constraints: [
+        {
+          id: 4,
+          project_id: 1,
+          kind: 'constraint',
+          subtype: 'non-goal',
+          content: 'Keep setup instant',
+          rationale: 'Avoid a heavy launcher',
+        },
+      ],
+      requirements: [
+        {
+          id: 5,
+          project_id: 1,
+          kind: 'requirement',
+          subtype: null,
+          content: 'Support resume',
+          rationale: 'Users leave mid-flow',
+        },
+      ],
+      criteria: [],
       decisions: [{ id: 1, project_id: 1, content: 'Loader decision', rationale: null }],
       assumptions: [{ id: 2, project_id: 1, content: 'Loader assumption' }],
       relationships: [
@@ -115,12 +136,24 @@ describe('workspace controller core', () => {
     const refreshedEntities: EntitiesData = {
       framing: [
         {
-          id: 4,
+          id: 6,
           project_id: 1,
           kind: 'framing',
           subtype: null,
           content: 'Refetched framing item',
           rationale: null,
+        },
+      ],
+      constraints: [],
+      requirements: [],
+      criteria: [
+        {
+          id: 7,
+          project_id: 1,
+          kind: 'criterion',
+          subtype: 'acceptance',
+          content: 'Refetched criterion',
+          rationale: 'Protects refresh behavior',
         },
       ],
       decisions: [{ id: 3, project_id: 1, content: 'Refetched decision', rationale: 'Newer' }],
@@ -129,13 +162,16 @@ describe('workspace controller core', () => {
         {
           type: 'depends_on',
           source: { collection: 'decision', kind: 'decision', id: 3 },
-          target: { collection: 'knowledge_item', kind: 'framing', id: 4 },
+          target: { collection: 'knowledge_item', kind: 'framing', id: 6 },
         },
       ],
     };
 
     expect(createWorkspaceDurableEntityState(entitySnapshot, undefined, true)).toEqual({
       framing: entitySnapshot.framing,
+      constraints: entitySnapshot.constraints,
+      requirements: entitySnapshot.requirements,
+      criteria: entitySnapshot.criteria,
       decisions: entitySnapshot.decisions,
       assumptions: entitySnapshot.assumptions,
       relationships: entitySnapshot.relationships,
@@ -144,6 +180,9 @@ describe('workspace controller core', () => {
 
     expect(createWorkspaceDurableEntityState(entitySnapshot, refreshedEntities, false)).toEqual({
       framing: refreshedEntities.framing,
+      constraints: refreshedEntities.constraints,
+      requirements: refreshedEntities.requirements,
+      criteria: refreshedEntities.criteria,
       decisions: refreshedEntities.decisions,
       assumptions: refreshedEntities.assumptions,
       relationships: refreshedEntities.relationships,

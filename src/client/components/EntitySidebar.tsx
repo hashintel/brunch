@@ -4,18 +4,40 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { WorkspaceDurableEntityState } from '@/workspace/workspace-controller-core';
 
-const tabs = ['Framing', 'Decisions', 'Assumptions'] as const;
+const tabs = ['Framing', 'Constraints', 'Requirements', 'Criteria', 'Decisions', 'Assumptions'] as const;
 type Tab = (typeof tabs)[number];
 
 function entityKey(collection: 'knowledge_item' | 'decision' | 'assumption', id: number) {
   return `${collection}:${id}`;
 }
 
+function renderKnowledgeItems(
+  items: Array<{ id: number; content: string; subtype: string | null; rationale: string | null }>,
+  emptyMessage: string,
+  isLoading: boolean,
+) {
+  if (items.length === 0 && !isLoading) {
+    return <p className="text-sm italic text-muted-foreground">{emptyMessage}</p>;
+  }
+
+  return items.map((item) => (
+    <div key={item.id} className="rounded-md border p-2.5">
+      <p className="text-sm">{item.content}</p>
+      {item.subtype && <p className="mt-1 text-xs text-muted-foreground">{item.subtype}</p>}
+      {item.rationale && <p className="mt-1 text-xs text-muted-foreground">{item.rationale}</p>}
+    </div>
+  ));
+}
+
 export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEntityState }) {
   const [activeTab, setActiveTab] = useState<Tab>('Decisions');
-  const { framing, decisions, assumptions, relationships, isLoading } = entityState;
+  const { framing, constraints, requirements, criteria, decisions, assumptions, relationships, isLoading } =
+    entityState;
   const contentByEntity = new Map<string, string>([
     ...framing.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
+    ...constraints.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
+    ...requirements.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
+    ...criteria.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
     ...decisions.map((decision) => [entityKey('decision', decision.id), decision.content] as const),
     ...assumptions.map((assumption) => [entityKey('assumption', assumption.id), assumption.content] as const),
   ]);
@@ -40,7 +62,17 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
       <div className="flex border-b">
         {tabs.map((tab) => {
           const count =
-            tab === 'Framing' ? framing.length : tab === 'Decisions' ? decisions.length : assumptions.length;
+            tab === 'Framing'
+              ? framing.length
+              : tab === 'Constraints'
+                ? constraints.length
+                : tab === 'Requirements'
+                  ? requirements.length
+                  : tab === 'Criteria'
+                    ? criteria.length
+                    : tab === 'Decisions'
+                      ? decisions.length
+                      : assumptions.length;
           return (
             <button
               key={tab}
@@ -70,18 +102,41 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
 
         {activeTab === 'Framing' && (
           <div className="flex flex-col gap-2">
-            {framing.length === 0 && !isLoading && (
-              <p className="text-sm italic text-muted-foreground">
-                No framing items yet. They'll appear as the interview progresses.
-              </p>
+            {renderKnowledgeItems(
+              framing,
+              "No framing items yet. They'll appear as the interview progresses.",
+              isLoading,
             )}
-            {framing.map((item) => (
-              <div key={item.id} className="rounded-md border p-2.5">
-                <p className="text-sm">{item.content}</p>
-                {item.subtype && <p className="mt-1 text-xs text-muted-foreground">{item.subtype}</p>}
-                {item.rationale && <p className="mt-1 text-xs text-muted-foreground">{item.rationale}</p>}
-              </div>
-            ))}
+          </div>
+        )}
+
+        {activeTab === 'Constraints' && (
+          <div className="flex flex-col gap-2">
+            {renderKnowledgeItems(
+              constraints,
+              "No constraints yet. They'll appear as the interview progresses.",
+              isLoading,
+            )}
+          </div>
+        )}
+
+        {activeTab === 'Requirements' && (
+          <div className="flex flex-col gap-2">
+            {renderKnowledgeItems(
+              requirements,
+              "No requirements yet. They'll appear as the interview progresses.",
+              isLoading,
+            )}
+          </div>
+        )}
+
+        {activeTab === 'Criteria' && (
+          <div className="flex flex-col gap-2">
+            {renderKnowledgeItems(
+              criteria,
+              "No criteria yet. They'll appear as the interview progresses.",
+              isLoading,
+            )}
           </div>
         )}
 

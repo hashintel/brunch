@@ -203,6 +203,9 @@ export interface EntityRelationship {
 
 export interface EntitiesForProject {
   framing: KnowledgeItem[];
+  constraints: KnowledgeItem[];
+  requirements: KnowledgeItem[];
+  criteria: KnowledgeItem[];
   decisions: Decision[];
   assumptions: Assumption[];
   relationships: EntityRelationship[];
@@ -288,12 +291,23 @@ export function addAssumptionParentAssumption(
     .run();
 }
 
-export function getEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
-  const framing = db
+function getKnowledgeItemsForProjectByKind(
+  db: DB,
+  projectId: number,
+  kind: Extract<KnowledgeKind, 'framing' | 'constraint' | 'requirement' | 'criterion'>,
+): KnowledgeItem[] {
+  return db
     .select()
     .from(schema.knowledgeItem)
-    .where(and(eq(schema.knowledgeItem.project_id, projectId), eq(schema.knowledgeItem.kind, 'framing')))
+    .where(and(eq(schema.knowledgeItem.project_id, projectId), eq(schema.knowledgeItem.kind, kind)))
     .all() as KnowledgeItem[];
+}
+
+export function getEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
+  const framing = getKnowledgeItemsForProjectByKind(db, projectId, 'framing');
+  const constraints = getKnowledgeItemsForProjectByKind(db, projectId, 'constraint');
+  const requirements = getKnowledgeItemsForProjectByKind(db, projectId, 'requirement');
+  const criteria = getKnowledgeItemsForProjectByKind(db, projectId, 'criterion');
   const decisions = db
     .select()
     .from(schema.decision)
@@ -371,6 +385,9 @@ export function getEntitiesForProject(db: DB, projectId: number): EntitiesForPro
 
   return {
     framing,
+    constraints,
+    requirements,
+    criteria,
     decisions,
     assumptions,
     relationships: relationships.map((relationship) => ({
