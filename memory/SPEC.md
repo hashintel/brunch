@@ -87,6 +87,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | A29 | Models can reliably compose generic filesystem tools (read, write, edit, bash, grep, find, ls) to explore and characterize an existing project                                                     | **validated** | D32                               | Characterization kickoff            | Validated (spike): `ToolLoopAgent` with 7 core tools explored brunch in 22 tool calls across 23 steps. See `spike/filesystem-tools.ts`.                                                                                                                                                                                             |
 | A33 | Structured turn responses can replace today's single-select flow while keeping persisted response parts, transcript hydration, and interviewer-context projection aligned for the first thin slice | **validated** | D23, D24, D25, D45, D46, D47, D48 | 6d flexible turn-response model     | Validated: `parts.test.ts`, `app.test.ts`, `context.test.ts`, and `InterviewWorkspace.test.tsx` now prove zero/one/many selected options plus optional free-text persist, rehydrate, and reach interviewer context coherently through the shared turn-response seam.                                                                |
 | A34 | A generic knowledge-item read model can coexist with today's decision/assumption-specific writes long enough to prove sidebar projection before observer widening                                     | **validated** | D5, D13, D22, D49                 | 6e generic knowledge layer, 6f observer widening | Validated: `db.test.ts`, `app.test.ts`, `workspace-data.test.ts`, and `InterviewWorkspace.test.tsx` now prove a generic `framing` item can persist with turn provenance, project through `/api/projects/:id/entities`, and render in the workspace sidebar without regressing legacy decision/assumption views.                     |
+| A35 | A mixed-source relationship read model can project today's legacy dependency tables and new generic knowledge items through one sidebar graph seam before observer writes migrate                         | **validated** | D5, D13, D22, D49, D50            | 6e generic knowledge layer, 6f observer widening | Validated: `db.test.ts`, `app.test.ts`, `workspace-data.test.ts`, and `InterviewWorkspace.test.tsx` now prove legacy parent/dependency links project through the shared entities API, hydrate through the workspace loader/query seam, and render as visible sidebar dependency affordances without regressing current framing/decision/assumption tabs. |
 
 ## Decisions
 
@@ -129,6 +130,8 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 48. **Choice-turn cards stage many selections locally and submit one array-shaped response seam** — Turn-card interaction now toggles zero/one/many selected options locally, then submits a single turn response carrying `positions[]` plus optional free-text through the same mutation/server boundary used by the other response paths. This keeps transcript hydration, persistence, and interviewer-context projection aligned without preserving the old immediate single-click selection behavior. Depends on: D45, D47. Supersedes: immediate single-option submit UI.
 
 49. **Generic knowledge reads widen the entity seam before observer writes migrate** — `knowledge_item` plus `turn_knowledge_item` form the first generic knowledge persistence seam, but current observer writes for decisions and assumptions remain on their legacy tables. The shared `/api/projects/:id/entities` projection and workspace sidebar now read `framing` from the generic seam alongside legacy `decision`/`assumption` collections so slice 6e can prove the migration path incrementally before widening observer output. Depends on: D5, D13, D22. Supersedes: decision/assumption-only entity reads in the sidebar.
+
+50. **Mixed-source dependency edges read through one typed entity-graph seam** — Legacy dependency tables still own today’s persisted edges, but `/api/projects/:id/entities` now projects them as one typed `relationships[]` payload with explicit source/target identity (`collection`, `kind`, `id`) so the workspace sidebar can render dependency affordances without waiting for observer writes to migrate to generic graph tables. Depends on: D5, D13, D22, D49. Supersedes: flat entity reads with no graph relationship projection.
 
 26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
 
@@ -219,6 +222,8 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | I47 | Choice-turn replies can stage and persist many selected options as one structured turn response without collapsing back to scalar selection semantics | Slice 6d.3 (many-selection UX + persistence/hydration)          | app.test.ts, parts.test.ts, context.test.ts, InterviewWorkspace.test.tsx        | D24, D45, D46, D48 |
 | I48 | Generic `framing` knowledge items persist with project linkage and turn provenance without disturbing legacy decision/assumption storage              | Slice 6e.1 (generic framing seam + sidebar projection)          | db.test.ts                                                                       | D49                |
 | I49 | Workspace entity projections can surface `framing` items alongside legacy decision/assumption collections through the shared entity seam              | Slice 6e.1 (generic framing seam + sidebar projection)          | app.test.ts, workspace-data.test.ts, InterviewWorkspace.test.tsx                | D22, D49           |
+| I50 | Legacy decision/assumption parent links project into one typed relationship read model with stable source/target identity                             | Slice 6e.2a (legacy dependency edges through the entity seam)   | db.test.ts                                                                       | D50                |
+| I51 | Workspace entity projections hydrate and render dependency relationships through the shared entity seam without regressing existing tabs                | Slice 6e.2a (legacy dependency edges through the entity seam)   | app.test.ts, workspace-data.test.ts, InterviewWorkspace.test.tsx                | D22, D50           |
 
 ## Lexicon
 
@@ -411,16 +416,16 @@ This projection difference is a deliberate design choice, not an implementation 
 
 | File                          | Tests | Protects                                              |
 | ----------------------------- | ----- | ----------------------------------------------------- |
-| db.test.ts                    | 33    | I5, I6, I9, I10, I11, I20, I48                        |
-| app.test.ts                   | 10    | I1, I2, I3, I7, I14, I21, I23, I44, I46, I47, I49     |
+| db.test.ts                    | 33    | I5, I6, I9, I10, I11, I20, I48, I50                   |
+| app.test.ts                   | 10    | I1, I2, I3, I7, I14, I21, I23, I44, I46, I47, I49, I51 |
 | core.test.ts                  | 6     | I12, I13, I18                                         |
 | interview.test.ts             | 6     | I16                                                   |
 | parts.test.ts                 | 10    | I17, I18, I44, I46, I47                               |
 | context.test.ts               | 11    | I19, I45, I47                                         |
 | observer.test.ts              | 2     | I20, I21                                              |
-| InterviewWorkspace.test.tsx   | 10    | I24, I25, I23, I33, I34, I35, I36, I43, I44, I46, I47, I49 |
+| InterviewWorkspace.test.tsx   | 10    | I24, I25, I23, I33, I34, I35, I36, I43, I44, I46, I47, I49, I51 |
 | ProjectList.test.tsx          | 2     | I36                                                   |
-| workspace-data.test.ts        | 4     | I33, I49                                              |
+| workspace-data.test.ts        | 4     | I33, I49, I51                                         |
 | chat-hydration.test.ts        | 3     | I35                                                   |
 | workspace-controller.test.tsx | 3     | I41, I43                                              |
 | client-mutation.test.ts       | 3     | I42                                                   |

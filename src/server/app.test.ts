@@ -194,13 +194,15 @@ describe('POST /api/projects/:id/chat', () => {
 });
 
 describe('GET /api/projects/:id/entities', () => {
-  it('returns a framing collection alongside legacy decisions and assumptions', async () => {
+  it('returns relationship data alongside framing, decisions, and assumptions', async () => {
     const projectId = await createTestProject();
-    const { createDecision, createAssumption, createKnowledgeItem } = await import('./db.js');
+    const { createDecision, createAssumption, createKnowledgeItem, addDecisionParentAssumption } =
+      await import('./db.js');
 
     createKnowledgeItem(db, projectId, 'framing', 'The project starts from an ambiguous brief');
-    createDecision(db, projectId, 'Start with the web app');
-    createAssumption(db, projectId, 'Users arrive with a concrete goal');
+    const decision = createDecision(db, projectId, 'Start with the web app');
+    const assumption = createAssumption(db, projectId, 'Users arrive with a concrete goal');
+    addDecisionParentAssumption(db, decision.id, assumption.id);
 
     const res = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
 
@@ -213,6 +215,13 @@ describe('GET /api/projects/:id/entities', () => {
       ],
       decisions: [{ content: 'Start with the web app' }],
       assumptions: [{ content: 'Users arrive with a concrete goal' }],
+      relationships: [
+        {
+          type: 'depends_on',
+          source: { collection: 'decision', kind: 'decision', id: decision.id },
+          target: { collection: 'assumption', kind: 'assumption', id: assumption.id },
+        },
+      ],
     });
   });
 });

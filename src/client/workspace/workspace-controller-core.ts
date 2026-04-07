@@ -22,6 +22,7 @@ export interface WorkspaceDurableEntityState {
   framing: EntitiesData['framing'];
   decisions: EntitiesData['decisions'];
   assumptions: EntitiesData['assumptions'];
+  relationships: EntitiesData['relationships'];
   isLoading: boolean;
 }
 
@@ -120,6 +121,7 @@ export function createWorkspaceDurableEntityState(
     framing: queryData?.framing ?? entitySnapshot.framing,
     decisions: queryData?.decisions ?? entitySnapshot.decisions,
     assumptions: queryData?.assumptions ?? entitySnapshot.assumptions,
+    relationships: queryData?.relationships ?? entitySnapshot.relationships,
     isLoading,
   };
 }

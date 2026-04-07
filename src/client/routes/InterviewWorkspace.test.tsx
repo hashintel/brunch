@@ -166,7 +166,7 @@ function createWorkspaceLoaderData({
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
   options = [],
-  entitySnapshot = { framing: [], decisions: [], assumptions: [] } satisfies EntitiesData,
+  entitySnapshot = { framing: [], decisions: [], assumptions: [], relationships: [] } satisfies EntitiesData,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -309,6 +309,7 @@ describe('InterviewWorkspace', () => {
           },
         ],
         assumptions: [],
+        relationships: [],
       },
     });
 
@@ -326,6 +327,7 @@ describe('InterviewWorkspace', () => {
         framing: [],
         decisions: [],
         assumptions: [],
+        relationships: [],
       },
     });
 
@@ -352,6 +354,7 @@ describe('InterviewWorkspace', () => {
           },
         ],
         assumptions: [],
+        relationships: [],
       },
     });
     rendered.rerender(
@@ -387,6 +390,7 @@ describe('InterviewWorkspace', () => {
         framing: [],
         decisions: [],
         assumptions: [],
+        relationships: [],
       },
     });
     rendered.rerender(
@@ -414,7 +418,7 @@ describe('InterviewWorkspace', () => {
     expect(screen.getByText('Begin with the API')).toBeTruthy();
   });
 
-  it('renders framing items in the sidebar without regressing the decisions tab', async () => {
+  it('renders persisted dependency relationships in the sidebar without regressing existing tabs', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
         framing: [
@@ -435,13 +439,23 @@ describe('InterviewWorkspace', () => {
             rationale: 'Fastest launch path',
           },
         ],
-        assumptions: [],
+        assumptions: [{ id: 5, project_id: 1, content: 'Users arrive with a concrete goal' }],
+        relationships: [
+          {
+            type: 'depends_on',
+            source: { collection: 'decision', kind: 'decision', id: 7 },
+            target: { collection: 'assumption', kind: 'assumption', id: 5 },
+          },
+        ],
       } as EntitiesData,
     });
 
     renderWorkspace();
 
     expect(await screen.findByText('Start with the web app')).toBeTruthy();
+    expect(screen.getByText(/depends on/i)).toBeTruthy();
+    expect(screen.getByText('Users arrive with a concrete goal')).toBeTruthy();
+
     fireEvent.click(screen.getByRole('button', { name: /framing/i }));
     expect(await screen.findByText('The tool starts from an ambiguous brief')).toBeTruthy();
 
@@ -455,6 +469,7 @@ describe('InterviewWorkspace', () => {
         framing: [],
         decisions: [],
         assumptions: [],
+        relationships: [],
       },
     });
     fetchMock.mockResolvedValueOnce(
@@ -470,6 +485,7 @@ describe('InterviewWorkspace', () => {
             },
           ],
           assumptions: [],
+          relationships: [],
         } satisfies EntitiesData),
         {
           status: 200,

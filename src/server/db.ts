@@ -187,6 +187,26 @@ export type Decision = InferSelectModel<typeof schema.decision>;
 export type Assumption = InferSelectModel<typeof schema.assumption>;
 export type KnowledgeItem = InferSelectModel<typeof schema.knowledgeItem>;
 export type KnowledgeKind = KnowledgeItem['kind'];
+export type EntityCollection = 'knowledge_item' | 'decision' | 'assumption';
+
+export interface EntityReference {
+  collection: EntityCollection;
+  kind: KnowledgeKind;
+  id: number;
+}
+
+export interface EntityRelationship {
+  type: 'depends_on';
+  source: EntityReference;
+  target: EntityReference;
+}
+
+export interface EntitiesForProject {
+  framing: KnowledgeItem[];
+  decisions: Decision[];
+  assumptions: Assumption[];
+  relationships: EntityRelationship[];
+}
 
 export function createDecision(
   db: DB,
@@ -268,10 +288,7 @@ export function addAssumptionParentAssumption(
     .run();
 }
 
-export function getEntitiesForProject(
-  db: DB,
-  projectId: number,
-): { framing: KnowledgeItem[]; decisions: Decision[]; assumptions: Assumption[] } {
+export function getEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
   const framing = db
     .select()
     .from(schema.knowledgeItem)
@@ -287,5 +304,87 @@ export function getEntitiesForProject(
     .from(schema.assumption)
     .where(eq(schema.assumption.project_id, projectId))
     .all() as Assumption[];
-  return { framing, decisions, assumptions };
+  const relationships = db.all(sql`
+    SELECT
+      'depends_on' AS type,
+      source_collection,
+      source_kind,
+      source_id,
+      target_collection,
+      target_kind,
+      target_id
+    FROM (
+      SELECT
+        'decision' AS source_collection,
+        'decision' AS source_kind,
+        edge.decision_id AS source_id,
+        'decision' AS target_collection,
+        'decision' AS target_kind,
+        edge.parent_decision_id AS target_id
+      FROM decision_parent_decision edge
+      JOIN decision source ON source.id = edge.decision_id
+      JOIN decision target ON target.id = edge.parent_decision_id
+      WHERE source.project_id = ${projectId} AND target.project_id = ${projectId}
+
+      UNION ALL
+
+      SELECT
+        'decision' AS source_collection,
+        'decision' AS source_kind,
+        edge.decision_id AS source_id,
+        'assumption' AS target_collection,
+        'assumption' AS target_kind,
+        edge.parent_assumption_id AS target_id
+      FROM decision_parent_assumption edge
+      JOIN decision source ON source.id = edge.decision_id
+      JOIN assumption target ON target.id = edge.parent_assumption_id
+      WHERE source.project_id = ${projectId} AND target.project_id = ${projectId}
+
+      UNION ALL
+
+      SELECT
+        'assumption' AS source_collection,
+        'assumption' AS source_kind,
+        edge.assumption_id AS source_id,
+        'assumption' AS target_collection,
+        'assumption' AS target_kind,
+        edge.parent_assumption_id AS target_id
+      FROM assumption_parent_assumption edge
+      JOIN assumption source ON source.id = edge.assumption_id
+      JOIN assumption target ON target.id = edge.parent_assumption_id
+      WHERE source.project_id = ${projectId} AND target.project_id = ${projectId}
+    ) relationships
+    ORDER BY
+      CASE source_collection WHEN 'decision' THEN 0 WHEN 'assumption' THEN 1 ELSE 2 END,
+      source_id,
+      CASE target_collection WHEN 'decision' THEN 0 WHEN 'assumption' THEN 1 ELSE 2 END,
+      target_id
+  `) as Array<{
+    type: EntityRelationship['type'];
+    source_collection: EntityReference['collection'];
+    source_kind: EntityReference['kind'];
+    source_id: number;
+    target_collection: EntityReference['collection'];
+    target_kind: EntityReference['kind'];
+    target_id: number;
+  }>;
+
+  return {
+    framing,
+    decisions,
+    assumptions,
+    relationships: relationships.map((relationship) => ({
+      type: relationship.type,
+      source: {
+        collection: relationship.source_collection,
+        kind: relationship.source_kind,
+        id: relationship.source_id,
+      },
+      target: {
+        collection: relationship.target_collection,
+        kind: relationship.target_kind,
+        id: relationship.target_id,
+      },
+    })),
+  };
 }

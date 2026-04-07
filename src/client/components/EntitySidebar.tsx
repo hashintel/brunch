@@ -7,9 +7,32 @@ import type { WorkspaceDurableEntityState } from '@/workspace/workspace-controll
 const tabs = ['Framing', 'Decisions', 'Assumptions'] as const;
 type Tab = (typeof tabs)[number];
 
+function entityKey(collection: 'knowledge_item' | 'decision' | 'assumption', id: number) {
+  return `${collection}:${id}`;
+}
+
 export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEntityState }) {
   const [activeTab, setActiveTab] = useState<Tab>('Decisions');
-  const { framing, decisions, assumptions, isLoading } = entityState;
+  const { framing, decisions, assumptions, relationships, isLoading } = entityState;
+  const contentByEntity = new Map<string, string>([
+    ...framing.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
+    ...decisions.map((decision) => [entityKey('decision', decision.id), decision.content] as const),
+    ...assumptions.map((assumption) => [entityKey('assumption', assumption.id), assumption.content] as const),
+  ]);
+
+  function getDependencyLabels(source: { collection: 'decision' | 'assumption'; id: number }) {
+    return relationships
+      .filter(
+        (relationship) =>
+          relationship.type === 'depends_on' &&
+          relationship.source.collection === source.collection &&
+          relationship.source.id === source.id,
+      )
+      .map((relationship) =>
+        contentByEntity.get(entityKey(relationship.target.collection, relationship.target.id)),
+      )
+      .filter((content): content is string => Boolean(content));
+  }
 
   return (
     <div className="flex h-full w-72 flex-col border-l bg-card">
@@ -69,12 +92,26 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
                 No decisions yet. They'll appear as the interview progresses.
               </p>
             )}
-            {decisions.map((d) => (
-              <div key={d.id} className="rounded-md border p-2.5">
-                <p className="text-sm">{d.content}</p>
-                {d.rationale && <p className="mt-1 text-xs text-muted-foreground">{d.rationale}</p>}
-              </div>
-            ))}
+            {decisions.map((d) => {
+              const dependencyLabels = getDependencyLabels({ collection: 'decision', id: d.id });
+
+              return (
+                <div key={d.id} className="rounded-md border p-2.5">
+                  <p className="text-sm">{d.content}</p>
+                  {d.rationale && <p className="mt-1 text-xs text-muted-foreground">{d.rationale}</p>}
+                  {dependencyLabels.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-muted-foreground">Depends on</p>
+                      <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
+                        {dependencyLabels.map((label) => (
+                          <li key={label}>{label}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
 
@@ -85,11 +122,25 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
                 No assumptions yet. They'll appear as the interview progresses.
               </p>
             )}
-            {assumptions.map((a) => (
-              <div key={a.id} className="rounded-md border p-2.5">
-                <p className="text-sm">{a.content}</p>
-              </div>
-            ))}
+            {assumptions.map((a) => {
+              const dependencyLabels = getDependencyLabels({ collection: 'assumption', id: a.id });
+
+              return (
+                <div key={a.id} className="rounded-md border p-2.5">
+                  <p className="text-sm">{a.content}</p>
+                  {dependencyLabels.length > 0 && (
+                    <div className="mt-2">
+                      <p className="text-xs font-medium text-muted-foreground">Depends on</p>
+                      <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
+                        {dependencyLabels.map((label) => (
+                          <li key={label}>{label}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

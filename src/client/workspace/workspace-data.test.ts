@@ -104,6 +104,13 @@ describe('workspace controller core', () => {
       framing: [],
       decisions: [{ id: 1, project_id: 1, content: 'Loader decision', rationale: null }],
       assumptions: [{ id: 2, project_id: 1, content: 'Loader assumption' }],
+      relationships: [
+        {
+          type: 'depends_on',
+          source: { collection: 'decision', kind: 'decision', id: 1 },
+          target: { collection: 'assumption', kind: 'assumption', id: 2 },
+        },
+      ],
     };
     const refreshedEntities: EntitiesData = {
       framing: [
@@ -118,12 +125,20 @@ describe('workspace controller core', () => {
       ],
       decisions: [{ id: 3, project_id: 1, content: 'Refetched decision', rationale: 'Newer' }],
       assumptions: [],
+      relationships: [
+        {
+          type: 'depends_on',
+          source: { collection: 'decision', kind: 'decision', id: 3 },
+          target: { collection: 'knowledge_item', kind: 'framing', id: 4 },
+        },
+      ],
     };
 
     expect(createWorkspaceDurableEntityState(entitySnapshot, undefined, true)).toEqual({
       framing: entitySnapshot.framing,
       decisions: entitySnapshot.decisions,
       assumptions: entitySnapshot.assumptions,
+      relationships: entitySnapshot.relationships,
       isLoading: true,
     });
 
@@ -131,6 +146,7 @@ describe('workspace controller core', () => {
       framing: refreshedEntities.framing,
       decisions: refreshedEntities.decisions,
       assumptions: refreshedEntities.assumptions,
+      relationships: refreshedEntities.relationships,
       isLoading: false,
     });
   });

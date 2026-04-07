@@ -479,14 +479,36 @@ describe('entity persistence — decisions, assumptions, and framing items', () 
     expect(entities.decisions).toHaveLength(2);
   });
 
-  it('creates dependency edges between decisions and assumptions', () => {
+  it('projects legacy parent links through one typed relationship read model', () => {
     const project = createProject(db, 'Test');
-    const a = createAssumption(db, project.id, 'SDK supports streaming');
-    const d = createDecision(db, project.id, 'Use SDK streaming');
-    addDecisionParentAssumption(db, d.id, a.id);
+    const parentDecision = createDecision(db, project.id, 'Use Express');
+    const dependentDecision = createDecision(db, project.id, 'Use SSE for streaming');
+    const parentAssumption = createAssumption(db, project.id, 'SDK supports streaming');
+    const dependentAssumption = createAssumption(db, project.id, 'Single-user tool');
+
+    addDecisionParentDecision(db, dependentDecision.id, parentDecision.id);
+    addDecisionParentAssumption(db, dependentDecision.id, parentAssumption.id);
+    addAssumptionParentAssumption(db, dependentAssumption.id, parentAssumption.id);
+
     const entities = getEntitiesForProject(db, project.id);
-    expect(entities.decisions).toHaveLength(1);
-    expect(entities.assumptions).toHaveLength(1);
+
+    expect(entities.relationships).toEqual([
+      {
+        type: 'depends_on',
+        source: { collection: 'decision', kind: 'decision', id: dependentDecision.id },
+        target: { collection: 'decision', kind: 'decision', id: parentDecision.id },
+      },
+      {
+        type: 'depends_on',
+        source: { collection: 'decision', kind: 'decision', id: dependentDecision.id },
+        target: { collection: 'assumption', kind: 'assumption', id: parentAssumption.id },
+      },
+      {
+        type: 'depends_on',
+        source: { collection: 'assumption', kind: 'assumption', id: dependentAssumption.id },
+        target: { collection: 'assumption', kind: 'assumption', id: parentAssumption.id },
+      },
+    ]);
   });
 
   it('creates dependency edges between assumptions', () => {

@@ -129,7 +129,7 @@ function createWorkspaceLoaderData({
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
   options = [],
-  entitySnapshot = { framing: [], decisions: [], assumptions: [] } satisfies EntitiesData,
+  entitySnapshot = { framing: [], decisions: [], assumptions: [], relationships: [] } satisfies EntitiesData,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -284,6 +284,7 @@ describe('workspace controller', () => {
           },
         ],
         assumptions: [],
+        relationships: [],
       },
     });
 
@@ -327,6 +328,7 @@ describe('workspace controller', () => {
           },
         ],
         assumptions: [],
+        relationships: [],
       },
     });
 

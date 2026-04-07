@@ -83,17 +83,18 @@
 
 6e. **Generic knowledge layer schema + sidebar projection** — Introduce the broader semantic layer (`framing`, `constraint`, `decision`, `assumption`, `requirement`, `criterion`) with generic provenance and graph edges, then project it cleanly into the sidebar without regressing existing reads. `in-progress`
     - Requirements: → SPEC.md §Requirements #5, #6, #14
-    - Assumptions: → SPEC.md §Assumptions A14, A34
-    - Decisions: → SPEC.md §Decisions D5, D13, D25, D49
+    - Assumptions: → SPEC.md §Assumptions A14, A34, A35
+    - Decisions: → SPEC.md §Decisions D5, D13, D25, D49, D50
     - Candidate invariant goals: generic knowledge-item persistence with turn linkage; graph-edge fidelity across item kinds
     - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I34
-    - Invariants established: → SPEC.md §Invariants I48, I49
+    - Invariants established: → SPEC.md §Invariants I48, I49, I50, I51
     - Acceptance: project state can load and display generic knowledge items and edges from the active path without losing current resume behavior
-    - **Observed current state (2026-04-07, tracer bullet 1):** generic `knowledge_item` + `turn_knowledge_item` persistence now carries `framing` items with turn provenance, `/api/projects/:id/entities` returns `framing` alongside legacy decisions/assumptions, and the workspace sidebar renders a Framing tab from loader/query snapshots without regressing the existing decision tab. Remaining work is widening beyond `framing` and adding generic edge projection.
-    - **Verification approach**: inner — DB/core tests for generic item persistence and projection. Middle — workspace integration tests for sidebar hydration.
+    - **Observed current state (2026-04-07, tracer bullets 1–2a):** generic `knowledge_item` + `turn_knowledge_item` persistence now carries `framing` items with turn provenance, `/api/projects/:id/entities` returns `framing` plus a typed `relationships[]` projection alongside legacy decisions/assumptions, and the workspace sidebar renders both the Framing tab and dependency affordances without regressing existing decision/assumption views. Remaining work is widening beyond `framing` and legacy dependency reads into the broader generic knowledge kinds/edges.
+    - **Verification approach**: inner — DB/core tests for generic item persistence and relationship projection. Middle — workspace integration tests for sidebar hydration and dependency rendering.
     - Tracer bullets:
       - `6e.1` Framing items through the generic knowledge seam. `done`
-      - `6e.2` Remaining kind widening + generic edge projection. `not-started`
+      - `6e.2a` Legacy dependency edges through the generic entity seam. `done`
+      - `6e.2b` Remaining kind widening through the sidebar seam. `not-started`
 
 6f. **Phase-aware observer extraction** — Teach the observer to bias extraction by mode: scope prefers framing/constraints, design prefers decisions/assumptions, later modes can surface requirements/criteria and revisions. Keep the observer as a single structured extraction pass, but give it richer context and a broader ontology. `not-started`
     - Requirements: → SPEC.md §Requirements #5, #6, #11, #12
