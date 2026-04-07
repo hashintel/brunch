@@ -1,8 +1,10 @@
 'use client';
 
-import type { BundledLanguage, ThemedToken } from 'shiki';
+import type { ThemedToken } from 'shiki';
 
-export type CodeLanguage = BundledLanguage;
+export const SUPPORTED_CODE_LANGUAGES = ['json', 'text', 'typescript'] as const;
+
+export type CodeLanguage = (typeof SUPPORTED_CODE_LANGUAGES)[number];
 export type CodeToken = ThemedToken;
 
 export interface TokenizedCode {

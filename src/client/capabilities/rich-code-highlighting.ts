@@ -2,9 +2,11 @@
 
 import type { BundledTheme, HighlighterGeneric } from 'shiki';
 import { createHighlighter } from 'shiki';
+import { createJavaScriptRegexEngine } from 'shiki/engine/javascript';
 
 import type { CodeLanguage, TokenizedCode } from './code-highlighting';
 
+const regexEngine = createJavaScriptRegexEngine({ forgiving: true });
 const highlighterCache = new Map<string, Promise<HighlighterGeneric<CodeLanguage, BundledTheme>>>();
 
 const getHighlighter = (language: CodeLanguage): Promise<HighlighterGeneric<CodeLanguage, BundledTheme>> => {
@@ -14,9 +16,10 @@ const getHighlighter = (language: CodeLanguage): Promise<HighlighterGeneric<Code
   }
 
   const highlighterPromise = createHighlighter({
+    engine: regexEngine,
     langs: [language],
     themes: ['github-light', 'github-dark'],
-  });
+  }) as Promise<HighlighterGeneric<CodeLanguage, BundledTheme>>;
 
   highlighterCache.set(language, highlighterPromise);
   return highlighterPromise;
