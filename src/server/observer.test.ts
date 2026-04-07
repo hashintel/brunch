@@ -2,8 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { DB } from './db.js';
 
-const { mockGenerateObject, mockAnthropic } = vi.hoisted(() => ({
-  mockGenerateObject: vi.fn(),
+const { mockGenerateText, mockAnthropic } = vi.hoisted(() => ({
+  mockGenerateText: vi.fn(),
   mockAnthropic: vi.fn(() => 'mock-model'),
 }));
 
@@ -15,17 +15,17 @@ vi.mock('ai', async () => {
   const actual = await vi.importActual<typeof import('ai')>('ai');
   return {
     ...actual,
-    generateObject: mockGenerateObject,
+    generateText: mockGenerateText,
   };
 });
 
-const { runObserver, observerOutputSchema } = await import('./observer.js');
+const { runObserver } = await import('./observer.js');
 const { createDb, createProject, createTurn, getEntitiesForProject } = await import('./db.js');
 
 let db: DB;
 
 beforeEach(() => {
-  mockGenerateObject.mockReset();
+  mockGenerateText.mockReset();
   db = createDb();
 });
 
@@ -35,8 +35,8 @@ afterEach(() => {
 
 describe('runObserver', () => {
   it('persists extracted decisions and assumptions and returns their ids', async () => {
-    mockGenerateObject.mockResolvedValue({
-      object: {
+    mockGenerateText.mockResolvedValue({
+      output: {
         decisions: [
           {
             content: 'Use SQLite',
@@ -61,9 +61,9 @@ describe('runObserver', () => {
     expect(entities.assumptions[0].content).toBe('Single-user tool');
   });
 
-  it('calls generateObject with the typed schema and turn context', async () => {
-    mockGenerateObject.mockResolvedValue({
-      object: {
+  it('calls generateText with structured output and turn context', async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
         decisions: [],
         assumptions: [],
       },
@@ -79,9 +79,13 @@ describe('runObserver', () => {
     await runObserver(db, turn, project.id);
 
     expect(mockAnthropic).toHaveBeenCalled();
-    expect(mockGenerateObject).toHaveBeenCalledWith(
+    expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        schema: observerOutputSchema,
+        output: expect.objectContaining({
+          name: 'object',
+          parseCompleteOutput: expect.any(Function),
+          parsePartialOutput: expect.any(Function),
+        }),
         prompt: expect.stringContaining('What database?'),
       }),
     );

@@ -8,6 +8,7 @@ import {
   brunchDataPartSchemas,
   brunchValidationTools,
   extractTextFromMessage,
+  formatTurnResponseText,
   type BrunchAssistantPart,
   type BrunchUIMessage,
   type BrunchUserPart,
@@ -24,7 +25,7 @@ import {
   createDb,
   getTurn,
   getOptionsForTurn,
-  selectOption,
+  selectOptions,
   updateTurn,
   getEntitiesForProject,
 } from './db.js';
@@ -68,18 +69,24 @@ export function createApp(dbPath?: string) {
     res.json(state satisfies ProjectState);
   });
 
-  // Select an option on a turn
+  // Submit a turn response on a turn
   app.post('/api/projects/:id/turns/:turnId/select', (req: Request, res: Response) => {
     const projectId = Number(req.params.id);
     const turnId = Number(req.params.turnId);
-    const position = req.body?.position;
+    const positions: number[] = Array.isArray(req.body?.positions)
+      ? req.body.positions.filter((value: unknown): value is number => typeof value === 'number')
+      : typeof req.body?.position === 'number'
+        ? [req.body.position]
+        : [];
+    const uniquePositions: number[] = [...new Set(positions)];
+    const freeText = typeof req.body.freeText === 'string' ? req.body.freeText.trim() : undefined;
 
     if (Number.isNaN(projectId) || Number.isNaN(turnId)) {
       res.status(400).json({ error: 'Invalid IDs' });
       return;
     }
-    if (typeof position !== 'number') {
-      res.status(400).json({ error: 'position is required (number)' });
+    if (uniquePositions.length === 0 && !freeText) {
+      res.status(400).json({ error: 'positions are required unless freeText is provided' });
       return;
     }
 
@@ -89,20 +96,30 @@ export function createApp(dbPath?: string) {
       return;
     }
 
-    selectOption(db, turnId, position);
-
     const options = getOptionsForTurn(db, turnId);
-    const selected = options.find((o) => o.position === position);
+    const selectedOptions = options.filter((option) => uniquePositions.includes(option.position));
+    if (selectedOptions.length !== uniquePositions.length) {
+      res.status(400).json({ error: 'Selected option not found' });
+      return;
+    }
+    selectOptions(db, turnId, uniquePositions);
+
+    const selectedOptionIds = selectedOptions.map((option) => option.id);
+    const selectedOptionContents = selectedOptions.map((option) => option.content);
+    const responseText = formatTurnResponseText({
+      selectedOptionContents,
+      freeText,
+    });
 
     const dataPart = {
-      type: 'data-option-selection',
-      data: { turnId, selectedOptionId: selected?.id ?? position },
-    } as const satisfies Extract<BrunchUserPart, { type: 'data-option-selection' }>;
+      type: 'data-turn-response',
+      data: { turnId, selectedOptionIds, ...(freeText ? { freeText } : {}) },
+    } as const satisfies Extract<BrunchUserPart, { type: 'data-turn-response' }>;
 
     updateTurn(db, turnId, {
-      answer: selected?.content ?? '',
+      answer: responseText,
       user_parts: serializeParts([
-        ...(selected?.content ? ([{ type: 'text', text: selected.content }] as const) : []),
+        ...(responseText ? ([{ type: 'text', text: responseText }] as const) : []),
         dataPart,
       ] satisfies BrunchUserPart[]),
     });
@@ -152,9 +169,7 @@ export function createApp(dbPath?: string) {
       lastUserMessage?.role === 'user' && lastUserMessage.parts.length > 0
         ? lastUserMessage.parts.filter(
             (part): part is BrunchUserPart =>
-              part.type === 'text' ||
-              part.type === 'data-option-selection' ||
-              part.type === 'data-confirmation',
+              part.type === 'text' || part.type === 'data-turn-response' || part.type === 'data-confirmation',
           )
         : [{ type: 'text', text: prompt }];
 

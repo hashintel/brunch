@@ -289,8 +289,8 @@ describe('InterviewWorkspace', () => {
 
     await waitFor(() => {
       expect(screen.getByText('Which platform should we target next?')).toBeTruthy();
-      expect(screen.getByRole('button', { name: /web recommended/i })).toBeTruthy();
-      expect(screen.getByRole('button', { name: /desktop/i })).toBeTruthy();
+      expect(screen.getByRole('checkbox', { name: /web/i })).toBeTruthy();
+      expect(screen.getByRole('checkbox', { name: /desktop/i })).toBeTruthy();
       expect(screen.queryByLabelText('Type a message...')).toBeNull();
       expect(routerInvalidate).not.toHaveBeenCalled();
     });
@@ -455,7 +455,7 @@ describe('InterviewWorkspace', () => {
     });
   });
 
-  it('posts option selections, refreshes project state, and forwards the selected text back into chat', async () => {
+  it('posts single-option turn responses with optional free-text and forwards a combined summary into chat', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       options: [
         { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
@@ -472,7 +472,12 @@ describe('InterviewWorkspace', () => {
 
     renderWorkspace();
 
-    fireEvent.click(await screen.findByRole('button', { name: /desktop/i }));
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'Best fit for our launch' },
+    });
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -480,14 +485,98 @@ describe('InterviewWorkspace', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ position: 1 }),
+          body: JSON.stringify({ positions: [1], freeText: 'Best fit for our launch' }),
         }),
       );
     });
 
     await waitFor(() => {
       expect(routerInvalidate).toHaveBeenCalledTimes(1);
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Desktop' });
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Desktop — Best fit for our launch' });
+    });
+  });
+
+  it('posts many-selection turn responses and forwards a grouped summary into chat', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      options: [
+        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        { id: 13, position: 2, content: 'Mobile', is_recommended: false, is_selected: false },
+      ],
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: /web/i }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'Covers both launch paths' },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/turns/1/select',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ positions: [0, 1], freeText: 'Covers both launch paths' }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        text: 'Web, Desktop — Covers both launch paths',
+      });
+    });
+  });
+
+  it('posts free-text-only turn responses and forwards the text into chat', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      options: [
+        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+      ],
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'None of these fit our use case' },
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /submit free-text response/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/turns/1/select',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ freeText: 'None of these fit our use case' }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'None of these fit our use case' });
     });
   });
 
@@ -508,7 +597,8 @@ describe('InterviewWorkspace', () => {
 
     renderWorkspace();
 
-    fireEvent.click(await screen.findByRole('button', { name: /desktop/i }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
 
     expect((await screen.findByRole('alert')).textContent).toContain('Selection could not be saved');
     expect(routerInvalidate).not.toHaveBeenCalled();

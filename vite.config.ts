@@ -1,25 +1,26 @@
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import { agentTail } from 'agent-tail/vite';
-import { defineConfig } from 'vite';
+import { defineConfig } from 'vitest/config';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-	plugins: [react(), tailwindcss(), agentTail()],
-	resolve: {
-		alias: {
-			'@': resolve(__dirname, './src/client'),
-		},
-	},
-	server: {
-		proxy: {
-			'/api': 'http://localhost:3000',
-		},
-	},
-	test: {
-		include: ['src/**/*.test.{js,ts,jsx,tsx}'],
-	},
+  plugins: [react(), tailwindcss(), agentTail()],
+  resolve: {
+    alias: {
+      '@': resolve(__dirname, './src/client'),
+    },
+  },
+  server: {
+    proxy: {
+      '/api': 'http://localhost:3000',
+    },
+  },
+  test: {
+    include: ['src/**/*.test.{js,ts,jsx,tsx}'],
+  },
 });

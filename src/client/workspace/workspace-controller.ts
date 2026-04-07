@@ -3,7 +3,7 @@ import { useLoaderData, useParams, useRouter } from '@tanstack/react-router';
 import { DefaultChatTransport, type ChatStatus } from 'ai';
 import { useCallback, useMemo } from 'react';
 
-import { useSelectTurnOptionMutation } from '@/mutations/workspace-mutations';
+import { useSubmitTurnResponseMutation } from '@/mutations/workspace-mutations';
 
 import type { ProjectStateTurn } from '../../shared/api-types.js';
 import { brunchDataPartSchemas, type BrunchUIMessage } from '../../shared/chat.js';
@@ -27,7 +27,7 @@ export interface WorkspaceControllerTurnCardState {
   turn: ProjectStateTurn;
   disabled: boolean;
   errorMessage: string | null;
-  selectOption: (position: number) => Promise<void>;
+  submitTurnResponse: (positions: number[], freeText?: string) => Promise<void>;
 }
 
 export interface WorkspaceControllerPromptInputState {
@@ -65,7 +65,7 @@ export function useWorkspaceController(): WorkspaceController {
       void router.invalidate();
     },
   });
-  const selectOptionMutation = useSelectTurnOptionMutation({
+  const submitTurnResponseMutation = useSubmitTurnResponseMutation({
     projectId,
     turn: durableProject.lastTurn,
     sendMessage,
@@ -103,14 +103,14 @@ export function useWorkspaceController(): WorkspaceController {
     turnCard: viewState.turnCard
       ? {
           turn: viewState.turnCard.turn,
-          disabled: selectOptionMutation.isPending || isLoading,
-          errorMessage: selectOptionMutation.errorMessage,
-          selectOption: selectOptionMutation.selectOption,
+          disabled: submitTurnResponseMutation.isPending || isLoading,
+          errorMessage: submitTurnResponseMutation.errorMessage,
+          submitTurnResponse: submitTurnResponseMutation.submitTurnResponse,
         }
       : null,
     promptInput: {
       visible: viewState.promptInput.visible,
-      disabled: isLoading || selectOptionMutation.isPending,
+      disabled: isLoading || submitTurnResponseMutation.isPending,
     },
   };
 }

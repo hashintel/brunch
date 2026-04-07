@@ -214,3 +214,8 @@ export function createWorkspaceControllerViewState(
 export function findTurnOptionByPosition(turn: ProjectStateTurn | undefined, position: number) {
   return turn?.options?.find((option) => option.position === position);
 }
+
+export function findTurnOptionsByPositions(turn: ProjectStateTurn | undefined, positions: number[]) {
+  const uniquePositions = [...new Set(positions)];
+  return turn?.options?.filter((option) => uniquePositions.includes(option.position)) ?? [];
+}

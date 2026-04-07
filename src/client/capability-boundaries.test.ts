@@ -20,7 +20,8 @@ describe('client capability boundaries', () => {
     expect(markdownCapabilitySource).toContain('export const preloadRichMarkdownRenderer');
     expect(markdownCapabilitySource).not.toContain("from 'streamdown'");
     expect(richMarkdownCapabilitySource).toContain("from 'streamdown'");
-    expect(richMarkdownCapabilitySource).toContain("from '@streamdown/mermaid'");
+    expect(richMarkdownCapabilitySource).not.toContain("from '@streamdown/code'");
+    expect(richMarkdownCapabilitySource).not.toContain("from '@streamdown/mermaid'");
     expect(reasoningCapabilitySource).toContain("from './markdown-rendering'");
 
     expect(messageSource).toContain("from '@/capabilities/markdown-rendering'");

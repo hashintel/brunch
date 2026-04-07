@@ -2,11 +2,13 @@ import { table, h3 } from 'md-pen';
 
 import type { TurnWithOptions } from './core.js';
 import type { Turn } from './db.js';
+import { safeDeserializeUserParts, type UserPart } from './parts.js';
 
 /**
  * Build interviewer context from active-path turns.
  * Drop-in replacement for formatHistory() — same output, typed interface.
- * Reads from domain model (turn scalars + options), NOT from persisted parts.
+ * Reads from the turn domain model, including persisted structured response parts
+ * while there is no dedicated response table yet.
  */
 export function buildInterviewerContext(turns: TurnWithOptions[], currentPrompt: string): string {
   if (turns.length === 0) return currentPrompt;
@@ -28,7 +30,23 @@ export function buildInterviewerContext(turns: TurnWithOptions[], currentPrompt:
       }
       lines.push(questionLine);
     }
-    if (turn.answer) lines.push(`Answer: ${turn.answer}`);
+    const selectedOptions =
+      turn.options?.filter((option) => option.is_selected).map((option) => option.content) ?? [];
+    const freeText = safeDeserializeUserParts(turn.user_parts).find(
+      (part): part is Extract<UserPart, { type: 'data-turn-response' }> => part.type === 'data-turn-response',
+    )?.data.freeText;
+    if (selectedOptions.length > 0 || freeText) {
+      const responseLines = ['Turn response:'];
+      if (selectedOptions.length > 0) {
+        responseLines.push(`  Chosen options: ${selectedOptions.join(', ')}`);
+      }
+      if (freeText) {
+        responseLines.push(`  Free-text response: ${freeText}`);
+      }
+      lines.push(responseLines.join('\n'));
+    } else if (turn.answer) {
+      lines.push(`Answer: ${turn.answer}`);
+    }
   }
   if (lines.length === 0) return currentPrompt;
   return `Previous conversation:\n${lines.join('\n')}\n\n---\nUser: ${currentPrompt}`;

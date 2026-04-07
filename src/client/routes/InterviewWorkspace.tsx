@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router';
+import { useState } from 'react';
 
 import {
   Conversation,
@@ -31,15 +32,30 @@ const impactStyles: Record<string, string> = {
 
 function TurnCard({
   turn,
-  onSelect,
+  onSubmitResponse,
   disabled,
 }: {
   turn: ProjectStateTurn;
-  onSelect: (position: number) => void | Promise<void>;
+  onSubmitResponse: (positions: number[], freeText?: string) => void | Promise<void>;
   disabled: boolean;
 }) {
   const options = turn.options ?? [];
-  const hasSelection = options.some((o) => o.is_selected);
+  const persistedSelections = options.filter((option) => option.is_selected).map((option) => option.position);
+  const [selectedPositions, setSelectedPositions] = useState<number[]>(persistedSelections);
+  const [freeText, setFreeText] = useState('');
+  const hasSelection = selectedPositions.length > 0;
+  const hasFreeText = freeText.trim().length > 0;
+  const hasPersistedSelection = persistedSelections.length > 0;
+
+  function toggleSelection(position: number) {
+    if (disabled || hasPersistedSelection) {
+      return;
+    }
+
+    setSelectedPositions((current) =>
+      current.includes(position) ? current.filter((value) => value !== position) : [...current, position],
+    );
+  }
 
   return (
     <div className="my-3 rounded-lg border bg-card p-4">
@@ -58,31 +74,80 @@ function TurnCard({
         </span>
       )}
 
+      <div className="mt-3">
+        <label className="mb-1 block text-sm font-medium" htmlFor={`turn-response-${turn.id}`}>
+          Additional response context
+        </label>
+        <textarea
+          id={`turn-response-${turn.id}`}
+          aria-label="Additional response context"
+          value={freeText}
+          onChange={(event) => setFreeText(event.target.value)}
+          disabled={disabled}
+          placeholder="Optional details to send with your selection, or required if no option fits"
+          className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
+        />
+        <div className="mt-2 flex justify-end gap-2">
+          <button
+            type="button"
+            disabled={disabled || hasPersistedSelection || !hasSelection}
+            onClick={() => onSubmitResponse(selectedPositions, freeText)}
+            className={cn(
+              'rounded-md border px-3 py-2 text-sm transition-colors',
+              disabled || hasPersistedSelection || !hasSelection
+                ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+                : 'border-border bg-background hover:bg-muted',
+            )}
+          >
+            Submit selected response
+          </button>
+          <button
+            type="button"
+            disabled={disabled || hasPersistedSelection || hasSelection || !hasFreeText}
+            onClick={() => onSubmitResponse([], freeText)}
+            className={cn(
+              'rounded-md border px-3 py-2 text-sm transition-colors',
+              disabled || hasPersistedSelection || hasSelection || !hasFreeText
+                ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+                : 'border-border bg-background hover:bg-muted',
+            )}
+          >
+            Submit free-text response
+          </button>
+        </div>
+      </div>
+
       <div className="mt-2 flex flex-col gap-1.5">
         {options.map((opt) => {
-          const isSelected = opt.is_selected;
+          const isSelected = selectedPositions.includes(opt.position);
           return (
-            <button
+            <label
               key={opt.position}
-              type="button"
-              disabled={disabled || hasSelection}
-              onClick={() => onSelect(opt.position)}
               className={cn(
-                'rounded-md border px-3 py-2 text-left text-sm transition-colors',
+                'flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2 text-left text-sm transition-colors',
                 isSelected
                   ? 'border-primary bg-primary/5 font-medium'
                   : 'border-border bg-background hover:bg-muted',
-                hasSelection && !isSelected && 'opacity-50',
+                (disabled || hasPersistedSelection) && 'cursor-not-allowed opacity-60',
               )}
             >
-              {opt.content}
-              {opt.is_recommended && (
-                <span className="ml-2 text-[11px] font-semibold text-primary">Recommended</span>
-              )}
-              {isSelected && (
-                <span className="ml-2 text-[11px] font-semibold text-green-600">✓ Selected</span>
-              )}
-            </button>
+              <input
+                type="checkbox"
+                checked={isSelected}
+                onChange={() => toggleSelection(opt.position)}
+                disabled={disabled || hasPersistedSelection}
+                aria-label={opt.content}
+              />
+              <span>
+                {opt.content}
+                {opt.is_recommended && (
+                  <span className="ml-2 text-[11px] font-semibold text-primary">Recommended</span>
+                )}
+                {isSelected && (
+                  <span className="ml-2 text-[11px] font-semibold text-green-600">✓ Selected</span>
+                )}
+              </span>
+            </label>
           );
         })}
       </div>
@@ -166,8 +231,9 @@ export function InterviewWorkspace() {
 
               {turnCard && (
                 <TurnCard
+                  key={turnCard.turn.id}
                   turn={turnCard.turn}
-                  onSelect={turnCard.selectOption}
+                  onSubmitResponse={turnCard.submitTurnResponse}
                   disabled={turnCard.disabled}
                 />
               )}

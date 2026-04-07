@@ -28,11 +28,21 @@ export const observerResultSchema = z.object({
   }),
 });
 
-export const dataOptionSelectionSchema = z.object({
-  turnId: z.number(),
-  selectedOptionId: z.number(),
-  rationale: z.string().optional(),
-});
+export const dataTurnResponseSchema = z
+  .object({
+    turnId: z.number(),
+    selectedOptionIds: z.array(z.number()),
+    freeText: z.string().trim().min(1).optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.selectedOptionIds.length === 0 && !value.freeText) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'freeText is required when no options are selected',
+        path: ['freeText'],
+      });
+    }
+  });
 
 export const dataConfirmationSchema = z.object({
   turnId: z.number(),
@@ -47,7 +57,7 @@ export const dataPhaseSummarySchema = z.object({
 export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
-export type DataOptionSelection = z.infer<typeof dataOptionSelectionSchema>;
+export type DataTurnResponse = z.infer<typeof dataTurnResponseSchema>;
 export type DataConfirmation = z.infer<typeof dataConfirmationSchema>;
 export type DataPhaseSummary = z.infer<typeof dataPhaseSummarySchema>;
 
@@ -57,7 +67,7 @@ export type BrunchMessageMetadata = {
 
 export type BrunchDataParts = {
   'observer-result': ObserverResultData;
-  'option-selection': DataOptionSelection;
+  'turn-response': DataTurnResponse;
   confirmation: DataConfirmation;
   'phase-summary': DataPhaseSummary;
 };
@@ -79,7 +89,7 @@ export type BrunchAssistantPart =
     >;
 export type BrunchUserPart = Extract<
   BrunchUIMessagePart,
-  { type: 'text' | 'data-option-selection' | 'data-confirmation' }
+  { type: 'text' | 'data-turn-response' | 'data-confirmation' }
 >;
 export type AskQuestionUIPart = Extract<BrunchUIMessagePart, { type: 'tool-ask_question' }>;
 export type ObserverResultUIPart = Extract<BrunchUIMessagePart, { type: 'data-observer-result' }>;
@@ -97,7 +107,7 @@ export const brunchValidationTools = {
 
 export const brunchDataPartSchemas = {
   'observer-result': observerResultSchema,
-  'option-selection': dataOptionSelectionSchema,
+  'turn-response': dataTurnResponseSchema,
   confirmation: dataConfirmationSchema,
   'phase-summary': dataPhaseSummarySchema,
 } as const;
@@ -108,7 +118,7 @@ const textPartSchema = z
     text: z.string(),
     state: z.enum(['streaming', 'done']).optional(),
   })
-  .passthrough();
+  .loose();
 
 const reasoningPartSchema = z
   .object({
@@ -116,13 +126,13 @@ const reasoningPartSchema = z
     text: z.string(),
     state: z.enum(['streaming', 'done']).optional(),
   })
-  .passthrough();
+  .loose();
 
 const stepStartPartSchema = z
   .object({
     type: z.literal('step-start'),
   })
-  .passthrough();
+  .loose();
 
 const observerResultPartSchema = z
   .object({
@@ -130,7 +140,7 @@ const observerResultPartSchema = z
     id: z.string().optional(),
     data: observerResultSchema,
   })
-  .passthrough();
+  .loose();
 
 const phaseSummaryPartSchema = z
   .object({
@@ -138,15 +148,15 @@ const phaseSummaryPartSchema = z
     id: z.string().optional(),
     data: dataPhaseSummarySchema,
   })
-  .passthrough();
+  .loose();
 
-const optionSelectionPartSchema = z
+const turnResponsePartSchema = z
   .object({
-    type: z.literal('data-option-selection'),
+    type: z.literal('data-turn-response'),
     id: z.string().optional(),
-    data: dataOptionSelectionSchema,
+    data: dataTurnResponseSchema,
   })
-  .passthrough();
+  .loose();
 
 const confirmationPartSchema = z
   .object({
@@ -154,7 +164,7 @@ const confirmationPartSchema = z
     id: z.string().optional(),
     data: dataConfirmationSchema,
   })
-  .passthrough();
+  .loose();
 
 const approvalRequestedSchema = z.object({
   id: z.string(),
@@ -173,7 +183,7 @@ const askQuestionToolBaseSchema = z
     title: z.string().optional(),
     providerExecuted: z.boolean().optional(),
   })
-  .passthrough();
+  .loose();
 
 const askQuestionToolPartSchema = z.union([
   askQuestionToolBaseSchema.extend({
@@ -229,7 +239,7 @@ export const assistantPartsSchema = z.array(
 );
 
 export const userPartsSchema = z.array(
-  z.union([textPartSchema, optionSelectionPartSchema, confirmationPartSchema]),
+  z.union([textPartSchema, turnResponsePartSchema, confirmationPartSchema]),
 );
 
 export function isAskQuestionUIPart(part: BrunchUIMessagePart): part is AskQuestionUIPart {
@@ -245,6 +255,18 @@ export function extractTextFromMessage(message: Pick<BrunchUIMessage, 'parts'>):
     .filter((part): part is Extract<BrunchUIMessagePart, { type: 'text' }> => part.type === 'text')
     .map((part) => part.text)
     .join('');
+}
+
+export function formatTurnResponseText({
+  selectedOptionContents,
+  freeText,
+}: {
+  selectedOptionContents: string[];
+  freeText?: string | null;
+}): string {
+  const trimmedFreeText = freeText?.trim();
+  const optionSummary = selectedOptionContents.join(', ');
+  return [optionSummary, trimmedFreeText].filter(Boolean).join(' — ');
 }
 
 export function isToolOfType<TOOLS extends UITools, NAME extends keyof TOOLS & string>(
