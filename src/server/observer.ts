@@ -1,5 +1,5 @@
 import { anthropic } from '@ai-sdk/anthropic';
-import { generateObject } from 'ai';
+import { generateText, Output } from 'ai';
 import * as z from 'zod/v4';
 
 import { buildObserverContext } from './context.js';
@@ -69,15 +69,15 @@ export async function runObserver(
     entities,
   });
 
-  const result = await generateObject({
+  const result = await generateText({
     model: anthropic(process.env.OBSERVER_MODEL || 'claude-haiku-4-5-20251001'),
     maxOutputTokens: 2048,
     system: OBSERVER_SYSTEM_PROMPT,
     prompt: context,
-    schema: observerOutputSchema,
+    output: Output.object({ schema: observerOutputSchema }),
   });
 
-  const parsed = result.object;
+  const parsed = result.output;
 
   // Persist entities in a transaction-like sequence
   const createdDecisionIds: number[] = [];

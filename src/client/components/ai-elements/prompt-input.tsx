@@ -8,13 +8,13 @@ import type {
   ChangeEventHandler,
   ClipboardEventHandler,
   ComponentProps,
-  FormEvent,
-  FormEventHandler,
   HTMLAttributes,
   KeyboardEventHandler,
   PropsWithChildren,
   ReactNode,
   RefObject,
+  SubmitEvent,
+  SubmitEventHandler,
 } from 'react';
 import {
   Children,
@@ -442,7 +442,7 @@ export type PromptInputProps = Omit<HTMLAttributes<HTMLFormElement>, 'onSubmit' 
   // bytes
   maxFileSize?: number;
   onError?: (err: { code: 'max_files' | 'max_file_size' | 'accept'; message: string }) => void;
-  onSubmit: (message: PromptInputMessage, event: FormEvent<HTMLFormElement>) => void | Promise<void>;
+  onSubmit: (message: PromptInputMessage, event: SubmitEvent<HTMLFormElement>) => void | Promise<void>;
 };
 
 export const PromptInput = ({
@@ -755,7 +755,7 @@ export const PromptInput = ({
     [referencedSources, clearReferencedSources],
   );
 
-  const handleSubmit: FormEventHandler<HTMLFormElement> = useCallback(
+  const handleSubmit: SubmitEventHandler<HTMLFormElement> = useCallback(
     async (event) => {
       event.preventDefault();
 

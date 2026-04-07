@@ -108,7 +108,7 @@ const textPartSchema = z
     text: z.string(),
     state: z.enum(['streaming', 'done']).optional(),
   })
-  .passthrough();
+  .loose();
 
 const reasoningPartSchema = z
   .object({
@@ -116,13 +116,13 @@ const reasoningPartSchema = z
     text: z.string(),
     state: z.enum(['streaming', 'done']).optional(),
   })
-  .passthrough();
+  .loose();
 
 const stepStartPartSchema = z
   .object({
     type: z.literal('step-start'),
   })
-  .passthrough();
+  .loose();
 
 const observerResultPartSchema = z
   .object({
@@ -130,7 +130,7 @@ const observerResultPartSchema = z
     id: z.string().optional(),
     data: observerResultSchema,
   })
-  .passthrough();
+  .loose();
 
 const phaseSummaryPartSchema = z
   .object({
@@ -138,7 +138,7 @@ const phaseSummaryPartSchema = z
     id: z.string().optional(),
     data: dataPhaseSummarySchema,
   })
-  .passthrough();
+  .loose();
 
 const optionSelectionPartSchema = z
   .object({
@@ -146,7 +146,7 @@ const optionSelectionPartSchema = z
     id: z.string().optional(),
     data: dataOptionSelectionSchema,
   })
-  .passthrough();
+  .loose();
 
 const confirmationPartSchema = z
   .object({
@@ -154,7 +154,7 @@ const confirmationPartSchema = z
     id: z.string().optional(),
     data: dataConfirmationSchema,
   })
-  .passthrough();
+  .loose();
 
 const approvalRequestedSchema = z.object({
   id: z.string(),
@@ -173,7 +173,7 @@ const askQuestionToolBaseSchema = z
     title: z.string().optional(),
     providerExecuted: z.boolean().optional(),
   })
-  .passthrough();
+  .loose();
 
 const askQuestionToolPartSchema = z.union([
   askQuestionToolBaseSchema.extend({
