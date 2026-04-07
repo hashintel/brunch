@@ -75,8 +75,8 @@ export function useWorkspaceController(): WorkspaceController {
   useChatHydrationBoundary(durableProject.project.id, ephemeralChat.seedMessages, setMessages);
 
   const viewState = useMemo(
-    () => createWorkspaceControllerViewState(durableProject, isLoading),
-    [durableProject, isLoading],
+    () => createWorkspaceControllerViewState(durableProject, messages, isLoading),
+    [durableProject, isLoading, messages],
   );
 
   const submitText = useCallback(

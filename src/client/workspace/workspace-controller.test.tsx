@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -9,6 +9,30 @@ import type { EntitiesData, ProjectState } from '../../shared/api-types.js';
 import type { BrunchUIMessage } from '../../shared/chat.js';
 import { useWorkspaceController } from './workspace-controller.js';
 import type { WorkspaceLoaderData } from './workspace-loader.js';
+
+function createLiveQuestionMessage(): BrunchUIMessage {
+  return {
+    id: 'live-turn-assistant',
+    role: 'assistant',
+    parts: [
+      {
+        type: 'tool-ask_question',
+        toolCallId: 'tool-1',
+        state: 'output-available',
+        input: {
+          question: 'Which platform should we target next?',
+          why: 'Platform shapes the first build.',
+          impact: 'high',
+          options: [
+            { content: 'Web', is_recommended: true },
+            { content: 'Desktop', is_recommended: false },
+          ],
+        },
+        output: { ok: true, turnId: 2, optionCount: 2 },
+      },
+    ],
+  };
+}
 
 type UseChatOptions = {
   messages: BrunchUIMessage[];
@@ -19,6 +43,7 @@ type UseChatOptions = {
 type UseChatHarness = {
   sendMessage: ReturnType<typeof vi.fn>;
   setMessages: ReturnType<typeof vi.fn>;
+  replaceMessages?: (messages: BrunchUIMessage[]) => void;
   onData?: UseChatOptions['onData'];
   onFinish?: UseChatOptions['onFinish'];
 };
@@ -142,6 +167,7 @@ function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'rea
 
     useChatHarness.onData = options.onData;
     useChatHarness.onFinish = options.onFinish;
+    useChatHarness.replaceMessages = stableSetMessages;
 
     return {
       messages,
@@ -212,6 +238,38 @@ afterEach(() => {
 });
 
 describe('workspace controller', () => {
+  it('projects a live turn card from the streamed ask_question part before route invalidation', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      assistantText: 'Earlier question?',
+      answer: 'Earlier answer',
+    });
+    useChatImpl = createUseChatHarness('streaming');
+
+    renderController();
+
+    expect((await screen.findByTestId('turn-card')).textContent).toBe('none');
+    expect(screen.getByTestId('prompt-visible').textContent).toBe('true');
+
+    await waitFor(() => {
+      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
+    });
+    useChatHarness.setMessages.mockClear();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        createLiveQuestionMessage(),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('turn-card').textContent).toBe('Which platform should we target next?');
+      expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
+      expect(routerInvalidate).not.toHaveBeenCalled();
+    });
+  });
+
   it('seeds chat and entity state from loader data without a post-mount entity fetch', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],

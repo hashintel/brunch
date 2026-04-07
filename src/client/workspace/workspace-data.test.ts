@@ -134,17 +134,17 @@ describe('workspace controller core', () => {
       }),
     );
 
-    expect(createWorkspaceControllerViewState(pendingSelection, false)).toEqual({
+    expect(createWorkspaceControllerViewState(pendingSelection, [], false)).toEqual({
       project: pendingSelection.project,
       turnCard: { turn: pendingSelection.lastTurn! },
       promptInput: { visible: false },
     });
-    expect(createWorkspaceControllerViewState(pendingSelection, true)).toEqual({
+    expect(createWorkspaceControllerViewState(pendingSelection, [], true)).toEqual({
       project: pendingSelection.project,
       turnCard: null,
       promptInput: { visible: false },
     });
-    expect(createWorkspaceControllerViewState(selectedTurn, false)).toEqual({
+    expect(createWorkspaceControllerViewState(selectedTurn, [], false)).toEqual({
       project: selectedTurn.project,
       turnCard: { turn: selectedTurn.lastTurn! },
       promptInput: { visible: true },

@@ -1,8 +1,11 @@
 import type { EntitiesData, ProjectState, ProjectStateTurn } from '../../shared/api-types.js';
 import {
   assistantPartsSchema,
+  isAskQuestionUIPart,
+  type AskQuestionUIPart,
   type BrunchAssistantPart,
   type BrunchUIMessage,
+  type StructuredQuestion,
   type BrunchUserPart,
   userPartsSchema,
 } from '../../shared/chat.js';
@@ -125,17 +128,85 @@ export function createWorkspaceEphemeralChatState(projectState: ProjectState): W
   };
 }
 
+function findLiveQuestionTurn(
+  durableProject: WorkspaceDurableProjectState,
+  messages: BrunchUIMessage[],
+): ProjectStateTurn | null {
+  function getStructuredQuestionInput(part: AskQuestionUIPart): StructuredQuestion | null {
+    switch (part.state) {
+      case 'input-available':
+      case 'approval-requested':
+      case 'approval-responded':
+      case 'output-available':
+      case 'output-denied':
+        return part.input;
+      case 'output-error':
+        return part.input ?? null;
+      case 'input-streaming':
+        return null;
+    }
+  }
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message.role !== 'assistant') {
+      continue;
+    }
+
+    for (let partIndex = (message.parts?.length ?? 0) - 1; partIndex >= 0; partIndex -= 1) {
+      const part = message.parts?.[partIndex];
+      if (!part || !isAskQuestionUIPart(part)) {
+        continue;
+      }
+
+      const input = getStructuredQuestionInput(part);
+      if (!input) {
+        continue;
+      }
+
+      return {
+        id: durableProject.lastTurn?.id ?? 0,
+        project_id: durableProject.project.id,
+        parent_turn_id: durableProject.lastTurn?.id ?? null,
+        phase: durableProject.lastTurn?.phase ?? 'scope',
+        question: input.question,
+        why: input.why,
+        impact: input.impact,
+        answer: null,
+        is_resolution: false,
+        user_parts: null,
+        assistant_parts: null,
+        created_at: durableProject.lastTurn?.created_at ?? '',
+        options: input.options.map((option, position) => ({
+          id: -(position + 1),
+          position,
+          content: option.content,
+          is_recommended: option.is_recommended,
+          is_selected: false,
+        })),
+      };
+    }
+
+    return null;
+  }
+
+  return null;
+}
+
 export function createWorkspaceControllerViewState(
   durableProject: WorkspaceDurableProjectState,
+  messages: BrunchUIMessage[],
   isLoading: boolean,
 ): WorkspaceControllerViewState {
   const { project, lastTurn, showTurnCard, lastTurnHasSelection } = durableProject;
+  const liveTurn = isLoading ? findLiveQuestionTurn(durableProject, messages) : null;
+  const turnCardTurn = liveTurn ?? (showTurnCard && lastTurn && !isLoading ? lastTurn : null);
 
   return {
     project,
-    turnCard: showTurnCard && lastTurn && !isLoading ? { turn: lastTurn } : null,
+    turnCard: turnCardTurn ? { turn: turnCardTurn } : null,
     promptInput: {
-      visible: !showTurnCard || lastTurnHasSelection,
+      visible: liveTurn ? false : !showTurnCard || lastTurnHasSelection,
     },
   };
 }

@@ -10,6 +10,30 @@ import type { BrunchUIMessage } from '../../shared/chat.js';
 import type { WorkspaceLoaderData } from '../workspace/workspace-loader.js';
 import { InterviewWorkspace } from './InterviewWorkspace.js';
 
+function createLiveQuestionMessage(): BrunchUIMessage {
+  return {
+    id: 'live-turn-assistant',
+    role: 'assistant',
+    parts: [
+      {
+        type: 'tool-ask_question',
+        toolCallId: 'tool-1',
+        state: 'output-available',
+        input: {
+          question: 'Which platform should we target next?',
+          why: 'Platform shapes the first build.',
+          impact: 'high',
+          options: [
+            { content: 'Web', is_recommended: true },
+            { content: 'Desktop', is_recommended: false },
+          ],
+        },
+        output: { ok: true, turnId: 2, optionCount: 2 },
+      },
+    ],
+  };
+}
+
 type UseChatOptions = {
   messages: BrunchUIMessage[];
   onData?: (dataPart: { type: string; data?: unknown }) => void;
@@ -19,6 +43,7 @@ type UseChatOptions = {
 type UseChatHarness = {
   sendMessage: ReturnType<typeof vi.fn>;
   setMessages: ReturnType<typeof vi.fn>;
+  replaceMessages?: (messages: BrunchUIMessage[]) => void;
   onData?: UseChatOptions['onData'];
   onFinish?: UseChatOptions['onFinish'];
 };
@@ -186,6 +211,7 @@ function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'rea
 
     useChatHarness.onData = options.onData;
     useChatHarness.onFinish = options.onFinish;
+    useChatHarness.replaceMessages = stableSetMessages;
 
     return {
       messages,
@@ -235,6 +261,41 @@ afterEach(() => {
 });
 
 describe('InterviewWorkspace', () => {
+  it('renders the turn card from a live streamed tool part before route invalidation', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      assistantText: 'Earlier question?',
+      answer: 'Earlier answer',
+    });
+    useChatImpl = createUseChatHarness('streaming');
+
+    renderWorkspace();
+
+    expect(await screen.findByText('Earlier question?')).toBeTruthy();
+    expect(screen.queryByText('Which platform should we target next?')).toBeNull();
+    expect(screen.getByLabelText('Type a message...')).toBeTruthy();
+
+    await waitFor(() => {
+      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
+    });
+    useChatHarness.setMessages.mockClear();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        createLiveQuestionMessage(),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Which platform should we target next?')).toBeTruthy();
+      expect(screen.getByRole('button', { name: /web recommended/i })).toBeTruthy();
+      expect(screen.getByRole('button', { name: /desktop/i })).toBeTruthy();
+      expect(screen.queryByLabelText('Type a message...')).toBeNull();
+      expect(routerInvalidate).not.toHaveBeenCalled();
+    });
+  });
+
   it('hydrates transcript and sidebar state from the route loader without a post-mount entity fetch', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
