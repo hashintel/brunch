@@ -47,7 +47,7 @@
     - Coverage: initial hydration from persisted turns, same-project refresh stability, observer-result sidebar reactivity, option-selection follow-through
     - Unblocks: 6c live streaming fix, workspace state-ownership refactor commits
 
-## Phase 4: Interaction + Knowledge Foundations
+## Phase 4: Interaction + Knowledge Foundations `done`
 
 <!-- The live rendering regression must be fixed first. Then the interview model widens:
      richer answer semantics, generic knowledge capture, and phase-aware observer behavior. -->
@@ -63,7 +63,6 @@
     - Acceptance: send a message in dev, see the structured turn card appear live without refresh; `npm run verify` passes
     - **Observed current state (2026-04-07, post-build):** the workspace controller now projects the latest streamed `tool-ask_question` input into the visible `TurnCard` before `onFinish` route invalidation, targeted regression tests (`InterviewWorkspace`, `workspace-controller`, `workspace-data`, `app`) are green, the branch's latest full `npm run verify` passed before the docs-only SPEC commit, and manual browser verification confirmed the live turn card now appears without refresh.
     - **Observed code seam:** `InterviewWorkspace.renderParts()` still drops `tool-ask_question` transcript parts, but `workspace-controller-core.ts` now projects the latest streamed tool input into a temporary visible turn card while loading; durable loader state still owns the post-finish turn card after router invalidation.
-    - **Recommended next move for the implementing agent:** retire 6c and move on to 6d's response-model remodeling work.
     - **Verification approach**: inner — unit/integration tests for tool-part state transitions or alternate live render path. Outer — manual interview: turn card renders live, matches post-refresh state.
 
 6d. **Flexible turn-response model** — Replace the single-select answer assumption with typed turn responses that support zero/one/many selections plus unified free-text response content. Keep structured interviewer guidance, recommendation, and strategic grounding, but stop assuming every turn maps to one categorical choice or one scalar answer string. `done`
@@ -83,7 +82,7 @@
 
 6e. **Generic knowledge layer schema + sidebar projection** — Introduce the broader semantic layer (`framing`, `constraint`, `decision`, `assumption`, `requirement`, `criterion`) with generic provenance and graph edges, then project it cleanly into the sidebar without regressing existing reads. `done`
     - Requirements: → SPEC.md §Requirements #5, #6, #14
-    - Assumptions: → SPEC.md §Assumptions A14, A34, A35
+    - Assumptions: → SPEC.md §Assumptions A14
     - Decisions: → SPEC.md §Decisions D5, D13, D25, D49, D50, D51
     - Candidate invariant goals: generic knowledge-item persistence with turn linkage; graph-edge fidelity across item kinds
     - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I34
@@ -98,7 +97,7 @@
 
 6f. **Phase-aware observer extraction** — Teach the observer to bias extraction by mode: scope prefers framing/constraints, design prefers decisions/assumptions, later modes can surface requirements/criteria and revisions. Keep the observer as a single structured extraction pass, but give it richer context and a broader ontology. `done`
     - Requirements: → SPEC.md §Requirements #5, #6, #11, #12
-    - Assumptions: → SPEC.md §Assumptions A14, A20, A36, A37, A38
+    - Assumptions: → SPEC.md §Assumptions A14, A20
     - Decisions: → SPEC.md §Decisions D4, D5, D13, D25, D52, D53, D54, D55, D56
     - Candidate invariant goals: observer extracts framing without assumption inflation; phase-aware extraction deltas stay attributable to source turns
     - Invariants to respect: → SPEC.md §Invariants I20, I21, I23
@@ -246,7 +245,5 @@ Phase 7:  13 ──→ 14 (npx + CLI)
 
 ### Parallelism opportunities
 
-- 6c (live streaming fix) and design work on 6d (flexible turn-response model) are mostly independent if 6d does not need to rewrite the live tool-part rendering seam.
-- 6e (generic knowledge layer) can begin in parallel with 6d after agreeing on the payload shape boundary.
 - 11 (generalized revisit) can begin once explicit phase outcomes (7) exist; it does not need requirements/criteria review UX to start proving readiness invalidation mechanics.
 - 14 (npx) can start early with a basic launcher, completing after slice 13 when the new export predicate stabilizes.
