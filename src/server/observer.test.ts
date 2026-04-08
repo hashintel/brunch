@@ -51,6 +51,7 @@ describe('runObserver', () => {
             subtype: 'non-goal',
           },
         ],
+        requirements: [],
         decisions: [],
         assumptions: [],
       },
@@ -67,6 +68,7 @@ describe('runObserver', () => {
 
     expect(entityIds.framing).toHaveLength(1);
     expect(entityIds.constraints).toHaveLength(1);
+    expect(entityIds.requirements).toEqual([]);
     expect(entityIds.decisions).toEqual([]);
     expect(entityIds.assumptions).toEqual([]);
     expect(entities.framing[0]).toMatchObject({
@@ -99,6 +101,7 @@ describe('runObserver', () => {
       output: {
         framing: [],
         constraints: [],
+        requirements: [],
         decisions: [],
         assumptions: [],
       },
@@ -149,6 +152,7 @@ describe('runObserver', () => {
             subtype: 'non-goal',
           },
         ],
+        requirements: [],
         decisions: [
           {
             content: 'Start with the web app',
@@ -181,6 +185,7 @@ describe('runObserver', () => {
     expect(entityIds).toEqual({
       framing: [1],
       constraints: [2],
+      requirements: [],
       decisions: [2],
       assumptions: [2],
     });
@@ -242,6 +247,7 @@ describe('runObserver', () => {
       output: {
         framing: [],
         constraints: [],
+        requirements: [],
         decisions: [],
         assumptions: [],
       },
@@ -272,6 +278,98 @@ describe('runObserver', () => {
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
         system: expect.stringContaining('constraint spillover'),
+      }),
+    );
+  });
+
+  it('persists requirements-mode requirement items with turn provenance and returns their ids', async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        framing: [],
+        constraints: [],
+        requirements: [
+          {
+            content: 'The app must resume an interview from SQLite after a browser restart',
+            rationale: 'Users will leave and come back mid-session',
+          },
+        ],
+        decisions: [],
+        assumptions: [],
+      },
+    });
+
+    const project = createProject(db, 'Spec');
+    const turn = createTurn(db, project.id, {
+      phase: 'requirements',
+      question: 'What must the product do before we can call it complete?',
+      answer: 'It must resume an interview from SQLite after a browser restart.',
+    });
+
+    const entityIds = await runObserver(db, turn, project.id);
+    const entities = getEntitiesForProject(db, project.id);
+    const provenanceRows = db.$client
+      .prepare('SELECT turn_id, item_id, relation FROM turn_knowledge_item ORDER BY item_id ASC')
+      .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
+
+    expect(entityIds).toEqual({
+      framing: [],
+      constraints: [],
+      requirements: [1],
+      decisions: [],
+      assumptions: [],
+    });
+    expect(entities.requirements[0]).toMatchObject({
+      kind: 'requirement',
+      content: 'The app must resume an interview from SQLite after a browser restart',
+      rationale: 'Users will leave and come back mid-session',
+    });
+    expect(provenanceRows).toEqual([
+      {
+        turn_id: turn.id,
+        item_id: entityIds.requirements[0],
+        relation: 'captured',
+      },
+    ]);
+  });
+
+  it('calls generateText with a requirements-biased prompt that prioritizes requirements and defers criteria extraction', async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        decisions: [],
+        assumptions: [],
+      },
+    });
+
+    const { createKnowledgeItem } = await import('./db.js');
+    const project = createProject(db, 'Spec');
+    createKnowledgeItem(db, project.id, 'requirement', 'Resume interviews from SQLite', {
+      rationale: 'Users will return later',
+    });
+    const turn = createTurn(db, project.id, {
+      phase: 'requirements',
+      question: 'Which requirements are still missing?',
+      answer: 'We still need to preserve the active path after a restart.',
+    });
+
+    await runObserver(db, turn, project.id);
+
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('requirements-mode'),
+        prompt: expect.stringContaining('Resume interviews from SQLite'),
+      }),
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('prioritize **requirement** items'),
+      }),
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('defer **criterion** extraction'),
       }),
     );
   });

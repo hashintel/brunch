@@ -25,6 +25,7 @@ export const observerResultSchema = z.object({
   entityIds: z.object({
     framing: z.array(z.number()),
     constraints: z.array(z.number()),
+    requirements: z.array(z.number()),
     decisions: z.array(z.number()),
     assumptions: z.array(z.number()),
   }),

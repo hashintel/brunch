@@ -98,13 +98,13 @@
 
 6f. **Phase-aware observer extraction** — Teach the observer to bias extraction by mode: scope prefers framing/constraints, design prefers decisions/assumptions, later modes can surface requirements/criteria and revisions. Keep the observer as a single structured extraction pass, but give it richer context and a broader ontology. `in-progress`
     - Requirements: → SPEC.md §Requirements #5, #6, #11, #12
-    - Assumptions: → SPEC.md §Assumptions A14, A20, A36
-    - Decisions: → SPEC.md §Decisions D4, D5, D13, D25, D52, D53, D54
+    - Assumptions: → SPEC.md §Assumptions A14, A20, A36, A37
+    - Decisions: → SPEC.md §Decisions D4, D5, D13, D25, D52, D53, D54, D55
     - Candidate invariant goals: observer extracts framing without assumption inflation; phase-aware extraction deltas stay attributable to source turns
     - Invariants to respect: → SPEC.md §Invariants I20, I21, I23
-    - **Observed current state (2026-04-08, tracer bullets 6f.1–6f.3):** scope-mode observer output now widens to generic `framing` and `constraint`, while design-mode observer prompting now biases toward legacy `decision`/`assumption` extraction but still allows framing corrections and constraint spillover through the generic seam. The observer context includes existing framing/constraints alongside legacy decisions/assumptions, persisted assistant parts and SSE `data-observer-result` payloads carry mixed framing/constraint/decision/assumption IDs, and sidebar invalidation can refetch and render those observer-created entities through the shared entity seam.
-    - Acceptance: scope turns primarily yield framing/constraints; design turns primarily yield decisions/assumptions; observer results still stream in-band to the sidebar
-    - **Verification approach**: inner — schema + DB/parts tests prove widened observer contracts and generic persistence; middle — mocked observer-sync round-trip proves observer result → entities API → sidebar refresh coherence without gating on live-model quality; outer — manual scope/design walkthroughs judge ontology fit and seed future observer fixtures. See SPEC.md §Verification Design.
+    - **Observed current state (2026-04-08, tracer bullets 6f.1–6f.4a):** scope-mode observer output now widens to generic `framing` and `constraint`, design-mode observer prompting biases toward legacy `decision`/`assumption` extraction while allowing framing corrections and constraint spillover, and requirements-mode observer prompting can now surface generic `requirement` items while deferring `criterion` extraction. The observer context includes existing framing/constraints/requirements alongside legacy decisions/assumptions, persisted assistant parts and SSE `data-observer-result` payloads carry mixed framing/constraint/requirement/decision/assumption IDs, and sidebar invalidation can refetch and render those observer-created entities through the shared entity seam.
+    - Acceptance: scope turns primarily yield framing/constraints; design turns primarily yield decisions/assumptions; later review turns can surface requirements/criteria without breaking observer sync; observer results still stream in-band to the sidebar
+    - **Verification approach**: inner — schema + DB/parts tests prove widened observer contracts and generic persistence; middle — mocked observer-sync round-trip proves observer result → entities API → sidebar refresh coherence without gating on live-model quality; outer — manual scope/design/requirements walkthroughs judge ontology fit and seed future observer fixtures. See SPEC.md §Verification Design.
     - Tracer bullets:
       - `6f.1` Scope-mode framing extraction through the generic observer seam. `done`
         - Invariants established: → SPEC.md §Invariants I54, I55
@@ -112,7 +112,9 @@
         - Invariants established: → SPEC.md §Invariants I56, I57
       - `6f.3` Design-mode observer bias over decisions/assumptions with generic spillover. `done`
         - Invariants established: → SPEC.md §Invariants I58, I59
-      - `6f.4` Later-mode requirement/criterion emergence through the observer seam. `not-started`
+      - `6f.4a` Requirements-mode requirement emergence through the generic observer seam. `done`
+        - Invariants established: → SPEC.md §Invariants I60, I61
+      - `6f.4b` Criteria-mode criterion emergence through the generic observer seam. `not-started`
 
 ## Phase 5: Mode Closure + Full Interview
 

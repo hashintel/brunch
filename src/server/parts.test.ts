@@ -109,6 +109,7 @@ describe('assistant part round-trip', () => {
           entityIds: {
             framing: [3],
             constraints: [4],
+            requirements: [5],
             decisions: [1],
             assumptions: [2],
           },
@@ -129,6 +130,7 @@ describe('assistant part round-trip', () => {
           entityIds: {
             framing: [7],
             constraints: [8],
+            requirements: [11],
             decisions: [9],
             assumptions: [10],
           },

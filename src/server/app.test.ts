@@ -121,7 +121,13 @@ beforeEach(() => {
   mockStreamInterviewer.mockReset();
   mockRunObserver.mockReset();
   mockStreamInterviewer.mockImplementation(async () => makeTextInterviewer('Hi'));
-  mockRunObserver.mockResolvedValue({ framing: [], constraints: [], decisions: [], assumptions: [] });
+  mockRunObserver.mockResolvedValue({
+    framing: [],
+    constraints: [],
+    requirements: [],
+    decisions: [],
+    assumptions: [],
+  });
 
   const result = createApp();
   app = result.app;
@@ -197,7 +203,13 @@ describe('POST /api/projects/:id/chat', () => {
       );
       linkKnowledgeItemToTurn(dbArg as DB, framing.id, (turnArg as { id: number }).id);
       linkKnowledgeItemToTurn(dbArg as DB, constraint.id, (turnArg as { id: number }).id);
-      return { framing: [framing.id], constraints: [constraint.id], decisions: [], assumptions: [] };
+      return {
+        framing: [framing.id],
+        constraints: [constraint.id],
+        requirements: [],
+        decisions: [],
+        assumptions: [],
+      };
     });
 
     const res = await request(app)
@@ -212,7 +224,9 @@ describe('POST /api/projects/:id/chat', () => {
 
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
-      data: { entityIds: { framing: [1], constraints: [2], decisions: [], assumptions: [] } },
+      data: {
+        entityIds: { framing: [1], constraints: [2], requirements: [], decisions: [], assumptions: [] },
+      },
     });
 
     const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
@@ -284,6 +298,7 @@ describe('POST /api/projects/:id/chat', () => {
       return {
         framing: [framing.id],
         constraints: [constraint.id],
+        requirements: [],
         decisions: [decision.id],
         assumptions: [assumption.id],
       };
@@ -301,7 +316,15 @@ describe('POST /api/projects/:id/chat', () => {
 
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
-      data: { entityIds: { framing: [1], constraints: [2], decisions: [1], assumptions: [1] } },
+      data: {
+        entityIds: {
+          framing: [1],
+          constraints: [2],
+          requirements: [],
+          decisions: [1],
+          assumptions: [1],
+        },
+      },
     });
 
     const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
@@ -345,6 +368,59 @@ describe('POST /api/projects/:id/chat', () => {
         type: 'depends_on',
         source: { collection: 'decision', kind: 'decision', id: 1 },
         target: { collection: 'assumption', kind: 'assumption', id: 1 },
+      },
+    ]);
+  });
+
+  it('emits widened observer results and persists requirements-mode requirement items through the entities API', async () => {
+    const projectId = await createTestProject();
+    mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
+      const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
+      const requirement = createKnowledgeItem(
+        dbArg as DB,
+        projectIdArg as number,
+        'requirement',
+        'Resume the interview from SQLite after restart',
+        {
+          rationale: 'Users will come back to finish the workflow',
+        },
+      );
+      linkKnowledgeItemToTurn(dbArg as DB, requirement.id, (turnArg as { id: number }).id);
+      return {
+        framing: [],
+        constraints: [],
+        requirements: [requirement.id],
+        decisions: [],
+        assumptions: [],
+      };
+    });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
+    const observerEvent = events.find((event) => event.type === 'data-observer-result');
+
+    expect(observerEvent).toEqual({
+      type: 'data-observer-result',
+      data: {
+        entityIds: { framing: [], constraints: [], requirements: [1], decisions: [], assumptions: [] },
+      },
+    });
+
+    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.requirements).toEqual([
+      {
+        id: 1,
+        project_id: projectId,
+        kind: 'requirement',
+        subtype: null,
+        content: 'Resume the interview from SQLite after restart',
+        rationale: 'Users will come back to finish the workflow',
       },
     ]);
   });

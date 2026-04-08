@@ -578,7 +578,9 @@ describe('InterviewWorkspace', () => {
     await act(async () => {
       useChatHarness.onData?.({
         type: 'data-observer-result',
-        data: { entityIds: { framing: [7], constraints: [8], decisions: [], assumptions: [] } },
+        data: {
+          entityIds: { framing: [7], constraints: [8], requirements: [], decisions: [], assumptions: [] },
+        },
       });
     });
 
@@ -667,7 +669,15 @@ describe('InterviewWorkspace', () => {
     await act(async () => {
       useChatHarness.onData?.({
         type: 'data-observer-result',
-        data: { entityIds: { framing: [7], constraints: [8], decisions: [9], assumptions: [10] } },
+        data: {
+          entityIds: {
+            framing: [7],
+            constraints: [8],
+            requirements: [],
+            decisions: [9],
+            assumptions: [10],
+          },
+        },
       });
     });
 
@@ -682,6 +692,67 @@ describe('InterviewWorkspace', () => {
     expect(await screen.findByText('Do not add a plugin system yet')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /framing/i }));
     expect(await screen.findByText('The first release still targets solo builders')).toBeTruthy();
+  });
+
+  it('refetches sidebar entities when the chat stream emits observer-created requirements', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+        relationships: [],
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          framing: [],
+          constraints: [],
+          requirements: [
+            {
+              id: 11,
+              project_id: 1,
+              kind: 'requirement',
+              subtype: null,
+              content: 'Resume the interview from SQLite after restart',
+              rationale: 'Users will come back to finish the workflow',
+            },
+          ],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+          relationships: [],
+        } satisfies EntitiesData),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    renderWorkspace();
+    expect(
+      await screen.findByText("No decisions yet. They'll appear as the interview progresses."),
+    ).toBeTruthy();
+
+    await act(async () => {
+      useChatHarness.onData?.({
+        type: 'data-observer-result',
+        data: {
+          entityIds: { framing: [], constraints: [], requirements: [11], decisions: [], assumptions: [] },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /requirements/i }));
+    expect(await screen.findByText('Resume the interview from SQLite after restart')).toBeTruthy();
   });
 
   it('posts single-option turn responses with optional free-text and forwards a combined summary into chat', async () => {
