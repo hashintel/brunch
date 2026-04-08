@@ -206,6 +206,19 @@
     - Invariants to respect: → SPEC.md §Invariants I1, I2, I4, I5
     - Acceptance: `npx brunch` with key in scope opens working app
 
+## Phase 8: Post-Distribution Hardening
+
+<!-- Defer dependency-risk changes until the packaged app exists and can be regression-tested as a distributed artifact. -->
+
+### Slices
+
+15. **Drizzle Kit audit remediation** — Revisit the current `npm audit` finding on `drizzle-kit` after distribution is stable. Do not use `npm audit fix --force`, which currently resolves to `drizzle-kit@0.18.1`; that downgrade crosses the modern config boundary and is not a safe path for this repo. Instead, validate a non-vulnerable upgrade path (currently the `1.0.0-beta` line) against this app's SQLite config, migration history, and `studio` workflow before changing dependencies. `not-started`
+    - Requirements: → SPEC.md §Requirements #1
+    - Candidate invariant goals: packaged distribution remains stable while the Drizzle toolchain is upgraded off the vulnerable `@esbuild-kit/*` loader chain
+    - Invariants to respect: → SPEC.md §Invariants I1, I2, I4, I5
+    - Acceptance: chosen `drizzle-kit` version removes the vulnerable loader chain, keeps `drizzle.config.ts` compatible, preserves existing migration history, and `npm run studio` still works against the existing SQLite database
+    - **Verification approach**: inner — dependency tree/audit check plus config-load and migration/studio smoke tests. Outer — manual `npm run studio` walkthrough on the distributed app path.
+
 ## Horizon
 
 <!-- Future work not yet broken into slices. Revisit after Phase 7. -->
@@ -241,9 +254,11 @@ Phase 6:  7 ──→ 11 (generalized revisit)
           9 ──→ 12 (knowledge review lifecycle API)
           10 ──→ 13 (export)
 Phase 7:  13 ──→ 14 (npx + CLI)
+Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
 ```
 
 ### Parallelism opportunities
 
 - 11 (generalized revisit) can begin once explicit phase outcomes (7) exist; it does not need requirements/criteria review UX to start proving readiness invalidation mechanics.
 - 14 (npx) can start early with a basic launcher, completing after slice 13 when the new export predicate stabilizes.
+- 15 (drizzle-kit audit remediation) should wait until 14 lands, so packaging/distribution regressions can be judged on the real shipped path instead of the current dev-only setup.
