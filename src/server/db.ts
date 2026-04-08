@@ -157,17 +157,17 @@ export function getOptionsForTurn(db: DB, turnId: number): Option[] {
     .all() as Option[];
 }
 
-export function selectOptions(db: DB, turnId: number, positions: number[]): void {
-  const uniquePositions = [...new Set(positions)];
+export function applyTurnResponseSelections(db: DB, turnId: number, selectedPositions: number[]): void {
+  const uniquePositions = [...new Set(selectedPositions)];
 
-  // Clear any previous selection for this turn
+  // Clear any previous selection for this turn.
   db.update(schema.option).set({ is_selected: false }).where(eq(schema.option.turn_id, turnId)).run();
 
   if (uniquePositions.length === 0) {
     return;
   }
 
-  // Select the chosen options
+  // Mark the chosen options for this turn response.
   db.update(schema.option)
     .set({ is_selected: true })
     .where(and(eq(schema.option.turn_id, turnId), inArray(schema.option.position, uniquePositions)))

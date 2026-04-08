@@ -26,7 +26,7 @@ The goal is structural alignment, not feature expansion.
 ## Commits
 
 1. [done] Add characterization coverage for the full turn-response and live-question seams so the refactor is protected by behavior-focused tests.
-2. Rename selection-oriented vocabulary to turn-response vocabulary across the core client/server boundary, keeping behavior unchanged.
+2. [done] Rename selection-oriented vocabulary to turn-response vocabulary across the core client/server boundary, keeping behavior unchanged.
 3. Extract one shared turn-response projection module and route both interviewer history and observer context through it instead of mixing structured and scalar seams ad hoc.
 4. Introduce a dedicated pending-question view model for streamed interviewer output and teach the workspace controller and workspace UI to render it without fabricating persisted turns.
 5. Extract a shared knowledge-kind registry that owns ordering, labels, and collection metadata for the six knowledge kinds, then adopt it across observer output, context projection, transport payloads, and sidebar rendering.

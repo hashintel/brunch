@@ -598,7 +598,7 @@ describe('GET /api/projects/:id', () => {
   });
 });
 
-describe('POST /api/projects/:id/turns/:turnId/select', () => {
+describe('POST /api/projects/:id/turns/:turnId/response', () => {
   it('persists the selected option and free-text turn response into answer and user parts', async () => {
     const projectId = await createTestProject();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
@@ -616,7 +616,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
     const turn = getActivePath(db, projectId)[0];
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
       .send({ positions: [1], freeText: 'Best fit for our launch' })
       .expect(200);
 
@@ -654,7 +654,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
     const turn = getActivePath(db, projectId)[0];
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
       .send({ positions: [0, 1], freeText: 'Covers both launch paths' })
       .expect(200);
 
@@ -695,7 +695,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
     const turn = getActivePath(db, projectId)[0];
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
       .send({ positions: [0, 1], freeText: 'Covers both launch paths' })
       .expect(200);
 
@@ -789,7 +789,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
     const turn = getActivePath(db, projectId)[0];
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
       .send({ freeText: 'None of these fit our use case' })
       .expect(200);
 
@@ -823,7 +823,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
     const turn = getActivePath(db, projectId)[0];
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
       .send({ freeText: '   ' })
       .expect(400);
   });

@@ -864,7 +864,7 @@ describe('InterviewWorkspace', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/select',
+        '/api/projects/1/turns/1/response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -906,7 +906,7 @@ describe('InterviewWorkspace', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/select',
+        '/api/projects/1/turns/1/response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -948,7 +948,7 @@ describe('InterviewWorkspace', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/select',
+        '/api/projects/1/turns/1/response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
