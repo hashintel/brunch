@@ -1,6 +1,21 @@
-### NEW IDEATIONS
+### the scope and bias of the spec
 
-- we will need to support a "migrate" type workflow where the agent reads from a workspace to grasp what the code is
-- the "bare kickoff" (default path) will need a prompt informed by *shape-up framing*. this helps inform downstream interviewing
-- every turn should have a question with suggested answers and a "why" property; but also the format of how this is presented should encourage the user to provide grounding, even if they choose one of the offered options — so a radio style choice + optional text area and encouragement to explain why, what it relates to, any other accessory observations, would be important
-- our verification harness should allow a terminal based stdin stdout path as well, which I can have any agent drive; this requires that brunch can do different projects simultaneously
+- we naively assume single project scope, and total/ultimate completion scope
+
+### "kickoff" (scope) phase needs two path variants
+
+0. a "blank slate" (default path) will need a prompt informed by *shape-up framing*. this helps inform downstream interviewing
+1. a "migrate/discover" type workflow where the agent reads from a workspace to grasp what the code is
+
+### UI observations
+
+- we have no waiting state when question cards are being formed
+  - we need better understanding of which waiting states are in flight, locks, etc.
+- there's some invisible interplay/locking going on between the interviewer and the observer I think — locks? 
+  - let's map this out and see if we can clarify it in the UI
+  - let's also see if we can design the flow here, maybe we need a state machine
+- the question-card pattern needs updating
+  - put the "why" behing an hover-card / tooltip?
+  - make the choices more compact; present them above the free-text area
+  - do a combination checkbox group inside radios pattern? • [(A, B, C)], • [D: none] + textarea?
+  - encouragement to explain why, what it relates to, any other accessory observations
