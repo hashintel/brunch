@@ -120,11 +120,13 @@ function createProjectState({
   projectId = 1,
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
+  userParts = [{ type: 'text', text: answer }] as Array<Record<string, unknown>>,
   options = [],
 }: {
   projectId?: number;
   assistantText?: string;
   answer?: string;
+  userParts?: Array<Record<string, unknown>>;
   options?: Array<{
     id: number;
     position: number;
@@ -152,7 +154,7 @@ function createProjectState({
         impact: 'high',
         answer,
         is_resolution: false,
-        user_parts: JSON.stringify([{ type: 'text', text: answer }]),
+        user_parts: JSON.stringify(userParts),
         assistant_parts: JSON.stringify([{ type: 'text', text: assistantText }]),
         created_at: '2026-04-03 10:00:00',
         options,
@@ -165,6 +167,7 @@ function createWorkspaceLoaderData({
   projectId = 1,
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
+  userParts,
   options = [],
   entitySnapshot = {
     framing: [],
@@ -179,6 +182,7 @@ function createWorkspaceLoaderData({
   projectId?: number;
   assistantText?: string;
   answer?: string;
+  userParts?: Array<Record<string, unknown>>;
   options?: Array<{
     id: number;
     position: number;
@@ -189,7 +193,7 @@ function createWorkspaceLoaderData({
   entitySnapshot?: EntitiesData;
 } = {}): WorkspaceLoaderData {
   return {
-    projectState: createProjectState({ projectId, assistantText, answer, options }),
+    projectState: createProjectState({ projectId, assistantText, answer, userParts, options }),
     entitySnapshot,
   };
 }
@@ -961,6 +965,111 @@ describe('InterviewWorkspace', () => {
       expect(routerInvalidate).toHaveBeenCalledTimes(1);
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'None of these fit our use case' });
     });
+  });
+
+  it('rehydrates persisted selected options from turn-response data even when option flags are false', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      answer: 'Desktop — Best fit for launch',
+      userParts: [
+        { type: 'text', text: 'Desktop — Best fit for launch' },
+        {
+          type: 'data-turn-response',
+          data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
+        },
+      ],
+      options: [
+        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+      ],
+    });
+
+    renderWorkspace();
+
+    const web = (await screen.findByRole('checkbox', { name: /web/i })) as HTMLInputElement;
+    const desktop = screen.getByRole('checkbox', { name: /desktop/i }) as HTMLInputElement;
+
+    expect(web.checked).toBe(false);
+    expect(desktop.checked).toBe(true);
+    expect(web.disabled).toBe(true);
+    expect(desktop.disabled).toBe(true);
+    expect(screen.getByLabelText('Type a message...')).toBeTruthy();
+  });
+
+  it('locks a persisted free-text-only turn response after it has been saved', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      answer: 'None of these fit our use case',
+      userParts: [
+        { type: 'text', text: 'None of these fit our use case' },
+        {
+          type: 'data-turn-response',
+          data: { turnId: 1, selectedOptionIds: [], freeText: 'None of these fit our use case' },
+        },
+      ],
+      options: [
+        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+      ],
+    });
+
+    renderWorkspace();
+
+    expect(await screen.findByText('None of these fit our use case')).toBeTruthy();
+    expect((screen.getByLabelText('Additional response context') as HTMLTextAreaElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole('button', { name: /submit selected response/i }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole('button', { name: /submit free-text response/i }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect((screen.getByRole('checkbox', { name: /web/i }) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByRole('checkbox', { name: /desktop/i }) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByLabelText('Type a message...')).toBeTruthy();
+  });
+
+  it('does not emit duplicate React keys when dependency labels repeat', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [
+          {
+            id: 7,
+            project_id: 1,
+            content: 'Start with the web app',
+            rationale: 'Fastest launch path',
+          },
+        ],
+        assumptions: [
+          { id: 5, project_id: 1, content: 'Users can work in a browser' },
+          { id: 6, project_id: 1, content: 'Users can work in a browser' },
+        ],
+        relationships: [
+          {
+            type: 'depends_on',
+            source: { collection: 'decision', kind: 'decision', id: 7 },
+            target: { collection: 'assumption', kind: 'assumption', id: 5 },
+          },
+          {
+            type: 'depends_on',
+            source: { collection: 'decision', kind: 'decision', id: 7 },
+            target: { collection: 'assumption', kind: 'assumption', id: 6 },
+          },
+        ],
+      } satisfies EntitiesData,
+    });
+
+    renderWorkspace();
+
+    expect(await screen.findByText('Start with the web app')).toBeTruthy();
+    expect(screen.getAllByText('Users can work in a browser')).toHaveLength(2);
+    expect(consoleError.mock.calls.flat().join('\n')).not.toContain(
+      'Encountered two children with the same key',
+    );
+    consoleError.mockRestore();
   });
 
   it('shows a visible error when saving an option selection fails', async () => {

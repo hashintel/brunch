@@ -7,6 +7,7 @@ import {
   createWorkspaceDurableEntityState,
   createWorkspaceDurableProjectState,
   createWorkspaceEphemeralChatState,
+  getPersistedSelectedPositions,
 } from './workspace-controller-core.js';
 
 function createProjectState({
@@ -193,6 +194,25 @@ describe('workspace controller core', () => {
     });
   });
 
+  it('derives persisted selected positions from structured turn responses instead of option flags', () => {
+    const selectedResponseTurn = createProjectState({
+      answer: 'Desktop — Best fit for launch',
+      userParts: [
+        { type: 'text', text: 'Desktop — Best fit for launch' },
+        {
+          type: 'data-turn-response',
+          data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
+        },
+      ],
+      options: [
+        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+      ],
+    }).turns[0];
+
+    expect(getPersistedSelectedPositions(selectedResponseTurn)).toEqual([1]);
+  });
+
   it('projects prompt and turn-card visibility from persisted turn responses without embedding side effects', () => {
     const pendingResponse = createWorkspaceDurableProjectState(
       createProjectState({
@@ -209,7 +229,7 @@ describe('workspace controller core', () => {
             data: { turnId: 1, selectedOptionIds: [11], freeText: 'Best fit for launch' },
           },
         ],
-        options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: true }],
+        options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
       }),
     );
     const freeTextOnlyResponse = createWorkspaceDurableProjectState(

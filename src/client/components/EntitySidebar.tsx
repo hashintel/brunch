@@ -45,7 +45,7 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
     ...assumptions.map((assumption) => [entityKey('assumption', assumption.id), assumption.content] as const),
   ]);
 
-  function getDependencyLabels(source: { collection: 'decision' | 'assumption'; id: number }) {
+  function getDependencies(source: { collection: 'decision' | 'assumption'; id: number }) {
     return relationships
       .filter(
         (relationship) =>
@@ -53,10 +53,12 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
           relationship.source.collection === source.collection &&
           relationship.source.id === source.id,
       )
-      .map((relationship) =>
-        contentByEntity.get(entityKey(relationship.target.collection, relationship.target.id)),
-      )
-      .filter((content): content is string => Boolean(content));
+      .map((relationship) => {
+        const key = entityKey(relationship.target.collection, relationship.target.id);
+        const label = contentByEntity.get(key);
+        return label ? { key, label } : null;
+      })
+      .filter((dependency): dependency is { key: string; label: string } => dependency !== null);
   }
 
   return (
@@ -119,18 +121,18 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
                   <p className="text-sm italic text-muted-foreground">{activeEntry.emptyStateCopy}</p>
                 )}
                 {decisions.map((d) => {
-                  const dependencyLabels = getDependencyLabels({ collection: 'decision', id: d.id });
+                  const dependencies = getDependencies({ collection: 'decision', id: d.id });
 
                   return (
                     <div key={d.id} className="rounded-md border p-2.5">
                       <p className="text-sm">{d.content}</p>
                       {d.rationale && <p className="mt-1 text-xs text-muted-foreground">{d.rationale}</p>}
-                      {dependencyLabels.length > 0 && (
+                      {dependencies.length > 0 && (
                         <div className="mt-2">
                           <p className="text-xs font-medium text-muted-foreground">Depends on</p>
                           <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
-                            {dependencyLabels.map((label) => (
-                              <li key={label}>{label}</li>
+                            {dependencies.map((dependency) => (
+                              <li key={dependency.key}>{dependency.label}</li>
                             ))}
                           </ul>
                         </div>
@@ -148,17 +150,17 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
                 <p className="text-sm italic text-muted-foreground">{activeEntry.emptyStateCopy}</p>
               )}
               {assumptions.map((a) => {
-                const dependencyLabels = getDependencyLabels({ collection: 'assumption', id: a.id });
+                const dependencies = getDependencies({ collection: 'assumption', id: a.id });
 
                 return (
                   <div key={a.id} className="rounded-md border p-2.5">
                     <p className="text-sm">{a.content}</p>
-                    {dependencyLabels.length > 0 && (
+                    {dependencies.length > 0 && (
                       <div className="mt-2">
                         <p className="text-xs font-medium text-muted-foreground">Depends on</p>
                         <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
-                          {dependencyLabels.map((label) => (
-                            <li key={label}>{label}</li>
+                          {dependencies.map((dependency) => (
+                            <li key={dependency.key}>{dependency.label}</li>
                           ))}
                         </ul>
                       </div>

@@ -7,6 +7,7 @@ import {
   type BrunchUIMessage,
   type StructuredQuestion,
   type BrunchUserPart,
+  type DataTurnResponse,
   userPartsSchema,
 } from '../../shared/chat.js';
 
@@ -77,8 +78,33 @@ function parseUserParts(json: string | null): BrunchUserPart[] {
   }
 }
 
-function hasPersistedTurnResponse(turn: Pick<ProjectStateTurn, 'user_parts'> | undefined): boolean {
-  return parseUserParts(turn?.user_parts ?? null).some((part) => part.type === 'data-turn-response');
+export function getPersistedTurnResponse(
+  turn: Pick<ProjectStateTurn, 'user_parts'> | undefined,
+): DataTurnResponse | null {
+  return (
+    parseUserParts(turn?.user_parts ?? null).find(
+      (part): part is Extract<BrunchUserPart, { type: 'data-turn-response' }> =>
+        part.type === 'data-turn-response',
+    )?.data ?? null
+  );
+}
+
+export function hasPersistedTurnResponse(turn: Pick<ProjectStateTurn, 'user_parts'> | undefined): boolean {
+  return getPersistedTurnResponse(turn) !== null;
+}
+
+export function getPersistedSelectedPositions(
+  turn: Pick<ProjectStateTurn, 'user_parts' | 'options'> | undefined,
+): number[] {
+  const persistedResponse = getPersistedTurnResponse(turn);
+  if (!persistedResponse) {
+    return [];
+  }
+
+  const selectedOptionIds = new Set(persistedResponse.selectedOptionIds);
+  return (
+    turn?.options?.filter((option) => selectedOptionIds.has(option.id)).map((option) => option.position) ?? []
+  );
 }
 
 function hydrateMessages(turns: ProjectStateTurn[]): BrunchUIMessage[] {

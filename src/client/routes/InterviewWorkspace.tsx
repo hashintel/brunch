@@ -23,6 +23,10 @@ import { cn } from '@/lib/utils';
 import type { ProjectStateTurn } from '../../shared/api-types.js';
 import { isAskQuestionUIPart, type BrunchUIMessage } from '../../shared/chat.js';
 import { useWorkspaceController } from '../workspace/workspace-controller';
+import {
+  getPersistedSelectedPositions,
+  hasPersistedTurnResponse,
+} from '../workspace/workspace-controller-core';
 
 const impactStyles: Record<string, string> = {
   high: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200',
@@ -33,9 +37,7 @@ const impactStyles: Record<string, string> = {
 type TurnCardOption = Pick<
   NonNullable<ProjectStateTurn['options']>[number],
   'position' | 'content' | 'is_recommended'
-> & {
-  is_selected: boolean;
-};
+>;
 
 function TurnCard({
   id,
@@ -44,6 +46,8 @@ function TurnCard({
   impact,
   options,
   onSubmitResponse,
+  persistedSelectedPositions,
+  hasPersistedResponse,
   disabled,
 }: {
   id: string;
@@ -52,17 +56,18 @@ function TurnCard({
   impact: ProjectStateTurn['impact'];
   options: TurnCardOption[];
   onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
+  persistedSelectedPositions: number[];
+  hasPersistedResponse: boolean;
   disabled: boolean;
 }) {
-  const persistedSelections = options.filter((option) => option.is_selected).map((option) => option.position);
-  const [selectedPositions, setSelectedPositions] = useState<number[]>(persistedSelections);
+  const [selectedPositions, setSelectedPositions] = useState<number[]>(persistedSelectedPositions);
   const [freeText, setFreeText] = useState('');
   const hasSelection = selectedPositions.length > 0;
   const hasFreeText = freeText.trim().length > 0;
-  const hasPersistedSelection = persistedSelections.length > 0;
+  const isReadOnly = disabled || hasPersistedResponse;
 
   function toggleSelection(position: number) {
-    if (disabled || hasPersistedSelection) {
+    if (isReadOnly) {
       return;
     }
 
@@ -97,18 +102,18 @@ function TurnCard({
           aria-label="Additional response context"
           value={freeText}
           onChange={(event) => setFreeText(event.target.value)}
-          disabled={disabled}
+          disabled={isReadOnly}
           placeholder="Optional details to send with your selection, or required if no option fits"
           className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
         />
         <div className="mt-2 flex justify-end gap-2">
           <button
             type="button"
-            disabled={disabled || hasPersistedSelection || !hasSelection}
+            disabled={isReadOnly || !hasSelection}
             onClick={() => onSubmitResponse?.(selectedPositions, freeText)}
             className={cn(
               'rounded-md border px-3 py-2 text-sm transition-colors',
-              disabled || hasPersistedSelection || !hasSelection
+              isReadOnly || !hasSelection
                 ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
                 : 'border-border bg-background hover:bg-muted',
             )}
@@ -117,11 +122,11 @@ function TurnCard({
           </button>
           <button
             type="button"
-            disabled={disabled || hasPersistedSelection || hasSelection || !hasFreeText}
+            disabled={isReadOnly || hasSelection || !hasFreeText}
             onClick={() => onSubmitResponse?.([], freeText)}
             className={cn(
               'rounded-md border px-3 py-2 text-sm transition-colors',
-              disabled || hasPersistedSelection || hasSelection || !hasFreeText
+              isReadOnly || hasSelection || !hasFreeText
                 ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
                 : 'border-border bg-background hover:bg-muted',
             )}
@@ -142,14 +147,14 @@ function TurnCard({
                 isSelected
                   ? 'border-primary bg-primary/5 font-medium'
                   : 'border-border bg-background hover:bg-muted',
-                (disabled || hasPersistedSelection) && 'cursor-not-allowed opacity-60',
+                isReadOnly && 'cursor-not-allowed opacity-60',
               )}
             >
               <input
                 type="checkbox"
                 checked={isSelected}
                 onChange={() => toggleSelection(opt.position)}
-                disabled={disabled || hasPersistedSelection}
+                disabled={isReadOnly}
                 aria-label={opt.content}
               />
               <span>
@@ -252,6 +257,8 @@ export function InterviewWorkspace() {
                   impact={turnCard.turn.impact}
                   options={turnCard.turn.options ?? []}
                   onSubmitResponse={turnCard.submitTurnResponse}
+                  persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
+                  hasPersistedResponse={hasPersistedTurnResponse(turnCard.turn)}
                   disabled={turnCard.disabled}
                 />
               )}
@@ -263,10 +270,9 @@ export function InterviewWorkspace() {
                   question={turnCard.pendingQuestion.question}
                   why={turnCard.pendingQuestion.why}
                   impact={turnCard.pendingQuestion.impact}
-                  options={turnCard.pendingQuestion.options.map((option) => ({
-                    ...option,
-                    is_selected: false,
-                  }))}
+                  options={turnCard.pendingQuestion.options}
+                  persistedSelectedPositions={[]}
+                  hasPersistedResponse={false}
                   disabled={turnCard.disabled}
                 />
               )}

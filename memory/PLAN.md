@@ -159,25 +159,26 @@
      - Acceptance: criteria-review mode presents synthesized criteria, records explicit review state, and can close only when approved requirements have sufficient verification coverage
      - **Verification approach**: inner — criterion/review edge tests. Outer — manual criteria review with edits and coverage checks.
 
-## Phase 6: Revisit + Export
+## Phase 6: Readiness Surfaces + Export
 
-<!-- Generalize revisit semantics from decisions-only branching to active-path readiness invalidation,
-     then export from the reviewed knowledge layer. -->
+<!-- Surface readiness outside the workspace, add sidebar review/edit flows, then export from the
+     reviewed knowledge layer. Generalized revisit is deferred until the readiness/export path is
+     stable enough to absorb branch invalidation semantics without widening this phase further. -->
 
 ### Slices
 
-11. **Generalized revisit: branch + readiness invalidation** — Revisit any earlier turn, not just a decision card. Branch from that turn, restore the interview there, and invalidate downstream phase outcomes / review state from the affected frontier. `not-started`
-    - Requirements: → SPEC.md §Requirements #9, #10, #13
-    - Assumptions: → SPEC.md §Assumptions A6
-    - Decisions: → SPEC.md §Decisions D1, D3, D17
-    - Candidate invariant goals: active-path switch hides abandoned-branch readiness; downstream stale state is attributed to the correct frontier
-    - Invariants to respect: → SPEC.md §Invariants I9, I10, I24, I25
-    - Acceptance: revisit a scope/design/review turn, new branch created, interview resumes from that point, and downstream closure/review state becomes stale until re-walked
-    - **Verification approach**: inner — branching + readiness invalidation tests. Outer — manual revisit across multiple modes.
+11a. **Project dashboard workflow status** — Surface durable workflow/readiness state on the project list so users can tell which projects are incomplete, review-stale, or export-ready without opening each workspace. This replaces the deferred revisit slot with a missing but lower-risk requirement. `not-started`
+     - Requirements: → SPEC.md §Requirements #7, #11, #12, #13, #15
+     - Assumptions: → SPEC.md §Assumptions A15, A28
+     - Decisions: → SPEC.md §Decisions D3, D17
+     - Candidate invariant goals: project-list status derives from durable phase outcomes and review records, not ad hoc turn heuristics
+     - Invariants to respect: → SPEC.md §Invariants I24, I25, I36, I41, I42
+     - Acceptance: the project list shows each project's workflow completion/status from persisted readiness artifacts and updates correctly after refresh/resume
+     - **Verification approach**: inner — readiness-summary projection tests plus project-list route/component tests. Outer — manual multi-project walkthrough covering incomplete, review-stale, and export-ready states.
 
 12. **Knowledge review lifecycle API + sidebar edits** — CRUD/review endpoints for the broader knowledge layer. Editing or reviewing items should be provenance-bearing and update readiness state without becoming invisible side mutations. `not-started`
-    - Requirements: → SPEC.md §Requirements #6, #11, #12, #13
-    - Assumptions: → SPEC.md §Assumptions A14
+     - Requirements: → SPEC.md §Requirements #6, #11, #12, #13
+     - Assumptions: → SPEC.md §Assumptions A14
     - Decisions: → SPEC.md §Decisions D5, D17
     - Candidate invariant goals: review/edit actions are reflected in both knowledge state and readiness state; sidebar writes are visible and recoverable
     - Invariants to respect: → SPEC.md §Invariants I23, I36, I41, I42
@@ -185,13 +186,13 @@
     - **Verification approach**: inner — mutation + invalidation tests. Outer — manual sidebar edit/review walkthrough.
 
 13. **Spec export from the reviewed knowledge layer** — Render markdown export from active-path, reviewed knowledge items and explicit phase outcomes. Export is enabled only when the new readiness predicate is satisfied. `not-started`
-    - Requirements: → SPEC.md §Requirements #13
-    - Assumptions: —
-    - Decisions: → SPEC.md §Decisions D5, D17, D26
-    - Candidate invariant goals: export reflects active-path reviewed knowledge only; readiness predicate gates export correctly
-    - Invariants to respect: → SPEC.md §Invariants I18, I21
-    - Acceptance: complete all modes, satisfy review completeness, navigate to export, see markdown preview from the reviewed knowledge layer, download `.md` file
-    - **Verification approach**: inner — export projection tests. Outer — manual export after a full walkthrough and after a revisit-induced stale state.
+     - Requirements: → SPEC.md §Requirements #13
+     - Assumptions: —
+     - Decisions: → SPEC.md §Decisions D5, D17, D26
+     - Candidate invariant goals: export reflects active-path reviewed knowledge only; readiness predicate gates export correctly
+     - Invariants to respect: → SPEC.md §Invariants I18, I21
+     - Acceptance: complete all modes, satisfy review completeness, navigate to export, see markdown preview from the reviewed knowledge layer, download `.md` file
+     - **Verification approach**: inner — export projection tests. Outer — manual export after a full walkthrough and after a readiness-incomplete state blocks export.
 
 ## Phase 7: Distribution
 
@@ -223,6 +224,7 @@
 
 <!-- Future work not yet broken into slices. Revisit after Phase 7. -->
 
+- Deferred from Phase 6: `11. Generalized revisit: branch + readiness invalidation` — revisit any earlier turn, branch from that point, restore the interview there, and invalidate downstream phase outcomes / review state from the affected frontier. Re-scope after the readiness/export path stabilizes.
 - CLI interactive interview mode (terminal-based interview using core's DomainEvent stream)
 - MCP server adapter (expose core operations as MCP tools)
 - Turn tree visualization (git-log-style branch graph in sidebar)
@@ -250,7 +252,9 @@ Phase 4:  6b ──→ 6b1 (workspace oracle) ──→ 6c (live streaming fix)
           6e ──→ 6f (phase-aware observer)
 Phase 5:  6f ──→ 7 (explicit phase outcomes + scope closure)
           7 ──→ 8 (design mode) ──→ 9 (requirements-review) ──→ 10 (criteria-review)
-Phase 6:  7 ──→ 11 (generalized revisit)
+Phase 6:  7 ──┐
+          9 ──┼──→ 11a (project dashboard workflow status)
+          10 ─┘
           9 ──→ 12 (knowledge review lifecycle API)
           10 ──→ 13 (export)
 Phase 7:  13 ──→ 14 (npx + CLI)
@@ -259,6 +263,7 @@ Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
 
 ### Parallelism opportunities
 
-- 11 (generalized revisit) can begin once explicit phase outcomes (7) exist; it does not need requirements/criteria review UX to start proving readiness invalidation mechanics.
+- 11a (project dashboard workflow status) can begin once the readiness artifacts from 7/9/10 exist; it does not need sidebar editing flows to surface durable project status.
+- 12 (knowledge review lifecycle API) and 13 (export) can proceed in parallel once requirements/criteria review artifacts stabilize, because sidebar writes are not a prerequisite for the first reviewed export path.
 - 14 (npx) can start early with a basic launcher, completing after slice 13 when the new export predicate stabilizes.
 - 15 (drizzle-kit audit remediation) should wait until 14 lands, so packaging/distribution regressions can be judged on the real shipped path instead of the current dev-only setup.
