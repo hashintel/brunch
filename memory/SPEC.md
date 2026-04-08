@@ -152,6 +152,8 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 58. **Pending questions are a distinct workspace view model, not invented persisted turns** — Streamed `tool-ask_question` output now projects into a dedicated `pending-question` controller/view-state branch with its own ephemeral identity and option list, while persisted turn cards continue to use the durable `ProjectStateTurn` shape and submission flow. Route and UI layers render the union through one turn-card surface without inventing sentinel turn IDs, negative option IDs, or borrowed ancestry metadata. Depends on: D43, A16. Supersedes: fabricated persisted-turn projection for streamed interviewer questions.
 
+59. **Knowledge-kind metadata lives behind one shared registry seam** — The six-knowledge-kind ontology should declare ordering, collection keys, labels, context headings, and empty-state copy in one shared registry module. Observer-result payload schemas, observer-created ID maps, entities projection, observer context sections, and sidebar tabs should read from that registry instead of re-declaring parallel arrays or object shapes. Depends on: D22, D25, D49, D51, D56. Supersedes: duplicated knowledge-kind metadata across shared, server, and client seams.
+
 26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
 
 ### Domain model
@@ -259,6 +261,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | I65 | Workspace view-state can project a streamed `ask_question` turn card even when the durable path is still empty                                       | Refactor commit 1 (Phase 4 characterization coverage)                            | workspace-data.test.ts                                                           | D43                |
 | I66 | Interviewer history and observer context project structured turn responses through one shared seam instead of diverging between structured and scalar answer views | Refactor commit 3 (shared turn-response projection seam)                         | turn-response.test.ts, context.test.ts, observer.test.ts                         | D25, D57           |
 | I67 | Workspace turn-card state distinguishes persisted turns from pending questions, so streamed interviewer output never fabricates persisted turn ids or ancestry | Refactor commit 4 (pending-question view model)                                   | workspace-data.test.ts, workspace-controller.test.tsx, InterviewWorkspace.test.tsx | D43, D58           |
+| I68 | Knowledge-kind ordering and collection metadata flow from one shared registry through observer-result payloads, observer context sections, entities projection, and sidebar tabs without ontology drift | Refactor commit 5 (shared knowledge-kind registry)                                 | knowledge.test.ts, context.test.ts, InterviewWorkspace.test.tsx                    | D22, D25, D49, D51, D56, D59 |
 
 ## Lexicon
 
@@ -456,14 +459,15 @@ This projection difference is a deliberate design choice, not an implementation 
 | File                          | Tests | Protects                                              |
 | ----------------------------- | ----- | ----------------------------------------------------- |
 | db.test.ts                    | 33    | I5, I6, I9, I10, I11, I20, I48, I50, I52             |
+| knowledge.test.ts             | 1     | I68                                                   |
 | app.test.ts                   | 14    | I1, I2, I3, I7, I14, I21, I23, I44, I46, I47, I49, I51, I53, I55, I57, I59, I61, I63, I64 |
 | core.test.ts                  | 6     | I12, I13, I18                                         |
 | interview.test.ts             | 6     | I16                                                   |
 | parts.test.ts                 | 12    | I17, I18, I44, I46, I47, I55, I57, I59, I61, I63      |
-| context.test.ts               | 13    | I19, I45, I47, I54, I56, I60, I62, I66                |
+| context.test.ts               | 13    | I19, I45, I47, I54, I56, I60, I62, I66, I68           |
 | observer.test.ts              | 9     | I20, I21, I54, I56, I58, I60, I62, I66                |
 | turn-response.test.ts         | 4     | I66                                                   |
-| InterviewWorkspace.test.tsx   | 13    | I24, I25, I23, I33, I34, I35, I36, I43, I44, I46, I47, I49, I51, I53, I55, I57, I59, I61, I63, I67 |
+| InterviewWorkspace.test.tsx   | 13    | I24, I25, I23, I33, I34, I35, I36, I43, I44, I46, I47, I49, I51, I53, I55, I57, I59, I61, I63, I67, I68 |
 | ProjectList.test.tsx          | 2     | I36                                                   |
 | workspace-data.test.ts        | 5     | I33, I49, I51, I53, I65, I67                          |
 | chat-hydration.test.ts        | 3     | I35                                                   |

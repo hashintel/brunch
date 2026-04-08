@@ -4,8 +4,11 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { WorkspaceDurableEntityState } from '@/workspace/workspace-controller-core';
 
-const tabs = ['Framing', 'Constraints', 'Requirements', 'Criteria', 'Decisions', 'Assumptions'] as const;
-type Tab = (typeof tabs)[number];
+import {
+  knowledgeKindRegistry,
+  knowledgeKindRegistryByCollectionKey,
+  type KnowledgeCollectionKey,
+} from '../../shared/knowledge.js';
 
 function entityKey(collection: 'knowledge_item' | 'decision' | 'assumption', id: number) {
   return `${collection}:${id}`;
@@ -30,7 +33,7 @@ function renderKnowledgeItems(
 }
 
 export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEntityState }) {
-  const [activeTab, setActiveTab] = useState<Tab>('Decisions');
+  const [activeTab, setActiveTab] = useState<KnowledgeCollectionKey>('decisions');
   const { framing, constraints, requirements, criteria, decisions, assumptions, relationships, isLoading } =
     entityState;
   const contentByEntity = new Map<string, string>([
@@ -60,32 +63,21 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
     <div className="flex h-full w-72 flex-col border-l bg-card">
       {/* Tab bar */}
       <div className="flex border-b">
-        {tabs.map((tab) => {
-          const count =
-            tab === 'Framing'
-              ? framing.length
-              : tab === 'Constraints'
-                ? constraints.length
-                : tab === 'Requirements'
-                  ? requirements.length
-                  : tab === 'Criteria'
-                    ? criteria.length
-                    : tab === 'Decisions'
-                      ? decisions.length
-                      : assumptions.length;
+        {knowledgeKindRegistry.map((entry) => {
+          const count = entityState[entry.collectionKey].length;
           return (
             <button
-              key={tab}
+              key={entry.collectionKey}
               type="button"
-              onClick={() => setActiveTab(tab)}
+              onClick={() => setActiveTab(entry.collectionKey)}
               className={cn(
                 'flex-1 px-3 py-2 text-sm font-medium transition-colors',
-                activeTab === tab
+                activeTab === entry.collectionKey
                   ? 'border-b-2 border-primary text-primary'
                   : 'text-muted-foreground hover:text-foreground',
               )}
             >
-              {tab}
+              {entry.label}
               {count > 0 && (
                 <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-[10px]">
                   {count}
@@ -100,104 +92,83 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
       <div className="flex-1 overflow-y-auto p-3">
         {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
 
-        {activeTab === 'Framing' && (
-          <div className="flex flex-col gap-2">
-            {renderKnowledgeItems(
-              framing,
-              "No framing items yet. They'll appear as the interview progresses.",
-              isLoading,
-            )}
-          </div>
-        )}
+        {(() => {
+          const activeEntry = knowledgeKindRegistryByCollectionKey[activeTab];
 
-        {activeTab === 'Constraints' && (
-          <div className="flex flex-col gap-2">
-            {renderKnowledgeItems(
-              constraints,
-              "No constraints yet. They'll appear as the interview progresses.",
-              isLoading,
-            )}
-          </div>
-        )}
+          if (activeEntry.entityCollection === 'knowledge_item') {
+            const items =
+              activeTab === 'framing'
+                ? framing
+                : activeTab === 'constraints'
+                  ? constraints
+                  : activeTab === 'requirements'
+                    ? requirements
+                    : criteria;
 
-        {activeTab === 'Requirements' && (
-          <div className="flex flex-col gap-2">
-            {renderKnowledgeItems(
-              requirements,
-              "No requirements yet. They'll appear as the interview progresses.",
-              isLoading,
-            )}
-          </div>
-        )}
+            return (
+              <div className="flex flex-col gap-2">
+                {renderKnowledgeItems(items, activeEntry.emptyStateCopy, isLoading)}
+              </div>
+            );
+          }
 
-        {activeTab === 'Criteria' && (
-          <div className="flex flex-col gap-2">
-            {renderKnowledgeItems(
-              criteria,
-              "No criteria yet. They'll appear as the interview progresses.",
-              isLoading,
-            )}
-          </div>
-        )}
+          if (activeTab === 'decisions') {
+            return (
+              <div className="flex flex-col gap-2">
+                {decisions.length === 0 && !isLoading && (
+                  <p className="text-sm italic text-muted-foreground">{activeEntry.emptyStateCopy}</p>
+                )}
+                {decisions.map((d) => {
+                  const dependencyLabels = getDependencyLabels({ collection: 'decision', id: d.id });
 
-        {activeTab === 'Decisions' && (
-          <div className="flex flex-col gap-2">
-            {decisions.length === 0 && !isLoading && (
-              <p className="text-sm italic text-muted-foreground">
-                No decisions yet. They'll appear as the interview progresses.
-              </p>
-            )}
-            {decisions.map((d) => {
-              const dependencyLabels = getDependencyLabels({ collection: 'decision', id: d.id });
-
-              return (
-                <div key={d.id} className="rounded-md border p-2.5">
-                  <p className="text-sm">{d.content}</p>
-                  {d.rationale && <p className="mt-1 text-xs text-muted-foreground">{d.rationale}</p>}
-                  {dependencyLabels.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs font-medium text-muted-foreground">Depends on</p>
-                      <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
-                        {dependencyLabels.map((label) => (
-                          <li key={label}>{label}</li>
-                        ))}
-                      </ul>
+                  return (
+                    <div key={d.id} className="rounded-md border p-2.5">
+                      <p className="text-sm">{d.content}</p>
+                      {d.rationale && <p className="mt-1 text-xs text-muted-foreground">{d.rationale}</p>}
+                      {dependencyLabels.length > 0 && (
+                        <div className="mt-2">
+                          <p className="text-xs font-medium text-muted-foreground">Depends on</p>
+                          <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
+                            {dependencyLabels.map((label) => (
+                              <li key={label}>{label}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
                     </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+                  );
+                })}
+              </div>
+            );
+          }
 
-        {activeTab === 'Assumptions' && (
-          <div className="flex flex-col gap-2">
-            {assumptions.length === 0 && !isLoading && (
-              <p className="text-sm italic text-muted-foreground">
-                No assumptions yet. They'll appear as the interview progresses.
-              </p>
-            )}
-            {assumptions.map((a) => {
-              const dependencyLabels = getDependencyLabels({ collection: 'assumption', id: a.id });
+          return (
+            <div className="flex flex-col gap-2">
+              {assumptions.length === 0 && !isLoading && (
+                <p className="text-sm italic text-muted-foreground">{activeEntry.emptyStateCopy}</p>
+              )}
+              {assumptions.map((a) => {
+                const dependencyLabels = getDependencyLabels({ collection: 'assumption', id: a.id });
 
-              return (
-                <div key={a.id} className="rounded-md border p-2.5">
-                  <p className="text-sm">{a.content}</p>
-                  {dependencyLabels.length > 0 && (
-                    <div className="mt-2">
-                      <p className="text-xs font-medium text-muted-foreground">Depends on</p>
-                      <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
-                        {dependencyLabels.map((label) => (
-                          <li key={label}>{label}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
+                return (
+                  <div key={a.id} className="rounded-md border p-2.5">
+                    <p className="text-sm">{a.content}</p>
+                    {dependencyLabels.length > 0 && (
+                      <div className="mt-2">
+                        <p className="text-xs font-medium text-muted-foreground">Depends on</p>
+                        <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
+                          {dependencyLabels.map((label) => (
+                            <li key={label}>{label}</li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()}
       </div>
     </div>
   );

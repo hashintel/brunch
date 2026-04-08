@@ -1,5 +1,6 @@
 import { table, h3 } from 'md-pen';
 
+import { knowledgeKindRegistry } from '../shared/knowledge.js';
 import type { TurnWithOptions } from './core.js';
 import { formatProjectedTurnResponse, projectTurnResponse } from './turn-response.js';
 
@@ -62,74 +63,20 @@ export interface ObserverContextInput {
 export function buildObserverContext(input: ObserverContextInput): string {
   const sections: string[] = [];
 
-  if (
-    input.entities.framing.length > 0 ||
-    input.entities.constraints.length > 0 ||
-    input.entities.requirements.length > 0 ||
-    input.entities.criteria.length > 0 ||
-    input.entities.decisions.length > 0 ||
-    input.entities.assumptions.length > 0
-  ) {
-    if (input.entities.framing.length > 0) {
-      sections.push(
-        h3('Existing Framing') +
-          '\n' +
-          table(
-            input.entities.framing.map((item) => ({ ID: item.id, Content: item.content })),
-            { columns: ['ID', 'Content'] },
-          ),
-      );
+  for (const entry of knowledgeKindRegistry) {
+    const items = input.entities[entry.collectionKey];
+    if (items.length === 0) {
+      continue;
     }
-    if (input.entities.constraints.length > 0) {
-      sections.push(
-        h3('Existing Constraints') +
-          '\n' +
-          table(
-            input.entities.constraints.map((item) => ({ ID: item.id, Content: item.content })),
-            { columns: ['ID', 'Content'] },
-          ),
-      );
-    }
-    if (input.entities.requirements.length > 0) {
-      sections.push(
-        h3('Existing Requirements') +
-          '\n' +
-          table(
-            input.entities.requirements.map((item) => ({ ID: item.id, Content: item.content })),
-            { columns: ['ID', 'Content'] },
-          ),
-      );
-    }
-    if (input.entities.criteria.length > 0) {
-      sections.push(
-        h3('Existing Criteria') +
-          '\n' +
-          table(
-            input.entities.criteria.map((item) => ({ ID: item.id, Content: item.content })),
-            { columns: ['ID', 'Content'] },
-          ),
-      );
-    }
-    if (input.entities.decisions.length > 0) {
-      sections.push(
-        h3('Existing Decisions') +
-          '\n' +
-          table(
-            input.entities.decisions.map((d) => ({ ID: d.id, Content: d.content })),
-            { columns: ['ID', 'Content'] },
-          ),
-      );
-    }
-    if (input.entities.assumptions.length > 0) {
-      sections.push(
-        h3('Existing Assumptions') +
-          '\n' +
-          table(
-            input.entities.assumptions.map((a) => ({ ID: a.id, Content: a.content })),
-            { columns: ['ID', 'Content'] },
-          ),
-      );
-    }
+
+    sections.push(
+      h3(entry.contextHeading) +
+        '\n' +
+        table(
+          items.map((item) => ({ ID: item.id, Content: item.content })),
+          { columns: ['ID', 'Content'] },
+        ),
+    );
   }
 
   if (input.activePathSummary) {

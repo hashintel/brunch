@@ -2,6 +2,8 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { generateText, Output } from 'ai';
 import * as z from 'zod/v4';
 
+import { type ObserverEntityIds } from '../shared/chat.js';
+import { createKnowledgeCollectionRecord } from '../shared/knowledge.js';
 import { buildObserverContext } from './context.js';
 import {
   createDecision,
@@ -104,18 +106,7 @@ Rules:
  * Run the observer agent. Extracts entities from the completed turn,
  * persists them to the DB, and returns created entity IDs.
  */
-export async function runObserver(
-  db: DB,
-  turn: Turn,
-  projectId: number,
-): Promise<{
-  framing: number[];
-  constraints: number[];
-  requirements: number[];
-  criteria: number[];
-  decisions: number[];
-  assumptions: number[];
-}> {
+export async function runObserver(db: DB, turn: Turn, projectId: number): Promise<ObserverEntityIds> {
   const entities = getEntitiesForProject(db, projectId);
   const context = buildObserverContext({
     turn: {
@@ -137,19 +128,14 @@ export async function runObserver(
   const parsed = result.output;
 
   // Persist entities in a transaction-like sequence
-  const createdFramingIds: number[] = [];
-  const createdConstraintIds: number[] = [];
-  const createdRequirementIds: number[] = [];
-  const createdCriterionIds: number[] = [];
-  const createdDecisionIds: number[] = [];
-  const createdAssumptionIds: number[] = [];
+  const createdEntityIds = createKnowledgeCollectionRecord(() => [] as number[]);
 
   for (const item of parsed.framing) {
     const framing = createKnowledgeItem(db, projectId, 'framing', item.content, {
       rationale: item.rationale,
     });
     linkKnowledgeItemToTurn(db, framing.id, turn.id);
-    createdFramingIds.push(framing.id);
+    createdEntityIds.framing.push(framing.id);
   }
 
   for (const item of parsed.constraints) {
@@ -158,7 +144,7 @@ export async function runObserver(
       rationale: item.rationale,
     });
     linkKnowledgeItemToTurn(db, constraint.id, turn.id);
-    createdConstraintIds.push(constraint.id);
+    createdEntityIds.constraints.push(constraint.id);
   }
 
   for (const item of parsed.requirements) {
@@ -166,7 +152,7 @@ export async function runObserver(
       rationale: item.rationale,
     });
     linkKnowledgeItemToTurn(db, requirement.id, turn.id);
-    createdRequirementIds.push(requirement.id);
+    createdEntityIds.requirements.push(requirement.id);
   }
 
   for (const item of parsed.criteria) {
@@ -174,13 +160,13 @@ export async function runObserver(
       rationale: item.rationale,
     });
     linkKnowledgeItemToTurn(db, criterion.id, turn.id);
-    createdCriterionIds.push(criterion.id);
+    createdEntityIds.criteria.push(criterion.id);
   }
 
   for (const d of parsed.decisions) {
     const decision = createDecision(db, projectId, d.content, d.rationale);
     linkDecisionToTurn(db, decision.id, turn.id);
-    createdDecisionIds.push(decision.id);
+    createdEntityIds.decisions.push(decision.id);
 
     for (const parentId of d.parentDecisionIds) {
       addDecisionParentDecision(db, decision.id, parentId);
@@ -193,19 +179,12 @@ export async function runObserver(
   for (const a of parsed.assumptions) {
     const assumption = createAssumption(db, projectId, a.content);
     linkAssumptionToTurn(db, assumption.id, turn.id);
-    createdAssumptionIds.push(assumption.id);
+    createdEntityIds.assumptions.push(assumption.id);
 
     for (const parentId of a.parentAssumptionIds) {
       addAssumptionParentAssumption(db, assumption.id, parentId);
     }
   }
 
-  return {
-    framing: createdFramingIds,
-    constraints: createdConstraintIds,
-    requirements: createdRequirementIds,
-    criteria: createdCriterionIds,
-    decisions: createdDecisionIds,
-    assumptions: createdAssumptionIds,
-  };
+  return createdEntityIds;
 }

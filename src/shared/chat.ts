@@ -1,6 +1,8 @@
 import { tool, type UIMessage, type UIMessagePart, type UITools } from 'ai';
 import * as z from 'zod/v4';
 
+import { createKnowledgeCollectionRecord } from './knowledge.js';
+
 export const structuredQuestionSchema = z.object({
   question: z.string().min(1),
   why: z.string().min(1),
@@ -22,14 +24,7 @@ export const askQuestionToolOutputSchema = z.object({
 });
 
 export const observerResultSchema = z.object({
-  entityIds: z.object({
-    framing: z.array(z.number()),
-    constraints: z.array(z.number()),
-    requirements: z.array(z.number()),
-    criteria: z.array(z.number()),
-    decisions: z.array(z.number()),
-    assumptions: z.array(z.number()),
-  }),
+  entityIds: z.object(createKnowledgeCollectionRecord(() => z.array(z.number()))),
 });
 
 export const dataTurnResponseSchema = z
@@ -61,6 +56,7 @@ export const dataPhaseSummarySchema = z.object({
 export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
+export type ObserverEntityIds = ObserverResultData['entityIds'];
 export type DataTurnResponse = z.infer<typeof dataTurnResponseSchema>;
 export type DataConfirmation = z.infer<typeof dataConfirmationSchema>;
 export type DataPhaseSummary = z.infer<typeof dataPhaseSummarySchema>;

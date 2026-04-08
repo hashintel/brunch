@@ -31,7 +31,7 @@ The goal is structural alignment, not feature expansion.
 4. [done] Introduce a dedicated pending-question view model for streamed interviewer output and teach the workspace controller and workspace UI to render it without fabricating persisted turns.
    - Split turn-card state into an explicit union (`persisted turn` vs `pending question`) instead of fabricating a `ProjectStateTurn` with sentinel IDs and placeholder ancestry.
    - Rename remaining `live question` symbols to `pending question` language so the controller, view state, and tests match the refactor lexicon.
-5. Extract a shared knowledge-kind registry that owns ordering, labels, empty-state copy, and collection metadata for the six knowledge kinds, then adopt it across observer output, context projection, transport payloads, and sidebar rendering.
+5. [done] Extract a shared knowledge-kind registry that owns ordering, labels, empty-state copy, and collection metadata for the six knowledge kinds, then adopt it across observer output, context projection, transport payloads, and sidebar rendering.
 6. Remove any temporary compatibility shims left by the rename/extraction sequence so the final interfaces speak only the refactored domain language.
 
 ## Decisions
