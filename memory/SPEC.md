@@ -251,6 +251,8 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | I61 | Widened `data-observer-result` parts can carry created requirement IDs through persistence, SSE emission, entities projection, and `Requirements` tab refresh without regressing observer sync | Slice 6f.4a (requirements-mode requirement emergence through the generic observer seam) | parts.test.ts, app.test.ts, InterviewWorkspace.test.tsx                         | D22, D24, D55      |
 | I62 | Criteria-mode observer context and output schema can widen to `criterion` items while preserving generic turn provenance and existing requirement/criterion context | Slice 6f.4b (criteria-mode criterion emergence through the generic observer seam) | context.test.ts, observer.test.ts                                               | D25, D56           |
 | I63 | Widened `data-observer-result` parts can carry created criterion IDs through persistence, SSE emission, entities projection, and `Criteria` tab refresh without regressing observer sync | Slice 6f.4b (criteria-mode criterion emergence through the generic observer seam) | parts.test.ts, app.test.ts, InterviewWorkspace.test.tsx                         | D22, D24, D56      |
+| I64 | Structured turn responses survive submit → project reload → transcript hydration → interviewer-history projection without collapsing back to scalar-only semantics | Refactor commit 1 (Phase 4 characterization coverage)                            | app.test.ts                                                                      | D23, D24, D25      |
+| I65 | Workspace view-state can project a live streamed `ask_question` turn card even when the durable path is still empty                                   | Refactor commit 1 (Phase 4 characterization coverage)                            | workspace-data.test.ts                                                           | D43                |
 
 ## Lexicon
 
@@ -448,15 +450,15 @@ This projection difference is a deliberate design choice, not an implementation 
 | File                          | Tests | Protects                                              |
 | ----------------------------- | ----- | ----------------------------------------------------- |
 | db.test.ts                    | 33    | I5, I6, I9, I10, I11, I20, I48, I50, I52             |
-| app.test.ts                   | 13    | I1, I2, I3, I7, I14, I21, I23, I44, I46, I47, I49, I51, I53, I55, I57, I59, I61, I63 |
+| app.test.ts                   | 14    | I1, I2, I3, I7, I14, I21, I23, I44, I46, I47, I49, I51, I53, I55, I57, I59, I61, I63, I64 |
 | core.test.ts                  | 6     | I12, I13, I18                                         |
 | interview.test.ts             | 6     | I16                                                   |
 | parts.test.ts                 | 12    | I17, I18, I44, I46, I47, I55, I57, I59, I61, I63      |
-| context.test.ts               | 12    | I19, I45, I47, I54, I56, I60, I62                     |
+| context.test.ts               | 13    | I19, I45, I47, I54, I56, I60, I62                     |
 | observer.test.ts              | 8     | I20, I21, I54, I56, I58, I60, I62                     |
 | InterviewWorkspace.test.tsx   | 13    | I24, I25, I23, I33, I34, I35, I36, I43, I44, I46, I47, I49, I51, I53, I55, I57, I59, I61, I63 |
 | ProjectList.test.tsx          | 2     | I36                                                   |
-| workspace-data.test.ts        | 4     | I33, I49, I51, I53                                    |
+| workspace-data.test.ts        | 5     | I33, I49, I51, I53, I65                               |
 | chat-hydration.test.ts        | 3     | I35                                                   |
 | workspace-controller.test.tsx | 3     | I41, I43                                              |
 | client-mutation.test.ts       | 3     | I42                                                   |

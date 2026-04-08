@@ -1,6 +1,8 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { ProjectState } from '../shared/api-types.js';
+import { buildInterviewerContext } from './context.js';
 import type { DB } from './db.js';
 
 const { mockStreamInterviewer, mockRunObserver } = vi.hoisted(() => ({
@@ -672,6 +674,102 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
         },
       },
     ]);
+  });
+
+  it('round-trips structured turn responses through project reload, transcript hydration, and interviewer history', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const { getActivePath, getOptionsForTurn } = await import('./db.js');
+    const { createWorkspaceEphemeralChatState } =
+      await import('../client/workspace/workspace-controller-core.js');
+    const turn = getActivePath(db, projectId)[0];
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
+      .send({ positions: [0, 1], freeText: 'Covers both launch paths' })
+      .expect(200);
+
+    const projectStateRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectState = projectStateRes.body as ProjectState;
+    const selectedOptionIds = getOptionsForTurn(db, turn.id)
+      .filter((option) => option.is_selected)
+      .map((option) => option.id);
+
+    expect(projectState.turns).toHaveLength(1);
+    expect(projectState.turns[0].answer).toBe('Web, Desktop — Covers both launch paths');
+    expect(JSON.parse(projectState.turns[0].user_parts ?? '[]')).toEqual([
+      { type: 'text', text: 'Web, Desktop — Covers both launch paths' },
+      {
+        type: 'data-turn-response',
+        data: {
+          turnId: turn.id,
+          selectedOptionIds,
+          freeText: 'Covers both launch paths',
+        },
+      },
+    ]);
+
+    const hydratedChat = createWorkspaceEphemeralChatState(projectState);
+    expect(hydratedChat.seedMessages).toEqual([
+      {
+        id: `turn-${turn.id}-answer`,
+        role: 'user',
+        parts: [
+          { type: 'text', text: 'Web, Desktop — Covers both launch paths' },
+          {
+            type: 'data-turn-response',
+            data: {
+              turnId: turn.id,
+              selectedOptionIds,
+              freeText: 'Covers both launch paths',
+            },
+          },
+        ],
+      },
+      {
+        id: `turn-${turn.id}-assistant`,
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-ask_question',
+            toolCallId: 'tool-1',
+            state: 'output-available',
+            input: structuredQuestion,
+            output: { ok: true, turnId: turn.id, optionCount: structuredQuestion.options.length },
+          },
+          {
+            type: 'data-observer-result',
+            data: {
+              entityIds: {
+                framing: [],
+                constraints: [],
+                requirements: [],
+                criteria: [],
+                decisions: [],
+                assumptions: [],
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(buildInterviewerContext(projectState.turns, 'next prompt')).toContain(
+      'Turn response:\n  Chosen options: Web, Desktop\n  Free-text response: Covers both launch paths',
+    );
+    expect(buildInterviewerContext(projectState.turns, 'next prompt')).not.toContain(
+      'Answer: Web, Desktop — Covers both launch paths',
+    );
   });
 
   it('persists a free-text-only turn response when no option is selected', async () => {

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { EntitiesData, ProjectState } from '../../shared/api-types.js';
+import type { BrunchUIMessage } from '../../shared/chat.js';
 import {
   createWorkspaceControllerViewState,
   createWorkspaceDurableEntityState,
@@ -217,5 +218,53 @@ describe('workspace controller core', () => {
       turnCard: { turn: selectedTurn.lastTurn! },
       promptInput: { visible: true },
     });
+  });
+
+  it('projects a live streamed question before any durable turn exists', () => {
+    const emptyProjectState: ProjectState = {
+      project: {
+        id: 1,
+        name: 'Project 1',
+        active_turn_id: null,
+        created_at: '2026-04-03 10:00:00',
+        updated_at: '2026-04-03 10:00:00',
+      },
+      turns: [],
+    };
+    const liveMessages: BrunchUIMessage[] = [
+      {
+        id: 'live-turn-assistant',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-ask_question',
+            toolCallId: 'tool-1',
+            state: 'output-available',
+            input: {
+              question: 'Which platform should we target next?',
+              why: 'Platform shapes the first build.',
+              impact: 'high',
+              options: [
+                { content: 'Web', is_recommended: true },
+                { content: 'Desktop', is_recommended: false },
+              ],
+            },
+            output: { ok: true, turnId: 1, optionCount: 2 },
+          },
+        ],
+      },
+    ];
+
+    const durableProject = createWorkspaceDurableProjectState(emptyProjectState);
+    const ephemeralChat = createWorkspaceEphemeralChatState(emptyProjectState);
+    const viewState = createWorkspaceControllerViewState(durableProject, liveMessages, true);
+
+    expect(ephemeralChat.seedMessages).toEqual([]);
+    expect(viewState.project).toEqual(emptyProjectState.project);
+    expect(viewState.promptInput.visible).toBe(false);
+    expect(viewState.turnCard?.turn.question).toBe('Which platform should we target next?');
+    expect(viewState.turnCard?.turn.phase).toBe('scope');
+    expect(viewState.turnCard?.turn.parent_turn_id).toBeNull();
+    expect(viewState.turnCard?.turn.options?.map((option) => option.content)).toEqual(['Web', 'Desktop']);
   });
 });

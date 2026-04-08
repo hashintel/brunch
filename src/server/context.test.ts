@@ -319,6 +319,50 @@ describe('observer-context-projection', () => {
     expect(result).not.toContain('Previous conversation:');
   });
 
+  it('characterizes structured turn responses in observer context through the scalar answer seam', () => {
+    const turn: Turn = {
+      id: 5,
+      project_id: 1,
+      parent_turn_id: 4,
+      phase: 'requirements',
+      question: 'Which requirements are still missing?',
+      answer: 'Web, Desktop — Covers both launch paths',
+      why: 'Requirement review needs the chosen response shape.',
+      impact: 'high',
+      is_resolution: false,
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Web, Desktop — Covers both launch paths' },
+        {
+          type: 'data-turn-response',
+          data: {
+            turnId: 5,
+            selectedOptionIds: [11, 12],
+            freeText: 'Covers both launch paths',
+          },
+        },
+      ]),
+      assistant_parts: null,
+      created_at: '2026-01-01',
+    };
+
+    const result = buildObserverContext({
+      turn,
+      activePathSummary: '',
+      entities: {
+        framing: [],
+        constraints: [],
+        requirements: [{ id: 3, content: 'Support both launch paths' }],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      },
+    });
+
+    expect(result).toContain('Answer: Web, Desktop — Covers both launch paths');
+    expect(result).not.toContain('Chosen options: Web, Desktop');
+    expect(result).not.toContain('Free-text response: Covers both launch paths');
+  });
+
   it('renders entity tables with md-pen (not hand-rolled strings)', () => {
     const turn: Turn = {
       id: 5,
