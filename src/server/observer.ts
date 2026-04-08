@@ -14,6 +14,7 @@ import {
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
   getEntitiesForProject,
+  getOptionsForTurn,
   type DB,
   type Turn,
 } from './db.js';
@@ -117,7 +118,10 @@ export async function runObserver(
 }> {
   const entities = getEntitiesForProject(db, projectId);
   const context = buildObserverContext({
-    turn,
+    turn: {
+      ...turn,
+      options: getOptionsForTurn(db, turn.id),
+    },
     activePathSummary: '',
     entities,
   });

@@ -1,8 +1,7 @@
 import { table, h3 } from 'md-pen';
 
 import type { TurnWithOptions } from './core.js';
-import type { Turn } from './db.js';
-import { safeDeserializeUserParts, type UserPart } from './parts.js';
+import { formatProjectedTurnResponse, projectTurnResponse } from './turn-response.js';
 
 /**
  * Build interviewer context from active-path turns.
@@ -30,20 +29,9 @@ export function buildInterviewerContext(turns: TurnWithOptions[], currentPrompt:
       }
       lines.push(questionLine);
     }
-    const selectedOptions =
-      turn.options?.filter((option) => option.is_selected).map((option) => option.content) ?? [];
-    const freeText = safeDeserializeUserParts(turn.user_parts).find(
-      (part): part is Extract<UserPart, { type: 'data-turn-response' }> => part.type === 'data-turn-response',
-    )?.data.freeText;
-    if (selectedOptions.length > 0 || freeText) {
-      const responseLines = ['Turn response:'];
-      if (selectedOptions.length > 0) {
-        responseLines.push(`  Chosen options: ${selectedOptions.join(', ')}`);
-      }
-      if (freeText) {
-        responseLines.push(`  Free-text response: ${freeText}`);
-      }
-      lines.push(responseLines.join('\n'));
+    const projectedResponse = projectTurnResponse(turn);
+    if (projectedResponse) {
+      lines.push(formatProjectedTurnResponse(projectedResponse));
     } else if (turn.answer) {
       lines.push(`Answer: ${turn.answer}`);
     }
@@ -53,7 +41,7 @@ export function buildInterviewerContext(turns: TurnWithOptions[], currentPrompt:
 }
 
 export interface ObserverContextInput {
-  turn: Turn;
+  turn: TurnWithOptions;
   activePathSummary: string;
   entities: {
     framing: Array<{ id: number; content: string }>;
@@ -152,7 +140,12 @@ export function buildObserverContext(input: ObserverContextInput): string {
   if (input.turn.question) turnLines.push(`  Question: ${input.turn.question}`);
   if (input.turn.why) turnLines.push(`  Why: ${input.turn.why}`);
   if (input.turn.impact) turnLines.push(`  Impact: ${input.turn.impact}`);
-  if (input.turn.answer) turnLines.push(`  Answer: ${input.turn.answer}`);
+  const projectedResponse = projectTurnResponse(input.turn);
+  if (projectedResponse) {
+    turnLines.push(formatProjectedTurnResponse(projectedResponse));
+  } else if (input.turn.answer) {
+    turnLines.push(`  Answer: ${input.turn.answer}`);
+  }
   sections.push(turnLines.join('\n'));
 
   return sections.join('\n\n');

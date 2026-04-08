@@ -20,8 +20,15 @@ vi.mock('ai', async () => {
 });
 
 const { runObserver } = await import('./observer.js');
-const { createDb, createProject, createTurn, createDecision, createAssumption, getEntitiesForProject } =
-  await import('./db.js');
+const {
+  createDb,
+  createProject,
+  createTurn,
+  createDecision,
+  createAssumption,
+  createOption,
+  getEntitiesForProject,
+} = await import('./db.js');
 
 let db: DB;
 
@@ -379,6 +386,54 @@ describe('runObserver', () => {
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
         system: expect.stringContaining('defer **criterion** extraction'),
+      }),
+    );
+  });
+
+  it('routes structured turn responses into the observer prompt through the shared response seam', async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      },
+    });
+
+    const project = createProject(db, 'Spec');
+    const turn = createTurn(db, project.id, {
+      phase: 'requirements',
+      question: 'Which requirements are still missing?',
+      answer: 'Web, Desktop — Covers both launch paths',
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Web, Desktop — Covers both launch paths' },
+        {
+          type: 'data-turn-response',
+          data: {
+            turnId: 1,
+            selectedOptionIds: [1, 2],
+            freeText: 'Covers both launch paths',
+          },
+        },
+      ]),
+    });
+    createOption(db, turn.id, { position: 0, content: 'Web', is_selected: true });
+    createOption(db, turn.id, { position: 1, content: 'Desktop', is_selected: true });
+
+    await runObserver(db, turn, project.id);
+
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining(
+          'Turn response:\n  Chosen options: Web, Desktop\n  Free-text response: Covers both launch paths',
+        ),
+      }),
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.not.stringContaining('Answer: Web, Desktop — Covers both launch paths'),
       }),
     );
   });

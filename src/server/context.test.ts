@@ -319,8 +319,8 @@ describe('observer-context-projection', () => {
     expect(result).not.toContain('Previous conversation:');
   });
 
-  it('characterizes structured turn responses in observer context through the scalar answer seam', () => {
-    const turn: Turn = {
+  it('projects structured turn responses in observer context through the shared response seam', () => {
+    const turn: TurnWithOptions = {
       id: 5,
       project_id: 1,
       parent_turn_id: 4,
@@ -343,6 +343,10 @@ describe('observer-context-projection', () => {
       ]),
       assistant_parts: null,
       created_at: '2026-01-01',
+      options: [
+        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: true },
+        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: true },
+      ],
     };
 
     const result = buildObserverContext({
@@ -358,9 +362,10 @@ describe('observer-context-projection', () => {
       },
     });
 
-    expect(result).toContain('Answer: Web, Desktop — Covers both launch paths');
-    expect(result).not.toContain('Chosen options: Web, Desktop');
-    expect(result).not.toContain('Free-text response: Covers both launch paths');
+    expect(result).toContain('Turn response:');
+    expect(result).toContain('Chosen options: Web, Desktop');
+    expect(result).toContain('Free-text response: Covers both launch paths');
+    expect(result).not.toContain('Answer: Web, Desktop — Covers both launch paths');
   });
 
   it('renders entity tables with md-pen (not hand-rolled strings)', () => {
