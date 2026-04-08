@@ -579,7 +579,14 @@ describe('InterviewWorkspace', () => {
       useChatHarness.onData?.({
         type: 'data-observer-result',
         data: {
-          entityIds: { framing: [7], constraints: [8], requirements: [], decisions: [], assumptions: [] },
+          entityIds: {
+            framing: [7],
+            constraints: [8],
+            requirements: [],
+            criteria: [],
+            decisions: [],
+            assumptions: [],
+          },
         },
       });
     });
@@ -674,6 +681,7 @@ describe('InterviewWorkspace', () => {
             framing: [7],
             constraints: [8],
             requirements: [],
+            criteria: [],
             decisions: [9],
             assumptions: [10],
           },
@@ -742,7 +750,14 @@ describe('InterviewWorkspace', () => {
       useChatHarness.onData?.({
         type: 'data-observer-result',
         data: {
-          entityIds: { framing: [], constraints: [], requirements: [11], decisions: [], assumptions: [] },
+          entityIds: {
+            framing: [],
+            constraints: [],
+            requirements: [11],
+            criteria: [],
+            decisions: [],
+            assumptions: [],
+          },
         },
       });
     });
@@ -753,6 +768,74 @@ describe('InterviewWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /requirements/i }));
     expect(await screen.findByText('Resume the interview from SQLite after restart')).toBeTruthy();
+  });
+
+  it('refetches sidebar entities when the chat stream emits observer-created criteria', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+        relationships: [],
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          framing: [],
+          constraints: [],
+          requirements: [],
+          criteria: [
+            {
+              id: 12,
+              project_id: 1,
+              kind: 'criterion',
+              subtype: null,
+              content: 'Resuming restores the active path without data loss',
+              rationale: 'This proves persistence worked for the branch the user was on',
+            },
+          ],
+          decisions: [],
+          assumptions: [],
+          relationships: [],
+        } satisfies EntitiesData),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    renderWorkspace();
+    expect(
+      await screen.findByText("No decisions yet. They'll appear as the interview progresses."),
+    ).toBeTruthy();
+
+    await act(async () => {
+      useChatHarness.onData?.({
+        type: 'data-observer-result',
+        data: {
+          entityIds: {
+            framing: [],
+            constraints: [],
+            requirements: [],
+            criteria: [12],
+            decisions: [],
+            assumptions: [],
+          },
+        },
+      } as never);
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /criteria/i }));
+    expect(await screen.findByText('Resuming restores the active path without data loss')).toBeTruthy();
   });
 
   it('posts single-option turn responses with optional free-text and forwards a combined summary into chat', async () => {

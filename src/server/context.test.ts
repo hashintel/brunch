@@ -236,7 +236,14 @@ describe('observer-context-projection', () => {
     const result = buildObserverContext({
       turn,
       activePathSummary: '',
-      entities: { framing: [], constraints: [], requirements: [], decisions: [], assumptions: [] },
+      entities: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      },
     });
 
     expect(result).toContain('What is the target audience?');
@@ -266,6 +273,7 @@ describe('observer-context-projection', () => {
         framing: [{ id: 3, content: 'The project starts from a fuzzy brief' }],
         constraints: [{ id: 4, content: 'Avoid heavyweight setup' }],
         requirements: [{ id: 5, content: 'Users can resume their interview later' }],
+        criteria: [],
         decisions: [{ id: 1, content: 'Use TypeScript' }],
         assumptions: [{ id: 1, content: 'Team knows TS' }],
       },
@@ -297,7 +305,14 @@ describe('observer-context-projection', () => {
     const result = buildObserverContext({
       turn,
       activePathSummary: 'Turn 1: goal. Turn 2: audience.',
-      entities: { framing: [], constraints: [], requirements: [], decisions: [], assumptions: [] },
+      entities: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      },
     });
 
     // Should NOT contain the full Q&A pairs from earlier turns
@@ -327,6 +342,7 @@ describe('observer-context-projection', () => {
         framing: [{ id: 3, content: 'The project is still being clarified' }],
         constraints: [{ id: 4, content: 'Keep setup instant' }],
         requirements: [{ id: 5, content: 'Resume the interview from SQLite' }],
+        criteria: [],
         decisions: [{ id: 1, content: 'Use React' }],
         assumptions: [{ id: 2, content: 'Users have browsers' }],
       },
@@ -343,6 +359,43 @@ describe('observer-context-projection', () => {
     expect(result).toContain('### Existing Framing');
     expect(result).toContain('### Existing Constraints');
     expect(result).toContain('### Existing Requirements');
+    expect(result).toContain('### Existing Decisions');
+    expect(result).toContain('### Existing Assumptions');
+  });
+
+  it('includes existing criteria alongside other generic entity sections for later-mode extraction', () => {
+    const turn: Turn = {
+      id: 6,
+      project_id: 1,
+      parent_turn_id: 5,
+      phase: 'criteria',
+      question: 'What would prove the resume flow is complete?',
+      answer: 'It should restore the active path after restart.',
+      why: null,
+      impact: null,
+      is_resolution: false,
+      user_parts: null,
+      assistant_parts: null,
+      created_at: '2026-01-02',
+    };
+
+    const result = buildObserverContext({
+      turn,
+      activePathSummary: '',
+      entities: {
+        framing: [{ id: 3, content: 'The project is still being clarified' }],
+        constraints: [{ id: 4, content: 'Keep setup instant' }],
+        requirements: [{ id: 5, content: 'Resume the interview from SQLite' }],
+        criteria: [{ id: 6, content: 'Restoring the project shows the active path' }],
+        decisions: [{ id: 1, content: 'Use React' }],
+        assumptions: [{ id: 2, content: 'Users have browsers' }],
+      },
+    } as never);
+
+    expect(result).toContain('### Existing Requirements');
+    expect(result).toContain('| 5 | Resume the interview from SQLite |');
+    expect(result).toContain('### Existing Criteria');
+    expect(result).toContain('| 6 | Restoring the project shows the active path |');
     expect(result).toContain('### Existing Decisions');
     expect(result).toContain('### Existing Assumptions');
   });

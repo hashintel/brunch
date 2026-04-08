@@ -52,6 +52,7 @@ describe('runObserver', () => {
           },
         ],
         requirements: [],
+        criteria: [],
         decisions: [],
         assumptions: [],
       },
@@ -69,6 +70,7 @@ describe('runObserver', () => {
     expect(entityIds.framing).toHaveLength(1);
     expect(entityIds.constraints).toHaveLength(1);
     expect(entityIds.requirements).toEqual([]);
+    expect(entityIds.criteria).toEqual([]);
     expect(entityIds.decisions).toEqual([]);
     expect(entityIds.assumptions).toEqual([]);
     expect(entities.framing[0]).toMatchObject({
@@ -102,6 +104,7 @@ describe('runObserver', () => {
         framing: [],
         constraints: [],
         requirements: [],
+        criteria: [],
         decisions: [],
         assumptions: [],
       },
@@ -153,6 +156,7 @@ describe('runObserver', () => {
           },
         ],
         requirements: [],
+        criteria: [],
         decisions: [
           {
             content: 'Start with the web app',
@@ -186,6 +190,7 @@ describe('runObserver', () => {
       framing: [1],
       constraints: [2],
       requirements: [],
+      criteria: [],
       decisions: [2],
       assumptions: [2],
     });
@@ -248,6 +253,7 @@ describe('runObserver', () => {
         framing: [],
         constraints: [],
         requirements: [],
+        criteria: [],
         decisions: [],
         assumptions: [],
       },
@@ -293,6 +299,7 @@ describe('runObserver', () => {
             rationale: 'Users will leave and come back mid-session',
           },
         ],
+        criteria: [],
         decisions: [],
         assumptions: [],
       },
@@ -315,6 +322,7 @@ describe('runObserver', () => {
       framing: [],
       constraints: [],
       requirements: [1],
+      criteria: [],
       decisions: [],
       assumptions: [],
     });
@@ -338,6 +346,7 @@ describe('runObserver', () => {
         framing: [],
         constraints: [],
         requirements: [],
+        criteria: [],
         decisions: [],
         assumptions: [],
       },
@@ -370,6 +379,116 @@ describe('runObserver', () => {
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
         system: expect.stringContaining('defer **criterion** extraction'),
+      }),
+    );
+  });
+
+  it('persists criteria-mode criterion items with turn provenance and returns their ids', async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [
+          {
+            content: 'Resuming restores the active path without data loss',
+            rationale: 'This proves persistence worked for the branch the user was on',
+          },
+        ],
+        decisions: [],
+        assumptions: [],
+      },
+    });
+
+    const project = createProject(db, 'Spec');
+    const turn = createTurn(db, project.id, {
+      phase: 'criteria',
+      question: 'How will we know resume is working well enough?',
+      answer: 'Resuming should restore the active path without losing any work.',
+    });
+
+    const entityIds = (await runObserver(db, turn, project.id)) as never as {
+      framing: number[];
+      constraints: number[];
+      requirements: number[];
+      criteria: number[];
+      decisions: number[];
+      assumptions: number[];
+    };
+    const entities = getEntitiesForProject(db, project.id);
+    const provenanceRows = db.$client
+      .prepare('SELECT turn_id, item_id, relation FROM turn_knowledge_item ORDER BY item_id ASC')
+      .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
+
+    expect(entityIds).toEqual({
+      framing: [],
+      constraints: [],
+      requirements: [],
+      criteria: [1],
+      decisions: [],
+      assumptions: [],
+    });
+    expect(entities.criteria[0]).toMatchObject({
+      kind: 'criterion',
+      content: 'Resuming restores the active path without data loss',
+      rationale: 'This proves persistence worked for the branch the user was on',
+    });
+    expect(provenanceRows).toEqual([
+      {
+        turn_id: turn.id,
+        item_id: entityIds.criteria[0],
+        relation: 'captured',
+      },
+    ]);
+  });
+
+  it('calls generateText with a criteria-biased prompt that prioritizes criteria and distinguishes them from requirements', async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      },
+    });
+
+    const { createKnowledgeItem } = await import('./db.js');
+    const project = createProject(db, 'Spec');
+    createKnowledgeItem(db, project.id, 'requirement', 'Resume interviews from SQLite', {
+      rationale: 'Users return later',
+    });
+    createKnowledgeItem(db, project.id, 'criterion', 'Resuming restores the active path', {
+      rationale: 'Protect the persistence seam',
+    });
+    const turn = createTurn(db, project.id, {
+      phase: 'criteria',
+      question: 'Which criteria prove the resume requirement is satisfied?',
+      answer: 'We should prove the active path restores cleanly after a restart.',
+    });
+
+    await runObserver(db, turn, project.id);
+
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('criteria-mode'),
+        prompt: expect.stringContaining('Resume interviews from SQLite'),
+      }),
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining('Resuming restores the active path'),
+      }),
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('prioritize **criterion** items'),
+      }),
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('Distinguish criteria from requirements'),
       }),
     );
   });

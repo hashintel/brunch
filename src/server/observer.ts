@@ -39,6 +39,12 @@ export const observerOutputSchema = z.object({
       rationale: z.string().nullable(),
     }),
   ),
+  criteria: z.array(
+    z.object({
+      content: z.string().min(1),
+      rationale: z.string().nullable(),
+    }),
+  ),
   decisions: z.array(
     z.object({
       content: z.string().min(1),
@@ -65,17 +71,20 @@ function buildObserverSystemPrompt(phase: Turn['phase']): string {
         ? `For design-mode turns, prioritize **decisions** and **assumptions**. Decisions capture explicit commitments in the design tree. Assumptions capture beliefs those commitments rely on. Still allow **framing corrections** when the turn revises project context and **constraint spillover** when it introduces a new boundary or non-goal. Do not force every boundary into a decision, and do not force every design preference into an assumption.`
         : phase === 'requirements'
           ? `For requirements-mode turns, prioritize **requirement** items. Requirements capture must-do capabilities or obligations implied by the review conversation. You may still emit framing or constraints when the turn clearly revises context or introduces a new boundary, but defer **criterion** extraction until a later criteria-focused slice unless the turn truly cannot be represented without it.`
-          : `For later-mode turns, keep the extraction grounded in explicit commitments and beliefs from the current exchange. Only emit framing or constraints when the turn clearly revises project context or introduces a new boundary rather than merely reviewing prior knowledge.`;
+          : phase === 'criteria'
+            ? `For criteria-mode turns, prioritize **criterion** items. Criteria capture verifiable success conditions and concrete evidence that would prove a requirement is satisfied. Distinguish criteria from requirements: a requirement states what the system must do, while a criterion states how someone will verify that success. You may still emit framing or constraints when the turn clearly revises context or introduces a new boundary, but do not collapse a verification condition back into a requirement.`
+            : `For later-mode turns, keep the extraction grounded in explicit commitments and beliefs from the current exchange. Only emit framing or constraints when the turn clearly revises project context or introduces a new boundary rather than merely reviewing prior knowledge.`;
 
   return `You are an observer agent analyzing a spec elicitation interview turn.
 
-Your job is to extract framing, constraints, requirements, decisions, and assumptions from the Q&A exchange. For each turn, identify:
+Your job is to extract framing, constraints, requirements, criteria, decisions, and assumptions from the Q&A exchange. For each turn, identify:
 
 1. **Framing** — contextual truth, project intent, or problem context that clarifies what the project is about.
 2. **Constraints** — boundaries on the acceptable solution space, including hard limits, exclusions, and non-goals. Include a subtype when useful (for example "non-goal").
 3. **Requirements** — must-do capabilities or obligations the product needs to satisfy.
-4. **Decisions** — explicit choices the user made (e.g., "use SQLite", "support only macOS"). Include the rationale if stated.
-5. **Assumptions** — implicit or explicit beliefs underlying the decisions (e.g., "single-user tool", "users have API keys").
+4. **Criteria** — verifiable success conditions or observable checks that prove a requirement is satisfied.
+5. **Decisions** — explicit choices the user made (e.g., "use SQLite", "support only macOS"). Include the rationale if stated.
+6. **Assumptions** — implicit or explicit beliefs underlying the decisions (e.g., "single-user tool", "users have API keys").
 
 ${phaseBias}
 
@@ -83,10 +92,10 @@ For decisions and assumptions, identify dependency edges to previously extracted
 
 Rules:
 - Only extract entities that are NEW in this turn — do not re-extract existing entities.
-- Be precise: framing is context, a constraint is a boundary or non-goal, a requirement is a must-do capability, a decision is a concrete choice, and an assumption is a belief that could be wrong.
+- Be precise: framing is context, a constraint is a boundary or non-goal, a requirement is a must-do capability, a criterion is a verifiable success condition, a decision is a concrete choice, and an assumption is a belief that could be wrong.
 - If no new entities are evident in this turn, return empty arrays.
 - Reference parent entity IDs only when a clear dependency exists.
-- Return ONLY valid JSON matching this exact schema: { "framing": [...], "constraints": [...], "requirements": [...], "decisions": [...], "assumptions": [...] }
+- Return ONLY valid JSON matching this exact schema: { "framing": [...], "constraints": [...], "requirements": [...], "criteria": [...], "decisions": [...], "assumptions": [...] }
 - Do NOT wrap the JSON in markdown code fences.`;
 }
 
@@ -102,6 +111,7 @@ export async function runObserver(
   framing: number[];
   constraints: number[];
   requirements: number[];
+  criteria: number[];
   decisions: number[];
   assumptions: number[];
 }> {
@@ -126,6 +136,7 @@ export async function runObserver(
   const createdFramingIds: number[] = [];
   const createdConstraintIds: number[] = [];
   const createdRequirementIds: number[] = [];
+  const createdCriterionIds: number[] = [];
   const createdDecisionIds: number[] = [];
   const createdAssumptionIds: number[] = [];
 
@@ -152,6 +163,14 @@ export async function runObserver(
     });
     linkKnowledgeItemToTurn(db, requirement.id, turn.id);
     createdRequirementIds.push(requirement.id);
+  }
+
+  for (const item of parsed.criteria) {
+    const criterion = createKnowledgeItem(db, projectId, 'criterion', item.content, {
+      rationale: item.rationale,
+    });
+    linkKnowledgeItemToTurn(db, criterion.id, turn.id);
+    createdCriterionIds.push(criterion.id);
   }
 
   for (const d of parsed.decisions) {
@@ -181,6 +200,7 @@ export async function runObserver(
     framing: createdFramingIds,
     constraints: createdConstraintIds,
     requirements: createdRequirementIds,
+    criteria: createdCriterionIds,
     decisions: createdDecisionIds,
     assumptions: createdAssumptionIds,
   };

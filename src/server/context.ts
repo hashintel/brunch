@@ -59,6 +59,7 @@ export interface ObserverContextInput {
     framing: Array<{ id: number; content: string }>;
     constraints: Array<{ id: number; content: string }>;
     requirements: Array<{ id: number; content: string }>;
+    criteria: Array<{ id: number; content: string }>;
     decisions: Array<{ id: number; content: string }>;
     assumptions: Array<{ id: number; content: string }>;
   };
@@ -77,6 +78,7 @@ export function buildObserverContext(input: ObserverContextInput): string {
     input.entities.framing.length > 0 ||
     input.entities.constraints.length > 0 ||
     input.entities.requirements.length > 0 ||
+    input.entities.criteria.length > 0 ||
     input.entities.decisions.length > 0 ||
     input.entities.assumptions.length > 0
   ) {
@@ -106,6 +108,16 @@ export function buildObserverContext(input: ObserverContextInput): string {
           '\n' +
           table(
             input.entities.requirements.map((item) => ({ ID: item.id, Content: item.content })),
+            { columns: ['ID', 'Content'] },
+          ),
+      );
+    }
+    if (input.entities.criteria.length > 0) {
+      sections.push(
+        h3('Existing Criteria') +
+          '\n' +
+          table(
+            input.entities.criteria.map((item) => ({ ID: item.id, Content: item.content })),
             { columns: ['ID', 'Content'] },
           ),
       );

@@ -125,6 +125,7 @@ beforeEach(() => {
     framing: [],
     constraints: [],
     requirements: [],
+    criteria: [],
     decisions: [],
     assumptions: [],
   });
@@ -207,6 +208,7 @@ describe('POST /api/projects/:id/chat', () => {
         framing: [framing.id],
         constraints: [constraint.id],
         requirements: [],
+        criteria: [],
         decisions: [],
         assumptions: [],
       };
@@ -225,7 +227,14 @@ describe('POST /api/projects/:id/chat', () => {
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
       data: {
-        entityIds: { framing: [1], constraints: [2], requirements: [], decisions: [], assumptions: [] },
+        entityIds: {
+          framing: [1],
+          constraints: [2],
+          requirements: [],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+        },
       },
     });
 
@@ -299,6 +308,7 @@ describe('POST /api/projects/:id/chat', () => {
         framing: [framing.id],
         constraints: [constraint.id],
         requirements: [],
+        criteria: [],
         decisions: [decision.id],
         assumptions: [assumption.id],
       };
@@ -321,6 +331,7 @@ describe('POST /api/projects/:id/chat', () => {
           framing: [1],
           constraints: [2],
           requirements: [],
+          criteria: [],
           decisions: [1],
           assumptions: [1],
         },
@@ -390,6 +401,7 @@ describe('POST /api/projects/:id/chat', () => {
         framing: [],
         constraints: [],
         requirements: [requirement.id],
+        criteria: [],
         decisions: [],
         assumptions: [],
       };
@@ -408,7 +420,14 @@ describe('POST /api/projects/:id/chat', () => {
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
       data: {
-        entityIds: { framing: [], constraints: [], requirements: [1], decisions: [], assumptions: [] },
+        entityIds: {
+          framing: [],
+          constraints: [],
+          requirements: [1],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+        },
       },
     });
 
@@ -421,6 +440,67 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'Resume the interview from SQLite after restart',
         rationale: 'Users will come back to finish the workflow',
+      },
+    ]);
+  });
+
+  it('emits widened observer results and persists criteria-mode criterion items through the entities API', async () => {
+    const projectId = await createTestProject();
+    mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
+      const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
+      const criterion = createKnowledgeItem(
+        dbArg as DB,
+        projectIdArg as number,
+        'criterion',
+        'Resuming restores the active path without data loss',
+        {
+          rationale: 'This proves persistence worked for the branch the user was on',
+        },
+      );
+      linkKnowledgeItemToTurn(dbArg as DB, criterion.id, (turnArg as { id: number }).id);
+      return {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [criterion.id],
+        decisions: [],
+        assumptions: [],
+      } as never;
+    });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
+    const observerEvent = events.find((event) => event.type === 'data-observer-result');
+
+    expect(observerEvent).toEqual({
+      type: 'data-observer-result',
+      data: {
+        entityIds: {
+          framing: [],
+          constraints: [],
+          requirements: [],
+          criteria: [1],
+          decisions: [],
+          assumptions: [],
+        },
+      },
+    });
+
+    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.criteria).toEqual([
+      {
+        id: 1,
+        project_id: projectId,
+        kind: 'criterion',
+        subtype: null,
+        content: 'Resuming restores the active path without data loss',
+        rationale: 'This proves persistence worked for the branch the user was on',
       },
     ]);
   });
