@@ -4,7 +4,7 @@ Phase 4 established richer domain concepts — turn responses, phase-aware obser
 
 From a developer’s perspective, the same concept is represented multiple ways:
 - the observer still reasons over a scalar answer summary instead of the structured turn response
-- the live streamed question card is represented as a fabricated persisted turn
+- the live streamed question card is represented as a fabricated persisted turn with sentinel IDs and borrowed turn metadata
 - the turn-response boundary is still named like a single-option selection flow
 - the six knowledge kinds are re-declared across transport, context, persistence, and UI seams
 
@@ -28,8 +28,10 @@ The goal is structural alignment, not feature expansion.
 1. [done] Add characterization coverage for the full turn-response and live-question seams so the refactor is protected by behavior-focused tests.
 2. [done] Rename selection-oriented vocabulary to turn-response vocabulary across the core client/server boundary, keeping behavior unchanged.
 3. [done] Extract one shared turn-response projection module and route both interviewer history and observer context through it instead of mixing structured and scalar seams ad hoc.
-4. Introduce a dedicated pending-question view model for streamed interviewer output and teach the workspace controller and workspace UI to render it without fabricating persisted turns.
-5. Extract a shared knowledge-kind registry that owns ordering, labels, and collection metadata for the six knowledge kinds, then adopt it across observer output, context projection, transport payloads, and sidebar rendering.
+4. [done] Introduce a dedicated pending-question view model for streamed interviewer output and teach the workspace controller and workspace UI to render it without fabricating persisted turns.
+   - Split turn-card state into an explicit union (`persisted turn` vs `pending question`) instead of fabricating a `ProjectStateTurn` with sentinel IDs and placeholder ancestry.
+   - Rename remaining `live question` symbols to `pending question` language so the controller, view state, and tests match the refactor lexicon.
+5. Extract a shared knowledge-kind registry that owns ordering, labels, empty-state copy, and collection metadata for the six knowledge kinds, then adopt it across observer output, context projection, transport payloads, and sidebar rendering.
 6. Remove any temporary compatibility shims left by the rename/extraction sequence so the final interfaces speak only the refactored domain language.
 
 ## Decisions
@@ -43,10 +45,18 @@ The goal is structural alignment, not feature expansion.
 
 ## Testing Decisions
 
-- Good tests here protect behavior at the seams: submit a turn response, rebuild context, stream a live question, refresh durable state, and render knowledge collections without ontology drift.
+- Good tests here protect behavior at the seams: submit a turn response, rebuild context, stream a pending question, refresh durable state, and render knowledge collections without ontology drift.
 - The most important coverage is characterization around response projection, workspace controller view-state derivation, observer context construction, and sidebar knowledge projection.
 - Prior art already exists in the current targeted suites for app integration, parts round-trip, observer behavior, workspace controller behavior, workspace route behavior, and context projection; extend those suites rather than inventing a new test style.
 - Add at least one stitched round-trip oracle that proves structured turn responses survive submit → persistence → reload → hydration → context projection coherently.
+- After the shared response seam lands, extend that round-trip protection to the observer path too — not just interviewer history — so downstream consumers are protected by one middle-loop oracle family.
+
+## Review Synthesis (2026-04-08)
+
+- The highest-impact remaining structural smell is the workspace controller's fake persisted-turn model for streamed interviewer output. Commit 4 should remove sentinel IDs, negative option IDs, and borrowed turn ancestry by introducing a dedicated pending-question view model.
+- Remaining `live question` terminology now fights the target domain language in this refactor. Commit 4 should finish the rename as part of the model split instead of leaving a mixed vocabulary behind.
+- The six-knowledge-kind ontology is still duplicated across server projection, client state, and UI tabs. Commit 5 should extract one registry that owns ordering, labels, and collection metadata so these seams stop moving together.
+- The shared turn-response projection seam now has unit coverage on both consumers, but a later stitched observer-path round-trip oracle should close the remaining middle-loop gap.
 
 ## Out of Scope
 

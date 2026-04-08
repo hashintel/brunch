@@ -205,7 +205,7 @@ describe('workspace controller core', () => {
 
     expect(createWorkspaceControllerViewState(pendingSelection, [], false)).toEqual({
       project: pendingSelection.project,
-      turnCard: { turn: pendingSelection.lastTurn! },
+      turnCard: { kind: 'persisted-turn', turn: pendingSelection.lastTurn! },
       promptInput: { visible: false },
     });
     expect(createWorkspaceControllerViewState(pendingSelection, [], true)).toEqual({
@@ -215,12 +215,12 @@ describe('workspace controller core', () => {
     });
     expect(createWorkspaceControllerViewState(selectedTurn, [], false)).toEqual({
       project: selectedTurn.project,
-      turnCard: { turn: selectedTurn.lastTurn! },
+      turnCard: { kind: 'persisted-turn', turn: selectedTurn.lastTurn! },
       promptInput: { visible: true },
     });
   });
 
-  it('projects a live streamed question before any durable turn exists', () => {
+  it('projects a pending question before any durable turn exists', () => {
     const emptyProjectState: ProjectState = {
       project: {
         id: 1,
@@ -233,7 +233,7 @@ describe('workspace controller core', () => {
     };
     const liveMessages: BrunchUIMessage[] = [
       {
-        id: 'live-turn-assistant',
+        id: 'pending-question-assistant',
         role: 'assistant',
         parts: [
           {
@@ -262,9 +262,18 @@ describe('workspace controller core', () => {
     expect(ephemeralChat.seedMessages).toEqual([]);
     expect(viewState.project).toEqual(emptyProjectState.project);
     expect(viewState.promptInput.visible).toBe(false);
-    expect(viewState.turnCard?.turn.question).toBe('Which platform should we target next?');
-    expect(viewState.turnCard?.turn.phase).toBe('scope');
-    expect(viewState.turnCard?.turn.parent_turn_id).toBeNull();
-    expect(viewState.turnCard?.turn.options?.map((option) => option.content)).toEqual(['Web', 'Desktop']);
+    expect(viewState.turnCard).toEqual({
+      kind: 'pending-question',
+      pendingQuestion: {
+        id: 'pending-question-assistant:tool-1',
+        question: 'Which platform should we target next?',
+        why: 'Platform shapes the first build.',
+        impact: 'high',
+        options: [
+          { position: 0, content: 'Web', is_recommended: true },
+          { position: 1, content: 'Desktop', is_recommended: false },
+        ],
+      },
+    });
   });
 });

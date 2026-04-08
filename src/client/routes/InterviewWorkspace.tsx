@@ -30,16 +30,30 @@ const impactStyles: Record<string, string> = {
   low: 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200',
 };
 
+type TurnCardOption = Pick<
+  NonNullable<ProjectStateTurn['options']>[number],
+  'position' | 'content' | 'is_recommended'
+> & {
+  is_selected: boolean;
+};
+
 function TurnCard({
-  turn,
+  id,
+  question,
+  why,
+  impact,
+  options,
   onSubmitResponse,
   disabled,
 }: {
-  turn: ProjectStateTurn;
-  onSubmitResponse: (positions: number[], freeText?: string) => void | Promise<void>;
+  id: string;
+  question: string;
+  why: string | null;
+  impact: ProjectStateTurn['impact'];
+  options: TurnCardOption[];
+  onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
   disabled: boolean;
 }) {
-  const options = turn.options ?? [];
   const persistedSelections = options.filter((option) => option.is_selected).map((option) => option.position);
   const [selectedPositions, setSelectedPositions] = useState<number[]>(persistedSelections);
   const [freeText, setFreeText] = useState('');
@@ -59,27 +73,27 @@ function TurnCard({
 
   return (
     <div className="my-3 rounded-lg border bg-card p-4">
-      <div className="mb-2 text-[15px] font-semibold">{turn.question}</div>
+      <div className="mb-2 text-[15px] font-semibold">{question}</div>
 
-      {turn.why && <div className="mb-2 text-[13px] italic text-muted-foreground">{turn.why}</div>}
+      {why && <div className="mb-2 text-[13px] italic text-muted-foreground">{why}</div>}
 
-      {turn.impact && (
+      {impact && (
         <span
           className={cn(
             'mb-2 inline-block rounded px-2 py-0.5 text-[11px] font-semibold uppercase',
-            impactStyles[turn.impact] ?? 'bg-muted text-muted-foreground',
+            impactStyles[impact] ?? 'bg-muted text-muted-foreground',
           )}
         >
-          {turn.impact} impact
+          {impact} impact
         </span>
       )}
 
       <div className="mt-3">
-        <label className="mb-1 block text-sm font-medium" htmlFor={`turn-response-${turn.id}`}>
+        <label className="mb-1 block text-sm font-medium" htmlFor={`turn-response-${id}`}>
           Additional response context
         </label>
         <textarea
-          id={`turn-response-${turn.id}`}
+          id={`turn-response-${id}`}
           aria-label="Additional response context"
           value={freeText}
           onChange={(event) => setFreeText(event.target.value)}
@@ -91,7 +105,7 @@ function TurnCard({
           <button
             type="button"
             disabled={disabled || hasPersistedSelection || !hasSelection}
-            onClick={() => onSubmitResponse(selectedPositions, freeText)}
+            onClick={() => onSubmitResponse?.(selectedPositions, freeText)}
             className={cn(
               'rounded-md border px-3 py-2 text-sm transition-colors',
               disabled || hasPersistedSelection || !hasSelection
@@ -104,7 +118,7 @@ function TurnCard({
           <button
             type="button"
             disabled={disabled || hasPersistedSelection || hasSelection || !hasFreeText}
-            onClick={() => onSubmitResponse([], freeText)}
+            onClick={() => onSubmitResponse?.([], freeText)}
             className={cn(
               'rounded-md border px-3 py-2 text-sm transition-colors',
               disabled || hasPersistedSelection || hasSelection || !hasFreeText
@@ -229,16 +243,35 @@ export function InterviewWorkspace() {
                 );
               })}
 
-              {turnCard && (
+              {turnCard?.kind === 'persisted-turn' && (
                 <TurnCard
-                  key={turnCard.turn.id}
-                  turn={turnCard.turn}
+                  key={`persisted-turn-${turnCard.turn.id}`}
+                  id={`persisted-turn-${turnCard.turn.id}`}
+                  question={turnCard.turn.question}
+                  why={turnCard.turn.why}
+                  impact={turnCard.turn.impact}
+                  options={turnCard.turn.options ?? []}
                   onSubmitResponse={turnCard.submitTurnResponse}
                   disabled={turnCard.disabled}
                 />
               )}
 
-              {turnCard?.errorMessage && (
+              {turnCard?.kind === 'pending-question' && (
+                <TurnCard
+                  key={turnCard.pendingQuestion.id}
+                  id={turnCard.pendingQuestion.id}
+                  question={turnCard.pendingQuestion.question}
+                  why={turnCard.pendingQuestion.why}
+                  impact={turnCard.pendingQuestion.impact}
+                  options={turnCard.pendingQuestion.options.map((option) => ({
+                    ...option,
+                    is_selected: false,
+                  }))}
+                  disabled={turnCard.disabled}
+                />
+              )}
+
+              {turnCard?.kind === 'persisted-turn' && turnCard.errorMessage && (
                 <p role="alert" className="mx-auto mt-3 max-w-2xl text-sm text-destructive">
                   {turnCard.errorMessage}
                 </p>

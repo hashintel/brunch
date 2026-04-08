@@ -10,9 +10,9 @@ import type { BrunchUIMessage } from '../../shared/chat.js';
 import type { WorkspaceLoaderData } from '../workspace/workspace-loader.js';
 import { InterviewWorkspace } from './InterviewWorkspace.js';
 
-function createLiveQuestionMessage(): BrunchUIMessage {
+function createPendingQuestionMessage(): BrunchUIMessage {
   return {
-    id: 'live-turn-assistant',
+    id: 'pending-question-assistant',
     role: 'assistant',
     parts: [
       {
@@ -269,7 +269,7 @@ afterEach(() => {
 });
 
 describe('InterviewWorkspace', () => {
-  it('renders the turn card from a live streamed tool part before route invalidation', async () => {
+  it('renders the turn card from a pending-question tool part before route invalidation', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       assistantText: 'Earlier question?',
       answer: 'Earlier answer',
@@ -291,7 +291,7 @@ describe('InterviewWorkspace', () => {
       useChatHarness.replaceMessages?.([
         { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
         { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
-        createLiveQuestionMessage(),
+        createPendingQuestionMessage(),
       ]);
     });
 

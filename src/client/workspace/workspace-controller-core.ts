@@ -33,9 +33,27 @@ export interface WorkspaceEphemeralChatState {
   seedMessages: BrunchUIMessage[];
 }
 
+export interface PendingQuestionOption {
+  position: number;
+  content: string;
+  is_recommended: boolean;
+}
+
+export interface PendingQuestionViewModel {
+  id: string;
+  question: string;
+  why: string;
+  impact: StructuredQuestion['impact'];
+  options: PendingQuestionOption[];
+}
+
+export type WorkspaceTurnCardViewModel =
+  | { kind: 'persisted-turn'; turn: ProjectStateTurn }
+  | { kind: 'pending-question'; pendingQuestion: PendingQuestionViewModel };
+
 export interface WorkspaceControllerViewState {
   project: WorkspaceDurableProjectState['project'];
-  turnCard: { turn: ProjectStateTurn } | null;
+  turnCard: WorkspaceTurnCardViewModel | null;
   promptInput: {
     visible: boolean;
   };
@@ -138,10 +156,7 @@ export function createWorkspaceEphemeralChatState(projectState: ProjectState): W
   };
 }
 
-function findLiveQuestionTurn(
-  durableProject: WorkspaceDurableProjectState,
-  messages: BrunchUIMessage[],
-): ProjectStateTurn | null {
+function findPendingQuestion(messages: BrunchUIMessage[]): PendingQuestionViewModel | null {
   function getStructuredQuestionInput(part: AskQuestionUIPart): StructuredQuestion | null {
     switch (part.state) {
       case 'input-available':
@@ -175,24 +190,14 @@ function findLiveQuestionTurn(
       }
 
       return {
-        id: durableProject.lastTurn?.id ?? 0,
-        project_id: durableProject.project.id,
-        parent_turn_id: durableProject.lastTurn?.id ?? null,
-        phase: durableProject.lastTurn?.phase ?? 'scope',
+        id: `${message.id}:${part.toolCallId}`,
         question: input.question,
         why: input.why,
         impact: input.impact,
-        answer: null,
-        is_resolution: false,
-        user_parts: null,
-        assistant_parts: null,
-        created_at: durableProject.lastTurn?.created_at ?? '',
         options: input.options.map((option, position) => ({
-          id: -(position + 1),
           position,
           content: option.content,
           is_recommended: option.is_recommended,
-          is_selected: false,
         })),
       };
     }
@@ -209,14 +214,18 @@ export function createWorkspaceControllerViewState(
   isLoading: boolean,
 ): WorkspaceControllerViewState {
   const { project, lastTurn, showTurnCard, lastTurnHasSelection } = durableProject;
-  const liveTurn = isLoading ? findLiveQuestionTurn(durableProject, messages) : null;
-  const turnCardTurn = liveTurn ?? (showTurnCard && lastTurn && !isLoading ? lastTurn : null);
+  const pendingQuestion = isLoading ? findPendingQuestion(messages) : null;
+  const turnCard: WorkspaceTurnCardViewModel | null = pendingQuestion
+    ? { kind: 'pending-question', pendingQuestion }
+    : showTurnCard && lastTurn && !isLoading
+      ? { kind: 'persisted-turn', turn: lastTurn }
+      : null;
 
   return {
     project,
-    turnCard: turnCardTurn ? { turn: turnCardTurn } : null,
+    turnCard,
     promptInput: {
-      visible: liveTurn ? false : !showTurnCard || lastTurnHasSelection,
+      visible: pendingQuestion ? false : !showTurnCard || lastTurnHasSelection,
     },
   };
 }

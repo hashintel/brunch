@@ -10,6 +10,7 @@ import { brunchDataPartSchemas, type BrunchUIMessage } from '../../shared/chat.j
 import { useChatHydrationBoundary } from './chat-hydration.js';
 import {
   createWorkspaceControllerViewState,
+  type PendingQuestionViewModel,
   type WorkspaceDurableEntityState,
   type WorkspaceDurableProjectState,
 } from './workspace-controller-core.js';
@@ -23,12 +24,19 @@ export interface WorkspaceControllerChatState {
   submitText: (text: string) => void;
 }
 
-export interface WorkspaceControllerTurnCardState {
-  turn: ProjectStateTurn;
-  disabled: boolean;
-  errorMessage: string | null;
-  submitTurnResponse: (positions: number[], freeText?: string) => Promise<void>;
-}
+export type WorkspaceControllerTurnCardState =
+  | {
+      kind: 'persisted-turn';
+      turn: ProjectStateTurn;
+      disabled: boolean;
+      errorMessage: string | null;
+      submitTurnResponse: (positions: number[], freeText?: string) => Promise<void>;
+    }
+  | {
+      kind: 'pending-question';
+      pendingQuestion: PendingQuestionViewModel;
+      disabled: true;
+    };
 
 export interface WorkspaceControllerPromptInputState {
   visible: boolean;
@@ -101,12 +109,19 @@ export function useWorkspaceController(): WorkspaceController {
       submitText,
     },
     turnCard: viewState.turnCard
-      ? {
-          turn: viewState.turnCard.turn,
-          disabled: submitTurnResponseMutation.isPending || isLoading,
-          errorMessage: submitTurnResponseMutation.errorMessage,
-          submitTurnResponse: submitTurnResponseMutation.submitTurnResponse,
-        }
+      ? viewState.turnCard.kind === 'persisted-turn'
+        ? {
+            kind: 'persisted-turn',
+            turn: viewState.turnCard.turn,
+            disabled: submitTurnResponseMutation.isPending || isLoading,
+            errorMessage: submitTurnResponseMutation.errorMessage,
+            submitTurnResponse: submitTurnResponseMutation.submitTurnResponse,
+          }
+        : {
+            kind: 'pending-question',
+            pendingQuestion: viewState.turnCard.pendingQuestion,
+            disabled: true,
+          }
       : null,
     promptInput: {
       visible: viewState.promptInput.visible,
