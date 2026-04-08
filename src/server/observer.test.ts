@@ -20,7 +20,8 @@ vi.mock('ai', async () => {
 });
 
 const { runObserver } = await import('./observer.js');
-const { createDb, createProject, createTurn, getEntitiesForProject } = await import('./db.js');
+const { createDb, createProject, createTurn, createDecision, createAssumption, getEntitiesForProject } =
+  await import('./db.js');
 
 let db: DB;
 
@@ -128,6 +129,149 @@ describe('runObserver', () => {
           parsePartialOutput: expect.any(Function),
         }),
         prompt: expect.stringContaining('Avoid heavyweight setup'),
+      }),
+    );
+  });
+
+  it('persists design-mode decisions and assumptions with legacy edges while allowing framing/constraint spillover', async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        framing: [
+          {
+            content: 'The first release still targets solo builders',
+            rationale: 'The turn restated who the tool is for',
+          },
+        ],
+        constraints: [
+          {
+            content: 'Do not add a plugin system yet',
+            rationale: 'That would widen the first release too early',
+            subtype: 'non-goal',
+          },
+        ],
+        decisions: [
+          {
+            content: 'Start with the web app',
+            rationale: 'It is the fastest path to user feedback',
+            parentDecisionIds: [1],
+            parentAssumptionIds: [1],
+          },
+        ],
+        assumptions: [
+          {
+            content: 'Users already have browsers available',
+            parentAssumptionIds: [1],
+          },
+        ],
+      },
+    });
+
+    const project = createProject(db, 'Spec');
+    createDecision(db, project.id, 'Keep the first release browser-based');
+    createAssumption(db, project.id, 'Users can work in a browser');
+    const turn = createTurn(db, project.id, {
+      phase: 'design',
+      question: 'Which delivery surface should we commit to first?',
+      answer: 'Start with the web app and skip plugins for now.',
+    });
+
+    const entityIds = await runObserver(db, turn, project.id);
+    const entities = getEntitiesForProject(db, project.id);
+
+    expect(entityIds).toEqual({
+      framing: [1],
+      constraints: [2],
+      decisions: [2],
+      assumptions: [2],
+    });
+    expect(entities.framing).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          content: 'The first release still targets solo builders',
+        }),
+      ]),
+    );
+    expect(entities.constraints).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          content: 'Do not add a plugin system yet',
+          subtype: 'non-goal',
+        }),
+      ]),
+    );
+    expect(entities.decisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 2,
+          content: 'Start with the web app',
+          rationale: 'It is the fastest path to user feedback',
+        }),
+      ]),
+    );
+    expect(entities.assumptions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          id: 2,
+          content: 'Users already have browsers available',
+        }),
+      ]),
+    );
+    expect(entities.relationships).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'depends_on',
+          source: { collection: 'decision', kind: 'decision', id: 2 },
+          target: { collection: 'decision', kind: 'decision', id: 1 },
+        },
+        {
+          type: 'depends_on',
+          source: { collection: 'decision', kind: 'decision', id: 2 },
+          target: { collection: 'assumption', kind: 'assumption', id: 1 },
+        },
+        {
+          type: 'depends_on',
+          source: { collection: 'assumption', kind: 'assumption', id: 2 },
+          target: { collection: 'assumption', kind: 'assumption', id: 1 },
+        },
+      ]),
+    );
+  });
+
+  it('calls generateText with a design-biased prompt that prioritizes decisions/assumptions and allows framing/constraint spillover', async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        framing: [],
+        constraints: [],
+        decisions: [],
+        assumptions: [],
+      },
+    });
+
+    const project = createProject(db, 'Spec');
+    createDecision(db, project.id, 'Start with the web app');
+    createAssumption(db, project.id, 'Users can work in a browser');
+    const turn = createTurn(db, project.id, {
+      phase: 'design',
+      question: 'Which delivery surface should we commit to first?',
+      answer: 'Start with the web app and skip plugins for now.',
+    });
+
+    await runObserver(db, turn, project.id);
+
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('design-mode'),
+        prompt: expect.stringContaining('Start with the web app'),
+      }),
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('framing corrections'),
+      }),
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('constraint spillover'),
       }),
     );
   });

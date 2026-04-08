@@ -119,6 +119,26 @@ describe('assistant part round-trip', () => {
     const json = serializeParts(parts);
     expect(deserializeAssistantParts(json)).toEqual(parts);
   });
+
+  it('round-trips mixed observer-result ids through persisted assistant parts', () => {
+    const parts: BrunchAssistantPart[] = [
+      { type: 'text', text: 'Captured observer delta.', state: 'done' },
+      {
+        type: 'data-observer-result',
+        data: {
+          entityIds: {
+            framing: [7],
+            constraints: [8],
+            decisions: [9],
+            assumptions: [10],
+          },
+        },
+      },
+    ];
+
+    const json = serializeParts(parts);
+    expect(deserializeAssistantParts(json)).toEqual(parts);
+  });
 });
 
 describe('user part round-trip', () => {

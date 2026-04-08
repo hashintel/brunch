@@ -55,7 +55,9 @@ function buildObserverSystemPrompt(phase: Turn['phase']): string {
   const phaseBias =
     phase === 'scope'
       ? `For scope-mode turns, prioritize **framing** and **constraint** items. Framing captures contextual truth, project intent, and problem context. Constraints capture boundaries on the acceptable solution space, including hard limits and non-goals. Do not force ordinary framing facts into assumptions, and do not force constraints into requirements. Leave decisions and assumptions empty unless the turn makes them genuinely explicit.`
-      : `For non-scope turns, decisions and assumptions remain primary. Only emit framing when the turn clearly revises or adds project context rather than making a commitment or stating a belief.`;
+      : phase === 'design'
+        ? `For design-mode turns, prioritize **decisions** and **assumptions**. Decisions capture explicit commitments in the design tree. Assumptions capture beliefs those commitments rely on. Still allow **framing corrections** when the turn revises project context and **constraint spillover** when it introduces a new boundary or non-goal. Do not force every boundary into a decision, and do not force every design preference into an assumption.`
+        : `For later-mode turns, keep the extraction grounded in explicit commitments and beliefs from the current exchange. Only emit framing or constraints when the turn clearly revises project context or introduces a new boundary rather than merely reviewing prior knowledge.`;
 
   return `You are an observer agent analyzing a spec elicitation interview turn.
 

@@ -592,6 +592,98 @@ describe('InterviewWorkspace', () => {
     expect(await screen.findByText('The project starts from a fuzzy brief')).toBeTruthy();
   });
 
+  it('refetches sidebar entities when the chat stream emits mixed observer-created design entities', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+        relationships: [],
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          framing: [
+            {
+              id: 7,
+              project_id: 1,
+              kind: 'framing',
+              subtype: null,
+              content: 'The first release still targets solo builders',
+              rationale: 'The turn clarified the audience',
+            },
+          ],
+          constraints: [
+            {
+              id: 8,
+              project_id: 1,
+              kind: 'constraint',
+              subtype: 'non-goal',
+              content: 'Do not add a plugin system yet',
+              rationale: 'The first release should stay narrow',
+            },
+          ],
+          requirements: [],
+          criteria: [],
+          decisions: [
+            {
+              id: 9,
+              project_id: 1,
+              content: 'Start with the web app',
+              rationale: 'It is the fastest path to feedback',
+            },
+          ],
+          assumptions: [
+            {
+              id: 10,
+              project_id: 1,
+              content: 'Users can work in a browser',
+            },
+          ],
+          relationships: [
+            {
+              type: 'depends_on',
+              source: { collection: 'decision', kind: 'decision', id: 9 },
+              target: { collection: 'assumption', kind: 'assumption', id: 10 },
+            },
+          ],
+        } satisfies EntitiesData),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    renderWorkspace();
+    expect(
+      await screen.findByText("No decisions yet. They'll appear as the interview progresses."),
+    ).toBeTruthy();
+
+    await act(async () => {
+      useChatHarness.onData?.({
+        type: 'data-observer-result',
+        data: { entityIds: { framing: [7], constraints: [8], decisions: [9], assumptions: [10] } },
+      });
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(await screen.findByText('Start with the web app')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /assumptions/i }));
+    expect(await screen.findByText('Users can work in a browser')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /constraints/i }));
+    expect(await screen.findByText('Do not add a plugin system yet')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /framing/i }));
+    expect(await screen.findByText('The first release still targets solo builders')).toBeTruthy();
+  });
+
   it('posts single-option turn responses with optional free-text and forwards a combined summary into chat', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       options: [

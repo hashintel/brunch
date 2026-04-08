@@ -237,6 +237,117 @@ describe('POST /api/projects/:id/chat', () => {
       },
     ]);
   });
+
+  it('emits mixed observer results and persists legacy-plus-generic entities through the entities API', async () => {
+    const projectId = await createTestProject();
+    mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
+      const {
+        createKnowledgeItem,
+        createDecision,
+        createAssumption,
+        addDecisionParentAssumption,
+        linkKnowledgeItemToTurn,
+        linkDecisionToTurn,
+        linkAssumptionToTurn,
+      } = await import('./db.js');
+      const framing = createKnowledgeItem(
+        dbArg as DB,
+        projectIdArg as number,
+        'framing',
+        'The first release still targets solo builders',
+        {
+          rationale: 'The turn clarified the intended audience',
+        },
+      );
+      const constraint = createKnowledgeItem(
+        dbArg as DB,
+        projectIdArg as number,
+        'constraint',
+        'Do not add a plugin system yet',
+        {
+          subtype: 'non-goal',
+          rationale: 'The first release should stay narrow',
+        },
+      );
+      const assumption = createAssumption(dbArg as DB, projectIdArg as number, 'Users can work in a browser');
+      const decision = createDecision(
+        dbArg as DB,
+        projectIdArg as number,
+        'Start with the web app',
+        'It is the fastest path to feedback',
+      );
+      addDecisionParentAssumption(dbArg as DB, decision.id, assumption.id);
+      linkKnowledgeItemToTurn(dbArg as DB, framing.id, (turnArg as { id: number }).id);
+      linkKnowledgeItemToTurn(dbArg as DB, constraint.id, (turnArg as { id: number }).id);
+      linkAssumptionToTurn(dbArg as DB, assumption.id, (turnArg as { id: number }).id);
+      linkDecisionToTurn(dbArg as DB, decision.id, (turnArg as { id: number }).id);
+      return {
+        framing: [framing.id],
+        constraints: [constraint.id],
+        decisions: [decision.id],
+        assumptions: [assumption.id],
+      };
+    });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
+    const observerEvent = events.find((event) => event.type === 'data-observer-result');
+
+    expect(observerEvent).toEqual({
+      type: 'data-observer-result',
+      data: { entityIds: { framing: [1], constraints: [2], decisions: [1], assumptions: [1] } },
+    });
+
+    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.framing).toEqual([
+      {
+        id: 1,
+        project_id: projectId,
+        kind: 'framing',
+        subtype: null,
+        content: 'The first release still targets solo builders',
+        rationale: 'The turn clarified the intended audience',
+      },
+    ]);
+    expect(entitiesRes.body.constraints).toEqual([
+      {
+        id: 2,
+        project_id: projectId,
+        kind: 'constraint',
+        subtype: 'non-goal',
+        content: 'Do not add a plugin system yet',
+        rationale: 'The first release should stay narrow',
+      },
+    ]);
+    expect(entitiesRes.body.decisions).toEqual([
+      {
+        id: 1,
+        project_id: projectId,
+        content: 'Start with the web app',
+        rationale: 'It is the fastest path to feedback',
+      },
+    ]);
+    expect(entitiesRes.body.assumptions).toEqual([
+      {
+        id: 1,
+        project_id: projectId,
+        content: 'Users can work in a browser',
+      },
+    ]);
+    expect(entitiesRes.body.relationships).toEqual([
+      {
+        type: 'depends_on',
+        source: { collection: 'decision', kind: 'decision', id: 1 },
+        target: { collection: 'assumption', kind: 'assumption', id: 1 },
+      },
+    ]);
+  });
 });
 
 describe('GET /api/projects/:id/entities', () => {
