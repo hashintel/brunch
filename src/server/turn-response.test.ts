@@ -41,7 +41,7 @@ describe('projectTurnResponse', () => {
     });
   });
 
-  it('falls back to selected options when the structured part is missing', () => {
+  it('returns null when the structured turn-response part is missing even if options are selected', () => {
     const turn: TurnWithOptions = {
       id: 1,
       project_id: 1,
@@ -61,11 +61,7 @@ describe('projectTurnResponse', () => {
       ],
     };
 
-    expect(projectTurnResponse(turn)).toEqual({
-      selectedOptionIds: [12],
-      selectedOptionContents: ['Desktop'],
-      freeText: undefined,
-    });
+    expect(projectTurnResponse(turn)).toBeNull();
   });
 
   it('returns null for plain scalar answers with no structured response seam', () => {

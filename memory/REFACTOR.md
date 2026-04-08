@@ -32,7 +32,7 @@ The goal is structural alignment, not feature expansion.
    - Split turn-card state into an explicit union (`persisted turn` vs `pending question`) instead of fabricating a `ProjectStateTurn` with sentinel IDs and placeholder ancestry.
    - Rename remaining `live question` symbols to `pending question` language so the controller, view state, and tests match the refactor lexicon.
 5. [done] Extract a shared knowledge-kind registry that owns ordering, labels, empty-state copy, and collection metadata for the six knowledge kinds, then adopt it across observer output, context projection, transport payloads, and sidebar rendering.
-6. Remove any temporary compatibility shims left by the rename/extraction sequence so the final interfaces speak only the refactored domain language.
+6. [done] Remove any temporary compatibility shims left by the rename/extraction sequence so the final interfaces speak only the refactored domain language.
 
 ## Decisions
 

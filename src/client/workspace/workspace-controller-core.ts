@@ -15,7 +15,7 @@ export interface WorkspaceDurableProjectState {
   turns: ProjectStateTurn[];
   lastTurn: ProjectStateTurn | undefined;
   showTurnCard: boolean;
-  lastTurnHasSelection: boolean;
+  lastTurnHasResponse: boolean;
 }
 
 export interface WorkspaceDurableEntityState {
@@ -77,6 +77,10 @@ function parseUserParts(json: string | null): BrunchUserPart[] {
   }
 }
 
+function hasPersistedTurnResponse(turn: Pick<ProjectStateTurn, 'user_parts'> | undefined): boolean {
+  return parseUserParts(turn?.user_parts ?? null).some((part) => part.type === 'data-turn-response');
+}
+
 function hydrateMessages(turns: ProjectStateTurn[]): BrunchUIMessage[] {
   const messages: BrunchUIMessage[] = [];
 
@@ -129,7 +133,7 @@ export function createWorkspaceDurableProjectState(projectState: ProjectState): 
     turns: projectState.turns,
     lastTurn,
     showTurnCard: Boolean(lastTurn?.options?.length),
-    lastTurnHasSelection: lastTurn?.options?.some((option) => option.is_selected) ?? false,
+    lastTurnHasResponse: hasPersistedTurnResponse(lastTurn),
   };
 }
 
@@ -213,7 +217,7 @@ export function createWorkspaceControllerViewState(
   messages: BrunchUIMessage[],
   isLoading: boolean,
 ): WorkspaceControllerViewState {
-  const { project, lastTurn, showTurnCard, lastTurnHasSelection } = durableProject;
+  const { project, lastTurn, showTurnCard, lastTurnHasResponse } = durableProject;
   const pendingQuestion = isLoading ? findPendingQuestion(messages) : null;
   const turnCard: WorkspaceTurnCardViewModel | null = pendingQuestion
     ? { kind: 'pending-question', pendingQuestion }
@@ -225,7 +229,7 @@ export function createWorkspaceControllerViewState(
     project,
     turnCard,
     promptInput: {
-      visible: pendingQuestion ? false : !showTurnCard || lastTurnHasSelection,
+      visible: pendingQuestion ? false : !showTurnCard || lastTurnHasResponse,
     },
   };
 }

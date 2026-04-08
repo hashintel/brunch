@@ -13,11 +13,13 @@ function createProjectState({
   projectId = 1,
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
+  userParts = [{ type: 'text', text: answer }] as Array<Record<string, unknown>>,
   options = [],
 }: {
   projectId?: number;
   assistantText?: string;
   answer?: string;
+  userParts?: Array<Record<string, unknown>>;
   options?: Array<{
     id: number;
     position: number;
@@ -45,7 +47,7 @@ function createProjectState({
         impact: 'high',
         answer,
         is_resolution: false,
-        user_parts: JSON.stringify([{ type: 'text', text: answer }]),
+        user_parts: JSON.stringify(userParts),
         assistant_parts: JSON.stringify([{ type: 'text', text: assistantText }]),
         created_at: '2026-04-03 10:00:00',
         options,
@@ -67,7 +69,7 @@ describe('workspace controller core', () => {
     expect(durableProject.turns).toEqual(projectState.turns);
     expect(durableProject.lastTurn?.id).toBe(1);
     expect(durableProject.showTurnCard).toBe(true);
-    expect(durableProject.lastTurnHasSelection).toBe(false);
+    expect(durableProject.lastTurnHasResponse).toBe(false);
 
     expect(ephemeralChat.seedMessages).toEqual([
       {
@@ -191,31 +193,57 @@ describe('workspace controller core', () => {
     });
   });
 
-  it('projects prompt and turn-card visibility without embedding side effects', () => {
-    const pendingSelection = createWorkspaceDurableProjectState(
+  it('projects prompt and turn-card visibility from persisted turn responses without embedding side effects', () => {
+    const pendingResponse = createWorkspaceDurableProjectState(
       createProjectState({
         options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
       }),
     );
-    const selectedTurn = createWorkspaceDurableProjectState(
+    const selectedResponse = createWorkspaceDurableProjectState(
       createProjectState({
+        answer: 'Web — Best fit for launch',
+        userParts: [
+          { type: 'text', text: 'Web — Best fit for launch' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [11], freeText: 'Best fit for launch' },
+          },
+        ],
         options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: true }],
       }),
     );
+    const freeTextOnlyResponse = createWorkspaceDurableProjectState(
+      createProjectState({
+        answer: 'None of these fit our use case',
+        userParts: [
+          { type: 'text', text: 'None of these fit our use case' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [], freeText: 'None of these fit our use case' },
+          },
+        ],
+        options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+      }),
+    );
 
-    expect(createWorkspaceControllerViewState(pendingSelection, [], false)).toEqual({
-      project: pendingSelection.project,
-      turnCard: { kind: 'persisted-turn', turn: pendingSelection.lastTurn! },
+    expect(createWorkspaceControllerViewState(pendingResponse, [], false)).toEqual({
+      project: pendingResponse.project,
+      turnCard: { kind: 'persisted-turn', turn: pendingResponse.lastTurn! },
       promptInput: { visible: false },
     });
-    expect(createWorkspaceControllerViewState(pendingSelection, [], true)).toEqual({
-      project: pendingSelection.project,
+    expect(createWorkspaceControllerViewState(pendingResponse, [], true)).toEqual({
+      project: pendingResponse.project,
       turnCard: null,
       promptInput: { visible: false },
     });
-    expect(createWorkspaceControllerViewState(selectedTurn, [], false)).toEqual({
-      project: selectedTurn.project,
-      turnCard: { kind: 'persisted-turn', turn: selectedTurn.lastTurn! },
+    expect(createWorkspaceControllerViewState(selectedResponse, [], false)).toEqual({
+      project: selectedResponse.project,
+      turnCard: { kind: 'persisted-turn', turn: selectedResponse.lastTurn! },
+      promptInput: { visible: true },
+    });
+    expect(createWorkspaceControllerViewState(freeTextOnlyResponse, [], false)).toEqual({
+      project: freeTextOnlyResponse.project,
+      turnCard: { kind: 'persisted-turn', turn: freeTextOnlyResponse.lastTurn! },
       promptInput: { visible: true },
     });
   });

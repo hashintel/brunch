@@ -17,36 +17,21 @@ export function projectTurnResponse(
   turn: Pick<TurnWithOptions, 'user_parts' | 'options'>,
 ): ProjectedTurnResponse | null {
   const responsePart = findTurnResponsePart(turn);
-  const selectedOptionIds = responsePart?.data.selectedOptionIds ?? [];
-  const freeText = responsePart?.data.freeText;
-
-  if (responsePart) {
-    const selectedOptionContents =
-      turn.options
-        ?.filter((option) => selectedOptionIds.includes(option.id))
-        .sort((left, right) => left.position - right.position)
-        .map((option) => option.content) ?? [];
-
-    return {
-      selectedOptionIds,
-      selectedOptionContents,
-      freeText,
-    };
-  }
-
-  const selectedOptions =
-    turn.options
-      ?.filter((option) => option.is_selected)
-      .sort((left, right) => left.position - right.position) ?? [];
-
-  if (selectedOptions.length === 0) {
+  if (!responsePart) {
     return null;
   }
 
+  const selectedOptionIds = responsePart.data.selectedOptionIds;
+  const selectedOptionContents =
+    turn.options
+      ?.filter((option) => selectedOptionIds.includes(option.id))
+      .sort((left, right) => left.position - right.position)
+      .map((option) => option.content) ?? [];
+
   return {
-    selectedOptionIds: selectedOptions.map((option) => option.id),
-    selectedOptionContents: selectedOptions.map((option) => option.content),
-    freeText: undefined,
+    selectedOptionIds,
+    selectedOptionContents,
+    freeText: responsePart.data.freeText,
   };
 }
 
