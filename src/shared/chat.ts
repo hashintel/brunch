@@ -4,19 +4,36 @@ import * as z from 'zod/v4';
 import { createKnowledgeCollectionRecord } from './knowledge.js';
 import { dataConfirmationSchema, workflowPhaseSchema, type DataConfirmation } from './phase-close.js';
 
-export const structuredQuestionSchema = z.object({
-  question: z.string().min(1),
-  why: z.string().min(1),
-  impact: z.enum(['high', 'medium', 'low']),
-  options: z
-    .array(
-      z.object({
-        content: z.string().min(1),
-        is_recommended: z.boolean(),
-      }),
-    )
-    .min(2),
+export const requirementApprovalReviewSchema = z.object({
+  kind: z.literal('requirement-approval'),
+  requirementId: z.number().int().positive(),
+  approveOptionPosition: z.number().int().min(0),
 });
+
+export const structuredQuestionSchema = z
+  .object({
+    question: z.string().min(1),
+    why: z.string().min(1),
+    impact: z.enum(['high', 'medium', 'low']),
+    options: z
+      .array(
+        z.object({
+          content: z.string().min(1),
+          is_recommended: z.boolean(),
+        }),
+      )
+      .min(2),
+    review: requirementApprovalReviewSchema.optional(),
+  })
+  .superRefine((value, ctx) => {
+    if (value.review && !value.options[value.review.approveOptionPosition]) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'review.approveOptionPosition must reference an existing option',
+        path: ['review', 'approveOptionPosition'],
+      });
+    }
+  });
 
 export const askQuestionToolOutputSchema = z.object({
   ok: z.literal(true),
@@ -62,6 +79,7 @@ export const proposePhaseClosureToolOutputSchema = z.object({
 });
 
 export { dataConfirmationSchema };
+export type RequirementApprovalReview = z.infer<typeof requirementApprovalReviewSchema>;
 export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;

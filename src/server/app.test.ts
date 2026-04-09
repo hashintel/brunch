@@ -643,6 +643,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'Resume the interview from SQLite after restart',
         rationale: 'Users will come back to finish the workflow',
+        reviewStatus: 'pending',
       },
     ]);
   });
@@ -1643,6 +1644,101 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         },
       },
     ]);
+  });
+
+  it('persists explicit approved review state for a targeted requirement through the response seam', async () => {
+    const projectId = await createTestProject();
+    const seededRequirements = await seedRequirementsReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn, updateTurn } =
+      await import('./db.js');
+
+    const approvedRequirement = createKnowledgeItem(db, projectId, 'requirement', 'Export the reviewed spec');
+    const pendingRequirement = createKnowledgeItem(
+      db,
+      projectId,
+      'requirement',
+      'Resume the interview from SQLite after restart',
+    );
+    const reviewInput = {
+      question: `Should we approve requirement [${approvedRequirement.id}] Export the reviewed spec?`,
+      why: 'Requirements review should record explicit approval state one item at a time.',
+      impact: 'high' as const,
+      options: [
+        { content: 'Approve this requirement', is_recommended: true },
+        { content: 'This requirement needs correction', is_recommended: false },
+      ],
+      review: {
+        kind: 'requirement-approval' as const,
+        requirementId: approvedRequirement.id,
+        approveOptionPosition: 0,
+      },
+    };
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: seededRequirements.designConfirmationTurn.id,
+      question: reviewInput.question,
+      why: reviewInput.why,
+      impact: reviewInput.impact,
+      answer: '',
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Approve this requirement',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'This requirement needs correction',
+      is_recommended: false,
+    });
+    updateTurn(db, reviewTurn.id, {
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-review',
+          state: 'output-available',
+          input: reviewInput,
+          output: { ok: true, turnId: reviewTurn.id, optionCount: reviewInput.options.length },
+        },
+      ]),
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ positions: [0] })
+      .expect(200);
+
+    const reviewedRows = db.$client
+      .prepare(
+        `SELECT item_id, turn_id, relation FROM turn_knowledge_item WHERE relation = 'reviewed' ORDER BY item_id`,
+      )
+      .all() as Array<{ item_id: number; turn_id: number; relation: string }>;
+    expect(reviewedRows).toEqual([
+      {
+        item_id: approvedRequirement.id,
+        turn_id: reviewTurn.id,
+        relation: 'reviewed',
+      },
+    ]);
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.requirements).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        closeability: false,
+        proposalPending: false,
+      }),
+    );
+
+    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.requirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: approvedRequirement.id, reviewStatus: 'approved' }),
+        expect.objectContaining({ id: pendingRequirement.id, reviewStatus: 'pending' }),
+      ]),
+    );
   });
 
   it('round-trips structured turn responses through project reload, transcript hydration, and interviewer history', async () => {

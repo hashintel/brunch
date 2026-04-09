@@ -920,6 +920,38 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     ]);
   });
 
+  it('projects approved and pending requirement review state from explicit reviewed turn links on the active path', () => {
+    const project = createProject(db, 'Test');
+    const approvedRequirement = createKnowledgeItem(
+      db,
+      project.id,
+      'requirement',
+      'Export the reviewed spec',
+    );
+    const pendingRequirement = createKnowledgeItem(
+      db,
+      project.id,
+      'requirement',
+      'Resume the interview from SQLite after restart',
+    );
+    const reviewTurn = createTurn(db, project.id, {
+      phase: 'requirements',
+      question: 'Should we approve the export requirement?',
+      answer: 'Approve this requirement',
+    });
+
+    linkKnowledgeItemToTurn(db, approvedRequirement.id, reviewTurn.id, 'reviewed');
+    advanceHead(db, project.id, reviewTurn.id);
+
+    const entities = getEntitiesForProject(db, project.id);
+    expect(entities.requirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: approvedRequirement.id, reviewStatus: 'approved' }),
+        expect.objectContaining({ id: pendingRequirement.id, reviewStatus: 'pending' }),
+      ]),
+    );
+  });
+
   it('creates dependency edges between decisions through generic edge storage', () => {
     const project = createProject(db, 'Test');
     const d1 = createDecision(db, project.id, 'Use Express');

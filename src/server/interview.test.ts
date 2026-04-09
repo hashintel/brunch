@@ -62,6 +62,7 @@ describe('getSystemPrompt', () => {
 
   it('grounds the requirements prompt in the current requirement inventory', () => {
     expect(getSystemPrompt('requirements')).toContain('current requirement inventory');
+    expect(getSystemPrompt('requirements')).toContain('requirement-approval');
   });
 });
 
