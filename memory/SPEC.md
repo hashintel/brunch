@@ -188,6 +188,8 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 73. **Phase-close intent is projected through one shared command vocabulary before the transport schema changes** — The existing `data-confirmation` payload remains the active chat contract for now, but shared builders and a parser should project it into explicit `confirm-proposed-phase-closure` and `force-close-active-phase` commands. Client command construction, app request handling, and workflow-provenance recovery should consume that shared semantic vocabulary instead of each layer inferring intent independently from optional fields. Depends on: D66, D72. Supersedes: ad hoc optional-field branching over `data-confirmation` payloads.
 
+74. **Force-close availability projects from workflow truth through one shared policy seam** — The rule for whether a phase may be force-closed should be derived once from workflow state rather than re-encoded separately in UI predicates and server guards. In the current slice that shared projection remains intentionally narrow — design only, active phase only, closeable, and no pending proposal — but both affordance rendering and request validation should read the same policy and preserve the current rejection semantics. Depends on: D65, D66, D73. Supersedes: duplicated force-close availability checks across route and server layers.
+
 26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
 
 ### Domain model
@@ -311,6 +313,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | I81 | Scope and design now share one typed phase-summary closure seam, so a design closure proposal can persist, project `proposalPending`, confirm through chat, and advance the next active turn into requirements | Slice 8.2 (design-phase closure proposal + requirements handoff)                     | interview.test.ts, core.test.ts, app.test.ts                                        | D66, D71                |
 | I82 | Typed `data-confirmation` parts now carry either interviewer-recommended proposal confirmation or a user-forced design close, and workflow projection recovers the forced-close basis from persisted confirmation turns so requirements handoff survives reload through the same chat seam | Slice 8.3 (user-forced design close + carried-debt projection)                       | parts.test.ts, db.test.ts, core.test.ts, app.test.ts, InterviewWorkspace.test.tsx   | D66, D72                |
 | I83 | Existing `data-confirmation` payloads now parse into explicit phase-close command variants, and shared builders preserve the current schema-valid payload shape for both interviewer-recommended and user-forced closes | Refactor commit 1 (phase-close command vocabulary)                                    | phase-close.test.ts                                                                 | D73                     |
+| I84 | Force-close availability now projects once from shared workflow policy, and both workspace affordance rendering and server-side validation consume that projection while preserving the current rejection semantics | Refactor commit 2 (shared force-close action projection)                              | phase-close.test.ts, app.test.ts, InterviewWorkspace.test.tsx                       | D74                     |
 
 ## Lexicon
 
@@ -523,15 +526,15 @@ This projection difference is a deliberate design choice, not an implementation 
 | ----------------------------- | ----- | ----------------------------------------------------- |
 | db.test.ts                    | 36    | I5, I6, I9, I10, I11, I20, I48, I50, I52, I72, I74, I77, I78, I79, I82 |
 | knowledge.test.ts             | 1     | I68, I75                                              |
-| app.test.ts                   | 20    | I1, I2, I3, I7, I14, I21, I23, I44, I46, I47, I49, I51, I53, I55, I57, I59, I61, I63, I64, I69, I72, I74, I77, I79, I80, I81, I82 |
+| app.test.ts                   | 24    | I1, I2, I3, I7, I14, I21, I23, I44, I46, I47, I49, I51, I53, I55, I57, I59, I61, I63, I64, I69, I72, I74, I77, I79, I80, I81, I82, I84 |
 | core.test.ts                  | 9     | I12, I13, I18, I80, I81, I82                          |
 | interview.test.ts             | 8     | I16, I81                                              |
 | parts.test.ts                 | 14    | I17, I18, I44, I46, I47, I55, I57, I59, I61, I63, I82 |
 | context.test.ts               | 13    | I19, I45, I47, I54, I56, I60, I62, I66, I68, I69      |
 | observer.test.ts              | 9     | I20, I21, I54, I56, I58, I60, I62, I66, I74, I76, I77 |
-| phase-close.test.ts           | 5     | I83                                                   |
+| phase-close.test.ts           | 10    | I83, I84                                              |
 | turn-response.test.ts         | 4     | I66, I69                                              |
-| InterviewWorkspace.test.tsx   | 20    | I24, I25, I23, I33, I34, I35, I36, I43, I44, I46, I47, I49, I51, I53, I55, I57, I59, I61, I63, I67, I68, I71, I73, I75, I80, I82 |
+| InterviewWorkspace.test.tsx   | 21    | I24, I25, I23, I33, I34, I35, I36, I43, I44, I46, I47, I49, I51, I53, I55, I57, I59, I61, I63, I67, I68, I71, I73, I75, I80, I82, I84 |
 | ProjectList.test.tsx          | 2     | I36                                                   |
 | workspace-data.test.ts        | 7     | I33, I49, I51, I53, I65, I67, I70, I71, I73, I75      |
 | chat-hydration.test.ts        | 3     | I35                                                   |

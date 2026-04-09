@@ -13,7 +13,7 @@ import {
   type BrunchUIMessage,
   type BrunchUserPart,
 } from '../shared/chat.js';
-import { parsePhaseClosureCommand } from '../shared/phase-close.js';
+import { getForceClosePhaseAction, parsePhaseClosureCommand } from '../shared/phase-close.js';
 import {
   extractPrompt,
   finalizeTurn,
@@ -29,7 +29,6 @@ import {
   createDb,
   findPhaseOutcomeForTurn,
   findProposedPhaseOutcomeByTurn,
-  getCurrentPhase,
   getCurrentWorkflowState,
   getTurn,
   getOptionsForTurn,
@@ -198,22 +197,18 @@ export function createApp(dbPath?: string) {
         : undefined;
 
     if (forceClosePhase) {
-      if (forceClosePhase !== 'design') {
-        res.status(400).json({ error: 'Only design supports force-close in this slice' });
-        return;
-      }
-
       const workflow = getCurrentWorkflowState(db, id);
-      if (forceClosePhase !== getCurrentPhase(db, id)) {
-        res.status(400).json({ error: 'Only the active phase can be force-closed' });
-        return;
-      }
-      if (!workflow.phases[forceClosePhase].closeability) {
-        res.status(400).json({ error: 'Phase is not closeable yet' });
-        return;
-      }
-      if (workflow.phases[forceClosePhase].proposalPending) {
-        res.status(400).json({ error: 'Confirm the pending closure proposal instead of force-closing' });
+      const forceCloseAction = getForceClosePhaseAction(workflow, forceClosePhase);
+      if (!forceCloseAction.available) {
+        const error =
+          forceCloseAction.reason === 'unsupported_phase'
+            ? 'Only design supports force-close in this slice'
+            : forceCloseAction.reason === 'inactive_phase'
+              ? 'Only the active phase can be force-closed'
+              : forceCloseAction.reason === 'not_closeable'
+                ? 'Phase is not closeable yet'
+                : 'Confirm the pending closure proposal instead of force-closing';
+        res.status(400).json({ error });
         return;
       }
     } else if (confirmationPart && !confirmationTarget) {

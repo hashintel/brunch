@@ -1155,6 +1155,55 @@ describe('InterviewWorkspace', () => {
     });
   });
 
+  it('hides the force-close action when design already has a pending closure proposal', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      workflow: {
+        phases: {
+          scope: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 1,
+            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+          },
+          design: {
+            status: 'in_progress',
+            closeability: true,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: true,
+            turnId: 3,
+            summary: 'The main architectural commitments are captured well enough to review requirements.',
+          },
+          requirements: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        },
+      } as any,
+    });
+
+    renderWorkspace();
+
+    expect(screen.queryByRole('button', { name: /force close design/i })).toBeNull();
+  });
+
   it('renders shared workflow state for closed scope and active design mode', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       workflow: {

@@ -162,6 +162,89 @@ async function createTestProject(name = 'Test Project'): Promise<number> {
   return res.body.id;
 }
 
+async function seedClosedScope(projectId: number) {
+  const { advanceHead, confirmPhaseOutcome, createPhaseOutcome, createTurn } = await import('./db.js');
+
+  const scopeTurn = createTurn(db, projectId, {
+    phase: 'scope',
+    question: 'What platform?',
+    answer: 'Web',
+  });
+  advanceHead(db, projectId, scopeTurn.id);
+
+  const scopeProposalTurn = createTurn(db, projectId, {
+    phase: 'scope',
+    parent_turn_id: scopeTurn.id,
+    question: '',
+    answer: 'We have enough scope context',
+  });
+  advanceHead(db, projectId, scopeProposalTurn.id);
+
+  const scopeOutcome = createPhaseOutcome(db, {
+    projectId,
+    phase: 'scope',
+    proposal_turn_id: scopeProposalTurn.id,
+    summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+  });
+
+  const scopeConfirmationTurn = createTurn(db, projectId, {
+    phase: 'scope',
+    parent_turn_id: scopeProposalTurn.id,
+    question: '',
+    answer: 'Confirm scope closure',
+    user_parts: JSON.stringify([
+      { type: 'text', text: 'Confirm scope closure' },
+      { type: 'data-confirmation', data: { turnId: scopeProposalTurn.id, confirmed: true } },
+    ]),
+  });
+  confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
+  advanceHead(db, projectId, scopeConfirmationTurn.id);
+
+  return { scopeTurn, scopeProposalTurn, scopeConfirmationTurn };
+}
+
+async function seedActiveDesign(projectId: number) {
+  const { advanceHead, createTurn } = await import('./db.js');
+  const seededScope = await seedClosedScope(projectId);
+
+  const designTurn = createTurn(db, projectId, {
+    phase: 'design',
+    parent_turn_id: seededScope.scopeConfirmationTurn.id,
+    question: 'Which tradeoff matters most?',
+    answer: 'Keep the repository seam small',
+  });
+  advanceHead(db, projectId, designTurn.id);
+
+  return { ...seededScope, designTurn };
+}
+
+async function seedRequirementsReady(projectId: number) {
+  const { advanceHead, confirmPhaseOutcome, createPhaseOutcome, createTurn } = await import('./db.js');
+  const seededDesign = await seedActiveDesign(projectId);
+
+  const designOutcome = createPhaseOutcome(db, {
+    projectId,
+    phase: 'design',
+    proposal_turn_id: seededDesign.designTurn.id,
+    summary: 'The main architectural commitments are captured well enough to review requirements.',
+  });
+
+  const designConfirmationTurn = createTurn(db, projectId, {
+    phase: 'design',
+    parent_turn_id: seededDesign.designTurn.id,
+    question: '',
+    answer: 'Confirm design closure',
+    user_parts: JSON.stringify([
+      { type: 'text', text: 'Confirm design closure' },
+      { type: 'data-confirmation', data: { turnId: seededDesign.designTurn.id, confirmed: true } },
+    ]),
+  });
+  confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
+  advanceHead(db, projectId, designConfirmationTurn.id);
+
+  return { ...seededDesign, designConfirmationTurn };
+}
+
 beforeEach(() => {
   mockStreamInterviewer.mockReset();
   mockRunObserver.mockReset();
@@ -1202,6 +1285,78 @@ describe('phase outcomes + scope closure', () => {
       expect.objectContaining({ phase: 'requirements' }),
       projectId,
     );
+  });
+
+  it.each([
+    {
+      name: 'unsupported phases',
+      seed: async (projectId: number) => {
+        const { advanceHead, createTurn } = await import('./db.js');
+        const scopeTurn = createTurn(db, projectId, {
+          phase: 'scope',
+          question: 'What platform?',
+          answer: 'Web',
+        });
+        advanceHead(db, projectId, scopeTurn.id);
+      },
+      phase: 'scope',
+      expectedError: 'Only design supports force-close in this slice',
+    },
+    {
+      name: 'inactive phases',
+      seed: async (projectId: number) => {
+        await seedRequirementsReady(projectId);
+      },
+      phase: 'design',
+      expectedError: 'Only the active phase can be force-closed',
+    },
+    {
+      name: 'design that is not closeable yet',
+      seed: async (projectId: number) => {
+        await seedClosedScope(projectId);
+      },
+      phase: 'design',
+      expectedError: 'Phase is not closeable yet',
+    },
+    {
+      name: 'design with a pending proposal',
+      seed: async (projectId: number) => {
+        const { createPhaseOutcome } = await import('./db.js');
+        const { designTurn } = await seedActiveDesign(projectId);
+        createPhaseOutcome(db, {
+          projectId,
+          phase: 'design',
+          proposal_turn_id: designTurn.id,
+          summary: 'The main architectural commitments are captured well enough to review requirements.',
+        });
+      },
+      phase: 'design',
+      expectedError: 'Confirm the pending closure proposal instead of force-closing',
+    },
+  ])('preserves force-close validation errors for $name', async ({ seed, phase, expectedError }) => {
+    const projectId = await createTestProject();
+    await seed(projectId);
+
+    const response = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u1',
+            role: 'user',
+            parts: [
+              { type: 'text', text: `Force ${phase} closure` },
+              {
+                type: 'data-confirmation',
+                data: { phase, confirmed: true, closureBasis: 'user_forced' },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(400);
+
+    expect(response.body).toEqual({ error: expectedError });
   });
 });
 

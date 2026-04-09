@@ -22,6 +22,7 @@ import { cn } from '@/lib/utils';
 
 import type { ProjectState, ProjectStateTurn } from '../../shared/api-types.js';
 import { isAskQuestionUIPart, type BrunchUIMessage } from '../../shared/chat.js';
+import { getForceClosePhaseAction } from '../../shared/phase-close.js';
 import { useWorkspaceController } from '../workspace/workspace-controller';
 import {
   getPersistedSelectedPositions,
@@ -67,8 +68,8 @@ function getWorkflowMetaLabel(state: WorkflowPhaseState) {
   return parts.join(' · ');
 }
 
-function canForceClosePhase(phase: ProjectStateTurn['phase'], state: WorkflowPhaseState) {
-  return phase === 'design' && state.status === 'in_progress' && state.closeability && !state.proposalPending;
+function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectStateTurn['phase']) {
+  return getForceClosePhaseAction(workflow, phase).available;
 }
 
 function PhaseSummaryCard({
@@ -301,7 +302,7 @@ export function InterviewWorkspace() {
               <div key={phase} className="rounded-lg border px-3 py-2 text-xs text-muted-foreground">
                 <div className="font-medium text-foreground">{getWorkflowStatusLabel(phase, state)}</div>
                 <div>{getWorkflowMetaLabel(state)}</div>
-                {canForceClosePhase(phase, state) && (
+                {canForceClosePhase(workflow, phase) && (
                   <button
                     type="button"
                     onClick={() => chat.forcePhaseClosure(phase)}

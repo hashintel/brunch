@@ -1,6 +1,7 @@
 import * as z from 'zod/v4';
 
-export const workflowPhaseSchema = z.enum(['scope', 'design', 'requirements', 'criteria']);
+export const workflowPhaseOrder = ['scope', 'design', 'requirements', 'criteria'] as const;
+export const workflowPhaseSchema = z.enum(workflowPhaseOrder);
 export const phaseClosureBasisSchema = z.enum(['interviewer_recommended', 'user_forced']);
 
 export const dataConfirmationSchema = z
@@ -51,6 +52,23 @@ export type PhaseClosureCommand =
       closureBasis: 'user_forced';
     };
 
+export type WorkflowPhaseActionState = {
+  status: 'unstarted' | 'in_progress' | 'closed';
+  closeability: boolean;
+  proposalPending: boolean;
+};
+
+export type WorkflowPhaseActionProjection = {
+  phases: Record<WorkflowPhase, WorkflowPhaseActionState>;
+};
+
+export type ForceClosePhaseAction = {
+  kind: 'force-close-active-phase';
+  phase: WorkflowPhase;
+  available: boolean;
+  reason: 'unsupported_phase' | 'inactive_phase' | 'not_closeable' | 'proposal_pending' | null;
+};
+
 function inferPhaseClosureBasis(value: DataConfirmation): PhaseClosureBasis | null {
   return value.closureBasis ?? (value.turnId !== undefined ? 'interviewer_recommended' : null);
 }
@@ -82,6 +100,59 @@ export function parsePhaseClosureCommand(value: DataConfirmation): PhaseClosureC
     proposalTurnId: value.turnId,
     ...(value.phase ? { phase: value.phase } : {}),
     closureBasis: 'interviewer_recommended',
+  };
+}
+
+export function getCurrentWorkflowPhase(workflow: WorkflowPhaseActionProjection): WorkflowPhase {
+  return workflowPhaseOrder.find((phase) => workflow.phases[phase].status !== 'closed') ?? 'criteria';
+}
+
+export function getForceClosePhaseAction(
+  workflow: WorkflowPhaseActionProjection,
+  phase: WorkflowPhase,
+): ForceClosePhaseAction {
+  if (phase !== 'design') {
+    return {
+      kind: 'force-close-active-phase',
+      phase,
+      available: false,
+      reason: 'unsupported_phase',
+    };
+  }
+
+  if (phase !== getCurrentWorkflowPhase(workflow)) {
+    return {
+      kind: 'force-close-active-phase',
+      phase,
+      available: false,
+      reason: 'inactive_phase',
+    };
+  }
+
+  const state = workflow.phases[phase];
+  if (!state.closeability) {
+    return {
+      kind: 'force-close-active-phase',
+      phase,
+      available: false,
+      reason: 'not_closeable',
+    };
+  }
+
+  if (state.proposalPending) {
+    return {
+      kind: 'force-close-active-phase',
+      phase,
+      available: false,
+      reason: 'proposal_pending',
+    };
+  }
+
+  return {
+    kind: 'force-close-active-phase',
+    phase,
+    available: true,
+    reason: null,
   };
 }
 
