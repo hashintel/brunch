@@ -184,8 +184,8 @@ export function createApp(dbPath?: string) {
       return;
     }
 
-    if (confirmationPart && !confirmationPart.data.confirmed) {
-      res.status(400).json({ error: 'Only confirmed phase closures are supported' });
+    if (confirmationPart && !phaseClosureCommand) {
+      res.status(400).json({ error: 'Invalid phase-close command' });
       return;
     }
 

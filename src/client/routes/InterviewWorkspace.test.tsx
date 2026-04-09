@@ -1087,7 +1087,7 @@ describe('InterviewWorkspace', () => {
           { type: 'text', text: 'Confirm scope closure' },
           {
             type: 'data-confirmation',
-            data: { turnId: 1, phase: 'scope', confirmed: true, closureBasis: 'interviewer_recommended' },
+            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
           },
         ],
       });
@@ -1148,7 +1148,7 @@ describe('InterviewWorkspace', () => {
           { type: 'text', text: 'Force design closure' },
           {
             type: 'data-confirmation',
-            data: { phase: 'design', confirmed: true, closureBasis: 'user_forced' },
+            data: { kind: 'force-close-active-phase', phase: 'design' },
           },
         ],
       });

@@ -194,7 +194,14 @@ async function seedClosedScope(projectId: number) {
     answer: 'Confirm scope closure',
     user_parts: JSON.stringify([
       { type: 'text', text: 'Confirm scope closure' },
-      { type: 'data-confirmation', data: { turnId: scopeProposalTurn.id, confirmed: true } },
+      {
+        type: 'data-confirmation',
+        data: {
+          kind: 'confirm-proposed-phase-closure',
+          proposalTurnId: scopeProposalTurn.id,
+          phase: 'scope',
+        },
+      },
     ]),
   });
   confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
@@ -236,7 +243,14 @@ async function seedRequirementsReady(projectId: number) {
     answer: 'Confirm design closure',
     user_parts: JSON.stringify([
       { type: 'text', text: 'Confirm design closure' },
-      { type: 'data-confirmation', data: { turnId: seededDesign.designTurn.id, confirmed: true } },
+      {
+        type: 'data-confirmation',
+        data: {
+          kind: 'confirm-proposed-phase-closure',
+          proposalTurnId: seededDesign.designTurn.id,
+          phase: 'design',
+        },
+      },
     ]),
   });
   confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
@@ -842,7 +856,14 @@ describe('phase outcomes + scope closure', () => {
             role: 'user',
             parts: [
               { type: 'text', text: 'Confirm scope closure' },
-              { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: 1,
+                  phase: 'scope',
+                },
+              },
             ],
           },
         ],
@@ -880,7 +901,14 @@ describe('phase outcomes + scope closure', () => {
     });
     expect(JSON.parse(projectRes.body.turns.at(-1).user_parts ?? '[]')).toEqual([
       { type: 'text', text: 'Confirm scope closure' },
-      { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+      {
+        type: 'data-confirmation',
+        data: {
+          kind: 'confirm-proposed-phase-closure',
+          proposalTurnId: 1,
+          phase: 'scope',
+        },
+      },
     ]);
   });
 
@@ -908,7 +936,14 @@ describe('phase outcomes + scope closure', () => {
             role: 'user',
             parts: [
               { type: 'text', text: 'Confirm scope closure' },
-              { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: 1,
+                  phase: 'scope',
+                },
+              },
             ],
           },
         ],
@@ -970,7 +1005,14 @@ describe('phase outcomes + scope closure', () => {
             role: 'user',
             parts: [
               { type: 'text', text: 'Confirm scope closure' },
-              { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: 1,
+                  phase: 'scope',
+                },
+              },
             ],
           },
         ],
@@ -1067,7 +1109,14 @@ describe('phase outcomes + scope closure', () => {
             role: 'user',
             parts: [
               { type: 'text', text: 'Confirm scope closure' },
-              { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: 1,
+                  phase: 'scope',
+                },
+              },
             ],
           },
         ],
@@ -1106,7 +1155,14 @@ describe('phase outcomes + scope closure', () => {
             role: 'user',
             parts: [
               { type: 'text', text: 'Confirm design closure' },
-              { type: 'data-confirmation', data: { turnId: 3, confirmed: true } },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: 3,
+                  phase: 'design',
+                },
+              },
             ],
           },
         ],
@@ -1190,7 +1246,14 @@ describe('phase outcomes + scope closure', () => {
             role: 'user',
             parts: [
               { type: 'text', text: 'Confirm scope closure' },
-              { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: 1,
+                  phase: 'scope',
+                },
+              },
             ],
           },
         ],
@@ -1225,7 +1288,7 @@ describe('phase outcomes + scope closure', () => {
               { type: 'text', text: 'Force design closure' },
               {
                 type: 'data-confirmation',
-                data: { phase: 'design', confirmed: true, closureBasis: 'user_forced' },
+                data: { kind: 'force-close-active-phase', phase: 'design' },
               },
             ],
           },
@@ -1264,7 +1327,7 @@ describe('phase outcomes + scope closure', () => {
       { type: 'text', text: 'Force design closure' },
       {
         type: 'data-confirmation',
-        data: { phase: 'design', confirmed: true, closureBasis: 'user_forced' },
+        data: { kind: 'force-close-active-phase', phase: 'design' },
       },
     ]);
 
@@ -1356,7 +1419,7 @@ describe('phase outcomes + scope closure', () => {
               { type: 'text', text: `Force ${phase} closure` },
               {
                 type: 'data-confirmation',
-                data: { phase, confirmed: true, closureBasis: 'user_forced' },
+                data: { kind: 'force-close-active-phase', phase },
               },
             ],
           },

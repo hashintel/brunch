@@ -77,14 +77,18 @@ describe('data schemas', () => {
     ).toThrow();
   });
 
-  it('validates data-confirmation payloads', () => {
-    const value = { turnId: 5, confirmed: true };
+  it('validates explicit recommended-close data-confirmation payloads', () => {
+    const value = { kind: 'confirm-proposed-phase-closure', proposalTurnId: 5, phase: 'scope' };
     expect(dataConfirmationSchema.parse(value)).toEqual(value);
   });
 
-  it('validates forced-close data-confirmation payloads', () => {
-    const value = { phase: 'design', confirmed: true, closureBasis: 'user_forced' };
+  it('validates explicit forced-close data-confirmation payloads', () => {
+    const value = { kind: 'force-close-active-phase', phase: 'design' };
     expect(dataConfirmationSchema.parse(value)).toEqual(value);
+  });
+
+  it('rejects the old optional-field data-confirmation payload shape', () => {
+    expect(() => dataConfirmationSchema.parse({ turnId: 5, confirmed: true })).toThrow();
   });
 });
 
@@ -183,7 +187,10 @@ describe('user part round-trip', () => {
     const parts: BrunchUserPart[] = [
       { type: 'text', text: 'Web first — Best fit' },
       { type: 'data-turn-response', data: { turnId: 4, selectedOptionIds: [9], freeText: 'Best fit' } },
-      { type: 'data-confirmation', data: { turnId: 4, confirmed: true } },
+      {
+        type: 'data-confirmation',
+        data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 4, phase: 'scope' },
+      },
     ];
 
     const json = serializeParts(parts);
@@ -195,7 +202,7 @@ describe('user part round-trip', () => {
       { type: 'text', text: 'Force design closure' },
       {
         type: 'data-confirmation',
-        data: { phase: 'design', confirmed: true, closureBasis: 'user_forced' },
+        data: { kind: 'force-close-active-phase', phase: 'design' },
       },
     ];
 

@@ -41,7 +41,10 @@ describe('extractPrompt', () => {
         role: 'user',
         parts: [
           { type: 'text', text: 'hello' },
-          { type: 'data-confirmation', data: { turnId: 7, confirmed: true } },
+          {
+            type: 'data-confirmation',
+            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 7, phase: 'scope' },
+          },
         ],
       },
     ];
@@ -59,7 +62,10 @@ describe('prepareTurn', () => {
     const project = createProject(db, 'Spec');
     const userParts: BrunchUserPart[] = [
       { type: 'text', text: 'Use SQLite' },
-      { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+      {
+        type: 'data-confirmation',
+        data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
+      },
     ];
 
     const prepared = prepareTurn(db, project.id, 'Use SQLite', userParts);
@@ -243,7 +249,7 @@ describe('prepareTurn', () => {
         { type: 'text', text: 'Force design closure' },
         {
           type: 'data-confirmation',
-          data: { phase: 'design', confirmed: true, closureBasis: 'user_forced' },
+          data: { kind: 'force-close-active-phase', phase: 'design' },
         },
       ]),
     });

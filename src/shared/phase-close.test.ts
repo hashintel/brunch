@@ -34,10 +34,9 @@ describe('phase-close commands', () => {
   it('parses interviewer-recommended proposal confirmations into an explicit command', () => {
     expect(
       parsePhaseClosureCommand({
-        turnId: 5,
+        kind: 'confirm-proposed-phase-closure',
+        proposalTurnId: 5,
         phase: 'design',
-        confirmed: true,
-        closureBasis: 'interviewer_recommended',
       }),
     ).toEqual({
       kind: 'confirm-proposed-phase-closure',
@@ -48,33 +47,29 @@ describe('phase-close commands', () => {
   });
 
   it('parses user-forced phase closes into an explicit command', () => {
-    expect(
-      parsePhaseClosureCommand({ phase: 'design', confirmed: true, closureBasis: 'user_forced' }),
-    ).toEqual({
+    expect(parsePhaseClosureCommand({ kind: 'force-close-active-phase', phase: 'design' })).toEqual({
       kind: 'force-close-active-phase',
       phase: 'design',
       closureBasis: 'user_forced',
     });
   });
 
-  it('treats unconfirmed confirmation payloads as non-commands', () => {
-    expect(parsePhaseClosureCommand({ turnId: 5, confirmed: false })).toBeNull();
+  it('rejects the old optional-field confirmation shape', () => {
+    expect(parsePhaseClosureCommand({ turnId: 5, confirmed: true })).toBeNull();
   });
 
-  it('builds interviewer-recommended confirmation payloads that still validate through the existing schema', () => {
+  it('builds interviewer-recommended confirmation payloads that validate through the discriminated command schema', () => {
     expect(dataConfirmationSchema.parse(createRecommendedPhaseClosureConfirmation('scope', 7))).toEqual({
-      turnId: 7,
+      kind: 'confirm-proposed-phase-closure',
+      proposalTurnId: 7,
       phase: 'scope',
-      confirmed: true,
-      closureBasis: 'interviewer_recommended',
     });
   });
 
-  it('builds forced-close confirmation payloads that still validate through the existing schema', () => {
+  it('builds forced-close confirmation payloads that validate through the discriminated command schema', () => {
     expect(dataConfirmationSchema.parse(createForcedPhaseClosureConfirmation('design'))).toEqual({
+      kind: 'force-close-active-phase',
       phase: 'design',
-      confirmed: true,
-      closureBasis: 'user_forced',
     });
   });
 });

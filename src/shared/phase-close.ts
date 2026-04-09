@@ -4,46 +4,30 @@ export const workflowPhaseOrder = ['scope', 'design', 'requirements', 'criteria'
 export const workflowPhaseSchema = z.enum(workflowPhaseOrder);
 export const phaseClosureBasisSchema = z.enum(['interviewer_recommended', 'user_forced']);
 
-export const dataConfirmationSchema = z
-  .object({
-    turnId: z.number().optional(),
-    phase: workflowPhaseSchema.optional(),
-    confirmed: z.boolean(),
-    closureBasis: phaseClosureBasisSchema.optional(),
-  })
-  .superRefine((value, ctx) => {
-    const closureBasis =
-      value.closureBasis ?? (value.turnId !== undefined ? 'interviewer_recommended' : undefined);
+const confirmProposedPhaseClosureSchema = z.object({
+  kind: z.literal('confirm-proposed-phase-closure'),
+  proposalTurnId: z.number(),
+  phase: workflowPhaseSchema,
+});
 
-    if (closureBasis === 'user_forced') {
-      if (!value.phase) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'phase is required for a user-forced phase close',
-          path: ['phase'],
-        });
-      }
-      return;
-    }
+const forceCloseActivePhaseSchema = z.object({
+  kind: z.literal('force-close-active-phase'),
+  phase: workflowPhaseSchema,
+});
 
-    if (value.turnId === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'turnId is required for interviewer-recommended confirmations',
-        path: ['turnId'],
-      });
-    }
-  });
+export const dataConfirmationSchema = z.discriminatedUnion('kind', [
+  confirmProposedPhaseClosureSchema,
+  forceCloseActivePhaseSchema,
+]);
 
 export type WorkflowPhase = z.infer<typeof workflowPhaseSchema>;
 export type PhaseClosureBasis = z.infer<typeof phaseClosureBasisSchema>;
-export type DataConfirmation = z.infer<typeof dataConfirmationSchema>;
 
 export type PhaseClosureCommand =
   | {
       kind: 'confirm-proposed-phase-closure';
       proposalTurnId: number;
-      phase?: WorkflowPhase;
+      phase: WorkflowPhase;
       closureBasis: 'interviewer_recommended';
     }
   | {
@@ -51,6 +35,8 @@ export type PhaseClosureCommand =
       phase: WorkflowPhase;
       closureBasis: 'user_forced';
     };
+
+export type DataConfirmation = z.infer<typeof dataConfirmationSchema>;
 
 export type WorkflowPhaseActionState = {
   status: 'unstarted' | 'in_progress' | 'closed';
@@ -69,37 +55,22 @@ export type ForceClosePhaseAction = {
   reason: 'unsupported_phase' | 'inactive_phase' | 'not_closeable' | 'proposal_pending' | null;
 };
 
-function inferPhaseClosureBasis(value: DataConfirmation): PhaseClosureBasis | null {
-  return value.closureBasis ?? (value.turnId !== undefined ? 'interviewer_recommended' : null);
-}
-
-export function parsePhaseClosureCommand(value: DataConfirmation): PhaseClosureCommand | null {
-  if (!value.confirmed) {
+export function parsePhaseClosureCommand(value: unknown): PhaseClosureCommand | null {
+  const result = dataConfirmationSchema.safeParse(value);
+  if (!result.success) {
     return null;
   }
 
-  const closureBasis = inferPhaseClosureBasis(value);
-  if (closureBasis === 'user_forced') {
-    if (!value.phase) {
-      return null;
-    }
-
+  if (result.data.kind === 'confirm-proposed-phase-closure') {
     return {
-      kind: 'force-close-active-phase',
-      phase: value.phase,
-      closureBasis,
+      ...result.data,
+      closureBasis: 'interviewer_recommended',
     };
   }
 
-  if (value.turnId === undefined) {
-    return null;
-  }
-
   return {
-    kind: 'confirm-proposed-phase-closure',
-    proposalTurnId: value.turnId,
-    ...(value.phase ? { phase: value.phase } : {}),
-    closureBasis: 'interviewer_recommended',
+    ...result.data,
+    closureBasis: 'user_forced',
   };
 }
 
@@ -161,17 +132,15 @@ export function createRecommendedPhaseClosureConfirmation(
   proposalTurnId: number,
 ): DataConfirmation {
   return {
-    turnId: proposalTurnId,
+    kind: 'confirm-proposed-phase-closure',
+    proposalTurnId,
     phase,
-    confirmed: true,
-    closureBasis: 'interviewer_recommended',
   };
 }
 
 export function createForcedPhaseClosureConfirmation(phase: WorkflowPhase): DataConfirmation {
   return {
+    kind: 'force-close-active-phase',
     phase,
-    confirmed: true,
-    closureBasis: 'user_forced',
   };
 }

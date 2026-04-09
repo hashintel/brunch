@@ -307,7 +307,14 @@ describe('phase outcome lifecycle', () => {
       parent_turn_id: scopeProposalTurn.id,
       user_parts: JSON.stringify([
         { type: 'text', text: 'Confirm scope closure' },
-        { type: 'data-confirmation', data: { turnId: scopeProposalTurn.id, confirmed: true } },
+        {
+          type: 'data-confirmation',
+          data: {
+            kind: 'confirm-proposed-phase-closure',
+            proposalTurnId: scopeProposalTurn.id,
+            phase: 'scope',
+          },
+        },
       ]),
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
@@ -330,7 +337,7 @@ describe('phase outcome lifecycle', () => {
         { type: 'text', text: 'Force design closure' },
         {
           type: 'data-confirmation',
-          data: { phase: 'design', confirmed: true, closureBasis: 'user_forced' },
+          data: { kind: 'force-close-active-phase', phase: 'design' },
         },
       ]),
     });
@@ -397,7 +404,14 @@ describe('phase outcome lifecycle', () => {
       parent_turn_id: scopeProposalTurn.id,
       user_parts: JSON.stringify([
         { type: 'text', text: 'Confirm scope closure' },
-        { type: 'data-confirmation', data: { turnId: scopeProposalTurn.id, confirmed: true } },
+        {
+          type: 'data-confirmation',
+          data: {
+            kind: 'confirm-proposed-phase-closure',
+            proposalTurnId: scopeProposalTurn.id,
+            phase: 'scope',
+          },
+        },
       ]),
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
