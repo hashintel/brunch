@@ -11,6 +11,7 @@ import { useChatHydrationBoundary } from './chat-hydration.js';
 import {
   createWorkspaceControllerViewState,
   type PendingQuestionViewModel,
+  type PhaseSummaryViewModel,
   type WorkspaceDurableEntityState,
   type WorkspaceDurableProjectState,
 } from './workspace-controller-core.js';
@@ -22,6 +23,7 @@ export interface WorkspaceControllerChatState {
   isLoading: boolean;
   isStreaming: boolean;
   submitText: (text: string) => void;
+  confirmPhaseClosure: (turnId: number) => void;
 }
 
 export type WorkspaceControllerTurnCardState =
@@ -45,9 +47,11 @@ export interface WorkspaceControllerPromptInputState {
 
 export interface WorkspaceController {
   project: WorkspaceDurableProjectState['project'];
+  workflow: WorkspaceDurableProjectState['workflow'];
   entityState: WorkspaceDurableEntityState;
   chat: WorkspaceControllerChatState;
   turnCard: WorkspaceControllerTurnCardState | null;
+  phaseSummary: PhaseSummaryViewModel | null;
   promptInput: WorkspaceControllerPromptInputState;
 }
 
@@ -98,8 +102,25 @@ export function useWorkspaceController(): WorkspaceController {
     [isLoading, sendMessage],
   );
 
+  const confirmPhaseClosure = useCallback(
+    (turnId: number) => {
+      if (isLoading) {
+        return;
+      }
+
+      void sendMessage({
+        parts: [
+          { type: 'text', text: 'Confirm scope closure' },
+          { type: 'data-confirmation', data: { turnId, confirmed: true } },
+        ],
+      });
+    },
+    [isLoading, sendMessage],
+  );
+
   return {
     project: viewState.project,
+    workflow: viewState.workflow,
     entityState: durableEntities,
     chat: {
       messages,
@@ -107,6 +128,7 @@ export function useWorkspaceController(): WorkspaceController {
       isLoading,
       isStreaming: status === 'streaming',
       submitText,
+      confirmPhaseClosure,
     },
     turnCard: viewState.turnCard
       ? viewState.turnCard.kind === 'persisted-turn'
@@ -123,6 +145,7 @@ export function useWorkspaceController(): WorkspaceController {
             disabled: true,
           }
       : null,
+    phaseSummary: viewState.phaseSummary,
     promptInput: {
       visible: viewState.promptInput.visible,
       disabled: isLoading || submitTurnResponseMutation.isPending,

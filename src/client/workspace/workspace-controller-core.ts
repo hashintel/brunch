@@ -13,6 +13,7 @@ import {
 
 export interface WorkspaceDurableProjectState {
   project: ProjectState['project'];
+  workflow: ProjectState['workflow'];
   turns: ProjectStateTurn[];
   lastTurn: ProjectStateTurn | undefined;
   showTurnCard: boolean;
@@ -48,13 +49,21 @@ export interface PendingQuestionViewModel {
   options: PendingQuestionOption[];
 }
 
+export interface PhaseSummaryViewModel {
+  turnId: number;
+  phase: ProjectStateTurn['phase'];
+  summary: string;
+}
+
 export type WorkspaceTurnCardViewModel =
   | { kind: 'persisted-turn'; turn: ProjectStateTurn }
   | { kind: 'pending-question'; pendingQuestion: PendingQuestionViewModel };
 
 export interface WorkspaceControllerViewState {
   project: WorkspaceDurableProjectState['project'];
+  workflow: WorkspaceDurableProjectState['workflow'];
   turnCard: WorkspaceTurnCardViewModel | null;
+  phaseSummary: PhaseSummaryViewModel | null;
   promptInput: {
     visible: boolean;
   };
@@ -156,6 +165,7 @@ export function createWorkspaceDurableProjectState(projectState: ProjectState): 
 
   return {
     project: projectState.project,
+    workflow: projectState.workflow,
     turns: projectState.turns,
     lastTurn,
     showTurnCard: Boolean(lastTurn?.options?.length),
@@ -238,24 +248,57 @@ function findPendingQuestion(messages: BrunchUIMessage[]): PendingQuestionViewMo
   return null;
 }
 
+function findPhaseSummary(messages: BrunchUIMessage[]): PhaseSummaryViewModel | null {
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message.role !== 'assistant') {
+      continue;
+    }
+
+    for (let partIndex = (message.parts?.length ?? 0) - 1; partIndex >= 0; partIndex -= 1) {
+      const part = message.parts?.[partIndex];
+      if (!part || part.type !== 'data-phase-summary') {
+        continue;
+      }
+
+      return {
+        turnId: part.data.turnId,
+        phase: part.data.phase,
+        summary: part.data.summary,
+      };
+    }
+  }
+
+  return null;
+}
+
 export function createWorkspaceControllerViewState(
   durableProject: WorkspaceDurableProjectState,
   messages: BrunchUIMessage[],
   isLoading: boolean,
 ): WorkspaceControllerViewState {
-  const { project, lastTurn, showTurnCard, lastTurnHasResponse } = durableProject;
+  const { project, workflow, lastTurn, showTurnCard, lastTurnHasResponse } = durableProject;
   const pendingQuestion = isLoading ? findPendingQuestion(messages) : null;
-  const turnCard: WorkspaceTurnCardViewModel | null = pendingQuestion
-    ? { kind: 'pending-question', pendingQuestion }
-    : showTurnCard && lastTurn && !isLoading
-      ? { kind: 'persisted-turn', turn: lastTurn }
+  const latestPhaseSummary = findPhaseSummary(messages);
+  const phaseSummary =
+    latestPhaseSummary && (isLoading || workflow.phases[latestPhaseSummary.phase].status === 'proposed')
+      ? latestPhaseSummary
       : null;
+  const turnCard: WorkspaceTurnCardViewModel | null = phaseSummary
+    ? null
+    : pendingQuestion
+      ? { kind: 'pending-question', pendingQuestion }
+      : showTurnCard && lastTurn && !isLoading
+        ? { kind: 'persisted-turn', turn: lastTurn }
+        : null;
 
   return {
     project,
+    workflow,
     turnCard,
+    phaseSummary,
     promptInput: {
-      visible: pendingQuestion ? false : !showTurnCard || lastTurnHasResponse,
+      visible: phaseSummary || pendingQuestion ? false : !showTurnCard || lastTurnHasResponse,
     },
   };
 }

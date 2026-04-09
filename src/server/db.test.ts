@@ -61,6 +61,7 @@ describe('createDb', () => {
       'decision_parent_assumption',
       'assumption_parent_assumption',
       'requirement_decision',
+      'phase_outcome',
     ];
     for (const table of expected) {
       expect(names).toContain(table);
@@ -180,6 +181,69 @@ describe('turn CRUD', () => {
     const updated = db.$client.prepare('SELECT * FROM turn WHERE id = ?').get(turn.id) as any;
     expect(updated.question).toBe('New Q');
     expect(updated.answer).toBe('Original A');
+  });
+});
+
+describe('phase outcome lifecycle', () => {
+  it('persists explicit scope outcomes and supersedes them when the active path changes upstream', async () => {
+    const project = getOrCreateProject(db);
+    const root = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    const closureTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: '',
+      answer: 'We have enough scope context',
+      parent_turn_id: root.id,
+    });
+    advanceHead(db, project.id, closureTurn.id);
+
+    const { createPhaseOutcome, confirmPhaseOutcome, getCurrentWorkflowState, listPhaseOutcomesForProject } =
+      await import('./db.js');
+
+    const proposed = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'scope',
+      proposal_turn_id: closureTurn.id,
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    });
+
+    expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
+      status: 'proposed',
+      summary: proposed.summary,
+      turnId: closureTurn.id,
+    });
+
+    const confirmationTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: '',
+      answer: 'Confirm scope closure',
+      parent_turn_id: closureTurn.id,
+    });
+    confirmPhaseOutcome(db, proposed.id, confirmationTurn.id);
+    advanceHead(db, project.id, confirmationTurn.id);
+
+    expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
+      status: 'confirmed',
+      summary: proposed.summary,
+      turnId: closureTurn.id,
+    });
+
+    const alternateTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What should we revisit?',
+      answer: 'Target audience',
+      parent_turn_id: root.id,
+    });
+    advanceHead(db, project.id, alternateTurn.id);
+
+    expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
+      status: 'open',
+      summary: null,
+      turnId: null,
+    });
+    expect(listPhaseOutcomesForProject(db, project.id)[0]).toMatchObject({
+      id: proposed.id,
+      status: 'superseded',
+    });
   });
 });
 

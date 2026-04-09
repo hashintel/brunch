@@ -23,7 +23,10 @@ import {
 } from './core.js';
 import {
   applyTurnResponseSelections,
+  confirmPhaseOutcome,
   createDb,
+  findPhaseOutcomeForTurn,
+  findProposedPhaseOutcomeByTurn,
   getTurn,
   getOptionsForTurn,
   updateTurn,
@@ -159,11 +162,6 @@ export function createApp(dbPath?: string) {
     }
 
     const prompt = extractPrompt(messages);
-    if (!prompt.trim()) {
-      res.status(400).json({ error: 'message content is required' });
-      return;
-    }
-
     const lastUserMessage = messages.at(-1);
     const userParts: BrunchUserPart[] =
       lastUserMessage?.role === 'user' && lastUserMessage.parts.length > 0
@@ -172,6 +170,28 @@ export function createApp(dbPath?: string) {
               part.type === 'text' || part.type === 'data-turn-response' || part.type === 'data-confirmation',
           )
         : [{ type: 'text', text: prompt }];
+    const confirmationPart = userParts.find(
+      (part): part is Extract<BrunchUserPart, { type: 'data-confirmation' }> =>
+        part.type === 'data-confirmation',
+    );
+
+    if (!prompt.trim() && !confirmationPart) {
+      res.status(400).json({ error: 'message content is required' });
+      return;
+    }
+
+    if (confirmationPart && !confirmationPart.data.confirmed) {
+      res.status(400).json({ error: 'Only confirmed phase closures are supported' });
+      return;
+    }
+
+    const confirmationTarget = confirmationPart
+      ? findProposedPhaseOutcomeByTurn(db, id, confirmationPart.data.turnId)
+      : undefined;
+    if (confirmationPart && !confirmationTarget) {
+      res.status(404).json({ error: 'Phase closure proposal not found' });
+      return;
+    }
 
     let prepared: ReturnType<typeof prepareTurn>;
     try {
@@ -184,6 +204,13 @@ export function createApp(dbPath?: string) {
 
     const stream = createUIMessageStream<BrunchUIMessage>({
       async execute({ writer }) {
+        if (confirmationTarget) {
+          confirmPhaseOutcome(db, confirmationTarget.id, prepared.turn.id);
+          finalizeTurn(db, id, prepared.turn.id);
+          writer.write({ type: 'finish', finishReason: 'stop' });
+          return;
+        }
+
         const interviewer = await streamInterviewer(
           db,
           prepared.turn,
@@ -202,6 +229,18 @@ export function createApp(dbPath?: string) {
         const finishReason = await interviewer.finishReason;
         finalizeTurn(db, id, prepared.turn.id);
 
+        const phaseOutcome = findPhaseOutcomeForTurn(db, id, prepared.turn.id);
+        if (phaseOutcome && phaseOutcome.status === 'proposed') {
+          writer.write({
+            type: 'data-phase-summary',
+            data: {
+              turnId: phaseOutcome.proposal_turn_id,
+              phase: phaseOutcome.phase,
+              summary: phaseOutcome.summary,
+            },
+          });
+        }
+
         try {
           const persistedTurn = getTurn(db, prepared.turn.id) ?? prepared.turn;
           const entityIds = await runObserver(db, persistedTurn, id);
@@ -216,6 +255,9 @@ export function createApp(dbPath?: string) {
         writer.write({ type: 'finish', finishReason });
       },
       async onFinish({ responseMessage }) {
+        if (confirmationTarget) {
+          return;
+        }
         const assistantText = extractTextFromMessage(responseMessage);
         persistFallbackQuestionText(db, prepared.turn.id, assistantText);
         const assistantParts = assistantPartsSchema.parse(responseMessage.parts) as BrunchAssistantPart[];

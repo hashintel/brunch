@@ -49,8 +49,20 @@ export const dataConfirmationSchema = z.object({
 });
 
 export const dataPhaseSummarySchema = z.object({
+  turnId: z.number(),
   phase: z.enum(['scope', 'design', 'requirements', 'criteria']),
   summary: z.string(),
+});
+
+export const phaseClosureProposalSchema = z.object({
+  phase: z.enum(['scope', 'design', 'requirements', 'criteria']),
+  summary: z.string().min(1),
+});
+
+export const proposePhaseClosureToolOutputSchema = z.object({
+  ok: z.literal(true),
+  turnId: z.number(),
+  phase: z.enum(['scope', 'design', 'requirements', 'criteria']),
 });
 
 export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
@@ -60,6 +72,8 @@ export type ObserverEntityIds = ObserverResultData['entityIds'];
 export type DataTurnResponse = z.infer<typeof dataTurnResponseSchema>;
 export type DataConfirmation = z.infer<typeof dataConfirmationSchema>;
 export type DataPhaseSummary = z.infer<typeof dataPhaseSummarySchema>;
+export type PhaseClosureProposal = z.infer<typeof phaseClosureProposalSchema>;
+export type ProposePhaseClosureToolOutput = z.infer<typeof proposePhaseClosureToolOutputSchema>;
 
 export type BrunchMessageMetadata = {
   turnId?: number;
@@ -76,6 +90,10 @@ export type BrunchUITools = {
   ask_question: {
     input: StructuredQuestion;
     output: AskQuestionToolOutput;
+  };
+  propose_phase_closure: {
+    input: PhaseClosureProposal;
+    output: ProposePhaseClosureToolOutput;
   };
 };
 
@@ -101,9 +119,16 @@ export const askQuestionValidationTool = tool({
   outputSchema: askQuestionToolOutputSchema,
 });
 
+export const proposePhaseClosureValidationTool = tool({
+  description: 'Propose closing the current workflow phase with a concise summary for user confirmation.',
+  inputSchema: phaseClosureProposalSchema,
+  outputSchema: proposePhaseClosureToolOutputSchema,
+});
+
 export const brunchValidationTools = {
   ask_question: askQuestionValidationTool,
-} satisfies Record<string, typeof askQuestionValidationTool>;
+  propose_phase_closure: proposePhaseClosureValidationTool,
+} as const;
 
 export const brunchDataPartSchemas = {
   'observer-result': observerResultSchema,
@@ -227,6 +252,38 @@ const askQuestionToolPartSchema = z.union([
   }),
 ]);
 
+export const proposePhaseClosureToolBaseSchema = z
+  .object({
+    type: z.literal('tool-propose_phase_closure'),
+    toolCallId: z.string(),
+    title: z.string().optional(),
+    providerExecuted: z.boolean().optional(),
+  })
+  .loose();
+
+const proposePhaseClosureToolPartSchema = z.union([
+  proposePhaseClosureToolBaseSchema.extend({
+    state: z.literal('input-streaming'),
+    input: z.unknown().optional(),
+  }),
+  proposePhaseClosureToolBaseSchema.extend({
+    state: z.literal('input-available'),
+    input: phaseClosureProposalSchema,
+  }),
+  proposePhaseClosureToolBaseSchema.extend({
+    state: z.literal('output-available'),
+    input: phaseClosureProposalSchema,
+    output: proposePhaseClosureToolOutputSchema,
+    preliminary: z.boolean().optional(),
+  }),
+  proposePhaseClosureToolBaseSchema.extend({
+    state: z.literal('output-error'),
+    input: phaseClosureProposalSchema.optional(),
+    rawInput: z.unknown().optional(),
+    errorText: z.string(),
+  }),
+]);
+
 export const assistantPartsSchema = z.array(
   z.union([
     textPartSchema,
@@ -235,6 +292,7 @@ export const assistantPartsSchema = z.array(
     observerResultPartSchema,
     phaseSummaryPartSchema,
     askQuestionToolPartSchema,
+    proposePhaseClosureToolPartSchema,
   ]),
 );
 

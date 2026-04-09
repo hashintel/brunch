@@ -53,7 +53,7 @@ const routerInvalidate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 let useChatImpl: (options: UseChatOptions) => {
   messages: BrunchUIMessage[];
-  sendMessage: (message: { text: string }) => Promise<void> | void;
+  sendMessage: (message: { text?: string; parts?: Array<Record<string, unknown>> }) => Promise<void> | void;
   setMessages: (messages: BrunchUIMessage[]) => void;
   status: 'ready' | 'submitted' | 'streaming';
 };
@@ -122,6 +122,8 @@ function createProjectState({
   answer = 'Build the web app',
   userParts = [{ type: 'text', text: answer }] as Array<Record<string, unknown>>,
   options = [],
+  workflow,
+  assistantParts,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -134,6 +136,19 @@ function createProjectState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
+  workflow?: {
+    phases: {
+      scope: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
+      design: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
+      requirements: {
+        status: 'open' | 'proposed' | 'confirmed';
+        turnId: number | null;
+        summary: string | null;
+      };
+      criteria: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
+    };
+  };
+  assistantParts?: Array<Record<string, unknown>>;
 } = {}): ProjectState {
   return {
     project: {
@@ -142,6 +157,14 @@ function createProjectState({
       active_turn_id: 1,
       created_at: '2026-04-03 10:00:00',
       updated_at: '2026-04-03 10:00:00',
+    },
+    workflow: workflow ?? {
+      phases: {
+        scope: { status: 'open', turnId: null, summary: null },
+        design: { status: 'open', turnId: null, summary: null },
+        requirements: { status: 'open', turnId: null, summary: null },
+        criteria: { status: 'open', turnId: null, summary: null },
+      },
     },
     turns: [
       {
@@ -155,7 +178,9 @@ function createProjectState({
         answer,
         is_resolution: false,
         user_parts: JSON.stringify(userParts),
-        assistant_parts: JSON.stringify([{ type: 'text', text: assistantText }]),
+        assistant_parts: JSON.stringify(
+          assistantParts ?? (assistantText ? [{ type: 'text', text: assistantText }] : []),
+        ),
         created_at: '2026-04-03 10:00:00',
         options,
       },
@@ -169,6 +194,8 @@ function createWorkspaceLoaderData({
   answer = 'Build the web app',
   userParts,
   options = [],
+  workflow,
+  assistantParts,
   entitySnapshot = {
     framing: [],
     constraints: [],
@@ -190,10 +217,31 @@ function createWorkspaceLoaderData({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
+  workflow?: {
+    phases: {
+      scope: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
+      design: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
+      requirements: {
+        status: 'open' | 'proposed' | 'confirmed';
+        turnId: number | null;
+        summary: string | null;
+      };
+      criteria: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
+    };
+  };
+  assistantParts?: Array<Record<string, unknown>>;
   entitySnapshot?: EntitiesData;
 } = {}): WorkspaceLoaderData {
   return {
-    projectState: createProjectState({ projectId, assistantText, answer, userParts, options }),
+    projectState: createProjectState({
+      projectId,
+      assistantText,
+      answer,
+      userParts,
+      options,
+      workflow,
+      assistantParts,
+    }),
     entitySnapshot,
   };
 }
@@ -202,7 +250,7 @@ function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'rea
   options: UseChatOptions,
 ) => {
   messages: BrunchUIMessage[];
-  sendMessage: (message: { text: string }) => Promise<void> | void;
+  sendMessage: (message: { text?: string; parts?: Array<Record<string, unknown>> }) => Promise<void> | void;
   setMessages: (messages: BrunchUIMessage[]) => void;
   status: 'ready' | 'submitted' | 'streaming';
 } {
@@ -923,6 +971,48 @@ describe('InterviewWorkspace', () => {
       expect(routerInvalidate).toHaveBeenCalledTimes(1);
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
         text: 'Web, Desktop — Covers both launch paths',
+      });
+    });
+  });
+
+  it('submits scope-closure confirmations through chat with typed confirmation parts', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      assistantText: '',
+      answer: 'We have enough scope context',
+      workflow: {
+        phases: {
+          scope: {
+            status: 'proposed',
+            turnId: 1,
+            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+          },
+          design: { status: 'open', turnId: null, summary: null },
+          requirements: { status: 'open', turnId: null, summary: null },
+          criteria: { status: 'open', turnId: null, summary: null },
+        },
+      },
+      assistantParts: [
+        {
+          type: 'data-phase-summary',
+          data: {
+            turnId: 1,
+            phase: 'scope',
+            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+          },
+        },
+      ],
+    });
+
+    renderWorkspace();
+
+    fireEvent.click(await screen.findByRole('button', { name: /confirm scope closure/i }));
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          { type: 'text', text: 'Confirm scope closure' },
+          { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+        ],
       });
     });
   });

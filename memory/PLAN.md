@@ -125,14 +125,16 @@
 
 ### Slices
 
-7. **Explicit phase outcomes + scope closure** — Replace pure `is_resolution` semantics with explicit phase outcomes and user-confirmed scope closure. Scope mode closes when sufficient shared understanding of goals, terms, context, and constraints is reached, not just when the model feels done. `not-started`
+7. **Explicit phase outcomes + scope closure** — Replace pure `is_resolution` semantics with explicit phase outcomes and user-confirmed scope closure. Scope mode closes when sufficient shared understanding of goals, terms, context, and constraints is reached, not just when the model feels done. `done`
    - Requirements: → SPEC.md §Requirements #7, #8
-   - Assumptions: → SPEC.md §Assumptions A15, A28
-   - Decisions: → SPEC.md §Decisions D2, D3, D6, D62
+   - Assumptions: → SPEC.md §Assumptions A15, A28, A39
+   - Decisions: → SPEC.md §Decisions D2, D3, D6, D62, D65, D66
    - Candidate invariant goals: confirmed scope outcome survives refresh and invalidates correctly when upstream turns change
    - Invariants to respect: → SPEC.md §Invariants I18, I24, I25
+   - Invariants established: → SPEC.md §Invariants I72, I73
    - Acceptance: scope mode proposes closure with a summary over the current scope knowledge family, user confirms, explicit phase outcome persists, and the project shows updated workflow state
-   - **Verification approach**: inner — DB/core tests for phase outcome lifecycle. Outer — manual closure/confirmation walkthrough.
+   - **Observed current state (2026-04-08, slice 7):** scope-mode interviewer turns can now persist explicit `phase_outcome` proposal records in a dedicated readiness table, stream/persist typed `data-phase-summary` artifacts, confirm those proposals through typed `data-confirmation` chat parts, project workflow state from the active path, and supersede outcomes when their proposal turn leaves the active path. The workspace header now shows scope status, suppresses the normal prompt while a closure proposal is pending, and renders a dedicated confirmation card wired to the chat seam.
+   - **Verification approach**: inner — schema + DB/core/parts tests for explicit phase-outcome proposal/confirmation contracts and lifecycle. Middle — round-trip + model-based lifecycle oracles prove submit → persistence → reload → workspace projection and supersession on upstream branch changes. Outer — manual closure/confirmation walkthrough deferred until after 7a.
 
 7a. **Knowledge-layer redesign spike (ontology + graph + workspace direction)** — Retire the current `framing` umbrella and mixed legacy/generic storage risk by specifying the canonical knowledge ontology, cross-kind graph model, and non-sidebar-first review surface before design/review modes harden today's transitional semantics. `not-started`
    - Requirements: → SPEC.md §Requirements #5, #6, #11, #12, #13

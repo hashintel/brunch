@@ -16,6 +16,7 @@ function createProjectState({
   answer = 'Build the web app',
   userParts = [{ type: 'text', text: answer }] as Array<Record<string, unknown>>,
   options = [],
+  workflow,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -28,6 +29,18 @@ function createProjectState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
+  workflow?: {
+    phases: {
+      scope: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
+      design: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
+      requirements: {
+        status: 'open' | 'proposed' | 'confirmed';
+        turnId: number | null;
+        summary: string | null;
+      };
+      criteria: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
+    };
+  };
 } = {}): ProjectState {
   return {
     project: {
@@ -36,6 +49,14 @@ function createProjectState({
       active_turn_id: 1,
       created_at: '2026-04-03 10:00:00',
       updated_at: '2026-04-03 10:00:00',
+    },
+    workflow: workflow ?? {
+      phases: {
+        scope: { status: 'open', turnId: null, summary: null },
+        design: { status: 'open', turnId: null, summary: null },
+        requirements: { status: 'open', turnId: null, summary: null },
+        criteria: { status: 'open', turnId: null, summary: null },
+      },
     },
     turns: [
       {
@@ -49,7 +70,7 @@ function createProjectState({
         answer,
         is_resolution: false,
         user_parts: JSON.stringify(userParts),
-        assistant_parts: JSON.stringify([{ type: 'text', text: assistantText }]),
+        assistant_parts: JSON.stringify(assistantText ? [{ type: 'text', text: assistantText }] : []),
         created_at: '2026-04-03 10:00:00',
         options,
       },
@@ -213,6 +234,56 @@ describe('workspace controller core', () => {
     expect(getPersistedSelectedPositions(selectedResponseTurn)).toEqual([1]);
   });
 
+  it('projects a pending phase-summary confirmation card from persisted workflow state and assistant parts', () => {
+    const proposedScope = createWorkspaceDurableProjectState(
+      createProjectState({
+        assistantText: '',
+        answer: 'We have enough scope context',
+        userParts: [{ type: 'text', text: 'We have enough scope context' }],
+        workflow: {
+          phases: {
+            scope: {
+              status: 'proposed',
+              turnId: 1,
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+            design: { status: 'open', turnId: null, summary: null },
+            requirements: { status: 'open', turnId: null, summary: null },
+            criteria: { status: 'open', turnId: null, summary: null },
+          },
+        },
+      }),
+    );
+    const messages: BrunchUIMessage[] = [
+      {
+        id: 'turn-1-assistant',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'data-phase-summary',
+            data: {
+              turnId: 1,
+              phase: 'scope',
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+          },
+        ],
+      },
+    ];
+
+    expect(createWorkspaceControllerViewState(proposedScope, messages, false)).toEqual({
+      project: proposedScope.project,
+      workflow: proposedScope.workflow,
+      turnCard: null,
+      phaseSummary: {
+        phase: 'scope',
+        turnId: 1,
+        summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+      },
+      promptInput: { visible: false },
+    });
+  });
+
   it('projects prompt and turn-card visibility from persisted turn responses without embedding side effects', () => {
     const pendingResponse = createWorkspaceDurableProjectState(
       createProjectState({
@@ -248,22 +319,30 @@ describe('workspace controller core', () => {
 
     expect(createWorkspaceControllerViewState(pendingResponse, [], false)).toEqual({
       project: pendingResponse.project,
+      workflow: pendingResponse.workflow,
       turnCard: { kind: 'persisted-turn', turn: pendingResponse.lastTurn! },
+      phaseSummary: null,
       promptInput: { visible: false },
     });
     expect(createWorkspaceControllerViewState(pendingResponse, [], true)).toEqual({
       project: pendingResponse.project,
+      workflow: pendingResponse.workflow,
       turnCard: null,
+      phaseSummary: null,
       promptInput: { visible: false },
     });
     expect(createWorkspaceControllerViewState(selectedResponse, [], false)).toEqual({
       project: selectedResponse.project,
+      workflow: selectedResponse.workflow,
       turnCard: { kind: 'persisted-turn', turn: selectedResponse.lastTurn! },
+      phaseSummary: null,
       promptInput: { visible: true },
     });
     expect(createWorkspaceControllerViewState(freeTextOnlyResponse, [], false)).toEqual({
       project: freeTextOnlyResponse.project,
+      workflow: freeTextOnlyResponse.workflow,
       turnCard: { kind: 'persisted-turn', turn: freeTextOnlyResponse.lastTurn! },
+      phaseSummary: null,
       promptInput: { visible: true },
     });
   });
@@ -276,6 +355,14 @@ describe('workspace controller core', () => {
         active_turn_id: null,
         created_at: '2026-04-03 10:00:00',
         updated_at: '2026-04-03 10:00:00',
+      },
+      workflow: {
+        phases: {
+          scope: { status: 'open', turnId: null, summary: null },
+          design: { status: 'open', turnId: null, summary: null },
+          requirements: { status: 'open', turnId: null, summary: null },
+          criteria: { status: 'open', turnId: null, summary: null },
+        },
       },
       turns: [],
     };
@@ -309,6 +396,7 @@ describe('workspace controller core', () => {
 
     expect(ephemeralChat.seedMessages).toEqual([]);
     expect(viewState.project).toEqual(emptyProjectState.project);
+    expect(viewState.workflow).toEqual(emptyProjectState.workflow);
     expect(viewState.promptInput.visible).toBe(false);
     expect(viewState.turnCard).toEqual({
       kind: 'pending-question',
@@ -323,5 +411,6 @@ describe('workspace controller core', () => {
         ],
       },
     });
+    expect(viewState.phaseSummary).toBeNull();
   });
 });

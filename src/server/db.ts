@@ -16,8 +16,27 @@ export type DB = ReturnType<typeof drizzle<typeof schema>>;
 export type Project = InferSelectModel<typeof schema.project>;
 export type Turn = InferSelectModel<typeof schema.turn>;
 export type Option = InferSelectModel<typeof schema.option>;
+export type PhaseOutcome = InferSelectModel<typeof schema.phaseOutcome>;
 export type Phase = Turn['phase'];
 export type Impact = NonNullable<Turn['impact']>;
+export type PhaseOutcomeStatus = PhaseOutcome['status'];
+
+export interface WorkflowPhaseState {
+  status: 'open' | Extract<PhaseOutcomeStatus, 'proposed' | 'confirmed'>;
+  turnId: number | null;
+  summary: string | null;
+}
+
+export interface WorkflowState {
+  phases: Record<Phase, WorkflowPhaseState>;
+}
+
+export interface CreatePhaseOutcomeInput {
+  projectId: number;
+  phase: Phase;
+  proposal_turn_id: number;
+  summary: string;
+}
 
 export interface CreateTurnInput {
   parent_turn_id?: number | null;
@@ -155,6 +174,138 @@ export function getActivePath(db: DB, projectId: number): Turn[] {
   return rows as Turn[];
 }
 
+function createEmptyWorkflowPhaseState(): WorkflowPhaseState {
+  return {
+    status: 'open',
+    turnId: null,
+    summary: null,
+  };
+}
+
+export function listPhaseOutcomesForProject(db: DB, projectId: number): PhaseOutcome[] {
+  return db
+    .select()
+    .from(schema.phaseOutcome)
+    .where(eq(schema.phaseOutcome.project_id, projectId))
+    .orderBy(desc(schema.phaseOutcome.id))
+    .all() as PhaseOutcome[];
+}
+
+function reconcilePhaseOutcomesForProject(db: DB, projectId: number): void {
+  const activeTurnIds = new Set(getActivePath(db, projectId).map((turn) => turn.id));
+  const outcomesToSupersede = listPhaseOutcomesForProject(db, projectId).filter(
+    (outcome) =>
+      (outcome.status === 'proposed' || outcome.status === 'confirmed') &&
+      !activeTurnIds.has(outcome.proposal_turn_id),
+  );
+
+  for (const outcome of outcomesToSupersede) {
+    db.update(schema.phaseOutcome)
+      .set({
+        status: 'superseded',
+        superseded_at: sql`datetime('now')`,
+      })
+      .where(eq(schema.phaseOutcome.id, outcome.id))
+      .run();
+  }
+}
+
+export function createPhaseOutcome(db: DB, input: CreatePhaseOutcomeInput): PhaseOutcome {
+  const result = db
+    .insert(schema.phaseOutcome)
+    .values({
+      project_id: input.projectId,
+      phase: input.phase,
+      proposal_turn_id: input.proposal_turn_id,
+      summary: input.summary,
+      status: 'proposed',
+    })
+    .returning()
+    .get();
+  return result as PhaseOutcome;
+}
+
+export function confirmPhaseOutcome(db: DB, phaseOutcomeId: number, confirmationTurnId: number): void {
+  db.update(schema.phaseOutcome)
+    .set({
+      status: 'confirmed',
+      confirmation_turn_id: confirmationTurnId,
+      confirmed_at: sql`datetime('now')`,
+    })
+    .where(eq(schema.phaseOutcome.id, phaseOutcomeId))
+    .run();
+}
+
+export function findProposedPhaseOutcomeByTurn(
+  db: DB,
+  projectId: number,
+  proposalTurnId: number,
+): PhaseOutcome | undefined {
+  return db
+    .select()
+    .from(schema.phaseOutcome)
+    .where(
+      and(
+        eq(schema.phaseOutcome.project_id, projectId),
+        eq(schema.phaseOutcome.proposal_turn_id, proposalTurnId),
+        eq(schema.phaseOutcome.status, 'proposed'),
+      ),
+    )
+    .orderBy(desc(schema.phaseOutcome.id))
+    .get() as PhaseOutcome | undefined;
+}
+
+export function findPhaseOutcomeForTurn(
+  db: DB,
+  projectId: number,
+  proposalTurnId: number,
+): PhaseOutcome | undefined {
+  return db
+    .select()
+    .from(schema.phaseOutcome)
+    .where(
+      and(
+        eq(schema.phaseOutcome.project_id, projectId),
+        eq(schema.phaseOutcome.proposal_turn_id, proposalTurnId),
+      ),
+    )
+    .orderBy(desc(schema.phaseOutcome.id))
+    .get() as PhaseOutcome | undefined;
+}
+
+export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowState {
+  const workflow: WorkflowState = {
+    phases: {
+      scope: createEmptyWorkflowPhaseState(),
+      design: createEmptyWorkflowPhaseState(),
+      requirements: createEmptyWorkflowPhaseState(),
+      criteria: createEmptyWorkflowPhaseState(),
+    },
+  };
+
+  const activeTurnIds = new Set(getActivePath(db, projectId).map((turn) => turn.id));
+  const currentOutcomes = listPhaseOutcomesForProject(db, projectId).filter(
+    (outcome) =>
+      (outcome.status === 'proposed' || outcome.status === 'confirmed') &&
+      activeTurnIds.has(outcome.proposal_turn_id),
+  );
+
+  for (const phase of ['scope', 'design', 'requirements', 'criteria'] as const) {
+    const outcome = currentOutcomes.find((entry) => entry.phase === phase);
+    if (!outcome) {
+      continue;
+    }
+
+    workflow.phases[phase] = {
+      status: outcome.status === 'confirmed' ? 'confirmed' : 'proposed',
+      turnId: outcome.proposal_turn_id,
+      summary: outcome.summary,
+    };
+  }
+
+  return workflow;
+}
+
 export function getOptionsForTurn(db: DB, turnId: number): Option[] {
   return db
     .select()
@@ -186,6 +337,7 @@ export function advanceHead(db: DB, projectId: number, turnId: number): void {
     .set({ active_turn_id: turnId, updated_at: sql`datetime('now')` })
     .where(eq(schema.project.id, projectId))
     .run();
+  reconcilePhaseOutcomesForProject(db, projectId);
 }
 
 // --- Entity persistence (legacy decisions/assumptions + generic knowledge items) ---

@@ -3,12 +3,23 @@ import { ToolLoopAgent, stepCountIs, tool } from 'ai';
 
 import {
   askQuestionToolOutputSchema,
+  phaseClosureProposalSchema,
+  proposePhaseClosureToolOutputSchema,
   structuredQuestionSchema,
   type StructuredQuestion,
 } from '../shared/chat.js';
 import { buildInterviewerContext } from './context.js';
 import type { TurnWithOptions } from './core.js';
-import { createOption, updateTurn, getTurn, type DB, type Turn, type Impact, type Phase } from './db.js';
+import {
+  createOption,
+  createPhaseOutcome,
+  updateTurn,
+  getTurn,
+  type DB,
+  type Turn,
+  type Impact,
+  type Phase,
+} from './db.js';
 
 const SYSTEM_PROMPTS: Record<Phase, string> = {
   scope: `You are a spec elicitation interviewer conducting the SCOPE phase.
@@ -24,7 +35,9 @@ Each question should:
 - Include a "why" field explaining why this question matters for the spec
 - Include an impact level (high/medium/low) reflecting how much this decision affects downstream choices
 
-Ask one question at a time. Build on previous answers to go deeper.`,
+Ask one question at a time. Build on previous answers to go deeper.
+
+When goals, terms, context, and constraints are sufficiently captured for now, use the propose_phase_closure tool instead of asking another question. The summary should concisely explain what is now understood and why scope can close.`,
 
   design: `You are a spec elicitation interviewer conducting the DESIGN phase.
 
@@ -87,12 +100,36 @@ export function createAskQuestionTool(db: DB, turnId: number) {
   });
 }
 
-export function createInterviewerAgent(db: DB, turnId: number, phase: Phase) {
+export function createProposePhaseClosureTool(db: DB, turnId: number, phase: Phase, projectId: number) {
+  return tool({
+    description: 'Propose closing the current workflow phase with a concise summary for user confirmation.',
+    inputSchema: phaseClosureProposalSchema,
+    outputSchema: proposePhaseClosureToolOutputSchema,
+    execute: async (input) => {
+      createPhaseOutcome(db, {
+        projectId,
+        phase: input.phase,
+        proposal_turn_id: turnId,
+        summary: input.summary,
+      });
+      return {
+        ok: true as const,
+        turnId,
+        phase: input.phase,
+      };
+    },
+  });
+}
+
+export function createInterviewerAgent(db: DB, turnId: number, phase: Phase, projectId: number) {
   return new ToolLoopAgent({
     model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'),
     instructions: getSystemPrompt(phase),
     tools: {
       ask_question: createAskQuestionTool(db, turnId),
+      ...(phase === 'scope'
+        ? { propose_phase_closure: createProposePhaseClosureTool(db, turnId, phase, projectId) }
+        : {}),
     },
     providerOptions: {
       anthropic: {
@@ -115,7 +152,7 @@ export async function streamInterviewer(
   userMessage: string,
   phase: Phase,
 ) {
-  const agent = createInterviewerAgent(db, turn.id, phase);
+  const agent = createInterviewerAgent(db, turn.id, phase, turn.project_id);
   const fullPrompt = buildInterviewerContext(activePath, userMessage);
   return agent.stream({
     prompt: fullPrompt,

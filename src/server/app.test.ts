@@ -99,6 +99,41 @@ async function makeStructuredQuestionInterviewer(dbArg: DB, turnId: number) {
   };
 }
 
+async function makePhaseClosureInterviewer(dbArg: DB, projectId: number, turnId: number) {
+  const { createPhaseOutcome } = await import('./db.js');
+
+  createPhaseOutcome(dbArg, {
+    projectId,
+    phase: 'scope',
+    proposal_turn_id: turnId,
+    summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+  });
+
+  return {
+    toUIMessageStream: () =>
+      makeUIChunkStream([
+        { type: 'start', messageId: 'msg-phase-summary' },
+        { type: 'tool-input-start', toolCallId: 'tool-phase-1', toolName: 'propose_phase_closure' },
+        {
+          type: 'tool-input-available',
+          toolCallId: 'tool-phase-1',
+          toolName: 'propose_phase_closure',
+          input: {
+            phase: 'scope',
+            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+          },
+        },
+        {
+          type: 'tool-output-available',
+          toolCallId: 'tool-phase-1',
+          toolName: 'propose_phase_closure',
+          output: { ok: true, turnId, phase: 'scope' },
+        },
+      ]),
+    finishReason: Promise.resolve('tool-calls'),
+  };
+}
+
 function collectSSE(res: request.Response): string {
   return res.text;
 }
@@ -572,6 +607,100 @@ describe('GET /api/projects/:id/entities', () => {
         },
       ],
     });
+  });
+});
+
+describe('phase outcomes + scope closure', () => {
+  it('streams a scope phase summary proposal and projects workflow state from an explicit phase outcome', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
+    );
+
+    const chatRes = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+        ],
+      })
+      .expect(200);
+
+    const events = parseSSELines(collectSSE(chatRes)).filter((event) => event !== '[DONE]');
+    expect(events).toContainEqual({
+      type: 'data-phase-summary',
+      data: {
+        turnId: 1,
+        phase: 'scope',
+        summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+      },
+    });
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.scope).toEqual({
+      status: 'proposed',
+      turnId: 1,
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    });
+    expect(JSON.parse(projectRes.body.turns[0].assistant_parts ?? '[]')).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'data-phase-summary',
+          data: {
+            turnId: 1,
+            phase: 'scope',
+            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+          },
+        },
+      ]),
+    );
+  });
+
+  it('confirms a proposed scope phase outcome through /chat and persists confirmed workflow state', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+        ],
+      })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u2',
+            role: 'user',
+            parts: [
+              { type: 'text', text: 'Confirm scope closure' },
+              { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.scope).toEqual({
+      status: 'confirmed',
+      turnId: 1,
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    });
+    expect(projectRes.body.project.active_turn_id).toBe(2);
+    expect(projectRes.body.turns.at(-1)).toMatchObject({
+      answer: 'Confirm scope closure',
+    });
+    expect(JSON.parse(projectRes.body.turns.at(-1).user_parts ?? '[]')).toEqual([
+      { type: 'text', text: 'Confirm scope closure' },
+      { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+    ]);
   });
 });
 
