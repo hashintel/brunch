@@ -335,16 +335,12 @@ export function findPhaseOutcomeForTurn(
     .get() as PhaseOutcome | undefined;
 }
 
-function getClosureBasisForOutcome(db: DB, outcome: PhaseOutcome | undefined): ClosureBasis {
+function getClosureBasisForOutcome(outcome: PhaseOutcome | undefined): ClosureBasis {
   if (!outcome || outcome.status !== 'confirmed' || !outcome.confirmation_turn_id) {
     return null;
   }
 
-  if (outcome.closure_basis) {
-    return outcome.closure_basis;
-  }
-
-  return getClosureBasisForConfirmationTurn(db, outcome.confirmation_turn_id);
+  return outcome.closure_basis ?? null;
 }
 
 export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowState {
@@ -392,7 +388,7 @@ export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowStat
           : 'unstarted',
       closeability: isConfirmed ? false : hasTurnHistory,
       readiness: getReadinessBand(turnCounts[phase]),
-      closureBasis: getClosureBasisForOutcome(db, outcome),
+      closureBasis: getClosureBasisForOutcome(outcome),
       proposalPending,
       turnId: outcome?.proposal_turn_id ?? null,
       summary: outcome?.summary ?? null,

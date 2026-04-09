@@ -367,7 +367,7 @@ describe('phase outcome lifecycle', () => {
     });
   });
 
-  it('falls back to confirmation-turn provenance when a confirmed phase outcome has no durable closure basis yet', async () => {
+  it('projects no closure basis when a confirmed phase outcome lacks durable closure provenance', async () => {
     const project = getOrCreateProject(db);
 
     const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
@@ -406,7 +406,7 @@ describe('phase outcome lifecycle', () => {
     db.$client.prepare('UPDATE phase_outcome SET closure_basis = NULL WHERE id = ?').run(scopeOutcome.id);
 
     expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
-      closureBasis: 'interviewer_recommended',
+      closureBasis: null,
     });
   });
 });
