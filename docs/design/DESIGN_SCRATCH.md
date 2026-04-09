@@ -1,4 +1,4 @@
-### the scope and bias of the spec
+### slice and scope mis-matches VS saipo report
 
 - we naively assume single project scope, and total/ultimate completion scope
 
@@ -11,7 +11,7 @@
 
 - we have no waiting state when question cards are being formed
   - we need better understanding of which waiting states are in flight, locks, etc.
-- there's some invisible interplay/locking going on between the interviewer and the observer I think — locks? 
+- there's some invisible interplay/locking going on between the interviewer and the observer I think — locks?
   - let's map this out and see if we can clarify it in the UI
   - let's also see if we can design the flow here, maybe we need a state machine
 - the question-card pattern needs updating

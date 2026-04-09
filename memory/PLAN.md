@@ -133,7 +133,7 @@
    - Invariants to respect: → SPEC.md §Invariants I18, I24, I25
    - Invariants established: → SPEC.md §Invariants I72, I73
    - Acceptance: scope mode proposes closure with a summary over the current scope knowledge family, user confirms, explicit phase outcome persists, and the project shows updated workflow state
-   - **Observed current state (2026-04-08, slice 7):** scope-mode interviewer turns can now persist explicit `phase_outcome` proposal records in a dedicated readiness table, stream/persist typed `data-phase-summary` artifacts, confirm those proposals through typed `data-confirmation` chat parts, project workflow state from the active path, and supersede outcomes when their proposal turn leaves the active path. The workspace header now shows scope status, suppresses the normal prompt while a closure proposal is pending, and renders a dedicated confirmation card wired to the chat seam.
+   - **Observed current state (2026-04-08, slice 7):** scope-mode interviewer turns can now persist explicit `phase_outcome` proposal records in a dedicated readiness table, stream/persist typed `data-phase-summary` artifacts, confirm those proposals through typed `data-confirmation` chat parts, project workflow state from the active path, and supersede outcomes when their proposal turn leaves the active path. The workspace header now shows scope status, suppresses the normal prompt while a closure proposal is pending, and renders a dedicated confirmation card wired to the chat seam. This establishes the durable proposal/confirmation substrate only; shared closeability/readiness/closure-basis semantics are folded into slices 8, 11a, and 13 rather than reopening slice 7.
    - **Verification approach**: inner — schema + DB/core/parts tests for explicit phase-outcome proposal/confirmation contracts and lifecycle. Middle — round-trip + model-based lifecycle oracles prove submit → persistence → reload → workspace projection and supersession on upstream branch changes. Outer — manual closure/confirmation walkthrough deferred until after 7a.
 
 7a. **Knowledge-layer redesign spike (ontology + graph + workspace direction)** — Retire the current `framing` umbrella and mixed legacy/generic storage risk by specifying the canonical knowledge ontology, cross-kind graph model, and non-sidebar-first review surface before design/review modes harden today's transitional semantics. `done`
@@ -159,35 +159,34 @@
    - **Verification approach**: inner — schema/registry/core/API tests for canonical kinds, generic edges, and the minimal scope-closure compatibility projection. Middle — workspace/entity projection tests for canonical scope kinds on a clean DB. Outer — manual inspection of a representative project's scope bundle and carry-forward into the next mode.
    - Tracer bullets:
      - `7b.1` Canonical scope kinds through the generic seam. `done`
-     - `7b.2` Cross-kind edge/storage cutover beyond legacy decision/assumption tables. `not-started`
-     - `7b.3` Explicit scope-bundle/readiness projection over canonical kinds. `not-started`
+     - `7b.2` Generic edge/storage cutover + scope-readiness compatibility projection beyond legacy decision/assumption tables. `not-started`
 
-8. **Design mode (commitment / exploration)** — Implement the second workflow mode on the new turn and canonical knowledge model after 7b lands. The interviewer walks design forks; the observer captures decisions, assumptions, new constraints, and emerging requirements against the unified knowledge seam. `not-started`
-   - Requirements: → SPEC.md §Requirements #2, #3, #5, #6
+8. **Design mode (commitment / exploration)** — Implement the second workflow mode on the new turn and canonical knowledge model after 7b lands, while generalizing the current scope-only proposal/confirmation seam into a shared phase-closing model with deterministic closeability, coarse readiness bands, and explicit closure basis. The interviewer walks design forks; the observer captures decisions, assumptions, new constraints, and emerging requirements against the unified knowledge seam. `not-started`
+   - Requirements: → SPEC.md §Requirements #2, #3, #5, #6, #7, #8
    - Assumptions: → SPEC.md §Assumptions A14, A15, A28, A40
-   - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62, D67, D68
-   - Candidate invariant goals: mode transition preserves interview continuity; design-mode turns produce coherent decision/assumption graph growth on the canonical knowledge seam
-   - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I22
-   - Acceptance: after confirmed scope closure and slice 7b, the interview enters design mode; design turns yield coherent commitments and assumptions on the canonical knowledge layer and can propose design closure
-   - **Verification approach**: inner — mode-transition/controller tests. Outer — manual design walkthrough from a confirmed scope session.
+   - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62, D65, D66, D67, D68, D70
+   - Candidate invariant goals: mode transition preserves interview continuity; design-mode turns produce coherent decision/assumption graph growth on the canonical knowledge seam; phase-closing state separates status, closeability, readiness, and closure basis instead of hidden interviewer authority
+   - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I22, I72, I73
+   - Acceptance: after scope closes and slice 7b lands, the interview enters design mode; design turns yield coherent commitments and assumptions on the canonical knowledge layer; the UI projects design status/closeability/readiness; and once the minimum bar is met the user can either accept an interviewer-recommended close or force-close design with persisted closure basis/readiness snapshot
+   - **Verification approach**: inner — mode-transition/controller/workflow-state projection tests. Outer — manual design walkthrough covering interviewer-recommended close, user-forced close, and visible carried-debt caveats.
 
-9. **Requirements-review mode** — Synthesize the requirement set from the full canonical knowledge layer, then let the user approve, edit, merge, reject, and add requirements through review turns. This slice assumes the redesigned ontology/graph from 7a + 7b, not the current transitional `framing` seam. `not-started`
-   - Requirements: → SPEC.md §Requirements #6, #11, #13
+9. **Requirements-review mode** — Synthesize the requirement set from the full canonical knowledge layer, then let the user approve, edit, merge, reject, and add requirements through review turns using the shared phase-closing seam rather than a requirements-only completion bit. This slice assumes the redesigned ontology/graph from 7a + 7b, not the current transitional `framing` seam. `not-started`
+   - Requirements: → SPEC.md §Requirements #6, #7, #8, #11, #13
    - Assumptions: → SPEC.md §Assumptions A15, A28, A40
-   - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62, D67, D68, D69
-   - Candidate invariant goals: requirements are capture-anytime but review-complete only through explicit review state
+   - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62, D65, D66, D67, D68, D69, D70
+   - Candidate invariant goals: requirements are capture-anytime but review-complete only through explicit review state; requirements workflow state stays legible as status + closeability + readiness + closure basis
    - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I24
-   - Acceptance: requirements-review mode presents a synthesized requirement set from canonical knowledge items, records explicit approval/edit state, and can close only when in-scope requirements are resolved
-   - **Verification approach**: inner — review-state lifecycle tests. Outer — manual requirement review with approvals, edits, and missing-item additions.
+   - Acceptance: requirements-review mode presents a synthesized requirement set from canonical knowledge items, records explicit approval/edit state, projects requirements status/closeability/readiness, and lets the user close once the minimum bar is met while carrying unresolved debt forward visibly when readiness is low
+   - **Verification approach**: inner — review-state + workflow-state lifecycle tests. Outer — manual requirement review with approvals, edits, missing-item additions, and a low-readiness forced-close walkthrough.
 
-10. **Criteria-review mode** — Synthesize verification conditions from approved requirements plus any earlier criteria-like signals, then drive review turns until coverage is complete. This slice assumes the redesigned ontology/graph from 7a + 7b, not the current transitional `framing` seam. `not-started`
-     - Requirements: → SPEC.md §Requirements #6, #12, #13
+10. **Criteria-review mode** — Synthesize verification conditions from approved requirements plus any earlier criteria-like signals, then drive review turns until coverage is complete using the shared phase-closing seam rather than a criteria-only completion bit. This slice assumes the redesigned ontology/graph from 7a + 7b, not the current transitional `framing` seam. `not-started`
+     - Requirements: → SPEC.md §Requirements #6, #7, #8, #12, #13
      - Assumptions: → SPEC.md §Assumptions A15, A28, A40
-     - Decisions: → SPEC.md §Decisions D2, D5, D6, D17, D61, D62, D67, D68, D69
-     - Candidate invariant goals: criteria verify requirements explicitly and track review completeness separately from requirement state
+     - Decisions: → SPEC.md §Decisions D2, D5, D6, D17, D61, D62, D65, D66, D67, D68, D69, D70
+     - Candidate invariant goals: criteria verify requirements explicitly and track review completeness separately from requirement state; criteria workflow state stays legible as status + closeability + readiness + closure basis
      - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I24
-     - Acceptance: criteria-review mode presents synthesized criteria from the canonical knowledge layer, records explicit review state, and can close only when approved requirements have sufficient verification coverage
-     - **Verification approach**: inner — criterion/review edge tests. Outer — manual criteria review with edits and coverage checks.
+     - Acceptance: criteria-review mode presents synthesized criteria from the canonical knowledge layer, records explicit review state, projects criteria status/closeability/readiness, and lets the user close once the minimum bar is met while preserving caveats when verification coverage remains thin
+     - **Verification approach**: inner — criterion/review edge + workflow-state tests. Outer — manual criteria review with edits, coverage checks, and a low-readiness forced-close walkthrough.
 
 ## Phase 6: Readiness Surfaces + Export
 
@@ -198,14 +197,14 @@
 
 ### Slices
 
-11a. **Project dashboard workflow status** — Surface durable workflow/readiness state on the project list so users can tell which projects are incomplete, review-stale, or export-ready without opening each workspace. This replaces the deferred revisit slot with a missing but lower-risk requirement. `not-started`
-     - Requirements: → SPEC.md §Requirements #7, #11, #12, #13, #15
+11a. **Project dashboard workflow state** — Surface durable workflow state on the project list so users can tell which projects are unstarted, in progress, closed with debt, invalidated, or export-ready without opening each workspace. This replaces the deferred revisit slot with a missing but lower-risk requirement. `not-started`
+     - Requirements: → SPEC.md §Requirements #7, #8, #11, #12, #13, #15
      - Assumptions: → SPEC.md §Assumptions A15, A28
-     - Decisions: → SPEC.md §Decisions D3, D17
-     - Candidate invariant goals: project-list status derives from durable phase outcomes and review records, not ad hoc turn heuristics
+     - Decisions: → SPEC.md §Decisions D3, D17, D65, D66, D70
+     - Candidate invariant goals: project-list workflow state derives from durable phase outcomes, closeability/readiness projection, and review records, not ad hoc turn heuristics
      - Invariants to respect: → SPEC.md §Invariants I24, I25, I36, I41, I42
-     - Acceptance: the project list shows each project's workflow completion/status from persisted readiness artifacts and updates correctly after refresh/resume
-     - **Verification approach**: inner — readiness-summary projection tests plus project-list route/component tests. Outer — manual multi-project walkthrough covering incomplete, review-stale, and export-ready states.
+     - Acceptance: the project list shows each project's per-phase status/readiness/closure-basis summary from persisted readiness artifacts plus live workflow projection, distinguishes forced-close or low-readiness debt from ordinary closed state, and updates correctly after refresh/resume
+     - **Verification approach**: inner — workflow-summary projection tests plus project-list route/component tests. Outer — manual multi-project walkthrough covering in-progress, forced-close debt, invalidated, and export-ready states.
 
 12. **Knowledge workspace review surface + lifecycle API** — CRUD/review endpoints for the broader knowledge layer plus a fit-for-purpose workspace for inspecting, editing, and reviewing graph-shaped knowledge. The sidebar may remain a summary/navigation view, but the primary interaction model should no longer assume a narrow tab strip. This slice assumes the redesigned knowledge ontology/graph from 7a + 7b. `not-started`
      - Requirements: → SPEC.md §Requirements #6, #11, #12, #13
@@ -216,14 +215,14 @@
      - Acceptance: inspect and review/edit canonical knowledge items from a dedicated phase-oriented workspace surface; affected readiness updates visibly and persist across refresh/resume; dependency/provenance context remains legible during those actions
      - **Verification approach**: inner — mutation + projection tests. Outer — manual knowledge-workspace review/edit walkthrough.
 
-13. **Spec export from the reviewed knowledge layer** — Render markdown export from active-path, reviewed knowledge items and explicit phase outcomes. Export is enabled only when the new readiness predicate is satisfied. `not-started`
+13. **Spec export from the reviewed knowledge layer** — Render markdown export from active-path, reviewed knowledge items and explicit phase outcomes, including closure caveats when a mode was closed with low readiness or user-forced basis. Export is enabled only when the new readiness predicate is satisfied. `not-started`
      - Requirements: → SPEC.md §Requirements #13
      - Assumptions: —
-     - Decisions: → SPEC.md §Decisions D5, D17, D26
-     - Candidate invariant goals: export reflects active-path reviewed knowledge only; readiness predicate gates export correctly
+     - Decisions: → SPEC.md §Decisions D5, D17, D26, D65, D66, D70
+     - Candidate invariant goals: export reflects active-path reviewed knowledge only; readiness predicate gates export correctly; closure provenance survives into the final artifact when it changes how trustworthy the result is
      - Invariants to respect: → SPEC.md §Invariants I18, I21
-     - Acceptance: complete all modes, satisfy review completeness, navigate to export, see markdown preview from the reviewed knowledge layer, download `.md` file
-     - **Verification approach**: inner — export projection tests. Outer — manual export after a full walkthrough and after a readiness-incomplete state blocks export.
+     - Acceptance: complete all modes, satisfy review completeness, navigate to export, see markdown preview from the reviewed knowledge layer plus relevant phase-outcome caveats, download `.md` file
+     - **Verification approach**: inner — export projection tests. Outer — manual export after a full walkthrough, after a low-readiness/forced-close path surfaces caveats, and after a readiness-incomplete state blocks export.
 
 ## Phase 7: Distribution
 
@@ -286,7 +285,8 @@ Phase 5:  6f ──┬──→ 7 (explicit phase outcomes + scope closure)
           7 ────┐
           7b ───┴──→ 8 (design mode) ──→ 9 (requirements-review) ──→ 10 (criteria-review)
 Phase 6:  7 ──┐
-          9 ──┼──→ 11a (project dashboard workflow status)
+          8 ──┼──→ 11a (project dashboard workflow state)
+          9 ──┤
           10 ─┘
           7b ──→ 12 (knowledge workspace review surface + lifecycle API)
           9  ──→ 12
@@ -299,7 +299,7 @@ Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
 
 - 7 (explicit phase outcomes + scope closure) and 7a (knowledge-layer redesign spike) can proceed in parallel: 7 establishes workflow closure mechanics, while 7a retires the ontology/graph/workspace risk that would otherwise leak into later mode and review slices.
 - 7b (canonical knowledge model foundation + migration seam) follows 7a and should land before 8 and 12; it is the first implementation slice on the spike verdict.
-- 11a (project dashboard workflow status) can begin once the readiness artifacts from 7/9/10 exist; it does not need the broader knowledge workspace to surface durable project status.
+- 11a (project dashboard workflow state) can begin once the workflow-state artifacts from 7/8/9/10 exist; it does not need the broader knowledge workspace to surface durable project status, readiness bands, and carried-debt caveats.
 - 12 (knowledge workspace review surface + lifecycle API) and 13 (export) can proceed in parallel once 7b and the requirements/criteria review artifacts stabilize, because the first reviewed export path does not require the full knowledge workspace to land first.
 - 14 (npx) can start early with a basic launcher, completing after slice 13 when the new export predicate stabilizes.
 - 15 (drizzle-kit audit remediation) should wait until 14 lands, so packaging/distribution regressions can be judged on the real shipped path instead of the current dev-only setup.
