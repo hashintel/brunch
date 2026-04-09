@@ -67,6 +67,10 @@ function getWorkflowMetaLabel(state: WorkflowPhaseState) {
   return parts.join(' · ');
 }
 
+function canForceClosePhase(phase: ProjectStateTurn['phase'], state: WorkflowPhaseState) {
+  return phase === 'design' && state.status === 'in_progress' && state.closeability && !state.proposalPending;
+}
+
 function PhaseSummaryCard({
   phase,
   summary,
@@ -297,6 +301,21 @@ export function InterviewWorkspace() {
               <div key={phase} className="rounded-lg border px-3 py-2 text-xs text-muted-foreground">
                 <div className="font-medium text-foreground">{getWorkflowStatusLabel(phase, state)}</div>
                 <div>{getWorkflowMetaLabel(state)}</div>
+                {canForceClosePhase(phase, state) && (
+                  <button
+                    type="button"
+                    onClick={() => chat.forcePhaseClosure(phase)}
+                    disabled={chat.isLoading}
+                    className={cn(
+                      'mt-2 rounded-md border px-2 py-1 text-xs transition-colors',
+                      chat.isLoading
+                        ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+                        : 'border-border bg-background text-foreground hover:bg-muted',
+                    )}
+                  >
+                    {`Force close ${phase}`}
+                  </button>
+                )}
               </div>
             ),
           )}

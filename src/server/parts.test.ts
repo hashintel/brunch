@@ -81,6 +81,11 @@ describe('data schemas', () => {
     const value = { turnId: 5, confirmed: true };
     expect(dataConfirmationSchema.parse(value)).toEqual(value);
   });
+
+  it('validates forced-close data-confirmation payloads', () => {
+    const value = { phase: 'design', confirmed: true, closureBasis: 'user_forced' };
+    expect(dataConfirmationSchema.parse(value)).toEqual(value);
+  });
 });
 
 describe('assistant part round-trip', () => {
@@ -179,6 +184,19 @@ describe('user part round-trip', () => {
       { type: 'text', text: 'Web first — Best fit' },
       { type: 'data-turn-response', data: { turnId: 4, selectedOptionIds: [9], freeText: 'Best fit' } },
       { type: 'data-confirmation', data: { turnId: 4, confirmed: true } },
+    ];
+
+    const json = serializeParts(parts);
+    expect(deserializeUserParts(json)).toEqual(parts);
+  });
+
+  it('round-trips forced-close confirmation user parts', () => {
+    const parts: BrunchUserPart[] = [
+      { type: 'text', text: 'Force design closure' },
+      {
+        type: 'data-confirmation',
+        data: { phase: 'design', confirmed: true, closureBasis: 'user_forced' },
+      },
     ];
 
     const json = serializeParts(parts);

@@ -43,10 +43,36 @@ export const dataTurnResponseSchema = z
     }
   });
 
-export const dataConfirmationSchema = z.object({
-  turnId: z.number(),
-  confirmed: z.boolean(),
-});
+export const dataConfirmationSchema = z
+  .object({
+    turnId: z.number().optional(),
+    phase: z.enum(['scope', 'design', 'requirements', 'criteria']).optional(),
+    confirmed: z.boolean(),
+    closureBasis: z.enum(['interviewer_recommended', 'user_forced']).optional(),
+  })
+  .superRefine((value, ctx) => {
+    const closureBasis =
+      value.closureBasis ?? (value.turnId !== undefined ? 'interviewer_recommended' : undefined);
+
+    if (closureBasis === 'user_forced') {
+      if (!value.phase) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'phase is required for a user-forced phase close',
+          path: ['phase'],
+        });
+      }
+      return;
+    }
+
+    if (value.turnId === undefined) {
+      ctx.addIssue({
+        code: 'custom',
+        message: 'turnId is required for interviewer-recommended confirmations',
+        path: ['turnId'],
+      });
+    }
+  });
 
 export const dataPhaseSummarySchema = z.object({
   turnId: z.number(),

@@ -24,6 +24,7 @@ export interface WorkspaceControllerChatState {
   isStreaming: boolean;
   submitText: (text: string) => void;
   confirmPhaseClosure: (phase: ProjectStateTurn['phase'], turnId: number) => void;
+  forcePhaseClosure: (phase: ProjectStateTurn['phase']) => void;
 }
 
 export type WorkspaceControllerTurnCardState =
@@ -111,7 +112,29 @@ export function useWorkspaceController(): WorkspaceController {
       void sendMessage({
         parts: [
           { type: 'text', text: `Confirm ${phase} closure` },
-          { type: 'data-confirmation', data: { turnId, confirmed: true } },
+          {
+            type: 'data-confirmation',
+            data: { turnId, phase, confirmed: true, closureBasis: 'interviewer_recommended' },
+          },
+        ],
+      });
+    },
+    [isLoading, sendMessage],
+  );
+
+  const forcePhaseClosure = useCallback(
+    (phase: ProjectStateTurn['phase']) => {
+      if (isLoading) {
+        return;
+      }
+
+      void sendMessage({
+        parts: [
+          { type: 'text', text: `Force ${phase} closure` },
+          {
+            type: 'data-confirmation',
+            data: { phase, confirmed: true, closureBasis: 'user_forced' },
+          },
         ],
       });
     },
@@ -129,6 +152,7 @@ export function useWorkspaceController(): WorkspaceController {
       isStreaming: status === 'streaming',
       submitText,
       confirmPhaseClosure,
+      forcePhaseClosure,
     },
     turnCard: viewState.turnCard
       ? viewState.turnCard.kind === 'persisted-turn'

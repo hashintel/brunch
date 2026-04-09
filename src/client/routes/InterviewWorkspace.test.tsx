@@ -1085,7 +1085,71 @@ describe('InterviewWorkspace', () => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
         parts: [
           { type: 'text', text: 'Confirm scope closure' },
-          { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+          {
+            type: 'data-confirmation',
+            data: { turnId: 1, phase: 'scope', confirmed: true, closureBasis: 'interviewer_recommended' },
+          },
+        ],
+      });
+    });
+  });
+
+  it('submits a force-close action for design through chat with typed confirmation parts', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      workflow: {
+        phases: {
+          scope: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 1,
+            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+          },
+          design: {
+            status: 'in_progress',
+            closeability: true,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          requirements: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        },
+      } as any,
+    });
+
+    renderWorkspace();
+
+    fireEvent.click(await screen.findByRole('button', { name: /force close design/i }));
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          { type: 'text', text: 'Force design closure' },
+          {
+            type: 'data-confirmation',
+            data: { phase: 'design', confirmed: true, closureBasis: 'user_forced' },
+          },
         ],
       });
     });
@@ -1141,6 +1205,57 @@ describe('InterviewWorkspace', () => {
     expect(screen.getByText(/recommended close/i)).toBeTruthy();
     expect(screen.getByText(/design in progress/i)).toBeTruthy();
     expect(screen.getAllByText(/low readiness/i).length).toBeGreaterThan(0);
+  });
+
+  it('renders forced-close workflow state for closed design and active requirements mode', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      workflow: {
+        phases: {
+          scope: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 1,
+            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+          },
+          design: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'user_forced',
+            proposalPending: false,
+            turnId: 4,
+            summary: 'Design closed by user without an interviewer recommendation.',
+          },
+          requirements: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        },
+      } as any,
+    });
+
+    renderWorkspace();
+
+    expect(await screen.findByText(/design closed/i)).toBeTruthy();
+    expect(screen.getByText(/forced close/i)).toBeTruthy();
+    expect(screen.getByText(/requirements in progress/i)).toBeTruthy();
   });
 
   it('posts free-text-only turn responses and forwards the text into chat', async () => {

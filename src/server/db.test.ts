@@ -266,6 +266,92 @@ describe('phase outcome lifecycle', () => {
       status: 'superseded',
     });
   });
+
+  it('projects a user-forced design close from the confirmation turn and advances requirements', async () => {
+    const project = getOrCreateProject(db);
+
+    const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    advanceHead(db, project.id, scopeTurn.id);
+
+    const scopeProposalTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: '',
+      answer: 'We have enough scope context',
+      parent_turn_id: scopeTurn.id,
+    });
+    advanceHead(db, project.id, scopeProposalTurn.id);
+
+    const { createPhaseOutcome, confirmPhaseOutcome, getCurrentWorkflowState } = await import('./db.js');
+
+    const scopeOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'scope',
+      proposal_turn_id: scopeProposalTurn.id,
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    });
+
+    const scopeConfirmationTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: '',
+      answer: 'Confirm scope closure',
+      parent_turn_id: scopeProposalTurn.id,
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Confirm scope closure' },
+        { type: 'data-confirmation', data: { turnId: scopeProposalTurn.id, confirmed: true } },
+      ]),
+    });
+    confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
+    advanceHead(db, project.id, scopeConfirmationTurn.id);
+
+    const designTurn = createTurn(db, project.id, {
+      phase: 'design',
+      question: 'Which tradeoff matters most?',
+      answer: 'Keep the repository seam small',
+      parent_turn_id: scopeConfirmationTurn.id,
+    });
+    advanceHead(db, project.id, designTurn.id);
+
+    const designForceCloseTurn = createTurn(db, project.id, {
+      phase: 'design',
+      question: '',
+      answer: 'Force design closure',
+      parent_turn_id: designTurn.id,
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Force design closure' },
+        {
+          type: 'data-confirmation',
+          data: { phase: 'design', confirmed: true, closureBasis: 'user_forced' },
+        },
+      ]),
+    });
+
+    const designOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'design',
+      proposal_turn_id: designForceCloseTurn.id,
+      summary: 'Design closed by user without an interviewer recommendation.',
+    });
+    confirmPhaseOutcome(db, designOutcome.id, designForceCloseTurn.id);
+    advanceHead(db, project.id, designForceCloseTurn.id);
+
+    const workflow = getCurrentWorkflowState(db, project.id);
+    expect(workflow.phases.design).toMatchObject({
+      status: 'closed',
+      proposalPending: false,
+      turnId: designForceCloseTurn.id,
+      summary: 'Design closed by user without an interviewer recommendation.',
+      closeability: false,
+      readiness: 'high',
+      closureBasis: 'user_forced',
+    });
+    expect(workflow.phases.requirements).toMatchObject({
+      status: 'in_progress',
+      proposalPending: false,
+      closeability: false,
+      readiness: 'low',
+      closureBasis: null,
+    });
+  });
 });
 
 describe('active path resolution', () => {

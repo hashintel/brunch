@@ -10,6 +10,7 @@ import {
   type KnowledgeEntityCollection,
   type KnowledgeKind as SharedKnowledgeKind,
 } from '../shared/knowledge.js';
+import { safeDeserializeUserParts, type DataConfirmationPart } from './parts.js';
 import * as schema from './schema.js';
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
@@ -264,6 +265,26 @@ export function confirmPhaseOutcome(db: DB, phaseOutcomeId: number, confirmation
     .run();
 }
 
+export function createConfirmedPhaseOutcome(
+  db: DB,
+  input: CreatePhaseOutcomeInput & { confirmation_turn_id: number },
+): PhaseOutcome {
+  const result = db
+    .insert(schema.phaseOutcome)
+    .values({
+      project_id: input.projectId,
+      phase: input.phase,
+      proposal_turn_id: input.proposal_turn_id,
+      summary: input.summary,
+      status: 'confirmed',
+      confirmation_turn_id: input.confirmation_turn_id,
+      confirmed_at: sql`datetime('now')`,
+    })
+    .returning()
+    .get();
+  return result as PhaseOutcome;
+}
+
 export function findProposedPhaseOutcomeByTurn(
   db: DB,
   projectId: number,
@@ -299,6 +320,19 @@ export function findPhaseOutcomeForTurn(
     )
     .orderBy(desc(schema.phaseOutcome.id))
     .get() as PhaseOutcome | undefined;
+}
+
+function getClosureBasisForOutcome(db: DB, outcome: PhaseOutcome | undefined): ClosureBasis {
+  if (!outcome || outcome.status !== 'confirmed' || !outcome.confirmation_turn_id) {
+    return null;
+  }
+
+  const confirmationTurn = getTurn(db, outcome.confirmation_turn_id);
+  const confirmationPart = safeDeserializeUserParts(confirmationTurn?.user_parts).find(
+    (part): part is DataConfirmationPart => part.type === 'data-confirmation',
+  );
+
+  return confirmationPart?.data.closureBasis ?? 'interviewer_recommended';
 }
 
 export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowState {
@@ -346,7 +380,7 @@ export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowStat
           : 'unstarted',
       closeability: isConfirmed ? false : hasTurnHistory,
       readiness: getReadinessBand(turnCounts[phase]),
-      closureBasis: isConfirmed ? 'interviewer_recommended' : null,
+      closureBasis: getClosureBasisForOutcome(db, outcome),
       proposalPending,
       turnId: outcome?.proposal_turn_id ?? null,
       summary: outcome?.summary ?? null,

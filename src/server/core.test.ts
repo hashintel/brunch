@@ -191,6 +191,78 @@ describe('prepareTurn', () => {
 
     expect(prepared.turn.phase).toBe('requirements');
   });
+
+  it('selects requirements as the next turn phase after design is force-closed by the user', () => {
+    const project = createProject(db, 'Spec');
+
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What platform?',
+      answer: 'Web',
+    });
+    finalizeTurn(db, project.id, scopeTurn.id);
+
+    const scopeProposalTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: scopeTurn.id,
+      question: '',
+      answer: 'We have enough scope context',
+    });
+    finalizeTurn(db, project.id, scopeProposalTurn.id);
+
+    const scopeOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'scope',
+      proposal_turn_id: scopeProposalTurn.id,
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    });
+
+    const scopeConfirmationTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: scopeProposalTurn.id,
+      question: '',
+      answer: 'Confirm scope closure',
+    });
+    confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
+    finalizeTurn(db, project.id, scopeConfirmationTurn.id);
+
+    const designTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: scopeConfirmationTurn.id,
+      question: 'Which module boundary matters first?',
+      answer: 'Persistence should stay behind one repository seam',
+    });
+    finalizeTurn(db, project.id, designTurn.id);
+
+    const designForceCloseTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: designTurn.id,
+      question: '',
+      answer: 'Force design closure',
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Force design closure' },
+        {
+          type: 'data-confirmation',
+          data: { phase: 'design', confirmed: true, closureBasis: 'user_forced' },
+        },
+      ]),
+    });
+
+    const designOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'design',
+      proposal_turn_id: designForceCloseTurn.id,
+      summary: 'Design closed by user without an interviewer recommendation.',
+    });
+    confirmPhaseOutcome(db, designOutcome.id, designForceCloseTurn.id);
+    finalizeTurn(db, project.id, designForceCloseTurn.id);
+
+    const prepared = prepareTurn(db, project.id, 'Let us review the must-have capabilities', [
+      { type: 'text', text: 'Let us review the must-have capabilities' },
+    ]);
+
+    expect(prepared.turn.phase).toBe('requirements');
+  });
 });
 
 describe('finalizeTurn', () => {

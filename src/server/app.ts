@@ -24,9 +24,12 @@ import {
 import {
   applyTurnResponseSelections,
   confirmPhaseOutcome,
+  createConfirmedPhaseOutcome,
   createDb,
   findPhaseOutcomeForTurn,
   findProposedPhaseOutcomeByTurn,
+  getCurrentPhase,
+  getCurrentWorkflowState,
   getTurn,
   getOptionsForTurn,
   updateTurn,
@@ -185,17 +188,39 @@ export function createApp(dbPath?: string) {
       return;
     }
 
-    const confirmationTarget = confirmationPart
+    const forceClosePhase =
+      confirmationPart?.data.closureBasis === 'user_forced' ? confirmationPart.data.phase : undefined;
+    const confirmationTarget = confirmationPart?.data.turnId
       ? findProposedPhaseOutcomeByTurn(db, id, confirmationPart.data.turnId)
       : undefined;
-    if (confirmationPart && !confirmationTarget) {
+
+    if (forceClosePhase) {
+      if (forceClosePhase !== 'design') {
+        res.status(400).json({ error: 'Only design supports force-close in this slice' });
+        return;
+      }
+
+      const workflow = getCurrentWorkflowState(db, id);
+      if (forceClosePhase !== getCurrentPhase(db, id)) {
+        res.status(400).json({ error: 'Only the active phase can be force-closed' });
+        return;
+      }
+      if (!workflow.phases[forceClosePhase].closeability) {
+        res.status(400).json({ error: 'Phase is not closeable yet' });
+        return;
+      }
+      if (workflow.phases[forceClosePhase].proposalPending) {
+        res.status(400).json({ error: 'Confirm the pending closure proposal instead of force-closing' });
+        return;
+      }
+    } else if (confirmationPart && !confirmationTarget) {
       res.status(404).json({ error: 'Phase closure proposal not found' });
       return;
     }
 
     let prepared: ReturnType<typeof prepareTurn>;
     try {
-      prepared = prepareTurn(db, id, prompt, userParts);
+      prepared = prepareTurn(db, id, prompt, userParts, forceClosePhase);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       res.status(404).json({ error: message });
@@ -206,6 +231,20 @@ export function createApp(dbPath?: string) {
       async execute({ writer }) {
         if (confirmationTarget) {
           confirmPhaseOutcome(db, confirmationTarget.id, prepared.turn.id);
+          finalizeTurn(db, id, prepared.turn.id);
+          writer.write({ type: 'finish', finishReason: 'stop' });
+          return;
+        }
+
+        if (forceClosePhase) {
+          const phaseLabel = forceClosePhase[0].toUpperCase() + forceClosePhase.slice(1);
+          createConfirmedPhaseOutcome(db, {
+            projectId: id,
+            phase: forceClosePhase,
+            proposal_turn_id: prepared.turn.id,
+            confirmation_turn_id: prepared.turn.id,
+            summary: `${phaseLabel} closed by user without an interviewer recommendation.`,
+          });
           finalizeTurn(db, id, prepared.turn.id);
           writer.write({ type: 'finish', finishReason: 'stop' });
           return;
