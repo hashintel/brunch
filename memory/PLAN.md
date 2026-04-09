@@ -161,14 +161,18 @@
      - `7b.1` Canonical scope kinds through the generic seam. `done`
      - `7b.2` Generic edge/storage cutover + scope-readiness compatibility projection beyond legacy decision/assumption tables. `done`
 
-8. **Design mode (commitment / exploration)** — Implement the second workflow mode on the new turn and canonical knowledge model after 7b lands, while generalizing the current scope-only proposal/confirmation seam into a shared phase-closing model with deterministic closeability, coarse readiness bands, and explicit closure basis. The interviewer walks design forks; the observer captures decisions, assumptions, new constraints, and emerging requirements against the unified knowledge seam. `not-started`
+8. **Design mode (commitment / exploration)** — Implement the second workflow mode on the new turn and canonical knowledge model after 7b lands, while generalizing the current scope-only proposal/confirmation seam into a shared phase-closing model with deterministic closeability, coarse readiness bands, and explicit closure basis. The interviewer walks design forks; the observer captures decisions, assumptions, new constraints, and emerging requirements against the unified knowledge seam. `in-progress`
    - Requirements: → SPEC.md §Requirements #2, #3, #5, #6, #7, #8
    - Assumptions: → SPEC.md §Assumptions A14, A15, A28, A40
-   - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62, D65, D66, D67, D68, D70
+   - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62, D65, D66, D67, D68, D70, D71
    - Candidate invariant goals: mode transition preserves interview continuity; design-mode turns produce coherent decision/assumption graph growth on the canonical knowledge seam; phase-closing state separates status, closeability, readiness, and closure basis instead of hidden interviewer authority
    - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I22, I72, I73
+   - Invariants established: → SPEC.md §Invariants I79, I80
    - Acceptance: after scope closes and slice 7b lands, the interview enters design mode; design turns yield coherent commitments and assumptions on the canonical knowledge layer; the UI projects design status/closeability/readiness; and once the minimum bar is met the user can either accept an interviewer-recommended close or force-close design with persisted closure basis/readiness snapshot
+   - **Observed current state (2026-04-09, tracer bullet 8.1):** confirmed scope closure now projects through a shared workflow state carrying `status`, `closeability`, `readiness`, `closureBasis`, and pending-proposal visibility instead of the old scope-only `open/proposed/confirmed` seam. The next prepared turn after confirmed scope closure now enters `design` automatically, the observer runs against that design turn phase, and the workspace header renders shared workflow summaries for closed scope plus the newly active design phase rather than hardcoding scope-only status copy.
    - **Verification approach**: inner — mode-transition/controller/workflow-state projection tests. Outer — manual design walkthrough covering interviewer-recommended close, user-forced close, and visible carried-debt caveats.
+   - Tracer bullets:
+     - `8.1` Design-mode entry + shared workflow-state projection. `done`
 
 9. **Requirements-review mode** — Synthesize the requirement set from the full canonical knowledge layer, then let the user approve, edit, merge, reject, and add requirements through review turns using the shared phase-closing seam rather than a requirements-only completion bit. This slice assumes the redesigned ontology/graph from 7a + 7b, not the current transitional `framing` seam. `not-started`
    - Requirements: → SPEC.md §Requirements #6, #7, #8, #11, #13

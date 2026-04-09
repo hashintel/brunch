@@ -285,7 +285,7 @@ export function createWorkspaceControllerViewState(
   const pendingQuestion = isLoading ? findPendingQuestion(messages) : null;
   const latestPhaseSummary = findPhaseSummary(messages);
   const phaseSummary =
-    latestPhaseSummary && (isLoading || workflow.phases[latestPhaseSummary.phase].status === 'proposed')
+    latestPhaseSummary && (isLoading || workflow.phases[latestPhaseSummary.phase].proposalPending)
       ? latestPhaseSummary
       : null;
   const turnCard: WorkspaceTurnCardViewModel | null = phaseSummary

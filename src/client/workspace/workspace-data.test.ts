@@ -29,18 +29,7 @@ function createProjectState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
-  workflow?: {
-    phases: {
-      scope: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
-      design: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
-      requirements: {
-        status: 'open' | 'proposed' | 'confirmed';
-        turnId: number | null;
-        summary: string | null;
-      };
-      criteria: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
-    };
-  };
+  workflow?: ProjectState['workflow'];
 } = {}): ProjectState {
   return {
     project: {
@@ -52,10 +41,42 @@ function createProjectState({
     },
     workflow: workflow ?? {
       phases: {
-        scope: { status: 'open', turnId: null, summary: null },
-        design: { status: 'open', turnId: null, summary: null },
-        requirements: { status: 'open', turnId: null, summary: null },
-        criteria: { status: 'open', turnId: null, summary: null },
+        scope: {
+          status: 'unstarted',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
+        design: {
+          status: 'unstarted',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
+        requirements: {
+          status: 'unstarted',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
+        criteria: {
+          status: 'unstarted',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
       },
     },
     turns: [
@@ -251,13 +272,41 @@ describe('workspace controller core', () => {
         workflow: {
           phases: {
             scope: {
-              status: 'proposed',
+              status: 'in_progress',
+              closeability: true,
+              readiness: 'high',
+              closureBasis: null,
+              proposalPending: true,
               turnId: 1,
               summary: 'Goals, terms, context, and constraints are sufficiently captured.',
             },
-            design: { status: 'open', turnId: null, summary: null },
-            requirements: { status: 'open', turnId: null, summary: null },
-            criteria: { status: 'open', turnId: null, summary: null },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
           },
         },
       }),
@@ -366,10 +415,42 @@ describe('workspace controller core', () => {
       },
       workflow: {
         phases: {
-          scope: { status: 'open', turnId: null, summary: null },
-          design: { status: 'open', turnId: null, summary: null },
-          requirements: { status: 'open', turnId: null, summary: null },
-          criteria: { status: 'open', turnId: null, summary: null },
+          scope: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          design: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          requirements: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
         },
       },
       turns: [],

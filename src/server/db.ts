@@ -20,9 +20,16 @@ export type PhaseOutcome = InferSelectModel<typeof schema.phaseOutcome>;
 export type Phase = Turn['phase'];
 export type Impact = NonNullable<Turn['impact']>;
 export type PhaseOutcomeStatus = PhaseOutcome['status'];
+export type WorkflowPhaseStatus = 'unstarted' | 'in_progress' | 'closed';
+export type ReadinessBand = 'low' | 'medium' | 'high';
+export type ClosureBasis = 'interviewer_recommended' | 'user_forced' | null;
 
 export interface WorkflowPhaseState {
-  status: 'open' | Extract<PhaseOutcomeStatus, 'proposed' | 'confirmed'>;
+  status: WorkflowPhaseStatus;
+  closeability: boolean;
+  readiness: ReadinessBand;
+  closureBasis: ClosureBasis;
+  proposalPending: boolean;
   turnId: number | null;
   summary: string | null;
 }
@@ -174,12 +181,33 @@ export function getActivePath(db: DB, projectId: number): Turn[] {
   return rows as Turn[];
 }
 
+const workflowPhaseOrder = [
+  'scope',
+  'design',
+  'requirements',
+  'criteria',
+] as const satisfies readonly Phase[];
+
 function createEmptyWorkflowPhaseState(): WorkflowPhaseState {
   return {
-    status: 'open',
+    status: 'unstarted',
+    closeability: false,
+    readiness: 'low',
+    closureBasis: null,
+    proposalPending: false,
     turnId: null,
     summary: null,
   };
+}
+
+function getReadinessBand(turnCount: number): ReadinessBand {
+  if (turnCount <= 0) {
+    return 'low';
+  }
+  if (turnCount === 1) {
+    return 'medium';
+  }
+  return 'high';
 }
 
 export function listPhaseOutcomesForProject(db: DB, projectId: number): PhaseOutcome[] {
@@ -283,27 +311,54 @@ export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowStat
     },
   };
 
-  const activeTurnIds = new Set(getActivePath(db, projectId).map((turn) => turn.id));
+  const activePath = getActivePath(db, projectId);
+  const activeTurnIds = new Set(activePath.map((turn) => turn.id));
+  const turnCounts = Object.fromEntries(workflowPhaseOrder.map((phase) => [phase, 0])) as Record<
+    Phase,
+    number
+  >;
+  for (const turn of activePath) {
+    turnCounts[turn.phase] += 1;
+  }
+
   const currentOutcomes = listPhaseOutcomesForProject(db, projectId).filter(
     (outcome) =>
       (outcome.status === 'proposed' || outcome.status === 'confirmed') &&
       activeTurnIds.has(outcome.proposal_turn_id),
   );
 
-  for (const phase of ['scope', 'design', 'requirements', 'criteria'] as const) {
+  const firstUnclosedPhase =
+    workflowPhaseOrder.find(
+      (phase) => currentOutcomes.find((entry) => entry.phase === phase)?.status !== 'confirmed',
+    ) ?? 'criteria';
+
+  for (const phase of workflowPhaseOrder) {
     const outcome = currentOutcomes.find((entry) => entry.phase === phase);
-    if (!outcome) {
-      continue;
-    }
+    const isConfirmed = outcome?.status === 'confirmed';
+    const proposalPending = outcome?.status === 'proposed';
+    const hasTurnHistory = turnCounts[phase] > 0;
 
     workflow.phases[phase] = {
-      status: outcome.status === 'confirmed' ? 'confirmed' : 'proposed',
-      turnId: outcome.proposal_turn_id,
-      summary: outcome.summary,
+      status: isConfirmed
+        ? 'closed'
+        : phase === firstUnclosedPhase || hasTurnHistory
+          ? 'in_progress'
+          : 'unstarted',
+      closeability: isConfirmed ? false : hasTurnHistory,
+      readiness: getReadinessBand(turnCounts[phase]),
+      closureBasis: isConfirmed ? 'interviewer_recommended' : null,
+      proposalPending,
+      turnId: outcome?.proposal_turn_id ?? null,
+      summary: outcome?.summary ?? null,
     };
   }
 
   return workflow;
+}
+
+export function getCurrentPhase(db: DB, projectId: number): Phase {
+  const workflow = getCurrentWorkflowState(db, projectId);
+  return workflowPhaseOrder.find((phase) => workflow.phases[phase].status !== 'closed') ?? 'criteria';
 }
 
 export function getOptionsForTurn(db: DB, turnId: number): Option[] {

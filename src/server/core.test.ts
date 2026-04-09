@@ -2,7 +2,16 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { BrunchUIMessage, BrunchUserPart } from '../shared/chat.js';
 import { extractPrompt, finalizeTurn, getProjectState, prepareTurn } from './core.js';
-import { createDb, createProject, createTurn, getProject, getTurn, type DB } from './db.js';
+import {
+  confirmPhaseOutcome,
+  createDb,
+  createPhaseOutcome,
+  createProject,
+  createTurn,
+  getProject,
+  getTurn,
+  type DB,
+} from './db.js';
 
 let db: DB;
 
@@ -76,6 +85,46 @@ describe('prepareTurn', () => {
 
     expect(prepared.activePath).toHaveLength(1);
     expect(prepared.activePath[0].id).toBe(parent.id);
+  });
+
+  it('selects design as the next turn phase after scope is confirmed closed', () => {
+    const project = createProject(db, 'Spec');
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What platform?',
+      answer: 'Web',
+    });
+    finalizeTurn(db, project.id, scopeTurn.id);
+
+    const proposalTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: scopeTurn.id,
+      question: '',
+      answer: 'We have enough scope context',
+    });
+    finalizeTurn(db, project.id, proposalTurn.id);
+
+    const outcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'scope',
+      proposal_turn_id: proposalTurn.id,
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    });
+
+    const confirmationTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: proposalTurn.id,
+      question: '',
+      answer: 'Confirm scope closure',
+    });
+    confirmPhaseOutcome(db, outcome.id, confirmationTurn.id);
+    finalizeTurn(db, project.id, confirmationTurn.id);
+
+    const prepared = prepareTurn(db, project.id, 'Let us compare SQLite and Postgres', [
+      { type: 'text', text: 'Let us compare SQLite and Postgres' },
+    ]);
+
+    expect(prepared.turn.phase).toBe('design');
   });
 });
 

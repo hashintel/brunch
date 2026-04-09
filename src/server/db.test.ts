@@ -209,9 +209,13 @@ describe('phase outcome lifecycle', () => {
     });
 
     expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
-      status: 'proposed',
+      status: 'in_progress',
+      proposalPending: true,
       summary: proposed.summary,
       turnId: closureTurn.id,
+      closeability: true,
+      readiness: 'high',
+      closureBasis: null,
     });
 
     const confirmationTurn = createTurn(db, project.id, {
@@ -223,10 +227,22 @@ describe('phase outcome lifecycle', () => {
     confirmPhaseOutcome(db, proposed.id, confirmationTurn.id);
     advanceHead(db, project.id, confirmationTurn.id);
 
-    expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
-      status: 'confirmed',
+    const confirmedWorkflow = getCurrentWorkflowState(db, project.id);
+    expect(confirmedWorkflow.phases.scope).toMatchObject({
+      status: 'closed',
+      proposalPending: false,
       summary: proposed.summary,
       turnId: closureTurn.id,
+      closeability: false,
+      readiness: 'high',
+      closureBasis: 'interviewer_recommended',
+    });
+    expect(confirmedWorkflow.phases.design).toMatchObject({
+      status: 'in_progress',
+      proposalPending: false,
+      closeability: false,
+      readiness: 'low',
+      closureBasis: null,
     });
 
     const alternateTurn = createTurn(db, project.id, {
@@ -238,9 +254,12 @@ describe('phase outcome lifecycle', () => {
     advanceHead(db, project.id, alternateTurn.id);
 
     expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
-      status: 'open',
+      status: 'in_progress',
+      proposalPending: false,
       summary: null,
       turnId: null,
+      closeability: true,
+      closureBasis: null,
     });
     expect(listPhaseOutcomesForProject(db, project.id)[0]).toMatchObject({
       id: proposed.id,

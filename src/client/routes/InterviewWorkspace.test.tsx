@@ -136,18 +136,7 @@ function createProjectState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
-  workflow?: {
-    phases: {
-      scope: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
-      design: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
-      requirements: {
-        status: 'open' | 'proposed' | 'confirmed';
-        turnId: number | null;
-        summary: string | null;
-      };
-      criteria: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
-    };
-  };
+  workflow?: ProjectState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
 } = {}): ProjectState {
   return {
@@ -160,10 +149,42 @@ function createProjectState({
     },
     workflow: workflow ?? {
       phases: {
-        scope: { status: 'open', turnId: null, summary: null },
-        design: { status: 'open', turnId: null, summary: null },
-        requirements: { status: 'open', turnId: null, summary: null },
-        criteria: { status: 'open', turnId: null, summary: null },
+        scope: {
+          status: 'unstarted',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
+        design: {
+          status: 'unstarted',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
+        requirements: {
+          status: 'unstarted',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
+        criteria: {
+          status: 'unstarted',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
       },
     },
     turns: [
@@ -219,18 +240,7 @@ function createWorkspaceLoaderData({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
-  workflow?: {
-    phases: {
-      scope: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
-      design: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
-      requirements: {
-        status: 'open' | 'proposed' | 'confirmed';
-        turnId: number | null;
-        summary: string | null;
-      };
-      criteria: { status: 'open' | 'proposed' | 'confirmed'; turnId: number | null; summary: string | null };
-    };
-  };
+  workflow?: ProjectState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
   entitySnapshot?: EntitiesData;
 } = {}): WorkspaceLoaderData {
@@ -1018,15 +1028,43 @@ describe('InterviewWorkspace', () => {
       workflow: {
         phases: {
           scope: {
-            status: 'proposed',
+            status: 'in_progress',
+            closeability: true,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: true,
             turnId: 1,
             summary: 'Goals, terms, context, and constraints are sufficiently captured.',
           },
-          design: { status: 'open', turnId: null, summary: null },
-          requirements: { status: 'open', turnId: null, summary: null },
-          criteria: { status: 'open', turnId: null, summary: null },
+          design: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          requirements: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
         },
-      },
+      } as any,
       assistantParts: [
         {
           type: 'data-phase-summary',
@@ -1051,6 +1089,58 @@ describe('InterviewWorkspace', () => {
         ],
       });
     });
+  });
+
+  it('renders shared workflow state for closed scope and active design mode', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      workflow: {
+        phases: {
+          scope: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 1,
+            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+          },
+          design: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          requirements: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        },
+      } as any,
+    });
+
+    renderWorkspace();
+
+    expect(await screen.findByText(/scope closed/i)).toBeTruthy();
+    expect(screen.getByText(/recommended close/i)).toBeTruthy();
+    expect(screen.getByText(/design in progress/i)).toBeTruthy();
+    expect(screen.getAllByText(/low readiness/i).length).toBeGreaterThan(0);
   });
 
   it('posts free-text-only turn responses and forwards the text into chat', async () => {

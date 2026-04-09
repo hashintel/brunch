@@ -705,7 +705,11 @@ describe('phase outcomes + scope closure', () => {
 
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.scope).toEqual({
-      status: 'proposed',
+      status: 'in_progress',
+      closeability: true,
+      readiness: 'medium',
+      closureBasis: null,
+      proposalPending: true,
       turnId: 1,
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
@@ -755,11 +759,26 @@ describe('phase outcomes + scope closure', () => {
       .expect(200);
 
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    expect(projectRes.body.workflow.phases.scope).toEqual({
-      status: 'confirmed',
-      turnId: 1,
-      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
-    });
+    expect(projectRes.body.workflow.phases.scope).toEqual(
+      expect.objectContaining({
+        status: 'closed',
+        turnId: 1,
+        summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+        closeability: false,
+        readiness: 'high',
+        closureBasis: 'interviewer_recommended',
+        proposalPending: false,
+      }),
+    );
+    expect(projectRes.body.workflow.phases.design).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        closeability: false,
+        readiness: 'low',
+        closureBasis: null,
+        proposalPending: false,
+      }),
+    );
     expect(projectRes.body.project.active_turn_id).toBe(2);
     expect(projectRes.body.turns.at(-1)).toMatchObject({
       answer: 'Confirm scope closure',
@@ -768,6 +787,68 @@ describe('phase outcomes + scope closure', () => {
       { type: 'text', text: 'Confirm scope closure' },
       { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
     ]);
+  });
+
+  it('enters design mode on the next chat turn after scope closure and runs the observer in design phase', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+        ],
+      })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u2',
+            role: 'user',
+            parts: [
+              { type: 'text', text: 'Confirm scope closure' },
+              { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    mockStreamInterviewer.mockImplementation(async () =>
+      makeTextInterviewer('Which database tradeoff matters more?'),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u3',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Let us compare SQLite and Postgres' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'design' }),
+      expect.any(Array),
+      'Let us compare SQLite and Postgres',
+      'design',
+    );
+    expect(mockRunObserver).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'design' }),
+      projectId,
+    );
   });
 });
 

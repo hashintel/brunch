@@ -23,7 +23,7 @@ export interface WorkspaceControllerChatState {
   isLoading: boolean;
   isStreaming: boolean;
   submitText: (text: string) => void;
-  confirmPhaseClosure: (turnId: number) => void;
+  confirmPhaseClosure: (phase: ProjectStateTurn['phase'], turnId: number) => void;
 }
 
 export type WorkspaceControllerTurnCardState =
@@ -103,14 +103,14 @@ export function useWorkspaceController(): WorkspaceController {
   );
 
   const confirmPhaseClosure = useCallback(
-    (turnId: number) => {
+    (phase: ProjectStateTurn['phase'], turnId: number) => {
       if (isLoading) {
         return;
       }
 
       void sendMessage({
         parts: [
-          { type: 'text', text: 'Confirm scope closure' },
+          { type: 'text', text: `Confirm ${phase} closure` },
           { type: 'data-confirmation', data: { turnId, confirmed: true } },
         ],
       });
