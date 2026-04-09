@@ -1,10 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
 import {
-  createForcedPhaseClosureConfirmation,
-  createRecommendedPhaseClosureConfirmation,
+  createConfirmProposedPhaseClosureCommand,
+  createForceCloseActivePhaseCommand,
   dataConfirmationSchema,
+  getForceCloseActionErrorMessage,
   getForceClosePhaseAction,
+  getForcedPhaseClosureSummary,
+  getPhaseClosureCommandText,
   parsePhaseClosureCommand,
   type WorkflowPhase,
   type WorkflowPhaseActionProjection,
@@ -58,19 +61,28 @@ describe('phase-close commands', () => {
     expect(parsePhaseClosureCommand({ turnId: 5, confirmed: true })).toBeNull();
   });
 
-  it('builds interviewer-recommended confirmation payloads that validate through the discriminated command schema', () => {
-    expect(dataConfirmationSchema.parse(createRecommendedPhaseClosureConfirmation('scope', 7))).toEqual({
+  it('builds confirm-proposal command payloads that validate through the discriminated command schema', () => {
+    expect(dataConfirmationSchema.parse(createConfirmProposedPhaseClosureCommand('scope', 7))).toEqual({
       kind: 'confirm-proposed-phase-closure',
       proposalTurnId: 7,
       phase: 'scope',
     });
   });
 
-  it('builds forced-close confirmation payloads that validate through the discriminated command schema', () => {
-    expect(dataConfirmationSchema.parse(createForcedPhaseClosureConfirmation('design'))).toEqual({
+  it('builds force-close command payloads that validate through the discriminated command schema', () => {
+    expect(dataConfirmationSchema.parse(createForceCloseActivePhaseCommand('design'))).toEqual({
       kind: 'force-close-active-phase',
       phase: 'design',
     });
+  });
+
+  it('derives close-action message text from the shared command model', () => {
+    expect(getPhaseClosureCommandText({ kind: 'confirm-proposed-phase-closure', phase: 'scope' })).toBe(
+      'Confirm scope closure',
+    );
+    expect(getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase: 'design' })).toBe(
+      'Force design closure',
+    );
   });
 });
 
@@ -158,5 +170,30 @@ describe('force-close phase action projection', () => {
       available: false,
       reason: 'proposal_pending',
     });
+  });
+
+  it('maps force-close rejection reasons through one shared error helper', () => {
+    expect(
+      getForceCloseActionErrorMessage({
+        kind: 'force-close-active-phase',
+        phase: 'scope',
+        available: false,
+        reason: 'unsupported_phase',
+      }),
+    ).toBe('Only design supports force-close in this slice');
+    expect(
+      getForceCloseActionErrorMessage({
+        kind: 'force-close-active-phase',
+        phase: 'design',
+        available: false,
+        reason: 'proposal_pending',
+      }),
+    ).toBe('Confirm the pending closure proposal instead of force-closing');
+  });
+
+  it('builds the forced-close summary through one shared helper', () => {
+    expect(getForcedPhaseClosureSummary('design')).toBe(
+      'Design closed by user without an interviewer recommendation.',
+    );
   });
 });

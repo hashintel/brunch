@@ -13,7 +13,12 @@ import {
   type BrunchUIMessage,
   type BrunchUserPart,
 } from '../shared/chat.js';
-import { getForceClosePhaseAction, parsePhaseClosureCommand } from '../shared/phase-close.js';
+import {
+  getForceCloseActionErrorMessage,
+  getForceClosePhaseAction,
+  getForcedPhaseClosureSummary,
+  parsePhaseClosureCommand,
+} from '../shared/phase-close.js';
 import {
   extractPrompt,
   finalizeTurn,
@@ -199,16 +204,9 @@ export function createApp(dbPath?: string) {
     if (forceClosePhase) {
       const workflow = getCurrentWorkflowState(db, id);
       const forceCloseAction = getForceClosePhaseAction(workflow, forceClosePhase);
-      if (!forceCloseAction.available) {
-        const error =
-          forceCloseAction.reason === 'unsupported_phase'
-            ? 'Only design supports force-close in this slice'
-            : forceCloseAction.reason === 'inactive_phase'
-              ? 'Only the active phase can be force-closed'
-              : forceCloseAction.reason === 'not_closeable'
-                ? 'Phase is not closeable yet'
-                : 'Confirm the pending closure proposal instead of force-closing';
-        res.status(400).json({ error });
+      const forceCloseError = getForceCloseActionErrorMessage(forceCloseAction);
+      if (forceCloseError) {
+        res.status(400).json({ error: forceCloseError });
         return;
       }
     } else if (confirmationPart && !confirmationTarget) {
@@ -235,13 +233,12 @@ export function createApp(dbPath?: string) {
         }
 
         if (forceClosePhase) {
-          const phaseLabel = forceClosePhase[0].toUpperCase() + forceClosePhase.slice(1);
           createConfirmedPhaseOutcome(db, {
             projectId: id,
             phase: forceClosePhase,
             proposal_turn_id: prepared.turn.id,
             confirmation_turn_id: prepared.turn.id,
-            summary: `${phaseLabel} closed by user without an interviewer recommendation.`,
+            summary: getForcedPhaseClosureSummary(forceClosePhase),
           });
           finalizeTurn(db, id, prepared.turn.id);
           writer.write({ type: 'finish', finishReason: 'stop' });

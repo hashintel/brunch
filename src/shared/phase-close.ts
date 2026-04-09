@@ -55,6 +55,14 @@ export type ForceClosePhaseAction = {
   reason: 'unsupported_phase' | 'inactive_phase' | 'not_closeable' | 'proposal_pending' | null;
 };
 
+export function getPhaseClosureCommandText(
+  command: Pick<DataConfirmation, 'kind' | 'phase'> | Pick<PhaseClosureCommand, 'kind' | 'phase'>,
+): string {
+  return command.kind === 'confirm-proposed-phase-closure'
+    ? `Confirm ${command.phase} closure`
+    : `Force ${command.phase} closure`;
+}
+
 export function parsePhaseClosureCommand(value: unknown): PhaseClosureCommand | null {
   const result = dataConfirmationSchema.safeParse(value);
   if (!result.success) {
@@ -127,7 +135,26 @@ export function getForceClosePhaseAction(
   };
 }
 
-export function createRecommendedPhaseClosureConfirmation(
+export function getForceCloseActionErrorMessage(action: ForceClosePhaseAction): string | null {
+  if (action.available) {
+    return null;
+  }
+
+  return action.reason === 'unsupported_phase'
+    ? 'Only design supports force-close in this slice'
+    : action.reason === 'inactive_phase'
+      ? 'Only the active phase can be force-closed'
+      : action.reason === 'not_closeable'
+        ? 'Phase is not closeable yet'
+        : 'Confirm the pending closure proposal instead of force-closing';
+}
+
+export function getForcedPhaseClosureSummary(phase: WorkflowPhase): string {
+  const phaseLabel = phase[0].toUpperCase() + phase.slice(1);
+  return `${phaseLabel} closed by user without an interviewer recommendation.`;
+}
+
+export function createConfirmProposedPhaseClosureCommand(
   phase: WorkflowPhase,
   proposalTurnId: number,
 ): DataConfirmation {
@@ -138,7 +165,7 @@ export function createRecommendedPhaseClosureConfirmation(
   };
 }
 
-export function createForcedPhaseClosureConfirmation(phase: WorkflowPhase): DataConfirmation {
+export function createForceCloseActivePhaseCommand(phase: WorkflowPhase): DataConfirmation {
   return {
     kind: 'force-close-active-phase',
     phase,

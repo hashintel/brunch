@@ -1140,7 +1140,7 @@ describe('InterviewWorkspace', () => {
 
     renderWorkspace();
 
-    fireEvent.click(await screen.findByRole('button', { name: /force close design/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /force design closure/i }));
 
     await waitFor(() => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
@@ -1201,7 +1201,7 @@ describe('InterviewWorkspace', () => {
 
     renderWorkspace();
 
-    expect(screen.queryByRole('button', { name: /force close design/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /force design closure/i })).toBeNull();
   });
 
   it('renders shared workflow state for closed scope and active design mode', async () => {

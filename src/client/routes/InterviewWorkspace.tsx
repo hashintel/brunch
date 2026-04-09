@@ -22,7 +22,7 @@ import { cn } from '@/lib/utils';
 
 import type { ProjectState, ProjectStateTurn } from '../../shared/api-types.js';
 import { isAskQuestionUIPart, type BrunchUIMessage } from '../../shared/chat.js';
-import { getForceClosePhaseAction } from '../../shared/phase-close.js';
+import { getForceClosePhaseAction, getPhaseClosureCommandText } from '../../shared/phase-close.js';
 import { useWorkspaceController } from '../workspace/workspace-controller';
 import {
   getPersistedSelectedPositions,
@@ -101,7 +101,7 @@ function PhaseSummaryCard({
               : 'border-border bg-background hover:bg-muted',
           )}
         >
-          {`Confirm ${phase} closure`}
+          {getPhaseClosureCommandText({ kind: 'confirm-proposed-phase-closure', phase })}
         </button>
       </div>
     </div>
@@ -314,7 +314,7 @@ export function InterviewWorkspace() {
                         : 'border-border bg-background text-foreground hover:bg-muted',
                     )}
                   >
-                    {`Force close ${phase}`}
+                    {getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase })}
                   </button>
                 )}
               </div>

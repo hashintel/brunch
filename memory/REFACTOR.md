@@ -30,7 +30,7 @@ This keeps the chat seam transcript-friendly while making workflow truth, action
 3. [x] Persist closure basis directly on phase outcomes while keeping workflow projection behavior unchanged through a compatibility read path.
 4. [x] Cut workflow projection over to durable phase-outcome closure basis and remove transcript-driven closure-basis recovery.
 5. [x] Replace the loose confirmation shape with an explicit discriminated close-command union and update the chat/controller/request seams to use it end to end.
-6. [ ] Delete compatibility branches and helper duplication left behind by the transition so phase closing reads as one deep module rather than a cross-layer patchwork.
+6. [x] Delete compatibility branches and helper duplication left behind by the transition so phase closing reads as one deep module rather than a cross-layer patchwork.
 
 ## Decisions
 

@@ -8,8 +8,10 @@ import { useSubmitTurnResponseMutation } from '@/mutations/workspace-mutations';
 import type { ProjectStateTurn } from '../../shared/api-types.js';
 import { brunchDataPartSchemas, type BrunchUIMessage } from '../../shared/chat.js';
 import {
-  createForcedPhaseClosureConfirmation,
-  createRecommendedPhaseClosureConfirmation,
+  createConfirmProposedPhaseClosureCommand,
+  createForceCloseActivePhaseCommand,
+  getPhaseClosureCommandText,
+  type DataConfirmation,
 } from '../../shared/phase-close.js';
 import { useChatHydrationBoundary } from './chat-hydration.js';
 import {
@@ -107,18 +109,18 @@ export function useWorkspaceController(): WorkspaceController {
     [isLoading, sendMessage],
   );
 
-  const confirmPhaseClosure = useCallback(
-    (phase: ProjectStateTurn['phase'], turnId: number) => {
+  const submitPhaseClosureCommand = useCallback(
+    (command: DataConfirmation) => {
       if (isLoading) {
         return;
       }
 
       void sendMessage({
         parts: [
-          { type: 'text', text: `Confirm ${phase} closure` },
+          { type: 'text', text: getPhaseClosureCommandText(command) },
           {
             type: 'data-confirmation',
-            data: createRecommendedPhaseClosureConfirmation(phase, turnId),
+            data: command,
           },
         ],
       });
@@ -126,23 +128,18 @@ export function useWorkspaceController(): WorkspaceController {
     [isLoading, sendMessage],
   );
 
+  const confirmPhaseClosure = useCallback(
+    (phase: ProjectStateTurn['phase'], turnId: number) => {
+      submitPhaseClosureCommand(createConfirmProposedPhaseClosureCommand(phase, turnId));
+    },
+    [submitPhaseClosureCommand],
+  );
+
   const forcePhaseClosure = useCallback(
     (phase: ProjectStateTurn['phase']) => {
-      if (isLoading) {
-        return;
-      }
-
-      void sendMessage({
-        parts: [
-          { type: 'text', text: `Force ${phase} closure` },
-          {
-            type: 'data-confirmation',
-            data: createForcedPhaseClosureConfirmation(phase),
-          },
-        ],
-      });
+      submitPhaseClosureCommand(createForceCloseActivePhaseCommand(phase));
     },
-    [isLoading, sendMessage],
+    [submitPhaseClosureCommand],
   );
 
   return {
