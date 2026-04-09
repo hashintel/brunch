@@ -126,6 +126,71 @@ describe('prepareTurn', () => {
 
     expect(prepared.turn.phase).toBe('design');
   });
+
+  it('selects requirements as the next turn phase after design is confirmed closed', () => {
+    const project = createProject(db, 'Spec');
+
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What platform?',
+      answer: 'Web',
+    });
+    finalizeTurn(db, project.id, scopeTurn.id);
+
+    const scopeProposalTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: scopeTurn.id,
+      question: '',
+      answer: 'We have enough scope context',
+    });
+    finalizeTurn(db, project.id, scopeProposalTurn.id);
+
+    const scopeOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'scope',
+      proposal_turn_id: scopeProposalTurn.id,
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    });
+
+    const scopeConfirmationTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: scopeProposalTurn.id,
+      question: '',
+      answer: 'Confirm scope closure',
+    });
+    confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
+    finalizeTurn(db, project.id, scopeConfirmationTurn.id);
+
+    const designTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: scopeConfirmationTurn.id,
+      question: 'Which module boundary matters first?',
+      answer: 'Persistence should stay behind one repository seam',
+    });
+    finalizeTurn(db, project.id, designTurn.id);
+
+    const designOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'design',
+      proposal_turn_id: designTurn.id,
+      summary: 'The main architectural commitments are captured well enough to review requirements.',
+    });
+
+    const designConfirmationTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: designTurn.id,
+      question: '',
+      answer: 'Confirm design closure',
+    });
+    confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
+    finalizeTurn(db, project.id, designConfirmationTurn.id);
+
+    const prepared = prepareTurn(db, project.id, 'Let us review the must-have capabilities', [
+      { type: 'text', text: 'Let us review the must-have capabilities' },
+    ]);
+
+    expect(prepared.turn.phase).toBe('requirements');
+  });
 });
 
 describe('finalizeTurn', () => {

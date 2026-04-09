@@ -2,7 +2,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { structuredQuestionSchema, type StructuredQuestion } from '../shared/chat.js';
 import { createDb, createProject, createTurn, getOptionsForTurn, getTurn, type DB } from './db.js';
-import { getSystemPrompt, persistFallbackQuestionText, persistStructuredQuestion } from './interview.js';
+import {
+  canProposePhaseClosure,
+  getSystemPrompt,
+  persistFallbackQuestionText,
+  persistStructuredQuestion,
+} from './interview.js';
 
 let db: DB;
 
@@ -49,6 +54,19 @@ describe('getSystemPrompt', () => {
   it('keeps the scope prompt specific to structured questioning', () => {
     expect(getSystemPrompt('scope')).toContain('ask_question');
     expect(getSystemPrompt('scope')).toContain('structured questions');
+  });
+
+  it('teaches the design prompt to propose closure when enough design direction is captured', () => {
+    expect(getSystemPrompt('design')).toContain('propose_phase_closure');
+  });
+});
+
+describe('canProposePhaseClosure', () => {
+  it('enables closure proposals for scope and design but not later review phases', () => {
+    expect(canProposePhaseClosure('scope')).toBe(true);
+    expect(canProposePhaseClosure('design')).toBe(true);
+    expect(canProposePhaseClosure('requirements')).toBe(false);
+    expect(canProposePhaseClosure('criteria')).toBe(false);
   });
 });
 
