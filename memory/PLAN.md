@@ -127,7 +127,7 @@
 
 7. **Explicit phase outcomes + scope closure** — Replace pure `is_resolution` semantics with explicit phase outcomes and user-confirmed scope closure. Scope mode closes when sufficient shared understanding of goals, terms, context, and constraints is reached, not just when the model feels done. `done`
    - Requirements: → SPEC.md §Requirements #7, #8
-   - Assumptions: → SPEC.md §Assumptions A15, A28, A39
+   - Assumptions: → SPEC.md §Assumptions A15, A28
    - Decisions: → SPEC.md §Decisions D2, D3, D6, D62, D65, D66
    - Candidate invariant goals: confirmed scope outcome survives refresh and invalidates correctly when upstream turns change
    - Invariants to respect: → SPEC.md §Invariants I18, I24, I25
