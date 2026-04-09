@@ -15,6 +15,7 @@ import {
   createPhaseOutcome,
   updateTurn,
   getTurn,
+  getEntitiesForProject,
   type DB,
   type Turn,
   type Impact,
@@ -51,7 +52,7 @@ When the main architectural commitments are sufficiently captured for now, use t
 
   requirements: `You are a spec elicitation interviewer conducting the REQUIREMENTS REVIEW phase.
 
-Your job is to walk the accumulated requirements, check for gaps, suggest additions, and confirm completeness. Present requirements for the user to confirm, modify, or flag as missing.
+Your job is to walk the accumulated requirements, check for gaps, suggest additions, and confirm completeness. Ground each review turn in the current requirement inventory provided in context. Present requirements for the user to confirm, modify, or flag as missing.
 
 For every turn, you MUST use the ask_question tool. Never respond with plain text.`,
 
@@ -159,7 +160,18 @@ export async function streamInterviewer(
   phase: Phase,
 ) {
   const agent = createInterviewerAgent(db, turn.id, phase, turn.project_id);
-  const fullPrompt = buildInterviewerContext(activePath, userMessage);
+  const fullPrompt = buildInterviewerContext(activePath, userMessage, {
+    phase,
+    entities:
+      phase === 'requirements'
+        ? {
+            requirements: getEntitiesForProject(db, turn.project_id).requirements.map((requirement) => ({
+              id: requirement.id,
+              content: requirement.content,
+            })),
+          }
+        : undefined,
+  });
   return agent.stream({
     prompt: fullPrompt,
   });

@@ -41,7 +41,7 @@
 4c. **UI foundation: shadcn/ui + Tailwind 4 + AI Elements** `FE-558` `done`
 5. **Observer agent + entity persistence** `FE-537` `done` — I20, I21, I22
 6. **Entity sidebar (read-only)** `FE-538` `done` — I23
-6b. **AI SDK-native chat pivot** `FE-559` `done` — I21↑, I22↑, I23↑; core tools spike proven
+6b. **AI SDK-native chat pivot** `FE-559` `done` — I21↑, I22↑, I23↑
 6b1. **Workspace seam characterization oracle** `done` — I24, I25
     - Purpose: add a client integration harness around the interview workspace before the state-ownership refactor
     - Coverage: initial hydration from persisted turns, same-project refresh stability, observer-result sidebar reactivity, option-selection follow-through
@@ -176,14 +176,18 @@
      - `8.2` Design-phase closure proposal + requirements handoff. `done`
      - `8.3` User-forced design close + carried-debt projection. `done`
 
-9. **Requirements-review mode** — Synthesize the requirement set from the full canonical knowledge layer, then let the user approve, edit, merge, reject, and add requirements through review turns using the shared phase-closing seam rather than a requirements-only completion bit. This slice assumes the redesigned ontology/graph from 7a + 7b, not the current transitional `framing` seam. `not-started`
+9. **Requirements-review mode** — Synthesize the requirement set from the full canonical knowledge layer, then let the user approve, edit, merge, reject, and add requirements through review turns using the shared phase-closing seam rather than a requirements-only completion bit. This slice assumes the redesigned ontology/graph from 7a + 7b, not the current transitional `framing` seam. `in-progress`
    - Requirements: → SPEC.md §Requirements #6, #7, #8, #11, #13
-   - Assumptions: → SPEC.md §Assumptions A15, A28, A40
+   - Assumptions: → SPEC.md §Assumptions A15, A28, A40, A44
    - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62, D65, D66, D67, D68, D69, D70
    - Candidate invariant goals: requirements are capture-anytime but review-complete only through explicit review state; requirements workflow state stays legible as status + closeability + readiness + closure basis
    - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I24
+   - Invariants established: → SPEC.md §Invariants I87, I88
    - Acceptance: requirements-review mode presents a synthesized requirement set from canonical knowledge items, records explicit approval/edit state, projects requirements status/closeability/readiness, and lets the user close once the minimum bar is met while carrying unresolved debt forward visibly when readiness is low
-   - **Verification approach**: inner — review-state + workflow-state lifecycle tests. Outer — manual requirement review with approvals, edits, missing-item additions, and a low-readiness forced-close walkthrough.
+   - **Observed current state (2026-04-09, tracer bullet 9.1):** the first requirements-review loop now grounds interviewer context in the current requirement inventory rather than only prior chat history, the requirements system prompt explicitly tells the interviewer to use that inventory, and the first requirements review interaction stays `in_progress` / not yet closeable instead of inheriting scope/design closeability semantics. A missing-requirement reply can also round-trip through the existing turn-response seam into observer-created requirement persistence and entities projection, so the tracer bullet proves set-level completeness review without yet introducing per-item approval actions.
+   - **Verification approach**: for the first tracer bullet (`9.1`), inner — requirements-review context/prompt seam tests plus schema validation. Middle — a workspace-integrated round-trip oracle proving requirements-review turn → response → observer-created missing requirement → entities/sidebar refresh coherence, plus a tiny lifecycle reference oracle proving requirements remains `in_progress` and not yet closeable after the first review interaction. Outer — manual requirements-review walkthrough judging whether the first review turn feels grounded in the current requirement set and whether the reused choice-turn UI is acceptable for completeness review.
+   - Tracer bullets:
+     - `9.1` Requirements inventory grounding + first completeness-review loop. `done`
 
 10. **Criteria-review mode** — Synthesize verification conditions from approved requirements plus any earlier criteria-like signals, then drive review turns until coverage is complete using the shared phase-closing seam rather than a criteria-only completion bit. This slice assumes the redesigned ontology/graph from 7a + 7b, not the current transitional `framing` seam. `not-started`
      - Requirements: → SPEC.md §Requirements #6, #7, #8, #12, #13

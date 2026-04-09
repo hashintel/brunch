@@ -343,6 +343,18 @@ function getClosureBasisForOutcome(outcome: PhaseOutcome | undefined): ClosureBa
   return outcome.closure_basis ?? null;
 }
 
+function getPhaseCloseability(phase: Phase, isConfirmed: boolean, hasTurnHistory: boolean): boolean {
+  if (isConfirmed) {
+    return false;
+  }
+
+  if (phase === 'requirements' || phase === 'criteria') {
+    return false;
+  }
+
+  return hasTurnHistory;
+}
+
 export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowState {
   const workflow: WorkflowState = {
     phases: {
@@ -386,7 +398,7 @@ export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowStat
         : phase === firstUnclosedPhase || hasTurnHistory
           ? 'in_progress'
           : 'unstarted',
-      closeability: isConfirmed ? false : hasTurnHistory,
+      closeability: getPhaseCloseability(phase, isConfirmed, hasTurnHistory),
       readiness: getReadinessBand(turnCounts[phase]),
       closureBasis: getClosureBasisForOutcome(outcome),
       proposalPending,

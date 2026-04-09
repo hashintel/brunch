@@ -1222,6 +1222,119 @@ describe('phase outcomes + scope closure', () => {
     );
   });
 
+  it('persists a missing requirement through the requirements-review response loop and keeps requirements not yet closeable', async () => {
+    const projectId = await createTestProject();
+    const seededRequirements = await seedRequirementsReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
+
+    createKnowledgeItem(db, projectId, 'requirement', 'Resume the interview from SQLite after restart');
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: seededRequirements.designConfirmationTurn.id,
+      question: 'Which requirements are still missing?',
+      why: 'Review the current requirement set before closing requirements.',
+      impact: 'high',
+      answer: '',
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'The current requirement set is complete',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'One requirement needs correction',
+      is_recommended: false,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 2,
+      content: 'A requirement is missing',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ positions: [2], freeText: 'Export the reviewed spec as markdown' })
+      .expect(200);
+
+    mockStreamInterviewer.mockImplementation(async () =>
+      makeTextInterviewer('Thanks, what else is missing?'),
+    );
+    mockRunObserver.mockImplementation(async (dbArg, turnArg, observedProjectId) => {
+      const { createKnowledgeItem } = await import('./db.js');
+      const turn = turnArg as { phase: string; answer: string | null };
+      expect(turn.phase).toBe('requirements');
+      expect(observedProjectId).toBe(projectId);
+
+      if (!turn.answer?.includes('Export the reviewed spec as markdown')) {
+        return {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+        };
+      }
+
+      const requirement = createKnowledgeItem(
+        dbArg as DB,
+        observedProjectId as number,
+        'requirement',
+        'Export the reviewed spec as markdown',
+      );
+      return {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [requirement.id],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      };
+    });
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-review',
+            role: 'user',
+            parts: [
+              {
+                type: 'text',
+                text: 'A requirement is missing — Export the reviewed spec as markdown',
+              },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.requirements).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        closeability: false,
+        proposalPending: false,
+      }),
+    );
+
+    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.requirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ content: 'Resume the interview from SQLite after restart' }),
+        expect.objectContaining({ content: 'Export the reviewed spec as markdown' }),
+      ]),
+    );
+  });
+
   it('force-closes design through the shared confirmation seam and enters requirements mode on the next turn', async () => {
     const projectId = await createTestProject();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>

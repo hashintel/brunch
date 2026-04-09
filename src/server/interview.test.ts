@@ -59,6 +59,10 @@ describe('getSystemPrompt', () => {
   it('teaches the design prompt to propose closure when enough design direction is captured', () => {
     expect(getSystemPrompt('design')).toContain('propose_phase_closure');
   });
+
+  it('grounds the requirements prompt in the current requirement inventory', () => {
+    expect(getSystemPrompt('requirements')).toContain('current requirement inventory');
+  });
 });
 
 describe('canProposePhaseClosure', () => {

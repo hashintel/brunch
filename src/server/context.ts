@@ -4,14 +4,37 @@ import { knowledgeKindRegistry } from '../shared/knowledge.js';
 import type { TurnWithOptions } from './core.js';
 import { formatProjectedTurnResponse, projectTurnResponse } from './turn-response.js';
 
+interface InterviewerContextOptions {
+  phase?: TurnWithOptions['phase'];
+  entities?: {
+    requirements?: Array<{ id: number; content: string }>;
+  };
+}
+
+function formatRequirementReviewInventory(
+  requirements: NonNullable<InterviewerContextOptions['entities']>['requirements'],
+): string | null {
+  if (!requirements || requirements.length === 0) {
+    return null;
+  }
+
+  return `Current requirements under review:\n${requirements
+    .map((requirement) => `- [${requirement.id}] ${requirement.content}`)
+    .join('\n')}`;
+}
+
 /**
  * Build interviewer context from active-path turns.
  * Drop-in replacement for formatHistory() — same output, typed interface.
  * Reads from the turn domain model, including persisted structured response parts
  * while there is no dedicated response table yet.
  */
-export function buildInterviewerContext(turns: TurnWithOptions[], currentPrompt: string): string {
-  if (turns.length === 0) return currentPrompt;
+export function buildInterviewerContext(
+  turns: TurnWithOptions[],
+  currentPrompt: string,
+  options: InterviewerContextOptions = {},
+): string {
+  const sections: string[] = [];
   const lines: string[] = [];
   for (const turn of turns) {
     if (turn.question) {
@@ -37,8 +60,23 @@ export function buildInterviewerContext(turns: TurnWithOptions[], currentPrompt:
       lines.push(`Answer: ${turn.answer}`);
     }
   }
-  if (lines.length === 0) return currentPrompt;
-  return `Previous conversation:\n${lines.join('\n')}\n\n---\nUser: ${currentPrompt}`;
+  if (lines.length > 0) {
+    sections.push(`Previous conversation:\n${lines.join('\n')}`);
+  }
+
+  const requirementInventory =
+    options.phase === 'requirements'
+      ? formatRequirementReviewInventory(options.entities?.requirements)
+      : null;
+  if (requirementInventory) {
+    sections.push(requirementInventory);
+  }
+
+  if (sections.length === 0) {
+    return currentPrompt;
+  }
+
+  return `${sections.join('\n\n')}\n\n---\nUser: ${currentPrompt}`;
 }
 
 export interface ObserverContextInput {
