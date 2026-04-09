@@ -159,7 +159,9 @@ beforeEach(() => {
   mockRunObserver.mockReset();
   mockStreamInterviewer.mockImplementation(async () => makeTextInterviewer('Hi'));
   mockRunObserver.mockResolvedValue({
-    framing: [],
+    goals: [],
+    terms: [],
+    contexts: [],
     constraints: [],
     requirements: [],
     criteria: [],
@@ -216,14 +218,26 @@ describe('POST /api/projects/:id/chat', () => {
     expect(turns[0].assistant_parts).not.toBeNull();
   });
 
-  it('emits widened observer results and persists scope-mode constraints through the entities API', async () => {
+  it('emits canonical scope-kind observer results and persists them through the entities API', async () => {
     const projectId = await createTestProject();
     mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
       const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
-      const framing = createKnowledgeItem(
+      const goal = createKnowledgeItem(
         dbArg as DB,
         projectIdArg as number,
-        'framing',
+        'goal',
+        'Produce a clean implementation brief',
+        {
+          rationale: 'The interview should end in a trustworthy handoff',
+        },
+      );
+      const term = createKnowledgeItem(dbArg as DB, projectIdArg as number, 'term', 'implementation brief', {
+        rationale: 'The turn named the artifact the project is trying to produce',
+      });
+      const context = createKnowledgeItem(
+        dbArg as DB,
+        projectIdArg as number,
+        'context',
         'The project starts from a fuzzy brief',
         {
           rationale: 'The user is still establishing the problem context',
@@ -239,10 +253,13 @@ describe('POST /api/projects/:id/chat', () => {
           rationale: 'The launcher should stay lightweight',
         },
       );
-      linkKnowledgeItemToTurn(dbArg as DB, framing.id, (turnArg as { id: number }).id);
-      linkKnowledgeItemToTurn(dbArg as DB, constraint.id, (turnArg as { id: number }).id);
+      for (const itemId of [goal.id, term.id, context.id, constraint.id]) {
+        linkKnowledgeItemToTurn(dbArg as DB, itemId, (turnArg as { id: number }).id);
+      }
       return {
-        framing: [framing.id],
+        goals: [goal.id],
+        terms: [term.id],
+        contexts: [context.id],
         constraints: [constraint.id],
         requirements: [],
         criteria: [],
@@ -265,8 +282,10 @@ describe('POST /api/projects/:id/chat', () => {
       type: 'data-observer-result',
       data: {
         entityIds: {
-          framing: [1],
-          constraints: [2],
+          goals: [1],
+          terms: [2],
+          contexts: [3],
+          constraints: [4],
           requirements: [],
           criteria: [],
           decisions: [],
@@ -276,11 +295,31 @@ describe('POST /api/projects/:id/chat', () => {
     });
 
     const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
-    expect(entitiesRes.body.framing).toEqual([
+    expect(entitiesRes.body.goals).toEqual([
       {
         id: 1,
         project_id: projectId,
-        kind: 'framing',
+        kind: 'goal',
+        subtype: null,
+        content: 'Produce a clean implementation brief',
+        rationale: 'The interview should end in a trustworthy handoff',
+      },
+    ]);
+    expect(entitiesRes.body.terms).toEqual([
+      {
+        id: 2,
+        project_id: projectId,
+        kind: 'term',
+        subtype: null,
+        content: 'implementation brief',
+        rationale: 'The turn named the artifact the project is trying to produce',
+      },
+    ]);
+    expect(entitiesRes.body.contexts).toEqual([
+      {
+        id: 3,
+        project_id: projectId,
+        kind: 'context',
         subtype: null,
         content: 'The project starts from a fuzzy brief',
         rationale: 'The user is still establishing the problem context',
@@ -288,7 +327,7 @@ describe('POST /api/projects/:id/chat', () => {
     ]);
     expect(entitiesRes.body.constraints).toEqual([
       {
-        id: 2,
+        id: 4,
         project_id: projectId,
         kind: 'constraint',
         subtype: 'non-goal',
@@ -313,7 +352,7 @@ describe('POST /api/projects/:id/chat', () => {
       const framing = createKnowledgeItem(
         dbArg as DB,
         projectIdArg as number,
-        'framing',
+        'context',
         'The first release still targets solo builders',
         {
           rationale: 'The turn clarified the intended audience',
@@ -342,7 +381,9 @@ describe('POST /api/projects/:id/chat', () => {
       linkAssumptionToTurn(dbArg as DB, assumption.id, (turnArg as { id: number }).id);
       linkDecisionToTurn(dbArg as DB, decision.id, (turnArg as { id: number }).id);
       return {
-        framing: [framing.id],
+        goals: [],
+        terms: [],
+        contexts: [framing.id],
         constraints: [constraint.id],
         requirements: [],
         criteria: [],
@@ -365,7 +406,9 @@ describe('POST /api/projects/:id/chat', () => {
       type: 'data-observer-result',
       data: {
         entityIds: {
-          framing: [1],
+          goals: [],
+          terms: [],
+          contexts: [1],
           constraints: [2],
           requirements: [],
           criteria: [],
@@ -376,11 +419,11 @@ describe('POST /api/projects/:id/chat', () => {
     });
 
     const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
-    expect(entitiesRes.body.framing).toEqual([
+    expect(entitiesRes.body.contexts).toEqual([
       {
         id: 1,
         project_id: projectId,
-        kind: 'framing',
+        kind: 'context',
         subtype: null,
         content: 'The first release still targets solo builders',
         rationale: 'The turn clarified the intended audience',
@@ -435,7 +478,9 @@ describe('POST /api/projects/:id/chat', () => {
       );
       linkKnowledgeItemToTurn(dbArg as DB, requirement.id, (turnArg as { id: number }).id);
       return {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [requirement.id],
         criteria: [],
@@ -458,7 +503,9 @@ describe('POST /api/projects/:id/chat', () => {
       type: 'data-observer-result',
       data: {
         entityIds: {
-          framing: [],
+          goals: [],
+          terms: [],
+          contexts: [],
           constraints: [],
           requirements: [1],
           criteria: [],
@@ -496,7 +543,9 @@ describe('POST /api/projects/:id/chat', () => {
       );
       linkKnowledgeItemToTurn(dbArg as DB, criterion.id, (turnArg as { id: number }).id);
       return {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [criterion.id],
@@ -519,7 +568,9 @@ describe('POST /api/projects/:id/chat', () => {
       type: 'data-observer-result',
       data: {
         entityIds: {
-          framing: [],
+          goals: [],
+          terms: [],
+          contexts: [],
           constraints: [],
           requirements: [],
           criteria: [1],
@@ -544,12 +595,12 @@ describe('POST /api/projects/:id/chat', () => {
 });
 
 describe('GET /api/projects/:id/entities', () => {
-  it('returns remaining generic knowledge kinds alongside framing, decisions, assumptions, and relationships', async () => {
+  it('returns canonical generic knowledge kinds alongside decisions, assumptions, and relationships', async () => {
     const projectId = await createTestProject();
     const { createDecision, createAssumption, createKnowledgeItem, addDecisionParentAssumption } =
       await import('./db.js');
 
-    createKnowledgeItem(db, projectId, 'framing', 'The project starts from an ambiguous brief');
+    createKnowledgeItem(db, projectId, 'context', 'The project starts from an ambiguous brief');
     createKnowledgeItem(db, projectId, 'constraint', 'Keep setup instant', {
       subtype: 'non-goal',
       rationale: 'The launcher should stay simple',
@@ -568,9 +619,11 @@ describe('GET /api/projects/:id/entities', () => {
     const res = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
 
     expect(res.body).toMatchObject({
-      framing: [
+      goals: [],
+      terms: [],
+      contexts: [
         {
-          kind: 'framing',
+          kind: 'context',
           content: 'The project starts from an ambiguous brief',
         },
       ],
@@ -880,7 +933,9 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
             type: 'data-observer-result',
             data: {
               entityIds: {
-                framing: [],
+                goals: [],
+                terms: [],
+                contexts: [],
                 constraints: [],
                 requirements: [],
                 criteria: [],

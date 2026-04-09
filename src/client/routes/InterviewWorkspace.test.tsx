@@ -197,7 +197,9 @@ function createWorkspaceLoaderData({
   workflow,
   assistantParts,
   entitySnapshot = {
-    framing: [],
+    goals: [],
+    terms: [],
+    contexts: [],
     constraints: [],
     requirements: [],
     criteria: [],
@@ -359,7 +361,9 @@ describe('InterviewWorkspace', () => {
   it('hydrates transcript and sidebar state from the route loader without a post-mount entity fetch', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -387,7 +391,9 @@ describe('InterviewWorkspace', () => {
   it('refreshes durable loader-owned state for the same project without rewriting the live transcript', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -410,7 +416,9 @@ describe('InterviewWorkspace', () => {
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
       entitySnapshot: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -456,7 +464,9 @@ describe('InterviewWorkspace', () => {
       assistantText: 'How should project two start?',
       answer: 'Begin with the API',
       entitySnapshot: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -493,11 +503,13 @@ describe('InterviewWorkspace', () => {
   it('renders remaining generic knowledge kinds in the sidebar without regressing existing tabs', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
-        framing: [
+        goals: [],
+        terms: [],
+        contexts: [
           {
             id: 9,
             project_id: 1,
-            kind: 'framing',
+            kind: 'context',
             subtype: null,
             content: 'The tool starts from an ambiguous brief',
             rationale: null,
@@ -567,7 +579,7 @@ describe('InterviewWorkspace', () => {
     fireEvent.click(screen.getByRole('button', { name: /criteria/i }));
     expect(await screen.findByText('Restoring the project shows the active path')).toBeTruthy();
 
-    fireEvent.click(screen.getByRole('button', { name: /framing/i }));
+    fireEvent.click(screen.getByRole('button', { name: /context/i }));
     expect(await screen.findByText('The tool starts from an ambiguous brief')).toBeTruthy();
 
     fireEvent.click(screen.getByRole('button', { name: /decisions/i }));
@@ -577,7 +589,9 @@ describe('InterviewWorkspace', () => {
   it('refetches sidebar entities when the chat stream emits observer-created constraints', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -589,11 +603,13 @@ describe('InterviewWorkspace', () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          framing: [
+          goals: [],
+          terms: [],
+          contexts: [
             {
               id: 7,
               project_id: 1,
-              kind: 'framing',
+              kind: 'context',
               subtype: null,
               content: 'The project starts from a fuzzy brief',
               rationale: 'The user is still establishing the problem context',
@@ -632,7 +648,9 @@ describe('InterviewWorkspace', () => {
         type: 'data-observer-result',
         data: {
           entityIds: {
-            framing: [7],
+            goals: [],
+            terms: [],
+            contexts: [7],
             constraints: [8],
             requirements: [],
             criteria: [],
@@ -649,14 +667,16 @@ describe('InterviewWorkspace', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /constraints/i }));
     expect(await screen.findByText('Keep setup instant')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /framing/i }));
+    fireEvent.click(screen.getByRole('button', { name: /context/i }));
     expect(await screen.findByText('The project starts from a fuzzy brief')).toBeTruthy();
   });
 
   it('refetches sidebar entities when the chat stream emits mixed observer-created design entities', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -668,11 +688,13 @@ describe('InterviewWorkspace', () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          framing: [
+          goals: [],
+          terms: [],
+          contexts: [
             {
               id: 7,
               project_id: 1,
-              kind: 'framing',
+              kind: 'context',
               subtype: null,
               content: 'The first release still targets solo builders',
               rationale: 'The turn clarified the audience',
@@ -730,7 +752,9 @@ describe('InterviewWorkspace', () => {
         type: 'data-observer-result',
         data: {
           entityIds: {
-            framing: [7],
+            goals: [],
+            terms: [],
+            contexts: [7],
             constraints: [8],
             requirements: [],
             criteria: [],
@@ -750,14 +774,16 @@ describe('InterviewWorkspace', () => {
     expect(await screen.findByText('Users can work in a browser')).toBeTruthy();
     fireEvent.click(screen.getByRole('button', { name: /constraints/i }));
     expect(await screen.findByText('Do not add a plugin system yet')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /framing/i }));
+    fireEvent.click(screen.getByRole('button', { name: /context/i }));
     expect(await screen.findByText('The first release still targets solo builders')).toBeTruthy();
   });
 
   it('refetches sidebar entities when the chat stream emits observer-created requirements', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -769,7 +795,9 @@ describe('InterviewWorkspace', () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          framing: [],
+          goals: [],
+          terms: [],
+          contexts: [],
           constraints: [],
           requirements: [
             {
@@ -803,7 +831,9 @@ describe('InterviewWorkspace', () => {
         type: 'data-observer-result',
         data: {
           entityIds: {
-            framing: [],
+            goals: [],
+            terms: [],
+            contexts: [],
             constraints: [],
             requirements: [11],
             criteria: [],
@@ -825,7 +855,9 @@ describe('InterviewWorkspace', () => {
   it('refetches sidebar entities when the chat stream emits observer-created criteria', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -837,7 +869,9 @@ describe('InterviewWorkspace', () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          framing: [],
+          goals: [],
+          terms: [],
+          contexts: [],
           constraints: [],
           requirements: [],
           criteria: [
@@ -871,7 +905,9 @@ describe('InterviewWorkspace', () => {
         type: 'data-observer-result',
         data: {
           entityIds: {
-            framing: [],
+            goals: [],
+            terms: [],
+            contexts: [],
             constraints: [],
             requirements: [],
             criteria: [12],
@@ -1121,7 +1157,9 @@ describe('InterviewWorkspace', () => {
 
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],

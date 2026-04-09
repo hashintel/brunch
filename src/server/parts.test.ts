@@ -107,7 +107,9 @@ describe('assistant part round-trip', () => {
         type: 'data-observer-result',
         data: {
           entityIds: {
-            framing: [3],
+            goals: [],
+            terms: [],
+            contexts: [3],
             constraints: [4],
             requirements: [5],
             criteria: [],
@@ -129,7 +131,9 @@ describe('assistant part round-trip', () => {
         type: 'data-observer-result',
         data: {
           entityIds: {
-            framing: [7],
+            goals: [],
+            terms: [],
+            contexts: [7],
             constraints: [8],
             requirements: [11],
             criteria: [],
@@ -151,7 +155,9 @@ describe('assistant part round-trip', () => {
         type: 'data-observer-result',
         data: {
           entityIds: {
-            framing: [],
+            goals: [],
+            terms: [],
+            contexts: [],
             constraints: [],
             requirements: [11],
             criteria: [12],

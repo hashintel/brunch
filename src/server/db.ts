@@ -361,7 +361,9 @@ export interface EntityRelationship {
 }
 
 export interface EntitiesForProject {
-  framing: KnowledgeItem[];
+  goals: KnowledgeItem[];
+  terms: KnowledgeItem[];
+  contexts: KnowledgeItem[];
   constraints: KnowledgeItem[];
   requirements: KnowledgeItem[];
   criteria: KnowledgeItem[];

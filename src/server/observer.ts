@@ -23,7 +23,19 @@ import {
 
 /** Schema for observer structured output. */
 export const observerOutputSchema = z.object({
-  framing: z.array(
+  goals: z.array(
+    z.object({
+      content: z.string().min(1),
+      rationale: z.string().nullable(),
+    }),
+  ),
+  terms: z.array(
+    z.object({
+      content: z.string().min(1),
+      rationale: z.string().nullable(),
+    }),
+  ),
+  contexts: z.array(
     z.object({
       content: z.string().min(1),
       rationale: z.string().nullable(),
@@ -69,25 +81,27 @@ export type ObserverOutput = z.infer<typeof observerOutputSchema>;
 function buildObserverSystemPrompt(phase: Turn['phase']): string {
   const phaseBias =
     phase === 'scope'
-      ? `For scope-mode turns, prioritize **framing** and **constraint** items. Framing captures contextual truth, project intent, and problem context. Constraints capture boundaries on the acceptable solution space, including hard limits and non-goals. Do not force ordinary framing facts into assumptions, and do not force constraints into requirements. Leave decisions and assumptions empty unless the turn makes them genuinely explicit.`
+      ? `For scope-mode turns, prioritize **goal**, **term**, **context**, and **constraint** items. Goals capture what the project is trying to achieve. Terms capture domain language or vocabulary that needs stable meaning. Context captures situational facts, actors, workflows, and problem context. Constraints capture boundaries on the acceptable solution space, including hard limits and non-goals. Do not collapse ordinary scope material into one generic bucket, do not force context into assumptions, and do not force constraints into requirements. Leave decisions and assumptions empty unless the turn makes them genuinely explicit.`
       : phase === 'design'
-        ? `For design-mode turns, prioritize **decisions** and **assumptions**. Decisions capture explicit commitments in the design tree. Assumptions capture beliefs those commitments rely on. Still allow **framing corrections** when the turn revises project context and **constraint spillover** when it introduces a new boundary or non-goal. Do not force every boundary into a decision, and do not force every design preference into an assumption.`
+        ? `For design-mode turns, prioritize **decisions** and **assumptions**. Decisions capture explicit commitments in the design tree. Assumptions capture beliefs those commitments rely on. Still allow **goal**, **term**, **context**, and **constraint** corrections when the turn revises scope understanding. Do not force every boundary into a decision, and do not force every design preference into an assumption.`
         : phase === 'requirements'
-          ? `For requirements-mode turns, prioritize **requirement** items. Requirements capture must-do capabilities or obligations implied by the review conversation. You may still emit framing or constraints when the turn clearly revises context or introduces a new boundary, but defer **criterion** extraction until a later criteria-focused slice unless the turn truly cannot be represented without it.`
+          ? `For requirements-mode turns, prioritize **requirement** items. Requirements capture must-do capabilities or obligations implied by the review conversation. You may still emit goal, term, context, or constraint corrections when the turn clearly revises scope understanding, but defer **criterion** extraction until a later criteria-focused slice unless the turn truly cannot be represented without it.`
           : phase === 'criteria'
-            ? `For criteria-mode turns, prioritize **criterion** items. Criteria capture verifiable success conditions and concrete evidence that would prove a requirement is satisfied. Distinguish criteria from requirements: a requirement states what the system must do, while a criterion states how someone will verify that success. You may still emit framing or constraints when the turn clearly revises context or introduces a new boundary, but do not collapse a verification condition back into a requirement.`
-            : `For later-mode turns, keep the extraction grounded in explicit commitments and beliefs from the current exchange. Only emit framing or constraints when the turn clearly revises project context or introduces a new boundary rather than merely reviewing prior knowledge.`;
+            ? `For criteria-mode turns, prioritize **criterion** items. Criteria capture verifiable success conditions and concrete evidence that would prove a requirement is satisfied. Distinguish criteria from requirements: a requirement states what the system must do, while a criterion states how someone will verify that success. You may still emit goal, term, context, or constraint corrections when the turn clearly revises scope understanding, but do not collapse a verification condition back into a requirement.`
+            : `For later-mode turns, keep the extraction grounded in explicit commitments and beliefs from the current exchange. Only emit goal, term, context, or constraint items when the turn clearly revises project understanding rather than merely reviewing prior knowledge.`;
 
   return `You are an observer agent analyzing a spec elicitation interview turn.
 
-Your job is to extract framing, constraints, requirements, criteria, decisions, and assumptions from the Q&A exchange. For each turn, identify:
+Your job is to extract goals, terms, context, constraints, requirements, criteria, decisions, and assumptions from the Q&A exchange. For each turn, identify:
 
-1. **Framing** — contextual truth, project intent, or problem context that clarifies what the project is about.
-2. **Constraints** — boundaries on the acceptable solution space, including hard limits, exclusions, and non-goals. Include a subtype when useful (for example "non-goal").
-3. **Requirements** — must-do capabilities or obligations the product needs to satisfy.
-4. **Criteria** — verifiable success conditions or observable checks that prove a requirement is satisfied.
-5. **Decisions** — explicit choices the user made (e.g., "use SQLite", "support only macOS"). Include the rationale if stated.
-6. **Assumptions** — implicit or explicit beliefs underlying the decisions (e.g., "single-user tool", "users have API keys").
+1. **Goals** — desired project outcomes or what the project is trying to accomplish.
+2. **Terms** — domain terms, vocabulary, or named concepts that need stable shared meaning.
+3. **Context** — situational truth, actors, workflows, or problem context that clarifies what the project is about.
+4. **Constraints** — boundaries on the acceptable solution space, including hard limits, exclusions, and non-goals. Include a subtype when useful (for example "non-goal").
+5. **Requirements** — must-do capabilities or obligations the product needs to satisfy.
+6. **Criteria** — verifiable success conditions or observable checks that prove a requirement is satisfied.
+7. **Decisions** — explicit choices the user made (e.g., "use SQLite", "support only macOS"). Include the rationale if stated.
+8. **Assumptions** — implicit or explicit beliefs underlying the decisions (e.g., "single-user tool", "users have API keys").
 
 ${phaseBias}
 
@@ -95,10 +109,10 @@ For decisions and assumptions, identify dependency edges to previously extracted
 
 Rules:
 - Only extract entities that are NEW in this turn — do not re-extract existing entities.
-- Be precise: framing is context, a constraint is a boundary or non-goal, a requirement is a must-do capability, a criterion is a verifiable success condition, a decision is a concrete choice, and an assumption is a belief that could be wrong.
+- Be precise: a goal is an intended outcome, a term is vocabulary, context is situational truth, a constraint is a boundary or non-goal, a requirement is a must-do capability, a criterion is a verifiable success condition, a decision is a concrete choice, and an assumption is a belief that could be wrong.
 - If no new entities are evident in this turn, return empty arrays.
 - Reference parent entity IDs only when a clear dependency exists.
-- Return ONLY valid JSON matching this exact schema: { "framing": [...], "constraints": [...], "requirements": [...], "criteria": [...], "decisions": [...], "assumptions": [...] }
+- Return ONLY valid JSON matching this exact schema: { "goals": [...], "terms": [...], "contexts": [...], "constraints": [...], "requirements": [...], "criteria": [...], "decisions": [...], "assumptions": [...] }
 - Do NOT wrap the JSON in markdown code fences.`;
 }
 
@@ -130,12 +144,28 @@ export async function runObserver(db: DB, turn: Turn, projectId: number): Promis
   // Persist entities in a transaction-like sequence
   const createdEntityIds = createKnowledgeCollectionRecord(() => [] as number[]);
 
-  for (const item of parsed.framing) {
-    const framing = createKnowledgeItem(db, projectId, 'framing', item.content, {
+  for (const item of parsed.goals) {
+    const goal = createKnowledgeItem(db, projectId, 'goal', item.content, {
       rationale: item.rationale,
     });
-    linkKnowledgeItemToTurn(db, framing.id, turn.id);
-    createdEntityIds.framing.push(framing.id);
+    linkKnowledgeItemToTurn(db, goal.id, turn.id);
+    createdEntityIds.goals.push(goal.id);
+  }
+
+  for (const item of parsed.terms) {
+    const term = createKnowledgeItem(db, projectId, 'term', item.content, {
+      rationale: item.rationale,
+    });
+    linkKnowledgeItemToTurn(db, term.id, turn.id);
+    createdEntityIds.terms.push(term.id);
+  }
+
+  for (const item of parsed.contexts) {
+    const context = createKnowledgeItem(db, projectId, 'context', item.content, {
+      rationale: item.rationale,
+    });
+    linkKnowledgeItemToTurn(db, context.id, turn.id);
+    createdEntityIds.contexts.push(context.id);
   }
 
   for (const item of parsed.constraints) {

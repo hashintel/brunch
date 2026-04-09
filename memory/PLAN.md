@@ -136,40 +136,57 @@
    - **Observed current state (2026-04-08, slice 7):** scope-mode interviewer turns can now persist explicit `phase_outcome` proposal records in a dedicated readiness table, stream/persist typed `data-phase-summary` artifacts, confirm those proposals through typed `data-confirmation` chat parts, project workflow state from the active path, and supersede outcomes when their proposal turn leaves the active path. The workspace header now shows scope status, suppresses the normal prompt while a closure proposal is pending, and renders a dedicated confirmation card wired to the chat seam.
    - **Verification approach**: inner — schema + DB/core/parts tests for explicit phase-outcome proposal/confirmation contracts and lifecycle. Middle — round-trip + model-based lifecycle oracles prove submit → persistence → reload → workspace projection and supersession on upstream branch changes. Outer — manual closure/confirmation walkthrough deferred until after 7a.
 
-7a. **Knowledge-layer redesign spike (ontology + graph + workspace direction)** — Retire the current `framing` umbrella and mixed legacy/generic storage risk by specifying the canonical knowledge ontology, cross-kind graph model, and non-sidebar-first review surface before design/review modes harden today's transitional semantics. `not-started`
+7a. **Knowledge-layer redesign spike (ontology + graph + workspace direction)** — Retire the current `framing` umbrella and mixed legacy/generic storage risk by specifying the canonical knowledge ontology, cross-kind graph model, and non-sidebar-first review surface before design/review modes harden today's transitional semantics. `done`
    - Requirements: → SPEC.md §Requirements #5, #6, #11, #12, #13
    - Assumptions: → SPEC.md §Assumptions A14, A15
-   - Decisions: → SPEC.md §Decisions D5, D17, D59, D61, D62, D63, D64
+   - Decisions: → SPEC.md §Decisions D5, D17, D59, D61, D62, D63, D64, D67, D68, D69
    - Candidate invariant goals: later Phase 5/6 slices can treat the knowledge layer as one coherent semantic model rather than a provisional migration seam
    - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I68
    - Acceptance: produce an approved target model for canonical kinds, cross-kind edges, storage direction, and knowledge-workspace boundaries, plus a migration path that keeps slice 7 valid while gating slices 8–10 and 12 on the redesign
+   - **Observed current state (2026-04-09, spike verdict):** the canonical durable ontology should be `goal`, `term`, `context`, `constraint`, `assumption`, `decision`, `requirement`, and `criterion`; `framing` is demoted to a migration-only intake alias rather than a final stored kind. The long-term storage direction is one generic knowledge-item/readiness model plus one generic cross-kind edge model, with a compatibility projection that preserves slice 7's `phase_outcome` closure mechanics by summarizing a scope bundle over canonical kinds and any unmigrated legacy `framing` rows. The primary review UX should be a dedicated knowledge workspace with phase-oriented list/detail review; the sidebar remains summary/navigation, not the main review surface.
+   - **Recommendation:** land a canonical knowledge foundation slice before design/review mode work so the migration seam is explicit rather than hidden inside slice 8.
    - **Verification approach**: inner — concrete model examples and seam inventory reviewed against SPEC lexicon/decisions. Outer — design review over representative knowledge items and graph relationships to prove the ontology is discriminable and useful.
 
-8. **Design mode (commitment / exploration)** — Implement the second workflow mode on the new turn and redesigned knowledge model. The interviewer walks design forks; the observer captures decisions, assumptions, new constraints, and emerging requirements. `not-started`
+7b. **Canonical knowledge model foundation + cutover seam** — Introduce canonical `goal` / `term` / `context` kinds, unify durable knowledge storage and cross-kind edges behind the generic seam, and preserve slice 7 coherence through the smallest necessary compatibility projection rather than migration-hardening legacy scratch data. `in-progress`
+   - Requirements: → SPEC.md §Requirements #5, #6, #7, #11, #12, #13
+   - Assumptions: → SPEC.md §Assumptions A14, A40, A41
+   - Decisions: → SPEC.md §Decisions D5, D17, D49, D51, D52, D53, D54, D59, D61, D62, D63, D67, D68, D69
+   - Candidate invariant goals: canonical knowledge writes/readiness coexist with scope closure during cutover; no new Phase 5/6 slice depends on durable `framing`
+   - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I68, I72
+   - Invariants established: → SPEC.md §Invariants I74, I75, I76
+   - Acceptance: schema/registry/context/API can represent all eight canonical kinds plus generic cross-kind edges; scope closure still reads a coherent scope bundle; no new writes rely on durable `framing` or decision/assumption-only edge semantics; destructive schema reset remains acceptable
+   - **Observed current state (2026-04-09, tracer bullet 7b.1):** the shared knowledge registry, observer-result payload schema, scope-mode observer output, entities API, workspace entity state, and sidebar tabs now use canonical `goal` / `term` / `context` / `constraint` collections on a clean DB rather than durable `framing` rows. Design-mode observer prompting still biases toward legacy `decision` / `assumption` extraction while allowing canonical scope-kind corrections, and the explicit slice-7 `phase_outcome` readiness seam remains intact.
+   - **Verification approach**: inner — schema/registry/core/API tests for canonical kinds, generic edges, and the minimal scope-closure compatibility projection. Middle — workspace/entity projection tests for canonical scope kinds on a clean DB. Outer — manual inspection of a representative project's scope bundle and carry-forward into the next mode.
+   - Tracer bullets:
+     - `7b.1` Canonical scope kinds through the generic seam. `done`
+     - `7b.2` Cross-kind edge/storage cutover beyond legacy decision/assumption tables. `not-started`
+     - `7b.3` Explicit scope-bundle/readiness projection over canonical kinds. `not-started`
+
+8. **Design mode (commitment / exploration)** — Implement the second workflow mode on the new turn and canonical knowledge model after 7b lands. The interviewer walks design forks; the observer captures decisions, assumptions, new constraints, and emerging requirements against the unified knowledge seam. `not-started`
    - Requirements: → SPEC.md §Requirements #2, #3, #5, #6
-   - Assumptions: → SPEC.md §Assumptions A14, A15, A28
-   - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62
-   - Candidate invariant goals: mode transition preserves interview continuity; design-mode turns produce coherent decision/assumption graph growth on the redesigned knowledge seam
+   - Assumptions: → SPEC.md §Assumptions A14, A15, A28, A40
+   - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62, D67, D68
+   - Candidate invariant goals: mode transition preserves interview continuity; design-mode turns produce coherent decision/assumption graph growth on the canonical knowledge seam
    - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I22
-   - Acceptance: after confirmed scope closure and the knowledge-layer redesign spike, the interview enters design mode; design turns yield coherent commitments and assumptions and can propose design closure
+   - Acceptance: after confirmed scope closure and slice 7b, the interview enters design mode; design turns yield coherent commitments and assumptions on the canonical knowledge layer and can propose design closure
    - **Verification approach**: inner — mode-transition/controller tests. Outer — manual design walkthrough from a confirmed scope session.
 
-9. **Requirements-review mode** — Synthesize the requirement set from the full knowledge layer, then let the user approve, edit, merge, reject, and add requirements through review turns. This slice assumes the redesigned knowledge ontology/graph, not the current transitional `framing` seam. `not-started`
+9. **Requirements-review mode** — Synthesize the requirement set from the full canonical knowledge layer, then let the user approve, edit, merge, reject, and add requirements through review turns. This slice assumes the redesigned ontology/graph from 7a + 7b, not the current transitional `framing` seam. `not-started`
    - Requirements: → SPEC.md §Requirements #6, #11, #13
-   - Assumptions: → SPEC.md §Assumptions A15, A28
-   - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62
+   - Assumptions: → SPEC.md §Assumptions A15, A28, A40
+   - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62, D67, D68, D69
    - Candidate invariant goals: requirements are capture-anytime but review-complete only through explicit review state
    - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I24
-   - Acceptance: requirements-review mode presents a synthesized requirement set, records explicit approval/edit state, and can close only when in-scope requirements are resolved
+   - Acceptance: requirements-review mode presents a synthesized requirement set from canonical knowledge items, records explicit approval/edit state, and can close only when in-scope requirements are resolved
    - **Verification approach**: inner — review-state lifecycle tests. Outer — manual requirement review with approvals, edits, and missing-item additions.
 
-10. **Criteria-review mode** — Synthesize verification conditions from approved requirements plus any earlier criteria-like signals, then drive review turns until coverage is complete. This slice assumes the redesigned knowledge ontology/graph, not the current transitional `framing` seam. `not-started`
+10. **Criteria-review mode** — Synthesize verification conditions from approved requirements plus any earlier criteria-like signals, then drive review turns until coverage is complete. This slice assumes the redesigned ontology/graph from 7a + 7b, not the current transitional `framing` seam. `not-started`
      - Requirements: → SPEC.md §Requirements #6, #12, #13
-     - Assumptions: → SPEC.md §Assumptions A15, A28
-     - Decisions: → SPEC.md §Decisions D2, D5, D6, D17, D61, D62
+     - Assumptions: → SPEC.md §Assumptions A15, A28, A40
+     - Decisions: → SPEC.md §Decisions D2, D5, D6, D17, D61, D62, D67, D68, D69
      - Candidate invariant goals: criteria verify requirements explicitly and track review completeness separately from requirement state
      - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I24
-     - Acceptance: criteria-review mode presents synthesized criteria, records explicit review state, and can close only when approved requirements have sufficient verification coverage
+     - Acceptance: criteria-review mode presents synthesized criteria from the canonical knowledge layer, records explicit review state, and can close only when approved requirements have sufficient verification coverage
      - **Verification approach**: inner — criterion/review edge tests. Outer — manual criteria review with edits and coverage checks.
 
 ## Phase 6: Readiness Surfaces + Export
@@ -190,13 +207,13 @@
      - Acceptance: the project list shows each project's workflow completion/status from persisted readiness artifacts and updates correctly after refresh/resume
      - **Verification approach**: inner — readiness-summary projection tests plus project-list route/component tests. Outer — manual multi-project walkthrough covering incomplete, review-stale, and export-ready states.
 
-12. **Knowledge workspace review surface + lifecycle API** — CRUD/review endpoints for the broader knowledge layer plus a fit-for-purpose workspace for inspecting, editing, and reviewing graph-shaped knowledge. The sidebar may remain a summary/navigation view, but the primary interaction model should no longer assume a narrow tab strip. This slice assumes the redesigned knowledge ontology/graph from 7a. `not-started`
+12. **Knowledge workspace review surface + lifecycle API** — CRUD/review endpoints for the broader knowledge layer plus a fit-for-purpose workspace for inspecting, editing, and reviewing graph-shaped knowledge. The sidebar may remain a summary/navigation view, but the primary interaction model should no longer assume a narrow tab strip. This slice assumes the redesigned knowledge ontology/graph from 7a + 7b. `not-started`
      - Requirements: → SPEC.md §Requirements #6, #11, #12, #13
-     - Assumptions: → SPEC.md §Assumptions A14
-     - Decisions: → SPEC.md §Decisions D5, D17, D61, D63
+     - Assumptions: → SPEC.md §Assumptions A14, A40
+     - Decisions: → SPEC.md §Decisions D5, D17, D61, D63, D67, D68, D69
      - Candidate invariant goals: review/edit actions are reflected in both knowledge state and readiness state; the knowledge workspace can present graph relationships and review actions without lossy sidebar compression
      - Invariants to respect: → SPEC.md §Invariants I23, I36, I41, I42
-     - Acceptance: inspect and review/edit canonical knowledge items from a dedicated workspace surface; affected readiness updates visibly and persists across refresh/resume; dependency context remains legible during those actions
+     - Acceptance: inspect and review/edit canonical knowledge items from a dedicated phase-oriented workspace surface; affected readiness updates visibly and persist across refresh/resume; dependency/provenance context remains legible during those actions
      - **Verification approach**: inner — mutation + projection tests. Outer — manual knowledge-workspace review/edit walkthrough.
 
 13. **Spec export from the reviewed knowledge layer** — Render markdown export from active-path, reviewed knowledge items and explicit phase outcomes. Export is enabled only when the new readiness predicate is satisfied. `not-started`
@@ -265,13 +282,13 @@ Phase 4:  6b ──→ 6b1 (workspace oracle) ──→ 6c (live streaming fix)
           6d ──→ 6e (generic knowledge layer)
           6e ──→ 6f (phase-aware observer)
 Phase 5:  6f ──┬──→ 7 (explicit phase outcomes + scope closure)
-                └──→ 7a (knowledge-layer redesign spike)
+                └──→ 7a (knowledge-layer redesign spike) ──→ 7b (canonical knowledge foundation)
           7 ────┐
-          7a ───┴──→ 8 (design mode) ──→ 9 (requirements-review) ──→ 10 (criteria-review)
+          7b ───┴──→ 8 (design mode) ──→ 9 (requirements-review) ──→ 10 (criteria-review)
 Phase 6:  7 ──┐
           9 ──┼──→ 11a (project dashboard workflow status)
           10 ─┘
-          7a ──→ 12 (knowledge workspace review surface + lifecycle API)
+          7b ──→ 12 (knowledge workspace review surface + lifecycle API)
           9  ──→ 12
           10 ──→ 13 (export)
 Phase 7:  13 ──→ 14 (npx + CLI)
@@ -281,7 +298,8 @@ Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
 ### Parallelism opportunities
 
 - 7 (explicit phase outcomes + scope closure) and 7a (knowledge-layer redesign spike) can proceed in parallel: 7 establishes workflow closure mechanics, while 7a retires the ontology/graph/workspace risk that would otherwise leak into later mode and review slices.
+- 7b (canonical knowledge model foundation + migration seam) follows 7a and should land before 8 and 12; it is the first implementation slice on the spike verdict.
 - 11a (project dashboard workflow status) can begin once the readiness artifacts from 7/9/10 exist; it does not need the broader knowledge workspace to surface durable project status.
-- 12 (knowledge workspace review surface + lifecycle API) and 13 (export) can proceed in parallel once 7a and the requirements/criteria review artifacts stabilize, because the first reviewed export path does not require the full knowledge workspace to land first.
+- 12 (knowledge workspace review surface + lifecycle API) and 13 (export) can proceed in parallel once 7b and the requirements/criteria review artifacts stabilize, because the first reviewed export path does not require the full knowledge workspace to land first.
 - 14 (npx) can start early with a basic launcher, completing after slice 13 when the new export predicate stabilizes.
 - 15 (drizzle-kit audit remediation) should wait until 14 lands, so packaging/distribution regressions can be judged on the real shipped path instead of the current dev-only setup.

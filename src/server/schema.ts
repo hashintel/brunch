@@ -116,7 +116,7 @@ export const knowledgeItem = sqliteTable('knowledge_item', {
     .notNull()
     .references(() => project.id),
   kind: text({
-    enum: ['framing', 'constraint', 'decision', 'assumption', 'requirement', 'criterion'],
+    enum: ['goal', 'term', 'context', 'constraint', 'decision', 'assumption', 'requirement', 'criterion'],
   }).notNull(),
   subtype: text(),
   content: text().notNull(),

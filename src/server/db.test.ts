@@ -514,9 +514,30 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     expect(entities.assumptions[0].content).toBe('Users have API keys');
   });
 
-  it('persists remaining generic knowledge kinds with project linkage, metadata, and turn provenance', () => {
+  it('persists canonical scope kinds plus later generic knowledge kinds with project linkage, metadata, and turn provenance', () => {
     const project = createProject(db, 'Test');
     const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const goal = createKnowledgeItem(
+      db,
+      project.id,
+      'goal',
+      'Help teams reach a clean implementation brief',
+      {
+        rationale: 'The project should produce a trustworthy handoff',
+      },
+    );
+    const term = createKnowledgeItem(db, project.id, 'term', 'implementation brief', {
+      rationale: 'The conversation introduced a named artifact that needs stable meaning',
+    });
+    const context = createKnowledgeItem(
+      db,
+      project.id,
+      'context',
+      'The first users are solo builders refining ideas',
+      {
+        rationale: 'Audience and workflow context shape the scope',
+      },
+    );
     const constraint = createKnowledgeItem(db, project.id, 'constraint', 'Must run locally', {
       subtype: 'non-goal',
       rationale: 'Keep setup instant',
@@ -528,11 +549,38 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
       subtype: 'acceptance',
       rationale: 'Protects the persistence seam',
     });
+    linkKnowledgeItemToTurn(db, goal.id, turn.id);
+    linkKnowledgeItemToTurn(db, term.id, turn.id);
+    linkKnowledgeItemToTurn(db, context.id, turn.id);
     linkKnowledgeItemToTurn(db, constraint.id, turn.id);
     linkKnowledgeItemToTurn(db, requirement.id, turn.id);
     linkKnowledgeItemToTurn(db, criterion.id, turn.id);
 
     const entities = getEntitiesForProject(db, project.id);
+    expect(entities.goals).toEqual([
+      expect.objectContaining({
+        project_id: project.id,
+        kind: 'goal',
+        content: 'Help teams reach a clean implementation brief',
+        rationale: 'The project should produce a trustworthy handoff',
+      }),
+    ]);
+    expect(entities.terms).toEqual([
+      expect.objectContaining({
+        project_id: project.id,
+        kind: 'term',
+        content: 'implementation brief',
+        rationale: 'The conversation introduced a named artifact that needs stable meaning',
+      }),
+    ]);
+    expect(entities.contexts).toEqual([
+      expect.objectContaining({
+        project_id: project.id,
+        kind: 'context',
+        content: 'The first users are solo builders refining ideas',
+        rationale: 'Audience and workflow context shape the scope',
+      }),
+    ]);
     expect(entities.constraints).toEqual([
       expect.objectContaining({
         project_id: project.id,
@@ -564,7 +612,14 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     const provenanceRows = db.$client
       .prepare('SELECT relation FROM turn_knowledge_item WHERE turn_id = ? ORDER BY item_id')
       .all(turn.id) as Array<{ relation: string }>;
-    expect(provenanceRows.map((row) => row.relation)).toEqual(['captured', 'captured', 'captured']);
+    expect(provenanceRows.map((row) => row.relation)).toEqual([
+      'captured',
+      'captured',
+      'captured',
+      'captured',
+      'captured',
+      'captured',
+    ]);
   });
 
   it('creates dependency edges between decisions', () => {

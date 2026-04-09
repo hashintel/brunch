@@ -45,7 +45,9 @@ export interface ObserverContextInput {
   turn: TurnWithOptions;
   activePathSummary: string;
   entities: {
-    framing: Array<{ id: number; content: string }>;
+    goals: Array<{ id: number; content: string }>;
+    terms: Array<{ id: number; content: string }>;
+    contexts: Array<{ id: number; content: string }>;
     constraints: Array<{ id: number; content: string }>;
     requirements: Array<{ id: number; content: string }>;
     criteria: Array<{ id: number; content: string }>;

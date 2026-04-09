@@ -21,7 +21,9 @@ export interface WorkspaceDurableProjectState {
 }
 
 export interface WorkspaceDurableEntityState {
-  framing: EntitiesData['framing'];
+  goals: EntitiesData['goals'];
+  terms: EntitiesData['terms'];
+  contexts: EntitiesData['contexts'];
   constraints: EntitiesData['constraints'];
   requirements: EntitiesData['requirements'];
   criteria: EntitiesData['criteria'];
@@ -179,7 +181,9 @@ export function createWorkspaceDurableEntityState(
   isLoading: boolean,
 ): WorkspaceDurableEntityState {
   return {
-    framing: queryData?.framing ?? entitySnapshot.framing,
+    goals: queryData?.goals ?? entitySnapshot.goals,
+    terms: queryData?.terms ?? entitySnapshot.terms,
+    contexts: queryData?.contexts ?? entitySnapshot.contexts,
     constraints: queryData?.constraints ?? entitySnapshot.constraints,
     requirements: queryData?.requirements ?? entitySnapshot.requirements,
     criteria: queryData?.criteria ?? entitySnapshot.criteria,
