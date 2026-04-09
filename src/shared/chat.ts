@@ -2,6 +2,7 @@ import { tool, type UIMessage, type UIMessagePart, type UITools } from 'ai';
 import * as z from 'zod/v4';
 
 import { createKnowledgeCollectionRecord } from './knowledge.js';
+import { dataConfirmationSchema, workflowPhaseSchema, type DataConfirmation } from './phase-close.js';
 
 export const structuredQuestionSchema = z.object({
   question: z.string().min(1),
@@ -43,60 +44,30 @@ export const dataTurnResponseSchema = z
     }
   });
 
-export const dataConfirmationSchema = z
-  .object({
-    turnId: z.number().optional(),
-    phase: z.enum(['scope', 'design', 'requirements', 'criteria']).optional(),
-    confirmed: z.boolean(),
-    closureBasis: z.enum(['interviewer_recommended', 'user_forced']).optional(),
-  })
-  .superRefine((value, ctx) => {
-    const closureBasis =
-      value.closureBasis ?? (value.turnId !== undefined ? 'interviewer_recommended' : undefined);
-
-    if (closureBasis === 'user_forced') {
-      if (!value.phase) {
-        ctx.addIssue({
-          code: 'custom',
-          message: 'phase is required for a user-forced phase close',
-          path: ['phase'],
-        });
-      }
-      return;
-    }
-
-    if (value.turnId === undefined) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'turnId is required for interviewer-recommended confirmations',
-        path: ['turnId'],
-      });
-    }
-  });
-
 export const dataPhaseSummarySchema = z.object({
   turnId: z.number(),
-  phase: z.enum(['scope', 'design', 'requirements', 'criteria']),
+  phase: workflowPhaseSchema,
   summary: z.string(),
 });
 
 export const phaseClosureProposalSchema = z.object({
-  phase: z.enum(['scope', 'design', 'requirements', 'criteria']),
+  phase: workflowPhaseSchema,
   summary: z.string().min(1),
 });
 
 export const proposePhaseClosureToolOutputSchema = z.object({
   ok: z.literal(true),
   turnId: z.number(),
-  phase: z.enum(['scope', 'design', 'requirements', 'criteria']),
+  phase: workflowPhaseSchema,
 });
 
+export { dataConfirmationSchema };
 export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
 export type ObserverEntityIds = ObserverResultData['entityIds'];
 export type DataTurnResponse = z.infer<typeof dataTurnResponseSchema>;
-export type DataConfirmation = z.infer<typeof dataConfirmationSchema>;
+export type { DataConfirmation };
 export type DataPhaseSummary = z.infer<typeof dataPhaseSummarySchema>;
 export type PhaseClosureProposal = z.infer<typeof phaseClosureProposalSchema>;
 export type ProposePhaseClosureToolOutput = z.infer<typeof proposePhaseClosureToolOutputSchema>;

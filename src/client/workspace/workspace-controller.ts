@@ -7,6 +7,10 @@ import { useSubmitTurnResponseMutation } from '@/mutations/workspace-mutations';
 
 import type { ProjectStateTurn } from '../../shared/api-types.js';
 import { brunchDataPartSchemas, type BrunchUIMessage } from '../../shared/chat.js';
+import {
+  createForcedPhaseClosureConfirmation,
+  createRecommendedPhaseClosureConfirmation,
+} from '../../shared/phase-close.js';
 import { useChatHydrationBoundary } from './chat-hydration.js';
 import {
   createWorkspaceControllerViewState,
@@ -114,7 +118,7 @@ export function useWorkspaceController(): WorkspaceController {
           { type: 'text', text: `Confirm ${phase} closure` },
           {
             type: 'data-confirmation',
-            data: { turnId, phase, confirmed: true, closureBasis: 'interviewer_recommended' },
+            data: createRecommendedPhaseClosureConfirmation(phase, turnId),
           },
         ],
       });
@@ -133,7 +137,7 @@ export function useWorkspaceController(): WorkspaceController {
           { type: 'text', text: `Force ${phase} closure` },
           {
             type: 'data-confirmation',
-            data: { phase, confirmed: true, closureBasis: 'user_forced' },
+            data: createForcedPhaseClosureConfirmation(phase),
           },
         ],
       });

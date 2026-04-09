@@ -13,6 +13,7 @@ import {
   type BrunchUIMessage,
   type BrunchUserPart,
 } from '../shared/chat.js';
+import { parsePhaseClosureCommand } from '../shared/phase-close.js';
 import {
   extractPrompt,
   finalizeTurn,
@@ -177,6 +178,7 @@ export function createApp(dbPath?: string) {
       (part): part is Extract<BrunchUserPart, { type: 'data-confirmation' }> =>
         part.type === 'data-confirmation',
     );
+    const phaseClosureCommand = confirmationPart ? parsePhaseClosureCommand(confirmationPart.data) : null;
 
     if (!prompt.trim() && !confirmationPart) {
       res.status(400).json({ error: 'message content is required' });
@@ -189,10 +191,11 @@ export function createApp(dbPath?: string) {
     }
 
     const forceClosePhase =
-      confirmationPart?.data.closureBasis === 'user_forced' ? confirmationPart.data.phase : undefined;
-    const confirmationTarget = confirmationPart?.data.turnId
-      ? findProposedPhaseOutcomeByTurn(db, id, confirmationPart.data.turnId)
-      : undefined;
+      phaseClosureCommand?.kind === 'force-close-active-phase' ? phaseClosureCommand.phase : undefined;
+    const confirmationTarget =
+      phaseClosureCommand?.kind === 'confirm-proposed-phase-closure'
+        ? findProposedPhaseOutcomeByTurn(db, id, phaseClosureCommand.proposalTurnId)
+        : undefined;
 
     if (forceClosePhase) {
       if (forceClosePhase !== 'design') {

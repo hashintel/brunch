@@ -10,6 +10,7 @@ import {
   type KnowledgeEntityCollection,
   type KnowledgeKind as SharedKnowledgeKind,
 } from '../shared/knowledge.js';
+import { parsePhaseClosureCommand } from '../shared/phase-close.js';
 import { safeDeserializeUserParts, type DataConfirmationPart } from './parts.js';
 import * as schema from './schema.js';
 
@@ -331,8 +332,9 @@ function getClosureBasisForOutcome(db: DB, outcome: PhaseOutcome | undefined): C
   const confirmationPart = safeDeserializeUserParts(confirmationTurn?.user_parts).find(
     (part): part is DataConfirmationPart => part.type === 'data-confirmation',
   );
+  const phaseClosureCommand = confirmationPart ? parsePhaseClosureCommand(confirmationPart.data) : null;
 
-  return confirmationPart?.data.closureBasis ?? 'interviewer_recommended';
+  return phaseClosureCommand?.closureBasis ?? 'interviewer_recommended';
 }
 
 export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowState {
