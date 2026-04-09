@@ -167,6 +167,20 @@ export const turnKnowledgeItem = sqliteTable(
   (table) => [primaryKey({ columns: [table.turn_id, table.item_id, table.relation] })],
 );
 
+export const knowledgeEdge = sqliteTable(
+  'knowledge_edge',
+  {
+    from_item_id: integer()
+      .notNull()
+      .references(() => knowledgeItem.id),
+    to_item_id: integer()
+      .notNull()
+      .references(() => knowledgeItem.id),
+    relation: text({ enum: ['depends_on', 'derived_from', 'constrains', 'verifies', 'refines'] }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.from_item_id, table.to_item_id, table.relation] })],
+);
+
 export const decisionParentDecision = sqliteTable(
   'decision_parent_decision',
   {

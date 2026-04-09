@@ -182,7 +182,7 @@ describe('runObserver', () => {
     );
   });
 
-  it('persists design-mode decisions and assumptions with legacy edges while allowing scope-kind/constraint spillover', async () => {
+  it('persists design-mode decisions and assumptions through the generic seam while allowing scope-kind/constraint spillover', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -207,21 +207,21 @@ describe('runObserver', () => {
             content: 'Start with the web app',
             rationale: 'It is the fastest path to user feedback',
             parentDecisionIds: [1],
-            parentAssumptionIds: [1],
+            parentAssumptionIds: [2],
           },
         ],
         assumptions: [
           {
             content: 'Users already have browsers available',
-            parentAssumptionIds: [1],
+            parentAssumptionIds: [2],
           },
         ],
       },
     });
 
     const project = createProject(db, 'Spec');
-    createDecision(db, project.id, 'Keep the first release browser-based');
-    createAssumption(db, project.id, 'Users can work in a browser');
+    const existingDecision = createDecision(db, project.id, 'Keep the first release browser-based');
+    const existingAssumption = createAssumption(db, project.id, 'Users can work in a browser');
     const turn = createTurn(db, project.id, {
       phase: 'design',
       question: 'Which delivery surface should we commit to first?',
@@ -231,16 +231,19 @@ describe('runObserver', () => {
     const entityIds = await runObserver(db, turn, project.id);
     const entities = getEntitiesForProject(db, project.id);
 
-    expect(entityIds).toEqual({
-      goals: [],
-      terms: [],
-      contexts: [1],
-      constraints: [2],
-      requirements: [],
-      criteria: [],
-      decisions: [2],
-      assumptions: [2],
-    });
+    expect(entityIds.goals).toEqual([]);
+    expect(entityIds.terms).toEqual([]);
+    expect(entityIds.requirements).toEqual([]);
+    expect(entityIds.criteria).toEqual([]);
+    expect(entityIds.contexts).toHaveLength(1);
+    expect(entityIds.constraints).toHaveLength(1);
+    expect(entityIds.decisions).toHaveLength(1);
+    expect(entityIds.assumptions).toHaveLength(1);
+
+    const [newContextId] = entityIds.contexts;
+    const [newConstraintId] = entityIds.constraints;
+    const [newDecisionId] = entityIds.decisions;
+    const [newAssumptionId] = entityIds.assumptions;
     expect(entities.contexts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -259,7 +262,7 @@ describe('runObserver', () => {
     expect(entities.decisions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          id: 2,
+          id: newDecisionId,
           content: 'Start with the web app',
           rationale: 'It is the fastest path to user feedback',
         }),
@@ -268,7 +271,7 @@ describe('runObserver', () => {
     expect(entities.assumptions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          id: 2,
+          id: newAssumptionId,
           content: 'Users already have browsers available',
         }),
       ]),
@@ -277,20 +280,27 @@ describe('runObserver', () => {
       expect.arrayContaining([
         {
           type: 'depends_on',
-          source: { collection: 'decision', kind: 'decision', id: 2 },
-          target: { collection: 'decision', kind: 'decision', id: 1 },
+          source: { collection: 'decision', kind: 'decision', id: newDecisionId },
+          target: { collection: 'decision', kind: 'decision', id: existingDecision.id },
         },
         {
           type: 'depends_on',
-          source: { collection: 'decision', kind: 'decision', id: 2 },
-          target: { collection: 'assumption', kind: 'assumption', id: 1 },
+          source: { collection: 'decision', kind: 'decision', id: newDecisionId },
+          target: { collection: 'assumption', kind: 'assumption', id: existingAssumption.id },
         },
         {
           type: 'depends_on',
-          source: { collection: 'assumption', kind: 'assumption', id: 2 },
-          target: { collection: 'assumption', kind: 'assumption', id: 1 },
+          source: { collection: 'assumption', kind: 'assumption', id: newAssumptionId },
+          target: { collection: 'assumption', kind: 'assumption', id: existingAssumption.id },
         },
       ]),
+    );
+
+    expect(entities.contexts).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: newContextId })]),
+    );
+    expect(entities.constraints).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: newConstraintId })]),
     );
   });
 

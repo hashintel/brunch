@@ -337,8 +337,15 @@ describe('POST /api/projects/:id/chat', () => {
     ]);
   });
 
-  it('emits mixed observer results and persists legacy-plus-generic entities through the entities API', async () => {
+  it('emits mixed observer results and persists generic design entities through the entities API', async () => {
     const projectId = await createTestProject();
+    let createdIds: {
+      context: number;
+      constraint: number;
+      assumption: number;
+      decision: number;
+    } | null = null;
+
     mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
       const {
         createKnowledgeItem,
@@ -380,6 +387,12 @@ describe('POST /api/projects/:id/chat', () => {
       linkKnowledgeItemToTurn(dbArg as DB, constraint.id, (turnArg as { id: number }).id);
       linkAssumptionToTurn(dbArg as DB, assumption.id, (turnArg as { id: number }).id);
       linkDecisionToTurn(dbArg as DB, decision.id, (turnArg as { id: number }).id);
+      createdIds = {
+        context: framing.id,
+        constraint: constraint.id,
+        assumption: assumption.id,
+        decision: decision.id,
+      };
       return {
         goals: [],
         terms: [],
@@ -402,18 +415,19 @@ describe('POST /api/projects/:id/chat', () => {
     const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
     const observerEvent = events.find((event) => event.type === 'data-observer-result');
 
+    expect(createdIds).not.toBeNull();
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
       data: {
         entityIds: {
           goals: [],
           terms: [],
-          contexts: [1],
-          constraints: [2],
+          contexts: [createdIds!.context],
+          constraints: [createdIds!.constraint],
           requirements: [],
           criteria: [],
-          decisions: [1],
-          assumptions: [1],
+          decisions: [createdIds!.decision],
+          assumptions: [createdIds!.assumption],
         },
       },
     });
@@ -421,7 +435,7 @@ describe('POST /api/projects/:id/chat', () => {
     const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
     expect(entitiesRes.body.contexts).toEqual([
       {
-        id: 1,
+        id: createdIds!.context,
         project_id: projectId,
         kind: 'context',
         subtype: null,
@@ -431,7 +445,7 @@ describe('POST /api/projects/:id/chat', () => {
     ]);
     expect(entitiesRes.body.constraints).toEqual([
       {
-        id: 2,
+        id: createdIds!.constraint,
         project_id: projectId,
         kind: 'constraint',
         subtype: 'non-goal',
@@ -441,7 +455,7 @@ describe('POST /api/projects/:id/chat', () => {
     ]);
     expect(entitiesRes.body.decisions).toEqual([
       {
-        id: 1,
+        id: createdIds!.decision,
         project_id: projectId,
         content: 'Start with the web app',
         rationale: 'It is the fastest path to feedback',
@@ -449,7 +463,7 @@ describe('POST /api/projects/:id/chat', () => {
     ]);
     expect(entitiesRes.body.assumptions).toEqual([
       {
-        id: 1,
+        id: createdIds!.assumption,
         project_id: projectId,
         content: 'Users can work in a browser',
       },
@@ -457,8 +471,8 @@ describe('POST /api/projects/:id/chat', () => {
     expect(entitiesRes.body.relationships).toEqual([
       {
         type: 'depends_on',
-        source: { collection: 'decision', kind: 'decision', id: 1 },
-        target: { collection: 'assumption', kind: 'assumption', id: 1 },
+        source: { collection: 'decision', kind: 'decision', id: createdIds!.decision },
+        target: { collection: 'assumption', kind: 'assumption', id: createdIds!.assumption },
       },
     ]);
   });

@@ -340,13 +340,24 @@ export function advanceHead(db: DB, projectId: number, turnId: number): void {
   reconcilePhaseOutcomesForProject(db, projectId);
 }
 
-// --- Entity persistence (legacy decisions/assumptions + generic knowledge items) ---
+// --- Entity persistence (generic knowledge items + compatibility projections) ---
 
-export type Decision = InferSelectModel<typeof schema.decision>;
-export type Assumption = InferSelectModel<typeof schema.assumption>;
 export type KnowledgeItem = InferSelectModel<typeof schema.knowledgeItem>;
 export type KnowledgeKind = Extract<KnowledgeItem['kind'], SharedKnowledgeKind>;
 export type EntityCollection = KnowledgeEntityCollection;
+
+export interface Decision {
+  id: number;
+  project_id: number;
+  content: string;
+  rationale: string | null;
+}
+
+export interface Assumption {
+  id: number;
+  project_id: number;
+  content: string;
+}
 
 export interface EntityReference {
   collection: EntityCollection;
@@ -372,33 +383,66 @@ export interface EntitiesForProject {
   relationships: EntityRelationship[];
 }
 
+function toDecision(item: KnowledgeItem): Decision {
+  return {
+    id: item.id,
+    project_id: item.project_id,
+    content: item.content,
+    rationale: item.rationale,
+  };
+}
+
+function toAssumption(item: KnowledgeItem): Assumption {
+  return {
+    id: item.id,
+    project_id: item.project_id,
+    content: item.content,
+  };
+}
+
 export function createDecision(
   db: DB,
   projectId: number,
   content: string,
   rationale?: string | null,
 ): Decision {
-  return db
-    .insert(schema.decision)
-    .values({ project_id: projectId, content, rationale: rationale ?? null })
-    .returning()
-    .get() as Decision;
+  return toDecision(
+    db
+      .insert(schema.knowledgeItem)
+      .values({
+        project_id: projectId,
+        kind: 'decision',
+        subtype: null,
+        content,
+        rationale: rationale ?? null,
+      })
+      .returning()
+      .get() as KnowledgeItem,
+  );
 }
 
 export function createAssumption(db: DB, projectId: number, content: string): Assumption {
-  return db
-    .insert(schema.assumption)
-    .values({ project_id: projectId, content })
-    .returning()
-    .get() as Assumption;
+  return toAssumption(
+    db
+      .insert(schema.knowledgeItem)
+      .values({
+        project_id: projectId,
+        kind: 'assumption',
+        subtype: null,
+        content,
+        rationale: null,
+      })
+      .returning()
+      .get() as KnowledgeItem,
+  );
 }
 
 export function linkDecisionToTurn(db: DB, decisionId: number, turnId: number): void {
-  db.insert(schema.turnDecision).values({ turn_id: turnId, decision_id: decisionId }).run();
+  linkKnowledgeItemToTurn(db, decisionId, turnId);
 }
 
 export function linkAssumptionToTurn(db: DB, assumptionId: number, turnId: number): void {
-  db.insert(schema.turnAssumption).values({ turn_id: turnId, assumption_id: assumptionId }).run();
+  linkKnowledgeItemToTurn(db, assumptionId, turnId);
 }
 
 export function createKnowledgeItem(
@@ -430,16 +474,21 @@ export function linkKnowledgeItemToTurn(
   db.insert(schema.turnKnowledgeItem).values({ turn_id: turnId, item_id: itemId, relation }).run();
 }
 
+function addKnowledgeEdge(
+  db: DB,
+  fromItemId: number,
+  toItemId: number,
+  relation: InferSelectModel<typeof schema.knowledgeEdge>['relation'],
+): void {
+  db.insert(schema.knowledgeEdge).values({ from_item_id: fromItemId, to_item_id: toItemId, relation }).run();
+}
+
 export function addDecisionParentDecision(db: DB, decisionId: number, parentDecisionId: number): void {
-  db.insert(schema.decisionParentDecision)
-    .values({ decision_id: decisionId, parent_decision_id: parentDecisionId })
-    .run();
+  addKnowledgeEdge(db, decisionId, parentDecisionId, 'depends_on');
 }
 
 export function addDecisionParentAssumption(db: DB, decisionId: number, parentAssumptionId: number): void {
-  db.insert(schema.decisionParentAssumption)
-    .values({ decision_id: decisionId, parent_assumption_id: parentAssumptionId })
-    .run();
+  addKnowledgeEdge(db, decisionId, parentAssumptionId, 'depends_on');
 }
 
 export function addAssumptionParentAssumption(
@@ -447,21 +496,38 @@ export function addAssumptionParentAssumption(
   assumptionId: number,
   parentAssumptionId: number,
 ): void {
-  db.insert(schema.assumptionParentAssumption)
-    .values({ assumption_id: assumptionId, parent_assumption_id: parentAssumptionId })
-    .run();
+  addKnowledgeEdge(db, assumptionId, parentAssumptionId, 'depends_on');
 }
 
 function getKnowledgeItemsForProjectByKind(
   db: DB,
   projectId: number,
-  kind: GenericKnowledgeKind,
+  kind: GenericKnowledgeKind | 'decision' | 'assumption',
 ): KnowledgeItem[] {
   return db
     .select()
     .from(schema.knowledgeItem)
     .where(and(eq(schema.knowledgeItem.project_id, projectId), eq(schema.knowledgeItem.kind, kind)))
     .all() as KnowledgeItem[];
+}
+
+function getEntityCollectionForKind(kind: KnowledgeKind): EntityCollection {
+  if (kind === 'decision') {
+    return 'decision';
+  }
+  if (kind === 'assumption') {
+    return 'assumption';
+  }
+  return 'knowledge_item';
+}
+
+export function getScopeBundleForProject(db: DB, projectId: number) {
+  return {
+    goals: getKnowledgeItemsForProjectByKind(db, projectId, 'goal'),
+    terms: getKnowledgeItemsForProjectByKind(db, projectId, 'term'),
+    contexts: getKnowledgeItemsForProjectByKind(db, projectId, 'context'),
+    constraints: getKnowledgeItemsForProjectByKind(db, projectId, 'constraint'),
+  };
 }
 
 export function getEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
@@ -471,77 +537,31 @@ export function getEntitiesForProject(db: DB, projectId: number): EntitiesForPro
       getKnowledgeItemsForProjectByKind(db, projectId, entry.kind),
     ]),
   ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
-  const decisions = db
-    .select()
-    .from(schema.decision)
-    .where(eq(schema.decision.project_id, projectId))
-    .all() as Decision[];
-  const assumptions = db
-    .select()
-    .from(schema.assumption)
-    .where(eq(schema.assumption.project_id, projectId))
-    .all() as Assumption[];
+  const decisions = getKnowledgeItemsForProjectByKind(db, projectId, 'decision').map(toDecision);
+  const assumptions = getKnowledgeItemsForProjectByKind(db, projectId, 'assumption').map(toAssumption);
   const relationships = db.all(sql`
     SELECT
-      'depends_on' AS type,
-      source_collection,
-      source_kind,
-      source_id,
-      target_collection,
-      target_kind,
-      target_id
-    FROM (
-      SELECT
-        'decision' AS source_collection,
-        'decision' AS source_kind,
-        edge.decision_id AS source_id,
-        'decision' AS target_collection,
-        'decision' AS target_kind,
-        edge.parent_decision_id AS target_id
-      FROM decision_parent_decision edge
-      JOIN decision source ON source.id = edge.decision_id
-      JOIN decision target ON target.id = edge.parent_decision_id
-      WHERE source.project_id = ${projectId} AND target.project_id = ${projectId}
-
-      UNION ALL
-
-      SELECT
-        'decision' AS source_collection,
-        'decision' AS source_kind,
-        edge.decision_id AS source_id,
-        'assumption' AS target_collection,
-        'assumption' AS target_kind,
-        edge.parent_assumption_id AS target_id
-      FROM decision_parent_assumption edge
-      JOIN decision source ON source.id = edge.decision_id
-      JOIN assumption target ON target.id = edge.parent_assumption_id
-      WHERE source.project_id = ${projectId} AND target.project_id = ${projectId}
-
-      UNION ALL
-
-      SELECT
-        'assumption' AS source_collection,
-        'assumption' AS source_kind,
-        edge.assumption_id AS source_id,
-        'assumption' AS target_collection,
-        'assumption' AS target_kind,
-        edge.parent_assumption_id AS target_id
-      FROM assumption_parent_assumption edge
-      JOIN assumption source ON source.id = edge.assumption_id
-      JOIN assumption target ON target.id = edge.parent_assumption_id
-      WHERE source.project_id = ${projectId} AND target.project_id = ${projectId}
-    ) relationships
+      edge.relation AS type,
+      source.kind AS source_kind,
+      source.id AS source_id,
+      target.kind AS target_kind,
+      target.id AS target_id
+    FROM knowledge_edge edge
+    JOIN knowledge_item source ON source.id = edge.from_item_id
+    JOIN knowledge_item target ON target.id = edge.to_item_id
+    WHERE
+      source.project_id = ${projectId}
+      AND target.project_id = ${projectId}
+      AND edge.relation = 'depends_on'
     ORDER BY
-      CASE source_collection WHEN 'decision' THEN 0 WHEN 'assumption' THEN 1 ELSE 2 END,
-      source_id,
-      CASE target_collection WHEN 'decision' THEN 0 WHEN 'assumption' THEN 1 ELSE 2 END,
-      target_id
+      CASE source.kind WHEN 'decision' THEN 0 WHEN 'assumption' THEN 1 ELSE 2 END,
+      source.id,
+      CASE target.kind WHEN 'decision' THEN 0 WHEN 'assumption' THEN 1 ELSE 2 END,
+      target.id
   `) as Array<{
     type: EntityRelationship['type'];
-    source_collection: EntityReference['collection'];
     source_kind: EntityReference['kind'];
     source_id: number;
-    target_collection: EntityReference['collection'];
     target_kind: EntityReference['kind'];
     target_id: number;
   }>;
@@ -553,12 +573,12 @@ export function getEntitiesForProject(db: DB, projectId: number): EntitiesForPro
     relationships: relationships.map((relationship) => ({
       type: relationship.type,
       source: {
-        collection: relationship.source_collection,
+        collection: getEntityCollectionForKind(relationship.source_kind),
         kind: relationship.source_kind,
         id: relationship.source_id,
       },
       target: {
-        collection: relationship.target_collection,
+        collection: getEntityCollectionForKind(relationship.target_kind),
         kind: relationship.target_kind,
         id: relationship.target_id,
       },

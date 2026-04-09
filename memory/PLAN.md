@@ -147,19 +147,19 @@
    - **Recommendation:** land a canonical knowledge foundation slice before design/review mode work so the migration seam is explicit rather than hidden inside slice 8.
    - **Verification approach**: inner — concrete model examples and seam inventory reviewed against SPEC lexicon/decisions. Outer — design review over representative knowledge items and graph relationships to prove the ontology is discriminable and useful.
 
-7b. **Canonical knowledge model foundation + cutover seam** — Introduce canonical `goal` / `term` / `context` kinds, unify durable knowledge storage and cross-kind edges behind the generic seam, and preserve slice 7 coherence through the smallest necessary compatibility projection rather than migration-hardening legacy scratch data. `in-progress`
+7b. **Canonical knowledge model foundation + cutover seam** — Introduce canonical `goal` / `term` / `context` kinds, unify durable knowledge storage and cross-kind edges behind the generic seam, and preserve slice 7 coherence through the smallest necessary compatibility projection rather than migration-hardening legacy scratch data. `done`
    - Requirements: → SPEC.md §Requirements #5, #6, #7, #11, #12, #13
    - Assumptions: → SPEC.md §Assumptions A14, A40, A41
    - Decisions: → SPEC.md §Decisions D5, D17, D49, D51, D52, D53, D54, D59, D61, D62, D63, D67, D68, D69
    - Candidate invariant goals: canonical knowledge writes/readiness coexist with scope closure during cutover; no new Phase 5/6 slice depends on durable `framing`
    - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I68, I72
-   - Invariants established: → SPEC.md §Invariants I74, I75, I76
+   - Invariants established: → SPEC.md §Invariants I74, I75, I76, I77, I78
    - Acceptance: schema/registry/context/API can represent all eight canonical kinds plus generic cross-kind edges; scope closure still reads a coherent scope bundle; no new writes rely on durable `framing` or decision/assumption-only edge semantics; destructive schema reset remains acceptable
-   - **Observed current state (2026-04-09, tracer bullet 7b.1):** the shared knowledge registry, observer-result payload schema, scope-mode observer output, entities API, workspace entity state, and sidebar tabs now use canonical `goal` / `term` / `context` / `constraint` collections on a clean DB rather than durable `framing` rows. Design-mode observer prompting still biases toward legacy `decision` / `assumption` extraction while allowing canonical scope-kind corrections, and the explicit slice-7 `phase_outcome` readiness seam remains intact.
+   - **Observed current state (2026-04-09, tracer bullets 7b.1 + 7b.2):** the shared knowledge registry, observer-result payload schema, scope-mode observer output, entities API, workspace entity state, and sidebar tabs now use canonical `goal` / `term` / `context` / `constraint` collections on a clean DB rather than durable `framing` rows. Design-mode observer prompting still biases toward `decision` / `assumption` extraction, but those commitments now persist through `knowledge_item` / `turn_knowledge_item` / `knowledge_edge` instead of legacy decision/assumption tables and edge joins. The shared entities API preserves dedicated `decisions` / `assumptions` collections as compatibility projections, and an explicit canonical scope-bundle projection remains available so the slice-7 `phase_outcome` readiness seam stays intact during the cutover.
    - **Verification approach**: inner — schema/registry/core/API tests for canonical kinds, generic edges, and the minimal scope-closure compatibility projection. Middle — workspace/entity projection tests for canonical scope kinds on a clean DB. Outer — manual inspection of a representative project's scope bundle and carry-forward into the next mode.
    - Tracer bullets:
      - `7b.1` Canonical scope kinds through the generic seam. `done`
-     - `7b.2` Generic edge/storage cutover + scope-readiness compatibility projection beyond legacy decision/assumption tables. `not-started`
+     - `7b.2` Generic edge/storage cutover + scope-readiness compatibility projection beyond legacy decision/assumption tables. `done`
 
 8. **Design mode (commitment / exploration)** — Implement the second workflow mode on the new turn and canonical knowledge model after 7b lands, while generalizing the current scope-only proposal/confirmation seam into a shared phase-closing model with deterministic closeability, coarse readiness bands, and explicit closure basis. The interviewer walks design forks; the observer captures decisions, assumptions, new constraints, and emerging requirements against the unified knowledge seam. `not-started`
    - Requirements: → SPEC.md §Requirements #2, #3, #5, #6, #7, #8
@@ -298,7 +298,7 @@ Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
 ### Parallelism opportunities
 
 - 7 (explicit phase outcomes + scope closure) and 7a (knowledge-layer redesign spike) can proceed in parallel: 7 establishes workflow closure mechanics, while 7a retires the ontology/graph/workspace risk that would otherwise leak into later mode and review slices.
-- 7b (canonical knowledge model foundation + migration seam) follows 7a and should land before 8 and 12; it is the first implementation slice on the spike verdict.
+- With 7b landed, 8 (design mode + shared phase-closing model) is now the next primary unblocked slice. 12 still waits on the later reviewed-artifact path in 9/10 even though the canonical knowledge foundation is now in place.
 - 11a (project dashboard workflow state) can begin once the workflow-state artifacts from 7/8/9/10 exist; it does not need the broader knowledge workspace to surface durable project status, readiness bands, and carried-debt caveats.
 - 12 (knowledge workspace review surface + lifecycle API) and 13 (export) can proceed in parallel once 7b and the requirements/criteria review artifacts stabilize, because the first reviewed export path does not require the full knowledge workspace to land first.
 - 14 (npx) can start early with a basic launcher, completing after slice 13 when the new export predicate stabilizes.
