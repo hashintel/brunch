@@ -861,6 +861,10 @@ describe('phase outcomes + scope closure', () => {
         proposalPending: false,
       }),
     );
+    const phaseOutcomes = db.$client
+      .prepare('SELECT closure_basis FROM phase_outcome WHERE project_id = ? ORDER BY id DESC')
+      .all(projectId) as Array<{ closure_basis: string | null }>;
+    expect(phaseOutcomes[0]).toEqual({ closure_basis: 'interviewer_recommended' });
     expect(projectRes.body.workflow.phases.design).toEqual(
       expect.objectContaining({
         status: 'in_progress',
@@ -1239,6 +1243,10 @@ describe('phase outcomes + scope closure', () => {
         proposalPending: false,
       }),
     );
+    const phaseOutcomes = db.$client
+      .prepare('SELECT closure_basis FROM phase_outcome WHERE project_id = ? ORDER BY id DESC')
+      .all(projectId) as Array<{ closure_basis: string | null }>;
+    expect(phaseOutcomes[0]).toEqual({ closure_basis: 'user_forced' });
     expect(projectRes.body.workflow.phases.requirements).toEqual(
       expect.objectContaining({
         status: 'in_progress',

@@ -10,7 +10,7 @@ import {
   type KnowledgeEntityCollection,
   type KnowledgeKind as SharedKnowledgeKind,
 } from '../shared/knowledge.js';
-import { parsePhaseClosureCommand } from '../shared/phase-close.js';
+import { parsePhaseClosureCommand, type PhaseClosureBasis } from '../shared/phase-close.js';
 import { safeDeserializeUserParts, type DataConfirmationPart } from './parts.js';
 import * as schema from './schema.js';
 
@@ -24,7 +24,7 @@ export type Impact = NonNullable<Turn['impact']>;
 export type PhaseOutcomeStatus = PhaseOutcome['status'];
 export type WorkflowPhaseStatus = 'unstarted' | 'in_progress' | 'closed';
 export type ReadinessBand = 'low' | 'medium' | 'high';
-export type ClosureBasis = 'interviewer_recommended' | 'user_forced' | null;
+export type ClosureBasis = PhaseClosureBasis | null;
 
 export interface WorkflowPhaseState {
   status: WorkflowPhaseStatus;
@@ -255,10 +255,21 @@ export function createPhaseOutcome(db: DB, input: CreatePhaseOutcomeInput): Phas
   return result as PhaseOutcome;
 }
 
+function getClosureBasisForConfirmationTurn(db: DB, confirmationTurnId: number): PhaseClosureBasis {
+  const confirmationTurn = getTurn(db, confirmationTurnId);
+  const confirmationPart = safeDeserializeUserParts(confirmationTurn?.user_parts).find(
+    (part): part is DataConfirmationPart => part.type === 'data-confirmation',
+  );
+  const phaseClosureCommand = confirmationPart ? parsePhaseClosureCommand(confirmationPart.data) : null;
+
+  return phaseClosureCommand?.closureBasis ?? 'interviewer_recommended';
+}
+
 export function confirmPhaseOutcome(db: DB, phaseOutcomeId: number, confirmationTurnId: number): void {
   db.update(schema.phaseOutcome)
     .set({
       status: 'confirmed',
+      closure_basis: getClosureBasisForConfirmationTurn(db, confirmationTurnId),
       confirmation_turn_id: confirmationTurnId,
       confirmed_at: sql`datetime('now')`,
     })
@@ -278,6 +289,7 @@ export function createConfirmedPhaseOutcome(
       proposal_turn_id: input.proposal_turn_id,
       summary: input.summary,
       status: 'confirmed',
+      closure_basis: getClosureBasisForConfirmationTurn(db, input.confirmation_turn_id),
       confirmation_turn_id: input.confirmation_turn_id,
       confirmed_at: sql`datetime('now')`,
     })
@@ -328,13 +340,11 @@ function getClosureBasisForOutcome(db: DB, outcome: PhaseOutcome | undefined): C
     return null;
   }
 
-  const confirmationTurn = getTurn(db, outcome.confirmation_turn_id);
-  const confirmationPart = safeDeserializeUserParts(confirmationTurn?.user_parts).find(
-    (part): part is DataConfirmationPart => part.type === 'data-confirmation',
-  );
-  const phaseClosureCommand = confirmationPart ? parsePhaseClosureCommand(confirmationPart.data) : null;
+  if (outcome.closure_basis) {
+    return outcome.closure_basis;
+  }
 
-  return phaseClosureCommand?.closureBasis ?? 'interviewer_recommended';
+  return getClosureBasisForConfirmationTurn(db, outcome.confirmation_turn_id);
 }
 
 export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowState {

@@ -190,6 +190,8 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 74. **Force-close availability projects from workflow truth through one shared policy seam** — The rule for whether a phase may be force-closed should be derived once from workflow state rather than re-encoded separately in UI predicates and server guards. In the current slice that shared projection remains intentionally narrow — design only, active phase only, closeable, and no pending proposal — but both affordance rendering and request validation should read the same policy and preserve the current rejection semantics. Depends on: D65, D66, D73. Supersedes: duplicated force-close availability checks across route and server layers.
 
+75. **Closure provenance now persists on phase outcomes even while workflow reads retain a transcript fallback** — Confirmed `phase_outcome` rows should store durable `closure_basis` directly at write time for both interviewer-recommended and user-forced closes. Until the read-side cutover lands, workflow projection may still recover provenance from the confirmation turn when older rows or transitional fixtures lack that column value, preserving behavior during the migration window. Depends on: D65, D72, D73, D74. Supersedes: confirmed phase outcomes whose closure provenance exists only in confirmation-turn payloads.
+
 26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
 
 ### Domain model
@@ -314,6 +316,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | I82 | Typed `data-confirmation` parts now carry either interviewer-recommended proposal confirmation or a user-forced design close, and workflow projection recovers the forced-close basis from persisted confirmation turns so requirements handoff survives reload through the same chat seam | Slice 8.3 (user-forced design close + carried-debt projection)                       | parts.test.ts, db.test.ts, core.test.ts, app.test.ts, InterviewWorkspace.test.tsx   | D66, D72                |
 | I83 | Existing `data-confirmation` payloads now parse into explicit phase-close command variants, and shared builders preserve the current schema-valid payload shape for both interviewer-recommended and user-forced closes | Refactor commit 1 (phase-close command vocabulary)                                    | phase-close.test.ts                                                                 | D73                     |
 | I84 | Force-close availability now projects once from shared workflow policy, and both workspace affordance rendering and server-side validation consume that projection while preserving the current rejection semantics | Refactor commit 2 (shared force-close action projection)                              | phase-close.test.ts, app.test.ts, InterviewWorkspace.test.tsx                       | D74                     |
+| I85 | Confirmed phase outcomes now persist durable `closure_basis`, while workflow projection still preserves the same closure-provenance behavior for transitional rows through a confirmation-turn fallback | Refactor commit 3 (durable phase-outcome closure basis)                               | db.test.ts, app.test.ts                                                             | D75                     |
 
 ## Lexicon
 
@@ -524,9 +527,9 @@ This projection difference is a deliberate design choice, not an implementation 
 
 | File                          | Tests | Protects                                              |
 | ----------------------------- | ----- | ----------------------------------------------------- |
-| db.test.ts                    | 36    | I5, I6, I9, I10, I11, I20, I48, I50, I52, I72, I74, I77, I78, I79, I82 |
+| db.test.ts                    | 37    | I5, I6, I9, I10, I11, I20, I48, I50, I52, I72, I74, I77, I78, I79, I82, I85 |
 | knowledge.test.ts             | 1     | I68, I75                                              |
-| app.test.ts                   | 24    | I1, I2, I3, I7, I14, I21, I23, I44, I46, I47, I49, I51, I53, I55, I57, I59, I61, I63, I64, I69, I72, I74, I77, I79, I80, I81, I82, I84 |
+| app.test.ts                   | 24    | I1, I2, I3, I7, I14, I21, I23, I44, I46, I47, I49, I51, I53, I55, I57, I59, I61, I63, I64, I69, I72, I74, I77, I79, I80, I81, I82, I84, I85 |
 | core.test.ts                  | 9     | I12, I13, I18, I80, I81, I82                          |
 | interview.test.ts             | 8     | I16, I81                                              |
 | parts.test.ts                 | 14    | I17, I18, I44, I46, I47, I55, I57, I59, I61, I63, I82 |
