@@ -42,79 +42,53 @@
 5. **Observer agent + entity persistence** `FE-537` `done` — I20, I21, I22
 6. **Entity sidebar (read-only)** `FE-538` `done` — I23
 6b. **AI SDK-native chat pivot** `FE-559` `done` — I21↑, I22↑, I23↑
-6b1. **Workspace seam characterization oracle** `done` — I24, I25
+6b1. **Workspace seam characterization oracle** `done` — I24
     - Purpose: add a client integration harness around the interview workspace before the state-ownership refactor
     - Coverage: initial hydration from persisted turns, same-project refresh stability, observer-result sidebar reactivity, option-selection follow-through
     - Unblocks: 6c live streaming fix, workspace state-ownership refactor commits
 
 ## Phase 4: Interaction + Knowledge Foundations `done`
 
-<!-- The live rendering regression must be fixed first. Then the interview model widens:
-     richer answer semantics, generic knowledge capture, and phase-aware observer behavior. -->
-
 ### Slices
 
-6c. **Live streaming fix** — Fix the turn-card rendering regression: during live SSE streaming, the structured turn card does not render until page refresh. Thinking streams live; server persists correctly; hydration from DB works. Root cause is in the interaction between `toUIMessageStream()`, `useChat` part accumulation, and the tool-part lifecycle. `done`
+6c. **Live streaming fix** `done`
     - Requirements: → SPEC.md §Requirements #2, #3, #4
     - Assumptions: → SPEC.md §Assumptions A16, A28
-    - Candidate invariant goals: live tool-part rendering matches persisted state after refresh
     - Invariants to respect: → SPEC.md §Invariants I16, I17, I18, I22
-    - Invariants established: → SPEC.md §Invariants I43
-    - Acceptance: send a message in dev, see the structured turn card appear live without refresh; `npm run verify` passes
-    - **Observed current state (2026-04-07, post-build):** the workspace controller now projects the latest streamed `tool-ask_question` input into the visible `TurnCard` before `onFinish` route invalidation, targeted regression tests (`InterviewWorkspace`, `workspace-controller`, `workspace-data`, `app`) are green, the branch's latest full `npm run verify` passed before the docs-only SPEC commit, and manual browser verification confirmed the live turn card now appears without refresh.
-    - **Observed code seam:** `InterviewWorkspace.renderParts()` still drops `tool-ask_question` transcript parts, but `workspace-controller-core.ts` now projects the latest streamed tool input into a temporary visible turn card while loading; durable loader state still owns the post-finish turn card after router invalidation.
-    - **Verification approach**: inner — unit/integration tests for tool-part state transitions or alternate live render path. Outer — manual interview: turn card renders live, matches post-refresh state.
+    - Invariants established: → SPEC.md §Invariants I24
+    - Acceptance: streamed turn card appears live without refresh; `npm run verify` passes
+    - Result: workspace controller projects streamed `tool-ask_question` into visible turn card before durable route refresh
+    - Evidence: InterviewWorkspace.test.tsx, workspace-controller.test.tsx, workspace-data.test.ts, app.test.ts
 
-6d. **Flexible turn-response model** — Replace the single-select answer assumption with typed turn responses that support zero/one/many selections plus unified free-text response content. Keep structured interviewer guidance, recommendation, and strategic grounding, but stop assuming every turn maps to one categorical choice or one scalar answer string. `done`
+6d. **Flexible turn-response model** `done`
     - Requirements: → SPEC.md §Requirements #3, #6
     - Assumptions: → SPEC.md §Assumptions A16, A28, A33
-    - Decisions: → SPEC.md §Decisions D23, D24, D25, D45, D46, D47, D48
-    - Candidate invariant goals: turn-response payload round-trip fidelity; multi-select/custom-answer state hydrates and replays correctly
+    - Decisions: → SPEC.md §Decisions D23, D24, D25
     - Invariants to respect: → SPEC.md §Invariants I17, I18, I19, I22
-    - Invariants established: → SPEC.md §Invariants I44, I45, I46, I47
-    - Acceptance: a turn can be answered with one-or-more selections plus optional free-text response or with zero selections plus required free-text response; transcript, persistence, interviewer context, and resume stay aligned
-    - **Observed current state (2026-04-07, tracer bullets 1–3):** zero/one/many selected options plus optional free-text now persist as `data-turn-response`, store a user-visible summary seam, rehydrate through the workspace path, and project into interviewer context coherently. The client turn card now stages many selections locally and submits them through the same turn-response seam as the other remodeled paths.
-    - **Verification approach**: inner — response-schema + projection characterization tests (`SPEC.md` §Verification Design, inner loop) prove cardinality and response-shaped context projection; middle — round-trip integration from submit → persistence → hydration → interviewer-context composition (`SPEC.md` §Verification Design, middle loop) validates A33 while protecting I17, I18, I19, and I22; outer — manual interview with zero/one/many option responses plus free-text-only replies confirms coherent follow-through (`SPEC.md` §Verification Design, outer loop).
-    - Tracer bullets:
-      - `6d.1` Single selected option + optional free-text response. `done`
-      - `6d.2` Zero selections + required free-text-only response. `done`
-      - `6d.3` True many-selection UX + persistence/hydration. `done`
+    - Invariants established: → SPEC.md §Invariants I44
+    - Acceptance: zero/one/many selections plus free-text round-trip through persistence, hydration, and interviewer context
+    - Result: `data-turn-response` parts carry structured replies; workspace stages multi-select locally and submits one response
+    - Tracer bullets: 6d.1 single + free-text `done`, 6d.2 free-text-only `done`, 6d.3 many-selection `done`
 
-6e. **Generic knowledge layer schema + sidebar projection** — Introduce the broader semantic layer (`framing`, `constraint`, `decision`, `assumption`, `requirement`, `criterion`) with generic provenance and graph edges, then project it cleanly into the sidebar without regressing existing reads. `done`
+6e. **Generic knowledge layer schema + sidebar projection** `done`
     - Requirements: → SPEC.md §Requirements #5, #6, #14
     - Assumptions: → SPEC.md §Assumptions A14
     - Decisions: → SPEC.md §Decisions D5, D13, D25, D49, D50, D51
-    - Candidate invariant goals: generic knowledge-item persistence with turn linkage; graph-edge fidelity across item kinds
-    - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I34
-    - Invariants established: → SPEC.md §Invariants I48, I49, I50, I51, I52, I53
-    - Acceptance: project state can load and display generic knowledge items and edges from the active path without losing current resume behavior
-    - **Observed current state (2026-04-07, tracer bullets 1–2b):** generic `knowledge_item` + `turn_knowledge_item` persistence now carries `framing`, `constraint`, `requirement`, and `criterion` items with subtype/rationale metadata, `/api/projects/:id/entities` returns those kind-specific collections plus a typed `relationships[]` projection alongside legacy decisions/assumptions, and the workspace sidebar renders Framing, Constraints, Requirements, Criteria, Decisions, and Assumptions tabs without regressing existing dependency affordances.
-    - **Verification approach**: inner — DB/core tests for generic item persistence and relationship projection. Middle — workspace integration tests for sidebar hydration and dependency rendering.
-    - Tracer bullets:
-      - `6e.1` Framing items through the generic knowledge seam. `done`
-      - `6e.2a` Legacy dependency edges through the generic entity seam. `done`
-      - `6e.2b` Remaining kind widening through the sidebar seam. `done`
+    - Invariants to respect: → SPEC.md §Invariants I20, I21, I23
+    - Invariants established: → SPEC.md §Invariants I48
+    - Acceptance: generic knowledge items and edges load and display from the active path without losing resume behavior
+    - Result: `knowledge_item` + `turn_knowledge_item` + `knowledge_edge` persistence; entities API projects kind-specific collections plus typed relationships
+    - Tracer bullets: 6e.1 framing items `done`, 6e.2a legacy edges `done`, 6e.2b remaining kinds `done`
 
-6f. **Phase-aware observer extraction** — Teach the observer to bias extraction by mode: scope prefers framing/constraints, design prefers decisions/assumptions, later modes can surface requirements/criteria and revisions. Keep the observer as a single structured extraction pass, but give it richer context and a broader ontology. `done`
+6f. **Phase-aware observer extraction** `done`
     - Requirements: → SPEC.md §Requirements #5, #6, #11, #12
     - Assumptions: → SPEC.md §Assumptions A14, A20
-    - Decisions: → SPEC.md §Decisions D4, D5, D13, D25, D52, D53, D54, D55, D56
-    - Candidate invariant goals: observer extracts framing without assumption inflation; phase-aware extraction deltas stay attributable to source turns
+    - Decisions: → SPEC.md §Decisions D4, D5, D13, D25
     - Invariants to respect: → SPEC.md §Invariants I20, I21, I23
-    - **Observed current state (2026-04-08, tracer bullets 6f.1–6f.4b):** scope-mode observer output now widens to generic `framing` and `constraint`, design-mode observer prompting biases toward legacy `decision`/`assumption` extraction while allowing framing corrections and constraint spillover, requirements-mode observer prompting can now surface generic `requirement` items while deferring premature criteria, and criteria-mode observer prompting can now surface generic `criterion` items without collapsing them back into requirements. The observer context includes existing framing/constraints/requirements/criteria alongside legacy decisions/assumptions, persisted assistant parts and SSE `data-observer-result` payloads carry mixed framing/constraint/requirement/criterion/decision/assumption IDs, and sidebar invalidation can refetch and render those observer-created entities through the shared entity seam, including the `Criteria` tab.
-    - Acceptance: scope turns primarily yield framing/constraints; design turns primarily yield decisions/assumptions; later review turns can surface requirements/criteria without breaking observer sync; observer results still stream in-band to the sidebar
-    - **Verification approach**: inner — schema + DB/parts tests prove widened observer contracts and generic persistence; middle — mocked observer-sync round-trip proves observer result → entities API → sidebar refresh coherence without gating on live-model quality; outer — manual scope/design/requirements/criteria walkthroughs judge ontology fit and seed future observer fixtures. See SPEC.md §Verification Design.
-    - Tracer bullets:
-      - `6f.1` Scope-mode framing extraction through the generic observer seam. `done`
-        - Invariants established: → SPEC.md §Invariants I54, I55
-      - `6f.2` Scope-mode constraint extraction through the generic observer seam. `done`
-        - Invariants established: → SPEC.md §Invariants I56, I57
-      - `6f.3` Design-mode observer bias over decisions/assumptions with generic spillover. `done`
-        - Invariants established: → SPEC.md §Invariants I58, I59
-      - `6f.4a` Requirements-mode requirement emergence through the generic observer seam. `done`
-        - Invariants established: → SPEC.md §Invariants I60, I61
-      - `6f.4b` Criteria-mode criterion emergence through the generic observer seam. `done`
-        - Invariants established: → SPEC.md §Invariants I62, I63
+    - Invariants established: → SPEC.md §Invariants I54
+    - Acceptance: observer biases extraction by phase; results stream in-band to sidebar without breaking sync
+    - Result: scope yields goals/terms/contexts/constraints, design yields decisions/assumptions with scope spillover, requirements yields requirements, criteria yields criteria
+    - Tracer bullets: 6f.1 scope framing `done`, 6f.2 scope constraints `done`, 6f.3 design bias `done`, 6f.4a requirements `done`, 6f.4b criteria `done`
 
 ## Phase 5: Mode Closure + Full Interview
 
@@ -125,73 +99,50 @@
 
 ### Slices
 
-7. **Explicit phase outcomes + scope closure** — Replace pure `is_resolution` semantics with explicit phase outcomes and user-confirmed scope closure. Scope mode closes when sufficient shared understanding of goals, terms, context, and constraints is reached, not just when the model feels done. `done`
+7. **Explicit phase outcomes + scope closure** `done`
    - Requirements: → SPEC.md §Requirements #7, #8
    - Assumptions: → SPEC.md §Assumptions A15, A28
    - Decisions: → SPEC.md §Decisions D2, D3, D6, D62, D65, D66
-   - Candidate invariant goals: confirmed scope outcome survives refresh and invalidates correctly when upstream turns change
-   - Invariants to respect: → SPEC.md §Invariants I18, I24, I25
-   - Invariants established: → SPEC.md §Invariants I72, I73
-   - Acceptance: scope mode proposes closure with a summary over the current scope knowledge family, user confirms, explicit phase outcome persists, and the project shows updated workflow state
-   - **Observed current state (2026-04-08, slice 7):** scope-mode interviewer turns can now persist explicit `phase_outcome` proposal records in a dedicated readiness table, stream/persist typed `data-phase-summary` artifacts, confirm those proposals through typed `data-confirmation` chat parts, project workflow state from the active path, and supersede outcomes when their proposal turn leaves the active path. The workspace header now shows scope status, suppresses the normal prompt while a closure proposal is pending, and renders a dedicated confirmation card wired to the chat seam. This establishes the durable proposal/confirmation substrate only; shared closeability/readiness/closure-basis semantics are folded into slices 8, 11a, and 13 rather than reopening slice 7.
-   - **Verification approach**: inner — schema + DB/core/parts tests for explicit phase-outcome proposal/confirmation contracts and lifecycle. Middle — round-trip + model-based lifecycle oracles prove submit → persistence → reload → workspace projection and supersession on upstream branch changes. Outer — manual closure/confirmation walkthrough deferred until after 7a.
+   - Invariants to respect: → SPEC.md §Invariants I18, I24
+   - Invariants established: → SPEC.md §Invariants I72
+   - Acceptance: scope proposes closure, user confirms, explicit phase outcome persists, workflow state updates
+   - Result: durable `phase_outcome` proposal/confirmation records; `data-phase-summary` + `data-confirmation` chat seams; workspace header shows scope status and confirmation card
+   - Debt: shared closeability/readiness/closure-basis generalization folded into slice 8
 
-7a. **Knowledge-layer redesign spike (ontology + graph + workspace direction)** — Retire the current `framing` umbrella and mixed legacy/generic storage risk by specifying the canonical knowledge ontology, cross-kind graph model, and non-sidebar-first review surface before design/review modes harden today's transitional semantics. `done`
-   - Requirements: → SPEC.md §Requirements #5, #6, #11, #12, #13
-   - Assumptions: → SPEC.md §Assumptions A14, A15
+7a. **Knowledge-layer redesign spike** `done`
    - Decisions: → SPEC.md §Decisions D5, D17, D59, D61, D62, D63, D64, D67, D68, D69
-   - Candidate invariant goals: later Phase 5/6 slices can treat the knowledge layer as one coherent semantic model rather than a provisional migration seam
-   - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I68
-   - Acceptance: produce an approved target model for canonical kinds, cross-kind edges, storage direction, and knowledge-workspace boundaries, plus a migration path that keeps slice 7 valid while gating slices 8–10 and 12 on the redesign
-   - **Observed current state (2026-04-09, spike verdict):** the canonical durable ontology should be `goal`, `term`, `context`, `constraint`, `assumption`, `decision`, `requirement`, and `criterion`; `framing` is demoted to a migration-only intake alias rather than a final stored kind. The long-term storage direction is one generic knowledge-item/readiness model plus one generic cross-kind edge model, with a compatibility projection that preserves slice 7's `phase_outcome` closure mechanics by summarizing a scope bundle over canonical kinds and any unmigrated legacy `framing` rows. The primary review UX should be a dedicated knowledge workspace with phase-oriented list/detail review; the sidebar remains summary/navigation, not the main review surface.
-   - **Recommendation:** land a canonical knowledge foundation slice before design/review mode work so the migration seam is explicit rather than hidden inside slice 8.
-   - **Verification approach**: inner — concrete model examples and seam inventory reviewed against SPEC lexicon/decisions. Outer — design review over representative knowledge items and graph relationships to prove the ontology is discriminable and useful.
+   - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I48
+   - Acceptance: approved target model for canonical kinds, cross-kind edges, storage direction, and knowledge-workspace boundaries
+   - Result: canonical ontology is 8 kinds (`goal`, `term`, `context`, `constraint`, `assumption`, `decision`, `requirement`, `criterion`); `framing` demoted to migration alias; primary review UX is dedicated knowledge workspace, not sidebar
 
-7b. **Canonical knowledge model foundation + cutover seam** — Introduce canonical `goal` / `term` / `context` kinds, unify durable knowledge storage and cross-kind edges behind the generic seam, and preserve slice 7 coherence through the smallest necessary compatibility projection rather than migration-hardening legacy scratch data. `done`
-   - Requirements: → SPEC.md §Requirements #5, #6, #7, #11, #12, #13
+7b. **Canonical knowledge model foundation + cutover seam** `done`
    - Assumptions: → SPEC.md §Assumptions A14, A40
-   - Decisions: → SPEC.md §Decisions D5, D17, D49, D51, D52, D53, D54, D59, D61, D62, D63, D67, D68, D69
-   - Candidate invariant goals: canonical knowledge writes/readiness coexist with scope closure during cutover; no new Phase 5/6 slice depends on durable `framing`
-   - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I68, I72
-   - Invariants established: → SPEC.md §Invariants I74, I75, I76, I77, I78
-   - Acceptance: schema/registry/context/API can represent all eight canonical kinds plus generic cross-kind edges; scope closure still reads a coherent scope bundle; no new writes rely on durable `framing` or decision/assumption-only edge semantics; destructive schema reset remains acceptable
-   - **Observed current state (2026-04-09, tracer bullets 7b.1 + 7b.2):** the shared knowledge registry, observer-result payload schema, scope-mode observer output, entities API, workspace entity state, and sidebar tabs now use canonical `goal` / `term` / `context` / `constraint` collections on a clean DB rather than durable `framing` rows. Design-mode observer prompting still biases toward `decision` / `assumption` extraction, but those commitments now persist through `knowledge_item` / `turn_knowledge_item` / `knowledge_edge` instead of legacy decision/assumption tables and edge joins. The shared entities API preserves dedicated `decisions` / `assumptions` collections as compatibility projections, and an explicit canonical scope-bundle projection remains available so the slice-7 `phase_outcome` readiness seam stays intact during the cutover.
-   - **Verification approach**: inner — schema/registry/core/API tests for canonical kinds, generic edges, and the minimal scope-closure compatibility projection. Middle — workspace/entity projection tests for canonical scope kinds on a clean DB. Outer — manual inspection of a representative project's scope bundle and carry-forward into the next mode.
-   - Tracer bullets:
-     - `7b.1` Canonical scope kinds through the generic seam. `done`
-     - `7b.2` Generic edge/storage cutover + scope-readiness compatibility projection beyond legacy decision/assumption tables. `done`
+   - Decisions: → SPEC.md §Decisions D5, D13, D17, D49, D51, D59, D61, D62, D63, D67, D68, D69
+   - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I48, I72
+   - Invariants established: → SPEC.md §Invariants I48, I54
+   - Acceptance: all eight canonical kinds plus generic edges work; scope closure reads coherent scope bundle; no new writes rely on `framing`
+   - Result: registry/observer/entities/sidebar use canonical kinds on clean DB; decisions/assumptions persist through generic seam; compatibility projections preserve slice-7 readiness
+   - Tracer bullets: 7b.1 canonical scope kinds `done`, 7b.2 generic edge/storage cutover `done`
 
-8. **Design mode (commitment / exploration)** — Implement the second workflow mode on the new turn and canonical knowledge model after 7b lands, while generalizing the current scope-only proposal/confirmation seam into a shared phase-closing model with deterministic closeability, coarse readiness bands, and explicit closure basis. The interviewer walks design forks; the observer captures decisions, assumptions, new constraints, and emerging requirements against the unified knowledge seam. `done`
+8. **Design mode (commitment / exploration)** `done`
    - Requirements: → SPEC.md §Requirements #2, #3, #5, #6, #7, #8
    - Assumptions: → SPEC.md §Assumptions A14, A15, A28, A40
    - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62, D65, D66, D67, D68, D70, D71, D72, D73, D74, D75
-   - Candidate invariant goals: mode transition preserves interview continuity; design-mode turns produce coherent decision/assumption graph growth on the canonical knowledge seam; phase-closing state separates status, closeability, readiness, and closure basis instead of hidden interviewer authority
-   - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I22, I72, I73
-   - Invariants established: → SPEC.md §Invariants I79, I80, I81, I82, I83, I84, I85, I86
-   - Acceptance: after scope closes and slice 7b lands, the interview enters design mode; design turns yield coherent commitments and assumptions on the canonical knowledge layer; the UI projects design status/closeability/readiness; and once the minimum bar is met the user can either accept an interviewer-recommended close or force-close design with persisted closure basis/readiness snapshot
-   - **Observed current state (2026-04-09, tracer bullets 8.1–8.3 + completed phase-close refactor):** confirmed scope closure now projects through a shared workflow state carrying `status`, `closeability`, `readiness`, `closureBasis`, and pending-proposal visibility instead of the old scope-only `open/proposed/confirmed` seam. The next prepared turn after confirmed scope closure now enters `design` automatically, the observer runs against that design turn phase, and the workspace header renders shared workflow summaries for closed scope plus the newly active design phase rather than hardcoding scope-only status copy. Design now also uses the same typed `data-phase-summary` closure seam as scope: the design interviewer can recommend closure, the workflow projects a pending design summary through the shared phase state, confirmation persists design closure, and the next prepared turn enters `requirements`. That same typed confirmation seam now also carries a user-forced design close with visible `closureBasis: user_forced`, so forced-close debt survives refresh/resume and still hands the next prepared turn into `requirements`. The completed phase-close refactor also hardened the seam end to end: close intent moved into explicit shared phase-close commands, force-close availability now projects from one shared workflow-policy seam consumed by both UI and server validation, confirmed `phase_outcome` rows persist durable `closure_basis`, read-side workflow projection trusts that durable phase-outcome field instead of reconstructing provenance from confirmation-turn payloads, `data-confirmation` is now an explicit discriminated command union consumed consistently by the workspace controller and `/chat` request handling, and the remaining user-visible close-command labels, rejection copy, and forced-close summary text now also project from the shared phase-close module instead of being rebuilt inline across layers.
-   - **Verification approach**: inner — mode-transition/controller/workflow-state projection tests. Outer — manual design walkthrough covering interviewer-recommended close, user-forced close, and visible carried-debt caveats.
-   - Tracer bullets:
-     - `8.1` Design-mode entry + shared workflow-state projection. `done`
-     - `8.2` Design-phase closure proposal + requirements handoff. `done`
-     - `8.3` User-forced design close + carried-debt projection. `done`
+   - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I22, I72
+   - Invariants established: → SPEC.md §Invariants I72
+   - Acceptance: design mode enters after scope close; design turns yield commitments on canonical knowledge seam; user can accept recommended close or force-close with persisted closure basis
+   - Result: shared workflow projection (status/closeability/readiness/closureBasis) replaces scope-only seam; explicit discriminated phase-close commands; force-close availability from shared policy; durable closure basis on `phase_outcome`
+   - Tracer bullets: 8.1 design entry + shared workflow `done`, 8.2 design closure + requirements handoff `done`, 8.3 user-forced close + carried debt `done`
 
-9. **Requirements-review mode** — Synthesize the requirement set from the full canonical knowledge layer, then let the user approve, edit, merge, reject, and add requirements through review turns using the shared phase-closing seam rather than a requirements-only completion bit. This slice assumes the redesigned ontology/graph from 7a + 7b, not the current transitional `framing` seam. `done`
+9. **Requirements-review mode** `done`
    - Requirements: → SPEC.md §Requirements #6, #7, #8, #11, #13
    - Assumptions: → SPEC.md §Assumptions A15, A28, A40, A44, A45, A46
    - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62, D65, D66, D67, D68, D69, D70, D71, D77, D78, D79
-   - Candidate invariant goals: requirements are capture-anytime but review-complete only through explicit review state; requirements workflow state stays legible as status + closeability + readiness + closure basis
    - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I24
-   - Invariants established: → SPEC.md §Invariants I87, I88, I89, I90, I91, I92, I93, I94, I95, I96
-   - Acceptance: requirements-review mode presents a synthesized requirement set from canonical knowledge items, records explicit approval/edit/reject state, projects requirements status/closeability/readiness, and lets the user close once the minimum bar is met while carrying unresolved debt forward visibly when readiness is low
-   - **Observed current state (2026-04-10, tracer bullets 9.1–9.5):** the first requirements-review loop now grounds interviewer context in the current requirement inventory rather than only prior chat history, the requirements system prompt explicitly tells the interviewer to use that inventory, and the first requirements review interaction stays `in_progress` / not yet closeable instead of inheriting scope/design closeability semantics. A missing-requirement reply can also round-trip through the existing turn-response seam into observer-created requirement persistence and entities projection, so the first tracer bullet proves set-level completeness review. The next tracer bullet proved one explicit requirement-level action: a requirements-review question can carry targeted approval metadata naming one requirement plus its approval option, a matching approval response persists a durable active-path `reviewed` turn/item link for that requirement, the entities read model projects that requirement as `approved` while untouched requirements remain `pending`, and the requirements sidebar renders that distinction visibly. The next tracer bullet extends that same seam for rejection: a requirements-review question can now carry targeted rejection metadata naming one requirement plus its rejection option, a matching rejection response persists a durable active-path `rejected` turn/item link for that requirement, and read-side requirement projection now resolves `approved` / `rejected` / `pending` from the latest explicit active-path review action without introducing edit/merge/stale semantics. The fourth tracer bullet establishes the first deterministic closeability seam for requirements: once every current requirement carries explicit non-pending review state (`approved` or `rejected`), workflow projection marks requirements closeable, the requirements interviewer may use the shared `propose_phase_closure` seam, a proposed requirements phase outcome streams as `data-phase-summary`, and criteria remains unopened until explicit confirmation. The latest tracer bullet now proves that confirmation path end to end: confirming the proposed requirements close persists durable closure provenance, clears the pending requirements proposal, projects `criteria` as the next active phase, and makes the first post-confirmation `/chat` turn run the interviewer/observer in `criteria` mode rather than stale requirements mode.
-   - **Verification approach**: for the first five tracer bullets (`9.1`–`9.5`), inner — requirements-review context/prompt seam tests, response-handler/read-model tests, workflow-state tests, sidebar rendering tests, and schema validation. Middle — a workspace-integrated round-trip oracle proving requirements-review turn → response → observer-created missing requirement → entities/sidebar refresh coherence for `9.1`, a targeted approval round-trip proving approval metadata → response submit → durable `reviewed` link → approved/pending entities projection without drift for `9.2`, a targeted rejection round-trip proving rejection metadata → response submit → durable `rejected` link → latest-action review projection without drift for `9.3`, a phase-outcome round-trip proving reviewed requirements coverage → requirements closeability → proposed requirements `phase_outcome` → `data-phase-summary` → workflow projection for `9.4`, and a focused confirmation/handoff round-trip proving proposed requirements close → confirmation submit → confirmed `phase_outcome` → workflow projection → next-turn `criteria` interviewer invocation for `9.5`. Outer — manual requirements-review walkthroughs judge whether the completeness-review loop, the first explicit approval/rejection turns, the first close proposal, and the criteria handoff feel grounded and legible.
-   - Tracer bullets:
-     - `9.1` Requirements inventory grounding + first completeness-review loop. `done`
-     - `9.2` Targeted requirement approval + explicit pending/approved review projection. `done`
-     - `9.3` Targeted requirement rejection + latest explicit review-state projection. `done`
-     - `9.4` Requirements closeability + closure proposal seam. `done`
-     - `9.5` Requirements closure confirmation + criteria handoff. `done`
+   - Invariants established: → SPEC.md §Invariants I87
+   - Acceptance: requirement set synthesized from canonical knowledge; explicit approve/reject state; requirements closeability + closure proposal; criteria handoff on confirmation
+   - Result: interviewer grounded in requirement inventory; targeted approve/reject via review metadata + `turn_knowledge_item` links; closeability from full review coverage; shared phase-close seam reused for requirements → criteria handoff
+   - Tracer bullets: 9.1 inventory grounding `done`, 9.2 targeted approval `done`, 9.3 targeted rejection `done`, 9.4 closeability + proposal `done`, 9.5 closure + criteria handoff `done`
 
 10. **Criteria-review mode** — Synthesize verification conditions from approved requirements plus any earlier criteria-like signals, then drive review turns until coverage is complete using the shared phase-closing seam rather than a criteria-only completion bit. This slice assumes the redesigned ontology/graph from 7a + 7b, not the current transitional `framing` seam. `not-started`
      - Requirements: → SPEC.md §Requirements #6, #7, #8, #12, #13
@@ -216,7 +167,7 @@
      - Assumptions: → SPEC.md §Assumptions A15, A28
      - Decisions: → SPEC.md §Decisions D3, D17, D65, D66, D70
      - Candidate invariant goals: project-list workflow state derives from durable phase outcomes, closeability/readiness projection, and review records, not ad hoc turn heuristics
-     - Invariants to respect: → SPEC.md §Invariants I24, I25, I36, I41, I42
+     - Invariants to respect: → SPEC.md §Invariants I24
      - Acceptance: the project list shows each project's per-phase status/readiness/closure-basis summary from persisted readiness artifacts plus live workflow projection, distinguishes forced-close or low-readiness debt from ordinary closed state, and updates correctly after refresh/resume
      - **Verification approach**: inner — workflow-summary projection tests plus project-list route/component tests. Outer — manual multi-project walkthrough covering in-progress, forced-close debt, invalidated, and export-ready states.
 
@@ -225,7 +176,7 @@
      - Assumptions: → SPEC.md §Assumptions A14, A40
      - Decisions: → SPEC.md §Decisions D5, D17, D61, D63, D67, D68, D69
      - Candidate invariant goals: review/edit actions are reflected in both knowledge state and readiness state; the knowledge workspace can present graph relationships and review actions without lossy sidebar compression
-     - Invariants to respect: → SPEC.md §Invariants I23, I36, I41, I42
+     - Invariants to respect: → SPEC.md §Invariants I23, I24
      - Acceptance: inspect and review/edit canonical knowledge items from a dedicated phase-oriented workspace surface; affected readiness updates visibly and persist across refresh/resume; dependency/provenance context remains legible during those actions
      - **Verification approach**: inner — mutation + projection tests. Outer — manual knowledge-workspace review/edit walkthrough.
 
@@ -311,9 +262,8 @@ Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
 
 ### Parallelism opportunities
 
-- 7 (explicit phase outcomes + scope closure) and 7a (knowledge-layer redesign spike) can proceed in parallel: 7 establishes workflow closure mechanics, while 7a retires the ontology/graph/workspace risk that would otherwise leak into later mode and review slices.
-- With 7b landed, 8 (design mode + shared phase-closing model) is now the next primary unblocked slice. 12 still waits on the later reviewed-artifact path in 9/10 even though the canonical knowledge foundation is now in place.
-- 11a (project dashboard workflow state) can begin once the workflow-state artifacts from 7/8/9/10 exist; it does not need the broader knowledge workspace to surface durable project status, readiness bands, and carried-debt caveats.
-- 12 (knowledge workspace review surface + lifecycle API) and 13 (export) can proceed in parallel once 7b and the requirements/criteria review artifacts stabilize, because the first reviewed export path does not require the full knowledge workspace to land first.
-- 14 (npx) can start early with a basic launcher, completing after slice 13 when the new export predicate stabilizes.
-- 15 (drizzle-kit audit remediation) should wait until 14 lands, so packaging/distribution regressions can be judged on the real shipped path instead of the current dev-only setup.
+- With 7, 7a, 7b, 8, and 9 all done, the next primary slice is 10 (criteria-review).
+- 11a (project dashboard workflow state) can begin once 10 lands; it does not need the broader knowledge workspace.
+- 12 (knowledge workspace) and 13 (export) can proceed in parallel once 10 stabilizes the criteria review artifacts.
+- 14 (npx) can start early with a basic launcher, completing after slice 13 when the export predicate stabilizes.
+- 15 (drizzle-kit audit remediation) should wait until 14 lands.
