@@ -34,10 +34,22 @@ function renderKnowledgeItems(
 
 export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEntityState }) {
   const [activeTab, setActiveTab] = useState<KnowledgeCollectionKey>('decisions');
-  const { framing, constraints, requirements, criteria, decisions, assumptions, relationships, isLoading } =
-    entityState;
+  const {
+    goals,
+    terms,
+    contexts,
+    constraints,
+    requirements,
+    criteria,
+    decisions,
+    assumptions,
+    relationships,
+    isLoading,
+  } = entityState;
   const contentByEntity = new Map<string, string>([
-    ...framing.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
+    ...goals.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
+    ...terms.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
+    ...contexts.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
     ...constraints.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
     ...requirements.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
     ...criteria.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
@@ -99,13 +111,17 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
 
           if (activeEntry.entityCollection === 'knowledge_item') {
             const items =
-              activeTab === 'framing'
-                ? framing
-                : activeTab === 'constraints'
-                  ? constraints
-                  : activeTab === 'requirements'
-                    ? requirements
-                    : criteria;
+              activeTab === 'goals'
+                ? goals
+                : activeTab === 'terms'
+                  ? terms
+                  : activeTab === 'contexts'
+                    ? contexts
+                    : activeTab === 'constraints'
+                      ? constraints
+                      : activeTab === 'requirements'
+                        ? requirements
+                        : criteria;
 
             return (
               <div className="flex flex-col gap-2">

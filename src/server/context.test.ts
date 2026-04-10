@@ -237,7 +237,9 @@ describe('observer-context-projection', () => {
       turn,
       activePathSummary: '',
       entities: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -270,7 +272,9 @@ describe('observer-context-projection', () => {
       turn,
       activePathSummary: 'Turn 1: goal defined. Turn 2: audience chosen.',
       entities: {
-        framing: [{ id: 3, content: 'The project starts from a fuzzy brief' }],
+        goals: [],
+        terms: [],
+        contexts: [{ id: 3, content: 'The project starts from a fuzzy brief' }],
         constraints: [{ id: 4, content: 'Avoid heavyweight setup' }],
         requirements: [{ id: 5, content: 'Users can resume their interview later' }],
         criteria: [],
@@ -306,7 +310,9 @@ describe('observer-context-projection', () => {
       turn,
       activePathSummary: 'Turn 1: goal. Turn 2: audience.',
       entities: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -353,7 +359,9 @@ describe('observer-context-projection', () => {
       turn,
       activePathSummary: '',
       entities: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [{ id: 3, content: 'Support both launch paths' }],
         criteria: [],
@@ -388,7 +396,9 @@ describe('observer-context-projection', () => {
       turn,
       activePathSummary: '',
       entities: {
-        framing: [{ id: 3, content: 'The project is still being clarified' }],
+        goals: [],
+        terms: [],
+        contexts: [{ id: 3, content: 'The project is still being clarified' }],
         constraints: [{ id: 4, content: 'Keep setup instant' }],
         requirements: [{ id: 5, content: 'Resume the interview from SQLite' }],
         criteria: [],
@@ -405,7 +415,7 @@ describe('observer-context-projection', () => {
     expect(result).toContain('| 1 | Use React |');
     expect(result).toContain('| 2 | Users have browsers |');
     // md-pen h3() produces ### headings
-    expect(result).toContain('### Existing Framing');
+    expect(result).toContain('### Existing Context');
     expect(result).toContain('### Existing Constraints');
     expect(result).toContain('### Existing Requirements');
     expect(result).toContain('### Existing Decisions');
@@ -432,7 +442,9 @@ describe('observer-context-projection', () => {
       turn,
       activePathSummary: '',
       entities: {
-        framing: [{ id: 3, content: 'The project is still being clarified' }],
+        goals: [],
+        terms: [],
+        contexts: [{ id: 3, content: 'The project is still being clarified' }],
         constraints: [{ id: 4, content: 'Keep setup instant' }],
         requirements: [{ id: 5, content: 'Resume the interview from SQLite' }],
         criteria: [{ id: 6, content: 'Restoring the project shows the active path' }],

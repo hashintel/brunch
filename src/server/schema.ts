@@ -116,7 +116,7 @@ export const knowledgeItem = sqliteTable('knowledge_item', {
     .notNull()
     .references(() => project.id),
   kind: text({
-    enum: ['framing', 'constraint', 'decision', 'assumption', 'requirement', 'criterion'],
+    enum: ['goal', 'term', 'context', 'constraint', 'decision', 'assumption', 'requirement', 'criterion'],
   }).notNull(),
   subtype: text(),
   content: text().notNull(),
@@ -165,6 +165,20 @@ export const turnKnowledgeItem = sqliteTable(
       .default('captured'),
   },
   (table) => [primaryKey({ columns: [table.turn_id, table.item_id, table.relation] })],
+);
+
+export const knowledgeEdge = sqliteTable(
+  'knowledge_edge',
+  {
+    from_item_id: integer()
+      .notNull()
+      .references(() => knowledgeItem.id),
+    to_item_id: integer()
+      .notNull()
+      .references(() => knowledgeItem.id),
+    relation: text({ enum: ['depends_on', 'derived_from', 'constrains', 'verifies', 'refines'] }).notNull(),
+  },
+  (table) => [primaryKey({ columns: [table.from_item_id, table.to_item_id, table.relation] })],
 );
 
 export const decisionParentDecision = sqliteTable(

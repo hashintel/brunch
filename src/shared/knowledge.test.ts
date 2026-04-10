@@ -3,14 +3,30 @@ import { describe, expect, it } from 'vitest';
 import { knowledgeKindRegistry } from './knowledge.js';
 
 describe('knowledge kind registry', () => {
-  it('defines the six knowledge kinds with stable collection metadata in sidebar order', () => {
+  it('defines the eight canonical knowledge kinds with stable collection metadata in sidebar order', () => {
     expect(knowledgeKindRegistry).toMatchObject([
       {
-        kind: 'framing',
-        collectionKey: 'framing',
-        label: 'Framing',
-        contextHeading: 'Existing Framing',
-        emptyStateCopy: "No framing items yet. They'll appear as the interview progresses.",
+        kind: 'goal',
+        collectionKey: 'goals',
+        label: 'Goals',
+        contextHeading: 'Existing Goals',
+        emptyStateCopy: "No goals yet. They'll appear as the interview progresses.",
+        entityCollection: 'knowledge_item',
+      },
+      {
+        kind: 'term',
+        collectionKey: 'terms',
+        label: 'Terms',
+        contextHeading: 'Existing Terms',
+        emptyStateCopy: "No terms yet. They'll appear as the interview progresses.",
+        entityCollection: 'knowledge_item',
+      },
+      {
+        kind: 'context',
+        collectionKey: 'contexts',
+        label: 'Context',
+        contextHeading: 'Existing Context',
+        emptyStateCopy: "No context items yet. They'll appear as the interview progresses.",
         entityCollection: 'knowledge_item',
       },
       {

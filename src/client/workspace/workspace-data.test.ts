@@ -126,7 +126,9 @@ describe('workspace controller core', () => {
 
   it('prefers refreshed entity query data while preserving loader snapshot fallback', () => {
     const entitySnapshot: EntitiesData = {
-      framing: [],
+      goals: [],
+      terms: [],
+      contexts: [],
       constraints: [
         {
           id: 4,
@@ -159,11 +161,13 @@ describe('workspace controller core', () => {
       ],
     };
     const refreshedEntities: EntitiesData = {
-      framing: [
+      goals: [],
+      terms: [],
+      contexts: [
         {
           id: 6,
           project_id: 1,
-          kind: 'framing',
+          kind: 'context',
           subtype: null,
           content: 'Refetched framing item',
           rationale: null,
@@ -187,13 +191,15 @@ describe('workspace controller core', () => {
         {
           type: 'depends_on',
           source: { collection: 'decision', kind: 'decision', id: 3 },
-          target: { collection: 'knowledge_item', kind: 'framing', id: 6 },
+          target: { collection: 'knowledge_item', kind: 'context', id: 6 },
         },
       ],
     };
 
     expect(createWorkspaceDurableEntityState(entitySnapshot, undefined, true)).toEqual({
-      framing: entitySnapshot.framing,
+      goals: [],
+      terms: [],
+      contexts: entitySnapshot.contexts,
       constraints: entitySnapshot.constraints,
       requirements: entitySnapshot.requirements,
       criteria: entitySnapshot.criteria,
@@ -204,7 +210,9 @@ describe('workspace controller core', () => {
     });
 
     expect(createWorkspaceDurableEntityState(entitySnapshot, refreshedEntities, false)).toEqual({
-      framing: refreshedEntities.framing,
+      goals: [],
+      terms: [],
+      contexts: refreshedEntities.contexts,
       constraints: refreshedEntities.constraints,
       requirements: refreshedEntities.requirements,
       criteria: refreshedEntities.criteria,

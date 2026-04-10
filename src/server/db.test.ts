@@ -26,6 +26,7 @@ import {
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
   getEntitiesForProject,
+  getScopeBundleForProject,
   type DB,
 } from './db.js';
 
@@ -40,7 +41,7 @@ afterEach(() => {
 });
 
 describe('createDb', () => {
-  it('creates all 15 tables from schema.dbml', () => {
+  it('creates all schema tables, including the generic knowledge edge seam', () => {
     const tables = db.$client
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
       .all() as Array<{ name: string }>;
@@ -54,6 +55,7 @@ describe('createDb', () => {
       'requirement',
       'criterion',
       'knowledge_item',
+      'knowledge_edge',
       'turn_decision',
       'turn_assumption',
       'turn_knowledge_item',
@@ -478,23 +480,37 @@ describe('DB lifecycle — turn tree persistence', () => {
 });
 
 describe('entity persistence — decisions, assumptions, and generic knowledge items', () => {
-  it('creates a decision with project linkage', () => {
+  it('creates a decision as a generic knowledge item with project linkage', () => {
     const project = createProject(db, 'Test');
     const d = createDecision(db, project.id, 'Use SQLite for persistence');
     expect(d.id).toBeDefined();
     expect(d.content).toBe('Use SQLite for persistence');
     expect(d.project_id).toBe(project.id);
+
+    const stored = db.$client.prepare('SELECT kind, content FROM knowledge_item WHERE id = ?').get(d.id) as {
+      kind: string;
+      content: string;
+    };
+    expect(stored).toEqual({ kind: 'decision', content: 'Use SQLite for persistence' });
+    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM decision').get()).toEqual({ count: 0 });
   });
 
-  it('creates an assumption with project linkage', () => {
+  it('creates an assumption as a generic knowledge item with project linkage', () => {
     const project = createProject(db, 'Test');
     const a = createAssumption(db, project.id, 'SQLite handles concurrent writes');
     expect(a.id).toBeDefined();
     expect(a.content).toBe('SQLite handles concurrent writes');
     expect(a.project_id).toBe(project.id);
+
+    const stored = db.$client.prepare('SELECT kind, content FROM knowledge_item WHERE id = ?').get(a.id) as {
+      kind: string;
+      content: string;
+    };
+    expect(stored).toEqual({ kind: 'assumption', content: 'SQLite handles concurrent writes' });
+    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM assumption').get()).toEqual({ count: 0 });
   });
 
-  it('links a decision to a turn', () => {
+  it('links a decision to a turn through generic provenance', () => {
     const project = createProject(db, 'Test');
     const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
     const d = createDecision(db, project.id, 'Use React');
@@ -502,9 +518,15 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     const entities = getEntitiesForProject(db, project.id);
     expect(entities.decisions).toHaveLength(1);
     expect(entities.decisions[0].content).toBe('Use React');
+    expect(
+      db.$client
+        .prepare('SELECT relation FROM turn_knowledge_item WHERE turn_id = ? AND item_id = ?')
+        .get(turn.id, d.id),
+    ).toEqual({ relation: 'captured' });
+    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM turn_decision').get()).toEqual({ count: 0 });
   });
 
-  it('links an assumption to a turn', () => {
+  it('links an assumption to a turn through generic provenance', () => {
     const project = createProject(db, 'Test');
     const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
     const a = createAssumption(db, project.id, 'Users have API keys');
@@ -512,11 +534,38 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     const entities = getEntitiesForProject(db, project.id);
     expect(entities.assumptions).toHaveLength(1);
     expect(entities.assumptions[0].content).toBe('Users have API keys');
+    expect(
+      db.$client
+        .prepare('SELECT relation FROM turn_knowledge_item WHERE turn_id = ? AND item_id = ?')
+        .get(turn.id, a.id),
+    ).toEqual({ relation: 'captured' });
+    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM turn_assumption').get()).toEqual({ count: 0 });
   });
 
-  it('persists remaining generic knowledge kinds with project linkage, metadata, and turn provenance', () => {
+  it('persists canonical scope kinds plus later generic knowledge kinds with project linkage, metadata, and turn provenance', () => {
     const project = createProject(db, 'Test');
     const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const goal = createKnowledgeItem(
+      db,
+      project.id,
+      'goal',
+      'Help teams reach a clean implementation brief',
+      {
+        rationale: 'The project should produce a trustworthy handoff',
+      },
+    );
+    const term = createKnowledgeItem(db, project.id, 'term', 'implementation brief', {
+      rationale: 'The conversation introduced a named artifact that needs stable meaning',
+    });
+    const context = createKnowledgeItem(
+      db,
+      project.id,
+      'context',
+      'The first users are solo builders refining ideas',
+      {
+        rationale: 'Audience and workflow context shape the scope',
+      },
+    );
     const constraint = createKnowledgeItem(db, project.id, 'constraint', 'Must run locally', {
       subtype: 'non-goal',
       rationale: 'Keep setup instant',
@@ -528,11 +577,38 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
       subtype: 'acceptance',
       rationale: 'Protects the persistence seam',
     });
+    linkKnowledgeItemToTurn(db, goal.id, turn.id);
+    linkKnowledgeItemToTurn(db, term.id, turn.id);
+    linkKnowledgeItemToTurn(db, context.id, turn.id);
     linkKnowledgeItemToTurn(db, constraint.id, turn.id);
     linkKnowledgeItemToTurn(db, requirement.id, turn.id);
     linkKnowledgeItemToTurn(db, criterion.id, turn.id);
 
     const entities = getEntitiesForProject(db, project.id);
+    expect(entities.goals).toEqual([
+      expect.objectContaining({
+        project_id: project.id,
+        kind: 'goal',
+        content: 'Help teams reach a clean implementation brief',
+        rationale: 'The project should produce a trustworthy handoff',
+      }),
+    ]);
+    expect(entities.terms).toEqual([
+      expect.objectContaining({
+        project_id: project.id,
+        kind: 'term',
+        content: 'implementation brief',
+        rationale: 'The conversation introduced a named artifact that needs stable meaning',
+      }),
+    ]);
+    expect(entities.contexts).toEqual([
+      expect.objectContaining({
+        project_id: project.id,
+        kind: 'context',
+        content: 'The first users are solo builders refining ideas',
+        rationale: 'Audience and workflow context shape the scope',
+      }),
+    ]);
     expect(entities.constraints).toEqual([
       expect.objectContaining({
         project_id: project.id,
@@ -564,19 +640,30 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     const provenanceRows = db.$client
       .prepare('SELECT relation FROM turn_knowledge_item WHERE turn_id = ? ORDER BY item_id')
       .all(turn.id) as Array<{ relation: string }>;
-    expect(provenanceRows.map((row) => row.relation)).toEqual(['captured', 'captured', 'captured']);
+    expect(provenanceRows.map((row) => row.relation)).toEqual([
+      'captured',
+      'captured',
+      'captured',
+      'captured',
+      'captured',
+      'captured',
+    ]);
   });
 
-  it('creates dependency edges between decisions', () => {
+  it('creates dependency edges between decisions through generic edge storage', () => {
     const project = createProject(db, 'Test');
     const d1 = createDecision(db, project.id, 'Use Express');
     const d2 = createDecision(db, project.id, 'Use SSE for streaming');
     addDecisionParentDecision(db, d2.id, d1.id);
     const entities = getEntitiesForProject(db, project.id);
     expect(entities.decisions).toHaveLength(2);
+    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM knowledge_edge').get()).toEqual({ count: 1 });
+    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM decision_parent_decision').get()).toEqual({
+      count: 0,
+    });
   });
 
-  it('projects legacy parent links through one typed relationship read model', () => {
+  it('projects generic parent links through one typed relationship read model', () => {
     const project = createProject(db, 'Test');
     const parentDecision = createDecision(db, project.id, 'Use Express');
     const dependentDecision = createDecision(db, project.id, 'Use SSE for streaming');
@@ -608,12 +695,39 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     ]);
   });
 
-  it('creates dependency edges between assumptions', () => {
+  it('creates dependency edges between assumptions through generic edge storage', () => {
     const project = createProject(db, 'Test');
     const a1 = createAssumption(db, project.id, 'Single user');
     const a2 = createAssumption(db, project.id, 'No concurrent writes');
     addAssumptionParentAssumption(db, a2.id, a1.id);
     const entities = getEntitiesForProject(db, project.id);
     expect(entities.assumptions).toHaveLength(2);
+    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM knowledge_edge').get()).toEqual({ count: 1 });
+    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM assumption_parent_assumption').get()).toEqual({
+      count: 0,
+    });
+  });
+
+  it('projects a canonical scope bundle without consulting legacy commitment storage', () => {
+    const project = createProject(db, 'Test');
+    createKnowledgeItem(db, project.id, 'goal', 'Ship a trustworthy spec handoff');
+    createKnowledgeItem(db, project.id, 'term', 'implementation brief');
+    createKnowledgeItem(db, project.id, 'context', 'The first users are solo builders');
+    createKnowledgeItem(db, project.id, 'constraint', 'Do not require hosted setup', { subtype: 'non-goal' });
+    createDecision(db, project.id, 'Start with the web app');
+    createAssumption(db, project.id, 'Users can work in a browser');
+
+    expect(getScopeBundleForProject(db, project.id)).toMatchObject({
+      goals: [expect.objectContaining({ kind: 'goal', content: 'Ship a trustworthy spec handoff' })],
+      terms: [expect.objectContaining({ kind: 'term', content: 'implementation brief' })],
+      contexts: [expect.objectContaining({ kind: 'context', content: 'The first users are solo builders' })],
+      constraints: [
+        expect.objectContaining({
+          kind: 'constraint',
+          content: 'Do not require hosted setup',
+          subtype: 'non-goal',
+        }),
+      ],
+    });
   });
 });

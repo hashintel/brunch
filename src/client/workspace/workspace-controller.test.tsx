@@ -138,7 +138,9 @@ function createWorkspaceLoaderData({
   answer = 'Build the web app',
   options = [],
   entitySnapshot = {
-    framing: [],
+    goals: [],
+    terms: [],
+    contexts: [],
     constraints: [],
     requirements: [],
     criteria: [],
@@ -298,7 +300,9 @@ describe('workspace controller', () => {
     currentLoaderData = createWorkspaceLoaderData({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
       entitySnapshot: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -345,7 +349,9 @@ describe('workspace controller', () => {
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
       entitySnapshot: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],

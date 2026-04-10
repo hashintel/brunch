@@ -42,10 +42,22 @@ afterEach(() => {
 });
 
 describe('runObserver', () => {
-  it('persists scope-mode framing and constraint items with turn provenance and returns their ids', async () => {
+  it('persists canonical scope kinds and constraints with turn provenance and returns their ids', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
-        framing: [
+        goals: [
+          {
+            content: 'Produce a clean implementation brief',
+            rationale: 'The user wants a trustworthy handoff into delivery work',
+          },
+        ],
+        terms: [
+          {
+            content: 'implementation brief',
+            rationale: 'The user named the artifact the interview is trying to produce',
+          },
+        ],
+        contexts: [
           {
             content: 'The project starts from an ambiguous brief',
             rationale: 'The user is still clarifying the problem space',
@@ -74,14 +86,26 @@ describe('runObserver', () => {
       .prepare('SELECT turn_id, item_id, relation FROM turn_knowledge_item ORDER BY item_id ASC')
       .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
 
-    expect(entityIds.framing).toHaveLength(1);
+    expect(entityIds.goals).toHaveLength(1);
+    expect(entityIds.terms).toHaveLength(1);
+    expect(entityIds.contexts).toHaveLength(1);
     expect(entityIds.constraints).toHaveLength(1);
     expect(entityIds.requirements).toEqual([]);
     expect(entityIds.criteria).toEqual([]);
     expect(entityIds.decisions).toEqual([]);
     expect(entityIds.assumptions).toEqual([]);
-    expect(entities.framing[0]).toMatchObject({
-      kind: 'framing',
+    expect(entities.goals[0]).toMatchObject({
+      kind: 'goal',
+      content: 'Produce a clean implementation brief',
+      rationale: 'The user wants a trustworthy handoff into delivery work',
+    });
+    expect(entities.terms[0]).toMatchObject({
+      kind: 'term',
+      content: 'implementation brief',
+      rationale: 'The user named the artifact the interview is trying to produce',
+    });
+    expect(entities.contexts[0]).toMatchObject({
+      kind: 'context',
       content: 'The project starts from an ambiguous brief',
       rationale: 'The user is still clarifying the problem space',
     });
@@ -94,7 +118,17 @@ describe('runObserver', () => {
     expect(provenanceRows).toEqual([
       {
         turn_id: turn.id,
-        item_id: entityIds.framing[0],
+        item_id: entityIds.goals[0],
+        relation: 'captured',
+      },
+      {
+        turn_id: turn.id,
+        item_id: entityIds.terms[0],
+        relation: 'captured',
+      },
+      {
+        turn_id: turn.id,
+        item_id: entityIds.contexts[0],
         relation: 'captured',
       },
       {
@@ -105,10 +139,12 @@ describe('runObserver', () => {
     ]);
   });
 
-  it('calls generateText with a scope-biased framing/constraint prompt and existing generic context', async () => {
+  it('calls generateText with a scope-biased goal/term/context/constraint prompt and existing generic context', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -119,7 +155,7 @@ describe('runObserver', () => {
 
     const { createKnowledgeItem } = await import('./db.js');
     const project = createProject(db, 'Spec');
-    createKnowledgeItem(db, project.id, 'framing', 'The project starts as a fuzzy brief');
+    createKnowledgeItem(db, project.id, 'context', 'The project starts as a fuzzy brief');
     createKnowledgeItem(db, project.id, 'constraint', 'Avoid heavyweight setup', {
       subtype: 'non-goal',
       rationale: 'Onboarding should stay instant',
@@ -135,7 +171,7 @@ describe('runObserver', () => {
     expect(mockAnthropic).toHaveBeenCalled();
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining('constraint'),
+        system: expect.stringContaining('goal'),
         output: expect.objectContaining({
           name: 'object',
           parseCompleteOutput: expect.any(Function),
@@ -146,10 +182,12 @@ describe('runObserver', () => {
     );
   });
 
-  it('persists design-mode decisions and assumptions with legacy edges while allowing framing/constraint spillover', async () => {
+  it('persists design-mode decisions and assumptions through the generic seam while allowing scope-kind/constraint spillover', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
-        framing: [
+        goals: [],
+        terms: [],
+        contexts: [
           {
             content: 'The first release still targets solo builders',
             rationale: 'The turn restated who the tool is for',
@@ -169,21 +207,21 @@ describe('runObserver', () => {
             content: 'Start with the web app',
             rationale: 'It is the fastest path to user feedback',
             parentDecisionIds: [1],
-            parentAssumptionIds: [1],
+            parentAssumptionIds: [2],
           },
         ],
         assumptions: [
           {
             content: 'Users already have browsers available',
-            parentAssumptionIds: [1],
+            parentAssumptionIds: [2],
           },
         ],
       },
     });
 
     const project = createProject(db, 'Spec');
-    createDecision(db, project.id, 'Keep the first release browser-based');
-    createAssumption(db, project.id, 'Users can work in a browser');
+    const existingDecision = createDecision(db, project.id, 'Keep the first release browser-based');
+    const existingAssumption = createAssumption(db, project.id, 'Users can work in a browser');
     const turn = createTurn(db, project.id, {
       phase: 'design',
       question: 'Which delivery surface should we commit to first?',
@@ -193,15 +231,20 @@ describe('runObserver', () => {
     const entityIds = await runObserver(db, turn, project.id);
     const entities = getEntitiesForProject(db, project.id);
 
-    expect(entityIds).toEqual({
-      framing: [1],
-      constraints: [2],
-      requirements: [],
-      criteria: [],
-      decisions: [2],
-      assumptions: [2],
-    });
-    expect(entities.framing).toEqual(
+    expect(entityIds.goals).toEqual([]);
+    expect(entityIds.terms).toEqual([]);
+    expect(entityIds.requirements).toEqual([]);
+    expect(entityIds.criteria).toEqual([]);
+    expect(entityIds.contexts).toHaveLength(1);
+    expect(entityIds.constraints).toHaveLength(1);
+    expect(entityIds.decisions).toHaveLength(1);
+    expect(entityIds.assumptions).toHaveLength(1);
+
+    const [newContextId] = entityIds.contexts;
+    const [newConstraintId] = entityIds.constraints;
+    const [newDecisionId] = entityIds.decisions;
+    const [newAssumptionId] = entityIds.assumptions;
+    expect(entities.contexts).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
           content: 'The first release still targets solo builders',
@@ -219,7 +262,7 @@ describe('runObserver', () => {
     expect(entities.decisions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          id: 2,
+          id: newDecisionId,
           content: 'Start with the web app',
           rationale: 'It is the fastest path to user feedback',
         }),
@@ -228,7 +271,7 @@ describe('runObserver', () => {
     expect(entities.assumptions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
-          id: 2,
+          id: newAssumptionId,
           content: 'Users already have browsers available',
         }),
       ]),
@@ -237,27 +280,36 @@ describe('runObserver', () => {
       expect.arrayContaining([
         {
           type: 'depends_on',
-          source: { collection: 'decision', kind: 'decision', id: 2 },
-          target: { collection: 'decision', kind: 'decision', id: 1 },
+          source: { collection: 'decision', kind: 'decision', id: newDecisionId },
+          target: { collection: 'decision', kind: 'decision', id: existingDecision.id },
         },
         {
           type: 'depends_on',
-          source: { collection: 'decision', kind: 'decision', id: 2 },
-          target: { collection: 'assumption', kind: 'assumption', id: 1 },
+          source: { collection: 'decision', kind: 'decision', id: newDecisionId },
+          target: { collection: 'assumption', kind: 'assumption', id: existingAssumption.id },
         },
         {
           type: 'depends_on',
-          source: { collection: 'assumption', kind: 'assumption', id: 2 },
-          target: { collection: 'assumption', kind: 'assumption', id: 1 },
+          source: { collection: 'assumption', kind: 'assumption', id: newAssumptionId },
+          target: { collection: 'assumption', kind: 'assumption', id: existingAssumption.id },
         },
       ]),
     );
+
+    expect(entities.contexts).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: newContextId })]),
+    );
+    expect(entities.constraints).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: newConstraintId })]),
+    );
   });
 
-  it('calls generateText with a design-biased prompt that prioritizes decisions/assumptions and allows framing/constraint spillover', async () => {
+  it('calls generateText with a design-biased prompt that prioritizes decisions/assumptions and allows scope-kind/constraint spillover', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -285,12 +337,12 @@ describe('runObserver', () => {
     );
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining('framing corrections'),
+        system: expect.stringContaining('constraint** corrections'),
       }),
     );
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining('constraint spillover'),
+        system: expect.stringContaining('scope understanding'),
       }),
     );
   });
@@ -298,7 +350,9 @@ describe('runObserver', () => {
   it('persists requirements-mode requirement items with turn provenance and returns their ids', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [
           {
@@ -326,7 +380,9 @@ describe('runObserver', () => {
       .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
 
     expect(entityIds).toEqual({
-      framing: [],
+      goals: [],
+      terms: [],
+      contexts: [],
       constraints: [],
       requirements: [1],
       criteria: [],
@@ -350,7 +406,9 @@ describe('runObserver', () => {
   it('calls generateText with a requirements-biased prompt that prioritizes requirements and defers criteria extraction', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -393,7 +451,9 @@ describe('runObserver', () => {
   it('routes structured turn responses into the observer prompt through the shared response seam', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
@@ -441,7 +501,9 @@ describe('runObserver', () => {
   it('persists criteria-mode criterion items with turn provenance and returns their ids', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [
@@ -463,7 +525,9 @@ describe('runObserver', () => {
     });
 
     const entityIds = (await runObserver(db, turn, project.id)) as never as {
-      framing: number[];
+      goals: [];
+      terms: [];
+      contexts: number[];
       constraints: number[];
       requirements: number[];
       criteria: number[];
@@ -476,7 +540,9 @@ describe('runObserver', () => {
       .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
 
     expect(entityIds).toEqual({
-      framing: [],
+      goals: [],
+      terms: [],
+      contexts: [],
       constraints: [],
       requirements: [],
       criteria: [1],
@@ -500,7 +566,9 @@ describe('runObserver', () => {
   it('calls generateText with a criteria-biased prompt that prioritizes criteria and distinguishes them from requirements', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
-        framing: [],
+        goals: [],
+        terms: [],
+        contexts: [],
         constraints: [],
         requirements: [],
         criteria: [],
