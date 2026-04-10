@@ -207,6 +207,15 @@
      - Acceptance: complete all modes, satisfy review completeness, navigate to export, see markdown preview from the reviewed knowledge layer plus relevant phase-outcome caveats, download `.md` file
      - **Verification approach**: inner — export projection tests. Outer — manual export after a full walkthrough, after a low-readiness/forced-close path surfaces caveats, and after a readiness-incomplete state blocks export.
 
+11b. **Fixture scenarios + dev seed CLI** — Extract the programmatic seed helpers from `app.test.ts` into a shared fixture module (`src/server/fixtures/scenarios.ts`) and add a CLI entry point (`src/server/fixtures/seed.ts`) so the dev server can be started at any named project state for outer-loop manual testing. `not-started`
+     - Requirements: → SPEC.md §Requirements #14 (resume), §Verification Design (outer-loop fixture capture)
+     - Assumptions: → SPEC.md §Assumptions A28
+     - Decisions: —
+     - Candidate invariant goals: fixture scenarios produce DB states identical to what the existing middle-loop tests verify; test files import from the shared module instead of owning inline seed helpers
+     - Invariants to respect: → SPEC.md §Invariants I5, I6, I72, I87, I98, I99
+     - Acceptance: `npm run seed <scenario>` creates a named-scenario project in a fresh or specified DB; the dev server renders the expected workflow state and turn history from that seeded state; existing tests still pass after the extraction refactor
+     - **Verification approach**: inner — type checking confirms scenario functions share the same DB API contract. Middle — existing test suite passes after extraction (characterization). Outer — manual dev-server walkthrough from each seeded scenario.
+
 13a. **Review lifecycle refinement across requirements + criteria** — Revisit the first-cut review model only after the thin end-to-end path is working, and add the deferred variants that were intentionally excluded from slices 9 and 10 so the app kept moving toward completion. `not-started`
      - Requirements: → SPEC.md §Requirements #11, #12, #13
      - Assumptions: → SPEC.md §Assumptions A15, A40
@@ -282,6 +291,7 @@ Phase 6:  7 ──┐
           8 ──┼──→ 11a (project dashboard workflow state)
           9 ──┤
           10.3 ─┘
+          10.3 ──→ 11b (fixture scenarios + dev seed CLI)
           7b ──→ 12 (knowledge workspace review surface + lifecycle API)
           10.3 ──→ 12
           10.3 ──→ 13 (export)
@@ -294,7 +304,8 @@ Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
 ### Parallelism opportunities
 
 - 10.1–10.3 are done; the review seam has been unified (refactor landed between 10.3 and 11a).
-- 11a (project dashboard workflow state), 12 (knowledge workspace), and 13 (export) are all unblocked and can proceed in parallel.
+- 11b (fixture scenarios + dev seed CLI) is unblocked and should land before deep outer-loop testing of 12 or 13.
+- 12 (knowledge workspace) and 13 (export) are unblocked and can proceed in parallel.
 - 13a (review lifecycle refinement) is explicitly deferred; it should collect rarer review variants after 12 and 13 stabilize rather than fragmenting slices 9 and 10.
 - 14 (npx) can start early with a basic launcher, completing after slice 13 when the export predicate stabilizes.
 - 15 (drizzle-kit audit remediation) should wait until 14 lands.
