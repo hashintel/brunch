@@ -59,13 +59,21 @@ describe('getSystemPrompt', () => {
   it('teaches the design prompt to propose closure when enough design direction is captured', () => {
     expect(getSystemPrompt('design')).toContain('propose_phase_closure');
   });
+
+  it('grounds the requirements prompt in the current requirement inventory', () => {
+    expect(getSystemPrompt('requirements')).toContain('current requirement inventory');
+    expect(getSystemPrompt('requirements')).toContain('requirement-approval');
+    expect(getSystemPrompt('requirements')).toContain('requirement-rejection');
+    expect(getSystemPrompt('requirements')).toContain('propose_phase_closure');
+  });
 });
 
 describe('canProposePhaseClosure', () => {
-  it('enables closure proposals for scope and design but not later review phases', () => {
+  it('enables closure proposals for scope and design, and for requirements only once closeable', () => {
     expect(canProposePhaseClosure('scope')).toBe(true);
     expect(canProposePhaseClosure('design')).toBe(true);
-    expect(canProposePhaseClosure('requirements')).toBe(false);
+    expect(canProposePhaseClosure('requirements', false)).toBe(false);
+    expect(canProposePhaseClosure('requirements', true)).toBe(true);
     expect(canProposePhaseClosure('criteria')).toBe(false);
   });
 });
@@ -94,6 +102,27 @@ describe('persistStructuredQuestion', () => {
     expect(options).toHaveLength(2);
     expect(options[0].content).toBe('Web');
     expect(options[0].is_recommended).toBe(true);
+  });
+});
+
+describe('createProposePhaseClosureTool', () => {
+  it('persists the server-known phase, not the LLM-provided input phase', async () => {
+    const { createProposePhaseClosureTool } = await import('./interview.js');
+    const { listPhaseOutcomesForProject } = await import('./db.js');
+
+    const project = createProject(db, 'Spec');
+    const turn = createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
+
+    const tool = createProposePhaseClosureTool(db, turn.id, 'design', project.id);
+    expect(tool.execute).toBeDefined();
+    await tool.execute!(
+      { phase: 'scope', summary: 'LLM hallucinated wrong phase' },
+      { toolCallId: 'tc-1', messages: [], abortSignal: new AbortController().signal },
+    );
+
+    const outcomes = listPhaseOutcomesForProject(db, project.id);
+    expect(outcomes).toHaveLength(1);
+    expect(outcomes[0].phase).toBe('design');
   });
 });
 

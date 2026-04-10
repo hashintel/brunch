@@ -15,7 +15,13 @@ function entityKey(collection: 'knowledge_item' | 'decision' | 'assumption', id:
 }
 
 function renderKnowledgeItems(
-  items: Array<{ id: number; content: string; subtype: string | null; rationale: string | null }>,
+  items: Array<{
+    id: number;
+    content: string;
+    subtype: string | null;
+    rationale: string | null;
+    reviewStatus?: 'approved' | 'rejected' | 'pending';
+  }>,
   emptyMessage: string,
   isLoading: boolean,
 ) {
@@ -25,7 +31,26 @@ function renderKnowledgeItems(
 
   return items.map((item) => (
     <div key={item.id} className="rounded-md border p-2.5">
-      <p className="text-sm">{item.content}</p>
+      <div className="flex items-start justify-between gap-2">
+        <p className="text-sm">{item.content}</p>
+        {item.reviewStatus && (
+          <Badge
+            variant={
+              item.reviewStatus === 'approved'
+                ? 'default'
+                : item.reviewStatus === 'rejected'
+                  ? 'destructive'
+                  : 'secondary'
+            }
+          >
+            {item.reviewStatus === 'approved'
+              ? 'Approved'
+              : item.reviewStatus === 'rejected'
+                ? 'Rejected'
+                : 'Pending'}
+          </Badge>
+        )}
+      </div>
       {item.subtype && <p className="mt-1 text-xs text-muted-foreground">{item.subtype}</p>}
       {item.rationale && <p className="mt-1 text-xs text-muted-foreground">{item.rationale}</p>}
     </div>

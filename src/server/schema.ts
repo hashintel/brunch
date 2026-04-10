@@ -161,7 +161,7 @@ export const turnKnowledgeItem = sqliteTable(
     item_id: integer()
       .notNull()
       .references(() => knowledgeItem.id),
-    relation: text({ enum: ['captured', 'confirmed', 'edited', 'invalidated', 'reviewed'] })
+    relation: text({ enum: ['captured', 'confirmed', 'edited', 'invalidated', 'reviewed', 'rejected'] })
       .notNull()
       .default('captured'),
   },

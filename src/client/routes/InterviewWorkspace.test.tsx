@@ -1307,6 +1307,60 @@ describe('InterviewWorkspace', () => {
     expect(screen.getByText(/requirements in progress/i)).toBeTruthy();
   });
 
+  it('does not show "Not yet closeable" for phases whose status is closed', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      workflow: {
+        phases: {
+          scope: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 1,
+            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+          },
+          design: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'user_forced',
+            proposalPending: false,
+            turnId: 4,
+            summary: 'Design closed by user without an interviewer recommendation.',
+          },
+          requirements: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        },
+      } as any,
+    });
+
+    renderWorkspace();
+
+    await screen.findByText(/scope closed/i);
+
+    const scopeMetaLabels = screen.getAllByText(/high readiness/i);
+    for (const label of scopeMetaLabels) {
+      expect(label.textContent).not.toContain('Not yet closeable');
+    }
+  });
+
   it('posts free-text-only turn responses and forwards the text into chat', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       options: [

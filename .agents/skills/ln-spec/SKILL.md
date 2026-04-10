@@ -38,7 +38,27 @@ If `memory/PLAN.md` exists, verify that changed assumptions and decisions still 
 
 ### Weight management
 
-Spec documents accumulate. Each ln-sync pass may prune items that are embedded, moot, or superseded (see ln-sync §Pruning check). When *adding* items, consider whether an existing item should be retired to make room. A spec with 30 assumptions is not more rigorous than one with 10 — it's harder to read and more likely to mislead a new session.
+Use the same unit-of-record rules as `ln-build` §Same-item tests. Before adding a row, compare against nearby items in the same feature area. Prefer **update** or **merge** over **add** when the seam is the same.
+
+**Units of record:**
+
+- **Assumption** = one unresolved question at one seam
+- **Decision** = one committed choice between alternatives at one seam
+- **Invariant** = one seam-level structural property protected by tests
+
+**These are not new rows** — they are updates or merges to existing rows:
+- confidence changes, validation narratives, added evidence
+- helper names, file layout, or implementation mechanics
+- one more branch/state/kind/phase/action example of an existing rule
+- one implementation step under an already-recorded decision
+
+**Smell checks before adding:**
+- The sentence starts with "for this slice" or names a temporary cutover step → probably an update, not a new item
+- The difference is only approve/reject, confirm/force-close, or kind/phase/state variants of one shared rule → merge into the seam-level row
+- The item would stop making sense once the code ships and no alternative remains live → probably a decision that should not be tracked
+- The item is an implementation mechanic inside an already-chosen boundary → no-op
+
+Large cleanup is `ln-sync` work. When writing or patching, keep the touched area coherent; do not attempt a risky whole-document consolidation.
 
 ### Cross-reference integrity
 

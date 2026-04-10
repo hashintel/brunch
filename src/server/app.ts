@@ -39,6 +39,7 @@ import {
   getOptionsForTurn,
   updateTurn,
   getEntitiesForProject,
+  recordRequirementReviewFromTurnResponse,
 } from './db.js';
 import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
@@ -114,6 +115,7 @@ export function createApp(dbPath?: string) {
       return;
     }
     applyTurnResponseSelections(db, turnId, uniquePositions);
+    recordRequirementReviewFromTurnResponse(db, turn, uniquePositions);
 
     const selectedOptionIds = selectedOptions.map((option) => option.id);
     const selectedOptionContents = selectedOptions.map((option) => option.content);
@@ -211,6 +213,13 @@ export function createApp(dbPath?: string) {
       }
     } else if (confirmationPart && !confirmationTarget) {
       res.status(404).json({ error: 'Phase closure proposal not found' });
+      return;
+    } else if (
+      confirmationTarget &&
+      phaseClosureCommand?.kind === 'confirm-proposed-phase-closure' &&
+      confirmationTarget.phase !== phaseClosureCommand.phase
+    ) {
+      res.status(400).json({ error: 'Phase closure confirmation phase mismatch' });
       return;
     }
 

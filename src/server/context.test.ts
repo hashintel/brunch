@@ -212,6 +212,40 @@ describe('buildInterviewerContext', () => {
     expect(result).toContain('A2');
     expect(result).toContain('User: Q3?');
   });
+
+  it('includes the current requirement inventory when requirements review is active', () => {
+    const turns: TurnWithOptions[] = [
+      {
+        id: 7,
+        project_id: 1,
+        parent_turn_id: 6,
+        phase: 'requirements',
+        question: 'Which requirements are still missing?',
+        answer: 'A requirement is missing — Export the reviewed spec as markdown',
+        why: 'Completeness review needs the current requirement set.',
+        impact: 'high',
+        is_resolution: false,
+        user_parts: null,
+        assistant_parts: null,
+        created_at: '2026-01-03',
+      },
+    ];
+
+    const result = (buildInterviewerContext as any)(turns, 'Review the next gap', {
+      phase: 'requirements',
+      entities: {
+        requirements: [
+          { id: 5, content: 'Resume the interview from SQLite after restart' },
+          { id: 6, content: 'Export the reviewed spec as markdown' },
+        ],
+      },
+    });
+
+    expect(result).toContain('Current requirements under review:');
+    expect(result).toContain('- [5] Resume the interview from SQLite after restart');
+    expect(result).toContain('- [6] Export the reviewed spec as markdown');
+    expect(result).toContain('User: Review the next gap');
+  });
 });
 
 // --- Observer context projection ---
