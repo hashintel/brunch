@@ -162,7 +162,7 @@
      - Acceptance: a targeted criteria-review turn can persist one explicit positive review action and one explicit non-positive review action, read-side projection resolves latest review state per criterion, and workflow marks criteria closeable only when no criterion remains `pending`
      - **Verification approach**: inner — criterion review metadata/read-model/workflow-state tests. Middle — round-trip oracle proving explicit criterion review actions persist and project without drift, plus lifecycle oracle proving criteria stays `in_progress` until review coverage is complete. Outer — manual criteria review walkthrough judges whether the thin approve/reject semantics are legible enough to keep moving.
 
-10.3 **Criteria closure + completed workflow state** — Reuse the shared phase-close seam to close the final workflow phase and project a completed interview state once criteria review reaches the minimum bar. `not-started`
+10.3 **Criteria closure + completed workflow state** — Reuse the shared phase-close seam to close the final workflow phase and project a completed interview state once criteria review reaches the minimum bar. `done`
      - Requirements: → SPEC.md §Requirements #7, #8, #13
      - Assumptions: → SPEC.md §Assumptions A15, A28
      - Decisions: → SPEC.md §Decisions D65, D66, D71
