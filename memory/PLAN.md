@@ -180,7 +180,7 @@
 
 ### Slices
 
-11a. **Project dashboard workflow state** — Surface durable workflow state on the project list so users can tell which projects are unstarted, in progress, closed with debt, invalidated, or export-ready without opening each workspace. This replaces the deferred revisit slot with a missing but lower-risk requirement. `not-started`
+11a. **Project dashboard workflow state** `FE-573` `done` — Surface durable workflow state on the project list so users can tell which projects are unstarted, in progress, closed with debt, invalidated, or export-ready without opening each workspace.
      - Requirements: → SPEC.md §Requirements #7, #8, #11, #12, #13, #15
      - Assumptions: → SPEC.md §Assumptions A15, A28
      - Decisions: → SPEC.md §Decisions D3, D17, D65, D66, D70
