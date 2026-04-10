@@ -43,6 +43,13 @@
       "when": 1775710000000,
       "tag": "0005_generic_commitment_graph",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1775715000000,
+      "tag": "0006_phase_outcome_closure_basis",
+      "breakpoints": true
     }
   ]
 }

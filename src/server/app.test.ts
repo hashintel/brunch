@@ -99,14 +99,22 @@ async function makeStructuredQuestionInterviewer(dbArg: DB, turnId: number) {
   };
 }
 
-async function makePhaseClosureInterviewer(dbArg: DB, projectId: number, turnId: number) {
+async function makePhaseClosureInterviewer(
+  dbArg: DB,
+  projectId: number,
+  turnId: number,
+  phase: 'scope' | 'design' = 'scope',
+  summary:
+    | 'Goals, terms, context, and constraints are sufficiently captured.'
+    | 'The main architectural commitments are captured well enough to review requirements.' = 'Goals, terms, context, and constraints are sufficiently captured.',
+) {
   const { createPhaseOutcome } = await import('./db.js');
 
   createPhaseOutcome(dbArg, {
     projectId,
-    phase: 'scope',
+    phase,
     proposal_turn_id: turnId,
-    summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    summary,
   });
 
   return {
@@ -119,15 +127,15 @@ async function makePhaseClosureInterviewer(dbArg: DB, projectId: number, turnId:
           toolCallId: 'tool-phase-1',
           toolName: 'propose_phase_closure',
           input: {
-            phase: 'scope',
-            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            phase,
+            summary,
           },
         },
         {
           type: 'tool-output-available',
           toolCallId: 'tool-phase-1',
           toolName: 'propose_phase_closure',
-          output: { ok: true, turnId, phase: 'scope' },
+          output: { ok: true, turnId, phase },
         },
       ]),
     finishReason: Promise.resolve('tool-calls'),
@@ -152,6 +160,103 @@ function parseSSELines(body: string): Array<Record<string, unknown> | '[DONE]'> 
 async function createTestProject(name = 'Test Project'): Promise<number> {
   const res = await request(app).post('/api/projects').send({ name });
   return res.body.id;
+}
+
+async function seedClosedScope(projectId: number) {
+  const { advanceHead, confirmPhaseOutcome, createPhaseOutcome, createTurn } = await import('./db.js');
+
+  const scopeTurn = createTurn(db, projectId, {
+    phase: 'scope',
+    question: 'What platform?',
+    answer: 'Web',
+  });
+  advanceHead(db, projectId, scopeTurn.id);
+
+  const scopeProposalTurn = createTurn(db, projectId, {
+    phase: 'scope',
+    parent_turn_id: scopeTurn.id,
+    question: '',
+    answer: 'We have enough scope context',
+  });
+  advanceHead(db, projectId, scopeProposalTurn.id);
+
+  const scopeOutcome = createPhaseOutcome(db, {
+    projectId,
+    phase: 'scope',
+    proposal_turn_id: scopeProposalTurn.id,
+    summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+  });
+
+  const scopeConfirmationTurn = createTurn(db, projectId, {
+    phase: 'scope',
+    parent_turn_id: scopeProposalTurn.id,
+    question: '',
+    answer: 'Confirm scope closure',
+    user_parts: JSON.stringify([
+      { type: 'text', text: 'Confirm scope closure' },
+      {
+        type: 'data-confirmation',
+        data: {
+          kind: 'confirm-proposed-phase-closure',
+          proposalTurnId: scopeProposalTurn.id,
+          phase: 'scope',
+        },
+      },
+    ]),
+  });
+  confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
+  advanceHead(db, projectId, scopeConfirmationTurn.id);
+
+  return { scopeTurn, scopeProposalTurn, scopeConfirmationTurn };
+}
+
+async function seedActiveDesign(projectId: number) {
+  const { advanceHead, createTurn } = await import('./db.js');
+  const seededScope = await seedClosedScope(projectId);
+
+  const designTurn = createTurn(db, projectId, {
+    phase: 'design',
+    parent_turn_id: seededScope.scopeConfirmationTurn.id,
+    question: 'Which tradeoff matters most?',
+    answer: 'Keep the repository seam small',
+  });
+  advanceHead(db, projectId, designTurn.id);
+
+  return { ...seededScope, designTurn };
+}
+
+async function seedRequirementsReady(projectId: number) {
+  const { advanceHead, confirmPhaseOutcome, createPhaseOutcome, createTurn } = await import('./db.js');
+  const seededDesign = await seedActiveDesign(projectId);
+
+  const designOutcome = createPhaseOutcome(db, {
+    projectId,
+    phase: 'design',
+    proposal_turn_id: seededDesign.designTurn.id,
+    summary: 'The main architectural commitments are captured well enough to review requirements.',
+  });
+
+  const designConfirmationTurn = createTurn(db, projectId, {
+    phase: 'design',
+    parent_turn_id: seededDesign.designTurn.id,
+    question: '',
+    answer: 'Confirm design closure',
+    user_parts: JSON.stringify([
+      { type: 'text', text: 'Confirm design closure' },
+      {
+        type: 'data-confirmation',
+        data: {
+          kind: 'confirm-proposed-phase-closure',
+          proposalTurnId: seededDesign.designTurn.id,
+          phase: 'design',
+        },
+      },
+    ]),
+  });
+  confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
+  advanceHead(db, projectId, designConfirmationTurn.id);
+
+  return { ...seededDesign, designConfirmationTurn };
 }
 
 beforeEach(() => {
@@ -705,7 +810,11 @@ describe('phase outcomes + scope closure', () => {
 
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.scope).toEqual({
-      status: 'proposed',
+      status: 'in_progress',
+      closeability: true,
+      readiness: 'medium',
+      closureBasis: null,
+      proposalPending: true,
       turnId: 1,
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
@@ -747,7 +856,14 @@ describe('phase outcomes + scope closure', () => {
             role: 'user',
             parts: [
               { type: 'text', text: 'Confirm scope closure' },
-              { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: 1,
+                  phase: 'scope',
+                },
+              },
             ],
           },
         ],
@@ -755,19 +871,563 @@ describe('phase outcomes + scope closure', () => {
       .expect(200);
 
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    expect(projectRes.body.workflow.phases.scope).toEqual({
-      status: 'confirmed',
-      turnId: 1,
-      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
-    });
+    expect(projectRes.body.workflow.phases.scope).toEqual(
+      expect.objectContaining({
+        status: 'closed',
+        turnId: 1,
+        summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+        closeability: false,
+        readiness: 'high',
+        closureBasis: 'interviewer_recommended',
+        proposalPending: false,
+      }),
+    );
+    const phaseOutcomes = db.$client
+      .prepare('SELECT closure_basis FROM phase_outcome WHERE project_id = ? ORDER BY id DESC')
+      .all(projectId) as Array<{ closure_basis: string | null }>;
+    expect(phaseOutcomes[0]).toEqual({ closure_basis: 'interviewer_recommended' });
+    expect(projectRes.body.workflow.phases.design).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        closeability: false,
+        readiness: 'low',
+        closureBasis: null,
+        proposalPending: false,
+      }),
+    );
     expect(projectRes.body.project.active_turn_id).toBe(2);
     expect(projectRes.body.turns.at(-1)).toMatchObject({
       answer: 'Confirm scope closure',
     });
     expect(JSON.parse(projectRes.body.turns.at(-1).user_parts ?? '[]')).toEqual([
       { type: 'text', text: 'Confirm scope closure' },
-      { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+      {
+        type: 'data-confirmation',
+        data: {
+          kind: 'confirm-proposed-phase-closure',
+          proposalTurnId: 1,
+          phase: 'scope',
+        },
+      },
     ]);
+  });
+
+  it('enters design mode on the next chat turn after scope closure and runs the observer in design phase', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+        ],
+      })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u2',
+            role: 'user',
+            parts: [
+              { type: 'text', text: 'Confirm scope closure' },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: 1,
+                  phase: 'scope',
+                },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    mockStreamInterviewer.mockImplementation(async () =>
+      makeTextInterviewer('Which database tradeoff matters more?'),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u3',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Let us compare SQLite and Postgres' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'design' }),
+      expect.any(Array),
+      'Let us compare SQLite and Postgres',
+      'design',
+    );
+    expect(mockRunObserver).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'design' }),
+      projectId,
+    );
+  });
+
+  it('streams a design phase summary proposal and projects workflow state through the shared phase seam', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+        ],
+      })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u2',
+            role: 'user',
+            parts: [
+              { type: 'text', text: 'Confirm scope closure' },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: 1,
+                  phase: 'scope',
+                },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makePhaseClosureInterviewer(
+        dbArg as DB,
+        projectId,
+        (turn as { id: number }).id,
+        'design',
+        'The main architectural commitments are captured well enough to review requirements.',
+      ),
+    );
+
+    const chatRes = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u3',
+            role: 'user',
+            parts: [{ type: 'text', text: 'We have enough design direction now' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    const events = parseSSELines(collectSSE(chatRes)).filter((event) => event !== '[DONE]');
+    expect(events).toContainEqual({
+      type: 'data-phase-summary',
+      data: {
+        turnId: 3,
+        phase: 'design',
+        summary: 'The main architectural commitments are captured well enough to review requirements.',
+      },
+    });
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.design).toEqual({
+      status: 'in_progress',
+      closeability: true,
+      readiness: 'medium',
+      closureBasis: null,
+      proposalPending: true,
+      turnId: 3,
+      summary: 'The main architectural commitments are captured well enough to review requirements.',
+    });
+    expect(projectRes.body.workflow.phases.requirements).toEqual(
+      expect.objectContaining({
+        status: 'unstarted',
+        closeability: false,
+        readiness: 'low',
+        closureBasis: null,
+        proposalPending: false,
+      }),
+    );
+    expect(JSON.parse(projectRes.body.turns.at(-1).assistant_parts ?? '[]')).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'data-phase-summary',
+          data: {
+            turnId: 3,
+            phase: 'design',
+            summary: 'The main architectural commitments are captured well enough to review requirements.',
+          },
+        },
+      ]),
+    );
+  });
+
+  it('confirms a proposed design phase outcome and enters requirements mode on the next turn', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+        ],
+      })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u2',
+            role: 'user',
+            parts: [
+              { type: 'text', text: 'Confirm scope closure' },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: 1,
+                  phase: 'scope',
+                },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makePhaseClosureInterviewer(
+        dbArg as DB,
+        projectId,
+        (turn as { id: number }).id,
+        'design',
+        'The main architectural commitments are captured well enough to review requirements.',
+      ),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u3',
+            role: 'user',
+            parts: [{ type: 'text', text: 'We have enough design direction now' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u4',
+            role: 'user',
+            parts: [
+              { type: 'text', text: 'Confirm design closure' },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: 3,
+                  phase: 'design',
+                },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.design).toEqual(
+      expect.objectContaining({
+        status: 'closed',
+        turnId: 3,
+        summary: 'The main architectural commitments are captured well enough to review requirements.',
+        closeability: false,
+        readiness: 'high',
+        closureBasis: 'interviewer_recommended',
+        proposalPending: false,
+      }),
+    );
+    expect(projectRes.body.workflow.phases.requirements).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        closeability: false,
+        readiness: 'low',
+        closureBasis: null,
+        proposalPending: false,
+      }),
+    );
+
+    mockStreamInterviewer.mockImplementation(async () =>
+      makeTextInterviewer('Which requirement is must-have?'),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u5',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Let us review the must-have capabilities' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'requirements' }),
+      expect.any(Array),
+      'Let us review the must-have capabilities',
+      'requirements',
+    );
+    expect(mockRunObserver).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'requirements' }),
+      projectId,
+    );
+  });
+
+  it('force-closes design through the shared confirmation seam and enters requirements mode on the next turn', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+        ],
+      })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u2',
+            role: 'user',
+            parts: [
+              { type: 'text', text: 'Confirm scope closure' },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: 1,
+                  phase: 'scope',
+                },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    mockStreamInterviewer.mockImplementation(async () =>
+      makeTextInterviewer('Which database tradeoff matters more?'),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u3',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Let us compare SQLite and Postgres' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u4',
+            role: 'user',
+            parts: [
+              { type: 'text', text: 'Force design closure' },
+              {
+                type: 'data-confirmation',
+                data: { kind: 'force-close-active-phase', phase: 'design' },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.design).toEqual(
+      expect.objectContaining({
+        status: 'closed',
+        closeability: false,
+        readiness: 'high',
+        closureBasis: 'user_forced',
+        proposalPending: false,
+      }),
+    );
+    const phaseOutcomes = db.$client
+      .prepare('SELECT closure_basis FROM phase_outcome WHERE project_id = ? ORDER BY id DESC')
+      .all(projectId) as Array<{ closure_basis: string | null }>;
+    expect(phaseOutcomes[0]).toEqual({ closure_basis: 'user_forced' });
+    expect(projectRes.body.workflow.phases.requirements).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        closeability: false,
+        readiness: 'low',
+        closureBasis: null,
+        proposalPending: false,
+      }),
+    );
+    expect(projectRes.body.turns.at(-1)).toMatchObject({
+      phase: 'design',
+      answer: 'Force design closure',
+    });
+    expect(JSON.parse(projectRes.body.turns.at(-1).user_parts ?? '[]')).toEqual([
+      { type: 'text', text: 'Force design closure' },
+      {
+        type: 'data-confirmation',
+        data: { kind: 'force-close-active-phase', phase: 'design' },
+      },
+    ]);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u5',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Let us review the must-have capabilities' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'requirements' }),
+      expect.any(Array),
+      'Let us review the must-have capabilities',
+      'requirements',
+    );
+    expect(mockRunObserver).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'requirements' }),
+      projectId,
+    );
+  });
+
+  it.each([
+    {
+      name: 'unsupported phases',
+      seed: async (projectId: number) => {
+        const { advanceHead, createTurn } = await import('./db.js');
+        const scopeTurn = createTurn(db, projectId, {
+          phase: 'scope',
+          question: 'What platform?',
+          answer: 'Web',
+        });
+        advanceHead(db, projectId, scopeTurn.id);
+      },
+      phase: 'scope',
+      expectedError: 'Only design supports force-close in this slice',
+    },
+    {
+      name: 'inactive phases',
+      seed: async (projectId: number) => {
+        await seedRequirementsReady(projectId);
+      },
+      phase: 'design',
+      expectedError: 'Only the active phase can be force-closed',
+    },
+    {
+      name: 'design that is not closeable yet',
+      seed: async (projectId: number) => {
+        await seedClosedScope(projectId);
+      },
+      phase: 'design',
+      expectedError: 'Phase is not closeable yet',
+    },
+    {
+      name: 'design with a pending proposal',
+      seed: async (projectId: number) => {
+        const { createPhaseOutcome } = await import('./db.js');
+        const { designTurn } = await seedActiveDesign(projectId);
+        createPhaseOutcome(db, {
+          projectId,
+          phase: 'design',
+          proposal_turn_id: designTurn.id,
+          summary: 'The main architectural commitments are captured well enough to review requirements.',
+        });
+      },
+      phase: 'design',
+      expectedError: 'Confirm the pending closure proposal instead of force-closing',
+    },
+  ])('preserves force-close validation errors for $name', async ({ seed, phase, expectedError }) => {
+    const projectId = await createTestProject();
+    await seed(projectId);
+
+    const response = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u1',
+            role: 'user',
+            parts: [
+              { type: 'text', text: `Force ${phase} closure` },
+              {
+                type: 'data-confirmation',
+                data: { kind: 'force-close-active-phase', phase },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(400);
+
+    expect(response.body).toEqual({ error: expectedError });
   });
 });
 

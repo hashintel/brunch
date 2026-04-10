@@ -20,8 +20,9 @@ import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/componen
 import { EntitySidebar } from '@/components/EntitySidebar';
 import { cn } from '@/lib/utils';
 
-import type { ProjectStateTurn } from '../../shared/api-types.js';
+import type { ProjectState, ProjectStateTurn } from '../../shared/api-types.js';
 import { isAskQuestionUIPart, type BrunchUIMessage } from '../../shared/chat.js';
+import { getForceClosePhaseAction, getPhaseClosureCommandText } from '../../shared/phase-close.js';
 import { useWorkspaceController } from '../workspace/workspace-controller';
 import {
   getPersistedSelectedPositions,
@@ -39,29 +40,54 @@ type TurnCardOption = Pick<
   'position' | 'content' | 'is_recommended'
 >;
 
-function getScopeStatusLabel(status: 'open' | 'proposed' | 'confirmed') {
-  switch (status) {
-    case 'proposed':
-      return 'Scope ready to confirm';
-    case 'confirmed':
-      return 'Scope closed';
-    default:
-      return 'Scope in progress';
+type WorkflowPhaseState = ProjectState['workflow']['phases'][ProjectStateTurn['phase']];
+
+function getWorkflowStatusLabel(phase: ProjectStateTurn['phase'], state: WorkflowPhaseState) {
+  const phaseLabel = phase[0].toUpperCase() + phase.slice(1);
+  if (state.status === 'closed') {
+    return `${phaseLabel} closed`;
   }
+  if (state.proposalPending) {
+    return `${phaseLabel} ready to confirm`;
+  }
+  if (state.status === 'unstarted') {
+    return `${phaseLabel} not started`;
+  }
+  return `${phaseLabel} in progress`;
+}
+
+function getWorkflowMetaLabel(state: WorkflowPhaseState) {
+  const parts = [`${state.readiness[0].toUpperCase() + state.readiness.slice(1)} readiness`];
+  parts.push(state.closeability ? 'Closeable now' : 'Not yet closeable');
+  if (state.closureBasis === 'interviewer_recommended') {
+    parts.push('Recommended close');
+  }
+  if (state.closureBasis === 'user_forced') {
+    parts.push('Forced close');
+  }
+  return parts.join(' · ');
+}
+
+function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectStateTurn['phase']) {
+  return getForceClosePhaseAction(workflow, phase).available;
 }
 
 function PhaseSummaryCard({
+  phase,
   summary,
   onConfirm,
   disabled,
 }: {
+  phase: ProjectStateTurn['phase'];
   summary: string;
   onConfirm: () => void;
   disabled: boolean;
 }) {
   return (
     <div className="my-3 rounded-lg border bg-card p-4">
-      <div className="mb-2 text-[15px] font-semibold">Scope closure proposal</div>
+      <div className="mb-2 text-[15px] font-semibold">
+        {phase[0].toUpperCase() + phase.slice(1)} closure proposal
+      </div>
       <p className="text-sm text-muted-foreground">{summary}</p>
       <div className="mt-3 flex justify-end">
         <button
@@ -75,7 +101,7 @@ function PhaseSummaryCard({
               : 'border-border bg-background hover:bg-muted',
           )}
         >
-          Confirm scope closure
+          {getPhaseClosureCommandText({ kind: 'confirm-proposed-phase-closure', phase })}
         </button>
       </div>
     </div>
@@ -270,9 +296,31 @@ export function InterviewWorkspace() {
           ← Projects
         </Link>
         <h1 className="text-lg font-semibold">{project.name}</h1>
-        <span className="rounded-full border px-2 py-1 text-xs text-muted-foreground">
-          {getScopeStatusLabel(workflow.phases.scope.status)}
-        </span>
+        <div className="flex flex-wrap gap-2">
+          {(Object.entries(workflow.phases) as Array<[ProjectStateTurn['phase'], WorkflowPhaseState]>).map(
+            ([phase, state]) => (
+              <div key={phase} className="rounded-lg border px-3 py-2 text-xs text-muted-foreground">
+                <div className="font-medium text-foreground">{getWorkflowStatusLabel(phase, state)}</div>
+                <div>{getWorkflowMetaLabel(state)}</div>
+                {canForceClosePhase(workflow, phase) && (
+                  <button
+                    type="button"
+                    onClick={() => chat.forcePhaseClosure(phase)}
+                    disabled={chat.isLoading}
+                    className={cn(
+                      'mt-2 rounded-md border px-2 py-1 text-xs transition-colors',
+                      chat.isLoading
+                        ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+                        : 'border-border bg-background text-foreground hover:bg-muted',
+                    )}
+                  >
+                    {getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase })}
+                  </button>
+                )}
+              </div>
+            ),
+          )}
+        </div>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -331,9 +379,10 @@ export function InterviewWorkspace() {
 
               {phaseSummary && (
                 <PhaseSummaryCard
+                  phase={phaseSummary.phase}
                   summary={phaseSummary.summary}
                   disabled={chat.isLoading}
-                  onConfirm={() => chat.confirmPhaseClosure(phaseSummary.turnId)}
+                  onConfirm={() => chat.confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId)}
                 />
               )}
             </ConversationContent>

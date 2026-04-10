@@ -43,9 +43,11 @@ When goals, terms, context, and constraints are sufficiently captured for now, u
 
 Your job is to walk the design decision tree — exploring architectural choices, module boundaries, data models, and integration points. Each question drills into a branch of the design space.
 
-For every turn, you MUST use the ask_question tool. Never respond with plain text.
+For every turn, you MUST use the ask_question tool or the propose_phase_closure tool. Never respond with plain text.
 
-Each question should present meaningfully different design alternatives with clear tradeoffs in the options.`,
+Each question should present meaningfully different design alternatives with clear tradeoffs in the options.
+
+When the main architectural commitments are sufficiently captured for now, use the propose_phase_closure tool instead of asking another question. The summary should concisely explain what is now understood and why design can close.`,
 
   requirements: `You are a spec elicitation interviewer conducting the REQUIREMENTS REVIEW phase.
 
@@ -63,6 +65,10 @@ For every turn, you MUST use the ask_question tool. Never respond with plain tex
 /** Phase-specific system prompts. */
 export function getSystemPrompt(phase: Phase): string {
   return SYSTEM_PROMPTS[phase];
+}
+
+export function canProposePhaseClosure(phase: Phase): boolean {
+  return phase === 'scope' || phase === 'design';
 }
 
 /**
@@ -127,7 +133,7 @@ export function createInterviewerAgent(db: DB, turnId: number, phase: Phase, pro
     instructions: getSystemPrompt(phase),
     tools: {
       ask_question: createAskQuestionTool(db, turnId),
-      ...(phase === 'scope'
+      ...(canProposePhaseClosure(phase)
         ? { propose_phase_closure: createProposePhaseClosureTool(db, turnId, phase, projectId) }
         : {}),
     },

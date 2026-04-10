@@ -7,6 +7,12 @@ import { useSubmitTurnResponseMutation } from '@/mutations/workspace-mutations';
 
 import type { ProjectStateTurn } from '../../shared/api-types.js';
 import { brunchDataPartSchemas, type BrunchUIMessage } from '../../shared/chat.js';
+import {
+  createConfirmProposedPhaseClosureCommand,
+  createForceCloseActivePhaseCommand,
+  getPhaseClosureCommandText,
+  type DataConfirmation,
+} from '../../shared/phase-close.js';
 import { useChatHydrationBoundary } from './chat-hydration.js';
 import {
   createWorkspaceControllerViewState,
@@ -23,7 +29,8 @@ export interface WorkspaceControllerChatState {
   isLoading: boolean;
   isStreaming: boolean;
   submitText: (text: string) => void;
-  confirmPhaseClosure: (turnId: number) => void;
+  confirmPhaseClosure: (phase: ProjectStateTurn['phase'], turnId: number) => void;
+  forcePhaseClosure: (phase: ProjectStateTurn['phase']) => void;
 }
 
 export type WorkspaceControllerTurnCardState =
@@ -102,20 +109,37 @@ export function useWorkspaceController(): WorkspaceController {
     [isLoading, sendMessage],
   );
 
-  const confirmPhaseClosure = useCallback(
-    (turnId: number) => {
+  const submitPhaseClosureCommand = useCallback(
+    (command: DataConfirmation) => {
       if (isLoading) {
         return;
       }
 
       void sendMessage({
         parts: [
-          { type: 'text', text: 'Confirm scope closure' },
-          { type: 'data-confirmation', data: { turnId, confirmed: true } },
+          { type: 'text', text: getPhaseClosureCommandText(command) },
+          {
+            type: 'data-confirmation',
+            data: command,
+          },
         ],
       });
     },
     [isLoading, sendMessage],
+  );
+
+  const confirmPhaseClosure = useCallback(
+    (phase: ProjectStateTurn['phase'], turnId: number) => {
+      submitPhaseClosureCommand(createConfirmProposedPhaseClosureCommand(phase, turnId));
+    },
+    [submitPhaseClosureCommand],
+  );
+
+  const forcePhaseClosure = useCallback(
+    (phase: ProjectStateTurn['phase']) => {
+      submitPhaseClosureCommand(createForceCloseActivePhaseCommand(phase));
+    },
+    [submitPhaseClosureCommand],
   );
 
   return {
@@ -129,6 +153,7 @@ export function useWorkspaceController(): WorkspaceController {
       isStreaming: status === 'streaming',
       submitText,
       confirmPhaseClosure,
+      forcePhaseClosure,
     },
     turnCard: viewState.turnCard
       ? viewState.turnCard.kind === 'persisted-turn'

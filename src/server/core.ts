@@ -4,6 +4,7 @@ import {
   getProject,
   getActivePath,
   getOptionsForTurn,
+  getCurrentPhase,
   getCurrentWorkflowState,
   createTurn,
   advanceHead,
@@ -41,14 +42,14 @@ export function prepareTurn(
   projectId: number,
   userMessage: string,
   userParts: BrunchUserPart[],
-  phase: Turn['phase'] = 'scope',
+  phase: Turn['phase'] | undefined = undefined,
 ) {
   const project = getProject(db, projectId);
   if (!project) throw new Error(`Project ${projectId} not found`);
   const activePath = loadActivePathWithOptions(db, projectId);
   const turn = createTurn(db, projectId, {
     parent_turn_id: project.active_turn_id,
-    phase,
+    phase: phase ?? getCurrentPhase(db, projectId),
     question: '',
     answer: userMessage,
     user_parts: serializeParts(userParts),

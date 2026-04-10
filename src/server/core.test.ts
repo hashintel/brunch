@@ -2,7 +2,16 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { BrunchUIMessage, BrunchUserPart } from '../shared/chat.js';
 import { extractPrompt, finalizeTurn, getProjectState, prepareTurn } from './core.js';
-import { createDb, createProject, createTurn, getProject, getTurn, type DB } from './db.js';
+import {
+  confirmPhaseOutcome,
+  createDb,
+  createPhaseOutcome,
+  createProject,
+  createTurn,
+  getProject,
+  getTurn,
+  type DB,
+} from './db.js';
 
 let db: DB;
 
@@ -32,7 +41,10 @@ describe('extractPrompt', () => {
         role: 'user',
         parts: [
           { type: 'text', text: 'hello' },
-          { type: 'data-confirmation', data: { turnId: 7, confirmed: true } },
+          {
+            type: 'data-confirmation',
+            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 7, phase: 'scope' },
+          },
         ],
       },
     ];
@@ -50,7 +62,10 @@ describe('prepareTurn', () => {
     const project = createProject(db, 'Spec');
     const userParts: BrunchUserPart[] = [
       { type: 'text', text: 'Use SQLite' },
-      { type: 'data-confirmation', data: { turnId: 1, confirmed: true } },
+      {
+        type: 'data-confirmation',
+        data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
+      },
     ];
 
     const prepared = prepareTurn(db, project.id, 'Use SQLite', userParts);
@@ -76,6 +91,183 @@ describe('prepareTurn', () => {
 
     expect(prepared.activePath).toHaveLength(1);
     expect(prepared.activePath[0].id).toBe(parent.id);
+  });
+
+  it('selects design as the next turn phase after scope is confirmed closed', () => {
+    const project = createProject(db, 'Spec');
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What platform?',
+      answer: 'Web',
+    });
+    finalizeTurn(db, project.id, scopeTurn.id);
+
+    const proposalTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: scopeTurn.id,
+      question: '',
+      answer: 'We have enough scope context',
+    });
+    finalizeTurn(db, project.id, proposalTurn.id);
+
+    const outcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'scope',
+      proposal_turn_id: proposalTurn.id,
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    });
+
+    const confirmationTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: proposalTurn.id,
+      question: '',
+      answer: 'Confirm scope closure',
+    });
+    confirmPhaseOutcome(db, outcome.id, confirmationTurn.id);
+    finalizeTurn(db, project.id, confirmationTurn.id);
+
+    const prepared = prepareTurn(db, project.id, 'Let us compare SQLite and Postgres', [
+      { type: 'text', text: 'Let us compare SQLite and Postgres' },
+    ]);
+
+    expect(prepared.turn.phase).toBe('design');
+  });
+
+  it('selects requirements as the next turn phase after design is confirmed closed', () => {
+    const project = createProject(db, 'Spec');
+
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What platform?',
+      answer: 'Web',
+    });
+    finalizeTurn(db, project.id, scopeTurn.id);
+
+    const scopeProposalTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: scopeTurn.id,
+      question: '',
+      answer: 'We have enough scope context',
+    });
+    finalizeTurn(db, project.id, scopeProposalTurn.id);
+
+    const scopeOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'scope',
+      proposal_turn_id: scopeProposalTurn.id,
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    });
+
+    const scopeConfirmationTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: scopeProposalTurn.id,
+      question: '',
+      answer: 'Confirm scope closure',
+    });
+    confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
+    finalizeTurn(db, project.id, scopeConfirmationTurn.id);
+
+    const designTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: scopeConfirmationTurn.id,
+      question: 'Which module boundary matters first?',
+      answer: 'Persistence should stay behind one repository seam',
+    });
+    finalizeTurn(db, project.id, designTurn.id);
+
+    const designOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'design',
+      proposal_turn_id: designTurn.id,
+      summary: 'The main architectural commitments are captured well enough to review requirements.',
+    });
+
+    const designConfirmationTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: designTurn.id,
+      question: '',
+      answer: 'Confirm design closure',
+    });
+    confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
+    finalizeTurn(db, project.id, designConfirmationTurn.id);
+
+    const prepared = prepareTurn(db, project.id, 'Let us review the must-have capabilities', [
+      { type: 'text', text: 'Let us review the must-have capabilities' },
+    ]);
+
+    expect(prepared.turn.phase).toBe('requirements');
+  });
+
+  it('selects requirements as the next turn phase after design is force-closed by the user', () => {
+    const project = createProject(db, 'Spec');
+
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What platform?',
+      answer: 'Web',
+    });
+    finalizeTurn(db, project.id, scopeTurn.id);
+
+    const scopeProposalTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: scopeTurn.id,
+      question: '',
+      answer: 'We have enough scope context',
+    });
+    finalizeTurn(db, project.id, scopeProposalTurn.id);
+
+    const scopeOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'scope',
+      proposal_turn_id: scopeProposalTurn.id,
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    });
+
+    const scopeConfirmationTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: scopeProposalTurn.id,
+      question: '',
+      answer: 'Confirm scope closure',
+    });
+    confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
+    finalizeTurn(db, project.id, scopeConfirmationTurn.id);
+
+    const designTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: scopeConfirmationTurn.id,
+      question: 'Which module boundary matters first?',
+      answer: 'Persistence should stay behind one repository seam',
+    });
+    finalizeTurn(db, project.id, designTurn.id);
+
+    const designForceCloseTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: designTurn.id,
+      question: '',
+      answer: 'Force design closure',
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Force design closure' },
+        {
+          type: 'data-confirmation',
+          data: { kind: 'force-close-active-phase', phase: 'design' },
+        },
+      ]),
+    });
+
+    const designOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'design',
+      proposal_turn_id: designForceCloseTurn.id,
+      summary: 'Design closed by user without an interviewer recommendation.',
+    });
+    confirmPhaseOutcome(db, designOutcome.id, designForceCloseTurn.id);
+    finalizeTurn(db, project.id, designForceCloseTurn.id);
+
+    const prepared = prepareTurn(db, project.id, 'Let us review the must-have capabilities', [
+      { type: 'text', text: 'Let us review the must-have capabilities' },
+    ]);
+
+    expect(prepared.turn.phase).toBe('requirements');
   });
 });
 

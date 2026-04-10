@@ -14,6 +14,12 @@ import {
   type BrunchUserPart,
 } from '../shared/chat.js';
 import {
+  getForceCloseActionErrorMessage,
+  getForceClosePhaseAction,
+  getForcedPhaseClosureSummary,
+  parsePhaseClosureCommand,
+} from '../shared/phase-close.js';
+import {
   extractPrompt,
   finalizeTurn,
   getProjectState,
@@ -24,9 +30,11 @@ import {
 import {
   applyTurnResponseSelections,
   confirmPhaseOutcome,
+  createConfirmedPhaseOutcome,
   createDb,
   findPhaseOutcomeForTurn,
   findProposedPhaseOutcomeByTurn,
+  getCurrentWorkflowState,
   getTurn,
   getOptionsForTurn,
   updateTurn,
@@ -174,28 +182,41 @@ export function createApp(dbPath?: string) {
       (part): part is Extract<BrunchUserPart, { type: 'data-confirmation' }> =>
         part.type === 'data-confirmation',
     );
+    const phaseClosureCommand = confirmationPart ? parsePhaseClosureCommand(confirmationPart.data) : null;
 
     if (!prompt.trim() && !confirmationPart) {
       res.status(400).json({ error: 'message content is required' });
       return;
     }
 
-    if (confirmationPart && !confirmationPart.data.confirmed) {
-      res.status(400).json({ error: 'Only confirmed phase closures are supported' });
+    if (confirmationPart && !phaseClosureCommand) {
+      res.status(400).json({ error: 'Invalid phase-close command' });
       return;
     }
 
-    const confirmationTarget = confirmationPart
-      ? findProposedPhaseOutcomeByTurn(db, id, confirmationPart.data.turnId)
-      : undefined;
-    if (confirmationPart && !confirmationTarget) {
+    const forceClosePhase =
+      phaseClosureCommand?.kind === 'force-close-active-phase' ? phaseClosureCommand.phase : undefined;
+    const confirmationTarget =
+      phaseClosureCommand?.kind === 'confirm-proposed-phase-closure'
+        ? findProposedPhaseOutcomeByTurn(db, id, phaseClosureCommand.proposalTurnId)
+        : undefined;
+
+    if (forceClosePhase) {
+      const workflow = getCurrentWorkflowState(db, id);
+      const forceCloseAction = getForceClosePhaseAction(workflow, forceClosePhase);
+      const forceCloseError = getForceCloseActionErrorMessage(forceCloseAction);
+      if (forceCloseError) {
+        res.status(400).json({ error: forceCloseError });
+        return;
+      }
+    } else if (confirmationPart && !confirmationTarget) {
       res.status(404).json({ error: 'Phase closure proposal not found' });
       return;
     }
 
     let prepared: ReturnType<typeof prepareTurn>;
     try {
-      prepared = prepareTurn(db, id, prompt, userParts);
+      prepared = prepareTurn(db, id, prompt, userParts, forceClosePhase);
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Unknown error';
       res.status(404).json({ error: message });
@@ -206,6 +227,19 @@ export function createApp(dbPath?: string) {
       async execute({ writer }) {
         if (confirmationTarget) {
           confirmPhaseOutcome(db, confirmationTarget.id, prepared.turn.id);
+          finalizeTurn(db, id, prepared.turn.id);
+          writer.write({ type: 'finish', finishReason: 'stop' });
+          return;
+        }
+
+        if (forceClosePhase) {
+          createConfirmedPhaseOutcome(db, {
+            projectId: id,
+            phase: forceClosePhase,
+            proposal_turn_id: prepared.turn.id,
+            confirmation_turn_id: prepared.turn.id,
+            summary: getForcedPhaseClosureSummary(forceClosePhase),
+          });
           finalizeTurn(db, id, prepared.turn.id);
           writer.write({ type: 'finish', finishReason: 'stop' });
           return;

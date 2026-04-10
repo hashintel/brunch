@@ -62,6 +62,7 @@ export const phaseOutcome = sqliteTable('phase_outcome', {
     .notNull()
     .default('proposed'),
   summary: text().notNull(),
+  closure_basis: text({ enum: ['interviewer_recommended', 'user_forced'] }),
   confirmation_turn_id: integer().references(() => turn.id),
   confirmed_at: text(),
   superseded_at: text(),
