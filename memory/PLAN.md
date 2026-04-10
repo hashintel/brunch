@@ -189,7 +189,7 @@
      - Acceptance: the project list shows each project's per-phase status/readiness/closure-basis summary from persisted readiness artifacts plus live workflow projection, distinguishes forced-close or low-readiness debt from ordinary closed state, and updates correctly after refresh/resume
      - **Verification approach**: inner — workflow-summary projection tests plus project-list route/component tests. Outer — manual multi-project walkthrough covering in-progress, forced-close debt, invalidated, and export-ready states.
 
-12a. **Knowledge workspace review surface** `FE-574` — Read-only phase-oriented workspace at `/project/:id/knowledge` for inspecting canonical knowledge items grouped by kind, with review-status badges and relationship context. The sidebar remains a compact summary; this is the first dedicated review surface (D63, D69). Assumes the redesigned knowledge ontology/graph from 7a + 7b. `not-started`
+12a. **Knowledge workspace review surface** `FE-574` `done` — Read-only phase-oriented workspace at `/project/:id/knowledge` for inspecting canonical knowledge items grouped by kind, with review-status badges and relationship context. The sidebar remains a compact summary; this is the first dedicated review surface (D63, D69). Assumes the redesigned knowledge ontology/graph from 7a + 7b.
       - Requirements: → SPEC.md §Requirements #6, #11, #12, #13
       - Assumptions: → SPEC.md §Assumptions A14, A40
       - Decisions: → SPEC.md §Decisions D5, D17, D61, D63, D67, D68, D69
@@ -198,7 +198,7 @@
       - Acceptance: navigate to knowledge workspace, see kind-grouped items with review badges and dependency edges, navigate back to interview; no new mutations or edit actions in this slice
       - **Verification approach**: inner — route/component tests with mock EntitiesData. Outer — manual walkthrough from seeded project.
 
-12b. **Spec export from the reviewed knowledge layer** `FE-574` — Render markdown export from active-path reviewed knowledge items and explicit phase outcomes, including closure caveats when a mode was closed with low readiness or user-forced basis. Export is enabled only when all phases are closed. `not-started`
+12b. **Spec export from the reviewed knowledge layer** `FE-574` `done` — Render markdown export from active-path reviewed knowledge items and explicit phase outcomes, including closure caveats when a mode was closed with low readiness or user-forced basis. Export is enabled only when all phases are closed.
       - Requirements: → SPEC.md §Requirements #13
       - Assumptions: —
       - Decisions: → SPEC.md §Decisions D5, D17, D26, D65, D66, D70
