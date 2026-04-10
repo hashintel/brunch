@@ -542,11 +542,11 @@ This projection difference is a deliberate design choice, not an implementation 
 | ----------------------------- | ----- | ----------------------------------------------------- |
 | db.test.ts                    | 43    | I5, I6, I9, I10, I11, I20, I48, I54, I72, I87, I98   |
 | knowledge.test.ts             | 1     | I48                                                   |
-| app.test.ts                   | 31    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99 |
+| app.test.ts                   | 36    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99 |
 | core.test.ts                  | 10    | I12, I13, I18, I72, I87                               |
-| interview.test.ts             | 9     | I16, I72, I87                                         |
+| interview.test.ts             | 10    | I16, I72, I87                                         |
 | parts.test.ts                 | 15    | I17, I18, I44, I54, I72                               |
-| context.test.ts               | 14    | I19, I44, I48, I54, I87                               |
+| context.test.ts               | 15    | I19, I44, I48, I54, I87                               |
 | observer.test.ts              | 9     | I20, I21, I44, I48, I54                               |
 | phase-close.test.ts           | 13    | I72                                                   |
 | turn-response.test.ts         | 4     | I44                                                   |

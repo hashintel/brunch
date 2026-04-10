@@ -293,10 +293,8 @@ Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
 
 ### Parallelism opportunities
 
-- With 7, 7a, 7b, 8, and 9 all done, the next primary slice is 10.1 (criteria grounding + first synthesis/review loop).
-- 10.2 and 10.3 should follow linearly; they are intentionally the minimum slices needed to unblock completed interview flow rather than separate variants of the same review seam.
-- 11a (project dashboard workflow state) can begin once 10.3 lands; it does not need the broader knowledge workspace.
-- 12 (knowledge workspace) and 13 (export) can proceed in parallel once 10.3 stabilizes the criteria artifacts and completed-workflow state.
+- 10.1–10.3 are done; the review seam has been unified (refactor landed between 10.3 and 11a).
+- 11a (project dashboard workflow state), 12 (knowledge workspace), and 13 (export) are all unblocked and can proceed in parallel.
 - 13a (review lifecycle refinement) is explicitly deferred; it should collect rarer review variants after 12 and 13 stabilize rather than fragmenting slices 9 and 10.
 - 14 (npx) can start early with a basic launcher, completing after slice 13 when the export predicate stabilizes.
 - 15 (drizzle-kit audit remediation) should wait until 14 lands.
