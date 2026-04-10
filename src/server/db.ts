@@ -512,15 +512,14 @@ export interface EntityRelationship {
   target: EntityReference;
 }
 
-export type RequirementReviewStatus = 'approved' | 'rejected' | 'pending';
-export type CriterionReviewStatus = 'approved' | 'rejected' | 'pending';
+export type ReviewStatus = 'approved' | 'rejected' | 'pending';
 
 export type RequirementEntity = KnowledgeItem & {
-  reviewStatus?: RequirementReviewStatus;
+  reviewStatus?: ReviewStatus;
 };
 
 export type CriterionEntity = KnowledgeItem & {
-  reviewStatus?: CriterionReviewStatus;
+  reviewStatus?: ReviewStatus;
 };
 
 export interface EntitiesForProject {
@@ -676,10 +675,11 @@ function getEntityCollectionForKind(kind: KnowledgeKind): EntityCollection {
   return 'knowledge_item';
 }
 
-function getRequirementReviewStatusesOnActivePath(
+function getReviewStatusesOnActivePath(
   db: DB,
   projectId: number,
-): Map<number, RequirementReviewStatus> {
+  kind: 'requirement' | 'criterion',
+): Map<number, ReviewStatus> {
   const activePath = getActivePath(db, projectId);
   if (activePath.length === 0) {
     return new Map();
@@ -698,7 +698,7 @@ function getRequirementReviewStatusesOnActivePath(
     .where(
       and(
         eq(schema.knowledgeItem.project_id, projectId),
-        eq(schema.knowledgeItem.kind, 'requirement'),
+        eq(schema.knowledgeItem.kind, kind),
         inArray(schema.turnKnowledgeItem.relation, ['reviewed', 'rejected']),
         inArray(schema.turnKnowledgeItem.turn_id, activeTurnIds),
       ),
@@ -707,7 +707,7 @@ function getRequirementReviewStatusesOnActivePath(
 
   reviewRows.sort((left, right) => (turnOrder.get(left.turnId) ?? 0) - (turnOrder.get(right.turnId) ?? 0));
 
-  const statuses = new Map<number, RequirementReviewStatus>();
+  const statuses = new Map<number, ReviewStatus>();
   for (const row of reviewRows) {
     statuses.set(row.itemId, row.relation === 'reviewed' ? 'approved' : 'rejected');
   }
@@ -716,57 +716,18 @@ function getRequirementReviewStatusesOnActivePath(
 }
 
 function getRequirementEntitiesForProject(db: DB, projectId: number): RequirementEntity[] {
-  const requirementReviewStatuses = getRequirementReviewStatusesOnActivePath(db, projectId);
+  const reviewStatuses = getReviewStatusesOnActivePath(db, projectId, 'requirement');
   return getKnowledgeItemsForProjectByKind(db, projectId, 'requirement').map((item) => ({
     ...item,
-    reviewStatus: requirementReviewStatuses.get(item.id) ?? 'pending',
+    reviewStatus: reviewStatuses.get(item.id) ?? 'pending',
   }));
 }
 
-function getCriterionReviewStatusesOnActivePath(
-  db: DB,
-  projectId: number,
-): Map<number, CriterionReviewStatus> {
-  const activePath = getActivePath(db, projectId);
-  if (activePath.length === 0) {
-    return new Map();
-  }
-
-  const activeTurnIds = activePath.map((turn) => turn.id);
-  const turnOrder = new Map(activePath.map((turn, index) => [turn.id, index]));
-  const reviewRows = db
-    .select({
-      itemId: schema.turnKnowledgeItem.item_id,
-      turnId: schema.turnKnowledgeItem.turn_id,
-      relation: schema.turnKnowledgeItem.relation,
-    })
-    .from(schema.turnKnowledgeItem)
-    .innerJoin(schema.knowledgeItem, eq(schema.knowledgeItem.id, schema.turnKnowledgeItem.item_id))
-    .where(
-      and(
-        eq(schema.knowledgeItem.project_id, projectId),
-        eq(schema.knowledgeItem.kind, 'criterion'),
-        inArray(schema.turnKnowledgeItem.relation, ['reviewed', 'rejected']),
-        inArray(schema.turnKnowledgeItem.turn_id, activeTurnIds),
-      ),
-    )
-    .all() as Array<{ itemId: number; turnId: number; relation: 'reviewed' | 'rejected' }>;
-
-  reviewRows.sort((left, right) => (turnOrder.get(left.turnId) ?? 0) - (turnOrder.get(right.turnId) ?? 0));
-
-  const statuses = new Map<number, CriterionReviewStatus>();
-  for (const row of reviewRows) {
-    statuses.set(row.itemId, row.relation === 'reviewed' ? 'approved' : 'rejected');
-  }
-
-  return statuses;
-}
-
 function getCriterionEntitiesForProject(db: DB, projectId: number): CriterionEntity[] {
-  const criterionReviewStatuses = getCriterionReviewStatusesOnActivePath(db, projectId);
+  const reviewStatuses = getReviewStatusesOnActivePath(db, projectId, 'criterion');
   return getKnowledgeItemsForProjectByKind(db, projectId, 'criterion').map((item) => ({
     ...item,
-    reviewStatus: criterionReviewStatuses.get(item.id) ?? 'pending',
+    reviewStatus: reviewStatuses.get(item.id) ?? 'pending',
   }));
 }
 
