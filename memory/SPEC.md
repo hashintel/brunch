@@ -319,6 +319,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
 | --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
 | I97 | Criteria-mode interviewer context is grounded in the approved requirement inventory (not the full or pending set), and one initial criterion can round-trip through criteria-mode observer persistence → entities projection while criteria remains `in_progress` | Slice 10.1 | context.test.ts, app.test.ts | D25, D71, A28, A40 |
+| I98 | Targeted criterion approve/reject actions persist durable active-path review links with latest-action-wins projection (`approved` / `rejected` / `pending`), criteria closeability derives from full criterion review coverage, and the structured question seam carries criterion review metadata through the same response path as requirement reviews | Slice 10.2 | db.test.ts, app.test.ts | D24, D61, D65, D66, D70, A15, A28 |
 
 ## Lexicon
 
@@ -538,9 +539,9 @@ This projection difference is a deliberate design choice, not an implementation 
 
 | File                          | Tests | Protects                                              |
 | ----------------------------- | ----- | ----------------------------------------------------- |
-| db.test.ts                    | 41    | I5, I6, I9, I10, I11, I20, I48, I54, I72, I87        |
+| db.test.ts                    | 43    | I5, I6, I9, I10, I11, I20, I48, I54, I72, I87, I98   |
 | knowledge.test.ts             | 1     | I48                                                   |
-| app.test.ts                   | 26    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87 |
+| app.test.ts                   | 28    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98 |
 | core.test.ts                  | 10    | I12, I13, I18, I72, I87                               |
 | interview.test.ts             | 9     | I16, I72, I87                                         |
 | parts.test.ts                 | 15    | I17, I18, I44, I54, I72                               |

@@ -153,7 +153,7 @@
      - Acceptance: after requirements closes, the first criteria turn includes the approved requirement inventory, asks a criteria-shaped question rather than a generic follow-up, and one initial criterion can round-trip through observer/entity persistence without dropping out of criteria mode
      - **Verification approach**: inner — criteria context/prompt seam tests plus criterion projection tests. Middle — round-trip oracle proving approved requirement inventory → criteria interviewer turn → criterion persistence/entities refresh. Outer — manual walkthrough judges whether the first criteria turn feels grounded in the reviewed requirement set.
 
-10.2 **Explicit criterion review state + minimal closeability** — Establish the first explicit per-criterion review seam and deterministic closeability rule in one slice rather than splitting approval, rejection, and closeability into separate tracer bullets. `not-started`
+10.2 **Explicit criterion review state + minimal closeability** — Establish the first explicit per-criterion review seam and deterministic closeability rule in one slice rather than splitting approval, rejection, and closeability into separate tracer bullets. `done`
      - Requirements: → SPEC.md §Requirements #7, #8, #12, #13
      - Assumptions: → SPEC.md §Assumptions A15, A28
      - Decisions: → SPEC.md §Decisions D24, D61, D65, D66, D70
