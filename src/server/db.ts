@@ -3,12 +3,7 @@ import { and, desc, eq, inArray, sql, type InferSelectModel } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 
-import {
-  isAskQuestionUIPart,
-  structuredQuestionSchema,
-  type CriterionReview,
-  type RequirementReview,
-} from '../shared/chat.js';
+import { isAskQuestionUIPart, structuredQuestionSchema, type StructuredQuestion } from '../shared/chat.js';
 import {
   genericKnowledgeKindRegistry,
   type GenericKnowledgeCollectionKey,
@@ -731,35 +726,21 @@ function getCriterionEntitiesForProject(db: DB, projectId: number): CriterionEnt
   }));
 }
 
-function getCriterionReview(turn: Pick<Turn, 'assistant_parts'>): CriterionReview | null {
+function getReviewFromTurn<F extends 'requirementReview' | 'criterionReview'>(
+  turn: Pick<Turn, 'assistant_parts'>,
+  field: F,
+): NonNullable<StructuredQuestion[F]> | null {
   for (const part of safeDeserializeAssistantParts(turn.assistant_parts)) {
     if (!isAskQuestionUIPart(part) || !('input' in part)) {
       continue;
     }
 
     const parsedInput = structuredQuestionSchema.safeParse(part.input);
-    if (!parsedInput.success || !parsedInput.data.criterionReview) {
+    if (!parsedInput.success || !parsedInput.data[field]) {
       continue;
     }
 
-    return parsedInput.data.criterionReview;
-  }
-
-  return null;
-}
-
-function getRequirementReview(turn: Pick<Turn, 'assistant_parts'>): RequirementReview | null {
-  for (const part of safeDeserializeAssistantParts(turn.assistant_parts)) {
-    if (!isAskQuestionUIPart(part) || !('input' in part)) {
-      continue;
-    }
-
-    const parsedInput = structuredQuestionSchema.safeParse(part.input);
-    if (!parsedInput.success || !parsedInput.data.requirementReview) {
-      continue;
-    }
-
-    return parsedInput.data.requirementReview;
+    return parsedInput.data[field];
   }
 
   return null;
@@ -770,7 +751,7 @@ export function recordRequirementReviewFromTurnResponse(
   turn: Turn,
   selectedPositions: number[],
 ): void {
-  const review = getRequirementReview(turn);
+  const review = getReviewFromTurn(turn, 'requirementReview');
   if (!review) {
     return;
   }
@@ -799,7 +780,7 @@ export function recordRequirementReviewFromTurnResponse(
 }
 
 export function recordCriterionReviewFromTurnResponse(db: DB, turn: Turn, selectedPositions: number[]): void {
-  const review = getCriterionReview(turn);
+  const review = getReviewFromTurn(turn, 'criterionReview');
   if (!review) {
     return;
   }
