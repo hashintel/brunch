@@ -261,6 +261,24 @@ describe('GET /api/projects', () => {
   });
 });
 
+describe('GET /api/projects/:id/export', () => {
+  it('returns not ready when not all phases are closed', async () => {
+    const projectId = await createTestProject('In Progress');
+    seedRequirementsReady(projectId);
+    const res = await request(app).get(`/api/projects/${projectId}/export`).expect(200);
+    expect(res.body).toEqual({ ready: false });
+  });
+
+  it('returns ready with markdown when all phases are closed', async () => {
+    const projectId = await createTestProject('Done');
+    seedAllPhasesClosed(projectId);
+    const res = await request(app).get(`/api/projects/${projectId}/export`).expect(200);
+    expect(res.body.ready).toBe(true);
+    expect(res.body.markdown).toContain('# Done');
+    expect(res.body.markdown).toContain('Verify SQLite resume');
+  });
+});
+
 describe('POST /api/projects/:id/chat', () => {
   it('requires typed UI messages', async () => {
     const projectId = await createTestProject();
