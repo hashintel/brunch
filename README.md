@@ -36,6 +36,52 @@ Open http://localhost:5173.
 | `npm run test` | Run test suite (vitest) |
 | `npm run verify` | Full gate: lint + format + test + build |
 | `npm run fix` | Auto-fix lint + format issues |
+| `npm run seed <scenario>` | Seed a database with a named fixture scenario |
+
+## Fixture scenarios
+
+Seed the dev database with pre-built project states for testing and development:
+
+```bash
+# List available scenarios
+npm run seed
+
+# Seed into the default brunch.db (what npm run dev reads)
+npm run seed issue-tracker-all-phases-closed
+
+# Seed into a specific file
+npm run seed issue-tracker-scope-closed ./tmp/test.db
+
+# Wipe and re-seed
+rm brunch.db brunch.db-shm brunch.db-wal
+npm run seed issue-tracker-all-phases-closed
+```
+
+**Programmatic scenarios** — skeleton fixtures with minimal turns, no realistic parts:
+
+| Scenario | State |
+|---|---|
+| `scope-closed` | Scope phase closed, design not started |
+| `design-active` | Scope closed, one design turn |
+| `requirements-ready` | Scope + design closed, requirements reviewed |
+| `criteria-ready` | + requirements closed, criteria reviewed |
+| `all-phases-closed` | All four phases closed |
+
+**Manifest scenarios** — rich fixtures with realistic interview content, structured parts, knowledge items, and cross-kind edges (domain: tiny issue tracker):
+
+| Scenario | State | Items | Edges |
+|---|---|---|---|
+| `issue-tracker-scope-closed` | Scope closed (5 turns + proposal/confirm) | 12 (goals, terms, contexts, constraints) | 3 |
+| `issue-tracker-design-active` | + 2 design turns | 18 (+ decisions, assumptions) | 7 |
+| `issue-tracker-requirements-ready` | + design closed, requirements reviewed | 23 (+ 5 requirements, mixed review) | 10 |
+| `issue-tracker-criteria-ready` | + requirements closed, criteria reviewed | 27 (+ 4 criteria, mixed review) | 14 |
+| `issue-tracker-all-phases-closed` | All phases closed | 27 | 14 |
+
+### Source tracing
+
+- **Programmatic**: `src/server/fixtures/scenarios.ts` — inline seed functions
+- **Manifest**: `src/server/fixtures/manifests/issue-tracker.json` — static JSON content; `src/server/fixtures/manifest.ts` — seeder that wires manifests through DB functions
+- Naming convention: `issue-tracker-*` scenarios come from the manifest; unprefixed ones are programmatic
 
 ## Architecture
 
@@ -88,15 +134,13 @@ src/
 
 ## Current state
 
-**Working**: Scope-phase interview with structured questions, observer entity extraction, entity sidebar, conversation persistence and resume, project management.
+**Working**: Full four-phase interview (scope → design → requirements → criteria), phase-aware observer extraction across all 8 canonical knowledge kinds, explicit phase outcomes with closure provenance, requirements and criteria review with approve/reject state, knowledge workspace, markdown export, project dashboard with workflow state, fixture scenarios with rich seeded content.
 
-**Known issue**: Structured turn card does not render during live streaming — appears only after page refresh. Server persists correctly; hydration from DB works. Fix is next on the critical path (see `memory/PLAN.md` slice 6c).
-
-**Not yet built**: Phase transitions (7), design/requirements/criteria phases (8-10), decision revisit/branching (11), entity lifecycle API (12), spec export (13), npx distribution (14). See `memory/PLAN.md` for the full roadmap.
+**Not yet built**: Review lifecycle refinement (13a), npx distribution (14). See `memory/PLAN.md` for the full roadmap.
 
 ## Tests
 
-67 tests across 7 test files covering DB operations, app routes, core logic, interview flow, observer extraction, parts serialization, and context builders. Provider calls are mocked for CI; prompt quality depends on manual evaluation.
+223 tests across 24 test files covering DB operations, app routes, core logic, interview flow, observer extraction, parts serialization, context builders, workspace hydration/controller/data, client components, phase-close logic, and build boundaries. Provider calls are mocked for CI; prompt quality depends on manual evaluation.
 
 ```bash
 npm test
