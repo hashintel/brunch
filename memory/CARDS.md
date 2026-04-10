@@ -4,7 +4,7 @@
 
 # Scope Cards
 
-## Card 12: Knowledge workspace review surface + lifecycle API
+## Card 12a: Knowledge workspace review surface
 
 ### Target Behavior
 
@@ -54,7 +54,7 @@ A dedicated phase-oriented knowledge workspace at `/project/:id/knowledge` lets 
 
 ---
 
-## Card 13: Spec export from the reviewed knowledge layer
+## Card 12b: Spec export from the reviewed knowledge layer
 
 ### Target Behavior
 
@@ -109,4 +109,4 @@ The export route at `/project/:id/export` renders a markdown preview of the revi
 
 ## Build Order
 
-**12 then 13.** Card 12 establishes the knowledge workspace which card 13's export route can link to ("review your knowledge before exporting"). Card 13's readiness gate and export renderer are independent of 12's UI, but having the knowledge workspace available makes the outer-loop export verification richer. If parallelism is needed, both cards can proceed concurrently since they touch different routes and different server modules.
+**12a then 12b.** Both share one branch (FE-574). Card 12a establishes the knowledge workspace which 12b's export route can link to ("review your knowledge before exporting"). Card 12b's readiness gate and export renderer are independent of 12a's UI, but having the knowledge workspace available makes the outer-loop export verification richer.
