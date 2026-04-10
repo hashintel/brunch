@@ -35,6 +35,25 @@ export const criterionRejectionReviewSchema = z.object({
 
 export const criterionReviewSchema = z.union([criterionApprovalReviewSchema, criterionRejectionReviewSchema]);
 
+function validateReviewOptionPosition(
+  review: { approveOptionPosition?: number; rejectOptionPosition?: number },
+  field: string,
+  optionCount: number,
+  ctx: z.RefinementCtx,
+): void {
+  const isApproval = 'approveOptionPosition' in review;
+  const position = isApproval ? review.approveOptionPosition! : review.rejectOptionPosition!;
+  const positionField = isApproval ? 'approveOptionPosition' : 'rejectOptionPosition';
+
+  if (position >= optionCount) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `${field}.${positionField} must reference an existing option`,
+      path: [field, positionField],
+    });
+  }
+}
+
 export const structuredQuestionSchema = z
   .object({
     question: z.string().min(1),
@@ -53,49 +72,10 @@ export const structuredQuestionSchema = z
   })
   .superRefine((value, ctx) => {
     if (value.requirementReview) {
-      const reviewOptionPosition =
-        value.requirementReview.kind === 'requirement-approval'
-          ? value.requirementReview.approveOptionPosition
-          : value.requirementReview.rejectOptionPosition;
-
-      if (!value.options[reviewOptionPosition]) {
-        ctx.addIssue({
-          code: 'custom',
-          message:
-            value.requirementReview.kind === 'requirement-approval'
-              ? 'requirementReview.approveOptionPosition must reference an existing option'
-              : 'requirementReview.rejectOptionPosition must reference an existing option',
-          path: [
-            'requirementReview',
-            value.requirementReview.kind === 'requirement-approval'
-              ? 'approveOptionPosition'
-              : 'rejectOptionPosition',
-          ],
-        });
-      }
+      validateReviewOptionPosition(value.requirementReview, 'requirementReview', value.options.length, ctx);
     }
-
     if (value.criterionReview) {
-      const reviewOptionPosition =
-        value.criterionReview.kind === 'criterion-approval'
-          ? value.criterionReview.approveOptionPosition
-          : value.criterionReview.rejectOptionPosition;
-
-      if (!value.options[reviewOptionPosition]) {
-        ctx.addIssue({
-          code: 'custom',
-          message:
-            value.criterionReview.kind === 'criterion-approval'
-              ? 'criterionReview.approveOptionPosition must reference an existing option'
-              : 'criterionReview.rejectOptionPosition must reference an existing option',
-          path: [
-            'criterionReview',
-            value.criterionReview.kind === 'criterion-approval'
-              ? 'approveOptionPosition'
-              : 'rejectOptionPosition',
-          ],
-        });
-      }
+      validateReviewOptionPosition(value.criterionReview, 'criterionReview', value.options.length, ctx);
     }
   });
 
