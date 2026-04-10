@@ -144,14 +144,32 @@
    - Result: interviewer grounded in requirement inventory; targeted approve/reject via review metadata + `turn_knowledge_item` links; closeability from full review coverage; shared phase-close seam reused for requirements → criteria handoff
    - Tracer bullets: 9.1 inventory grounding `done`, 9.2 targeted approval `done`, 9.3 targeted rejection `done`, 9.4 closeability + proposal `done`, 9.5 closure + criteria handoff `done`
 
-10. **Criteria-review mode** — Synthesize verification conditions from approved requirements plus any earlier criteria-like signals, then drive review turns until coverage is complete using the shared phase-closing seam rather than a criteria-only completion bit. This slice assumes the redesigned ontology/graph from 7a + 7b, not the current transitional `framing` seam. `not-started`
-     - Requirements: → SPEC.md §Requirements #6, #7, #8, #12, #13
-     - Assumptions: → SPEC.md §Assumptions A15, A28, A40
-     - Decisions: → SPEC.md §Decisions D2, D5, D6, D17, D61, D62, D65, D66, D67, D68, D69, D70
-     - Candidate invariant goals: criteria verify requirements explicitly and track review completeness separately from requirement state; criteria workflow state stays legible as status + closeability + readiness + closure basis
-     - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I24
-     - Acceptance: criteria-review mode presents synthesized criteria from the canonical knowledge layer, records explicit review state, projects criteria status/closeability/readiness, and lets the user close once the minimum bar is met while preserving caveats when verification coverage remains thin
-     - **Verification approach**: inner — criterion/review edge + workflow-state tests. Outer — manual criteria review with edits, coverage checks, and a low-readiness forced-close walkthrough.
+10.1 **Criteria grounding + first synthesis/review loop** — Prove the first post-requirements criteria turn is grounded in the approved requirement set and can round-trip one first criterion through the existing seams without widening into the full criteria lifecycle. `not-started`
+     - Requirements: → SPEC.md §Requirements #6, #8, #12
+     - Assumptions: → SPEC.md §Assumptions A28, A40
+     - Decisions: → SPEC.md §Decisions D25, D55, D56, D71
+     - Candidate invariant goals: the first criteria turn is grounded in approved requirements; criteria-mode interviewer/observer behavior stays criteria-shaped and can persist one initial criterion through the existing seam
+     - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I24, I95, I96
+     - Acceptance: after requirements closes, the first criteria turn includes the approved requirement inventory, asks a criteria-shaped question rather than a generic follow-up, and one initial criterion can round-trip through observer/entity persistence without dropping out of criteria mode
+     - **Verification approach**: inner — criteria context/prompt seam tests plus criterion projection tests. Middle — round-trip oracle proving approved requirement inventory → criteria interviewer turn → criterion persistence/entities refresh. Outer — manual walkthrough judges whether the first criteria turn feels grounded in the reviewed requirement set.
+
+10.2 **Explicit criterion review state + minimal closeability** — Establish the first explicit per-criterion review seam and deterministic closeability rule in one slice rather than splitting approval, rejection, and closeability into separate tracer bullets. `not-started`
+     - Requirements: → SPEC.md §Requirements #7, #8, #12, #13
+     - Assumptions: → SPEC.md §Assumptions A15, A28
+     - Decisions: → SPEC.md §Decisions D24, D61, D65, D66, D70
+     - Candidate invariant goals: criteria project explicit `approved` / `rejected` / `pending` review state; criteria becomes closeable only when every current criterion has explicit non-pending review state
+     - Invariants to respect: → SPEC.md §Invariants I18, I21, I24, I62, I63, I96
+     - Acceptance: a targeted criteria-review turn can persist one explicit positive review action and one explicit non-positive review action, read-side projection resolves latest review state per criterion, and workflow marks criteria closeable only when no criterion remains `pending`
+     - **Verification approach**: inner — criterion review metadata/read-model/workflow-state tests. Middle — round-trip oracle proving explicit criterion review actions persist and project without drift, plus lifecycle oracle proving criteria stays `in_progress` until review coverage is complete. Outer — manual criteria review walkthrough judges whether the thin approve/reject semantics are legible enough to keep moving.
+
+10.3 **Criteria closure + completed workflow state** — Reuse the shared phase-close seam to close the final workflow phase and project a completed interview state once criteria review reaches the minimum bar. `not-started`
+     - Requirements: → SPEC.md §Requirements #7, #8, #13
+     - Assumptions: → SPEC.md §Assumptions A15, A28
+     - Decisions: → SPEC.md §Decisions D65, D66, D71
+     - Candidate invariant goals: the terminal phase can propose and confirm closure through the shared seam; workflow can project all phases closed with no stale active interviewer phase
+     - Invariants to respect: → SPEC.md §Invariants I18, I24, I96
+     - Acceptance: once criteria is closeable, the interviewer can propose criteria closure, user confirmation persists the final `phase_outcome`, and workflow projects all phases closed with no remaining active phase before export
+     - **Verification approach**: inner — phase-summary/confirmation/workflow-state tests. Middle — round-trip oracle proving criteria proposal → confirmation → confirmed final outcome → completed workflow projection. Outer — manual walkthrough judges whether final closure feels coherent before export/polish work.
 
 ## Phase 6: Readiness Surfaces + Export
 
@@ -188,6 +206,15 @@
      - Invariants to respect: → SPEC.md §Invariants I18, I21
      - Acceptance: complete all modes, satisfy review completeness, navigate to export, see markdown preview from the reviewed knowledge layer plus relevant phase-outcome caveats, download `.md` file
      - **Verification approach**: inner — export projection tests. Outer — manual export after a full walkthrough, after a low-readiness/forced-close path surfaces caveats, and after a readiness-incomplete state blocks export.
+
+13a. **Review lifecycle refinement across requirements + criteria** — Revisit the first-cut review model only after the thin end-to-end path is working, and add the deferred variants that were intentionally excluded from slices 9 and 10 so the app kept moving toward completion. `not-started`
+     - Requirements: → SPEC.md §Requirements #11, #12, #13
+     - Assumptions: → SPEC.md §Assumptions A15, A40
+     - Decisions: → SPEC.md §Decisions D17, D61, D65, D66, D69
+     - Candidate invariant goals: richer review actions and invalidation semantics can evolve without regressing the thin end-to-end workflow; deferred edge-case variants are collected in one explicit refinement slice rather than fragmenting earlier mode slices
+     - Invariants to respect: → SPEC.md §Invariants I18, I21, I24
+     - Acceptance: deferred review refinements such as edit/add/merge/stale semantics across requirements and criteria can land behind one cross-cutting slice without regressing completion, export, or workflow-state coherence
+     - **Verification approach**: inner — mutation/read-model/invalidation tests per refinement added. Outer — manual cross-phase review lifecycle walkthrough after the dedicated knowledge workspace exists.
 
 ## Phase 7: Distribution
 
@@ -248,22 +275,28 @@ Phase 4:  6b ──→ 6b1 (workspace oracle) ──→ 6c (live streaming fix)
 Phase 5:  6f ──┬──→ 7 (explicit phase outcomes + scope closure)
                 └──→ 7a (knowledge-layer redesign spike) ──→ 7b (canonical knowledge foundation)
           7 ────┐
-          7b ───┴──→ 8 (design mode) ──→ 9 (requirements-review) ──→ 10 (criteria-review)
+          7b ───┴──→ 8 (design mode) ──→ 9 (requirements-review) ──→ 10.1 (criteria grounding)
+                                                          10.1 ──→ 10.2 (criterion review + closeability)
+                                                          10.2 ──→ 10.3 (criteria closure)
 Phase 6:  7 ──┐
           8 ──┼──→ 11a (project dashboard workflow state)
           9 ──┤
-          10 ─┘
+          10.3 ─┘
           7b ──→ 12 (knowledge workspace review surface + lifecycle API)
-          9  ──→ 12
-          10 ──→ 13 (export)
+          10.3 ──→ 12
+          10.3 ──→ 13 (export)
+          12 ──┬──→ 13a (review lifecycle refinement)
+          13 ──┘
 Phase 7:  13 ──→ 14 (npx + CLI)
 Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
 ```
 
 ### Parallelism opportunities
 
-- With 7, 7a, 7b, 8, and 9 all done, the next primary slice is 10 (criteria-review).
-- 11a (project dashboard workflow state) can begin once 10 lands; it does not need the broader knowledge workspace.
-- 12 (knowledge workspace) and 13 (export) can proceed in parallel once 10 stabilizes the criteria review artifacts.
+- With 7, 7a, 7b, 8, and 9 all done, the next primary slice is 10.1 (criteria grounding + first synthesis/review loop).
+- 10.2 and 10.3 should follow linearly; they are intentionally the minimum slices needed to unblock completed interview flow rather than separate variants of the same review seam.
+- 11a (project dashboard workflow state) can begin once 10.3 lands; it does not need the broader knowledge workspace.
+- 12 (knowledge workspace) and 13 (export) can proceed in parallel once 10.3 stabilizes the criteria artifacts and completed-workflow state.
+- 13a (review lifecycle refinement) is explicitly deferred; it should collect rarer review variants after 12 and 13 stabilize rather than fragmenting slices 9 and 10.
 - 14 (npx) can start early with a basic launcher, completing after slice 13 when the export predicate stabilizes.
 - 15 (drizzle-kit audit remediation) should wait until 14 lands.
