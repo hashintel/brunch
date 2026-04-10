@@ -746,65 +746,40 @@ function getReviewFromTurn<F extends 'requirementReview' | 'criterionReview'>(
   return null;
 }
 
-export function recordRequirementReviewFromTurnResponse(
+export function recordReviewFromTurnResponse(
   db: DB,
   turn: Turn,
   selectedPositions: number[],
+  field: 'requirementReview' | 'criterionReview',
+  kind: 'requirement' | 'criterion',
 ): void {
-  const review = getReviewFromTurn(turn, 'requirementReview');
+  const review = getReviewFromTurn(turn, field);
   if (!review) {
     return;
   }
 
   const selectedReviewOptionPosition =
-    review.kind === 'requirement-approval' ? review.approveOptionPosition : review.rejectOptionPosition;
+    'approveOptionPosition' in review ? review.approveOptionPosition : review.rejectOptionPosition;
   if (!selectedPositions.includes(selectedReviewOptionPosition)) {
     return;
   }
 
-  const requirement = db
-    .select()
-    .from(schema.knowledgeItem)
-    .where(eq(schema.knowledgeItem.id, review.requirementId))
-    .get() as KnowledgeItem | undefined;
-  if (!requirement || requirement.project_id !== turn.project_id || requirement.kind !== 'requirement') {
+  const entityId =
+    kind === 'requirement'
+      ? (review as { requirementId: number }).requirementId
+      : (review as { criterionId: number }).criterionId;
+  const entity = db.select().from(schema.knowledgeItem).where(eq(schema.knowledgeItem.id, entityId)).get() as
+    | KnowledgeItem
+    | undefined;
+  if (!entity || entity.project_id !== turn.project_id || entity.kind !== kind) {
     return;
   }
 
   linkKnowledgeItemToTurn(
     db,
-    requirement.id,
+    entity.id,
     turn.id,
-    review.kind === 'requirement-approval' ? 'reviewed' : 'rejected',
-  );
-}
-
-export function recordCriterionReviewFromTurnResponse(db: DB, turn: Turn, selectedPositions: number[]): void {
-  const review = getReviewFromTurn(turn, 'criterionReview');
-  if (!review) {
-    return;
-  }
-
-  const selectedReviewOptionPosition =
-    review.kind === 'criterion-approval' ? review.approveOptionPosition : review.rejectOptionPosition;
-  if (!selectedPositions.includes(selectedReviewOptionPosition)) {
-    return;
-  }
-
-  const criterion = db
-    .select()
-    .from(schema.knowledgeItem)
-    .where(eq(schema.knowledgeItem.id, review.criterionId))
-    .get() as KnowledgeItem | undefined;
-  if (!criterion || criterion.project_id !== turn.project_id || criterion.kind !== 'criterion') {
-    return;
-  }
-
-  linkKnowledgeItemToTurn(
-    db,
-    criterion.id,
-    turn.id,
-    review.kind === 'criterion-approval' ? 'reviewed' : 'rejected',
+    'approveOptionPosition' in review ? 'reviewed' : 'rejected',
   );
 }
 
