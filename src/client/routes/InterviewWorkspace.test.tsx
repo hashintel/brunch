@@ -10,9 +10,9 @@ import type { BrunchUIMessage } from '../../shared/chat.js';
 import type { WorkspaceLoaderData } from '../workspace/workspace-loader.js';
 import { InterviewWorkspace } from './InterviewWorkspace.js';
 
-function createLiveQuestionMessage(): BrunchUIMessage {
+function createPendingQuestionMessage(): BrunchUIMessage {
   return {
-    id: 'live-turn-assistant',
+    id: 'pending-question-assistant',
     role: 'assistant',
     parts: [
       {
@@ -120,11 +120,13 @@ function createProjectState({
   projectId = 1,
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
+  userParts = [{ type: 'text', text: answer }] as Array<Record<string, unknown>>,
   options = [],
 }: {
   projectId?: number;
   assistantText?: string;
   answer?: string;
+  userParts?: Array<Record<string, unknown>>;
   options?: Array<{
     id: number;
     position: number;
@@ -152,7 +154,7 @@ function createProjectState({
         impact: 'high',
         answer,
         is_resolution: false,
-        user_parts: JSON.stringify([{ type: 'text', text: answer }]),
+        user_parts: JSON.stringify(userParts),
         assistant_parts: JSON.stringify([{ type: 'text', text: assistantText }]),
         created_at: '2026-04-03 10:00:00',
         options,
@@ -165,6 +167,7 @@ function createWorkspaceLoaderData({
   projectId = 1,
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
+  userParts,
   options = [],
   entitySnapshot = {
     framing: [],
@@ -179,6 +182,7 @@ function createWorkspaceLoaderData({
   projectId?: number;
   assistantText?: string;
   answer?: string;
+  userParts?: Array<Record<string, unknown>>;
   options?: Array<{
     id: number;
     position: number;
@@ -189,7 +193,7 @@ function createWorkspaceLoaderData({
   entitySnapshot?: EntitiesData;
 } = {}): WorkspaceLoaderData {
   return {
-    projectState: createProjectState({ projectId, assistantText, answer, options }),
+    projectState: createProjectState({ projectId, assistantText, answer, userParts, options }),
     entitySnapshot,
   };
 }
@@ -269,7 +273,7 @@ afterEach(() => {
 });
 
 describe('InterviewWorkspace', () => {
-  it('renders the turn card from a live streamed tool part before route invalidation', async () => {
+  it('renders the turn card from a pending-question tool part before route invalidation', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       assistantText: 'Earlier question?',
       answer: 'Earlier answer',
@@ -291,7 +295,7 @@ describe('InterviewWorkspace', () => {
       useChatHarness.replaceMessages?.([
         { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
         { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
-        createLiveQuestionMessage(),
+        createPendingQuestionMessage(),
       ]);
     });
 
@@ -522,7 +526,7 @@ describe('InterviewWorkspace', () => {
     expect(await screen.findByText('Start with the web app')).toBeTruthy();
   });
 
-  it('refetches sidebar entities when the chat stream emits an observer result', async () => {
+  it('refetches sidebar entities when the chat stream emits observer-created constraints', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
         framing: [],
@@ -537,18 +541,29 @@ describe('InterviewWorkspace', () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
-          framing: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [
+          framing: [
             {
               id: 7,
               project_id: 1,
-              content: 'Start with the web app',
-              rationale: 'Fastest launch path',
+              kind: 'framing',
+              subtype: null,
+              content: 'The project starts from a fuzzy brief',
+              rationale: 'The user is still establishing the problem context',
             },
           ],
+          constraints: [
+            {
+              id: 8,
+              project_id: 1,
+              kind: 'constraint',
+              subtype: 'non-goal',
+              content: 'Keep setup instant',
+              rationale: 'The launcher should stay lightweight',
+            },
+          ],
+          requirements: [],
+          criteria: [],
+          decisions: [],
           assumptions: [],
           relationships: [],
         } satisfies EntitiesData),
@@ -567,14 +582,264 @@ describe('InterviewWorkspace', () => {
     await act(async () => {
       useChatHarness.onData?.({
         type: 'data-observer-result',
-        data: { entityIds: { decisions: [7], assumptions: [] } },
+        data: {
+          entityIds: {
+            framing: [7],
+            constraints: [8],
+            requirements: [],
+            criteria: [],
+            decisions: [],
+            assumptions: [],
+          },
+        },
       });
     });
 
     await waitFor(() => {
-      expect(screen.getByText('Start with the web app')).toBeTruthy();
       expect(fetchMock).toHaveBeenCalledTimes(1);
     });
+
+    fireEvent.click(screen.getByRole('button', { name: /constraints/i }));
+    expect(await screen.findByText('Keep setup instant')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /framing/i }));
+    expect(await screen.findByText('The project starts from a fuzzy brief')).toBeTruthy();
+  });
+
+  it('refetches sidebar entities when the chat stream emits mixed observer-created design entities', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+        relationships: [],
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          framing: [
+            {
+              id: 7,
+              project_id: 1,
+              kind: 'framing',
+              subtype: null,
+              content: 'The first release still targets solo builders',
+              rationale: 'The turn clarified the audience',
+            },
+          ],
+          constraints: [
+            {
+              id: 8,
+              project_id: 1,
+              kind: 'constraint',
+              subtype: 'non-goal',
+              content: 'Do not add a plugin system yet',
+              rationale: 'The first release should stay narrow',
+            },
+          ],
+          requirements: [],
+          criteria: [],
+          decisions: [
+            {
+              id: 9,
+              project_id: 1,
+              content: 'Start with the web app',
+              rationale: 'It is the fastest path to feedback',
+            },
+          ],
+          assumptions: [
+            {
+              id: 10,
+              project_id: 1,
+              content: 'Users can work in a browser',
+            },
+          ],
+          relationships: [
+            {
+              type: 'depends_on',
+              source: { collection: 'decision', kind: 'decision', id: 9 },
+              target: { collection: 'assumption', kind: 'assumption', id: 10 },
+            },
+          ],
+        } satisfies EntitiesData),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    renderWorkspace();
+    expect(
+      await screen.findByText("No decisions yet. They'll appear as the interview progresses."),
+    ).toBeTruthy();
+
+    await act(async () => {
+      useChatHarness.onData?.({
+        type: 'data-observer-result',
+        data: {
+          entityIds: {
+            framing: [7],
+            constraints: [8],
+            requirements: [],
+            criteria: [],
+            decisions: [9],
+            assumptions: [10],
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(await screen.findByText('Start with the web app')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /assumptions/i }));
+    expect(await screen.findByText('Users can work in a browser')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /constraints/i }));
+    expect(await screen.findByText('Do not add a plugin system yet')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button', { name: /framing/i }));
+    expect(await screen.findByText('The first release still targets solo builders')).toBeTruthy();
+  });
+
+  it('refetches sidebar entities when the chat stream emits observer-created requirements', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+        relationships: [],
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          framing: [],
+          constraints: [],
+          requirements: [
+            {
+              id: 11,
+              project_id: 1,
+              kind: 'requirement',
+              subtype: null,
+              content: 'Resume the interview from SQLite after restart',
+              rationale: 'Users will come back to finish the workflow',
+            },
+          ],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+          relationships: [],
+        } satisfies EntitiesData),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    renderWorkspace();
+    expect(
+      await screen.findByText("No decisions yet. They'll appear as the interview progresses."),
+    ).toBeTruthy();
+
+    await act(async () => {
+      useChatHarness.onData?.({
+        type: 'data-observer-result',
+        data: {
+          entityIds: {
+            framing: [],
+            constraints: [],
+            requirements: [11],
+            criteria: [],
+            decisions: [],
+            assumptions: [],
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /requirements/i }));
+    expect(await screen.findByText('Resume the interview from SQLite after restart')).toBeTruthy();
+  });
+
+  it('refetches sidebar entities when the chat stream emits observer-created criteria', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+        relationships: [],
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          framing: [],
+          constraints: [],
+          requirements: [],
+          criteria: [
+            {
+              id: 12,
+              project_id: 1,
+              kind: 'criterion',
+              subtype: null,
+              content: 'Resuming restores the active path without data loss',
+              rationale: 'This proves persistence worked for the branch the user was on',
+            },
+          ],
+          decisions: [],
+          assumptions: [],
+          relationships: [],
+        } satisfies EntitiesData),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    renderWorkspace();
+    expect(
+      await screen.findByText("No decisions yet. They'll appear as the interview progresses."),
+    ).toBeTruthy();
+
+    await act(async () => {
+      useChatHarness.onData?.({
+        type: 'data-observer-result',
+        data: {
+          entityIds: {
+            framing: [],
+            constraints: [],
+            requirements: [],
+            criteria: [12],
+            decisions: [],
+            assumptions: [],
+          },
+        },
+      } as never);
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /criteria/i }));
+    expect(await screen.findByText('Resuming restores the active path without data loss')).toBeTruthy();
   });
 
   it('posts single-option turn responses with optional free-text and forwards a combined summary into chat', async () => {
@@ -603,7 +868,7 @@ describe('InterviewWorkspace', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/select',
+        '/api/projects/1/turns/1/response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -645,7 +910,7 @@ describe('InterviewWorkspace', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/select',
+        '/api/projects/1/turns/1/response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -687,7 +952,7 @@ describe('InterviewWorkspace', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/select',
+        '/api/projects/1/turns/1/response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -700,6 +965,111 @@ describe('InterviewWorkspace', () => {
       expect(routerInvalidate).toHaveBeenCalledTimes(1);
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'None of these fit our use case' });
     });
+  });
+
+  it('rehydrates persisted selected options from turn-response data even when option flags are false', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      answer: 'Desktop — Best fit for launch',
+      userParts: [
+        { type: 'text', text: 'Desktop — Best fit for launch' },
+        {
+          type: 'data-turn-response',
+          data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
+        },
+      ],
+      options: [
+        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+      ],
+    });
+
+    renderWorkspace();
+
+    const web = (await screen.findByRole('checkbox', { name: /web/i })) as HTMLInputElement;
+    const desktop = screen.getByRole('checkbox', { name: /desktop/i }) as HTMLInputElement;
+
+    expect(web.checked).toBe(false);
+    expect(desktop.checked).toBe(true);
+    expect(web.disabled).toBe(true);
+    expect(desktop.disabled).toBe(true);
+    expect(screen.getByLabelText('Type a message...')).toBeTruthy();
+  });
+
+  it('locks a persisted free-text-only turn response after it has been saved', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      answer: 'None of these fit our use case',
+      userParts: [
+        { type: 'text', text: 'None of these fit our use case' },
+        {
+          type: 'data-turn-response',
+          data: { turnId: 1, selectedOptionIds: [], freeText: 'None of these fit our use case' },
+        },
+      ],
+      options: [
+        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+      ],
+    });
+
+    renderWorkspace();
+
+    expect(await screen.findByText('None of these fit our use case')).toBeTruthy();
+    expect((screen.getByLabelText('Additional response context') as HTMLTextAreaElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole('button', { name: /submit selected response/i }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole('button', { name: /submit free-text response/i }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect((screen.getByRole('checkbox', { name: /web/i }) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByRole('checkbox', { name: /desktop/i }) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByLabelText('Type a message...')).toBeTruthy();
+  });
+
+  it('does not emit duplicate React keys when dependency labels repeat', async () => {
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
+
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [
+          {
+            id: 7,
+            project_id: 1,
+            content: 'Start with the web app',
+            rationale: 'Fastest launch path',
+          },
+        ],
+        assumptions: [
+          { id: 5, project_id: 1, content: 'Users can work in a browser' },
+          { id: 6, project_id: 1, content: 'Users can work in a browser' },
+        ],
+        relationships: [
+          {
+            type: 'depends_on',
+            source: { collection: 'decision', kind: 'decision', id: 7 },
+            target: { collection: 'assumption', kind: 'assumption', id: 5 },
+          },
+          {
+            type: 'depends_on',
+            source: { collection: 'decision', kind: 'decision', id: 7 },
+            target: { collection: 'assumption', kind: 'assumption', id: 6 },
+          },
+        ],
+      } satisfies EntitiesData,
+    });
+
+    renderWorkspace();
+
+    expect(await screen.findByText('Start with the web app')).toBeTruthy();
+    expect(screen.getAllByText('Users can work in a browser')).toHaveLength(2);
+    expect(consoleError.mock.calls.flat().join('\n')).not.toContain(
+      'Encountered two children with the same key',
+    );
+    consoleError.mockRestore();
   });
 
   it('shows a visible error when saving an option selection fails', async () => {

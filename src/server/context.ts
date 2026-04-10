@@ -1,8 +1,8 @@
 import { table, h3 } from 'md-pen';
 
+import { knowledgeKindRegistry } from '../shared/knowledge.js';
 import type { TurnWithOptions } from './core.js';
-import type { Turn } from './db.js';
-import { safeDeserializeUserParts, type UserPart } from './parts.js';
+import { formatProjectedTurnResponse, projectTurnResponse } from './turn-response.js';
 
 /**
  * Build interviewer context from active-path turns.
@@ -30,20 +30,9 @@ export function buildInterviewerContext(turns: TurnWithOptions[], currentPrompt:
       }
       lines.push(questionLine);
     }
-    const selectedOptions =
-      turn.options?.filter((option) => option.is_selected).map((option) => option.content) ?? [];
-    const freeText = safeDeserializeUserParts(turn.user_parts).find(
-      (part): part is Extract<UserPart, { type: 'data-turn-response' }> => part.type === 'data-turn-response',
-    )?.data.freeText;
-    if (selectedOptions.length > 0 || freeText) {
-      const responseLines = ['Turn response:'];
-      if (selectedOptions.length > 0) {
-        responseLines.push(`  Chosen options: ${selectedOptions.join(', ')}`);
-      }
-      if (freeText) {
-        responseLines.push(`  Free-text response: ${freeText}`);
-      }
-      lines.push(responseLines.join('\n'));
+    const projectedResponse = projectTurnResponse(turn);
+    if (projectedResponse) {
+      lines.push(formatProjectedTurnResponse(projectedResponse));
     } else if (turn.answer) {
       lines.push(`Answer: ${turn.answer}`);
     }
@@ -53,9 +42,13 @@ export function buildInterviewerContext(turns: TurnWithOptions[], currentPrompt:
 }
 
 export interface ObserverContextInput {
-  turn: Turn;
+  turn: TurnWithOptions;
   activePathSummary: string;
   entities: {
+    framing: Array<{ id: number; content: string }>;
+    constraints: Array<{ id: number; content: string }>;
+    requirements: Array<{ id: number; content: string }>;
+    criteria: Array<{ id: number; content: string }>;
     decisions: Array<{ id: number; content: string }>;
     assumptions: Array<{ id: number; content: string }>;
   };
@@ -70,38 +63,36 @@ export interface ObserverContextInput {
 export function buildObserverContext(input: ObserverContextInput): string {
   const sections: string[] = [];
 
-  if (input.entities.decisions.length > 0 || input.entities.assumptions.length > 0) {
-    if (input.entities.decisions.length > 0) {
-      sections.push(
-        h3('Existing Decisions') +
-          '\n' +
-          table(
-            input.entities.decisions.map((d) => ({ ID: d.id, Content: d.content })),
-            { columns: ['ID', 'Content'] },
-          ),
-      );
+  for (const entry of knowledgeKindRegistry) {
+    const items = input.entities[entry.collectionKey];
+    if (items.length === 0) {
+      continue;
     }
-    if (input.entities.assumptions.length > 0) {
-      sections.push(
-        h3('Existing Assumptions') +
-          '\n' +
-          table(
-            input.entities.assumptions.map((a) => ({ ID: a.id, Content: a.content })),
-            { columns: ['ID', 'Content'] },
-          ),
-      );
-    }
+
+    sections.push(
+      h3(entry.contextHeading) +
+        '\n' +
+        table(
+          items.map((item) => ({ ID: item.id, Content: item.content })),
+          { columns: ['ID', 'Content'] },
+        ),
+    );
   }
 
   if (input.activePathSummary) {
     sections.push(`Interview summary:\n${input.activePathSummary}`);
   }
 
-  const turnLines = [`Current turn #${input.turn.id}:`];
+  const turnLines = [`Current turn #${input.turn.id}:`, `  Phase: ${input.turn.phase}`];
   if (input.turn.question) turnLines.push(`  Question: ${input.turn.question}`);
   if (input.turn.why) turnLines.push(`  Why: ${input.turn.why}`);
   if (input.turn.impact) turnLines.push(`  Impact: ${input.turn.impact}`);
-  if (input.turn.answer) turnLines.push(`  Answer: ${input.turn.answer}`);
+  const projectedResponse = projectTurnResponse(input.turn);
+  if (projectedResponse) {
+    turnLines.push(formatProjectedTurnResponse(projectedResponse));
+  } else if (input.turn.answer) {
+    turnLines.push(`  Answer: ${input.turn.answer}`);
+  }
   sections.push(turnLines.join('\n'));
 
   return sections.join('\n\n');

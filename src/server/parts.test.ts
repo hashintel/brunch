@@ -107,8 +107,56 @@ describe('assistant part round-trip', () => {
         type: 'data-observer-result',
         data: {
           entityIds: {
+            framing: [3],
+            constraints: [4],
+            requirements: [5],
+            criteria: [],
             decisions: [1],
             assumptions: [2],
+          },
+        },
+      },
+    ];
+
+    const json = serializeParts(parts);
+    expect(deserializeAssistantParts(json)).toEqual(parts);
+  });
+
+  it('round-trips mixed observer-result ids through persisted assistant parts', () => {
+    const parts: BrunchAssistantPart[] = [
+      { type: 'text', text: 'Captured observer delta.', state: 'done' },
+      {
+        type: 'data-observer-result',
+        data: {
+          entityIds: {
+            framing: [7],
+            constraints: [8],
+            requirements: [11],
+            criteria: [],
+            decisions: [9],
+            assumptions: [10],
+          },
+        },
+      },
+    ];
+
+    const json = serializeParts(parts);
+    expect(deserializeAssistantParts(json)).toEqual(parts);
+  });
+
+  it('round-trips observer-result ids with generic criterion entities through persisted assistant parts', () => {
+    const parts: BrunchAssistantPart[] = [
+      { type: 'text', text: 'Captured criteria observer delta.', state: 'done' },
+      {
+        type: 'data-observer-result',
+        data: {
+          entityIds: {
+            framing: [],
+            constraints: [],
+            requirements: [11],
+            criteria: [12],
+            decisions: [9],
+            assumptions: [10],
           },
         },
       },

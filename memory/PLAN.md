@@ -47,7 +47,7 @@
     - Coverage: initial hydration from persisted turns, same-project refresh stability, observer-result sidebar reactivity, option-selection follow-through
     - Unblocks: 6c live streaming fix, workspace state-ownership refactor commits
 
-## Phase 4: Interaction + Knowledge Foundations
+## Phase 4: Interaction + Knowledge Foundations `done`
 
 <!-- The live rendering regression must be fixed first. Then the interview model widens:
      richer answer semantics, generic knowledge capture, and phase-aware observer behavior. -->
@@ -63,7 +63,6 @@
     - Acceptance: send a message in dev, see the structured turn card appear live without refresh; `npm run verify` passes
     - **Observed current state (2026-04-07, post-build):** the workspace controller now projects the latest streamed `tool-ask_question` input into the visible `TurnCard` before `onFinish` route invalidation, targeted regression tests (`InterviewWorkspace`, `workspace-controller`, `workspace-data`, `app`) are green, the branch's latest full `npm run verify` passed before the docs-only SPEC commit, and manual browser verification confirmed the live turn card now appears without refresh.
     - **Observed code seam:** `InterviewWorkspace.renderParts()` still drops `tool-ask_question` transcript parts, but `workspace-controller-core.ts` now projects the latest streamed tool input into a temporary visible turn card while loading; durable loader state still owns the post-finish turn card after router invalidation.
-    - **Recommended next move for the implementing agent:** retire 6c and move on to 6d's response-model remodeling work.
     - **Verification approach**: inner — unit/integration tests for tool-part state transitions or alternate live render path. Outer — manual interview: turn card renders live, matches post-refresh state.
 
 6d. **Flexible turn-response model** — Replace the single-select answer assumption with typed turn responses that support zero/one/many selections plus unified free-text response content. Keep structured interviewer guidance, recommendation, and strategic grounding, but stop assuming every turn maps to one categorical choice or one scalar answer string. `done`
@@ -83,7 +82,7 @@
 
 6e. **Generic knowledge layer schema + sidebar projection** — Introduce the broader semantic layer (`framing`, `constraint`, `decision`, `assumption`, `requirement`, `criterion`) with generic provenance and graph edges, then project it cleanly into the sidebar without regressing existing reads. `done`
     - Requirements: → SPEC.md §Requirements #5, #6, #14
-    - Assumptions: → SPEC.md §Assumptions A14, A34, A35
+    - Assumptions: → SPEC.md §Assumptions A14
     - Decisions: → SPEC.md §Decisions D5, D13, D25, D49, D50, D51
     - Candidate invariant goals: generic knowledge-item persistence with turn linkage; graph-edge fidelity across item kinds
     - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I34
@@ -96,14 +95,26 @@
       - `6e.2a` Legacy dependency edges through the generic entity seam. `done`
       - `6e.2b` Remaining kind widening through the sidebar seam. `done`
 
-6f. **Phase-aware observer extraction** — Teach the observer to bias extraction by mode: scope prefers framing/constraints, design prefers decisions/assumptions, later modes can surface requirements/criteria and revisions. Keep the observer as a single structured extraction pass, but give it richer context and a broader ontology. `not-started`
+6f. **Phase-aware observer extraction** — Teach the observer to bias extraction by mode: scope prefers framing/constraints, design prefers decisions/assumptions, later modes can surface requirements/criteria and revisions. Keep the observer as a single structured extraction pass, but give it richer context and a broader ontology. `done`
     - Requirements: → SPEC.md §Requirements #5, #6, #11, #12
     - Assumptions: → SPEC.md §Assumptions A14, A20
-    - Decisions: → SPEC.md §Decisions D4, D5, D13, D25
+    - Decisions: → SPEC.md §Decisions D4, D5, D13, D25, D52, D53, D54, D55, D56
     - Candidate invariant goals: observer extracts framing without assumption inflation; phase-aware extraction deltas stay attributable to source turns
     - Invariants to respect: → SPEC.md §Invariants I20, I21, I23
-    - Acceptance: scope turns primarily yield framing/constraints; design turns primarily yield decisions/assumptions; observer results still stream in-band to the sidebar
-    - **Verification approach**: middle — golden-master observer fixtures across scope/design examples. Outer — inspect project 18–style sessions for ontology fit.
+    - **Observed current state (2026-04-08, tracer bullets 6f.1–6f.4b):** scope-mode observer output now widens to generic `framing` and `constraint`, design-mode observer prompting biases toward legacy `decision`/`assumption` extraction while allowing framing corrections and constraint spillover, requirements-mode observer prompting can now surface generic `requirement` items while deferring premature criteria, and criteria-mode observer prompting can now surface generic `criterion` items without collapsing them back into requirements. The observer context includes existing framing/constraints/requirements/criteria alongside legacy decisions/assumptions, persisted assistant parts and SSE `data-observer-result` payloads carry mixed framing/constraint/requirement/criterion/decision/assumption IDs, and sidebar invalidation can refetch and render those observer-created entities through the shared entity seam, including the `Criteria` tab.
+    - Acceptance: scope turns primarily yield framing/constraints; design turns primarily yield decisions/assumptions; later review turns can surface requirements/criteria without breaking observer sync; observer results still stream in-band to the sidebar
+    - **Verification approach**: inner — schema + DB/parts tests prove widened observer contracts and generic persistence; middle — mocked observer-sync round-trip proves observer result → entities API → sidebar refresh coherence without gating on live-model quality; outer — manual scope/design/requirements/criteria walkthroughs judge ontology fit and seed future observer fixtures. See SPEC.md §Verification Design.
+    - Tracer bullets:
+      - `6f.1` Scope-mode framing extraction through the generic observer seam. `done`
+        - Invariants established: → SPEC.md §Invariants I54, I55
+      - `6f.2` Scope-mode constraint extraction through the generic observer seam. `done`
+        - Invariants established: → SPEC.md §Invariants I56, I57
+      - `6f.3` Design-mode observer bias over decisions/assumptions with generic spillover. `done`
+        - Invariants established: → SPEC.md §Invariants I58, I59
+      - `6f.4a` Requirements-mode requirement emergence through the generic observer seam. `done`
+        - Invariants established: → SPEC.md §Invariants I60, I61
+      - `6f.4b` Criteria-mode criterion emergence through the generic observer seam. `done`
+        - Invariants established: → SPEC.md §Invariants I62, I63
 
 ## Phase 5: Mode Closure + Full Interview
 
@@ -148,25 +159,26 @@
      - Acceptance: criteria-review mode presents synthesized criteria, records explicit review state, and can close only when approved requirements have sufficient verification coverage
      - **Verification approach**: inner — criterion/review edge tests. Outer — manual criteria review with edits and coverage checks.
 
-## Phase 6: Revisit + Export
+## Phase 6: Readiness Surfaces + Export
 
-<!-- Generalize revisit semantics from decisions-only branching to active-path readiness invalidation,
-     then export from the reviewed knowledge layer. -->
+<!-- Surface readiness outside the workspace, add sidebar review/edit flows, then export from the
+     reviewed knowledge layer. Generalized revisit is deferred until the readiness/export path is
+     stable enough to absorb branch invalidation semantics without widening this phase further. -->
 
 ### Slices
 
-11. **Generalized revisit: branch + readiness invalidation** — Revisit any earlier turn, not just a decision card. Branch from that turn, restore the interview there, and invalidate downstream phase outcomes / review state from the affected frontier. `not-started`
-    - Requirements: → SPEC.md §Requirements #9, #10, #13
-    - Assumptions: → SPEC.md §Assumptions A6
-    - Decisions: → SPEC.md §Decisions D1, D3, D17
-    - Candidate invariant goals: active-path switch hides abandoned-branch readiness; downstream stale state is attributed to the correct frontier
-    - Invariants to respect: → SPEC.md §Invariants I9, I10, I24, I25
-    - Acceptance: revisit a scope/design/review turn, new branch created, interview resumes from that point, and downstream closure/review state becomes stale until re-walked
-    - **Verification approach**: inner — branching + readiness invalidation tests. Outer — manual revisit across multiple modes.
+11a. **Project dashboard workflow status** — Surface durable workflow/readiness state on the project list so users can tell which projects are incomplete, review-stale, or export-ready without opening each workspace. This replaces the deferred revisit slot with a missing but lower-risk requirement. `not-started`
+     - Requirements: → SPEC.md §Requirements #7, #11, #12, #13, #15
+     - Assumptions: → SPEC.md §Assumptions A15, A28
+     - Decisions: → SPEC.md §Decisions D3, D17
+     - Candidate invariant goals: project-list status derives from durable phase outcomes and review records, not ad hoc turn heuristics
+     - Invariants to respect: → SPEC.md §Invariants I24, I25, I36, I41, I42
+     - Acceptance: the project list shows each project's workflow completion/status from persisted readiness artifacts and updates correctly after refresh/resume
+     - **Verification approach**: inner — readiness-summary projection tests plus project-list route/component tests. Outer — manual multi-project walkthrough covering incomplete, review-stale, and export-ready states.
 
 12. **Knowledge review lifecycle API + sidebar edits** — CRUD/review endpoints for the broader knowledge layer. Editing or reviewing items should be provenance-bearing and update readiness state without becoming invisible side mutations. `not-started`
-    - Requirements: → SPEC.md §Requirements #6, #11, #12, #13
-    - Assumptions: → SPEC.md §Assumptions A14
+     - Requirements: → SPEC.md §Requirements #6, #11, #12, #13
+     - Assumptions: → SPEC.md §Assumptions A14
     - Decisions: → SPEC.md §Decisions D5, D17
     - Candidate invariant goals: review/edit actions are reflected in both knowledge state and readiness state; sidebar writes are visible and recoverable
     - Invariants to respect: → SPEC.md §Invariants I23, I36, I41, I42
@@ -174,13 +186,13 @@
     - **Verification approach**: inner — mutation + invalidation tests. Outer — manual sidebar edit/review walkthrough.
 
 13. **Spec export from the reviewed knowledge layer** — Render markdown export from active-path, reviewed knowledge items and explicit phase outcomes. Export is enabled only when the new readiness predicate is satisfied. `not-started`
-    - Requirements: → SPEC.md §Requirements #13
-    - Assumptions: —
-    - Decisions: → SPEC.md §Decisions D5, D17, D26
-    - Candidate invariant goals: export reflects active-path reviewed knowledge only; readiness predicate gates export correctly
-    - Invariants to respect: → SPEC.md §Invariants I18, I21
-    - Acceptance: complete all modes, satisfy review completeness, navigate to export, see markdown preview from the reviewed knowledge layer, download `.md` file
-    - **Verification approach**: inner — export projection tests. Outer — manual export after a full walkthrough and after a revisit-induced stale state.
+     - Requirements: → SPEC.md §Requirements #13
+     - Assumptions: —
+     - Decisions: → SPEC.md §Decisions D5, D17, D26
+     - Candidate invariant goals: export reflects active-path reviewed knowledge only; readiness predicate gates export correctly
+     - Invariants to respect: → SPEC.md §Invariants I18, I21
+     - Acceptance: complete all modes, satisfy review completeness, navigate to export, see markdown preview from the reviewed knowledge layer, download `.md` file
+     - **Verification approach**: inner — export projection tests. Outer — manual export after a full walkthrough and after a readiness-incomplete state blocks export.
 
 ## Phase 7: Distribution
 
@@ -195,10 +207,24 @@
     - Invariants to respect: → SPEC.md §Invariants I1, I2, I4, I5
     - Acceptance: `npx brunch` with key in scope opens working app
 
+## Phase 8: Post-Distribution Hardening
+
+<!-- Defer dependency-risk changes until the packaged app exists and can be regression-tested as a distributed artifact. -->
+
+### Slices
+
+15. **Drizzle Kit audit remediation** — Revisit the current `npm audit` finding on `drizzle-kit` after distribution is stable. Do not use `npm audit fix --force`, which currently resolves to `drizzle-kit@0.18.1`; that downgrade crosses the modern config boundary and is not a safe path for this repo. Instead, validate a non-vulnerable upgrade path (currently the `1.0.0-beta` line) against this app's SQLite config, migration history, and `studio` workflow before changing dependencies. `not-started`
+    - Requirements: → SPEC.md §Requirements #1
+    - Candidate invariant goals: packaged distribution remains stable while the Drizzle toolchain is upgraded off the vulnerable `@esbuild-kit/*` loader chain
+    - Invariants to respect: → SPEC.md §Invariants I1, I2, I4, I5
+    - Acceptance: chosen `drizzle-kit` version removes the vulnerable loader chain, keeps `drizzle.config.ts` compatible, preserves existing migration history, and `npm run studio` still works against the existing SQLite database
+    - **Verification approach**: inner — dependency tree/audit check plus config-load and migration/studio smoke tests. Outer — manual `npm run studio` walkthrough on the distributed app path.
+
 ## Horizon
 
 <!-- Future work not yet broken into slices. Revisit after Phase 7. -->
 
+- Deferred from Phase 6: `11. Generalized revisit: branch + readiness invalidation` — revisit any earlier turn, branch from that point, restore the interview there, and invalidate downstream phase outcomes / review state from the affected frontier. Re-scope after the readiness/export path stabilizes.
 - CLI interactive interview mode (terminal-based interview using core's DomainEvent stream)
 - MCP server adapter (expose core operations as MCP tools)
 - Turn tree visualization (git-log-style branch graph in sidebar)
@@ -226,15 +252,18 @@ Phase 4:  6b ──→ 6b1 (workspace oracle) ──→ 6c (live streaming fix)
           6e ──→ 6f (phase-aware observer)
 Phase 5:  6f ──→ 7 (explicit phase outcomes + scope closure)
           7 ──→ 8 (design mode) ──→ 9 (requirements-review) ──→ 10 (criteria-review)
-Phase 6:  7 ──→ 11 (generalized revisit)
+Phase 6:  7 ──┐
+          9 ──┼──→ 11a (project dashboard workflow status)
+          10 ─┘
           9 ──→ 12 (knowledge review lifecycle API)
           10 ──→ 13 (export)
 Phase 7:  13 ──→ 14 (npx + CLI)
+Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
 ```
 
 ### Parallelism opportunities
 
-- 6c (live streaming fix) and design work on 6d (flexible turn-response model) are mostly independent if 6d does not need to rewrite the live tool-part rendering seam.
-- 6e (generic knowledge layer) can begin in parallel with 6d after agreeing on the payload shape boundary.
-- 11 (generalized revisit) can begin once explicit phase outcomes (7) exist; it does not need requirements/criteria review UX to start proving readiness invalidation mechanics.
+- 11a (project dashboard workflow status) can begin once the readiness artifacts from 7/9/10 exist; it does not need sidebar editing flows to surface durable project status.
+- 12 (knowledge review lifecycle API) and 13 (export) can proceed in parallel once requirements/criteria review artifacts stabilize, because sidebar writes are not a prerequisite for the first reviewed export path.
 - 14 (npx) can start early with a basic launcher, completing after slice 13 when the new export predicate stabilizes.
+- 15 (drizzle-kit audit remediation) should wait until 14 lands, so packaging/distribution regressions can be judged on the real shipped path instead of the current dev-only setup.

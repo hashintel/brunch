@@ -1,22 +1,26 @@
 import { describe, expect, it } from 'vitest';
 
 import type { EntitiesData, ProjectState } from '../../shared/api-types.js';
+import type { BrunchUIMessage } from '../../shared/chat.js';
 import {
   createWorkspaceControllerViewState,
   createWorkspaceDurableEntityState,
   createWorkspaceDurableProjectState,
   createWorkspaceEphemeralChatState,
+  getPersistedSelectedPositions,
 } from './workspace-controller-core.js';
 
 function createProjectState({
   projectId = 1,
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
+  userParts = [{ type: 'text', text: answer }] as Array<Record<string, unknown>>,
   options = [],
 }: {
   projectId?: number;
   assistantText?: string;
   answer?: string;
+  userParts?: Array<Record<string, unknown>>;
   options?: Array<{
     id: number;
     position: number;
@@ -44,7 +48,7 @@ function createProjectState({
         impact: 'high',
         answer,
         is_resolution: false,
-        user_parts: JSON.stringify([{ type: 'text', text: answer }]),
+        user_parts: JSON.stringify(userParts),
         assistant_parts: JSON.stringify([{ type: 'text', text: assistantText }]),
         created_at: '2026-04-03 10:00:00',
         options,
@@ -66,7 +70,7 @@ describe('workspace controller core', () => {
     expect(durableProject.turns).toEqual(projectState.turns);
     expect(durableProject.lastTurn?.id).toBe(1);
     expect(durableProject.showTurnCard).toBe(true);
-    expect(durableProject.lastTurnHasSelection).toBe(false);
+    expect(durableProject.lastTurnHasResponse).toBe(false);
 
     expect(ephemeralChat.seedMessages).toEqual([
       {
@@ -190,32 +194,134 @@ describe('workspace controller core', () => {
     });
   });
 
-  it('projects prompt and turn-card visibility without embedding side effects', () => {
-    const pendingSelection = createWorkspaceDurableProjectState(
+  it('derives persisted selected positions from structured turn responses instead of option flags', () => {
+    const selectedResponseTurn = createProjectState({
+      answer: 'Desktop — Best fit for launch',
+      userParts: [
+        { type: 'text', text: 'Desktop — Best fit for launch' },
+        {
+          type: 'data-turn-response',
+          data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
+        },
+      ],
+      options: [
+        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+      ],
+    }).turns[0];
+
+    expect(getPersistedSelectedPositions(selectedResponseTurn)).toEqual([1]);
+  });
+
+  it('projects prompt and turn-card visibility from persisted turn responses without embedding side effects', () => {
+    const pendingResponse = createWorkspaceDurableProjectState(
       createProjectState({
         options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
       }),
     );
-    const selectedTurn = createWorkspaceDurableProjectState(
+    const selectedResponse = createWorkspaceDurableProjectState(
       createProjectState({
-        options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: true }],
+        answer: 'Web — Best fit for launch',
+        userParts: [
+          { type: 'text', text: 'Web — Best fit for launch' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [11], freeText: 'Best fit for launch' },
+          },
+        ],
+        options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+      }),
+    );
+    const freeTextOnlyResponse = createWorkspaceDurableProjectState(
+      createProjectState({
+        answer: 'None of these fit our use case',
+        userParts: [
+          { type: 'text', text: 'None of these fit our use case' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [], freeText: 'None of these fit our use case' },
+          },
+        ],
+        options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
       }),
     );
 
-    expect(createWorkspaceControllerViewState(pendingSelection, [], false)).toEqual({
-      project: pendingSelection.project,
-      turnCard: { turn: pendingSelection.lastTurn! },
+    expect(createWorkspaceControllerViewState(pendingResponse, [], false)).toEqual({
+      project: pendingResponse.project,
+      turnCard: { kind: 'persisted-turn', turn: pendingResponse.lastTurn! },
       promptInput: { visible: false },
     });
-    expect(createWorkspaceControllerViewState(pendingSelection, [], true)).toEqual({
-      project: pendingSelection.project,
+    expect(createWorkspaceControllerViewState(pendingResponse, [], true)).toEqual({
+      project: pendingResponse.project,
       turnCard: null,
       promptInput: { visible: false },
     });
-    expect(createWorkspaceControllerViewState(selectedTurn, [], false)).toEqual({
-      project: selectedTurn.project,
-      turnCard: { turn: selectedTurn.lastTurn! },
+    expect(createWorkspaceControllerViewState(selectedResponse, [], false)).toEqual({
+      project: selectedResponse.project,
+      turnCard: { kind: 'persisted-turn', turn: selectedResponse.lastTurn! },
       promptInput: { visible: true },
+    });
+    expect(createWorkspaceControllerViewState(freeTextOnlyResponse, [], false)).toEqual({
+      project: freeTextOnlyResponse.project,
+      turnCard: { kind: 'persisted-turn', turn: freeTextOnlyResponse.lastTurn! },
+      promptInput: { visible: true },
+    });
+  });
+
+  it('projects a pending question before any durable turn exists', () => {
+    const emptyProjectState: ProjectState = {
+      project: {
+        id: 1,
+        name: 'Project 1',
+        active_turn_id: null,
+        created_at: '2026-04-03 10:00:00',
+        updated_at: '2026-04-03 10:00:00',
+      },
+      turns: [],
+    };
+    const liveMessages: BrunchUIMessage[] = [
+      {
+        id: 'pending-question-assistant',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-ask_question',
+            toolCallId: 'tool-1',
+            state: 'output-available',
+            input: {
+              question: 'Which platform should we target next?',
+              why: 'Platform shapes the first build.',
+              impact: 'high',
+              options: [
+                { content: 'Web', is_recommended: true },
+                { content: 'Desktop', is_recommended: false },
+              ],
+            },
+            output: { ok: true, turnId: 1, optionCount: 2 },
+          },
+        ],
+      },
+    ];
+
+    const durableProject = createWorkspaceDurableProjectState(emptyProjectState);
+    const ephemeralChat = createWorkspaceEphemeralChatState(emptyProjectState);
+    const viewState = createWorkspaceControllerViewState(durableProject, liveMessages, true);
+
+    expect(ephemeralChat.seedMessages).toEqual([]);
+    expect(viewState.project).toEqual(emptyProjectState.project);
+    expect(viewState.promptInput.visible).toBe(false);
+    expect(viewState.turnCard).toEqual({
+      kind: 'pending-question',
+      pendingQuestion: {
+        id: 'pending-question-assistant:tool-1',
+        question: 'Which platform should we target next?',
+        why: 'Platform shapes the first build.',
+        impact: 'high',
+        options: [
+          { position: 0, content: 'Web', is_recommended: true },
+          { position: 1, content: 'Desktop', is_recommended: false },
+        ],
+      },
     });
   });
 });

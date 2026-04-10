@@ -10,9 +10,9 @@ import type { BrunchUIMessage } from '../../shared/chat.js';
 import { useWorkspaceController } from './workspace-controller.js';
 import type { WorkspaceLoaderData } from './workspace-loader.js';
 
-function createLiveQuestionMessage(): BrunchUIMessage {
+function createPendingQuestionMessage(): BrunchUIMessage {
   return {
-    id: 'live-turn-assistant',
+    id: 'pending-question-assistant',
     role: 'assistant',
     parts: [
       {
@@ -215,7 +215,14 @@ function ControllerProbe() {
       <div data-testid="decisions">
         {workspace.entityState.decisions.map((decision) => decision.content).join('|') || 'none'}
       </div>
-      <div data-testid="turn-card">{workspace.turnCard?.turn.question ?? 'none'}</div>
+      <div data-testid="turn-card-kind">{workspace.turnCard?.kind ?? 'none'}</div>
+      <div data-testid="turn-card">
+        {workspace.turnCard?.kind === 'persisted-turn'
+          ? workspace.turnCard.turn.question
+          : workspace.turnCard?.kind === 'pending-question'
+            ? workspace.turnCard.pendingQuestion.question
+            : 'none'}
+      </div>
       <div data-testid="prompt-visible">{String(workspace.promptInput.visible)}</div>
     </div>
   );
@@ -246,7 +253,7 @@ afterEach(() => {
 });
 
 describe('workspace controller', () => {
-  it('projects a live turn card from the streamed ask_question part before route invalidation', async () => {
+  it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       assistantText: 'Earlier question?',
       answer: 'Earlier answer',
@@ -267,11 +274,12 @@ describe('workspace controller', () => {
       useChatHarness.replaceMessages?.([
         { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
         { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
-        createLiveQuestionMessage(),
+        createPendingQuestionMessage(),
       ]);
     });
 
     await waitFor(() => {
+      expect(screen.getByTestId('turn-card-kind').textContent).toBe('pending-question');
       expect(screen.getByTestId('turn-card').textContent).toBe('Which platform should we target next?');
       expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
       expect(routerInvalidate).not.toHaveBeenCalled();

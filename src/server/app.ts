@@ -22,10 +22,10 @@ import {
   prepareTurn,
 } from './core.js';
 import {
+  applyTurnResponseSelections,
   createDb,
   getTurn,
   getOptionsForTurn,
-  selectOptions,
   updateTurn,
   getEntitiesForProject,
 } from './db.js';
@@ -69,16 +69,16 @@ export function createApp(dbPath?: string) {
     res.json(state satisfies ProjectState);
   });
 
-  // Submit a turn response on a turn
-  app.post('/api/projects/:id/turns/:turnId/select', (req: Request, res: Response) => {
+  // Submit a turn response on a turn.
+  app.post('/api/projects/:id/turns/:turnId/response', (req: Request, res: Response) => {
     const projectId = Number(req.params.id);
     const turnId = Number(req.params.turnId);
-    const positions: number[] = Array.isArray(req.body?.positions)
+    const selectedPositions: number[] = Array.isArray(req.body?.positions)
       ? req.body.positions.filter((value: unknown): value is number => typeof value === 'number')
       : typeof req.body?.position === 'number'
         ? [req.body.position]
         : [];
-    const uniquePositions: number[] = [...new Set(positions)];
+    const uniquePositions = [...new Set(selectedPositions)];
     const freeText = typeof req.body.freeText === 'string' ? req.body.freeText.trim() : undefined;
 
     if (Number.isNaN(projectId) || Number.isNaN(turnId)) {
@@ -102,7 +102,7 @@ export function createApp(dbPath?: string) {
       res.status(400).json({ error: 'Selected option not found' });
       return;
     }
-    selectOptions(db, turnId, uniquePositions);
+    applyTurnResponseSelections(db, turnId, uniquePositions);
 
     const selectedOptionIds = selectedOptions.map((option) => option.id);
     const selectedOptionContents = selectedOptions.map((option) => option.content);

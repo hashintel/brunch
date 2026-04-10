@@ -18,7 +18,7 @@ export function useSubmitTurnResponseMutation({
   const mutation = useClientMutation(
     (variables: { turnId: number; positions?: number[]; freeText?: string }) =>
       postJsonMutation<{ ok: boolean }, { positions?: number[]; freeText?: string }>(
-        `/api/projects/${projectId}/turns/${variables.turnId}/select`,
+        `/api/projects/${projectId}/turns/${variables.turnId}/response`,
         {
           ...(variables.positions?.length ? { positions: variables.positions } : {}),
           ...(variables.freeText ? { freeText: variables.freeText } : {}),

@@ -1,6 +1,8 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { ProjectState } from '../shared/api-types.js';
+import { buildInterviewerContext } from './context.js';
 import type { DB } from './db.js';
 
 const { mockStreamInterviewer, mockRunObserver } = vi.hoisted(() => ({
@@ -121,7 +123,14 @@ beforeEach(() => {
   mockStreamInterviewer.mockReset();
   mockRunObserver.mockReset();
   mockStreamInterviewer.mockImplementation(async () => makeTextInterviewer('Hi'));
-  mockRunObserver.mockResolvedValue({ decisions: [], assumptions: [] });
+  mockRunObserver.mockResolvedValue({
+    framing: [],
+    constraints: [],
+    requirements: [],
+    criteria: [],
+    decisions: [],
+    assumptions: [],
+  });
 
   const result = createApp();
   app = result.app;
@@ -172,9 +181,40 @@ describe('POST /api/projects/:id/chat', () => {
     expect(turns[0].assistant_parts).not.toBeNull();
   });
 
-  it('emits observer results as typed data parts', async () => {
+  it('emits widened observer results and persists scope-mode constraints through the entities API', async () => {
     const projectId = await createTestProject();
-    mockRunObserver.mockResolvedValue({ decisions: [1], assumptions: [2] });
+    mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
+      const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
+      const framing = createKnowledgeItem(
+        dbArg as DB,
+        projectIdArg as number,
+        'framing',
+        'The project starts from a fuzzy brief',
+        {
+          rationale: 'The user is still establishing the problem context',
+        },
+      );
+      const constraint = createKnowledgeItem(
+        dbArg as DB,
+        projectIdArg as number,
+        'constraint',
+        'Keep setup instant',
+        {
+          subtype: 'non-goal',
+          rationale: 'The launcher should stay lightweight',
+        },
+      );
+      linkKnowledgeItemToTurn(dbArg as DB, framing.id, (turnArg as { id: number }).id);
+      linkKnowledgeItemToTurn(dbArg as DB, constraint.id, (turnArg as { id: number }).id);
+      return {
+        framing: [framing.id],
+        constraints: [constraint.id],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      };
+    });
 
     const res = await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -188,8 +228,283 @@ describe('POST /api/projects/:id/chat', () => {
 
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
-      data: { entityIds: { decisions: [1], assumptions: [2] } },
+      data: {
+        entityIds: {
+          framing: [1],
+          constraints: [2],
+          requirements: [],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+        },
+      },
     });
+
+    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.framing).toEqual([
+      {
+        id: 1,
+        project_id: projectId,
+        kind: 'framing',
+        subtype: null,
+        content: 'The project starts from a fuzzy brief',
+        rationale: 'The user is still establishing the problem context',
+      },
+    ]);
+    expect(entitiesRes.body.constraints).toEqual([
+      {
+        id: 2,
+        project_id: projectId,
+        kind: 'constraint',
+        subtype: 'non-goal',
+        content: 'Keep setup instant',
+        rationale: 'The launcher should stay lightweight',
+      },
+    ]);
+  });
+
+  it('emits mixed observer results and persists legacy-plus-generic entities through the entities API', async () => {
+    const projectId = await createTestProject();
+    mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
+      const {
+        createKnowledgeItem,
+        createDecision,
+        createAssumption,
+        addDecisionParentAssumption,
+        linkKnowledgeItemToTurn,
+        linkDecisionToTurn,
+        linkAssumptionToTurn,
+      } = await import('./db.js');
+      const framing = createKnowledgeItem(
+        dbArg as DB,
+        projectIdArg as number,
+        'framing',
+        'The first release still targets solo builders',
+        {
+          rationale: 'The turn clarified the intended audience',
+        },
+      );
+      const constraint = createKnowledgeItem(
+        dbArg as DB,
+        projectIdArg as number,
+        'constraint',
+        'Do not add a plugin system yet',
+        {
+          subtype: 'non-goal',
+          rationale: 'The first release should stay narrow',
+        },
+      );
+      const assumption = createAssumption(dbArg as DB, projectIdArg as number, 'Users can work in a browser');
+      const decision = createDecision(
+        dbArg as DB,
+        projectIdArg as number,
+        'Start with the web app',
+        'It is the fastest path to feedback',
+      );
+      addDecisionParentAssumption(dbArg as DB, decision.id, assumption.id);
+      linkKnowledgeItemToTurn(dbArg as DB, framing.id, (turnArg as { id: number }).id);
+      linkKnowledgeItemToTurn(dbArg as DB, constraint.id, (turnArg as { id: number }).id);
+      linkAssumptionToTurn(dbArg as DB, assumption.id, (turnArg as { id: number }).id);
+      linkDecisionToTurn(dbArg as DB, decision.id, (turnArg as { id: number }).id);
+      return {
+        framing: [framing.id],
+        constraints: [constraint.id],
+        requirements: [],
+        criteria: [],
+        decisions: [decision.id],
+        assumptions: [assumption.id],
+      };
+    });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
+    const observerEvent = events.find((event) => event.type === 'data-observer-result');
+
+    expect(observerEvent).toEqual({
+      type: 'data-observer-result',
+      data: {
+        entityIds: {
+          framing: [1],
+          constraints: [2],
+          requirements: [],
+          criteria: [],
+          decisions: [1],
+          assumptions: [1],
+        },
+      },
+    });
+
+    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.framing).toEqual([
+      {
+        id: 1,
+        project_id: projectId,
+        kind: 'framing',
+        subtype: null,
+        content: 'The first release still targets solo builders',
+        rationale: 'The turn clarified the intended audience',
+      },
+    ]);
+    expect(entitiesRes.body.constraints).toEqual([
+      {
+        id: 2,
+        project_id: projectId,
+        kind: 'constraint',
+        subtype: 'non-goal',
+        content: 'Do not add a plugin system yet',
+        rationale: 'The first release should stay narrow',
+      },
+    ]);
+    expect(entitiesRes.body.decisions).toEqual([
+      {
+        id: 1,
+        project_id: projectId,
+        content: 'Start with the web app',
+        rationale: 'It is the fastest path to feedback',
+      },
+    ]);
+    expect(entitiesRes.body.assumptions).toEqual([
+      {
+        id: 1,
+        project_id: projectId,
+        content: 'Users can work in a browser',
+      },
+    ]);
+    expect(entitiesRes.body.relationships).toEqual([
+      {
+        type: 'depends_on',
+        source: { collection: 'decision', kind: 'decision', id: 1 },
+        target: { collection: 'assumption', kind: 'assumption', id: 1 },
+      },
+    ]);
+  });
+
+  it('emits widened observer results and persists requirements-mode requirement items through the entities API', async () => {
+    const projectId = await createTestProject();
+    mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
+      const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
+      const requirement = createKnowledgeItem(
+        dbArg as DB,
+        projectIdArg as number,
+        'requirement',
+        'Resume the interview from SQLite after restart',
+        {
+          rationale: 'Users will come back to finish the workflow',
+        },
+      );
+      linkKnowledgeItemToTurn(dbArg as DB, requirement.id, (turnArg as { id: number }).id);
+      return {
+        framing: [],
+        constraints: [],
+        requirements: [requirement.id],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      };
+    });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
+    const observerEvent = events.find((event) => event.type === 'data-observer-result');
+
+    expect(observerEvent).toEqual({
+      type: 'data-observer-result',
+      data: {
+        entityIds: {
+          framing: [],
+          constraints: [],
+          requirements: [1],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+        },
+      },
+    });
+
+    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.requirements).toEqual([
+      {
+        id: 1,
+        project_id: projectId,
+        kind: 'requirement',
+        subtype: null,
+        content: 'Resume the interview from SQLite after restart',
+        rationale: 'Users will come back to finish the workflow',
+      },
+    ]);
+  });
+
+  it('emits widened observer results and persists criteria-mode criterion items through the entities API', async () => {
+    const projectId = await createTestProject();
+    mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
+      const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
+      const criterion = createKnowledgeItem(
+        dbArg as DB,
+        projectIdArg as number,
+        'criterion',
+        'Resuming restores the active path without data loss',
+        {
+          rationale: 'This proves persistence worked for the branch the user was on',
+        },
+      );
+      linkKnowledgeItemToTurn(dbArg as DB, criterion.id, (turnArg as { id: number }).id);
+      return {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [criterion.id],
+        decisions: [],
+        assumptions: [],
+      } as never;
+    });
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
+    const observerEvent = events.find((event) => event.type === 'data-observer-result');
+
+    expect(observerEvent).toEqual({
+      type: 'data-observer-result',
+      data: {
+        entityIds: {
+          framing: [],
+          constraints: [],
+          requirements: [],
+          criteria: [1],
+          decisions: [],
+          assumptions: [],
+        },
+      },
+    });
+
+    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.criteria).toEqual([
+      {
+        id: 1,
+        project_id: projectId,
+        kind: 'criterion',
+        subtype: null,
+        content: 'Resuming restores the active path without data loss',
+        rationale: 'This proves persistence worked for the branch the user was on',
+      },
+    ]);
   });
 });
 
@@ -283,7 +598,7 @@ describe('GET /api/projects/:id', () => {
   });
 });
 
-describe('POST /api/projects/:id/turns/:turnId/select', () => {
+describe('POST /api/projects/:id/turns/:turnId/response', () => {
   it('persists the selected option and free-text turn response into answer and user parts', async () => {
     const projectId = await createTestProject();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
@@ -301,7 +616,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
     const turn = getActivePath(db, projectId)[0];
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
       .send({ positions: [1], freeText: 'Best fit for our launch' })
       .expect(200);
 
@@ -339,7 +654,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
     const turn = getActivePath(db, projectId)[0];
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
       .send({ positions: [0, 1], freeText: 'Covers both launch paths' })
       .expect(200);
 
@@ -361,6 +676,102 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
     ]);
   });
 
+  it('round-trips structured turn responses through project reload, transcript hydration, and interviewer history', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const { getActivePath, getOptionsForTurn } = await import('./db.js');
+    const { createWorkspaceEphemeralChatState } =
+      await import('../client/workspace/workspace-controller-core.js');
+    const turn = getActivePath(db, projectId)[0];
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
+      .send({ positions: [0, 1], freeText: 'Covers both launch paths' })
+      .expect(200);
+
+    const projectStateRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectState = projectStateRes.body as ProjectState;
+    const selectedOptionIds = getOptionsForTurn(db, turn.id)
+      .filter((option) => option.is_selected)
+      .map((option) => option.id);
+
+    expect(projectState.turns).toHaveLength(1);
+    expect(projectState.turns[0].answer).toBe('Web, Desktop — Covers both launch paths');
+    expect(JSON.parse(projectState.turns[0].user_parts ?? '[]')).toEqual([
+      { type: 'text', text: 'Web, Desktop — Covers both launch paths' },
+      {
+        type: 'data-turn-response',
+        data: {
+          turnId: turn.id,
+          selectedOptionIds,
+          freeText: 'Covers both launch paths',
+        },
+      },
+    ]);
+
+    const hydratedChat = createWorkspaceEphemeralChatState(projectState);
+    expect(hydratedChat.seedMessages).toEqual([
+      {
+        id: `turn-${turn.id}-answer`,
+        role: 'user',
+        parts: [
+          { type: 'text', text: 'Web, Desktop — Covers both launch paths' },
+          {
+            type: 'data-turn-response',
+            data: {
+              turnId: turn.id,
+              selectedOptionIds,
+              freeText: 'Covers both launch paths',
+            },
+          },
+        ],
+      },
+      {
+        id: `turn-${turn.id}-assistant`,
+        role: 'assistant',
+        parts: [
+          {
+            type: 'tool-ask_question',
+            toolCallId: 'tool-1',
+            state: 'output-available',
+            input: structuredQuestion,
+            output: { ok: true, turnId: turn.id, optionCount: structuredQuestion.options.length },
+          },
+          {
+            type: 'data-observer-result',
+            data: {
+              entityIds: {
+                framing: [],
+                constraints: [],
+                requirements: [],
+                criteria: [],
+                decisions: [],
+                assumptions: [],
+              },
+            },
+          },
+        ],
+      },
+    ]);
+
+    expect(buildInterviewerContext(projectState.turns, 'next prompt')).toContain(
+      'Turn response:\n  Chosen options: Web, Desktop\n  Free-text response: Covers both launch paths',
+    );
+    expect(buildInterviewerContext(projectState.turns, 'next prompt')).not.toContain(
+      'Answer: Web, Desktop — Covers both launch paths',
+    );
+  });
+
   it('persists a free-text-only turn response when no option is selected', async () => {
     const projectId = await createTestProject();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
@@ -378,7 +789,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
     const turn = getActivePath(db, projectId)[0];
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
       .send({ freeText: 'None of these fit our use case' })
       .expect(200);
 
@@ -412,7 +823,7 @@ describe('POST /api/projects/:id/turns/:turnId/select', () => {
     const turn = getActivePath(db, projectId)[0];
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/select`)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
       .send({ freeText: '   ' })
       .expect(400);
   });

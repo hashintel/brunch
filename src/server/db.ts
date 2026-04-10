@@ -3,6 +3,13 @@ import { and, desc, eq, inArray, sql, type InferSelectModel } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 
+import {
+  genericKnowledgeKindRegistry,
+  type GenericKnowledgeCollectionKey,
+  type GenericKnowledgeKind,
+  type KnowledgeEntityCollection,
+  type KnowledgeKind as SharedKnowledgeKind,
+} from '../shared/knowledge.js';
 import * as schema from './schema.js';
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
@@ -157,17 +164,17 @@ export function getOptionsForTurn(db: DB, turnId: number): Option[] {
     .all() as Option[];
 }
 
-export function selectOptions(db: DB, turnId: number, positions: number[]): void {
-  const uniquePositions = [...new Set(positions)];
+export function applyTurnResponseSelections(db: DB, turnId: number, selectedPositions: number[]): void {
+  const uniquePositions = [...new Set(selectedPositions)];
 
-  // Clear any previous selection for this turn
+  // Clear any previous selection for this turn.
   db.update(schema.option).set({ is_selected: false }).where(eq(schema.option.turn_id, turnId)).run();
 
   if (uniquePositions.length === 0) {
     return;
   }
 
-  // Select the chosen options
+  // Mark the chosen options for this turn response.
   db.update(schema.option)
     .set({ is_selected: true })
     .where(and(eq(schema.option.turn_id, turnId), inArray(schema.option.position, uniquePositions)))
@@ -186,8 +193,8 @@ export function advanceHead(db: DB, projectId: number, turnId: number): void {
 export type Decision = InferSelectModel<typeof schema.decision>;
 export type Assumption = InferSelectModel<typeof schema.assumption>;
 export type KnowledgeItem = InferSelectModel<typeof schema.knowledgeItem>;
-export type KnowledgeKind = KnowledgeItem['kind'];
-export type EntityCollection = 'knowledge_item' | 'decision' | 'assumption';
+export type KnowledgeKind = Extract<KnowledgeItem['kind'], SharedKnowledgeKind>;
+export type EntityCollection = KnowledgeEntityCollection;
 
 export interface EntityReference {
   collection: EntityCollection;
@@ -294,7 +301,7 @@ export function addAssumptionParentAssumption(
 function getKnowledgeItemsForProjectByKind(
   db: DB,
   projectId: number,
-  kind: Extract<KnowledgeKind, 'framing' | 'constraint' | 'requirement' | 'criterion'>,
+  kind: GenericKnowledgeKind,
 ): KnowledgeItem[] {
   return db
     .select()
@@ -304,10 +311,12 @@ function getKnowledgeItemsForProjectByKind(
 }
 
 export function getEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
-  const framing = getKnowledgeItemsForProjectByKind(db, projectId, 'framing');
-  const constraints = getKnowledgeItemsForProjectByKind(db, projectId, 'constraint');
-  const requirements = getKnowledgeItemsForProjectByKind(db, projectId, 'requirement');
-  const criteria = getKnowledgeItemsForProjectByKind(db, projectId, 'criterion');
+  const genericKnowledgeCollections = Object.fromEntries(
+    genericKnowledgeKindRegistry.map((entry) => [
+      entry.collectionKey,
+      getKnowledgeItemsForProjectByKind(db, projectId, entry.kind),
+    ]),
+  ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
   const decisions = db
     .select()
     .from(schema.decision)
@@ -384,10 +393,7 @@ export function getEntitiesForProject(db: DB, projectId: number): EntitiesForPro
   }>;
 
   return {
-    framing,
-    constraints,
-    requirements,
-    criteria,
+    ...genericKnowledgeCollections,
     decisions,
     assumptions,
     relationships: relationships.map((relationship) => ({
