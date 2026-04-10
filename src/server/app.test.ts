@@ -4,6 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProjectState } from '../shared/api-types.js';
 import { buildInterviewerContext } from './context.js';
 import type { DB } from './db.js';
+import {
+  seedActiveDesign as _seedActiveDesign,
+  seedAllPhasesClosed as _seedAllPhasesClosed,
+  seedClosedScope as _seedClosedScope,
+  seedCriteriaReady as _seedCriteriaReady,
+  seedRequirementsReady as _seedRequirementsReady,
+} from './fixtures/scenarios.js';
 
 const { mockStreamInterviewer, mockRunObserver } = vi.hoisted(() => ({
   mockStreamInterviewer: vi.fn(),
@@ -160,245 +167,24 @@ async function createTestProject(name = 'Test Project'): Promise<number> {
   return res.body.id;
 }
 
-async function seedClosedScope(projectId: number) {
-  const { advanceHead, confirmPhaseOutcome, createPhaseOutcome, createTurn } = await import('./db.js');
-
-  const scopeTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    question: 'What platform?',
-    answer: 'Web',
-  });
-  advanceHead(db, projectId, scopeTurn.id);
-
-  const scopeProposalTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    parent_turn_id: scopeTurn.id,
-    question: '',
-    answer: 'We have enough scope context',
-  });
-  advanceHead(db, projectId, scopeProposalTurn.id);
-
-  const scopeOutcome = createPhaseOutcome(db, {
-    projectId,
-    phase: 'scope',
-    proposal_turn_id: scopeProposalTurn.id,
-    summary: 'Goals, terms, context, and constraints are sufficiently captured.',
-  });
-
-  const scopeConfirmationTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    parent_turn_id: scopeProposalTurn.id,
-    question: '',
-    answer: 'Confirm scope closure',
-    user_parts: JSON.stringify([
-      { type: 'text', text: 'Confirm scope closure' },
-      {
-        type: 'data-confirmation',
-        data: {
-          kind: 'confirm-proposed-phase-closure',
-          proposalTurnId: scopeProposalTurn.id,
-          phase: 'scope',
-        },
-      },
-    ]),
-  });
-  confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
-  advanceHead(db, projectId, scopeConfirmationTurn.id);
-
-  return { scopeTurn, scopeProposalTurn, scopeConfirmationTurn };
+function seedClosedScope(projectId: number) {
+  return _seedClosedScope(db, projectId);
 }
 
-async function seedActiveDesign(projectId: number) {
-  const { advanceHead, createTurn } = await import('./db.js');
-  const seededScope = await seedClosedScope(projectId);
-
-  const designTurn = createTurn(db, projectId, {
-    phase: 'design',
-    parent_turn_id: seededScope.scopeConfirmationTurn.id,
-    question: 'Which tradeoff matters most?',
-    answer: 'Keep the repository seam small',
-  });
-  advanceHead(db, projectId, designTurn.id);
-
-  return { ...seededScope, designTurn };
+function seedActiveDesign(projectId: number) {
+  return _seedActiveDesign(db, projectId);
 }
 
-async function seedCriteriaReady(projectId: number) {
-  const {
-    advanceHead,
-    confirmPhaseOutcome,
-    createPhaseOutcome,
-    createTurn,
-    createKnowledgeItem,
-    linkKnowledgeItemToTurn,
-  } = await import('./db.js');
-  const seededRequirements = await seedRequirementsReady(projectId);
-
-  const approvedRequirement = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    'Resume the interview from SQLite after restart',
-  );
-  const rejectedRequirement = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    'Support exporting the spec as a PDF',
-  );
-
-  const reviewTurn = createTurn(db, projectId, {
-    phase: 'requirements',
-    parent_turn_id: seededRequirements.designConfirmationTurn.id,
-    question: 'Are these requirements all reviewed now?',
-    answer: 'Yes — approve resume and reject PDF export',
-  });
-  linkKnowledgeItemToTurn(db, approvedRequirement.id, reviewTurn.id, 'reviewed');
-  linkKnowledgeItemToTurn(db, rejectedRequirement.id, reviewTurn.id, 'rejected');
-  advanceHead(db, projectId, reviewTurn.id);
-
-  const requirementsProposalTurn = createTurn(db, projectId, {
-    phase: 'requirements',
-    parent_turn_id: reviewTurn.id,
-    question: '',
-    answer: 'The requirement set has explicit review coverage and is ready to move into criteria.',
-  });
-  advanceHead(db, projectId, requirementsProposalTurn.id);
-
-  const requirementsOutcome = createPhaseOutcome(db, {
-    projectId,
-    phase: 'requirements',
-    proposal_turn_id: requirementsProposalTurn.id,
-    summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
-  });
-
-  const requirementsConfirmationTurn = createTurn(db, projectId, {
-    phase: 'requirements',
-    parent_turn_id: requirementsProposalTurn.id,
-    question: '',
-    answer: 'Confirm requirements closure',
-    user_parts: JSON.stringify([
-      { type: 'text', text: 'Confirm requirements closure' },
-      {
-        type: 'data-confirmation',
-        data: {
-          kind: 'confirm-proposed-phase-closure',
-          proposalTurnId: requirementsProposalTurn.id,
-          phase: 'requirements',
-        },
-      },
-    ]),
-  });
-  confirmPhaseOutcome(db, requirementsOutcome.id, requirementsConfirmationTurn.id);
-  advanceHead(db, projectId, requirementsConfirmationTurn.id);
-
-  return {
-    ...seededRequirements,
-    approvedRequirement,
-    rejectedRequirement,
-    reviewTurn,
-    requirementsProposalTurn,
-    requirementsConfirmationTurn,
-  };
+function seedRequirementsReady(projectId: number) {
+  return _seedRequirementsReady(db, projectId);
 }
 
-async function seedAllPhasesClosed(projectId: number) {
-  const {
-    advanceHead,
-    confirmPhaseOutcome,
-    createPhaseOutcome,
-    createTurn,
-    createKnowledgeItem,
-    linkKnowledgeItemToTurn,
-  } = await import('./db.js');
-  const seededCriteria = await seedCriteriaReady(projectId);
-
-  const criterion = createKnowledgeItem(db, projectId, 'criterion', 'Verify SQLite resume');
-  const criterionReviewTurn = createTurn(db, projectId, {
-    phase: 'criteria',
-    parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
-    question: 'Are these criteria reviewed?',
-    answer: 'Yes — approve the criterion',
-  });
-  linkKnowledgeItemToTurn(db, criterion.id, criterionReviewTurn.id, 'reviewed');
-  advanceHead(db, projectId, criterionReviewTurn.id);
-
-  const criteriaProposalTurn = createTurn(db, projectId, {
-    phase: 'criteria',
-    parent_turn_id: criterionReviewTurn.id,
-    question: '',
-    answer: 'Criteria review coverage is complete.',
-  });
-  advanceHead(db, projectId, criteriaProposalTurn.id);
-
-  const criteriaOutcome = createPhaseOutcome(db, {
-    projectId,
-    phase: 'criteria',
-    proposal_turn_id: criteriaProposalTurn.id,
-    summary: 'Criteria review coverage is complete.',
-  });
-
-  const criteriaConfirmationTurn = createTurn(db, projectId, {
-    phase: 'criteria',
-    parent_turn_id: criteriaProposalTurn.id,
-    question: '',
-    answer: 'Confirm criteria closure',
-    user_parts: JSON.stringify([
-      { type: 'text', text: 'Confirm criteria closure' },
-      {
-        type: 'data-confirmation',
-        data: {
-          kind: 'confirm-proposed-phase-closure',
-          proposalTurnId: criteriaProposalTurn.id,
-          phase: 'criteria',
-        },
-      },
-    ]),
-  });
-  confirmPhaseOutcome(db, criteriaOutcome.id, criteriaConfirmationTurn.id);
-  advanceHead(db, projectId, criteriaConfirmationTurn.id);
-
-  return {
-    ...seededCriteria,
-    criterion,
-    criterionReviewTurn,
-    criteriaProposalTurn,
-    criteriaConfirmationTurn,
-  };
+function seedCriteriaReady(projectId: number) {
+  return _seedCriteriaReady(db, projectId);
 }
 
-async function seedRequirementsReady(projectId: number) {
-  const { advanceHead, confirmPhaseOutcome, createPhaseOutcome, createTurn } = await import('./db.js');
-  const seededDesign = await seedActiveDesign(projectId);
-
-  const designOutcome = createPhaseOutcome(db, {
-    projectId,
-    phase: 'design',
-    proposal_turn_id: seededDesign.designTurn.id,
-    summary: 'The main architectural commitments are captured well enough to review requirements.',
-  });
-
-  const designConfirmationTurn = createTurn(db, projectId, {
-    phase: 'design',
-    parent_turn_id: seededDesign.designTurn.id,
-    question: '',
-    answer: 'Confirm design closure',
-    user_parts: JSON.stringify([
-      { type: 'text', text: 'Confirm design closure' },
-      {
-        type: 'data-confirmation',
-        data: {
-          kind: 'confirm-proposed-phase-closure',
-          proposalTurnId: seededDesign.designTurn.id,
-          phase: 'design',
-        },
-      },
-    ]),
-  });
-  confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
-  advanceHead(db, projectId, designConfirmationTurn.id);
-
-  return { ...seededDesign, designConfirmationTurn };
+function seedAllPhasesClosed(projectId: number) {
+  return _seedAllPhasesClosed(db, projectId);
 }
 
 beforeEach(() => {
