@@ -70,9 +70,20 @@ export function getProjectState(db: DB, projectId: number) {
   return { project, workflow, turns };
 }
 
-/** List all projects. */
-export function listProjectStates(db: DB): Project[] {
-  return listProjects(db);
+/** List all projects with compact workflow summary. */
+export function listProjectStates(db: DB) {
+  return listProjects(db).map((project) => {
+    const workflow = getCurrentWorkflowState(db, project.id);
+    return {
+      ...project,
+      workflowSummary: {
+        scope: workflow.phases.scope.status,
+        design: workflow.phases.design.status,
+        requirements: workflow.phases.requirements.status,
+        criteria: workflow.phases.criteria.status,
+      },
+    };
+  });
 }
 
 /** Create a new project with the given name. */

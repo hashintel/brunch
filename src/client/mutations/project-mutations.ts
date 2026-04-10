@@ -1,12 +1,11 @@
 import { useNavigate } from '@tanstack/react-router';
 
-import type { ProjectListItem } from '../../shared/api-types.js';
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
 export function useCreateProjectMutation() {
   const navigate = useNavigate();
   const mutation = useClientMutation((variables: { name: string }) =>
-    postJsonMutation<ProjectListItem, { name: string }>(
+    postJsonMutation<{ id: number }, { name: string }>(
       '/api/projects',
       variables,
       'Failed to create project',
