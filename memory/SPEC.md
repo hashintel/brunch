@@ -314,6 +314,12 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
 | I87 | Requirements-review mode grounds the interviewer in the current requirement inventory, targeted approve/reject actions persist durable active-path review links with latest-action-wins projection, closeability derives from full review coverage, and the shared phase-close proposal/confirmation seam reuses for requirements → criteria handoff with correct mode advancement | Slices 9.1–9.5 | context.test.ts, interview.test.ts, db.test.ts, app.test.ts, core.test.ts, EntitySidebar.test.tsx | D24, D25, D51, D61, D65, D66, D70, D71, D77, D78, D79, A28, A44, A45, A46 |
 
+### Criteria-review seam
+
+| #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
+| --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
+| I97 | Criteria-mode interviewer context is grounded in the approved requirement inventory (not the full or pending set), and one initial criterion can round-trip through criteria-mode observer persistence → entities projection while criteria remains `in_progress` | Slice 10.1 | context.test.ts, app.test.ts | D25, D71, A28, A40 |
+
 ## Lexicon
 
 <!-- Canonical terms. Code names must match.

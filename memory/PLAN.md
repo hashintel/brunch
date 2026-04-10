@@ -144,7 +144,7 @@
    - Result: interviewer grounded in requirement inventory; targeted approve/reject via review metadata + `turn_knowledge_item` links; closeability from full review coverage; shared phase-close seam reused for requirements → criteria handoff
    - Tracer bullets: 9.1 inventory grounding `done`, 9.2 targeted approval `done`, 9.3 targeted rejection `done`, 9.4 closeability + proposal `done`, 9.5 closure + criteria handoff `done`
 
-10.1 **Criteria grounding + first synthesis/review loop** — Prove the first post-requirements criteria turn is grounded in the approved requirement set and can round-trip one first criterion through the existing seams without widening into the full criteria lifecycle. `not-started`
+10.1 **Criteria grounding + first synthesis/review loop** `done`
      - Requirements: → SPEC.md §Requirements #6, #8, #12
      - Assumptions: → SPEC.md §Assumptions A28, A40
      - Decisions: → SPEC.md §Decisions D25, D55, D56, D71
