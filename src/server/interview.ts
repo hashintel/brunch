@@ -169,17 +169,27 @@ export async function streamInterviewer(
   phase: Phase,
 ) {
   const agent = createInterviewerAgent(db, turn.id, phase, turn.project_id);
+  const entities = getEntitiesForProject(db, turn.project_id);
   const fullPrompt = buildInterviewerContext(activePath, userMessage, {
     phase,
     entities:
       phase === 'requirements'
         ? {
-            requirements: getEntitiesForProject(db, turn.project_id).requirements.map((requirement) => ({
+            requirements: entities.requirements.map((requirement) => ({
               id: requirement.id,
               content: requirement.content,
             })),
           }
-        : undefined,
+        : phase === 'criteria'
+          ? {
+              approvedRequirements: entities.requirements
+                .filter((requirement) => requirement.reviewStatus === 'approved')
+                .map((requirement) => ({
+                  id: requirement.id,
+                  content: requirement.content,
+                })),
+            }
+          : undefined,
   });
   return agent.stream({
     prompt: fullPrompt,

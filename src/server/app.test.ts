@@ -223,6 +223,85 @@ async function seedActiveDesign(projectId: number) {
   return { ...seededScope, designTurn };
 }
 
+async function seedCriteriaReady(projectId: number) {
+  const {
+    advanceHead,
+    confirmPhaseOutcome,
+    createPhaseOutcome,
+    createTurn,
+    createKnowledgeItem,
+    linkKnowledgeItemToTurn,
+  } = await import('./db.js');
+  const seededRequirements = await seedRequirementsReady(projectId);
+
+  const approvedRequirement = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    'Resume the interview from SQLite after restart',
+  );
+  const rejectedRequirement = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    'Support exporting the spec as a PDF',
+  );
+
+  const reviewTurn = createTurn(db, projectId, {
+    phase: 'requirements',
+    parent_turn_id: seededRequirements.designConfirmationTurn.id,
+    question: 'Are these requirements all reviewed now?',
+    answer: 'Yes — approve resume and reject PDF export',
+  });
+  linkKnowledgeItemToTurn(db, approvedRequirement.id, reviewTurn.id, 'reviewed');
+  linkKnowledgeItemToTurn(db, rejectedRequirement.id, reviewTurn.id, 'rejected');
+  advanceHead(db, projectId, reviewTurn.id);
+
+  const requirementsProposalTurn = createTurn(db, projectId, {
+    phase: 'requirements',
+    parent_turn_id: reviewTurn.id,
+    question: '',
+    answer: 'The requirement set has explicit review coverage and is ready to move into criteria.',
+  });
+  advanceHead(db, projectId, requirementsProposalTurn.id);
+
+  const requirementsOutcome = createPhaseOutcome(db, {
+    projectId,
+    phase: 'requirements',
+    proposal_turn_id: requirementsProposalTurn.id,
+    summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
+  });
+
+  const requirementsConfirmationTurn = createTurn(db, projectId, {
+    phase: 'requirements',
+    parent_turn_id: requirementsProposalTurn.id,
+    question: '',
+    answer: 'Confirm requirements closure',
+    user_parts: JSON.stringify([
+      { type: 'text', text: 'Confirm requirements closure' },
+      {
+        type: 'data-confirmation',
+        data: {
+          kind: 'confirm-proposed-phase-closure',
+          proposalTurnId: requirementsProposalTurn.id,
+          phase: 'requirements',
+        },
+      },
+    ]),
+  });
+  confirmPhaseOutcome(db, requirementsOutcome.id, requirementsConfirmationTurn.id);
+  advanceHead(db, projectId, requirementsConfirmationTurn.id);
+
+  return {
+    ...seededRequirements,
+    approvedRequirement,
+    rejectedRequirement,
+    reviewTurn,
+    requirementsProposalTurn,
+    requirementsConfirmationTurn,
+  };
+}
+
 async function seedRequirementsReady(projectId: number) {
   const { advanceHead, confirmPhaseOutcome, createPhaseOutcome, createTurn } = await import('./db.js');
   const seededDesign = await seedActiveDesign(projectId);
@@ -1530,6 +1609,78 @@ describe('phase outcomes + scope closure', () => {
       }),
     );
     expect(refreshedProjectRes.body.turns.at(-1).phase).toBe('criteria');
+  });
+
+  it('grounds the first criteria turn in approved requirements and round-trips a criterion through observer persistence', async () => {
+    const projectId = await createTestProject();
+    await seedCriteriaReady(projectId);
+
+    mockStreamInterviewer.mockImplementation(async () =>
+      makeTextInterviewer('What would prove the resume flow is complete?'),
+    );
+    mockRunObserver.mockImplementation(async (dbArg, turnArg, observedProjectId) => {
+      const { createKnowledgeItem } = await import('./db.js');
+      const criterion = createKnowledgeItem(
+        dbArg as DB,
+        observedProjectId as number,
+        'criterion',
+        'Closing and reopening the browser restores the active path',
+      );
+      return {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [criterion.id],
+        decisions: [],
+        assumptions: [],
+      };
+    });
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-criteria-grounding',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Let us define the first acceptance criterion' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'criteria' }),
+      expect.any(Array),
+      expect.any(String),
+      'criteria',
+    );
+
+    expect(mockRunObserver).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'criteria' }),
+      projectId,
+    );
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.criteria).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        closeability: false,
+      }),
+    );
+
+    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.criteria).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          content: 'Closing and reopening the browser restores the active path',
+        }),
+      ]),
+    );
   });
 
   it('force-closes design through the shared confirmation seam and enters requirements mode on the next turn', async () => {
