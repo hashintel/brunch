@@ -4,6 +4,7 @@ import type { ProjectListItem } from '../shared/api-types.js';
 import { DebugSurfaceRouteComponent } from './routes/debug-surface.js';
 import { ExportPreview } from './routes/ExportPreview.js';
 import { InterviewWorkspace } from './routes/InterviewWorkspace.js';
+import { KnowledgeWorkspace } from './routes/KnowledgeWorkspace.js';
 import { ProjectList } from './routes/ProjectList.js';
 import { fetchWorkspaceLoaderData } from './workspace/workspace-loader.js';
 
@@ -36,6 +37,14 @@ const projectRoute = createRoute({
   component: InterviewWorkspace,
 });
 
+// Knowledge workspace — read-only review surface
+const knowledgeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/project/$id/knowledge',
+  loader: async ({ params }) => fetchWorkspaceLoaderData(params.id),
+  component: KnowledgeWorkspace,
+});
+
 // Export preview placeholder
 const exportRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -49,7 +58,7 @@ const debugRoute = createRoute({
   component: DebugSurfaceRouteComponent,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, projectRoute, exportRoute, debugRoute]);
+const routeTree = rootRoute.addChildren([indexRoute, projectRoute, knowledgeRoute, exportRoute, debugRoute]);
 
 export const router = createRouter({ routeTree });
 
