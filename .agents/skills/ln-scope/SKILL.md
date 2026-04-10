@@ -8,6 +8,10 @@ argument-hint: "[behavior to deliver in this slice]"
 
 Define **one** tracer-bullet slice (Hunt & Thomas) — a thin end-to-end path, not a horizontal layer. If the target behavior needs "and", split it.
 
+**Sub-slicing restraint.** Create a new sub-slice only when it introduces at least one of: (1) a new lifecycle seam, (2) a new cross-boundary transport/persistence seam, (3) a new workflow-mode entry/exit behavior, or (4) a new unblocker for reaching the end-to-end working app state. Do **not** split off a separate slice just for another action/status permutation or a rarer branch on the same seam. If refinements accumulate, prefer one later cross-cutting refinement slice over fragmenting the current major slice.
+
+**Main-path bias.** Scope the smallest slice set that covers the dominant user story and unblocks forward progress. Rare variants, polish, and refinement work should be named explicitly as deferred rather than silently folded into the current slice.
+
 ## Input
 
 The behavior to deliver: $ARGUMENTS

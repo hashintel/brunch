@@ -8,6 +8,10 @@ argument-hint: "[feature or project area to plan]"
 
 Break a feature into tracer-bullet slices and spikes (Hunt & Thomas), grouped into temporal phases. Slices are thin end-to-end paths through all integration layers. Order by uncertainty first, dependency second (Reinertsen: retire risk early, not just finish tasks early).
 
+**Anti-fragmentation heuristic.** Create a new slice only when it introduces at least one of: (1) a new lifecycle seam, (2) a new cross-boundary transport/persistence seam, (3) a new workflow-mode entry/exit behavior, or (4) a new unblocker for reaching the end-to-end working app state. Do **not** create separate slices for additional action/status permutations or rarer branches on the same seam unless they materially unblock progress.
+
+**Refinement sink.** When deferred variants accumulate, collect them into a later cross-cutting refinement slice instead of fragmenting the active major slice. Plan for the dominant path first; explicitly defer edge-case polish and rarer lifecycle variants.
+
 **Epistemic horizon.** Plan depth must match confidence depth. If `memory/SPEC.md` §Assumptions contains low-confidence items that downstream slices depend on, the plan's horizon stops there — plan spikes that retire the uncertainty, not slices that assume it away.
 
 **Spike economics.** For each low-confidence assumption, evaluate: how many slices depend on it, how cheaply it can be falsified, what decisions it unlocks. High fan-out + low falsification cost → spike early. When uncertainty is broad, the first slices should be invariant-establishing (walking skeleton), not feature-delivering.
@@ -24,7 +28,7 @@ If context is thin, run a brief interview (not a full `ln-grill`) to fill gaps.
 
 1. If `memory/PLAN.md` exists, read it first. Retire completed slices (mark `done`). Assess what remains and what's changed.
 2. Explore the codebase. Identify architectural constraints the slices must respect (routes, schema, auth, third-party boundaries).
-3. Draft or revise phases and slices. Each slice must be independently demoable and independently grabbable where possible. Group into temporal phases. For each, name dependent requirements and assumptions from `memory/SPEC.md`, plus any candidate invariant goals to establish or existing invariants to respect.
+3. Draft or revise phases and slices. Each slice must be independently demoable and independently grabbable where possible. Group into temporal phases. Bias toward the minimum slice set that covers the main user story and keeps the app moving end to end; if a major slice can be sub-sliced many ways, keep only the variations that unblock forward progress and defer the rest explicitly. For each slice, name dependent requirements and assumptions from `memory/SPEC.md`, plus any candidate invariant goals to establish or existing invariants to respect.
 4. Observe and respect local project protocols for mapping slices/spikes to issues or tickets, associated codes, and branch naming conventions, if any. Capture project-specific tracking metadata as optional execution detail — not as the core identity of the slice.
 5. Confirm with user — adjust granularity, reorder, split or merge.
 6. **Post-edit checklist** — after any addition, removal, or reordering:
