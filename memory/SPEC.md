@@ -542,7 +542,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | ----------------------------- | ----- | ----------------------------------------------------- |
 | db.test.ts                    | 43    | I5, I6, I9, I10, I11, I20, I48, I54, I72, I87, I98   |
 | knowledge.test.ts             | 1     | I48                                                   |
-| app.test.ts                   | 39    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99 |
+| app.test.ts                   | 41    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99 |
 | core.test.ts                  | 10    | I12, I13, I18, I72, I87                               |
 | interview.test.ts             | 10    | I16, I72, I87                                         |
 | parts.test.ts                 | 15    | I17, I18, I44, I54, I72                               |
@@ -562,6 +562,8 @@ This projection difference is a deliberate design choice, not an implementation 
 | message.test.tsx              | 2     | I24, I27                                              |
 | build-boundary.test.ts        | 1     | I24, I28, I30, I32                                    |
 | capability-boundaries.test.ts | 2     | I24, I29                                              |
+| KnowledgeWorkspace.test.tsx   | 4     | I48                                                   |
+| export.test.ts                | 4     | D26, D65, D66, D70                                    |
 
 ## Acceptance Criteria (exit conditions)
 
