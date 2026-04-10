@@ -98,6 +98,10 @@ Use these to decide whether a candidate fact is already covered by an existing l
 
 When uncertain between merge and add → add. When uncertain between update and no-op → update.
 
+## Temporary-document retirement
+
+If this build used a card from `memory/CARDS.md` or a step from `memory/REFACTOR.md`, check whether all items in that document are now complete. If so, confirm with the user that the document should be deleted — these are temporary working documents that should not outlive their purpose.
+
 ## Routing
 
 After traceability is complete, present these options to the user (use `tool-ask-question`):
