@@ -216,6 +216,13 @@
      - Acceptance: `npm run seed <scenario>` creates a named-scenario project in a fresh or specified DB; the dev server renders the expected workflow state and turn history from that seeded state; existing tests still pass after the extraction refactor
      - **Verification approach**: inner — type checking confirms scenario functions share the same DB API contract. Middle — existing test suite passes after extraction (characterization). Outer — manual dev-server walkthrough from each seeded scenario.
 
+11c. **Rich fixture generation for outer-loop testing** `done` — Static JSON manifest seeder with issue-tracker domain fixtures: 5 accumulative scenarios, 27 knowledge items across all 8 canonical kinds, 14 cross-kind edges, mixed review states, 24 turns with realistic `assistant_parts` and `user_parts`. `npm run seed issue-tracker-<scenario>` hydrates DB alongside existing programmatic scenarios.
+     - Requirements: → SPEC.md §Verification Design (outer-loop fixture capture)
+     - Assumptions: → SPEC.md §Assumptions A28, A40
+     - Decisions: —
+     - Invariants to respect: → SPEC.md §Invariants I5, I6, I17, I18, I44, I48, I54, I72, I87, I98, I99
+     - Evidence: `npm run verify` passes (223 tests); all 10 scenarios seed successfully; knowledge workspace and export render populated sections from seeded state
+
 13a. **Review lifecycle refinement across requirements + criteria** — Revisit the first-cut review model only after the thin end-to-end path is working, and add the deferred variants that were intentionally excluded from slices 9 and 10 so the app kept moving toward completion. Depends on 12a + 12b. `not-started`
      - Requirements: → SPEC.md §Requirements #11, #12, #13
      - Assumptions: → SPEC.md §Assumptions A15, A40
@@ -256,6 +263,7 @@
 <!-- Future work not yet broken into slices. Revisit after Phase 7. -->
 
 - Deferred from Phase 6: `11. Generalized revisit: branch + readiness invalidation` — revisit any earlier turn, branch from that point, restore the interview there, and invalidate downstream phase outcomes / review state from the affected frontier. Re-scope after the readiness/export path stabilizes.
+- Headless interview driver — a programmatic harness that drives the real `/api/projects/:id/chat` endpoint with scripted or LLM-chosen answers, capturing the resulting DB state as a fixture manifest. Replaces LLM content generation (11c approach C) with real pipeline replay (approach A). Probes the future CLI adapter and MCP adapter surface. Second fixture domain candidate: resource booking system (TEST_PROBLEMS.md #9).
 - CLI interactive interview mode (terminal-based interview using core's DomainEvent stream)
 - MCP server adapter (expose core operations as MCP tools)
 - Turn tree visualization (git-log-style branch graph in sidebar)
@@ -292,6 +300,7 @@ Phase 6:  7 ──┐
           9 ──┤
           10.3 ─┘
           10.3 ──→ 11b (fixture scenarios + dev seed CLI)
+          11b ──→ 11c (rich fixture generation)
           7b ──→ 12a (knowledge workspace review surface)
           10.3 ──→ 12a
           10.3 ──→ 12b (export)
@@ -303,9 +312,7 @@ Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
 
 ### Parallelism opportunities
 
-- 10.1–10.3 are done; the review seam has been unified (refactor landed between 10.3 and 11a).
-- 11b (fixture scenarios + dev seed CLI) is done; seeded scenarios are available for outer-loop testing.
-- 12a (knowledge workspace) and 12b (export) are unblocked and share one branch (FE-574). Build order: 12a → 12b.
-- 13a (review lifecycle refinement) is explicitly deferred; it should collect rarer review variants after 12a and 12b stabilize rather than fragmenting slices 9 and 10.
-- 14 (npx) can start early with a basic launcher, completing after slice 12b when the export predicate stabilizes.
+- Phase 6 is fully done (11a, 11b, 11c, 12a, 12b all complete).
+- 13a (review lifecycle refinement) is explicitly deferred; it should collect rarer review variants now that the thin end-to-end path is stable.
+- 14 (npx) is unblocked and is the next critical-path slice.
 - 15 (drizzle-kit audit remediation) should wait until 14 lands.
