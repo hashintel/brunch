@@ -3,7 +3,12 @@ import { and, desc, eq, inArray, sql, type InferSelectModel } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 
-import { isAskQuestionUIPart, structuredQuestionSchema, type RequirementReview } from '../shared/chat.js';
+import {
+  isAskQuestionUIPart,
+  structuredQuestionSchema,
+  type CriterionReview,
+  type RequirementReview,
+} from '../shared/chat.js';
 import {
   genericKnowledgeKindRegistry,
   type GenericKnowledgeCollectionKey,
@@ -355,6 +360,11 @@ function hasRequirementsReviewCoverage(db: DB, projectId: number): boolean {
   );
 }
 
+function hasCriteriaReviewCoverage(db: DB, projectId: number): boolean {
+  const criteria = getCriterionEntitiesForProject(db, projectId);
+  return criteria.length > 0 && criteria.every((criterion) => criterion.reviewStatus !== 'pending');
+}
+
 function getPhaseCloseability(
   db: DB,
   projectId: number,
@@ -371,7 +381,7 @@ function getPhaseCloseability(
   }
 
   if (phase === 'criteria') {
-    return false;
+    return hasCriteriaReviewCoverage(db, projectId);
   }
 
   return hasTurnHistory;
@@ -503,9 +513,14 @@ export interface EntityRelationship {
 }
 
 export type RequirementReviewStatus = 'approved' | 'rejected' | 'pending';
+export type CriterionReviewStatus = 'approved' | 'rejected' | 'pending';
 
 export type RequirementEntity = KnowledgeItem & {
   reviewStatus?: RequirementReviewStatus;
+};
+
+export type CriterionEntity = KnowledgeItem & {
+  reviewStatus?: CriterionReviewStatus;
 };
 
 export interface EntitiesForProject {
@@ -514,7 +529,7 @@ export interface EntitiesForProject {
   contexts: KnowledgeItem[];
   constraints: KnowledgeItem[];
   requirements: RequirementEntity[];
-  criteria: KnowledgeItem[];
+  criteria: CriterionEntity[];
   decisions: Decision[];
   assumptions: Assumption[];
   relationships: EntityRelationship[];
@@ -708,6 +723,70 @@ function getRequirementEntitiesForProject(db: DB, projectId: number): Requiremen
   }));
 }
 
+function getCriterionReviewStatusesOnActivePath(
+  db: DB,
+  projectId: number,
+): Map<number, CriterionReviewStatus> {
+  const activePath = getActivePath(db, projectId);
+  if (activePath.length === 0) {
+    return new Map();
+  }
+
+  const activeTurnIds = activePath.map((turn) => turn.id);
+  const turnOrder = new Map(activePath.map((turn, index) => [turn.id, index]));
+  const reviewRows = db
+    .select({
+      itemId: schema.turnKnowledgeItem.item_id,
+      turnId: schema.turnKnowledgeItem.turn_id,
+      relation: schema.turnKnowledgeItem.relation,
+    })
+    .from(schema.turnKnowledgeItem)
+    .innerJoin(schema.knowledgeItem, eq(schema.knowledgeItem.id, schema.turnKnowledgeItem.item_id))
+    .where(
+      and(
+        eq(schema.knowledgeItem.project_id, projectId),
+        eq(schema.knowledgeItem.kind, 'criterion'),
+        inArray(schema.turnKnowledgeItem.relation, ['reviewed', 'rejected']),
+        inArray(schema.turnKnowledgeItem.turn_id, activeTurnIds),
+      ),
+    )
+    .all() as Array<{ itemId: number; turnId: number; relation: 'reviewed' | 'rejected' }>;
+
+  reviewRows.sort((left, right) => (turnOrder.get(left.turnId) ?? 0) - (turnOrder.get(right.turnId) ?? 0));
+
+  const statuses = new Map<number, CriterionReviewStatus>();
+  for (const row of reviewRows) {
+    statuses.set(row.itemId, row.relation === 'reviewed' ? 'approved' : 'rejected');
+  }
+
+  return statuses;
+}
+
+function getCriterionEntitiesForProject(db: DB, projectId: number): CriterionEntity[] {
+  const criterionReviewStatuses = getCriterionReviewStatusesOnActivePath(db, projectId);
+  return getKnowledgeItemsForProjectByKind(db, projectId, 'criterion').map((item) => ({
+    ...item,
+    reviewStatus: criterionReviewStatuses.get(item.id) ?? 'pending',
+  }));
+}
+
+function getCriterionReview(turn: Pick<Turn, 'assistant_parts'>): CriterionReview | null {
+  for (const part of safeDeserializeAssistantParts(turn.assistant_parts)) {
+    if (!isAskQuestionUIPart(part) || !('input' in part)) {
+      continue;
+    }
+
+    const parsedInput = structuredQuestionSchema.safeParse(part.input);
+    if (!parsedInput.success || !parsedInput.data.criterionReview) {
+      continue;
+    }
+
+    return parsedInput.data.criterionReview;
+  }
+
+  return null;
+}
+
 function getRequirementReview(turn: Pick<Turn, 'assistant_parts'>): RequirementReview | null {
   for (const part of safeDeserializeAssistantParts(turn.assistant_parts)) {
     if (!isAskQuestionUIPart(part) || !('input' in part)) {
@@ -758,6 +837,35 @@ export function recordRequirementReviewFromTurnResponse(
   );
 }
 
+export function recordCriterionReviewFromTurnResponse(db: DB, turn: Turn, selectedPositions: number[]): void {
+  const review = getCriterionReview(turn);
+  if (!review) {
+    return;
+  }
+
+  const selectedReviewOptionPosition =
+    review.kind === 'criterion-approval' ? review.approveOptionPosition : review.rejectOptionPosition;
+  if (!selectedPositions.includes(selectedReviewOptionPosition)) {
+    return;
+  }
+
+  const criterion = db
+    .select()
+    .from(schema.knowledgeItem)
+    .where(eq(schema.knowledgeItem.id, review.criterionId))
+    .get() as KnowledgeItem | undefined;
+  if (!criterion || criterion.project_id !== turn.project_id || criterion.kind !== 'criterion') {
+    return;
+  }
+
+  linkKnowledgeItemToTurn(
+    db,
+    criterion.id,
+    turn.id,
+    review.kind === 'criterion-approval' ? 'reviewed' : 'rejected',
+  );
+}
+
 export function getScopeBundleForProject(db: DB, projectId: number) {
   return {
     goals: getKnowledgeItemsForProjectByKind(db, projectId, 'goal'),
@@ -773,7 +881,9 @@ export function getEntitiesForProject(db: DB, projectId: number): EntitiesForPro
       entry.collectionKey,
       entry.kind === 'requirement'
         ? getRequirementEntitiesForProject(db, projectId)
-        : getKnowledgeItemsForProjectByKind(db, projectId, entry.kind),
+        : entry.kind === 'criterion'
+          ? getCriterionEntitiesForProject(db, projectId)
+          : getKnowledgeItemsForProjectByKind(db, projectId, entry.kind),
     ]),
   ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
   const decisions = getKnowledgeItemsForProjectByKind(db, projectId, 'decision').map(toDecision);

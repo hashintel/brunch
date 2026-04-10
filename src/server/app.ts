@@ -40,6 +40,7 @@ import {
   updateTurn,
   getEntitiesForProject,
   recordRequirementReviewFromTurnResponse,
+  recordCriterionReviewFromTurnResponse,
 } from './db.js';
 import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
@@ -116,6 +117,7 @@ export function createApp(dbPath?: string) {
     }
     applyTurnResponseSelections(db, turnId, uniquePositions);
     recordRequirementReviewFromTurnResponse(db, turn, uniquePositions);
+    recordCriterionReviewFromTurnResponse(db, turn, uniquePositions);
 
     const selectedOptionIds = selectedOptions.map((option) => option.id);
     const selectedOptionContents = selectedOptions.map((option) => option.content);

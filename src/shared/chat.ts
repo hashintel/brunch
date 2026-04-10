@@ -21,6 +21,20 @@ export const requirementReviewSchema = z.union([
   requirementRejectionReviewSchema,
 ]);
 
+export const criterionApprovalReviewSchema = z.object({
+  kind: z.literal('criterion-approval'),
+  criterionId: z.number().int().positive(),
+  approveOptionPosition: z.number().int().min(0),
+});
+
+export const criterionRejectionReviewSchema = z.object({
+  kind: z.literal('criterion-rejection'),
+  criterionId: z.number().int().positive(),
+  rejectOptionPosition: z.number().int().min(0),
+});
+
+export const criterionReviewSchema = z.union([criterionApprovalReviewSchema, criterionRejectionReviewSchema]);
+
 export const structuredQuestionSchema = z
   .object({
     question: z.string().min(1),
@@ -35,29 +49,51 @@ export const structuredQuestionSchema = z
       )
       .min(2),
     review: requirementReviewSchema.optional(),
+    criterionReview: criterionReviewSchema.optional(),
   })
   .superRefine((value, ctx) => {
-    if (!value.review) {
-      return;
+    if (value.review) {
+      const reviewOptionPosition =
+        value.review.kind === 'requirement-approval'
+          ? value.review.approveOptionPosition
+          : value.review.rejectOptionPosition;
+
+      if (!value.options[reviewOptionPosition]) {
+        ctx.addIssue({
+          code: 'custom',
+          message:
+            value.review.kind === 'requirement-approval'
+              ? 'review.approveOptionPosition must reference an existing option'
+              : 'review.rejectOptionPosition must reference an existing option',
+          path: [
+            'review',
+            value.review.kind === 'requirement-approval' ? 'approveOptionPosition' : 'rejectOptionPosition',
+          ],
+        });
+      }
     }
 
-    const reviewOptionPosition =
-      value.review.kind === 'requirement-approval'
-        ? value.review.approveOptionPosition
-        : value.review.rejectOptionPosition;
+    if (value.criterionReview) {
+      const reviewOptionPosition =
+        value.criterionReview.kind === 'criterion-approval'
+          ? value.criterionReview.approveOptionPosition
+          : value.criterionReview.rejectOptionPosition;
 
-    if (!value.options[reviewOptionPosition]) {
-      ctx.addIssue({
-        code: 'custom',
-        message:
-          value.review.kind === 'requirement-approval'
-            ? 'review.approveOptionPosition must reference an existing option'
-            : 'review.rejectOptionPosition must reference an existing option',
-        path: [
-          'review',
-          value.review.kind === 'requirement-approval' ? 'approveOptionPosition' : 'rejectOptionPosition',
-        ],
-      });
+      if (!value.options[reviewOptionPosition]) {
+        ctx.addIssue({
+          code: 'custom',
+          message:
+            value.criterionReview.kind === 'criterion-approval'
+              ? 'criterionReview.approveOptionPosition must reference an existing option'
+              : 'criterionReview.rejectOptionPosition must reference an existing option',
+          path: [
+            'criterionReview',
+            value.criterionReview.kind === 'criterion-approval'
+              ? 'approveOptionPosition'
+              : 'rejectOptionPosition',
+          ],
+        });
+      }
     }
   });
 
@@ -108,6 +144,9 @@ export { dataConfirmationSchema };
 export type RequirementApprovalReview = z.infer<typeof requirementApprovalReviewSchema>;
 export type RequirementRejectionReview = z.infer<typeof requirementRejectionReviewSchema>;
 export type RequirementReview = z.infer<typeof requirementReviewSchema>;
+export type CriterionApprovalReview = z.infer<typeof criterionApprovalReviewSchema>;
+export type CriterionRejectionReview = z.infer<typeof criterionRejectionReviewSchema>;
+export type CriterionReview = z.infer<typeof criterionReviewSchema>;
 export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
