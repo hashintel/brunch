@@ -103,7 +103,7 @@ async function makePhaseClosureInterviewer(
   dbArg: DB,
   projectId: number,
   turnId: number,
-  phase: 'scope' | 'design' | 'requirements' = 'scope',
+  phase: 'scope' | 'design' | 'requirements' | 'criteria' = 'scope',
   summary = 'Goals, terms, context, and constraints are sufficiently captured.',
 ) {
   const { createPhaseOutcome } = await import('./db.js');
@@ -1682,6 +1682,247 @@ describe('phase outcomes + scope closure', () => {
         }),
       ]),
     );
+  });
+
+  it('emits a criteria phase-summary proposal once every criterion is explicitly reviewed', async () => {
+    const projectId = await createTestProject();
+    const seededCriteria = await seedCriteriaReady(projectId);
+    const { advanceHead, createKnowledgeItem, createTurn, linkKnowledgeItemToTurn } = await import('./db.js');
+
+    const approvedCriterion = createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'Markdown preview renders the reviewed requirements',
+    );
+    const rejectedCriterion = createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'PDF export renders the reviewed requirements',
+    );
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'criteria',
+      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
+      question: 'Are these criteria all reviewed now?',
+      answer: 'Yes — approve markdown and reject PDF export',
+    });
+    linkKnowledgeItemToTurn(db, approvedCriterion.id, reviewTurn.id, 'reviewed');
+    linkKnowledgeItemToTurn(db, rejectedCriterion.id, reviewTurn.id, 'rejected');
+    advanceHead(db, projectId, reviewTurn.id);
+
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makePhaseClosureInterviewer(
+        dbArg as DB,
+        projectId,
+        (turn as { id: number }).id,
+        'criteria',
+        'All criteria have been explicitly reviewed and the criteria set is ready to close.',
+      ),
+    );
+
+    const chatRes = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-criteria-close',
+            role: 'user',
+            parts: [{ type: 'text', text: 'I think the criteria set is fully reviewed now' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    const events = parseSSELines(collectSSE(chatRes)).filter((event) => event !== '[DONE]');
+    expect(events).toContainEqual({
+      type: 'data-phase-summary',
+      data: {
+        turnId: reviewTurn.id + 1,
+        phase: 'criteria',
+        summary: 'All criteria have been explicitly reviewed and the criteria set is ready to close.',
+      },
+    });
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.criteria).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        closeability: true,
+        proposalPending: true,
+        turnId: reviewTurn.id + 1,
+        summary: 'All criteria have been explicitly reviewed and the criteria set is ready to close.',
+      }),
+    );
+  });
+
+  it('confirms a proposed criteria outcome, closes criteria, and projects all workflow phases as closed', async () => {
+    const projectId = await createTestProject();
+    const seededCriteria = await seedCriteriaReady(projectId);
+    const { advanceHead, createKnowledgeItem, createPhaseOutcome, createTurn, linkKnowledgeItemToTurn } =
+      await import('./db.js');
+
+    const approvedCriterion = createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'Markdown preview renders the reviewed requirements',
+    );
+    const rejectedCriterion = createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'PDF export renders the reviewed requirements',
+    );
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'criteria',
+      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
+      question: 'Are these criteria all reviewed now?',
+      answer: 'Yes — approve markdown and reject PDF export',
+    });
+    linkKnowledgeItemToTurn(db, approvedCriterion.id, reviewTurn.id, 'reviewed');
+    linkKnowledgeItemToTurn(db, rejectedCriterion.id, reviewTurn.id, 'rejected');
+    advanceHead(db, projectId, reviewTurn.id);
+
+    const proposalTurn = createTurn(db, projectId, {
+      phase: 'criteria',
+      parent_turn_id: reviewTurn.id,
+      question: '',
+      answer: 'All criteria have been explicitly reviewed and the criteria set is ready to close.',
+    });
+    advanceHead(db, projectId, proposalTurn.id);
+
+    createPhaseOutcome(db, {
+      projectId,
+      phase: 'criteria',
+      proposal_turn_id: proposalTurn.id,
+      summary: 'All criteria have been explicitly reviewed and the criteria set is ready to close.',
+    });
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-criteria-confirm',
+            role: 'user',
+            parts: [
+              { type: 'text', text: 'Confirm criteria closure' },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: proposalTurn.id,
+                  phase: 'criteria',
+                },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.criteria).toEqual(
+      expect.objectContaining({
+        status: 'closed',
+        closeability: false,
+        readiness: 'high',
+        closureBasis: 'interviewer_recommended',
+        proposalPending: false,
+        turnId: proposalTurn.id,
+        summary: 'All criteria have been explicitly reviewed and the criteria set is ready to close.',
+      }),
+    );
+
+    for (const phase of ['scope', 'design', 'requirements', 'criteria'] as const) {
+      expect(projectRes.body.workflow.phases[phase].status).toBe('closed');
+    }
+
+    const phaseOutcomes = db.$client
+      .prepare(
+        'SELECT phase, closure_basis FROM phase_outcome WHERE project_id = ? AND status = ? ORDER BY id',
+      )
+      .all(projectId, 'confirmed') as Array<{ phase: string; closure_basis: string | null }>;
+    expect(phaseOutcomes.map((o) => o.phase)).toEqual(['scope', 'design', 'requirements', 'criteria']);
+    expect(phaseOutcomes.at(-1)).toEqual({
+      phase: 'criteria',
+      closure_basis: 'interviewer_recommended',
+    });
+  });
+
+  it('projects no stale active interviewer phase after criteria closure confirmation', async () => {
+    const projectId = await createTestProject();
+    const seededCriteria = await seedCriteriaReady(projectId);
+    const { advanceHead, createKnowledgeItem, createPhaseOutcome, createTurn, linkKnowledgeItemToTurn } =
+      await import('./db.js');
+
+    const criterion = createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'Markdown preview renders the reviewed requirements',
+    );
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'criteria',
+      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
+      question: 'Review this criterion?',
+      answer: 'Approve',
+    });
+    linkKnowledgeItemToTurn(db, criterion.id, reviewTurn.id, 'reviewed');
+    advanceHead(db, projectId, reviewTurn.id);
+
+    const proposalTurn = createTurn(db, projectId, {
+      phase: 'criteria',
+      parent_turn_id: reviewTurn.id,
+      question: '',
+      answer: 'Close criteria',
+    });
+    advanceHead(db, projectId, proposalTurn.id);
+
+    createPhaseOutcome(db, {
+      projectId,
+      phase: 'criteria',
+      proposal_turn_id: proposalTurn.id,
+      summary: 'Criteria reviewed.',
+    });
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-criteria-final-confirm',
+            role: 'user',
+            parts: [
+              { type: 'text', text: 'Confirm criteria closure' },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: proposalTurn.id,
+                  phase: 'criteria',
+                },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const allClosed = (['scope', 'design', 'requirements', 'criteria'] as const).every(
+      (phase) => projectRes.body.workflow.phases[phase].status === 'closed',
+    );
+    expect(allClosed).toBe(true);
+
+    const activePhases = (['scope', 'design', 'requirements', 'criteria'] as const).filter(
+      (phase) => projectRes.body.workflow.phases[phase].status === 'in_progress',
+    );
+    expect(activePhases).toEqual([]);
   });
 
   it('force-closes design through the shared confirmation seam and enters requirements mode on the next turn', async () => {
