@@ -794,11 +794,11 @@ function getRequirementReview(turn: Pick<Turn, 'assistant_parts'>): RequirementR
     }
 
     const parsedInput = structuredQuestionSchema.safeParse(part.input);
-    if (!parsedInput.success || !parsedInput.data.review) {
+    if (!parsedInput.success || !parsedInput.data.requirementReview) {
       continue;
     }
 
-    return parsedInput.data.review;
+    return parsedInput.data.requirementReview;
   }
 
   return null;

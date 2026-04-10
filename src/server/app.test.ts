@@ -2302,7 +2302,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         { content: 'Approve this requirement', is_recommended: true },
         { content: 'This requirement needs correction', is_recommended: false },
       ],
-      review: {
+      requirementReview: {
         kind: 'requirement-approval' as const,
         requirementId: approvedRequirement.id,
         approveOptionPosition: 0,
@@ -2402,7 +2402,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         { content: 'Reject this requirement', is_recommended: true },
         { content: 'Keep this requirement for now', is_recommended: false },
       ],
-      review: {
+      requirementReview: {
         kind: 'requirement-rejection' as const,
         requirementId: rejectedRequirement.id,
         rejectOptionPosition: 0,

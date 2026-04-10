@@ -48,26 +48,28 @@ export const structuredQuestionSchema = z
         }),
       )
       .min(2),
-    review: requirementReviewSchema.optional(),
+    requirementReview: requirementReviewSchema.optional(),
     criterionReview: criterionReviewSchema.optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.review) {
+    if (value.requirementReview) {
       const reviewOptionPosition =
-        value.review.kind === 'requirement-approval'
-          ? value.review.approveOptionPosition
-          : value.review.rejectOptionPosition;
+        value.requirementReview.kind === 'requirement-approval'
+          ? value.requirementReview.approveOptionPosition
+          : value.requirementReview.rejectOptionPosition;
 
       if (!value.options[reviewOptionPosition]) {
         ctx.addIssue({
           code: 'custom',
           message:
-            value.review.kind === 'requirement-approval'
-              ? 'review.approveOptionPosition must reference an existing option'
-              : 'review.rejectOptionPosition must reference an existing option',
+            value.requirementReview.kind === 'requirement-approval'
+              ? 'requirementReview.approveOptionPosition must reference an existing option'
+              : 'requirementReview.rejectOptionPosition must reference an existing option',
           path: [
-            'review',
-            value.review.kind === 'requirement-approval' ? 'approveOptionPosition' : 'rejectOptionPosition',
+            'requirementReview',
+            value.requirementReview.kind === 'requirement-approval'
+              ? 'approveOptionPosition'
+              : 'rejectOptionPosition',
           ],
         });
       }
