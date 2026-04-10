@@ -10,6 +10,17 @@ export const requirementApprovalReviewSchema = z.object({
   approveOptionPosition: z.number().int().min(0),
 });
 
+export const requirementRejectionReviewSchema = z.object({
+  kind: z.literal('requirement-rejection'),
+  requirementId: z.number().int().positive(),
+  rejectOptionPosition: z.number().int().min(0),
+});
+
+export const requirementReviewSchema = z.union([
+  requirementApprovalReviewSchema,
+  requirementRejectionReviewSchema,
+]);
+
 export const structuredQuestionSchema = z
   .object({
     question: z.string().min(1),
@@ -23,14 +34,29 @@ export const structuredQuestionSchema = z
         }),
       )
       .min(2),
-    review: requirementApprovalReviewSchema.optional(),
+    review: requirementReviewSchema.optional(),
   })
   .superRefine((value, ctx) => {
-    if (value.review && !value.options[value.review.approveOptionPosition]) {
+    if (!value.review) {
+      return;
+    }
+
+    const reviewOptionPosition =
+      value.review.kind === 'requirement-approval'
+        ? value.review.approveOptionPosition
+        : value.review.rejectOptionPosition;
+
+    if (!value.options[reviewOptionPosition]) {
       ctx.addIssue({
         code: 'custom',
-        message: 'review.approveOptionPosition must reference an existing option',
-        path: ['review', 'approveOptionPosition'],
+        message:
+          value.review.kind === 'requirement-approval'
+            ? 'review.approveOptionPosition must reference an existing option'
+            : 'review.rejectOptionPosition must reference an existing option',
+        path: [
+          'review',
+          value.review.kind === 'requirement-approval' ? 'approveOptionPosition' : 'rejectOptionPosition',
+        ],
       });
     }
   });
@@ -80,6 +106,8 @@ export const proposePhaseClosureToolOutputSchema = z.object({
 
 export { dataConfirmationSchema };
 export type RequirementApprovalReview = z.infer<typeof requirementApprovalReviewSchema>;
+export type RequirementRejectionReview = z.infer<typeof requirementRejectionReviewSchema>;
+export type RequirementReview = z.infer<typeof requirementReviewSchema>;
 export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;

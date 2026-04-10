@@ -16,6 +16,7 @@ import {
   updateTurn,
   getTurn,
   getEntitiesForProject,
+  getCurrentWorkflowState,
   type DB,
   type Turn,
   type Impact,
@@ -56,7 +57,11 @@ Your job is to walk the accumulated requirements, check for gaps, suggest additi
 
 When asking the user to approve one specific requirement, review one requirement at a time and include \`review: { kind: 'requirement-approval', requirementId, approveOptionPosition }\` in the ask_question input so the approval target is explicit.
 
-For every turn, you MUST use the ask_question tool. Never respond with plain text.`,
+When asking the user to reject one specific requirement, include \`review: { kind: 'requirement-rejection', requirementId, rejectOptionPosition }\` so the rejection target is explicit.
+
+When every current requirement has explicit review coverage and the set appears complete for now, use the \`propose_phase_closure\` tool instead of another question. The summary should explain why requirements can close and criteria review can begin.
+
+For every turn, you MUST use the ask_question tool or the propose_phase_closure tool. Never respond with plain text.`,
 
   criteria: `You are a spec elicitation interviewer conducting the CRITERIA phase.
 
@@ -70,8 +75,8 @@ export function getSystemPrompt(phase: Phase): string {
   return SYSTEM_PROMPTS[phase];
 }
 
-export function canProposePhaseClosure(phase: Phase): boolean {
-  return phase === 'scope' || phase === 'design';
+export function canProposePhaseClosure(phase: Phase, closeability = false): boolean {
+  return phase === 'scope' || phase === 'design' || (phase === 'requirements' && closeability);
 }
 
 /**
@@ -131,12 +136,14 @@ export function createProposePhaseClosureTool(db: DB, turnId: number, phase: Pha
 }
 
 export function createInterviewerAgent(db: DB, turnId: number, phase: Phase, projectId: number) {
+  const closeability = getCurrentWorkflowState(db, projectId).phases[phase].closeability;
+
   return new ToolLoopAgent({
     model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'),
     instructions: getSystemPrompt(phase),
     tools: {
       ask_question: createAskQuestionTool(db, turnId),
-      ...(canProposePhaseClosure(phase)
+      ...(canProposePhaseClosure(phase, closeability)
         ? { propose_phase_closure: createProposePhaseClosureTool(db, turnId, phase, projectId) }
         : {}),
     },

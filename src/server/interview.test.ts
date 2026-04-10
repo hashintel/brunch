@@ -63,14 +63,17 @@ describe('getSystemPrompt', () => {
   it('grounds the requirements prompt in the current requirement inventory', () => {
     expect(getSystemPrompt('requirements')).toContain('current requirement inventory');
     expect(getSystemPrompt('requirements')).toContain('requirement-approval');
+    expect(getSystemPrompt('requirements')).toContain('requirement-rejection');
+    expect(getSystemPrompt('requirements')).toContain('propose_phase_closure');
   });
 });
 
 describe('canProposePhaseClosure', () => {
-  it('enables closure proposals for scope and design but not later review phases', () => {
+  it('enables closure proposals for scope and design, and for requirements only once closeable', () => {
     expect(canProposePhaseClosure('scope')).toBe(true);
     expect(canProposePhaseClosure('design')).toBe(true);
-    expect(canProposePhaseClosure('requirements')).toBe(false);
+    expect(canProposePhaseClosure('requirements', false)).toBe(false);
+    expect(canProposePhaseClosure('requirements', true)).toBe(true);
     expect(canProposePhaseClosure('criteria')).toBe(false);
   });
 });

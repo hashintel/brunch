@@ -20,7 +20,7 @@ function renderKnowledgeItems(
     content: string;
     subtype: string | null;
     rationale: string | null;
-    reviewStatus?: 'approved' | 'pending';
+    reviewStatus?: 'approved' | 'rejected' | 'pending';
   }>,
   emptyMessage: string,
   isLoading: boolean,
@@ -34,8 +34,20 @@ function renderKnowledgeItems(
       <div className="flex items-start justify-between gap-2">
         <p className="text-sm">{item.content}</p>
         {item.reviewStatus && (
-          <Badge variant={item.reviewStatus === 'approved' ? 'default' : 'secondary'}>
-            {item.reviewStatus === 'approved' ? 'Approved' : 'Pending'}
+          <Badge
+            variant={
+              item.reviewStatus === 'approved'
+                ? 'default'
+                : item.reviewStatus === 'rejected'
+                  ? 'destructive'
+                  : 'secondary'
+            }
+          >
+            {item.reviewStatus === 'approved'
+              ? 'Approved'
+              : item.reviewStatus === 'rejected'
+                ? 'Rejected'
+                : 'Pending'}
           </Badge>
         )}
       </div>
