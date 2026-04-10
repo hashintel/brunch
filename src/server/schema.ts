@@ -49,6 +49,27 @@ export const option = sqliteTable(
   (table) => [uniqueIndex('option_turn_position_unique').on(table.turn_id, table.position)],
 );
 
+export const phaseOutcome = sqliteTable('phase_outcome', {
+  id: integer().primaryKey({ autoIncrement: true }),
+  project_id: integer()
+    .notNull()
+    .references(() => project.id),
+  phase: text({ enum: ['scope', 'design', 'requirements', 'criteria'] }).notNull(),
+  proposal_turn_id: integer()
+    .notNull()
+    .references(() => turn.id),
+  status: text({ enum: ['proposed', 'confirmed', 'superseded'] })
+    .notNull()
+    .default('proposed'),
+  summary: text().notNull(),
+  confirmation_turn_id: integer().references(() => turn.id),
+  confirmed_at: text(),
+  superseded_at: text(),
+  created_at: text()
+    .notNull()
+    .default(sql`(datetime('now'))`),
+});
+
 // --- Knowledge extraction tables ---
 
 export const decision = sqliteTable('decision', {

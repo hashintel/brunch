@@ -39,6 +39,49 @@ type TurnCardOption = Pick<
   'position' | 'content' | 'is_recommended'
 >;
 
+function getScopeStatusLabel(status: 'open' | 'proposed' | 'confirmed') {
+  switch (status) {
+    case 'proposed':
+      return 'Scope ready to confirm';
+    case 'confirmed':
+      return 'Scope closed';
+    default:
+      return 'Scope in progress';
+  }
+}
+
+function PhaseSummaryCard({
+  summary,
+  onConfirm,
+  disabled,
+}: {
+  summary: string;
+  onConfirm: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <div className="my-3 rounded-lg border bg-card p-4">
+      <div className="mb-2 text-[15px] font-semibold">Scope closure proposal</div>
+      <p className="text-sm text-muted-foreground">{summary}</p>
+      <div className="mt-3 flex justify-end">
+        <button
+          type="button"
+          onClick={onConfirm}
+          disabled={disabled}
+          className={cn(
+            'rounded-md border px-3 py-2 text-sm transition-colors',
+            disabled
+              ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+              : 'border-border bg-background hover:bg-muted',
+          )}
+        >
+          Confirm scope closure
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function TurnCard({
   id,
   question,
@@ -214,7 +257,7 @@ function renderParts(msg: BrunchUIMessage, isStreaming: boolean) {
 
 export function InterviewWorkspace() {
   const workspace = useWorkspaceController();
-  const { chat, entityState, project, promptInput, turnCard } = workspace;
+  const { chat, entityState, project, workflow, phaseSummary, promptInput, turnCard } = workspace;
 
   const handleSubmit = (message: PromptInputMessage) => {
     workspace.chat.submitText(message.text ?? '');
@@ -227,6 +270,9 @@ export function InterviewWorkspace() {
           ← Projects
         </Link>
         <h1 className="text-lg font-semibold">{project.name}</h1>
+        <span className="rounded-full border px-2 py-1 text-xs text-muted-foreground">
+          {getScopeStatusLabel(workflow.phases.scope.status)}
+        </span>
       </header>
 
       <div className="flex flex-1 overflow-hidden">
@@ -281,6 +327,14 @@ export function InterviewWorkspace() {
                 <p role="alert" className="mx-auto mt-3 max-w-2xl text-sm text-destructive">
                   {turnCard.errorMessage}
                 </p>
+              )}
+
+              {phaseSummary && (
+                <PhaseSummaryCard
+                  summary={phaseSummary.summary}
+                  disabled={chat.isLoading}
+                  onConfirm={() => chat.confirmPhaseClosure(phaseSummary.turnId)}
+                />
               )}
             </ConversationContent>
             <ConversationScrollButton />

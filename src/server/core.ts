@@ -4,6 +4,7 @@ import {
   getProject,
   getActivePath,
   getOptionsForTurn,
+  getCurrentWorkflowState,
   createTurn,
   advanceHead,
   listProjects,
@@ -64,7 +65,8 @@ export function getProjectState(db: DB, projectId: number) {
   const project = getProject(db, projectId);
   if (!project) return null;
   const turns = loadActivePathWithOptions(db, projectId);
-  return { project, turns };
+  const workflow = getCurrentWorkflowState(db, projectId);
+  return { project, workflow, turns };
 }
 
 /** List all projects. */

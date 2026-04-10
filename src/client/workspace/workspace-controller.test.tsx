@@ -53,7 +53,7 @@ const routerInvalidate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 let useChatImpl: (options: UseChatOptions) => {
   messages: BrunchUIMessage[];
-  sendMessage: (message: { text: string }) => Promise<void> | void;
+  sendMessage: (message: { text?: string; parts?: Array<Record<string, unknown>> }) => Promise<void> | void;
   setMessages: (messages: BrunchUIMessage[]) => void;
   status: 'ready' | 'submitted' | 'streaming';
 };
@@ -103,6 +103,14 @@ function createProjectState({
       active_turn_id: 1,
       created_at: '2026-04-03 10:00:00',
       updated_at: '2026-04-03 10:00:00',
+    },
+    workflow: {
+      phases: {
+        scope: { status: 'open', turnId: null, summary: null },
+        design: { status: 'open', turnId: null, summary: null },
+        requirements: { status: 'open', turnId: null, summary: null },
+        criteria: { status: 'open', turnId: null, summary: null },
+      },
     },
     turns: [
       {
