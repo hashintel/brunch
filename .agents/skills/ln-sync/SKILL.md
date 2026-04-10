@@ -32,21 +32,69 @@ For each assumption whose `Status` is `invalidated`:
 - Preserve `Status: invalidated` in §Assumptions
 - Flag all implicated slices in `memory/PLAN.md`
 
-### 2b. Pruning check
+### 2b. Consolidation pass
 
-Tracked items accumulate. Large assumption and decision tables become a confusion surface — new sessions inherit stale context and make wrong inferences. After graduation, assess each remaining item for removal:
+`ln-build` is local and conservative — it only compares against items the current slice references. `ln-sync` owns whole-document consolidation: merging equivalent rows, generalizing micro-variants, and absorbing implementation-detail decisions.
+
+Read the full affected sections and merge overly-granular items before pruning.
+
+#### Same-item tests (from ln-build — apply globally here)
+
+- **Same assumption** = same boundary/component + same unresolved claim
+- **Same decision** = same seam/boundary + same chosen alternative
+- **Same invariant** = same seam/boundary + same rule template + same proved decision(s)
+
+#### Global consolidation rules
+
+- Keep the **oldest surviving ID** among equivalent rows
+- Rewrite that survivor to the **generalized statement**
+- Union metadata (`Protected by`, `Established by`, dependencies, implicated slices, validation evidence)
+- Remove absorbed rows and leave an HTML comment naming absorbed IDs and why
+- Do **not** renumber surviving items
+- Rewrite references in both `SPEC.md` and `PLAN.md` from absorbed IDs to the surviving ID
+
+Comment format: `<!-- Consolidated 2026-04-XX: absorbed I54, I55 into I52 — same seam/rule, generalized wording -->`
+
+#### Assumptions — merge when:
+
+- same boundary/component + same unresolved claim + differences are only wording, confidence, evidence, or validation method
+- After merge: keep one row, preserve strongest status/evidence, union dependent decisions and implicated slices
+
+#### Decisions — merge when:
+
+- same seam/boundary + same chosen alternative + newer rows only add implementation detail, narrower examples, or first use cases of the same pattern
+- Keep separate when different alternatives at the same seam, or either choice could still be revisited independently
+
+#### Invariants — merge when:
+
+- same seam/boundary + same rule template + same proved decision(s), or one row is a strict example/branch of the other
+- Prefer the generalized seam-level wording; union protecting test files and establishing slices
+- Keep separate only when they can regress independently because seam, rule, proof, or test family differs
+
+#### Completed-slice notes in PLAN.md
+
+For every `done` slice:
+- keep at most one compact completion block (max 4 bullets / 6 lines): shipped outcome, seam changed, evidence, remaining debt
+- replace verbose `Observed current state` / `Observed code seam` narratives with the compact form
+- if the parent slice is `done`, fold tracer-bullet prose into the parent note
+- delete completion notes that only repeat acceptance text, invariant IDs, or commit history
+
+Git is the history. PLAN.md keeps only routing-relevant summaries.
+
+### 2c. Pruning check
+
+After consolidation, assess each remaining item for removal:
 
 | State | Criterion | Action |
 | --- | --- | --- |
-| **Embedded** | Status `validated`, and now a structural property of the code — restating it as a tracked question adds noise, not clarity | Remove — the code is the proof |
-| **Moot** | Status `invalidated`, and the concern no longer applies (e.g. the technology it worried about was replaced entirely) | Remove |
-| **Superseded** | Replaced by a newer decision or assumption | Remove, note in the replacement |
+| **Embedded** | Now a structural property of code/tests/decisions/invariants; restating it as a live tracked item adds noise | Remove |
+| **Moot** | The concern no longer applies in the current architecture | Remove |
+| **Superseded** | Replaced by a newer decision/assumption/invariant and all references can point to the replacement | Remove, note replacement |
+| **Redundant** | Equivalent to another surviving row after consolidation | Remove |
 
-When pruning, leave a comment noting which IDs were removed and why (e.g. `<!-- Pruned 2026-04-03: removed A1, A2 ... — embedded in architecture -->`). Do not renumber surviving items — IDs are stable. Dereference removed items from PLAN.md slice cross-references.
+When pruning, leave a comment noting which IDs were removed and why (e.g. `<!-- Pruned 2026-04-03: removed A1, A2 — embedded in architecture -->`). Do not renumber surviving items.
 
-After pruning, repair or replace any dangling cross-references in `memory/SPEC.md` and `memory/PLAN.md` that pointed at removed assumptions, decisions, invariants, or verification notes.
-
-The same logic applies to §Decisions: a decision that is now simply how the code works, with no live alternative being weighed, can be removed. Keep decisions that record a *choice between alternatives* that future work might revisit.
+After pruning, repair or replace any dangling cross-references in `memory/SPEC.md` and `memory/PLAN.md` that pointed at removed or absorbed items.
 
 ### 3. Staleness check
 

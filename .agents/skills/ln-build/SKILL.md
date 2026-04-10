@@ -40,15 +40,63 @@ Run the project's verification harness. All checks must pass. Commit: `feat: [ta
 
 ## Traceability (mandatory — do before routing)
 
-After the slice lands and verification passes, do all of these before presenting routing options:
+After the slice lands and verification passes, update only the traceability items touched by this slice. For each candidate artifact, choose exactly one action: **add**, **update**, **merge**, **archive**, or **no-op**.
 
-1. If working from `memory/PLAN.md`, mark the slice `done`. Check `## Dependencies` — if this slice unblocked multiple downstream slices, note them as newly available (some may be parallelizable). If working from `memory/REFACTOR.md`, mark the commit step complete there instead
-2. Update `memory/SPEC.md` §Assumptions — set `Status` to `validated` or `invalidated` as evidence warrants, update `Confidence` if the evidence changed it, and flag implicated slices in PLAN.md
-3. Add new invariants to `memory/SPEC.md` §Invariants — each structural property now protected by tests. If working from `memory/PLAN.md`, update the `Invariants established` field on the corresponding slice
-4. Add any new decisions to `memory/SPEC.md` §Decisions, new assumptions to §Assumptions
-5. Update `memory/SPEC.md` §Verification Design → Current Coverage with new test files and counts
+### Local comparison set
 
-These are bookkeeping steps, not optional. Routing comes after.
+Compare new facts only against items the current slice already references:
+
+- the current slice block in `memory/PLAN.md` (and its tracer bullets)
+- rows in `memory/SPEC.md` named by the slice (§Assumptions, §Decisions, §Invariants to respect/established)
+- assumption/decision IDs from the scope card
+- test files added or changed in this slice
+
+Do **not** scan the whole spec looking for the perfect merge target. If nothing in this local set clearly matches, **add** and let `ln-sync` consolidate later.
+
+### Same-item tests
+
+Use these to decide whether a candidate fact is already covered by an existing local row:
+
+- **Same assumption** = same boundary/component + same unresolved claim. Differences in wording, confidence, evidence, or validation method → same assumption.
+- **Same decision** = same seam/boundary + same chosen alternative. Narrower helpers, file layout, implementation mechanics, or first concrete use of an already-chosen pattern → same decision.
+- **Same invariant** = same seam/boundary + same rule template + same proved decision(s). Approve/reject, confirm/force-close, reload/refresh/resume, or kind/phase/state variants of one shared rule → same invariant.
+
+### Steps
+
+1. **Mark completion.** Mark the slice or tracer bullet `done` in `memory/PLAN.md`. Note newly unblocked downstream slices.
+
+2. **Assumptions** — for each assumption the slice touched or relied on:
+   - Evidence answered it → **update** status to `validated` or `invalidated`; flag implicated slices
+   - Evidence changed certainty only → **update** confidence
+   - Same assumption exists locally → **merge** into it
+   - New unresolved belief the slice depended on, not already guaranteed by code/tests, and if false would change future work → **add**
+   - Otherwise → **no-op**
+
+3. **Decisions** — a decision records a committed choice at a seam, not an execution diary entry:
+   - Slice only implemented an existing decision without changing the choice → **no-op**
+   - Same decision exists locally and choice stayed the same → **update** (clearer rationale/scope) or **merge** (narrower instance of same pattern)
+   - Slice chose one alternative among ≥2 plausible alternatives, non-trivial to reverse, future work could revisit → **add**
+   - Slice changed the answer at the same seam → **add** new row with `Supersedes: Dn`
+   - Otherwise → **no-op**
+
+4. **Invariants** — prefer one seam-level invariant over many branch-level invariants:
+   - No new/changed test protects the property → **no-op**
+   - Property is temporary migration state or one example of a broader rule → **merge** or **no-op**
+   - Same invariant exists locally and only `Protected by` grew → **update**
+   - Candidate is another branch/state/kind/phase/action variant of the same rule → **merge** (keep surviving ID, union `Protected by`, append to `Established by` only if the statement widened)
+   - Property can regress independently of all local invariants (different seam, rule, proved decision, or test family) → **add**
+   - Otherwise → **merge**
+
+5. **Completed-slice note in PLAN.md** — max 4 bullets / 6 lines:
+   - shipped outcome
+   - seam changed (optional)
+   - evidence (tests/manual)
+   - remaining debt or follow-up (optional)
+   - If a note already exists, **update** it; do not append another paragraph. If marking `done` plus invariant/decision updates already captures everything → **no-op**
+
+6. **Verification coverage** — update `memory/SPEC.md` §Current Coverage. If the test file already appears, **update** counts; do not add a duplicate entry.
+
+When uncertain between merge and add → add. When uncertain between update and no-op → update.
 
 ## Routing
 

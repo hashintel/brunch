@@ -65,7 +65,7 @@ A slice without a verification approach is not fully scoped. At minimum, inner-l
 
 After the scope card is complete, do these before presenting routing options:
 
-1. New assumptions surfaced during scoping → add to `memory/SPEC.md` §Assumptions with links to this slice
+1. New assumptions surfaced during scoping → apply `ln-build` §Same-item tests first. If the same assumption already exists in `memory/SPEC.md`, **update** or **merge** into it. Only **add** if no existing row covers the same boundary + claim.
 
 ## Routing
 
