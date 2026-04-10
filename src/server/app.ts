@@ -214,6 +214,13 @@ export function createApp(dbPath?: string) {
     } else if (confirmationPart && !confirmationTarget) {
       res.status(404).json({ error: 'Phase closure proposal not found' });
       return;
+    } else if (
+      confirmationTarget &&
+      phaseClosureCommand?.kind === 'confirm-proposed-phase-closure' &&
+      confirmationTarget.phase !== phaseClosureCommand.phase
+    ) {
+      res.status(400).json({ error: 'Phase closure confirmation phase mismatch' });
+      return;
     }
 
     let prepared: ReturnType<typeof prepareTurn>;

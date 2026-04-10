@@ -1739,6 +1739,52 @@ describe('phase outcomes + scope closure', () => {
 
     expect(response.body).toEqual({ error: expectedError });
   });
+
+  it('rejects a confirm-proposed-phase-closure when the payload phase does not match the outcome phase', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+        ],
+      })
+      .expect(200);
+
+    const { listPhaseOutcomesForProject } = await import('./db.js');
+    const outcomes = listPhaseOutcomesForProject(db, projectId);
+    expect(outcomes).toHaveLength(1);
+    expect(outcomes[0].phase).toBe('scope');
+
+    const response = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u2',
+            role: 'user',
+            parts: [
+              { type: 'text', text: 'Confirm design closure' },
+              {
+                type: 'data-confirmation',
+                data: {
+                  kind: 'confirm-proposed-phase-closure',
+                  proposalTurnId: outcomes[0].proposal_turn_id,
+                  phase: 'design',
+                },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(400);
+
+    expect(response.body).toEqual({ error: 'Phase closure confirmation phase mismatch' });
+  });
 });
 
 describe('GET /api/projects/:id', () => {

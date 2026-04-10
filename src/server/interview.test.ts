@@ -105,6 +105,27 @@ describe('persistStructuredQuestion', () => {
   });
 });
 
+describe('createProposePhaseClosureTool', () => {
+  it('persists the server-known phase, not the LLM-provided input phase', async () => {
+    const { createProposePhaseClosureTool } = await import('./interview.js');
+    const { listPhaseOutcomesForProject } = await import('./db.js');
+
+    const project = createProject(db, 'Spec');
+    const turn = createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
+
+    const tool = createProposePhaseClosureTool(db, turn.id, 'design', project.id);
+    expect(tool.execute).toBeDefined();
+    await tool.execute!(
+      { phase: 'scope', summary: 'LLM hallucinated wrong phase' },
+      { toolCallId: 'tc-1', messages: [], abortSignal: new AbortController().signal },
+    );
+
+    const outcomes = listPhaseOutcomesForProject(db, project.id);
+    expect(outcomes).toHaveLength(1);
+    expect(outcomes[0].phase).toBe('design');
+  });
+});
+
 describe('persistFallbackQuestionText', () => {
   it('fills the question only when the turn does not already have one', () => {
     const project = createProject(db, 'Spec');

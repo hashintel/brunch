@@ -58,7 +58,9 @@ function getWorkflowStatusLabel(phase: ProjectStateTurn['phase'], state: Workflo
 
 function getWorkflowMetaLabel(state: WorkflowPhaseState) {
   const parts = [`${state.readiness[0].toUpperCase() + state.readiness.slice(1)} readiness`];
-  parts.push(state.closeability ? 'Closeable now' : 'Not yet closeable');
+  if (state.status !== 'closed') {
+    parts.push(state.closeability ? 'Closeable now' : 'Not yet closeable');
+  }
   if (state.closureBasis === 'interviewer_recommended') {
     parts.push('Recommended close');
   }

@@ -122,14 +122,14 @@ export function createProposePhaseClosureTool(db: DB, turnId: number, phase: Pha
     execute: async (input) => {
       createPhaseOutcome(db, {
         projectId,
-        phase: input.phase,
+        phase,
         proposal_turn_id: turnId,
         summary: input.summary,
       });
       return {
         ok: true as const,
         turnId,
-        phase: input.phase,
+        phase,
       };
     },
   });
