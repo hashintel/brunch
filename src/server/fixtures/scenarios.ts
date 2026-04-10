@@ -260,4 +260,14 @@ export const scenarios: Record<string, ScenarioFn> = {
   },
 };
 
-export const scenarioNames = Object.keys(scenarios);
+// Manifest-based scenarios (additive — issue-tracker domain with rich parts + knowledge)
+let manifestScenarios: Record<string, ScenarioFn> = {};
+try {
+  const { loadManifestScenarios } = await import('./manifest.js');
+  manifestScenarios = loadManifestScenarios('issue-tracker');
+} catch {
+  // Manifest files may not exist in all environments (e.g., CI without fixtures)
+}
+
+export const allScenarios: Record<string, ScenarioFn> = { ...scenarios, ...manifestScenarios };
+export const scenarioNames = Object.keys(allScenarios);
