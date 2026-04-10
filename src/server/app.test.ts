@@ -193,6 +193,73 @@ describe('POST /api/projects/:id/chat', () => {
   });
 });
 
+describe('GET /api/projects/:id/entities', () => {
+  it('returns remaining generic knowledge kinds alongside framing, decisions, assumptions, and relationships', async () => {
+    const projectId = await createTestProject();
+    const { createDecision, createAssumption, createKnowledgeItem, addDecisionParentAssumption } =
+      await import('./db.js');
+
+    createKnowledgeItem(db, projectId, 'framing', 'The project starts from an ambiguous brief');
+    createKnowledgeItem(db, projectId, 'constraint', 'Keep setup instant', {
+      subtype: 'non-goal',
+      rationale: 'The launcher should stay simple',
+    });
+    createKnowledgeItem(db, projectId, 'requirement', 'Resume interviews from SQLite', {
+      rationale: 'Users will close the browser mid-session',
+    });
+    createKnowledgeItem(db, projectId, 'criterion', 'Resuming restores the active path', {
+      subtype: 'acceptance',
+      rationale: 'Protects the persistence seam',
+    });
+    const decision = createDecision(db, projectId, 'Start with the web app');
+    const assumption = createAssumption(db, projectId, 'Users arrive with a concrete goal');
+    addDecisionParentAssumption(db, decision.id, assumption.id);
+
+    const res = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+
+    expect(res.body).toMatchObject({
+      framing: [
+        {
+          kind: 'framing',
+          content: 'The project starts from an ambiguous brief',
+        },
+      ],
+      constraints: [
+        {
+          kind: 'constraint',
+          subtype: 'non-goal',
+          content: 'Keep setup instant',
+          rationale: 'The launcher should stay simple',
+        },
+      ],
+      requirements: [
+        {
+          kind: 'requirement',
+          content: 'Resume interviews from SQLite',
+          rationale: 'Users will close the browser mid-session',
+        },
+      ],
+      criteria: [
+        {
+          kind: 'criterion',
+          subtype: 'acceptance',
+          content: 'Resuming restores the active path',
+          rationale: 'Protects the persistence seam',
+        },
+      ],
+      decisions: [{ content: 'Start with the web app' }],
+      assumptions: [{ content: 'Users arrive with a concrete goal' }],
+      relationships: [
+        {
+          type: 'depends_on',
+          source: { collection: 'decision', kind: 'decision', id: decision.id },
+          target: { collection: 'assumption', kind: 'assumption', id: assumption.id },
+        },
+      ],
+    });
+  });
+});
+
 describe('GET /api/projects/:id', () => {
   it('returns structured question state after a tool-driven turn', async () => {
     const projectId = await createTestProject();

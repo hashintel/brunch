@@ -19,8 +19,13 @@ export interface WorkspaceDurableProjectState {
 }
 
 export interface WorkspaceDurableEntityState {
+  framing: EntitiesData['framing'];
+  constraints: EntitiesData['constraints'];
+  requirements: EntitiesData['requirements'];
+  criteria: EntitiesData['criteria'];
   decisions: EntitiesData['decisions'];
   assumptions: EntitiesData['assumptions'];
+  relationships: EntitiesData['relationships'];
   isLoading: boolean;
 }
 
@@ -116,8 +121,13 @@ export function createWorkspaceDurableEntityState(
   isLoading: boolean,
 ): WorkspaceDurableEntityState {
   return {
+    framing: queryData?.framing ?? entitySnapshot.framing,
+    constraints: queryData?.constraints ?? entitySnapshot.constraints,
+    requirements: queryData?.requirements ?? entitySnapshot.requirements,
+    criteria: queryData?.criteria ?? entitySnapshot.criteria,
     decisions: queryData?.decisions ?? entitySnapshot.decisions,
     assumptions: queryData?.assumptions ?? entitySnapshot.assumptions,
+    relationships: queryData?.relationships ?? entitySnapshot.relationships,
     isLoading,
   };
 }

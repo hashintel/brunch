@@ -22,6 +22,13 @@
       "when": 1775127507844,
       "tag": "0002_bright_master_mold",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1775580000000,
+      "tag": "0003_tidy_knowledge_layer",
+      "breakpoints": true
     }
   ]
 }

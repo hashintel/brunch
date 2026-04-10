@@ -166,7 +166,15 @@ function createWorkspaceLoaderData({
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
   options = [],
-  entitySnapshot = { decisions: [], assumptions: [] } satisfies EntitiesData,
+  entitySnapshot = {
+    framing: [],
+    constraints: [],
+    requirements: [],
+    criteria: [],
+    decisions: [],
+    assumptions: [],
+    relationships: [],
+  } satisfies EntitiesData,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -299,6 +307,10 @@ describe('InterviewWorkspace', () => {
   it('hydrates transcript and sidebar state from the route loader without a post-mount entity fetch', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
         decisions: [
           {
             id: 7,
@@ -308,6 +320,7 @@ describe('InterviewWorkspace', () => {
           },
         ],
         assumptions: [],
+        relationships: [],
       },
     });
 
@@ -322,8 +335,13 @@ describe('InterviewWorkspace', () => {
   it('refreshes durable loader-owned state for the same project without rewriting the live transcript', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
         decisions: [],
         assumptions: [],
+        relationships: [],
       },
     });
 
@@ -340,6 +358,10 @@ describe('InterviewWorkspace', () => {
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
       entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
         decisions: [
           {
             id: 8,
@@ -349,6 +371,7 @@ describe('InterviewWorkspace', () => {
           },
         ],
         assumptions: [],
+        relationships: [],
       },
     });
     rendered.rerender(
@@ -381,8 +404,13 @@ describe('InterviewWorkspace', () => {
       assistantText: 'How should project two start?',
       answer: 'Begin with the API',
       entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
         decisions: [],
         assumptions: [],
+        relationships: [],
       },
     });
     rendered.rerender(
@@ -410,16 +438,109 @@ describe('InterviewWorkspace', () => {
     expect(screen.getByText('Begin with the API')).toBeTruthy();
   });
 
+  it('renders remaining generic knowledge kinds in the sidebar without regressing existing tabs', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        framing: [
+          {
+            id: 9,
+            project_id: 1,
+            kind: 'framing',
+            subtype: null,
+            content: 'The tool starts from an ambiguous brief',
+            rationale: null,
+          },
+        ],
+        constraints: [
+          {
+            id: 10,
+            project_id: 1,
+            kind: 'constraint',
+            subtype: 'non-goal',
+            content: 'Keep setup instant',
+            rationale: 'Avoid a heavyweight launcher',
+          },
+        ],
+        requirements: [
+          {
+            id: 11,
+            project_id: 1,
+            kind: 'requirement',
+            subtype: null,
+            content: 'Resume interviews after browser restart',
+            rationale: 'People leave mid-session',
+          },
+        ],
+        criteria: [
+          {
+            id: 12,
+            project_id: 1,
+            kind: 'criterion',
+            subtype: 'acceptance',
+            content: 'Restoring the project shows the active path',
+            rationale: 'Protects the persistence seam',
+          },
+        ],
+        decisions: [
+          {
+            id: 7,
+            project_id: 1,
+            content: 'Start with the web app',
+            rationale: 'Fastest launch path',
+          },
+        ],
+        assumptions: [{ id: 5, project_id: 1, content: 'Users arrive with a concrete goal' }],
+        relationships: [
+          {
+            type: 'depends_on',
+            source: { collection: 'decision', kind: 'decision', id: 7 },
+            target: { collection: 'assumption', kind: 'assumption', id: 5 },
+          },
+        ],
+      } as EntitiesData,
+    });
+
+    renderWorkspace();
+
+    expect(await screen.findByText('Start with the web app')).toBeTruthy();
+    expect(screen.getByText(/depends on/i)).toBeTruthy();
+    expect(screen.getByText('Users arrive with a concrete goal')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /constraints/i }));
+    expect(await screen.findByText('Keep setup instant')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /requirements/i }));
+    expect(await screen.findByText('Resume interviews after browser restart')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /criteria/i }));
+    expect(await screen.findByText('Restoring the project shows the active path')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /framing/i }));
+    expect(await screen.findByText('The tool starts from an ambiguous brief')).toBeTruthy();
+
+    fireEvent.click(screen.getByRole('button', { name: /decisions/i }));
+    expect(await screen.findByText('Start with the web app')).toBeTruthy();
+  });
+
   it('refetches sidebar entities when the chat stream emits an observer result', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
         decisions: [],
         assumptions: [],
+        relationships: [],
       },
     });
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
+          framing: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
           decisions: [
             {
               id: 7,
@@ -429,6 +550,7 @@ describe('InterviewWorkspace', () => {
             },
           ],
           assumptions: [],
+          relationships: [],
         } satisfies EntitiesData),
         {
           status: 200,

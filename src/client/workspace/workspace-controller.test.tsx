@@ -129,7 +129,15 @@ function createWorkspaceLoaderData({
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
   options = [],
-  entitySnapshot = { decisions: [], assumptions: [] } satisfies EntitiesData,
+  entitySnapshot = {
+    framing: [],
+    constraints: [],
+    requirements: [],
+    criteria: [],
+    decisions: [],
+    assumptions: [],
+    relationships: [],
+  } satisfies EntitiesData,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -274,6 +282,10 @@ describe('workspace controller', () => {
     currentLoaderData = createWorkspaceLoaderData({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
       entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
         decisions: [
           {
             id: 7,
@@ -283,6 +295,7 @@ describe('workspace controller', () => {
           },
         ],
         assumptions: [],
+        relationships: [],
       },
     });
 
@@ -316,6 +329,10 @@ describe('workspace controller', () => {
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
       entitySnapshot: {
+        framing: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
         decisions: [
           {
             id: 8,
@@ -325,6 +342,7 @@ describe('workspace controller', () => {
           },
         ],
         assumptions: [],
+        relationships: [],
       },
     });
 

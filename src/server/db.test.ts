@@ -18,8 +18,10 @@ import {
   getProject,
   createDecision,
   createAssumption,
+  createKnowledgeItem,
   linkDecisionToTurn,
   linkAssumptionToTurn,
+  linkKnowledgeItemToTurn,
   addDecisionParentDecision,
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
@@ -38,7 +40,7 @@ afterEach(() => {
 });
 
 describe('createDb', () => {
-  it('creates all 13 tables from schema.dbml', () => {
+  it('creates all 15 tables from schema.dbml', () => {
     const tables = db.$client
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
       .all() as Array<{ name: string }>;
@@ -51,8 +53,10 @@ describe('createDb', () => {
       'assumption',
       'requirement',
       'criterion',
+      'knowledge_item',
       'turn_decision',
       'turn_assumption',
+      'turn_knowledge_item',
       'decision_parent_decision',
       'decision_parent_assumption',
       'assumption_parent_assumption',
@@ -409,7 +413,7 @@ describe('DB lifecycle — turn tree persistence', () => {
   });
 });
 
-describe('entity persistence — decisions and assumptions', () => {
+describe('entity persistence — decisions, assumptions, and generic knowledge items', () => {
   it('creates a decision with project linkage', () => {
     const project = createProject(db, 'Test');
     const d = createDecision(db, project.id, 'Use SQLite for persistence');
@@ -446,6 +450,59 @@ describe('entity persistence — decisions and assumptions', () => {
     expect(entities.assumptions[0].content).toBe('Users have API keys');
   });
 
+  it('persists remaining generic knowledge kinds with project linkage, metadata, and turn provenance', () => {
+    const project = createProject(db, 'Test');
+    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const constraint = createKnowledgeItem(db, project.id, 'constraint', 'Must run locally', {
+      subtype: 'non-goal',
+      rationale: 'Keep setup instant',
+    });
+    const requirement = createKnowledgeItem(db, project.id, 'requirement', 'Support resumable interviews', {
+      rationale: 'Users will leave and come back',
+    });
+    const criterion = createKnowledgeItem(db, project.id, 'criterion', 'Resume works after browser restart', {
+      subtype: 'acceptance',
+      rationale: 'Protects the persistence seam',
+    });
+    linkKnowledgeItemToTurn(db, constraint.id, turn.id);
+    linkKnowledgeItemToTurn(db, requirement.id, turn.id);
+    linkKnowledgeItemToTurn(db, criterion.id, turn.id);
+
+    const entities = getEntitiesForProject(db, project.id);
+    expect(entities.constraints).toEqual([
+      expect.objectContaining({
+        project_id: project.id,
+        kind: 'constraint',
+        subtype: 'non-goal',
+        content: 'Must run locally',
+        rationale: 'Keep setup instant',
+      }),
+    ]);
+    expect(entities.requirements).toEqual([
+      expect.objectContaining({
+        project_id: project.id,
+        kind: 'requirement',
+        subtype: null,
+        content: 'Support resumable interviews',
+        rationale: 'Users will leave and come back',
+      }),
+    ]);
+    expect(entities.criteria).toEqual([
+      expect.objectContaining({
+        project_id: project.id,
+        kind: 'criterion',
+        subtype: 'acceptance',
+        content: 'Resume works after browser restart',
+        rationale: 'Protects the persistence seam',
+      }),
+    ]);
+
+    const provenanceRows = db.$client
+      .prepare('SELECT relation FROM turn_knowledge_item WHERE turn_id = ? ORDER BY item_id')
+      .all(turn.id) as Array<{ relation: string }>;
+    expect(provenanceRows.map((row) => row.relation)).toEqual(['captured', 'captured', 'captured']);
+  });
+
   it('creates dependency edges between decisions', () => {
     const project = createProject(db, 'Test');
     const d1 = createDecision(db, project.id, 'Use Express');
@@ -455,14 +512,36 @@ describe('entity persistence — decisions and assumptions', () => {
     expect(entities.decisions).toHaveLength(2);
   });
 
-  it('creates dependency edges between decisions and assumptions', () => {
+  it('projects legacy parent links through one typed relationship read model', () => {
     const project = createProject(db, 'Test');
-    const a = createAssumption(db, project.id, 'SDK supports streaming');
-    const d = createDecision(db, project.id, 'Use SDK streaming');
-    addDecisionParentAssumption(db, d.id, a.id);
+    const parentDecision = createDecision(db, project.id, 'Use Express');
+    const dependentDecision = createDecision(db, project.id, 'Use SSE for streaming');
+    const parentAssumption = createAssumption(db, project.id, 'SDK supports streaming');
+    const dependentAssumption = createAssumption(db, project.id, 'Single-user tool');
+
+    addDecisionParentDecision(db, dependentDecision.id, parentDecision.id);
+    addDecisionParentAssumption(db, dependentDecision.id, parentAssumption.id);
+    addAssumptionParentAssumption(db, dependentAssumption.id, parentAssumption.id);
+
     const entities = getEntitiesForProject(db, project.id);
-    expect(entities.decisions).toHaveLength(1);
-    expect(entities.assumptions).toHaveLength(1);
+
+    expect(entities.relationships).toEqual([
+      {
+        type: 'depends_on',
+        source: { collection: 'decision', kind: 'decision', id: dependentDecision.id },
+        target: { collection: 'decision', kind: 'decision', id: parentDecision.id },
+      },
+      {
+        type: 'depends_on',
+        source: { collection: 'decision', kind: 'decision', id: dependentDecision.id },
+        target: { collection: 'assumption', kind: 'assumption', id: parentAssumption.id },
+      },
+      {
+        type: 'depends_on',
+        source: { collection: 'assumption', kind: 'assumption', id: dependentAssumption.id },
+        target: { collection: 'assumption', kind: 'assumption', id: parentAssumption.id },
+      },
+    ]);
   });
 
   it('creates dependency edges between assumptions', () => {
