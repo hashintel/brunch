@@ -132,6 +132,26 @@ describe('routeTree', () => {
     expect(routeHarness.fetchKnowledgeWorkspaceLoaderData).toHaveBeenCalledWith('42');
   });
 
+  it('keeps the knowledge workspace pending skeleton active while the route loader is unresolved', async () => {
+    const deferredLoader = createDeferredPromise<{ id: string; kind: string }>();
+    routeHarness.fetchKnowledgeWorkspaceLoaderData.mockImplementationOnce(() => deferredLoader.promise);
+
+    const history = createMemoryHistory({ initialEntries: ['/project/42/knowledge'] });
+    const router = createRouter({ routeTree, history, defaultPendingMs: 0 });
+
+    render(<RouterProvider router={router} />);
+    void router.load();
+
+    expect(await screen.findByText('Knowledge loading')).toBeTruthy();
+    expect(routeHarness.fetchKnowledgeWorkspaceLoaderData).toHaveBeenCalledWith('42');
+
+    await act(async () => {
+      deferredLoader.resolve({ id: '42', kind: 'knowledge' });
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Knowledge screen' })).toBeTruthy();
+  });
+
   it('maps the export URL to the export route loader and screen', async () => {
     await renderRouteAt('/project/42/export');
 

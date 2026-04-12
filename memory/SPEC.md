@@ -256,7 +256,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | ---- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
 | I100 | `.brunch/` project resolution walks up safely, rejects invalid `.brunch` path shapes early, and resolve-creates-or-finds local storage; packaged launcher/bin startup keeps `npx brunch` executable, preserves API 404s when static assets are mounted, falls back on empty `BRUNCH_DB`, and still resolves drizzle migrations via `import.meta.url` instead of cwd | Slice 14 | project.test.ts, launcher.test.ts, cli.test.ts, runtime-config.test.ts | D10, D81 |
 | I101 | Project mode (greenfield/brownfield) persists through schema, API, and interviewer configuration: brownfield scope gets read-only exploration tools, a scope-only exploration prompt, and a higher step budget; later phases keep their normal prompts; greenfield path is unchanged; server derives cwd from launcher context | Slice 14a | db.test.ts, interview.test.ts, app.test.ts, ProjectList.test.tsx | D32, D82, D83 |
-| I102 | TanStack file-route generation runs through the Vite plugin from `src/client/file-routes` into the managed `src/client/routeTree.gen.ts` artifact; the staged dashboard/root and interview file routes share the same loader, root-shell, and pending-state seams as their manual-route counterparts; and the runtime router still boots from the manual route tree until cutover | Route ownership refactor step 3, updated steps 4-5 | file-route-infra.test.ts, file-route-dashboard.test.ts, file-route-interview.test.ts, router.test.tsx | D85 |
+| I102 | TanStack file-route generation runs through the Vite plugin from `src/client/file-routes` into the managed `src/client/routeTree.gen.ts` artifact; the staged dashboard/root, interview, knowledge, and export file routes reuse the same loader, root-shell, pending-state, and export-navigation seams as their manual-route counterparts where applicable; and the runtime router still boots from the manual route tree until cutover | Route ownership refactor step 3, updated steps 4-6 | file-route-infra.test.ts, file-route-dashboard.test.ts, file-route-interview.test.ts, file-route-knowledge.test.ts, file-route-export.test.ts, router.test.tsx | D85 |
 
 ### Client characterization
 
@@ -572,7 +572,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | phase-close.test.ts           | 13    | I72                                                   |
 | turn-response.test.ts         | 4     | I44                                                   |
 | main.test.tsx                 | 1     | I15                                                   |
-| router.test.tsx               | 5     | I15, I102                                             |
+| router.test.tsx               | 6     | I15, I102                                             |
 | InterviewWorkspace.test.tsx   | 24    | I15, I23, I24, I44, I48, I54, I72                     |
 | ProjectList.test.tsx          | 4     | I15, I24, I101                                        |
 | workspace-data.test.ts        | 7     | I24, I48, I72                                         |
@@ -588,6 +588,8 @@ This projection difference is a deliberate design choice, not an implementation 
 | file-route-infra.test.ts      | 1     | I102                                                  |
 | file-route-dashboard.test.ts  | 1     | I102                                                  |
 | file-route-interview.test.ts  | 1     | I102                                                  |
+| file-route-knowledge.test.ts  | 1     | I102                                                  |
+| file-route-export.test.ts     | 1     | I102                                                  |
 | KnowledgeWorkspace.test.tsx   | 5     | I15, I24, I48                                         |
 | workspace-loader.test.ts      | 7     | I24                                                   |
 | project.test.ts               | 10    | I100                                                  |
