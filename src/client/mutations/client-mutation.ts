@@ -1,8 +1,6 @@
 import { useMutation } from '@tanstack/react-query';
 
-interface MutationErrorResponse {
-  error?: string;
-}
+import type { MutationErrorResponse } from '../../shared/api-types.js';
 
 export class ClientMutationError extends Error {
   readonly status: number | undefined;

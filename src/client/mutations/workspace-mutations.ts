@@ -1,6 +1,10 @@
 import { useRouter } from '@tanstack/react-router';
 
-import type { ProjectStateTurn } from '../../shared/api-types.js';
+import type {
+  ProjectStateTurn,
+  SubmitTurnResponseRequest,
+  SubmitTurnResponseResponse,
+} from '../../shared/api-types.js';
 import { formatTurnResponseText } from '../../shared/chat.js';
 import { findTurnOptionsByPositions } from '../workspace/workspace-controller-core.js';
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
@@ -17,7 +21,7 @@ export function useSubmitTurnResponseMutation({
   const router = useRouter();
   const mutation = useClientMutation(
     (variables: { turnId: number; positions?: number[]; freeText?: string }) =>
-      postJsonMutation<{ ok: boolean }, { positions?: number[]; freeText?: string }>(
+      postJsonMutation<SubmitTurnResponseResponse, SubmitTurnResponseRequest>(
         `/api/projects/${projectId}/turns/${variables.turnId}/response`,
         {
           ...(variables.positions?.length ? { positions: variables.positions } : {}),
