@@ -355,6 +355,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 | Term                   | Definition                                                                                                                                                                                                                                                                            |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **BrunchProject**      | The resolved `.brunch/` directory struct: `{ root, dbPath, cwd }`. Discovered by `findBrunchProject` (walk-up), created by `initBrunchProject`, or resolved by `resolveBrunchProject`. Represents the local storage location, not the elicitation run. See D81, I100.                  |
 | **project**            | A spec elicitation run within a `.brunch/` directory. Has a name, a HEAD pointer (`active_turn_id`), and workflow/readiness state. Multiple projects can coexist in one `.brunch/` directory (different runs, versions, or feature scopes).                                             |
 | **turn**               | A checkpoint in the interview history. Carries phase provenance plus typed interaction payloads and UI parts. Points to its parent turn. Turns belong to either the primary conversation or a secondary thread.                                                                        |
 | **active path**        | The chain from HEAD to root in the primary conversation. Determines which turns, knowledge items, phase outcomes, and review state are currently trusted. Secondary threads inherit validity from their anchor turn on the active path.                                                |
@@ -570,9 +571,9 @@ This projection difference is a deliberate design choice, not an implementation 
 | InterviewWorkspace.test.tsx   | 22    | I23, I24, I44, I48, I54, I72                          |
 | ProjectList.test.tsx          | 3     | I24                                                   |
 | workspace-data.test.ts        | 7     | I24, I48, I72                                         |
-| chat-hydration.test.ts        | 3     | I24                                                   |
-| workspace-controller.test.tsx | 3     | I24, I48                                              |
-| client-mutation.test.ts       | 3     | I24                                                   |
+| chat-hydration.test.ts        | 2     | I24                                                   |
+| workspace-controller.test.tsx | 6     | I24, I48                                              |
+| client-mutation.test.ts       | 6     | I24                                                   |
 | EntitySidebar.test.tsx        | 1     | I87                                                   |
 | code-block.test.tsx           | 4     | I24, I26                                              |
 | markdown-rendering.test.tsx   | 3     | I24, I31                                              |
@@ -580,10 +581,11 @@ This projection difference is a deliberate design choice, not an implementation 
 | build-boundary.test.ts        | 1     | I24, I28, I32                                         |
 | capability-boundaries.test.ts | 2     | I24, I29                                              |
 | KnowledgeWorkspace.test.tsx   | 5     | I24, I48                                              |
-| workspace-loader.test.ts      | 3     | I24                                                   |
+| workspace-loader.test.ts      | 7     | I24                                                   |
 | project.test.ts               | 8     | I100                                                  |
 | launcher.test.ts              | 3     | I5, I100                                              |
-| export-loader.test.ts         | 1     | D26, D65, D66, D70                                    |
+| api-types.test.ts             | 5     | —                                                     |
+| export-loader.test.ts         | 3     | D26, D65, D66, D70                                    |
 | ExportPreview.test.tsx        | 2     | D26, D65, D66, D70                                    |
 | export.test.ts                | 9     | D26, D65, D66, D70                                    |
 | manifest.test.ts              | 1     | —                                                     |
