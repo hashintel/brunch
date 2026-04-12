@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
@@ -6,6 +6,7 @@ import request from 'supertest';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createApp } from './app.js';
+import { mountStaticClient } from './launcher.js';
 import { resolveBrunchProject } from './project.js';
 
 describe('launcher integration', () => {
@@ -32,17 +33,21 @@ describe('launcher integration', () => {
     expect(Array.isArray(res.body)).toBe(true);
   });
 
-  it('serves static files when dist/ exists alongside the API', async () => {
+  it('serves static files while preserving API 404s', async () => {
     const cwd = makeTempDir();
+    const distDir = join(makeTempDir(), 'dist');
+    mkdirSync(distDir, { recursive: true });
+    writeFileSync(join(distDir, 'index.html'), '<!doctype html><html><body>Brunch</body></html>');
+
     const project = resolveBrunchProject(cwd);
     const { app } = createApp(project.dbPath);
+    mountStaticClient(app, distDir);
 
-    // createLauncher mounts express.static(distDir) as a fallback
-    // For this test, we verify the API works and that the launcher
-    // function can mount static files. Full static serving is tested
-    // via the launcher function.
-    const res = await request(app).get('/api/projects').expect(200);
-    expect(res.body).toBeDefined();
+    await request(app)
+      .get('/project/123')
+      .expect(200)
+      .expect(/Brunch/);
+    await request(app).get('/api/missing').expect(404);
   });
 
   it('resolves drizzle migrations when cwd differs from package root', () => {
