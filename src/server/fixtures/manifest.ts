@@ -201,14 +201,16 @@ export function seedFromManifest(db: DB, scenario: ManifestScenario, projectName
     });
     turnIdMap.set(i, turn.id);
 
-    // Create options in DB
+    // Create options in DB and retain their row IDs for user_parts rehydration.
+    const optionIdsByPosition = new Map<number, number>();
     for (let p = 0; p < options.length; p++) {
       const opt = options[p]!;
-      createOption(db, turn.id, {
+      const createdOption = createOption(db, turn.id, {
         position: p,
         content: opt.content,
         is_recommended: opt.is_recommended,
       });
+      optionIdsByPosition.set(p, createdOption.id);
     }
 
     // Apply selections
@@ -217,7 +219,9 @@ export function seedFromManifest(db: DB, scenario: ManifestScenario, projectName
     }
 
     // Set user_parts (needs actual turn.id, so done after creation)
-    const selectedIds = mt.selectedOptionPositions ?? [];
+    const selectedIds = (mt.selectedOptionPositions ?? [])
+      .map((position) => optionIdsByPosition.get(position))
+      .filter((optionId): optionId is number => optionId != null);
     const userParts = JSON.stringify([
       { type: 'text', text: mt.answer },
       {

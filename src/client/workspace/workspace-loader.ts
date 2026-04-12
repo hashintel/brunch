@@ -38,6 +38,7 @@ export async function fetchKnowledgeWorkspaceLoaderData(
   projectId: number | string,
 ): Promise<KnowledgeWorkspaceLoaderData> {
   const id = String(projectId);
+  await fetchJson<ProjectState>(`/api/projects/${id}`, 'Failed to load project');
   const entitySnapshot = await fetchJson<EntitiesData>(
     `/api/projects/${id}/entities`,
     'Failed to load project entities',

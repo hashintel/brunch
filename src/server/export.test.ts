@@ -2,7 +2,17 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { EntitiesData } from '../shared/api-types.js';
 import { getProjectState } from './core.js';
-import { createDb, createProject, getEntitiesForProject, type WorkflowState } from './db.js';
+import {
+  advanceHead,
+  createDb,
+  createKnowledgeItem,
+  createProject,
+  createTurn,
+  getEntitiesForProject,
+  getEntitiesForProjectOnActivePath,
+  linkKnowledgeItemToTurn,
+  type WorkflowState,
+} from './db.js';
 import { buildReviewedExportProjection, renderExportMarkdown } from './export.js';
 import {
   seedAllPhasesClosedWithForcedDesign,
@@ -231,6 +241,55 @@ describe('renderExportMarkdown', () => {
 
     expect(md).toContain('design');
     expect(md).toContain('low readiness');
+  });
+
+  it('filters export content to knowledge linked on the active path', () => {
+    const db = createDb();
+    openDbs.push(db);
+    const project = createProject(db, 'Branching Project');
+    const rootTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What database?',
+      answer: 'We are still deciding.',
+    });
+    const abandonedBranchTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: rootTurn.id,
+      question: 'Which storage option?',
+      answer: 'Take the SQLite branch.',
+    });
+    const activeBranchTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: rootTurn.id,
+      question: 'Which storage option?',
+      answer: 'Take the Postgres branch.',
+    });
+    advanceHead(db, project.id, activeBranchTurn.id);
+
+    const abandonedDecision = createKnowledgeItem(db, project.id, 'decision', 'Use SQLite for persistence', {
+      rationale: 'This belonged to the abandoned branch.',
+    });
+    const activeDecision = createKnowledgeItem(db, project.id, 'decision', 'Use Postgres for persistence', {
+      rationale: 'This belongs to the active branch.',
+    });
+    linkKnowledgeItemToTurn(db, abandonedDecision.id, abandonedBranchTurn.id);
+    linkKnowledgeItemToTurn(db, activeDecision.id, activeBranchTurn.id);
+
+    expect(getEntitiesForProject(db, project.id).decisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ content: 'Use SQLite for persistence' }),
+        expect.objectContaining({ content: 'Use Postgres for persistence' }),
+      ]),
+    );
+
+    const markdown = renderExportMarkdown(
+      project.name,
+      getEntitiesForProjectOnActivePath(db, project.id),
+      createAllClosedWorkflow(),
+    );
+
+    expect(markdown).toContain('Use Postgres for persistence');
+    expect(markdown).not.toContain('Use SQLite for persistence');
   });
 
   it('renders the forced-close canonical fixture with the expected export caveat', () => {

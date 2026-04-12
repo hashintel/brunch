@@ -792,6 +792,27 @@ export function getScopeBundleForProject(db: DB, projectId: number) {
   };
 }
 
+function getKnowledgeItemIdsLinkedToActivePath(db: DB, projectId: number): Set<number> {
+  const activeTurnIds = getActivePath(db, projectId).map((turn) => turn.id);
+  if (activeTurnIds.length === 0) {
+    return new Set();
+  }
+
+  const rows = db
+    .select({ itemId: schema.turnKnowledgeItem.item_id })
+    .from(schema.turnKnowledgeItem)
+    .innerJoin(schema.knowledgeItem, eq(schema.knowledgeItem.id, schema.turnKnowledgeItem.item_id))
+    .where(
+      and(
+        eq(schema.knowledgeItem.project_id, projectId),
+        inArray(schema.turnKnowledgeItem.turn_id, activeTurnIds),
+      ),
+    )
+    .all() as Array<{ itemId: number }>;
+
+  return new Set(rows.map((row) => row.itemId));
+}
+
 export function getEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
   const genericKnowledgeCollections = Object.fromEntries(
     genericKnowledgeKindRegistry.map((entry) => [
@@ -849,5 +870,25 @@ export function getEntitiesForProject(db: DB, projectId: number): EntitiesForPro
         id: relationship.target_id,
       },
     })),
+  };
+}
+
+export function getEntitiesForProjectOnActivePath(db: DB, projectId: number): EntitiesForProject {
+  const entities = getEntitiesForProject(db, projectId);
+  const activeItemIds = getKnowledgeItemIdsLinkedToActivePath(db, projectId);
+
+  return {
+    goals: entities.goals.filter((item) => activeItemIds.has(item.id)),
+    terms: entities.terms.filter((item) => activeItemIds.has(item.id)),
+    contexts: entities.contexts.filter((item) => activeItemIds.has(item.id)),
+    constraints: entities.constraints.filter((item) => activeItemIds.has(item.id)),
+    requirements: entities.requirements.filter((item) => activeItemIds.has(item.id)),
+    criteria: entities.criteria.filter((item) => activeItemIds.has(item.id)),
+    decisions: entities.decisions.filter((item) => activeItemIds.has(item.id)),
+    assumptions: entities.assumptions.filter((item) => activeItemIds.has(item.id)),
+    relationships: entities.relationships.filter(
+      (relationship) =>
+        activeItemIds.has(relationship.source.id) && activeItemIds.has(relationship.target.id),
+    ),
   };
 }
