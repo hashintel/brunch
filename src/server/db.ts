@@ -9,6 +9,7 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_FOLDER = join(__dirname, '..', '..', 'drizzle');
 
+import type { ProjectMode, ReadinessBand, ReviewStatus, WorkflowPhaseStatus } from '../shared/api-types.js';
 import { isAskQuestionUIPart, structuredQuestionSchema, type StructuredQuestion } from '../shared/chat.js';
 import {
   genericKnowledgeKindRegistry,
@@ -33,8 +34,7 @@ export type PhaseOutcome = InferSelectModel<typeof schema.phaseOutcome>;
 export type Phase = Turn['phase'];
 export type Impact = NonNullable<Turn['impact']>;
 export type PhaseOutcomeStatus = PhaseOutcome['status'];
-export type WorkflowPhaseStatus = 'unstarted' | 'in_progress' | 'closed';
-export type ReadinessBand = 'low' | 'medium' | 'high';
+export type { WorkflowPhaseStatus, ReadinessBand, ReviewStatus };
 export type ClosureBasis = PhaseClosureBasis | null;
 
 export interface WorkflowPhaseState {
@@ -98,7 +98,7 @@ export function listProjects(db: DB): Project[] {
 }
 
 export interface CreateProjectOptions {
-  mode?: 'greenfield' | 'brownfield';
+  mode?: ProjectMode;
   cwd?: string | null;
 }
 
@@ -525,8 +525,6 @@ export interface EntityRelationship {
   source: EntityReference;
   target: EntityReference;
 }
-
-export type ReviewStatus = 'approved' | 'rejected' | 'pending';
 
 export type RequirementEntity = KnowledgeItem & {
   reviewStatus?: ReviewStatus;
