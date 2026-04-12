@@ -18,6 +18,7 @@ import {
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
 import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
 import { EntitySidebar } from '@/components/EntitySidebar';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
 import { cn } from '@/lib/utils';
 
 import type { ProjectState, ProjectStateTurn } from '../../shared/api-types.js';
@@ -332,90 +333,96 @@ export function InterviewWorkspace() {
         </div>
       </header>
 
-      <div className="flex flex-1 overflow-hidden">
-        <div className="flex flex-1 flex-col">
-          <Conversation className="flex-1">
-            <ConversationContent className="mx-auto max-w-2xl">
-              {chat.messages.map((msg, msgIdx) => {
-                const isLastAssistant = msg.role === 'assistant' && msgIdx === chat.messages.length - 1;
-                return (
-                  <Message key={msg.id} from={msg.role}>
-                    <MessageContent>
-                      {msg.role === 'user'
-                        ? msg.parts
-                            ?.filter((p) => p.type === 'text')
-                            .map((p, i) => <span key={i}>{p.text}</span>)
-                        : renderParts(msg, isLastAssistant && chat.isStreaming)}
-                    </MessageContent>
-                  </Message>
-                );
-              })}
+      <ResizablePanelGroup orientation="horizontal" className="flex-1 overflow-hidden">
+        <ResizablePanel defaultSize={65} minSize={40}>
+          <div className="flex h-full flex-col">
+            <Conversation className="flex-1">
+              <ConversationContent className="mx-auto max-w-2xl">
+                {chat.messages.map((msg, msgIdx) => {
+                  const isLastAssistant = msg.role === 'assistant' && msgIdx === chat.messages.length - 1;
+                  return (
+                    <Message key={msg.id} from={msg.role}>
+                      <MessageContent>
+                        {msg.role === 'user'
+                          ? msg.parts
+                              ?.filter((p) => p.type === 'text')
+                              .map((p, i) => <span key={i}>{p.text}</span>)
+                          : renderParts(msg, isLastAssistant && chat.isStreaming)}
+                      </MessageContent>
+                    </Message>
+                  );
+                })}
 
-              {turnCard?.kind === 'persisted-turn' && (
-                <TurnCard
-                  key={`persisted-turn-${turnCard.turn.id}`}
-                  id={`persisted-turn-${turnCard.turn.id}`}
-                  question={turnCard.turn.question}
-                  why={turnCard.turn.why}
-                  impact={turnCard.turn.impact}
-                  options={turnCard.turn.options ?? []}
-                  onSubmitResponse={turnCard.submitTurnResponse}
-                  persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
-                  hasPersistedResponse={hasPersistedTurnResponse(turnCard.turn)}
-                  disabled={turnCard.disabled}
-                />
-              )}
+                {turnCard?.kind === 'persisted-turn' && (
+                  <TurnCard
+                    key={`persisted-turn-${turnCard.turn.id}`}
+                    id={`persisted-turn-${turnCard.turn.id}`}
+                    question={turnCard.turn.question}
+                    why={turnCard.turn.why}
+                    impact={turnCard.turn.impact}
+                    options={turnCard.turn.options ?? []}
+                    onSubmitResponse={turnCard.submitTurnResponse}
+                    persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
+                    hasPersistedResponse={hasPersistedTurnResponse(turnCard.turn)}
+                    disabled={turnCard.disabled}
+                  />
+                )}
 
-              {turnCard?.kind === 'pending-question' && (
-                <TurnCard
-                  key={turnCard.pendingQuestion.id}
-                  id={turnCard.pendingQuestion.id}
-                  question={turnCard.pendingQuestion.question}
-                  why={turnCard.pendingQuestion.why}
-                  impact={turnCard.pendingQuestion.impact}
-                  options={turnCard.pendingQuestion.options}
-                  persistedSelectedPositions={[]}
-                  hasPersistedResponse={false}
-                  disabled={turnCard.disabled}
-                />
-              )}
+                {turnCard?.kind === 'pending-question' && (
+                  <TurnCard
+                    key={turnCard.pendingQuestion.id}
+                    id={turnCard.pendingQuestion.id}
+                    question={turnCard.pendingQuestion.question}
+                    why={turnCard.pendingQuestion.why}
+                    impact={turnCard.pendingQuestion.impact}
+                    options={turnCard.pendingQuestion.options}
+                    persistedSelectedPositions={[]}
+                    hasPersistedResponse={false}
+                    disabled={turnCard.disabled}
+                  />
+                )}
 
-              {turnCard?.kind === 'persisted-turn' && turnCard.errorMessage && (
-                <p role="alert" className="mx-auto mt-3 max-w-2xl text-sm text-destructive">
-                  {turnCard.errorMessage}
-                </p>
-              )}
+                {turnCard?.kind === 'persisted-turn' && turnCard.errorMessage && (
+                  <p role="alert" className="mx-auto mt-3 max-w-2xl text-sm text-destructive">
+                    {turnCard.errorMessage}
+                  </p>
+                )}
 
-              {phaseSummary && (
-                <PhaseSummaryCard
-                  phase={phaseSummary.phase}
-                  summary={phaseSummary.summary}
-                  disabled={chat.isLoading}
-                  onConfirm={() => chat.confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId)}
-                />
-              )}
-            </ConversationContent>
-            <ConversationScrollButton />
-          </Conversation>
+                {phaseSummary && (
+                  <PhaseSummaryCard
+                    phase={phaseSummary.phase}
+                    summary={phaseSummary.summary}
+                    disabled={chat.isLoading}
+                    onConfirm={() => chat.confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId)}
+                  />
+                )}
+              </ConversationContent>
+              <ConversationScrollButton />
+            </Conversation>
 
-          {promptInput.visible && (
-            <div className="border-t px-4 py-3">
-              <div className="mx-auto max-w-2xl">
-                <PromptInput onSubmit={handleSubmit}>
-                  <PromptInputBody>
-                    <PromptInputTextarea placeholder="Type a message..." disabled={promptInput.disabled} />
-                  </PromptInputBody>
-                  <PromptInputFooter>
-                    <PromptInputSubmit status={chat.status} />
-                  </PromptInputFooter>
-                </PromptInput>
+            {promptInput.visible && (
+              <div className="border-t px-4 py-3">
+                <div className="mx-auto max-w-2xl">
+                  <PromptInput onSubmit={handleSubmit}>
+                    <PromptInputBody>
+                      <PromptInputTextarea placeholder="Type a message..." disabled={promptInput.disabled} />
+                    </PromptInputBody>
+                    <PromptInputFooter>
+                      <PromptInputSubmit status={chat.status} />
+                    </PromptInputFooter>
+                  </PromptInput>
+                </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        </ResizablePanel>
 
-        <EntitySidebar entityState={entityState} />
-      </div>
+        <ResizableHandle withHandle />
+
+        <ResizablePanel defaultSize={35} minSize={20}>
+          <EntitySidebar entityState={entityState} />
+        </ResizablePanel>
+      </ResizablePanelGroup>
     </div>
   );
 }

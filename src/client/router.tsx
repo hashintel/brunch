@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 
 import type { ProjectListItem } from '../shared/api-types.js';
+import { InterviewWorkspaceSkeleton, KnowledgeWorkspaceSkeleton } from './components/route-skeletons.js';
 import { DebugSurfaceRouteComponent } from './routes/debug-surface.js';
 import { fetchExportPreviewLoaderData } from './routes/export-loader.js';
 import { ExportPreview } from './routes/ExportPreview.js';
@@ -39,6 +40,7 @@ const projectRoute = createRoute({
   path: '/project/$id',
   loader: async ({ params }) => fetchInterviewWorkspaceLoaderData(params.id),
   component: InterviewWorkspace,
+  pendingComponent: InterviewWorkspaceSkeleton,
 });
 
 // Knowledge workspace — read-only review surface
@@ -47,6 +49,7 @@ const knowledgeRoute = createRoute({
   path: '/project/$id/knowledge',
   loader: async ({ params }) => fetchKnowledgeWorkspaceLoaderData(params.id),
   component: KnowledgeWorkspace,
+  pendingComponent: KnowledgeWorkspaceSkeleton,
 });
 
 // Export preview placeholder
