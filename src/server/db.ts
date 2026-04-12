@@ -3,7 +3,7 @@ import { and, desc, eq, inArray, sql, type InferSelectModel } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 
-import { isAskQuestionUIPart, structuredQuestionSchema, type RequirementReview } from '../shared/chat.js';
+import { isAskQuestionUIPart, structuredQuestionSchema, type StructuredQuestion } from '../shared/chat.js';
 import {
   genericKnowledgeKindRegistry,
   type GenericKnowledgeCollectionKey,
@@ -355,6 +355,11 @@ function hasRequirementsReviewCoverage(db: DB, projectId: number): boolean {
   );
 }
 
+function hasCriteriaReviewCoverage(db: DB, projectId: number): boolean {
+  const criteria = getCriterionEntitiesForProject(db, projectId);
+  return criteria.length > 0 && criteria.every((criterion) => criterion.reviewStatus !== 'pending');
+}
+
 function getPhaseCloseability(
   db: DB,
   projectId: number,
@@ -371,7 +376,7 @@ function getPhaseCloseability(
   }
 
   if (phase === 'criteria') {
-    return false;
+    return hasCriteriaReviewCoverage(db, projectId);
   }
 
   return hasTurnHistory;
@@ -502,10 +507,14 @@ export interface EntityRelationship {
   target: EntityReference;
 }
 
-export type RequirementReviewStatus = 'approved' | 'rejected' | 'pending';
+export type ReviewStatus = 'approved' | 'rejected' | 'pending';
 
 export type RequirementEntity = KnowledgeItem & {
-  reviewStatus?: RequirementReviewStatus;
+  reviewStatus?: ReviewStatus;
+};
+
+export type CriterionEntity = KnowledgeItem & {
+  reviewStatus?: ReviewStatus;
 };
 
 export interface EntitiesForProject {
@@ -514,7 +523,7 @@ export interface EntitiesForProject {
   contexts: KnowledgeItem[];
   constraints: KnowledgeItem[];
   requirements: RequirementEntity[];
-  criteria: KnowledgeItem[];
+  criteria: CriterionEntity[];
   decisions: Decision[];
   assumptions: Assumption[];
   relationships: EntityRelationship[];
@@ -661,10 +670,11 @@ function getEntityCollectionForKind(kind: KnowledgeKind): EntityCollection {
   return 'knowledge_item';
 }
 
-function getRequirementReviewStatusesOnActivePath(
+function getReviewStatusesOnActivePath(
   db: DB,
   projectId: number,
-): Map<number, RequirementReviewStatus> {
+  kind: 'requirement' | 'criterion',
+): Map<number, ReviewStatus> {
   const activePath = getActivePath(db, projectId);
   if (activePath.length === 0) {
     return new Map();
@@ -683,7 +693,7 @@ function getRequirementReviewStatusesOnActivePath(
     .where(
       and(
         eq(schema.knowledgeItem.project_id, projectId),
-        eq(schema.knowledgeItem.kind, 'requirement'),
+        eq(schema.knowledgeItem.kind, kind),
         inArray(schema.turnKnowledgeItem.relation, ['reviewed', 'rejected']),
         inArray(schema.turnKnowledgeItem.turn_id, activeTurnIds),
       ),
@@ -692,7 +702,7 @@ function getRequirementReviewStatusesOnActivePath(
 
   reviewRows.sort((left, right) => (turnOrder.get(left.turnId) ?? 0) - (turnOrder.get(right.turnId) ?? 0));
 
-  const statuses = new Map<number, RequirementReviewStatus>();
+  const statuses = new Map<number, ReviewStatus>();
   for (const row of reviewRows) {
     statuses.set(row.itemId, row.relation === 'reviewed' ? 'approved' : 'rejected');
   }
@@ -701,60 +711,75 @@ function getRequirementReviewStatusesOnActivePath(
 }
 
 function getRequirementEntitiesForProject(db: DB, projectId: number): RequirementEntity[] {
-  const requirementReviewStatuses = getRequirementReviewStatusesOnActivePath(db, projectId);
+  const reviewStatuses = getReviewStatusesOnActivePath(db, projectId, 'requirement');
   return getKnowledgeItemsForProjectByKind(db, projectId, 'requirement').map((item) => ({
     ...item,
-    reviewStatus: requirementReviewStatuses.get(item.id) ?? 'pending',
+    reviewStatus: reviewStatuses.get(item.id) ?? 'pending',
   }));
 }
 
-function getRequirementReview(turn: Pick<Turn, 'assistant_parts'>): RequirementReview | null {
+function getCriterionEntitiesForProject(db: DB, projectId: number): CriterionEntity[] {
+  const reviewStatuses = getReviewStatusesOnActivePath(db, projectId, 'criterion');
+  return getKnowledgeItemsForProjectByKind(db, projectId, 'criterion').map((item) => ({
+    ...item,
+    reviewStatus: reviewStatuses.get(item.id) ?? 'pending',
+  }));
+}
+
+function getReviewFromTurn<F extends 'requirementReview' | 'criterionReview'>(
+  turn: Pick<Turn, 'assistant_parts'>,
+  field: F,
+): NonNullable<StructuredQuestion[F]> | null {
   for (const part of safeDeserializeAssistantParts(turn.assistant_parts)) {
     if (!isAskQuestionUIPart(part) || !('input' in part)) {
       continue;
     }
 
     const parsedInput = structuredQuestionSchema.safeParse(part.input);
-    if (!parsedInput.success || !parsedInput.data.review) {
+    if (!parsedInput.success || !parsedInput.data[field]) {
       continue;
     }
 
-    return parsedInput.data.review;
+    return parsedInput.data[field];
   }
 
   return null;
 }
 
-export function recordRequirementReviewFromTurnResponse(
+export function recordReviewFromTurnResponse(
   db: DB,
   turn: Turn,
   selectedPositions: number[],
+  field: 'requirementReview' | 'criterionReview',
+  kind: 'requirement' | 'criterion',
 ): void {
-  const review = getRequirementReview(turn);
+  const review = getReviewFromTurn(turn, field);
   if (!review) {
     return;
   }
 
   const selectedReviewOptionPosition =
-    review.kind === 'requirement-approval' ? review.approveOptionPosition : review.rejectOptionPosition;
+    'approveOptionPosition' in review ? review.approveOptionPosition : review.rejectOptionPosition;
   if (!selectedPositions.includes(selectedReviewOptionPosition)) {
     return;
   }
 
-  const requirement = db
-    .select()
-    .from(schema.knowledgeItem)
-    .where(eq(schema.knowledgeItem.id, review.requirementId))
-    .get() as KnowledgeItem | undefined;
-  if (!requirement || requirement.project_id !== turn.project_id || requirement.kind !== 'requirement') {
+  const entityId =
+    kind === 'requirement'
+      ? (review as { requirementId: number }).requirementId
+      : (review as { criterionId: number }).criterionId;
+  const entity = db.select().from(schema.knowledgeItem).where(eq(schema.knowledgeItem.id, entityId)).get() as
+    | KnowledgeItem
+    | undefined;
+  if (!entity || entity.project_id !== turn.project_id || entity.kind !== kind) {
     return;
   }
 
   linkKnowledgeItemToTurn(
     db,
-    requirement.id,
+    entity.id,
     turn.id,
-    review.kind === 'requirement-approval' ? 'reviewed' : 'rejected',
+    'approveOptionPosition' in review ? 'reviewed' : 'rejected',
   );
 }
 
@@ -773,7 +798,9 @@ export function getEntitiesForProject(db: DB, projectId: number): EntitiesForPro
       entry.collectionKey,
       entry.kind === 'requirement'
         ? getRequirementEntitiesForProject(db, projectId)
-        : getKnowledgeItemsForProjectByKind(db, projectId, entry.kind),
+        : entry.kind === 'criterion'
+          ? getCriterionEntitiesForProject(db, projectId)
+          : getKnowledgeItemsForProjectByKind(db, projectId, entry.kind),
     ]),
   ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
   const decisions = getKnowledgeItemsForProjectByKind(db, projectId, 'decision').map(toDecision);

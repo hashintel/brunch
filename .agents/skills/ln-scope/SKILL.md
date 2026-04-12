@@ -65,6 +65,18 @@ Name the oracle strategy for this slice. If `memory/SPEC.md` §Oracle Strategy b
 
 A slice without a verification approach is not fully scoped. At minimum, inner-loop oracles must be named. Middle/outer are required when the slice touches LLM boundaries, visual rendering, or compositional behavior. Those slices should run through `ln-oracles` before `ln-build`.
 
+## Batch pre-scoping (optional)
+
+When several near-term slices follow a **proven structural pattern** with linear dependencies, scope them together into `memory/CARDS.md` instead of one at a time. This compresses planning without separate scope→build→scope context switches.
+
+**Use when:** slices mirror a pattern already validated by earlier work, dependencies are linear and well-understood, and risk is in execution rather than discovery.
+
+**Avoid when:** slices are exploratory, the design space has genuine uncertainty, or building slice N could fundamentally change what slice N+1 should be.
+
+`memory/CARDS.md` is a **temporary derivative document** — no authority, derivative of `memory/PLAN.md` for active implementation convenience. Delete it once all cards are built or superseded. Same convention as `memory/REFACTOR.md`.
+
+**Escape valve:** if a build invalidates a downstream card's assumptions, revise the card before building it — never build against stale scope.
+
 ## Traceability (mandatory — do before routing)
 
 After the scope card is complete, do these before presenting routing options:

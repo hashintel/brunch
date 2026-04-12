@@ -144,7 +144,7 @@
    - Result: interviewer grounded in requirement inventory; targeted approve/reject via review metadata + `turn_knowledge_item` links; closeability from full review coverage; shared phase-close seam reused for requirements → criteria handoff
    - Tracer bullets: 9.1 inventory grounding `done`, 9.2 targeted approval `done`, 9.3 targeted rejection `done`, 9.4 closeability + proposal `done`, 9.5 closure + criteria handoff `done`
 
-10.1 **Criteria grounding + first synthesis/review loop** — Prove the first post-requirements criteria turn is grounded in the approved requirement set and can round-trip one first criterion through the existing seams without widening into the full criteria lifecycle. `not-started`
+10.1 **Criteria grounding + first synthesis/review loop** `done`
      - Requirements: → SPEC.md §Requirements #6, #8, #12
      - Assumptions: → SPEC.md §Assumptions A28, A40
      - Decisions: → SPEC.md §Decisions D25, D55, D56, D71
@@ -153,7 +153,7 @@
      - Acceptance: after requirements closes, the first criteria turn includes the approved requirement inventory, asks a criteria-shaped question rather than a generic follow-up, and one initial criterion can round-trip through observer/entity persistence without dropping out of criteria mode
      - **Verification approach**: inner — criteria context/prompt seam tests plus criterion projection tests. Middle — round-trip oracle proving approved requirement inventory → criteria interviewer turn → criterion persistence/entities refresh. Outer — manual walkthrough judges whether the first criteria turn feels grounded in the reviewed requirement set.
 
-10.2 **Explicit criterion review state + minimal closeability** — Establish the first explicit per-criterion review seam and deterministic closeability rule in one slice rather than splitting approval, rejection, and closeability into separate tracer bullets. `not-started`
+10.2 **Explicit criterion review state + minimal closeability** — Establish the first explicit per-criterion review seam and deterministic closeability rule in one slice rather than splitting approval, rejection, and closeability into separate tracer bullets. `done`
      - Requirements: → SPEC.md §Requirements #7, #8, #12, #13
      - Assumptions: → SPEC.md §Assumptions A15, A28
      - Decisions: → SPEC.md §Decisions D24, D61, D65, D66, D70
@@ -162,7 +162,7 @@
      - Acceptance: a targeted criteria-review turn can persist one explicit positive review action and one explicit non-positive review action, read-side projection resolves latest review state per criterion, and workflow marks criteria closeable only when no criterion remains `pending`
      - **Verification approach**: inner — criterion review metadata/read-model/workflow-state tests. Middle — round-trip oracle proving explicit criterion review actions persist and project without drift, plus lifecycle oracle proving criteria stays `in_progress` until review coverage is complete. Outer — manual criteria review walkthrough judges whether the thin approve/reject semantics are legible enough to keep moving.
 
-10.3 **Criteria closure + completed workflow state** — Reuse the shared phase-close seam to close the final workflow phase and project a completed interview state once criteria review reaches the minimum bar. `not-started`
+10.3 **Criteria closure + completed workflow state** — Reuse the shared phase-close seam to close the final workflow phase and project a completed interview state once criteria review reaches the minimum bar. `done`
      - Requirements: → SPEC.md §Requirements #7, #8, #13
      - Assumptions: → SPEC.md §Assumptions A15, A28
      - Decisions: → SPEC.md §Decisions D65, D66, D71
@@ -293,10 +293,8 @@ Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
 
 ### Parallelism opportunities
 
-- With 7, 7a, 7b, 8, and 9 all done, the next primary slice is 10.1 (criteria grounding + first synthesis/review loop).
-- 10.2 and 10.3 should follow linearly; they are intentionally the minimum slices needed to unblock completed interview flow rather than separate variants of the same review seam.
-- 11a (project dashboard workflow state) can begin once 10.3 lands; it does not need the broader knowledge workspace.
-- 12 (knowledge workspace) and 13 (export) can proceed in parallel once 10.3 stabilizes the criteria artifacts and completed-workflow state.
+- 10.1–10.3 are done; the review seam has been unified (refactor landed between 10.3 and 11a).
+- 11a (project dashboard workflow state), 12 (knowledge workspace), and 13 (export) are all unblocked and can proceed in parallel.
 - 13a (review lifecycle refinement) is explicitly deferred; it should collect rarer review variants after 12 and 13 stabilize rather than fragmenting slices 9 and 10.
 - 14 (npx) can start early with a basic launcher, completing after slice 13 when the export predicate stabilizes.
 - 15 (drizzle-kit audit remediation) should wait until 14 lands.

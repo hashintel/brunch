@@ -8,7 +8,20 @@ interface InterviewerContextOptions {
   phase?: TurnWithOptions['phase'];
   entities?: {
     requirements?: Array<{ id: number; content: string }>;
+    approvedRequirements?: Array<{ id: number; content: string }>;
   };
+}
+
+function formatApprovedRequirementInventory(
+  approvedRequirements: NonNullable<InterviewerContextOptions['entities']>['approvedRequirements'],
+): string | null {
+  if (!approvedRequirements || approvedRequirements.length === 0) {
+    return null;
+  }
+
+  return `Approved requirements for criteria review:\n${approvedRequirements
+    .map((requirement) => `- [${requirement.id}] ${requirement.content}`)
+    .join('\n')}`;
 }
 
 function formatRequirementReviewInventory(
@@ -70,6 +83,14 @@ export function buildInterviewerContext(
       : null;
   if (requirementInventory) {
     sections.push(requirementInventory);
+  }
+
+  const approvedRequirementInventory =
+    options.phase === 'criteria'
+      ? formatApprovedRequirementInventory(options.entities?.approvedRequirements)
+      : null;
+  if (approvedRequirementInventory) {
+    sections.push(approvedRequirementInventory);
   }
 
   if (sections.length === 0) {

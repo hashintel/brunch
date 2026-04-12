@@ -566,6 +566,245 @@ describe('phase outcome lifecycle', () => {
     });
   });
 
+  it('projects criterion review status as approved, rejected, or pending from the latest active-path action', async () => {
+    const project = getOrCreateProject(db);
+
+    const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    advanceHead(db, project.id, scopeTurn.id);
+
+    const { createPhaseOutcome, confirmPhaseOutcome } = await import('./db.js');
+
+    const scopeOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'scope',
+      proposal_turn_id: scopeTurn.id,
+      summary: 'Scope captured.',
+    });
+    const scopeConfirmationTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: scopeTurn.id,
+      question: '',
+      answer: 'Confirm scope closure',
+    });
+    confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
+    advanceHead(db, project.id, scopeConfirmationTurn.id);
+
+    const designTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: scopeConfirmationTurn.id,
+      question: 'Tradeoff?',
+      answer: 'Keep it small',
+    });
+    advanceHead(db, project.id, designTurn.id);
+
+    const designOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'design',
+      proposal_turn_id: designTurn.id,
+      summary: 'Design captured.',
+    });
+    const designConfirmationTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: designTurn.id,
+      question: '',
+      answer: 'Confirm design closure',
+    });
+    confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
+    advanceHead(db, project.id, designConfirmationTurn.id);
+
+    const requirement = createKnowledgeItem(db, project.id, 'requirement', 'Export the spec');
+    const reqReviewTurn = createTurn(db, project.id, {
+      phase: 'requirements',
+      parent_turn_id: designConfirmationTurn.id,
+      question: 'Review?',
+      answer: 'Approve',
+    });
+    linkKnowledgeItemToTurn(db, requirement.id, reqReviewTurn.id, 'reviewed');
+    advanceHead(db, project.id, reqReviewTurn.id);
+
+    const reqProposalTurn = createTurn(db, project.id, {
+      phase: 'requirements',
+      parent_turn_id: reqReviewTurn.id,
+      question: '',
+      answer: 'Close requirements',
+    });
+    advanceHead(db, project.id, reqProposalTurn.id);
+    const reqOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'requirements',
+      proposal_turn_id: reqProposalTurn.id,
+      summary: 'Requirements reviewed.',
+    });
+    const reqConfirmationTurn = createTurn(db, project.id, {
+      phase: 'requirements',
+      parent_turn_id: reqProposalTurn.id,
+      question: '',
+      answer: 'Confirm requirements closure',
+    });
+    confirmPhaseOutcome(db, reqOutcome.id, reqConfirmationTurn.id);
+    advanceHead(db, project.id, reqConfirmationTurn.id);
+
+    const approvedCriterion = createKnowledgeItem(
+      db,
+      project.id,
+      'criterion',
+      'Markdown preview renders the reviewed requirements',
+    );
+    const rejectedCriterion = createKnowledgeItem(
+      db,
+      project.id,
+      'criterion',
+      'PDF export renders the reviewed requirements',
+    );
+    const pendingCriterion = createKnowledgeItem(
+      db,
+      project.id,
+      'criterion',
+      'Restarting the browser resumes the active path',
+    );
+
+    const criteriaReviewTurn = createTurn(db, project.id, {
+      phase: 'criteria',
+      parent_turn_id: reqConfirmationTurn.id,
+      question: 'Review these criteria?',
+      answer: 'Approve markdown, reject PDF',
+    });
+    linkKnowledgeItemToTurn(db, approvedCriterion.id, criteriaReviewTurn.id, 'reviewed');
+    linkKnowledgeItemToTurn(db, rejectedCriterion.id, criteriaReviewTurn.id, 'rejected');
+    advanceHead(db, project.id, criteriaReviewTurn.id);
+
+    const entities = getEntitiesForProject(db, project.id);
+    expect(entities.criteria).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: approvedCriterion.id, reviewStatus: 'approved' }),
+        expect.objectContaining({ id: rejectedCriterion.id, reviewStatus: 'rejected' }),
+        expect.objectContaining({ id: pendingCriterion.id, reviewStatus: 'pending' }),
+      ]),
+    );
+  });
+
+  it('makes criteria closeable only when every criterion has explicit non-pending review state', async () => {
+    const project = getOrCreateProject(db);
+
+    const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    advanceHead(db, project.id, scopeTurn.id);
+
+    const { createPhaseOutcome, confirmPhaseOutcome } = await import('./db.js');
+
+    const scopeOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'scope',
+      proposal_turn_id: scopeTurn.id,
+      summary: 'Scope captured.',
+    });
+    const scopeConfirmationTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: scopeTurn.id,
+      question: '',
+      answer: 'Confirm scope closure',
+    });
+    confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
+    advanceHead(db, project.id, scopeConfirmationTurn.id);
+
+    const designTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: scopeConfirmationTurn.id,
+      question: 'Tradeoff?',
+      answer: 'Keep it small',
+    });
+    advanceHead(db, project.id, designTurn.id);
+
+    const designOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'design',
+      proposal_turn_id: designTurn.id,
+      summary: 'Design captured.',
+    });
+    const designConfirmationTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: designTurn.id,
+      question: '',
+      answer: 'Confirm design closure',
+    });
+    confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
+    advanceHead(db, project.id, designConfirmationTurn.id);
+
+    const requirement = createKnowledgeItem(db, project.id, 'requirement', 'Export the spec');
+    const reqReviewTurn = createTurn(db, project.id, {
+      phase: 'requirements',
+      parent_turn_id: designConfirmationTurn.id,
+      question: 'Review?',
+      answer: 'Approve',
+    });
+    linkKnowledgeItemToTurn(db, requirement.id, reqReviewTurn.id, 'reviewed');
+    advanceHead(db, project.id, reqReviewTurn.id);
+
+    const reqProposalTurn = createTurn(db, project.id, {
+      phase: 'requirements',
+      parent_turn_id: reqReviewTurn.id,
+      question: '',
+      answer: 'Close requirements',
+    });
+    advanceHead(db, project.id, reqProposalTurn.id);
+    const reqOutcome = createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'requirements',
+      proposal_turn_id: reqProposalTurn.id,
+      summary: 'Requirements reviewed.',
+    });
+    const reqConfirmationTurn = createTurn(db, project.id, {
+      phase: 'requirements',
+      parent_turn_id: reqProposalTurn.id,
+      question: '',
+      answer: 'Confirm requirements closure',
+    });
+    confirmPhaseOutcome(db, reqOutcome.id, reqConfirmationTurn.id);
+    advanceHead(db, project.id, reqConfirmationTurn.id);
+
+    const criterion1 = createKnowledgeItem(
+      db,
+      project.id,
+      'criterion',
+      'Markdown preview renders the reviewed requirements',
+    );
+    const criterion2 = createKnowledgeItem(
+      db,
+      project.id,
+      'criterion',
+      'Restarting the browser resumes the active path',
+    );
+
+    const partialReviewTurn = createTurn(db, project.id, {
+      phase: 'criteria',
+      parent_turn_id: reqConfirmationTurn.id,
+      question: 'Review this criterion?',
+      answer: 'Approve markdown preview',
+    });
+    linkKnowledgeItemToTurn(db, criterion1.id, partialReviewTurn.id, 'reviewed');
+    advanceHead(db, project.id, partialReviewTurn.id);
+
+    expect(getCurrentWorkflowState(db, project.id).phases.criteria).toMatchObject({
+      status: 'in_progress',
+      closeability: false,
+      proposalPending: false,
+    });
+
+    const finalReviewTurn = createTurn(db, project.id, {
+      phase: 'criteria',
+      parent_turn_id: partialReviewTurn.id,
+      question: 'Review the remaining criterion?',
+      answer: 'Approve browser resume',
+    });
+    linkKnowledgeItemToTurn(db, criterion2.id, finalReviewTurn.id, 'reviewed');
+    advanceHead(db, project.id, finalReviewTurn.id);
+
+    expect(getCurrentWorkflowState(db, project.id).phases.criteria).toMatchObject({
+      status: 'in_progress',
+      closeability: true,
+      proposalPending: false,
+    });
+  });
+
   it('confirms a proposed requirements outcome, clears the pending proposal, and keeps criteria active', async () => {
     const project = getOrCreateProject(db);
 
