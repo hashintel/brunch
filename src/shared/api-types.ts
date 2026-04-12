@@ -1,9 +1,13 @@
 import * as z from 'zod/v4';
 
-import { phaseClosureBasisSchema, workflowPhaseSchema } from './phase-close.js';
+import { phaseClosureBasisSchema, workflowPhaseSchema, type WorkflowPhase } from './phase-close.js';
+
+export type { WorkflowPhase };
 
 export const workflowPhaseStatusSchema = z.enum(['unstarted', 'in_progress', 'closed']);
 export const readinessBandSchema = z.enum(['low', 'medium', 'high']);
+export const impactSchema = z.enum(['high', 'medium', 'low']);
+export const edgeRelationSchema = z.enum(['depends_on', 'derived_from', 'constrains', 'verifies', 'refines']);
 
 export const projectModeSchema = z.enum(['greenfield', 'brownfield']);
 
@@ -58,7 +62,7 @@ export const projectStateTurnSchema = z.object({
   phase: workflowPhaseSchema,
   question: z.string(),
   why: z.string().nullable(),
-  impact: z.enum(['high', 'medium', 'low']).nullable(),
+  impact: impactSchema.nullable(),
   answer: z.string().nullable(),
   is_resolution: z.boolean(),
   user_parts: z.string().nullable(),
@@ -97,7 +101,7 @@ const knowledgeItemKindSchema = z.enum([
   'decision',
   'assumption',
 ]);
-const reviewStatusSchema = z.enum(['approved', 'rejected', 'pending']);
+export const reviewStatusSchema = z.enum(['approved', 'rejected', 'pending']);
 
 export const knowledgeItemSchema = z.object({
   id: z.number().int().positive(),
@@ -204,6 +208,9 @@ export const submitTurnResponseResponseSchema = z.object({
 });
 
 export type ProjectMode = z.infer<typeof projectModeSchema>;
+export type Impact = z.infer<typeof impactSchema>;
+export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
+export type EdgeRelation = z.infer<typeof edgeRelationSchema>;
 export type WorkflowPhaseStatus = z.infer<typeof workflowPhaseStatusSchema>;
 export type ReadinessBand = z.infer<typeof readinessBandSchema>;
 export type Project = z.infer<typeof projectSchema>;
