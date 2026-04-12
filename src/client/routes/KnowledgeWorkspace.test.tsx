@@ -8,7 +8,7 @@ import type { EntitiesData } from '@/shared/api-types.js';
 
 import { KnowledgeWorkspaceView } from '../screens/KnowledgeWorkspaceScreen.js';
 import type { KnowledgeWorkspaceLoaderData } from '../workspace/workspace-loader.js';
-import { KnowledgeWorkspace } from './KnowledgeWorkspace.js';
+import { KnowledgeWorkspace } from './-knowledge-workspace.js';
 
 let currentLoaderData: KnowledgeWorkspaceLoaderData;
 

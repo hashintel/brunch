@@ -26,8 +26,9 @@ describe('generated route runtime ownership', () => {
 
     expect(viteConfigSource).toContain("from '@tanstack/router-plugin/vite'");
     expect(viteConfigSource).toContain('autoCodeSplitting: true');
-    expect(viteConfigSource).toContain("routesDirectory: './src/client/file-routes'");
+    expect(viteConfigSource).toContain("routesDirectory: './src/client/routes'");
     expect(viteConfigSource).toContain("generatedRouteTree: './src/client/routeTree.gen.ts'");
+    expect(viteConfigSource).toContain("routeFileIgnorePattern: '.*\\\\.test\\\\.(ts|tsx)$'");
     expect(viteConfigSource).toContain("target: 'react'");
     expect(viteConfigSource.indexOf('tanstackRouter(')).toBeGreaterThan(-1);
     expect(viteConfigSource.indexOf('tanstackRouter(')).toBeLessThan(viteConfigSource.indexOf('react()'));
@@ -35,9 +36,9 @@ describe('generated route runtime ownership', () => {
     expect(oxlintConfig.ignorePatterns).toContain('src/client/routeTree.gen.ts');
     expect(oxfmtConfig.ignorePatterns).toContain('src/client/routeTree.gen.ts');
 
-    expect(existsSync(join(process.cwd(), 'src/client/file-routes'))).toBe(true);
-    expect(existsSync(join(process.cwd(), 'src/client/file-routes/__root.tsx'))).toBe(true);
-    expect(generatedRouteTreeSource).toContain("from './file-routes/__root'");
+    expect(existsSync(join(process.cwd(), 'src/client/routes'))).toBe(true);
+    expect(existsSync(join(process.cwd(), 'src/client/routes/__root.tsx'))).toBe(true);
+    expect(generatedRouteTreeSource).toContain("from './routes/__root'");
     expect(routerSource).toContain("from './routeTree.gen.js'");
     expect(routerSource).toContain('createRouter({ routeTree })');
     expect(routerSource).not.toContain('createRoute(');

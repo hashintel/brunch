@@ -9,7 +9,7 @@ const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), 
 
 describe('file-route interview ownership', () => {
   it('keeps the interview workspace file route thin while the generated tree owns the route entry', () => {
-    const interviewRouteSource = readRepoFile('src/client/file-routes/project.$id.tsx');
+    const interviewRouteSource = readRepoFile('src/client/routes/project.$id.tsx');
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
     const workspaceLoaderSource = readRepoFile('src/client/workspace/workspace-loader.ts');
 
@@ -21,6 +21,6 @@ describe('file-route interview ownership', () => {
     expect(workspaceLoaderSource).toContain('fetchInterviewWorkspaceLoaderData');
 
     expect(generatedRouteTreeSource).toContain("'/project/$id'");
-    expect(generatedRouteTreeSource).toContain("'./file-routes/project.$id'");
+    expect(generatedRouteTreeSource).toContain("'./routes/project.$id'");
   });
 });

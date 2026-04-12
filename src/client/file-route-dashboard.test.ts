@@ -9,22 +9,23 @@ const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), 
 
 describe('file-route dashboard ownership', () => {
   it('keeps the dashboard file route thin while the generated tree owns the route entry', () => {
-    const dashboardRouteSource = readRepoFile('src/client/file-routes/index.tsx');
-    const fileRouteRootSource = readRepoFile('src/client/file-routes/__root.tsx');
+    const dashboardRouteSource = readRepoFile('src/client/routes/index.tsx');
+    const fileRouteRootSource = readRepoFile('src/client/routes/__root.tsx');
+    const projectListRouteSource = readRepoFile('src/client/routes/-project-list.tsx');
+    const routeRootSource = readRepoFile('src/client/routes/-route-root.tsx');
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
-    const projectListLoaderSource = readRepoFile('src/client/routes/project-list-loader.ts');
-    const routeRootSource = readRepoFile('src/client/routes/RouteRoot.tsx');
 
     expect(dashboardRouteSource).toContain("createFileRoute('/')");
     expect(dashboardRouteSource).toContain('fetchProjectListLoaderData');
-    expect(dashboardRouteSource).toContain('ProjectListScreen');
-    expect(dashboardRouteSource).toContain("navigate({ to: '/project/$id'");
+    expect(dashboardRouteSource).toContain('component: ProjectList');
 
-    expect(projectListLoaderSource).toContain("fetch('/api/projects')");
+    expect(projectListRouteSource).toContain("fetch('/api/projects')");
+    expect(projectListRouteSource).toContain('ProjectListScreen');
+    expect(projectListRouteSource).toContain("navigate({ to: '/project/$id'");
     expect(routeRootSource).toContain('Outlet');
     expect(fileRouteRootSource).toContain('component: RouteRoot');
 
     expect(generatedRouteTreeSource).toContain("'/'");
-    expect(generatedRouteTreeSource).toContain("'./file-routes/index'");
+    expect(generatedRouteTreeSource).toContain("'./routes/index'");
   });
 });

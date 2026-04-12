@@ -16,10 +16,10 @@ type BuildManifestChunk = {
 };
 
 const routeComponentManifestIds = [
-  'src/client/file-routes/index.tsx?tsr-split=component',
-  'src/client/file-routes/project.$id.tsx?tsr-split=component',
-  'src/client/file-routes/project_.$id.export.tsx?tsr-split=component',
-  'src/client/file-routes/project_.$id.knowledge.tsx?tsr-split=component',
+  'src/client/routes/index.tsx?tsr-split=component',
+  'src/client/routes/project.$id.tsx?tsr-split=component',
+  'src/client/routes/project_.$id.export.tsx?tsr-split=component',
+  'src/client/routes/project_.$id.knowledge.tsx?tsr-split=component',
 ] as const;
 
 describe('client build boundary', () => {

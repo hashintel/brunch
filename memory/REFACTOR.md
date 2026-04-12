@@ -6,7 +6,7 @@ The mismatch is small today, but it will become more annoying as route-specific 
 
 ## Solution
 
-Adopt TanStack Router file-based routing as the source of truth for the client route tree while preserving the current URL structure, loader behavior, pending states, and screen-level UI. The route directory should mirror the URL structure directly, and route files should stay thin: they own route definitions and delegate heavier screen logic to nearby non-route modules.
+Adopt TanStack Router file-based routing as the source of truth for the client route tree while preserving the current URL structure, loader behavior, pending states, and screen-level UI. The route directory should mirror the URL structure directly in `src/client/routes`, and route files should stay thin: they own route definitions and delegate heavier screen logic to nearby non-route modules.
 
 The migration should be staged so the codebase remains working after every commit. Preparatory work comes first: characterization coverage, route/view separation where helpful, and build-tool setup. The final behavioral state should still be the same four routes and the same user-visible navigation flow, but with filesystem-owned route topology and generated route-tree bootstrapping.
 
@@ -23,11 +23,11 @@ The migration should be staged so the codebase remains working after every commi
 
 Progress note: step 1 landed via `main.test.tsx`, `router.test.tsx`, and route-component link assertions in the existing dashboard/workspace/export tests.
 Progress note: step 2 landed via extracted `src/client/screens/*` modules while route components became thin wrappers around loader/controller wiring.
-Progress note: step 3 required a minimal `src/client/file-routes/__root.tsx` so the TanStack plugin could generate `src/client/routeTree.gen.ts` before the runtime cutover.
-Progress note: step 4 now stages `src/client/file-routes/index.tsx` against the shared `project-list-loader` and shared `RouteRoot` shell so the file-route dashboard matches the active manual dashboard without cutting runtime bootstrapping over.
-Progress note: step 5 now stages `src/client/file-routes/project.$id.tsx` against the shared workspace loader helper, existing `InterviewWorkspace` route component, and shared interview pending skeleton while the manual router still owns runtime bootstrapping.
-Progress note: step 6 staged the knowledge/export route owners against the shared knowledge/export loader helpers, existing route components, and shared knowledge pending skeleton so the later runtime cutover could preserve those seams unchanged.
-Progress note: step 7 now boots runtime from `src/client/router.tsx` using the managed `src/client/routeTree.gen.ts` tree, retires the manual route tree, and uses non-nested knowledge/export file-route owners (`src/client/file-routes/project_.$id.knowledge.tsx`, `src/client/file-routes/project_.$id.export.tsx`) so `/project/$id/knowledge` and `/project/$id/export` stay sibling screens instead of rendering through the interview workspace.
+Progress note: step 3 required a minimal `src/client/routes/__root.tsx` so the TanStack plugin could generate `src/client/routeTree.gen.ts` before the runtime cutover.
+Progress note: step 4 now stages `src/client/routes/index.tsx` against the shared `ProjectListScreen` and shared `RouteRoot` shell so the dashboard route matches the active manual dashboard without cutting runtime bootstrapping over.
+Progress note: step 5 now stages `src/client/routes/project.$id.tsx` against the shared workspace loader helper, existing `InterviewWorkspaceScreen`, and shared interview pending skeleton while the manual router still owns runtime bootstrapping.
+Progress note: step 6 staged the knowledge/export route owners against the shared knowledge/export loader helpers, existing screen modules, and shared knowledge pending skeleton so the later runtime cutover could preserve those seams unchanged.
+Progress note: step 7 now boots runtime from `src/client/router.tsx` using the managed `src/client/routeTree.gen.ts` tree, retires the manual route tree, and uses non-nested knowledge/export route owners (`src/client/routes/project_.$id.knowledge.tsx`, `src/client/routes/project_.$id.export.tsx`) so `/project/$id/knowledge` and `/project/$id/export` stay sibling screens instead of rendering through the interview workspace.
 Progress note: step 8 retires the remaining staging-era routing wording in the lightweight file-route tests, keeps the generated-route runtime ownership assertions focused on current bootstrapping, and extends `build-boundary.test.ts` so the production build proves TanStack's split route chunks remain active.
 
 ## Decisions

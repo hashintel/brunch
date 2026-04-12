@@ -9,7 +9,7 @@ const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), 
 
 describe('file-route knowledge ownership', () => {
   it('keeps the knowledge workspace file route thin while the generated tree owns the route entry', () => {
-    const knowledgeRouteSource = readRepoFile('src/client/file-routes/project_.$id.knowledge.tsx');
+    const knowledgeRouteSource = readRepoFile('src/client/routes/project_.$id.knowledge.tsx');
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
     const workspaceLoaderSource = readRepoFile('src/client/workspace/workspace-loader.ts');
 
@@ -21,6 +21,6 @@ describe('file-route knowledge ownership', () => {
     expect(workspaceLoaderSource).toContain('fetchKnowledgeWorkspaceLoaderData');
 
     expect(generatedRouteTreeSource).toContain("'/project/$id/knowledge'");
-    expect(generatedRouteTreeSource).toContain("'./file-routes/project_.$id.knowledge'");
+    expect(generatedRouteTreeSource).toContain("'./routes/project_.$id.knowledge'");
   });
 });

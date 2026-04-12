@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { fetchExportPreviewLoaderData } from '../routes/export-loader.js';
-import { ExportPreview } from '../routes/ExportPreview.js';
+import { fetchExportPreviewLoaderData } from './-export-loader.js';
+import { ExportPreview } from './-export-preview.js';
 
 export const Route = createFileRoute('/project_/$id/export')({
   loader: ({ params }) => fetchExportPreviewLoaderData(params.id),

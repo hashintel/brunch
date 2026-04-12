@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 const routeHarness = vi.hoisted(() => ({
   fetchInterviewWorkspaceLoaderData: vi.fn(async (id: string) => ({ id, kind: 'interview' })),
   fetchKnowledgeWorkspaceLoaderData: vi.fn(async (id: string) => ({ id, kind: 'knowledge' })),
-  fetchExportPreviewLoaderData: vi.fn(async (id: string) => ({ id, ready: false })),
 }));
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -17,24 +16,20 @@ vi.mock('./components/route-skeletons.js', () => ({
   KnowledgeWorkspaceSkeleton: () => <div>Knowledge loading</div>,
 }));
 
-vi.mock('./routes/ProjectList.js', () => ({
-  ProjectList: () => <h1>Projects screen</h1>,
-}));
-
 vi.mock('./screens/ProjectListScreen.js', () => ({
   ProjectListScreen: () => <h1>Projects screen</h1>,
 }));
 
-vi.mock('./routes/InterviewWorkspace.js', () => ({
-  InterviewWorkspace: () => <h1>Interview screen</h1>,
+vi.mock('./workspace/workspace-controller', () => ({
+  useWorkspaceController: () => ({ __brand: 'workspace-controller' }),
 }));
 
-vi.mock('./routes/KnowledgeWorkspace.js', () => ({
-  KnowledgeWorkspace: () => <h1>Knowledge screen</h1>,
+vi.mock('./screens/InterviewWorkspaceScreen.js', () => ({
+  InterviewWorkspaceScreen: () => <h1>Interview screen</h1>,
 }));
 
-vi.mock('./routes/ExportPreview.js', () => ({
-  ExportPreview: () => <h1>Export screen</h1>,
+vi.mock('./screens/KnowledgeWorkspaceScreen.js', () => ({
+  KnowledgeWorkspaceScreen: () => <h1>Knowledge screen</h1>,
 }));
 
 vi.mock('./workspace/workspace-loader.js', () => ({
@@ -42,8 +37,8 @@ vi.mock('./workspace/workspace-loader.js', () => ({
   fetchKnowledgeWorkspaceLoaderData: routeHarness.fetchKnowledgeWorkspaceLoaderData,
 }));
 
-vi.mock('./routes/export-loader.js', () => ({
-  fetchExportPreviewLoaderData: routeHarness.fetchExportPreviewLoaderData,
+vi.mock('./screens/ExportPreviewScreen.js', () => ({
+  ExportPreviewScreen: () => <h1>Export screen</h1>,
 }));
 
 import { routeTree } from './routeTree.gen.js';
@@ -76,14 +71,15 @@ beforeEach(() => {
   fetchMock.mockReset();
   routeHarness.fetchInterviewWorkspaceLoaderData.mockClear();
   routeHarness.fetchKnowledgeWorkspaceLoaderData.mockClear();
-  routeHarness.fetchExportPreviewLoaderData.mockClear();
-  fetchMock.mockImplementation(
-    async () =>
-      new Response(JSON.stringify([]), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-  );
+  fetchMock.mockImplementation(async (input) => {
+    const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+    const payload = url.endsWith('/export') ? { ready: false } : [];
+
+    return new Response(JSON.stringify(payload), {
+      status: 200,
+      headers: { 'Content-Type': 'application/json' },
+    });
+  });
   vi.stubGlobal('fetch', fetchMock);
 });
 
@@ -160,6 +156,6 @@ describe('generated routeTree', () => {
     await renderRouteAt('/project/42/export');
 
     expect(await screen.findByRole('heading', { name: 'Export screen' })).toBeTruthy();
-    expect(routeHarness.fetchExportPreviewLoaderData).toHaveBeenCalledWith('42');
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42/export');
   });
 });
