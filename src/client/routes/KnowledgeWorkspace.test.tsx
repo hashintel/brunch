@@ -5,10 +5,10 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { vi } from 'vitest';
 
 import type { EntitiesData } from '../../shared/api-types.js';
-import type { WorkspaceLoaderData } from '../workspace/workspace-loader.js';
+import type { KnowledgeWorkspaceLoaderData } from '../workspace/workspace-loader.js';
 import { KnowledgeWorkspace, KnowledgeWorkspaceView } from './KnowledgeWorkspace.js';
 
-let currentLoaderData: WorkspaceLoaderData;
+let currentLoaderData: KnowledgeWorkspaceLoaderData;
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }) => (
@@ -38,56 +38,6 @@ const emptyEntities: EntitiesData = {
 
 afterEach(() => {
   currentLoaderData = {
-    projectState: {
-      project: {
-        id: 1,
-        name: 'Project 1',
-        active_turn_id: null,
-        created_at: '2026-04-03 10:00:00',
-        updated_at: '2026-04-03 10:00:00',
-      },
-      workflow: {
-        phases: {
-          scope: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          design: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          requirements: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          criteria: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-        },
-      },
-      turns: [],
-    },
     entitySnapshot: emptyEntities,
   };
 });
@@ -189,56 +139,6 @@ describe('KnowledgeWorkspaceView', () => {
 describe('KnowledgeWorkspace', () => {
   it('renders route-level heading, navigation, and loader-backed content', () => {
     currentLoaderData = {
-      projectState: {
-        project: {
-          id: 1,
-          name: 'Project 1',
-          active_turn_id: null,
-          created_at: '2026-04-03 10:00:00',
-          updated_at: '2026-04-03 10:00:00',
-        },
-        workflow: {
-          phases: {
-            scope: {
-              status: 'closed',
-              closeability: true,
-              readiness: 'high',
-              closureBasis: 'interviewer_recommended',
-              proposalPending: false,
-              turnId: 1,
-              summary: 'Closed',
-            },
-            design: {
-              status: 'unstarted',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-            requirements: {
-              status: 'unstarted',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-            criteria: {
-              status: 'unstarted',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-          },
-        },
-        turns: [],
-      },
       entitySnapshot: {
         ...emptyEntities,
         goals: [{ id: 1, project_id: 1, kind: 'goal', subtype: null, content: 'Ship MVP', rationale: null }],

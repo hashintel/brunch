@@ -548,7 +548,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | message.test.tsx              | 2     | I24, I27                                              |
 | build-boundary.test.ts        | 1     | I24, I28, I30, I32                                    |
 | capability-boundaries.test.ts | 2     | I24, I29                                              |
-| KnowledgeWorkspace.test.tsx   | 5     | I48                                                   |
+| KnowledgeWorkspace.test.tsx   | 5     | I24, I48                                              |
 | workspace-loader.test.ts      | 2     | I24                                                   |
 | export-loader.test.ts         | 1     | D26, D65, D66, D70                                    |
 | ExportPreview.test.tsx        | 2     | D26, D65, D66, D70                                    |

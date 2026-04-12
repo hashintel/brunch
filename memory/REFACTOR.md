@@ -20,7 +20,7 @@ The target state is that export represents the approved, active-path spec rather
 2. Done: extract a dedicated reviewed-export projection seam so artifact selection and caveat generation can be tested independently from HTTP handlers and page rendering.
 3. Done: introduce route-specific loader helpers for workflow detail pages while keeping the current UI output unchanged.
 4. Done: move the export page to router-provided data so the page no longer performs its first fetch after render.
-5. Narrow the knowledge page to a knowledge-only loader and add route-level coverage for loader wiring and back-navigation.
+5. Done: narrow the knowledge page to a knowledge-only loader and add route-level coverage for loader wiring and back-navigation.
 6. Do a verification and fixture-backed manual pass on closed projects with different closure states to confirm the routed pages and export artifact still read coherently.
 
 ## Decisions

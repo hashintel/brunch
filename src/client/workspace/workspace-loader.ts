@@ -5,6 +5,10 @@ export interface WorkspaceLoaderData {
   entitySnapshot: EntitiesData;
 }
 
+export interface KnowledgeWorkspaceLoaderData {
+  entitySnapshot: EntitiesData;
+}
+
 async function fetchJson<T>(url: string, errorMessage: string): Promise<T> {
   const response = await fetch(url);
   if (!response.ok) {
@@ -32,6 +36,12 @@ export async function fetchInterviewWorkspaceLoaderData(
 
 export async function fetchKnowledgeWorkspaceLoaderData(
   projectId: number | string,
-): Promise<WorkspaceLoaderData> {
-  return fetchWorkflowDetailLoaderData(projectId);
+): Promise<KnowledgeWorkspaceLoaderData> {
+  const id = String(projectId);
+  const entitySnapshot = await fetchJson<EntitiesData>(
+    `/api/projects/${id}/entities`,
+    'Failed to load project entities',
+  );
+
+  return { entitySnapshot };
 }

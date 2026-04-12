@@ -101,22 +101,15 @@ describe('workspace route loaders', () => {
   });
 
   it('loads knowledge workspace route data from the same current route contract through its own helper', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(projectState), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(entitySnapshot), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify(entitySnapshot), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
 
-    await expect(fetchKnowledgeWorkspaceLoaderData('7')).resolves.toEqual({ projectState, entitySnapshot });
-    expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/projects/7');
-    expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/projects/7/entities');
+    await expect(fetchKnowledgeWorkspaceLoaderData('7')).resolves.toEqual({ entitySnapshot });
+    expect(fetchMock).toHaveBeenCalledOnce();
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/7/entities');
   });
 });
