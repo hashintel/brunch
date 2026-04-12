@@ -178,10 +178,15 @@ export const entitiesDataSchema = z.object({
   relationships: z.array(entityRelationshipSchema),
 });
 
-export const exportLoaderDataSchema = z.object({
-  ready: z.boolean(),
-  markdown: z.string().optional(),
-});
+export const exportLoaderDataSchema = z.discriminatedUnion('ready', [
+  z.object({
+    ready: z.literal(false),
+  }),
+  z.object({
+    ready: z.literal(true),
+    markdown: z.string(),
+  }),
+]);
 
 export const mutationErrorResponseSchema = z.object({
   error: z.string().optional(),

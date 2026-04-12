@@ -202,7 +202,7 @@ describe('api transport contracts', () => {
       ready: true,
       markdown: '# Reviewed Spec',
     });
-    expect(exportLoaderDataSchema.parse({ ready: true })).toEqual({ ready: true });
+    expect(() => exportLoaderDataSchema.parse({ ready: true })).toThrow();
     expect(mutationErrorResponseSchema.parse({ error: 'Failed to save response' })).toEqual({
       error: 'Failed to save response',
     });
