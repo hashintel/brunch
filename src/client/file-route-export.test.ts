@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
-describe('file-route export staging', () => {
+describe('file-route export ownership', () => {
   it('keeps the export preview file route thin while the generated tree owns the route entry', () => {
     const exportRouteSource = readRepoFile('src/client/file-routes/project_.$id.export.tsx');
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');

@@ -7,6 +7,21 @@ import { join } from 'node:path';
 import { build } from 'vite';
 import { afterEach, describe, expect, it } from 'vitest';
 
+type BuildManifestChunk = {
+  dynamicImports?: string[];
+  file?: string;
+  isDynamicEntry?: boolean;
+  isEntry?: boolean;
+  src?: string;
+};
+
+const routeComponentManifestIds = [
+  'src/client/file-routes/index.tsx?tsr-split=component',
+  'src/client/file-routes/project.$id.tsx?tsr-split=component',
+  'src/client/file-routes/project_.$id.export.tsx?tsr-split=component',
+  'src/client/file-routes/project_.$id.knowledge.tsx?tsr-split=component',
+] as const;
+
 describe('client build boundary', () => {
   const tempDirs: string[] = [];
 
@@ -31,10 +46,7 @@ describe('client build boundary', () => {
     });
 
     const manifestPath = join(outDir, '.vite', 'manifest.json');
-    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<
-      string,
-      { file?: string; isEntry?: boolean }
-    >;
+    const manifest = JSON.parse(readFileSync(manifestPath, 'utf8')) as Record<string, BuildManifestChunk>;
     const entry = manifest['index.html'];
 
     expect(entry?.isEntry).toBe(true);
@@ -49,12 +61,23 @@ describe('client build boundary', () => {
     };
   };
 
-  it('keeps rich markdown rendering lazy and excludes shiki from the production build', async () => {
+  it('keeps rich markdown rendering lazy and preserves route-level code splitting in the production build', async () => {
     const readableBuild = await buildClient({ minify: false });
+    const routeComponentChunkFiles = routeComponentManifestIds.map((manifestId) => {
+      const chunk = readableBuild.manifest[manifestId];
+
+      expect(chunk, `${manifestId} missing from manifest`).toBeTruthy();
+      expect(chunk?.isDynamicEntry, `${manifestId} should stay lazy-loaded`).toBe(true);
+      expect(chunk?.file).toBeTruthy();
+
+      return chunk!.file!;
+    });
 
     expect(readableBuild.entryFile).toContain('/project/$id');
     expect(readableBuild.entryFile).not.toContain('streamdown');
     expect(readableBuild.entryFile).not.toContain('createHighlighter');
+    expect(readableBuild.entry.dynamicImports?.slice().sort()).toEqual([...routeComponentManifestIds].sort());
+    expect(new Set(routeComponentChunkFiles).size).toBe(routeComponentChunkFiles.length);
 
     // streamdown is lazy-loaded for progressive markdown rendering
     const richRenderingChunk = Object.values(readableBuild.manifest).find((chunk) => {

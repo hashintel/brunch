@@ -7,8 +7,8 @@ import { describe, expect, it } from 'vitest';
 
 const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
-describe('file-route infrastructure', () => {
-  it('wires the file-route build pipeline into runtime routing', () => {
+describe('generated route runtime ownership', () => {
+  it('keeps generated routing configured and bootstrapped from the managed route tree', () => {
     const packageJson = JSON.parse(readRepoFile('package.json')) as {
       devDependencies?: Record<string, string>;
     };
@@ -25,6 +25,7 @@ describe('file-route infrastructure', () => {
     expect(packageJson.devDependencies?.['@tanstack/router-plugin']).toBeTruthy();
 
     expect(viteConfigSource).toContain("from '@tanstack/router-plugin/vite'");
+    expect(viteConfigSource).toContain('autoCodeSplitting: true');
     expect(viteConfigSource).toContain("routesDirectory: './src/client/file-routes'");
     expect(viteConfigSource).toContain("generatedRouteTree: './src/client/routeTree.gen.ts'");
     expect(viteConfigSource).toContain("target: 'react'");

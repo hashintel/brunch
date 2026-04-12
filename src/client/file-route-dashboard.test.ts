@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
-describe('file-route dashboard staging', () => {
+describe('file-route dashboard ownership', () => {
   it('keeps the dashboard file route thin while the generated tree owns the route entry', () => {
     const dashboardRouteSource = readRepoFile('src/client/file-routes/index.tsx');
     const fileRouteRootSource = readRepoFile('src/client/file-routes/__root.tsx');

@@ -19,7 +19,7 @@ The migration should be staged so the codebase remains working after every commi
 5. Done — introduce the file-based interview workspace route wrapper, preserving the current loader and pending-state behavior.
 6. Done — introduce the file-based knowledge and export route wrappers, preserving the current loader behavior, knowledge pending-state behavior, and export navigation flow.
 7. Done — cut router bootstrapping over to the generated route tree, retire the manual route tree, and keep the knowledge/export routes as non-nested file-route siblings so runtime behavior stays unchanged.
-8. Next — clean up transitional wiring, update architecture/docs language, and keep a lightweight build oracle that confirms the intended route-generation and code-splitting behavior survives the refactor.
+8. Done — retire the remaining staging-era routing language, align docs to generated-tree runtime ownership, and keep a lightweight build oracle that confirms route generation and route-level code splitting survive cleanup.
 
 Progress note: step 1 landed via `main.test.tsx`, `router.test.tsx`, and route-component link assertions in the existing dashboard/workspace/export tests.
 Progress note: step 2 landed via extracted `src/client/screens/*` modules while route components became thin wrappers around loader/controller wiring.
@@ -28,6 +28,7 @@ Progress note: step 4 now stages `src/client/file-routes/index.tsx` against the 
 Progress note: step 5 now stages `src/client/file-routes/project.$id.tsx` against the shared workspace loader helper, existing `InterviewWorkspace` route component, and shared interview pending skeleton while the manual router still owns runtime bootstrapping.
 Progress note: step 6 staged the knowledge/export route owners against the shared knowledge/export loader helpers, existing route components, and shared knowledge pending skeleton so the later runtime cutover could preserve those seams unchanged.
 Progress note: step 7 now boots runtime from `src/client/router.tsx` using the managed `src/client/routeTree.gen.ts` tree, retires the manual route tree, and uses non-nested knowledge/export file-route owners (`src/client/file-routes/project_.$id.knowledge.tsx`, `src/client/file-routes/project_.$id.export.tsx`) so `/project/$id/knowledge` and `/project/$id/export` stay sibling screens instead of rendering through the interview workspace.
+Progress note: step 8 retires the remaining staging-era routing wording in the lightweight file-route tests, keeps the generated-route runtime ownership assertions focused on current bootstrapping, and extends `build-boundary.test.ts` so the production build proves TanStack's split route chunks remain active.
 
 ## Decisions
 

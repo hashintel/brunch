@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
-describe('file-route knowledge staging', () => {
+describe('file-route knowledge ownership', () => {
   it('keeps the knowledge workspace file route thin while the generated tree owns the route entry', () => {
     const knowledgeRouteSource = readRepoFile('src/client/file-routes/project_.$id.knowledge.tsx');
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
