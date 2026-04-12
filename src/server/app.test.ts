@@ -4,6 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { ProjectState } from '../shared/api-types.js';
 import { buildInterviewerContext } from './context.js';
 import type { DB } from './db.js';
+import {
+  seedActiveDesign as _seedActiveDesign,
+  seedAllPhasesClosed as _seedAllPhasesClosed,
+  seedClosedScope as _seedClosedScope,
+  seedCriteriaReady as _seedCriteriaReady,
+  seedRequirementsReady as _seedRequirementsReady,
+} from './fixtures/scenarios.js';
 
 const { mockStreamInterviewer, mockRunObserver } = vi.hoisted(() => ({
   mockStreamInterviewer: vi.fn(),
@@ -160,180 +167,24 @@ async function createTestProject(name = 'Test Project'): Promise<number> {
   return res.body.id;
 }
 
-async function seedClosedScope(projectId: number) {
-  const { advanceHead, confirmPhaseOutcome, createPhaseOutcome, createTurn } = await import('./db.js');
-
-  const scopeTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    question: 'What platform?',
-    answer: 'Web',
-  });
-  advanceHead(db, projectId, scopeTurn.id);
-
-  const scopeProposalTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    parent_turn_id: scopeTurn.id,
-    question: '',
-    answer: 'We have enough scope context',
-  });
-  advanceHead(db, projectId, scopeProposalTurn.id);
-
-  const scopeOutcome = createPhaseOutcome(db, {
-    projectId,
-    phase: 'scope',
-    proposal_turn_id: scopeProposalTurn.id,
-    summary: 'Goals, terms, context, and constraints are sufficiently captured.',
-  });
-
-  const scopeConfirmationTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    parent_turn_id: scopeProposalTurn.id,
-    question: '',
-    answer: 'Confirm scope closure',
-    user_parts: JSON.stringify([
-      { type: 'text', text: 'Confirm scope closure' },
-      {
-        type: 'data-confirmation',
-        data: {
-          kind: 'confirm-proposed-phase-closure',
-          proposalTurnId: scopeProposalTurn.id,
-          phase: 'scope',
-        },
-      },
-    ]),
-  });
-  confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
-  advanceHead(db, projectId, scopeConfirmationTurn.id);
-
-  return { scopeTurn, scopeProposalTurn, scopeConfirmationTurn };
+function seedClosedScope(projectId: number) {
+  return _seedClosedScope(db, projectId);
 }
 
-async function seedActiveDesign(projectId: number) {
-  const { advanceHead, createTurn } = await import('./db.js');
-  const seededScope = await seedClosedScope(projectId);
-
-  const designTurn = createTurn(db, projectId, {
-    phase: 'design',
-    parent_turn_id: seededScope.scopeConfirmationTurn.id,
-    question: 'Which tradeoff matters most?',
-    answer: 'Keep the repository seam small',
-  });
-  advanceHead(db, projectId, designTurn.id);
-
-  return { ...seededScope, designTurn };
+function seedActiveDesign(projectId: number) {
+  return _seedActiveDesign(db, projectId);
 }
 
-async function seedCriteriaReady(projectId: number) {
-  const {
-    advanceHead,
-    confirmPhaseOutcome,
-    createPhaseOutcome,
-    createTurn,
-    createKnowledgeItem,
-    linkKnowledgeItemToTurn,
-  } = await import('./db.js');
-  const seededRequirements = await seedRequirementsReady(projectId);
-
-  const approvedRequirement = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    'Resume the interview from SQLite after restart',
-  );
-  const rejectedRequirement = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    'Support exporting the spec as a PDF',
-  );
-
-  const reviewTurn = createTurn(db, projectId, {
-    phase: 'requirements',
-    parent_turn_id: seededRequirements.designConfirmationTurn.id,
-    question: 'Are these requirements all reviewed now?',
-    answer: 'Yes — approve resume and reject PDF export',
-  });
-  linkKnowledgeItemToTurn(db, approvedRequirement.id, reviewTurn.id, 'reviewed');
-  linkKnowledgeItemToTurn(db, rejectedRequirement.id, reviewTurn.id, 'rejected');
-  advanceHead(db, projectId, reviewTurn.id);
-
-  const requirementsProposalTurn = createTurn(db, projectId, {
-    phase: 'requirements',
-    parent_turn_id: reviewTurn.id,
-    question: '',
-    answer: 'The requirement set has explicit review coverage and is ready to move into criteria.',
-  });
-  advanceHead(db, projectId, requirementsProposalTurn.id);
-
-  const requirementsOutcome = createPhaseOutcome(db, {
-    projectId,
-    phase: 'requirements',
-    proposal_turn_id: requirementsProposalTurn.id,
-    summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
-  });
-
-  const requirementsConfirmationTurn = createTurn(db, projectId, {
-    phase: 'requirements',
-    parent_turn_id: requirementsProposalTurn.id,
-    question: '',
-    answer: 'Confirm requirements closure',
-    user_parts: JSON.stringify([
-      { type: 'text', text: 'Confirm requirements closure' },
-      {
-        type: 'data-confirmation',
-        data: {
-          kind: 'confirm-proposed-phase-closure',
-          proposalTurnId: requirementsProposalTurn.id,
-          phase: 'requirements',
-        },
-      },
-    ]),
-  });
-  confirmPhaseOutcome(db, requirementsOutcome.id, requirementsConfirmationTurn.id);
-  advanceHead(db, projectId, requirementsConfirmationTurn.id);
-
-  return {
-    ...seededRequirements,
-    approvedRequirement,
-    rejectedRequirement,
-    reviewTurn,
-    requirementsProposalTurn,
-    requirementsConfirmationTurn,
-  };
+function seedRequirementsReady(projectId: number) {
+  return _seedRequirementsReady(db, projectId);
 }
 
-async function seedRequirementsReady(projectId: number) {
-  const { advanceHead, confirmPhaseOutcome, createPhaseOutcome, createTurn } = await import('./db.js');
-  const seededDesign = await seedActiveDesign(projectId);
+function seedCriteriaReady(projectId: number) {
+  return _seedCriteriaReady(db, projectId);
+}
 
-  const designOutcome = createPhaseOutcome(db, {
-    projectId,
-    phase: 'design',
-    proposal_turn_id: seededDesign.designTurn.id,
-    summary: 'The main architectural commitments are captured well enough to review requirements.',
-  });
-
-  const designConfirmationTurn = createTurn(db, projectId, {
-    phase: 'design',
-    parent_turn_id: seededDesign.designTurn.id,
-    question: '',
-    answer: 'Confirm design closure',
-    user_parts: JSON.stringify([
-      { type: 'text', text: 'Confirm design closure' },
-      {
-        type: 'data-confirmation',
-        data: {
-          kind: 'confirm-proposed-phase-closure',
-          proposalTurnId: seededDesign.designTurn.id,
-          phase: 'design',
-        },
-      },
-    ]),
-  });
-  confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
-  advanceHead(db, projectId, designConfirmationTurn.id);
-
-  return { ...seededDesign, designConfirmationTurn };
+function seedAllPhasesClosed(projectId: number) {
+  return _seedAllPhasesClosed(db, projectId);
 }
 
 beforeEach(() => {
@@ -364,6 +215,49 @@ describe('GET /api/projects', () => {
   it('returns an empty array when no projects exist', async () => {
     const res = await request(app).get('/api/projects').expect(200);
     expect(res.body).toEqual([]);
+  });
+
+  it('returns workflow summary with scope in-progress for a new project', async () => {
+    await createTestProject('Fresh project');
+    const res = await request(app).get('/api/projects').expect(200);
+    expect(res.body).toHaveLength(1);
+    expect(res.body[0]).toMatchObject({
+      name: 'Fresh project',
+      workflowSummary: {
+        scope: 'in_progress',
+        design: 'unstarted',
+        requirements: 'unstarted',
+        criteria: 'unstarted',
+      },
+    });
+  });
+
+  it('returns workflow summary reflecting closed scope and in-progress design', async () => {
+    const projectId = await createTestProject('Active project');
+    await seedActiveDesign(projectId);
+    const res = await request(app).get('/api/projects').expect(200);
+    expect(res.body[0]).toMatchObject({
+      workflowSummary: {
+        scope: 'closed',
+        design: 'in_progress',
+        requirements: 'unstarted',
+        criteria: 'unstarted',
+      },
+    });
+  });
+
+  it('returns workflow summary with all phases closed for a completed project', async () => {
+    const projectId = await createTestProject('Done project');
+    await seedAllPhasesClosed(projectId);
+    const res = await request(app).get('/api/projects').expect(200);
+    expect(res.body[0]).toMatchObject({
+      workflowSummary: {
+        scope: 'closed',
+        design: 'closed',
+        requirements: 'closed',
+        criteria: 'closed',
+      },
+    });
   });
 });
 

@@ -74,7 +74,7 @@ describe('ProjectList', () => {
           active_turn_id: null,
           created_at: '2026-04-03 10:00:00',
           updated_at: '2026-04-03 10:00:00',
-        } satisfies ProjectListItem),
+        }),
         {
           status: 201,
           headers: { 'Content-Type': 'application/json' },
@@ -99,6 +99,30 @@ describe('ProjectList', () => {
     await waitFor(() => {
       expect(navigateMock).toHaveBeenCalledWith({ to: '/project/$id', params: { id: '7' } });
     });
+  });
+
+  it('renders per-phase workflow status badges for each project', () => {
+    currentProjects = [
+      {
+        id: 1,
+        name: 'Active project',
+        active_turn_id: 5,
+        created_at: '2026-04-10 09:00:00',
+        updated_at: '2026-04-10 09:30:00',
+        workflowSummary: {
+          scope: 'closed',
+          design: 'in_progress',
+          requirements: 'unstarted',
+          criteria: 'unstarted',
+        },
+      } satisfies ProjectListItem,
+    ];
+
+    renderProjectList();
+    expect(screen.getByText('Scope')).toBeDefined();
+    expect(screen.getByText('Design')).toBeDefined();
+    expect(screen.getByText('Requirements')).toBeDefined();
+    expect(screen.getByText('Criteria')).toBeDefined();
   });
 
   it('shows a visible error when project creation fails', async () => {
