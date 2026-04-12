@@ -1,7 +1,13 @@
+import { dirname, join } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import Database from 'better-sqlite3';
 import { and, desc, eq, inArray, sql, type InferSelectModel } from 'drizzle-orm';
 import { drizzle } from 'drizzle-orm/better-sqlite3';
 import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
+
+const __dirname = dirname(fileURLToPath(import.meta.url));
+const MIGRATIONS_FOLDER = join(__dirname, '..', '..', 'drizzle');
 
 import { isAskQuestionUIPart, structuredQuestionSchema, type StructuredQuestion } from '../shared/chat.js';
 import {
@@ -76,7 +82,7 @@ export function createDb(path: string = ':memory:'): DB {
   sqlite.pragma('journal_mode = WAL');
   sqlite.pragma('foreign_keys = ON');
   const db = drizzle(sqlite, { schema });
-  migrate(db, { migrationsFolder: './drizzle' });
+  migrate(db, { migrationsFolder: MIGRATIONS_FOLDER });
   return db;
 }
 

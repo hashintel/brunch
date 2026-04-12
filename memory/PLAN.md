@@ -156,14 +156,11 @@
      - Shipped: tool JSON renders via plain `<pre><code>` (no shiki); `/debug` route removed; AI Elements showcase migrated to Ladle story; shiki eliminated from all production chunks
      - Evidence: build-boundary.test.ts (no-shiki oracle), capability-boundaries.test.ts, 253 tests pass, npm run verify green
 
-14. **Local-first storage + npx distribution** — `resolveBrunchProject()` with shallow walk-up discovery creates/finds `.brunch/` directory. `bin` entry, Express launcher serves built Vite assets + API on one port, opens browser. `npx brunch` for web UI. Single env var: `ANTHROPIC_API_KEY`. `not-started`
-    - Requirements: → SPEC.md §Requirements #1, #14
-    - Decisions: → SPEC.md §Decisions D10, D20, D81
-    - Candidate invariant goals: `.brunch/` discovery works from subdirectories (walk-up); DB lifecycle unchanged after path migration; packaged launcher preserves working app
-    - Invariants to respect: → SPEC.md §Invariants I1, I2, I4, I5
-    - Acceptance: `npx brunch` in a project directory creates `.brunch/`, opens working app; running from subdirectory finds parent `.brunch/`; `BrunchProject` struct exposes root, dbPath, cwd
-    - **Verification approach**: inner — launcher/path-resolution tests plus packaged app smoke checks. Outer — packaged manual walkthrough includes seeded closed-project knowledge/export routes using `forced-close-all-phases-closed` and `low-readiness-all-phases-closed`, so the deferred Phase 6 browser coherence pass lands at the real distribution boundary rather than in the pre-distribution refactor thread.
-    - Design: `docs/design/LOCAL_STORAGE.md`
+14. **Local-first storage + npx distribution** `done`
+    - Shipped: `BrunchProject` resolution with walk-up discovery, Express launcher serves API + static on one port, bin entry for `npx @hashintel/brunch`, drizzle migrations resolved via `import.meta.url`
+    - Evidence: project.test.ts (8 pass), launcher.test.ts (3 pass), 264 total tests pass, npm run verify green
+    - Debt: actual npx publish/distribution testing, `--port` flag, graceful shutdown
+    - Unblocks: 14a (greenfield/brownfield), 16 (drizzle-kit audit)
 
 14a. **Greenfield/brownfield first-screen + exploration** — First screen routes between greenfield (blank concept) and brownfield (existing codebase). Project records store `mode` and `cwd`. Brownfield adds core tools to interviewer, brownfield system prompt variant instructs explore-then-interview on first turn. Observer extracts from that turn as usual. `not-started`
      - Requirements: → SPEC.md §Requirements #2, #3, #16

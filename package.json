@@ -12,6 +12,9 @@
   },
   "license": "(MIT OR Apache-2.0)",
   "type": "module",
+  "bin": {
+    "brunch": "./src/server/cli.ts"
+  },
   "scripts": {
     "build": "vite build",
     "check": "npm run fmt:check && npm run lint && npm run typecheck",
@@ -56,6 +59,7 @@
     "md-pen": "^1.2.0",
     "motion": "^12.38.0",
     "nanoid": "^5.1.7",
+    "open": "^11.0.0",
     "radix-ui": "^1.4.3",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
