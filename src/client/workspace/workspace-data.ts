@@ -5,23 +5,25 @@ import {
   createWorkspaceDurableEntityState,
   createWorkspaceDurableProjectState,
   createWorkspaceEphemeralChatState,
-  type WorkspaceDurableEntityState,
-  type WorkspaceDurableProjectState,
-  type WorkspaceEphemeralChatState,
+} from './workspace-controller-core.js';
+import type {
+  WorkspaceDurableEntityState,
+  WorkspaceDurableProjectState,
+  WorkspaceEphemeralChatState,
 } from './workspace-controller-core.js';
 import type { WorkspaceLoaderData } from './workspace-loader.js';
 
 export interface WorkspaceDataAdapter {
-  durableProject: WorkspaceDurableProjectState;
-  durableEntities: WorkspaceDurableEntityState;
-  ephemeralChat: WorkspaceEphemeralChatState;
-  handleDataPart: (dataPart: { type: string; data?: unknown }) => void;
+  readonly durableProject: WorkspaceDurableProjectState;
+  readonly durableEntities: WorkspaceDurableEntityState;
+  readonly ephemeralChat: WorkspaceEphemeralChatState;
+  readonly handleDataPart: (dataPart: { type: string; data?: unknown }) => void;
 }
 
 interface WorkspaceEntityRefreshState {
-  loaderSnapshot: EntitiesData;
-  data: EntitiesData | undefined;
-  isLoading: boolean;
+  readonly loaderSnapshot: EntitiesData;
+  readonly data: EntitiesData | undefined;
+  readonly isLoading: boolean;
 }
 
 async function fetchWorkspaceEntities(projectId: number): Promise<EntitiesData> {

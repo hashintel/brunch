@@ -22,7 +22,8 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/componen
 import { cn } from '@/lib/utils';
 
 import type { ProjectState, ProjectStateTurn } from '../../shared/api-types.js';
-import { isAskQuestionUIPart, type BrunchUIMessage } from '../../shared/chat.js';
+import { isAskQuestionUIPart } from '../../shared/chat.js';
+import type { BrunchUIMessage } from '../../shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '../../shared/phase-close.js';
 import { useWorkspaceController } from '../workspace/workspace-controller';
 import {
@@ -126,7 +127,7 @@ function TurnCard({
   question: string;
   why: string | null;
   impact: ProjectStateTurn['impact'];
-  options: TurnCardOption[];
+  options: readonly TurnCardOption[];
   onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
   persistedSelectedPositions: number[];
   hasPersistedResponse: boolean;

@@ -39,11 +39,11 @@ This keeps the refactor focused on the highest-risk overlap between the React re
 5. [done] Add explicit return types to the exported boundary functions touched by the transport pass so the module surfaces stay legible during later commits.
 6. [done] Put the live chat owner behind a project-identity reset boundary and delete the post-render chat hydration overwrite.
 7. [done] Collapse workspace entity hydration to one authority per route transition and remove the effect-based loader-to-cache mirroring step.
-8. Mark touched snapshot and view-model contracts as readonly and normalize type-only imports in the refactored boundary modules.
+8. [done] Mark touched snapshot and view-model contracts as readonly and normalize type-only imports in the refactored boundary modules.
 
 ## Progress
 
-First half complete: commits 1-4 are landed and the full test suite passes.
+All planned commits are landed and the full test suite passes.
 
 Temporary deferral:
 - the client build-boundary test keeps its chunk-splitting assertions, but the minified entry-size ceiling is deferred until after the remaining workspace-state refactor work. Bundle-size tightening is not the current priority for this refactor pass.

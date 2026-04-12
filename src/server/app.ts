@@ -2,14 +2,14 @@ import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessage
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 
-import {
-  submitTurnResponseRequestSchema,
-  type EntitiesData,
-  type ExportLoaderData,
-  type MutationErrorResponse,
-  type ProjectListItem,
-  type ProjectState,
-  type SubmitTurnResponseResponse,
+import { submitTurnResponseRequestSchema } from '../shared/api-types.js';
+import type {
+  EntitiesData,
+  ExportLoaderData,
+  MutationErrorResponse,
+  ProjectListItem,
+  ProjectState,
+  SubmitTurnResponseResponse,
 } from '../shared/api-types.js';
 import {
   assistantPartsSchema,
@@ -17,10 +17,8 @@ import {
   brunchValidationTools,
   extractTextFromMessage,
   formatTurnResponseText,
-  type BrunchAssistantPart,
-  type BrunchUIMessage,
-  type BrunchUserPart,
 } from '../shared/chat.js';
+import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '../shared/chat.js';
 import {
   getForceCloseActionErrorMessage,
   getForceClosePhaseAction,
@@ -57,8 +55,8 @@ import { runObserver } from './observer.js';
 import { serializeParts } from './parts.js';
 
 export interface AppServices {
-  app: Express;
-  db: DB;
+  readonly app: Express;
+  readonly db: DB;
 }
 
 export function createApp(dbPath?: string): AppServices {

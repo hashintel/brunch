@@ -1,19 +1,15 @@
 import type { ZodType } from 'zod/v4';
 
-import {
-  entitiesDataSchema,
-  projectStateSchema,
-  type EntitiesData,
-  type ProjectState,
-} from '../../shared/api-types.js';
+import { entitiesDataSchema, projectStateSchema } from '../../shared/api-types.js';
+import type { EntitiesData, ProjectState } from '../../shared/api-types.js';
 
 export interface WorkspaceLoaderData {
-  projectState: ProjectState;
-  entitySnapshot: EntitiesData;
+  readonly projectState: ProjectState;
+  readonly entitySnapshot: EntitiesData;
 }
 
 export interface KnowledgeWorkspaceLoaderData {
-  entitySnapshot: EntitiesData;
+  readonly entitySnapshot: EntitiesData;
 }
 
 async function fetchJson<T>(url: string, schema: ZodType<T>, errorMessage: string): Promise<T> {

@@ -251,7 +251,7 @@ function createQueryClient() {
   });
 }
 
-function messageText(messages: BrunchUIMessage[]) {
+function messageText(messages: readonly BrunchUIMessage[]) {
   return messages
     .flatMap(
       (message) => message.parts?.filter((part) => part.type === 'text').map((part) => part.text) ?? [],

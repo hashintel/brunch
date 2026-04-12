@@ -1,20 +1,20 @@
 import { useRouter } from '@tanstack/react-router';
 
-import {
-  submitTurnResponseResponseSchema,
-  type ProjectStateTurn,
-  type SubmitTurnResponseRequest,
-  type SubmitTurnResponseResponse,
+import { submitTurnResponseResponseSchema } from '../../shared/api-types.js';
+import type {
+  ProjectStateTurn,
+  SubmitTurnResponseRequest,
+  SubmitTurnResponseResponse,
 } from '../../shared/api-types.js';
 import { formatTurnResponseText } from '../../shared/chat.js';
 import { findTurnOptionsByPositions } from '../workspace/workspace-controller-core.js';
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
 export interface SubmitTurnResponseMutationState {
-  submitTurnResponse: (positions?: number[], freeText?: string) => Promise<void>;
-  isPending: boolean;
-  errorMessage: string | null;
-  clearError: () => void;
+  readonly submitTurnResponse: (positions?: number[], freeText?: string) => Promise<void>;
+  readonly isPending: boolean;
+  readonly errorMessage: string | null;
+  readonly clearError: () => void;
 }
 
 export function useSubmitTurnResponseMutation({

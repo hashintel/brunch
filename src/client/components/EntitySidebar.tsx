@@ -15,7 +15,7 @@ function entityKey(collection: 'knowledge_item' | 'decision' | 'assumption', id:
 }
 
 function renderKnowledgeItems(
-  items: Array<{
+  items: ReadonlyArray<{
     id: number;
     content: string;
     subtype: string | null;

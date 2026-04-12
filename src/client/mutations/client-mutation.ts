@@ -1,13 +1,14 @@
 import { useMutation } from '@tanstack/react-query';
 import type { ZodType } from 'zod/v4';
 
-import { mutationErrorResponseSchema, type MutationErrorResponse } from '../../shared/api-types.js';
+import { mutationErrorResponseSchema } from '../../shared/api-types.js';
+import type { MutationErrorResponse } from '../../shared/api-types.js';
 
 export interface ClientMutationState<TResponse, TVariables> {
-  run: (variables: TVariables) => Promise<TResponse>;
-  isPending: boolean;
-  errorMessage: string | null;
-  clearError: () => void;
+  readonly run: (variables: TVariables) => Promise<TResponse>;
+  readonly isPending: boolean;
+  readonly errorMessage: string | null;
+  readonly clearError: () => void;
 }
 
 export class ClientMutationError extends Error {
