@@ -186,8 +186,8 @@ describe('ProjectList', () => {
       expect(fetchMock).toHaveBeenCalled();
       const call = fetchMock.mock.calls[0];
       const body = JSON.parse(call[1]?.body as string);
-      expect(body.mode).toBe('brownfield');
-      expect(body.name).toBe('New project');
+      expect(body).toEqual({ name: 'New project', mode: 'brownfield' });
+      expect(body.cwd).toBeUndefined();
     });
   });
 

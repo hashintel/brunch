@@ -164,6 +164,20 @@ describe('brownfield interviewer configuration', () => {
     expect(toolNames).toContain('ask_question');
   });
 
+  it('currently exposes repo-mutating tools in brownfield mode before tool-surface tightening', () => {
+    const project = createProject(db, 'BF', { mode: 'brownfield', cwd: '/tmp/repo' });
+    const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: '' });
+    const tools = getInterviewerTools(db, turn.id, 'scope', project.id, {
+      mode: 'brownfield',
+      cwd: '/tmp/repo',
+    });
+    const toolNames = Object.keys(tools);
+
+    expect(toolNames).toContain('write_file');
+    expect(toolNames).toContain('edit_file');
+    expect(toolNames).toContain('bash');
+  });
+
   it('excludes core tools when mode is greenfield', () => {
     const project = createProject(db, 'GF');
     const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: '' });
