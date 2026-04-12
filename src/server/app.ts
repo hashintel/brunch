@@ -1,6 +1,6 @@
 import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessages } from 'ai';
 import express from 'express';
-import type { Request, Response } from 'express';
+import type { Express, Request, Response } from 'express';
 
 import {
   submitTurnResponseRequestSchema,
@@ -49,13 +49,19 @@ import {
   getEntitiesForProject,
   getEntitiesForProjectOnActivePath,
   recordReviewFromTurnResponse,
+  type DB,
 } from './db.js';
 import { isExportReady, renderExportMarkdown } from './export.js';
 import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { serializeParts } from './parts.js';
 
-export function createApp(dbPath?: string) {
+export interface AppServices {
+  app: Express;
+  db: DB;
+}
+
+export function createApp(dbPath?: string): AppServices {
   const db = createDb(dbPath);
   const app = express();
   app.use(express.json());

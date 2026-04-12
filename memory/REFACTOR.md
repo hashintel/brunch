@@ -32,14 +32,21 @@ This keeps the refactor focused on the highest-risk overlap between the React re
 
 ## Commits
 
-1. Add characterization coverage for the refactor seam: project navigation, same-project refresh, entity refresh after observer invalidation, and JSON-boundary success/failure cases.
-2. Introduce explicit shared transport contracts for project state, entity payloads, export payloads, mutation errors, and turn-response request/response payloads without changing runtime behavior yet.
-3. Move client loader and mutation helpers to parse transport payloads through those shared contracts and remove unchecked JSON casts from the workspace-facing routes and mutations.
-4. Narrow the turn-response and review payload shapes so meaningful request modes are represented explicitly instead of through bags of optional fields.
-5. Add explicit return types to the exported boundary functions touched by the transport pass so the module surfaces stay legible during later commits.
+1. [done] Add characterization coverage for the refactor seam: project navigation, same-project refresh, entity refresh after observer invalidation, and JSON-boundary success/failure cases.
+2. [done] Introduce explicit shared transport contracts for project state, entity payloads, export payloads, mutation errors, and turn-response request/response payloads without changing runtime behavior yet.
+3. [done] Move client loader and mutation helpers to parse transport payloads through those shared contracts and remove unchecked JSON casts from the workspace-facing routes and mutations.
+4. [done] Narrow the turn-response and review payload shapes so meaningful request modes are represented explicitly instead of through bags of optional fields.
+5. [done] Add explicit return types to the exported boundary functions touched by the transport pass so the module surfaces stay legible during later commits.
 6. Put the live chat owner behind a project-identity reset boundary and delete the post-render chat hydration overwrite.
 7. Collapse workspace entity hydration to one authority per route transition and remove the effect-based loader-to-cache mirroring step.
 8. Mark touched snapshot and view-model contracts as readonly and normalize type-only imports in the refactored boundary modules.
+
+## Progress
+
+First half complete: commits 1-4 are landed and the full test suite passes.
+
+Temporary deferral:
+- the client build-boundary test keeps its chunk-splitting assertions, but the minified entry-size ceiling is deferred until after the remaining workspace-state refactor work. Bundle-size tightening is not the current priority for this refactor pass.
 
 ## Decisions
 

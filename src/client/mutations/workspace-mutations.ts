@@ -10,6 +10,13 @@ import { formatTurnResponseText } from '../../shared/chat.js';
 import { findTurnOptionsByPositions } from '../workspace/workspace-controller-core.js';
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
+export interface SubmitTurnResponseMutationState {
+  submitTurnResponse: (positions?: number[], freeText?: string) => Promise<void>;
+  isPending: boolean;
+  errorMessage: string | null;
+  clearError: () => void;
+}
+
 export function useSubmitTurnResponseMutation({
   projectId,
   turn,
@@ -18,7 +25,7 @@ export function useSubmitTurnResponseMutation({
   projectId: number;
   turn: ProjectStateTurn | undefined;
   sendMessage: (message: { text: string }) => Promise<void> | void;
-}) {
+}): SubmitTurnResponseMutationState {
   const router = useRouter();
   const mutation = useClientMutation((variables: { turnId: number; response: SubmitTurnResponseRequest }) =>
     postJsonMutation<SubmitTurnResponseResponse, SubmitTurnResponseRequest>(

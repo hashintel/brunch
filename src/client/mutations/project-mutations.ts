@@ -7,7 +7,14 @@ import {
 } from '../../shared/api-types.js';
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
-export function useCreateProjectMutation() {
+export interface CreateProjectMutationState {
+  createProject: (name: string) => Promise<CreateProjectResponse>;
+  isPending: boolean;
+  errorMessage: string | null;
+  clearError: () => void;
+}
+
+export function useCreateProjectMutation(): CreateProjectMutationState {
   const navigate = useNavigate();
   const mutation = useClientMutation((variables: CreateProjectRequest) =>
     postJsonMutation<CreateProjectResponse, CreateProjectRequest>(

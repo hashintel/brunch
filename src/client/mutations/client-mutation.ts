@@ -3,6 +3,13 @@ import type { ZodType } from 'zod/v4';
 
 import { mutationErrorResponseSchema, type MutationErrorResponse } from '../../shared/api-types.js';
 
+export interface ClientMutationState<TResponse, TVariables> {
+  run: (variables: TVariables) => Promise<TResponse>;
+  isPending: boolean;
+  errorMessage: string | null;
+  clearError: () => void;
+}
+
 export class ClientMutationError extends Error {
   readonly status: number | undefined;
 
@@ -57,7 +64,7 @@ export async function postJsonMutation<TResponse, TRequest>(
 
 export function useClientMutation<TResponse, TVariables>(
   mutationFn: (variables: TVariables) => Promise<TResponse>,
-) {
+): ClientMutationState<TResponse, TVariables> {
   const mutation = useMutation<TResponse, ClientMutationError, TVariables>({ mutationFn });
 
   return {
