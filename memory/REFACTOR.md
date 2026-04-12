@@ -16,8 +16,8 @@ The migration should be staged so the codebase remains working after every commi
 2. Done — separate route-definition ownership from heavy screen implementation where needed, so route files can become thin wrappers without changing current behavior.
 3. Done — add file-based routing build infrastructure and generated-artifact handling while keeping the existing manual router active.
 4. Done — introduce the dashboard file-route wrapper and align the file-based root route with the existing behavior, with no URL or loader changes.
-5. Next — introduce the file-based interview workspace route wrapper, preserving the current loader and pending-state behavior.
-6. Introduce the file-based knowledge and export route wrappers, preserving the current loader behavior and navigation flow.
+5. Done — introduce the file-based interview workspace route wrapper, preserving the current loader and pending-state behavior.
+6. Next — introduce the file-based knowledge and export route wrappers, preserving the current loader behavior and navigation flow.
 7. Cut router bootstrapping over to the generated route tree and remove the manual route tree once all active routes are owned by file routes.
 8. Clean up transitional wiring, update architecture/docs language, and keep a lightweight build oracle that confirms the intended route-generation and code-splitting behavior survives the refactor.
 
@@ -25,6 +25,7 @@ Progress note: step 1 landed via `main.test.tsx`, `router.test.tsx`, and route-c
 Progress note: step 2 landed via extracted `src/client/screens/*` modules while route components became thin wrappers around loader/controller wiring.
 Progress note: step 3 required a minimal `src/client/file-routes/__root.tsx` so the TanStack plugin could generate `src/client/routeTree.gen.ts` before the runtime cutover.
 Progress note: step 4 now stages `src/client/file-routes/index.tsx` against the shared `project-list-loader` and shared `RouteRoot` shell so the file-route dashboard matches the active manual dashboard without cutting runtime bootstrapping over.
+Progress note: step 5 now stages `src/client/file-routes/project.$id.tsx` against the shared workspace loader helper, existing `InterviewWorkspace` route component, and shared interview pending skeleton while the manual router still owns runtime bootstrapping.
 
 ## Decisions
 

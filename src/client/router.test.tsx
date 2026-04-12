@@ -44,6 +44,16 @@ vi.mock('./routes/export-loader.js', () => ({
 
 import { routeTree } from './router.js';
 
+function createDeferredPromise<T>() {
+  let resolve!: (value: T) => void;
+
+  const promise = new Promise<T>((resolvePromise) => {
+    resolve = resolvePromise;
+  });
+
+  return { promise, resolve };
+}
+
 async function renderRouteAt(pathname: string) {
   const history = createMemoryHistory({ initialEntries: [pathname] });
   const router = createRouter({ routeTree, history });
@@ -93,6 +103,26 @@ describe('routeTree', () => {
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
     expect(routeHarness.fetchInterviewWorkspaceLoaderData).toHaveBeenCalledWith('42');
+  });
+
+  it('keeps the interview workspace pending skeleton active while the route loader is unresolved', async () => {
+    const deferredLoader = createDeferredPromise<{ id: string; kind: string }>();
+    routeHarness.fetchInterviewWorkspaceLoaderData.mockImplementationOnce(() => deferredLoader.promise);
+
+    const history = createMemoryHistory({ initialEntries: ['/project/42'] });
+    const router = createRouter({ routeTree, history, defaultPendingMs: 0 });
+
+    render(<RouterProvider router={router} />);
+    void router.load();
+
+    expect(await screen.findByText('Interview loading')).toBeTruthy();
+    expect(routeHarness.fetchInterviewWorkspaceLoaderData).toHaveBeenCalledWith('42');
+
+    await act(async () => {
+      deferredLoader.resolve({ id: '42', kind: 'interview' });
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
   });
 
   it('maps the knowledge URL to the knowledge route loader and screen', async () => {
