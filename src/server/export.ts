@@ -4,15 +4,18 @@ import type { EntitiesData } from '../shared/api-types.js';
 import { knowledgeKindRegistry } from '../shared/knowledge.js';
 import type { WorkflowState } from './db.js';
 
-function renderItem(item: { content: string; rationale?: string | null; reviewStatus?: string }): string {
+function renderItem(item: { content: string; rationale?: string | null }): string {
   const parts = [item.content];
-  if (item.reviewStatus) {
-    parts.push(`(${item.reviewStatus})`);
-  }
   if (item.rationale) {
     parts.push(`— ${item.rationale}`);
   }
   return parts.join(' ');
+}
+
+function getReviewedExportItems(
+  items: Array<{ content: string; rationale?: string | null; reviewStatus?: string }>,
+) {
+  return items.filter((item) => !('reviewStatus' in item) || item.reviewStatus === 'approved');
 }
 
 function renderCaveats(workflow: WorkflowState): string {
@@ -20,6 +23,9 @@ function renderCaveats(workflow: WorkflowState): string {
   for (const [phase, state] of Object.entries(workflow.phases)) {
     if (state.closureBasis && state.closureBasis !== 'interviewer_recommended') {
       caveats.push(`${bold(phase)} was closed via user-forced closure`);
+    }
+    if (state.readiness === 'low') {
+      caveats.push(`${bold(phase)} was closed with low readiness`);
     }
   }
   if (caveats.length === 0) return '';
@@ -39,7 +45,7 @@ export function renderExportMarkdown(
   }
 
   for (const entry of knowledgeKindRegistry) {
-    const items = entities[entry.collectionKey];
+    const items = getReviewedExportItems(entities[entry.collectionKey]);
     if (items.length === 0) continue;
 
     sections.push(h2(entry.label));

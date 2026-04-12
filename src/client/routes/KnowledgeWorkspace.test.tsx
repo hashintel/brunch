@@ -2,9 +2,23 @@
 
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
+import { vi } from 'vitest';
 
 import type { EntitiesData } from '../../shared/api-types.js';
-import { KnowledgeWorkspaceView } from './KnowledgeWorkspace.js';
+import type { WorkspaceLoaderData } from '../workspace/workspace-loader.js';
+import { KnowledgeWorkspace, KnowledgeWorkspaceView } from './KnowledgeWorkspace.js';
+
+let currentLoaderData: WorkspaceLoaderData;
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, to, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }) => (
+    <a href={to} {...props}>
+      {children}
+    </a>
+  ),
+  useLoaderData: () => currentLoaderData,
+  useParams: () => ({ id: '1' }),
+}));
 
 afterEach(() => {
   cleanup();
@@ -21,6 +35,62 @@ const emptyEntities: EntitiesData = {
   assumptions: [],
   relationships: [],
 };
+
+afterEach(() => {
+  currentLoaderData = {
+    projectState: {
+      project: {
+        id: 1,
+        name: 'Project 1',
+        active_turn_id: null,
+        created_at: '2026-04-03 10:00:00',
+        updated_at: '2026-04-03 10:00:00',
+      },
+      workflow: {
+        phases: {
+          scope: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          design: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          requirements: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        },
+      },
+      turns: [],
+    },
+    entitySnapshot: emptyEntities,
+  };
+});
 
 describe('KnowledgeWorkspaceView', () => {
   it('renders kind-grouped sections in registry order with labels and counts', () => {
@@ -113,5 +183,73 @@ describe('KnowledgeWorkspaceView', () => {
     expect(screen.getByText('Depends on')).toBeTruthy();
     // "Single-user only" appears in both the assumptions section and the dependency list
     expect(screen.getAllByText('Single-user only').length).toBeGreaterThanOrEqual(2);
+  });
+});
+
+describe('KnowledgeWorkspace', () => {
+  it('renders route-level heading, navigation, and loader-backed content', () => {
+    currentLoaderData = {
+      projectState: {
+        project: {
+          id: 1,
+          name: 'Project 1',
+          active_turn_id: null,
+          created_at: '2026-04-03 10:00:00',
+          updated_at: '2026-04-03 10:00:00',
+        },
+        workflow: {
+          phases: {
+            scope: {
+              status: 'closed',
+              closeability: true,
+              readiness: 'high',
+              closureBasis: 'interviewer_recommended',
+              proposalPending: false,
+              turnId: 1,
+              summary: 'Closed',
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+          },
+        },
+        turns: [],
+      },
+      entitySnapshot: {
+        ...emptyEntities,
+        goals: [{ id: 1, project_id: 1, kind: 'goal', subtype: null, content: 'Ship MVP', rationale: null }],
+      },
+    };
+
+    render(<KnowledgeWorkspace />);
+
+    expect(screen.getByRole('heading', { name: 'Knowledge' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '← Back to interview' })).toBeTruthy();
+    expect(screen.getByText('Review captured knowledge items and relationships.')).toBeTruthy();
+    expect(screen.getByText('Ship MVP')).toBeTruthy();
   });
 });

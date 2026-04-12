@@ -275,7 +275,9 @@ describe('GET /api/projects/:id/export', () => {
     const res = await request(app).get(`/api/projects/${projectId}/export`).expect(200);
     expect(res.body.ready).toBe(true);
     expect(res.body.markdown).toContain('# Done');
+    expect(res.body.markdown).toContain('Resume the interview from SQLite after restart');
     expect(res.body.markdown).toContain('Verify SQLite resume');
+    expect(res.body.markdown).not.toContain('Support exporting the spec as a PDF');
   });
 });
 

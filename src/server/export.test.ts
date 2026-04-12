@@ -4,11 +4,17 @@ import type { EntitiesData } from '../shared/api-types.js';
 import type { WorkflowState } from './db.js';
 import { renderExportMarkdown } from './export.js';
 
-function createClosedPhase(basis: string = 'interviewer_recommended') {
+function createClosedPhase({
+  basis = 'interviewer_recommended',
+  readiness = 'high',
+}: {
+  basis?: string;
+  readiness?: 'low' | 'medium' | 'high';
+} = {}) {
   return {
     status: 'closed' as const,
     closeability: true,
-    readiness: 'high' as const,
+    readiness,
     closureBasis: basis,
     proposalPending: false,
     turnId: 1,
@@ -85,7 +91,7 @@ describe('renderExportMarkdown', () => {
 
   it('includes closure caveats for forced-close phases', () => {
     const workflow = createAllClosedWorkflow({
-      design: createClosedPhase('user_forced'),
+      design: createClosedPhase({ basis: 'user_forced' }),
     });
 
     const md = renderExportMarkdown('Test', emptyEntities, workflow);
@@ -94,7 +100,7 @@ describe('renderExportMarkdown', () => {
     expect(md).toContain('user-forced');
   });
 
-  it('includes review status for requirements and criteria', () => {
+  it('renders only approved reviewed items in the export body', () => {
     const entities: EntitiesData = {
       ...emptyEntities,
       requirements: [
@@ -116,12 +122,57 @@ describe('renderExportMarkdown', () => {
           rationale: null,
           reviewStatus: 'rejected',
         },
+        {
+          id: 3,
+          project_id: 1,
+          kind: 'requirement',
+          subtype: null,
+          content: 'CSV export',
+          rationale: null,
+          reviewStatus: 'pending',
+        },
+      ],
+      criteria: [
+        {
+          id: 4,
+          project_id: 1,
+          kind: 'criterion',
+          subtype: null,
+          content: 'Reload shows the active interview state',
+          rationale: null,
+          reviewStatus: 'approved',
+        },
+        {
+          id: 5,
+          project_id: 1,
+          kind: 'criterion',
+          subtype: null,
+          content: 'PDF download works offline',
+          rationale: null,
+          reviewStatus: 'rejected',
+        },
       ],
     };
 
     const md = renderExportMarkdown('Test', entities, createAllClosedWorkflow());
 
-    expect(md).toMatch(/Export spec.*approved/i);
-    expect(md).toMatch(/PDF export.*rejected/i);
+    expect(md).toContain('Export spec');
+    expect(md).toContain('Reload shows the active interview state');
+    expect(md).not.toContain('PDF export');
+    expect(md).not.toContain('CSV export');
+    expect(md).not.toContain('PDF download works offline');
+    expect(md).not.toMatch(/\bapproved\b/i);
+    expect(md).not.toMatch(/\brejected\b/i);
+  });
+
+  it('includes closure caveats for low-readiness phases', () => {
+    const workflow = createAllClosedWorkflow({
+      design: createClosedPhase({ readiness: 'low' }),
+    });
+
+    const md = renderExportMarkdown('Test', emptyEntities, workflow);
+
+    expect(md).toContain('design');
+    expect(md).toContain('low readiness');
   });
 });

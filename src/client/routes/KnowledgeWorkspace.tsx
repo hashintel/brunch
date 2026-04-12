@@ -3,7 +3,7 @@ import { Link, useLoaderData, useParams } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
 
 import type { EntitiesData } from '../../shared/api-types.js';
-import { knowledgeKindRegistry, type KnowledgeCollectionKey } from '../../shared/knowledge.js';
+import { knowledgeKindRegistry } from '../../shared/knowledge.js';
 
 function entityKey(collection: string, id: number) {
   return `${collection}:${id}`;
