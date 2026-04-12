@@ -150,7 +150,7 @@ describe('createProposePhaseClosureTool', () => {
 });
 
 describe('brownfield interviewer configuration', () => {
-  it('includes core tools when mode is brownfield', () => {
+  it('adds read-only exploration tools during brownfield scope', () => {
     const project = createProject(db, 'BF', { mode: 'brownfield', cwd: '/tmp/repo' });
     const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: '' });
     const tools = getInterviewerTools(db, turn.id, 'scope', project.id, {
@@ -165,7 +165,7 @@ describe('brownfield interviewer configuration', () => {
     expect(toolNames).toContain('ask_question');
   });
 
-  it('currently exposes repo-mutating tools in brownfield mode before tool-surface tightening', () => {
+  it('keeps brownfield exploration tools read-only', () => {
     const project = createProject(db, 'BF', { mode: 'brownfield', cwd: '/tmp/repo' });
     const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: '' });
     const tools = getInterviewerTools(db, turn.id, 'scope', project.id, {
@@ -174,9 +174,25 @@ describe('brownfield interviewer configuration', () => {
     });
     const toolNames = Object.keys(tools);
 
-    expect(toolNames).toContain('write_file');
-    expect(toolNames).toContain('edit_file');
-    expect(toolNames).toContain('bash');
+    expect(toolNames).not.toContain('write_file');
+    expect(toolNames).not.toContain('edit_file');
+    expect(toolNames).not.toContain('bash');
+  });
+
+  it('removes brownfield exploration tools after scope', () => {
+    const project = createProject(db, 'BF', { mode: 'brownfield', cwd: '/tmp/repo' });
+    const turn = createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
+    const tools = getInterviewerTools(db, turn.id, 'design', project.id, {
+      mode: 'brownfield',
+      cwd: '/tmp/repo',
+    });
+    const toolNames = Object.keys(tools);
+
+    expect(toolNames).not.toContain('read_file');
+    expect(toolNames).not.toContain('grep');
+    expect(toolNames).not.toContain('find_files');
+    expect(toolNames).not.toContain('list_directory');
+    expect(toolNames).toContain('ask_question');
   });
 
   it('excludes core tools when mode is greenfield', () => {

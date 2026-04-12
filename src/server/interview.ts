@@ -27,7 +27,7 @@ import {
   type Impact,
   type Phase,
 } from './db.js';
-import { createCoreTools } from './tools/index.js';
+import { createExplorationTools } from './tools/index.js';
 
 const SYSTEM_PROMPTS: Record<Phase, string> = {
   scope: `You are a spec elicitation interviewer conducting the SCOPE phase.
@@ -217,7 +217,7 @@ export function getInterviewerTools(
     ...(canProposePhaseClosure(phase, closeability)
       ? { propose_phase_closure: createProposePhaseClosureTool(db, turnId, phase, projectId) }
       : {}),
-    ...(options?.mode === 'brownfield' && options.cwd ? createCoreTools(options.cwd) : {}),
+    ...(isBrownfieldScopeExploration(phase, options) ? createExplorationTools(options.cwd) : {}),
   };
 }
 

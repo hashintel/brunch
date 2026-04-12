@@ -26,3 +26,13 @@ export function createCoreTools(cwd: string) {
     list_directory: createLsTool(cwd),
   };
 }
+
+/** Create the read-only exploration tools available during brownfield scope discovery. */
+export function createExplorationTools(cwd: string) {
+  return {
+    read_file: createReadTool(cwd),
+    grep: createGrepTool(cwd),
+    find_files: createFindTool(cwd),
+    list_directory: createLsTool(cwd),
+  };
+}
