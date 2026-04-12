@@ -229,7 +229,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | I2  | Stream lifecycle correctness                               | Slice 1 (skeleton)        | app.test.ts                          | D8          |
 | I3  | Thinking/text separation                                   | Slice 1 (skeleton)        | app.test.ts                          | D8          |
 | I4  | Vite proxy routing                                         | Slice 1 (skeleton)        | vite.config.ts (manual)              | D10         |
-| I5  | DB lifecycle correctness                                   | Slice 2 (SQLite)          | db.test.ts                           | D7          |
+| I5  | DB lifecycle correctness                                   | Slice 2 (SQLite)          | db.test.ts, launcher.test.ts         | D7, D81     |
 | I6  | Turn persistence                                           | Slice 3 (turn tree)       | db.test.ts, app.test.ts             | D1, D7      |
 | I7  | Tool call SSE conformance                                  | Slice 3b (rich UI)        | app.test.ts, manual (outer loop)     | D8, D14     |
 | I8  | Tool part state rendering                                  | Slice 3b (rich UI)        | manual (outer loop)                  | D14         |
@@ -248,6 +248,12 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | I21 | Observer-result in-band sync                               | Slice 5 (observer)        | observer.test.ts, app.test.ts        | D22         |
 | I22 | AI SDK-native interviewer path                             | Slice 6b (AI SDK pivot)   | app.test.ts, interview.test.ts       | D30         |
 | I23 | Entity sidebar reactive update                             | Slice 6 (sidebar)         | app.test.ts, manual (outer loop)     | D22         |
+
+### Project resolution + launcher
+
+| #    | Invariant                                                  | Established by            | Protected by                         | Proves      |
+| ---- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
+| I100 | `.brunch/` project resolution with walk-up discovery, init-rejects-existing, and resolve-creates-or-finds semantics; launcher serves API from resolved DB path with drizzle migrations resolving via import.meta.url | Slice 14 | project.test.ts, launcher.test.ts | D10, D81 |
 
 ### Client characterization
 
@@ -571,10 +577,12 @@ This projection difference is a deliberate design choice, not an implementation 
 | code-block.test.tsx           | 4     | I24, I26                                              |
 | markdown-rendering.test.tsx   | 3     | I24, I31                                              |
 | message.test.tsx              | 2     | I24, I27                                              |
-| build-boundary.test.ts        | 1     | I24, I28, I30, I32                                    |
+| build-boundary.test.ts        | 1     | I24, I28, I32                                         |
 | capability-boundaries.test.ts | 2     | I24, I29                                              |
 | KnowledgeWorkspace.test.tsx   | 5     | I24, I48                                              |
 | workspace-loader.test.ts      | 3     | I24                                                   |
+| project.test.ts               | 8     | I100                                                  |
+| launcher.test.ts              | 3     | I5, I100                                              |
 | export-loader.test.ts         | 1     | D26, D65, D66, D70                                    |
 | ExportPreview.test.tsx        | 2     | D26, D65, D66, D70                                    |
 | export.test.ts                | 9     | D26, D65, D66, D70                                    |
