@@ -485,6 +485,98 @@ describe('workspace controller', () => {
     });
   });
 
+  it('ignores stale entity refetches after a route transition seeds a new loader snapshot', async () => {
+    let resolveFetch: ((response: Response) => void) | undefined;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+
+    const rendered = renderController();
+    expect((await screen.findByTestId('decisions')).textContent).toBe('none');
+
+    await act(async () => {
+      useChatHarness.onData?.({
+        type: 'data-observer-result',
+        data: {
+          entityIds: {
+            goals: [],
+            terms: [],
+            contexts: [],
+            constraints: [],
+            requirements: [],
+            criteria: [],
+            decisions: [9],
+            assumptions: [],
+          },
+        },
+      });
+    });
+
+    currentLoaderData = createWorkspaceLoaderData({
+      assistantText: 'Which platform should we target now?',
+      answer: 'Ship the desktop app',
+      entitySnapshot: {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [
+          {
+            id: 8,
+            project_id: 1,
+            content: 'Prefer the desktop app',
+            rationale: 'Fresh loader snapshot',
+          },
+        ],
+        assumptions: [],
+        relationships: [],
+      },
+    });
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <ControllerProbe />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByTestId('decisions').textContent).toBe('Prefer the desktop app');
+
+    resolveFetch?.(
+      new Response(
+        JSON.stringify({
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [
+            {
+              id: 9,
+              project_id: 1,
+              content: 'Stale observer decision',
+              rationale: 'Should not survive the route transition',
+            },
+          ],
+          assumptions: [],
+          relationships: [],
+        } satisfies EntitiesData),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('decisions').textContent).toBe('Prefer the desktop app');
+    });
+  });
+
   it('keeps the live transcript stable on same-project refresh while updating durable entities', async () => {
     const rendered = renderController();
 

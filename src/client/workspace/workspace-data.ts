@@ -1,5 +1,4 @@
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { useCallback, useEffect, useMemo } from 'react';
+import { useCallback, useMemo, useState } from 'react';
 
 import type { EntitiesData } from '../../shared/api-types.js';
 import {
@@ -19,6 +18,12 @@ export interface WorkspaceDataAdapter {
   handleDataPart: (dataPart: { type: string; data?: unknown }) => void;
 }
 
+interface WorkspaceEntityRefreshState {
+  loaderSnapshot: EntitiesData;
+  data: EntitiesData | undefined;
+  isLoading: boolean;
+}
+
 async function fetchWorkspaceEntities(projectId: number): Promise<EntitiesData> {
   const response = await fetch(`/api/projects/${projectId}/entities`);
   if (!response.ok) {
@@ -28,35 +33,47 @@ async function fetchWorkspaceEntities(projectId: number): Promise<EntitiesData> 
   return response.json();
 }
 
-function getWorkspaceEntitiesQueryKey(projectId: number) {
-  return ['entities', projectId] as const;
+function getActiveWorkspaceEntityRefreshState(
+  loaderSnapshot: EntitiesData,
+  entityRefreshState: WorkspaceEntityRefreshState,
+): WorkspaceEntityRefreshState {
+  if (entityRefreshState.loaderSnapshot === loaderSnapshot) {
+    return entityRefreshState;
+  }
+
+  return {
+    loaderSnapshot,
+    data: undefined,
+    isLoading: false,
+  };
 }
 
 export function useWorkspaceDataAdapter(
   workspaceLoaderData: WorkspaceLoaderData,
   projectId: number,
 ): WorkspaceDataAdapter {
-  const queryClient = useQueryClient();
-  const entityQueryKey = useMemo(() => getWorkspaceEntitiesQueryKey(projectId), [projectId]);
-
-  useEffect(() => {
-    queryClient.setQueryData(entityQueryKey, workspaceLoaderData.entitySnapshot);
-  }, [entityQueryKey, queryClient, workspaceLoaderData.entitySnapshot]);
-
-  const { data, isLoading } = useQuery<EntitiesData>({
-    queryKey: entityQueryKey,
-    queryFn: () => fetchWorkspaceEntities(projectId),
-    initialData: workspaceLoaderData.entitySnapshot,
-    staleTime: Number.POSITIVE_INFINITY,
+  const [entityRefreshState, setEntityRefreshState] = useState<WorkspaceEntityRefreshState>({
+    loaderSnapshot: workspaceLoaderData.entitySnapshot,
+    data: undefined,
+    isLoading: false,
   });
+  const activeEntityRefreshState = getActiveWorkspaceEntityRefreshState(
+    workspaceLoaderData.entitySnapshot,
+    entityRefreshState,
+  );
 
   const durableProject = useMemo(
     () => createWorkspaceDurableProjectState(workspaceLoaderData.projectState),
     [workspaceLoaderData.projectState],
   );
   const durableEntities = useMemo(
-    () => createWorkspaceDurableEntityState(workspaceLoaderData.entitySnapshot, data, isLoading),
-    [data, isLoading, workspaceLoaderData.entitySnapshot],
+    () =>
+      createWorkspaceDurableEntityState(
+        workspaceLoaderData.entitySnapshot,
+        activeEntityRefreshState.data,
+        activeEntityRefreshState.isLoading,
+      ),
+    [activeEntityRefreshState.data, activeEntityRefreshState.isLoading, workspaceLoaderData.entitySnapshot],
   );
   const ephemeralChat = useMemo(
     () => createWorkspaceEphemeralChatState(workspaceLoaderData.projectState),
@@ -64,11 +81,42 @@ export function useWorkspaceDataAdapter(
   );
   const handleDataPart = useCallback(
     (dataPart: { type: string; data?: unknown }) => {
-      if (dataPart.type === 'data-observer-result') {
-        void queryClient.invalidateQueries({ queryKey: entityQueryKey });
+      if (dataPart.type !== 'data-observer-result') {
+        return;
       }
+
+      void (async () => {
+        setEntityRefreshState((currentState) =>
+          currentState.loaderSnapshot === workspaceLoaderData.entitySnapshot
+            ? { ...currentState, isLoading: true }
+            : {
+                loaderSnapshot: workspaceLoaderData.entitySnapshot,
+                data: undefined,
+                isLoading: true,
+              },
+        );
+
+        try {
+          const refreshedEntities = await fetchWorkspaceEntities(projectId);
+          setEntityRefreshState((currentState) =>
+            currentState.loaderSnapshot === workspaceLoaderData.entitySnapshot
+              ? {
+                  loaderSnapshot: workspaceLoaderData.entitySnapshot,
+                  data: refreshedEntities,
+                  isLoading: false,
+                }
+              : currentState,
+          );
+        } catch {
+          setEntityRefreshState((currentState) =>
+            currentState.loaderSnapshot === workspaceLoaderData.entitySnapshot
+              ? { ...currentState, isLoading: false }
+              : currentState,
+          );
+        }
+      })();
     },
-    [entityQueryKey, queryClient],
+    [projectId, workspaceLoaderData.entitySnapshot],
   );
 
   return {
