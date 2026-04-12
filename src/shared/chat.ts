@@ -36,13 +36,13 @@ export const criterionRejectionReviewSchema = z.object({
 export const criterionReviewSchema = z.union([criterionApprovalReviewSchema, criterionRejectionReviewSchema]);
 
 function validateReviewOptionPosition(
-  review: { approveOptionPosition?: number; rejectOptionPosition?: number },
+  review: { approveOptionPosition: number } | { rejectOptionPosition: number },
   field: string,
   optionCount: number,
   ctx: z.RefinementCtx,
 ): void {
   const isApproval = 'approveOptionPosition' in review;
-  const position = isApproval ? review.approveOptionPosition! : review.rejectOptionPosition!;
+  const position = isApproval ? review.approveOptionPosition : review.rejectOptionPosition;
   const positionField = isApproval ? 'approveOptionPosition' : 'rejectOptionPosition';
 
   if (position >= optionCount) {
@@ -68,35 +68,17 @@ export const structuredQuestionSchema = z
       )
       .min(2),
     requirementReview: requirementReviewSchema.optional(),
-    review: requirementReviewSchema.optional(),
     criterionReview: criterionReviewSchema.optional(),
   })
+  .strict()
   .superRefine((value, ctx) => {
-    if (value.requirementReview && value.review) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'Use requirementReview instead of review when both are present',
-        path: ['review'],
-      });
-    }
-
-    const requirementReview = value.requirementReview ?? value.review;
-    if (requirementReview) {
-      validateReviewOptionPosition(
-        requirementReview,
-        value.requirementReview ? 'requirementReview' : 'review',
-        value.options.length,
-        ctx,
-      );
+    if (value.requirementReview) {
+      validateReviewOptionPosition(value.requirementReview, 'requirementReview', value.options.length, ctx);
     }
     if (value.criterionReview) {
       validateReviewOptionPosition(value.criterionReview, 'criterionReview', value.options.length, ctx);
     }
-  })
-  .transform(({ review, requirementReview, ...value }) => ({
-    ...value,
-    ...((requirementReview ?? review) ? { requirementReview: requirementReview ?? review } : {}),
-  }));
+  });
 
 export const askQuestionToolOutputSchema = z.object({
   ok: z.literal(true),

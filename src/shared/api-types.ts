@@ -177,20 +177,21 @@ export const mutationErrorResponseSchema = z.object({
   error: z.string().optional(),
 });
 
-export const submitTurnResponseRequestSchema = z
-  .object({
-    positions: z.array(z.number().int().min(0)).optional(),
-    freeText: z.string().trim().min(1).optional(),
-  })
-  .superRefine((value, ctx) => {
-    if ((value.positions?.length ?? 0) === 0 && !value.freeText) {
-      ctx.addIssue({
-        code: 'custom',
-        message: 'positions are required unless freeText is provided',
-        path: ['positions'],
-      });
-    }
-  });
+export const submitTurnResponseSelectionRequestSchema = z.object({
+  kind: z.literal('select-options'),
+  positions: z.array(z.number().int().min(0)).min(1),
+  freeText: z.string().trim().min(1).optional(),
+});
+
+export const submitTurnResponseFreeTextRequestSchema = z.object({
+  kind: z.literal('free-text'),
+  freeText: z.string().trim().min(1),
+});
+
+export const submitTurnResponseRequestSchema = z.discriminatedUnion('kind', [
+  submitTurnResponseSelectionRequestSchema,
+  submitTurnResponseFreeTextRequestSchema,
+]);
 
 export const submitTurnResponseResponseSchema = z.object({
   ok: z.literal(true),
@@ -218,5 +219,7 @@ export type EntityRelationship = z.infer<typeof entityRelationshipSchema>;
 export type EntitiesData = z.infer<typeof entitiesDataSchema>;
 export type ExportLoaderData = z.infer<typeof exportLoaderDataSchema>;
 export type MutationErrorResponse = z.infer<typeof mutationErrorResponseSchema>;
+export type SubmitTurnResponseSelectionRequest = z.infer<typeof submitTurnResponseSelectionRequestSchema>;
+export type SubmitTurnResponseFreeTextRequest = z.infer<typeof submitTurnResponseFreeTextRequestSchema>;
 export type SubmitTurnResponseRequest = z.infer<typeof submitTurnResponseRequestSchema>;
 export type SubmitTurnResponseResponse = z.infer<typeof submitTurnResponseResponseSchema>;

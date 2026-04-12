@@ -2,13 +2,14 @@ import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessage
 import express from 'express';
 import type { Request, Response } from 'express';
 
-import type {
-  EntitiesData,
-  ExportLoaderData,
-  MutationErrorResponse,
-  ProjectListItem,
-  ProjectState,
-  SubmitTurnResponseResponse,
+import {
+  submitTurnResponseRequestSchema,
+  type EntitiesData,
+  type ExportLoaderData,
+  type MutationErrorResponse,
+  type ProjectListItem,
+  type ProjectState,
+  type SubmitTurnResponseResponse,
 } from '../shared/api-types.js';
 import {
   assistantPartsSchema,
@@ -94,26 +95,21 @@ export function createApp(dbPath?: string) {
   app.post('/api/projects/:id/turns/:turnId/response', (req: Request, res: Response) => {
     const projectId = Number(req.params.id);
     const turnId = Number(req.params.turnId);
-    const selectedPositions: number[] = Array.isArray(req.body?.positions)
-      ? req.body.positions.filter((value: unknown): value is number => typeof value === 'number')
-      : typeof req.body?.position === 'number'
-        ? [req.body.position]
-        : [];
-    const uniquePositions = [...new Set(selectedPositions)];
-    const freeText = typeof req.body.freeText === 'string' ? req.body.freeText.trim() : undefined;
 
     if (Number.isNaN(projectId) || Number.isNaN(turnId)) {
       res.status(400).json({ error: 'Invalid IDs' } satisfies MutationErrorResponse);
       return;
     }
-    if (uniquePositions.length === 0 && !freeText) {
-      res
-        .status(400)
-        .json({
-          error: 'positions are required unless freeText is provided',
-        } satisfies MutationErrorResponse);
+
+    const parsedRequest = submitTurnResponseRequestSchema.safeParse(req.body);
+    if (!parsedRequest.success) {
+      res.status(400).json({ error: 'Invalid turn response payload' } satisfies MutationErrorResponse);
       return;
     }
+
+    const uniquePositions =
+      parsedRequest.data.kind === 'select-options' ? [...new Set(parsedRequest.data.positions)] : [];
+    const freeText = parsedRequest.data.freeText;
 
     const turn = getTurn(db, turnId);
     if (!turn || turn.project_id !== projectId) {

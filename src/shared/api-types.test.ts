@@ -202,11 +202,28 @@ describe('api transport contracts', () => {
     expect(submitTurnResponseResponseSchema.parse({ ok: true })).toEqual({ ok: true });
   });
 
-  it('models the current turn-response request shape before the explicit-mode refactor', () => {
-    expect(submitTurnResponseRequestSchema.parse({ positions: [0, 2] })).toEqual({ positions: [0, 2] });
-    expect(submitTurnResponseRequestSchema.parse({ freeText: 'None of these fit' })).toEqual({
+  it('models turn responses through explicit request modes', () => {
+    expect(
+      submitTurnResponseRequestSchema.parse({
+        kind: 'select-options',
+        positions: [0, 2],
+        freeText: 'Covers both launch paths',
+      }),
+    ).toEqual({
+      kind: 'select-options',
+      positions: [0, 2],
+      freeText: 'Covers both launch paths',
+    });
+    expect(
+      submitTurnResponseRequestSchema.parse({
+        kind: 'free-text',
+        freeText: 'None of these fit',
+      }),
+    ).toEqual({
+      kind: 'free-text',
       freeText: 'None of these fit',
     });
-    expect(() => submitTurnResponseRequestSchema.parse({})).toThrow();
+    expect(() => submitTurnResponseRequestSchema.parse({ positions: [0, 2] })).toThrow();
+    expect(() => submitTurnResponseRequestSchema.parse({ kind: 'free-text' })).toThrow();
   });
 });

@@ -966,7 +966,11 @@ describe('InterviewWorkspace', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ positions: [1], freeText: 'Best fit for our launch' }),
+          body: JSON.stringify({
+            kind: 'select-options',
+            positions: [1],
+            freeText: 'Best fit for our launch',
+          }),
         }),
       );
     });
@@ -1008,7 +1012,11 @@ describe('InterviewWorkspace', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ positions: [0, 1], freeText: 'Covers both launch paths' }),
+          body: JSON.stringify({
+            kind: 'select-options',
+            positions: [0, 1],
+            freeText: 'Covers both launch paths',
+          }),
         }),
       );
     });
@@ -1390,7 +1398,10 @@ describe('InterviewWorkspace', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ freeText: 'None of these fit our use case' }),
+          body: JSON.stringify({
+            kind: 'free-text',
+            freeText: 'None of these fit our use case',
+          }),
         }),
       );
     });

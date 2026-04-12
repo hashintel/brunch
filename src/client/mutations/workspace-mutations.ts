@@ -20,17 +20,13 @@ export function useSubmitTurnResponseMutation({
   sendMessage: (message: { text: string }) => Promise<void> | void;
 }) {
   const router = useRouter();
-  const mutation = useClientMutation(
-    (variables: { turnId: number; positions?: number[]; freeText?: string }) =>
-      postJsonMutation<SubmitTurnResponseResponse, SubmitTurnResponseRequest>(
-        `/api/projects/${projectId}/turns/${variables.turnId}/response`,
-        {
-          ...(variables.positions?.length ? { positions: variables.positions } : {}),
-          ...(variables.freeText ? { freeText: variables.freeText } : {}),
-        },
-        submitTurnResponseResponseSchema,
-        'Failed to save response',
-      ),
+  const mutation = useClientMutation((variables: { turnId: number; response: SubmitTurnResponseRequest }) =>
+    postJsonMutation<SubmitTurnResponseResponse, SubmitTurnResponseRequest>(
+      `/api/projects/${projectId}/turns/${variables.turnId}/response`,
+      variables.response,
+      submitTurnResponseResponseSchema,
+      'Failed to save response',
+    ),
   );
 
   return {
@@ -52,11 +48,22 @@ export function useSubmitTurnResponseMutation({
         return;
       }
 
+      const response: SubmitTurnResponseRequest =
+        uniquePositions.length > 0
+          ? {
+              kind: 'select-options',
+              positions: uniquePositions,
+              ...(trimmedFreeText ? { freeText: trimmedFreeText } : {}),
+            }
+          : {
+              kind: 'free-text',
+              freeText: trimmedFreeText!,
+            };
+
       try {
         await mutation.run({
           turnId: turn.id,
-          positions: uniquePositions.length > 0 ? uniquePositions : undefined,
-          freeText: trimmedFreeText || undefined,
+          response,
         });
         await router.invalidate();
         await sendMessage({ text: responseText });
