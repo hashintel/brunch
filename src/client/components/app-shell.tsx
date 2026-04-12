@@ -2,6 +2,8 @@ import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
 import { cn } from '@/lib/utils';
 
+import type { WorkflowPhase, WorkflowPhaseStatus } from '../../shared/api-types.js';
+
 // ── Stage sidebar (expanded, 240px) ──────────────────────────────────
 
 export interface StageItem {
@@ -115,8 +117,8 @@ export function StageSidebar({
 
 // ── Phase sidebar (narrow, 48px) — collapsed view ────────────────────
 
-export type Phase = 'scope' | 'design' | 'requirements' | 'criteria';
-export type PhaseStatus = 'unstarted' | 'in_progress' | 'closed';
+export type Phase = WorkflowPhase;
+export type PhaseStatus = WorkflowPhaseStatus;
 
 const phaseOrder: Phase[] = ['scope', 'design', 'requirements', 'criteria'];
 
