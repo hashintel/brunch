@@ -206,26 +206,27 @@
     - Acceptance: chosen `drizzle-kit` version removes the vulnerable loader chain, keeps `drizzle.config.ts` compatible, preserves existing migration history, and `npm run studio` still works against the existing SQLite database
     - **Verification approach**: inner — dependency tree/audit check plus config-load and migration/studio smoke tests. Outer — manual `npm run studio` walkthrough on the distributed app path.
 
-## Phase 10: Route Ownership Refactor
+## Phase 10: Route Ownership Refactor `done`
 
 ### Slices
 
 18. **Router seam characterization for file-based routing migration** `done`
     - Shipped: locked current router bootstrapping, URL-to-screen mapping, and route-linked destinations before the file-route cutover
     - Evidence: main.test.tsx, router.test.tsx, ProjectList.test.tsx, InterviewWorkspace.test.tsx, KnowledgeWorkspace.test.tsx, ExportPreview.test.tsx
-    - Unblocks: `memory/REFACTOR.md` commit 2 (separate route-definition ownership from heavy screen implementation)
 
 19. **Route wrapper extraction for file-based routing migration** `done`
-    - Shipped: dashboard, interview, knowledge, and export route modules now just wire loader/controller state into extracted screen modules
+    - Shipped: dashboard, interview, knowledge, and export route owners now delegate UI/controller work into extracted screen modules and route-support helpers instead of owning heavy screen logic directly
     - Seam changed: project creation navigation moved out of the mutation hook and back into the dashboard route wrapper
     - Evidence: ProjectList.test.tsx, InterviewWorkspace.test.tsx, KnowledgeWorkspace.test.tsx, ExportPreview.test.tsx, router.test.tsx, main.test.tsx, `npm run verify`
-    - Unblocks: `memory/REFACTOR.md` commit 3 (file-based routing build infrastructure while the manual router stays active)
 
 20. **File-route build infrastructure for staged cutover** `done`
-    - Shipped: TanStack Router Vite plugin now scans `src/client/file-routes`, generates `src/client/routeTree.gen.ts`, and stays isolated from the active manual router
-    - Seam changed: generated route tree is now a managed artifact ignored by oxlint/oxfmt; a minimal file-route `__root.tsx` exists only to keep the plugin healthy before runtime cutover
+    - Shipped: TanStack Router Vite plugin now scans `src/client/routes`, generates `src/client/routeTree.gen.ts`, and keeps the generated tree as the runtime router source of truth
+    - Seam changed: generated route tree is a managed artifact ignored by oxlint/oxfmt; route-local tests and `-`-prefixed support files stay colocated under `src/client/routes` without becoming route owners
     - Evidence: file-route-infra.test.ts, `npm run verify`
-    - Unblocks: `memory/REFACTOR.md` commit 4 (dashboard file-route wrapper while the manual router still owns bootstrapping)
+
+21. **Final route-directory consolidation + helper colocation** `done`
+    - Shipped: retired `src/client/file-routes`; `src/client/routes` is now the only routing directory, and the remaining route-adjacent helpers live there as ignored support files so thin route owners keep code splitting intact
+    - Evidence: router.test.tsx, build-boundary.test.ts, file-route-dashboard.test.ts, file-route-export.test.ts, `npm run verify`
 
 ## Horizon
 
@@ -237,6 +238,8 @@
 - Hard turn-tree branching (deferred from V1; the linked-list structure supports it but UX is not exposed)
 - Git-integrated diff-able persistence format (file-based representation of the DB for version control)
 - Headless interview driver (programmatic harness driving `/api/projects/:id/chat` with scripted answers)
+- Route-support placement audit — the ignored `src/client/routes/-*.ts(x)` files are a clean endpoint for the routing migration, but once patterns stabilize we should decide whether some belong permanently in `screens/`, `workspace/`, or a dedicated route-support module rather than growing an ever-larger mixed `routes/` directory.
+- Client test-topology cleanup — feature-behavior tests are reasonably colocated today, but the seam/build oracles now scattered across `src/client/*.test.ts(x)` (`file-route-*.test.ts`, `build-boundary.test.ts`, `router.test.tsx`, `main.test.tsx`) may want a dedicated `src/client/testing/` or `src/client/oracles/` home so the client root stops accumulating cross-cutting verification files.
 
 ## Dependencies
 
@@ -256,6 +259,7 @@ Deferred: 12a + 12b ──→ 13a (review lifecycle refinement)
 ### Parallelism opportunities
 
 - Phases 1–7 fully done (14, 17, 17a, 14a all complete). **All must-haves for the first delivery deadline are shipped.**
+- Ad-hoc Phase 10 route ownership refactor is complete; the next unshipped major work is still Phase 8 stretch work, Phase 9 hardening, or deferred slice 13a.
 - 15 + 15a (knowledge-graph revisit) are stretch goals; they depend on 12a (done) but may not land before the first deadline.
 - 16 (drizzle-kit audit) is unblocked by 14 but deferred to post-distribution.
 - 13a (review lifecycle refinement) is explicitly deferred.
