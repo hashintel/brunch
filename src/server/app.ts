@@ -41,6 +41,7 @@ import {
   getEntitiesForProject,
   recordReviewFromTurnResponse,
 } from './db.js';
+import { isExportReady, renderExportMarkdown } from './export.js';
 import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { serializeParts } from './parts.js';
@@ -149,6 +150,28 @@ export function createApp(dbPath?: string) {
       return;
     }
     res.json(getEntitiesForProject(db, id) satisfies EntitiesData);
+  });
+
+  // Export spec as markdown
+  app.get('/api/projects/:id/export', (req: Request, res: Response) => {
+    const id = Number(req.params.id);
+    if (Number.isNaN(id)) {
+      res.status(400).json({ error: 'Invalid project ID' });
+      return;
+    }
+    const projectState = getProjectState(db, id);
+    if (!projectState) {
+      res.status(404).json({ error: 'Project not found' });
+      return;
+    }
+    const ready = isExportReady(projectState.workflow);
+    if (!ready) {
+      res.json({ ready: false });
+      return;
+    }
+    const entities = getEntitiesForProject(db, id);
+    const markdown = renderExportMarkdown(projectState.project.name, entities, projectState.workflow);
+    res.json({ ready: true, markdown });
   });
 
   // Conduct turn for a specific project

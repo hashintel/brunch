@@ -189,25 +189,25 @@
      - Acceptance: the project list shows each project's per-phase status/readiness/closure-basis summary from persisted readiness artifacts plus live workflow projection, distinguishes forced-close or low-readiness debt from ordinary closed state, and updates correctly after refresh/resume
      - **Verification approach**: inner — workflow-summary projection tests plus project-list route/component tests. Outer — manual multi-project walkthrough covering in-progress, forced-close debt, invalidated, and export-ready states.
 
-12. **Knowledge workspace review surface + lifecycle API** — CRUD/review endpoints for the broader knowledge layer plus a fit-for-purpose workspace for inspecting, editing, and reviewing graph-shaped knowledge. The sidebar may remain a summary/navigation view, but the primary interaction model should no longer assume a narrow tab strip. This slice assumes the redesigned knowledge ontology/graph from 7a + 7b. `not-started`
-     - Requirements: → SPEC.md §Requirements #6, #11, #12, #13
-     - Assumptions: → SPEC.md §Assumptions A14, A40
-     - Decisions: → SPEC.md §Decisions D5, D17, D61, D63, D67, D68, D69
-     - Candidate invariant goals: review/edit actions are reflected in both knowledge state and readiness state; the knowledge workspace can present graph relationships and review actions without lossy sidebar compression
-     - Invariants to respect: → SPEC.md §Invariants I23, I24
-     - Acceptance: inspect and review/edit canonical knowledge items from a dedicated phase-oriented workspace surface; affected readiness updates visibly and persist across refresh/resume; dependency/provenance context remains legible during those actions
-     - **Verification approach**: inner — mutation + projection tests. Outer — manual knowledge-workspace review/edit walkthrough.
+12a. **Knowledge workspace review surface** `FE-574` `done` — Read-only phase-oriented workspace at `/project/:id/knowledge` for inspecting canonical knowledge items grouped by kind, with review-status badges and relationship context. The sidebar remains a compact summary; this is the first dedicated review surface (D63, D69). Assumes the redesigned knowledge ontology/graph from 7a + 7b.
+      - Requirements: → SPEC.md §Requirements #6, #11, #12, #13
+      - Assumptions: → SPEC.md §Assumptions A14, A40
+      - Decisions: → SPEC.md §Decisions D5, D17, D61, D63, D67, D68, D69
+      - Candidate invariant goals: knowledge workspace presents all canonical kinds with review state and relationship context from the existing entities API without lossy sidebar compression
+      - Invariants to respect: → SPEC.md §Invariants I23, I24
+      - Acceptance: navigate to knowledge workspace, see kind-grouped items with review badges and dependency edges, navigate back to interview; no new mutations or edit actions in this slice
+      - **Verification approach**: inner — route/component tests with mock EntitiesData. Outer — manual walkthrough from seeded project.
 
-13. **Spec export from the reviewed knowledge layer** — Render markdown export from active-path, reviewed knowledge items and explicit phase outcomes, including closure caveats when a mode was closed with low readiness or user-forced basis. Export is enabled only when the new readiness predicate is satisfied. `not-started`
-     - Requirements: → SPEC.md §Requirements #13
-     - Assumptions: —
-     - Decisions: → SPEC.md §Decisions D5, D17, D26, D65, D66, D70
-     - Candidate invariant goals: export reflects active-path reviewed knowledge only; readiness predicate gates export correctly; closure provenance survives into the final artifact when it changes how trustworthy the result is
-     - Invariants to respect: → SPEC.md §Invariants I18, I21
-     - Acceptance: complete all modes, satisfy review completeness, navigate to export, see markdown preview from the reviewed knowledge layer plus relevant phase-outcome caveats, download `.md` file
-     - **Verification approach**: inner — export projection tests. Outer — manual export after a full walkthrough, after a low-readiness/forced-close path surfaces caveats, and after a readiness-incomplete state blocks export.
+12b. **Spec export from the reviewed knowledge layer** `FE-574` `done` — Render markdown export from active-path reviewed knowledge items and explicit phase outcomes, including closure caveats when a mode was closed with low readiness or user-forced basis. Export is enabled only when all phases are closed.
+      - Requirements: → SPEC.md §Requirements #13
+      - Assumptions: —
+      - Decisions: → SPEC.md §Decisions D5, D17, D26, D65, D66, D70
+      - Candidate invariant goals: export reflects active-path reviewed knowledge only; readiness predicate gates export correctly; closure provenance survives into the final artifact when it changes how trustworthy the result is
+      - Invariants to respect: → SPEC.md §Invariants I18, I21
+      - Acceptance: complete all modes, navigate to export, see markdown preview grouped by kind with closure caveats, download `.md` file; export blocked when any phase is not closed
+      - **Verification approach**: inner — export rendering + API route tests. Outer — manual export from seeded all-phases-closed project.
 
-11b. **Fixture scenarios + dev seed CLI** — Extract the programmatic seed helpers from `app.test.ts` into a shared fixture module (`src/server/fixtures/scenarios.ts`) and add a CLI entry point (`src/server/fixtures/seed.ts`) so the dev server can be started at any named project state for outer-loop manual testing. `not-started`
+11b. **Fixture scenarios + dev seed CLI** `done` — Extract the programmatic seed helpers from `app.test.ts` into a shared fixture module (`src/server/fixtures/scenarios.ts`) and add a CLI entry point (`src/server/fixtures/seed.ts`) so the dev server can be started at any named project state for outer-loop manual testing.
      - Requirements: → SPEC.md §Requirements #14 (resume), §Verification Design (outer-loop fixture capture)
      - Assumptions: → SPEC.md §Assumptions A28
      - Decisions: —
@@ -216,7 +216,7 @@
      - Acceptance: `npm run seed <scenario>` creates a named-scenario project in a fresh or specified DB; the dev server renders the expected workflow state and turn history from that seeded state; existing tests still pass after the extraction refactor
      - **Verification approach**: inner — type checking confirms scenario functions share the same DB API contract. Middle — existing test suite passes after extraction (characterization). Outer — manual dev-server walkthrough from each seeded scenario.
 
-13a. **Review lifecycle refinement across requirements + criteria** — Revisit the first-cut review model only after the thin end-to-end path is working, and add the deferred variants that were intentionally excluded from slices 9 and 10 so the app kept moving toward completion. `not-started`
+13a. **Review lifecycle refinement across requirements + criteria** — Revisit the first-cut review model only after the thin end-to-end path is working, and add the deferred variants that were intentionally excluded from slices 9 and 10 so the app kept moving toward completion. Depends on 12a + 12b. `not-started`
      - Requirements: → SPEC.md §Requirements #11, #12, #13
      - Assumptions: → SPEC.md §Assumptions A15, A40
      - Decisions: → SPEC.md §Decisions D17, D61, D65, D66, D69
@@ -292,20 +292,20 @@ Phase 6:  7 ──┐
           9 ──┤
           10.3 ─┘
           10.3 ──→ 11b (fixture scenarios + dev seed CLI)
-          7b ──→ 12 (knowledge workspace review surface + lifecycle API)
-          10.3 ──→ 12
-          10.3 ──→ 13 (export)
-          12 ──┬──→ 13a (review lifecycle refinement)
-          13 ──┘
-Phase 7:  13 ──→ 14 (npx + CLI)
+          7b ──→ 12a (knowledge workspace review surface)
+          10.3 ──→ 12a
+          10.3 ──→ 12b (export)
+          12a ──┬──→ 13a (review lifecycle refinement)
+          12b ──┘
+Phase 7:  12b ──→ 14 (npx + CLI)
 Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
 ```
 
 ### Parallelism opportunities
 
 - 10.1–10.3 are done; the review seam has been unified (refactor landed between 10.3 and 11a).
-- 11b (fixture scenarios + dev seed CLI) is unblocked and should land before deep outer-loop testing of 12 or 13.
-- 12 (knowledge workspace) and 13 (export) are unblocked and can proceed in parallel.
-- 13a (review lifecycle refinement) is explicitly deferred; it should collect rarer review variants after 12 and 13 stabilize rather than fragmenting slices 9 and 10.
-- 14 (npx) can start early with a basic launcher, completing after slice 13 when the export predicate stabilizes.
+- 11b (fixture scenarios + dev seed CLI) is done; seeded scenarios are available for outer-loop testing.
+- 12a (knowledge workspace) and 12b (export) are unblocked and share one branch (FE-574). Build order: 12a → 12b.
+- 13a (review lifecycle refinement) is explicitly deferred; it should collect rarer review variants after 12a and 12b stabilize rather than fragmenting slices 9 and 10.
+- 14 (npx) can start early with a basic launcher, completing after slice 12b when the export predicate stabilizes.
 - 15 (drizzle-kit audit remediation) should wait until 14 lands.

@@ -298,6 +298,13 @@ export function InterviewWorkspace() {
           ← Projects
         </Link>
         <h1 className="text-lg font-semibold">{project.name}</h1>
+        <Link
+          to="/project/$id/knowledge"
+          params={{ id: String(project.id) }}
+          className="text-sm text-muted-foreground hover:text-foreground"
+        >
+          Knowledge
+        </Link>
         <div className="flex flex-wrap gap-2">
           {(Object.entries(workflow.phases) as Array<[ProjectStateTurn['phase'], WorkflowPhaseState]>).map(
             ([phase, state]) => (
