@@ -2,6 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import type { Tool } from '@ai-sdk/provider-utils';
 import { ToolLoopAgent, stepCountIs, tool } from 'ai';
 
+import type { ProjectMode } from '../shared/api-types.js';
 import {
   askQuestionToolOutputSchema,
   phaseClosureProposalSchema,
@@ -106,7 +107,7 @@ When goals, terms, context, and constraints are sufficiently captured for now, u
 }
 
 export interface InterviewerModeOptions {
-  mode?: 'greenfield' | 'brownfield';
+  mode?: ProjectMode;
   cwd?: string;
 }
 
