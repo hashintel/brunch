@@ -1,7 +1,7 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProjectState } from '../shared/api-types.js';
+import type { ProjectState, WorkflowPhase } from '../shared/api-types.js';
 import { buildInterviewerContext } from './context.js';
 import type { DB } from './db.js';
 import {
@@ -110,7 +110,7 @@ async function makePhaseClosureInterviewer(
   dbArg: DB,
   projectId: number,
   turnId: number,
-  phase: 'scope' | 'design' | 'requirements' | 'criteria' = 'scope',
+  phase: WorkflowPhase = 'scope',
   summary = 'Goals, terms, context, and constraints are sufficiently captured.',
 ) {
   const { createPhaseOutcome } = await import('./db.js');

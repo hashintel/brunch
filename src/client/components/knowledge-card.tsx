@@ -3,6 +3,7 @@ import { ChevronDown, Link as LinkIcon } from 'lucide-react';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { cn } from '@/lib/utils';
 
+import type { EdgeRelation, ReviewStatus } from '../../shared/api-types.js';
 import type { KnowledgeKind } from '../../shared/knowledge.js';
 import { knowledgeKindRegistry } from '../../shared/knowledge.js';
 
@@ -33,7 +34,7 @@ export function KindBadge({ kind }: { kind: KnowledgeKind }) {
   );
 }
 
-export function ReviewBadge({ state }: { state: 'approved' | 'rejected' | 'pending' }) {
+export function ReviewBadge({ state }: { state: ReviewStatus }) {
   return (
     <span
       className={cn(
@@ -64,11 +65,11 @@ export interface KnowledgeItemData {
   content: string;
   rationale?: string;
   subtype?: string;
-  reviewStatus?: 'approved' | 'rejected' | 'pending';
+  reviewStatus?: ReviewStatus;
 }
 
 export interface KnowledgeEdgeData {
-  type: string;
+  type: EdgeRelation;
   sourceId: number;
   sourceCollection: string;
   targetId: number;

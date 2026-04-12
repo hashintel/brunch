@@ -9,7 +9,21 @@ import { migrate } from 'drizzle-orm/better-sqlite3/migrator';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const MIGRATIONS_FOLDER = join(__dirname, '..', '..', 'drizzle');
 
-import type { ProjectMode, ReadinessBand, ReviewStatus, WorkflowPhaseStatus } from '../shared/api-types.js';
+import type {
+  AssumptionEntity as SharedAssumption,
+  CriterionEntity as SharedCriterionEntity,
+  DecisionEntity as SharedDecision,
+  EntitiesData,
+  EntityReference as SharedEntityReference,
+  EntityRelationship as SharedEntityRelationship,
+  ProjectMode,
+  ReadinessBand,
+  RequirementEntity as SharedRequirementEntity,
+  ReviewStatus,
+  WorkflowPhaseState as SharedWorkflowPhaseState,
+  WorkflowPhaseStatus,
+  WorkflowState as SharedWorkflowState,
+} from '../shared/api-types.js';
 import { isAskQuestionUIPart, structuredQuestionSchema, type StructuredQuestion } from '../shared/chat.js';
 import {
   genericKnowledgeKindRegistry,
@@ -37,19 +51,8 @@ export type PhaseOutcomeStatus = PhaseOutcome['status'];
 export type { WorkflowPhaseStatus, ReadinessBand, ReviewStatus };
 export type ClosureBasis = PhaseClosureBasis | null;
 
-export interface WorkflowPhaseState {
-  status: WorkflowPhaseStatus;
-  closeability: boolean;
-  readiness: ReadinessBand;
-  closureBasis: ClosureBasis;
-  proposalPending: boolean;
-  turnId: number | null;
-  summary: string | null;
-}
-
-export interface WorkflowState {
-  phases: Record<Phase, WorkflowPhaseState>;
-}
+export type WorkflowPhaseState = SharedWorkflowPhaseState;
+export type WorkflowState = SharedWorkflowState;
 
 export interface CreatePhaseOutcomeInput {
   projectId: number;
@@ -501,50 +504,13 @@ export type KnowledgeItem = InferSelectModel<typeof schema.knowledgeItem>;
 export type KnowledgeKind = Extract<KnowledgeItem['kind'], SharedKnowledgeKind>;
 export type EntityCollection = KnowledgeEntityCollection;
 
-export interface Decision {
-  id: number;
-  project_id: number;
-  content: string;
-  rationale: string | null;
-}
-
-export interface Assumption {
-  id: number;
-  project_id: number;
-  content: string;
-}
-
-export interface EntityReference {
-  collection: EntityCollection;
-  kind: KnowledgeKind;
-  id: number;
-}
-
-export interface EntityRelationship {
-  type: 'depends_on';
-  source: EntityReference;
-  target: EntityReference;
-}
-
-export type RequirementEntity = KnowledgeItem & {
-  reviewStatus?: ReviewStatus;
-};
-
-export type CriterionEntity = KnowledgeItem & {
-  reviewStatus?: ReviewStatus;
-};
-
-export interface EntitiesForProject {
-  goals: KnowledgeItem[];
-  terms: KnowledgeItem[];
-  contexts: KnowledgeItem[];
-  constraints: KnowledgeItem[];
-  requirements: RequirementEntity[];
-  criteria: CriterionEntity[];
-  decisions: Decision[];
-  assumptions: Assumption[];
-  relationships: EntityRelationship[];
-}
+export type Decision = SharedDecision;
+export type Assumption = SharedAssumption;
+export type EntityReference = SharedEntityReference;
+export type EntityRelationship = SharedEntityRelationship;
+export type RequirementEntity = SharedRequirementEntity;
+export type CriterionEntity = SharedCriterionEntity;
+export type EntitiesForProject = EntitiesData;
 
 function toDecision(item: KnowledgeItem): Decision {
   return {

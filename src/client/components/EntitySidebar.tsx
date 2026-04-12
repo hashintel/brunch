@@ -4,6 +4,7 @@ import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
 import type { WorkspaceDurableEntityState } from '@/workspace/workspace-controller-core';
 
+import type { ReviewStatus } from '../../shared/api-types.js';
 import {
   knowledgeKindRegistry,
   knowledgeKindRegistryByCollectionKey,
@@ -20,7 +21,7 @@ function renderKnowledgeItems(
     content: string;
     subtype: string | null;
     rationale: string | null;
-    reviewStatus?: 'approved' | 'rejected' | 'pending';
+    reviewStatus?: ReviewStatus;
   }>,
   emptyMessage: string,
   isLoading: boolean,
