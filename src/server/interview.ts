@@ -26,6 +26,7 @@ import {
   type Impact,
   type Phase,
 } from './db.js';
+import { createCoreTools } from './tools/index.js';
 
 const SYSTEM_PROMPTS: Record<Phase, string> = {
   scope: `You are a spec elicitation interviewer conducting the SCOPE phase.
@@ -74,12 +75,48 @@ Your job is to propose testable acceptance criteria for each confirmed requireme
 For every turn, you MUST use the ask_question tool. Never respond with plain text.`,
 };
 
+/** Brownfield scope system prompt. Instructs the agent to explore the codebase before asking its first scope question. */
+export function getBrownfieldScopePrompt(cwd: string): string {
+  return `You are a spec elicitation interviewer conducting the SCOPE phase for a feature within an existing codebase.
+
+The project directory is: ${cwd}
+
+Before asking your first scope question, use your tools to explore the codebase and build a working understanding of the project. Follow this strategy:
+1. Look for README, package.json, Cargo.toml, pyproject.toml, or other project manifest files
+2. Explore the directory structure to understand the project layout
+3. Read key files that reveal architecture and conventions
+4. Look for existing documentation, tests, and configuration
+
+Spend no more than 5-8 tool calls on exploration before synthesizing.
+
+Once you have a working understanding, summarize what you found in 2-3 sentences. Then begin the structured scope interview grounded in that context — your questions should reflect what you discovered about the codebase.
+
+For every turn after the exploration, you MUST use the ask_question tool to generate your question. Never respond with plain text — always use the tool.
+
+Each question should:
+- Be clear and specific, not vague or open-ended
+- Include 2-4 options that represent meaningfully different directions
+- Mark exactly one option as recommended based on what you know so far
+- Include a "why" field explaining why this question matters for the spec
+- Include an impact level (high/medium/low) reflecting how much this decision affects downstream choices
+
+Ask one question at a time. Build on previous answers to go deeper.
+
+When goals, terms, context, and constraints are sufficiently captured for now, use the propose_phase_closure tool instead of asking another question. The summary should concisely explain what is now understood and why scope can close.`;
+}
+
+export interface InterviewerModeOptions {
+  mode?: 'greenfield' | 'brownfield';
+  cwd?: string;
+}
+
 export type AskQuestionTool = Tool<StructuredQuestion, AskQuestionToolOutput>;
 export type ProposePhaseClosureTool = Tool<PhaseClosureProposal, ProposePhaseClosureToolOutput>;
-export type InterviewerTools = {
+export type BaseInterviewerTools = {
   ask_question: AskQuestionTool;
   propose_phase_closure?: ProposePhaseClosureTool;
 };
+export type InterviewerTools = BaseInterviewerTools & Record<string, Tool<any, any>>;
 export type InterviewerAgent = ToolLoopAgent<never, InterviewerTools>;
 
 /** Phase-specific system prompts. */
@@ -152,23 +189,39 @@ export function createProposePhaseClosureTool(
   });
 }
 
+/** Build the tool set for the interviewer agent, conditionally including core tools for brownfield mode. */
+export function getInterviewerTools(
+  db: DB,
+  turnId: number,
+  phase: Phase,
+  projectId: number,
+  options?: InterviewerModeOptions,
+): InterviewerTools {
+  const closeability = getCurrentWorkflowState(db, projectId).phases[phase].closeability;
+  return {
+    ask_question: createAskQuestionTool(db, turnId),
+    ...(canProposePhaseClosure(phase, closeability)
+      ? { propose_phase_closure: createProposePhaseClosureTool(db, turnId, phase, projectId) }
+      : {}),
+    ...(options?.mode === 'brownfield' && options.cwd ? createCoreTools(options.cwd) : {}),
+  };
+}
+
 export function createInterviewerAgent(
   db: DB,
   turnId: number,
   phase: Phase,
   projectId: number,
+  options?: InterviewerModeOptions,
 ): InterviewerAgent {
-  const closeability = getCurrentWorkflowState(db, projectId).phases[phase].closeability;
+  const tools = getInterviewerTools(db, turnId, phase, projectId, options);
+  const isBrownfield = options?.mode === 'brownfield' && options.cwd;
+  const instructions = isBrownfield ? getBrownfieldScopePrompt(options.cwd!) : getSystemPrompt(phase);
 
   return new ToolLoopAgent({
     model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'),
-    instructions: getSystemPrompt(phase),
-    tools: {
-      ask_question: createAskQuestionTool(db, turnId),
-      ...(canProposePhaseClosure(phase, closeability)
-        ? { propose_phase_closure: createProposePhaseClosureTool(db, turnId, phase, projectId) }
-        : {}),
-    },
+    instructions,
+    tools,
     providerOptions: {
       anthropic: {
         sendReasoning: true,
@@ -179,7 +232,7 @@ export function createInterviewerAgent(
       },
     },
     maxOutputTokens: 16000,
-    stopWhen: stepCountIs(4),
+    stopWhen: stepCountIs(isBrownfield ? 12 : 4),
   });
 }
 
@@ -189,8 +242,9 @@ export async function streamInterviewer(
   activePath: TurnWithOptions[],
   userMessage: string,
   phase: Phase,
+  modeOptions?: InterviewerModeOptions,
 ): ReturnType<InterviewerAgent['stream']> {
-  const agent = createInterviewerAgent(db, turn.id, phase, turn.project_id);
+  const agent = createInterviewerAgent(db, turn.id, phase, turn.project_id, modeOptions);
   const entities = getEntitiesForProject(db, turn.project_id);
   const fullPrompt = buildInterviewerContext(activePath, userMessage, {
     phase,

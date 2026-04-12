@@ -10,6 +10,7 @@ import {
   advanceHead,
   listProjects,
   createProject,
+  type CreateProjectOptions,
   type Option,
   type Turn,
   type DB,
@@ -86,7 +87,7 @@ export function listProjectStates(db: DB) {
   });
 }
 
-/** Create a new project with the given name. */
-export function createNewProject(db: DB, name: string): Project {
-  return createProject(db, name);
+/** Create a new project with the given name and optional mode/cwd. */
+export function createNewProject(db: DB, name: string, options?: CreateProjectOptions): Project {
+  return createProject(db, name, options);
 }

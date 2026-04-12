@@ -97,8 +97,21 @@ export function listProjects(db: DB): Project[] {
   return db.select().from(schema.project).orderBy(desc(schema.project.updated_at)).all() as Project[];
 }
 
-export function createProject(db: DB, name: string): Project {
-  const result = db.insert(schema.project).values({ name }).returning().get();
+export interface CreateProjectOptions {
+  mode?: 'greenfield' | 'brownfield';
+  cwd?: string | null;
+}
+
+export function createProject(db: DB, name: string, options?: CreateProjectOptions): Project {
+  const result = db
+    .insert(schema.project)
+    .values({
+      name,
+      ...(options?.mode ? { mode: options.mode } : {}),
+      ...(options?.cwd ? { cwd: options.cwd } : {}),
+    })
+    .returning()
+    .get();
   return result as Project;
 }
 

@@ -77,6 +77,13 @@ describe('createDb', () => {
     expect(phaseOutcomeColumns.map((column) => column.name)).toContain('closure_basis');
   });
 
+  it('project table has mode and cwd columns', () => {
+    const columns = db.$client.prepare("PRAGMA table_info('project')").all() as Array<{ name: string }>;
+    const names = columns.map((c) => c.name);
+    expect(names).toContain('mode');
+    expect(names).toContain('cwd');
+  });
+
   it('creates database file on disk when given a path', () => {
     const dir = join(tmpdir(), `brunch-test-${randomUUID()}`);
     mkdirSync(dir, { recursive: true });
@@ -1158,6 +1165,18 @@ describe('createProject', () => {
     const p1 = createProject(db, 'First');
     const p2 = createProject(db, 'Second');
     expect(p1.id).not.toBe(p2.id);
+  });
+
+  it('defaults to greenfield mode with null cwd', () => {
+    const project = createProject(db, 'Greenfield');
+    expect(project.mode).toBe('greenfield');
+    expect(project.cwd).toBeNull();
+  });
+
+  it('creates a brownfield project with mode and cwd', () => {
+    const project = createProject(db, 'Brownfield', { mode: 'brownfield', cwd: '/path/to/repo' });
+    expect(project.mode).toBe('brownfield');
+    expect(project.cwd).toBe('/path/to/repo');
   });
 });
 

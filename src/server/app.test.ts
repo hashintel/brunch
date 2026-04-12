@@ -281,6 +281,33 @@ describe('GET /api/projects/:id/export', () => {
   });
 });
 
+describe('POST /api/projects', () => {
+  it('creates a greenfield project by default', async () => {
+    const res = await request(app).post('/api/projects').send({ name: 'Greenfield' }).expect(201);
+    expect(res.body.mode).toBe('greenfield');
+    expect(res.body.cwd).toBeNull();
+  });
+
+  it('creates a brownfield project with mode and server-derived cwd', async () => {
+    const res = await request(app)
+      .post('/api/projects')
+      .send({ name: 'Brownfield', mode: 'brownfield' })
+      .expect(201);
+    expect(res.body.mode).toBe('brownfield');
+    expect(res.body.cwd).toBe(process.cwd());
+  });
+
+  it('persists mode in project state', async () => {
+    const createRes = await request(app)
+      .post('/api/projects')
+      .send({ name: 'BF', mode: 'brownfield' })
+      .expect(201);
+    const stateRes = await request(app).get(`/api/projects/${createRes.body.id}`).expect(200);
+    expect(stateRes.body.project.mode).toBe('brownfield');
+    expect(stateRes.body.project.cwd).toBe(process.cwd());
+  });
+});
+
 describe('POST /api/projects/:id/chat', () => {
   it('requires typed UI messages', async () => {
     const projectId = await createTestProject();
@@ -966,6 +993,7 @@ describe('phase outcomes + scope closure', () => {
       expect.any(Array),
       'Let us compare SQLite and Postgres',
       'design',
+      undefined,
     );
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),
@@ -1207,6 +1235,7 @@ describe('phase outcomes + scope closure', () => {
       expect.any(Array),
       'Let us review the must-have capabilities',
       'requirements',
+      undefined,
     );
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),
@@ -1513,6 +1542,7 @@ describe('phase outcomes + scope closure', () => {
       expect.any(Array),
       'Let us define the first acceptance criterion',
       'criteria',
+      undefined,
     );
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),
@@ -1576,6 +1606,7 @@ describe('phase outcomes + scope closure', () => {
       expect.any(Array),
       expect.any(String),
       'criteria',
+      undefined,
     );
 
     expect(mockRunObserver).toHaveBeenLastCalledWith(
@@ -1971,6 +2002,7 @@ describe('phase outcomes + scope closure', () => {
       expect.any(Array),
       'Let us review the must-have capabilities',
       'requirements',
+      undefined,
     );
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),

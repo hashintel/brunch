@@ -16,6 +16,8 @@ describe('api transport contracts', () => {
       projectListItemSchema.parse({
         id: 1,
         name: 'Project 1',
+        mode: 'greenfield',
+        cwd: null,
         active_turn_id: 4,
         created_at: '2026-04-12 10:00:00',
         updated_at: '2026-04-12 10:00:00',
@@ -42,6 +44,8 @@ describe('api transport contracts', () => {
         project: {
           id: 1,
           name: 'Project 1',
+          mode: 'greenfield',
+          cwd: null,
           active_turn_id: 4,
           created_at: '2026-04-12 10:00:00',
           updated_at: '2026-04-12 10:00:00',

@@ -5,9 +5,13 @@ import { phaseClosureBasisSchema, workflowPhaseSchema } from './phase-close.js';
 export const workflowPhaseStatusSchema = z.enum(['unstarted', 'in_progress', 'closed']);
 export const readinessBandSchema = z.enum(['low', 'medium', 'high']);
 
+export const projectModeSchema = z.enum(['greenfield', 'brownfield']);
+
 export const projectSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
+  mode: projectModeSchema,
+  cwd: z.string().nullable(),
   active_turn_id: z.number().int().positive().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -65,6 +69,8 @@ export const projectStateTurnSchema = z.object({
 
 export const createProjectRequestSchema = z.object({
   name: z.string().trim().min(1),
+  mode: projectModeSchema.optional(),
+  cwd: z.string().optional(),
 });
 
 export const createProjectResponseSchema = projectSchema;
@@ -197,6 +203,7 @@ export const submitTurnResponseResponseSchema = z.object({
   ok: z.literal(true),
 });
 
+export type ProjectMode = z.infer<typeof projectModeSchema>;
 export type WorkflowPhaseStatus = z.infer<typeof workflowPhaseStatusSchema>;
 export type ReadinessBand = z.infer<typeof readinessBandSchema>;
 export type Project = z.infer<typeof projectSchema>;

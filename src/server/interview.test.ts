@@ -4,6 +4,8 @@ import { structuredQuestionSchema, type StructuredQuestion } from '../shared/cha
 import { createDb, createProject, createTurn, getOptionsForTurn, getTurn, type DB } from './db.js';
 import {
   canProposePhaseClosure,
+  getBrownfieldScopePrompt,
+  getInterviewerTools,
   getSystemPrompt,
   persistFallbackQuestionText,
   persistStructuredQuestion,
@@ -143,6 +145,41 @@ describe('createProposePhaseClosureTool', () => {
     const outcomes = listPhaseOutcomesForProject(db, project.id);
     expect(outcomes).toHaveLength(1);
     expect(outcomes[0].phase).toBe('design');
+  });
+});
+
+describe('brownfield interviewer configuration', () => {
+  it('includes core tools when mode is brownfield', () => {
+    const project = createProject(db, 'BF', { mode: 'brownfield', cwd: '/tmp/repo' });
+    const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: '' });
+    const tools = getInterviewerTools(db, turn.id, 'scope', project.id, {
+      mode: 'brownfield',
+      cwd: '/tmp/repo',
+    });
+    const toolNames = Object.keys(tools);
+    expect(toolNames).toContain('read_file');
+    expect(toolNames).toContain('grep');
+    expect(toolNames).toContain('find_files');
+    expect(toolNames).toContain('list_directory');
+    expect(toolNames).toContain('ask_question');
+  });
+
+  it('excludes core tools when mode is greenfield', () => {
+    const project = createProject(db, 'GF');
+    const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: '' });
+    const tools = getInterviewerTools(db, turn.id, 'scope', project.id);
+    const toolNames = Object.keys(tools);
+    expect(toolNames).not.toContain('read_file');
+    expect(toolNames).not.toContain('grep');
+    expect(toolNames).toContain('ask_question');
+  });
+
+  it('uses a distinct brownfield system prompt for scope phase', () => {
+    const brownfieldPrompt = getBrownfieldScopePrompt('/tmp/repo');
+    const greenfieldPrompt = getSystemPrompt('scope');
+    expect(brownfieldPrompt).not.toBe(greenfieldPrompt);
+    expect(brownfieldPrompt).toContain('explore');
+    expect(brownfieldPrompt).toContain('/tmp/repo');
   });
 });
 
