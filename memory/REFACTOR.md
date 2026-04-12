@@ -13,8 +13,8 @@ The migration should be staged so the codebase remains working after every commi
 ## Commits
 
 1. Done — add characterization coverage for router bootstrapping, URL-to-screen mapping, and route-linked navigation so the current routing behavior is locked before rewiring it.
-2. Next — separate route-definition ownership from heavy screen implementation where needed, so route files can become thin wrappers without changing current behavior.
-3. Add file-based routing build infrastructure and generated-artifact handling while keeping the existing manual router active.
+2. Done — separate route-definition ownership from heavy screen implementation where needed, so route files can become thin wrappers without changing current behavior.
+3. Next — add file-based routing build infrastructure and generated-artifact handling while keeping the existing manual router active.
 4. Introduce the file-based root route and dashboard route as thin wrappers around the existing behavior, with no URL or loader changes.
 5. Introduce the file-based interview workspace route wrapper, preserving the current loader and pending-state behavior.
 6. Introduce the file-based knowledge and export route wrappers, preserving the current loader behavior and navigation flow.
@@ -22,6 +22,7 @@ The migration should be staged so the codebase remains working after every commi
 8. Clean up transitional wiring, update architecture/docs language, and keep a lightweight build oracle that confirms the intended route-generation and code-splitting behavior survives the refactor.
 
 Progress note: step 1 landed via `main.test.tsx`, `router.test.tsx`, and route-component link assertions in the existing dashboard/workspace/export tests.
+Progress note: step 2 landed via extracted `src/client/screens/*` modules while route components became thin wrappers around loader/controller wiring.
 
 ## Decisions
 

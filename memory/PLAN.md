@@ -215,6 +215,12 @@
     - Evidence: main.test.tsx, router.test.tsx, ProjectList.test.tsx, InterviewWorkspace.test.tsx, KnowledgeWorkspace.test.tsx, ExportPreview.test.tsx
     - Unblocks: `memory/REFACTOR.md` commit 2 (separate route-definition ownership from heavy screen implementation)
 
+19. **Route wrapper extraction for file-based routing migration** `done`
+    - Shipped: dashboard, interview, knowledge, and export route modules now just wire loader/controller state into extracted screen modules
+    - Seam changed: project creation navigation moved out of the mutation hook and back into the dashboard route wrapper
+    - Evidence: ProjectList.test.tsx, InterviewWorkspace.test.tsx, KnowledgeWorkspace.test.tsx, ExportPreview.test.tsx, router.test.tsx, main.test.tsx, `npm run verify`
+    - Unblocks: `memory/REFACTOR.md` commit 3 (file-based routing build infrastructure while the manual router stays active)
+
 ## Horizon
 
 <!-- Future work not yet broken into slices. Revisit after Phase 9. -->
