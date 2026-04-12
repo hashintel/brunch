@@ -30,4 +30,16 @@ describe('export route loader', () => {
     });
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/7/export');
   });
+
+  it('rejects when the export payload is malformed json', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response('{', {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await expect(fetchExportPreviewLoaderData(7)).rejects.toThrow();
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/7/export');
+  });
 });

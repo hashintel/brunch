@@ -14,12 +14,42 @@ describe('client mutation', () => {
     vi.unstubAllGlobals();
   });
 
+  it('returns parsed json on success', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, id: 7 }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await expect(
+      postJsonMutation('/api/projects', { name: 'New project' }, 'Failed to create project'),
+    ).resolves.toEqual({ ok: true, id: 7 });
+  });
+
   it('surfaces network failures with the caller fallback message', async () => {
     fetchMock.mockRejectedValueOnce(new TypeError('network down'));
 
     await expect(
       postJsonMutation('/api/projects', { name: 'New project' }, 'Failed to create project'),
     ).rejects.toEqual(new ClientMutationError('Failed to create project'));
+  });
+
+  it('surfaces json error messages from the server', async () => {
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Project name already exists' }), {
+        status: 409,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    await expect(
+      postJsonMutation('/api/projects', { name: 'New project' }, 'Failed to create project'),
+    ).rejects.toMatchObject({
+      name: 'ClientMutationError',
+      message: 'Project name already exists',
+      status: 409,
+    });
   });
 
   it('falls back when an error response body is not json', async () => {
