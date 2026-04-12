@@ -1,13 +1,13 @@
-import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
-
-import type { ProjectListItem } from '@/shared/api-types.js';
+import { createRootRoute, createRoute, createRouter } from '@tanstack/react-router';
 
 import { InterviewWorkspaceSkeleton, KnowledgeWorkspaceSkeleton } from './components/route-skeletons.js';
 import { fetchExportPreviewLoaderData } from './routes/export-loader.js';
 import { ExportPreview } from './routes/ExportPreview.js';
 import { InterviewWorkspace } from './routes/InterviewWorkspace.js';
 import { KnowledgeWorkspace } from './routes/KnowledgeWorkspace.js';
+import { fetchProjectListLoaderData } from './routes/project-list-loader.js';
 import { ProjectList } from './routes/ProjectList.js';
+import { RouteRoot } from './routes/RouteRoot.js';
 import {
   fetchInterviewWorkspaceLoaderData,
   fetchKnowledgeWorkspaceLoaderData,
@@ -15,22 +15,14 @@ import {
 
 // Root layout
 const rootRoute = createRootRoute({
-  component: () => (
-    <div className="min-h-screen bg-background font-sans text-foreground antialiased">
-      <Outlet />
-    </div>
-  ),
+  component: RouteRoot,
 });
 
 // GET /api/projects → project list
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/',
-  loader: async () => {
-    const res = await fetch('/api/projects');
-    if (!res.ok) throw new Error('Failed to load projects');
-    return res.json() as Promise<ProjectListItem[]>;
-  },
+  loader: fetchProjectListLoaderData,
   component: ProjectList,
 });
 
