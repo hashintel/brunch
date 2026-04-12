@@ -35,6 +35,10 @@ export async function launch(cwd: string): Promise<void> {
     });
   });
 
+  if (process.env.BRUNCH_NO_OPEN === '1') {
+    return;
+  }
+
   // Open browser
   try {
     const { default: open } = await import('open');
