@@ -8,10 +8,9 @@ import { describe, expect, it } from 'vitest';
 const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
 describe('file-route interview staging', () => {
-  it('adds the interview workspace file route without cutting runtime bootstrapping over yet', () => {
+  it('keeps the interview workspace file route thin while the generated tree owns the route entry', () => {
     const interviewRouteSource = readRepoFile('src/client/file-routes/project.$id.tsx');
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
-    const manualRouterSource = readRepoFile('src/client/router.tsx');
     const workspaceLoaderSource = readRepoFile('src/client/workspace/workspace-loader.ts');
 
     expect(interviewRouteSource).toContain("createFileRoute('/project/$id')");
@@ -20,11 +19,8 @@ describe('file-route interview staging', () => {
     expect(interviewRouteSource).toContain('InterviewWorkspaceSkeleton');
 
     expect(workspaceLoaderSource).toContain('fetchInterviewWorkspaceLoaderData');
-    expect(manualRouterSource).toContain("path: '/project/$id'");
-    expect(manualRouterSource).toContain('pendingComponent: InterviewWorkspaceSkeleton');
 
     expect(generatedRouteTreeSource).toContain("'/project/$id'");
     expect(generatedRouteTreeSource).toContain("'./file-routes/project.$id'");
-    expect(manualRouterSource).not.toContain('routeTree.gen');
   });
 });

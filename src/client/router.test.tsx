@@ -21,6 +21,10 @@ vi.mock('./routes/ProjectList.js', () => ({
   ProjectList: () => <h1>Projects screen</h1>,
 }));
 
+vi.mock('./screens/ProjectListScreen.js', () => ({
+  ProjectListScreen: () => <h1>Projects screen</h1>,
+}));
+
 vi.mock('./routes/InterviewWorkspace.js', () => ({
   InterviewWorkspace: () => <h1>Interview screen</h1>,
 }));
@@ -42,7 +46,7 @@ vi.mock('./routes/export-loader.js', () => ({
   fetchExportPreviewLoaderData: routeHarness.fetchExportPreviewLoaderData,
 }));
 
-import { routeTree } from './router.js';
+import { routeTree } from './routeTree.gen.js';
 
 function createDeferredPromise<T>() {
   let resolve!: (value: T) => void;
@@ -88,7 +92,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('routeTree', () => {
+describe('generated routeTree', () => {
   it('maps the dashboard URL to the project list screen', async () => {
     await renderRouteAt('/');
 

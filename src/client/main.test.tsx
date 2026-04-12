@@ -5,7 +5,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const createRootMock = vi.fn();
 const renderMock = vi.fn();
+const routeTree = { __brand: 'generated-route-tree' };
 const router = { __brand: 'router' };
+const createRouterMock = vi.fn(() => router);
 const RouterProviderMock = vi.fn(() => null);
 const QueryClientProviderMock = vi.fn(({ children }: { children: React.ReactNode }) => <>{children}</>);
 const QueryClientMock = vi.fn();
@@ -20,17 +22,24 @@ vi.mock('@tanstack/react-query', () => ({
 }));
 
 vi.mock('@tanstack/react-router', () => ({
+  createRoute: vi.fn(() => ({})),
+  createRootRoute: vi.fn(() => ({
+    addChildren: vi.fn(() => ({ __brand: 'manual-route-tree' })),
+  })),
+  createRouter: createRouterMock,
   RouterProvider: RouterProviderMock,
 }));
 
-vi.mock('./router.js', () => ({
-  router,
+vi.mock('./routeTree.gen.js', () => ({
+  routeTree,
 }));
 
 beforeEach(() => {
   vi.resetModules();
   createRootMock.mockReset();
   renderMock.mockReset();
+  createRouterMock.mockReset();
+  createRouterMock.mockReturnValue(router);
   QueryClientMock.mockReset();
   QueryClientProviderMock.mockClear();
   RouterProviderMock.mockClear();
@@ -39,7 +48,7 @@ beforeEach(() => {
 });
 
 describe('main entrypoint', () => {
-  it('boots the app with the shared router provider', async () => {
+  it('boots the app with a router built from the generated route tree', async () => {
     await import('./main.js');
 
     expect(createRootMock).toHaveBeenCalledWith(document.getElementById('root'));
@@ -51,6 +60,7 @@ describe('main entrypoint', () => {
         },
       },
     });
+    expect(createRouterMock).toHaveBeenCalledWith({ routeTree });
 
     const appTree = renderMock.mock.calls[0]?.[0];
     expect(appTree.type).toBe(StrictMode);

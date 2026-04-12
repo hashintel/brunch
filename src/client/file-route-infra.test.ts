@@ -8,7 +8,7 @@ import { describe, expect, it } from 'vitest';
 const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
 describe('file-route infrastructure', () => {
-  it('wires the file-route build pipeline without cutting runtime routing over yet', () => {
+  it('wires the file-route build pipeline into runtime routing', () => {
     const packageJson = JSON.parse(readRepoFile('package.json')) as {
       devDependencies?: Record<string, string>;
     };
@@ -20,7 +20,7 @@ describe('file-route infrastructure', () => {
       ignorePatterns?: string[];
     };
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
-    const manualRouterSource = readRepoFile('src/client/router.tsx');
+    const routerSource = readRepoFile('src/client/router.tsx');
 
     expect(packageJson.devDependencies?.['@tanstack/router-plugin']).toBeTruthy();
 
@@ -37,6 +37,9 @@ describe('file-route infrastructure', () => {
     expect(existsSync(join(process.cwd(), 'src/client/file-routes'))).toBe(true);
     expect(existsSync(join(process.cwd(), 'src/client/file-routes/__root.tsx'))).toBe(true);
     expect(generatedRouteTreeSource).toContain("from './file-routes/__root'");
-    expect(manualRouterSource).not.toContain('routeTree.gen');
+    expect(routerSource).toContain("from './routeTree.gen.js'");
+    expect(routerSource).toContain('createRouter({ routeTree })');
+    expect(routerSource).not.toContain('createRoute(');
+    expect(routerSource).not.toContain('createRootRoute(');
   });
 });
