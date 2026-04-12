@@ -52,124 +52,56 @@
 ### Slices
 
 6c. **Live streaming fix** `done`
-    - Requirements: → SPEC.md §Requirements #2, #3, #4
-    - Assumptions: → SPEC.md §Assumptions A16, A28
-    - Invariants to respect: → SPEC.md §Invariants I16, I17, I18, I22
-    - Invariants established: → SPEC.md §Invariants I24
-    - Acceptance: streamed turn card appears live without refresh; `npm run verify` passes
-    - Result: workspace controller projects streamed `tool-ask_question` into visible turn card before durable route refresh
-    - Evidence: InterviewWorkspace.test.tsx, workspace-controller.test.tsx, workspace-data.test.ts, app.test.ts
+    - Shipped: workspace controller projects streamed `tool-ask_question` into visible turn card before durable route refresh
+    - Established: I24 (workspace seam)
 
 6d. **Flexible turn-response model** `done`
-    - Requirements: → SPEC.md §Requirements #3, #6
-    - Assumptions: → SPEC.md §Assumptions A16, A28, A33
-    - Decisions: → SPEC.md §Decisions D23, D24, D25
-    - Invariants to respect: → SPEC.md §Invariants I17, I18, I19, I22
-    - Invariants established: → SPEC.md §Invariants I44
-    - Acceptance: zero/one/many selections plus free-text round-trip through persistence, hydration, and interviewer context
-    - Result: `data-turn-response` parts carry structured replies; workspace stages multi-select locally and submits one response
-    - Tracer bullets: 6d.1 single + free-text `done`, 6d.2 free-text-only `done`, 6d.3 many-selection `done`
+    - Shipped: `data-turn-response` parts carry zero/one/many selections + free-text; workspace stages multi-select locally
+    - Established: I44 (turn response seam)
 
 6e. **Generic knowledge layer schema + sidebar projection** `done`
-    - Requirements: → SPEC.md §Requirements #5, #6, #14
-    - Assumptions: → SPEC.md §Assumptions A14
-    - Decisions: → SPEC.md §Decisions D5, D13, D25, D49, D50, D51
-    - Invariants to respect: → SPEC.md §Invariants I20, I21, I23
-    - Invariants established: → SPEC.md §Invariants I48
-    - Acceptance: generic knowledge items and edges load and display from the active path without losing resume behavior
-    - Result: `knowledge_item` + `turn_knowledge_item` + `knowledge_edge` persistence; entities API projects kind-specific collections plus typed relationships
-    - Tracer bullets: 6e.1 framing items `done`, 6e.2a legacy edges `done`, 6e.2b remaining kinds `done`
+    - Shipped: `knowledge_item` + `turn_knowledge_item` + `knowledge_edge` persistence; kind-specific entity collections + typed relationships
+    - Established: I48 (generic knowledge seam)
 
 6f. **Phase-aware observer extraction** `done`
-    - Requirements: → SPEC.md §Requirements #5, #6, #11, #12
-    - Assumptions: → SPEC.md §Assumptions A14, A20
-    - Decisions: → SPEC.md §Decisions D4, D5, D13, D25
-    - Invariants to respect: → SPEC.md §Invariants I20, I21, I23
-    - Invariants established: → SPEC.md §Invariants I54
-    - Acceptance: observer biases extraction by phase; results stream in-band to sidebar without breaking sync
-    - Result: scope yields goals/terms/contexts/constraints, design yields decisions/assumptions with scope spillover, requirements yields requirements, criteria yields criteria
-    - Tracer bullets: 6f.1 scope framing `done`, 6f.2 scope constraints `done`, 6f.3 design bias `done`, 6f.4a requirements `done`, 6f.4b criteria `done`
+    - Shipped: observer biases extraction by phase — scope→goals/terms/contexts/constraints, design→decisions/assumptions, requirements→requirements, criteria→criteria
+    - Established: I54 (observer widening seam)
 
 ## Phase 5: Mode Closure + Full Interview
-
-<!-- Once turns and knowledge capture fit the real interview, add explicit readiness artifacts.
-     Slice 7 can proceed on the current foundation, but later mode/review slices should not harden
-     the transitional `framing`-based ontology or mixed legacy/generic knowledge seam; retire that
-     design risk before treating the remaining workflow modes as shape-stable. -->
 
 ### Slices
 
 7. **Explicit phase outcomes + scope closure** `done`
-   - Requirements: → SPEC.md §Requirements #7, #8
-   - Assumptions: → SPEC.md §Assumptions A15, A28
-   - Decisions: → SPEC.md §Decisions D2, D3, D6, D62, D65, D66
-   - Invariants to respect: → SPEC.md §Invariants I18, I24
-   - Invariants established: → SPEC.md §Invariants I72
-   - Acceptance: scope proposes closure, user confirms, explicit phase outcome persists, workflow state updates
-   - Result: durable `phase_outcome` proposal/confirmation records; `data-phase-summary` + `data-confirmation` chat seams; workspace header shows scope status and confirmation card
+   - Shipped: durable `phase_outcome` records; `data-phase-summary` + `data-confirmation` chat seams; workspace header phase status
+   - Established: I72 (phase-close seam)
    - Debt: shared closeability/readiness/closure-basis generalization folded into slice 8
 
 7a. **Knowledge-layer redesign spike** `done`
-   - Decisions: → SPEC.md §Decisions D5, D17, D59, D61, D62, D63, D64, D67, D68, D69
-   - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I48
-   - Acceptance: approved target model for canonical kinds, cross-kind edges, storage direction, and knowledge-workspace boundaries
-   - Result: canonical ontology is 8 kinds (`goal`, `term`, `context`, `constraint`, `assumption`, `decision`, `requirement`, `criterion`); `framing` demoted to migration alias; primary review UX is dedicated knowledge workspace, not sidebar
+   - Shipped: canonical ontology (8 kinds); `framing` demoted to migration alias; primary review UX is dedicated knowledge workspace
 
 7b. **Canonical knowledge model foundation + cutover seam** `done`
-   - Assumptions: → SPEC.md §Assumptions A14, A40
-   - Decisions: → SPEC.md §Decisions D5, D13, D17, D49, D51, D59, D61, D62, D63, D67, D68, D69
-   - Invariants to respect: → SPEC.md §Invariants I20, I21, I23, I48, I72
-   - Invariants established: → SPEC.md §Invariants I48, I54
-   - Acceptance: all eight canonical kinds plus generic edges work; scope closure reads coherent scope bundle; no new writes rely on `framing`
-   - Result: registry/observer/entities/sidebar use canonical kinds on clean DB; decisions/assumptions persist through generic seam; compatibility projections preserve slice-7 readiness
-   - Tracer bullets: 7b.1 canonical scope kinds `done`, 7b.2 generic edge/storage cutover `done`
+   - Shipped: registry/observer/entities/sidebar use canonical kinds; decisions/assumptions persist through generic seam
+   - Established: I48 (updated), I54 (updated)
 
 8. **Design mode (commitment / exploration)** `done`
-   - Requirements: → SPEC.md §Requirements #2, #3, #5, #6, #7, #8
-   - Assumptions: → SPEC.md §Assumptions A14, A15, A28, A40
-   - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62, D65, D66, D67, D68, D70, D71, D72, D73, D74, D75
-   - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I22, I72
-   - Invariants established: → SPEC.md §Invariants I72
-   - Acceptance: design mode enters after scope close; design turns yield commitments on canonical knowledge seam; user can accept recommended close or force-close with persisted closure basis
-   - Result: shared workflow projection (status/closeability/readiness/closureBasis) replaces scope-only seam; explicit discriminated phase-close commands; force-close availability from shared policy; durable closure basis on `phase_outcome`
-   - Tracer bullets: 8.1 design entry + shared workflow `done`, 8.2 design closure + requirements handoff `done`, 8.3 user-forced close + carried debt `done`
+   - Shipped: shared workflow projection replaces scope-only seam; discriminated phase-close commands; force-close + durable closure basis
+   - Established: I72 (updated)
 
 9. **Requirements-review mode** `done`
-   - Requirements: → SPEC.md §Requirements #6, #7, #8, #11, #13
-   - Assumptions: → SPEC.md §Assumptions A15, A28, A40, A44, A45, A46
-   - Decisions: → SPEC.md §Decisions D2, D5, D6, D61, D62, D65, D66, D67, D68, D69, D70, D71, D77, D78, D79
-   - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I24
-   - Invariants established: → SPEC.md §Invariants I87
-   - Acceptance: requirement set synthesized from canonical knowledge; explicit approve/reject state; requirements closeability + closure proposal; criteria handoff on confirmation
-   - Result: interviewer grounded in requirement inventory; targeted approve/reject via review metadata + `turn_knowledge_item` links; closeability from full review coverage; shared phase-close seam reused for requirements → criteria handoff
-   - Tracer bullets: 9.1 inventory grounding `done`, 9.2 targeted approval `done`, 9.3 targeted rejection `done`, 9.4 closeability + proposal `done`, 9.5 closure + criteria handoff `done`
+   - Shipped: interviewer grounded in requirement inventory; targeted approve/reject; closeability from full review coverage; shared phase-close reused for requirements → criteria handoff
+   - Established: I87 (requirements-review seam)
 
 10.1 **Criteria grounding + first synthesis/review loop** `done`
-     - Requirements: → SPEC.md §Requirements #6, #8, #12
-     - Assumptions: → SPEC.md §Assumptions A28, A40
-     - Decisions: → SPEC.md §Decisions D25, D55, D56, D71
-     - Candidate invariant goals: the first criteria turn is grounded in approved requirements; criteria-mode interviewer/observer behavior stays criteria-shaped and can persist one initial criterion through the existing seam
-     - Invariants to respect: → SPEC.md §Invariants I18, I19, I21, I24, I95, I96
-     - Acceptance: after requirements closes, the first criteria turn includes the approved requirement inventory, asks a criteria-shaped question rather than a generic follow-up, and one initial criterion can round-trip through observer/entity persistence without dropping out of criteria mode
-     - **Verification approach**: inner — criteria context/prompt seam tests plus criterion projection tests. Middle — round-trip oracle proving approved requirement inventory → criteria interviewer turn → criterion persistence/entities refresh. Outer — manual walkthrough judges whether the first criteria turn feels grounded in the reviewed requirement set.
+     - Shipped: criteria interviewer grounded in approved requirements; initial criterion round-trips through observer/entity persistence
+     - Established: I97 (criteria-review grounding)
 
-10.2 **Explicit criterion review state + minimal closeability** — Establish the first explicit per-criterion review seam and deterministic closeability rule in one slice rather than splitting approval, rejection, and closeability into separate tracer bullets. `done`
-     - Requirements: → SPEC.md §Requirements #7, #8, #12, #13
-     - Assumptions: → SPEC.md §Assumptions A15, A28
-     - Decisions: → SPEC.md §Decisions D24, D61, D65, D66, D70
-     - Candidate invariant goals: criteria project explicit `approved` / `rejected` / `pending` review state; criteria becomes closeable only when every current criterion has explicit non-pending review state
-     - Invariants to respect: → SPEC.md §Invariants I18, I21, I24, I62, I63, I96
-     - Acceptance: a targeted criteria-review turn can persist one explicit positive review action and one explicit non-positive review action, read-side projection resolves latest review state per criterion, and workflow marks criteria closeable only when no criterion remains `pending`
-     - **Verification approach**: inner — criterion review metadata/read-model/workflow-state tests. Middle — round-trip oracle proving explicit criterion review actions persist and project without drift, plus lifecycle oracle proving criteria stays `in_progress` until review coverage is complete. Outer — manual criteria review walkthrough judges whether the thin approve/reject semantics are legible enough to keep moving.
+10.2 **Explicit criterion review state + minimal closeability** `done`
+     - Shipped: per-criterion approve/reject with latest-action-wins projection; closeability from full criterion review coverage
+     - Established: I98 (criteria-review seam)
 
-10.3 **Criteria closure + completed workflow state** — Reuse the shared phase-close seam to close the final workflow phase and project a completed interview state once criteria review reaches the minimum bar. `done`
-     - Requirements: → SPEC.md §Requirements #7, #8, #13
-     - Assumptions: → SPEC.md §Assumptions A15, A28
-     - Decisions: → SPEC.md §Decisions D65, D66, D71
-     - Candidate invariant goals: the terminal phase can propose and confirm closure through the shared seam; workflow can project all phases closed with no stale active interviewer phase
-     - Invariants to respect: → SPEC.md §Invariants I18, I24, I96
-     - Acceptance: once criteria is closeable, the interviewer can propose criteria closure, user confirmation persists the final `phase_outcome`, and workflow projects all phases closed with no remaining active phase before export
-     - **Verification approach**: inner — phase-summary/confirmation/workflow-state tests. Middle — round-trip oracle proving criteria proposal → confirmation → confirmed final outcome → completed workflow projection. Outer — manual walkthrough judges whether final closure feels coherent before export/polish work.
+10.3 **Criteria closure + completed workflow state** `done`
+     - Shipped: shared phase-close seam closes criteria; all four phases project `closed` with no stale active phase
+     - Established: I99 (criteria closure)
 
 ## Phase 6: Readiness Surfaces + Export
 
@@ -180,48 +112,25 @@
 
 ### Slices
 
-11a. **Project dashboard workflow state** `FE-573` `done` — Surface durable workflow state on the project list so users can tell which projects are unstarted, in progress, closed with debt, invalidated, or export-ready without opening each workspace.
-     - Requirements: → SPEC.md §Requirements #7, #8, #11, #12, #13, #15
-     - Assumptions: → SPEC.md §Assumptions A15, A28
-     - Decisions: → SPEC.md §Decisions D3, D17, D65, D66, D70
-     - Candidate invariant goals: project-list workflow state derives from durable phase outcomes, closeability/readiness projection, and review records, not ad hoc turn heuristics
-     - Invariants to respect: → SPEC.md §Invariants I24
-     - Acceptance: the project list shows each project's per-phase status/readiness/closure-basis summary from persisted readiness artifacts plus live workflow projection, distinguishes forced-close or low-readiness debt from ordinary closed state, and updates correctly after refresh/resume
-     - **Verification approach**: inner — workflow-summary projection tests plus project-list route/component tests. Outer — manual multi-project walkthrough covering in-progress, forced-close debt, invalidated, and export-ready states.
+11a. **Project dashboard workflow state** `FE-573` `done`
+     - Shipped: project list shows per-phase status/readiness/closure-basis from durable phase outcomes + live workflow projection
+     - Distinguishes forced-close debt from ordinary closed state
 
-12a. **Knowledge workspace review surface** `FE-574` `done` — Read-only phase-oriented workspace at `/project/:id/knowledge` for inspecting canonical knowledge items grouped by kind, with review-status badges and relationship context. The sidebar remains a compact summary; this is the first dedicated review surface (D63, D69). Assumes the redesigned knowledge ontology/graph from 7a + 7b.
-      - Requirements: → SPEC.md §Requirements #6, #11, #12, #13
-      - Assumptions: → SPEC.md §Assumptions A14, A40
-      - Decisions: → SPEC.md §Decisions D5, D17, D61, D63, D67, D68, D69
-      - Candidate invariant goals: knowledge workspace presents all canonical kinds with review state and relationship context from the existing entities API without lossy sidebar compression
-      - Invariants to respect: → SPEC.md §Invariants I23, I24
-      - Acceptance: navigate to knowledge workspace, see kind-grouped items with review badges and dependency edges, navigate back to interview; no new mutations or edit actions in this slice
-      - **Verification approach**: inner — route/component tests with mock EntitiesData. Outer — manual walkthrough from seeded project.
+12a. **Knowledge workspace review surface** `FE-574` `done`
+     - Shipped: read-only `/project/:id/knowledge` route with kind-grouped items, review badges, and dependency edges
+     - First dedicated review surface beyond sidebar
 
-12b. **Spec export from the reviewed knowledge layer** `FE-574` `done` — Render markdown export from active-path reviewed knowledge items and explicit phase outcomes, including closure caveats when a mode was closed with low readiness or user-forced basis. Export is enabled only when all phases are closed.
-      - Requirements: → SPEC.md §Requirements #13
-      - Assumptions: —
-      - Decisions: → SPEC.md §Decisions D5, D17, D26, D65, D66, D70
-      - Candidate invariant goals: export reflects active-path reviewed knowledge only; readiness predicate gates export correctly; closure provenance survives into the final artifact when it changes how trustworthy the result is
-      - Invariants to respect: → SPEC.md §Invariants I18, I21
-      - Acceptance: complete all modes, navigate to export, see markdown preview grouped by kind with closure caveats, download `.md` file; export blocked when any phase is not closed
-      - **Verification approach**: inner — export rendering + API route tests. Outer — manual export from seeded all-phases-closed project.
+12b. **Spec export from the reviewed knowledge layer** `FE-574` `done`
+     - Shipped: markdown export from active-path reviewed knowledge with closure caveats; gated on all phases closed
+     - Evidence: export.test.ts, KnowledgeWorkspace.test.tsx
 
-11b. **Fixture scenarios + dev seed CLI** `done` — Extract the programmatic seed helpers from `app.test.ts` into a shared fixture module (`src/server/fixtures/scenarios.ts`) and add a CLI entry point (`src/server/fixtures/seed.ts`) so the dev server can be started at any named project state for outer-loop manual testing.
-     - Requirements: → SPEC.md §Requirements #14 (resume), §Verification Design (outer-loop fixture capture)
-     - Assumptions: → SPEC.md §Assumptions A28
-     - Decisions: —
-     - Candidate invariant goals: fixture scenarios produce DB states identical to what the existing middle-loop tests verify; test files import from the shared module instead of owning inline seed helpers
-     - Invariants to respect: → SPEC.md §Invariants I5, I6, I72, I87, I98, I99
-     - Acceptance: `npm run seed <scenario>` creates a named-scenario project in a fresh or specified DB; the dev server renders the expected workflow state and turn history from that seeded state; existing tests still pass after the extraction refactor
-     - **Verification approach**: inner — type checking confirms scenario functions share the same DB API contract. Middle — existing test suite passes after extraction (characterization). Outer — manual dev-server walkthrough from each seeded scenario.
+11b. **Fixture scenarios + dev seed CLI** `done`
+     - Shipped: shared fixture module + `npm run seed <scenario>` CLI; test files import from shared module
+     - 10 programmatic scenarios cover all workflow states
 
-11c. **Rich fixture generation for outer-loop testing** `done` — Static JSON manifest seeder with issue-tracker domain fixtures: 5 accumulative scenarios, 27 knowledge items across all 8 canonical kinds, 14 cross-kind edges, mixed review states, 24 turns with realistic `assistant_parts` and `user_parts`. `npm run seed issue-tracker-<scenario>` hydrates DB alongside existing programmatic scenarios.
-     - Requirements: → SPEC.md §Verification Design (outer-loop fixture capture)
-     - Assumptions: → SPEC.md §Assumptions A28, A40
-     - Decisions: —
-     - Invariants to respect: → SPEC.md §Invariants I5, I6, I17, I18, I44, I48, I54, I72, I87, I98, I99
-     - Evidence: `npm run verify` passes (223 tests); all 10 scenarios seed successfully; knowledge workspace and export render populated sections from seeded state
+11c. **Rich fixture generation for outer-loop testing** `done`
+     - Shipped: JSON manifest seeder with issue-tracker domain (5 scenarios, 27 knowledge items, 14 edges, 24 turns)
+     - Evidence: 223 tests pass; all 10 scenarios seed; knowledge workspace + export render from seeded state
 
 13a. **Review lifecycle refinement across requirements + criteria** — Revisit the first-cut review model only after the thin end-to-end path is working, and add the deferred variants that were intentionally excluded from slices 9 and 10 so the app kept moving toward completion. Depends on 12a + 12b. `not-started`
      - Requirements: → SPEC.md §Requirements #11, #12, #13
