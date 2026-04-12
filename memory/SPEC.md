@@ -200,7 +200,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 7. **SQLite via better-sqlite3** — Zero-config embedded DB. Turn tree, knowledge items, graph edges, and readiness artifacts all live in SQLite tables. Schema defined in Drizzle (see D18). Depends on: A5, A6. Supersedes: Dolt (docker-based).
 8. **Express.js server emits AI SDK UI message streams directly** — The chat route validates incoming `BrunchUIMessage[]`, persists the new turn, merges the interviewer stream into `createUIMessageStream`, emits typed observer-result data parts in-band, and pipes the result to the response. No handwritten stream-translation layer remains on the web path. Depends on: A1, A19, D19. Supersedes: hand-rolled NDJSON and DomainEvent-to-SSE translation.
-9. **React + Vite + @ai-sdk/react + @tanstack/react-router client** — `useChat` for conversation streaming. TanStack Router for type-safe routing with route loaders for data fetching on navigation (replaces manual `useEffect` hydration). Three routes for MVP: project list (`/`), interview workspace (`/project/:id`), export preview (`/project/:id/export`). See `docs/archive/BREADBOARD.md`. Depends on: A9, A10. Supersedes: Preact, both existing frontends, single-page no-routing layout.
+9. **React + Vite + @ai-sdk/react + @tanstack/react-router client** — `useChat` for conversation streaming. TanStack Router for type-safe routing with route loaders for data fetching on navigation (replaces manual `useEffect` hydration). The current route surface is project list (`/`), interview workspace (`/project/:id`), knowledge workspace (`/project/:id/knowledge`), and export preview (`/project/:id/export`). See `docs/archive/BREADBOARD.md`. Depends on: A9, A10. Supersedes: Preact, both existing frontends, single-page no-routing layout.
 10. **npx-launchable single-command distribution** — `bin` entry, launcher starts Express (serves built Vite assets + API on one port), opens browser. Single env var: `ANTHROPIC_API_KEY`. DB auto-created in local `.brunch/` directory (see D81). Depends on: A8. Supersedes: multi-step Docker + env var setup.
 16. **Integer autoincrement primary keys** — All entity tables use `INTEGER PRIMARY KEY AUTOINCREMENT` instead of `TEXT` UUIDs. SQLite ROWID alias is simpler, matches the original DBML design, avoids UUID generation. No external systems reference these IDs. Client coerces to strings for `useChat` hydration (`turn-${id}-answer`, `turn-${id}-question`). Depends on: D7. Supersedes: `randomUUID()` TEXT PKs from slice 2.
 18. **Drizzle ORM replaces raw DDL** — TypeScript schema definition (`drizzle/schema.ts`) is single source of truth for types, DDL, and migrations. Auto-applies from `drizzle/migrations/` at startup. Drizzle Studio available for DB inspection during development. Depends on: A18, D7. Supersedes: raw DDL strings in db.ts, DBML design document, hand-written TypeScript interfaces.
@@ -239,7 +239,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | I12 | Typed server chat boundary                                 | Slice 3c (Drizzle)        | core.test.ts, app.test.ts            | D19         |
 | I13 | Core/adapter separation                                    | Slice 3c (Drizzle)        | core.test.ts, app.test.ts            | D19         |
 | I14 | Project-scoped API routes                                  | Slice 3d (routing)        | app.test.ts                          | D9          |
-| I15 | Route loader hydration                                     | Slice 3d (routing)        | manual (outer loop)                  | D9          |
+| I15 | Client router bootstrapping, URL-to-screen ownership, and route-linked navigation stay stable across the dashboard, interview, knowledge, and export routes | Slice 3d (routing); route ownership refactor step 1 characterization | main.test.tsx, router.test.tsx, ProjectList.test.tsx, InterviewWorkspace.test.tsx, KnowledgeWorkspace.test.tsx, ExportPreview.test.tsx | D9 |
 | I16 | Schema validation on agent tool output                     | Slice 4 (scope interview) | interview.test.ts                    | D2, A13     |
 | I17 | Data Part schema validation                                | Slice 4a (parts)          | parts.test.ts                        | D24         |
 | I18 | Parts round-trip fidelity                                  | Slice 4a (parts)          | parts.test.ts, core.test.ts          | D23         |
@@ -569,8 +569,10 @@ This projection difference is a deliberate design choice, not an implementation 
 | observer.test.ts              | 9     | I20, I21, I44, I48, I54                               |
 | phase-close.test.ts           | 13    | I72                                                   |
 | turn-response.test.ts         | 4     | I44                                                   |
-| InterviewWorkspace.test.tsx   | 23    | I23, I24, I44, I48, I54, I72                          |
-| ProjectList.test.tsx          | 4     | I24, I101                                             |
+| main.test.tsx                 | 1     | I15                                                   |
+| router.test.tsx               | 4     | I15                                                   |
+| InterviewWorkspace.test.tsx   | 24    | I15, I23, I24, I44, I48, I54, I72                     |
+| ProjectList.test.tsx          | 4     | I15, I24, I101                                        |
 | workspace-data.test.ts        | 7     | I24, I48, I72                                         |
 | chat-hydration.test.ts        | 2     | I24                                                   |
 | workspace-controller.test.tsx | 6     | I24, I48                                              |
@@ -581,7 +583,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | message.test.tsx              | 2     | I24, I27                                              |
 | build-boundary.test.ts        | 1     | I24, I28, I32                                         |
 | capability-boundaries.test.ts | 2     | I24, I29                                              |
-| KnowledgeWorkspace.test.tsx   | 5     | I24, I48                                              |
+| KnowledgeWorkspace.test.tsx   | 5     | I15, I24, I48                                         |
 | workspace-loader.test.ts      | 7     | I24                                                   |
 | project.test.ts               | 10    | I100                                                  |
 | launcher.test.ts              | 3     | I5, I100                                              |
@@ -589,7 +591,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | runtime-config.test.ts        | 3     | I100                                                  |
 | api-types.test.ts             | 7     | —                                                     |
 | export-loader.test.ts         | 4     | D26, D65, D66, D70                                    |
-| ExportPreview.test.tsx        | 2     | D26, D65, D66, D70                                    |
+| ExportPreview.test.tsx        | 2     | I15, D26, D65, D66, D70                               |
 | export.test.ts                | 9     | D26, D65, D66, D70                                    |
 | manifest.test.ts              | 1     | —                                                     |
 

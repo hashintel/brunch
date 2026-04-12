@@ -11,9 +11,25 @@ import { KnowledgeWorkspace, KnowledgeWorkspaceView } from './KnowledgeWorkspace
 
 let currentLoaderData: KnowledgeWorkspaceLoaderData;
 
+function buildHref(to?: string, params?: Record<string, string>) {
+  if (!to) {
+    return undefined;
+  }
+
+  return Object.entries(params ?? {}).reduce((path, [key, value]) => path.replace(`$${key}`, value), to);
+}
+
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }) => (
-    <a href={to} {...props}>
+  Link: ({
+    children,
+    to,
+    params,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+    to?: string;
+    params?: Record<string, string>;
+  }) => (
+    <a href={buildHref(to, params)} {...props}>
       {children}
     </a>
   ),
@@ -149,7 +165,7 @@ describe('KnowledgeWorkspace', () => {
     render(<KnowledgeWorkspace />);
 
     expect(screen.getByRole('heading', { name: 'Knowledge' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: '← Back to interview' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: '← Back to interview' }).getAttribute('href')).toBe('/project/1');
     expect(screen.getByText('Review captured knowledge items and relationships.')).toBeTruthy();
     expect(screen.getByText('Ship MVP')).toBeTruthy();
   });

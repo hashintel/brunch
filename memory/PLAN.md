@@ -206,6 +206,15 @@
     - Acceptance: chosen `drizzle-kit` version removes the vulnerable loader chain, keeps `drizzle.config.ts` compatible, preserves existing migration history, and `npm run studio` still works against the existing SQLite database
     - **Verification approach**: inner — dependency tree/audit check plus config-load and migration/studio smoke tests. Outer — manual `npm run studio` walkthrough on the distributed app path.
 
+## Phase 10: Route Ownership Refactor
+
+### Slices
+
+18. **Router seam characterization for file-based routing migration** `done`
+    - Shipped: locked current router bootstrapping, URL-to-screen mapping, and route-linked destinations before the file-route cutover
+    - Evidence: main.test.tsx, router.test.tsx, ProjectList.test.tsx, InterviewWorkspace.test.tsx, KnowledgeWorkspace.test.tsx, ExportPreview.test.tsx
+    - Unblocks: `memory/REFACTOR.md` commit 2 (separate route-definition ownership from heavy screen implementation)
+
 ## Horizon
 
 <!-- Future work not yet broken into slices. Revisit after Phase 9. -->

@@ -9,9 +9,25 @@ import { ExportPreview } from './ExportPreview.js';
 
 let currentLoaderData: ExportLoaderData;
 
+function buildHref(to?: string, params?: Record<string, string>) {
+  if (!to) {
+    return undefined;
+  }
+
+  return Object.entries(params ?? {}).reduce((path, [key, value]) => path.replace(`$${key}`, value), to);
+}
+
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, to, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }) => (
-    <a href={to} {...props}>
+  Link: ({
+    children,
+    to,
+    params,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+    to?: string;
+    params?: Record<string, string>;
+  }) => (
+    <a href={buildHref(to, params)} {...props}>
       {children}
     </a>
   ),
@@ -42,7 +58,9 @@ describe('ExportPreview', () => {
     expect(
       screen.getByText('Export is not available yet. All workflow phases must be closed before exporting.'),
     ).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Return to interview →' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Return to interview →' }).getAttribute('href')).toBe(
+      '/project/7',
+    );
   });
 
   it('renders markdown preview and review navigation when export data is ready', () => {
@@ -54,7 +72,9 @@ describe('ExportPreview', () => {
     render(<ExportPreview />);
 
     expect(screen.getByRole('button', { name: 'Download .md' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Review knowledge →' })).toBeTruthy();
+    expect(screen.getByRole('link', { name: 'Review knowledge →' }).getAttribute('href')).toBe(
+      '/project/7/knowledge',
+    );
     expect(
       screen.getByText(
         (content, element) => element?.tagName === 'PRE' && content.includes('# Reviewed Spec'),

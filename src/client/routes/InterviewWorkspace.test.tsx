@@ -61,9 +61,27 @@ let useChatImpl: (options: UseChatOptions) => {
 };
 let useChatHarness: UseChatHarness;
 
+function buildHref(to?: string, params?: Record<string, string>) {
+  if (!to) {
+    return undefined;
+  }
+
+  return Object.entries(params ?? {}).reduce((path, [key, value]) => path.replace(`$${key}`, value), to);
+}
+
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
-    <a {...props}>{children}</a>
+  Link: ({
+    children,
+    to,
+    params,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
+    to?: string;
+    params?: Record<string, string>;
+  }) => (
+    <a href={buildHref(to, params)} {...props}>
+      {children}
+    </a>
   ),
   useLoaderData: () => currentLoaderData,
   useParams: () => ({ id: String(currentLoaderData.projectState.project.id) }),
@@ -348,6 +366,13 @@ afterEach(() => {
 });
 
 describe('InterviewWorkspace', () => {
+  it('renders the current project-scoped navigation links', async () => {
+    renderWorkspace();
+
+    expect((await screen.findByRole('link', { name: '← Projects' })).getAttribute('href')).toBe('/');
+    expect(screen.getByRole('link', { name: 'Knowledge' }).getAttribute('href')).toBe('/project/1/knowledge');
+  });
+
   it('renders the turn card from a pending-question tool part before route invalidation', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       assistantText: 'Earlier question?',

@@ -60,7 +60,7 @@ const exportRoute = createRoute({
   component: ExportPreview,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, projectRoute, knowledgeRoute, exportRoute]);
+export const routeTree = rootRoute.addChildren([indexRoute, projectRoute, knowledgeRoute, exportRoute]);
 
 export const router = createRouter({ routeTree });
 
