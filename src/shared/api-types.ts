@@ -71,11 +71,12 @@ export const projectStateTurnSchema = z.object({
   options: z.array(turnOptionSchema).optional(),
 });
 
-export const createProjectRequestSchema = z.object({
-  name: z.string().trim().min(1),
-  mode: projectModeSchema.optional(),
-  cwd: z.string().optional(),
-});
+export const createProjectRequestSchema = z
+  .object({
+    name: z.string().trim().min(1),
+    mode: projectModeSchema.optional(),
+  })
+  .strict();
 
 export const createProjectResponseSchema = projectSchema;
 

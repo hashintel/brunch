@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  createProjectRequestSchema,
   criterionEntitySchema,
   entitiesDataSchema,
   exportLoaderDataSchema,
@@ -230,6 +231,16 @@ describe('api transport contracts', () => {
         content: 'This should not be a criterion',
         rationale: null,
       }),
+    ).toThrow();
+  });
+
+  it('keeps create-project transport limited to client-authorable fields', () => {
+    expect(createProjectRequestSchema.parse({ name: 'Brunch', mode: 'brownfield' })).toEqual({
+      name: 'Brunch',
+      mode: 'brownfield',
+    });
+    expect(() =>
+      createProjectRequestSchema.parse({ name: 'Brunch', mode: 'brownfield', cwd: '/tmp/repo' }),
     ).toThrow();
   });
 

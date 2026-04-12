@@ -297,6 +297,13 @@ describe('POST /api/projects', () => {
     expect(res.body.cwd).toBe(process.cwd());
   });
 
+  it('rejects client-supplied cwd data on project creation', async () => {
+    await request(app)
+      .post('/api/projects')
+      .send({ name: 'Brownfield', mode: 'brownfield', cwd: '/tmp/repo' })
+      .expect(400);
+  });
+
   it('persists mode in project state', async () => {
     const createRes = await request(app)
       .post('/api/projects')
