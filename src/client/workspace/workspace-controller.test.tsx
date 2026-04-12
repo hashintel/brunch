@@ -35,6 +35,7 @@ function createPendingQuestionMessage(): BrunchUIMessage {
 }
 
 type UseChatOptions = {
+  id?: string;
   messages: BrunchUIMessage[];
   onData?: (dataPart: { type: string; data?: unknown }) => void;
   onFinish?: () => void;
@@ -209,18 +210,29 @@ function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'rea
   };
 
   return function useChatHarnessImpl(options: UseChatOptions) {
-    const [messages, setMessages] = useState(options.messages);
-    const stableSetMessages = useCallback((nextMessages: BrunchUIMessage[]) => {
-      setMessagesSpy(nextMessages);
-      setMessages(nextMessages);
-    }, []);
+    const [, forceRender] = useState(0);
+    const chatStates = useState(() => new Map<string, BrunchUIMessage[]>())[0];
+    const chatId = options.id ?? 'default';
+
+    if (!chatStates.has(chatId)) {
+      chatStates.set(chatId, options.messages);
+    }
+
+    const stableSetMessages = useCallback(
+      (nextMessages: BrunchUIMessage[]) => {
+        setMessagesSpy(nextMessages);
+        chatStates.set(chatId, nextMessages);
+        forceRender((count) => count + 1);
+      },
+      [chatId, chatStates],
+    );
 
     useChatHarness.onData = options.onData;
     useChatHarness.onFinish = options.onFinish;
     useChatHarness.replaceMessages = stableSetMessages;
 
     return {
-      messages,
+      messages: chatStates.get(chatId) ?? options.messages,
       sendMessage,
       setMessages: stableSetMessages,
       status,
@@ -307,11 +319,6 @@ describe('workspace controller', () => {
     expect((await screen.findByTestId('turn-card')).textContent).toBe('none');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('true');
 
-    await waitFor(() => {
-      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
-    });
-    useChatHarness.setMessages.mockClear();
-
     await act(async () => {
       useChatHarness.replaceMessages?.([
         { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
@@ -360,10 +367,6 @@ describe('workspace controller', () => {
     expect(screen.getByTestId('turn-card').textContent).toBe('What should we build first?');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
     expect(fetchMock).not.toHaveBeenCalled();
-
-    await waitFor(() => {
-      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
-    });
   });
 
   it('rehydrates the transcript on explicit project navigation', async () => {
@@ -372,10 +375,6 @@ describe('workspace controller', () => {
     expect((await screen.findByTestId('messages')).textContent).toBe(
       'Build the web app|What should we build first?',
     );
-    await waitFor(() => {
-      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
-    });
-    useChatHarness.setMessages.mockClear();
 
     currentLoaderData = createWorkspaceLoaderData({
       projectId: 2,
@@ -408,20 +407,13 @@ describe('workspace controller', () => {
     );
 
     await waitFor(() => {
-      expect(useChatHarness.setMessages).toHaveBeenCalledWith([
-        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Ship the desktop app' }] },
-        {
-          id: 'turn-1-assistant',
-          role: 'assistant',
-          parts: [{ type: 'text', text: 'Which platform should we target now?' }],
-        },
-      ]);
+      expect(screen.getByTestId('project-name').textContent).toBe('Project 2');
+      expect(screen.getByTestId('messages').textContent).toBe(
+        'Ship the desktop app|Which platform should we target now?',
+      );
+      expect(screen.getByTestId('decisions').textContent).toBe('Prefer the desktop app');
     });
-    expect(screen.getByTestId('project-name').textContent).toBe('Project 2');
-    expect(screen.getByTestId('messages').textContent).toBe(
-      'Ship the desktop app|Which platform should we target now?',
-    );
-    expect(screen.getByTestId('decisions').textContent).toBe('Prefer the desktop app');
+    expect(useChatHarness.setMessages).not.toHaveBeenCalled();
   });
 
   it('refetches durable entities when observer output invalidates the active entity query', async () => {
@@ -499,10 +491,6 @@ describe('workspace controller', () => {
     expect((await screen.findByTestId('messages')).textContent).toBe(
       'Build the web app|What should we build first?',
     );
-    await waitFor(() => {
-      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
-    });
-    useChatHarness.setMessages.mockClear();
 
     currentLoaderData = createWorkspaceLoaderData({
       assistantText: 'Which platform should we target now?',

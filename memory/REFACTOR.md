@@ -37,7 +37,7 @@ This keeps the refactor focused on the highest-risk overlap between the React re
 3. [done] Move client loader and mutation helpers to parse transport payloads through those shared contracts and remove unchecked JSON casts from the workspace-facing routes and mutations.
 4. [done] Narrow the turn-response and review payload shapes so meaningful request modes are represented explicitly instead of through bags of optional fields.
 5. [done] Add explicit return types to the exported boundary functions touched by the transport pass so the module surfaces stay legible during later commits.
-6. Put the live chat owner behind a project-identity reset boundary and delete the post-render chat hydration overwrite.
+6. [done] Put the live chat owner behind a project-identity reset boundary and delete the post-render chat hydration overwrite.
 7. Collapse workspace entity hydration to one authority per route transition and remove the effect-based loader-to-cache mirroring step.
 8. Mark touched snapshot and view-model contracts as readonly and normalize type-only imports in the refactored boundary modules.
 

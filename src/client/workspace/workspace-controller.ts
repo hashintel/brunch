@@ -13,7 +13,7 @@ import {
   getPhaseClosureCommandText,
   type DataConfirmation,
 } from '../../shared/phase-close.js';
-import { useChatHydrationBoundary } from './chat-hydration.js';
+import { getProjectScopedChatId } from './chat-hydration.js';
 import {
   createWorkspaceControllerViewState,
   type PendingQuestionViewModel,
@@ -75,7 +75,8 @@ export function useWorkspaceController(): WorkspaceController {
     () => new DefaultChatTransport({ api: `/api/projects/${projectId}/chat` }),
     [projectId],
   );
-  const { messages, sendMessage, setMessages, status } = useChat<BrunchUIMessage>({
+  const { messages, sendMessage, status } = useChat<BrunchUIMessage>({
+    id: getProjectScopedChatId(durableProject.project.id),
     transport,
     messages: ephemeralChat.seedMessages,
     dataPartSchemas: brunchDataPartSchemas,
@@ -90,8 +91,6 @@ export function useWorkspaceController(): WorkspaceController {
     sendMessage,
   });
   const isLoading = status === 'submitted' || status === 'streaming';
-
-  useChatHydrationBoundary(durableProject.project.id, ephemeralChat.seedMessages, setMessages);
 
   const viewState = useMemo(
     () => createWorkspaceControllerViewState(durableProject, messages, isLoading),
