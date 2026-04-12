@@ -20,6 +20,9 @@ export default defineConfig({
       '/api': 'http://localhost:3000',
     },
   },
+  build: {
+    chunkSizeWarningLimit: 800,
+  },
   test: {
     include: ['src/**/*.test.{js,ts,jsx,tsx}'],
   },

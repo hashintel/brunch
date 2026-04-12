@@ -234,7 +234,7 @@ describe('GET /api/projects', () => {
 
   it('returns workflow summary reflecting closed scope and in-progress design', async () => {
     const projectId = await createTestProject('Active project');
-    await seedActiveDesign(projectId);
+    seedActiveDesign(projectId);
     const res = await request(app).get('/api/projects').expect(200);
     expect(res.body[0]).toMatchObject({
       workflowSummary: {
@@ -248,7 +248,7 @@ describe('GET /api/projects', () => {
 
   it('returns workflow summary with all phases closed for a completed project', async () => {
     const projectId = await createTestProject('Done project');
-    await seedAllPhasesClosed(projectId);
+    seedAllPhasesClosed(projectId);
     const res = await request(app).get('/api/projects').expect(200);
     expect(res.body[0]).toMatchObject({
       workflowSummary: {
@@ -1246,7 +1246,7 @@ describe('phase outcomes + scope closure', () => {
 
   it('persists a missing requirement through the requirements-review response loop and keeps requirements not yet closeable', async () => {
     const projectId = await createTestProject();
-    const seededRequirements = await seedRequirementsReady(projectId);
+    const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
 
     createKnowledgeItem(db, projectId, 'requirement', 'Resume the interview from SQLite after restart');
@@ -1363,7 +1363,7 @@ describe('phase outcomes + scope closure', () => {
 
   it('emits a requirements phase-summary proposal once every requirement is explicitly reviewed', async () => {
     const projectId = await createTestProject();
-    const seededRequirements = await seedRequirementsReady(projectId);
+    const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createKnowledgeItem, createTurn, linkKnowledgeItemToTurn } = await import('./db.js');
 
     const approvedRequirement = createKnowledgeItem(db, projectId, 'requirement', 'Export the reviewed spec');
@@ -1437,7 +1437,7 @@ describe('phase outcomes + scope closure', () => {
 
   it('confirms a proposed requirements phase outcome, closes requirements, and uses criteria on the next turn', async () => {
     const projectId = await createTestProject();
-    const seededRequirements = await seedRequirementsReady(projectId);
+    const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createKnowledgeItem, createPhaseOutcome, createTurn, linkKnowledgeItemToTurn } =
       await import('./db.js');
 
@@ -1562,7 +1562,7 @@ describe('phase outcomes + scope closure', () => {
 
   it('grounds the first criteria turn in approved requirements and round-trips a criterion through observer persistence', async () => {
     const projectId = await createTestProject();
-    await seedCriteriaReady(projectId);
+    seedCriteriaReady(projectId);
 
     mockStreamInterviewer.mockImplementation(async () =>
       makeTextInterviewer('What would prove the resume flow is complete?'),
@@ -1635,7 +1635,7 @@ describe('phase outcomes + scope closure', () => {
 
   it('emits a criteria phase-summary proposal once every criterion is explicitly reviewed', async () => {
     const projectId = await createTestProject();
-    const seededCriteria = await seedCriteriaReady(projectId);
+    const seededCriteria = seedCriteriaReady(projectId);
     const { advanceHead, createKnowledgeItem, createTurn, linkKnowledgeItemToTurn } = await import('./db.js');
 
     const approvedCriterion = createKnowledgeItem(
@@ -1708,7 +1708,7 @@ describe('phase outcomes + scope closure', () => {
 
   it('confirms a proposed criteria outcome, closes criteria, and projects all workflow phases as closed', async () => {
     const projectId = await createTestProject();
-    const seededCriteria = await seedCriteriaReady(projectId);
+    const seededCriteria = seedCriteriaReady(projectId);
     const { advanceHead, createKnowledgeItem, createPhaseOutcome, createTurn, linkKnowledgeItemToTurn } =
       await import('./db.js');
 
@@ -1804,7 +1804,7 @@ describe('phase outcomes + scope closure', () => {
 
   it('projects no stale active interviewer phase after criteria closure confirmation', async () => {
     const projectId = await createTestProject();
-    const seededCriteria = await seedCriteriaReady(projectId);
+    const seededCriteria = seedCriteriaReady(projectId);
     const { advanceHead, createKnowledgeItem, createPhaseOutcome, createTurn, linkKnowledgeItemToTurn } =
       await import('./db.js');
 
@@ -2029,7 +2029,7 @@ describe('phase outcomes + scope closure', () => {
     {
       name: 'inactive phases',
       seed: async (projectId: number) => {
-        await seedRequirementsReady(projectId);
+        seedRequirementsReady(projectId);
       },
       phase: 'design',
       expectedError: 'Only the active phase can be force-closed',
@@ -2037,7 +2037,7 @@ describe('phase outcomes + scope closure', () => {
     {
       name: 'design that is not closeable yet',
       seed: async (projectId: number) => {
-        await seedClosedScope(projectId);
+        seedClosedScope(projectId);
       },
       phase: 'design',
       expectedError: 'Phase is not closeable yet',
@@ -2046,7 +2046,7 @@ describe('phase outcomes + scope closure', () => {
       name: 'design with a pending proposal',
       seed: async (projectId: number) => {
         const { createPhaseOutcome } = await import('./db.js');
-        const { designTurn } = await seedActiveDesign(projectId);
+        const { designTurn } = seedActiveDesign(projectId);
         createPhaseOutcome(db, {
           projectId,
           phase: 'design',
@@ -2241,7 +2241,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
   it('persists explicit approved review state for a targeted requirement through the response seam', async () => {
     const projectId = await createTestProject();
-    const seededRequirements = await seedRequirementsReady(projectId);
+    const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createKnowledgeItem, createOption, createTurn, updateTurn } =
       await import('./db.js');
 
@@ -2336,7 +2336,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
   it('persists explicit rejected review state for a targeted requirement through the response seam', async () => {
     const projectId = await createTestProject();
-    const seededRequirements = await seedRequirementsReady(projectId);
+    const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createKnowledgeItem, createOption, createTurn, updateTurn } =
       await import('./db.js');
 
@@ -2436,7 +2436,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
   it('persists explicit approved review state for a targeted criterion through the response seam', async () => {
     const projectId = await createTestProject();
-    const seededCriteria = await seedCriteriaReady(projectId);
+    const seededCriteria = seedCriteriaReady(projectId);
     const { advanceHead, createKnowledgeItem, createOption, createTurn, updateTurn } =
       await import('./db.js');
 
@@ -2536,7 +2536,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
   it('persists explicit rejected review state for a targeted criterion through the response seam', async () => {
     const projectId = await createTestProject();
-    const seededCriteria = await seedCriteriaReady(projectId);
+    const seededCriteria = seedCriteriaReady(projectId);
     const { advanceHead, createKnowledgeItem, createOption, createTurn, updateTurn } =
       await import('./db.js');
 
