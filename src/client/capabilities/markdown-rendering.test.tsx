@@ -4,9 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('@streamdown/cjk', () => ({ cjk: {} }));
-vi.mock('@streamdown/code', () => ({ code: {} }));
 vi.mock('@streamdown/math', () => ({ math: {} }));
-vi.mock('@streamdown/mermaid', () => ({ mermaid: {} }));
 vi.mock('streamdown', () => ({
   Streamdown: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => (
     <div {...props}>{children}</div>

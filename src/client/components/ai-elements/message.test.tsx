@@ -4,9 +4,7 @@ import { cleanup, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('@streamdown/cjk', () => ({ cjk: {} }));
-vi.mock('@streamdown/code', () => ({ code: {} }));
 vi.mock('@streamdown/math', () => ({ math: {} }));
-vi.mock('@streamdown/mermaid', () => ({ mermaid: {} }));
 vi.mock('streamdown', () => ({
   Streamdown: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
