@@ -77,6 +77,10 @@ export interface KnowledgeEdgeData {
   targetLabel?: string;
 }
 
+function getKnowledgeEdgeKey(edge: KnowledgeEdgeData): string {
+  return [edge.type, edge.sourceCollection, edge.sourceId, edge.targetCollection, edge.targetId].join(':');
+}
+
 export function KnowledgeRow({
   item,
   indent = false,
@@ -175,12 +179,15 @@ export function KnowledgeGroupCard({
           </div>
           <CollapsibleContent>
             <div className="flex flex-col gap-1.5 px-4 pb-4">
-              {edges.map((edge, i) => {
+              {edges.map((edge) => {
                 const edgeLabel = edge.type.replace(/_/g, ' ');
                 const displayLabel = edgeLabel.charAt(0).toUpperCase() + edgeLabel.slice(1);
                 const targetText = edge.targetLabel ?? `item #${edge.targetId}`;
                 return (
-                  <div key={i} className="rounded-lg bg-white p-3 text-sm shadow-[var(--shadow-card-ring)]">
+                  <div
+                    key={getKnowledgeEdgeKey(edge)}
+                    className="rounded-lg bg-white p-3 text-sm shadow-[var(--shadow-card-ring)]"
+                  >
                     <span className="font-medium text-hint">{displayLabel}</span>
                     <span className="text-ink"> {targetText}</span>
                   </div>
@@ -242,12 +249,15 @@ export function KnowledgeDetailCard({
         {edges && edges.length > 0 && (
           <div className="flex flex-col gap-1.5">
             <p className="text-sm font-medium text-sub">Connections</p>
-            {edges.map((edge, i) => {
+            {edges.map((edge) => {
               const edgeLabel = edge.type.replace(/_/g, ' ');
               const displayLabel = edgeLabel.charAt(0).toUpperCase() + edgeLabel.slice(1);
               const targetText = edge.targetLabel ?? `item #${edge.targetId}`;
               return (
-                <div key={i} className="rounded-lg bg-white p-3 shadow-[var(--shadow-card-ring)]">
+                <div
+                  key={getKnowledgeEdgeKey(edge)}
+                  className="rounded-lg bg-white p-3 shadow-[var(--shadow-card-ring)]"
+                >
                   <span className="text-sm font-medium text-hint">{displayLabel}</span>
                   <span className="text-sm text-ink"> {targetText}</span>
                 </div>
