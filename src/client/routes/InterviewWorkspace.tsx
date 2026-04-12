@@ -5,8 +5,8 @@ import {
   Conversation,
   ConversationContent,
   ConversationScrollButton,
-} from '@/components/ai-elements/conversation';
-import { Message, MessageContent, MessageResponse } from '@/components/ai-elements/message';
+} from '@/client/components/ai-elements/conversation';
+import { Message, MessageContent, MessageResponse } from '@/client/components/ai-elements/message';
 import {
   PromptInput,
   PromptInputBody,
@@ -14,17 +14,17 @@ import {
   PromptInputSubmit,
   PromptInputTextarea,
   type PromptInputMessage,
-} from '@/components/ai-elements/prompt-input';
-import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/components/ai-elements/reasoning';
-import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/components/ai-elements/tool';
-import { EntitySidebar } from '@/components/EntitySidebar';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/components/ui/resizable';
-import { cn } from '@/lib/utils';
+} from '@/client/components/ai-elements/prompt-input';
+import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/client/components/ai-elements/reasoning';
+import { Tool, ToolHeader, ToolContent, ToolInput, ToolOutput } from '@/client/components/ai-elements/tool';
+import { EntitySidebar } from '@/client/components/EntitySidebar';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/client/components/ui/resizable';
+import { cn } from '@/client/lib/utils';
+import type { ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
+import { isAskQuestionUIPart } from '@/shared/chat.js';
+import type { BrunchUIMessage } from '@/shared/chat.js';
+import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
 
-import type { ProjectState, ProjectStateTurn } from '../../shared/api-types.js';
-import { isAskQuestionUIPart } from '../../shared/chat.js';
-import type { BrunchUIMessage } from '../../shared/chat.js';
-import { getForceClosePhaseAction, getPhaseClosureCommandText } from '../../shared/phase-close.js';
 import { useWorkspaceController } from '../workspace/workspace-controller';
 import {
   getPersistedSelectedPositions,

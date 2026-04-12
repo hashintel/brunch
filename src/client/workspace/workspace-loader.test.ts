@@ -2,7 +2,8 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { EntitiesData, ProjectState } from '../../shared/api-types.js';
+import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
+
 import { fetchInterviewWorkspaceLoaderData, fetchKnowledgeWorkspaceLoaderData } from './workspace-loader.js';
 
 const fetchMock = vi.fn<typeof fetch>();

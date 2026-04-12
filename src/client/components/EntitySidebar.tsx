@@ -1,15 +1,14 @@
 import { useState } from 'react';
 
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import type { WorkspaceDurableEntityState } from '@/workspace/workspace-controller-core';
-
-import type { ReviewStatus } from '../../shared/api-types.js';
+import { Badge } from '@/client/components/ui/badge';
+import { cn } from '@/client/lib/utils';
+import type { WorkspaceDurableEntityState } from '@/client/workspace/workspace-controller-core';
+import type { ReviewStatus } from '@/shared/api-types.js';
 import {
   knowledgeKindRegistry,
   knowledgeKindRegistryByCollectionKey,
   type KnowledgeCollectionKey,
-} from '../../shared/knowledge.js';
+} from '@/shared/knowledge.js';
 
 function entityKey(collection: 'knowledge_item' | 'decision' | 'assumption', id: number) {
   return `${collection}:${id}`;

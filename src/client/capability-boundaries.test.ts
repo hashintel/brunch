@@ -24,11 +24,11 @@ describe('client capability boundaries', () => {
     expect(richMarkdownCapabilitySource).not.toContain("from '@streamdown/mermaid'");
     expect(reasoningCapabilitySource).toContain("from './markdown-rendering'");
 
-    expect(messageSource).toContain("from '@/capabilities/markdown-rendering'");
+    expect(messageSource).toContain("from '@/client/capabilities/markdown-rendering'");
     expect(messageSource).not.toContain("from 'streamdown'");
     expect(messageSource).not.toContain("from '@streamdown/code'");
 
-    expect(reasoningSource).toContain("from '@/capabilities/reasoning-rendering'");
+    expect(reasoningSource).toContain("from '@/client/capabilities/reasoning-rendering'");
     expect(reasoningSource).not.toContain("from 'streamdown'");
     expect(reasoningSource).not.toContain("from '@streamdown/code'");
   });
@@ -40,10 +40,10 @@ describe('client capability boundaries', () => {
 
     // tool.tsx must not import code-block (shiki dependency chain)
     expect(toolSource).not.toContain("from './code-block'");
-    expect(toolSource).not.toContain("from '@/capabilities/code-highlighting'");
+    expect(toolSource).not.toContain("from '@/client/capabilities/code-highlighting'");
 
     // markdown-rendering must not preload code highlighting (shiki dependency chain)
-    expect(markdownRenderingSource).not.toContain("from '@/capabilities/code-highlighting'");
+    expect(markdownRenderingSource).not.toContain("from '@/client/capabilities/code-highlighting'");
     expect(markdownRenderingSource).not.toContain('preloadRichCodeHighlighter');
 
     // router must not import the removed debug surface

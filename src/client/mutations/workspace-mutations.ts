@@ -1,12 +1,13 @@
 import { useRouter } from '@tanstack/react-router';
 
-import { submitTurnResponseResponseSchema } from '../../shared/api-types.js';
+import { submitTurnResponseResponseSchema } from '@/shared/api-types.js';
 import type {
   ProjectStateTurn,
   SubmitTurnResponseRequest,
   SubmitTurnResponseResponse,
-} from '../../shared/api-types.js';
-import { formatTurnResponseText } from '../../shared/chat.js';
+} from '@/shared/api-types.js';
+import { formatTurnResponseText } from '@/shared/chat.js';
+
 import { findTurnOptionsByPositions } from '../workspace/workspace-controller-core.js';
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 

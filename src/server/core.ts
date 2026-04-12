@@ -1,6 +1,7 @@
-import type { ProjectListItem, ProjectState, ProjectStateTurn } from '../shared/api-types.js';
-import type { BrunchUIMessage, BrunchUserPart } from '../shared/chat.js';
-import { extractTextFromMessage } from '../shared/chat.js';
+import type { ProjectListItem, ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
+import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
+import { extractTextFromMessage } from '@/shared/chat.js';
+
 import {
   getProject,
   getActivePath,

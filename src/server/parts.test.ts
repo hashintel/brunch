@@ -5,7 +5,8 @@ import {
   type BrunchAssistantPart,
   type BrunchUserPart,
   userPartsSchema,
-} from '../shared/chat.js';
+} from '@/shared/chat.js';
+
 import { createDb, type DB } from './db.js';
 import {
   deserializeAssistantParts,

@@ -1,4 +1,4 @@
-import { Skeleton } from '@/components/ui/skeleton';
+import { Skeleton } from '@/client/components/ui/skeleton';
 
 export function KnowledgeWorkspaceSkeleton() {
   return (

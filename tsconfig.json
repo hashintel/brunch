@@ -8,7 +8,7 @@
 		"jsx": "react-jsx",
 		"skipLibCheck": true,
 		"paths": {
-			"@/*": ["./src/client/*"]
+			"@/*": ["./src/*"]
 		}
 	},
 	"include": ["src", ".ladle", "node_modules/vite/client.d.ts"]

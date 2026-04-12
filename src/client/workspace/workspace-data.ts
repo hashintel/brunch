@@ -1,6 +1,7 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { entitiesDataSchema, type EntitiesData } from '../../shared/api-types.js';
+import { entitiesDataSchema, type EntitiesData } from '@/shared/api-types.js';
+
 import {
   createWorkspaceDurableEntityState,
   createWorkspaceDurableProjectState,

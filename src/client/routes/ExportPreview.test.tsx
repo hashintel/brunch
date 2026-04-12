@@ -3,7 +3,8 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { ExportLoaderData } from '../../shared/api-types.js';
+import type { ExportLoaderData } from '@/shared/api-types.js';
+
 import { ExportPreview } from './ExportPreview.js';
 
 let currentLoaderData: ExportLoaderData;
@@ -18,7 +19,7 @@ vi.mock('@tanstack/react-router', () => ({
   useParams: () => ({ id: '7' }),
 }));
 
-vi.mock('@/components/ui/button', () => ({
+vi.mock('@/client/components/ui/button', () => ({
   Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button type="button" {...props}>
       {children}

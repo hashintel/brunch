@@ -5,8 +5,9 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { EntitiesData, ProjectState } from '../../shared/api-types.js';
-import type { BrunchUIMessage } from '../../shared/chat.js';
+import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
+import type { BrunchUIMessage } from '@/shared/chat.js';
+
 import { useWorkspaceController } from './workspace-controller.js';
 import type { WorkspaceLoaderData } from './workspace-loader.js';
 

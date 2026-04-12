@@ -1,4 +1,4 @@
-import { exportLoaderDataSchema, type ExportLoaderData } from '../../shared/api-types.js';
+import { exportLoaderDataSchema, type ExportLoaderData } from '@/shared/api-types.js';
 
 export async function fetchExportPreviewLoaderData(projectId: number | string): Promise<ExportLoaderData> {
   const id = String(projectId);

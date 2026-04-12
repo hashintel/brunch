@@ -12,7 +12,7 @@ export default defineConfig({
   plugins: [react(), tailwindcss(), agentTail()],
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src/client'),
+      '@': resolve(__dirname, './src'),
     },
   },
   server: {

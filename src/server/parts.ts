@@ -3,12 +3,12 @@ import {
   userPartsSchema,
   type BrunchAssistantPart,
   type BrunchUserPart,
-} from '../shared/chat.js';
+} from '@/shared/chat.js';
 
 export type AssistantPart = BrunchAssistantPart;
 export type UserPart = BrunchUserPart;
-export type DataTurnResponse = import('../shared/chat.js').DataTurnResponse;
-export type DataConfirmation = import('../shared/chat.js').DataConfirmation;
+export type DataTurnResponse = import('@/shared/chat.js').DataTurnResponse;
+export type DataConfirmation = import('@/shared/chat.js').DataConfirmation;
 export type DataTurnResponsePart = Extract<UserPart, { type: 'data-turn-response' }>;
 export type DataConfirmationPart = Extract<UserPart, { type: 'data-confirmation' }>;
 

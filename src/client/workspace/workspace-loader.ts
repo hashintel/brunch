@@ -1,7 +1,7 @@
 import type { ZodType } from 'zod/v4';
 
-import { entitiesDataSchema, projectStateSchema } from '../../shared/api-types.js';
-import type { EntitiesData, ProjectState } from '../../shared/api-types.js';
+import { entitiesDataSchema, projectStateSchema } from '@/shared/api-types.js';
+import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
 
 export interface WorkspaceLoaderData {
   readonly projectState: ProjectState;

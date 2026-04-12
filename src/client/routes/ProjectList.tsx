@@ -1,8 +1,8 @@
 import { useLoaderData, useNavigate } from '@tanstack/react-router';
 import { useState } from 'react';
 
-import { Button } from '@/components/ui/button';
-import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/client/components/ui/button';
+import { Card, CardHeader, CardTitle, CardDescription } from '@/client/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -10,10 +10,9 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-} from '@/components/ui/dialog';
-import { useCreateProjectMutation } from '@/mutations/project-mutations';
-
-import type { ProjectListItem, ProjectMode } from '../../shared/api-types.js';
+} from '@/client/components/ui/dialog';
+import { useCreateProjectMutation } from '@/client/mutations/project-mutations';
+import type { ProjectListItem, ProjectMode } from '@/shared/api-types.js';
 
 const phaseLabels: Array<{ key: keyof ProjectListItem['workflowSummary']; label: string }> = [
   { key: 'scope', label: 'Scope' },

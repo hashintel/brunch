@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { EntitiesData, ReadinessBand, WorkflowState } from '../shared/api-types.js';
+import type { EntitiesData, ReadinessBand, WorkflowState } from '@/shared/api-types.js';
+
 import { getProjectState } from './core.js';
 import {
   advanceHead,

@@ -23,16 +23,17 @@ import type {
   WorkflowPhaseState as SharedWorkflowPhaseState,
   WorkflowPhaseStatus,
   WorkflowState as SharedWorkflowState,
-} from '../shared/api-types.js';
-import { isAskQuestionUIPart, structuredQuestionSchema, type StructuredQuestion } from '../shared/chat.js';
+} from '@/shared/api-types.js';
+import { isAskQuestionUIPart, structuredQuestionSchema, type StructuredQuestion } from '@/shared/chat.js';
 import {
   genericKnowledgeKindRegistry,
   type GenericKnowledgeCollectionKey,
   type GenericKnowledgeKind,
   type KnowledgeEntityCollection,
   type KnowledgeKind as SharedKnowledgeKind,
-} from '../shared/knowledge.js';
-import { parsePhaseClosureCommand, type PhaseClosureBasis } from '../shared/phase-close.js';
+} from '@/shared/knowledge.js';
+import { parsePhaseClosureCommand, type PhaseClosureBasis } from '@/shared/phase-close.js';
+
 import {
   safeDeserializeAssistantParts,
   safeDeserializeUserParts,

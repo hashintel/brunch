@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
-import type { EntitiesData, ProjectState } from '../../shared/api-types.js';
-import type { BrunchUIMessage } from '../../shared/chat.js';
+import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
+import type { BrunchUIMessage } from '@/shared/chat.js';
+
 import {
   createWorkspaceControllerViewState,
   createWorkspaceDurableEntityState,

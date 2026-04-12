@@ -1,6 +1,7 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 
-import type { ProjectListItem } from '../shared/api-types.js';
+import type { ProjectListItem } from '@/shared/api-types.js';
+
 import { InterviewWorkspaceSkeleton, KnowledgeWorkspaceSkeleton } from './components/route-skeletons.js';
 import { fetchExportPreviewLoaderData } from './routes/export-loader.js';
 import { ExportPreview } from './routes/ExportPreview.js';

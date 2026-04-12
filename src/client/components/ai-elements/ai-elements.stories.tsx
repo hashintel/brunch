@@ -1,10 +1,10 @@
 import type { Story, StoryDefault } from '@ladle/react';
 import { useState, useCallback } from 'react';
 
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
+import { Badge } from '@/client/components/ui/badge';
+import { Card, CardContent } from '@/client/components/ui/card';
+import type { BrunchUIMessage } from '@/shared/chat.js';
 
-import type { BrunchUIMessage } from '../../../shared/chat.js';
 import {
   CodeBlock,
   CodeBlockActions,

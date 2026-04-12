@@ -4,7 +4,8 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 import { vi } from 'vitest';
 
-import type { EntitiesData } from '../../shared/api-types.js';
+import type { EntitiesData } from '@/shared/api-types.js';
+
 import type { KnowledgeWorkspaceLoaderData } from '../workspace/workspace-loader.js';
 import { KnowledgeWorkspace, KnowledgeWorkspaceView } from './KnowledgeWorkspace.js';
 

@@ -2,7 +2,7 @@ import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessage
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 
-import { createProjectRequestSchema, submitTurnResponseRequestSchema } from '../shared/api-types.js';
+import { createProjectRequestSchema, submitTurnResponseRequestSchema } from '@/shared/api-types.js';
 import type {
   EntitiesData,
   ExportLoaderData,
@@ -10,21 +10,22 @@ import type {
   ProjectListItem,
   ProjectState,
   SubmitTurnResponseResponse,
-} from '../shared/api-types.js';
+} from '@/shared/api-types.js';
 import {
   assistantPartsSchema,
   brunchDataPartSchemas,
   brunchValidationTools,
   extractTextFromMessage,
   formatTurnResponseText,
-} from '../shared/chat.js';
-import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '../shared/chat.js';
+} from '@/shared/chat.js';
+import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import {
   getForceCloseActionErrorMessage,
   getForceClosePhaseAction,
   getForcedPhaseClosureSummary,
   parsePhaseClosureCommand,
-} from '../shared/phase-close.js';
+} from '@/shared/phase-close.js';
+
 import {
   extractPrompt,
   finalizeTurn,

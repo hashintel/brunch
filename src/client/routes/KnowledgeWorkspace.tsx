@@ -1,16 +1,16 @@
 import { Link, useLoaderData, useParams } from '@tanstack/react-router';
 
-import { EmptyCard } from '@/components/app-shell';
+import { EmptyCard } from '@/client/components/app-shell';
 import {
   KnowledgeGroupCard,
   MetadataRow,
   type KnowledgeEdgeData,
   type KnowledgeItemData,
-} from '@/components/knowledge-card';
-import { ScrollArea } from '@/components/ui/scroll-area';
+} from '@/client/components/knowledge-card';
+import { ScrollArea } from '@/client/components/ui/scroll-area';
+import type { EntitiesData } from '@/shared/api-types.js';
+import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 
-import type { EntitiesData } from '../../shared/api-types.js';
-import { knowledgeKindRegistry, type KnowledgeKind } from '../../shared/knowledge.js';
 import type { KnowledgeWorkspaceLoaderData } from '../workspace/workspace-loader.js';
 
 function toKnowledgeItems(

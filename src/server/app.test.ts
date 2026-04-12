@@ -1,7 +1,8 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProjectState, WorkflowPhase } from '../shared/api-types.js';
+import type { ProjectState, WorkflowPhase } from '@/shared/api-types.js';
+
 import { buildInterviewerContext } from './context.js';
 import type { DB } from './db.js';
 import {

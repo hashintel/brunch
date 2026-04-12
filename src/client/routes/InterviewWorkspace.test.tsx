@@ -5,8 +5,9 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { EntitiesData, ProjectState } from '../../shared/api-types.js';
-import type { BrunchUIMessage } from '../../shared/chat.js';
+import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
+import type { BrunchUIMessage } from '@/shared/chat.js';
+
 import type { WorkspaceLoaderData } from '../workspace/workspace-loader.js';
 import { InterviewWorkspace } from './InterviewWorkspace.js';
 
@@ -83,19 +84,19 @@ vi.mock('ai', async () => {
   };
 });
 
-vi.mock('@/components/ai-elements/conversation', () => ({
+vi.mock('@/client/components/ai-elements/conversation', () => ({
   Conversation: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   ConversationContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   ConversationScrollButton: () => null,
 }));
 
-vi.mock('@/components/ai-elements/message', () => ({
+vi.mock('@/client/components/ai-elements/message', () => ({
   Message: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   MessageContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   MessageResponse: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('@/components/ai-elements/prompt-input', () => ({
+vi.mock('@/client/components/ai-elements/prompt-input', () => ({
   PromptInput: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   PromptInputBody: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   PromptInputFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
@@ -103,13 +104,13 @@ vi.mock('@/components/ai-elements/prompt-input', () => ({
   PromptInputTextarea: () => <textarea aria-label="Type a message..." />,
 }));
 
-vi.mock('@/components/ai-elements/reasoning', () => ({
+vi.mock('@/client/components/ai-elements/reasoning', () => ({
   Reasoning: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   ReasoningContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   ReasoningTrigger: () => null,
 }));
 
-vi.mock('@/components/ai-elements/tool', () => ({
+vi.mock('@/client/components/ai-elements/tool', () => ({
   Tool: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   ToolHeader: () => null,
   ToolContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,

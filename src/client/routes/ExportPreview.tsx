@@ -1,6 +1,6 @@
 import { Link, useLoaderData, useParams } from '@tanstack/react-router';
 
-import { Button } from '@/components/ui/button';
+import { Button } from '@/client/components/ui/button';
 
 export function ExportPreview() {
   const { id } = useParams({ from: '/project/$id/export' });

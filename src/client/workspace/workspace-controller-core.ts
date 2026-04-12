@@ -1,5 +1,5 @@
-import type { EntitiesData, ProjectState, ProjectStateTurn } from '../../shared/api-types.js';
-import { assistantPartsSchema, isAskQuestionUIPart, userPartsSchema } from '../../shared/chat.js';
+import type { EntitiesData, ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
+import { assistantPartsSchema, isAskQuestionUIPart, userPartsSchema } from '@/shared/chat.js';
 import type {
   AskQuestionUIPart,
   BrunchAssistantPart,
@@ -7,7 +7,7 @@ import type {
   BrunchUserPart,
   DataTurnResponse,
   StructuredQuestion,
-} from '../../shared/chat.js';
+} from '@/shared/chat.js';
 
 export interface WorkspaceDurableProjectState {
   readonly project: ProjectState['project'];

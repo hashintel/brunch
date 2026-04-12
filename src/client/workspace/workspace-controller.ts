@@ -4,17 +4,17 @@ import { DefaultChatTransport } from 'ai';
 import type { ChatStatus } from 'ai';
 import { useCallback, useMemo } from 'react';
 
-import { useSubmitTurnResponseMutation } from '@/mutations/workspace-mutations';
-
-import type { ProjectStateTurn } from '../../shared/api-types.js';
-import { brunchDataPartSchemas } from '../../shared/chat.js';
-import type { BrunchUIMessage } from '../../shared/chat.js';
+import { useSubmitTurnResponseMutation } from '@/client/mutations/workspace-mutations';
+import type { ProjectStateTurn } from '@/shared/api-types.js';
+import { brunchDataPartSchemas } from '@/shared/chat.js';
+import type { BrunchUIMessage } from '@/shared/chat.js';
 import {
   createConfirmProposedPhaseClosureCommand,
   createForceCloseActivePhaseCommand,
   getPhaseClosureCommandText,
-} from '../../shared/phase-close.js';
-import type { DataConfirmation } from '../../shared/phase-close.js';
+} from '@/shared/phase-close.js';
+import type { DataConfirmation } from '@/shared/phase-close.js';
+
 import { getProjectScopedChatId } from './chat-hydration.js';
 import { createWorkspaceControllerViewState } from './workspace-controller-core.js';
 import type {

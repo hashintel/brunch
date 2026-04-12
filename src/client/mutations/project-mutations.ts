@@ -1,7 +1,8 @@
 import { useNavigate } from '@tanstack/react-router';
 
-import { createProjectResponseSchema } from '../../shared/api-types.js';
-import type { CreateProjectRequest, CreateProjectResponse } from '../../shared/api-types.js';
+import { createProjectResponseSchema } from '@/shared/api-types.js';
+import type { CreateProjectRequest, CreateProjectResponse } from '@/shared/api-types.js';
+
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
 type CreateProjectInput = CreateProjectRequest;

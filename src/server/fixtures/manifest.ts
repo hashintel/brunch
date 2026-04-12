@@ -4,9 +4,10 @@ import { fileURLToPath } from 'node:url';
 
 import { and, eq } from 'drizzle-orm';
 
-import type { EdgeRelation, Impact } from '../../shared/api-types.js';
-import type { KnowledgeKind } from '../../shared/knowledge.js';
-import type { WorkflowPhase } from '../../shared/phase-close.js';
+import type { EdgeRelation, Impact } from '@/shared/api-types.js';
+import type { KnowledgeKind } from '@/shared/knowledge.js';
+import type { WorkflowPhase } from '@/shared/phase-close.js';
+
 import {
   advanceHead,
   confirmPhaseOutcome,

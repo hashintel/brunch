@@ -1,7 +1,7 @@
 import { bold, h1, h2, h3, ul } from 'md-pen';
 
-import type { EntitiesData, ReviewStatus, WorkflowState } from '../shared/api-types.js';
-import { knowledgeKindRegistry } from '../shared/knowledge.js';
+import type { EntitiesData, ReviewStatus, WorkflowState } from '@/shared/api-types.js';
+import { knowledgeKindRegistry } from '@/shared/knowledge.js';
 
 export interface ReviewedExportItem {
   content: string;

@@ -1,11 +1,10 @@
 import { ChevronDown, Link as LinkIcon } from 'lucide-react';
 
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { cn } from '@/lib/utils';
-
-import type { EdgeRelation, ReviewStatus } from '../../shared/api-types.js';
-import type { KnowledgeKind } from '../../shared/knowledge.js';
-import { knowledgeKindRegistry } from '../../shared/knowledge.js';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
+import { cn } from '@/client/lib/utils';
+import type { EdgeRelation, ReviewStatus } from '@/shared/api-types.js';
+import type { KnowledgeKind } from '@/shared/knowledge.js';
+import { knowledgeKindRegistry } from '@/shared/knowledge.js';
 
 // ── ID prefix for each kind ───────────────────────────────────────────
 
