@@ -129,20 +129,20 @@ src/
 ### Key patterns
 
 - **Turn tree**: Conversations are branching trees, not flat logs. Each turn points to a parent. `active_turn_id` is HEAD. Active path resolved via recursive CTE.
-- **Two-agent pattern**: Interviewer asks structured questions. Observer extracts decisions/assumptions after each turn. Different models, different prompts, independent testability.
+- **Two-agent pattern**: Interviewer asks structured questions. Observer extracts typed knowledge items after each turn. Different models, different prompts, independent testability.
 - **Typed message contract**: `BrunchUIMessage` (AI SDK `UIMessage` with custom generics) spans server validation, persistence, streaming, and client hydration.
 - **Parts-based persistence**: `assistant_parts` and `user_parts` JSON columns store the full UI state per turn. Scalar fields (`question`, `why`, `impact`) retained for queryability.
 - **Zod everywhere**: Tool input/output schemas, data part schemas, parts deserialization, API payload validation.
 
 ## Current state
 
-**Working**: Full four-phase interview (scope → design → requirements → criteria), phase-aware observer extraction across all 8 canonical knowledge kinds, explicit phase outcomes with closure provenance, requirements and criteria review with approve/reject state, knowledge workspace, markdown export, project dashboard with workflow state, fixture scenarios with rich seeded content.
+**Working**: Full four-phase interview (scope → design → requirements → criteria), phase-aware observer extraction across all 8 canonical knowledge kinds, explicit phase outcomes with closure provenance, requirements and criteria review with approve/reject state, knowledge workspace, markdown export, project dashboard with workflow state, fixture scenarios with rich seeded content, local-first `.brunch/` storage, and greenfield/brownfield project kickoff with scope-grounded brownfield exploration.
 
-**Not yet built**: Review lifecycle refinement (13a), npx distribution (14). See `memory/PLAN.md` for the full roadmap.
+**Not yet built**: Knowledge-graph revisit / edit-mode cascade flow (phase 8 stretch). See `memory/PLAN.md` for the full roadmap.
 
 ## Tests
 
-223 tests across 24 test files covering DB operations, app routes, core logic, interview flow, observer extraction, parts serialization, context builders, workspace hydration/controller/data, client components, phase-close logic, and build boundaries. Provider calls are mocked for CI; prompt quality depends on manual evaluation.
+288 tests across 33 test files covering DB operations, app routes, launcher/distribution seams, core logic, interview flow, observer extraction, parts serialization, context builders, workspace hydration/controller/data, client components, phase-close logic, and build boundaries. Provider calls are mocked for CI; prompt quality depends on manual evaluation.
 
 ```bash
 npm test

@@ -1,14 +1,14 @@
 # Brownfield Exploration Design
 
 > Design exploration from 2026-04-12. Referenced by SPEC.md D82, D83.
-> Status: **approved direction** — First-turn exploration via prompt + core tools.
+> Status: **implemented** — Scope-only exploration via prompt + read-only exploration tools.
 
 ## Shape
 
 No new module boundary. Brownfield exploration is a prompt/context/tool-configuration concern:
 
-1. **Tool set:** In brownfield mode, the interviewer agent receives core tools (read, grep, find, ls, bash) alongside interview tools (ask_question, propose_phase_closure).
-2. **System prompt:** A brownfield variant of the scope system prompt instructs the agent to explore the codebase before asking its first scope question.
+1. **Tool set:** During brownfield scope only, the interviewer agent receives a read-only exploration subset (`read`, `grep`, `find`, `ls`) alongside interview tools (`ask_question`, `propose_phase_closure`).
+2. **System prompt:** A brownfield variant of the scope system prompt instructs the agent to explore the codebase before asking its first scope question. Later phases keep their normal phase prompts.
 3. **Context builder:** `buildInterviewerContext()` receives the project's `cwd` and `mode` (greenfield/brownfield) to construct the appropriate first-turn prompt.
 
 ## Interviewer configuration change
@@ -18,11 +18,11 @@ No new module boundary. Brownfield exploration is a prompt/context/tool-configur
 const tools = {
   ask_question,
   ...(closeable ? { propose_phase_closure } : {}),
-  ...(mode === 'brownfield' ? createCoreTools(projectCwd) : {}),
+  ...(phase === 'scope' && mode === 'brownfield' ? createExplorationTools(projectCwd) : {}),
 }
 
-const instructions = mode === 'brownfield'
-  ? getBrownfieldSystemPrompt(phase)
+const instructions = phase === 'scope' && mode === 'brownfield'
+  ? getBrownfieldScopePrompt(projectCwd)
   : getSystemPrompt(phase)
 ```
 
@@ -68,8 +68,9 @@ The brownfield system prompt should:
 - Set a budget: "Spend no more than 5-8 tool calls on exploration before synthesizing"
 - Transition: "Once you have a working understanding, summarize what you found and begin scope questions grounded in that context"
 
-## Open questions
+## Current implementation notes
 
-- Should brownfield mode persist core tool access throughout the entire interview, or only on the first turn? (Probably throughout — the user might say "look at the auth module" during design phase.)
-- Should the exploration summary be stored as a special data part for context rebuilding? (Probably not for V1 — it's just part of the first turn's assistant_parts.)
-- Does the `ToolLoopAgent` `stopWhen: stepCountIs(4)` need to increase for brownfield first turns? (Likely yes — exploration needs more steps.)
+- Brownfield exploration is deliberately **scope-only**; later phases keep their normal prompts and tool surface.
+- The exploration tool surface is deliberately **read-only** — no `write`, `edit`, or `bash` during brownfield discovery.
+- The exploration summary is not stored as a special data part; it remains part of the first assistant turn.
+- Brownfield scope raises the `ToolLoopAgent` step budget from 4 to 12 to allow exploration before the first structured question.
