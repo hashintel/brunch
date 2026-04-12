@@ -3,7 +3,6 @@
 import type { ComponentType } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { preloadRichCodeHighlighter } from '@/capabilities/code-highlighting';
 import { cn } from '@/lib/utils';
 
 export interface MarkdownRendererProps {
@@ -28,10 +27,6 @@ const MARKDOWN_ENHANCEMENT_PATTERNS = [
 
 export const needsRichMarkdownRendering = (content: string) =>
   MARKDOWN_ENHANCEMENT_PATTERNS.some((pattern) => pattern.test(content));
-
-const CODE_FENCE_PATTERN = /```[\s\S]+?```/m;
-
-const shouldPreloadCodeHighlighting = (content: string) => CODE_FENCE_PATTERN.test(content);
 
 const PlainTextRenderer = ({
   className,
@@ -73,10 +68,7 @@ export const MarkdownRenderer = ({ children, ...props }: MarkdownRendererProps) 
     }
 
     void preloadRichMarkdownRenderer();
-    if (shouldPreloadCodeHighlighting(content)) {
-      void preloadRichCodeHighlighter();
-    }
-  }, [content, shouldEnhance]);
+  }, [shouldEnhance]);
 
   useEffect(() => {
     if (!shouldEnhance || props.isAnimating) {

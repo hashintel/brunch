@@ -255,11 +255,12 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
 | I26 | Progressive code-render fallback                           | Client characterization   | code-block.test.tsx                  | D14         |
 | I27 | Equal-length branch replacement stability                  | Client characterization   | message.test.tsx                     | D14         |
-| I28 | Client build boundary observability                        | Client characterization   | build-boundary.test.ts               | —           |
-| I29 | Heavy client dependency indirection                        | Client capability boundaries | capability-boundaries.test.ts     | D34         |
-| I30 | Default entry excludes debug surface code                  | Lazy debug route boundary | build-boundary.test.ts               | D35         |
+| I28 | No shiki in production build; streamdown remains lazy      | Slice 17a (shiki decoupling) | build-boundary.test.ts             | —           |
+| I29 | Code-block and shiki excluded from production import graph | Slice 17a (shiki decoupling) | capability-boundaries.test.ts     | D34         |
 | I31 | Assistant transcript rendering stays text-first            | Progressive rich rendering | markdown-rendering.test.tsx         | D36         |
-| I32 | Default entry excludes rich rendering and eager highlighting | Progressive rich rendering | build-boundary.test.ts             | D36         |
+| I32 | Default entry excludes rich rendering                      | Progressive rich rendering | build-boundary.test.ts             | D36         |
+
+<!-- Pruned 2026-04-12: removed I30 — moot, debug surface route removed in slice 17a. -->
 
 ### Workspace seam
 
@@ -270,7 +271,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 | #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
 | --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I24 | Workspace hydration, streaming projection, controller orchestration, mutation transport, and render-lifecycle boundaries remain stable across project entry, same-project refresh, observer-result invalidation, streamed pending-question cards, and chat submission | Slices 6b1, 6c, 6d, 6e, 6f; refactors 1–14 | InterviewWorkspace.test.tsx, workspace-data.test.ts, workspace-controller.test.tsx, chat-hydration.test.ts, client-mutation.test.ts, ProjectList.test.tsx, code-block.test.tsx, message.test.tsx, markdown-rendering.test.tsx, capability-boundaries.test.ts, build-boundary.test.ts | D9, D19, D22, D14, D34, D35, D36, D37, D38, D39, D40, D41, D42, D43, D44, D58 |
+| I24 | Workspace hydration, streaming projection, controller orchestration, mutation transport, and render-lifecycle boundaries remain stable across project entry, same-project refresh, observer-result invalidation, streamed pending-question cards, and chat submission | Slices 6b1, 6c, 6d, 6e, 6f; refactors 1–14 | InterviewWorkspace.test.tsx, workspace-data.test.ts, workspace-controller.test.tsx, chat-hydration.test.ts, client-mutation.test.ts, ProjectList.test.tsx, code-block.test.tsx, message.test.tsx, markdown-rendering.test.tsx, capability-boundaries.test.ts, build-boundary.test.ts | D9, D19, D22, D14, D34, D36, D37, D38, D39, D40, D41, D42, D43, D44, D58 |
 
 ### Turn response seam
 
@@ -554,13 +555,13 @@ This projection difference is a deliberate design choice, not an implementation 
 | knowledge.test.ts             | 1     | I48                                                   |
 | app.test.ts                   | 41    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99 |
 | core.test.ts                  | 10    | I12, I13, I18, I72, I87                               |
-| interview.test.ts             | 10    | I16, I72, I87                                         |
+| interview.test.ts             | 11    | I16, I72, I87                                         |
 | parts.test.ts                 | 15    | I17, I18, I44, I54, I72                               |
 | context.test.ts               | 15    | I19, I44, I48, I54, I87                               |
 | observer.test.ts              | 9     | I20, I21, I44, I48, I54                               |
 | phase-close.test.ts           | 13    | I72                                                   |
 | turn-response.test.ts         | 4     | I44                                                   |
-| InterviewWorkspace.test.tsx   | 21    | I23, I24, I44, I48, I54, I72                          |
+| InterviewWorkspace.test.tsx   | 22    | I23, I24, I44, I48, I54, I72                          |
 | ProjectList.test.tsx          | 3     | I24                                                   |
 | workspace-data.test.ts        | 7     | I24, I48, I72                                         |
 | chat-hydration.test.ts        | 3     | I24                                                   |
@@ -573,10 +574,11 @@ This projection difference is a deliberate design choice, not an implementation 
 | build-boundary.test.ts        | 1     | I24, I28, I30, I32                                    |
 | capability-boundaries.test.ts | 2     | I24, I29                                              |
 | KnowledgeWorkspace.test.tsx   | 5     | I24, I48                                              |
-| workspace-loader.test.ts      | 2     | I24                                                   |
+| workspace-loader.test.ts      | 3     | I24                                                   |
 | export-loader.test.ts         | 1     | D26, D65, D66, D70                                    |
 | ExportPreview.test.tsx        | 2     | D26, D65, D66, D70                                    |
-| export.test.ts                | 6     | D26, D65, D66, D70                                    |
+| export.test.ts                | 9     | D26, D65, D66, D70                                    |
+| manifest.test.ts              | 1     | —                                                     |
 
 ## Acceptance Criteria (exit conditions)
 
