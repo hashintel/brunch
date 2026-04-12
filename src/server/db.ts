@@ -697,6 +697,7 @@ function getRequirementEntitiesForProject(db: DB, projectId: number): Requiremen
   const reviewStatuses = getReviewStatusesOnActivePath(db, projectId, 'requirement');
   return getKnowledgeItemsForProjectByKind(db, projectId, 'requirement').map((item) => ({
     ...item,
+    kind: 'requirement',
     reviewStatus: reviewStatuses.get(item.id) ?? 'pending',
   }));
 }
@@ -705,6 +706,7 @@ function getCriterionEntitiesForProject(db: DB, projectId: number): CriterionEnt
   const reviewStatuses = getReviewStatusesOnActivePath(db, projectId, 'criterion');
   return getKnowledgeItemsForProjectByKind(db, projectId, 'criterion').map((item) => ({
     ...item,
+    kind: 'criterion',
     reviewStatus: reviewStatuses.get(item.id) ?? 'pending',
   }));
 }

@@ -209,8 +209,8 @@ describe('api transport contracts', () => {
     expect(submitTurnResponseResponseSchema.parse({ ok: true })).toEqual({ ok: true });
   });
 
-  it('currently accepts mismatched requirement and criterion kinds before seam hardening', () => {
-    expect(
+  it('rejects mismatched requirement and criterion kinds', () => {
+    expect(() =>
       requirementEntitySchema.parse({
         id: 2,
         project_id: 1,
@@ -219,9 +219,9 @@ describe('api transport contracts', () => {
         content: 'This should not be a requirement',
         rationale: null,
       }),
-    ).toMatchObject({ kind: 'goal' });
+    ).toThrow();
 
-    expect(
+    expect(() =>
       criterionEntitySchema.parse({
         id: 3,
         project_id: 1,
@@ -230,7 +230,7 @@ describe('api transport contracts', () => {
         content: 'This should not be a criterion',
         rationale: null,
       }),
-    ).toMatchObject({ kind: 'constraint' });
+    ).toThrow();
   });
 
   it('models turn responses through explicit request modes', () => {

@@ -115,7 +115,7 @@ export const knowledgeItemSchema = z.object({
 export const requirementEntitySchema = z.object({
   id: z.number().int().positive(),
   project_id: z.number().int().positive(),
-  kind: knowledgeItemKindSchema,
+  kind: z.literal('requirement'),
   subtype: z.string().nullable(),
   content: z.string(),
   rationale: z.string().nullable(),
@@ -125,7 +125,7 @@ export const requirementEntitySchema = z.object({
 export const criterionEntitySchema = z.object({
   id: z.number().int().positive(),
   project_id: z.number().int().positive(),
-  kind: knowledgeItemKindSchema,
+  kind: z.literal('criterion'),
   subtype: z.string().nullable(),
   content: z.string(),
   rationale: z.string().nullable(),
