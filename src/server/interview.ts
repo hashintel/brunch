@@ -111,6 +111,19 @@ export interface InterviewerModeOptions {
   cwd?: string;
 }
 
+function isBrownfieldScopeExploration(
+  phase: Phase,
+  options?: InterviewerModeOptions,
+): options is InterviewerModeOptions & { mode: 'brownfield'; cwd: string } {
+  return phase === 'scope' && options?.mode === 'brownfield' && Boolean(options.cwd);
+}
+
+export function getInterviewerInstructions(phase: Phase, options?: InterviewerModeOptions): string {
+  return isBrownfieldScopeExploration(phase, options)
+    ? getBrownfieldScopePrompt(options.cwd)
+    : getSystemPrompt(phase);
+}
+
 export type AskQuestionTool = Tool<StructuredQuestion, AskQuestionToolOutput>;
 export type ProposePhaseClosureTool = Tool<PhaseClosureProposal, ProposePhaseClosureToolOutput>;
 export type BaseInterviewerTools = {
@@ -216,8 +229,8 @@ export function createInterviewerAgent(
   options?: InterviewerModeOptions,
 ): InterviewerAgent {
   const tools = getInterviewerTools(db, turnId, phase, projectId, options);
-  const isBrownfield = options?.mode === 'brownfield' && options.cwd;
-  const instructions = isBrownfield ? getBrownfieldScopePrompt(options.cwd!) : getSystemPrompt(phase);
+  const usesBrownfieldScopeExploration = isBrownfieldScopeExploration(phase, options);
+  const instructions = getInterviewerInstructions(phase, options);
 
   return new ToolLoopAgent({
     model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'),
@@ -233,7 +246,7 @@ export function createInterviewerAgent(
       },
     },
     maxOutputTokens: 16000,
-    stopWhen: stepCountIs(isBrownfield ? 12 : 4),
+    stopWhen: stepCountIs(usesBrownfieldScopeExploration ? 12 : 4),
   });
 }
 

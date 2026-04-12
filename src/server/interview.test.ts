@@ -5,6 +5,7 @@ import { createDb, createProject, createTurn, getOptionsForTurn, getTurn, type D
 import {
   canProposePhaseClosure,
   getBrownfieldScopePrompt,
+  getInterviewerInstructions,
   getInterviewerTools,
   getSystemPrompt,
   persistFallbackQuestionText,
@@ -194,6 +195,18 @@ describe('brownfield interviewer configuration', () => {
     expect(brownfieldPrompt).not.toBe(greenfieldPrompt);
     expect(brownfieldPrompt).toContain('explore');
     expect(brownfieldPrompt).toContain('/tmp/repo');
+  });
+
+  it('limits brownfield exploration instructions to the scope phase', () => {
+    expect(getInterviewerInstructions('scope', { mode: 'brownfield', cwd: '/tmp/repo' })).toContain(
+      'explore',
+    );
+    expect(getInterviewerInstructions('design', { mode: 'brownfield', cwd: '/tmp/repo' })).toBe(
+      getSystemPrompt('design'),
+    );
+    expect(getInterviewerInstructions('requirements', { mode: 'brownfield', cwd: '/tmp/repo' })).toBe(
+      getSystemPrompt('requirements'),
+    );
   });
 });
 
