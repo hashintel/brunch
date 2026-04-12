@@ -3,18 +3,10 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
+import type { ExportLoaderData } from './export-loader.js';
 import { ExportPreview } from './ExportPreview.js';
 
-type ExportQueryState = {
-  data?: { ready: boolean; markdown?: string };
-  isLoading: boolean;
-};
-
-let currentQueryState: ExportQueryState;
-
-vi.mock('@tanstack/react-query', () => ({
-  useQuery: () => currentQueryState,
-}));
+let currentLoaderData: ExportLoaderData;
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children, to, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string }) => (
@@ -22,6 +14,7 @@ vi.mock('@tanstack/react-router', () => ({
       {children}
     </a>
   ),
+  useLoaderData: () => currentLoaderData,
   useParams: () => ({ id: '7' }),
 }));
 
@@ -35,20 +28,12 @@ vi.mock('@/components/ui/button', () => ({
 
 afterEach(() => {
   cleanup();
-  currentQueryState = { isLoading: false };
+  currentLoaderData = { ready: false };
 });
 
 describe('ExportPreview', () => {
-  it('renders a loading state while export data is pending', () => {
-    currentQueryState = { isLoading: true };
-
-    render(<ExportPreview />);
-
-    expect(screen.getByText('Loading...')).toBeTruthy();
-  });
-
   it('renders the blocked-export route state when the project is not ready', () => {
-    currentQueryState = { isLoading: false, data: { ready: false } };
+    currentLoaderData = { ready: false };
 
     render(<ExportPreview />);
 
@@ -60,12 +45,9 @@ describe('ExportPreview', () => {
   });
 
   it('renders markdown preview and review navigation when export data is ready', () => {
-    currentQueryState = {
-      isLoading: false,
-      data: {
-        ready: true,
-        markdown: '# Reviewed Spec\n\n## Requirements\n\n- Resume from SQLite',
-      },
+    currentLoaderData = {
+      ready: true,
+      markdown: '# Reviewed Spec\n\n## Requirements\n\n- Resume from SQLite',
     };
 
     render(<ExportPreview />);

@@ -2,6 +2,7 @@ import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/re
 
 import type { ProjectListItem } from '../shared/api-types.js';
 import { DebugSurfaceRouteComponent } from './routes/debug-surface.js';
+import { fetchExportPreviewLoaderData } from './routes/export-loader.js';
 import { ExportPreview } from './routes/ExportPreview.js';
 import { InterviewWorkspace } from './routes/InterviewWorkspace.js';
 import { KnowledgeWorkspace } from './routes/KnowledgeWorkspace.js';
@@ -52,6 +53,7 @@ const knowledgeRoute = createRoute({
 const exportRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/project/$id/export',
+  loader: async ({ params }) => fetchExportPreviewLoaderData(params.id),
   component: ExportPreview,
 });
 

@@ -1,19 +1,10 @@
-import { useQuery } from '@tanstack/react-query';
-import { Link, useParams } from '@tanstack/react-router';
+import { Link, useLoaderData, useParams } from '@tanstack/react-router';
 
 import { Button } from '@/components/ui/button';
 
 export function ExportPreview() {
   const { id } = useParams({ from: '/project/$id/export' });
-
-  const { data, isLoading } = useQuery({
-    queryKey: ['export', id],
-    queryFn: async () => {
-      const res = await fetch(`/api/projects/${id}/export`);
-      if (!res.ok) throw new Error('Failed to load export');
-      return res.json() as Promise<{ ready: boolean; markdown?: string }>;
-    },
-  });
+  const data = useLoaderData({ from: '/project/$id/export' });
 
   const handleDownload = () => {
     if (!data?.markdown) return;
@@ -32,8 +23,6 @@ export function ExportPreview() {
         ← Back to project
       </Link>
       <h1 className="mt-4 text-2xl font-bold">Export Preview</h1>
-
-      {isLoading && <p className="mt-4 text-muted-foreground">Loading...</p>}
 
       {data && !data.ready && (
         <div className="mt-4">
