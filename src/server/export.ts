@@ -1,8 +1,7 @@
 import { bold, h1, h2, h3, ul } from 'md-pen';
 
-import type { EntitiesData } from '../shared/api-types.js';
+import type { EntitiesData, ReviewStatus, WorkflowState } from '../shared/api-types.js';
 import { knowledgeKindRegistry } from '../shared/knowledge.js';
-import type { WorkflowState } from './db.js';
 
 export interface ReviewedExportItem {
   content: string;
@@ -28,7 +27,7 @@ function renderItem(item: ReviewedExportItem): string {
 }
 
 function getReviewedExportItems(
-  items: Array<{ content: string; rationale?: string | null; reviewStatus?: string }>,
+  items: Array<{ content: string; rationale?: string | null; reviewStatus?: ReviewStatus }>,
 ) {
   return items.filter((item) => !('reviewStatus' in item) || item.reviewStatus === 'approved');
 }

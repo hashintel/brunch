@@ -139,7 +139,7 @@
      - Acceptance: deferred review refinements such as edit/add/merge/stale semantics across requirements and criteria can land behind one cross-cutting slice without regressing completion, export, or workflow-state coherence
      - **Verification approach**: inner — mutation/read-model/invalidation tests per refinement added. Outer — manual cross-phase review lifecycle walkthrough after the dedicated knowledge workspace exists.
 
-## Phase 7: Distribution + Brownfield + UI Alignment
+## Phase 7: Distribution + Brownfield + UI Alignment `done`
 
 <!-- Local-first storage, npx distribution, greenfield/brownfield routing, codebase exploration,
      and design-system alignment from the brunch-ui prototype.
@@ -149,24 +149,23 @@
 
 17. **UI refinement + design-system alignment** `done`
     - Shipped: Inter font, Figma color ramp, typography scale, shadow tokens, Ladle stories, sidebar toggle, card-within-card in KnowledgeWorkspace, resizable panels in InterviewWorkspace, skeleton loading, empty-state vocabulary
-    - Evidence: 11 Ladle stories, 236/237 tests pass, npm run verify green
+    - Evidence: 11 Ladle stories, 288 tests pass, npm run verify green
     - Debt: dark mode tokens, question card V2 (TurnCard refactor), badge mono font, per-route skeleton tuning
 
 17a. **Debug route removal + shiki decoupling** `done`
      - Shipped: tool JSON renders via plain `<pre><code>` (no shiki); `/debug` route removed; AI Elements showcase migrated to Ladle story; shiki eliminated from all production chunks
-     - Evidence: build-boundary.test.ts (no-shiki oracle), capability-boundaries.test.ts, 253 tests pass, npm run verify green
+     - Evidence: build-boundary.test.ts (no-shiki oracle), capability-boundaries.test.ts, 288 tests pass, npm run verify green
 
 14. **Local-first storage + npx distribution** `done`
-    - Shipped: `BrunchProject` resolution with walk-up discovery, Express launcher serves API + static on one port, bin entry for `npx @hashintel/brunch`, drizzle migrations resolved via `import.meta.url`
-    - Evidence: project.test.ts (8 pass), launcher.test.ts (3 pass), 264 total tests pass, npm run verify green
-    - Debt: actual npx publish/distribution testing, `--port` flag, graceful shutdown
+    - Shipped: `BrunchProject` resolution walks up safely, rejects invalid `.brunch` path shapes early, preserves API 404s when static assets are mounted, and ships a real JS bin entrypoint for `npx brunch`; empty `BRUNCH_DB` falls back safely; migrations still resolve via `import.meta.url`
+    - Evidence: project.test.ts, launcher.test.ts, cli.test.ts, runtime-config.test.ts; 288 tests pass, npm run verify green
+    - Debt: real published `npx` smoke test, `--port` flag, graceful shutdown
     - Unblocks: 14a (greenfield/brownfield), 16 (drizzle-kit audit)
 
 14a. **Greenfield/brownfield first-screen + exploration** `done`
-     - Shipped: project table stores `mode` (greenfield/brownfield) and `cwd`; dialog-based first-screen routes between modes; brownfield interviewer gets core tools + exploration system prompt + higher step budget (12 vs 4); server derives cwd from launcher; greenfield path unchanged
-     - Evidence: db.test.ts (5 new assertions), interview.test.ts (3 new), app.test.ts (3 new), ProjectList.test.tsx (updated), 274 tests pass, npm run verify green
-     - Design: `docs/design/BROWNFIELD_EXPLORATION.md`
-     - Debt: outer-loop manual brownfield walkthrough (A47 validation), brownfield prompt for non-scope phases
+     - Shipped: project table stores `mode` (greenfield/brownfield) and `cwd`; dialog-based first-screen routes between modes; brownfield scope uses read-only exploration tools + a scope-only exploration prompt + a higher step budget (12 vs 4); later phases keep their normal prompts; server derives cwd from launcher
+     - Evidence: db.test.ts, interview.test.ts, app.test.ts, ProjectList.test.tsx; 288 tests pass, npm run verify green
+     - Debt: outer-loop manual brownfield walkthrough (A47 validation)
 
 ## Phase 8: Knowledge-Graph Revisit (stretch)
 

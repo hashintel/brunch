@@ -5,6 +5,7 @@ import { createDb, createProject, createTurn, getOptionsForTurn, getTurn, type D
 import {
   canProposePhaseClosure,
   getBrownfieldScopePrompt,
+  getInterviewerInstructions,
   getInterviewerTools,
   getSystemPrompt,
   persistFallbackQuestionText,
@@ -149,7 +150,7 @@ describe('createProposePhaseClosureTool', () => {
 });
 
 describe('brownfield interviewer configuration', () => {
-  it('includes core tools when mode is brownfield', () => {
+  it('adds read-only exploration tools during brownfield scope', () => {
     const project = createProject(db, 'BF', { mode: 'brownfield', cwd: '/tmp/repo' });
     const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: '' });
     const tools = getInterviewerTools(db, turn.id, 'scope', project.id, {
@@ -161,6 +162,36 @@ describe('brownfield interviewer configuration', () => {
     expect(toolNames).toContain('grep');
     expect(toolNames).toContain('find_files');
     expect(toolNames).toContain('list_directory');
+    expect(toolNames).toContain('ask_question');
+  });
+
+  it('keeps brownfield exploration tools read-only', () => {
+    const project = createProject(db, 'BF', { mode: 'brownfield', cwd: '/tmp/repo' });
+    const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: '' });
+    const tools = getInterviewerTools(db, turn.id, 'scope', project.id, {
+      mode: 'brownfield',
+      cwd: '/tmp/repo',
+    });
+    const toolNames = Object.keys(tools);
+
+    expect(toolNames).not.toContain('write_file');
+    expect(toolNames).not.toContain('edit_file');
+    expect(toolNames).not.toContain('bash');
+  });
+
+  it('removes brownfield exploration tools after scope', () => {
+    const project = createProject(db, 'BF', { mode: 'brownfield', cwd: '/tmp/repo' });
+    const turn = createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
+    const tools = getInterviewerTools(db, turn.id, 'design', project.id, {
+      mode: 'brownfield',
+      cwd: '/tmp/repo',
+    });
+    const toolNames = Object.keys(tools);
+
+    expect(toolNames).not.toContain('read_file');
+    expect(toolNames).not.toContain('grep');
+    expect(toolNames).not.toContain('find_files');
+    expect(toolNames).not.toContain('list_directory');
     expect(toolNames).toContain('ask_question');
   });
 
@@ -180,6 +211,18 @@ describe('brownfield interviewer configuration', () => {
     expect(brownfieldPrompt).not.toBe(greenfieldPrompt);
     expect(brownfieldPrompt).toContain('explore');
     expect(brownfieldPrompt).toContain('/tmp/repo');
+  });
+
+  it('limits brownfield exploration instructions to the scope phase', () => {
+    expect(getInterviewerInstructions('scope', { mode: 'brownfield', cwd: '/tmp/repo' })).toContain(
+      'explore',
+    );
+    expect(getInterviewerInstructions('design', { mode: 'brownfield', cwd: '/tmp/repo' })).toBe(
+      getSystemPrompt('design'),
+    );
+    expect(getInterviewerInstructions('requirements', { mode: 'brownfield', cwd: '/tmp/repo' })).toBe(
+      getSystemPrompt('requirements'),
+    );
   });
 });
 

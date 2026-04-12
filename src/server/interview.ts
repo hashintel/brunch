@@ -27,7 +27,7 @@ import {
   type Impact,
   type Phase,
 } from './db.js';
-import { createCoreTools } from './tools/index.js';
+import { createExplorationTools } from './tools/index.js';
 
 const SYSTEM_PROMPTS: Record<Phase, string> = {
   scope: `You are a spec elicitation interviewer conducting the SCOPE phase.
@@ -109,6 +109,19 @@ When goals, terms, context, and constraints are sufficiently captured for now, u
 export interface InterviewerModeOptions {
   mode?: ProjectMode;
   cwd?: string;
+}
+
+function isBrownfieldScopeExploration(
+  phase: Phase,
+  options?: InterviewerModeOptions,
+): options is InterviewerModeOptions & { mode: 'brownfield'; cwd: string } {
+  return phase === 'scope' && options?.mode === 'brownfield' && Boolean(options.cwd);
+}
+
+export function getInterviewerInstructions(phase: Phase, options?: InterviewerModeOptions): string {
+  return isBrownfieldScopeExploration(phase, options)
+    ? getBrownfieldScopePrompt(options.cwd)
+    : getSystemPrompt(phase);
 }
 
 export type AskQuestionTool = Tool<StructuredQuestion, AskQuestionToolOutput>;
@@ -204,7 +217,7 @@ export function getInterviewerTools(
     ...(canProposePhaseClosure(phase, closeability)
       ? { propose_phase_closure: createProposePhaseClosureTool(db, turnId, phase, projectId) }
       : {}),
-    ...(options?.mode === 'brownfield' && options.cwd ? createCoreTools(options.cwd) : {}),
+    ...(isBrownfieldScopeExploration(phase, options) ? createExplorationTools(options.cwd) : {}),
   };
 }
 
@@ -216,8 +229,8 @@ export function createInterviewerAgent(
   options?: InterviewerModeOptions,
 ): InterviewerAgent {
   const tools = getInterviewerTools(db, turnId, phase, projectId, options);
-  const isBrownfield = options?.mode === 'brownfield' && options.cwd;
-  const instructions = isBrownfield ? getBrownfieldScopePrompt(options.cwd!) : getSystemPrompt(phase);
+  const usesBrownfieldScopeExploration = isBrownfieldScopeExploration(phase, options);
+  const instructions = getInterviewerInstructions(phase, options);
 
   return new ToolLoopAgent({
     model: anthropic(process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-20250514'),
@@ -233,7 +246,7 @@ export function createInterviewerAgent(
       },
     },
     maxOutputTokens: 16000,
-    stopWhen: stepCountIs(isBrownfield ? 12 : 4),
+    stopWhen: stepCountIs(usesBrownfieldScopeExploration ? 12 : 4),
   });
 }
 

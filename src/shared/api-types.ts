@@ -71,11 +71,12 @@ export const projectStateTurnSchema = z.object({
   options: z.array(turnOptionSchema).optional(),
 });
 
-export const createProjectRequestSchema = z.object({
-  name: z.string().trim().min(1),
-  mode: projectModeSchema.optional(),
-  cwd: z.string().optional(),
-});
+export const createProjectRequestSchema = z
+  .object({
+    name: z.string().trim().min(1),
+    mode: projectModeSchema.optional(),
+  })
+  .strict();
 
 export const createProjectResponseSchema = projectSchema;
 
@@ -115,7 +116,7 @@ export const knowledgeItemSchema = z.object({
 export const requirementEntitySchema = z.object({
   id: z.number().int().positive(),
   project_id: z.number().int().positive(),
-  kind: knowledgeItemKindSchema,
+  kind: z.literal('requirement'),
   subtype: z.string().nullable(),
   content: z.string(),
   rationale: z.string().nullable(),
@@ -125,7 +126,7 @@ export const requirementEntitySchema = z.object({
 export const criterionEntitySchema = z.object({
   id: z.number().int().positive(),
   project_id: z.number().int().positive(),
-  kind: knowledgeItemKindSchema,
+  kind: z.literal('criterion'),
   subtype: z.string().nullable(),
   content: z.string(),
   rationale: z.string().nullable(),
@@ -178,10 +179,15 @@ export const entitiesDataSchema = z.object({
   relationships: z.array(entityRelationshipSchema),
 });
 
-export const exportLoaderDataSchema = z.object({
-  ready: z.boolean(),
-  markdown: z.string().optional(),
-});
+export const exportLoaderDataSchema = z.discriminatedUnion('ready', [
+  z.object({
+    ready: z.literal(false),
+  }),
+  z.object({
+    ready: z.literal(true),
+    markdown: z.string(),
+  }),
+]);
 
 export const mutationErrorResponseSchema = z.object({
   error: z.string().optional(),

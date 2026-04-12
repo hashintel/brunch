@@ -1,11 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  createProjectRequestSchema,
+  criterionEntitySchema,
   entitiesDataSchema,
   exportLoaderDataSchema,
   mutationErrorResponseSchema,
   projectListItemSchema,
   projectStateSchema,
+  requirementEntitySchema,
   submitTurnResponseRequestSchema,
   submitTurnResponseResponseSchema,
 } from './api-types.js';
@@ -200,10 +203,45 @@ describe('api transport contracts', () => {
       ready: true,
       markdown: '# Reviewed Spec',
     });
+    expect(() => exportLoaderDataSchema.parse({ ready: true })).toThrow();
     expect(mutationErrorResponseSchema.parse({ error: 'Failed to save response' })).toEqual({
       error: 'Failed to save response',
     });
     expect(submitTurnResponseResponseSchema.parse({ ok: true })).toEqual({ ok: true });
+  });
+
+  it('rejects mismatched requirement and criterion kinds', () => {
+    expect(() =>
+      requirementEntitySchema.parse({
+        id: 2,
+        project_id: 1,
+        kind: 'goal',
+        subtype: null,
+        content: 'This should not be a requirement',
+        rationale: null,
+      }),
+    ).toThrow();
+
+    expect(() =>
+      criterionEntitySchema.parse({
+        id: 3,
+        project_id: 1,
+        kind: 'constraint',
+        subtype: null,
+        content: 'This should not be a criterion',
+        rationale: null,
+      }),
+    ).toThrow();
+  });
+
+  it('keeps create-project transport limited to client-authorable fields', () => {
+    expect(createProjectRequestSchema.parse({ name: 'Brunch', mode: 'brownfield' })).toEqual({
+      name: 'Brunch',
+      mode: 'brownfield',
+    });
+    expect(() =>
+      createProjectRequestSchema.parse({ name: 'Brunch', mode: 'brownfield', cwd: '/tmp/repo' }),
+    ).toThrow();
   });
 
   it('models turn responses through explicit request modes', () => {

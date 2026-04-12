@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { EntitiesData } from '../shared/api-types.js';
+import type { EntitiesData, ReadinessBand, WorkflowState } from '../shared/api-types.js';
 import { getProjectState } from './core.js';
 import {
   advanceHead,
@@ -11,7 +11,6 @@ import {
   getEntitiesForProject,
   getEntitiesForProjectOnActivePath,
   linkKnowledgeItemToTurn,
-  type WorkflowState,
 } from './db.js';
 import { buildReviewedExportProjection, renderExportMarkdown } from './export.js';
 import {
@@ -24,7 +23,7 @@ function createClosedPhase({
   readiness = 'high',
 }: {
   basis?: string;
-  readiness?: 'low' | 'medium' | 'high';
+  readiness?: ReadinessBand;
 } = {}) {
   return {
     status: 'closed' as const,

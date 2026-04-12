@@ -7,7 +7,7 @@ export function ExportPreview() {
   const data = useLoaderData({ from: '/project/$id/export' });
 
   const handleDownload = () => {
-    if (!data?.markdown) return;
+    if (!data?.ready) return;
     const blob = new Blob([data.markdown], { type: 'text/markdown' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');

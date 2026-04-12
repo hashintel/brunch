@@ -4,7 +4,7 @@ import { createProjectResponseSchema } from '../../shared/api-types.js';
 import type { CreateProjectRequest, CreateProjectResponse } from '../../shared/api-types.js';
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
-type CreateProjectInput = Omit<CreateProjectRequest, 'cwd'>;
+type CreateProjectInput = CreateProjectRequest;
 
 export interface CreateProjectMutationState {
   readonly createProject: (input: CreateProjectInput) => Promise<CreateProjectResponse>;

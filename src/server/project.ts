@@ -1,4 +1,4 @@
-import { existsSync, mkdirSync } from 'node:fs';
+import { existsSync, mkdirSync, statSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { dirname, join, parse } from 'node:path';
 
@@ -26,12 +26,24 @@ function isStopDirectory(dir: string): boolean {
   return dir === root || dir === home;
 }
 
+function hasValidBrunchDirectory(candidate: string): boolean {
+  if (!existsSync(candidate)) {
+    return false;
+  }
+
+  if (!statSync(candidate).isDirectory()) {
+    throw new Error(`${candidate} exists but is not a directory`);
+  }
+
+  return true;
+}
+
 export function findBrunchProject(startDir: string): BrunchProject | null {
   let current = startDir;
 
   for (let i = 0; i <= MAX_WALK_UP; i++) {
     const candidate = join(current, BRUNCH_DIR);
-    if (existsSync(candidate)) {
+    if (hasValidBrunchDirectory(candidate)) {
       return toBrunchProject(candidate, current);
     }
 
@@ -52,6 +64,10 @@ export function findBrunchProject(startDir: string): BrunchProject | null {
 export function initBrunchProject(cwd: string): BrunchProject {
   const brunchDir = join(cwd, BRUNCH_DIR);
   if (existsSync(brunchDir)) {
+    if (!statSync(brunchDir).isDirectory()) {
+      throw new Error(`${brunchDir} exists but is not a directory`);
+    }
+
     throw new Error(`.brunch/ already exists in ${cwd}`);
   }
   mkdirSync(brunchDir, { recursive: true });

@@ -669,6 +669,81 @@ describe('InterviewWorkspace', () => {
     expect(await screen.findByText('The project starts from a fuzzy brief')).toBeTruthy();
   });
 
+  it('ignores invalid entity refresh payloads and keeps the loader snapshot visible', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [
+          {
+            id: 9,
+            project_id: 1,
+            content: 'Loader decision',
+            rationale: 'Still authoritative when refresh parsing fails',
+          },
+        ],
+        assumptions: [],
+        relationships: [],
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [
+            {
+              content: 'Broken decision',
+              rationale: null,
+            },
+          ],
+          assumptions: [],
+          relationships: [],
+        }),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    renderWorkspace();
+    expect(await screen.findByText('Loader decision')).toBeTruthy();
+
+    await act(async () => {
+      useChatHarness.onData?.({
+        type: 'data-observer-result',
+        data: {
+          entityIds: {
+            goals: [],
+            terms: [],
+            contexts: [],
+            constraints: [],
+            requirements: [],
+            criteria: [],
+            decisions: [99],
+            assumptions: [],
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    expect(screen.getByText('Loader decision')).toBeTruthy();
+    expect(screen.queryByText('Broken decision')).toBeNull();
+  });
+
   it('refetches sidebar entities when the chat stream emits mixed observer-created design entities', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {

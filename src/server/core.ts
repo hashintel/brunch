@@ -1,3 +1,4 @@
+import type { ProjectListItem, ProjectState, ProjectStateTurn } from '../shared/api-types.js';
 import type { BrunchUIMessage, BrunchUserPart } from '../shared/chat.js';
 import { extractTextFromMessage } from '../shared/chat.js';
 import {
@@ -11,7 +12,6 @@ import {
   listProjects,
   createProject,
   type CreateProjectOptions,
-  type Option,
   type Turn,
   type DB,
   type Project,
@@ -26,9 +26,7 @@ export function extractPrompt(messages: BrunchUIMessage[]): string {
 }
 
 /** Turn with optional options for richer history formatting. */
-export interface TurnWithOptions extends Turn {
-  options?: Array<Pick<Option, 'id' | 'position' | 'content' | 'is_recommended' | 'is_selected'>>;
-}
+export type TurnWithOptions = ProjectStateTurn;
 
 export function loadActivePathWithOptions(db: DB, projectId: number): TurnWithOptions[] {
   const rawActivePath = getActivePath(db, projectId);
@@ -63,7 +61,7 @@ export function finalizeTurn(db: DB, projectId: number, turnId: number): void {
 }
 
 /** Get project state: project + active path turns enriched with options. */
-export function getProjectState(db: DB, projectId: number) {
+export function getProjectState(db: DB, projectId: number): ProjectState | null {
   const project = getProject(db, projectId);
   if (!project) return null;
   const turns = loadActivePathWithOptions(db, projectId);
@@ -72,7 +70,7 @@ export function getProjectState(db: DB, projectId: number) {
 }
 
 /** List all projects with compact workflow summary. */
-export function listProjectStates(db: DB) {
+export function listProjectStates(db: DB): ProjectListItem[] {
   return listProjects(db).map((project) => {
     const workflow = getCurrentWorkflowState(db, project.id);
     return {

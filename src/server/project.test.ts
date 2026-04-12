@@ -1,5 +1,5 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync } from 'node:fs';
-import { homedir, tmpdir } from 'node:os';
+import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
@@ -86,6 +86,13 @@ describe('project resolution', () => {
     expect(() => initBrunchProject(cwd)).toThrow();
   });
 
+  it('rejects invalid .brunch path shapes during initialization', () => {
+    const cwd = makeTempDir();
+    writeFileSync(join(cwd, '.brunch'), 'not a directory');
+
+    expect(() => initBrunchProject(cwd)).toThrow('exists but is not a directory');
+  });
+
   // ── resolveBrunchProject ────────────────────────────────────────
 
   it('creates .brunch/ when none found', () => {
@@ -109,5 +116,14 @@ describe('project resolution', () => {
     expect(project.cwd).toBe(root);
     // Should not create a second .brunch/ in the child
     expect(existsSync(join(child, '.brunch'))).toBe(false);
+  });
+
+  it('rejects invalid .brunch path shapes during walk-up discovery', () => {
+    const root = makeTempDir();
+    writeFileSync(join(root, '.brunch'), 'not a directory');
+    const child = join(root, 'src');
+    mkdirSync(child);
+
+    expect(() => resolveBrunchProject(child)).toThrow('exists but is not a directory');
   });
 });

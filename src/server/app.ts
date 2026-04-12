@@ -2,7 +2,7 @@ import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessage
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 
-import { submitTurnResponseRequestSchema } from '../shared/api-types.js';
+import { createProjectRequestSchema, submitTurnResponseRequestSchema } from '../shared/api-types.js';
 import type {
   EntitiesData,
   ExportLoaderData,
@@ -78,12 +78,14 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
   // Create a new project
   app.post('/api/projects', (req: Request, res: Response) => {
-    const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
-    if (!name) {
-      res.status(400).json({ error: 'name is required' } satisfies MutationErrorResponse);
+    const parsedRequest = createProjectRequestSchema.safeParse(req.body);
+    if (!parsedRequest.success) {
+      res.status(400).json({ error: 'Invalid project payload' } satisfies MutationErrorResponse);
       return;
     }
-    const mode = req.body.mode === 'brownfield' ? ('brownfield' as const) : undefined;
+
+    const { name } = parsedRequest.data;
+    const mode = parsedRequest.data.mode === 'brownfield' ? ('brownfield' as const) : undefined;
     const cwd = mode === 'brownfield' ? projectCwd : undefined;
     const project = createNewProject(db, name, { mode, cwd });
     res.status(201).json(project);
