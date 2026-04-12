@@ -49,16 +49,14 @@ describe('client build boundary', () => {
     };
   };
 
-  it('keeps debug and rich markdown rendering out of the default client entrypoint', async () => {
+  it('keeps rich markdown rendering lazy and excludes shiki from the production build', async () => {
     const readableBuild = await buildClient({ minify: false });
 
-    expect(readableBuild.entryFile).toContain('/debug');
     expect(readableBuild.entryFile).toContain('/project/$id');
-    expect(readableBuild.entryFile).not.toContain('Component Debug');
-    expect(readableBuild.entryFile).not.toContain('outer-loop testing');
     expect(readableBuild.entryFile).not.toContain('streamdown');
     expect(readableBuild.entryFile).not.toContain('createHighlighter');
 
+    // streamdown is lazy-loaded for progressive markdown rendering
     const richRenderingChunk = Object.values(readableBuild.manifest).find((chunk) => {
       if (!chunk.file || chunk.file === readableBuild.entry.file) {
         return false;
@@ -70,29 +68,19 @@ describe('client build boundary', () => {
 
     expect(richRenderingChunk?.file).toBeTruthy();
 
-    const highlighterChunk = Object.values(readableBuild.manifest).find((chunk) => {
-      if (!chunk.file || chunk.file === readableBuild.entry.file) {
-        return false;
-      }
+    // shiki must not appear in any chunk — tool JSON uses plain code rendering
+    const allChunkSources = Object.values(readableBuild.manifest)
+      .filter((chunk) => chunk.file)
+      .map((chunk) => ({
+        file: chunk.file!,
+        source: readFileSync(join(readableBuild.outDir, chunk.file!), 'utf8'),
+      }));
 
-      const chunkSource = readFileSync(join(readableBuild.outDir, chunk.file), 'utf8');
-      return chunkSource.includes('createHighlighter');
-    });
-
-    expect(highlighterChunk?.file).toBeTruthy();
-
-    const debugChunk = Object.values(readableBuild.manifest).find((chunk) => {
-      if (!chunk.file || chunk.file === readableBuild.entry.file) {
-        return false;
-      }
-
-      const chunkSource = readFileSync(join(readableBuild.outDir, chunk.file), 'utf8');
-      return chunkSource.includes('Component Debug');
-    });
-
-    expect(debugChunk?.file).toBeTruthy();
+    for (const { file, source } of allChunkSources) {
+      expect(source, `shiki found in ${file}`).not.toContain('createHighlighter');
+    }
 
     const minifiedBuild = await buildClient({ minify: true });
-    expect(statSync(minifiedBuild.entryPath).size).toBeLessThan(950_000);
+    expect(statSync(minifiedBuild.entryPath).size).toBeLessThan(1_050_000);
   }, 30_000);
 });

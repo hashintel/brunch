@@ -1,7 +1,14 @@
 import { useMutation } from '@tanstack/react-query';
+import type { ZodType } from 'zod/v4';
 
-interface MutationErrorResponse {
-  error?: string;
+import { mutationErrorResponseSchema } from '../../shared/api-types.js';
+import type { MutationErrorResponse } from '../../shared/api-types.js';
+
+export interface ClientMutationState<TResponse, TVariables> {
+  readonly run: (variables: TVariables) => Promise<TResponse>;
+  readonly isPending: boolean;
+  readonly errorMessage: string | null;
+  readonly clearError: () => void;
 }
 
 export class ClientMutationError extends Error {
@@ -16,12 +23,12 @@ export class ClientMutationError extends Error {
 
 async function readMutationErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
   try {
-    const payload = (await response.json()) as MutationErrorResponse;
+    const payload = mutationErrorResponseSchema.parse((await response.json()) as MutationErrorResponse);
     if (typeof payload.error === 'string' && payload.error.trim().length > 0) {
       return payload.error;
     }
   } catch {
-    // Fall back to the caller-provided message when the response is not JSON.
+    // Fall back to the caller-provided message when the response is not JSON or does not match the contract.
   }
 
   return fallbackMessage;
@@ -30,6 +37,7 @@ async function readMutationErrorMessage(response: Response, fallbackMessage: str
 export async function postJsonMutation<TResponse, TRequest>(
   url: string,
   body: TRequest,
+  responseSchema: ZodType<TResponse>,
   fallbackMessage: string,
 ): Promise<TResponse> {
   let response: Response;
@@ -49,7 +57,7 @@ export async function postJsonMutation<TResponse, TRequest>(
   }
 
   try {
-    return (await response.json()) as TResponse;
+    return responseSchema.parse(await response.json());
   } catch {
     throw new ClientMutationError(fallbackMessage, response.status);
   }
@@ -57,7 +65,7 @@ export async function postJsonMutation<TResponse, TRequest>(
 
 export function useClientMutation<TResponse, TVariables>(
   mutationFn: (variables: TVariables) => Promise<TResponse>,
-) {
+): ClientMutationState<TResponse, TVariables> {
   const mutation = useMutation<TResponse, ClientMutationError, TVariables>({ mutationFn });
 
   return {

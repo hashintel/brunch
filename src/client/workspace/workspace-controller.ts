@@ -1,65 +1,67 @@
 import { useChat } from '@ai-sdk/react';
 import { useLoaderData, useParams, useRouter } from '@tanstack/react-router';
-import { DefaultChatTransport, type ChatStatus } from 'ai';
+import { DefaultChatTransport } from 'ai';
+import type { ChatStatus } from 'ai';
 import { useCallback, useMemo } from 'react';
 
 import { useSubmitTurnResponseMutation } from '@/mutations/workspace-mutations';
 
 import type { ProjectStateTurn } from '../../shared/api-types.js';
-import { brunchDataPartSchemas, type BrunchUIMessage } from '../../shared/chat.js';
+import { brunchDataPartSchemas } from '../../shared/chat.js';
+import type { BrunchUIMessage } from '../../shared/chat.js';
 import {
   createConfirmProposedPhaseClosureCommand,
   createForceCloseActivePhaseCommand,
   getPhaseClosureCommandText,
-  type DataConfirmation,
 } from '../../shared/phase-close.js';
-import { useChatHydrationBoundary } from './chat-hydration.js';
-import {
-  createWorkspaceControllerViewState,
-  type PendingQuestionViewModel,
-  type PhaseSummaryViewModel,
-  type WorkspaceDurableEntityState,
-  type WorkspaceDurableProjectState,
+import type { DataConfirmation } from '../../shared/phase-close.js';
+import { getProjectScopedChatId } from './chat-hydration.js';
+import { createWorkspaceControllerViewState } from './workspace-controller-core.js';
+import type {
+  PendingQuestionViewModel,
+  PhaseSummaryViewModel,
+  WorkspaceDurableEntityState,
+  WorkspaceDurableProjectState,
 } from './workspace-controller-core.js';
 import { useWorkspaceDataAdapter } from './workspace-data.js';
 
 export interface WorkspaceControllerChatState {
-  messages: BrunchUIMessage[];
-  status: ChatStatus;
-  isLoading: boolean;
-  isStreaming: boolean;
-  submitText: (text: string) => void;
-  confirmPhaseClosure: (phase: ProjectStateTurn['phase'], turnId: number) => void;
-  forcePhaseClosure: (phase: ProjectStateTurn['phase']) => void;
+  readonly messages: readonly BrunchUIMessage[];
+  readonly status: ChatStatus;
+  readonly isLoading: boolean;
+  readonly isStreaming: boolean;
+  readonly submitText: (text: string) => void;
+  readonly confirmPhaseClosure: (phase: ProjectStateTurn['phase'], turnId: number) => void;
+  readonly forcePhaseClosure: (phase: ProjectStateTurn['phase']) => void;
 }
 
 export type WorkspaceControllerTurnCardState =
   | {
-      kind: 'persisted-turn';
-      turn: ProjectStateTurn;
-      disabled: boolean;
-      errorMessage: string | null;
-      submitTurnResponse: (positions: number[], freeText?: string) => Promise<void>;
+      readonly kind: 'persisted-turn';
+      readonly turn: ProjectStateTurn;
+      readonly disabled: boolean;
+      readonly errorMessage: string | null;
+      readonly submitTurnResponse: (positions: number[], freeText?: string) => Promise<void>;
     }
   | {
-      kind: 'pending-question';
-      pendingQuestion: PendingQuestionViewModel;
-      disabled: true;
+      readonly kind: 'pending-question';
+      readonly pendingQuestion: PendingQuestionViewModel;
+      readonly disabled: true;
     };
 
 export interface WorkspaceControllerPromptInputState {
-  visible: boolean;
-  disabled: boolean;
+  readonly visible: boolean;
+  readonly disabled: boolean;
 }
 
 export interface WorkspaceController {
-  project: WorkspaceDurableProjectState['project'];
-  workflow: WorkspaceDurableProjectState['workflow'];
-  entityState: WorkspaceDurableEntityState;
-  chat: WorkspaceControllerChatState;
-  turnCard: WorkspaceControllerTurnCardState | null;
-  phaseSummary: PhaseSummaryViewModel | null;
-  promptInput: WorkspaceControllerPromptInputState;
+  readonly project: WorkspaceDurableProjectState['project'];
+  readonly workflow: WorkspaceDurableProjectState['workflow'];
+  readonly entityState: WorkspaceDurableEntityState;
+  readonly chat: WorkspaceControllerChatState;
+  readonly turnCard: WorkspaceControllerTurnCardState | null;
+  readonly phaseSummary: PhaseSummaryViewModel | null;
+  readonly promptInput: WorkspaceControllerPromptInputState;
 }
 
 export function useWorkspaceController(): WorkspaceController {
@@ -75,9 +77,10 @@ export function useWorkspaceController(): WorkspaceController {
     () => new DefaultChatTransport({ api: `/api/projects/${projectId}/chat` }),
     [projectId],
   );
-  const { messages, sendMessage, setMessages, status } = useChat<BrunchUIMessage>({
+  const { messages, sendMessage, status } = useChat<BrunchUIMessage>({
+    id: getProjectScopedChatId(durableProject.project.id),
     transport,
-    messages: ephemeralChat.seedMessages,
+    messages: [...ephemeralChat.seedMessages],
     dataPartSchemas: brunchDataPartSchemas,
     onData: handleDataPart,
     onFinish: () => {
@@ -90,8 +93,6 @@ export function useWorkspaceController(): WorkspaceController {
     sendMessage,
   });
   const isLoading = status === 'submitted' || status === 'streaming';
-
-  useChatHydrationBoundary(durableProject.project.id, ephemeralChat.seedMessages, setMessages);
 
   const viewState = useMemo(
     () => createWorkspaceControllerViewState(durableProject, messages, isLoading),

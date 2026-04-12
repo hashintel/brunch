@@ -1249,7 +1249,11 @@ describe('phase outcomes + scope closure', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ positions: [2], freeText: 'Export the reviewed spec as markdown' })
+      .send({
+        kind: 'select-options',
+        positions: [2],
+        freeText: 'Export the reviewed spec as markdown',
+      })
       .expect(200);
 
     mockStreamInterviewer.mockImplementation(async () =>
@@ -2136,7 +2140,11 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
-      .send({ positions: [1], freeText: 'Best fit for our launch' })
+      .send({
+        kind: 'select-options',
+        positions: [1],
+        freeText: 'Best fit for our launch',
+      })
       .expect(200);
 
     expect(getOptionsForTurn(db, turn.id)[1].is_selected).toBe(true);
@@ -2174,7 +2182,11 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
-      .send({ positions: [0, 1], freeText: 'Covers both launch paths' })
+      .send({
+        kind: 'select-options',
+        positions: [0, 1],
+        freeText: 'Covers both launch paths',
+      })
       .expect(200);
 
     const selectedOptions = getOptionsForTurn(db, turn.id).filter((option) => option.is_selected);
@@ -2256,7 +2268,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ positions: [0] })
+      .send({ kind: 'select-options', positions: [0] })
       .expect(200);
 
     const reviewedRows = db.$client
@@ -2356,7 +2368,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ positions: [0] })
+      .send({ kind: 'select-options', positions: [0] })
       .expect(200);
 
     const rejectedRows = db.$client
@@ -2456,7 +2468,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ positions: [0] })
+      .send({ kind: 'select-options', positions: [0] })
       .expect(200);
 
     const reviewedRows = db.$client
@@ -2556,7 +2568,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ positions: [0] })
+      .send({ kind: 'select-options', positions: [0] })
       .expect(200);
 
     const rejectedRows = db.$client
@@ -2601,7 +2613,11 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
-      .send({ positions: [0, 1], freeText: 'Covers both launch paths' })
+      .send({
+        kind: 'select-options',
+        positions: [0, 1],
+        freeText: 'Covers both launch paths',
+      })
       .expect(200);
 
     const projectStateRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
@@ -2697,7 +2713,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
-      .send({ freeText: 'None of these fit our use case' })
+      .send({ kind: 'free-text', freeText: 'None of these fit our use case' })
       .expect(200);
 
     expect(getOptionsForTurn(db, turn.id).every((option) => !option.is_selected)).toBe(true);
@@ -2731,7 +2747,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
-      .send({ freeText: '   ' })
+      .send({ kind: 'free-text', freeText: '   ' })
       .expect(400);
   });
 });

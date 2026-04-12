@@ -147,13 +147,14 @@
 
 ### Slices
 
-17. **UI refinement + design-system alignment** — Port design tokens, layout primitives, card patterns, and component iteration environment from the parallel `brunch-ui` prototype. **Foundation**: Inter Variable font (replacing Geist), Figma-precise color ramp (ink/sub/hint/rule/wash/tint), shadow tokens (card/ring/card-ring), fine-grained typography scale (xxs 10px–sm 16px), font weight discipline (regular/medium/semi-bold only). **Layout shell**: AppHeader, StageSidebar/PhaseSidebar with working collapse/expand toggle, resizable main+right panels via `react-resizable-panels`, AppFooter spanning full width. **Components**: card-within-card pattern (white header / tinted body) for knowledge group cards and question cards; collapsible question card (V2 with inline `why` grounding, answered cards collapse to read-only summary, re-answering routes through revisit model not casual toggle); empty-state vocabulary (6 patterns: text-only, with icon, with CTA, centered hero, inline within list, attention/warning); metadata rows (label-over-value flex columns); badge refinement (mono font, no black-on-color, no all-caps); mandatory skeleton loading for all pending states. **Infrastructure**: Ladle story environment (`.ladle/` config with theme provider, `@source` directives, stories as living component reference), shadcn CLI + `components.json`. **Dependencies**: `@fontsource-variable/inter`, `react-resizable-panels`, `@ladle/react`, `shadcn`. `not-started`
-    - Requirements: → SPEC.md §Requirements #4, #5, #7, #9, #15
-    - Decisions: → SPEC.md §Decisions D58, D59, D69
-    - Candidate invariant goals: design tokens are Figma-authoritative and shared between app and Ladle stories; layout shell supports sidebar collapse/expand without breaking workspace data flow; card patterns are composable across knowledge workspace, interview workspace, and dashboard; empty-state and skeleton patterns are systematic, not ad-hoc; answered question cards visually communicate finality — re-opening to edit is a revisit-model action, not a UI toggle
-    - Invariants to respect: → SPEC.md §Invariants I24, I44, I48
-    - Acceptance: Inter font renders across all routes; color ramp matches Figma reference values; StageSidebar collapses to PhaseSidebar and back; resizable panels work in interview and knowledge workspaces; at least one Ladle story renders with shared design tokens; question card shows inline `why` with collapsible answered state; empty states appear for all unpopulated sections; skeleton loading renders during route transitions
-    - **Verification approach**: inner — Ladle stories as visual regression surface; existing workspace seam tests pass after layout migration. Outer — manual walkthrough comparing rendered UI against Figma reference screens.
+17. **UI refinement + design-system alignment** `done`
+    - Shipped: Inter font, Figma color ramp, typography scale, shadow tokens, Ladle stories, sidebar toggle, card-within-card in KnowledgeWorkspace, resizable panels in InterviewWorkspace, skeleton loading, empty-state vocabulary
+    - Evidence: 11 Ladle stories, 236/237 tests pass, npm run verify green
+    - Debt: dark mode tokens, question card V2 (TurnCard refactor), badge mono font, per-route skeleton tuning
+
+17a. **Debug route removal + shiki decoupling** `done`
+     - Shipped: tool JSON renders via plain `<pre><code>` (no shiki); `/debug` route removed; AI Elements showcase migrated to Ladle story; shiki eliminated from all production chunks
+     - Evidence: build-boundary.test.ts (no-shiki oracle), capability-boundaries.test.ts, 253 tests pass, npm run verify green
 
 14. **Local-first storage + npx distribution** — `resolveBrunchProject()` with shallow walk-up discovery creates/finds `.brunch/` directory. `bin` entry, Express launcher serves built Vite assets + API on one port, opens browser. `npx brunch` for web UI. Single env var: `ANTHROPIC_API_KEY`. `not-started`
     - Requirements: → SPEC.md §Requirements #1, #14
@@ -234,7 +235,7 @@ done ─────────────────────────
                         │
 Phase 7:  12b ──→ 14 (local-first storage + npx distribution)
           14 ──→ 14a (greenfield/brownfield + exploration)
-          done ──→ 17 (UI refinement + design-system alignment)  [parallel with 14]
+          17 done
 Phase 8:  12a ──→ 15 (edit mode + cascade preview)        [stretch]
           15 ──→ 15a (cascade execution + secondary threads) [stretch]
 Phase 9:  14 ──→ 16 (drizzle-kit audit remediation)
@@ -244,8 +245,7 @@ Deferred: 12a + 12b ──→ 13a (review lifecycle refinement)
 ### Parallelism opportunities
 
 - Phase 6 is fully done (11a, 11b, 11c, 12a, 12b all complete).
-- **14 (local-first + npx) and 17 (UI refinement) are both unblocked and can run in parallel.**
-- 17 is purely presentational — no schema or API changes — so it has no dependency on 14 or vice versa.
+- **17 (UI refinement) is done.** 14 (local-first + npx) is the next unblocked slice.
 - 14a (brownfield) depends on 14 landing first (needs the launcher and `.brunch/` resolution).
 - 15 + 15a (knowledge-graph revisit) are stretch goals; they depend on 12a (knowledge workspace) which is done, but may not land before the first deadline.
 - 13a (review lifecycle refinement) is explicitly deferred; it should collect rarer review variants after the revisit model stabilizes.

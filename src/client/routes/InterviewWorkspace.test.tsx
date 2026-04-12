@@ -35,6 +35,7 @@ function createPendingQuestionMessage(): BrunchUIMessage {
 }
 
 type UseChatOptions = {
+  id?: string;
   messages: BrunchUIMessage[];
   onData?: (dataPart: { type: string; data?: unknown }) => void;
   onFinish?: () => void;
@@ -275,18 +276,29 @@ function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'rea
   };
 
   return function useChatHarnessImpl(options: UseChatOptions) {
-    const [messages, setMessages] = useState(options.messages);
-    const stableSetMessages = useCallback((nextMessages: BrunchUIMessage[]) => {
-      setMessagesSpy(nextMessages);
-      setMessages(nextMessages);
-    }, []);
+    const [, forceRender] = useState(0);
+    const chatStates = useState(() => new Map<string, BrunchUIMessage[]>())[0];
+    const chatId = options.id ?? 'default';
+
+    if (!chatStates.has(chatId)) {
+      chatStates.set(chatId, options.messages);
+    }
+
+    const stableSetMessages = useCallback(
+      (nextMessages: BrunchUIMessage[]) => {
+        setMessagesSpy(nextMessages);
+        chatStates.set(chatId, nextMessages);
+        forceRender((count) => count + 1);
+      },
+      [chatId, chatStates],
+    );
 
     useChatHarness.onData = options.onData;
     useChatHarness.onFinish = options.onFinish;
     useChatHarness.replaceMessages = stableSetMessages;
 
     return {
-      messages,
+      messages: chatStates.get(chatId) ?? options.messages,
       sendMessage,
       setMessages: stableSetMessages,
       status,
@@ -345,11 +357,6 @@ describe('InterviewWorkspace', () => {
     expect(await screen.findByText('Earlier question?')).toBeTruthy();
     expect(screen.queryByText('Which platform should we target next?')).toBeNull();
     expect(screen.getByLabelText('Type a message...')).toBeTruthy();
-
-    await waitFor(() => {
-      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
-    });
-    useChatHarness.setMessages.mockClear();
 
     await act(async () => {
       useChatHarness.replaceMessages?.([
@@ -417,11 +424,6 @@ describe('InterviewWorkspace', () => {
     expect(await screen.findByText('What should we build first?')).toBeTruthy();
     expect(screen.getByText("No decisions yet. They'll appear as the interview progresses.")).toBeTruthy();
 
-    await waitFor(() => {
-      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
-    });
-    useChatHarness.setMessages.mockClear();
-
     currentLoaderData = createWorkspaceLoaderData({
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
@@ -464,11 +466,6 @@ describe('InterviewWorkspace', () => {
     const rendered = renderWorkspace();
     expect(await screen.findByText('What should we build first?')).toBeTruthy();
 
-    await waitFor(() => {
-      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
-    });
-    useChatHarness.setMessages.mockClear();
-
     currentLoaderData = createWorkspaceLoaderData({
       projectId: 2,
       assistantText: 'How should project two start?',
@@ -492,22 +489,11 @@ describe('InterviewWorkspace', () => {
     );
 
     await waitFor(() => {
-      expect(useChatHarness.setMessages).toHaveBeenCalledWith([
-        {
-          id: 'turn-1-answer',
-          role: 'user',
-          parts: [{ type: 'text', text: 'Begin with the API' }],
-        },
-        {
-          id: 'turn-1-assistant',
-          role: 'assistant',
-          parts: [{ type: 'text', text: 'How should project two start?' }],
-        },
-      ]);
+      expect(screen.getByText('How should project two start?')).toBeTruthy();
+      expect(screen.getByText('Begin with the API')).toBeTruthy();
     });
 
-    expect(screen.getByText('How should project two start?')).toBeTruthy();
-    expect(screen.getByText('Begin with the API')).toBeTruthy();
+    expect(useChatHarness.setMessages).not.toHaveBeenCalled();
   });
 
   it('renders remaining generic knowledge kinds in the sidebar without regressing existing tabs', async () => {
@@ -966,7 +952,11 @@ describe('InterviewWorkspace', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ positions: [1], freeText: 'Best fit for our launch' }),
+          body: JSON.stringify({
+            kind: 'select-options',
+            positions: [1],
+            freeText: 'Best fit for our launch',
+          }),
         }),
       );
     });
@@ -1008,7 +998,11 @@ describe('InterviewWorkspace', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ positions: [0, 1], freeText: 'Covers both launch paths' }),
+          body: JSON.stringify({
+            kind: 'select-options',
+            positions: [0, 1],
+            freeText: 'Covers both launch paths',
+          }),
         }),
       );
     });
@@ -1390,7 +1384,10 @@ describe('InterviewWorkspace', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ freeText: 'None of these fit our use case' }),
+          body: JSON.stringify({
+            kind: 'free-text',
+            freeText: 'None of these fit our use case',
+          }),
         }),
       );
     });

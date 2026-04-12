@@ -1,7 +1,7 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 
 import type { ProjectListItem } from '../shared/api-types.js';
-import { DebugSurfaceRouteComponent } from './routes/debug-surface.js';
+import { InterviewWorkspaceSkeleton, KnowledgeWorkspaceSkeleton } from './components/route-skeletons.js';
 import { fetchExportPreviewLoaderData } from './routes/export-loader.js';
 import { ExportPreview } from './routes/ExportPreview.js';
 import { InterviewWorkspace } from './routes/InterviewWorkspace.js';
@@ -39,6 +39,7 @@ const projectRoute = createRoute({
   path: '/project/$id',
   loader: async ({ params }) => fetchInterviewWorkspaceLoaderData(params.id),
   component: InterviewWorkspace,
+  pendingComponent: InterviewWorkspaceSkeleton,
 });
 
 // Knowledge workspace — read-only review surface
@@ -47,6 +48,7 @@ const knowledgeRoute = createRoute({
   path: '/project/$id/knowledge',
   loader: async ({ params }) => fetchKnowledgeWorkspaceLoaderData(params.id),
   component: KnowledgeWorkspace,
+  pendingComponent: KnowledgeWorkspaceSkeleton,
 });
 
 // Export preview placeholder
@@ -57,13 +59,7 @@ const exportRoute = createRoute({
   component: ExportPreview,
 });
 
-const debugRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: '/debug',
-  component: DebugSurfaceRouteComponent,
-});
-
-const routeTree = rootRoute.addChildren([indexRoute, projectRoute, knowledgeRoute, exportRoute, debugRoute]);
+const routeTree = rootRoute.addChildren([indexRoute, projectRoute, knowledgeRoute, exportRoute]);
 
 export const router = createRouter({ routeTree });
 

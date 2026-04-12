@@ -1,28 +1,35 @@
+import type { ZodType } from 'zod/v4';
+
+import { entitiesDataSchema, projectStateSchema } from '../../shared/api-types.js';
 import type { EntitiesData, ProjectState } from '../../shared/api-types.js';
 
 export interface WorkspaceLoaderData {
-  projectState: ProjectState;
-  entitySnapshot: EntitiesData;
+  readonly projectState: ProjectState;
+  readonly entitySnapshot: EntitiesData;
 }
 
 export interface KnowledgeWorkspaceLoaderData {
-  entitySnapshot: EntitiesData;
+  readonly entitySnapshot: EntitiesData;
 }
 
-async function fetchJson<T>(url: string, errorMessage: string): Promise<T> {
+async function fetchJson<T>(url: string, schema: ZodType<T>, errorMessage: string): Promise<T> {
   const response = await fetch(url);
   if (!response.ok) {
     throw new Error(errorMessage);
   }
 
-  return response.json() as Promise<T>;
+  return schema.parse(await response.json());
 }
 
 async function fetchWorkflowDetailLoaderData(projectId: number | string): Promise<WorkspaceLoaderData> {
   const id = String(projectId);
   const [projectState, entitySnapshot] = await Promise.all([
-    fetchJson<ProjectState>(`/api/projects/${id}`, 'Failed to load project'),
-    fetchJson<EntitiesData>(`/api/projects/${id}/entities`, 'Failed to load project entities'),
+    fetchJson<ProjectState>(`/api/projects/${id}`, projectStateSchema, 'Failed to load project'),
+    fetchJson<EntitiesData>(
+      `/api/projects/${id}/entities`,
+      entitiesDataSchema,
+      'Failed to load project entities',
+    ),
   ]);
 
   return { projectState, entitySnapshot };
@@ -38,9 +45,10 @@ export async function fetchKnowledgeWorkspaceLoaderData(
   projectId: number | string,
 ): Promise<KnowledgeWorkspaceLoaderData> {
   const id = String(projectId);
-  await fetchJson<ProjectState>(`/api/projects/${id}`, 'Failed to load project');
+  await fetchJson<ProjectState>(`/api/projects/${id}`, projectStateSchema, 'Failed to load project');
   const entitySnapshot = await fetchJson<EntitiesData>(
     `/api/projects/${id}/entities`,
+    entitiesDataSchema,
     'Failed to load project entities',
   );
 

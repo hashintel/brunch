@@ -1,73 +1,71 @@
 import type { EntitiesData, ProjectState, ProjectStateTurn } from '../../shared/api-types.js';
-import {
-  assistantPartsSchema,
-  isAskQuestionUIPart,
-  type AskQuestionUIPart,
-  type BrunchAssistantPart,
-  type BrunchUIMessage,
-  type StructuredQuestion,
-  type BrunchUserPart,
-  type DataTurnResponse,
-  userPartsSchema,
+import { assistantPartsSchema, isAskQuestionUIPart, userPartsSchema } from '../../shared/chat.js';
+import type {
+  AskQuestionUIPart,
+  BrunchAssistantPart,
+  BrunchUIMessage,
+  BrunchUserPart,
+  DataTurnResponse,
+  StructuredQuestion,
 } from '../../shared/chat.js';
 
 export interface WorkspaceDurableProjectState {
-  project: ProjectState['project'];
-  workflow: ProjectState['workflow'];
-  turns: ProjectStateTurn[];
-  lastTurn: ProjectStateTurn | undefined;
-  showTurnCard: boolean;
-  lastTurnHasResponse: boolean;
+  readonly project: ProjectState['project'];
+  readonly workflow: ProjectState['workflow'];
+  readonly turns: readonly ProjectStateTurn[];
+  readonly lastTurn: ProjectStateTurn | undefined;
+  readonly showTurnCard: boolean;
+  readonly lastTurnHasResponse: boolean;
 }
 
 export interface WorkspaceDurableEntityState {
-  goals: EntitiesData['goals'];
-  terms: EntitiesData['terms'];
-  contexts: EntitiesData['contexts'];
-  constraints: EntitiesData['constraints'];
-  requirements: EntitiesData['requirements'];
-  criteria: EntitiesData['criteria'];
-  decisions: EntitiesData['decisions'];
-  assumptions: EntitiesData['assumptions'];
-  relationships: EntitiesData['relationships'];
-  isLoading: boolean;
+  readonly goals: Readonly<EntitiesData['goals']>;
+  readonly terms: Readonly<EntitiesData['terms']>;
+  readonly contexts: Readonly<EntitiesData['contexts']>;
+  readonly constraints: Readonly<EntitiesData['constraints']>;
+  readonly requirements: Readonly<EntitiesData['requirements']>;
+  readonly criteria: Readonly<EntitiesData['criteria']>;
+  readonly decisions: Readonly<EntitiesData['decisions']>;
+  readonly assumptions: Readonly<EntitiesData['assumptions']>;
+  readonly relationships: Readonly<EntitiesData['relationships']>;
+  readonly isLoading: boolean;
 }
 
 export interface WorkspaceEphemeralChatState {
-  seedMessages: BrunchUIMessage[];
+  readonly seedMessages: readonly BrunchUIMessage[];
 }
 
 export interface PendingQuestionOption {
-  position: number;
-  content: string;
-  is_recommended: boolean;
+  readonly position: number;
+  readonly content: string;
+  readonly is_recommended: boolean;
 }
 
 export interface PendingQuestionViewModel {
-  id: string;
-  question: string;
-  why: string;
-  impact: StructuredQuestion['impact'];
-  options: PendingQuestionOption[];
+  readonly id: string;
+  readonly question: string;
+  readonly why: string;
+  readonly impact: StructuredQuestion['impact'];
+  readonly options: readonly PendingQuestionOption[];
 }
 
 export interface PhaseSummaryViewModel {
-  turnId: number;
-  phase: ProjectStateTurn['phase'];
-  summary: string;
+  readonly turnId: number;
+  readonly phase: ProjectStateTurn['phase'];
+  readonly summary: string;
 }
 
 export type WorkspaceTurnCardViewModel =
-  | { kind: 'persisted-turn'; turn: ProjectStateTurn }
-  | { kind: 'pending-question'; pendingQuestion: PendingQuestionViewModel };
+  | { readonly kind: 'persisted-turn'; readonly turn: ProjectStateTurn }
+  | { readonly kind: 'pending-question'; readonly pendingQuestion: PendingQuestionViewModel };
 
 export interface WorkspaceControllerViewState {
-  project: WorkspaceDurableProjectState['project'];
-  workflow: WorkspaceDurableProjectState['workflow'];
-  turnCard: WorkspaceTurnCardViewModel | null;
-  phaseSummary: PhaseSummaryViewModel | null;
-  promptInput: {
-    visible: boolean;
+  readonly project: WorkspaceDurableProjectState['project'];
+  readonly workflow: WorkspaceDurableProjectState['workflow'];
+  readonly turnCard: WorkspaceTurnCardViewModel | null;
+  readonly phaseSummary: PhaseSummaryViewModel | null;
+  readonly promptInput: {
+    readonly visible: boolean;
   };
 }
 
@@ -118,7 +116,7 @@ export function getPersistedSelectedPositions(
   );
 }
 
-function hydrateMessages(turns: ProjectStateTurn[]): BrunchUIMessage[] {
+function hydrateMessages(turns: readonly ProjectStateTurn[]): BrunchUIMessage[] {
   const messages: BrunchUIMessage[] = [];
 
   for (const turn of turns) {
@@ -200,7 +198,7 @@ export function createWorkspaceEphemeralChatState(projectState: ProjectState): W
   };
 }
 
-function findPendingQuestion(messages: BrunchUIMessage[]): PendingQuestionViewModel | null {
+function findPendingQuestion(messages: readonly BrunchUIMessage[]): PendingQuestionViewModel | null {
   function getStructuredQuestionInput(part: AskQuestionUIPart): StructuredQuestion | null {
     switch (part.state) {
       case 'input-available':
@@ -252,7 +250,7 @@ function findPendingQuestion(messages: BrunchUIMessage[]): PendingQuestionViewMo
   return null;
 }
 
-function findPhaseSummary(messages: BrunchUIMessage[]): PhaseSummaryViewModel | null {
+function findPhaseSummary(messages: readonly BrunchUIMessage[]): PhaseSummaryViewModel | null {
   for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
     const message = messages[messageIndex];
     if (message.role !== 'assistant') {
@@ -278,7 +276,7 @@ function findPhaseSummary(messages: BrunchUIMessage[]): PhaseSummaryViewModel | 
 
 export function createWorkspaceControllerViewState(
   durableProject: WorkspaceDurableProjectState,
-  messages: BrunchUIMessage[],
+  messages: readonly BrunchUIMessage[],
   isLoading: boolean,
 ): WorkspaceControllerViewState {
   const { project, workflow, lastTurn, showTurnCard, lastTurnHasResponse } = durableProject;
@@ -307,11 +305,17 @@ export function createWorkspaceControllerViewState(
   };
 }
 
-export function findTurnOptionByPosition(turn: ProjectStateTurn | undefined, position: number) {
+export function findTurnOptionByPosition(
+  turn: ProjectStateTurn | undefined,
+  position: number,
+): NonNullable<ProjectStateTurn['options']>[number] | undefined {
   return turn?.options?.find((option) => option.position === position);
 }
 
-export function findTurnOptionsByPositions(turn: ProjectStateTurn | undefined, positions: number[]) {
+export function findTurnOptionsByPositions(
+  turn: ProjectStateTurn | undefined,
+  positions: number[],
+): NonNullable<ProjectStateTurn['options']> {
   const uniquePositions = [...new Set(positions)];
   return turn?.options?.filter((option) => uniquePositions.includes(option.position)) ?? [];
 }

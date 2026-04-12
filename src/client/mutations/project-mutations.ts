@@ -1,13 +1,23 @@
 import { useNavigate } from '@tanstack/react-router';
 
+import { createProjectResponseSchema } from '../../shared/api-types.js';
+import type { CreateProjectRequest, CreateProjectResponse } from '../../shared/api-types.js';
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
-export function useCreateProjectMutation() {
+export interface CreateProjectMutationState {
+  readonly createProject: (name: string) => Promise<CreateProjectResponse>;
+  readonly isPending: boolean;
+  readonly errorMessage: string | null;
+  readonly clearError: () => void;
+}
+
+export function useCreateProjectMutation(): CreateProjectMutationState {
   const navigate = useNavigate();
-  const mutation = useClientMutation((variables: { name: string }) =>
-    postJsonMutation<{ id: number }, { name: string }>(
+  const mutation = useClientMutation((variables: CreateProjectRequest) =>
+    postJsonMutation<CreateProjectResponse, CreateProjectRequest>(
       '/api/projects',
       variables,
+      createProjectResponseSchema,
       'Failed to create project',
     ),
   );

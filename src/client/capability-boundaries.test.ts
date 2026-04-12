@@ -33,23 +33,22 @@ describe('client capability boundaries', () => {
     expect(reasoningSource).not.toContain("from '@streamdown/code'");
   });
 
-  it('routes code highlighting and the debug route through named capability boundaries', () => {
-    const codeBlockSource = readClientFile('components/ai-elements/code-block.tsx');
+  it('keeps code-block and shiki out of the production import graph', () => {
     const routerSource = readClientFile('router.tsx');
-    const codeHighlightingSource = readClientFile('capabilities/code-highlighting.ts');
-    const richCodeHighlightingSource = readClientFile('capabilities/rich-code-highlighting.ts');
-    const debugSurfaceSource = readClientFile('routes/debug-surface.tsx');
+    const toolSource = readClientFile('components/ai-elements/tool.tsx');
+    const markdownRenderingSource = readClientFile('capabilities/markdown-rendering.tsx');
 
-    expect(codeHighlightingSource).toContain("import('./rich-code-highlighting.js')");
-    expect(codeHighlightingSource).toContain('export const preloadRichCodeHighlighter');
-    expect(codeHighlightingSource).not.toContain("import { createHighlighter } from 'shiki'");
-    expect(richCodeHighlightingSource).toContain("from 'shiki'");
-    expect(codeBlockSource).toContain("from '@/capabilities/code-highlighting'");
-    expect(codeBlockSource).toContain('preloadRichCodeHighlighter');
-    expect(codeBlockSource).not.toContain("from 'shiki'");
+    // tool.tsx must not import code-block (shiki dependency chain)
+    expect(toolSource).not.toContain("from './code-block'");
+    expect(toolSource).not.toContain("from '@/capabilities/code-highlighting'");
 
-    expect(debugSurfaceSource).toContain("import('./ComponentDebug.js')");
-    expect(routerSource).toContain("from './routes/debug-surface.js'");
+    // markdown-rendering must not preload code highlighting (shiki dependency chain)
+    expect(markdownRenderingSource).not.toContain("from '@/capabilities/code-highlighting'");
+    expect(markdownRenderingSource).not.toContain('preloadRichCodeHighlighter');
+
+    // router must not import the removed debug surface
+    expect(routerSource).not.toContain("from './routes/debug-surface.js'");
     expect(routerSource).not.toContain("from './routes/ComponentDebug.js'");
+    expect(routerSource).not.toContain('/debug');
   });
 });

@@ -1,9 +1,21 @@
 import { useRouter } from '@tanstack/react-router';
 
-import type { ProjectStateTurn } from '../../shared/api-types.js';
+import { submitTurnResponseResponseSchema } from '../../shared/api-types.js';
+import type {
+  ProjectStateTurn,
+  SubmitTurnResponseRequest,
+  SubmitTurnResponseResponse,
+} from '../../shared/api-types.js';
 import { formatTurnResponseText } from '../../shared/chat.js';
 import { findTurnOptionsByPositions } from '../workspace/workspace-controller-core.js';
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
+
+export interface SubmitTurnResponseMutationState {
+  readonly submitTurnResponse: (positions?: number[], freeText?: string) => Promise<void>;
+  readonly isPending: boolean;
+  readonly errorMessage: string | null;
+  readonly clearError: () => void;
+}
 
 export function useSubmitTurnResponseMutation({
   projectId,
@@ -13,18 +25,15 @@ export function useSubmitTurnResponseMutation({
   projectId: number;
   turn: ProjectStateTurn | undefined;
   sendMessage: (message: { text: string }) => Promise<void> | void;
-}) {
+}): SubmitTurnResponseMutationState {
   const router = useRouter();
-  const mutation = useClientMutation(
-    (variables: { turnId: number; positions?: number[]; freeText?: string }) =>
-      postJsonMutation<{ ok: boolean }, { positions?: number[]; freeText?: string }>(
-        `/api/projects/${projectId}/turns/${variables.turnId}/response`,
-        {
-          ...(variables.positions?.length ? { positions: variables.positions } : {}),
-          ...(variables.freeText ? { freeText: variables.freeText } : {}),
-        },
-        'Failed to save response',
-      ),
+  const mutation = useClientMutation((variables: { turnId: number; response: SubmitTurnResponseRequest }) =>
+    postJsonMutation<SubmitTurnResponseResponse, SubmitTurnResponseRequest>(
+      `/api/projects/${projectId}/turns/${variables.turnId}/response`,
+      variables.response,
+      submitTurnResponseResponseSchema,
+      'Failed to save response',
+    ),
   );
 
   return {
@@ -46,11 +55,22 @@ export function useSubmitTurnResponseMutation({
         return;
       }
 
+      const response: SubmitTurnResponseRequest =
+        uniquePositions.length > 0
+          ? {
+              kind: 'select-options',
+              positions: uniquePositions,
+              ...(trimmedFreeText ? { freeText: trimmedFreeText } : {}),
+            }
+          : {
+              kind: 'free-text',
+              freeText: trimmedFreeText!,
+            };
+
       try {
         await mutation.run({
           turnId: turn.id,
-          positions: uniquePositions.length > 0 ? uniquePositions : undefined,
-          freeText: trimmedFreeText || undefined,
+          response,
         });
         await router.invalidate();
         await sendMessage({ text: responseText });

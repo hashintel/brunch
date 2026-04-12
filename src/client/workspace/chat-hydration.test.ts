@@ -1,17 +1,13 @@
 import { describe, expect, it } from 'vitest';
 
-import { getChatHydrationReason } from './chat-hydration.js';
+import { getProjectScopedChatId } from './chat-hydration.js';
 
-describe('chat hydration policy', () => {
-  it('hydrates persisted turns on initial project entry', () => {
-    expect(getChatHydrationReason(undefined, 1)).toBe('initial-project-entry');
+describe('project-scoped chat id', () => {
+  it('changes when project identity changes', () => {
+    expect(getProjectScopedChatId(1)).not.toBe(getProjectScopedChatId(2));
   });
 
-  it('hydrates persisted turns on explicit project navigation', () => {
-    expect(getChatHydrationReason(1, 2)).toBe('project-navigation');
-  });
-
-  it('does not rehydrate persisted turns on same-project refresh', () => {
-    expect(getChatHydrationReason(1, 1)).toBe('same-project-refresh');
+  it('stays stable for the same project identity', () => {
+    expect(getProjectScopedChatId(1)).toBe(getProjectScopedChatId(1));
   });
 });

@@ -35,6 +35,7 @@ function createPendingQuestionMessage(): BrunchUIMessage {
 }
 
 type UseChatOptions = {
+  id?: string;
   messages: BrunchUIMessage[];
   onData?: (dataPart: { type: string; data?: unknown }) => void;
   onFinish?: () => void;
@@ -209,18 +210,29 @@ function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'rea
   };
 
   return function useChatHarnessImpl(options: UseChatOptions) {
-    const [messages, setMessages] = useState(options.messages);
-    const stableSetMessages = useCallback((nextMessages: BrunchUIMessage[]) => {
-      setMessagesSpy(nextMessages);
-      setMessages(nextMessages);
-    }, []);
+    const [, forceRender] = useState(0);
+    const chatStates = useState(() => new Map<string, BrunchUIMessage[]>())[0];
+    const chatId = options.id ?? 'default';
+
+    if (!chatStates.has(chatId)) {
+      chatStates.set(chatId, options.messages);
+    }
+
+    const stableSetMessages = useCallback(
+      (nextMessages: BrunchUIMessage[]) => {
+        setMessagesSpy(nextMessages);
+        chatStates.set(chatId, nextMessages);
+        forceRender((count) => count + 1);
+      },
+      [chatId, chatStates],
+    );
 
     useChatHarness.onData = options.onData;
     useChatHarness.onFinish = options.onFinish;
     useChatHarness.replaceMessages = stableSetMessages;
 
     return {
-      messages,
+      messages: chatStates.get(chatId) ?? options.messages,
       sendMessage,
       setMessages: stableSetMessages,
       status,
@@ -239,7 +251,7 @@ function createQueryClient() {
   });
 }
 
-function messageText(messages: BrunchUIMessage[]) {
+function messageText(messages: readonly BrunchUIMessage[]) {
   return messages
     .flatMap(
       (message) => message.parts?.filter((part) => part.type === 'text').map((part) => part.text) ?? [],
@@ -307,11 +319,6 @@ describe('workspace controller', () => {
     expect((await screen.findByTestId('turn-card')).textContent).toBe('none');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('true');
 
-    await waitFor(() => {
-      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
-    });
-    useChatHarness.setMessages.mockClear();
-
     await act(async () => {
       useChatHarness.replaceMessages?.([
         { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
@@ -360,9 +367,213 @@ describe('workspace controller', () => {
     expect(screen.getByTestId('turn-card').textContent).toBe('What should we build first?');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
     expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it('rehydrates the transcript on explicit project navigation', async () => {
+    const rendered = renderController();
+
+    expect((await screen.findByTestId('messages')).textContent).toBe(
+      'Build the web app|What should we build first?',
+    );
+
+    currentLoaderData = createWorkspaceLoaderData({
+      projectId: 2,
+      assistantText: 'Which platform should we target now?',
+      answer: 'Ship the desktop app',
+      entitySnapshot: {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [
+          {
+            id: 8,
+            project_id: 2,
+            content: 'Prefer the desktop app',
+            rationale: 'Matches the updated brief',
+          },
+        ],
+        assumptions: [],
+        relationships: [],
+      },
+    });
+
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <ControllerProbe />
+      </QueryClientProvider>,
+    );
 
     await waitFor(() => {
-      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('project-name').textContent).toBe('Project 2');
+      expect(screen.getByTestId('messages').textContent).toBe(
+        'Ship the desktop app|Which platform should we target now?',
+      );
+      expect(screen.getByTestId('decisions').textContent).toBe('Prefer the desktop app');
+    });
+    expect(useChatHarness.setMessages).not.toHaveBeenCalled();
+  });
+
+  it('refetches durable entities when observer output invalidates the active entity query', async () => {
+    currentLoaderData = createWorkspaceLoaderData({
+      entitySnapshot: {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+        relationships: [],
+      },
+    });
+    fetchMock.mockResolvedValueOnce(
+      new Response(
+        JSON.stringify({
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [
+            {
+              id: 9,
+              project_id: 1,
+              content: 'Start with the web app',
+              rationale: 'Observer extracted a new decision',
+            },
+          ],
+          assumptions: [],
+          relationships: [],
+        } satisfies EntitiesData),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    renderController();
+
+    expect((await screen.findByTestId('decisions')).textContent).toBe('none');
+
+    await act(async () => {
+      useChatHarness.onData?.({
+        type: 'data-observer-result',
+        data: {
+          entityIds: {
+            goals: [],
+            terms: [],
+            contexts: [],
+            constraints: [],
+            requirements: [],
+            criteria: [],
+            decisions: [9],
+            assumptions: [],
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/projects/1/entities');
+      expect(screen.getByTestId('decisions').textContent).toBe('Start with the web app');
+    });
+  });
+
+  it('ignores stale entity refetches after a route transition seeds a new loader snapshot', async () => {
+    let resolveFetch: ((response: Response) => void) | undefined;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          resolveFetch = resolve;
+        }),
+    );
+
+    const rendered = renderController();
+    expect((await screen.findByTestId('decisions')).textContent).toBe('none');
+
+    await act(async () => {
+      useChatHarness.onData?.({
+        type: 'data-observer-result',
+        data: {
+          entityIds: {
+            goals: [],
+            terms: [],
+            contexts: [],
+            constraints: [],
+            requirements: [],
+            criteria: [],
+            decisions: [9],
+            assumptions: [],
+          },
+        },
+      });
+    });
+
+    currentLoaderData = createWorkspaceLoaderData({
+      assistantText: 'Which platform should we target now?',
+      answer: 'Ship the desktop app',
+      entitySnapshot: {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [
+          {
+            id: 8,
+            project_id: 1,
+            content: 'Prefer the desktop app',
+            rationale: 'Fresh loader snapshot',
+          },
+        ],
+        assumptions: [],
+        relationships: [],
+      },
+    });
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <ControllerProbe />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByTestId('decisions').textContent).toBe('Prefer the desktop app');
+
+    resolveFetch?.(
+      new Response(
+        JSON.stringify({
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [
+            {
+              id: 9,
+              project_id: 1,
+              content: 'Stale observer decision',
+              rationale: 'Should not survive the route transition',
+            },
+          ],
+          assumptions: [],
+          relationships: [],
+        } satisfies EntitiesData),
+        {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        },
+      ),
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('decisions').textContent).toBe('Prefer the desktop app');
     });
   });
 
@@ -372,10 +583,6 @@ describe('workspace controller', () => {
     expect((await screen.findByTestId('messages')).textContent).toBe(
       'Build the web app|What should we build first?',
     );
-    await waitFor(() => {
-      expect(useChatHarness.setMessages).toHaveBeenCalledTimes(1);
-    });
-    useChatHarness.setMessages.mockClear();
 
     currentLoaderData = createWorkspaceLoaderData({
       assistantText: 'Which platform should we target now?',

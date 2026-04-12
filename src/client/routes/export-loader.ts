@@ -1,7 +1,4 @@
-export interface ExportLoaderData {
-  ready: boolean;
-  markdown?: string;
-}
+import { exportLoaderDataSchema, type ExportLoaderData } from '../../shared/api-types.js';
 
 export async function fetchExportPreviewLoaderData(projectId: number | string): Promise<ExportLoaderData> {
   const id = String(projectId);
@@ -10,5 +7,5 @@ export async function fetchExportPreviewLoaderData(projectId: number | string): 
     throw new Error('Failed to load export');
   }
 
-  return response.json() as Promise<ExportLoaderData>;
+  return exportLoaderDataSchema.parse(await response.json());
 }

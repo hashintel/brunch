@@ -45,11 +45,11 @@ describe('structuredQuestionSchema', () => {
     ).toThrow();
   });
 
-  it('accepts the legacy review field and normalizes it to requirementReview', () => {
-    expect(
+  it('rejects the legacy review field now that requirement review is explicit', () => {
+    expect(() =>
       structuredQuestionSchema.parse({
         question: 'Should we approve this requirement?',
-        why: 'Requirement review coverage should continue to work during the prompt transition.',
+        why: 'Requirement review should use the explicit requirementReview payload.',
         impact: 'high',
         options: [
           { content: 'Approve', is_recommended: true },
@@ -61,20 +61,7 @@ describe('structuredQuestionSchema', () => {
           approveOptionPosition: 0,
         },
       }),
-    ).toEqual({
-      question: 'Should we approve this requirement?',
-      why: 'Requirement review coverage should continue to work during the prompt transition.',
-      impact: 'high',
-      options: [
-        { content: 'Approve', is_recommended: true },
-        { content: 'Reject', is_recommended: false },
-      ],
-      requirementReview: {
-        kind: 'requirement-approval',
-        requirementId: 42,
-        approveOptionPosition: 0,
-      },
-    });
+    ).toThrow();
   });
 });
 

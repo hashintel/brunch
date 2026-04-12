@@ -3,7 +3,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
-import type { ExportLoaderData } from './export-loader.js';
+import type { ExportLoaderData } from '../../shared/api-types.js';
 import { ExportPreview } from './ExportPreview.js';
 
 let currentLoaderData: ExportLoaderData;

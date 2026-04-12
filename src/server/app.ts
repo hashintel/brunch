@@ -1,18 +1,24 @@
 import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessages } from 'ai';
 import express from 'express';
-import type { Request, Response } from 'express';
+import type { Express, Request, Response } from 'express';
 
-import type { ProjectState, ProjectListItem, EntitiesData } from '../shared/api-types.js';
+import { submitTurnResponseRequestSchema } from '../shared/api-types.js';
+import type {
+  EntitiesData,
+  ExportLoaderData,
+  MutationErrorResponse,
+  ProjectListItem,
+  ProjectState,
+  SubmitTurnResponseResponse,
+} from '../shared/api-types.js';
 import {
   assistantPartsSchema,
   brunchDataPartSchemas,
   brunchValidationTools,
   extractTextFromMessage,
   formatTurnResponseText,
-  type BrunchAssistantPart,
-  type BrunchUIMessage,
-  type BrunchUserPart,
 } from '../shared/chat.js';
+import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '../shared/chat.js';
 import {
   getForceCloseActionErrorMessage,
   getForceClosePhaseAction,
@@ -41,13 +47,19 @@ import {
   getEntitiesForProject,
   getEntitiesForProjectOnActivePath,
   recordReviewFromTurnResponse,
+  type DB,
 } from './db.js';
 import { isExportReady, renderExportMarkdown } from './export.js';
 import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { serializeParts } from './parts.js';
 
-export function createApp(dbPath?: string) {
+export interface AppServices {
+  readonly app: Express;
+  readonly db: DB;
+}
+
+export function createApp(dbPath?: string): AppServices {
   const db = createDb(dbPath);
   const app = express();
   app.use(express.json());
@@ -61,7 +73,7 @@ export function createApp(dbPath?: string) {
   app.post('/api/projects', (req: Request, res: Response) => {
     const name = typeof req.body.name === 'string' ? req.body.name.trim() : '';
     if (!name) {
-      res.status(400).json({ error: 'name is required' });
+      res.status(400).json({ error: 'name is required' } satisfies MutationErrorResponse);
       return;
     }
     const project = createNewProject(db, name);
@@ -72,12 +84,12 @@ export function createApp(dbPath?: string) {
   app.get('/api/projects/:id', (req: Request, res: Response) => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
-      res.status(400).json({ error: 'Invalid project ID' });
+      res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
       return;
     }
     const state = getProjectState(db, id);
     if (!state) {
-      res.status(404).json({ error: 'Project not found' });
+      res.status(404).json({ error: 'Project not found' } satisfies MutationErrorResponse);
       return;
     }
     res.json(state satisfies ProjectState);
@@ -87,33 +99,32 @@ export function createApp(dbPath?: string) {
   app.post('/api/projects/:id/turns/:turnId/response', (req: Request, res: Response) => {
     const projectId = Number(req.params.id);
     const turnId = Number(req.params.turnId);
-    const selectedPositions: number[] = Array.isArray(req.body?.positions)
-      ? req.body.positions.filter((value: unknown): value is number => typeof value === 'number')
-      : typeof req.body?.position === 'number'
-        ? [req.body.position]
-        : [];
-    const uniquePositions = [...new Set(selectedPositions)];
-    const freeText = typeof req.body.freeText === 'string' ? req.body.freeText.trim() : undefined;
 
     if (Number.isNaN(projectId) || Number.isNaN(turnId)) {
-      res.status(400).json({ error: 'Invalid IDs' });
+      res.status(400).json({ error: 'Invalid IDs' } satisfies MutationErrorResponse);
       return;
     }
-    if (uniquePositions.length === 0 && !freeText) {
-      res.status(400).json({ error: 'positions are required unless freeText is provided' });
+
+    const parsedRequest = submitTurnResponseRequestSchema.safeParse(req.body);
+    if (!parsedRequest.success) {
+      res.status(400).json({ error: 'Invalid turn response payload' } satisfies MutationErrorResponse);
       return;
     }
+
+    const uniquePositions =
+      parsedRequest.data.kind === 'select-options' ? [...new Set(parsedRequest.data.positions)] : [];
+    const freeText = parsedRequest.data.freeText;
 
     const turn = getTurn(db, turnId);
     if (!turn || turn.project_id !== projectId) {
-      res.status(404).json({ error: 'Turn not found' });
+      res.status(404).json({ error: 'Turn not found' } satisfies MutationErrorResponse);
       return;
     }
 
     const options = getOptionsForTurn(db, turnId);
     const selectedOptions = options.filter((option) => uniquePositions.includes(option.position));
     if (selectedOptions.length !== uniquePositions.length) {
-      res.status(400).json({ error: 'Selected option not found' });
+      res.status(400).json({ error: 'Selected option not found' } satisfies MutationErrorResponse);
       return;
     }
     applyTurnResponseSelections(db, turnId, uniquePositions);
@@ -140,14 +151,14 @@ export function createApp(dbPath?: string) {
       ] satisfies BrunchUserPart[]),
     });
 
-    res.json({ ok: true });
+    res.json({ ok: true } satisfies SubmitTurnResponseResponse);
   });
 
   // Get entities for a project
   app.get('/api/projects/:id/entities', (req: Request, res: Response) => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
-      res.status(400).json({ error: 'Invalid project ID' });
+      res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
       return;
     }
     res.json(getEntitiesForProject(db, id) satisfies EntitiesData);
@@ -157,22 +168,22 @@ export function createApp(dbPath?: string) {
   app.get('/api/projects/:id/export', (req: Request, res: Response) => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
-      res.status(400).json({ error: 'Invalid project ID' });
+      res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
       return;
     }
     const projectState = getProjectState(db, id);
     if (!projectState) {
-      res.status(404).json({ error: 'Project not found' });
+      res.status(404).json({ error: 'Project not found' } satisfies MutationErrorResponse);
       return;
     }
     const ready = isExportReady(projectState.workflow);
     if (!ready) {
-      res.json({ ready: false });
+      res.json({ ready: false } satisfies ExportLoaderData);
       return;
     }
     const entities = getEntitiesForProjectOnActivePath(db, id);
     const markdown = renderExportMarkdown(projectState.project.name, entities, projectState.workflow);
-    res.json({ ready: true, markdown });
+    res.json({ ready: true, markdown } satisfies ExportLoaderData);
   });
 
   // Conduct turn for a specific project

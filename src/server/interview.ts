@@ -1,4 +1,5 @@
 import { anthropic } from '@ai-sdk/anthropic';
+import type { Tool } from '@ai-sdk/provider-utils';
 import { ToolLoopAgent, stepCountIs, tool } from 'ai';
 
 import {
@@ -6,6 +7,9 @@ import {
   phaseClosureProposalSchema,
   proposePhaseClosureToolOutputSchema,
   structuredQuestionSchema,
+  type AskQuestionToolOutput,
+  type PhaseClosureProposal,
+  type ProposePhaseClosureToolOutput,
   type StructuredQuestion,
 } from '../shared/chat.js';
 import { buildInterviewerContext } from './context.js';
@@ -70,6 +74,14 @@ Your job is to propose testable acceptance criteria for each confirmed requireme
 For every turn, you MUST use the ask_question tool. Never respond with plain text.`,
 };
 
+export type AskQuestionTool = Tool<StructuredQuestion, AskQuestionToolOutput>;
+export type ProposePhaseClosureTool = Tool<PhaseClosureProposal, ProposePhaseClosureToolOutput>;
+export type InterviewerTools = {
+  ask_question: AskQuestionTool;
+  propose_phase_closure?: ProposePhaseClosureTool;
+};
+export type InterviewerAgent = ToolLoopAgent<never, InterviewerTools>;
+
 /** Phase-specific system prompts. */
 export function getSystemPrompt(phase: Phase): string {
   return SYSTEM_PROMPTS[phase];
@@ -82,7 +94,7 @@ export function canProposePhaseClosure(phase: Phase, closeability = false): bool
 /**
  * Persist structured question data from tool input to the turn and options tables.
  */
-export function persistStructuredQuestion(db: DB, turnId: number, args: StructuredQuestion) {
+export function persistStructuredQuestion(db: DB, turnId: number, args: StructuredQuestion): void {
   updateTurn(db, turnId, {
     question: args.question,
     why: args.why,
@@ -97,7 +109,7 @@ export function persistStructuredQuestion(db: DB, turnId: number, args: Structur
   }
 }
 
-export function createAskQuestionTool(db: DB, turnId: number) {
+export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
   return tool({
     description:
       'Ask the user a structured interview question with options, strategic grounding, and impact signal.',
@@ -114,7 +126,12 @@ export function createAskQuestionTool(db: DB, turnId: number) {
   });
 }
 
-export function createProposePhaseClosureTool(db: DB, turnId: number, phase: Phase, projectId: number) {
+export function createProposePhaseClosureTool(
+  db: DB,
+  turnId: number,
+  phase: Phase,
+  projectId: number,
+): ProposePhaseClosureTool {
   return tool({
     description: 'Propose closing the current workflow phase with a concise summary for user confirmation.',
     inputSchema: phaseClosureProposalSchema,
@@ -135,7 +152,12 @@ export function createProposePhaseClosureTool(db: DB, turnId: number, phase: Pha
   });
 }
 
-export function createInterviewerAgent(db: DB, turnId: number, phase: Phase, projectId: number) {
+export function createInterviewerAgent(
+  db: DB,
+  turnId: number,
+  phase: Phase,
+  projectId: number,
+): InterviewerAgent {
   const closeability = getCurrentWorkflowState(db, projectId).phases[phase].closeability;
 
   return new ToolLoopAgent({
@@ -167,7 +189,7 @@ export async function streamInterviewer(
   activePath: TurnWithOptions[],
   userMessage: string,
   phase: Phase,
-) {
+): ReturnType<InterviewerAgent['stream']> {
   const agent = createInterviewerAgent(db, turn.id, phase, turn.project_id);
   const entities = getEntitiesForProject(db, turn.project_id);
   const fullPrompt = buildInterviewerContext(activePath, userMessage, {
