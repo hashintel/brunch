@@ -221,6 +221,12 @@
     - Evidence: ProjectList.test.tsx, InterviewWorkspace.test.tsx, KnowledgeWorkspace.test.tsx, ExportPreview.test.tsx, router.test.tsx, main.test.tsx, `npm run verify`
     - Unblocks: `memory/REFACTOR.md` commit 3 (file-based routing build infrastructure while the manual router stays active)
 
+20. **File-route build infrastructure for staged cutover** `done`
+    - Shipped: TanStack Router Vite plugin now scans `src/client/file-routes`, generates `src/client/routeTree.gen.ts`, and stays isolated from the active manual router
+    - Seam changed: generated route tree is now a managed artifact ignored by oxlint/oxfmt; a minimal file-route `__root.tsx` exists only to keep the plugin healthy before runtime cutover
+    - Evidence: file-route-infra.test.ts, `npm run verify`
+    - Unblocks: `memory/REFACTOR.md` commit 4 (dashboard file-route wrapper while the manual router still owns bootstrapping)
+
 ## Horizon
 
 <!-- Future work not yet broken into slices. Revisit after Phase 9. -->

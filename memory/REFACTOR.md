@@ -14,8 +14,8 @@ The migration should be staged so the codebase remains working after every commi
 
 1. Done — add characterization coverage for router bootstrapping, URL-to-screen mapping, and route-linked navigation so the current routing behavior is locked before rewiring it.
 2. Done — separate route-definition ownership from heavy screen implementation where needed, so route files can become thin wrappers without changing current behavior.
-3. Next — add file-based routing build infrastructure and generated-artifact handling while keeping the existing manual router active.
-4. Introduce the file-based root route and dashboard route as thin wrappers around the existing behavior, with no URL or loader changes.
+3. Done — add file-based routing build infrastructure and generated-artifact handling while keeping the existing manual router active.
+4. Next — introduce the dashboard file-route wrapper and align the file-based root route with the existing behavior, with no URL or loader changes.
 5. Introduce the file-based interview workspace route wrapper, preserving the current loader and pending-state behavior.
 6. Introduce the file-based knowledge and export route wrappers, preserving the current loader behavior and navigation flow.
 7. Cut router bootstrapping over to the generated route tree and remove the manual route tree once all active routes are owned by file routes.
@@ -23,6 +23,7 @@ The migration should be staged so the codebase remains working after every commi
 
 Progress note: step 1 landed via `main.test.tsx`, `router.test.tsx`, and route-component link assertions in the existing dashboard/workspace/export tests.
 Progress note: step 2 landed via extracted `src/client/screens/*` modules while route components became thin wrappers around loader/controller wiring.
+Progress note: step 3 required a minimal `src/client/file-routes/__root.tsx` so the TanStack plugin could generate `src/client/routeTree.gen.ts` before the runtime cutover.
 
 ## Decisions
 
