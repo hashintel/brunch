@@ -54,13 +54,20 @@ import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { serializeParts } from './parts.js';
 
+export interface AppOptions {
+  readonly dbPath?: string;
+  readonly projectCwd?: string;
+}
+
 export interface AppServices {
   readonly app: Express;
   readonly db: DB;
 }
 
-export function createApp(dbPath?: string): AppServices {
-  const db = createDb(dbPath);
+export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
+  const options = typeof dbPathOrOptions === 'string' ? { dbPath: dbPathOrOptions } : (dbPathOrOptions ?? {});
+  const db = createDb(options.dbPath);
+  const projectCwd = options.projectCwd ?? process.cwd();
   const app = express();
   app.use(express.json());
 
@@ -76,7 +83,9 @@ export function createApp(dbPath?: string): AppServices {
       res.status(400).json({ error: 'name is required' } satisfies MutationErrorResponse);
       return;
     }
-    const project = createNewProject(db, name);
+    const mode = req.body.mode === 'brownfield' ? ('brownfield' as const) : undefined;
+    const cwd = mode === 'brownfield' ? projectCwd : undefined;
+    const project = createNewProject(db, name, { mode, cwd });
     res.status(201).json(project);
   });
 
@@ -290,12 +299,19 @@ export function createApp(dbPath?: string): AppServices {
           return;
         }
 
+        const project = prepared.project;
+        const modeOptions =
+          project.mode === 'brownfield' && project.cwd
+            ? { mode: 'brownfield' as const, cwd: project.cwd }
+            : undefined;
+
         const interviewer = await streamInterviewer(
           db,
           prepared.turn,
           prepared.activePath,
           prompt,
           prepared.turn.phase,
+          modeOptions,
         );
 
         writer.merge(

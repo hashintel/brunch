@@ -254,6 +254,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | #    | Invariant                                                  | Established by            | Protected by                         | Proves      |
 | ---- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
 | I100 | `.brunch/` project resolution with walk-up discovery, init-rejects-existing, and resolve-creates-or-finds semantics; launcher serves API from resolved DB path with drizzle migrations resolving via import.meta.url | Slice 14 | project.test.ts, launcher.test.ts | D10, D81 |
+| I101 | Project mode (greenfield/brownfield) persists through schema, API, and interviewer configuration: brownfield gets core tools + exploration prompt + higher step budget; greenfield path is unchanged; server derives cwd from launcher context | Slice 14a | db.test.ts, interview.test.ts, app.test.ts, ProjectList.test.tsx | D32, D82, D83 |
 
 ### Client characterization
 
@@ -355,6 +356,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 | Term                   | Definition                                                                                                                                                                                                                                                                            |
 | ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **BrunchProject**      | The resolved `.brunch/` directory struct: `{ root, dbPath, cwd }`. Discovered by `findBrunchProject` (walk-up), created by `initBrunchProject`, or resolved by `resolveBrunchProject`. Represents the local storage location, not the elicitation run. See D81, I100.                  |
 | **project**            | A spec elicitation run within a `.brunch/` directory. Has a name, a HEAD pointer (`active_turn_id`), and workflow/readiness state. Multiple projects can coexist in one `.brunch/` directory (different runs, versions, or feature scopes).                                             |
 | **turn**               | A checkpoint in the interview history. Carries phase provenance plus typed interaction payloads and UI parts. Points to its parent turn. Turns belong to either the primary conversation or a secondary thread.                                                                        |
 | **active path**        | The chain from HEAD to root in the primary conversation. Determines which turns, knowledge items, phase outcomes, and review state are currently trusted. Secondary threads inherit validity from their anchor turn on the active path.                                                |
@@ -557,22 +559,22 @@ This projection difference is a deliberate design choice, not an implementation 
 
 | File                          | Tests | Protects                                              |
 | ----------------------------- | ----- | ----------------------------------------------------- |
-| db.test.ts                    | 43    | I5, I6, I9, I10, I11, I20, I48, I54, I72, I87, I98   |
+| db.test.ts                    | 46    | I5, I6, I9, I10, I11, I20, I48, I54, I72, I87, I98, I101 |
 | knowledge.test.ts             | 1     | I48                                                   |
-| app.test.ts                   | 41    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99 |
+| app.test.ts                   | 44    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99, I101 |
 | core.test.ts                  | 10    | I12, I13, I18, I72, I87                               |
-| interview.test.ts             | 11    | I16, I72, I87                                         |
+| interview.test.ts             | 14    | I16, I72, I87, I101                                   |
 | parts.test.ts                 | 15    | I17, I18, I44, I54, I72                               |
 | context.test.ts               | 15    | I19, I44, I48, I54, I87                               |
 | observer.test.ts              | 9     | I20, I21, I44, I48, I54                               |
 | phase-close.test.ts           | 13    | I72                                                   |
 | turn-response.test.ts         | 4     | I44                                                   |
 | InterviewWorkspace.test.tsx   | 22    | I23, I24, I44, I48, I54, I72                          |
-| ProjectList.test.tsx          | 3     | I24                                                   |
+| ProjectList.test.tsx          | 4     | I24, I101                                             |
 | workspace-data.test.ts        | 7     | I24, I48, I72                                         |
-| chat-hydration.test.ts        | 3     | I24                                                   |
-| workspace-controller.test.tsx | 3     | I24, I48                                              |
-| client-mutation.test.ts       | 3     | I24                                                   |
+| chat-hydration.test.ts        | 2     | I24                                                   |
+| workspace-controller.test.tsx | 6     | I24, I48                                              |
+| client-mutation.test.ts       | 6     | I24                                                   |
 | EntitySidebar.test.tsx        | 1     | I87                                                   |
 | code-block.test.tsx           | 4     | I24, I26                                              |
 | markdown-rendering.test.tsx   | 3     | I24, I31                                              |
@@ -580,10 +582,11 @@ This projection difference is a deliberate design choice, not an implementation 
 | build-boundary.test.ts        | 1     | I24, I28, I32                                         |
 | capability-boundaries.test.ts | 2     | I24, I29                                              |
 | KnowledgeWorkspace.test.tsx   | 5     | I24, I48                                              |
-| workspace-loader.test.ts      | 3     | I24                                                   |
+| workspace-loader.test.ts      | 7     | I24                                                   |
 | project.test.ts               | 8     | I100                                                  |
 | launcher.test.ts              | 3     | I5, I100                                              |
-| export-loader.test.ts         | 1     | D26, D65, D66, D70                                    |
+| api-types.test.ts             | 5     | —                                                     |
+| export-loader.test.ts         | 3     | D26, D65, D66, D70                                    |
 | ExportPreview.test.tsx        | 2     | D26, D65, D66, D70                                    |
 | export.test.ts                | 9     | D26, D65, D66, D70                                    |
 | manifest.test.ts              | 1     | —                                                     |

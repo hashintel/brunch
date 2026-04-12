@@ -1,10 +1,19 @@
 import { useLoaderData, useNavigate } from '@tanstack/react-router';
+import { useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from '@/components/ui/dialog';
 import { useCreateProjectMutation } from '@/mutations/project-mutations';
 
-import type { ProjectListItem } from '../../shared/api-types.js';
+import type { ProjectListItem, ProjectMode } from '../../shared/api-types.js';
 
 const phaseLabels: Array<{ key: keyof ProjectListItem['workflowSummary']; label: string }> = [
   { key: 'scope', label: 'Scope' },
@@ -19,20 +28,37 @@ const statusStyles: Record<string, string> = {
   unstarted: 'bg-muted text-muted-foreground',
 };
 
+type DialogStep = 'closed' | 'name' | 'mode';
+
 export function ProjectList() {
   const projects = useLoaderData({ from: '/' });
   const navigate = useNavigate();
   const createProjectMutation = useCreateProjectMutation();
 
-  const handleCreate = async () => {
-    const name = prompt('Project name:');
-    if (!name?.trim()) return;
+  const [dialogStep, setDialogStep] = useState<DialogStep>('closed');
+  const [projectName, setProjectName] = useState('');
 
+  const handleOpen = () => {
+    setProjectName('');
+    setDialogStep('name');
+  };
+
+  const handleNameSubmit = () => {
+    if (!projectName.trim()) return;
+    setDialogStep('mode');
+  };
+
+  const handleModeSelect = async (mode: ProjectMode) => {
+    setDialogStep('closed');
     try {
-      await createProjectMutation.createProject(name.trim());
+      await createProjectMutation.createProject({ name: projectName.trim(), mode });
     } catch {
       // The shared mutation hook surfaces the failure state in the UI.
     }
+  };
+
+  const handleClose = () => {
+    setDialogStep('closed');
   };
 
   return (
@@ -40,7 +66,7 @@ export function ProjectList() {
       <h1 className="text-2xl font-bold">Brunch</h1>
       <p className="mt-1 text-muted-foreground">AI-guided spec elicitation</p>
 
-      <Button onClick={handleCreate} disabled={createProjectMutation.isPending} className="mt-6 mb-2">
+      <Button onClick={handleOpen} disabled={createProjectMutation.isPending} className="mt-6 mb-2">
         {createProjectMutation.isPending ? 'Creating...' : 'New project'}
       </Button>
 
@@ -78,6 +104,63 @@ export function ProjectList() {
           ))}
         </div>
       )}
+
+      <Dialog open={dialogStep !== 'closed'} onOpenChange={(open) => !open && handleClose()}>
+        <DialogContent>
+          {dialogStep === 'name' && (
+            <>
+              <DialogHeader>
+                <DialogTitle>New project</DialogTitle>
+                <DialogDescription>Give your project a name.</DialogDescription>
+              </DialogHeader>
+              <input
+                type="text"
+                value={projectName}
+                onChange={(e) => setProjectName(e.target.value)}
+                onKeyDown={(e) => e.key === 'Enter' && handleNameSubmit()}
+                placeholder="Project name"
+                autoFocus
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+              />
+              <DialogFooter>
+                <Button onClick={handleNameSubmit} disabled={!projectName.trim()}>
+                  Next
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+          {dialogStep === 'mode' && (
+            <>
+              <DialogHeader>
+                <DialogTitle>What kind of project?</DialogTitle>
+                <DialogDescription>Choose how to start your spec elicitation.</DialogDescription>
+              </DialogHeader>
+              <div className="flex flex-col gap-3">
+                <button
+                  type="button"
+                  onClick={() => handleModeSelect('greenfield')}
+                  className="rounded-lg border border-input p-4 text-left transition-colors hover:bg-muted/50"
+                >
+                  <div className="font-medium">New concept from scratch</div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    Start with a blank slate and define everything fresh
+                  </div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleModeSelect('brownfield')}
+                  className="rounded-lg border border-input p-4 text-left transition-colors hover:bg-muted/50"
+                >
+                  <div className="font-medium">Feature within existing codebase</div>
+                  <div className="mt-1 text-sm text-muted-foreground">
+                    The agent will explore your code before the first interview question
+                  </div>
+                </button>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

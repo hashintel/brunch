@@ -14,7 +14,7 @@ export async function launch(cwd: string): Promise<void> {
   const project = resolveBrunchProject(cwd);
   console.log(`.brunch/ directory: ${project.root}`);
 
-  const { app } = createApp(project.dbPath);
+  const { app } = createApp({ dbPath: project.dbPath, projectCwd: cwd });
 
   // Serve built Vite assets as static files (production mode)
   if (existsSync(DIST_DIR)) {

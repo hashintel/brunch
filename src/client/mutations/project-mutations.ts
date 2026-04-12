@@ -4,8 +4,10 @@ import { createProjectResponseSchema } from '../../shared/api-types.js';
 import type { CreateProjectRequest, CreateProjectResponse } from '../../shared/api-types.js';
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
+type CreateProjectInput = Omit<CreateProjectRequest, 'cwd'>;
+
 export interface CreateProjectMutationState {
-  readonly createProject: (name: string) => Promise<CreateProjectResponse>;
+  readonly createProject: (input: CreateProjectInput) => Promise<CreateProjectResponse>;
   readonly isPending: boolean;
   readonly errorMessage: string | null;
   readonly clearError: () => void;
@@ -23,8 +25,8 @@ export function useCreateProjectMutation(): CreateProjectMutationState {
   );
 
   return {
-    createProject: async (name: string) => {
-      const project = await mutation.run({ name });
+    createProject: async ({ name, mode }: CreateProjectInput) => {
+      const project = await mutation.run({ name, ...(mode ? { mode } : {}) });
       void navigate({ to: '/project/$id', params: { id: String(project.id) } });
       return project;
     },

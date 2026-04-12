@@ -162,14 +162,11 @@
     - Debt: actual npx publish/distribution testing, `--port` flag, graceful shutdown
     - Unblocks: 14a (greenfield/brownfield), 16 (drizzle-kit audit)
 
-14a. **Greenfield/brownfield first-screen + exploration** — First screen routes between greenfield (blank concept) and brownfield (existing codebase). Project records store `mode` and `cwd`. Brownfield adds core tools to interviewer, brownfield system prompt variant instructs explore-then-interview on first turn. Observer extracts from that turn as usual. `not-started`
-     - Requirements: → SPEC.md §Requirements #2, #3, #16
-     - Assumptions: → SPEC.md §Assumptions A7, A47
-     - Decisions: → SPEC.md §Decisions D32, D82, D83
-     - Candidate invariant goals: brownfield first turn is grounded in discovered codebase context; greenfield path is unchanged; observer extracts from exploration turn normally
-     - Invariants to respect: → SPEC.md §Invariants I16, I22, I24, I54
-     - Acceptance: create brownfield project → agent explores codebase → first scope question is grounded in findings; create greenfield project → existing scope flow unchanged
+14a. **Greenfield/brownfield first-screen + exploration** `done`
+     - Shipped: project table stores `mode` (greenfield/brownfield) and `cwd`; dialog-based first-screen routes between modes; brownfield interviewer gets core tools + exploration system prompt + higher step budget (12 vs 4); server derives cwd from launcher; greenfield path unchanged
+     - Evidence: db.test.ts (5 new assertions), interview.test.ts (3 new), app.test.ts (3 new), ProjectList.test.tsx (updated), 274 tests pass, npm run verify green
      - Design: `docs/design/BROWNFIELD_EXPLORATION.md`
+     - Debt: outer-loop manual brownfield walkthrough (A47 validation), brownfield prompt for non-scope phases
 
 ## Phase 8: Knowledge-Graph Revisit (stretch)
 
@@ -228,11 +225,8 @@
 ```
 done ─────────────────────────────────────────────────────────────┐
   Phase 1–6: all complete                                         │
+  Phase 7:   14 done, 17 done, 17a done, 14a done                │
 ──────────────────────────────────────────────────────────────────┘
-                        │
-Phase 7:  12b ──→ 14 (local-first storage + npx distribution)
-          14 ──→ 14a (greenfield/brownfield + exploration)
-          17 done
 Phase 8:  12a ──→ 15 (edit mode + cascade preview)        [stretch]
           15 ──→ 15a (cascade execution + secondary threads) [stretch]
 Phase 9:  14 ──→ 16 (drizzle-kit audit remediation)
@@ -241,9 +235,7 @@ Deferred: 12a + 12b ──→ 13a (review lifecycle refinement)
 
 ### Parallelism opportunities
 
-- Phase 6 is fully done (11a, 11b, 11c, 12a, 12b all complete).
-- **17 (UI refinement) is done.** 14 (local-first + npx) is the next unblocked slice.
-- 14a (brownfield) depends on 14 landing first (needs the launcher and `.brunch/` resolution).
-- 15 + 15a (knowledge-graph revisit) are stretch goals; they depend on 12a (knowledge workspace) which is done, but may not land before the first deadline.
-- 13a (review lifecycle refinement) is explicitly deferred; it should collect rarer review variants after the revisit model stabilizes.
-- 16 (drizzle-kit audit) should wait until 14 lands.
+- Phases 1–7 fully done (14, 17, 17a, 14a all complete). **All must-haves for the first delivery deadline are shipped.**
+- 15 + 15a (knowledge-graph revisit) are stretch goals; they depend on 12a (done) but may not land before the first deadline.
+- 16 (drizzle-kit audit) is unblocked by 14 but deferred to post-distribution.
+- 13a (review lifecycle refinement) is explicitly deferred.

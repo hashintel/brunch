@@ -6,6 +6,10 @@ import { sqliteTable, integer, text, primaryKey, uniqueIndex } from 'drizzle-orm
 export const project = sqliteTable('project', {
   id: integer().primaryKey({ autoIncrement: true }),
   name: text().notNull(),
+  mode: text('mode', { enum: ['greenfield', 'brownfield'] })
+    .notNull()
+    .default('greenfield'),
+  cwd: text('cwd'),
   active_turn_id: integer(),
   created_at: text()
     .notNull()

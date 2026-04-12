@@ -35,6 +35,8 @@ function createProjectState({
     project: {
       id: projectId,
       name: `Project ${projectId}`,
+      mode: 'greenfield',
+      cwd: null,
       active_turn_id: 1,
       created_at: '2026-04-03 10:00:00',
       updated_at: '2026-04-03 10:00:00',
@@ -409,6 +411,8 @@ describe('workspace controller core', () => {
       project: {
         id: 1,
         name: 'Project 1',
+        mode: 'greenfield',
+        cwd: null,
         active_turn_id: null,
         created_at: '2026-04-03 10:00:00',
         updated_at: '2026-04-03 10:00:00',
