@@ -4,6 +4,9 @@ import { fileURLToPath } from 'node:url';
 
 import { and, eq } from 'drizzle-orm';
 
+import type { EdgeRelation, Impact } from '../../shared/api-types.js';
+import type { KnowledgeKind } from '../../shared/knowledge.js';
+import type { WorkflowPhase } from '../../shared/phase-close.js';
 import {
   advanceHead,
   confirmPhaseOutcome,
@@ -29,11 +32,11 @@ export interface ManifestOption {
 }
 
 export interface ManifestTurn {
-  phase: 'scope' | 'design' | 'requirements' | 'criteria';
+  phase: WorkflowPhase;
   question: string;
   answer: string;
   why?: string | null;
-  impact?: 'high' | 'medium' | 'low' | null;
+  impact?: Impact | null;
   options?: ManifestOption[];
   selectedOptionPositions?: number[];
   freeText?: string | null;
@@ -42,7 +45,7 @@ export interface ManifestTurn {
 }
 
 export interface ManifestKnowledgeItem {
-  kind: 'goal' | 'term' | 'context' | 'constraint' | 'decision' | 'assumption' | 'requirement' | 'criterion';
+  kind: KnowledgeKind;
   content: string;
   rationale?: string | null;
   capturedAtTurn: number;
@@ -53,7 +56,7 @@ export interface ManifestKnowledgeItem {
 export interface ManifestEdge {
   fromItemIndex: number;
   toItemIndex: number;
-  relation: 'depends_on' | 'derived_from' | 'constrains' | 'verifies' | 'refines';
+  relation: EdgeRelation;
 }
 
 export interface ManifestScenario {
