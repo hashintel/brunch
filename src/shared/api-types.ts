@@ -63,6 +63,12 @@ export const projectStateTurnSchema = z.object({
   options: z.array(turnOptionSchema).optional(),
 });
 
+export const createProjectRequestSchema = z.object({
+  name: z.string().trim().min(1),
+});
+
+export const createProjectResponseSchema = projectSchema;
+
 export const projectListItemSchema = projectSchema.extend({
   workflowSummary: workflowSummarySchema,
 });
@@ -193,6 +199,8 @@ export const submitTurnResponseResponseSchema = z.object({
 export type WorkflowPhaseStatus = z.infer<typeof workflowPhaseStatusSchema>;
 export type ReadinessBand = z.infer<typeof readinessBandSchema>;
 export type Project = z.infer<typeof projectSchema>;
+export type CreateProjectRequest = z.infer<typeof createProjectRequestSchema>;
+export type CreateProjectResponse = z.infer<typeof createProjectResponseSchema>;
 export type WorkflowSummary = z.infer<typeof workflowSummarySchema>;
 export type WorkflowPhaseState = z.infer<typeof workflowPhaseStateSchema>;
 export type WorkflowState = z.infer<typeof workflowStateSchema>;

@@ -1,9 +1,10 @@
 import { useRouter } from '@tanstack/react-router';
 
-import type {
-  ProjectStateTurn,
-  SubmitTurnResponseRequest,
-  SubmitTurnResponseResponse,
+import {
+  submitTurnResponseResponseSchema,
+  type ProjectStateTurn,
+  type SubmitTurnResponseRequest,
+  type SubmitTurnResponseResponse,
 } from '../../shared/api-types.js';
 import { formatTurnResponseText } from '../../shared/chat.js';
 import { findTurnOptionsByPositions } from '../workspace/workspace-controller-core.js';
@@ -27,6 +28,7 @@ export function useSubmitTurnResponseMutation({
           ...(variables.positions?.length ? { positions: variables.positions } : {}),
           ...(variables.freeText ? { freeText: variables.freeText } : {}),
         },
+        submitTurnResponseResponseSchema,
         'Failed to save response',
       ),
   );
