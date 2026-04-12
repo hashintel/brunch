@@ -44,6 +44,38 @@ describe('structuredQuestionSchema', () => {
       }),
     ).toThrow();
   });
+
+  it('accepts the legacy review field and normalizes it to requirementReview', () => {
+    expect(
+      structuredQuestionSchema.parse({
+        question: 'Should we approve this requirement?',
+        why: 'Requirement review coverage should continue to work during the prompt transition.',
+        impact: 'high',
+        options: [
+          { content: 'Approve', is_recommended: true },
+          { content: 'Reject', is_recommended: false },
+        ],
+        review: {
+          kind: 'requirement-approval',
+          requirementId: 42,
+          approveOptionPosition: 0,
+        },
+      }),
+    ).toEqual({
+      question: 'Should we approve this requirement?',
+      why: 'Requirement review coverage should continue to work during the prompt transition.',
+      impact: 'high',
+      options: [
+        { content: 'Approve', is_recommended: true },
+        { content: 'Reject', is_recommended: false },
+      ],
+      requirementReview: {
+        kind: 'requirement-approval',
+        requirementId: 42,
+        approveOptionPosition: 0,
+      },
+    });
+  });
 });
 
 describe('getSystemPrompt', () => {
@@ -64,6 +96,7 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('requirements')).toContain('current requirement inventory');
     expect(getSystemPrompt('requirements')).toContain('requirement-approval');
     expect(getSystemPrompt('requirements')).toContain('requirement-rejection');
+    expect(getSystemPrompt('requirements')).toContain('requirementReview');
     expect(getSystemPrompt('requirements')).toContain('propose_phase_closure');
   });
 });

@@ -2,11 +2,15 @@ import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/re
 
 import type { ProjectListItem } from '../shared/api-types.js';
 import { DebugSurfaceRouteComponent } from './routes/debug-surface.js';
+import { fetchExportPreviewLoaderData } from './routes/export-loader.js';
 import { ExportPreview } from './routes/ExportPreview.js';
 import { InterviewWorkspace } from './routes/InterviewWorkspace.js';
 import { KnowledgeWorkspace } from './routes/KnowledgeWorkspace.js';
 import { ProjectList } from './routes/ProjectList.js';
-import { fetchWorkspaceLoaderData } from './workspace/workspace-loader.js';
+import {
+  fetchInterviewWorkspaceLoaderData,
+  fetchKnowledgeWorkspaceLoaderData,
+} from './workspace/workspace-loader.js';
 
 // Root layout
 const rootRoute = createRootRoute({
@@ -33,7 +37,7 @@ const indexRoute = createRoute({
 const projectRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/project/$id',
-  loader: async ({ params }) => fetchWorkspaceLoaderData(params.id),
+  loader: async ({ params }) => fetchInterviewWorkspaceLoaderData(params.id),
   component: InterviewWorkspace,
 });
 
@@ -41,7 +45,7 @@ const projectRoute = createRoute({
 const knowledgeRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/project/$id/knowledge',
-  loader: async ({ params }) => fetchWorkspaceLoaderData(params.id),
+  loader: async ({ params }) => fetchKnowledgeWorkspaceLoaderData(params.id),
   component: KnowledgeWorkspace,
 });
 
@@ -49,6 +53,7 @@ const knowledgeRoute = createRoute({
 const exportRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/project/$id/export',
+  loader: async ({ params }) => fetchExportPreviewLoaderData(params.id),
   component: ExportPreview,
 });
 

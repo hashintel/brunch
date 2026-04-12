@@ -5,6 +5,10 @@ export interface WorkspaceLoaderData {
   entitySnapshot: EntitiesData;
 }
 
+export interface KnowledgeWorkspaceLoaderData {
+  entitySnapshot: EntitiesData;
+}
+
 async function fetchJson<T>(url: string, errorMessage: string): Promise<T> {
   const response = await fetch(url);
   if (!response.ok) {
@@ -14,7 +18,7 @@ async function fetchJson<T>(url: string, errorMessage: string): Promise<T> {
   return response.json() as Promise<T>;
 }
 
-export async function fetchWorkspaceLoaderData(projectId: number | string): Promise<WorkspaceLoaderData> {
+async function fetchWorkflowDetailLoaderData(projectId: number | string): Promise<WorkspaceLoaderData> {
   const id = String(projectId);
   const [projectState, entitySnapshot] = await Promise.all([
     fetchJson<ProjectState>(`/api/projects/${id}`, 'Failed to load project'),
@@ -22,4 +26,23 @@ export async function fetchWorkspaceLoaderData(projectId: number | string): Prom
   ]);
 
   return { projectState, entitySnapshot };
+}
+
+export async function fetchInterviewWorkspaceLoaderData(
+  projectId: number | string,
+): Promise<WorkspaceLoaderData> {
+  return fetchWorkflowDetailLoaderData(projectId);
+}
+
+export async function fetchKnowledgeWorkspaceLoaderData(
+  projectId: number | string,
+): Promise<KnowledgeWorkspaceLoaderData> {
+  const id = String(projectId);
+  await fetchJson<ProjectState>(`/api/projects/${id}`, 'Failed to load project');
+  const entitySnapshot = await fetchJson<EntitiesData>(
+    `/api/projects/${id}/entities`,
+    'Failed to load project entities',
+  );
+
+  return { entitySnapshot };
 }

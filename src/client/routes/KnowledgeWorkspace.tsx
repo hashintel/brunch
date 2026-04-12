@@ -3,7 +3,8 @@ import { Link, useLoaderData, useParams } from '@tanstack/react-router';
 import { Badge } from '@/components/ui/badge';
 
 import type { EntitiesData } from '../../shared/api-types.js';
-import { knowledgeKindRegistry, type KnowledgeCollectionKey } from '../../shared/knowledge.js';
+import { knowledgeKindRegistry } from '../../shared/knowledge.js';
+import type { KnowledgeWorkspaceLoaderData } from '../workspace/workspace-loader.js';
 
 function entityKey(collection: string, id: number) {
   return `${collection}:${id}`;
@@ -107,7 +108,9 @@ export function KnowledgeWorkspaceView({ entities }: { entities: EntitiesData })
 
 export function KnowledgeWorkspace() {
   const { id } = useParams({ from: '/project/$id/knowledge' });
-  const { entitySnapshot } = useLoaderData({ from: '/project/$id/knowledge' });
+  const { entitySnapshot } = useLoaderData({
+    from: '/project/$id/knowledge',
+  }) as KnowledgeWorkspaceLoaderData;
 
   return (
     <div>

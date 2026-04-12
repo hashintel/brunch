@@ -11,5 +11,5 @@
 			"@/*": ["./src/client/*"]
 		}
 	},
-	"include": ["src", "node_modules/vite/client.d.ts"]
+	"include": ["src", ".ladle", "node_modules/vite/client.d.ts"]
 }

@@ -39,6 +39,7 @@ import {
   getOptionsForTurn,
   updateTurn,
   getEntitiesForProject,
+  getEntitiesForProjectOnActivePath,
   recordReviewFromTurnResponse,
 } from './db.js';
 import { isExportReady, renderExportMarkdown } from './export.js';
@@ -169,7 +170,7 @@ export function createApp(dbPath?: string) {
       res.json({ ready: false });
       return;
     }
-    const entities = getEntitiesForProject(db, id);
+    const entities = getEntitiesForProjectOnActivePath(db, id);
     const markdown = renderExportMarkdown(projectState.project.name, entities, projectState.workflow);
     res.json({ ready: true, markdown });
   });

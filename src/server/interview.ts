@@ -55,9 +55,9 @@ When the main architectural commitments are sufficiently captured for now, use t
 
 Your job is to walk the accumulated requirements, check for gaps, suggest additions, and confirm completeness. Ground each review turn in the current requirement inventory provided in context. Present requirements for the user to confirm, modify, or flag as missing.
 
-When asking the user to approve one specific requirement, review one requirement at a time and include \`review: { kind: 'requirement-approval', requirementId, approveOptionPosition }\` in the ask_question input so the approval target is explicit.
+When asking the user to approve one specific requirement, review one requirement at a time and include \`requirementReview: { kind: 'requirement-approval', requirementId, approveOptionPosition }\` in the ask_question input so the approval target is explicit.
 
-When asking the user to reject one specific requirement, include \`review: { kind: 'requirement-rejection', requirementId, rejectOptionPosition }\` so the rejection target is explicit.
+When asking the user to reject one specific requirement, include \`requirementReview: { kind: 'requirement-rejection', requirementId, rejectOptionPosition }\` so the rejection target is explicit.
 
 When every current requirement has explicit review coverage and the set appears complete for now, use the \`propose_phase_closure\` tool instead of another question. The summary should explain why requirements can close and criteria review can begin.
 
