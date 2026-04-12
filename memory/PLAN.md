@@ -106,9 +106,7 @@
 ## Phase 6: Readiness Surfaces + Export
 
 <!-- Surface readiness outside the workspace, add a broader knowledge workspace/review surface,
-     then export from the reviewed knowledge layer. Generalized revisit is deferred until the
-     readiness/export path is stable enough to absorb branch invalidation semantics without
-     widening this phase further. -->
+     then export from the reviewed knowledge layer. Knowledge-graph revisit is now Phase 8. -->
 
 ### Slices
 
@@ -141,26 +139,64 @@
      - Acceptance: deferred review refinements such as edit/add/merge/stale semantics across requirements and criteria can land behind one cross-cutting slice without regressing completion, export, or workflow-state coherence
      - **Verification approach**: inner — mutation/read-model/invalidation tests per refinement added. Outer — manual cross-phase review lifecycle walkthrough after the dedicated knowledge workspace exists.
 
-## Phase 7: Distribution
+## Phase 7: Distribution + Brownfield
 
-<!-- Package and ship. -->
+<!-- Local-first storage, npx distribution, greenfield/brownfield routing, and codebase exploration.
+     Must-haves for the first delivery deadline. -->
 
 ### Slices
 
-14. **npx distribution + CLI** — `bin` entry, launcher starts Express (serves built Vite assets + API on one port), opens browser. `npx brunch` for web UI. `npx brunch [command]` for CLI operations. Single env var: `ANTHROPIC_API_KEY`. `not-started`
-    - Requirements: → SPEC.md §Requirements #1
-    - Decisions: → SPEC.md §Decisions D20
-    - Candidate invariant goals: packaged launcher preserves working DB lifecycle and browser boot flow
+14. **Local-first storage + npx distribution** — `resolveBrunchProject()` with shallow walk-up discovery creates/finds `.brunch/` directory. `bin` entry, Express launcher serves built Vite assets + API on one port, opens browser. `npx brunch` for web UI. Single env var: `ANTHROPIC_API_KEY`. `not-started`
+    - Requirements: → SPEC.md §Requirements #1, #14
+    - Decisions: → SPEC.md §Decisions D10, D20, D81
+    - Candidate invariant goals: `.brunch/` discovery works from subdirectories (walk-up); DB lifecycle unchanged after path migration; packaged launcher preserves working app
     - Invariants to respect: → SPEC.md §Invariants I1, I2, I4, I5
-    - Acceptance: `npx brunch` with key in scope opens working app
+    - Acceptance: `npx brunch` in a project directory creates `.brunch/`, opens working app; running from subdirectory finds parent `.brunch/`; `BrunchProject` struct exposes root, dbPath, cwd
+    - **Verification approach**: inner — launcher/path-resolution tests plus packaged app smoke checks. Outer — packaged manual walkthrough includes seeded closed-project knowledge/export routes using `forced-close-all-phases-closed` and `low-readiness-all-phases-closed`, so the deferred Phase 6 browser coherence pass lands at the real distribution boundary rather than in the pre-distribution refactor thread.
+    - Design: `docs/design/LOCAL_STORAGE.md`
 
-## Phase 8: Post-Distribution Hardening
+14a. **Greenfield/brownfield first-screen + exploration** — First screen routes between greenfield (blank concept) and brownfield (existing codebase). Project records store `mode` and `cwd`. Brownfield adds core tools to interviewer, brownfield system prompt variant instructs explore-then-interview on first turn. Observer extracts from that turn as usual. `not-started`
+     - Requirements: → SPEC.md §Requirements #2, #3, #16
+     - Assumptions: → SPEC.md §Assumptions A7, A47
+     - Decisions: → SPEC.md §Decisions D32, D82, D83
+     - Candidate invariant goals: brownfield first turn is grounded in discovered codebase context; greenfield path is unchanged; observer extracts from exploration turn normally
+     - Invariants to respect: → SPEC.md §Invariants I16, I22, I24, I54
+     - Acceptance: create brownfield project → agent explores codebase → first scope question is grounded in findings; create greenfield project → existing scope flow unchanged
+     - Design: `docs/design/BROWNFIELD_EXPLORATION.md`
+
+## Phase 8: Knowledge-Graph Revisit (stretch)
+
+<!-- Knowledge-graph-level revisit with edit mode, cascade, and secondary threads.
+     Stretch goal — may not land before the first delivery deadline.
+     Replaces the earlier "generalized revisit" concept (hard turn-tree branching). -->
+
+### Slices
+
+15. **Edit mode + cascade preview** — Knowledge workspace edit mode lets user select items to invalidate/remove. Read-only cascade preview traces knowledge graph edges (BFS over `depends_on`, `derived_from`, `constrains`, `verifies`, `refines`), shows affected items and phases that would reopen. No mutations yet — preview only. `not-started`
+    - Requirements: → SPEC.md §Requirements #10
+    - Assumptions: → SPEC.md §Assumptions A48
+    - Decisions: → SPEC.md §Decisions D5, D17, D80
+    - Candidate invariant goals: cascade preview correctly identifies all downstream items via graph edges; preview matches what execution would produce; edit mode is modal (no other edits while active)
+    - Invariants to respect: → SPEC.md §Invariants I48
+    - Acceptance: enter edit mode, select items, see accurate cascade preview with affected items and phases listed; exit without confirming leaves state unchanged
+    - Design: `docs/design/REVISIT_MODULE.md`
+
+15a. **Cascade execution + secondary thread lifecycle** — Confirm cascade → write invalidation records, create `revisit_session`, spawn secondary thread turn anchored to highest associated primary turn, reopen affected phases. Secondary thread conversation re-resolves affected items via interviewer. Complete revisit when all items resolved; phases can be re-closed. `not-started`
+     - Requirements: → SPEC.md §Requirements #10
+     - Assumptions: → SPEC.md §Assumptions A48, A49
+     - Decisions: → SPEC.md §Decisions D80, D84
+     - Candidate invariant goals: secondary thread anchored to primary tree; affected phases reopen; re-resolution conversation produces valid knowledge items; session completes when all items resolved; knowledge item validity dual-checks active path + graph integrity
+     - Invariants to respect: → SPEC.md §Invariants I48, I54, I72, I87
+     - Acceptance: confirm cascade → phases reopen → secondary thread conversation → all items resolved → phases can be re-closed → export valid again
+     - Design: `docs/design/REVISIT_MODULE.md`
+
+## Phase 9: Post-Distribution Hardening
 
 <!-- Defer dependency-risk changes until the packaged app exists and can be regression-tested as a distributed artifact. -->
 
 ### Slices
 
-15. **Drizzle Kit audit remediation** — Revisit the current `npm audit` finding on `drizzle-kit` after distribution is stable. Do not use `npm audit fix --force`, which currently resolves to `drizzle-kit@0.18.1`; that downgrade crosses the modern config boundary and is not a safe path for this repo. Instead, validate a non-vulnerable upgrade path (currently the `1.0.0-beta` line) against this app's SQLite config, migration history, and `studio` workflow before changing dependencies. `not-started`
+16. **Drizzle Kit audit remediation** — Revisit the current `npm audit` finding on `drizzle-kit` after distribution is stable. Do not use `npm audit fix --force`, which currently resolves to `drizzle-kit@0.18.1`; that downgrade crosses the modern config boundary and is not a safe path for this repo. Instead, validate a non-vulnerable upgrade path (currently the `1.0.0-beta` line) against this app's SQLite config, migration history, and `studio` workflow before changing dependencies. `not-started`
     - Requirements: → SPEC.md §Requirements #1
     - Candidate invariant goals: packaged distribution remains stable while the Drizzle toolchain is upgraded off the vulnerable `@esbuild-kit/*` loader chain
     - Invariants to respect: → SPEC.md §Invariants I1, I2, I4, I5
@@ -169,18 +205,14 @@
 
 ## Horizon
 
-<!-- Future work not yet broken into slices. Revisit after Phase 7. -->
+<!-- Future work not yet broken into slices. Revisit after Phase 9. -->
 
-- Deferred from Phase 6: `11. Generalized revisit: branch + readiness invalidation` — revisit any earlier turn, branch from that point, restore the interview there, and invalidate downstream phase outcomes / review state from the affected frontier. Re-scope after the readiness/export path stabilizes.
-- Headless interview driver — a programmatic harness that drives the real `/api/projects/:id/chat` endpoint with scripted or LLM-chosen answers, capturing the resulting DB state as a fixture manifest. Replaces LLM content generation (11c approach C) with real pipeline replay (approach A). Probes the future CLI adapter and MCP adapter surface. Second fixture domain candidate: resource booking system (TEST_PROBLEMS.md #9).
-- CLI interactive interview mode (terminal-based interview using core's DomainEvent stream)
 - MCP server adapter (expose core operations as MCP tools)
-- Turn tree visualization (git-log-style branch graph in sidebar)
-- Knowledge graph visualization (goal / term / context / constraint / assumption / decision / requirement / criterion view)
-- Exploratory pathway (for projects where the goal itself is unclear)
-- Project characterization kickoff mode (ToolLoopAgent with core tools explores existing codebase before interview)
-- Multi-provider support via AI SDK provider abstraction (architecturally possible now)
-- Export to GitHub Issues, Linear, YAML task definitions
+- Knowledge graph visualization (interactive graph view of the canonical knowledge ontology)
+- Exploratory pathway (for projects where the goal itself is unclear — distinct from brownfield which is about context, not goal uncertainty)
+- Hard turn-tree branching (deferred from V1; the linked-list structure supports it but UX is not exposed)
+- Git-integrated diff-able persistence format (file-based representation of the DB for version control)
+- Headless interview driver (programmatic harness driving `/api/projects/:id/chat` with scripted answers)
 
 ## Dependencies
 
@@ -188,40 +220,22 @@
 
 ```
 done ─────────────────────────────────────────────────────────────┐
-  Phase 1:  1 (skeleton) ──→ 2 (SQLite)                          │
-  Phase 2:  2 ──→ 3 ──→ 3c ──→ 3d                                │
-  Phase 3:  3c ──→ 3b ──→ 4 ──→ 4a ──→ 4b ──→ 4c ──→ 5 ──→ 6   │
-            spikes ──→ 6b (AI SDK pivot)                          │
+  Phase 1–6: all complete                                         │
 ──────────────────────────────────────────────────────────────────┘
                         │
-Phase 4:  6b ──→ 6b1 (workspace oracle) ──→ 6c (live streaming fix)
-          6c ──→ 6d (flexible turn-response model)
-          6d ──→ 6e (generic knowledge layer)
-          6e ──→ 6f (phase-aware observer)
-Phase 5:  6f ──┬──→ 7 (explicit phase outcomes + scope closure)
-                └──→ 7a (knowledge-layer redesign spike) ──→ 7b (canonical knowledge foundation)
-          7 ────┐
-          7b ───┴──→ 8 (design mode) ──→ 9 (requirements-review) ──→ 10.1 (criteria grounding)
-                                                          10.1 ──→ 10.2 (criterion review + closeability)
-                                                          10.2 ──→ 10.3 (criteria closure)
-Phase 6:  7 ──┐
-          8 ──┼──→ 11a (project dashboard workflow state)
-          9 ──┤
-          10.3 ─┘
-          10.3 ──→ 11b (fixture scenarios + dev seed CLI)
-          11b ──→ 11c (rich fixture generation)
-          7b ──→ 12a (knowledge workspace review surface)
-          10.3 ──→ 12a
-          10.3 ──→ 12b (export)
-          12a ──┬──→ 13a (review lifecycle refinement)
-          12b ──┘
-Phase 7:  12b ──→ 14 (npx + CLI)
-Phase 8:  14 ──→ 15 (drizzle-kit audit remediation)
+Phase 7:  12b ──→ 14 (local-first storage + npx distribution)
+          14 ──→ 14a (greenfield/brownfield + exploration)
+Phase 8:  12a ──→ 15 (edit mode + cascade preview)        [stretch]
+          15 ──→ 15a (cascade execution + secondary threads) [stretch]
+Phase 9:  14 ──→ 16 (drizzle-kit audit remediation)
+Deferred: 12a + 12b ──→ 13a (review lifecycle refinement)
 ```
 
 ### Parallelism opportunities
 
 - Phase 6 is fully done (11a, 11b, 11c, 12a, 12b all complete).
-- 13a (review lifecycle refinement) is explicitly deferred; it should collect rarer review variants now that the thin end-to-end path is stable.
-- 14 (npx) is unblocked and is the next critical-path slice.
-- 15 (drizzle-kit audit remediation) should wait until 14 lands.
+- **14 (local-first + npx) is unblocked and is the next critical-path slice.**
+- 14a (brownfield) depends on 14 landing first (needs the launcher and `.brunch/` resolution).
+- 15 + 15a (knowledge-graph revisit) are stretch goals; they depend on 12a (knowledge workspace) which is done, but may not land before the first deadline.
+- 13a (review lifecycle refinement) is explicitly deferred; it should collect rarer review variants after the revisit model stabilizes.
+- 16 (drizzle-kit audit) should wait until 14 lands.

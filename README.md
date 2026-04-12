@@ -66,6 +66,8 @@ npm run seed issue-tracker-all-phases-closed
 | `requirements-ready` | Scope + design closed, requirements reviewed |
 | `criteria-ready` | + requirements closed, criteria reviewed |
 | `all-phases-closed` | All four phases closed |
+| `forced-close-all-phases-closed` | All four phases closed, with design closed via user-forced closure |
+| `low-readiness-all-phases-closed` | All four phases closed, with a synthetic low-readiness scope closure for export-caveat testing |
 
 **Manifest scenarios** — rich fixtures with realistic interview content, structured parts, knowledge items, and cross-kind edges (domain: tiny issue tracker):
 

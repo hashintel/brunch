@@ -2,13 +2,7 @@
   "mcpServers": {
     "shadcn": {
       "command": "npx",
-      "args": [
-        "shadcn@latest",
-        "mcp"
-      ]
-    },
-    "forge_extension": {
-      "url": "http://localhost:58459/mcp"
+      "args": ["shadcn@latest", "mcp"]
     }
   }
 }

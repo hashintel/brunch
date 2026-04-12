@@ -1,8 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it } from 'vitest';
 
 import type { EntitiesData } from '../shared/api-types.js';
-import type { WorkflowState } from './db.js';
+import { getProjectState } from './core.js';
+import { createDb, createProject, getEntitiesForProject, type WorkflowState } from './db.js';
 import { buildReviewedExportProjection, renderExportMarkdown } from './export.js';
+import {
+  seedAllPhasesClosedWithForcedDesign,
+  seedAllPhasesClosedWithLowReadinessScope,
+} from './fixtures/scenarios.js';
 
 function createClosedPhase({
   basis = 'interviewer_recommended',
@@ -47,6 +52,14 @@ const emptyEntities: EntitiesData = {
 };
 
 describe('renderExportMarkdown', () => {
+  const openDbs: Array<ReturnType<typeof createDb>> = [];
+
+  afterEach(() => {
+    while (openDbs.length > 0) {
+      openDbs.pop()?.$client.close();
+    }
+  });
+
   it('projects reviewed export sections and caveats before markdown rendering', () => {
     const entities: EntitiesData = {
       ...emptyEntities,
@@ -218,5 +231,50 @@ describe('renderExportMarkdown', () => {
 
     expect(md).toContain('design');
     expect(md).toContain('low readiness');
+  });
+
+  it('renders the forced-close canonical fixture with the expected export caveat', () => {
+    const db = createDb();
+    openDbs.push(db);
+    const projectId = createProject(db, 'Forced-Close All Phases Closed').id;
+    seedAllPhasesClosedWithForcedDesign(db, projectId);
+
+    const projectState = getProjectState(db, projectId);
+    expect(projectState).not.toBeNull();
+    expect(projectState?.workflow.phases.design).toMatchObject({
+      status: 'closed',
+      closureBasis: 'user_forced',
+    });
+
+    const markdown = renderExportMarkdown(
+      projectState!.project.name,
+      getEntitiesForProject(db, projectId),
+      projectState!.workflow,
+    );
+    expect(markdown).toContain('__design__ was closed via user-forced closure');
+    expect(markdown).not.toContain('Support exporting the spec as a PDF');
+  });
+
+  it('renders the low-readiness canonical fixture with the expected export caveat', () => {
+    const db = createDb();
+    openDbs.push(db);
+    const projectId = createProject(db, 'Low-Readiness All Phases Closed').id;
+    seedAllPhasesClosedWithLowReadinessScope(db, projectId);
+
+    const projectState = getProjectState(db, projectId);
+    expect(projectState).not.toBeNull();
+    expect(projectState?.workflow.phases.scope).toMatchObject({
+      status: 'closed',
+      readiness: 'low',
+      closureBasis: 'interviewer_recommended',
+    });
+
+    const markdown = renderExportMarkdown(
+      projectState!.project.name,
+      getEntitiesForProject(db, projectId),
+      projectState!.workflow,
+    );
+    expect(markdown).toContain('__scope__ was closed with low readiness');
+    expect(markdown).not.toContain('Support exporting the spec as a PDF');
   });
 });

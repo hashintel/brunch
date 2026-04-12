@@ -3,11 +3,22 @@ import {
   confirmPhaseOutcome,
   createKnowledgeItem,
   createPhaseOutcome,
+  createConfirmedPhaseOutcome,
   createProject,
   createTurn,
   linkKnowledgeItemToTurn,
   type DB,
 } from '../db.js';
+
+function createConfirmationParts(text: string, data: object): string {
+  return JSON.stringify([
+    { type: 'text', text },
+    {
+      type: 'data-confirmation',
+      data,
+    },
+  ]);
+}
 
 export function seedClosedScope(db: DB, projectId: number) {
   const scopeTurn = createTurn(db, projectId, {
@@ -37,17 +48,11 @@ export function seedClosedScope(db: DB, projectId: number) {
     parent_turn_id: scopeProposalTurn.id,
     question: '',
     answer: 'Confirm scope closure',
-    user_parts: JSON.stringify([
-      { type: 'text', text: 'Confirm scope closure' },
-      {
-        type: 'data-confirmation',
-        data: {
-          kind: 'confirm-proposed-phase-closure',
-          proposalTurnId: scopeProposalTurn.id,
-          phase: 'scope',
-        },
-      },
-    ]),
+    user_parts: createConfirmationParts('Confirm scope closure', {
+      kind: 'confirm-proposed-phase-closure',
+      proposalTurnId: scopeProposalTurn.id,
+      phase: 'scope',
+    }),
   });
   confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
   advanceHead(db, projectId, scopeConfirmationTurn.id);
@@ -84,17 +89,11 @@ export function seedRequirementsReady(db: DB, projectId: number) {
     parent_turn_id: seededDesign.designTurn.id,
     question: '',
     answer: 'Confirm design closure',
-    user_parts: JSON.stringify([
-      { type: 'text', text: 'Confirm design closure' },
-      {
-        type: 'data-confirmation',
-        data: {
-          kind: 'confirm-proposed-phase-closure',
-          proposalTurnId: seededDesign.designTurn.id,
-          phase: 'design',
-        },
-      },
-    ]),
+    user_parts: createConfirmationParts('Confirm design closure', {
+      kind: 'confirm-proposed-phase-closure',
+      proposalTurnId: seededDesign.designTurn.id,
+      phase: 'design',
+    }),
   });
   confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
   advanceHead(db, projectId, designConfirmationTurn.id);
@@ -102,9 +101,7 @@ export function seedRequirementsReady(db: DB, projectId: number) {
   return { ...seededDesign, designConfirmationTurn };
 }
 
-export function seedCriteriaReady(db: DB, projectId: number) {
-  const seededRequirements = seedRequirementsReady(db, projectId);
-
+function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: number) {
   const approvedRequirement = createKnowledgeItem(
     db,
     projectId,
@@ -120,7 +117,7 @@ export function seedCriteriaReady(db: DB, projectId: number) {
 
   const reviewTurn = createTurn(db, projectId, {
     phase: 'requirements',
-    parent_turn_id: seededRequirements.designConfirmationTurn.id,
+    parent_turn_id: parentTurnId,
     question: 'Are these requirements all reviewed now?',
     answer: 'Yes — approve resume and reject PDF export',
   });
@@ -148,23 +145,16 @@ export function seedCriteriaReady(db: DB, projectId: number) {
     parent_turn_id: requirementsProposalTurn.id,
     question: '',
     answer: 'Confirm requirements closure',
-    user_parts: JSON.stringify([
-      { type: 'text', text: 'Confirm requirements closure' },
-      {
-        type: 'data-confirmation',
-        data: {
-          kind: 'confirm-proposed-phase-closure',
-          proposalTurnId: requirementsProposalTurn.id,
-          phase: 'requirements',
-        },
-      },
-    ]),
+    user_parts: createConfirmationParts('Confirm requirements closure', {
+      kind: 'confirm-proposed-phase-closure',
+      proposalTurnId: requirementsProposalTurn.id,
+      phase: 'requirements',
+    }),
   });
   confirmPhaseOutcome(db, requirementsOutcome.id, requirementsConfirmationTurn.id);
   advanceHead(db, projectId, requirementsConfirmationTurn.id);
 
   return {
-    ...seededRequirements,
     approvedRequirement,
     rejectedRequirement,
     reviewTurn,
@@ -173,13 +163,22 @@ export function seedCriteriaReady(db: DB, projectId: number) {
   };
 }
 
-export function seedAllPhasesClosed(db: DB, projectId: number) {
-  const seededCriteria = seedCriteriaReady(db, projectId);
+export function seedCriteriaReady(db: DB, projectId: number) {
+  const seededRequirements = seedRequirementsReady(db, projectId);
+  const reviewedRequirements = seedClosedRequirementsReview(
+    db,
+    projectId,
+    seededRequirements.designConfirmationTurn.id,
+  );
 
+  return { ...seededRequirements, ...reviewedRequirements };
+}
+
+function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: number) {
   const criterion = createKnowledgeItem(db, projectId, 'criterion', 'Verify SQLite resume');
   const criterionReviewTurn = createTurn(db, projectId, {
     phase: 'criteria',
-    parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
+    parent_turn_id: parentTurnId,
     question: 'Are these criteria reviewed?',
     answer: 'Yes — approve the criterion',
   });
@@ -206,27 +205,149 @@ export function seedAllPhasesClosed(db: DB, projectId: number) {
     parent_turn_id: criteriaProposalTurn.id,
     question: '',
     answer: 'Confirm criteria closure',
-    user_parts: JSON.stringify([
-      { type: 'text', text: 'Confirm criteria closure' },
-      {
-        type: 'data-confirmation',
-        data: {
-          kind: 'confirm-proposed-phase-closure',
-          proposalTurnId: criteriaProposalTurn.id,
-          phase: 'criteria',
-        },
-      },
-    ]),
+    user_parts: createConfirmationParts('Confirm criteria closure', {
+      kind: 'confirm-proposed-phase-closure',
+      proposalTurnId: criteriaProposalTurn.id,
+      phase: 'criteria',
+    }),
   });
   confirmPhaseOutcome(db, criteriaOutcome.id, criteriaConfirmationTurn.id);
   advanceHead(db, projectId, criteriaConfirmationTurn.id);
 
+  return { criterion, criterionReviewTurn, criteriaProposalTurn, criteriaConfirmationTurn };
+}
+
+export function seedAllPhasesClosed(db: DB, projectId: number) {
+  const seededCriteria = seedCriteriaReady(db, projectId);
+  const reviewedCriteria = seedClosedCriteriaReview(
+    db,
+    projectId,
+    seededCriteria.requirementsConfirmationTurn.id,
+  );
+
+  return { ...seededCriteria, ...reviewedCriteria };
+}
+
+export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
+  const seededScope = seedClosedScope(db, projectId);
+
+  const designTurn = createTurn(db, projectId, {
+    phase: 'design',
+    parent_turn_id: seededScope.scopeConfirmationTurn.id,
+    question: 'Which tradeoff matters most?',
+    answer: 'Keep the repository seam small',
+  });
+  advanceHead(db, projectId, designTurn.id);
+
+  const designForceCloseTurn = createTurn(db, projectId, {
+    phase: 'design',
+    parent_turn_id: designTurn.id,
+    question: '',
+    answer: 'Force design closure',
+    user_parts: createConfirmationParts('Force design closure', {
+      kind: 'force-close-active-phase',
+      phase: 'design',
+    }),
+  });
+  advanceHead(db, projectId, designForceCloseTurn.id);
+
+  const designOutcome = createPhaseOutcome(db, {
+    projectId,
+    phase: 'design',
+    proposal_turn_id: designForceCloseTurn.id,
+    summary: 'Design closed by user without an interviewer recommendation.',
+  });
+  confirmPhaseOutcome(db, designOutcome.id, designForceCloseTurn.id);
+
+  const reviewedRequirements = seedClosedRequirementsReview(db, projectId, designForceCloseTurn.id);
+  const reviewedCriteria = seedClosedCriteriaReview(
+    db,
+    projectId,
+    reviewedRequirements.requirementsConfirmationTurn.id,
+  );
+
   return {
-    ...seededCriteria,
-    criterion,
-    criterionReviewTurn,
-    criteriaProposalTurn,
-    criteriaConfirmationTurn,
+    ...seededScope,
+    designTurn,
+    designForceCloseTurn,
+    ...reviewedRequirements,
+    ...reviewedCriteria,
+  };
+}
+
+export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: number) {
+  const designTurn = createTurn(db, projectId, {
+    phase: 'design',
+    question: 'Which tradeoff matters most?',
+    answer: 'Keep the repository seam small',
+  });
+  advanceHead(db, projectId, designTurn.id);
+
+  const scopeClosureTurn = createTurn(db, projectId, {
+    phase: 'design',
+    parent_turn_id: designTurn.id,
+    question: '',
+    answer: 'Confirm scope closure',
+    user_parts: createConfirmationParts('Confirm scope closure', {
+      kind: 'confirm-proposed-phase-closure',
+      proposalTurnId: designTurn.id,
+      phase: 'scope',
+    }),
+  });
+  advanceHead(db, projectId, scopeClosureTurn.id);
+
+  createConfirmedPhaseOutcome(db, {
+    projectId,
+    phase: 'scope',
+    proposal_turn_id: scopeClosureTurn.id,
+    confirmation_turn_id: scopeClosureTurn.id,
+    summary:
+      'Scope was closed from a minimal downstream checkpoint to exercise low-readiness export caveats.',
+  });
+
+  const designProposalTurn = createTurn(db, projectId, {
+    phase: 'design',
+    parent_turn_id: scopeClosureTurn.id,
+    question: '',
+    answer: 'The main architectural commitments are captured well enough to review requirements.',
+  });
+  advanceHead(db, projectId, designProposalTurn.id);
+
+  const designConfirmationTurn = createTurn(db, projectId, {
+    phase: 'design',
+    parent_turn_id: designProposalTurn.id,
+    question: '',
+    answer: 'Confirm design closure',
+    user_parts: createConfirmationParts('Confirm design closure', {
+      kind: 'confirm-proposed-phase-closure',
+      proposalTurnId: designProposalTurn.id,
+      phase: 'design',
+    }),
+  });
+  advanceHead(db, projectId, designConfirmationTurn.id);
+
+  const designOutcome = createPhaseOutcome(db, {
+    projectId,
+    phase: 'design',
+    proposal_turn_id: designProposalTurn.id,
+    summary: 'The main architectural commitments are captured well enough to review requirements.',
+  });
+  confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
+
+  const reviewedRequirements = seedClosedRequirementsReview(db, projectId, designConfirmationTurn.id);
+  const reviewedCriteria = seedClosedCriteriaReview(
+    db,
+    projectId,
+    reviewedRequirements.requirementsConfirmationTurn.id,
+  );
+
+  return {
+    designTurn,
+    scopeClosureTurn,
+    designProposalTurn,
+    designConfirmationTurn,
+    ...reviewedRequirements,
+    ...reviewedCriteria,
   };
 }
 
@@ -256,6 +377,16 @@ export const scenarios: Record<string, ScenarioFn> = {
   'all-phases-closed': (db, name = 'All Phases Closed') => {
     const project = createProject(db, name);
     seedAllPhasesClosed(db, project.id);
+    return project.id;
+  },
+  'forced-close-all-phases-closed': (db, name = 'Forced-Close All Phases Closed') => {
+    const project = createProject(db, name);
+    seedAllPhasesClosedWithForcedDesign(db, project.id);
+    return project.id;
+  },
+  'low-readiness-all-phases-closed': (db, name = 'Low-Readiness All Phases Closed') => {
+    const project = createProject(db, name);
+    seedAllPhasesClosedWithLowReadinessScope(db, project.id);
     return project.id;
   },
 };
