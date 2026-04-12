@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { EntitiesData } from '../shared/api-types.js';
 import type { WorkflowState } from './db.js';
-import { renderExportMarkdown } from './export.js';
+import { buildReviewedExportProjection, renderExportMarkdown } from './export.js';
 
 function createClosedPhase({
   basis = 'interviewer_recommended',
@@ -47,6 +47,50 @@ const emptyEntities: EntitiesData = {
 };
 
 describe('renderExportMarkdown', () => {
+  it('projects reviewed export sections and caveats before markdown rendering', () => {
+    const entities: EntitiesData = {
+      ...emptyEntities,
+      requirements: [
+        {
+          id: 1,
+          project_id: 1,
+          kind: 'requirement',
+          subtype: null,
+          content: 'Export spec',
+          rationale: null,
+          reviewStatus: 'approved',
+        },
+        {
+          id: 2,
+          project_id: 1,
+          kind: 'requirement',
+          subtype: null,
+          content: 'PDF export',
+          rationale: null,
+          reviewStatus: 'rejected',
+        },
+      ],
+      decisions: [{ id: 3, project_id: 1, content: 'Use SQLite', rationale: 'Zero config' }],
+    };
+    const workflow = createAllClosedWorkflow({
+      design: createClosedPhase({ basis: 'user_forced', readiness: 'low' }),
+    });
+
+    expect(buildReviewedExportProjection(entities, workflow)).toEqual({
+      caveats: ['design was closed via user-forced closure', 'design was closed with low readiness'],
+      sections: [
+        {
+          heading: 'Requirements',
+          items: [{ content: 'Export spec', rationale: null }],
+        },
+        {
+          heading: 'Decisions',
+          items: [{ content: 'Use SQLite', rationale: 'Zero config' }],
+        },
+      ],
+    });
+  });
+
   it('renders kind-grouped sections from entities', () => {
     const entities: EntitiesData = {
       ...emptyEntities,

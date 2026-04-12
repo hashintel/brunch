@@ -17,7 +17,7 @@ The target state is that export represents the approved, active-path spec rather
 ## Commits
 
 1. Done: add route-level characterization tests for knowledge and export, replace the misleading export assertions with reviewed-spec contract tests, and ship the minimum export correction needed to satisfy that contract.
-2. Extract a dedicated reviewed-export projection seam so artifact selection and caveat generation can be tested independently from HTTP handlers and page rendering.
+2. Done: extract a dedicated reviewed-export projection seam so artifact selection and caveat generation can be tested independently from HTTP handlers and page rendering.
 3. Introduce route-specific loader helpers for workflow detail pages while keeping the current UI output unchanged.
 4. Move the export page to router-provided data so the page no longer performs its first fetch after render.
 5. Narrow the knowledge page to a knowledge-only loader and add route-level coverage for loader wiring and back-navigation.

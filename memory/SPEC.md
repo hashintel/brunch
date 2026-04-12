@@ -550,7 +550,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | capability-boundaries.test.ts | 2     | I24, I29                                              |
 | KnowledgeWorkspace.test.tsx   | 5     | I48                                                   |
 | ExportPreview.test.tsx        | 3     | D26, D65, D66, D70                                    |
-| export.test.ts                | 5     | D26, D65, D66, D70                                    |
+| export.test.ts                | 6     | D26, D65, D66, D70                                    |
 
 ## Acceptance Criteria (exit conditions)
 
