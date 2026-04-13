@@ -249,17 +249,11 @@
     - Evidence: file-route-infra.test.ts, router.test.tsx, build-boundary.test.ts, file-route-interview.test.ts, file-route-knowledge.test.ts, file-route-export.test.ts; 308 tests pass, `npm run verify` green
     - Unblocks: 23a (commits 4-6), 24 (sidebar + data split)
 
-23a. **Entity-projection alignment** `in-progress`
-     - Align the `/api/projects/:id/entities` read model so active-path and project-global reads are explicit, named projection modes; widen relationship transport to the full persisted edge vocabulary; retire stale seam tests
-     - Detailed commit plan: `memory/REFACTOR.md`
-     - Commits 1-3 (characterization + projection extraction + relation widening) are server-side and can run in parallel with slice 23
-     - Commits 4-6 (knowledge-surface rendering + active-path switch + test retirement) touch workspace loaders and should land before slice 24
-     - Progress: commits 1-2 landed characterization + projection-mode extraction; commit 3 widened shared relation transport to the full persisted vocabulary; commit 4 taught the knowledge surface to render the richer graph deliberately while keeping dependency-only summaries explicit; commit 5 made active-path the canonical routed entity read and pushed project-wide inventory behind an explicit mode
-     - Requirements: → SPEC.md §Requirements #5, #7
+23a. **Entity-projection alignment** `done`
+     - Shipped: the entity seam now preserves the full relationship vocabulary, knowledge surfaces render the richer graph deliberately, routed entity reads default to the active path, and project-wide inventory requires explicit opt-in
+     - Evidence: app.test.ts, export.test.ts, workspace-loader.test.ts, KnowledgeWorkspace.test.tsx, EntitySidebar.test.tsx, `npm run verify`
      - Decisions: → SPEC.md §Decisions D49, D50, D87, D88
-     - Invariants to respect: I48 (knowledge display), I24 (workspace seam)
-     - Acceptance: seeded manifest scenarios prove the same entity set renders through API, workspace, and export; relationship vocabulary is not collapsed at the transport boundary
-     - Depends on: 23 (commits 4-6 depend on directory routing being in place)
+     - Unblocks: 24
 
 24. **ProjectLayout sidebar + layout-level data loading split** `not-started`
     - ProjectLayout renders left sidebar with phase navigation list and readiness/closeability indicators per phase

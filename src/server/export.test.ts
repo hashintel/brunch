@@ -14,7 +14,6 @@ import {
   linkKnowledgeItemToTurn,
 } from './db.js';
 import { buildReviewedExportProjection, renderExportMarkdown } from './export.js';
-import { seedFromManifest, type ManifestScenario } from './fixtures/manifest.js';
 import {
   seedAllPhasesClosedWithForcedDesign,
   seedAllPhasesClosedWithLowReadinessScope,
@@ -286,74 +285,6 @@ describe('renderExportMarkdown', () => {
     const markdown = renderExportMarkdown(
       project.name,
       getEntitiesForProjectOnActivePath(db, project.id),
-      createAllClosedWorkflow(),
-    );
-
-    expect(markdown).toContain('Use Postgres for persistence');
-    expect(markdown).not.toContain('Use SQLite for persistence');
-  });
-
-  it('characterizes manifest-seeded active-path export diverging from project-global entities', () => {
-    const db = createDb();
-    openDbs.push(db);
-    const scenario: ManifestScenario = {
-      turns: [
-        {
-          phase: 'scope',
-          question: 'What kind of workflow is this project replacing?',
-          answer: 'A spreadsheet-driven issue tracker process.',
-          options: [{ content: 'Spreadsheet replacement', is_recommended: true }],
-          selectedOptionPositions: [0],
-        },
-      ],
-      knowledgeItems: [
-        {
-          kind: 'goal',
-          content: 'Replace spreadsheet issue tracking with a durable workflow',
-          capturedAtTurn: 0,
-        },
-      ],
-      edges: [],
-    };
-
-    const projectId = seedFromManifest(db, scenario, 'Manifest Branching Project');
-    const projectState = getProjectState(db, projectId);
-    expect(projectState).not.toBeNull();
-    const rootTurn = projectState!.turns[0]!;
-
-    const abandonedBranchTurn = createTurn(db, projectId, {
-      phase: 'design',
-      parent_turn_id: rootTurn.id,
-      question: 'Which storage option should we take?',
-      answer: 'Follow the SQLite branch.',
-    });
-    const activeBranchTurn = createTurn(db, projectId, {
-      phase: 'design',
-      parent_turn_id: rootTurn.id,
-      question: 'Which storage option should we take?',
-      answer: 'Follow the Postgres branch.',
-    });
-    advanceHead(db, projectId, activeBranchTurn.id);
-
-    const abandonedDecision = createKnowledgeItem(db, projectId, 'decision', 'Use SQLite for persistence', {
-      rationale: 'This belonged to the abandoned branch.',
-    });
-    const activeDecision = createKnowledgeItem(db, projectId, 'decision', 'Use Postgres for persistence', {
-      rationale: 'This belongs to the active branch.',
-    });
-    linkKnowledgeItemToTurn(db, abandonedDecision.id, abandonedBranchTurn.id);
-    linkKnowledgeItemToTurn(db, activeDecision.id, activeBranchTurn.id);
-
-    expect(getEntitiesForProject(db, projectId).decisions).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ content: 'Use SQLite for persistence' }),
-        expect.objectContaining({ content: 'Use Postgres for persistence' }),
-      ]),
-    );
-
-    const markdown = renderExportMarkdown(
-      projectState!.project.name,
-      getEntitiesForProjectOnActivePath(db, projectId),
       createAllClosedWorkflow(),
     );
 

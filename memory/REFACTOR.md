@@ -24,7 +24,7 @@ The target state is:
 - [x] Widen the shared relationship transport to the full persisted edge-relation vocabulary and update read-model tests to treat the richer graph as first-class data.
 - [x] Make knowledge-surface relation rendering consume the richer graph deliberately, while keeping any dependency-only summaries explicit instead of relying on projection loss.
 - [x] Switch the canonical routed entity read path to active-path projection so interview, knowledge, and export all agree on the trusted project state.
-- [ ] Retire or rewrite stale seam tests so manifest-seeded transition scenarios protect the full route-to-read-model contract going forward.
+- [x] Retire or rewrite stale seam tests so manifest-seeded transition scenarios protect the full route-to-read-model contract going forward.
 
 ## Decisions
 

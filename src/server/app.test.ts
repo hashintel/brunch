@@ -929,7 +929,7 @@ describe('GET /api/projects/:id/entities', () => {
     );
   });
 
-  it('defaults the entities api to the active-path projection and keeps project-wide reads explicit', async () => {
+  it('keeps canonical entities on the active path while project-wide inventory stays explicit', async () => {
     const { getProjectState } = await import('./core.js');
     const { advanceHead, createKnowledgeItem, createTurn, linkKnowledgeItemToTurn } = await import('./db.js');
 

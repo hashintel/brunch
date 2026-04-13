@@ -603,7 +603,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | api-types.test.ts             | 8     | —                                                     |
 | export-loader.test.ts         | 4     | D26, D65, D66, D70                                    |
 | ExportPreview.test.tsx        | 2     | I15, D26, D65, D66, D70                               |
-| export.test.ts                | 10    | D26, D65, D66, D70                                    |
+| export.test.ts                | 9     | D26, D65, D66, D70                                    |
 | manifest.test.ts              | 1     | —                                                     |
 
 ## Acceptance Criteria (exit conditions)
