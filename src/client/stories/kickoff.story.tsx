@@ -22,7 +22,8 @@ export const KickoffPage = () => {
         <div className="w-full max-w-md">
           <h1 className="text-2xl font-medium text-ink">Describe your project goal</h1>
           <p className="mt-2 text-sm text-muted-foreground">
-            Describe your project goal and I&apos;ll ask clarifying questions to create a detailed specification.
+            Describe your project goal and I&apos;ll ask clarifying questions to create a detailed
+            specification.
           </p>
 
           <div className="mt-6 flex gap-2">

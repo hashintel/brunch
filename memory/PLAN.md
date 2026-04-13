@@ -129,6 +129,7 @@
 11c. **Rich fixture generation for outer-loop testing** `done`
      - Shipped: JSON manifest seeder with issue-tracker domain (5 scenarios, 27 knowledge items, 14 edges, 24 turns)
      - Evidence: 223 tests pass; all 10 scenarios seed; knowledge workspace + export render from seeded state
+     - Debt: manifest-authored fixtures currently prove convenience seeding more than trusted runtime-shaped persistence; strict manifest hardening and catalog split deferred to 16a
 
 13a. **Review lifecycle refinement across requirements + criteria** — Revisit the first-cut review model only after the thin end-to-end path is working, and add the deferred variants that were intentionally excluded from slices 9 and 10 so the app kept moving toward completion. Depends on 12a + 12b. `not-started`
      - Requirements: → SPEC.md §Requirements #11, #12, #13
@@ -199,12 +200,39 @@
 
 ### Slices
 
+14b. **Port-safe launcher + same-CWD runtime guard** — Harden the local launch seam so packaged `npx brunch` picks a collision-free app port automatically, opens the actual bound URL, refuses a second live launch from the same `.brunch/` project, and keeps the split dev harness configurable without hard-killing fixed ports. `not-started`
+    - Requirements: → SPEC.md §Requirements #1, #14
+    - Assumptions: none active in SPEC.md — this slice hardens the shipped local-first/runtime contract rather than retiring a live epistemic risk
+    - Decisions: → SPEC.md §Decisions D9, D10, D81
+    - Candidate invariant goals: packaged launcher binds and reports the actual chosen port rather than assuming `3000`; distinct project directories can run concurrently without port collisions; a second launch from the same `.brunch/` root is rejected before a duplicate runtime races the same local state; dev Vite proxy and API port selection share one explicit configuration seam instead of relying on port-killing cleanup
+    - Invariants to respect: → SPEC.md §Invariants I4, I5, I100
+    - Acceptance: launching `npx brunch` from two different project directories yields two working browser sessions on different localhost ports with their own `.brunch/` state; launching a second instance from the same project directory fails fast with a clear message; `npm run dev` no longer kills unrelated listeners on `5173`/`3000`, and an explicit alternate backend port keeps Vite's `/api` proxy aligned
+    - **Verification approach**: inner — launcher/runtime-config/configuration tests for actual bound-port discovery, same-project lock detection, and env-driven dev proxy alignment. Middle — launcher/CLI integration tests for two-temp-dir concurrent launchability and same-dir conflict rejection. Outer — manual smoke: two packaged launches from different directories, one duplicate same-dir launch rejection, and one alternate-port dev run.
+
 16. **Drizzle Kit audit remediation** — Revisit the current `npm audit` finding on `drizzle-kit` after distribution is stable. Do not use `npm audit fix --force`, which currently resolves to `drizzle-kit@0.18.1`; that downgrade crosses the modern config boundary and is not a safe path for this repo. Instead, validate a non-vulnerable upgrade path (currently the `1.0.0-beta` line) against this app's SQLite config, migration history, and `studio` workflow before changing dependencies. `not-started`
     - Requirements: → SPEC.md §Requirements #1
     - Candidate invariant goals: packaged distribution remains stable while the Drizzle toolchain is upgraded off the vulnerable `@esbuild-kit/*` loader chain
     - Invariants to respect: → SPEC.md §Invariants I1, I2, I4, I5
     - Acceptance: chosen `drizzle-kit` version removes the vulnerable loader chain, keeps `drizzle.config.ts` compatible, preserves existing migration history, and `npm run studio` still works against the existing SQLite database
     - **Verification approach**: inner — dependency tree/audit check plus config-load and migration/studio smoke tests. Outer — manual `npm run studio` walkthrough on the distributed app path.
+
+16a. **Trusted fixture hardening + catalog split** — Recast manifest-authored fixture scenarios as trusted runtime-shaped fixtures rather than permissive demo seeds. Fail fast on manifest/load/compiler errors, compile the scenario DSL through the same domain operations the app uses for persisted turn/phase/selection state, patch assistant parts to match live persistence contracts, and split synthetic seam exercisers (e.g. deliberately impossible low-readiness states) out of the public seed catalog into test-only helpers. `done`
+    - Requirements: → SPEC.md §Requirements #4, #7, #13, #14
+    - Assumptions: → SPEC.md §Assumptions A20, A40
+    - Decisions: → SPEC.md §Decisions D13, D23, D24, D49, D59, D65
+    - Candidate invariant goals: trusted fixtures persist the same runtime-shaped turn/phase/entity artifacts as live interviews; manifest compilation rejects unreachable turn shapes and dangling references instead of degrading silently; realistic CLI seed scenarios are cleanly separated from synthetic seam exercisers without weakening test coverage
+    - Invariants to respect: → SPEC.md §Invariants I18, I24, I48, I54, I72, I87
+    - Acceptance: `npm run seed <scenario>` exposes only realistic trusted scenarios; manifest load/compile failures surface immediately; seeded assistant/user parts and scalar fields round-trip through the same hydration/projection seams as live data; synthetic state-shaping helpers remain available only to targeted tests
+    - **Verification approach**: inner — manifest compiler validation tests, fail-fast loader/CLI tests, metamorphic parts-vs-scalars consistency tests. Middle — round-trip fixture tests proving trusted manifest scenarios hydrate identically to runtime-shaped turns across project-state, entities, and export seams. Outer — manual seed walkthrough using the public catalog only.
+
+16b. **Capture-backed golden fixture curation + observer probes** — After trusted fixtures are runtime-shaped, add a follow-on path that captures confirmed-good sessions into curated golden fixtures and uses them to strengthen observer evaluation. The initial target is a small hybrid corpus (captured then normalized) rather than a fully automated ingest pipeline. `not-started`
+    - Requirements: → SPEC.md §Requirements #7, #11, #12, #13
+    - Assumptions: → SPEC.md §Assumptions A4, A40
+    - Decisions: → SPEC.md §Decisions D13, D22, D25, D49, D59
+    - Candidate invariant goals: captured-good sessions can be normalized into the trusted fixture format without losing provenance or runtime shape; observer probe fixtures cover canonical-kind discrimination and multi-phase review handoff well enough to catch meaningful regressions without overfitting prompt prose
+    - Invariants to respect: → SPEC.md §Invariants I19, I21, I48, I54, I87, I98
+    - Acceptance: at least one capture-backed trusted fixture path exists, a curated golden corpus is documented in-repo, and observer probe coverage can run against that corpus without relying on ad hoc manual SQL extraction each time
+    - **Verification approach**: inner — fixture normalization tests for captured sessions. Middle — differential observer probes against the curated corpus plus structural round-trip checks. Outer — manual review of captured-to-curated fixture quality and ontology fit before promoting new corpus entries.
 
 ## Phase 10: Route Ownership Refactor `done`
 
@@ -236,7 +264,7 @@
     - Evidence: parts.test.ts, client-mutation.test.ts, workspace-loader.test.ts, export-loader.test.ts, InterviewWorkspace.test.tsx, `npm run check` + build green
     - ~~Debt: 3 pre-existing test failures from Phase 10 routing refactor~~ Resolved — 296/296 tests pass as of 2026-04-13
 
-## Phase 11: Routing & Layout Refactor
+## Phase 11: Routing & Layout Refactor `done`
 
 <!-- Phase-based routing with three concentric layout shells (D86, D87).
      Pure client refactor — no server API changes, no LLM behavior changes.
@@ -275,17 +303,11 @@
     - Debt: project index summary page deferred (redirect behavior unchanged); kind/phase filter controls on EntitySidebar deferred; manual browser verification (outer-loop) pending
     - Depends on: 24b
 
-26. **Graph view stub in ViewLayout** `not-started`
-    - ViewLayout's `?view=graph` switch renders a knowledge-graph visualization (project-scoped, optionally phase-filtered)
-    - Initially a structured list/card view grouped by kind with relationship edges, not a full interactive graph canvas
-    - Filter controls: by kind, by phase of capture
-    - Shares entity data from ViewLayout's loader — no additional fetch
-    - Requirements: → SPEC.md §Requirements #5
-    - Decisions: → SPEC.md §Decisions D86
-    - Candidate invariant goals: view switch between chat and graph works via URL search param; graph view renders entity data without additional fetch; phase filtering works
-    - Invariants to respect: I48 (knowledge display), I102 (code splitting — graph view should be a split chunk)
-    - Acceptance: `/project/:id/framing?view=graph` shows knowledge items grouped by kind with relationship indicators; switching `?view=chat` returns to conversation; `npm run verify` green
-    - **Verification approach**: inner — ViewLayout search param validation test; graph view component test. Outer — manual toggle between chat and graph views.
+26. **Graph view stub in ViewLayout** `done`
+    - Shipped: ViewLayout conditionally renders a code-split GraphView when `?view=graph` is active, showing all project entities grouped by kind (8 groups from knowledgeKindRegistry) with inline relationship indicators and kind filter controls; `?view=chat` returns to conversation + EntitySidebar two-column layout
+    - Seam changed: ViewLayout reads `Route.useSearch()` and branches render; GraphView is lazy-loaded via `React.lazy` for code splitting
+    - Evidence: GraphView.test.tsx (5 tests), file-route-interview.test.ts (source-level lazy import assertion), build-boundary.test.ts (graph chunk isolation); 295 tests pass across 39 files; `npm run verify` green
+    - Debt: phase-of-capture filter deferred (EntitiesData lacks per-item phase provenance — A52); interactive graph canvas deferred; manual browser verification (outer-loop) pending
     - Depends on: 25
 
 ## Horizon
@@ -308,19 +330,21 @@
 done ─────────────────────────────────────────────────────────────┐
   Phase 1–7, 10: all complete                                     │
   Ad-hoc: 22 (Zod strip) done                                    │
-  Phase 11: 23, 23a, 24, 24b, 25 done                            │
+  Phase 11: 23, 23a, 24, 24b, 25, 26 done — Phase 11 complete    │
 ──────────────────────────────────────────────────────────────────┘
-Phase 11: 25 ──→ 26 (graph view stub)
 Phase 8:  25 ──→ 15 (edit mode — adapts to new layout)    [stretch]
           15 ──→ 15a (cascade execution + secondary threads) [stretch]
-Phase 9:  14 ──→ 16 (drizzle-kit audit remediation)
+Phase 9:  14 ──→ 14b (port-safe launcher + same-CWD runtime guard)
+          14 ──→ 16 (drizzle-kit audit remediation)
+          11b/11c/14 ──→ 16a (trusted fixture hardening + catalog split)
+          16a ──→ 16b (capture-backed golden fixtures + observer probes)
 Deferred: 25 ──→ 13a (review lifecycle refinement — adapts to per-phase views)
 ```
 
 ### Parallelism opportunities
 
-- **Phase 11 is nearly complete.** 26 (graph view stub) is the only remaining slice. 23, 23a, 24, 24b, 25 are done.
-- 16 (drizzle-kit audit) is independent of Phase 11 and can run in parallel.
+- **Phase 11 is complete.** All slices (23, 23a, 24, 24b, 25, 26) are done.
+- 14b (port-safe launcher + same-CWD runtime guard), 16 (drizzle-kit audit), and 16a (trusted fixture hardening) are independent follow-ons from earlier shipped work and can run in parallel.
+- 16b (capture-backed golden fixtures) is intentionally sequenced after 16a so capture/curation builds on a trusted runtime-shaped fixture pipeline rather than today's permissive manifest seam.
 - 15/15a (knowledge-graph revisit) depend on 25 (done) — edit mode can now adapt to the ViewLayout sidebar or Graph view.
 - 13a (review lifecycle refinement) depends on 25 (done) — review surfaces are now in per-phase routes.
-- 26 (graph view stub) is the least urgent Phase 11 slice and could be deferred if Phase 8 becomes higher priority.

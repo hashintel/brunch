@@ -21,12 +21,17 @@ describe('file-route phase route ownership', () => {
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/route'");
   });
 
-  it('ViewLayout route defines the entity-data loader inline', () => {
+  it('ViewLayout route defines the entity-data loader inline and branches on view search param', () => {
     const viewLayoutSource = readRepoFile('src/client/routes/project/$id/_view/route.tsx');
 
     expect(viewLayoutSource).toContain("createFileRoute('/project/$id/_view')");
     expect(viewLayoutSource).toContain('fetchViewLayoutLoaderData');
     expect(viewLayoutSource).toContain('Outlet');
+
+    // ViewLayout must conditionally render based on the ?view search param
+    expect(viewLayoutSource).toContain("view: z.enum(['chat', 'graph'])");
+    // Graph view must be lazily loaded for code splitting
+    expect(viewLayoutSource).toMatch(/import\(.+graph-view/);
   });
 
   it('keeps phase routes thin — each renders InterviewView via colocated support file', () => {

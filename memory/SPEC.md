@@ -110,6 +110,8 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | A48 | Knowledge graph edges are sufficient for tracing cascade implications when a knowledge item is invalidated or removed — the graph structure captures the meaningful dependency relationships that determine what needs re-resolution | medium | D5, D17, D80 | Knowledge-graph revisit, secondary threads | Validate structurally: cascade from invalidated assumption → affected decisions → affected requirements → affected criteria produces the expected `needs-revisit` set. Outer-loop: manual walkthrough judges whether cascade scope is appropriate (not too broad, not too narrow). |
 | A49 | A modal secondary conversation thread can re-resolve all cascade implications from a knowledge-graph edit without requiring the user to restart the entire interview — the interviewer can meaningfully discuss design-tree implications in isolation from the original conversation flow | medium | D80, D84 | Knowledge-graph revisit, secondary threads | Validate with manual revisit walkthrough: invalidate a mid-graph item, confirm the secondary thread produces coherent re-resolution without losing context from the primary conversation. |
 | A50 | `router.invalidate()` triggered by observer-result data parts provides adequate entity-sidebar update latency (<1s) when the sidebar moves from interview-controller-managed to ViewLayout-loader-managed, replacing the current manual `fetchInterviewEntities` refresh | medium | D22, D87 | 25 per-phase views | Manual test during live interview: compare sidebar update speed with the current manual-fetch approach; if latency exceeds ~1s, restore targeted entity fetch alongside router invalidation. |
+| A51 | Graph view replaces the entire chat+sidebar two-column layout when active — it is not shown alongside EntitySidebar, since it is itself the entity display surface | high | D86 | 26 graph view stub | **Validated** — slice 26 implementation confirmed: ViewLayout conditionally renders GraphView (full content area) or Outlet+EntitySidebar based on `?view` search param. |
+| A52 | Kind-only filtering suffices for graph view V1; phase-of-capture filtering is deferred because `EntitiesData` carries no per-item phase provenance (the `turn_knowledge_item` junction is not exposed in the API) | medium | D86 | 26 graph view stub | **Validated** — structurally confirmed: `knowledgeItemSchema` and `EntitiesData` lack phase fields. Phase filter requires server API enrichment → Horizon. |
 
 ## Decisions
 
@@ -261,7 +263,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | ---- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
 | I100 | `.brunch/` project resolution walks up safely, rejects invalid `.brunch` path shapes early, and resolve-creates-or-finds local storage; packaged launcher/bin startup keeps `npx brunch` executable, preserves API 404s when static assets are mounted, falls back on empty `BRUNCH_DB`, and still resolves drizzle migrations via `import.meta.url` instead of cwd | Slice 14 | project.test.ts, launcher.test.ts, cli.test.ts, runtime-config.test.ts | D10, D81 |
 | I101 | Project mode (greenfield/brownfield) persists through schema, API, and interviewer configuration: brownfield scope gets read-only exploration tools, a scope-only exploration prompt, and a higher step budget; later phases keep their normal prompts; greenfield path is unchanged; server derives cwd from launcher context | Slice 14a | db.test.ts, interview.test.ts, app.test.ts, ProjectList.test.tsx | D32, D82, D83 |
-| I102 | TanStack file-route generation runs through the Vite plugin from `src/client/routes` into the managed `src/client/routeTree.gen.ts` artifact using directory-based nesting under `routes/project/$id/` with a pathless `_view/` layout route; runtime bootstrapping constructs the client router from that generated tree; thin route owners delegate loader/view wiring through ignored colocated support files without degrading route-level code splitting; the dashboard, four phase routes, export, and project index routes nest correctly under three layout shells (AppLayout → ProjectLayout → ViewLayout with EntitySidebar); knowledge route retired in slice 25; and the production build keeps route components split into dynamic route chunks | Route ownership refactor steps 3-9; slice 23 (directory routing); slice 25 (knowledge route retired) | file-route-infra.test.ts, file-route-dashboard.test.ts, file-route-interview.test.ts, file-route-export.test.ts, build-boundary.test.ts, main.test.tsx, router.test.tsx | D85, D86 |
+| I102 | TanStack file-route generation runs through the Vite plugin from `src/client/routes` into the managed `src/client/routeTree.gen.ts` artifact using directory-based nesting under `routes/project/$id/` with a pathless `_view/` layout route; runtime bootstrapping constructs the client router from that generated tree; thin route owners delegate loader/view wiring through ignored colocated support files without degrading route-level code splitting; the dashboard, four phase routes, export, and project index routes nest correctly under three layout shells (AppLayout → ProjectLayout → ViewLayout with EntitySidebar); knowledge route retired in slice 25; GraphView is lazy-loaded via `React.lazy` and lands in its own production chunk separate from ViewLayout (slice 26); and the production build keeps route components split into dynamic route chunks | Route ownership refactor steps 3-9; slice 23 (directory routing); slice 25 (knowledge route retired); slice 26 (graph view code-split) | file-route-infra.test.ts, file-route-dashboard.test.ts, file-route-interview.test.ts, file-route-export.test.ts, build-boundary.test.ts, GraphView.test.tsx, main.test.tsx, router.test.tsx | D85, D86 |
 
 ### Client characterization
 
@@ -287,6 +289,11 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
 | --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
 | I24 | Interview hydration, streaming projection, controller orchestration, mutation transport, and render-lifecycle boundaries remain stable across project entry, same-project refresh, observer-result invalidation via `router.invalidate()`, streamed pending-question cards, and chat submission — including per-phase turn filtering (`filterMessagesByPhase`), phase-transition navigation on close (`getNextActivePhase`), layout-level data loading split where ProjectLayout loads workflow state and ViewLayout loads entity data + EntitySidebar independently; all modules colocated under `routes/project/$id/_view/` with `-interview-` prefix | Slices 6b1, 6c, 6d, 6e, 6f; refactors 1–14; slice 24 (data split); slice 24b (colocation + lexicon); slice 25 (per-phase views + sidebar relocation) | InterviewView.test.tsx, -interview-data.test.ts, -interview-controller.test.tsx, -interview-hydration.test.ts, client-mutation.test.ts, ProjectList.test.tsx, code-block.test.tsx, message.test.tsx, markdown-rendering.test.tsx, capability-boundaries.test.ts, build-boundary.test.ts | D9, D19, D22, D14, D34, D36, D37, D38, D39, D40, D41, D42, D43, D44, D58, D87 |
+
+<!-- Sync 2026-04-13: renamed test files in I24 Protected by to match slice 24b lexicon retirement:
+     InterviewWorkspace.test.tsx → InterviewView.test.tsx, workspace-data.test.ts → -interview-data.test.ts,
+     chat-hydration.test.ts → -interview-hydration.test.ts, workspace-controller.test.tsx → -interview-controller.test.tsx.
+     KnowledgeWorkspace.test.tsx removed (knowledge route retired in slice 25). -->
 
 ### Turn response seam
 
@@ -395,6 +402,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | **knowledge review**   | An explicit per-item review record (`pending`, `approved`, `edited`, `rejected`, `stale`) tied to the mode responsible for closing that item family.                                                                                                                                  |
 | **branch** (verb)      | Fork the turn tree from a given turn, creating a new path and moving HEAD. Analogous to git branch + checkout. Deferred for V1 — revisit operates at the knowledge-graph level instead.                                                                                               |
 | **checkout** (verb)    | Move HEAD to an existing turn on a different branch without creating new turns. Analogous to git checkout. Deferred for V1.                                                                                                                                                           |
+| **graph view**         | A code-split view mode in ViewLayout activated by `?view=graph`. Displays all project entities grouped by kind (8 groups from `knowledgeKindRegistry`) with inline relationship indicators and kind filter controls. Replaces the chat+sidebar two-column layout when active (A51). Phase-of-capture filtering deferred (A52). See D86, D87.                                                                         |
 | **edit mode**          | A modal state in the ViewLayout knowledge sidebar or Graph view where the user can invalidate or remove knowledge items. Exiting edit mode triggers cascade calculation and spawns a secondary thread if items are affected. See D80.                                                                         |
 | **secondary thread**   | A modal conversation thread spawned to re-resolve knowledge graph implications after edit-mode changes. Anchored to the highest turn in the primary conversation associated with affected items. Carries its own turns; knowledge items created here inherit validity from the anchor. See D80, D84. |
 | **needs-revisit**      | Flag on a knowledge item indicating it has been affected by an upstream invalidation/removal and must be resolved (modified, replaced, or confirmed still valid) through a secondary thread before the project can return to a complete state.                                         |
@@ -579,13 +587,14 @@ This projection difference is a deliberate design choice, not an implementation 
 | turn-response.test.ts         | 4     | I44                                                   |
 | main.test.tsx                 | 1     | I15                                                   |
 | router.test.tsx               | 6     | I15, I102                                             |
-| InterviewWorkspace.test.tsx   | 24    | I15, I23, I24, I44, I48, I54, I72                     |
+| InterviewView.test.tsx        | 12    | I15, I23, I24, I44, I48, I54, I72                     |
 | ProjectList.test.tsx          | 4     | I15, I24, I101                                        |
-| workspace-data.test.ts        | 7     | I24, I48, I72                                         |
-| chat-hydration.test.ts        | 2     | I24                                                   |
-| workspace-controller.test.tsx | 6     | I24, I48                                              |
+| -interview-data.test.ts       | 8     | I24, I48, I72                                         |
+| -interview-hydration.test.ts  | 2     | I24                                                   |
+| -interview-controller.test.tsx | 5    | I24, I48                                              |
 | client-mutation.test.ts       | 6     | I24                                                   |
 | EntitySidebar.test.tsx        | 2     | I48, I87                                              |
+| GraphView.test.tsx            | 5     | I48, I102                                             |
 | code-block.test.tsx           | 4     | I24, I26                                              |
 | markdown-rendering.test.tsx   | 3     | I24, I31                                              |
 | message.test.tsx              | 2     | I24, I27                                              |
@@ -593,7 +602,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | capability-boundaries.test.ts | 2     | I24, I29                                              |
 | file-route-infra.test.ts      | 1     | I102                                                  |
 | file-route-dashboard.test.ts  | 1     | I102                                                  |
-| file-route-interview.test.ts  | 1     | I102                                                  |
+| file-route-interview.test.ts  | 3     | I102                                                  |
 | file-route-export.test.ts     | 1     | I102                                                  |
 | project.test.ts               | 10    | I100                                                  |
 | launcher.test.ts              | 3     | I5, I100                                              |

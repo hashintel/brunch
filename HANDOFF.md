@@ -8,110 +8,99 @@ Implement Phase 11 routing & layout refactor — phase-based routing with three 
 
 ## Session State
 
-- **Last completed skills**: `ln-scope` (slice 25), `ln-build` (slice 25), `ln-sync` (post-25)
+- **Last completed skills**: `ln-scope` (slice 26), `ln-build` (slice 26), `ln-review` (Phase 11), `ln-sync` (post-Phase-11)
 - **Current skill**: `ln-handoff`
-- **Flow position**: scope ✓ → build ✓ → sync ✓ — ready for next scope (26)
+- **Flow position**: scope → build → review → sync → handoff — **Phase 11 is complete**
 
 ## In-flight work
 
-### Nothing volatile — all work persisted
+### Slice 26 + docs (uncommitted)
 
-Slice 25 is fully implemented (uncommitted) and traceability is complete. No scope cards, spike verdicts, or design alternatives remain in-flight.
+All slice 26 changes and doc sync updates are in the working tree — **not yet committed**. Commit before starting new work.
 
-### Deferred review findings (carried forward from prior sessions)
+Key changes:
+- **GraphView component**: `-graph-view.tsx` — code-split via `React.lazy`, shows all entities grouped by kind with relationship indicators and kind filter controls
+- **ViewLayout conditional**: `route.tsx` reads `Route.useSearch()`, branches on `?view=chat|graph`; graph replaces chat+sidebar layout entirely (A51)
+- **Tests**: `GraphView.test.tsx` (5 tests), `file-route-interview.test.ts` updated (lazy import assertion), `build-boundary.test.ts` updated (graph chunk isolation)
+- **SPEC.md sync**: A51/A52 validated, coverage table fixed (5 renamed/removed test files from slice 24b/25), "graph view" added to lexicon, I102 updated for graph code-split, I24 test file references updated
+- **PLAN.md sync**: slice 26 marked done, Phase 11 marked done, dependency graph updated
 
-| # | Finding | Status | Implications |
-|---|---|---|---|
-| 2 | Redundant API call in project index redirect | `deferred` | Project index route still fetches its own ProjectState; deferred debt from slice 24 |
-| 3 | `phaseRedirectTargets` in index.tsx duplicates `phaseRouteSegments` in phase-routes.ts | `deferred` | TypeScript route type safety forces the duplication |
-| 4 | `RouteRoot` name is a holdover (now conceptually AppLayout) | `deferred` | Low impact; rename when AppLayout gets richer content |
-| 6 | Outer-loop manual browser verification pending | `deferred` | All inner/middle oracles pass; do before slice 26 starts |
+### Review findings (Phase 11 completion review — all deferred)
+
+| # | Finding | Category | Impact | Status | Notes |
+|---|---------|----------|--------|--------|-------|
+| 1 | Design-prototype components (app-shell.tsx, knowledge-card.tsx) only consumed by Ladle stories | coupling | medium | `deferred` | Initially assessed as dead code; user corrected — stories are design references, not dead code. Refactor plan scrapped. |
+| 2 | `RouteRoot` naming holdover (should be `AppLayout` per lexicon) | naming | low | `deferred` | Not a TanStack convention — local name. Cosmetic. |
+| 3 | Project index redundant API fetch for redirect | depth | low | `deferred` | Architectural limitation of TanStack Router redirect-from-loader pattern |
+| 4 | `phaseRedirectTargets` duplicates `phaseRouteSegments` | coupling | low | `deferred` | Forced by TypeScript route type safety — no fix available |
+| 5 | Entity card rendering in 3 places (EntitySidebar, GraphView, dormant knowledge-card) | depth | low | `deferred` | Premature to consolidate — two production renderers serve different UI contexts. Extract if Phase 8 adds a third surface. |
+| 6 | No outer-loop manual browser verification for slices 24, 25, 26 | oracle-coverage | medium | `deferred` | Inner-loop tests cover structural correctness. Manual browser verification should happen before Phase 8 work begins. |
+
+### Scrapped refactor plan
+
+A `memory/REFACTOR.md` was created to coordinate findings 1, 2, and 5. It was scrapped after the user correctly pointed out that finding 1 was wrong (stories are design references) and the remaining findings were too low-impact. The file was deleted.
 
 ### Pre-existing test failure
 
-`src/server/app.test.ts` > `GET /api/projects` > `returns workflow summary reflecting closed scope and in-progress design` — this failure exists on baseline (confirmed in prior session). Not introduced by slice 25.
-
-### Slice 25 changes (uncommitted)
-
-All slice 25 changes are in the working tree — **not yet committed**. Commit before starting new work.
-
-Key structural changes:
-- **Per-phase turn filtering**: `filterMessagesByPhase` + `buildPhaseTurnIds` in `-interview-controller-core.ts`; controller accepts `phase: WorkflowPhase` parameter
-- **Phase-transition navigation**: `getNextActivePhase` in `phase-routes.ts`; `useEffect` in controller navigates on close
-- **EntitySidebar to ViewLayout**: `ResizablePanelGroup` moved from InterviewView to ViewLayout `route.tsx`; EntitySidebar accepts `EntitiesData` directly (no `isLoading`)
-- **Observer-result sync simplified**: interview-data adapter calls `router.invalidate()` on observer-result data parts instead of manual entity fetch
-- **Knowledge route retired**: `knowledge.tsx`, `-knowledge-view.tsx` deleted; `KnowledgeView.test.tsx`, `file-route-knowledge.test.ts` deleted
-- **InterviewView header removed**: workflow badges, Projects/Knowledge links removed (superseded by AppLayout + PhaseNavigationSidebar)
-- **Phase route wrappers**: each phase route wraps InterviewView with explicit phase prop
-
-### Responsive layout design (carried forward — volatile)
-
-Three concentric layout shells, each owning its own responsive behavior:
-
-**AppLayout** (`__root.tsx`) — Fixed top bar (h-14). Already implemented.
-
-**ProjectLayout** (`project/$id/route.tsx`) — **Wide**: vertical left sidebar (w-60) with `PhaseNavigationSidebar`. Implemented. **Narrow**: sidebar promotes to horizontal bar. NOT YET IMPLEMENTED.
-
-**ViewLayout** (`project/$id/_view/route.tsx`) — **Wide**: two columns (main + resizable right sidebar with EntitySidebar). Implemented in slice 25. **Narrow**: right panel hides, segmented control toggles. NOT YET IMPLEMENTED.
+The `src/server/app.test.ts` failure noted in the previous handoff appears to be transient — it passed on re-run during this session. Monitor but no action needed.
 
 ## Decisions and assumptions
 
 | Item | Type | Status | Source |
 |---|---|---|---|
-| Per-phase filtering is client-side from full ProjectState; per-phase server endpoints are Horizon | decision | persisted | PLAN.md §Horizon |
-| `router.invalidate()` replaces manual entity fetch for observer-result sync (D22 updated) | decision | persisted | SPEC.md §Decisions D22, PLAN.md slice 25 |
-| A50: router.invalidate() provides adequate entity-sidebar latency during streaming | assumption | persisted (unvalidated) | SPEC.md §Assumptions A50 |
-| Project index summary page deferred (redirect behavior unchanged) | decision | volatile | Slice 25 scope card deferral |
-| Kind/phase filter controls on EntitySidebar deferred | decision | volatile | Slice 25 scope card deferral |
+| A51: Graph view replaces the entire chat+sidebar layout when active | assumption | validated | SPEC.md §Assumptions |
+| A52: Kind-only filtering suffices for graph view V1; phase-of-capture filter deferred | assumption | validated | SPEC.md §Assumptions |
+| Phase 11 complete — all 6 slices (23, 23a, 24, 24b, 25, 26) done | milestone | persisted | PLAN.md |
 
 ## Repo state
 
 - **Branch**: `ln/fe-581-e2e-manual-refine-1`
-- **Recent commits** (slice 25 is NOT committed yet):
+- **Recent commits**:
+  - `5a5b4f0` — feat: harden trusted fixture seeding
+  - `0bc8d18` — patterns ported from brunch-ui, group 1
+  - `a17106c` — refactor: slice 25 + sync docs
   - `0403005` — docs: handoff after slice 24b completion
-  - `6ebae0a` — docs: sync SPEC.md and PLAN.md after slice 24b lexicon retirement
-  - `572aaa8` — docs: mark slice 24b done, update interview seam invariant
-  - `6fbfd5a` — refactor: move shared workspace modules to interview lexicon
-- **Dirty files**: 29 modified, 3 deleted, 2 untracked (all slice 25 work + docs)
-- **Test status**: 290 tests pass across 38 files; `npm run verify` green (check + test + build all pass)
+- **Dirty files**: 5 modified, 2 untracked (all slice 26 work + docs sync + 1 user-modified story file)
+- **Test status**: 301 tests pass across 40 files; `npm run verify` green (295 at time of verify; 301 including user's fixture test additions)
 
 ## Artifact status
 
 | Artifact | Exists | Current vs conversation |
 |---|---|---|
-| memory/SPEC.md | yes | current — D22 updated, I15/I24/I102 updated for slice 25, A50 added, verification coverage updated, lexicon "edit mode" updated |
-| memory/PLAN.md | yes | current — slice 25 marked done, dependency graph updated, parallelism updated, slices 13a/15 descriptions refreshed |
-| memory/REFACTOR.md | no | n/a |
+| memory/SPEC.md | yes | current — A51/A52 validated, coverage table fixed, "graph view" lexicon entry added, I102/I24 updated |
+| memory/PLAN.md | yes | current — slice 26 done, Phase 11 marked done, dependency graph updated |
+| memory/REFACTOR.md | no | deleted (scrapped refactor plan) |
 
 ## Next steps
 
-1. **Commit slice 25** — all changes are in the working tree, verified, ready to commit
-2. **Manual browser verification** — deferred review finding #6; do before slice 26 starts
-3. **`/ln-scope` for slice 26** — Graph view stub in ViewLayout (`?view=graph` switch, knowledge items grouped by kind, shares entity data from ViewLayout loader)
-4. **`/ln-build` for slice 26** — The last Phase 11 slice
+1. **Commit slice 26 + docs** — all changes in working tree, verified, ready to commit
+2. **Manual browser verification** — deferred review finding #6; do before Phase 8 starts
+3. **Prioritize next phase** — run `/ln-plan` or `/ln-consult` to decide between:
+   - Phase 8: slice 15 (edit mode + cascade preview) — stretch goal, adapts to ViewLayout/GraphView
+   - Phase 9: slice 14b (port-safe launcher), slice 16 (drizzle audit), slice 16a (fixture hardening)
+   - Deferred: slice 13a (review lifecycle refinement)
 
 ## Open questions
 
-- **A50 validation**: Does `router.invalidate()` provide adequate entity-sidebar update latency during streaming? Manual test needed.
-- **ProjectLayout narrow breakpoint**: at what width does the sidebar promote to a horizontal bar? No specific pixel value discussed.
-- **Project index summary page**: deferred from slice 25. Should it come as a polish slice or fold into slice 26?
-- **Phase 11 completion**: After slice 26, Phase 11 is done. Next priority: Phase 8 (knowledge-graph revisit), Phase 9 (drizzle audit), or deferred slice 13a (review lifecycle refinement)?
+- **Phase 8 vs Phase 9 priority**: Phase 8 (knowledge-graph revisit) is a stretch goal. Phase 9 (post-distribution hardening) is practical but less user-facing. No urgency signal either way.
+- **Entity card consolidation trigger**: If Phase 8 slice 15 adds a third entity display surface (edit mode cascade preview), extract a shared entity card component first.
+- **A50 validation**: `router.invalidate()` entity-sidebar latency still unvalidated by manual testing.
 
 ## Resume prompt
 
 ```
-Read HANDOFF.md, then memory/PLAN.md §Phase 11 slice 26.
+Read HANDOFF.md. Phase 11 is complete.
 
-First: commit slice 25 changes (all in working tree, verified).
-Then: run /ln-scope for slice 26 (graph view stub in ViewLayout).
+First: commit slice 26 + doc sync changes (all in working tree, verified).
+Then: decide next phase — run /ln-consult or /ln-plan.
 
-Key context: slice 25 moved EntitySidebar from InterviewView
-into ViewLayout's ResizablePanelGroup. ViewLayout already validates
-?view=chat|graph via search params. The graph view shares entity
-data from ViewLayout's loader — no additional fetch needed.
-Phase routes pass explicit phase props to InterviewView.
+Key context: Phase 11 shipped 6 slices building directory-based
+routing, three layout shells, per-phase conversation views, and a
+code-split graph view. All unblocked next work streams are in
+PLAN.md §Dependencies. Review finding #6 (manual browser
+verification) should happen before Phase 8 starts.
 ```
 
 ## Blockers
 
-None. Slice 26 is unblocked.
+None. Multiple next steps are unblocked.
