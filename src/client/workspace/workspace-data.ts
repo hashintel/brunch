@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import type { EntitiesData, Project } from '@/shared/api-types.js';
+import type { EntitiesData, Project, ProjectState } from '@/shared/api-types.js';
 
 import {
   createWorkspaceDurableEntityState,
@@ -12,7 +12,6 @@ import type {
   WorkspaceDurableProjectState,
   WorkspaceEphemeralChatState,
 } from './workspace-controller-core.js';
-import type { WorkspaceLoaderData } from './workspace-loader.js';
 
 export interface WorkspaceDataAdapter {
   readonly durableProject: WorkspaceDurableProjectState;
@@ -52,35 +51,30 @@ function getActiveWorkspaceEntityRefreshState(
 }
 
 export function useWorkspaceDataAdapter(
-  workspaceLoaderData: WorkspaceLoaderData,
+  projectState: ProjectState,
+  entitySnapshot: EntitiesData,
   projectId: Project['id'],
 ): WorkspaceDataAdapter {
   const [entityRefreshState, setEntityRefreshState] = useState<WorkspaceEntityRefreshState>({
-    loaderSnapshot: workspaceLoaderData.entitySnapshot,
+    loaderSnapshot: entitySnapshot,
     data: undefined,
     isLoading: false,
   });
-  const activeEntityRefreshState = getActiveWorkspaceEntityRefreshState(
-    workspaceLoaderData.entitySnapshot,
-    entityRefreshState,
-  );
+  const activeEntityRefreshState = getActiveWorkspaceEntityRefreshState(entitySnapshot, entityRefreshState);
 
-  const durableProject = useMemo(
-    () => createWorkspaceDurableProjectState(workspaceLoaderData.projectState),
-    [workspaceLoaderData.projectState],
-  );
+  const durableProject = useMemo(() => createWorkspaceDurableProjectState(projectState), [projectState]);
   const durableEntities = useMemo(
     () =>
       createWorkspaceDurableEntityState(
-        workspaceLoaderData.entitySnapshot,
+        entitySnapshot,
         activeEntityRefreshState.data,
         activeEntityRefreshState.isLoading,
       ),
-    [activeEntityRefreshState.data, activeEntityRefreshState.isLoading, workspaceLoaderData.entitySnapshot],
+    [activeEntityRefreshState.data, activeEntityRefreshState.isLoading, entitySnapshot],
   );
   const ephemeralChat = useMemo(
-    () => createWorkspaceEphemeralChatState(workspaceLoaderData.projectState),
-    [workspaceLoaderData.projectState.project.id],
+    () => createWorkspaceEphemeralChatState(projectState),
+    [projectState.project.id],
   );
   const handleDataPart = useCallback(
     (dataPart: { type: string; data?: unknown }) => {
@@ -90,10 +84,10 @@ export function useWorkspaceDataAdapter(
 
       void (async () => {
         setEntityRefreshState((currentState) =>
-          currentState.loaderSnapshot === workspaceLoaderData.entitySnapshot
+          currentState.loaderSnapshot === entitySnapshot
             ? { ...currentState, isLoading: true }
             : {
-                loaderSnapshot: workspaceLoaderData.entitySnapshot,
+                loaderSnapshot: entitySnapshot,
                 data: undefined,
                 isLoading: true,
               },
@@ -102,9 +96,9 @@ export function useWorkspaceDataAdapter(
         try {
           const refreshedEntities = await fetchWorkspaceEntities(projectId);
           setEntityRefreshState((currentState) =>
-            currentState.loaderSnapshot === workspaceLoaderData.entitySnapshot
+            currentState.loaderSnapshot === entitySnapshot
               ? {
-                  loaderSnapshot: workspaceLoaderData.entitySnapshot,
+                  loaderSnapshot: entitySnapshot,
                   data: refreshedEntities,
                   isLoading: false,
                 }
@@ -112,14 +106,14 @@ export function useWorkspaceDataAdapter(
           );
         } catch {
           setEntityRefreshState((currentState) =>
-            currentState.loaderSnapshot === workspaceLoaderData.entitySnapshot
+            currentState.loaderSnapshot === entitySnapshot
               ? { ...currentState, isLoading: false }
               : currentState,
           );
         }
       })();
     },
-    [projectId, workspaceLoaderData.entitySnapshot],
+    [projectId, entitySnapshot],
   );
 
   return {

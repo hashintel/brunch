@@ -1,15 +1,21 @@
-import { Outlet, createFileRoute } from '@tanstack/react-router';
+import { Outlet, createFileRoute, useLoaderData, useParams } from '@tanstack/react-router';
 
+import { PhaseNavigationSidebar } from '../../../components/phase-navigation-sidebar.js';
 import { InterviewWorkspaceSkeleton } from '../../../components/route-skeletons.js';
-import { fetchInterviewWorkspaceLoaderData } from '../../../workspace/workspace-loader.js';
+import { fetchProjectLayoutLoaderData } from '../../../workspace/workspace-loader.js';
 
 export const Route = createFileRoute('/project/$id')({
-  loader: ({ params }) => fetchInterviewWorkspaceLoaderData(params.id),
+  loader: ({ params }) => fetchProjectLayoutLoaderData(params.id),
   pendingComponent: InterviewWorkspaceSkeleton,
   component: function ProjectLayout() {
+    const projectState = useLoaderData({ from: '/project/$id' });
+    const { id } = useParams({ from: '/project/$id' });
     return (
       <div className="flex h-full">
-        <Outlet />
+        <PhaseNavigationSidebar projectId={id} workflow={projectState.workflow} />
+        <div className="flex-1 overflow-hidden">
+          <Outlet />
+        </div>
       </div>
     );
   },

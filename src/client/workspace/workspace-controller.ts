@@ -65,11 +65,12 @@ export interface WorkspaceController {
 }
 
 export function useWorkspaceController(): WorkspaceController {
-  const workspaceLoaderData = useLoaderData({ from: '/project/$id' });
+  const projectState = useLoaderData({ from: '/project/$id' });
+  const entitySnapshot = useLoaderData({ from: '/project/$id/_view' });
   const router = useRouter();
-  const projectId = workspaceLoaderData.projectState.project.id;
+  const projectId = projectState.project.id;
 
-  const workspaceData = useWorkspaceDataAdapter(workspaceLoaderData, projectId);
+  const workspaceData = useWorkspaceDataAdapter(projectState, entitySnapshot, projectId);
   const { durableProject, durableEntities, ephemeralChat, handleDataPart } = workspaceData;
 
   const transport = useMemo(

@@ -1,10 +1,5 @@
 import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
 
-export interface WorkspaceLoaderData {
-  readonly projectState: ProjectState;
-  readonly entitySnapshot: EntitiesData;
-}
-
 export interface KnowledgeWorkspaceLoaderData {
   readonly entitySnapshot: EntitiesData;
 }
@@ -22,18 +17,14 @@ function getEntitiesUrl(projectId: string): string {
   return `/api/projects/${projectId}/entities?mode=active-path`;
 }
 
-async function fetchWorkflowDetailLoaderData(projectId: string): Promise<WorkspaceLoaderData> {
-  const id = projectId;
-  const [projectState, entitySnapshot] = await Promise.all([
-    fetchJson<ProjectState>(`/api/projects/${id}`, 'Failed to load project'),
-    fetchJson<EntitiesData>(getEntitiesUrl(id), 'Failed to load project entities'),
-  ]);
-
-  return { projectState, entitySnapshot };
+/** ProjectLayout loader — fetches workflow state only. */
+export async function fetchProjectLayoutLoaderData(projectId: string): Promise<ProjectState> {
+  return fetchJson<ProjectState>(`/api/projects/${projectId}`, 'Failed to load project');
 }
 
-export async function fetchInterviewWorkspaceLoaderData(projectId: string): Promise<WorkspaceLoaderData> {
-  return fetchWorkflowDetailLoaderData(projectId);
+/** ViewLayout loader — fetches entity snapshot only. */
+export async function fetchViewLayoutLoaderData(projectId: string): Promise<EntitiesData> {
+  return fetchJson<EntitiesData>(getEntitiesUrl(projectId), 'Failed to load project entities');
 }
 
 export async function fetchKnowledgeWorkspaceLoaderData(

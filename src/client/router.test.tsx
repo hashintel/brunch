@@ -6,7 +6,8 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 const routeHarness = vi.hoisted(() => ({
-  fetchInterviewWorkspaceLoaderData: vi.fn(async (id: string) => ({ id, kind: 'interview' })),
+  fetchProjectLayoutLoaderData: vi.fn(async (id: string) => ({ id, kind: 'project' })),
+  fetchViewLayoutLoaderData: vi.fn(async (id: string) => ({ id, kind: 'entities' })),
   fetchKnowledgeWorkspaceLoaderData: vi.fn(async (id: string) => ({ id, kind: 'knowledge' })),
 }));
 const fetchMock = vi.fn<typeof fetch>();
@@ -14,6 +15,10 @@ const fetchMock = vi.fn<typeof fetch>();
 vi.mock('./components/route-skeletons.js', () => ({
   InterviewWorkspaceSkeleton: () => <div>Interview loading</div>,
   KnowledgeWorkspaceSkeleton: () => <div>Knowledge loading</div>,
+}));
+
+vi.mock('./components/phase-navigation-sidebar.js', () => ({
+  PhaseNavigationSidebar: () => <nav data-testid="phase-sidebar">Phase sidebar</nav>,
 }));
 
 vi.mock('./screens/ProjectListScreen.js', () => ({
@@ -33,7 +38,8 @@ vi.mock('./screens/KnowledgeWorkspaceScreen.js', () => ({
 }));
 
 vi.mock('./workspace/workspace-loader.js', () => ({
-  fetchInterviewWorkspaceLoaderData: routeHarness.fetchInterviewWorkspaceLoaderData,
+  fetchProjectLayoutLoaderData: routeHarness.fetchProjectLayoutLoaderData,
+  fetchViewLayoutLoaderData: routeHarness.fetchViewLayoutLoaderData,
   fetchKnowledgeWorkspaceLoaderData: routeHarness.fetchKnowledgeWorkspaceLoaderData,
 }));
 
@@ -69,7 +75,8 @@ async function renderRouteAt(pathname: string) {
 
 beforeEach(() => {
   fetchMock.mockReset();
-  routeHarness.fetchInterviewWorkspaceLoaderData.mockClear();
+  routeHarness.fetchProjectLayoutLoaderData.mockClear();
+  routeHarness.fetchViewLayoutLoaderData.mockClear();
   routeHarness.fetchKnowledgeWorkspaceLoaderData.mockClear();
   fetchMock.mockImplementation(async (input) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
@@ -110,37 +117,42 @@ describe('generated routeTree', () => {
     });
   });
 
-  it('maps the framing phase URL to the interview workspace screen', async () => {
+  it('maps the framing phase URL to the interview workspace screen with sidebar', async () => {
     await renderRouteAt('/project/42/framing');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-    expect(routeHarness.fetchInterviewWorkspaceLoaderData).toHaveBeenCalledWith('42');
+    expect(screen.getByTestId('phase-sidebar')).toBeTruthy();
+    expect(routeHarness.fetchProjectLayoutLoaderData).toHaveBeenCalledWith('42');
+    expect(routeHarness.fetchViewLayoutLoaderData).toHaveBeenCalledWith('42');
   });
 
   it('maps the elicitation phase URL to the interview workspace screen', async () => {
     await renderRouteAt('/project/42/elicitation');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-    expect(routeHarness.fetchInterviewWorkspaceLoaderData).toHaveBeenCalledWith('42');
+    expect(routeHarness.fetchProjectLayoutLoaderData).toHaveBeenCalledWith('42');
+    expect(routeHarness.fetchViewLayoutLoaderData).toHaveBeenCalledWith('42');
   });
 
   it('maps the requirements-review phase URL to the interview workspace screen', async () => {
     await renderRouteAt('/project/42/requirements-review');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-    expect(routeHarness.fetchInterviewWorkspaceLoaderData).toHaveBeenCalledWith('42');
+    expect(routeHarness.fetchProjectLayoutLoaderData).toHaveBeenCalledWith('42');
+    expect(routeHarness.fetchViewLayoutLoaderData).toHaveBeenCalledWith('42');
   });
 
   it('maps the acceptance-review phase URL to the interview workspace screen', async () => {
     await renderRouteAt('/project/42/acceptance-review');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-    expect(routeHarness.fetchInterviewWorkspaceLoaderData).toHaveBeenCalledWith('42');
+    expect(routeHarness.fetchProjectLayoutLoaderData).toHaveBeenCalledWith('42');
+    expect(routeHarness.fetchViewLayoutLoaderData).toHaveBeenCalledWith('42');
   });
 
   it('keeps the interview workspace pending skeleton active while the route loader is unresolved', async () => {
     const deferredLoader = createDeferredPromise<{ id: string; kind: string }>();
-    routeHarness.fetchInterviewWorkspaceLoaderData.mockImplementationOnce(() => deferredLoader.promise);
+    routeHarness.fetchProjectLayoutLoaderData.mockImplementationOnce(() => deferredLoader.promise);
 
     const history = createMemoryHistory({ initialEntries: ['/project/42/framing'] });
     const router = createRouter({ routeTree, history, defaultPendingMs: 0 });
@@ -149,10 +161,10 @@ describe('generated routeTree', () => {
     void router.load();
 
     expect(await screen.findByText('Interview loading')).toBeTruthy();
-    expect(routeHarness.fetchInterviewWorkspaceLoaderData).toHaveBeenCalledWith('42');
+    expect(routeHarness.fetchProjectLayoutLoaderData).toHaveBeenCalledWith('42');
 
     await act(async () => {
-      deferredLoader.resolve({ id: '42', kind: 'interview' });
+      deferredLoader.resolve({ id: '42', kind: 'project' });
     });
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();

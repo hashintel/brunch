@@ -8,7 +8,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 
-import type { WorkspaceLoaderData } from '../../../../workspace/workspace-loader.js';
 import { InterviewWorkspace } from './-interview-workspace.js';
 
 function createPendingQuestionMessage(): BrunchUIMessage {
@@ -50,7 +49,8 @@ type UseChatHarness = {
   onFinish?: UseChatOptions['onFinish'];
 };
 
-let currentLoaderData: WorkspaceLoaderData;
+let currentProjectState: ProjectState;
+let currentEntitySnapshot: EntitiesData;
 const routerInvalidate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 let useChatImpl: (options: UseChatOptions) => {
@@ -83,7 +83,11 @@ vi.mock('@tanstack/react-router', () => ({
       {children}
     </a>
   ),
-  useLoaderData: () => currentLoaderData,
+  useLoaderData: ({ from }: { from: string }) => {
+    if (from === '/project/$id') return currentProjectState;
+    if (from === '/project/$id/_view') return currentEntitySnapshot;
+    throw new Error(`Unexpected useLoaderData from: ${from}`);
+  },
   useRouter: () => ({ invalidate: routerInvalidate }),
 }));
 
@@ -264,7 +268,7 @@ function createWorkspaceLoaderData({
   workflow?: ProjectState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
   entitySnapshot?: EntitiesData;
-} = {}): WorkspaceLoaderData {
+} = {}): { projectState: ProjectState; entitySnapshot: EntitiesData } {
   return {
     projectState: createProjectState({
       projectId,
@@ -277,6 +281,11 @@ function createWorkspaceLoaderData({
     }),
     entitySnapshot,
   };
+}
+
+function setLoaderData(data: { projectState: ProjectState; entitySnapshot: EntitiesData }) {
+  currentProjectState = data.projectState;
+  currentEntitySnapshot = data.entitySnapshot;
 }
 
 function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'ready'): (
@@ -352,7 +361,7 @@ function renderWorkspace() {
 }
 
 beforeEach(() => {
-  currentLoaderData = createWorkspaceLoaderData();
+  setLoaderData(createWorkspaceLoaderData());
   routerInvalidate.mockClear();
   fetchMock.mockReset();
   useChatImpl = createUseChatHarness();
@@ -373,10 +382,12 @@ describe('InterviewWorkspace', () => {
   });
 
   it('renders the turn card from a pending-question tool part before route invalidation', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      assistantText: 'Earlier question?',
-      answer: 'Earlier answer',
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Earlier question?',
+        answer: 'Earlier answer',
+      }),
+    );
     useChatImpl = createUseChatHarness('streaming');
 
     renderWorkspace();
@@ -403,26 +414,28 @@ describe('InterviewWorkspace', () => {
   });
 
   it('hydrates transcript and sidebar state from the route loader without a post-mount entity fetch', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [
-          {
-            id: 7,
-            project_id: 1,
-            content: 'Start with the web app',
-            rationale: 'Fastest launch path',
-          },
-        ],
-        assumptions: [],
-        relationships: [],
-      },
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        entitySnapshot: {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [
+            {
+              id: 7,
+              project_id: 1,
+              content: 'Start with the web app',
+              rationale: 'Fastest launch path',
+            },
+          ],
+          assumptions: [],
+          relationships: [],
+        },
+      }),
+    );
 
     renderWorkspace();
 
@@ -433,46 +446,50 @@ describe('InterviewWorkspace', () => {
   });
 
   it('refreshes durable loader-owned state for the same project without rewriting the live transcript', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [],
-        assumptions: [],
-        relationships: [],
-      },
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        entitySnapshot: {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+          relationships: [],
+        },
+      }),
+    );
 
     const rendered = renderWorkspace();
     expect(await screen.findByText('What should we build first?')).toBeTruthy();
     expect(screen.getByText("No decisions yet. They'll appear as the interview progresses.")).toBeTruthy();
 
-    currentLoaderData = createWorkspaceLoaderData({
-      assistantText: 'Which platform should we target now?',
-      answer: 'Ship the desktop app',
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [
-          {
-            id: 8,
-            project_id: 1,
-            content: 'Prefer the desktop app',
-            rationale: 'Matches the updated brief',
-          },
-        ],
-        assumptions: [],
-        relationships: [],
-      },
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Which platform should we target now?',
+        answer: 'Ship the desktop app',
+        entitySnapshot: {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [
+            {
+              id: 8,
+              project_id: 1,
+              content: 'Prefer the desktop app',
+              rationale: 'Matches the updated brief',
+            },
+          ],
+          assumptions: [],
+          relationships: [],
+        },
+      }),
+    );
     rendered.rerender(
       <QueryClientProvider client={rendered.queryClient}>
         <InterviewWorkspace />
@@ -493,22 +510,24 @@ describe('InterviewWorkspace', () => {
     const rendered = renderWorkspace();
     expect(await screen.findByText('What should we build first?')).toBeTruthy();
 
-    currentLoaderData = createWorkspaceLoaderData({
-      projectId: 2,
-      assistantText: 'How should project two start?',
-      answer: 'Begin with the API',
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [],
-        assumptions: [],
-        relationships: [],
-      },
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        projectId: 2,
+        assistantText: 'How should project two start?',
+        answer: 'Begin with the API',
+        entitySnapshot: {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+          relationships: [],
+        },
+      }),
+    );
     rendered.rerender(
       <QueryClientProvider client={rendered.queryClient}>
         <InterviewWorkspace />
@@ -524,68 +543,70 @@ describe('InterviewWorkspace', () => {
   });
 
   it('renders remaining generic knowledge kinds in the sidebar without regressing existing tabs', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [
-          {
-            id: 9,
-            project_id: 1,
-            kind: 'context',
-            subtype: null,
-            content: 'The tool starts from an ambiguous brief',
-            rationale: null,
-          },
-        ],
-        constraints: [
-          {
-            id: 10,
-            project_id: 1,
-            kind: 'constraint',
-            subtype: 'non-goal',
-            content: 'Keep setup instant',
-            rationale: 'Avoid a heavyweight launcher',
-          },
-        ],
-        requirements: [
-          {
-            id: 11,
-            project_id: 1,
-            kind: 'requirement',
-            subtype: null,
-            content: 'Resume interviews after browser restart',
-            rationale: 'People leave mid-session',
-          },
-        ],
-        criteria: [
-          {
-            id: 12,
-            project_id: 1,
-            kind: 'criterion',
-            subtype: 'acceptance',
-            content: 'Restoring the project shows the active path',
-            rationale: 'Protects the persistence seam',
-          },
-        ],
-        decisions: [
-          {
-            id: 7,
-            project_id: 1,
-            content: 'Start with the web app',
-            rationale: 'Fastest launch path',
-          },
-        ],
-        assumptions: [{ id: 5, project_id: 1, content: 'Users arrive with a concrete goal' }],
-        relationships: [
-          {
-            type: 'depends_on',
-            source: { collection: 'decision', kind: 'decision', id: 7 },
-            target: { collection: 'assumption', kind: 'assumption', id: 5 },
-          },
-        ],
-      } as EntitiesData,
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        entitySnapshot: {
+          goals: [],
+          terms: [],
+          contexts: [
+            {
+              id: 9,
+              project_id: 1,
+              kind: 'context',
+              subtype: null,
+              content: 'The tool starts from an ambiguous brief',
+              rationale: null,
+            },
+          ],
+          constraints: [
+            {
+              id: 10,
+              project_id: 1,
+              kind: 'constraint',
+              subtype: 'non-goal',
+              content: 'Keep setup instant',
+              rationale: 'Avoid a heavyweight launcher',
+            },
+          ],
+          requirements: [
+            {
+              id: 11,
+              project_id: 1,
+              kind: 'requirement',
+              subtype: null,
+              content: 'Resume interviews after browser restart',
+              rationale: 'People leave mid-session',
+            },
+          ],
+          criteria: [
+            {
+              id: 12,
+              project_id: 1,
+              kind: 'criterion',
+              subtype: 'acceptance',
+              content: 'Restoring the project shows the active path',
+              rationale: 'Protects the persistence seam',
+            },
+          ],
+          decisions: [
+            {
+              id: 7,
+              project_id: 1,
+              content: 'Start with the web app',
+              rationale: 'Fastest launch path',
+            },
+          ],
+          assumptions: [{ id: 5, project_id: 1, content: 'Users arrive with a concrete goal' }],
+          relationships: [
+            {
+              type: 'depends_on',
+              source: { collection: 'decision', kind: 'decision', id: 7 },
+              target: { collection: 'assumption', kind: 'assumption', id: 5 },
+            },
+          ],
+        } as EntitiesData,
+      }),
+    );
 
     renderWorkspace();
 
@@ -610,19 +631,21 @@ describe('InterviewWorkspace', () => {
   });
 
   it('refetches sidebar entities when the chat stream emits observer-created constraints', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [],
-        assumptions: [],
-        relationships: [],
-      },
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        entitySnapshot: {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+          relationships: [],
+        },
+      }),
+    );
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -695,26 +718,28 @@ describe('InterviewWorkspace', () => {
   });
 
   it('ignores failed entity refresh requests and keeps the loader snapshot visible', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [
-          {
-            id: 9,
-            project_id: 1,
-            content: 'Loader decision',
-            rationale: 'Still authoritative when refresh fetch fails',
-          },
-        ],
-        assumptions: [],
-        relationships: [],
-      },
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        entitySnapshot: {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [
+            {
+              id: 9,
+              project_id: 1,
+              content: 'Loader decision',
+              rationale: 'Still authoritative when refresh fetch fails',
+            },
+          ],
+          assumptions: [],
+          relationships: [],
+        },
+      }),
+    );
     fetchMock.mockResolvedValueOnce(new Response('server error', { status: 500 }));
 
     renderWorkspace();
@@ -746,19 +771,21 @@ describe('InterviewWorkspace', () => {
   });
 
   it('refetches sidebar entities when the chat stream emits mixed observer-created design entities', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [],
-        assumptions: [],
-        relationships: [],
-      },
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        entitySnapshot: {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+          relationships: [],
+        },
+      }),
+    );
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -853,19 +880,21 @@ describe('InterviewWorkspace', () => {
   });
 
   it('refetches sidebar entities when the chat stream emits observer-created requirements', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [],
-        assumptions: [],
-        relationships: [],
-      },
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        entitySnapshot: {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+          relationships: [],
+        },
+      }),
+    );
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -927,19 +956,21 @@ describe('InterviewWorkspace', () => {
   });
 
   it('refetches sidebar entities when the chat stream emits observer-created criteria', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [],
-        assumptions: [],
-        relationships: [],
-      },
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        entitySnapshot: {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+          relationships: [],
+        },
+      }),
+    );
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -1001,12 +1032,14 @@ describe('InterviewWorkspace', () => {
   });
 
   it('posts single-option turn responses with optional free-text and forwards a combined summary into chat', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      options: [
-        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
-        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
-      ],
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -1046,13 +1079,15 @@ describe('InterviewWorkspace', () => {
   });
 
   it('posts many-selection turn responses and forwards a grouped summary into chat', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      options: [
-        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
-        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
-        { id: 13, position: 2, content: 'Mobile', is_recommended: false, is_selected: false },
-      ],
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+          { id: 13, position: 2, content: 'Mobile', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -1094,60 +1129,62 @@ describe('InterviewWorkspace', () => {
   });
 
   it('submits scope-closure confirmations through chat with typed confirmation parts', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      assistantText: '',
-      answer: 'We have enough scope context',
-      workflow: {
-        phases: {
-          scope: {
-            status: 'in_progress',
-            closeability: true,
-            readiness: 'medium',
-            closureBasis: null,
-            proposalPending: true,
-            turnId: 1,
-            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: '',
+        answer: 'We have enough scope context',
+        workflow: {
+          phases: {
+            scope: {
+              status: 'in_progress',
+              closeability: true,
+              readiness: 'medium',
+              closureBasis: null,
+              proposalPending: true,
+              turnId: 1,
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
           },
-          design: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
+        } as any,
+        assistantParts: [
+          {
+            type: 'data-phase-summary',
+            data: {
+              turnId: 1,
+              phase: 'scope',
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
           },
-          requirements: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          criteria: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-        },
-      } as any,
-      assistantParts: [
-        {
-          type: 'data-phase-summary',
-          data: {
-            turnId: 1,
-            phase: 'scope',
-            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
-          },
-        },
-      ],
-    });
+        ],
+      }),
+    );
 
     renderWorkspace();
 
@@ -1167,48 +1204,50 @@ describe('InterviewWorkspace', () => {
   });
 
   it('submits a force-close action for design through chat with typed confirmation parts', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      workflow: {
-        phases: {
-          scope: {
-            status: 'closed',
-            closeability: false,
-            readiness: 'high',
-            closureBasis: 'interviewer_recommended',
-            proposalPending: false,
-            turnId: 1,
-            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: {
+          phases: {
+            scope: {
+              status: 'closed',
+              closeability: false,
+              readiness: 'high',
+              closureBasis: 'interviewer_recommended',
+              proposalPending: false,
+              turnId: 1,
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+            design: {
+              status: 'in_progress',
+              closeability: true,
+              readiness: 'medium',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
           },
-          design: {
-            status: 'in_progress',
-            closeability: true,
-            readiness: 'medium',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          requirements: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          criteria: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-        },
-      } as any,
-    });
+        } as any,
+      }),
+    );
 
     renderWorkspace();
 
@@ -1228,48 +1267,50 @@ describe('InterviewWorkspace', () => {
   });
 
   it('hides the force-close action when design already has a pending closure proposal', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      workflow: {
-        phases: {
-          scope: {
-            status: 'closed',
-            closeability: false,
-            readiness: 'high',
-            closureBasis: 'interviewer_recommended',
-            proposalPending: false,
-            turnId: 1,
-            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: {
+          phases: {
+            scope: {
+              status: 'closed',
+              closeability: false,
+              readiness: 'high',
+              closureBasis: 'interviewer_recommended',
+              proposalPending: false,
+              turnId: 1,
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+            design: {
+              status: 'in_progress',
+              closeability: true,
+              readiness: 'medium',
+              closureBasis: null,
+              proposalPending: true,
+              turnId: 3,
+              summary: 'The main architectural commitments are captured well enough to review requirements.',
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
           },
-          design: {
-            status: 'in_progress',
-            closeability: true,
-            readiness: 'medium',
-            closureBasis: null,
-            proposalPending: true,
-            turnId: 3,
-            summary: 'The main architectural commitments are captured well enough to review requirements.',
-          },
-          requirements: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          criteria: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-        },
-      } as any,
-    });
+        } as any,
+      }),
+    );
 
     renderWorkspace();
 
@@ -1277,48 +1318,50 @@ describe('InterviewWorkspace', () => {
   });
 
   it('renders shared workflow state for closed scope and active design mode', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      workflow: {
-        phases: {
-          scope: {
-            status: 'closed',
-            closeability: false,
-            readiness: 'high',
-            closureBasis: 'interviewer_recommended',
-            proposalPending: false,
-            turnId: 1,
-            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: {
+          phases: {
+            scope: {
+              status: 'closed',
+              closeability: false,
+              readiness: 'high',
+              closureBasis: 'interviewer_recommended',
+              proposalPending: false,
+              turnId: 1,
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+            design: {
+              status: 'in_progress',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
           },
-          design: {
-            status: 'in_progress',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          requirements: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          criteria: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-        },
-      } as any,
-    });
+        } as any,
+      }),
+    );
 
     renderWorkspace();
 
@@ -1329,48 +1372,50 @@ describe('InterviewWorkspace', () => {
   });
 
   it('renders forced-close workflow state for closed design and active requirements mode', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      workflow: {
-        phases: {
-          scope: {
-            status: 'closed',
-            closeability: false,
-            readiness: 'high',
-            closureBasis: 'interviewer_recommended',
-            proposalPending: false,
-            turnId: 1,
-            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: {
+          phases: {
+            scope: {
+              status: 'closed',
+              closeability: false,
+              readiness: 'high',
+              closureBasis: 'interviewer_recommended',
+              proposalPending: false,
+              turnId: 1,
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+            design: {
+              status: 'closed',
+              closeability: false,
+              readiness: 'high',
+              closureBasis: 'user_forced',
+              proposalPending: false,
+              turnId: 4,
+              summary: 'Design closed by user without an interviewer recommendation.',
+            },
+            requirements: {
+              status: 'in_progress',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
           },
-          design: {
-            status: 'closed',
-            closeability: false,
-            readiness: 'high',
-            closureBasis: 'user_forced',
-            proposalPending: false,
-            turnId: 4,
-            summary: 'Design closed by user without an interviewer recommendation.',
-          },
-          requirements: {
-            status: 'in_progress',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          criteria: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-        },
-      } as any,
-    });
+        } as any,
+      }),
+    );
 
     renderWorkspace();
 
@@ -1380,48 +1425,50 @@ describe('InterviewWorkspace', () => {
   });
 
   it('does not show "Not yet closeable" for phases whose status is closed', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      workflow: {
-        phases: {
-          scope: {
-            status: 'closed',
-            closeability: false,
-            readiness: 'high',
-            closureBasis: 'interviewer_recommended',
-            proposalPending: false,
-            turnId: 1,
-            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: {
+          phases: {
+            scope: {
+              status: 'closed',
+              closeability: false,
+              readiness: 'high',
+              closureBasis: 'interviewer_recommended',
+              proposalPending: false,
+              turnId: 1,
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+            design: {
+              status: 'closed',
+              closeability: false,
+              readiness: 'high',
+              closureBasis: 'user_forced',
+              proposalPending: false,
+              turnId: 4,
+              summary: 'Design closed by user without an interviewer recommendation.',
+            },
+            requirements: {
+              status: 'in_progress',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
           },
-          design: {
-            status: 'closed',
-            closeability: false,
-            readiness: 'high',
-            closureBasis: 'user_forced',
-            proposalPending: false,
-            turnId: 4,
-            summary: 'Design closed by user without an interviewer recommendation.',
-          },
-          requirements: {
-            status: 'in_progress',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          criteria: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-        },
-      } as any,
-    });
+        } as any,
+      }),
+    );
 
     renderWorkspace();
 
@@ -1434,12 +1481,14 @@ describe('InterviewWorkspace', () => {
   });
 
   it('posts free-text-only turn responses and forwards the text into chat', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      options: [
-        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
-        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
-      ],
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -1477,20 +1526,22 @@ describe('InterviewWorkspace', () => {
   });
 
   it('rehydrates persisted selected options from turn-response data even when option flags are false', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      answer: 'Desktop — Best fit for launch',
-      userParts: [
-        { type: 'text', text: 'Desktop — Best fit for launch' },
-        {
-          type: 'data-turn-response',
-          data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
-        },
-      ],
-      options: [
-        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
-        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
-      ],
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: 'Desktop — Best fit for launch',
+        userParts: [
+          { type: 'text', text: 'Desktop — Best fit for launch' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
+          },
+        ],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
 
     renderWorkspace();
 
@@ -1505,20 +1556,22 @@ describe('InterviewWorkspace', () => {
   });
 
   it('locks a persisted free-text-only turn response after it has been saved', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      answer: 'None of these fit our use case',
-      userParts: [
-        { type: 'text', text: 'None of these fit our use case' },
-        {
-          type: 'data-turn-response',
-          data: { turnId: 1, selectedOptionIds: [], freeText: 'None of these fit our use case' },
-        },
-      ],
-      options: [
-        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
-        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
-      ],
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: 'None of these fit our use case',
+        userParts: [
+          { type: 'text', text: 'None of these fit our use case' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [], freeText: 'None of these fit our use case' },
+          },
+        ],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
 
     renderWorkspace();
 
@@ -1538,40 +1591,42 @@ describe('InterviewWorkspace', () => {
   it('does not emit duplicate React keys when dependency labels repeat', async () => {
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-    currentLoaderData = createWorkspaceLoaderData({
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [
-          {
-            id: 7,
-            project_id: 1,
-            content: 'Start with the web app',
-            rationale: 'Fastest launch path',
-          },
-        ],
-        assumptions: [
-          { id: 5, project_id: 1, content: 'Users can work in a browser' },
-          { id: 6, project_id: 1, content: 'Users can work in a browser' },
-        ],
-        relationships: [
-          {
-            type: 'depends_on',
-            source: { collection: 'decision', kind: 'decision', id: 7 },
-            target: { collection: 'assumption', kind: 'assumption', id: 5 },
-          },
-          {
-            type: 'depends_on',
-            source: { collection: 'decision', kind: 'decision', id: 7 },
-            target: { collection: 'assumption', kind: 'assumption', id: 6 },
-          },
-        ],
-      } satisfies EntitiesData,
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        entitySnapshot: {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [
+            {
+              id: 7,
+              project_id: 1,
+              content: 'Start with the web app',
+              rationale: 'Fastest launch path',
+            },
+          ],
+          assumptions: [
+            { id: 5, project_id: 1, content: 'Users can work in a browser' },
+            { id: 6, project_id: 1, content: 'Users can work in a browser' },
+          ],
+          relationships: [
+            {
+              type: 'depends_on',
+              source: { collection: 'decision', kind: 'decision', id: 7 },
+              target: { collection: 'assumption', kind: 'assumption', id: 5 },
+            },
+            {
+              type: 'depends_on',
+              source: { collection: 'decision', kind: 'decision', id: 7 },
+              target: { collection: 'assumption', kind: 'assumption', id: 6 },
+            },
+          ],
+        } satisfies EntitiesData,
+      }),
+    );
 
     renderWorkspace();
 
@@ -1584,12 +1639,14 @@ describe('InterviewWorkspace', () => {
   });
 
   it('shows a visible error when saving an option selection fails', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      options: [
-        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
-        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
-      ],
-    });
+    setLoaderData(
+      createWorkspaceLoaderData({
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ error: 'Selection could not be saved' }), {

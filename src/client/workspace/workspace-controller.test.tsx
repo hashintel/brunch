@@ -9,7 +9,6 @@ import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 
 import { useWorkspaceController } from './workspace-controller.js';
-import type { WorkspaceLoaderData } from './workspace-loader.js';
 
 function createPendingQuestionMessage(): BrunchUIMessage {
   return {
@@ -50,7 +49,8 @@ type UseChatHarness = {
   onFinish?: UseChatOptions['onFinish'];
 };
 
-let currentLoaderData: WorkspaceLoaderData;
+let currentProjectState: ProjectState;
+let currentEntitySnapshot: EntitiesData;
 const routerInvalidate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 const chatTransportOptions: unknown[] = [];
@@ -63,7 +63,11 @@ let useChatImpl: (options: UseChatOptions) => {
 let useChatHarness: UseChatHarness;
 
 vi.mock('@tanstack/react-router', () => ({
-  useLoaderData: () => currentLoaderData,
+  useLoaderData: ({ from }: { from: string }) => {
+    if (from === '/project/$id') return currentProjectState;
+    if (from === '/project/$id/_view') return currentEntitySnapshot;
+    throw new Error(`Unexpected useLoaderData from: ${from}`);
+  },
   useRouter: () => ({ invalidate: routerInvalidate }),
 }));
 
@@ -170,12 +174,8 @@ function createProjectState({
   };
 }
 
-function createWorkspaceLoaderData({
-  projectId = 1,
-  assistantText = 'What should we build first?',
-  answer = 'Build the web app',
-  options = [],
-  entitySnapshot = {
+function createEntitySnapshot(overrides?: Partial<EntitiesData>): EntitiesData {
+  return {
     goals: [],
     terms: [],
     contexts: [],
@@ -185,23 +185,7 @@ function createWorkspaceLoaderData({
     decisions: [],
     assumptions: [],
     relationships: [],
-  } satisfies EntitiesData,
-}: {
-  projectId?: number;
-  assistantText?: string;
-  answer?: string;
-  options?: Array<{
-    id: number;
-    position: number;
-    content: string;
-    is_recommended: boolean;
-    is_selected: boolean;
-  }>;
-  entitySnapshot?: EntitiesData;
-} = {}): WorkspaceLoaderData {
-  return {
-    projectState: createProjectState({ projectId, assistantText, answer, options }),
-    entitySnapshot,
+    ...overrides,
   };
 }
 
@@ -299,7 +283,8 @@ function renderController() {
 }
 
 beforeEach(() => {
-  currentLoaderData = createWorkspaceLoaderData();
+  currentProjectState = createProjectState();
+  currentEntitySnapshot = createEntitySnapshot();
   routerInvalidate.mockClear();
   fetchMock.mockReset();
   chatTransportOptions.length = 0;
@@ -314,7 +299,7 @@ afterEach(() => {
 
 describe('workspace controller', () => {
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
+    currentProjectState = createProjectState({
       assistantText: 'Earlier question?',
       answer: 'Earlier answer',
     });
@@ -341,27 +326,19 @@ describe('workspace controller', () => {
     });
   });
 
-  it('seeds chat and entity state from loader data without a post-mount entity fetch', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
+  it('seeds chat and entity state from split loader data without a post-mount entity fetch', async () => {
+    currentProjectState = createProjectState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [
-          {
-            id: 7,
-            project_id: 1,
-            content: 'Start with the web app',
-            rationale: 'Fastest launch path',
-          },
-        ],
-        assumptions: [],
-        relationships: [],
-      },
+    });
+    currentEntitySnapshot = createEntitySnapshot({
+      decisions: [
+        {
+          id: 7,
+          project_id: 1,
+          content: 'Start with the web app',
+          rationale: 'Fastest launch path',
+        },
+      ],
     });
 
     renderController();
@@ -382,28 +359,20 @@ describe('workspace controller', () => {
       'Build the web app|What should we build first?',
     );
 
-    currentLoaderData = createWorkspaceLoaderData({
+    currentProjectState = createProjectState({
       projectId: 2,
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [
-          {
-            id: 8,
-            project_id: 2,
-            content: 'Prefer the desktop app',
-            rationale: 'Matches the updated brief',
-          },
-        ],
-        assumptions: [],
-        relationships: [],
-      },
+    });
+    currentEntitySnapshot = createEntitySnapshot({
+      decisions: [
+        {
+          id: 8,
+          project_id: 2,
+          content: 'Prefer the desktop app',
+          rationale: 'Matches the updated brief',
+        },
+      ],
     });
 
     rendered.rerender(
@@ -423,20 +392,7 @@ describe('workspace controller', () => {
   });
 
   it('uses the loader-backed project id for chat transport and entity refreshes', async () => {
-    currentLoaderData = createWorkspaceLoaderData({
-      projectId: 1,
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [],
-        assumptions: [],
-        relationships: [],
-      },
-    });
+    currentEntitySnapshot = createEntitySnapshot();
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -523,27 +479,19 @@ describe('workspace controller', () => {
       });
     });
 
-    currentLoaderData = createWorkspaceLoaderData({
+    currentProjectState = createProjectState({
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [
-          {
-            id: 8,
-            project_id: 1,
-            content: 'Prefer the desktop app',
-            rationale: 'Fresh loader snapshot',
-          },
-        ],
-        assumptions: [],
-        relationships: [],
-      },
+    });
+    currentEntitySnapshot = createEntitySnapshot({
+      decisions: [
+        {
+          id: 8,
+          project_id: 1,
+          content: 'Prefer the desktop app',
+          rationale: 'Fresh loader snapshot',
+        },
+      ],
     });
     rendered.rerender(
       <QueryClientProvider client={rendered.queryClient}>
@@ -592,27 +540,19 @@ describe('workspace controller', () => {
       'Build the web app|What should we build first?',
     );
 
-    currentLoaderData = createWorkspaceLoaderData({
+    currentProjectState = createProjectState({
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
-      entitySnapshot: {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [],
-        decisions: [
-          {
-            id: 8,
-            project_id: 1,
-            content: 'Prefer the desktop app',
-            rationale: 'Matches the updated brief',
-          },
-        ],
-        assumptions: [],
-        relationships: [],
-      },
+    });
+    currentEntitySnapshot = createEntitySnapshot({
+      decisions: [
+        {
+          id: 8,
+          project_id: 1,
+          content: 'Prefer the desktop app',
+          rationale: 'Matches the updated brief',
+        },
+      ],
     });
 
     rendered.rerender(
