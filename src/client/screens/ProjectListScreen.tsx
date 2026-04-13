@@ -11,7 +11,7 @@ import {
   DialogTitle,
 } from '@/client/components/ui/dialog';
 import { useCreateProjectMutation } from '@/client/mutations/project-mutations';
-import type { ProjectListItem, ProjectMode } from '@/shared/api-types.js';
+import type { ProjectListItem, ProjectMode, WorkflowPhaseStatus } from '@/shared/api-types.js';
 
 const phaseLabels: Array<{ key: keyof ProjectListItem['workflowSummary']; label: string }> = [
   { key: 'scope', label: 'Scope' },
@@ -20,11 +20,11 @@ const phaseLabels: Array<{ key: keyof ProjectListItem['workflowSummary']; label:
   { key: 'criteria', label: 'Criteria' },
 ];
 
-const statusStyles: Record<string, string> = {
+const statusStyles = {
   closed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
   in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
   unstarted: 'bg-muted text-muted-foreground',
-};
+} satisfies Record<WorkflowPhaseStatus, string>;
 
 type DialogStep = 'closed' | 'name' | 'mode';
 

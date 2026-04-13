@@ -20,7 +20,7 @@ import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/client/c
 import { EntitySidebar } from '@/client/components/EntitySidebar';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/client/components/ui/resizable';
 import { cn } from '@/client/lib/utils';
-import type { ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
+import type { Impact, ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
 import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
@@ -31,11 +31,11 @@ import {
 } from '../workspace/workspace-controller-core.js';
 import type { WorkspaceController } from '../workspace/workspace-controller.js';
 
-const impactStyles: Record<string, string> = {
+const impactStyles = {
   high: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200',
   medium: 'bg-amber-50 text-amber-800 dark:bg-amber-950 dark:text-amber-200',
   low: 'bg-green-50 text-green-800 dark:bg-green-950 dark:text-green-200',
-};
+} satisfies Record<Impact, string>;
 
 type TurnCardOption = Pick<
   NonNullable<ProjectStateTurn['options']>[number],
