@@ -133,7 +133,7 @@
 13a. **Review lifecycle refinement across requirements + criteria** — Revisit the first-cut review model only after the thin end-to-end path is working, and add the deferred variants that were intentionally excluded from slices 9 and 10 so the app kept moving toward completion. Depends on 12a + 12b. `not-started`
      - Requirements: → SPEC.md §Requirements #11, #12, #13
      - Assumptions: → SPEC.md §Assumptions A15, A40
-     - Decisions: → SPEC.md §Decisions D17, D61, D65, D66, D69
+     - Decisions: → SPEC.md §Decisions D17, D61, D65, D66, D86
      - Candidate invariant goals: richer review actions and invalidation semantics can evolve without regressing the thin end-to-end workflow; deferred edge-case variants are collected in one explicit refinement slice rather than fragmenting earlier mode slices
      - Invariants to respect: → SPEC.md §Invariants I18, I21, I24
      - Acceptance: deferred review refinements such as edit/add/merge/stale semantics across requirements and criteria can land behind one cross-cutting slice without regressing completion, export, or workflow-state coherence
@@ -234,20 +234,95 @@
     - Shipped: Zod validation removed from SDK output (onFinish), persistence round-trips, and server-to-client API responses; kept only for LLM tool schemas, structured output, and HTTP request bodies; `BrunchAssistantPart` type fixed to include `tool-propose_phase_closure`; type-safe discriminant filter replaces schema parse at SDK boundary
     - Seam changed: `assistantPartsSchema` and `userPartsSchema` deleted from `chat.ts`; `filterAssistantParts` introduced with `satisfies` guard; `postJsonMutation` no longer takes a schema parameter
     - Evidence: parts.test.ts, client-mutation.test.ts, workspace-loader.test.ts, export-loader.test.ts, InterviewWorkspace.test.tsx, `npm run check` + build green
-    - Debt: 3 pre-existing test failures from Phase 10 routing refactor (build-boundary, file-route-infra, main.test.tsx)
+    - ~~Debt: 3 pre-existing test failures from Phase 10 routing refactor~~ Resolved — 296/296 tests pass as of 2026-04-13
+
+## Phase 11: Routing & Layout Refactor
+
+<!-- Phase-based routing with three concentric layout shells (D86, D87).
+     Pure client refactor — no server API changes, no LLM behavior changes.
+     Prerequisite for layout-level data ownership and phase-specific views. -->
+
+### Slices
+
+23. **Directory-based routing infrastructure + layout shell scaffolding** `not-started`
+    - Convert flat-file routes (`project.$id.tsx`, `project_.$id.knowledge.tsx`, `project_.$id.export.tsx`) to directory-based nesting under `routes/project/$id/`
+    - Scaffold three layout shells: AppLayout (current root + top bar stub with branding), ProjectLayout (sidebar stub + `<Outlet/>`), ViewLayout (`_view/route.tsx` with `validateSearch` for `?view=chat|graph`, delegates to `<Outlet/>`)
+    - Four phase routes (`framing.tsx`, `elicitation.tsx`, `requirements-review.tsx`, `acceptance-review.tsx`) initially all render the existing InterviewWorkspace — same behavior, new URLs
+    - Export route moved to `project/$id/export.tsx` inside ProjectLayout, outside `_view/`
+    - Project index (`project/$id/index.tsx`) redirects to the active phase (first non-closed) for now
+    - Update Vite plugin config for directory scanning
+    - Update I15 and I102 tests for new route paths and directory structure
+    - Build oracle (code splitting) must still pass
+    - Requirements: → SPEC.md §Requirements #14
+    - Decisions: → SPEC.md §Decisions D85 (updated), D86
+    - Candidate invariant goals: directory-based file-route generation works with pathless `_view/` layout route and search param validation; layout shells nest correctly (AppLayout → ProjectLayout → ViewLayout → phase component); route-level code splitting preserved
+    - Invariants to respect: I15 (update), I102 (update), I24 (must not regress workspace seam), I28/I32 (build boundaries)
+    - Acceptance: navigate to `/project/:id/framing` and see the existing interview workspace rendered through all three layout shells; all four phase URLs resolve; export still works at new path; `npm run verify` green
+    - **Verification approach**: inner — updated file-route tests prove directory structure, router.test.tsx proves new URL mapping. Middle — build-boundary.test.ts confirms split chunks. Outer — manual browser navigation through new URLs.
+
+23a. **Entity-projection alignment** `not-started`
+     - Align the `/api/projects/:id/entities` read model so active-path and project-global reads are explicit, named projection modes; widen relationship transport to the full persisted edge vocabulary; retire stale seam tests
+     - Detailed commit plan: `memory/REFACTOR.md`
+     - Commits 1-3 (characterization + projection extraction + relation widening) are server-side and can run in parallel with slice 23
+     - Commits 4-6 (knowledge-surface rendering + active-path switch + test retirement) touch workspace loaders and should land before slice 24
+     - Requirements: → SPEC.md §Requirements #5, #7
+     - Decisions: → SPEC.md §Decisions D49, D50, D87
+     - Invariants to respect: I48 (knowledge display), I24 (workspace seam)
+     - Acceptance: seeded manifest scenarios prove the same entity set renders through API, workspace, and export; relationship vocabulary is not collapsed at the transport boundary
+     - Depends on: 23 (commits 4-6 depend on directory routing being in place)
+
+24. **ProjectLayout sidebar + layout-level data loading split** `not-started`
+    - ProjectLayout renders left sidebar with phase navigation list and readiness/closeability indicators per phase
+    - Split `workspace-loader.ts`: ProjectLayout loader fetches `/api/projects/:id` → `ProjectState` (workflow state); ViewLayout loader fetches `/api/projects/:id/entities` → `EntitiesData`
+    - Phase route components read workflow data from ProjectLayout's loader via `useLoaderData({ from: '/project/$id' })` and filter turns by phase
+    - Update `workspace-controller.ts` `useLoaderData` reference from `/project/$id` to the new ProjectLayout route path
+    - Sidebar highlights the active phase, shows status badges (unstarted/in_progress/closed), readiness band, and closeability for each
+    - Requirements: → SPEC.md §Requirements #7, #8
+    - Decisions: → SPEC.md §Decisions D65, D86, D87
+    - Candidate invariant goals: layout-level data ownership works — ProjectLayout loader and ViewLayout loader fetch independently; sidebar reflects live workflow state; workspace controller adapts to new loader path without regressing
+    - Invariants to respect: I24 (workspace seam), I72 (phase-close seam), I87 (requirements-review seam)
+    - Acceptance: sidebar shows all four phases with correct status/readiness; navigating between phases does not re-fetch workflow state; `npm run verify` green
+    - **Verification approach**: inner — workspace-loader.test.ts split into layout-level tests; workspace-controller.test.tsx updated for new loader path. Outer — manual sidebar navigation with seeded fixture data.
+    - Depends on: 23
+
+25. **Per-phase conversation views + phase-transition navigation + knowledge sidebar relocation** `not-started`
+    - Each phase route renders its own filtered conversation thread (turns where `turn.phase` matches)
+    - Phase transition lifecycle: close mutation → on-success → `router.navigate({ to: '/project/$id/{next-phase}', params: { id } })`
+    - Knowledge sidebar moves from InterviewWorkspace into ViewLayout's Chat sub-layout as a right panel (compact, filterable by kind/phase)
+    - Old knowledge workspace route (`project_.$id.knowledge.tsx`) retired; `KnowledgeWorkspace.test.tsx` and `KnowledgeWorkspaceScreen.tsx` retired or adapted
+    - Project index route (`/project/:id`) shows project summary with kickoff affordance (create project → redirect to `/framing`)
+    - Requirements: → SPEC.md §Requirements #6, #7, #8
+    - Decisions: → SPEC.md §Decisions D66, D71, D86, D87
+    - Candidate invariant goals: per-phase views show only that phase's turns; phase-close confirmation navigates to the next phase route on success; knowledge sidebar in ChatLayout updates on observer extraction without re-fetching conversation; old knowledge route removed without regressing knowledge visibility
+    - Invariants to respect: I24 (update for per-phase filtering), I72 (phase-close still works), I87 (requirements review still works), I48 (knowledge display intact)
+    - Acceptance: each phase route shows only its turns; closing scope navigates to elicitation; knowledge items visible in Chat right sidebar with filter controls; old `/project/:id/knowledge` URL returns 404; `npm run verify` green
+    - **Verification approach**: inner — per-phase filtering tests; phase-transition navigation tests. Middle — InterviewWorkspace.test.tsx adapted for per-phase rendering. Outer — manual end-to-end: create project → framing → close → elicitation → close → requirements-review → close → acceptance-review → close → export.
+    - Depends on: 24
+
+26. **Graph view stub in ViewLayout** `not-started`
+    - ViewLayout's `?view=graph` switch renders a knowledge-graph visualization (project-scoped, optionally phase-filtered)
+    - Initially a structured list/card view grouped by kind with relationship edges, not a full interactive graph canvas
+    - Filter controls: by kind, by phase of capture
+    - Shares entity data from ViewLayout's loader — no additional fetch
+    - Requirements: → SPEC.md §Requirements #5
+    - Decisions: → SPEC.md §Decisions D86
+    - Candidate invariant goals: view switch between chat and graph works via URL search param; graph view renders entity data without additional fetch; phase filtering works
+    - Invariants to respect: I48 (knowledge display), I102 (code splitting — graph view should be a split chunk)
+    - Acceptance: `/project/:id/framing?view=graph` shows knowledge items grouped by kind with relationship indicators; switching `?view=chat` returns to conversation; `npm run verify` green
+    - **Verification approach**: inner — ViewLayout search param validation test; graph view component test. Outer — manual toggle between chat and graph views.
+    - Depends on: 25
 
 ## Horizon
 
-<!-- Future work not yet broken into slices. Revisit after Phase 9. -->
+<!-- Future work not yet broken into slices. Revisit after Phase 11. -->
 
 - MCP server adapter (expose core operations as MCP tools)
-- Knowledge graph visualization (interactive graph view of the canonical knowledge ontology)
 - Exploratory pathway (for projects where the goal itself is unclear — distinct from brownfield which is about context, not goal uncertainty)
 - Hard turn-tree branching (deferred from V1; the linked-list structure supports it but UX is not exposed)
 - Git-integrated diff-able persistence format (file-based representation of the DB for version control)
 - Headless interview driver (programmatic harness driving `/api/projects/:id/chat` with scripted answers)
-- Route-support placement audit — the ignored `src/client/routes/-*.ts(x)` files are a clean endpoint for the routing migration, but once patterns stabilize we should decide whether some belong permanently in `screens/`, `workspace/`, or a dedicated route-support module rather than growing an ever-larger mixed `routes/` directory.
-- Client test-topology cleanup — feature-behavior tests are reasonably colocated today, but the seam/build oracles now scattered across `src/client/*.test.ts(x)` (`file-route-*.test.ts`, `build-boundary.test.ts`, `router.test.tsx`, `main.test.tsx`) may want a dedicated `src/client/testing/` or `src/client/oracles/` home so the client root stops accumulating cross-cutting verification files.
+- Per-phase server endpoints — currently phase routes filter turns client-side from the full ProjectState. If conversation length becomes a performance concern, add `/api/projects/:id/turns?phase=scope` server endpoints to reduce payload size
+- React Query granular caching migration — when layout-level `router.invalidate()` becomes too coarse (e.g., entity list too large for full re-fetch on observer extraction), migrate entity and turn data into React Query cache with targeted `queryClient.invalidateQueries()` per concern
 
 ## Dependencies
 
@@ -255,19 +330,26 @@
 
 ```
 done ─────────────────────────────────────────────────────────────┐
-  Phase 1–6: all complete                                         │
-  Phase 7:   14 done, 17 done, 17a done, 14a done                │
+  Phase 1–7, 10: all complete                                     │
+  Ad-hoc: 22 (Zod strip) done                                    │
 ──────────────────────────────────────────────────────────────────┘
-Phase 8:  12a ──→ 15 (edit mode + cascade preview)        [stretch]
+Phase 11: 23 (directory routing + layout scaffolding)
+          23 ──→ 23a (entity-projection alignment)
+          23a ──→ 24 (ProjectLayout sidebar + data split)
+          24 ──→ 25 (per-phase views + transition nav + knowledge sidebar)
+          25 ──→ 26 (graph view stub)
+          Note: 23a commits 1-3 can run in parallel with 23
+Phase 8:  25 ──→ 15 (edit mode — adapts to new layout)    [stretch]
           15 ──→ 15a (cascade execution + secondary threads) [stretch]
 Phase 9:  14 ──→ 16 (drizzle-kit audit remediation)
-Deferred: 12a + 12b ──→ 13a (review lifecycle refinement)
+Deferred: 25 ──→ 13a (review lifecycle refinement — adapts to per-phase views)
 ```
 
 ### Parallelism opportunities
 
-- Phases 1–7 fully done (14, 17, 17a, 14a all complete). **All must-haves for the first delivery deadline are shipped.**
-- Ad-hoc Phase 10 route ownership refactor is complete; the next unshipped major work is still Phase 8 stretch work, Phase 9 hardening, or deferred slice 13a.
-- 15 + 15a (knowledge-graph revisit) are stretch goals; they depend on 12a (done) but may not land before the first deadline.
-- 16 (drizzle-kit audit) is unblocked by 14 but deferred to post-distribution.
-- 13a (review lifecycle refinement) is explicitly deferred.
+- **Phase 11 (routing refactor) is the next active work.** Slices 23→23a→24→25→26 form the critical path.
+- 23a commits 1-3 (server-side entity projection) can run in parallel with slice 23 (client routing restructure) — different file sets, no conflict.
+- 16 (drizzle-kit audit) is independent of Phase 11 and can run in parallel if needed.
+- 15/15a (knowledge-graph revisit) now depend on 25 (not just 12a) because the knowledge workspace is dissolving — edit mode needs to adapt to the new ChatLayout sidebar or Graph view.
+- 13a (review lifecycle refinement) now depends on 25 because review surfaces move into per-phase routes.
+- 26 (graph view stub) is the least urgent Phase 11 slice and could be deferred if Phase 8 becomes higher priority.
