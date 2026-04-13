@@ -5,6 +5,7 @@ import type { ProjectState, WorkflowPhase } from '@/shared/api-types.js';
 
 import { buildInterviewerContext } from './context.js';
 import type { DB } from './db.js';
+import { seedFromManifest, type ManifestScenario } from './fixtures/manifest.js';
 import {
   seedActiveDesign as _seedActiveDesign,
   seedAllPhasesClosed as _seedAllPhasesClosed,
@@ -807,6 +808,61 @@ describe('GET /api/projects/:id/entities', () => {
         },
       ],
     });
+  });
+
+  it('characterizes the entities api dropping manifest-backed non-dependency relations', async () => {
+    const scenario: ManifestScenario = {
+      turns: [
+        {
+          phase: 'scope',
+          question: 'What are we building?',
+          answer: 'A lightweight issue tracker.',
+          options: [{ content: 'Issue tracker', is_recommended: true }],
+          selectedOptionPositions: [0],
+        },
+      ],
+      knowledgeItems: [
+        {
+          kind: 'goal',
+          content: 'Track work from creation to completion',
+          capturedAtTurn: 0,
+        },
+        {
+          kind: 'context',
+          content: 'The team currently works from a spreadsheet',
+          capturedAtTurn: 0,
+        },
+        {
+          kind: 'constraint',
+          content: 'Keep the first release simpler than Jira',
+          capturedAtTurn: 0,
+        },
+      ],
+      edges: [
+        {
+          fromItemIndex: 2,
+          toItemIndex: 0,
+          relation: 'constrains',
+        },
+        {
+          fromItemIndex: 1,
+          toItemIndex: 0,
+          relation: 'derived_from',
+        },
+      ],
+    };
+
+    const projectId = seedFromManifest(db, scenario, 'Manifest relation characterization');
+
+    expect(
+      db.$client
+        .prepare('SELECT relation FROM knowledge_edge WHERE rowid IS NOT NULL ORDER BY relation')
+        .all(),
+    ).toEqual([{ relation: 'constrains' }, { relation: 'derived_from' }]);
+
+    const res = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+
+    expect(res.body.relationships).toEqual([]);
   });
 });
 

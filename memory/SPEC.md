@@ -569,7 +569,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | ----------------------------- | ----- | ----------------------------------------------------- |
 | db.test.ts                    | 46    | I5, I6, I9, I10, I11, I20, I48, I54, I72, I87, I98, I101 |
 | knowledge.test.ts             | 1     | I48                                                   |
-| app.test.ts                   | 45    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99, I101 |
+| app.test.ts                   | 46    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99, I101 |
 | core.test.ts                  | 10    | I12, I13, I18, I72, I87                               |
 | interview.test.ts             | 17    | I16, I72, I87, I101                                   |
 | parts.test.ts                 | 15    | I17, I18, I44, I54, I72                               |
@@ -605,7 +605,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | api-types.test.ts             | 7     | —                                                     |
 | export-loader.test.ts         | 4     | D26, D65, D66, D70                                    |
 | ExportPreview.test.tsx        | 2     | I15, D26, D65, D66, D70                               |
-| export.test.ts                | 9     | D26, D65, D66, D70                                    |
+| export.test.ts                | 10    | D26, D65, D66, D70                                    |
 | manifest.test.ts              | 1     | —                                                     |
 
 ## Acceptance Criteria (exit conditions)
