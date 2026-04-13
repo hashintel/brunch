@@ -9,23 +9,37 @@ import {
 } from '@/client/components/knowledge-card';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import type { EntitiesData } from '@/shared/api-types.js';
-import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
+import {
+  knowledgeKindRegistry,
+  type KnowledgeEntityCollection,
+  type KnowledgeKind,
+} from '@/shared/knowledge.js';
+
+type KnowledgeWorkspaceEntity = EntitiesData[Exclude<keyof EntitiesData, 'relationships'>][number];
+
+function getOptionalSubtype(item: KnowledgeWorkspaceEntity): string | undefined {
+  return 'subtype' in item && typeof item.subtype === 'string' ? item.subtype : undefined;
+}
+
+function getOptionalRationale(item: KnowledgeWorkspaceEntity): string | undefined {
+  return 'rationale' in item && typeof item.rationale === 'string' ? item.rationale : undefined;
+}
+
+function getOptionalReviewStatus(item: KnowledgeWorkspaceEntity): KnowledgeItemData['reviewStatus'] {
+  return 'reviewStatus' in item ? item.reviewStatus : undefined;
+}
 
 function toKnowledgeItems(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any -- entity collections are a union of heterogeneous shapes
-  rawItems: Array<any>,
+  rawItems: readonly KnowledgeWorkspaceEntity[],
   kind: KnowledgeKind,
 ): KnowledgeItemData[] {
-  return rawItems.map((item: Record<string, unknown>) => ({
-    id: item.id as number,
+  return rawItems.map((item) => ({
+    id: item.id,
     kind,
-    content: item.content as string,
-    rationale: typeof item.rationale === 'string' ? item.rationale : undefined,
-    subtype: typeof item.subtype === 'string' ? item.subtype : undefined,
-    reviewStatus:
-      item.reviewStatus === 'approved' || item.reviewStatus === 'rejected' || item.reviewStatus === 'pending'
-        ? item.reviewStatus
-        : undefined,
+    content: item.content,
+    rationale: getOptionalRationale(item),
+    subtype: getOptionalSubtype(item),
+    reviewStatus: getOptionalReviewStatus(item),
   }));
 }
 
@@ -41,7 +55,7 @@ function buildContentMap(entities: EntitiesData): Map<string, string> {
 
 function toKnowledgeEdges(
   entities: EntitiesData,
-  entityCollection: string,
+  entityCollection: KnowledgeEntityCollection,
   itemIds: Set<number>,
   contentMap: Map<string, string>,
 ): KnowledgeEdgeData[] {
