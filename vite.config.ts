@@ -7,6 +7,8 @@ import react from '@vitejs/plugin-react';
 import { agentTail } from 'agent-tail/vite';
 import { defineConfig } from 'vitest/config';
 
+import { getBackendProxyTarget } from './src/server/runtime-config';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
@@ -30,7 +32,7 @@ export default defineConfig({
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:3000',
+      '/api': getBackendProxyTarget(process.env),
     },
   },
   build: {

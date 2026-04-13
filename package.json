@@ -18,7 +18,7 @@
   "scripts": {
     "build": "vite build",
     "check": "npm run fmt:check && npm run lint && npm run typecheck",
-    "dev": "agent-tail run 'vite: lsof -ti:5173 | xargs kill -9 2>/dev/null; vite' 'api: lsof -ti:3000 | xargs kill -9 2>/dev/null; npx tsx --env-file=.env --watch src/server/index.ts'",
+    "dev": "agent-tail run 'vite: vite' 'api: npx tsx --env-file=.env --watch src/server/index.ts'",
     "fix": "npm run lint:fix && npm run fmt",
     "fmt": "oxfmt src/ vite.config.ts drizzle.config.ts",
     "fmt:check": "oxfmt --check src/ vite.config.ts drizzle.config.ts",

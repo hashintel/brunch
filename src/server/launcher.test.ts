@@ -6,11 +6,12 @@ import request from 'supertest';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { createApp } from './app.js';
-import { mountStaticClient } from './launcher.js';
+import { mountStaticClient, type LauncherRuntime, startLauncherRuntime } from './launcher.js';
 import { resolveBrunchProject } from './project.js';
 
 describe('launcher integration', () => {
   const tempDirs: string[] = [];
+  const runtimes: LauncherRuntime[] = [];
   const originalCwd = process.cwd();
 
   const makeTempDir = () => {
@@ -19,8 +20,13 @@ describe('launcher integration', () => {
     return dir;
   };
 
-  afterEach(() => {
+  afterEach(async () => {
     process.chdir(originalCwd);
+
+    while (runtimes.length > 0) {
+      await runtimes.pop()!.close();
+    }
+
     for (const dir of tempDirs.splice(0)) {
       rmSync(dir, { force: true, recursive: true });
     }
@@ -66,5 +72,32 @@ describe('launcher integration', () => {
 
     const { app } = createApp(project.dbPath);
     await request(app).get('/api/projects').expect(200);
+  });
+
+  it('binds an actual available port and serves the app from the bound URL', async () => {
+    const runtime = await startLauncherRuntime(makeTempDir(), { port: 0 });
+    runtimes.push(runtime);
+
+    expect(runtime.port).toBeGreaterThan(0);
+
+    const response = await fetch(`${runtime.url}/api/projects`);
+    expect(response.ok).toBe(true);
+    expect(await response.json()).toEqual([]);
+  });
+
+  it('allows different project roots concurrently but rejects duplicate launches for the same resolved root', async () => {
+    const firstRoot = makeTempDir();
+    const nestedChild = join(firstRoot, 'packages', 'frontend');
+    mkdirSync(nestedChild, { recursive: true });
+
+    const firstRuntime = await startLauncherRuntime(firstRoot, { port: 0 });
+    const secondRuntime = await startLauncherRuntime(makeTempDir(), { port: 0 });
+    runtimes.push(firstRuntime, secondRuntime);
+
+    expect(firstRuntime.port).not.toBe(secondRuntime.port);
+
+    await expect(startLauncherRuntime(nestedChild, { port: 0 })).rejects.toThrow(
+      /already running.*same project/i,
+    );
   });
 });

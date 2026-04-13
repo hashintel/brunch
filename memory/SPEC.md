@@ -236,7 +236,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 | I1  | SSE protocol conformance                                   | Slice 1 (skeleton)        | app.test.ts                          | D8          |
 | I2  | Stream lifecycle correctness                               | Slice 1 (skeleton)        | app.test.ts                          | D8          |
 | I3  | Thinking/text separation                                   | Slice 1 (skeleton)        | app.test.ts                          | D8          |
-| I4  | Vite proxy routing                                         | Slice 1 (skeleton)        | vite.config.ts (manual)              | D10         |
+| I4  | Vite proxy routing stays aligned with the dev API listener through one explicit backend-port configuration seam (`BRUNCH_PORT` → `PORT` → default) | Slice 1 (skeleton); slice 14b | runtime-config.test.ts, vite.config.ts (manual) | D10         |
 | I5  | DB lifecycle correctness                                   | Slice 2 (SQLite)          | db.test.ts, launcher.test.ts         | D7, D81     |
 | I6  | Turn persistence                                           | Slice 3 (turn tree)       | db.test.ts, app.test.ts             | D1, D7      |
 | I7  | Tool call SSE conformance                                  | Slice 3b (rich UI)        | app.test.ts, manual (outer loop)     | D8, D14     |
@@ -261,7 +261,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 | #    | Invariant                                                  | Established by            | Protected by                         | Proves      |
 | ---- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I100 | `.brunch/` project resolution walks up safely, rejects invalid `.brunch` path shapes early, and resolve-creates-or-finds local storage; packaged launcher/bin startup keeps `npx brunch` executable, preserves API 404s when static assets are mounted, falls back on empty `BRUNCH_DB`, and still resolves drizzle migrations via `import.meta.url` instead of cwd | Slice 14 | project.test.ts, launcher.test.ts, cli.test.ts, runtime-config.test.ts | D10, D81 |
+| I100 | `.brunch/` project resolution walks up safely, rejects invalid `.brunch` path shapes early, and resolve-creates-or-finds local storage; packaged launcher/bin startup keeps `npx brunch` executable, binds and reports the actual bound localhost URL, rejects duplicate live launches for the same resolved `.brunch/` root, preserves API 404s when static assets are mounted, falls back on empty `BRUNCH_DB`, and still resolves drizzle migrations via `import.meta.url` instead of cwd | Slices 14, 14b | project.test.ts, launcher.test.ts, cli.test.ts, runtime-config.test.ts | D10, D81 |
 | I101 | Project mode (greenfield/brownfield) persists through schema, API, and interviewer configuration: brownfield scope gets read-only exploration tools, a scope-only exploration prompt, and a higher step budget; later phases keep their normal prompts; greenfield path is unchanged; server derives cwd from launcher context | Slice 14a | db.test.ts, interview.test.ts, app.test.ts, ProjectList.test.tsx | D32, D82, D83 |
 | I102 | TanStack file-route generation runs through the Vite plugin from `src/client/routes` into the managed `src/client/routeTree.gen.ts` artifact using directory-based nesting under `routes/project/$id/` with a pathless `_view/` layout route; runtime bootstrapping constructs the client router from that generated tree; thin route owners delegate loader/view wiring through ignored colocated support files without degrading route-level code splitting; the dashboard, four phase routes, export, and project index routes nest correctly under three layout shells (AppLayout → ProjectLayout → ViewLayout with EntitySidebar); knowledge route retired in slice 25; GraphView is lazy-loaded via `React.lazy` and lands in its own production chunk separate from ViewLayout (slice 26); and the production build keeps route components split into dynamic route chunks | Route ownership refactor steps 3-9; slice 23 (directory routing); slice 25 (knowledge route retired); slice 26 (graph view code-split) | file-route-infra.test.ts, file-route-dashboard.test.ts, file-route-interview.test.ts, file-route-export.test.ts, build-boundary.test.ts, GraphView.test.tsx, main.test.tsx, router.test.tsx | D85, D86 |
 
@@ -605,9 +605,9 @@ This projection difference is a deliberate design choice, not an implementation 
 | file-route-interview.test.ts  | 3     | I102                                                  |
 | file-route-export.test.ts     | 1     | I102                                                  |
 | project.test.ts               | 10    | I100                                                  |
-| launcher.test.ts              | 3     | I5, I100                                              |
+| launcher.test.ts              | 5     | I5, I100                                              |
 | cli.test.ts                   | 1     | I100                                                  |
-| runtime-config.test.ts        | 3     | I100                                                  |
+| runtime-config.test.ts        | 7     | I4, I100                                              |
 | api-types.test.ts             | 8     | —                                                     |
 | export-loader.test.ts         | 4     | D26, D65, D66, D70                                    |
 | ExportPreview.test.tsx        | 2     | I15, D26, D65, D66, D70                               |
