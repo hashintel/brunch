@@ -255,19 +255,23 @@
      - Decisions: → SPEC.md §Decisions D49, D50, D87, D88
      - Unblocks: 24
 
-24. **ProjectLayout sidebar + layout-level data loading split** `not-started`
-    - ProjectLayout renders left sidebar with phase navigation list and readiness/closeability indicators per phase
-    - Split `workspace-loader.ts`: ProjectLayout loader fetches `/api/projects/:id` → `ProjectState` (workflow state); ViewLayout loader fetches `/api/projects/:id/entities` → `EntitiesData`
-    - Phase route components read workflow data from ProjectLayout's loader via `useLoaderData({ from: '/project/$id' })` and filter turns by phase
-    - Update `workspace-controller.ts` `useLoaderData` reference from `/project/$id` to the new ProjectLayout route path
-    - Sidebar highlights the active phase, shows status badges (unstarted/in_progress/closed), readiness band, and closeability for each
-    - Requirements: → SPEC.md §Requirements #7, #8
-    - Decisions: → SPEC.md §Decisions D65, D86, D87
-    - Candidate invariant goals: layout-level data ownership works — ProjectLayout loader and ViewLayout loader fetch independently; sidebar reflects live workflow state; workspace controller adapts to new loader path without regressing
-    - Invariants to respect: I24 (workspace seam), I72 (phase-close seam), I87 (requirements-review seam)
-    - Acceptance: sidebar shows all four phases with correct status/readiness; navigating between phases does not re-fetch workflow state; `npm run verify` green
-    - **Verification approach**: inner — workspace-loader.test.ts split into layout-level tests; workspace-controller.test.tsx updated for new loader path. Outer — manual sidebar navigation with seeded fixture data.
+24. **ProjectLayout sidebar + layout-level data loading split** `done`
+    - Shipped: workspace-loader split into `fetchProjectLayoutLoaderData` (ProjectState) and `fetchViewLayoutLoaderData` (EntitiesData); ProjectLayout renders `PhaseNavigationSidebar` with status/readiness/closeability per phase; ViewLayout owns entity loading; workspace-controller reads from two `useLoaderData` calls; `WorkspaceLoaderData` type retired
+    - Seam changed: workspace-data adapter now accepts `(projectState, entitySnapshot, projectId)` instead of combined `WorkspaceLoaderData`
+    - Evidence: workspace-loader.test.ts, phase-navigation-sidebar.test.tsx, workspace-controller.test.tsx, InterviewWorkspace.test.tsx, file-route-interview.test.ts, router.test.tsx; 318 tests pass, `npm run verify` green
+    - Debt: project index route still fetches its own ProjectState for redirect (review finding #2 — deferred); manual browser verification pending
     - Depends on: 23
+
+24b. **Route colocation + workspace lexicon retirement** `not-started`
+     - Pure structural refactor — no behavior changes. Two rules: (1) if a module has exactly one consumer route, inline it into that route file; (2) if shared, colocate in the nearest common ancestor route directory with `-` prefix and retire the "workspace" name.
+     - **Inlines (dissolves `screens/`, `workspace-loader.ts`, most `-` support files):** each screen component inlines into its sole consumer route or support file; each single-use loader function inlines into its route's `loader` option; `phase-navigation-sidebar` inlines into `project/$id/route.tsx`; `route-skeletons` splits — each skeleton inlines into its sole consumer route's `pendingComponent`
+     - **Shared renames (dissolves `workspace/`, renames to interview lexicon):** `workspace-controller.ts` → `_view/-interview-controller.ts`; `workspace-controller-core.ts` → `_view/-interview-controller-core.ts`; `workspace-data.ts` → `_view/-interview-data.ts`; `chat-hydration.ts` → `_view/-interview-hydration.ts`; `mutations/workspace-mutations.ts` → `mutations/interview-mutations.ts`
+     - **Stays in `components/`:** `EntitySidebar`, `knowledge-card`, `app-shell`, `hash-logo`, `ai-elements/`, `ui/` — genuinely shared UI components not 1:1 with any route
+     - Candidate invariant goals: all existing route, loader, controller, and workspace tests pass with updated import paths; code splitting unchanged; no new or deleted exports at the public boundary
+     - Invariants to respect: I15 (routing), I24 (workspace seam), I102 (code splitting)
+     - Acceptance: `screens/` directory deleted; `workspace/` directory deleted; `workspace-loader.ts` deleted; no file under `src/client/` contains "workspace" in its name; `npm run verify` green
+     - **Verification approach**: inner — all existing tests pass with updated imports; build-boundary.test.ts confirms code splitting intact. No new tests needed — move/rename only.
+     - Depends on: 24
 
 25. **Per-phase conversation views + phase-transition navigation + knowledge sidebar relocation** `not-started`
     - Each phase route renders its own filtered conversation thread (turns where `turn.phase` matches)
@@ -281,7 +285,7 @@
     - Invariants to respect: I24 (update for per-phase filtering), I72 (phase-close still works), I87 (requirements review still works), I48 (knowledge display intact)
     - Acceptance: each phase route shows only its turns; closing scope navigates to elicitation; knowledge items visible in Chat right sidebar with filter controls; old `/project/:id/knowledge` URL returns 404; `npm run verify` green
     - **Verification approach**: inner — per-phase filtering tests; phase-transition navigation tests. Middle — InterviewWorkspace.test.tsx adapted for per-phase rendering. Outer — manual end-to-end: create project → framing → close → elicitation → close → requirements-review → close → acceptance-review → close → export.
-    - Depends on: 24
+    - Depends on: 24b
 
 26. **Graph view stub in ViewLayout** `not-started`
     - ViewLayout's `?view=graph` switch renders a knowledge-graph visualization (project-scoped, optionally phase-filtered)
@@ -316,11 +320,10 @@
 done ─────────────────────────────────────────────────────────────┐
   Phase 1–7, 10: all complete                                     │
   Ad-hoc: 22 (Zod strip) done                                    │
-  Phase 11: 23 (directory routing + layout scaffolding) done      │
+  Phase 11: 23, 23a, 24 done                                     │
 ──────────────────────────────────────────────────────────────────┘
-Phase 11: 23a (entity-projection alignment) in-progress (commits 5-6 remain)
-          23a ──→ 24 (ProjectLayout sidebar + data split)
-          24 ──→ 25 (per-phase views + transition nav + knowledge sidebar)
+Phase 11: 24 ──→ 24b (route colocation + workspace lexicon retirement)
+          24b ──→ 25 (per-phase views + transition nav + knowledge sidebar)
           25 ──→ 26 (graph view stub)
 Phase 8:  25 ──→ 15 (edit mode — adapts to new layout)    [stretch]
           15 ──→ 15a (cascade execution + secondary threads) [stretch]
@@ -330,7 +333,7 @@ Deferred: 25 ──→ 13a (review lifecycle refinement — adapts to per-phase 
 
 ### Parallelism opportunities
 
-- **Phase 11 (routing refactor) is the active work.** 23a→24→25→26 is the critical path. 23 is done, 23a commits 5-6 remain.
+- **Phase 11 (routing refactor) is the active work.** 24b→25→26 is the remaining critical path. 23, 23a, 24 are done.
 - 16 (drizzle-kit audit) is independent of Phase 11 and can run in parallel if needed.
 - 15/15a (knowledge-graph revisit) now depend on 25 (not just 12a) because the knowledge workspace is dissolving — edit mode needs to adapt to the new ChatLayout sidebar or Graph view.
 - 13a (review lifecycle refinement) now depends on 25 because review surfaces move into per-phase routes.
