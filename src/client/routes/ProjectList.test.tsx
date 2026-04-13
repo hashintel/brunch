@@ -13,7 +13,9 @@ const navigateMock = vi.fn();
 const fetchMock = vi.fn<typeof fetch>();
 
 vi.mock('@tanstack/react-router', () => ({
-  useLoaderData: () => currentProjects,
+  getRouteApi: () => ({
+    useLoaderData: () => currentProjects,
+  }),
   useNavigate: () => navigateMock,
 }));
 

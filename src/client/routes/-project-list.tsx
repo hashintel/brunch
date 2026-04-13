@@ -1,8 +1,10 @@
-import { useLoaderData, useNavigate } from '@tanstack/react-router';
+import { getRouteApi, useNavigate } from '@tanstack/react-router';
 
 import type { ProjectListItem } from '@/shared/api-types.js';
 
 import { ProjectListScreen } from '../screens/ProjectListScreen.js';
+
+const projectListRouteApi = getRouteApi('/');
 
 export async function fetchProjectListLoaderData(): Promise<ProjectListItem[]> {
   const response = await fetch('/api/projects');
@@ -14,7 +16,7 @@ export async function fetchProjectListLoaderData(): Promise<ProjectListItem[]> {
 }
 
 export function ProjectList() {
-  const projects = useLoaderData({ from: '/' });
+  const projects = projectListRouteApi.useLoaderData();
   const navigate = useNavigate();
 
   const navigateToProject = (projectId: number) => {

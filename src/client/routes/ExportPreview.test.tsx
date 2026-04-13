@@ -31,8 +31,10 @@ vi.mock('@tanstack/react-router', () => ({
       {children}
     </a>
   ),
-  useLoaderData: () => currentLoaderData,
-  useParams: () => ({ id: '7' }),
+  getRouteApi: () => ({
+    useLoaderData: () => currentLoaderData,
+    useParams: () => ({ id: '7' }),
+  }),
 }));
 
 vi.mock('@/client/components/ui/button', () => ({

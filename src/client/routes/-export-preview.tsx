@@ -1,10 +1,12 @@
-import { useLoaderData, useParams } from '@tanstack/react-router';
+import { getRouteApi } from '@tanstack/react-router';
 
 import { ExportPreviewScreen } from '../screens/ExportPreviewScreen.js';
 
+const exportPreviewRouteApi = getRouteApi('/project_/$id/export');
+
 export function ExportPreview() {
-  const { id } = useParams({ from: '/project_/$id/export' });
-  const data = useLoaderData({ from: '/project_/$id/export' });
+  const { id } = exportPreviewRouteApi.useParams();
+  const data = exportPreviewRouteApi.useLoaderData();
 
   return <ExportPreviewScreen projectId={id} data={data} />;
 }

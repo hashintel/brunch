@@ -7,10 +7,9 @@ import { vi } from 'vitest';
 import type { EntitiesData } from '@/shared/api-types.js';
 
 import { KnowledgeWorkspaceView } from '../screens/KnowledgeWorkspaceScreen.js';
-import type { KnowledgeWorkspaceLoaderData } from '../workspace/workspace-loader.js';
 import { KnowledgeWorkspace } from './-knowledge-workspace.js';
 
-let currentLoaderData: KnowledgeWorkspaceLoaderData;
+let currentLoaderData: { entitySnapshot: EntitiesData };
 
 function buildHref(to?: string, params?: Record<string, string>) {
   if (!to) {
@@ -34,8 +33,10 @@ vi.mock('@tanstack/react-router', () => ({
       {children}
     </a>
   ),
-  useLoaderData: () => currentLoaderData,
-  useParams: () => ({ id: '1' }),
+  getRouteApi: () => ({
+    useLoaderData: () => currentLoaderData,
+    useParams: () => ({ id: '1' }),
+  }),
 }));
 
 afterEach(() => {

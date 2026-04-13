@@ -1,13 +1,12 @@
-import { useLoaderData, useParams } from '@tanstack/react-router';
+import { getRouteApi } from '@tanstack/react-router';
 
 import { KnowledgeWorkspaceScreen } from '../screens/KnowledgeWorkspaceScreen.js';
-import type { KnowledgeWorkspaceLoaderData } from '../workspace/workspace-loader.js';
+
+const knowledgeWorkspaceRouteApi = getRouteApi('/project_/$id/knowledge');
 
 export function KnowledgeWorkspace() {
-  const { id } = useParams({ from: '/project_/$id/knowledge' });
-  const { entitySnapshot } = useLoaderData({
-    from: '/project_/$id/knowledge',
-  }) as KnowledgeWorkspaceLoaderData;
+  const { id } = knowledgeWorkspaceRouteApi.useParams();
+  const { entitySnapshot } = knowledgeWorkspaceRouteApi.useLoaderData();
 
   return <KnowledgeWorkspaceScreen projectId={id} entities={entitySnapshot} />;
 }
