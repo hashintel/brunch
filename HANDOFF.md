@@ -8,175 +8,100 @@ Implement Phase 11 routing & layout refactor — phase-based routing with three 
 
 ## Session State
 
-- **Last completed skills**: `ln-scope` (slice 24), `ln-build` (slice 24), `ln-plan` (added 24b), `ln-sync`
+- **Last completed skills**: `ln-scope` (slice 24b), `ln-build` (slice 24b), `ln-sync` (post-24b)
 - **Current skill**: `ln-handoff`
-- **Flow position**: scope ✓ → build ✓ → plan ✓ → sync ✓ — ready for next scope (24b)
+- **Flow position**: scope ✓ → build ✓ → sync ✓ — ready for next scope (25)
 
 ## In-flight work
 
-### Slice 24b: Route colocation + workspace lexicon retirement (persisted in PLAN.md — ready to scope/build)
+### Nothing volatile — all work persisted
 
-Pure structural refactor, no behavior changes. Two rules:
-1. If a module has exactly one consumer route, inline it into that route file (Pattern 1)
-2. If shared across routes, colocate in the nearest common ancestor route directory with `-` prefix and retire the "workspace" name
+Slice 24b is fully committed (4 commits) and traceability is complete. No scope cards, spike verdicts, or design alternatives remain in-flight.
 
-**Inlines (dissolves `screens/`, `workspace-loader.ts`, most `-` support files):**
-- Each screen component inlines into its sole consumer route or support file
-- Each single-use loader function inlines into its route's `loader` option
-- `phase-navigation-sidebar` inlines into `project/$id/route.tsx`
-- `route-skeletons` splits — each skeleton inlines into its sole consumer route's `pendingComponent`
-
-**Shared renames (dissolves `workspace/`, renames to interview lexicon):**
-- `workspace-controller.ts` → `_view/-interview-controller.ts`
-- `workspace-controller-core.ts` → `_view/-interview-controller-core.ts`
-- `workspace-data.ts` → `_view/-interview-data.ts`
-- `chat-hydration.ts` → `_view/-interview-hydration.ts`
-- `mutations/workspace-mutations.ts` → `mutations/interview-mutations.ts`
-
-**Stays in `components/`:** `EntitySidebar`, `knowledge-card`, `app-shell`, `hash-logo`, `ai-elements/`, `ui/`
-
-**Acceptance:** `screens/` deleted; `workspace/` deleted; no file under `src/client/` contains "workspace" in its name; `npm run verify` green.
-
-### TanStack Router conventions research (volatile — discussed in conversation, not persisted elsewhere)
-
-User researched 5 community placement patterns for TanStack Router loader/component files:
-
-1. **Pattern 1: Everything in one file** — dominant baseline, what brunch should adopt for 1:1 modules
-2. **Pattern 2: `.lazy.tsx` split** — not needed since brunch has `autoCodeSplitting: true`
-3. **Pattern 3: `autoCodeSplitting`** — already enabled in brunch's Vite plugin
-4. **Pattern 4: `-` prefix colocation** — already partly used, to be applied consistently for shared modules
-5. **Pattern 5: Route directory encapsulation** — already used (`route.tsx` sentinel files)
-
-**Decision reached:** If a module is used by exactly one route, inline it (Pattern 1). If shared, colocate with `-` prefix (Pattern 4). This is captured in slice 24b's description in PLAN.md.
-
-### Responsive layout design (volatile — from prior session, carried forward)
-
-Three concentric layout shells, each owning its own responsive behavior:
-
-**AppLayout** (`__root.tsx`)
-- Fixed top bar (h-14). Logotype (HashMark + HashWordmark) top-left, current working directory (monospace, `sub` color) top-right.
-- Already implemented in slice 23.
-
-**ProjectLayout** (`project/$id/route.tsx`)
-- **Wide**: vertical left sidebar (w-60) with `PhaseNavigationSidebar` showing status/readiness/closeability per phase. Implemented in slice 24.
-- **Narrow**: sidebar content promotes to a horizontal top bar underneath AppLayout's bar. Phase list becomes a horizontal row. The sidebar column disappears entirely at narrow — no overlay or drawer.
-- Narrow behavior NOT YET IMPLEMENTED — slice 25 or later.
-
-**ViewLayout** (`project/$id/_view/route.tsx`)
-- **Wide** (chat mode): two columns — main slot (left, with ScrollArea) + resizable right sidebar panel (knowledge items).
-- **Narrow** (chat mode): right panel hides. A segmented control / tabs appears at the top to toggle between slot content and right panel content.
-- `?view=chat|graph` search param validated at layout level (implemented in slice 23).
-- Chat/graph view switching UX may need a spike — user flagged uncertainty.
-
-### Deferred review findings (from ln-review of slice 23 — carried forward)
+### Deferred review findings (carried forward from prior session)
 
 | # | Finding | Status | Implications |
 |---|---|---|---|
-| 1 | Deep relative imports (`../../../../`) in nested route support files | `deferred` | Resolves naturally with 24b colocation |
+| 1 | Deep relative imports (`../../../../`) in nested route support files | `addressed` | Resolved by 24b colocation — interview modules now use relative `./-interview-*` imports within `_view/` |
 | 2 | Redundant API call in project index redirect | `deferred` | Project index route still fetches its own ProjectState; deferred debt from slice 24 |
 | 3 | `phaseRedirectTargets` in index.tsx duplicates `phaseRouteSegments` in phase-routes.ts | `deferred` | TypeScript route type safety forces the duplication |
 | 4 | `RouteRoot` name is a holdover (now conceptually AppLayout) | `deferred` | Low impact; rename when AppLayout gets richer content |
 | 6 | Outer-loop manual browser verification pending | `deferred` | All inner/middle oracles pass; do before slice 25 starts |
 
+### Pre-existing test failure
+
+`src/server/app.test.ts` > `GET /api/projects` > `returns workflow summary reflecting closed scope and in-progress design` — this failure exists on baseline (confirmed by running tests on stashed clean state). Not introduced by slice 24b.
+
+### Responsive layout design (carried forward — volatile)
+
+Three concentric layout shells, each owning its own responsive behavior:
+
+**AppLayout** (`__root.tsx`) — Fixed top bar (h-14). Already implemented.
+
+**ProjectLayout** (`project/$id/route.tsx`) — **Wide**: vertical left sidebar (w-60) with `PhaseNavigationSidebar`. Implemented. **Narrow**: sidebar promotes to horizontal bar. NOT YET IMPLEMENTED.
+
+**ViewLayout** (`project/$id/_view/route.tsx`) — **Wide**: two columns (main + resizable right sidebar). **Narrow**: right panel hides, segmented control toggles. NOT YET IMPLEMENTED.
+
 ## Decisions and assumptions
 
 | Item | Type | Status | Source |
 |---|---|---|---|
-| Phase routes initially all render the same InterviewWorkspace (behavior parity first) | decision | persisted | SPEC.md D86, implemented in slice 23 |
-| Layout-level data ownership: ProjectLayout loads ProjectState, ViewLayout loads EntitiesData | decision | persisted | SPEC.md D87, implemented in slice 24 |
-| Turns remain part of ProjectState at ProjectLayout level; phase routes filter client-side in slice 25 | assumption | volatile | Per-phase server endpoints are a Horizon item in PLAN.md |
+| 1:1 modules inline into route files; shared modules colocate with `-` prefix under `_view/` | decision | persisted | Slice 24b in PLAN.md, implemented |
+| `Workspace*` symbols renamed to `Interview*` throughout | decision | persisted | Slice 24b |
+| `KnowledgeWorkspaceView` → `KnowledgeViewContent`, `KnowledgeWorkspace` → `KnowledgeView` | decision | persisted | Slice 24b |
+| `InterviewWorkspace` → `InterviewView` | decision | persisted | Slice 24b |
+| Loader functions inline directly into route files (no shared `fetchJson` helper) | decision | persisted | Slice 24b — each route owns its fetch |
+| Turns remain part of ProjectState at ProjectLayout level; phase routes filter client-side in slice 25 | assumption | volatile | Per-phase server endpoints are a Horizon item |
 | `router.invalidate()` remains viable with split loaders | assumption | volatile | Each re-fetch is now smaller; React Query granular caching is Horizon item |
-| 1:1 modules inline into route files; shared modules colocate with `-` prefix | decision | persisted | Slice 24b in PLAN.md; based on TanStack Router research |
 | Chat/graph view switching UX may need a spike | assumption | volatile | User flagged uncertainty; slice 25-26 territory |
 
 ## Repo state
 
 - **Branch**: `ln/fe-581-e2e-manual-refine-1`
 - **Recent commits**:
-  - `ffa823d` — docs: add slice 24b (route colocation) and sync plan/spec after slice 24
-  - `634387b` — feat: ProjectLayout sidebar with layout-level data loading split (slice 24)
-  - `6477b4a` — test: retire stale entity seam characterizations (23a commit 6)
-  - `2748a5e` — refactor: default routed entities to active path (23a commit 5)
-  - `a591112` — refactor: render knowledge graph connections deliberately (23a commit 4)
-- **Dirty files**: `HANDOFF.md` only
-- **Test status**: 318 tests pass across 41 files; `npm run verify` green as of slice 24 commit
+  - `6ebae0a` — docs: sync SPEC.md and PLAN.md after slice 24b lexicon retirement
+  - `572aaa8` — docs: mark slice 24b done, update interview seam invariant
+  - `6fbfd5a` — refactor: move shared workspace modules to interview lexicon
+  - `0d840e5` — refactor: inline single-consumer modules into route files
+- **Dirty files**: `docs/design/DESIGN_SCRATCH.md` (unrelated)
+- **Test status**: 311 tests pass across 40 files; 1 pre-existing server test failure; `npm run verify` green (build succeeds)
 
 ## Artifact status
 
 | Artifact | Exists | Current vs conversation |
 |---|---|---|
-| memory/SPEC.md | yes | current — I15, I24 updated for slice 24; D87, D88 from 23a |
-| memory/PLAN.md | yes | current — slice 24 done, 24b added, dependency graph updated, sync complete |
-| memory/REFACTOR.md | no | deleted — 23a completed all 6 commits |
-
-## Key code locations for slice 24b
-
-### Files to inline (1:1 consumers)
-
-| Source file | Single consumer | Action |
-|---|---|---|
-| `src/client/workspace/workspace-loader.ts` | three functions, each used by one route | inline each into its route, delete file |
-| `src/client/screens/ProjectListScreen.tsx` | `routes/-project-list.tsx` | inline |
-| `src/client/screens/InterviewWorkspaceScreen.tsx` | `_view/-interview-workspace.tsx` | inline |
-| `src/client/screens/KnowledgeWorkspaceScreen.tsx` | `$id/-knowledge-workspace.tsx` | inline |
-| `src/client/screens/ExportPreviewScreen.tsx` | `$id/-export-preview.tsx` | inline |
-| `src/client/components/phase-navigation-sidebar.tsx` | `$id/route.tsx` | inline |
-| `src/client/components/route-skeletons.tsx` | each skeleton used by one route | split and inline |
-| `$id/-export-loader.ts` | `export.tsx` | inline |
-| `$id/-export-preview.tsx` | `export.tsx` | inline |
-| `$id/-knowledge-workspace.tsx` | `knowledge.tsx` | inline |
-
-### Files to rename/move (shared)
-
-| Source file | Target | Reason |
-|---|---|---|
-| `workspace/workspace-controller.ts` | `_view/-interview-controller.ts` | shared by 4 phase routes |
-| `workspace/workspace-controller-core.ts` | `_view/-interview-controller-core.ts` | used by controller + data |
-| `workspace/workspace-data.ts` | `_view/-interview-data.ts` | used by controller |
-| `workspace/chat-hydration.ts` | `_view/-interview-hydration.ts` | used by controller |
-| `mutations/workspace-mutations.ts` | `mutations/interview-mutations.ts` | used by controller |
-
-### Test files that need import path updates
-
-- `workspace/workspace-controller.test.tsx` → `_view/-interview-controller.test.tsx`
-- `workspace/workspace-data.test.ts` → `_view/-interview-data.test.ts`
-- `workspace/workspace-loader.test.ts` → delete (functions inlined; test coverage moves to route-level tests or stays as layout-loader tests)
-- `workspace/chat-hydration.test.ts` → `_view/-interview-hydration.test.ts`
-- `_view/InterviewWorkspace.test.tsx` — update import paths
-- `mutations/client-mutation.test.ts` — update if workspace-mutations import changes
-- `router.test.tsx` — update mock paths
-- `file-route-interview.test.ts` — update source assertions
+| memory/SPEC.md | yes | current — I15 and I24 updated for slice 24b; "Interview seam" header |
+| memory/PLAN.md | yes | current — slice 24b marked done, slice 25 description refreshed, dependency graph updated |
+| memory/REFACTOR.md | no | n/a |
 
 ## Next steps
 
-1. **`/ln-scope` for slice 24b** — Route colocation + workspace lexicon retirement
-2. **`/ln-build` for slice 24b** — Pure structural refactor, commit sequence TBD (likely one commit per major move)
-3. **Manual browser verification** — deferred review finding #6; do before slice 25
-4. **`/ln-scope` for slice 25** — Per-phase conversation views + phase-transition navigation + knowledge sidebar relocation
+1. **Manual browser verification** — deferred review finding #6; do before slice 25 starts
+2. **`/ln-scope` for slice 25** — Per-phase conversation views + phase-transition navigation + knowledge sidebar relocation
+3. **`/ln-build` for slice 25** — The largest remaining Phase 11 slice
+4. **`/ln-scope` for slice 26** — Graph view stub in ViewLayout
 
 ## Open questions
 
-- **Chat/graph view switching UX**: user flagged this may need a spike. `?view=chat|graph` search param is validated but no switching UI exists yet. Slice 25-26 territory.
-- **ProjectLayout narrow breakpoint**: at what width does the sidebar promote to a horizontal bar? No specific pixel value discussed. Check brunch-ui for precedent or decide during implementation.
-- **Project index redundant fetch**: review finding #2. The index route fetches its own ProjectState for redirect logic, duplicating ProjectLayout's loader. Low impact but worth fixing via `beforeLoad` + route context eventually.
+- **Chat/graph view switching UX**: `?view=chat|graph` search param is validated but no switching UI exists yet. May need a spike.
+- **ProjectLayout narrow breakpoint**: at what width does the sidebar promote to a horizontal bar? No specific pixel value discussed.
+- **Project index redundant fetch**: review finding #2. Low impact but worth fixing via `beforeLoad` + route context eventually.
 
 ## Resume prompt
 
 ```
-Read HANDOFF.md, then memory/SPEC.md §Decisions D86, D87
-and memory/PLAN.md §Phase 11 slice 24b.
+Read HANDOFF.md, then memory/SPEC.md §Invariants I15, I24
+and memory/PLAN.md §Phase 11 slice 25.
 
-Run /ln-scope for slice 24b (route colocation + workspace lexicon
-retirement). HANDOFF.md §Key code locations has the full file
-inventory — which modules to inline, which to rename/move, and
-which tests need import path updates.
+Run /ln-scope for slice 25 (per-phase conversation views +
+phase-transition navigation + knowledge sidebar relocation).
 
-The two rules: (1) if a module has exactly one consumer route,
-inline it into that route file; (2) if shared, colocate in the
-nearest common ancestor route directory with - prefix and rename
-from "workspace" to "interview" lexicon.
+Key context: slice 24b retired the "workspace" lexicon — all
+modules are now under routes/project/$id/_view/ with -interview-
+prefix. InterviewView replaces InterviewWorkspace. KnowledgeView
+replaces KnowledgeWorkspace. Loaders are inline in route files.
 ```
 
 ## Blockers
 
-None. Slice 24b is unblocked.
+None. Slice 25 is unblocked.
