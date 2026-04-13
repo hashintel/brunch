@@ -275,16 +275,17 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 <!-- Pruned 2026-04-12: removed I30 — moot, debug surface route removed in slice 17a. -->
 
-### Workspace seam
+### Interview seam
 
 <!-- Consolidated 2026-04-10: absorbed I25, I33, I34, I35, I36, I37, I38, I39, I40, I41, I42, I43,
-     I65, I67 into I24 — same seam (workspace controller/data/hydration boundaries), generalized wording.
+     I65, I67 into I24 — same seam (interview controller/data/hydration boundaries), generalized wording.
      I37, I38 are render-sensitive primitive purity; I39, I40 are preload/budget; I41, I42 are
-     controller/mutation oracles; I43, I65, I67 are streaming/pending-question projection. -->
+     controller/mutation oracles; I43, I65, I67 are streaming/pending-question projection.
+     Renamed from "Workspace seam" to "Interview seam" in slice 24b (workspace lexicon retirement). -->
 
 | #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
 | --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I24 | Workspace hydration, streaming projection, controller orchestration, mutation transport, and render-lifecycle boundaries remain stable across project entry, same-project refresh, observer-result invalidation, streamed pending-question cards, and chat submission — including layout-level data loading split where ProjectLayout loads workflow state and ViewLayout loads entity data independently | Slices 6b1, 6c, 6d, 6e, 6f; refactors 1–14; slice 24 (data split) | InterviewWorkspace.test.tsx, workspace-data.test.ts, workspace-loader.test.ts, workspace-controller.test.tsx, chat-hydration.test.ts, client-mutation.test.ts, ProjectList.test.tsx, code-block.test.tsx, message.test.tsx, markdown-rendering.test.tsx, capability-boundaries.test.ts, build-boundary.test.ts | D9, D19, D22, D14, D34, D36, D37, D38, D39, D40, D41, D42, D43, D44, D58, D87 |
+| I24 | Interview hydration, streaming projection, controller orchestration, mutation transport, and render-lifecycle boundaries remain stable across project entry, same-project refresh, observer-result invalidation, streamed pending-question cards, and chat submission — including layout-level data loading split where ProjectLayout loads workflow state and ViewLayout loads entity data independently; all modules colocated under `routes/project/$id/_view/` with `-interview-` prefix | Slices 6b1, 6c, 6d, 6e, 6f; refactors 1–14; slice 24 (data split); slice 24b (colocation + lexicon) | InterviewView.test.tsx, -interview-data.test.ts, -interview-controller.test.tsx, -interview-hydration.test.ts, client-mutation.test.ts, ProjectList.test.tsx, code-block.test.tsx, message.test.tsx, markdown-rendering.test.tsx, capability-boundaries.test.ts, build-boundary.test.ts | D9, D19, D22, D14, D34, D36, D37, D38, D39, D40, D41, D42, D43, D44, D58, D87 |
 
 ### Turn response seam
 
