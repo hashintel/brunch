@@ -3,6 +3,7 @@
 import { launch } from './launcher.js';
 
 const args = new Set(process.argv.slice(2));
+const launchCwd = process.env.BRUNCH_LAUNCH_CWD || process.cwd();
 
 if (args.has('--help') || args.has('-h') || args.has('help')) {
   console.log('Usage: brunch');
@@ -11,7 +12,7 @@ if (args.has('--help') || args.has('-h') || args.has('help')) {
   process.exit(0);
 }
 
-launch(process.cwd()).catch((error) => {
+launch(launchCwd).catch((error) => {
   console.error('Failed to start brunch:', error);
   process.exit(1);
 });
