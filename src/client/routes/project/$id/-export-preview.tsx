@@ -46,7 +46,7 @@ export function ExportPreview() {
           <div className="flex items-center gap-3">
             <Button onClick={handleDownload}>Download .md</Button>
             <Link
-              to="/project/$id/knowledge"
+              to="/project/$id/framing"
               params={{ id }}
               className="text-sm text-muted-foreground hover:text-foreground"
             >

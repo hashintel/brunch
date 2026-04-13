@@ -137,7 +137,7 @@
      - Candidate invariant goals: richer review actions and invalidation semantics can evolve without regressing the thin end-to-end workflow; deferred edge-case variants are collected in one explicit refinement slice rather than fragmenting earlier mode slices
      - Invariants to respect: → SPEC.md §Invariants I18, I21, I24
      - Acceptance: deferred review refinements such as edit/add/merge/stale semantics across requirements and criteria can land behind one cross-cutting slice without regressing completion, export, or workflow-state coherence
-     - **Verification approach**: inner — mutation/read-model/invalidation tests per refinement added. Outer — manual cross-phase review lifecycle walkthrough after the dedicated knowledge workspace exists.
+     - **Verification approach**: inner — mutation/read-model/invalidation tests per refinement added. Outer — manual cross-phase review lifecycle walkthrough using the per-phase routes and ViewLayout knowledge sidebar.
 
 ## Phase 7: Distribution + Brownfield + UI Alignment `done`
 
@@ -175,7 +175,7 @@
 
 ### Slices
 
-15. **Edit mode + cascade preview** — Knowledge workspace edit mode lets user select items to invalidate/remove. Read-only cascade preview traces knowledge graph edges (BFS over `depends_on`, `derived_from`, `constrains`, `verifies`, `refines`), shows affected items and phases that would reopen. No mutations yet — preview only. `not-started`
+15. **Edit mode + cascade preview** — Edit mode (accessible from ViewLayout's knowledge sidebar or Graph view) lets user select items to invalidate/remove. Read-only cascade preview traces knowledge graph edges (BFS over `depends_on`, `derived_from`, `constrains`, `verifies`, `refines`), shows affected items and phases that would reopen. No mutations yet — preview only. `not-started`
     - Requirements: → SPEC.md §Requirements #10
     - Assumptions: → SPEC.md §Assumptions A48
     - Decisions: → SPEC.md §Decisions D5, D17, D80
@@ -268,18 +268,11 @@
     - Evidence: 311 tests pass across 40 files; `npm run verify` green; build code-splitting intact
     - Depends on: 24
 
-25. **Per-phase conversation views + phase-transition navigation + knowledge sidebar relocation** `not-started`
-    - Each phase route renders its own filtered conversation thread (turns where `turn.phase` matches)
-    - Phase transition lifecycle: close mutation → on-success → `router.navigate({ to: '/project/$id/{next-phase}', params: { id } })`
-    - Knowledge sidebar moves from InterviewView into ViewLayout's Chat sub-layout as a right panel (compact, filterable by kind/phase)
-    - Old knowledge route (`project/$id/knowledge.tsx`) retired; `KnowledgeView.test.tsx` adapted or replaced
-    - Project index route (`/project/:id`) shows project summary with kickoff affordance (create project → redirect to `/framing`)
-    - Requirements: → SPEC.md §Requirements #6, #7, #8
-    - Decisions: → SPEC.md §Decisions D66, D71, D86, D87
-    - Candidate invariant goals: per-phase views show only that phase's turns; phase-close confirmation navigates to the next phase route on success; knowledge sidebar in ChatLayout updates on observer extraction without re-fetching conversation; old knowledge route removed without regressing knowledge visibility
-    - Invariants to respect: I24 (update for per-phase filtering), I72 (phase-close still works), I87 (requirements review still works), I48 (knowledge display intact)
-    - Acceptance: each phase route shows only its turns; closing scope navigates to elicitation; knowledge items visible in Chat right sidebar with filter controls; old `/project/:id/knowledge` URL returns 404; `npm run verify` green
-    - **Verification approach**: inner — per-phase filtering tests; phase-transition navigation tests. Middle — InterviewView.test.tsx adapted for per-phase rendering. Outer — manual end-to-end: create project → framing → close → elicitation → close → requirements-review → close → acceptance-review → close → export.
+25. **Per-phase conversation views + phase-transition navigation + knowledge sidebar relocation** `done`
+    - Shipped: each phase route renders only its phase's turns via `filterMessagesByPhase`; phase-close confirmation navigates to the next active phase via `getNextActivePhase` + `useEffect`; EntitySidebar moved from InterviewView into ViewLayout's ResizablePanelGroup; observer-result data parts trigger `router.invalidate()` replacing manual entity fetch; knowledge route retired; InterviewView header (workflow badges, Projects/Knowledge links) removed
+    - Seam changed: interview-data adapter simplified (no entity refresh state); controller accepts `phase: WorkflowPhase`; EntitySidebar accepts `EntitiesData` directly (no `isLoading`)
+    - Evidence: 290 tests pass across 38 files; `npm run verify` green; build code-splitting intact
+    - Debt: project index summary page deferred (redirect behavior unchanged); kind/phase filter controls on EntitySidebar deferred; manual browser verification (outer-loop) pending
     - Depends on: 24b
 
 26. **Graph view stub in ViewLayout** `not-started`
@@ -315,10 +308,9 @@
 done ─────────────────────────────────────────────────────────────┐
   Phase 1–7, 10: all complete                                     │
   Ad-hoc: 22 (Zod strip) done                                    │
-  Phase 11: 23, 23a, 24, 24b done                                │
+  Phase 11: 23, 23a, 24, 24b, 25 done                            │
 ──────────────────────────────────────────────────────────────────┘
-Phase 11: 24b ──→ 25 (per-phase views + transition nav + knowledge sidebar)
-          25 ──→ 26 (graph view stub)
+Phase 11: 25 ──→ 26 (graph view stub)
 Phase 8:  25 ──→ 15 (edit mode — adapts to new layout)    [stretch]
           15 ──→ 15a (cascade execution + secondary threads) [stretch]
 Phase 9:  14 ──→ 16 (drizzle-kit audit remediation)
@@ -327,8 +319,8 @@ Deferred: 25 ──→ 13a (review lifecycle refinement — adapts to per-phase 
 
 ### Parallelism opportunities
 
-- **Phase 11 (routing refactor) is the active work.** 25→26 is the remaining critical path. 23, 23a, 24, 24b are done.
-- 16 (drizzle-kit audit) is independent of Phase 11 and can run in parallel if needed.
-- 15/15a (knowledge-graph revisit) now depend on 25 (not just 12a) because the knowledge workspace is dissolving — edit mode needs to adapt to the new ChatLayout sidebar or Graph view.
-- 13a (review lifecycle refinement) now depends on 25 because review surfaces move into per-phase routes.
+- **Phase 11 is nearly complete.** 26 (graph view stub) is the only remaining slice. 23, 23a, 24, 24b, 25 are done.
+- 16 (drizzle-kit audit) is independent of Phase 11 and can run in parallel.
+- 15/15a (knowledge-graph revisit) depend on 25 (done) — edit mode can now adapt to the ViewLayout sidebar or Graph view.
+- 13a (review lifecycle refinement) depends on 25 (done) — review surfaces are now in per-phase routes.
 - 26 (graph view stub) is the least urgent Phase 11 slice and could be deferred if Phase 8 becomes higher priority.

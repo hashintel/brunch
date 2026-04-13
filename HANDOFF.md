@@ -8,29 +8,41 @@ Implement Phase 11 routing & layout refactor — phase-based routing with three 
 
 ## Session State
 
-- **Last completed skills**: `ln-scope` (slice 24b), `ln-build` (slice 24b), `ln-sync` (post-24b)
+- **Last completed skills**: `ln-scope` (slice 25), `ln-build` (slice 25), `ln-sync` (post-25)
 - **Current skill**: `ln-handoff`
-- **Flow position**: scope ✓ → build ✓ → sync ✓ — ready for next scope (25)
+- **Flow position**: scope ✓ → build ✓ → sync ✓ — ready for next scope (26)
 
 ## In-flight work
 
 ### Nothing volatile — all work persisted
 
-Slice 24b is fully committed (4 commits) and traceability is complete. No scope cards, spike verdicts, or design alternatives remain in-flight.
+Slice 25 is fully implemented (uncommitted) and traceability is complete. No scope cards, spike verdicts, or design alternatives remain in-flight.
 
-### Deferred review findings (carried forward from prior session)
+### Deferred review findings (carried forward from prior sessions)
 
 | # | Finding | Status | Implications |
 |---|---|---|---|
-| 1 | Deep relative imports (`../../../../`) in nested route support files | `addressed` | Resolved by 24b colocation — interview modules now use relative `./-interview-*` imports within `_view/` |
 | 2 | Redundant API call in project index redirect | `deferred` | Project index route still fetches its own ProjectState; deferred debt from slice 24 |
 | 3 | `phaseRedirectTargets` in index.tsx duplicates `phaseRouteSegments` in phase-routes.ts | `deferred` | TypeScript route type safety forces the duplication |
 | 4 | `RouteRoot` name is a holdover (now conceptually AppLayout) | `deferred` | Low impact; rename when AppLayout gets richer content |
-| 6 | Outer-loop manual browser verification pending | `deferred` | All inner/middle oracles pass; do before slice 25 starts |
+| 6 | Outer-loop manual browser verification pending | `deferred` | All inner/middle oracles pass; do before slice 26 starts |
 
 ### Pre-existing test failure
 
-`src/server/app.test.ts` > `GET /api/projects` > `returns workflow summary reflecting closed scope and in-progress design` — this failure exists on baseline (confirmed by running tests on stashed clean state). Not introduced by slice 24b.
+`src/server/app.test.ts` > `GET /api/projects` > `returns workflow summary reflecting closed scope and in-progress design` — this failure exists on baseline (confirmed in prior session). Not introduced by slice 25.
+
+### Slice 25 changes (uncommitted)
+
+All slice 25 changes are in the working tree — **not yet committed**. Commit before starting new work.
+
+Key structural changes:
+- **Per-phase turn filtering**: `filterMessagesByPhase` + `buildPhaseTurnIds` in `-interview-controller-core.ts`; controller accepts `phase: WorkflowPhase` parameter
+- **Phase-transition navigation**: `getNextActivePhase` in `phase-routes.ts`; `useEffect` in controller navigates on close
+- **EntitySidebar to ViewLayout**: `ResizablePanelGroup` moved from InterviewView to ViewLayout `route.tsx`; EntitySidebar accepts `EntitiesData` directly (no `isLoading`)
+- **Observer-result sync simplified**: interview-data adapter calls `router.invalidate()` on observer-result data parts instead of manual entity fetch
+- **Knowledge route retired**: `knowledge.tsx`, `-knowledge-view.tsx` deleted; `KnowledgeView.test.tsx`, `file-route-knowledge.test.ts` deleted
+- **InterviewView header removed**: workflow badges, Projects/Knowledge links removed (superseded by AppLayout + PhaseNavigationSidebar)
+- **Phase route wrappers**: each phase route wraps InterviewView with explicit phase prop
 
 ### Responsive layout design (carried forward — volatile)
 
@@ -40,68 +52,66 @@ Three concentric layout shells, each owning its own responsive behavior:
 
 **ProjectLayout** (`project/$id/route.tsx`) — **Wide**: vertical left sidebar (w-60) with `PhaseNavigationSidebar`. Implemented. **Narrow**: sidebar promotes to horizontal bar. NOT YET IMPLEMENTED.
 
-**ViewLayout** (`project/$id/_view/route.tsx`) — **Wide**: two columns (main + resizable right sidebar). **Narrow**: right panel hides, segmented control toggles. NOT YET IMPLEMENTED.
+**ViewLayout** (`project/$id/_view/route.tsx`) — **Wide**: two columns (main + resizable right sidebar with EntitySidebar). Implemented in slice 25. **Narrow**: right panel hides, segmented control toggles. NOT YET IMPLEMENTED.
 
 ## Decisions and assumptions
 
 | Item | Type | Status | Source |
 |---|---|---|---|
-| 1:1 modules inline into route files; shared modules colocate with `-` prefix under `_view/` | decision | persisted | Slice 24b in PLAN.md, implemented |
-| `Workspace*` symbols renamed to `Interview*` throughout | decision | persisted | Slice 24b |
-| `KnowledgeWorkspaceView` → `KnowledgeViewContent`, `KnowledgeWorkspace` → `KnowledgeView` | decision | persisted | Slice 24b |
-| `InterviewWorkspace` → `InterviewView` | decision | persisted | Slice 24b |
-| Loader functions inline directly into route files (no shared `fetchJson` helper) | decision | persisted | Slice 24b — each route owns its fetch |
-| Turns remain part of ProjectState at ProjectLayout level; phase routes filter client-side in slice 25 | assumption | volatile | Per-phase server endpoints are a Horizon item |
-| `router.invalidate()` remains viable with split loaders | assumption | volatile | Each re-fetch is now smaller; React Query granular caching is Horizon item |
-| Chat/graph view switching UX may need a spike | assumption | volatile | User flagged uncertainty; slice 25-26 territory |
+| Per-phase filtering is client-side from full ProjectState; per-phase server endpoints are Horizon | decision | persisted | PLAN.md §Horizon |
+| `router.invalidate()` replaces manual entity fetch for observer-result sync (D22 updated) | decision | persisted | SPEC.md §Decisions D22, PLAN.md slice 25 |
+| A50: router.invalidate() provides adequate entity-sidebar latency during streaming | assumption | persisted (unvalidated) | SPEC.md §Assumptions A50 |
+| Project index summary page deferred (redirect behavior unchanged) | decision | volatile | Slice 25 scope card deferral |
+| Kind/phase filter controls on EntitySidebar deferred | decision | volatile | Slice 25 scope card deferral |
 
 ## Repo state
 
 - **Branch**: `ln/fe-581-e2e-manual-refine-1`
-- **Recent commits**:
+- **Recent commits** (slice 25 is NOT committed yet):
+  - `0403005` — docs: handoff after slice 24b completion
   - `6ebae0a` — docs: sync SPEC.md and PLAN.md after slice 24b lexicon retirement
   - `572aaa8` — docs: mark slice 24b done, update interview seam invariant
   - `6fbfd5a` — refactor: move shared workspace modules to interview lexicon
-  - `0d840e5` — refactor: inline single-consumer modules into route files
-- **Dirty files**: `docs/design/DESIGN_SCRATCH.md` (unrelated)
-- **Test status**: 311 tests pass across 40 files; 1 pre-existing server test failure; `npm run verify` green (build succeeds)
+- **Dirty files**: 29 modified, 3 deleted, 2 untracked (all slice 25 work + docs)
+- **Test status**: 290 tests pass across 38 files; `npm run verify` green (check + test + build all pass)
 
 ## Artifact status
 
 | Artifact | Exists | Current vs conversation |
 |---|---|---|
-| memory/SPEC.md | yes | current — I15 and I24 updated for slice 24b; "Interview seam" header |
-| memory/PLAN.md | yes | current — slice 24b marked done, slice 25 description refreshed, dependency graph updated |
+| memory/SPEC.md | yes | current — D22 updated, I15/I24/I102 updated for slice 25, A50 added, verification coverage updated, lexicon "edit mode" updated |
+| memory/PLAN.md | yes | current — slice 25 marked done, dependency graph updated, parallelism updated, slices 13a/15 descriptions refreshed |
 | memory/REFACTOR.md | no | n/a |
 
 ## Next steps
 
-1. **Manual browser verification** — deferred review finding #6; do before slice 25 starts
-2. **`/ln-scope` for slice 25** — Per-phase conversation views + phase-transition navigation + knowledge sidebar relocation
-3. **`/ln-build` for slice 25** — The largest remaining Phase 11 slice
-4. **`/ln-scope` for slice 26** — Graph view stub in ViewLayout
+1. **Commit slice 25** — all changes are in the working tree, verified, ready to commit
+2. **Manual browser verification** — deferred review finding #6; do before slice 26 starts
+3. **`/ln-scope` for slice 26** — Graph view stub in ViewLayout (`?view=graph` switch, knowledge items grouped by kind, shares entity data from ViewLayout loader)
+4. **`/ln-build` for slice 26** — The last Phase 11 slice
 
 ## Open questions
 
-- **Chat/graph view switching UX**: `?view=chat|graph` search param is validated but no switching UI exists yet. May need a spike.
+- **A50 validation**: Does `router.invalidate()` provide adequate entity-sidebar update latency during streaming? Manual test needed.
 - **ProjectLayout narrow breakpoint**: at what width does the sidebar promote to a horizontal bar? No specific pixel value discussed.
-- **Project index redundant fetch**: review finding #2. Low impact but worth fixing via `beforeLoad` + route context eventually.
+- **Project index summary page**: deferred from slice 25. Should it come as a polish slice or fold into slice 26?
+- **Phase 11 completion**: After slice 26, Phase 11 is done. Next priority: Phase 8 (knowledge-graph revisit), Phase 9 (drizzle audit), or deferred slice 13a (review lifecycle refinement)?
 
 ## Resume prompt
 
 ```
-Read HANDOFF.md, then memory/SPEC.md §Invariants I15, I24
-and memory/PLAN.md §Phase 11 slice 25.
+Read HANDOFF.md, then memory/PLAN.md §Phase 11 slice 26.
 
-Run /ln-scope for slice 25 (per-phase conversation views +
-phase-transition navigation + knowledge sidebar relocation).
+First: commit slice 25 changes (all in working tree, verified).
+Then: run /ln-scope for slice 26 (graph view stub in ViewLayout).
 
-Key context: slice 24b retired the "workspace" lexicon — all
-modules are now under routes/project/$id/_view/ with -interview-
-prefix. InterviewView replaces InterviewWorkspace. KnowledgeView
-replaces KnowledgeWorkspace. Loaders are inline in route files.
+Key context: slice 25 moved EntitySidebar from InterviewView
+into ViewLayout's ResizablePanelGroup. ViewLayout already validates
+?view=chat|graph via search params. The graph view shares entity
+data from ViewLayout's loader — no additional fetch needed.
+Phase routes pass explicit phase props to InterviewView.
 ```
 
 ## Blockers
 
-None. Slice 25 is unblocked.
+None. Slice 26 is unblocked.

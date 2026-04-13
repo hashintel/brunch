@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
+import type { ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 
 import { InterviewView } from './-interview-view.js';
@@ -50,7 +50,6 @@ type UseChatHarness = {
 };
 
 let currentProjectState: ProjectState;
-let currentEntitySnapshot: EntitiesData;
 const routerInvalidate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 let useChatImpl: (options: UseChatOptions) => {
@@ -61,31 +60,12 @@ let useChatImpl: (options: UseChatOptions) => {
 };
 let useChatHarness: UseChatHarness;
 
-function buildHref(to?: string, params?: Record<string, string>) {
-  if (!to) {
-    return undefined;
-  }
-
-  return Object.entries(params ?? {}).reduce((path, [key, value]) => path.replace(`$${key}`, value), to);
-}
-
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({
-    children,
-    to,
-    params,
-    ...props
-  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & {
-    to?: string;
-    params?: Record<string, string>;
-  }) => (
-    <a href={buildHref(to, params)} {...props}>
-      {children}
-    </a>
+  Link: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a {...props}>{children}</a>
   ),
   useLoaderData: ({ from }: { from: string }) => {
     if (from === '/project/$id') return currentProjectState;
-    if (from === '/project/$id/_view') return currentEntitySnapshot;
     throw new Error(`Unexpected useLoaderData from: ${from}`);
   },
   useRouter: () => ({ invalidate: routerInvalidate }),
@@ -242,17 +222,6 @@ function createWorkspaceLoaderData({
   options = [],
   workflow,
   assistantParts,
-  entitySnapshot = {
-    goals: [],
-    terms: [],
-    contexts: [],
-    constraints: [],
-    requirements: [],
-    criteria: [],
-    decisions: [],
-    assumptions: [],
-    relationships: [],
-  } satisfies EntitiesData,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -267,8 +236,7 @@ function createWorkspaceLoaderData({
   }>;
   workflow?: ProjectState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
-  entitySnapshot?: EntitiesData;
-} = {}): { projectState: ProjectState; entitySnapshot: EntitiesData } {
+} = {}): { projectState: ProjectState } {
   return {
     projectState: createProjectState({
       projectId,
@@ -279,13 +247,11 @@ function createWorkspaceLoaderData({
       workflow,
       assistantParts,
     }),
-    entitySnapshot,
   };
 }
 
-function setLoaderData(data: { projectState: ProjectState; entitySnapshot: EntitiesData }) {
+function setLoaderData(data: { projectState: ProjectState }) {
   currentProjectState = data.projectState;
-  currentEntitySnapshot = data.entitySnapshot;
 }
 
 function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'ready'): (
@@ -346,11 +312,11 @@ function createQueryClient() {
   });
 }
 
-function renderWorkspace() {
+function renderWorkspace(phase: 'scope' | 'design' | 'requirements' | 'criteria' = 'scope') {
   const queryClient = createQueryClient();
   const rendered = render(
     <QueryClientProvider client={queryClient}>
-      <InterviewView />
+      <InterviewView phase={phase} />
     </QueryClientProvider>,
   );
 
@@ -374,13 +340,6 @@ afterEach(() => {
 });
 
 describe('InterviewView', () => {
-  it('renders the current project-scoped navigation links', async () => {
-    renderWorkspace();
-
-    expect((await screen.findByRole('link', { name: '← Projects' })).getAttribute('href')).toBe('/');
-    expect(screen.getByRole('link', { name: 'Knowledge' }).getAttribute('href')).toBe('/project/1/knowledge');
-  });
-
   it('renders the turn card from a pending-question tool part before route invalidation', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
@@ -413,86 +372,21 @@ describe('InterviewView', () => {
     });
   });
 
-  it('hydrates transcript and sidebar state from the route loader without a post-mount entity fetch', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        entitySnapshot: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [
-            {
-              id: 7,
-              project_id: 1,
-              content: 'Start with the web app',
-              rationale: 'Fastest launch path',
-            },
-          ],
-          assumptions: [],
-          relationships: [],
-        },
-      }),
-    );
-
-    renderWorkspace();
-
-    expect(await screen.findByText('Build the web app')).toBeTruthy();
-    expect(screen.getByText('What should we build first?')).toBeTruthy();
-    expect(screen.getByText('Start with the web app')).toBeTruthy();
-    expect(fetchMock).not.toHaveBeenCalled();
-  });
-
   it('refreshes durable loader-owned state for the same project without rewriting the live transcript', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        entitySnapshot: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-          relationships: [],
-        },
-      }),
-    );
+    setLoaderData(createWorkspaceLoaderData());
 
     const rendered = renderWorkspace();
     expect(await screen.findByText('What should we build first?')).toBeTruthy();
-    expect(screen.getByText("No decisions yet. They'll appear as the interview progresses.")).toBeTruthy();
 
     setLoaderData(
       createWorkspaceLoaderData({
         assistantText: 'Which platform should we target now?',
         answer: 'Ship the desktop app',
-        entitySnapshot: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [
-            {
-              id: 8,
-              project_id: 1,
-              content: 'Prefer the desktop app',
-              rationale: 'Matches the updated brief',
-            },
-          ],
-          assumptions: [],
-          relationships: [],
-        },
       }),
     );
     rendered.rerender(
       <QueryClientProvider client={rendered.queryClient}>
-        <InterviewView />
+        <InterviewView phase="scope" />
       </QueryClientProvider>,
     );
 
@@ -500,10 +394,6 @@ describe('InterviewView', () => {
     expect(screen.queryByText('Which platform should we target now?')).toBeNull();
     expect(screen.queryByText('Ship the desktop app')).toBeNull();
     expect(useChatHarness.setMessages).not.toHaveBeenCalled();
-
-    await waitFor(() => {
-      expect(screen.getByText('Prefer the desktop app')).toBeTruthy();
-    });
   });
 
   it('hydrates persisted transcript state when navigating to a different project', async () => {
@@ -515,22 +405,11 @@ describe('InterviewView', () => {
         projectId: 2,
         assistantText: 'How should project two start?',
         answer: 'Begin with the API',
-        entitySnapshot: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-          relationships: [],
-        },
       }),
     );
     rendered.rerender(
       <QueryClientProvider client={rendered.queryClient}>
-        <InterviewView />
+        <InterviewView phase="scope" />
       </QueryClientProvider>,
     );
 
@@ -540,495 +419,6 @@ describe('InterviewView', () => {
     });
 
     expect(useChatHarness.setMessages).not.toHaveBeenCalled();
-  });
-
-  it('renders remaining generic knowledge kinds in the sidebar without regressing existing tabs', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        entitySnapshot: {
-          goals: [],
-          terms: [],
-          contexts: [
-            {
-              id: 9,
-              project_id: 1,
-              kind: 'context',
-              subtype: null,
-              content: 'The tool starts from an ambiguous brief',
-              rationale: null,
-            },
-          ],
-          constraints: [
-            {
-              id: 10,
-              project_id: 1,
-              kind: 'constraint',
-              subtype: 'non-goal',
-              content: 'Keep setup instant',
-              rationale: 'Avoid a heavyweight launcher',
-            },
-          ],
-          requirements: [
-            {
-              id: 11,
-              project_id: 1,
-              kind: 'requirement',
-              subtype: null,
-              content: 'Resume interviews after browser restart',
-              rationale: 'People leave mid-session',
-            },
-          ],
-          criteria: [
-            {
-              id: 12,
-              project_id: 1,
-              kind: 'criterion',
-              subtype: 'acceptance',
-              content: 'Restoring the project shows the active path',
-              rationale: 'Protects the persistence seam',
-            },
-          ],
-          decisions: [
-            {
-              id: 7,
-              project_id: 1,
-              content: 'Start with the web app',
-              rationale: 'Fastest launch path',
-            },
-          ],
-          assumptions: [{ id: 5, project_id: 1, content: 'Users arrive with a concrete goal' }],
-          relationships: [
-            {
-              type: 'depends_on',
-              source: { collection: 'decision', kind: 'decision', id: 7 },
-              target: { collection: 'assumption', kind: 'assumption', id: 5 },
-            },
-          ],
-        } as EntitiesData,
-      }),
-    );
-
-    renderWorkspace();
-
-    expect(await screen.findByText('Start with the web app')).toBeTruthy();
-    expect(screen.getByText(/depends on/i)).toBeTruthy();
-    expect(screen.getByText('Users arrive with a concrete goal')).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: /constraints/i }));
-    expect(await screen.findByText('Keep setup instant')).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: /requirements/i }));
-    expect(await screen.findByText('Resume interviews after browser restart')).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: /criteria/i }));
-    expect(await screen.findByText('Restoring the project shows the active path')).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: /context/i }));
-    expect(await screen.findByText('The tool starts from an ambiguous brief')).toBeTruthy();
-
-    fireEvent.click(screen.getByRole('button', { name: /decisions/i }));
-    expect(await screen.findByText('Start with the web app')).toBeTruthy();
-  });
-
-  it('refetches sidebar entities when the chat stream emits observer-created constraints', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        entitySnapshot: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-          relationships: [],
-        },
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          goals: [],
-          terms: [],
-          contexts: [
-            {
-              id: 7,
-              project_id: 1,
-              kind: 'context',
-              subtype: null,
-              content: 'The project starts from a fuzzy brief',
-              rationale: 'The user is still establishing the problem context',
-            },
-          ],
-          constraints: [
-            {
-              id: 8,
-              project_id: 1,
-              kind: 'constraint',
-              subtype: 'non-goal',
-              content: 'Keep setup instant',
-              rationale: 'The launcher should stay lightweight',
-            },
-          ],
-          requirements: [],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-          relationships: [],
-        } satisfies EntitiesData),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ),
-    );
-
-    renderWorkspace();
-    expect(
-      await screen.findByText("No decisions yet. They'll appear as the interview progresses."),
-    ).toBeTruthy();
-
-    await act(async () => {
-      useChatHarness.onData?.({
-        type: 'data-observer-result',
-        data: {
-          entityIds: {
-            goals: [],
-            terms: [],
-            contexts: [7],
-            constraints: [8],
-            requirements: [],
-            criteria: [],
-            decisions: [],
-            assumptions: [],
-          },
-        },
-      });
-    });
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /constraints/i }));
-    expect(await screen.findByText('Keep setup instant')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /context/i }));
-    expect(await screen.findByText('The project starts from a fuzzy brief')).toBeTruthy();
-  });
-
-  it('ignores failed entity refresh requests and keeps the loader snapshot visible', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        entitySnapshot: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [
-            {
-              id: 9,
-              project_id: 1,
-              content: 'Loader decision',
-              rationale: 'Still authoritative when refresh fetch fails',
-            },
-          ],
-          assumptions: [],
-          relationships: [],
-        },
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(new Response('server error', { status: 500 }));
-
-    renderWorkspace();
-    expect(await screen.findByText('Loader decision')).toBeTruthy();
-
-    await act(async () => {
-      useChatHarness.onData?.({
-        type: 'data-observer-result',
-        data: {
-          entityIds: {
-            goals: [],
-            terms: [],
-            contexts: [],
-            constraints: [],
-            requirements: [],
-            criteria: [],
-            decisions: [99],
-            assumptions: [],
-          },
-        },
-      });
-    });
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-
-    expect(screen.getByText('Loader decision')).toBeTruthy();
-  });
-
-  it('refetches sidebar entities when the chat stream emits mixed observer-created design entities', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        entitySnapshot: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-          relationships: [],
-        },
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          goals: [],
-          terms: [],
-          contexts: [
-            {
-              id: 7,
-              project_id: 1,
-              kind: 'context',
-              subtype: null,
-              content: 'The first release still targets solo builders',
-              rationale: 'The turn clarified the audience',
-            },
-          ],
-          constraints: [
-            {
-              id: 8,
-              project_id: 1,
-              kind: 'constraint',
-              subtype: 'non-goal',
-              content: 'Do not add a plugin system yet',
-              rationale: 'The first release should stay narrow',
-            },
-          ],
-          requirements: [],
-          criteria: [],
-          decisions: [
-            {
-              id: 9,
-              project_id: 1,
-              content: 'Start with the web app',
-              rationale: 'It is the fastest path to feedback',
-            },
-          ],
-          assumptions: [
-            {
-              id: 10,
-              project_id: 1,
-              content: 'Users can work in a browser',
-            },
-          ],
-          relationships: [
-            {
-              type: 'depends_on',
-              source: { collection: 'decision', kind: 'decision', id: 9 },
-              target: { collection: 'assumption', kind: 'assumption', id: 10 },
-            },
-          ],
-        } satisfies EntitiesData),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ),
-    );
-
-    renderWorkspace();
-    expect(
-      await screen.findByText("No decisions yet. They'll appear as the interview progresses."),
-    ).toBeTruthy();
-
-    await act(async () => {
-      useChatHarness.onData?.({
-        type: 'data-observer-result',
-        data: {
-          entityIds: {
-            goals: [],
-            terms: [],
-            contexts: [7],
-            constraints: [8],
-            requirements: [],
-            criteria: [],
-            decisions: [9],
-            assumptions: [10],
-          },
-        },
-      });
-    });
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-
-    expect(await screen.findByText('Start with the web app')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /assumptions/i }));
-    expect(await screen.findByText('Users can work in a browser')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /constraints/i }));
-    expect(await screen.findByText('Do not add a plugin system yet')).toBeTruthy();
-    fireEvent.click(screen.getByRole('button', { name: /context/i }));
-    expect(await screen.findByText('The first release still targets solo builders')).toBeTruthy();
-  });
-
-  it('refetches sidebar entities when the chat stream emits observer-created requirements', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        entitySnapshot: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-          relationships: [],
-        },
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [
-            {
-              id: 11,
-              project_id: 1,
-              kind: 'requirement',
-              subtype: null,
-              content: 'Resume the interview from SQLite after restart',
-              rationale: 'Users will come back to finish the workflow',
-            },
-          ],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-          relationships: [],
-        } satisfies EntitiesData),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ),
-    );
-
-    renderWorkspace();
-    expect(
-      await screen.findByText("No decisions yet. They'll appear as the interview progresses."),
-    ).toBeTruthy();
-
-    await act(async () => {
-      useChatHarness.onData?.({
-        type: 'data-observer-result',
-        data: {
-          entityIds: {
-            goals: [],
-            terms: [],
-            contexts: [],
-            constraints: [],
-            requirements: [11],
-            criteria: [],
-            decisions: [],
-            assumptions: [],
-          },
-        },
-      });
-    });
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /requirements/i }));
-    expect(await screen.findByText('Resume the interview from SQLite after restart')).toBeTruthy();
-  });
-
-  it('refetches sidebar entities when the chat stream emits observer-created criteria', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        entitySnapshot: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-          relationships: [],
-        },
-      }),
-    );
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [
-            {
-              id: 12,
-              project_id: 1,
-              kind: 'criterion',
-              subtype: null,
-              content: 'Resuming restores the active path without data loss',
-              rationale: 'This proves persistence worked for the branch the user was on',
-            },
-          ],
-          decisions: [],
-          assumptions: [],
-          relationships: [],
-        } satisfies EntitiesData),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ),
-    );
-
-    renderWorkspace();
-    expect(
-      await screen.findByText("No decisions yet. They'll appear as the interview progresses."),
-    ).toBeTruthy();
-
-    await act(async () => {
-      useChatHarness.onData?.({
-        type: 'data-observer-result',
-        data: {
-          entityIds: {
-            goals: [],
-            terms: [],
-            contexts: [],
-            constraints: [],
-            requirements: [],
-            criteria: [12],
-            decisions: [],
-            assumptions: [],
-          },
-        },
-      } as never);
-    });
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledTimes(1);
-    });
-
-    fireEvent.click(screen.getByRole('button', { name: /criteria/i }));
-    expect(await screen.findByText('Resuming restores the active path without data loss')).toBeTruthy();
   });
 
   it('posts single-option turn responses with optional free-text and forwards a combined summary into chat', async () => {
@@ -1249,7 +639,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace();
+    renderWorkspace('design');
 
     fireEvent.click(await screen.findByRole('button', { name: /force design closure/i }));
 
@@ -1312,172 +702,9 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace();
+    renderWorkspace('design');
 
     expect(screen.queryByRole('button', { name: /force design closure/i })).toBeNull();
-  });
-
-  it('renders shared workflow state for closed scope and active design mode', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        workflow: {
-          phases: {
-            scope: {
-              status: 'closed',
-              closeability: false,
-              readiness: 'high',
-              closureBasis: 'interviewer_recommended',
-              proposalPending: false,
-              turnId: 1,
-              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
-            },
-            design: {
-              status: 'in_progress',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-            requirements: {
-              status: 'unstarted',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-            criteria: {
-              status: 'unstarted',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-          },
-        } as any,
-      }),
-    );
-
-    renderWorkspace();
-
-    expect(await screen.findByText(/scope closed/i)).toBeTruthy();
-    expect(screen.getByText(/recommended close/i)).toBeTruthy();
-    expect(screen.getByText(/design in progress/i)).toBeTruthy();
-    expect(screen.getAllByText(/low readiness/i).length).toBeGreaterThan(0);
-  });
-
-  it('renders forced-close workflow state for closed design and active requirements mode', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        workflow: {
-          phases: {
-            scope: {
-              status: 'closed',
-              closeability: false,
-              readiness: 'high',
-              closureBasis: 'interviewer_recommended',
-              proposalPending: false,
-              turnId: 1,
-              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
-            },
-            design: {
-              status: 'closed',
-              closeability: false,
-              readiness: 'high',
-              closureBasis: 'user_forced',
-              proposalPending: false,
-              turnId: 4,
-              summary: 'Design closed by user without an interviewer recommendation.',
-            },
-            requirements: {
-              status: 'in_progress',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-            criteria: {
-              status: 'unstarted',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-          },
-        } as any,
-      }),
-    );
-
-    renderWorkspace();
-
-    expect(await screen.findByText(/design closed/i)).toBeTruthy();
-    expect(screen.getByText(/forced close/i)).toBeTruthy();
-    expect(screen.getByText(/requirements in progress/i)).toBeTruthy();
-  });
-
-  it('does not show "Not yet closeable" for phases whose status is closed', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        workflow: {
-          phases: {
-            scope: {
-              status: 'closed',
-              closeability: false,
-              readiness: 'high',
-              closureBasis: 'interviewer_recommended',
-              proposalPending: false,
-              turnId: 1,
-              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
-            },
-            design: {
-              status: 'closed',
-              closeability: false,
-              readiness: 'high',
-              closureBasis: 'user_forced',
-              proposalPending: false,
-              turnId: 4,
-              summary: 'Design closed by user without an interviewer recommendation.',
-            },
-            requirements: {
-              status: 'in_progress',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-            criteria: {
-              status: 'unstarted',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-          },
-        } as any,
-      }),
-    );
-
-    renderWorkspace();
-
-    await screen.findByText(/scope closed/i);
-
-    const scopeMetaLabels = screen.getAllByText(/high readiness/i);
-    for (const label of scopeMetaLabels) {
-      expect(label.textContent).not.toContain('Not yet closeable');
-    }
   });
 
   it('posts free-text-only turn responses and forwards the text into chat', async () => {
@@ -1586,56 +813,6 @@ describe('InterviewView', () => {
     expect((screen.getByRole('checkbox', { name: /web/i }) as HTMLInputElement).disabled).toBe(true);
     expect((screen.getByRole('checkbox', { name: /desktop/i }) as HTMLInputElement).disabled).toBe(true);
     expect(screen.getByLabelText('Type a message...')).toBeTruthy();
-  });
-
-  it('does not emit duplicate React keys when dependency labels repeat', async () => {
-    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
-
-    setLoaderData(
-      createWorkspaceLoaderData({
-        entitySnapshot: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [
-            {
-              id: 7,
-              project_id: 1,
-              content: 'Start with the web app',
-              rationale: 'Fastest launch path',
-            },
-          ],
-          assumptions: [
-            { id: 5, project_id: 1, content: 'Users can work in a browser' },
-            { id: 6, project_id: 1, content: 'Users can work in a browser' },
-          ],
-          relationships: [
-            {
-              type: 'depends_on',
-              source: { collection: 'decision', kind: 'decision', id: 7 },
-              target: { collection: 'assumption', kind: 'assumption', id: 5 },
-            },
-            {
-              type: 'depends_on',
-              source: { collection: 'decision', kind: 'decision', id: 7 },
-              target: { collection: 'assumption', kind: 'assumption', id: 6 },
-            },
-          ],
-        } satisfies EntitiesData,
-      }),
-    );
-
-    renderWorkspace();
-
-    expect(await screen.findByText('Start with the web app')).toBeTruthy();
-    expect(screen.getAllByText('Users can work in a browser')).toHaveLength(2);
-    expect(consoleError.mock.calls.flat().join('\n')).not.toContain(
-      'Encountered two children with the same key',
-    );
-    consoleError.mockRestore();
   });
 
   it('shows a visible error when saving an option selection fails', async () => {

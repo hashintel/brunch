@@ -5,7 +5,7 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
+import type { ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 
 import { useInterviewController } from './-interview-controller.js';
@@ -50,7 +50,6 @@ type UseChatHarness = {
 };
 
 let currentProjectState: ProjectState;
-let currentEntitySnapshot: EntitiesData;
 const routerInvalidate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 const chatTransportOptions: unknown[] = [];
@@ -65,7 +64,6 @@ let useChatHarness: UseChatHarness;
 vi.mock('@tanstack/react-router', () => ({
   useLoaderData: ({ from }: { from: string }) => {
     if (from === '/project/$id') return currentProjectState;
-    if (from === '/project/$id/_view') return currentEntitySnapshot;
     throw new Error(`Unexpected useLoaderData from: ${from}`);
   },
   useRouter: () => ({ invalidate: routerInvalidate }),
@@ -174,21 +172,6 @@ function createProjectState({
   };
 }
 
-function createEntitySnapshot(overrides?: Partial<EntitiesData>): EntitiesData {
-  return {
-    goals: [],
-    terms: [],
-    contexts: [],
-    constraints: [],
-    requirements: [],
-    criteria: [],
-    decisions: [],
-    assumptions: [],
-    relationships: [],
-    ...overrides,
-  };
-}
-
 function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'ready') {
   const sendMessage = vi.fn(async () => {});
   const setMessagesSpy = vi.fn();
@@ -249,15 +232,12 @@ function messageText(messages: readonly BrunchUIMessage[]) {
 }
 
 function ControllerProbe() {
-  const workspace = useInterviewController();
+  const workspace = useInterviewController('scope');
 
   return (
     <div>
       <div data-testid="project-name">{workspace.project.name}</div>
       <div data-testid="messages">{messageText(workspace.chat.messages)}</div>
-      <div data-testid="decisions">
-        {workspace.entityState.decisions.map((decision) => decision.content).join('|') || 'none'}
-      </div>
       <div data-testid="turn-card-kind">{workspace.turnCard?.kind ?? 'none'}</div>
       <div data-testid="turn-card">
         {workspace.turnCard?.kind === 'persisted-turn'
@@ -284,7 +264,6 @@ function renderController() {
 
 beforeEach(() => {
   currentProjectState = createProjectState();
-  currentEntitySnapshot = createEntitySnapshot();
   routerInvalidate.mockClear();
   fetchMock.mockReset();
   chatTransportOptions.length = 0;
@@ -326,19 +305,9 @@ describe('interview controller', () => {
     });
   });
 
-  it('seeds chat and entity state from split loader data without a post-mount entity fetch', async () => {
+  it('seeds chat state from loader data without a post-mount entity fetch', async () => {
     currentProjectState = createProjectState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
-    });
-    currentEntitySnapshot = createEntitySnapshot({
-      decisions: [
-        {
-          id: 7,
-          project_id: 1,
-          content: 'Start with the web app',
-          rationale: 'Fastest launch path',
-        },
-      ],
     });
 
     renderController();
@@ -346,7 +315,6 @@ describe('interview controller', () => {
     expect((await screen.findByTestId('messages')).textContent).toBe(
       'Build the web app|What should we build first?',
     );
-    expect(screen.getByTestId('decisions').textContent).toBe('Start with the web app');
     expect(screen.getByTestId('turn-card').textContent).toBe('What should we build first?');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
     expect(fetchMock).not.toHaveBeenCalled();
@@ -364,16 +332,6 @@ describe('interview controller', () => {
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
     });
-    currentEntitySnapshot = createEntitySnapshot({
-      decisions: [
-        {
-          id: 8,
-          project_id: 2,
-          content: 'Prefer the desktop app',
-          rationale: 'Matches the updated brief',
-        },
-      ],
-    });
 
     rendered.rerender(
       <QueryClientProvider client={rendered.queryClient}>
@@ -386,43 +344,14 @@ describe('interview controller', () => {
       expect(screen.getByTestId('messages').textContent).toBe(
         'Ship the desktop app|Which platform should we target now?',
       );
-      expect(screen.getByTestId('decisions').textContent).toBe('Prefer the desktop app');
     });
     expect(useChatHarness.setMessages).not.toHaveBeenCalled();
   });
 
-  it('uses the loader-backed project id for chat transport and entity refreshes', async () => {
-    currentEntitySnapshot = createEntitySnapshot();
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [
-            {
-              id: 9,
-              project_id: 1,
-              content: 'Start with the web app',
-              rationale: 'Observer extracted a new decision',
-            },
-          ],
-          assumptions: [],
-          relationships: [],
-        } satisfies EntitiesData),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ),
-    );
-
+  it('invalidates the router when the chat stream emits an observer result', async () => {
     renderController();
 
-    expect((await screen.findByTestId('decisions')).textContent).toBe('none');
+    await screen.findByTestId('messages');
 
     await act(async () => {
       useChatHarness.onData?.({
@@ -444,96 +373,11 @@ describe('interview controller', () => {
 
     await waitFor(() => {
       expect(chatTransportOptions).toContainEqual({ api: '/api/projects/1/chat' });
-      expect(fetchMock).toHaveBeenCalledWith('/api/projects/1/entities');
-      expect(screen.getByTestId('decisions').textContent).toBe('Start with the web app');
+      expect(routerInvalidate).toHaveBeenCalled();
     });
   });
 
-  it('ignores stale entity refetches after a route transition seeds a new loader snapshot', async () => {
-    let resolveFetch: ((response: Response) => void) | undefined;
-    fetchMock.mockImplementationOnce(
-      () =>
-        new Promise<Response>((resolve) => {
-          resolveFetch = resolve;
-        }),
-    );
-
-    const rendered = renderController();
-    expect((await screen.findByTestId('decisions')).textContent).toBe('none');
-
-    await act(async () => {
-      useChatHarness.onData?.({
-        type: 'data-observer-result',
-        data: {
-          entityIds: {
-            goals: [],
-            terms: [],
-            contexts: [],
-            constraints: [],
-            requirements: [],
-            criteria: [],
-            decisions: [9],
-            assumptions: [],
-          },
-        },
-      });
-    });
-
-    currentProjectState = createProjectState({
-      assistantText: 'Which platform should we target now?',
-      answer: 'Ship the desktop app',
-    });
-    currentEntitySnapshot = createEntitySnapshot({
-      decisions: [
-        {
-          id: 8,
-          project_id: 1,
-          content: 'Prefer the desktop app',
-          rationale: 'Fresh loader snapshot',
-        },
-      ],
-    });
-    rendered.rerender(
-      <QueryClientProvider client={rendered.queryClient}>
-        <ControllerProbe />
-      </QueryClientProvider>,
-    );
-
-    expect(screen.getByTestId('decisions').textContent).toBe('Prefer the desktop app');
-
-    resolveFetch?.(
-      new Response(
-        JSON.stringify({
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [
-            {
-              id: 9,
-              project_id: 1,
-              content: 'Stale observer decision',
-              rationale: 'Should not survive the route transition',
-            },
-          ],
-          assumptions: [],
-          relationships: [],
-        } satisfies EntitiesData),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ),
-    );
-
-    await waitFor(() => {
-      expect(screen.getByTestId('decisions').textContent).toBe('Prefer the desktop app');
-    });
-  });
-
-  it('keeps the live transcript stable on same-project refresh while updating durable entities', async () => {
+  it('keeps the live transcript stable on same-project refresh', async () => {
     const rendered = renderController();
 
     expect((await screen.findByTestId('messages')).textContent).toBe(
@@ -543,16 +387,6 @@ describe('interview controller', () => {
     currentProjectState = createProjectState({
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
-    });
-    currentEntitySnapshot = createEntitySnapshot({
-      decisions: [
-        {
-          id: 8,
-          project_id: 1,
-          content: 'Prefer the desktop app',
-          rationale: 'Matches the updated brief',
-        },
-      ],
     });
 
     rendered.rerender(
@@ -566,9 +400,5 @@ describe('interview controller', () => {
       'Ship the desktop app|Which platform should we target now?',
     );
     expect(useChatHarness.setMessages).not.toHaveBeenCalled();
-
-    await waitFor(() => {
-      expect(screen.getByTestId('decisions').textContent).toBe('Prefer the desktop app');
-    });
   });
 });

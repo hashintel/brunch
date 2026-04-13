@@ -51,7 +51,6 @@ describe('EntitySidebar', () => {
           decisions: [],
           assumptions: [],
           relationships: [],
-          isLoading: false,
         }}
       />,
     );
@@ -106,7 +105,6 @@ describe('EntitySidebar', () => {
               target: { collection: 'knowledge_item', kind: 'goal', id: 8 },
             },
           ],
-          isLoading: false,
         }}
       />,
     );

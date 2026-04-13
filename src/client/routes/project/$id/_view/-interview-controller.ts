@@ -2,10 +2,10 @@ import { useChat } from '@ai-sdk/react';
 import { useLoaderData, useRouter } from '@tanstack/react-router';
 import { DefaultChatTransport } from 'ai';
 import type { ChatStatus } from 'ai';
-import { useCallback, useMemo } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useSubmitTurnResponseMutation } from '@/client/mutations/interview-mutations';
-import type { ProjectStateTurn } from '@/shared/api-types.js';
+import type { ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import { brunchDataPartSchemas } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import {
@@ -14,12 +14,16 @@ import {
   getPhaseClosureCommandText,
 } from '@/shared/phase-close.js';
 import type { DataConfirmation } from '@/shared/phase-close.js';
+import { getNextActivePhase, phaseRouteSegments } from '@/shared/phase-routes.js';
 
-import { createInterviewControllerViewState } from './-interview-controller-core.js';
+import {
+  buildPhaseTurnIds,
+  createInterviewControllerViewState,
+  filterMessagesByPhase,
+} from './-interview-controller-core.js';
 import type {
   PendingQuestionViewModel,
   PhaseSummaryViewModel,
-  InterviewDurableEntityState,
   InterviewDurableProjectState,
 } from './-interview-controller-core.js';
 import { useInterviewDataAdapter } from './-interview-data.js';
@@ -57,21 +61,30 @@ export interface InterviewControllerPromptInputState {
 export interface InterviewController {
   readonly project: InterviewDurableProjectState['project'];
   readonly workflow: InterviewDurableProjectState['workflow'];
-  readonly entityState: InterviewDurableEntityState;
   readonly chat: InterviewControllerChatState;
   readonly turnCard: InterviewControllerTurnCardState | null;
   readonly phaseSummary: PhaseSummaryViewModel | null;
   readonly promptInput: InterviewControllerPromptInputState;
 }
 
-export function useInterviewController(): InterviewController {
+export function useInterviewController(phase: WorkflowPhase): InterviewController {
   const projectState = useLoaderData({ from: '/project/$id' });
-  const entitySnapshot = useLoaderData({ from: '/project/$id/_view' });
   const router = useRouter();
   const projectId = projectState.project.id;
 
-  const workspaceData = useInterviewDataAdapter(projectState, entitySnapshot, projectId);
-  const { durableProject, durableEntities, ephemeralChat, handleDataPart } = workspaceData;
+  const invalidateRouter = useCallback(() => router.invalidate(), [router]);
+  const { durableProject, ephemeralChat, handleDataPart } = useInterviewDataAdapter(
+    projectState,
+    invalidateRouter,
+  );
+
+  const phaseTurnIds = useMemo(
+    () => buildPhaseTurnIds(durableProject.turns, phase),
+    [durableProject.turns, phase],
+  );
+
+  const [pendingCloseNavigation, setPendingCloseNavigation] = useState(false);
+  const pendingCloseRef = useRef(false);
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: `/api/projects/${projectId}/chat` }),
@@ -84,6 +97,10 @@ export function useInterviewController(): InterviewController {
     dataPartSchemas: brunchDataPartSchemas,
     onData: handleDataPart,
     onFinish: () => {
+      if (pendingCloseRef.current) {
+        pendingCloseRef.current = false;
+        setPendingCloseNavigation(true);
+      }
       void router.invalidate();
     },
   });
@@ -94,9 +111,15 @@ export function useInterviewController(): InterviewController {
   });
   const isLoading = status === 'submitted' || status === 'streaming';
 
+  // Phase-filtered messages for display
+  const phaseMessages = useMemo(
+    () => filterMessagesByPhase(messages, phaseTurnIds),
+    [messages, phaseTurnIds],
+  );
+
   const viewState = useMemo(
-    () => createInterviewControllerViewState(durableProject, messages, isLoading),
-    [durableProject, isLoading, messages],
+    () => createInterviewControllerViewState(durableProject, phaseMessages, isLoading),
+    [durableProject, isLoading, phaseMessages],
   );
 
   const submitText = useCallback(
@@ -116,6 +139,7 @@ export function useInterviewController(): InterviewController {
         return;
       }
 
+      pendingCloseRef.current = true;
       void sendMessage({
         parts: [
           { type: 'text', text: getPhaseClosureCommandText(command) },
@@ -130,25 +154,39 @@ export function useInterviewController(): InterviewController {
   );
 
   const confirmPhaseClosure = useCallback(
-    (phase: ProjectStateTurn['phase'], turnId: number) => {
-      submitPhaseClosureCommand(createConfirmProposedPhaseClosureCommand(phase, turnId));
+    (closurePhase: ProjectStateTurn['phase'], turnId: number) => {
+      submitPhaseClosureCommand(createConfirmProposedPhaseClosureCommand(closurePhase, turnId));
     },
     [submitPhaseClosureCommand],
   );
 
   const forcePhaseClosure = useCallback(
-    (phase: ProjectStateTurn['phase']) => {
-      submitPhaseClosureCommand(createForceCloseActivePhaseCommand(phase));
+    (closurePhase: ProjectStateTurn['phase']) => {
+      submitPhaseClosureCommand(createForceCloseActivePhaseCommand(closurePhase));
     },
     [submitPhaseClosureCommand],
   );
 
+  // Navigate to next phase after close confirmation succeeds
+  useEffect(() => {
+    if (!pendingCloseNavigation) return;
+    if (durableProject.workflow.phases[phase].status !== 'closed') return;
+
+    setPendingCloseNavigation(false);
+    const nextPhase = getNextActivePhase(durableProject.workflow.phases, phase);
+    if (nextPhase) {
+      void router.navigate({
+        to: `/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing',
+        params: { id: String(projectId) },
+      });
+    }
+  }, [pendingCloseNavigation, durableProject.workflow, phase, router, projectId]);
+
   return {
     project: viewState.project,
     workflow: viewState.workflow,
-    entityState: durableEntities,
     chat: {
-      messages,
+      messages: phaseMessages,
       status,
       isLoading,
       isStreaming: status === 'streaming',

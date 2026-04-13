@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
-import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
+import type { ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 
 import {
+  buildPhaseTurnIds,
   createInterviewControllerViewState,
-  createInterviewDurableEntityState,
   createInterviewDurableProjectState,
   createInterviewEphemeralChatState,
+  filterMessagesByPhase,
   getPersistedSelectedPositions,
 } from './-interview-controller-core.js';
 
@@ -148,103 +149,32 @@ describe('workspace controller core', () => {
     expect(refreshedChat.seedMessages).not.toEqual(initialChat.seedMessages);
   });
 
-  it('prefers refreshed entity query data while preserving loader snapshot fallback', () => {
-    const entitySnapshot: EntitiesData = {
-      goals: [],
-      terms: [],
-      contexts: [],
-      constraints: [
-        {
-          id: 4,
-          project_id: 1,
-          kind: 'constraint',
-          subtype: 'non-goal',
-          content: 'Keep setup instant',
-          rationale: 'Avoid a heavy launcher',
-        },
-      ],
-      requirements: [
-        {
-          id: 5,
-          project_id: 1,
-          kind: 'requirement',
-          subtype: null,
-          content: 'Support resume',
-          rationale: 'Users leave mid-flow',
-        },
-      ],
-      criteria: [],
-      decisions: [{ id: 1, project_id: 1, content: 'Loader decision', rationale: null }],
-      assumptions: [{ id: 2, project_id: 1, content: 'Loader assumption' }],
-      relationships: [
-        {
-          type: 'depends_on',
-          source: { collection: 'decision', kind: 'decision', id: 1 },
-          target: { collection: 'assumption', kind: 'assumption', id: 2 },
-        },
-      ],
-    };
-    const refreshedEntities: EntitiesData = {
-      goals: [],
-      terms: [],
-      contexts: [
-        {
-          id: 6,
-          project_id: 1,
-          kind: 'context',
-          subtype: null,
-          content: 'Refetched framing item',
-          rationale: null,
-        },
-      ],
-      constraints: [],
-      requirements: [],
-      criteria: [
-        {
-          id: 7,
-          project_id: 1,
-          kind: 'criterion',
-          subtype: 'acceptance',
-          content: 'Refetched criterion',
-          rationale: 'Protects refresh behavior',
-        },
-      ],
-      decisions: [{ id: 3, project_id: 1, content: 'Refetched decision', rationale: 'Newer' }],
-      assumptions: [],
-      relationships: [
-        {
-          type: 'depends_on',
-          source: { collection: 'decision', kind: 'decision', id: 3 },
-          target: { collection: 'knowledge_item', kind: 'context', id: 6 },
-        },
-      ],
-    };
+  it('builds phase turn ID sets from persisted turns', () => {
+    const projectState = createProjectState();
+    const scopeIds = buildPhaseTurnIds(projectState.turns, 'scope');
+    const designIds = buildPhaseTurnIds(projectState.turns, 'design');
 
-    expect(createInterviewDurableEntityState(entitySnapshot, undefined, true)).toEqual({
-      goals: [],
-      terms: [],
-      contexts: entitySnapshot.contexts,
-      constraints: entitySnapshot.constraints,
-      requirements: entitySnapshot.requirements,
-      criteria: entitySnapshot.criteria,
-      decisions: entitySnapshot.decisions,
-      assumptions: entitySnapshot.assumptions,
-      relationships: entitySnapshot.relationships,
-      isLoading: true,
-    });
+    expect(scopeIds).toEqual(new Set([1]));
+    expect(designIds).toEqual(new Set());
+  });
 
-    expect(createInterviewDurableEntityState(entitySnapshot, refreshedEntities, false)).toEqual({
-      goals: [],
-      terms: [],
-      contexts: refreshedEntities.contexts,
-      constraints: refreshedEntities.constraints,
-      requirements: refreshedEntities.requirements,
-      criteria: refreshedEntities.criteria,
-      decisions: refreshedEntities.decisions,
-      assumptions: refreshedEntities.assumptions,
-      relationships: refreshedEntities.relationships,
-      isLoading: false,
-    });
+  it('filters hydrated messages to only those belonging to the target phase', () => {
+    const messages: BrunchUIMessage[] = [
+      { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Scope answer' }] },
+      { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Scope question' }] },
+      { id: 'turn-2-answer', role: 'user', parts: [{ type: 'text', text: 'Design answer' }] },
+      { id: 'turn-2-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Design question' }] },
+      { id: 'streaming-msg', role: 'assistant', parts: [{ type: 'text', text: 'Live message' }] },
+    ];
+    const scopeTurnIds = new Set([1]);
+
+    const filtered = filterMessagesByPhase(messages, scopeTurnIds);
+
+    expect(filtered).toEqual([
+      { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Scope answer' }] },
+      { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Scope question' }] },
+      { id: 'streaming-msg', role: 'assistant', parts: [{ type: 'text', text: 'Live message' }] },
+    ]);
   });
 
   it('derives persisted selected positions from structured turn responses instead of option flags', () => {

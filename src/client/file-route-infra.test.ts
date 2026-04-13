@@ -54,7 +54,6 @@ describe('generated route runtime ownership', () => {
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/route'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/index'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/export'");
-    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/knowledge'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/route'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/framing'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/elicitation'");
@@ -90,7 +89,6 @@ describe('generated route runtime ownership', () => {
     expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/-interview-view.tsx'))).toBe(
       true,
     );
-    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/-knowledge-view.tsx'))).toBe(true);
     expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/-export-preview.tsx'))).toBe(true);
 
     // Old flat-file routes removed

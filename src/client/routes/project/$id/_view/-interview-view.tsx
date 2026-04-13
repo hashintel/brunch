@@ -1,4 +1,3 @@
-import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import {
@@ -17,10 +16,8 @@ import {
 } from '@/client/components/ai-elements/prompt-input';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/client/components/ai-elements/reasoning';
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/client/components/ai-elements/tool';
-import { EntitySidebar } from '@/client/components/EntitySidebar';
-import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/client/components/ui/resizable';
 import { cn } from '@/client/lib/utils';
-import type { Impact, ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
+import type { Impact, ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
@@ -38,36 +35,6 @@ type TurnCardOption = Pick<
   NonNullable<ProjectStateTurn['options']>[number],
   'position' | 'content' | 'is_recommended'
 >;
-
-type WorkflowPhaseState = ProjectState['workflow']['phases'][ProjectStateTurn['phase']];
-
-function getWorkflowStatusLabel(phase: ProjectStateTurn['phase'], state: WorkflowPhaseState) {
-  const phaseLabel = phase[0].toUpperCase() + phase.slice(1);
-  if (state.status === 'closed') {
-    return `${phaseLabel} closed`;
-  }
-  if (state.proposalPending) {
-    return `${phaseLabel} ready to confirm`;
-  }
-  if (state.status === 'unstarted') {
-    return `${phaseLabel} not started`;
-  }
-  return `${phaseLabel} in progress`;
-}
-
-function getWorkflowMetaLabel(state: WorkflowPhaseState) {
-  const parts = [`${state.readiness[0].toUpperCase() + state.readiness.slice(1)} readiness`];
-  if (state.status !== 'closed') {
-    parts.push(state.closeability ? 'Closeable now' : 'Not yet closeable');
-  }
-  if (state.closureBasis === 'interviewer_recommended') {
-    parts.push('Recommended close');
-  }
-  if (state.closureBasis === 'user_forced') {
-    parts.push('Forced close');
-  }
-  return parts.join(' · ');
-}
 
 function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectStateTurn['phase']) {
   return getForceClosePhaseAction(workflow, phase).available;
@@ -282,147 +249,112 @@ function renderParts(message: BrunchUIMessage, isStreaming: boolean) {
   });
 }
 
-export function InterviewView() {
-  const { chat, entityState, project, workflow, phaseSummary, promptInput, turnCard } =
-    useInterviewController();
+export function InterviewView({ phase }: { phase: WorkflowPhase }) {
+  const { chat, workflow, phaseSummary, promptInput, turnCard } = useInterviewController(phase);
 
   const handleSubmit = (message: PromptInputMessage) => {
     chat.submitText(message.text ?? '');
   };
 
   return (
-    <div className="flex h-screen flex-col">
-      <header className="flex items-center gap-3 border-b px-6 py-3">
-        <Link to="/" className="text-sm text-muted-foreground hover:text-foreground">
-          ← Projects
-        </Link>
-        <h1 className="text-lg font-semibold">{project.name}</h1>
-        <Link
-          to="/project/$id/knowledge"
-          params={{ id: String(project.id) }}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          Knowledge
-        </Link>
-        <div className="flex flex-wrap gap-2">
-          {(Object.entries(workflow.phases) as Array<[ProjectStateTurn['phase'], WorkflowPhaseState]>).map(
-            ([phase, state]) => (
-              <div key={phase} className="rounded-lg border px-3 py-2 text-xs text-muted-foreground">
-                <div className="font-medium text-foreground">{getWorkflowStatusLabel(phase, state)}</div>
-                <div>{getWorkflowMetaLabel(state)}</div>
-                {canForceClosePhase(workflow, phase) && (
-                  <button
-                    type="button"
-                    onClick={() => chat.forcePhaseClosure(phase)}
-                    disabled={chat.isLoading}
-                    className={cn(
-                      'mt-2 rounded-md border px-2 py-1 text-xs transition-colors',
-                      chat.isLoading
-                        ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-                        : 'border-border bg-background text-foreground hover:bg-muted',
-                    )}
-                  >
-                    {getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase })}
-                  </button>
-                )}
-              </div>
-            ),
+    <div className="flex h-full flex-col">
+      <Conversation className="flex-1">
+        <ConversationContent className="mx-auto max-w-2xl">
+          {chat.messages.map((message, messageIndex) => {
+            const isLastAssistant = message.role === 'assistant' && messageIndex === chat.messages.length - 1;
+
+            return (
+              <Message key={message.id} from={message.role}>
+                <MessageContent>
+                  {message.role === 'user'
+                    ? message.parts
+                        ?.filter((part) => part.type === 'text')
+                        .map((part, index) => <span key={index}>{part.text}</span>)
+                    : renderParts(message, isLastAssistant && chat.isStreaming)}
+                </MessageContent>
+              </Message>
+            );
+          })}
+
+          {turnCard?.kind === 'persisted-turn' && (
+            <TurnCard
+              key={`persisted-turn-${turnCard.turn.id}`}
+              id={`persisted-turn-${turnCard.turn.id}`}
+              question={turnCard.turn.question}
+              why={turnCard.turn.why}
+              impact={turnCard.turn.impact}
+              options={turnCard.turn.options ?? []}
+              onSubmitResponse={turnCard.submitTurnResponse}
+              persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
+              hasPersistedResponse={hasPersistedTurnResponse(turnCard.turn)}
+              disabled={turnCard.disabled}
+            />
           )}
-        </div>
-      </header>
 
-      <ResizablePanelGroup orientation="horizontal" className="flex-1 overflow-hidden">
-        <ResizablePanel defaultSize={65} minSize={40}>
-          <div className="flex h-full flex-col">
-            <Conversation className="flex-1">
-              <ConversationContent className="mx-auto max-w-2xl">
-                {chat.messages.map((message, messageIndex) => {
-                  const isLastAssistant =
-                    message.role === 'assistant' && messageIndex === chat.messages.length - 1;
+          {turnCard?.kind === 'pending-question' && (
+            <TurnCard
+              key={turnCard.pendingQuestion.id}
+              id={turnCard.pendingQuestion.id}
+              question={turnCard.pendingQuestion.question}
+              why={turnCard.pendingQuestion.why}
+              impact={turnCard.pendingQuestion.impact}
+              options={turnCard.pendingQuestion.options}
+              persistedSelectedPositions={[]}
+              hasPersistedResponse={false}
+              disabled={turnCard.disabled}
+            />
+          )}
 
-                  return (
-                    <Message key={message.id} from={message.role}>
-                      <MessageContent>
-                        {message.role === 'user'
-                          ? message.parts
-                              ?.filter((part) => part.type === 'text')
-                              .map((part, index) => <span key={index}>{part.text}</span>)
-                          : renderParts(message, isLastAssistant && chat.isStreaming)}
-                      </MessageContent>
-                    </Message>
-                  );
-                })}
+          {turnCard?.kind === 'persisted-turn' && turnCard.errorMessage && (
+            <p role="alert" className="mx-auto mt-3 max-w-2xl text-sm text-destructive">
+              {turnCard.errorMessage}
+            </p>
+          )}
 
-                {turnCard?.kind === 'persisted-turn' && (
-                  <TurnCard
-                    key={`persisted-turn-${turnCard.turn.id}`}
-                    id={`persisted-turn-${turnCard.turn.id}`}
-                    question={turnCard.turn.question}
-                    why={turnCard.turn.why}
-                    impact={turnCard.turn.impact}
-                    options={turnCard.turn.options ?? []}
-                    onSubmitResponse={turnCard.submitTurnResponse}
-                    persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
-                    hasPersistedResponse={hasPersistedTurnResponse(turnCard.turn)}
-                    disabled={turnCard.disabled}
-                  />
+          {phaseSummary && (
+            <PhaseSummaryCard
+              phase={phaseSummary.phase}
+              summary={phaseSummary.summary}
+              disabled={chat.isLoading}
+              onConfirm={() => chat.confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId)}
+            />
+          )}
+
+          {!phaseSummary && canForceClosePhase(workflow, phase) && (
+            <div className="my-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => chat.forcePhaseClosure(phase)}
+                disabled={chat.isLoading}
+                className={cn(
+                  'rounded-md border px-3 py-2 text-xs transition-colors',
+                  chat.isLoading
+                    ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+                    : 'border-border bg-background text-foreground hover:bg-muted',
                 )}
+              >
+                {getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase })}
+              </button>
+            </div>
+          )}
+        </ConversationContent>
+        <ConversationScrollButton />
+      </Conversation>
 
-                {turnCard?.kind === 'pending-question' && (
-                  <TurnCard
-                    key={turnCard.pendingQuestion.id}
-                    id={turnCard.pendingQuestion.id}
-                    question={turnCard.pendingQuestion.question}
-                    why={turnCard.pendingQuestion.why}
-                    impact={turnCard.pendingQuestion.impact}
-                    options={turnCard.pendingQuestion.options}
-                    persistedSelectedPositions={[]}
-                    hasPersistedResponse={false}
-                    disabled={turnCard.disabled}
-                  />
-                )}
-
-                {turnCard?.kind === 'persisted-turn' && turnCard.errorMessage && (
-                  <p role="alert" className="mx-auto mt-3 max-w-2xl text-sm text-destructive">
-                    {turnCard.errorMessage}
-                  </p>
-                )}
-
-                {phaseSummary && (
-                  <PhaseSummaryCard
-                    phase={phaseSummary.phase}
-                    summary={phaseSummary.summary}
-                    disabled={chat.isLoading}
-                    onConfirm={() => chat.confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId)}
-                  />
-                )}
-              </ConversationContent>
-              <ConversationScrollButton />
-            </Conversation>
-
-            {promptInput.visible && (
-              <div className="border-t px-4 py-3">
-                <div className="mx-auto max-w-2xl">
-                  <PromptInput onSubmit={handleSubmit}>
-                    <PromptInputBody>
-                      <PromptInputTextarea placeholder="Type a message..." disabled={promptInput.disabled} />
-                    </PromptInputBody>
-                    <PromptInputFooter>
-                      <PromptInputSubmit status={chat.status} />
-                    </PromptInputFooter>
-                  </PromptInput>
-                </div>
-              </div>
-            )}
+      {promptInput.visible && (
+        <div className="border-t px-4 py-3">
+          <div className="mx-auto max-w-2xl">
+            <PromptInput onSubmit={handleSubmit}>
+              <PromptInputBody>
+                <PromptInputTextarea placeholder="Type a message..." disabled={promptInput.disabled} />
+              </PromptInputBody>
+              <PromptInputFooter>
+                <PromptInputSubmit status={chat.status} />
+              </PromptInputFooter>
+            </PromptInput>
           </div>
-        </ResizablePanel>
-
-        <ResizableHandle withHandle />
-
-        <ResizablePanel defaultSize={35} minSize={20}>
-          <EntitySidebar entityState={entityState} />
-        </ResizablePanel>
-      </ResizablePanelGroup>
+        </div>
+      )}
     </div>
   );
 }

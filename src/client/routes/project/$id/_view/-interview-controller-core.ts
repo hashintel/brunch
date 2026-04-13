@@ -1,4 +1,4 @@
-import type { EntitiesData, ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
+import type { ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type {
   AskQuestionUIPart,
@@ -16,19 +16,6 @@ export interface InterviewDurableProjectState {
   readonly lastTurn: ProjectStateTurn | undefined;
   readonly showTurnCard: boolean;
   readonly lastTurnHasResponse: boolean;
-}
-
-export interface InterviewDurableEntityState {
-  readonly goals: Readonly<EntitiesData['goals']>;
-  readonly terms: Readonly<EntitiesData['terms']>;
-  readonly contexts: Readonly<EntitiesData['contexts']>;
-  readonly constraints: Readonly<EntitiesData['constraints']>;
-  readonly requirements: Readonly<EntitiesData['requirements']>;
-  readonly criteria: Readonly<EntitiesData['criteria']>;
-  readonly decisions: Readonly<EntitiesData['decisions']>;
-  readonly assumptions: Readonly<EntitiesData['assumptions']>;
-  readonly relationships: Readonly<EntitiesData['relationships']>;
-  readonly isLoading: boolean;
 }
 
 export interface InterviewEphemeralChatState {
@@ -173,23 +160,25 @@ export function createInterviewDurableProjectState(projectState: ProjectState): 
   };
 }
 
-export function createInterviewDurableEntityState(
-  entitySnapshot: EntitiesData,
-  queryData: EntitiesData | undefined,
-  isLoading: boolean,
-): InterviewDurableEntityState {
-  return {
-    goals: queryData?.goals ?? entitySnapshot.goals,
-    terms: queryData?.terms ?? entitySnapshot.terms,
-    contexts: queryData?.contexts ?? entitySnapshot.contexts,
-    constraints: queryData?.constraints ?? entitySnapshot.constraints,
-    requirements: queryData?.requirements ?? entitySnapshot.requirements,
-    criteria: queryData?.criteria ?? entitySnapshot.criteria,
-    decisions: queryData?.decisions ?? entitySnapshot.decisions,
-    assumptions: queryData?.assumptions ?? entitySnapshot.assumptions,
-    relationships: queryData?.relationships ?? entitySnapshot.relationships,
-    isLoading,
-  };
+/** Build the set of turn IDs belonging to a given phase. */
+export function buildPhaseTurnIds(turns: readonly ProjectStateTurn[], phase: WorkflowPhase): Set<number> {
+  return new Set(turns.filter((t) => t.phase === phase).map((t) => t.id));
+}
+
+/**
+ * Filter hydrated messages to only those belonging to the specified phase's turns.
+ * Messages whose IDs don't match the `turn-{id}-*` pattern (e.g. streaming messages)
+ * are always included — they belong to the active phase.
+ */
+export function filterMessagesByPhase(
+  messages: readonly BrunchUIMessage[],
+  phaseTurnIds: ReadonlySet<number>,
+): BrunchUIMessage[] {
+  return messages.filter((message) => {
+    const match = /^turn-(\d+)-/.exec(message.id);
+    if (!match) return true;
+    return phaseTurnIds.has(Number(match[1]));
+  });
 }
 
 export function createInterviewEphemeralChatState(projectState: ProjectState): InterviewEphemeralChatState {

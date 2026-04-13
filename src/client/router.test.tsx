@@ -87,11 +87,6 @@ vi.mock('./routes/project/$id/_view/-interview-view.js', () => ({
   InterviewView: () => <h1>Interview screen</h1>,
 }));
 
-vi.mock('./routes/project/$id/-knowledge-view.js', () => ({
-  KnowledgeView: () => <h1>Knowledge screen</h1>,
-  KnowledgeViewContent: () => <div>Knowledge view</div>,
-}));
-
 vi.mock('./routes/project/$id/-export-preview.js', () => ({
   ExportPreview: () => <h1>Export screen</h1>,
 }));
@@ -228,50 +223,6 @@ describe('generated routeTree', () => {
     });
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-  });
-
-  it('maps the knowledge URL to the knowledge route loader and screen', async () => {
-    await renderRouteAt('/project/42/knowledge');
-
-    expect(await screen.findByRole('heading', { name: 'Knowledge screen' })).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42/entities?mode=active-path');
-  });
-
-  it('keeps the knowledge pending skeleton active while the route loader is unresolved', async () => {
-    const deferredFetch = createDeferredPromise<Response>();
-    let projectFetchCount = 0;
-    fetchMock.mockImplementation(async (input) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-      // Hang only the first project fetch (ProjectLayout loader); let subsequent ones resolve
-      if (url.match(/\/api\/projects\/\d+$/) && !url.endsWith('/api/projects')) {
-        projectFetchCount++;
-        if (projectFetchCount === 1) {
-          return deferredFetch.promise;
-        }
-        return jsonResponse(minimalProjectState);
-      }
-      return defaultFetchHandler(input);
-    });
-
-    const history = createMemoryHistory({ initialEntries: ['/project/42/knowledge'] });
-    const router = createRouter({ routeTree, history, defaultPendingMs: 0 });
-
-    render(<RouterProvider router={router} />);
-    void router.load();
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
-    });
-
-    // The knowledge screen should not be rendered while loading
-    expect(screen.queryByRole('heading', { name: 'Knowledge screen' })).toBeNull();
-
-    await act(async () => {
-      deferredFetch.resolve(jsonResponse(minimalProjectState));
-    });
-
-    expect(await screen.findByRole('heading', { name: 'Knowledge screen' })).toBeTruthy();
   });
 
   it('maps the export URL to the export route loader and screen', async () => {

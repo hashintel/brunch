@@ -12,7 +12,6 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectIdRouteRouteImport } from './routes/project/$id/route'
 import { Route as ProjectIdIndexRouteImport } from './routes/project/$id/index'
-import { Route as ProjectIdKnowledgeRouteImport } from './routes/project/$id/knowledge'
 import { Route as ProjectIdExportRouteImport } from './routes/project/$id/export'
 import { Route as ProjectIdViewRouteRouteImport } from './routes/project/$id/_view/route'
 import { Route as ProjectIdViewRequirementsReviewRouteImport } from './routes/project/$id/_view/requirements-review'
@@ -33,11 +32,6 @@ const ProjectIdRouteRoute = ProjectIdRouteRouteImport.update({
 const ProjectIdIndexRoute = ProjectIdIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => ProjectIdRouteRoute,
-} as any)
-const ProjectIdKnowledgeRoute = ProjectIdKnowledgeRouteImport.update({
-  id: '/knowledge',
-  path: '/knowledge',
   getParentRoute: () => ProjectIdRouteRoute,
 } as any)
 const ProjectIdExportRoute = ProjectIdExportRouteImport.update({
@@ -77,7 +71,6 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/project/$id': typeof ProjectIdViewRouteRouteWithChildren
   '/project/$id/export': typeof ProjectIdExportRoute
-  '/project/$id/knowledge': typeof ProjectIdKnowledgeRoute
   '/project/$id/': typeof ProjectIdIndexRoute
   '/project/$id/acceptance-review': typeof ProjectIdViewAcceptanceReviewRoute
   '/project/$id/elicitation': typeof ProjectIdViewElicitationRoute
@@ -88,7 +81,6 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/project/$id': typeof ProjectIdIndexRoute
   '/project/$id/export': typeof ProjectIdExportRoute
-  '/project/$id/knowledge': typeof ProjectIdKnowledgeRoute
   '/project/$id/acceptance-review': typeof ProjectIdViewAcceptanceReviewRoute
   '/project/$id/elicitation': typeof ProjectIdViewElicitationRoute
   '/project/$id/framing': typeof ProjectIdViewFramingRoute
@@ -100,7 +92,6 @@ export interface FileRoutesById {
   '/project/$id': typeof ProjectIdRouteRouteWithChildren
   '/project/$id/_view': typeof ProjectIdViewRouteRouteWithChildren
   '/project/$id/export': typeof ProjectIdExportRoute
-  '/project/$id/knowledge': typeof ProjectIdKnowledgeRoute
   '/project/$id/': typeof ProjectIdIndexRoute
   '/project/$id/_view/acceptance-review': typeof ProjectIdViewAcceptanceReviewRoute
   '/project/$id/_view/elicitation': typeof ProjectIdViewElicitationRoute
@@ -113,7 +104,6 @@ export interface FileRouteTypes {
     | '/'
     | '/project/$id'
     | '/project/$id/export'
-    | '/project/$id/knowledge'
     | '/project/$id/'
     | '/project/$id/acceptance-review'
     | '/project/$id/elicitation'
@@ -124,7 +114,6 @@ export interface FileRouteTypes {
     | '/'
     | '/project/$id'
     | '/project/$id/export'
-    | '/project/$id/knowledge'
     | '/project/$id/acceptance-review'
     | '/project/$id/elicitation'
     | '/project/$id/framing'
@@ -135,7 +124,6 @@ export interface FileRouteTypes {
     | '/project/$id'
     | '/project/$id/_view'
     | '/project/$id/export'
-    | '/project/$id/knowledge'
     | '/project/$id/'
     | '/project/$id/_view/acceptance-review'
     | '/project/$id/_view/elicitation'
@@ -169,13 +157,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/project/$id/'
       preLoaderRoute: typeof ProjectIdIndexRouteImport
-      parentRoute: typeof ProjectIdRouteRoute
-    }
-    '/project/$id/knowledge': {
-      id: '/project/$id/knowledge'
-      path: '/knowledge'
-      fullPath: '/project/$id/knowledge'
-      preLoaderRoute: typeof ProjectIdKnowledgeRouteImport
       parentRoute: typeof ProjectIdRouteRoute
     }
     '/project/$id/export': {
@@ -243,14 +224,12 @@ const ProjectIdViewRouteRouteWithChildren =
 interface ProjectIdRouteRouteChildren {
   ProjectIdViewRouteRoute: typeof ProjectIdViewRouteRouteWithChildren
   ProjectIdExportRoute: typeof ProjectIdExportRoute
-  ProjectIdKnowledgeRoute: typeof ProjectIdKnowledgeRoute
   ProjectIdIndexRoute: typeof ProjectIdIndexRoute
 }
 
 const ProjectIdRouteRouteChildren: ProjectIdRouteRouteChildren = {
   ProjectIdViewRouteRoute: ProjectIdViewRouteRouteWithChildren,
   ProjectIdExportRoute: ProjectIdExportRoute,
-  ProjectIdKnowledgeRoute: ProjectIdKnowledgeRoute,
   ProjectIdIndexRoute: ProjectIdIndexRoute,
 }
 

@@ -1,6 +1,8 @@
-import { Outlet, createFileRoute } from '@tanstack/react-router';
+import { Outlet, createFileRoute, useLoaderData } from '@tanstack/react-router';
 import { z } from 'zod';
 
+import { EntitySidebar } from '@/client/components/EntitySidebar';
+import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/client/components/ui/resizable';
 import type { EntitiesData } from '@/shared/api-types.js';
 
 const viewSearchSchema = z.object({
@@ -15,10 +17,26 @@ async function fetchViewLayoutLoaderData(projectId: string): Promise<EntitiesDat
   return (await response.json()) as EntitiesData;
 }
 
+function ViewLayout() {
+  const entitySnapshot = useLoaderData({ from: '/project/$id/_view' });
+
+  return (
+    <ResizablePanelGroup orientation="horizontal" className="h-full">
+      <ResizablePanel defaultSize={65} minSize={40}>
+        <Outlet />
+      </ResizablePanel>
+
+      <ResizableHandle withHandle />
+
+      <ResizablePanel defaultSize={35} minSize={20}>
+        <EntitySidebar entityState={entitySnapshot} />
+      </ResizablePanel>
+    </ResizablePanelGroup>
+  );
+}
+
 export const Route = createFileRoute('/project/$id/_view')({
   validateSearch: viewSearchSchema,
   loader: ({ params }) => fetchViewLayoutLoaderData(params.id),
-  component: function ViewLayout() {
-    return <Outlet />;
-  },
+  component: ViewLayout,
 });

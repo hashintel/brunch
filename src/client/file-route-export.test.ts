@@ -17,7 +17,7 @@ describe('file-route export ownership', () => {
     expect(exportRouteSource).toContain('fetchExportLoaderData');
     expect(exportRouteSource).toContain('ExportPreview');
 
-    expect(exportPreviewSource).toContain('to="/project/$id/knowledge"');
+    expect(exportPreviewSource).toContain('to="/project/$id/framing"');
 
     expect(generatedRouteTreeSource).toContain("'/project/$id/export'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/export'");
