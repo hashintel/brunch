@@ -6,7 +6,7 @@ import { vi } from 'vitest';
 
 import type { EntitiesData } from '@/shared/api-types.js';
 
-import { KnowledgeWorkspaceView } from '../screens/KnowledgeWorkspaceScreen.js';
+import { KnowledgeWorkspaceView } from '../../../screens/KnowledgeWorkspaceScreen.js';
 import { KnowledgeWorkspace } from './-knowledge-workspace.js';
 
 let currentLoaderData: { entitySnapshot: EntitiesData };

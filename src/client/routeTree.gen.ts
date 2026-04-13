@@ -10,49 +10,102 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as ProjectIdRouteImport } from './routes/project.$id'
-import { Route as ProjectIdKnowledgeRouteImport } from './routes/project_.$id.knowledge'
-import { Route as ProjectIdExportRouteImport } from './routes/project_.$id.export'
+import { Route as ProjectIdRouteRouteImport } from './routes/project/$id/route'
+import { Route as ProjectIdIndexRouteImport } from './routes/project/$id/index'
+import { Route as ProjectIdKnowledgeRouteImport } from './routes/project/$id/knowledge'
+import { Route as ProjectIdExportRouteImport } from './routes/project/$id/export'
+import { Route as ProjectIdViewRouteRouteImport } from './routes/project/$id/_view/route'
+import { Route as ProjectIdViewRequirementsReviewRouteImport } from './routes/project/$id/_view/requirements-review'
+import { Route as ProjectIdViewFramingRouteImport } from './routes/project/$id/_view/framing'
+import { Route as ProjectIdViewElicitationRouteImport } from './routes/project/$id/_view/elicitation'
+import { Route as ProjectIdViewAcceptanceReviewRouteImport } from './routes/project/$id/_view/acceptance-review'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ProjectIdRoute = ProjectIdRouteImport.update({
+const ProjectIdRouteRoute = ProjectIdRouteRouteImport.update({
   id: '/project/$id',
   path: '/project/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ProjectIdIndexRoute = ProjectIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProjectIdRouteRoute,
+} as any)
 const ProjectIdKnowledgeRoute = ProjectIdKnowledgeRouteImport.update({
-  id: '/project_/$id/knowledge',
-  path: '/project/$id/knowledge',
-  getParentRoute: () => rootRouteImport,
+  id: '/knowledge',
+  path: '/knowledge',
+  getParentRoute: () => ProjectIdRouteRoute,
 } as any)
 const ProjectIdExportRoute = ProjectIdExportRouteImport.update({
-  id: '/project_/$id/export',
-  path: '/project/$id/export',
-  getParentRoute: () => rootRouteImport,
+  id: '/export',
+  path: '/export',
+  getParentRoute: () => ProjectIdRouteRoute,
 } as any)
+const ProjectIdViewRouteRoute = ProjectIdViewRouteRouteImport.update({
+  id: '/_view',
+  getParentRoute: () => ProjectIdRouteRoute,
+} as any)
+const ProjectIdViewRequirementsReviewRoute =
+  ProjectIdViewRequirementsReviewRouteImport.update({
+    id: '/requirements-review',
+    path: '/requirements-review',
+    getParentRoute: () => ProjectIdViewRouteRoute,
+  } as any)
+const ProjectIdViewFramingRoute = ProjectIdViewFramingRouteImport.update({
+  id: '/framing',
+  path: '/framing',
+  getParentRoute: () => ProjectIdViewRouteRoute,
+} as any)
+const ProjectIdViewElicitationRoute =
+  ProjectIdViewElicitationRouteImport.update({
+    id: '/elicitation',
+    path: '/elicitation',
+    getParentRoute: () => ProjectIdViewRouteRoute,
+  } as any)
+const ProjectIdViewAcceptanceReviewRoute =
+  ProjectIdViewAcceptanceReviewRouteImport.update({
+    id: '/acceptance-review',
+    path: '/acceptance-review',
+    getParentRoute: () => ProjectIdViewRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/project/$id': typeof ProjectIdRoute
+  '/project/$id': typeof ProjectIdViewRouteRouteWithChildren
   '/project/$id/export': typeof ProjectIdExportRoute
   '/project/$id/knowledge': typeof ProjectIdKnowledgeRoute
+  '/project/$id/': typeof ProjectIdIndexRoute
+  '/project/$id/acceptance-review': typeof ProjectIdViewAcceptanceReviewRoute
+  '/project/$id/elicitation': typeof ProjectIdViewElicitationRoute
+  '/project/$id/framing': typeof ProjectIdViewFramingRoute
+  '/project/$id/requirements-review': typeof ProjectIdViewRequirementsReviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/project/$id': typeof ProjectIdRoute
+  '/project/$id': typeof ProjectIdIndexRoute
   '/project/$id/export': typeof ProjectIdExportRoute
   '/project/$id/knowledge': typeof ProjectIdKnowledgeRoute
+  '/project/$id/acceptance-review': typeof ProjectIdViewAcceptanceReviewRoute
+  '/project/$id/elicitation': typeof ProjectIdViewElicitationRoute
+  '/project/$id/framing': typeof ProjectIdViewFramingRoute
+  '/project/$id/requirements-review': typeof ProjectIdViewRequirementsReviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/project/$id': typeof ProjectIdRoute
-  '/project_/$id/export': typeof ProjectIdExportRoute
-  '/project_/$id/knowledge': typeof ProjectIdKnowledgeRoute
+  '/project/$id': typeof ProjectIdRouteRouteWithChildren
+  '/project/$id/_view': typeof ProjectIdViewRouteRouteWithChildren
+  '/project/$id/export': typeof ProjectIdExportRoute
+  '/project/$id/knowledge': typeof ProjectIdKnowledgeRoute
+  '/project/$id/': typeof ProjectIdIndexRoute
+  '/project/$id/_view/acceptance-review': typeof ProjectIdViewAcceptanceReviewRoute
+  '/project/$id/_view/elicitation': typeof ProjectIdViewElicitationRoute
+  '/project/$id/_view/framing': typeof ProjectIdViewFramingRoute
+  '/project/$id/_view/requirements-review': typeof ProjectIdViewRequirementsReviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -61,21 +114,38 @@ export interface FileRouteTypes {
     | '/project/$id'
     | '/project/$id/export'
     | '/project/$id/knowledge'
+    | '/project/$id/'
+    | '/project/$id/acceptance-review'
+    | '/project/$id/elicitation'
+    | '/project/$id/framing'
+    | '/project/$id/requirements-review'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/project/$id' | '/project/$id/export' | '/project/$id/knowledge'
+  to:
+    | '/'
+    | '/project/$id'
+    | '/project/$id/export'
+    | '/project/$id/knowledge'
+    | '/project/$id/acceptance-review'
+    | '/project/$id/elicitation'
+    | '/project/$id/framing'
+    | '/project/$id/requirements-review'
   id:
     | '__root__'
     | '/'
     | '/project/$id'
-    | '/project_/$id/export'
-    | '/project_/$id/knowledge'
+    | '/project/$id/_view'
+    | '/project/$id/export'
+    | '/project/$id/knowledge'
+    | '/project/$id/'
+    | '/project/$id/_view/acceptance-review'
+    | '/project/$id/_view/elicitation'
+    | '/project/$id/_view/framing'
+    | '/project/$id/_view/requirements-review'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  ProjectIdRoute: typeof ProjectIdRoute
-  ProjectIdExportRoute: typeof ProjectIdExportRoute
-  ProjectIdKnowledgeRoute: typeof ProjectIdKnowledgeRoute
+  ProjectIdRouteRoute: typeof ProjectIdRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -91,31 +161,106 @@ declare module '@tanstack/react-router' {
       id: '/project/$id'
       path: '/project/$id'
       fullPath: '/project/$id'
-      preLoaderRoute: typeof ProjectIdRouteImport
+      preLoaderRoute: typeof ProjectIdRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/project_/$id/knowledge': {
-      id: '/project_/$id/knowledge'
-      path: '/project/$id/knowledge'
+    '/project/$id/': {
+      id: '/project/$id/'
+      path: '/'
+      fullPath: '/project/$id/'
+      preLoaderRoute: typeof ProjectIdIndexRouteImport
+      parentRoute: typeof ProjectIdRouteRoute
+    }
+    '/project/$id/knowledge': {
+      id: '/project/$id/knowledge'
+      path: '/knowledge'
       fullPath: '/project/$id/knowledge'
       preLoaderRoute: typeof ProjectIdKnowledgeRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectIdRouteRoute
     }
-    '/project_/$id/export': {
-      id: '/project_/$id/export'
-      path: '/project/$id/export'
+    '/project/$id/export': {
+      id: '/project/$id/export'
+      path: '/export'
       fullPath: '/project/$id/export'
       preLoaderRoute: typeof ProjectIdExportRouteImport
-      parentRoute: typeof rootRouteImport
+      parentRoute: typeof ProjectIdRouteRoute
+    }
+    '/project/$id/_view': {
+      id: '/project/$id/_view'
+      path: ''
+      fullPath: '/project/$id'
+      preLoaderRoute: typeof ProjectIdViewRouteRouteImport
+      parentRoute: typeof ProjectIdRouteRoute
+    }
+    '/project/$id/_view/requirements-review': {
+      id: '/project/$id/_view/requirements-review'
+      path: '/requirements-review'
+      fullPath: '/project/$id/requirements-review'
+      preLoaderRoute: typeof ProjectIdViewRequirementsReviewRouteImport
+      parentRoute: typeof ProjectIdViewRouteRoute
+    }
+    '/project/$id/_view/framing': {
+      id: '/project/$id/_view/framing'
+      path: '/framing'
+      fullPath: '/project/$id/framing'
+      preLoaderRoute: typeof ProjectIdViewFramingRouteImport
+      parentRoute: typeof ProjectIdViewRouteRoute
+    }
+    '/project/$id/_view/elicitation': {
+      id: '/project/$id/_view/elicitation'
+      path: '/elicitation'
+      fullPath: '/project/$id/elicitation'
+      preLoaderRoute: typeof ProjectIdViewElicitationRouteImport
+      parentRoute: typeof ProjectIdViewRouteRoute
+    }
+    '/project/$id/_view/acceptance-review': {
+      id: '/project/$id/_view/acceptance-review'
+      path: '/acceptance-review'
+      fullPath: '/project/$id/acceptance-review'
+      preLoaderRoute: typeof ProjectIdViewAcceptanceReviewRouteImport
+      parentRoute: typeof ProjectIdViewRouteRoute
     }
   }
 }
 
-const rootRouteChildren: RootRouteChildren = {
-  IndexRoute: IndexRoute,
-  ProjectIdRoute: ProjectIdRoute,
+interface ProjectIdViewRouteRouteChildren {
+  ProjectIdViewAcceptanceReviewRoute: typeof ProjectIdViewAcceptanceReviewRoute
+  ProjectIdViewElicitationRoute: typeof ProjectIdViewElicitationRoute
+  ProjectIdViewFramingRoute: typeof ProjectIdViewFramingRoute
+  ProjectIdViewRequirementsReviewRoute: typeof ProjectIdViewRequirementsReviewRoute
+}
+
+const ProjectIdViewRouteRouteChildren: ProjectIdViewRouteRouteChildren = {
+  ProjectIdViewAcceptanceReviewRoute: ProjectIdViewAcceptanceReviewRoute,
+  ProjectIdViewElicitationRoute: ProjectIdViewElicitationRoute,
+  ProjectIdViewFramingRoute: ProjectIdViewFramingRoute,
+  ProjectIdViewRequirementsReviewRoute: ProjectIdViewRequirementsReviewRoute,
+}
+
+const ProjectIdViewRouteRouteWithChildren =
+  ProjectIdViewRouteRoute._addFileChildren(ProjectIdViewRouteRouteChildren)
+
+interface ProjectIdRouteRouteChildren {
+  ProjectIdViewRouteRoute: typeof ProjectIdViewRouteRouteWithChildren
+  ProjectIdExportRoute: typeof ProjectIdExportRoute
+  ProjectIdKnowledgeRoute: typeof ProjectIdKnowledgeRoute
+  ProjectIdIndexRoute: typeof ProjectIdIndexRoute
+}
+
+const ProjectIdRouteRouteChildren: ProjectIdRouteRouteChildren = {
+  ProjectIdViewRouteRoute: ProjectIdViewRouteRouteWithChildren,
   ProjectIdExportRoute: ProjectIdExportRoute,
   ProjectIdKnowledgeRoute: ProjectIdKnowledgeRoute,
+  ProjectIdIndexRoute: ProjectIdIndexRoute,
+}
+
+const ProjectIdRouteRouteWithChildren = ProjectIdRouteRoute._addFileChildren(
+  ProjectIdRouteRouteChildren,
+)
+
+const rootRouteChildren: RootRouteChildren = {
+  IndexRoute: IndexRoute,
+  ProjectIdRouteRoute: ProjectIdRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

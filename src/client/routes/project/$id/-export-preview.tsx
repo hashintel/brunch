@@ -1,8 +1,8 @@
 import { getRouteApi } from '@tanstack/react-router';
 
-import { ExportPreviewScreen } from '../screens/ExportPreviewScreen.js';
+import { ExportPreviewScreen } from '../../../screens/ExportPreviewScreen.js';
 
-const exportPreviewRouteApi = getRouteApi('/project_/$id/export');
+const exportPreviewRouteApi = getRouteApi('/project/$id/export');
 
 export function ExportPreview() {
   const { id } = exportPreviewRouteApi.useParams();

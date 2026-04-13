@@ -46,4 +46,59 @@ describe('generated route runtime ownership', () => {
     expect(routerSource).not.toContain('createRoute(');
     expect(routerSource).not.toContain('createRootRoute(');
   });
+
+  it('uses directory-based nesting with pathless _view layout route', () => {
+    const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
+
+    // Directory-based route imports
+    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/route'");
+    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/index'");
+    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/export'");
+    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/knowledge'");
+    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/route'");
+    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/framing'");
+    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/elicitation'");
+    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/requirements-review'");
+    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/acceptance-review'");
+
+    // Route IDs confirm nesting hierarchy
+    expect(generatedRouteTreeSource).toContain("id: '/project/$id'");
+    expect(generatedRouteTreeSource).toContain("id: '/_view'");
+    expect(generatedRouteTreeSource).toContain("id: '/framing'");
+
+    // No old flat-file route imports remain
+    expect(generatedRouteTreeSource).not.toContain("from './routes/project.$id'");
+    expect(generatedRouteTreeSource).not.toContain("from './routes/project_.$id");
+  });
+
+  it('keeps directory-based route files and colocated support files in place', () => {
+    // Layout routes
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/route.tsx'))).toBe(true);
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/route.tsx'))).toBe(true);
+
+    // Phase routes
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/framing.tsx'))).toBe(true);
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/elicitation.tsx'))).toBe(true);
+    expect(
+      existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/requirements-review.tsx')),
+    ).toBe(true);
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/acceptance-review.tsx'))).toBe(
+      true,
+    );
+
+    // Colocated support files (prefixed with -)
+    expect(
+      existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/-interview-workspace.tsx')),
+    ).toBe(true);
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/-knowledge-workspace.tsx'))).toBe(
+      true,
+    );
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/-export-loader.ts'))).toBe(true);
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/-export-preview.tsx'))).toBe(true);
+
+    // Old flat-file routes removed
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project.$id.tsx'))).toBe(false);
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project_.$id.knowledge.tsx'))).toBe(false);
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project_.$id.export.tsx'))).toBe(false);
+  });
 });

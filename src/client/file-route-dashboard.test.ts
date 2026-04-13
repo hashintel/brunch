@@ -23,7 +23,9 @@ describe('file-route dashboard ownership', () => {
     expect(projectListRouteSource).toContain('ProjectListScreen');
     expect(projectListRouteSource).toContain("navigate({ to: '/project/$id'");
     expect(routeRootSource).toContain('Outlet');
-    expect(fileRouteRootSource).toContain('component: RouteRoot');
+    expect(routeRootSource).toContain('HashMark');
+    expect(routeRootSource).toContain('HashWordmark');
+    expect(fileRouteRootSource).toContain('fetchAppConfig');
 
     expect(generatedRouteTreeSource).toContain("'/'");
     expect(generatedRouteTreeSource).toContain("'./routes/index'");

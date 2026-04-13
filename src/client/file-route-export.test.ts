@@ -9,12 +9,12 @@ const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), 
 
 describe('file-route export ownership', () => {
   it('keeps the export preview file route thin while the generated tree owns the route entry', () => {
-    const exportRouteSource = readRepoFile('src/client/routes/project_.$id.export.tsx');
+    const exportRouteSource = readRepoFile('src/client/routes/project/$id/export.tsx');
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
-    const exportLoaderSource = readRepoFile('src/client/routes/-export-loader.ts');
+    const exportLoaderSource = readRepoFile('src/client/routes/project/$id/-export-loader.ts');
     const exportPreviewScreenSource = readRepoFile('src/client/screens/ExportPreviewScreen.tsx');
 
-    expect(exportRouteSource).toContain("createFileRoute('/project_/$id/export')");
+    expect(exportRouteSource).toContain("createFileRoute('/project/$id/export')");
     expect(exportRouteSource).toContain('fetchExportPreviewLoaderData');
     expect(exportRouteSource).toContain('ExportPreview');
 
@@ -23,6 +23,6 @@ describe('file-route export ownership', () => {
     expect(exportPreviewScreenSource).toContain('to="/project/$id/knowledge"');
 
     expect(generatedRouteTreeSource).toContain("'/project/$id/export'");
-    expect(generatedRouteTreeSource).toContain("'./routes/project_.$id.export'");
+    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/export'");
   });
 });

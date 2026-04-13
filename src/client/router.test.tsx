@@ -73,9 +73,21 @@ beforeEach(() => {
   routeHarness.fetchKnowledgeWorkspaceLoaderData.mockClear();
   fetchMock.mockImplementation(async (input) => {
     const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-    const payload = url.endsWith('/export') ? { ready: false } : [];
 
-    return new Response(JSON.stringify(payload), {
+    if (url.endsWith('/export')) {
+      return new Response(JSON.stringify({ ready: false }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+    if (url.endsWith('/api/config')) {
+      return new Response(JSON.stringify({ cwd: '/test/cwd' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    }
+
+    return new Response(JSON.stringify([]), {
       status: 200,
       headers: { 'Content-Type': 'application/json' },
     });
@@ -98,8 +110,29 @@ describe('generated routeTree', () => {
     });
   });
 
-  it('maps the interview workspace URL to the interview route loader and screen', async () => {
-    await renderRouteAt('/project/42');
+  it('maps the framing phase URL to the interview workspace screen', async () => {
+    await renderRouteAt('/project/42/framing');
+
+    expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
+    expect(routeHarness.fetchInterviewWorkspaceLoaderData).toHaveBeenCalledWith('42');
+  });
+
+  it('maps the elicitation phase URL to the interview workspace screen', async () => {
+    await renderRouteAt('/project/42/elicitation');
+
+    expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
+    expect(routeHarness.fetchInterviewWorkspaceLoaderData).toHaveBeenCalledWith('42');
+  });
+
+  it('maps the requirements-review phase URL to the interview workspace screen', async () => {
+    await renderRouteAt('/project/42/requirements-review');
+
+    expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
+    expect(routeHarness.fetchInterviewWorkspaceLoaderData).toHaveBeenCalledWith('42');
+  });
+
+  it('maps the acceptance-review phase URL to the interview workspace screen', async () => {
+    await renderRouteAt('/project/42/acceptance-review');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
     expect(routeHarness.fetchInterviewWorkspaceLoaderData).toHaveBeenCalledWith('42');
@@ -109,7 +142,7 @@ describe('generated routeTree', () => {
     const deferredLoader = createDeferredPromise<{ id: string; kind: string }>();
     routeHarness.fetchInterviewWorkspaceLoaderData.mockImplementationOnce(() => deferredLoader.promise);
 
-    const history = createMemoryHistory({ initialEntries: ['/project/42'] });
+    const history = createMemoryHistory({ initialEntries: ['/project/42/framing'] });
     const router = createRouter({ routeTree, history, defaultPendingMs: 0 });
 
     render(<RouterProvider router={router} />);
@@ -157,5 +190,98 @@ describe('generated routeTree', () => {
 
     expect(await screen.findByRole('heading', { name: 'Export screen' })).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/42/export');
+  });
+
+  it('redirects project index to the framing phase by default', async () => {
+    // Mock the project state API for the redirect loader
+    fetchMock.mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url.match(/\/api\/projects\/\d+$/)) {
+        return new Response(
+          JSON.stringify({
+            project: { id: 42, name: 'Test', mode: 'greenfield', cwd: null, created_at: '' },
+            workflow: {
+              phases: {
+                scope: {
+                  status: 'unstarted',
+                  closeability: false,
+                  readiness: 'none',
+                  closureBasis: null,
+                  proposalPending: false,
+                  turnId: null,
+                  summary: null,
+                },
+                design: {
+                  status: 'unstarted',
+                  closeability: false,
+                  readiness: 'none',
+                  closureBasis: null,
+                  proposalPending: false,
+                  turnId: null,
+                  summary: null,
+                },
+                requirements: {
+                  status: 'unstarted',
+                  closeability: false,
+                  readiness: 'none',
+                  closureBasis: null,
+                  proposalPending: false,
+                  turnId: null,
+                  summary: null,
+                },
+                criteria: {
+                  status: 'unstarted',
+                  closeability: false,
+                  readiness: 'none',
+                  closureBasis: null,
+                  proposalPending: false,
+                  turnId: null,
+                  summary: null,
+                },
+              },
+            },
+            turns: [],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      if (url.endsWith('/api/config')) {
+        return new Response(JSON.stringify({ cwd: '/test/cwd' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        });
+      }
+      if (url.endsWith('/entities')) {
+        return new Response(
+          JSON.stringify({
+            goals: [],
+            terms: [],
+            contexts: [],
+            constraints: [],
+            requirements: [],
+            criteria: [],
+            decisions: [],
+            assumptions: [],
+            relationships: [],
+          }),
+          {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          },
+        );
+      }
+
+      return new Response(JSON.stringify([]), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    });
+
+    const { router } = await renderRouteAt('/project/42');
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/project/42/framing');
+    });
   });
 });

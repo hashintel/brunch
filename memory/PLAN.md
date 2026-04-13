@@ -244,21 +244,10 @@
 
 ### Slices
 
-23. **Directory-based routing infrastructure + layout shell scaffolding** `not-started`
-    - Convert flat-file routes (`project.$id.tsx`, `project_.$id.knowledge.tsx`, `project_.$id.export.tsx`) to directory-based nesting under `routes/project/$id/`
-    - Scaffold three layout shells: AppLayout (current root + top bar stub with branding), ProjectLayout (sidebar stub + `<Outlet/>`), ViewLayout (`_view/route.tsx` with `validateSearch` for `?view=chat|graph`, delegates to `<Outlet/>`)
-    - Four phase routes (`framing.tsx`, `elicitation.tsx`, `requirements-review.tsx`, `acceptance-review.tsx`) initially all render the existing InterviewWorkspace — same behavior, new URLs
-    - Export route moved to `project/$id/export.tsx` inside ProjectLayout, outside `_view/`
-    - Project index (`project/$id/index.tsx`) redirects to the active phase (first non-closed) for now
-    - Update Vite plugin config for directory scanning
-    - Update I15 and I102 tests for new route paths and directory structure
-    - Build oracle (code splitting) must still pass
-    - Requirements: → SPEC.md §Requirements #14
-    - Decisions: → SPEC.md §Decisions D85 (updated), D86
-    - Candidate invariant goals: directory-based file-route generation works with pathless `_view/` layout route and search param validation; layout shells nest correctly (AppLayout → ProjectLayout → ViewLayout → phase component); route-level code splitting preserved
-    - Invariants to respect: I15 (update), I102 (update), I24 (must not regress workspace seam), I28/I32 (build boundaries)
-    - Acceptance: navigate to `/project/:id/framing` and see the existing interview workspace rendered through all three layout shells; all four phase URLs resolve; export still works at new path; `npm run verify` green
-    - **Verification approach**: inner — updated file-route tests prove directory structure, router.test.tsx proves new URL mapping. Middle — build-boundary.test.ts confirms split chunks. Outer — manual browser navigation through new URLs.
+23. **Directory-based routing infrastructure + layout shell scaffolding** `done`
+    - Shipped: flat-file routes converted to directory-based nesting under `routes/project/$id/`; three layout shells scaffolded (AppLayout with logotype + cwd, ProjectLayout with stub sidebar, ViewLayout with `validateSearch` for `?view=chat|graph`); four phase routes all render InterviewWorkspace; export and knowledge migrated; project index redirects to active phase; `/api/config` endpoint added for cwd display
+    - Evidence: file-route-infra.test.ts, router.test.tsx, build-boundary.test.ts, file-route-interview.test.ts, file-route-knowledge.test.ts, file-route-export.test.ts; 308 tests pass, `npm run verify` green
+    - Unblocks: 23a (commits 4-6), 24 (sidebar + data split)
 
 23a. **Entity-projection alignment** `in-progress`
      - Align the `/api/projects/:id/entities` read model so active-path and project-global reads are explicit, named projection modes; widen relationship transport to the full persisted edge vocabulary; retire stale seam tests

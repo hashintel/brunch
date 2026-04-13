@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 
-import type { WorkspaceLoaderData } from '../workspace/workspace-loader.js';
+import type { WorkspaceLoaderData } from '../../../../workspace/workspace-loader.js';
 import { InterviewWorkspace } from './-interview-workspace.js';
 
 function createPendingQuestionMessage(): BrunchUIMessage {
