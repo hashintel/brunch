@@ -225,7 +225,7 @@
     - Acceptance: `npm run seed <scenario>` exposes only realistic trusted scenarios; manifest load/compile failures surface immediately; seeded assistant/user parts and scalar fields round-trip through the same hydration/projection seams as live data; synthetic state-shaping helpers remain available only to targeted tests
     - **Verification approach**: inner — manifest compiler validation tests, fail-fast loader/CLI tests, metamorphic parts-vs-scalars consistency tests. Middle — round-trip fixture tests proving trusted manifest scenarios hydrate identically to runtime-shaped turns across project-state, entities, and export seams. Outer — manual seed walkthrough using the public catalog only.
 
-16b. **Capture-backed golden fixture curation + observer probes** — After trusted fixtures are runtime-shaped, add a follow-on path that captures confirmed-good sessions into curated golden fixtures and uses them to strengthen observer evaluation. The initial target is a small hybrid corpus (captured then normalized) rather than a fully automated ingest pipeline. `not-started`
+16b. **Capture-backed golden fixture curation + observer probes** — After trusted fixtures are runtime-shaped, add a follow-on path that captures confirmed-good sessions into curated golden fixtures and uses them to strengthen observer evaluation. The initial target is a small hybrid corpus (captured then normalized) rather than a fully automated ingest pipeline. `done`
     - Requirements: → SPEC.md §Requirements #7, #11, #12, #13
     - Assumptions: → SPEC.md §Assumptions A4, A40
     - Decisions: → SPEC.md §Decisions D13, D22, D25, D49, D59
@@ -233,6 +233,10 @@
     - Invariants to respect: → SPEC.md §Invariants I19, I21, I48, I54, I87, I98
     - Acceptance: at least one capture-backed trusted fixture path exists, a curated golden corpus is documented in-repo, and observer probe coverage can run against that corpus without relying on ad hoc manual SQL extraction each time
     - **Verification approach**: inner — fixture normalization tests for captured sessions. Middle — differential observer probes against the curated corpus plus structural round-trip checks. Outer — manual review of captured-to-curated fixture quality and ontology fit before promoting new corpus entries.
+    - Shipped: `captureProjectToManifestScenario(...)` normalizes active-path sessions back into the trusted manifest seam, and `curatedGoldenCorpus` seeds scope + multi-phase review entries from that same scenario format
+    - Seam changed: observer probes now replay prefix scenarios through the trusted fixture pipeline and compare per-turn captures without ad hoc SQL extraction
+    - Evidence: corpus.test.ts (3), manifest.test.ts (5), observer.test.ts (9); targeted vitest green
+    - Debt: the curated corpus is a bootstrap hybrid over trusted runtime-shaped scenarios; confirmed-good manual captures still need promotion into the corpus over time
 
 ## Phase 10: Route Ownership Refactor `done`
 
@@ -344,7 +348,7 @@ Deferred: 25 ──→ 13a (review lifecycle refinement — adapts to per-phase 
 ### Parallelism opportunities
 
 - **Phase 11 is complete.** All slices (23, 23a, 24, 24b, 25, 26) are done.
-- 14b (port-safe launcher + same-CWD runtime guard), 16 (drizzle-kit audit), and 16a (trusted fixture hardening) are independent follow-ons from earlier shipped work and can run in parallel.
-- 16b (capture-backed golden fixtures) is intentionally sequenced after 16a so capture/curation builds on a trusted runtime-shaped fixture pipeline rather than today's permissive manifest seam.
+- 14b (port-safe launcher + same-CWD runtime guard) and 16 (drizzle-kit audit) remain the independent post-distribution follow-ons from earlier shipped work.
+- 16b is now done: capture/curation builds on the trusted runtime-shaped fixture pipeline, and observer probes no longer depend on ad hoc SQL extraction.
 - 15/15a (knowledge-graph revisit) depend on 25 (done) — edit mode can now adapt to the ViewLayout sidebar or Graph view.
 - 13a (review lifecycle refinement) depends on 25 (done) — review surfaces are now in per-phase routes.

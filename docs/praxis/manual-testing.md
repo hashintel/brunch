@@ -15,9 +15,11 @@ After a confirmed-good manual session, materialize golden master fixtures by que
 
 1. Run an interview session manually, inspecting observer output via debug mode.
 2. Confirm the extracted entities look correct.
-3. Query the entities out of SQLite as JSON — these become fixtures for the differential oracle (middle-loop regression tests).
+3. Capture the active path into the trusted manifest seam with `captureProjectToManifestScenario(...)` in `src/server/fixtures/corpus.ts` instead of ad hoc SQL copying.
+4. Promote the normalized scenario into `curatedGoldenCorpus` in `src/server/fixtures/corpus.ts`, keeping the provenance note with the entry.
+5. Re-run the observer corpus probes so the promoted capture proves the same fixture and probe path the repo already trusts.
 
-This bootstraps ground truth without hand-authoring JSON. See SPEC.md §Oracle Strategy for how fixtures feed into the verification tiers.
+This keeps golden fixtures runtime-shaped without hand-authoring JSON or redoing manual SQL extraction every time. See SPEC.md §Oracle Strategy for how fixtures feed into the verification tiers.
 
 ## What to check
 

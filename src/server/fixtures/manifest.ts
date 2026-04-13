@@ -553,6 +553,12 @@ function seedCompiledManifestScenario(
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
+export function loadManifest(manifestName: string): Manifest {
+  const filePath = join(__dirname, 'manifests', `${manifestName}.json`);
+  const raw = readFileSync(filePath, 'utf-8');
+  return JSON.parse(raw) as Manifest;
+}
+
 export function buildManifestScenarioCatalog(
   manifestName: string,
   manifest: Manifest,
@@ -574,8 +580,6 @@ export function buildManifestScenarioCatalog(
 }
 
 export function loadManifestScenarios(manifestName: string): Record<string, ScenarioFn> {
-  const filePath = join(__dirname, 'manifests', `${manifestName}.json`);
-  const raw = readFileSync(filePath, 'utf-8');
-  const manifest: Manifest = JSON.parse(raw);
+  const manifest = loadManifest(manifestName);
   return buildManifestScenarioCatalog(manifestName, manifest);
 }
