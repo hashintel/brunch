@@ -12,7 +12,7 @@
      by uncertainty first, dependency second (retire risk early).
      Status: not-started | in-progress | done -->
 
-## Phase 1: Foundation
+## Phase 1: Foundation `done`
 
 <!-- Prove the stack works end-to-end, then add persistence. All subsequent phases depend on this. -->
 
@@ -45,7 +45,6 @@
 6b1. **Workspace seam characterization oracle** `done` — I24
     - Purpose: add a client integration harness around the interview workspace before the state-ownership refactor
     - Coverage: initial hydration from persisted turns, same-project refresh stability, observer-result sidebar reactivity, option-selection follow-through
-    - Unblocks: 6c live streaming fix, workspace state-ownership refactor commits
 
 ## Phase 4: Interaction + Knowledge Foundations `done`
 
@@ -120,7 +119,7 @@
 
 12b. **Spec export from the reviewed knowledge layer** `FE-574` `done`
      - Shipped: markdown export from active-path reviewed knowledge with closure caveats; gated on all phases closed
-     - Evidence: export.test.ts, KnowledgeWorkspace.test.tsx
+     - Evidence: export.test.ts, ExportPreview.test.tsx
 
 11b. **Fixture scenarios + dev seed CLI** `done`
      - Shipped: shared fixture module + `npm run seed <scenario>` CLI; test files import from shared module
@@ -149,7 +148,7 @@
 ### Slices
 
 17. **UI refinement + design-system alignment** `done`
-    - Shipped: Inter font, Figma color ramp, typography scale, shadow tokens, Ladle stories, sidebar toggle, card-within-card in KnowledgeWorkspace, resizable panels in InterviewWorkspace, skeleton loading, empty-state vocabulary
+    - Shipped: Inter font, Figma color ramp, typography scale, shadow tokens, Ladle stories, sidebar toggle, card-within-card in the dedicated knowledge view, resizable panels in InterviewView, skeleton loading, empty-state vocabulary
     - Evidence: 11 Ladle stories, 288 tests pass, npm run verify green
     - Debt: dark mode tokens, question card V2 (TurnCard refactor), badge mono font, per-route skeleton tuning
 
@@ -161,7 +160,6 @@
     - Shipped: `BrunchProject` resolution walks up safely, rejects invalid `.brunch` path shapes early, preserves API 404s when static assets are mounted, and ships a real JS bin entrypoint for `npx brunch`; empty `BRUNCH_DB` falls back safely; migrations still resolve via `import.meta.url`
     - Evidence: project.test.ts, launcher.test.ts, cli.test.ts, runtime-config.test.ts; 288 tests pass, npm run verify green
     - Debt: real published `npx` smoke test, `--port` flag, graceful shutdown
-    - Unblocks: 14a (greenfield/brownfield), 16 (drizzle-kit audit)
 
 14a. **Greenfield/brownfield first-screen + exploration** `done`
      - Shipped: project table stores `mode` (greenfield/brownfield) and `cwd`; dialog-based first-screen routes between modes; brownfield scope uses read-only exploration tools + a scope-only exploration prompt + a higher step budget (12 vs 4); later phases keep their normal prompts; server derives cwd from launcher
@@ -200,14 +198,11 @@
 
 ### Slices
 
-14b. **Port-safe launcher + same-CWD runtime guard** — Harden the local launch seam so packaged `npx brunch` picks a collision-free app port automatically, opens the actual bound URL, refuses a second live launch from the same `.brunch/` project, and keeps the split dev harness configurable without hard-killing fixed ports. `not-started`
-    - Requirements: → SPEC.md §Requirements #1, #14
-    - Assumptions: none active in SPEC.md — this slice hardens the shipped local-first/runtime contract rather than retiring a live epistemic risk
-    - Decisions: → SPEC.md §Decisions D9, D10, D81
-    - Candidate invariant goals: packaged launcher binds and reports the actual chosen port rather than assuming `3000`; distinct project directories can run concurrently without port collisions; a second launch from the same `.brunch/` root is rejected before a duplicate runtime races the same local state; dev Vite proxy and API port selection share one explicit configuration seam instead of relying on port-killing cleanup
-    - Invariants to respect: → SPEC.md §Invariants I4, I5, I100
-    - Acceptance: launching `npx brunch` from two different project directories yields two working browser sessions on different localhost ports with their own `.brunch/` state; launching a second instance from the same project directory fails fast with a clear message; `npm run dev` no longer kills unrelated listeners on `5173`/`3000`, and an explicit alternate backend port keeps Vite's `/api` proxy aligned
-    - **Verification approach**: inner — launcher/runtime-config/configuration tests for actual bound-port discovery, same-project lock detection, and env-driven dev proxy alignment. Middle — launcher/CLI integration tests for two-temp-dir concurrent launchability and same-dir conflict rejection. Outer — manual smoke: two packaged launches from different directories, one duplicate same-dir launch rejection, and one alternate-port dev run.
+14b. **Port-safe launcher + same-CWD runtime guard** — Harden the local launch seam so packaged `npx brunch` picks a collision-free app port automatically, opens the actual bound URL, refuses a second live launch from the same `.brunch/` project, and keeps the split dev harness configurable without hard-killing fixed ports. `done`
+    - Shipped: packaged launcher now binds an available localhost port, reports/opens the actual bound URL, and records a project-scoped runtime owner so the same resolved `.brunch/` root cannot launch twice concurrently
+    - Shipped: dev API startup and Vite `/api` proxy now share one explicit `BRUNCH_PORT`/`PORT` seam, and `npm run dev` no longer kills fixed listeners before starting
+    - Evidence: launcher.test.ts, runtime-config.test.ts, `npm run verify`
+    - Debt: outer-loop packaged multi-dir and alternate-port dev smoke still pending
 
 16. **Drizzle Kit audit remediation** — Revisit the current `npm audit` finding on `drizzle-kit` after distribution is stable. Do not use `npm audit fix --force`, which currently resolves to `drizzle-kit@0.18.1`; that downgrade crosses the modern config boundary and is not a safe path for this repo. Instead, validate a non-vulnerable upgrade path (currently the `1.0.0-beta` line) against this app's SQLite config, migration history, and `studio` workflow before changing dependencies. `not-started`
     - Requirements: → SPEC.md §Requirements #1
@@ -217,22 +212,11 @@
     - **Verification approach**: inner — dependency tree/audit check plus config-load and migration/studio smoke tests. Outer — manual `npm run studio` walkthrough on the distributed app path.
 
 16a. **Trusted fixture hardening + catalog split** — Recast manifest-authored fixture scenarios as trusted runtime-shaped fixtures rather than permissive demo seeds. Fail fast on manifest/load/compiler errors, compile the scenario DSL through the same domain operations the app uses for persisted turn/phase/selection state, patch assistant parts to match live persistence contracts, and split synthetic seam exercisers (e.g. deliberately impossible low-readiness states) out of the public seed catalog into test-only helpers. `done`
-    - Requirements: → SPEC.md §Requirements #4, #7, #13, #14
-    - Assumptions: → SPEC.md §Assumptions A20, A40
-    - Decisions: → SPEC.md §Decisions D13, D23, D24, D49, D59, D65
-    - Candidate invariant goals: trusted fixtures persist the same runtime-shaped turn/phase/entity artifacts as live interviews; manifest compilation rejects unreachable turn shapes and dangling references instead of degrading silently; realistic CLI seed scenarios are cleanly separated from synthetic seam exercisers without weakening test coverage
-    - Invariants to respect: → SPEC.md §Invariants I18, I24, I48, I54, I72, I87
-    - Acceptance: `npm run seed <scenario>` exposes only realistic trusted scenarios; manifest load/compile failures surface immediately; seeded assistant/user parts and scalar fields round-trip through the same hydration/projection seams as live data; synthetic state-shaping helpers remain available only to targeted tests
-    - **Verification approach**: inner — manifest compiler validation tests, fail-fast loader/CLI tests, metamorphic parts-vs-scalars consistency tests. Middle — round-trip fixture tests proving trusted manifest scenarios hydrate identically to runtime-shaped turns across project-state, entities, and export seams. Outer — manual seed walkthrough using the public catalog only.
+    - Shipped: manifest scenarios now compile through the runtime-shaped turn/phase/entity seam instead of permissive demo seeding, and public seed scenarios are limited to realistic trusted fixtures
+    - Evidence: manifest compiler/loader tests, trusted-fixture round trips, `npm run seed <scenario>`
+    - Debt: confirmed-good manual captures still need promotion into the curated corpus over time
 
 16b. **Capture-backed golden fixture curation + observer probes** — After trusted fixtures are runtime-shaped, add a follow-on path that captures confirmed-good sessions into curated golden fixtures and uses them to strengthen observer evaluation. The initial target is a small hybrid corpus (captured then normalized) rather than a fully automated ingest pipeline. `done`
-    - Requirements: → SPEC.md §Requirements #7, #11, #12, #13
-    - Assumptions: → SPEC.md §Assumptions A4, A40
-    - Decisions: → SPEC.md §Decisions D13, D22, D25, D49, D59
-    - Candidate invariant goals: captured-good sessions can be normalized into the trusted fixture format without losing provenance or runtime shape; observer probe fixtures cover canonical-kind discrimination and multi-phase review handoff well enough to catch meaningful regressions without overfitting prompt prose
-    - Invariants to respect: → SPEC.md §Invariants I19, I21, I48, I54, I87, I98
-    - Acceptance: at least one capture-backed trusted fixture path exists, a curated golden corpus is documented in-repo, and observer probe coverage can run against that corpus without relying on ad hoc manual SQL extraction each time
-    - **Verification approach**: inner — fixture normalization tests for captured sessions. Middle — differential observer probes against the curated corpus plus structural round-trip checks. Outer — manual review of captured-to-curated fixture quality and ontology fit before promoting new corpus entries.
     - Shipped: `captureProjectToManifestScenario(...)` normalizes active-path sessions back into the trusted manifest seam, and `curatedGoldenCorpus` seeds scope + multi-phase review entries from that same scenario format
     - Seam changed: observer probes now replay prefix scenarios through the trusted fixture pipeline and compare per-turn captures without ad hoc SQL extraction
     - Evidence: corpus.test.ts (3), manifest.test.ts (5), observer.test.ts (9); targeted vitest green
@@ -244,12 +228,12 @@
 
 18. **Router seam characterization for file-based routing migration** `done`
     - Shipped: locked current router bootstrapping, URL-to-screen mapping, and route-linked destinations before the file-route cutover
-    - Evidence: main.test.tsx, router.test.tsx, ProjectList.test.tsx, InterviewWorkspace.test.tsx, KnowledgeWorkspace.test.tsx, ExportPreview.test.tsx
+    - Evidence: main.test.tsx, router.test.tsx, ProjectList.test.tsx, InterviewView.test.tsx, ExportPreview.test.tsx
 
 19. **Route wrapper extraction for file-based routing migration** `done`
     - Shipped: dashboard, interview, knowledge, and export route owners now delegate UI/controller work into extracted screen modules and route-support helpers instead of owning heavy screen logic directly
     - Seam changed: project creation navigation moved out of the mutation hook and back into the dashboard route wrapper
-    - Evidence: ProjectList.test.tsx, InterviewWorkspace.test.tsx, KnowledgeWorkspace.test.tsx, ExportPreview.test.tsx, router.test.tsx, main.test.tsx, `npm run verify`
+    - Evidence: ProjectList.test.tsx, InterviewView.test.tsx, ExportPreview.test.tsx, router.test.tsx, main.test.tsx, `npm run verify`
 
 20. **File-route build infrastructure for staged cutover** `done`
     - Shipped: TanStack Router Vite plugin now scans `src/client/routes`, generates `src/client/routeTree.gen.ts`, and keeps the generated tree as the runtime router source of truth
@@ -260,12 +244,12 @@
     - Shipped: retired `src/client/file-routes`; `src/client/routes` is now the only routing directory, and the remaining route-adjacent helpers live there as ignored support files so thin route owners keep code splitting intact
     - Evidence: router.test.tsx, build-boundary.test.ts, file-route-dashboard.test.ts, file-route-export.test.ts, `npm run verify`
 
-## Ad-hoc: Typing Hygiene
+## Ad-hoc: Typing Hygiene `done`
 
 22. **Strip Zod from non-LLM boundaries** `done`
     - Shipped: Zod validation removed from SDK output (onFinish), persistence round-trips, and server-to-client API responses; kept only for LLM tool schemas, structured output, and HTTP request bodies; `BrunchAssistantPart` type fixed to include `tool-propose_phase_closure`; type-safe discriminant filter replaces schema parse at SDK boundary
     - Seam changed: `assistantPartsSchema` and `userPartsSchema` deleted from `chat.ts`; `filterAssistantParts` introduced with `satisfies` guard; `postJsonMutation` no longer takes a schema parameter
-    - Evidence: parts.test.ts, client-mutation.test.ts, workspace-loader.test.ts, export-loader.test.ts, InterviewWorkspace.test.tsx, `npm run check` + build green
+    - Evidence: parts.test.ts, client-mutation.test.ts, -interview-data.test.ts, export-loader.test.ts, InterviewView.test.tsx, `npm run check` + build green
     - ~~Debt: 3 pre-existing test failures from Phase 10 routing refactor~~ Resolved — 296/296 tests pass as of 2026-04-13
 
 ## Phase 11: Routing & Layout Refactor `done`
@@ -277,42 +261,35 @@
 ### Slices
 
 23. **Directory-based routing infrastructure + layout shell scaffolding** `done`
-    - Shipped: flat-file routes converted to directory-based nesting under `routes/project/$id/`; three layout shells scaffolded (AppLayout with logotype + cwd, ProjectLayout with stub sidebar, ViewLayout with `validateSearch` for `?view=chat|graph`); four phase routes all render InterviewWorkspace; export and knowledge migrated; project index redirects to active phase; `/api/config` endpoint added for cwd display
-    - Evidence: file-route-infra.test.ts, router.test.tsx, build-boundary.test.ts, file-route-interview.test.ts, file-route-knowledge.test.ts, file-route-export.test.ts; 308 tests pass, `npm run verify` green
-    - Unblocks: 23a (commits 4-6), 24 (sidebar + data split)
+    - Shipped: flat-file routes converted to directory-based nesting under `routes/project/$id/`; three layout shells scaffolded (AppLayout with logotype + cwd, ProjectLayout with stub sidebar, ViewLayout with `validateSearch` for `?view=chat|graph`); four phase routes all render InterviewView; export migrated into the nested route tree; project index redirects to the active phase; `/api/config` endpoint added for cwd display
+    - Evidence: file-route-infra.test.ts, router.test.tsx, build-boundary.test.ts, file-route-interview.test.ts, file-route-export.test.ts; 308 tests pass, `npm run verify` green
 
 23a. **Entity-projection alignment** `done`
      - Shipped: the entity seam now preserves the full relationship vocabulary, knowledge surfaces render the richer graph deliberately, routed entity reads default to the active path, and project-wide inventory requires explicit opt-in
-     - Evidence: app.test.ts, export.test.ts, workspace-loader.test.ts, KnowledgeWorkspace.test.tsx, EntitySidebar.test.tsx, `npm run verify`
-     - Decisions: → SPEC.md §Decisions D49, D50, D87, D88
-     - Unblocks: 24
+     - Evidence: app.test.ts, export.test.ts, EntitySidebar.test.tsx, `npm run verify`
 
 24. **ProjectLayout sidebar + layout-level data loading split** `done`
     - Shipped: workspace-loader split into `fetchProjectLayoutLoaderData` (ProjectState) and `fetchViewLayoutLoaderData` (EntitiesData); ProjectLayout renders `PhaseNavigationSidebar` with status/readiness/closeability per phase; ViewLayout owns entity loading; workspace-controller reads from two `useLoaderData` calls; `WorkspaceLoaderData` type retired
     - Seam changed: workspace-data adapter now accepts `(projectState, entitySnapshot, projectId)` instead of combined `WorkspaceLoaderData`
-    - Evidence: workspace-loader.test.ts, phase-navigation-sidebar.test.tsx, workspace-controller.test.tsx, InterviewWorkspace.test.tsx, file-route-interview.test.ts, router.test.tsx; 318 tests pass, `npm run verify` green
+    - Evidence: phase-navigation-sidebar.test.tsx, -interview-controller.test.tsx, InterviewView.test.tsx, file-route-interview.test.ts, router.test.tsx; 318 tests pass, `npm run verify` green
     - Debt: project index route still fetches its own ProjectState for redirect (review finding #2 — deferred); manual browser verification pending
-    - Depends on: 23
 
 24b. **Route colocation + workspace lexicon retirement** `done`
     - Shipped: `screens/` and `workspace/` directories dissolved; all single-consumer modules inlined into their route or support files; shared modules moved to `_view/` with `-interview-` prefix; all `Workspace*` symbols renamed to `Interview*`; no file under `src/client/` contains "workspace" in its name
     - Seam changed: loader functions (`fetchProjectLayoutLoaderData`, `fetchViewLayoutLoaderData`, `fetchKnowledgeLoaderData`) now inline in route files; `InterviewView` replaces `InterviewWorkspace`; `KnowledgeView` replaces `KnowledgeWorkspace`
     - Evidence: 311 tests pass across 40 files; `npm run verify` green; build code-splitting intact
-    - Depends on: 24
 
 25. **Per-phase conversation views + phase-transition navigation + knowledge sidebar relocation** `done`
     - Shipped: each phase route renders only its phase's turns via `filterMessagesByPhase`; phase-close confirmation navigates to the next active phase via `getNextActivePhase` + `useEffect`; EntitySidebar moved from InterviewView into ViewLayout's ResizablePanelGroup; observer-result data parts trigger `router.invalidate()` replacing manual entity fetch; knowledge route retired; InterviewView header (workflow badges, Projects/Knowledge links) removed
     - Seam changed: interview-data adapter simplified (no entity refresh state); controller accepts `phase: WorkflowPhase`; EntitySidebar accepts `EntitiesData` directly (no `isLoading`)
     - Evidence: 290 tests pass across 38 files; `npm run verify` green; build code-splitting intact
     - Debt: project index summary page deferred (redirect behavior unchanged); kind/phase filter controls on EntitySidebar deferred; manual browser verification (outer-loop) pending
-    - Depends on: 24b
 
 26. **Graph view stub in ViewLayout** `done`
     - Shipped: ViewLayout conditionally renders a code-split GraphView when `?view=graph` is active, showing all project entities grouped by kind (8 groups from knowledgeKindRegistry) with inline relationship indicators and kind filter controls; `?view=chat` returns to conversation + EntitySidebar two-column layout
     - Seam changed: ViewLayout reads `Route.useSearch()` and branches render; GraphView is lazy-loaded via `React.lazy` for code splitting
     - Evidence: GraphView.test.tsx (5 tests), file-route-interview.test.ts (source-level lazy import assertion), build-boundary.test.ts (graph chunk isolation); 295 tests pass across 39 files; `npm run verify` green
-    - Debt: phase-of-capture filter deferred (EntitiesData lacks per-item phase provenance — A52); interactive graph canvas deferred; manual browser verification (outer-loop) pending
-    - Depends on: 25
+    - Debt: phase-of-capture filter deferred until the entities API exposes per-item phase provenance; interactive graph canvas deferred; manual browser verification pending
 
 ## Horizon
 
