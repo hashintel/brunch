@@ -9,6 +9,7 @@ import {
 } from '@/client/components/knowledge-card';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import type { EntitiesData } from '@/shared/api-types.js';
+import type { EntityReference, EntityRelationship } from '@/shared/api-types.js';
 import {
   knowledgeKindRegistry,
   type KnowledgeEntityCollection,
@@ -53,6 +54,40 @@ function buildContentMap(entities: EntitiesData): Map<string, string> {
   return map;
 }
 
+function getOutgoingRelationLabel(type: EntityRelationship['type']): string {
+  switch (type) {
+    case 'depends_on':
+      return 'Depends on';
+    case 'derived_from':
+      return 'Derived from';
+    case 'constrains':
+      return 'Constrains';
+    case 'verifies':
+      return 'Verifies';
+    case 'refines':
+      return 'Refines';
+  }
+}
+
+function getIncomingRelationLabel(type: EntityRelationship['type']): string {
+  switch (type) {
+    case 'depends_on':
+      return 'Supports';
+    case 'derived_from':
+      return 'Basis for';
+    case 'constrains':
+      return 'Constrained by';
+    case 'verifies':
+      return 'Verified by';
+    case 'refines':
+      return 'Refined by';
+  }
+}
+
+function getEntityContent(contentMap: Map<string, string>, reference: EntityReference): string | undefined {
+  return contentMap.get(`${reference.collection}:${reference.id}`);
+}
+
 function toKnowledgeEdges(
   entities: EntitiesData,
   entityCollection: KnowledgeEntityCollection,
@@ -62,16 +97,32 @@ function toKnowledgeEdges(
   return entities.relationships
     .filter(
       (relationship) =>
-        relationship.source.collection === entityCollection && itemIds.has(relationship.source.id),
+        (relationship.source.collection === entityCollection && itemIds.has(relationship.source.id)) ||
+        (relationship.target.collection === entityCollection && itemIds.has(relationship.target.id)),
     )
-    .map((relationship) => ({
-      type: relationship.type,
-      sourceId: relationship.source.id,
-      sourceCollection: relationship.source.collection,
-      targetId: relationship.target.id,
-      targetCollection: relationship.target.collection,
-      targetLabel: contentMap.get(`${relationship.target.collection}:${relationship.target.id}`),
-    }));
+    .map((relationship) => {
+      if (relationship.source.collection === entityCollection && itemIds.has(relationship.source.id)) {
+        return {
+          type: relationship.type,
+          label: getOutgoingRelationLabel(relationship.type),
+          sourceId: relationship.source.id,
+          sourceCollection: relationship.source.collection,
+          relatedId: relationship.target.id,
+          relatedCollection: relationship.target.collection,
+          relatedLabel: getEntityContent(contentMap, relationship.target),
+        };
+      }
+
+      return {
+        type: relationship.type,
+        label: getIncomingRelationLabel(relationship.type),
+        sourceId: relationship.source.id,
+        sourceCollection: relationship.source.collection,
+        relatedId: relationship.source.id,
+        relatedCollection: relationship.source.collection,
+        relatedLabel: getEntityContent(contentMap, relationship.source),
+      };
+    });
 }
 
 export function KnowledgeWorkspaceView({ entities }: { entities: EntitiesData }) {

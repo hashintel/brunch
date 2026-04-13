@@ -22,7 +22,7 @@ The target state is:
 - [x] Add characterization tests that seed manifest scenarios and prove the current graph-relation loss and active-path/global-entity divergence at the API and routed-surface seams.
 - [x] Extract the entity projection logic into explicit projection modes so project-wide and active-path reads are named and testable before behavior changes.
 - [x] Widen the shared relationship transport to the full persisted edge-relation vocabulary and update read-model tests to treat the richer graph as first-class data.
-- [ ] Make knowledge-surface relation rendering consume the richer graph deliberately, while keeping any dependency-only summaries explicit instead of relying on projection loss.
+- [x] Make knowledge-surface relation rendering consume the richer graph deliberately, while keeping any dependency-only summaries explicit instead of relying on projection loss.
 - [ ] Switch the canonical routed entity read path to active-path projection so interview, knowledge, and export all agree on the trusted project state.
 - [ ] Retire or rewrite stale seam tests so manifest-seeded transition scenarios protect the full route-to-read-model contract going forward.
 

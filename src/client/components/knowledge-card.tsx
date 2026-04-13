@@ -85,15 +85,16 @@ export interface KnowledgeItemData {
 
 export interface KnowledgeEdgeData {
   type: EdgeRelation;
+  label: string;
   sourceId: number;
   sourceCollection: string;
-  targetId: number;
-  targetCollection: string;
-  targetLabel?: string;
+  relatedId: number;
+  relatedCollection: string;
+  relatedLabel?: string;
 }
 
 function getKnowledgeEdgeKey(edge: KnowledgeEdgeData): string {
-  return [edge.type, edge.sourceCollection, edge.sourceId, edge.targetCollection, edge.targetId].join(':');
+  return [edge.type, edge.sourceCollection, edge.sourceId, edge.relatedCollection, edge.relatedId].join(':');
 }
 
 export function KnowledgeRow({
@@ -195,16 +196,14 @@ export function KnowledgeGroupCard({
           <CollapsibleContent>
             <div className="flex flex-col gap-1.5 px-4 pb-4">
               {edges.map((edge) => {
-                const edgeLabel = edge.type.replace(/_/g, ' ');
-                const displayLabel = edgeLabel.charAt(0).toUpperCase() + edgeLabel.slice(1);
-                const targetText = edge.targetLabel ?? `item #${edge.targetId}`;
+                const relatedText = edge.relatedLabel ?? `item #${edge.relatedId}`;
                 return (
                   <div
                     key={getKnowledgeEdgeKey(edge)}
                     className="rounded-lg bg-white p-3 text-sm shadow-[var(--shadow-card-ring)]"
                   >
-                    <span className="font-medium text-hint">{displayLabel}</span>
-                    <span className="text-ink"> {targetText}</span>
+                    <span className="font-medium text-hint">{edge.label}</span>
+                    <span className="text-ink"> {relatedText}</span>
                   </div>
                 );
               })}
@@ -265,16 +264,14 @@ export function KnowledgeDetailCard({
           <div className="flex flex-col gap-1.5">
             <p className="text-sm font-medium text-sub">Connections</p>
             {edges.map((edge) => {
-              const edgeLabel = edge.type.replace(/_/g, ' ');
-              const displayLabel = edgeLabel.charAt(0).toUpperCase() + edgeLabel.slice(1);
-              const targetText = edge.targetLabel ?? `item #${edge.targetId}`;
+              const relatedText = edge.relatedLabel ?? `item #${edge.relatedId}`;
               return (
                 <div
                   key={getKnowledgeEdgeKey(edge)}
                   className="rounded-lg bg-white p-3 shadow-[var(--shadow-card-ring)]"
                 >
-                  <span className="text-sm font-medium text-hint">{displayLabel}</span>
-                  <span className="text-sm text-ink"> {targetText}</span>
+                  <span className="text-sm font-medium text-hint">{edge.label}</span>
+                  <span className="text-sm text-ink"> {relatedText}</span>
                 </div>
               );
             })}

@@ -300,7 +300,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 | #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
 | --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I48 | Canonical knowledge kinds (`goal`, `term`, `context`, `constraint`, `requirement`, `criterion`, `decision`, `assumption`) persist with turn provenance, project through kind-specific entity collections and typed knowledge-graph edges, and surface through the shared knowledge registry without ontology drift or refresh regression — including scope-bundle coherence and compatibility collections | Slices 6e, 7b.1, 7b.2; refactor 5 (knowledge registry) | db.test.ts, app.test.ts, knowledge.test.ts, workspace-data.test.ts, workspace-controller.test.tsx, InterviewWorkspace.test.tsx | D5, D22, D49, D50, D52, D53, D59, D61, D67, D68 |
+| I48 | Canonical knowledge kinds (`goal`, `term`, `context`, `constraint`, `requirement`, `criterion`, `decision`, `assumption`) persist with turn provenance, project through kind-specific entity collections and typed knowledge-graph edges, and surface through the shared knowledge registry without ontology drift or refresh regression — including scope-bundle coherence and compatibility collections | Slices 6e, 7b.1, 7b.2; refactor 5 (knowledge registry) | db.test.ts, app.test.ts, knowledge.test.ts, workspace-data.test.ts, workspace-controller.test.tsx, InterviewWorkspace.test.tsx, KnowledgeWorkspace.test.tsx, EntitySidebar.test.tsx | D5, D22, D49, D50, D52, D53, D59, D61, D67, D68 |
 
 ### Observer widening seam
 
@@ -581,7 +581,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | chat-hydration.test.ts        | 2     | I24                                                   |
 | workspace-controller.test.tsx | 6     | I24, I48                                              |
 | client-mutation.test.ts       | 6     | I24                                                   |
-| EntitySidebar.test.tsx        | 1     | I87                                                   |
+| EntitySidebar.test.tsx        | 2     | I48, I87                                              |
 | code-block.test.tsx           | 4     | I24, I26                                              |
 | markdown-rendering.test.tsx   | 3     | I24, I31                                              |
 | message.test.tsx              | 2     | I24, I27                                              |
@@ -592,7 +592,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | file-route-interview.test.ts  | 1     | I102                                                  |
 | file-route-knowledge.test.ts  | 1     | I102                                                  |
 | file-route-export.test.ts     | 1     | I102                                                  |
-| KnowledgeWorkspace.test.tsx   | 5     | I15, I24, I48                                         |
+| KnowledgeWorkspace.test.tsx   | 6     | I15, I24, I48                                         |
 | workspace-loader.test.ts      | 7     | I24                                                   |
 | project.test.ts               | 10    | I100                                                  |
 | launcher.test.ts              | 3     | I5, I100                                              |

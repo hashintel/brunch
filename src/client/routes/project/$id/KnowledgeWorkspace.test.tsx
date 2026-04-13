@@ -148,10 +148,109 @@ describe('KnowledgeWorkspaceView', () => {
 
     render(<KnowledgeWorkspaceView entities={entities} />);
 
-    expect(screen.getByText('Use SQLite')).toBeTruthy();
+    expect(screen.getAllByText('Use SQLite').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Depends on')).toBeTruthy();
     // "Single-user only" appears in both the assumptions section and the dependency list
     expect(screen.getAllByText('Single-user only').length).toBeGreaterThanOrEqual(2);
+  });
+
+  it('renders widened relation kinds with direction-aware labels for affected items', () => {
+    const entities: EntitiesData = {
+      ...emptyEntities,
+      goals: [
+        {
+          id: 1,
+          project_id: 1,
+          kind: 'goal',
+          subtype: null,
+          content: 'Keep seeded route state faithful',
+          rationale: null,
+        },
+      ],
+      contexts: [
+        {
+          id: 2,
+          project_id: 1,
+          kind: 'context',
+          subtype: null,
+          content: 'The fixture graph is richer than the current sidebar summary',
+          rationale: null,
+        },
+      ],
+      constraints: [
+        {
+          id: 3,
+          project_id: 1,
+          kind: 'constraint',
+          subtype: 'non-goal',
+          content: 'Do not blur active-path and project-wide reads',
+          rationale: null,
+        },
+      ],
+      requirements: [
+        {
+          id: 4,
+          project_id: 1,
+          kind: 'requirement',
+          subtype: null,
+          content: 'Render knowledge edges without collapsing them to dependencies',
+          rationale: null,
+          reviewStatus: 'pending',
+        },
+      ],
+      criteria: [
+        {
+          id: 5,
+          project_id: 1,
+          kind: 'criterion',
+          subtype: 'acceptance',
+          content: 'The knowledge workspace shows the full persisted edge vocabulary',
+          rationale: null,
+          reviewStatus: 'pending',
+        },
+      ],
+      relationships: [
+        {
+          type: 'derived_from',
+          source: { collection: 'knowledge_item', kind: 'context', id: 2 },
+          target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+        },
+        {
+          type: 'constrains',
+          source: { collection: 'knowledge_item', kind: 'constraint', id: 3 },
+          target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+        },
+        {
+          type: 'refines',
+          source: { collection: 'knowledge_item', kind: 'requirement', id: 4 },
+          target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+        },
+        {
+          type: 'verifies',
+          source: { collection: 'knowledge_item', kind: 'criterion', id: 5 },
+          target: { collection: 'knowledge_item', kind: 'requirement', id: 4 },
+        },
+      ],
+    };
+
+    render(<KnowledgeWorkspaceView entities={entities} />);
+
+    expect(screen.getByText('Constrained by')).toBeTruthy();
+    expect(
+      screen.getAllByText('Do not blur active-path and project-wide reads').length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('Basis for')).toBeTruthy();
+    expect(
+      screen.getAllByText('The fixture graph is richer than the current sidebar summary').length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('Refined by')).toBeTruthy();
+    expect(
+      screen.getAllByText('Render knowledge edges without collapsing them to dependencies').length,
+    ).toBeGreaterThanOrEqual(2);
+    expect(screen.getByText('Verified by')).toBeTruthy();
+    expect(
+      screen.getAllByText('The knowledge workspace shows the full persisted edge vocabulary').length,
+    ).toBeGreaterThanOrEqual(2);
   });
 });
 
