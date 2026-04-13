@@ -9,6 +9,7 @@ import {
   linkKnowledgeItemToTurn,
   type DB,
 } from '../db.js';
+import { loadManifestScenarios } from './manifest.js';
 
 function createConfirmationParts(text: string, data: object): string {
   return JSON.stringify([
@@ -384,6 +385,9 @@ export const scenarios: Record<string, ScenarioFn> = {
     seedAllPhasesClosedWithForcedDesign(db, project.id);
     return project.id;
   },
+};
+
+export const testOnlyScenarios: Record<string, ScenarioFn> = {
   'low-readiness-all-phases-closed': (db, name = 'Low-Readiness All Phases Closed') => {
     const project = createProject(db, name);
     seedAllPhasesClosedWithLowReadinessScope(db, project.id);
@@ -391,14 +395,12 @@ export const scenarios: Record<string, ScenarioFn> = {
   },
 };
 
-// Manifest-based scenarios (additive — issue-tracker domain with rich parts + knowledge)
-let manifestScenarios: Record<string, ScenarioFn> = {};
-try {
-  const { loadManifestScenarios } = await import('./manifest.js');
-  manifestScenarios = loadManifestScenarios('issue-tracker');
-} catch {
-  // Manifest files may not exist in all environments (e.g., CI without fixtures)
-}
+export const manifestScenarios = loadManifestScenarios('issue-tracker');
 
-export const allScenarios: Record<string, ScenarioFn> = { ...scenarios, ...manifestScenarios };
-export const scenarioNames = Object.keys(allScenarios);
+export const publicScenarios: Record<string, ScenarioFn> = { ...scenarios, ...manifestScenarios };
+export const publicScenarioNames = Object.keys(publicScenarios);
+export const allScenarios: Record<string, ScenarioFn> = {
+  ...publicScenarios,
+  ...testOnlyScenarios,
+};
+export const scenarioNames = publicScenarioNames;
