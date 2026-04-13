@@ -260,11 +260,12 @@
     - Acceptance: navigate to `/project/:id/framing` and see the existing interview workspace rendered through all three layout shells; all four phase URLs resolve; export still works at new path; `npm run verify` green
     - **Verification approach**: inner — updated file-route tests prove directory structure, router.test.tsx proves new URL mapping. Middle — build-boundary.test.ts confirms split chunks. Outer — manual browser navigation through new URLs.
 
-23a. **Entity-projection alignment** `not-started`
+23a. **Entity-projection alignment** `in-progress`
      - Align the `/api/projects/:id/entities` read model so active-path and project-global reads are explicit, named projection modes; widen relationship transport to the full persisted edge vocabulary; retire stale seam tests
      - Detailed commit plan: `memory/REFACTOR.md`
      - Commits 1-3 (characterization + projection extraction + relation widening) are server-side and can run in parallel with slice 23
      - Commits 4-6 (knowledge-surface rendering + active-path switch + test retirement) touch workspace loaders and should land before slice 24
+     - Progress: commit 1 landed characterization coverage; commit 2 landed named projection modes with behavior preserved
      - Requirements: → SPEC.md §Requirements #5, #7
      - Decisions: → SPEC.md §Decisions D49, D50, D87
      - Invariants to respect: I48 (knowledge display), I24 (workspace seam)

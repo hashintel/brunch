@@ -799,7 +799,9 @@ function getKnowledgeItemIdsLinkedToActivePath(db: DB, projectId: number): Set<n
   return new Set(rows.map((row) => row.itemId));
 }
 
-export function getEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
+export type EntityProjectionMode = 'project-wide' | 'active-path';
+
+function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
   const genericKnowledgeCollections = Object.fromEntries(
     genericKnowledgeKindRegistry.map((entry) => [
       entry.collectionKey,
@@ -859,10 +861,10 @@ export function getEntitiesForProject(db: DB, projectId: number): EntitiesForPro
   };
 }
 
-export function getEntitiesForProjectOnActivePath(db: DB, projectId: number): EntitiesForProject {
-  const entities = getEntitiesForProject(db, projectId);
-  const activeItemIds = getKnowledgeItemIdsLinkedToActivePath(db, projectId);
-
+function filterEntitiesToActivePath(
+  entities: EntitiesForProject,
+  activeItemIds: ReadonlySet<number>,
+): EntitiesForProject {
   return {
     goals: entities.goals.filter((item) => activeItemIds.has(item.id)),
     terms: entities.terms.filter((item) => activeItemIds.has(item.id)),
@@ -877,4 +879,28 @@ export function getEntitiesForProjectOnActivePath(db: DB, projectId: number): En
         activeItemIds.has(relationship.source.id) && activeItemIds.has(relationship.target.id),
     ),
   };
+}
+
+export function getEntitiesForProjectByMode(
+  db: DB,
+  projectId: number,
+  mode: EntityProjectionMode,
+): EntitiesForProject {
+  const projectWideEntities = getProjectWideEntitiesForProject(db, projectId);
+  if (mode === 'project-wide') {
+    return projectWideEntities;
+  }
+
+  return filterEntitiesToActivePath(
+    projectWideEntities,
+    getKnowledgeItemIdsLinkedToActivePath(db, projectId),
+  );
+}
+
+export function getEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
+  return getEntitiesForProjectByMode(db, projectId, 'project-wide');
+}
+
+export function getEntitiesForProjectOnActivePath(db: DB, projectId: number): EntitiesForProject {
+  return getEntitiesForProjectByMode(db, projectId, 'active-path');
 }

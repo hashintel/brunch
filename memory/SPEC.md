@@ -567,7 +567,7 @@ This projection difference is a deliberate design choice, not an implementation 
 
 | File                          | Tests | Protects                                              |
 | ----------------------------- | ----- | ----------------------------------------------------- |
-| db.test.ts                    | 46    | I5, I6, I9, I10, I11, I20, I48, I54, I72, I87, I98, I101 |
+| db.test.ts                    | 47    | I5, I6, I9, I10, I11, I20, I48, I54, I72, I87, I98, I101 |
 | knowledge.test.ts             | 1     | I48                                                   |
 | app.test.ts                   | 46    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99, I101 |
 | core.test.ts                  | 10    | I12, I13, I18, I72, I87                               |

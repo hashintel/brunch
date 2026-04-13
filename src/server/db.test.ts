@@ -25,7 +25,9 @@ import {
   addDecisionParentDecision,
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
+  getEntitiesForProjectByMode,
   getEntitiesForProject,
+  getEntitiesForProjectOnActivePath,
   getScopeBundleForProject,
   listPhaseOutcomesForProject,
   getCurrentWorkflowState,
@@ -1524,6 +1526,49 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
         source: { collection: 'assumption', kind: 'assumption', id: dependentAssumption.id },
         target: { collection: 'assumption', kind: 'assumption', id: parentAssumption.id },
       },
+    ]);
+  });
+
+  it('names project-wide and active-path entity projection modes without changing current outputs', () => {
+    const project = createProject(db, 'Test');
+    const rootTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What storage options are on the table?',
+      answer: 'SQLite and Postgres are both possible.',
+    });
+    const abandonedBranchTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: rootTurn.id,
+      question: 'Which storage branch should we explore?',
+      answer: 'Explore the SQLite branch.',
+    });
+    const activeBranchTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: rootTurn.id,
+      question: 'Which storage branch should we explore?',
+      answer: 'Explore the Postgres branch.',
+    });
+    advanceHead(db, project.id, activeBranchTurn.id);
+
+    const abandonedDecision = createKnowledgeItem(db, project.id, 'decision', 'Use SQLite for persistence');
+    const activeDecision = createKnowledgeItem(db, project.id, 'decision', 'Use Postgres for persistence');
+    linkKnowledgeItemToTurn(db, abandonedDecision.id, abandonedBranchTurn.id);
+    linkKnowledgeItemToTurn(db, activeDecision.id, activeBranchTurn.id);
+
+    expect(getEntitiesForProjectByMode(db, project.id, 'project-wide')).toEqual(
+      getEntitiesForProject(db, project.id),
+    );
+    expect(getEntitiesForProjectByMode(db, project.id, 'active-path')).toEqual(
+      getEntitiesForProjectOnActivePath(db, project.id),
+    );
+    expect(getEntitiesForProjectByMode(db, project.id, 'project-wide').decisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ content: 'Use SQLite for persistence' }),
+        expect.objectContaining({ content: 'Use Postgres for persistence' }),
+      ]),
+    );
+    expect(getEntitiesForProjectByMode(db, project.id, 'active-path').decisions).toEqual([
+      expect.objectContaining({ content: 'Use Postgres for persistence' }),
     ]);
   });
 

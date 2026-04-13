@@ -45,8 +45,7 @@ import {
   getTurn,
   getOptionsForTurn,
   updateTurn,
-  getEntitiesForProject,
-  getEntitiesForProjectOnActivePath,
+  getEntitiesForProjectByMode,
   recordReviewFromTurnResponse,
   type DB,
 } from './db.js';
@@ -71,6 +70,11 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const projectCwd = options.projectCwd ?? process.cwd();
   const app = express();
   app.use(express.json());
+
+  // App config (cwd for display in AppLayout)
+  app.get('/api/config', (_req: Request, res: Response) => {
+    res.json({ cwd: projectCwd });
+  });
 
   // List all projects
   app.get('/api/projects', (_req: Request, res: Response) => {
@@ -173,7 +177,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
       return;
     }
-    res.json(getEntitiesForProject(db, id) satisfies EntitiesData);
+    res.json(getEntitiesForProjectByMode(db, id, 'project-wide') satisfies EntitiesData);
   });
 
   // Export spec as markdown
@@ -193,7 +197,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       res.json({ ready: false } satisfies ExportLoaderData);
       return;
     }
-    const entities = getEntitiesForProjectOnActivePath(db, id);
+    const entities = getEntitiesForProjectByMode(db, id, 'active-path');
     const markdown = renderExportMarkdown(projectState.project.name, entities, projectState.workflow);
     res.json({ ready: true, markdown } satisfies ExportLoaderData);
   });
