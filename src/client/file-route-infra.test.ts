@@ -26,8 +26,10 @@ describe('generated route runtime ownership', () => {
 
     expect(viteConfigSource).toContain("from '@tanstack/router-plugin/vite'");
     expect(viteConfigSource).toContain('autoCodeSplitting: true');
-    expect(viteConfigSource).toContain("routesDirectory: './src/client/routes'");
-    expect(viteConfigSource).toContain("generatedRouteTree: './src/client/routeTree.gen.ts'");
+    expect(viteConfigSource).toContain("routesDirectory: resolve(__dirname, 'src/client/routes')");
+    expect(viteConfigSource).toContain(
+      "generatedRouteTree: resolve(__dirname, 'src/client/routeTree.gen.ts')",
+    );
     expect(viteConfigSource).toContain("routeFileIgnorePattern: '.*\\\\.test\\\\.(ts|tsx)$'");
     expect(viteConfigSource).toContain("target: 'react'");
     expect(viteConfigSource.indexOf('tanstackRouter(')).toBeGreaterThan(-1);

@@ -228,6 +228,14 @@
     - Shipped: retired `src/client/file-routes`; `src/client/routes` is now the only routing directory, and the remaining route-adjacent helpers live there as ignored support files so thin route owners keep code splitting intact
     - Evidence: router.test.tsx, build-boundary.test.ts, file-route-dashboard.test.ts, file-route-export.test.ts, `npm run verify`
 
+## Ad-hoc: Typing Hygiene
+
+22. **Strip Zod from non-LLM boundaries** `done`
+    - Shipped: Zod validation removed from SDK output (onFinish), persistence round-trips, and server-to-client API responses; kept only for LLM tool schemas, structured output, and HTTP request bodies; `BrunchAssistantPart` type fixed to include `tool-propose_phase_closure`; type-safe discriminant filter replaces schema parse at SDK boundary
+    - Seam changed: `assistantPartsSchema` and `userPartsSchema` deleted from `chat.ts`; `filterAssistantParts` introduced with `satisfies` guard; `postJsonMutation` no longer takes a schema parameter
+    - Evidence: parts.test.ts, client-mutation.test.ts, workspace-loader.test.ts, export-loader.test.ts, InterviewWorkspace.test.tsx, `npm run check` + build green
+    - Debt: 3 pre-existing test failures from Phase 10 routing refactor (build-boundary, file-route-infra, main.test.tsx)
+
 ## Horizon
 
 <!-- Future work not yet broken into slices. Revisit after Phase 9. -->

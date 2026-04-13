@@ -12,13 +12,13 @@ import type {
   SubmitTurnResponseResponse,
 } from '@/shared/api-types.js';
 import {
-  assistantPartsSchema,
   brunchDataPartSchemas,
   brunchValidationTools,
   extractTextFromMessage,
+  filterAssistantParts,
   formatTurnResponseText,
 } from '@/shared/chat.js';
-import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
+import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import {
   getForceCloseActionErrorMessage,
   getForceClosePhaseAction,
@@ -358,7 +358,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
         const assistantText = extractTextFromMessage(responseMessage);
         persistFallbackQuestionText(db, prepared.turn.id, assistantText);
-        const assistantParts = assistantPartsSchema.parse(responseMessage.parts) as BrunchAssistantPart[];
+        const assistantParts = filterAssistantParts(responseMessage.parts);
         updateTurn(db, prepared.turn.id, {
           assistant_parts: serializeParts(assistantParts),
         });

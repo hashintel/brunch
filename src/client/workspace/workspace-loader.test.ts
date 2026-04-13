@@ -163,42 +163,6 @@ describe('workspace route loaders', () => {
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/projects/7/entities');
   });
 
-  it('rejects when the project payload is parseable json with the wrong shape', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ...projectState, project: { ...projectState.project, id: '7' } }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(entitySnapshot), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
-
-    await expect(fetchInterviewWorkspaceLoaderData(7)).rejects.toThrow();
-  });
-
-  it('rejects when the entity payload is parseable json with the wrong shape', async () => {
-    fetchMock
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify(projectState), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      )
-      .mockResolvedValueOnce(
-        new Response(JSON.stringify({ ...entitySnapshot, decisions: { id: 1 } }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      );
-
-    await expect(fetchInterviewWorkspaceLoaderData(7)).rejects.toThrow();
-  });
-
   it('fails knowledge workspace loading when the project does not exist', async () => {
     fetchMock.mockResolvedValueOnce(new Response('Not found', { status: 404 }));
 

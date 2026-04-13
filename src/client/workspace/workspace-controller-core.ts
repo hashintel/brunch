@@ -1,5 +1,5 @@
 import type { EntitiesData, ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
-import { assistantPartsSchema, isAskQuestionUIPart, userPartsSchema } from '@/shared/chat.js';
+import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type {
   AskQuestionUIPart,
   BrunchAssistantPart,
@@ -72,7 +72,7 @@ export interface WorkspaceControllerViewState {
 function parseAssistantParts(json: string | null): BrunchAssistantPart[] {
   if (!json) return [];
   try {
-    return assistantPartsSchema.parse(JSON.parse(json)) as BrunchAssistantPart[];
+    return JSON.parse(json) as BrunchAssistantPart[];
   } catch {
     return [];
   }
@@ -81,7 +81,7 @@ function parseAssistantParts(json: string | null): BrunchAssistantPart[] {
 function parseUserParts(json: string | null): BrunchUserPart[] {
   if (!json) return [];
   try {
-    return userPartsSchema.parse(JSON.parse(json));
+    return JSON.parse(json) as BrunchUserPart[];
   } catch {
     return [];
   }

@@ -25,9 +25,25 @@ export function itemLabel(kind: KnowledgeKind, id: number) {
 
 // ── Badges ────────────────────────────────────────────────────────────
 
+const kindColor: Record<KnowledgeKind, string> = {
+  goal: 'bg-[rgba(37,99,235,0.08)] text-[#2563eb]',
+  term: 'bg-wash text-sub',
+  context: 'bg-[rgba(234,88,12,0.08)] text-[#ea580c]',
+  constraint: 'bg-[rgba(225,70,64,0.08)] text-[#e14640]',
+  assumption: 'bg-[rgba(234,88,12,0.08)] text-[#ea580c]',
+  decision: 'bg-[rgba(37,99,235,0.08)] text-[#2563eb]',
+  requirement: 'bg-[rgba(22,163,106,0.08)] text-[#16a34a]',
+  criterion: 'bg-wash text-sub',
+};
+
 export function KindBadge({ kind }: { kind: KnowledgeKind }) {
   return (
-    <span className="inline-flex h-5 items-center rounded-md bg-wash px-1.5 text-xxs font-medium text-sub">
+    <span
+      className={cn(
+        'inline-flex h-4 items-center rounded px-1 font-mono text-[9px] leading-none font-medium',
+        kindColor[kind],
+      )}
+    >
       {kindPrefix[kind]}
     </span>
   );
@@ -37,7 +53,7 @@ export function ReviewBadge({ state }: { state: ReviewStatus }) {
   return (
     <span
       className={cn(
-        'inline-flex h-5 items-center rounded-md px-1.5 text-xxs font-medium',
+        'inline-flex h-4 items-center rounded px-1 font-mono text-[9px] leading-none font-medium',
         state === 'approved' && 'bg-[rgba(22,163,106,0.08)] text-[#16a34a]',
         state === 'rejected' && 'bg-[rgba(225,70,64,0.08)] text-[#e14640]',
         state === 'pending' && 'bg-wash text-hint',
@@ -50,7 +66,7 @@ export function ReviewBadge({ state }: { state: ReviewStatus }) {
 
 export function CountBadge({ count }: { count: number }) {
   return (
-    <span className="inline-flex h-5 items-center rounded-md bg-wash px-1.5 text-xxs font-medium text-sub">
+    <span className="inline-flex h-5 items-center rounded-md bg-wash px-1.5 font-mono text-xxs font-medium text-sub">
       {count}
     </span>
   );

@@ -42,28 +42,4 @@ describe('export route loader', () => {
     await expect(fetchExportPreviewLoaderData(7)).rejects.toThrow();
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/7/export');
   });
-
-  it('rejects when the export payload is parseable json with the wrong shape', async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ready: 'yes' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-
-    await expect(fetchExportPreviewLoaderData(7)).rejects.toThrow();
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/7/export');
-  });
-
-  it('rejects when a ready export payload omits markdown', async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ready: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-
-    await expect(fetchExportPreviewLoaderData(7)).rejects.toThrow();
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/7/export');
-  });
 });

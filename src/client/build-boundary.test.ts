@@ -22,6 +22,8 @@ const routeComponentManifestIds = [
   'src/client/routes/project_.$id.knowledge.tsx?tsr-split=component',
 ] as const;
 
+const lazyThirdPartyManifestIds = ['node_modules/agentation/dist/index.mjs'] as const;
+
 describe('client build boundary', () => {
   const tempDirs: string[] = [];
 
@@ -76,7 +78,9 @@ describe('client build boundary', () => {
     expect(readableBuild.entryFile).toContain('/project/$id');
     expect(readableBuild.entryFile).not.toContain('streamdown');
     expect(readableBuild.entryFile).not.toContain('createHighlighter');
-    expect(readableBuild.entry.dynamicImports?.slice().sort()).toEqual([...routeComponentManifestIds].sort());
+    expect(readableBuild.entry.dynamicImports?.slice().sort()).toEqual(
+      [...routeComponentManifestIds, ...lazyThirdPartyManifestIds].sort(),
+    );
     expect(new Set(routeComponentChunkFiles).size).toBe(routeComponentChunkFiles.length);
 
     // streamdown is lazy-loaded for progressive markdown rendering

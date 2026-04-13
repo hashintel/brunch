@@ -1,7 +1,5 @@
 import { useMutation } from '@tanstack/react-query';
-import type { ZodType } from 'zod/v4';
 
-import { mutationErrorResponseSchema } from '@/shared/api-types.js';
 import type { MutationErrorResponse } from '@/shared/api-types.js';
 
 export interface ClientMutationState<TResponse, TVariables> {
@@ -23,7 +21,7 @@ export class ClientMutationError extends Error {
 
 async function readMutationErrorMessage(response: Response, fallbackMessage: string): Promise<string> {
   try {
-    const payload = mutationErrorResponseSchema.parse((await response.json()) as MutationErrorResponse);
+    const payload = (await response.json()) as MutationErrorResponse;
     if (typeof payload.error === 'string' && payload.error.trim().length > 0) {
       return payload.error;
     }
@@ -37,7 +35,6 @@ async function readMutationErrorMessage(response: Response, fallbackMessage: str
 export async function postJsonMutation<TResponse, TRequest>(
   url: string,
   body: TRequest,
-  responseSchema: ZodType<TResponse>,
   fallbackMessage: string,
 ): Promise<TResponse> {
   let response: Response;
@@ -57,7 +54,7 @@ export async function postJsonMutation<TResponse, TRequest>(
   }
 
   try {
-    return responseSchema.parse(await response.json());
+    return (await response.json()) as TResponse;
   } catch {
     throw new ClientMutationError(fallbackMessage, response.status);
   }

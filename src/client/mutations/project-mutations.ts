@@ -1,4 +1,3 @@
-import { createProjectResponseSchema } from '@/shared/api-types.js';
 import type { CreateProjectRequest, CreateProjectResponse } from '@/shared/api-types.js';
 
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
@@ -17,7 +16,6 @@ export function useCreateProjectMutation(): CreateProjectMutationState {
     postJsonMutation<CreateProjectResponse, CreateProjectRequest>(
       '/api/projects',
       variables,
-      createProjectResponseSchema,
       'Failed to create project',
     ),
   );

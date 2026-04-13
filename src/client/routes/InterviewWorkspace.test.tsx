@@ -695,7 +695,7 @@ describe('InterviewWorkspace', () => {
     expect(await screen.findByText('The project starts from a fuzzy brief')).toBeTruthy();
   });
 
-  it('ignores invalid entity refresh payloads and keeps the loader snapshot visible', async () => {
+  it('ignores failed entity refresh requests and keeps the loader snapshot visible', async () => {
     currentLoaderData = createWorkspaceLoaderData({
       entitySnapshot: {
         goals: [],
@@ -709,37 +709,14 @@ describe('InterviewWorkspace', () => {
             id: 9,
             project_id: 1,
             content: 'Loader decision',
-            rationale: 'Still authoritative when refresh parsing fails',
+            rationale: 'Still authoritative when refresh fetch fails',
           },
         ],
         assumptions: [],
         relationships: [],
       },
     });
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [
-            {
-              content: 'Broken decision',
-              rationale: null,
-            },
-          ],
-          assumptions: [],
-          relationships: [],
-        }),
-        {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ),
-    );
+    fetchMock.mockResolvedValueOnce(new Response('server error', { status: 500 }));
 
     renderWorkspace();
     expect(await screen.findByText('Loader decision')).toBeTruthy();
@@ -767,7 +744,6 @@ describe('InterviewWorkspace', () => {
     });
 
     expect(screen.getByText('Loader decision')).toBeTruthy();
-    expect(screen.queryByText('Broken decision')).toBeNull();
   });
 
   it('refetches sidebar entities when the chat stream emits mixed observer-created design entities', async () => {

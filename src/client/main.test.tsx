@@ -65,7 +65,10 @@ describe('main entrypoint', () => {
     const appTree = renderMock.mock.calls[0]?.[0];
     expect(appTree.type).toBe(StrictMode);
 
-    const queryClientProvider = appTree.props.children;
+    const children = Array.isArray(appTree.props.children)
+      ? appTree.props.children
+      : [appTree.props.children];
+    const queryClientProvider = children[0];
     expect(queryClientProvider.type).toBe(QueryClientProviderMock);
 
     const routerProvider = queryClientProvider.props.children;

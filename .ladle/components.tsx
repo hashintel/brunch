@@ -1,4 +1,5 @@
 import { ThemeState, type GlobalProvider } from '@ladle/react';
+import { Agentation } from 'agentation';
 import { useLayoutEffect } from 'react';
 
 import './theme.css';
@@ -14,5 +15,10 @@ export const Provider: GlobalProvider = ({ children, globalState: { theme } }) =
     }
   }, [theme]);
 
-  return children;
+  return (
+    <>
+      {children}
+      <Agentation endpoint="http://localhost:4747" />
+    </>
+  );
 };

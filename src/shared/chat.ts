@@ -168,7 +168,13 @@ export type BrunchAssistantPart =
   | Extract<BrunchUIMessagePart, { type: 'reasoning' | 'text' | 'step-start' }>
   | Extract<
       BrunchUIMessagePart,
-      { type: 'tool-ask_question' | 'data-observer-result' | 'data-phase-summary' }
+      {
+        type:
+          | 'tool-ask_question'
+          | 'tool-propose_phase_closure'
+          | 'data-observer-result'
+          | 'data-phase-summary';
+      }
     >;
 export type BrunchUserPart = Extract<
   BrunchUIMessagePart,
@@ -202,168 +208,31 @@ export const brunchDataPartSchemas = {
   'phase-summary': dataPhaseSummarySchema,
 } as const;
 
-const textPartSchema = z
-  .object({
-    type: z.literal('text'),
-    text: z.string(),
-    state: z.enum(['streaming', 'done']).optional(),
-  })
-  .loose();
+/** Part types that brunch persists for assistant turns. */
+const ASSISTANT_PART_TYPES: ReadonlySet<BrunchAssistantPart['type']> = new Set([
+  'text',
+  'reasoning',
+  'step-start',
+  'tool-ask_question',
+  'tool-propose_phase_closure',
+  'data-observer-result',
+  'data-phase-summary',
+] as const satisfies BrunchAssistantPart['type'][]);
 
-const reasoningPartSchema = z
-  .object({
-    type: z.literal('reasoning'),
-    text: z.string(),
-    state: z.enum(['streaming', 'done']).optional(),
-  })
-  .loose();
+// Compile-time exhaustiveness: fails if BrunchAssistantPart gains a type not listed above.
+type _AssertComplete = [
+  Exclude<BrunchAssistantPart['type'], typeof ASSISTANT_PART_TYPES extends ReadonlySet<infer T> ? T : never>,
+] extends [never]
+  ? true
+  : 'ASSISTANT_PART_TYPES is missing a BrunchAssistantPart type';
+const _exhaustive: _AssertComplete = true;
 
-const stepStartPartSchema = z
-  .object({
-    type: z.literal('step-start'),
-  })
-  .loose();
-
-const observerResultPartSchema = z
-  .object({
-    type: z.literal('data-observer-result'),
-    id: z.string().optional(),
-    data: observerResultSchema,
-  })
-  .loose();
-
-const phaseSummaryPartSchema = z
-  .object({
-    type: z.literal('data-phase-summary'),
-    id: z.string().optional(),
-    data: dataPhaseSummarySchema,
-  })
-  .loose();
-
-const turnResponsePartSchema = z
-  .object({
-    type: z.literal('data-turn-response'),
-    id: z.string().optional(),
-    data: dataTurnResponseSchema,
-  })
-  .loose();
-
-const confirmationPartSchema = z
-  .object({
-    type: z.literal('data-confirmation'),
-    id: z.string().optional(),
-    data: dataConfirmationSchema,
-  })
-  .loose();
-
-const approvalRequestedSchema = z.object({
-  id: z.string(),
-});
-
-const approvalRespondedSchema = z.object({
-  id: z.string(),
-  approved: z.boolean(),
-  reason: z.string().optional(),
-});
-
-const askQuestionToolBaseSchema = z
-  .object({
-    type: z.literal('tool-ask_question'),
-    toolCallId: z.string(),
-    title: z.string().optional(),
-    providerExecuted: z.boolean().optional(),
-  })
-  .loose();
-
-const askQuestionToolPartSchema = z.union([
-  askQuestionToolBaseSchema.extend({
-    state: z.literal('input-streaming'),
-    input: z.unknown().optional(),
-  }),
-  askQuestionToolBaseSchema.extend({
-    state: z.literal('input-available'),
-    input: structuredQuestionSchema,
-  }),
-  askQuestionToolBaseSchema.extend({
-    state: z.literal('approval-requested'),
-    input: structuredQuestionSchema,
-    approval: approvalRequestedSchema,
-  }),
-  askQuestionToolBaseSchema.extend({
-    state: z.literal('approval-responded'),
-    input: structuredQuestionSchema,
-    approval: approvalRespondedSchema,
-  }),
-  askQuestionToolBaseSchema.extend({
-    state: z.literal('output-available'),
-    input: structuredQuestionSchema,
-    output: askQuestionToolOutputSchema,
-    preliminary: z.boolean().optional(),
-    approval: approvalRespondedSchema.optional(),
-  }),
-  askQuestionToolBaseSchema.extend({
-    state: z.literal('output-error'),
-    input: structuredQuestionSchema.optional(),
-    rawInput: z.unknown().optional(),
-    errorText: z.string(),
-    approval: approvalRespondedSchema.optional(),
-  }),
-  askQuestionToolBaseSchema.extend({
-    state: z.literal('output-denied'),
-    input: structuredQuestionSchema,
-    approval: approvalRespondedSchema.extend({
-      approved: z.literal(false),
-    }),
-  }),
-]);
-
-export const proposePhaseClosureToolBaseSchema = z
-  .object({
-    type: z.literal('tool-propose_phase_closure'),
-    toolCallId: z.string(),
-    title: z.string().optional(),
-    providerExecuted: z.boolean().optional(),
-  })
-  .loose();
-
-const proposePhaseClosureToolPartSchema = z.union([
-  proposePhaseClosureToolBaseSchema.extend({
-    state: z.literal('input-streaming'),
-    input: z.unknown().optional(),
-  }),
-  proposePhaseClosureToolBaseSchema.extend({
-    state: z.literal('input-available'),
-    input: phaseClosureProposalSchema,
-  }),
-  proposePhaseClosureToolBaseSchema.extend({
-    state: z.literal('output-available'),
-    input: phaseClosureProposalSchema,
-    output: proposePhaseClosureToolOutputSchema,
-    preliminary: z.boolean().optional(),
-  }),
-  proposePhaseClosureToolBaseSchema.extend({
-    state: z.literal('output-error'),
-    input: phaseClosureProposalSchema.optional(),
-    rawInput: z.unknown().optional(),
-    errorText: z.string(),
-  }),
-]);
-
-export const assistantPartsSchema = z.array(
-  z.union([
-    textPartSchema,
-    reasoningPartSchema,
-    stepStartPartSchema,
-    observerResultPartSchema,
-    phaseSummaryPartSchema,
-    askQuestionToolPartSchema,
-    proposePhaseClosureToolPartSchema,
-  ]),
-);
-
-export const userPartsSchema = z.array(
-  z.union([textPartSchema, turnResponsePartSchema, confirmationPartSchema]),
-);
+/** Filter SDK message parts to only those brunch persists for assistant turns. */
+export function filterAssistantParts(parts: readonly BrunchUIMessagePart[]): BrunchAssistantPart[] {
+  return parts.filter((part): part is BrunchAssistantPart =>
+    ASSISTANT_PART_TYPES.has(part.type as BrunchAssistantPart['type']),
+  );
+}
 
 export function isAskQuestionUIPart(part: BrunchUIMessagePart): part is AskQuestionUIPart {
   return part.type === 'tool-ask_question';

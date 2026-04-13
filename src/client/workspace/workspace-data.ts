@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import { entitiesDataSchema, type EntitiesData } from '@/shared/api-types.js';
+import type { EntitiesData } from '@/shared/api-types.js';
 
 import {
   createWorkspaceDurableEntityState,
@@ -33,7 +33,7 @@ async function fetchWorkspaceEntities(projectId: number): Promise<EntitiesData> 
     throw new Error('Failed to fetch entities');
   }
 
-  return entitiesDataSchema.parse(await response.json());
+  return (await response.json()) as EntitiesData;
 }
 
 function getActiveWorkspaceEntityRefreshState(

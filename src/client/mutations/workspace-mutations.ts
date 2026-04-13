@@ -1,6 +1,5 @@
 import { useRouter } from '@tanstack/react-router';
 
-import { submitTurnResponseResponseSchema } from '@/shared/api-types.js';
 import type {
   ProjectStateTurn,
   SubmitTurnResponseRequest,
@@ -32,7 +31,6 @@ export function useSubmitTurnResponseMutation({
     postJsonMutation<SubmitTurnResponseResponse, SubmitTurnResponseRequest>(
       `/api/projects/${projectId}/turns/${variables.turnId}/response`,
       variables.response,
-      submitTurnResponseResponseSchema,
       'Failed to save response',
     ),
   );
