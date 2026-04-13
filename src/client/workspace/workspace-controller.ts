@@ -1,5 +1,5 @@
 import { useChat } from '@ai-sdk/react';
-import { useLoaderData, useParams, useRouter } from '@tanstack/react-router';
+import { useLoaderData, useRouter } from '@tanstack/react-router';
 import { DefaultChatTransport } from 'ai';
 import type { ChatStatus } from 'ai';
 import { useCallback, useMemo } from 'react';
@@ -66,9 +66,8 @@ export interface WorkspaceController {
 
 export function useWorkspaceController(): WorkspaceController {
   const workspaceLoaderData = useLoaderData({ from: '/project/$id' });
-  const { id } = useParams({ from: '/project/$id' });
   const router = useRouter();
-  const projectId = Number(id);
+  const projectId = workspaceLoaderData.projectState.project.id;
 
   const workspaceData = useWorkspaceDataAdapter(workspaceLoaderData, projectId);
   const { durableProject, durableEntities, ephemeralChat, handleDataPart } = workspaceData;

@@ -18,8 +18,8 @@ async function fetchJson<T>(url: string, errorMessage: string): Promise<T> {
   return (await response.json()) as T;
 }
 
-async function fetchWorkflowDetailLoaderData(projectId: number | string): Promise<WorkspaceLoaderData> {
-  const id = String(projectId);
+async function fetchWorkflowDetailLoaderData(projectId: string): Promise<WorkspaceLoaderData> {
+  const id = projectId;
   const [projectState, entitySnapshot] = await Promise.all([
     fetchJson<ProjectState>(`/api/projects/${id}`, 'Failed to load project'),
     fetchJson<EntitiesData>(`/api/projects/${id}/entities`, 'Failed to load project entities'),
@@ -28,16 +28,14 @@ async function fetchWorkflowDetailLoaderData(projectId: number | string): Promis
   return { projectState, entitySnapshot };
 }
 
-export async function fetchInterviewWorkspaceLoaderData(
-  projectId: number | string,
-): Promise<WorkspaceLoaderData> {
+export async function fetchInterviewWorkspaceLoaderData(projectId: string): Promise<WorkspaceLoaderData> {
   return fetchWorkflowDetailLoaderData(projectId);
 }
 
 export async function fetchKnowledgeWorkspaceLoaderData(
-  projectId: number | string,
+  projectId: string,
 ): Promise<KnowledgeWorkspaceLoaderData> {
-  const id = String(projectId);
+  const id = projectId;
   await fetchJson<ProjectState>(`/api/projects/${id}`, 'Failed to load project');
   const entitySnapshot = await fetchJson<EntitiesData>(
     `/api/projects/${id}/entities`,

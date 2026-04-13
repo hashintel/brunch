@@ -51,8 +51,10 @@ type UseChatHarness = {
 };
 
 let currentLoaderData: WorkspaceLoaderData;
+let currentRouteId: string;
 const routerInvalidate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
+const chatTransportOptions: unknown[] = [];
 let useChatImpl: (options: UseChatOptions) => {
   messages: BrunchUIMessage[];
   sendMessage: (message: { text?: string; parts?: Array<Record<string, unknown>> }) => Promise<void> | void;
@@ -63,7 +65,7 @@ let useChatHarness: UseChatHarness;
 
 vi.mock('@tanstack/react-router', () => ({
   useLoaderData: () => currentLoaderData,
-  useParams: () => ({ id: String(currentLoaderData.projectState.project.id) }),
+  useParams: () => ({ id: currentRouteId }),
   useRouter: () => ({ invalidate: routerInvalidate }),
 }));
 
@@ -76,7 +78,9 @@ vi.mock('ai', async () => {
   return {
     ...actual,
     DefaultChatTransport: class DefaultChatTransport {
-      constructor(_options: unknown) {}
+      constructor(options: unknown) {
+        chatTransportOptions.push(options);
+      }
     },
   };
 });
@@ -298,8 +302,10 @@ function renderController() {
 
 beforeEach(() => {
   currentLoaderData = createWorkspaceLoaderData();
+  currentRouteId = String(currentLoaderData.projectState.project.id);
   routerInvalidate.mockClear();
   fetchMock.mockReset();
+  chatTransportOptions.length = 0;
   useChatImpl = createUseChatHarness();
   vi.stubGlobal('fetch', fetchMock);
 });
@@ -419,8 +425,9 @@ describe('workspace controller', () => {
     expect(useChatHarness.setMessages).not.toHaveBeenCalled();
   });
 
-  it('refetches durable entities when observer output invalidates the active entity query', async () => {
+  it('uses the loader-backed project id for chat transport and entity refreshes', async () => {
     currentLoaderData = createWorkspaceLoaderData({
+      projectId: 1,
       entitySnapshot: {
         goals: [],
         terms: [],
@@ -433,6 +440,7 @@ describe('workspace controller', () => {
         relationships: [],
       },
     });
+    currentRouteId = '999';
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -483,6 +491,7 @@ describe('workspace controller', () => {
     });
 
     await waitFor(() => {
+      expect(chatTransportOptions).toContainEqual({ api: '/api/projects/1/chat' });
       expect(fetchMock).toHaveBeenCalledWith('/api/projects/1/entities');
       expect(screen.getByTestId('decisions').textContent).toBe('Start with the web app');
     });

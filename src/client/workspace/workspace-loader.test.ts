@@ -98,7 +98,7 @@ describe('workspace route loaders', () => {
         }),
       );
 
-    await expect(fetchInterviewWorkspaceLoaderData(7)).resolves.toEqual({ projectState, entitySnapshot });
+    await expect(fetchInterviewWorkspaceLoaderData('7')).resolves.toEqual({ projectState, entitySnapshot });
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/projects/7');
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/projects/7/entities');
   });
@@ -138,7 +138,7 @@ describe('workspace route loaders', () => {
         }),
       );
 
-    await expect(fetchInterviewWorkspaceLoaderData(7)).rejects.toThrow();
+    await expect(fetchInterviewWorkspaceLoaderData('7')).rejects.toThrow();
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/projects/7');
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/projects/7/entities');
   });
@@ -158,7 +158,7 @@ describe('workspace route loaders', () => {
         }),
       );
 
-    await expect(fetchInterviewWorkspaceLoaderData(7)).rejects.toThrow();
+    await expect(fetchInterviewWorkspaceLoaderData('7')).rejects.toThrow();
     expect(fetchMock).toHaveBeenNthCalledWith(1, '/api/projects/7');
     expect(fetchMock).toHaveBeenNthCalledWith(2, '/api/projects/7/entities');
   });

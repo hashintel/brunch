@@ -24,7 +24,7 @@ describe('export route loader', () => {
       }),
     );
 
-    await expect(fetchExportPreviewLoaderData(7)).resolves.toEqual({
+    await expect(fetchExportPreviewLoaderData('7')).resolves.toEqual({
       ready: true,
       markdown: '# Reviewed Spec',
     });
@@ -39,7 +39,7 @@ describe('export route loader', () => {
       }),
     );
 
-    await expect(fetchExportPreviewLoaderData(7)).rejects.toThrow();
+    await expect(fetchExportPreviewLoaderData('7')).rejects.toThrow();
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/7/export');
   });
 });

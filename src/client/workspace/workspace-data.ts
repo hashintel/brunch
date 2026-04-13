@@ -1,6 +1,6 @@
 import { useCallback, useMemo, useState } from 'react';
 
-import type { EntitiesData } from '@/shared/api-types.js';
+import type { EntitiesData, Project } from '@/shared/api-types.js';
 
 import {
   createWorkspaceDurableEntityState,
@@ -27,7 +27,7 @@ interface WorkspaceEntityRefreshState {
   readonly isLoading: boolean;
 }
 
-async function fetchWorkspaceEntities(projectId: number): Promise<EntitiesData> {
+async function fetchWorkspaceEntities(projectId: Project['id']): Promise<EntitiesData> {
   const response = await fetch(`/api/projects/${projectId}/entities`);
   if (!response.ok) {
     throw new Error('Failed to fetch entities');
@@ -53,7 +53,7 @@ function getActiveWorkspaceEntityRefreshState(
 
 export function useWorkspaceDataAdapter(
   workspaceLoaderData: WorkspaceLoaderData,
-  projectId: number,
+  projectId: Project['id'],
 ): WorkspaceDataAdapter {
   const [entityRefreshState, setEntityRefreshState] = useState<WorkspaceEntityRefreshState>({
     loaderSnapshot: workspaceLoaderData.entitySnapshot,
