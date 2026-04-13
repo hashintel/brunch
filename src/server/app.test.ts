@@ -2847,8 +2847,8 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(200);
 
     const { getActivePath, getOptionsForTurn } = await import('./db.js');
-    const { createWorkspaceEphemeralChatState } =
-      await import('../client/workspace/workspace-controller-core.js');
+    const { createInterviewEphemeralChatState } =
+      await import('../client/routes/project/$id/_view/-interview-controller-core.js');
     const turn = getActivePath(db, projectId)[0];
 
     await request(app)
@@ -2880,7 +2880,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       },
     ]);
 
-    const hydratedChat = createWorkspaceEphemeralChatState(projectState);
+    const hydratedChat = createInterviewEphemeralChatState(projectState);
     expect(hydratedChat.seedMessages).toEqual([
       {
         id: `turn-${turn.id}-answer`,

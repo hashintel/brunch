@@ -9,7 +9,7 @@ import type {
   StructuredQuestion,
 } from '@/shared/chat.js';
 
-export interface WorkspaceDurableProjectState {
+export interface InterviewDurableProjectState {
   readonly project: ProjectState['project'];
   readonly workflow: ProjectState['workflow'];
   readonly turns: readonly ProjectStateTurn[];
@@ -18,7 +18,7 @@ export interface WorkspaceDurableProjectState {
   readonly lastTurnHasResponse: boolean;
 }
 
-export interface WorkspaceDurableEntityState {
+export interface InterviewDurableEntityState {
   readonly goals: Readonly<EntitiesData['goals']>;
   readonly terms: Readonly<EntitiesData['terms']>;
   readonly contexts: Readonly<EntitiesData['contexts']>;
@@ -31,7 +31,7 @@ export interface WorkspaceDurableEntityState {
   readonly isLoading: boolean;
 }
 
-export interface WorkspaceEphemeralChatState {
+export interface InterviewEphemeralChatState {
   readonly seedMessages: readonly BrunchUIMessage[];
 }
 
@@ -55,14 +55,14 @@ export interface PhaseSummaryViewModel {
   readonly summary: string;
 }
 
-export type WorkspaceTurnCardViewModel =
+export type InterviewTurnCardViewModel =
   | { readonly kind: 'persisted-turn'; readonly turn: ProjectStateTurn }
   | { readonly kind: 'pending-question'; readonly pendingQuestion: PendingQuestionViewModel };
 
-export interface WorkspaceControllerViewState {
-  readonly project: WorkspaceDurableProjectState['project'];
-  readonly workflow: WorkspaceDurableProjectState['workflow'];
-  readonly turnCard: WorkspaceTurnCardViewModel | null;
+export interface InterviewControllerViewState {
+  readonly project: InterviewDurableProjectState['project'];
+  readonly workflow: InterviewDurableProjectState['workflow'];
+  readonly turnCard: InterviewTurnCardViewModel | null;
   readonly phaseSummary: PhaseSummaryViewModel | null;
   readonly promptInput: {
     readonly visible: boolean;
@@ -160,7 +160,7 @@ function hydrateMessages(turns: readonly ProjectStateTurn[]): BrunchUIMessage[] 
   return messages;
 }
 
-export function createWorkspaceDurableProjectState(projectState: ProjectState): WorkspaceDurableProjectState {
+export function createInterviewDurableProjectState(projectState: ProjectState): InterviewDurableProjectState {
   const lastTurn = projectState.turns[projectState.turns.length - 1] as ProjectStateTurn | undefined;
 
   return {
@@ -173,11 +173,11 @@ export function createWorkspaceDurableProjectState(projectState: ProjectState): 
   };
 }
 
-export function createWorkspaceDurableEntityState(
+export function createInterviewDurableEntityState(
   entitySnapshot: EntitiesData,
   queryData: EntitiesData | undefined,
   isLoading: boolean,
-): WorkspaceDurableEntityState {
+): InterviewDurableEntityState {
   return {
     goals: queryData?.goals ?? entitySnapshot.goals,
     terms: queryData?.terms ?? entitySnapshot.terms,
@@ -192,7 +192,7 @@ export function createWorkspaceDurableEntityState(
   };
 }
 
-export function createWorkspaceEphemeralChatState(projectState: ProjectState): WorkspaceEphemeralChatState {
+export function createInterviewEphemeralChatState(projectState: ProjectState): InterviewEphemeralChatState {
   return {
     seedMessages: hydrateMessages(projectState.turns),
   };
@@ -274,11 +274,11 @@ function findPhaseSummary(messages: readonly BrunchUIMessage[]): PhaseSummaryVie
   return null;
 }
 
-export function createWorkspaceControllerViewState(
-  durableProject: WorkspaceDurableProjectState,
+export function createInterviewControllerViewState(
+  durableProject: InterviewDurableProjectState,
   messages: readonly BrunchUIMessage[],
   isLoading: boolean,
-): WorkspaceControllerViewState {
+): InterviewControllerViewState {
   const { project, workflow, lastTurn, showTurnCard, lastTurnHasResponse } = durableProject;
   const pendingQuestion = isLoading ? findPendingQuestion(messages) : null;
   const latestPhaseSummary = findPhaseSummary(messages);
@@ -286,7 +286,7 @@ export function createWorkspaceControllerViewState(
     latestPhaseSummary && (isLoading || workflow.phases[latestPhaseSummary.phase].proposalPending)
       ? latestPhaseSummary
       : null;
-  const turnCard: WorkspaceTurnCardViewModel | null = phaseSummary
+  const turnCard: InterviewTurnCardViewModel | null = phaseSummary
     ? null
     : pendingQuestion
       ? { kind: 'pending-question', pendingQuestion }

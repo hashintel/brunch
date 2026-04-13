@@ -3,30 +3,30 @@ import { useCallback, useMemo, useState } from 'react';
 import type { EntitiesData, Project, ProjectState } from '@/shared/api-types.js';
 
 import {
-  createWorkspaceDurableEntityState,
-  createWorkspaceDurableProjectState,
-  createWorkspaceEphemeralChatState,
-} from './workspace-controller-core.js';
+  createInterviewDurableEntityState,
+  createInterviewDurableProjectState,
+  createInterviewEphemeralChatState,
+} from './-interview-controller-core.js';
 import type {
-  WorkspaceDurableEntityState,
-  WorkspaceDurableProjectState,
-  WorkspaceEphemeralChatState,
-} from './workspace-controller-core.js';
+  InterviewDurableEntityState,
+  InterviewDurableProjectState,
+  InterviewEphemeralChatState,
+} from './-interview-controller-core.js';
 
-export interface WorkspaceDataAdapter {
-  readonly durableProject: WorkspaceDurableProjectState;
-  readonly durableEntities: WorkspaceDurableEntityState;
-  readonly ephemeralChat: WorkspaceEphemeralChatState;
+export interface InterviewDataAdapter {
+  readonly durableProject: InterviewDurableProjectState;
+  readonly durableEntities: InterviewDurableEntityState;
+  readonly ephemeralChat: InterviewEphemeralChatState;
   readonly handleDataPart: (dataPart: { type: string; data?: unknown }) => void;
 }
 
-interface WorkspaceEntityRefreshState {
+interface InterviewEntityRefreshState {
   readonly loaderSnapshot: EntitiesData;
   readonly data: EntitiesData | undefined;
   readonly isLoading: boolean;
 }
 
-async function fetchWorkspaceEntities(projectId: Project['id']): Promise<EntitiesData> {
+async function fetchInterviewEntities(projectId: Project['id']): Promise<EntitiesData> {
   const response = await fetch(`/api/projects/${projectId}/entities`);
   if (!response.ok) {
     throw new Error('Failed to fetch entities');
@@ -35,10 +35,10 @@ async function fetchWorkspaceEntities(projectId: Project['id']): Promise<Entitie
   return (await response.json()) as EntitiesData;
 }
 
-function getActiveWorkspaceEntityRefreshState(
+function getActiveInterviewEntityRefreshState(
   loaderSnapshot: EntitiesData,
-  entityRefreshState: WorkspaceEntityRefreshState,
-): WorkspaceEntityRefreshState {
+  entityRefreshState: InterviewEntityRefreshState,
+): InterviewEntityRefreshState {
   if (entityRefreshState.loaderSnapshot === loaderSnapshot) {
     return entityRefreshState;
   }
@@ -50,22 +50,22 @@ function getActiveWorkspaceEntityRefreshState(
   };
 }
 
-export function useWorkspaceDataAdapter(
+export function useInterviewDataAdapter(
   projectState: ProjectState,
   entitySnapshot: EntitiesData,
   projectId: Project['id'],
-): WorkspaceDataAdapter {
-  const [entityRefreshState, setEntityRefreshState] = useState<WorkspaceEntityRefreshState>({
+): InterviewDataAdapter {
+  const [entityRefreshState, setEntityRefreshState] = useState<InterviewEntityRefreshState>({
     loaderSnapshot: entitySnapshot,
     data: undefined,
     isLoading: false,
   });
-  const activeEntityRefreshState = getActiveWorkspaceEntityRefreshState(entitySnapshot, entityRefreshState);
+  const activeEntityRefreshState = getActiveInterviewEntityRefreshState(entitySnapshot, entityRefreshState);
 
-  const durableProject = useMemo(() => createWorkspaceDurableProjectState(projectState), [projectState]);
+  const durableProject = useMemo(() => createInterviewDurableProjectState(projectState), [projectState]);
   const durableEntities = useMemo(
     () =>
-      createWorkspaceDurableEntityState(
+      createInterviewDurableEntityState(
         entitySnapshot,
         activeEntityRefreshState.data,
         activeEntityRefreshState.isLoading,
@@ -73,7 +73,7 @@ export function useWorkspaceDataAdapter(
     [activeEntityRefreshState.data, activeEntityRefreshState.isLoading, entitySnapshot],
   );
   const ephemeralChat = useMemo(
-    () => createWorkspaceEphemeralChatState(projectState),
+    () => createInterviewEphemeralChatState(projectState),
     [projectState.project.id],
   );
   const handleDataPart = useCallback(
@@ -94,7 +94,7 @@ export function useWorkspaceDataAdapter(
         );
 
         try {
-          const refreshedEntities = await fetchWorkspaceEntities(projectId);
+          const refreshedEntities = await fetchInterviewEntities(projectId);
           setEntityRefreshState((currentState) =>
             currentState.loaderSnapshot === entitySnapshot
               ? {

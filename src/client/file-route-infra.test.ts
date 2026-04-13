@@ -87,12 +87,10 @@ describe('generated route runtime ownership', () => {
     );
 
     // Colocated support files (prefixed with -)
-    expect(
-      existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/-interview-workspace.tsx')),
-    ).toBe(true);
-    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/-knowledge-workspace.tsx'))).toBe(
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/-interview-view.tsx'))).toBe(
       true,
     );
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/-knowledge-view.tsx'))).toBe(true);
     expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/-export-preview.tsx'))).toBe(true);
 
     // Old flat-file routes removed

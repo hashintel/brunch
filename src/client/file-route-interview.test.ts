@@ -29,13 +29,13 @@ describe('file-route phase route ownership', () => {
     expect(viewLayoutSource).toContain('Outlet');
   });
 
-  it('keeps phase routes thin — each renders InterviewWorkspace via colocated support file', () => {
+  it('keeps phase routes thin — each renders InterviewView via colocated support file', () => {
     const phaseRoutes = ['framing', 'elicitation', 'requirements-review', 'acceptance-review'];
 
     for (const phase of phaseRoutes) {
       const source = readRepoFile(`src/client/routes/project/$id/_view/${phase}.tsx`);
       expect(source, `${phase} route should use createFileRoute`).toContain('createFileRoute');
-      expect(source, `${phase} route should render InterviewWorkspace`).toContain('InterviewWorkspace');
+      expect(source, `${phase} route should render InterviewView`).toContain('InterviewView');
     }
   });
 });

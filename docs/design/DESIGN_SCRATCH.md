@@ -1,4 +1,4 @@
-### slice and scope mis-matches VS saipo report
+### MUST HAVES
 
 - [ ] Exploring existing codebase as kickoff/framing input
 - [x] Phase closure/hand-off "force"
@@ -11,11 +11,29 @@
 	- "completeness
 	- verification coverage: how many of the requirements are covered by acceptance criteria w verifications
 - [ ] "Scope" of such a spec must ultimately be more flexible -- we naively assume single project scope, and total/ultimate completion scope
-  
+
+### UI notes
+
+LEFT SIDEBAR
+- should list the phases, with an indicator of present position, and which are closed/open
+- should capture the readiness and closeability
+- as such, replaces the four items that have been placed in the header
+
+RIGHT SIDEBAR
+- should capture knowledge items either in a
+	- sectioned list, or as
+	- tagged items with some kind of button-toggle filter list at the top
+
+NEW COMPONENTS: shadcn/ui coss-ui base-ui
+
+- Progress
+- Meter
+
+
 ## some early design sketches of the main flow (terminology and data model out of date; but UI style and layout relevant)
 
 - the very beginning of a new project. The first image is the standard starting UI; below it is an alternate ideation, for the use-case where the kickoff is done by analyzing and harvesting from an existing codebase
-  
+
   ![](assets/kickoff-screen.png)
 - the first question of the first phase. a compact nav on left (alternate: across the top) indicates the phases; the wide sidebar on the right shows the (approximately) phase-based collection containers for the data we expect (the labels and terminology are wrong here). NOTE also that the question model is still wrong in these earlier designs, where the options provided are exclusive, and there is no free-text option. There is also the chance to "skip question" which I am dubious about, I would prefer the user explicitly why they are skipping (e.g. "i'm not sure enough about this yet"), as part of the free-text
 

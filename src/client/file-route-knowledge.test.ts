@@ -14,7 +14,7 @@ describe('file-route knowledge ownership', () => {
 
     expect(knowledgeRouteSource).toContain("createFileRoute('/project/$id/knowledge')");
     expect(knowledgeRouteSource).toContain('fetchKnowledgeLoaderData');
-    expect(knowledgeRouteSource).toContain('KnowledgeWorkspace');
+    expect(knowledgeRouteSource).toContain('KnowledgeView');
     expect(knowledgeRouteSource).toContain('KnowledgeSkeleton');
 
     expect(generatedRouteTreeSource).toContain("'/project/$id/knowledge'");

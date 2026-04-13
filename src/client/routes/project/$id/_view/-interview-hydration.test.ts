@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { getProjectScopedChatId } from './chat-hydration.js';
+import { getProjectScopedChatId } from './-interview-hydration.js';
 
 describe('project-scoped chat id', () => {
   it('changes when project identity changes', () => {

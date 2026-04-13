@@ -7,7 +7,7 @@ import type {
 } from '@/shared/api-types.js';
 import { formatTurnResponseText } from '@/shared/chat.js';
 
-import { findTurnOptionsByPositions } from '../workspace/workspace-controller-core.js';
+import { findTurnOptionsByPositions } from '../routes/project/$id/_view/-interview-controller-core.js';
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
 export interface SubmitTurnResponseMutationState {

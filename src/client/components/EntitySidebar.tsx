@@ -2,7 +2,7 @@ import { useState } from 'react';
 
 import { Badge } from '@/client/components/ui/badge';
 import { cn } from '@/client/lib/utils';
-import type { WorkspaceDurableEntityState } from '@/client/workspace/workspace-controller-core';
+import type { InterviewDurableEntityState } from '@/client/routes/project/$id/_view/-interview-controller-core';
 import type { ReviewStatus } from '@/shared/api-types.js';
 import {
   knowledgeKindRegistry,
@@ -57,7 +57,7 @@ function renderKnowledgeItems(
   ));
 }
 
-export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEntityState }) {
+export function EntitySidebar({ entityState }: { entityState: InterviewDurableEntityState }) {
   const [activeTab, setActiveTab] = useState<KnowledgeCollectionKey>('decisions');
   const {
     goals,

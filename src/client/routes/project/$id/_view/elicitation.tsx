@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { InterviewWorkspace } from './-interview-workspace.js';
+import { InterviewView } from './-interview-view.js';
 
 export const Route = createFileRoute('/project/$id/_view/elicitation')({
-  component: InterviewWorkspace,
+  component: InterviewView,
 });

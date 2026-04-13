@@ -4,7 +4,7 @@ import { DefaultChatTransport } from 'ai';
 import type { ChatStatus } from 'ai';
 import { useCallback, useMemo } from 'react';
 
-import { useSubmitTurnResponseMutation } from '@/client/mutations/workspace-mutations';
+import { useSubmitTurnResponseMutation } from '@/client/mutations/interview-mutations';
 import type { ProjectStateTurn } from '@/shared/api-types.js';
 import { brunchDataPartSchemas } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
@@ -15,17 +15,17 @@ import {
 } from '@/shared/phase-close.js';
 import type { DataConfirmation } from '@/shared/phase-close.js';
 
-import { getProjectScopedChatId } from './chat-hydration.js';
-import { createWorkspaceControllerViewState } from './workspace-controller-core.js';
+import { createInterviewControllerViewState } from './-interview-controller-core.js';
 import type {
   PendingQuestionViewModel,
   PhaseSummaryViewModel,
-  WorkspaceDurableEntityState,
-  WorkspaceDurableProjectState,
-} from './workspace-controller-core.js';
-import { useWorkspaceDataAdapter } from './workspace-data.js';
+  InterviewDurableEntityState,
+  InterviewDurableProjectState,
+} from './-interview-controller-core.js';
+import { useInterviewDataAdapter } from './-interview-data.js';
+import { getProjectScopedChatId } from './-interview-hydration.js';
 
-export interface WorkspaceControllerChatState {
+export interface InterviewControllerChatState {
   readonly messages: readonly BrunchUIMessage[];
   readonly status: ChatStatus;
   readonly isLoading: boolean;
@@ -35,7 +35,7 @@ export interface WorkspaceControllerChatState {
   readonly forcePhaseClosure: (phase: ProjectStateTurn['phase']) => void;
 }
 
-export type WorkspaceControllerTurnCardState =
+export type InterviewControllerTurnCardState =
   | {
       readonly kind: 'persisted-turn';
       readonly turn: ProjectStateTurn;
@@ -49,28 +49,28 @@ export type WorkspaceControllerTurnCardState =
       readonly disabled: true;
     };
 
-export interface WorkspaceControllerPromptInputState {
+export interface InterviewControllerPromptInputState {
   readonly visible: boolean;
   readonly disabled: boolean;
 }
 
-export interface WorkspaceController {
-  readonly project: WorkspaceDurableProjectState['project'];
-  readonly workflow: WorkspaceDurableProjectState['workflow'];
-  readonly entityState: WorkspaceDurableEntityState;
-  readonly chat: WorkspaceControllerChatState;
-  readonly turnCard: WorkspaceControllerTurnCardState | null;
+export interface InterviewController {
+  readonly project: InterviewDurableProjectState['project'];
+  readonly workflow: InterviewDurableProjectState['workflow'];
+  readonly entityState: InterviewDurableEntityState;
+  readonly chat: InterviewControllerChatState;
+  readonly turnCard: InterviewControllerTurnCardState | null;
   readonly phaseSummary: PhaseSummaryViewModel | null;
-  readonly promptInput: WorkspaceControllerPromptInputState;
+  readonly promptInput: InterviewControllerPromptInputState;
 }
 
-export function useWorkspaceController(): WorkspaceController {
+export function useInterviewController(): InterviewController {
   const projectState = useLoaderData({ from: '/project/$id' });
   const entitySnapshot = useLoaderData({ from: '/project/$id/_view' });
   const router = useRouter();
   const projectId = projectState.project.id;
 
-  const workspaceData = useWorkspaceDataAdapter(projectState, entitySnapshot, projectId);
+  const workspaceData = useInterviewDataAdapter(projectState, entitySnapshot, projectId);
   const { durableProject, durableEntities, ephemeralChat, handleDataPart } = workspaceData;
 
   const transport = useMemo(
@@ -95,7 +95,7 @@ export function useWorkspaceController(): WorkspaceController {
   const isLoading = status === 'submitted' || status === 'streaming';
 
   const viewState = useMemo(
-    () => createWorkspaceControllerViewState(durableProject, messages, isLoading),
+    () => createInterviewControllerViewState(durableProject, messages, isLoading),
     [durableProject, isLoading, messages],
   );
 

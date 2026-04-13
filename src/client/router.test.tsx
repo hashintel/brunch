@@ -79,17 +79,17 @@ vi.mock('./routes/-project-list.js', () => ({
   fetchProjectListLoaderData: vi.fn(async () => []),
 }));
 
-vi.mock('./workspace/workspace-controller', () => ({
-  useWorkspaceController: () => ({ __brand: 'workspace-controller' }),
+vi.mock('./routes/project/$id/_view/-interview-controller', () => ({
+  useInterviewController: () => ({ __brand: 'interview-controller' }),
 }));
 
-vi.mock('./routes/project/$id/_view/-interview-workspace.js', () => ({
-  InterviewWorkspace: () => <h1>Interview screen</h1>,
+vi.mock('./routes/project/$id/_view/-interview-view.js', () => ({
+  InterviewView: () => <h1>Interview screen</h1>,
 }));
 
-vi.mock('./routes/project/$id/-knowledge-workspace.js', () => ({
-  KnowledgeWorkspace: () => <h1>Knowledge screen</h1>,
-  KnowledgeWorkspaceView: () => <div>Knowledge view</div>,
+vi.mock('./routes/project/$id/-knowledge-view.js', () => ({
+  KnowledgeView: () => <h1>Knowledge screen</h1>,
+  KnowledgeViewContent: () => <div>Knowledge view</div>,
 }));
 
 vi.mock('./routes/project/$id/-export-preview.js', () => ({

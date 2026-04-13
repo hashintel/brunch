@@ -4,12 +4,12 @@ import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 
 import {
-  createWorkspaceControllerViewState,
-  createWorkspaceDurableEntityState,
-  createWorkspaceDurableProjectState,
-  createWorkspaceEphemeralChatState,
+  createInterviewControllerViewState,
+  createInterviewDurableEntityState,
+  createInterviewDurableProjectState,
+  createInterviewEphemeralChatState,
   getPersistedSelectedPositions,
-} from './workspace-controller-core.js';
+} from './-interview-controller-core.js';
 
 function createProjectState({
   projectId = 1,
@@ -108,8 +108,8 @@ describe('workspace controller core', () => {
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
 
-    const durableProject = createWorkspaceDurableProjectState(projectState);
-    const ephemeralChat = createWorkspaceEphemeralChatState(projectState);
+    const durableProject = createInterviewDurableProjectState(projectState);
+    const ephemeralChat = createInterviewEphemeralChatState(projectState);
 
     expect(durableProject.project).toEqual(projectState.project);
     expect(durableProject.turns).toEqual(projectState.turns);
@@ -142,8 +142,8 @@ describe('workspace controller core', () => {
       answer: 'Ship the desktop app',
     });
 
-    const initialChat = createWorkspaceEphemeralChatState(initialProjectState);
-    const refreshedChat = createWorkspaceEphemeralChatState(refreshedProjectState);
+    const initialChat = createInterviewEphemeralChatState(initialProjectState);
+    const refreshedChat = createInterviewEphemeralChatState(refreshedProjectState);
 
     expect(refreshedChat.seedMessages).not.toEqual(initialChat.seedMessages);
   });
@@ -220,7 +220,7 @@ describe('workspace controller core', () => {
       ],
     };
 
-    expect(createWorkspaceDurableEntityState(entitySnapshot, undefined, true)).toEqual({
+    expect(createInterviewDurableEntityState(entitySnapshot, undefined, true)).toEqual({
       goals: [],
       terms: [],
       contexts: entitySnapshot.contexts,
@@ -233,7 +233,7 @@ describe('workspace controller core', () => {
       isLoading: true,
     });
 
-    expect(createWorkspaceDurableEntityState(entitySnapshot, refreshedEntities, false)).toEqual({
+    expect(createInterviewDurableEntityState(entitySnapshot, refreshedEntities, false)).toEqual({
       goals: [],
       terms: [],
       contexts: refreshedEntities.contexts,
@@ -267,7 +267,7 @@ describe('workspace controller core', () => {
   });
 
   it('projects a pending phase-summary confirmation card from persisted workflow state and assistant parts', () => {
-    const proposedScope = createWorkspaceDurableProjectState(
+    const proposedScope = createInterviewDurableProjectState(
       createProjectState({
         assistantText: '',
         answer: 'We have enough scope context',
@@ -331,7 +331,7 @@ describe('workspace controller core', () => {
       },
     ];
 
-    expect(createWorkspaceControllerViewState(proposedScope, messages, false)).toEqual({
+    expect(createInterviewControllerViewState(proposedScope, messages, false)).toEqual({
       project: proposedScope.project,
       workflow: proposedScope.workflow,
       turnCard: null,
@@ -345,12 +345,12 @@ describe('workspace controller core', () => {
   });
 
   it('projects prompt and turn-card visibility from persisted turn responses without embedding side effects', () => {
-    const pendingResponse = createWorkspaceDurableProjectState(
+    const pendingResponse = createInterviewDurableProjectState(
       createProjectState({
         options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
       }),
     );
-    const selectedResponse = createWorkspaceDurableProjectState(
+    const selectedResponse = createInterviewDurableProjectState(
       createProjectState({
         answer: 'Web — Best fit for launch',
         userParts: [
@@ -363,7 +363,7 @@ describe('workspace controller core', () => {
         options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
       }),
     );
-    const freeTextOnlyResponse = createWorkspaceDurableProjectState(
+    const freeTextOnlyResponse = createInterviewDurableProjectState(
       createProjectState({
         answer: 'None of these fit our use case',
         userParts: [
@@ -377,28 +377,28 @@ describe('workspace controller core', () => {
       }),
     );
 
-    expect(createWorkspaceControllerViewState(pendingResponse, [], false)).toEqual({
+    expect(createInterviewControllerViewState(pendingResponse, [], false)).toEqual({
       project: pendingResponse.project,
       workflow: pendingResponse.workflow,
       turnCard: { kind: 'persisted-turn', turn: pendingResponse.lastTurn! },
       phaseSummary: null,
       promptInput: { visible: false },
     });
-    expect(createWorkspaceControllerViewState(pendingResponse, [], true)).toEqual({
+    expect(createInterviewControllerViewState(pendingResponse, [], true)).toEqual({
       project: pendingResponse.project,
       workflow: pendingResponse.workflow,
       turnCard: null,
       phaseSummary: null,
       promptInput: { visible: false },
     });
-    expect(createWorkspaceControllerViewState(selectedResponse, [], false)).toEqual({
+    expect(createInterviewControllerViewState(selectedResponse, [], false)).toEqual({
       project: selectedResponse.project,
       workflow: selectedResponse.workflow,
       turnCard: { kind: 'persisted-turn', turn: selectedResponse.lastTurn! },
       phaseSummary: null,
       promptInput: { visible: true },
     });
-    expect(createWorkspaceControllerViewState(freeTextOnlyResponse, [], false)).toEqual({
+    expect(createInterviewControllerViewState(freeTextOnlyResponse, [], false)).toEqual({
       project: freeTextOnlyResponse.project,
       workflow: freeTextOnlyResponse.workflow,
       turnCard: { kind: 'persisted-turn', turn: freeTextOnlyResponse.lastTurn! },
@@ -484,9 +484,9 @@ describe('workspace controller core', () => {
       },
     ];
 
-    const durableProject = createWorkspaceDurableProjectState(emptyProjectState);
-    const ephemeralChat = createWorkspaceEphemeralChatState(emptyProjectState);
-    const viewState = createWorkspaceControllerViewState(durableProject, liveMessages, true);
+    const durableProject = createInterviewDurableProjectState(emptyProjectState);
+    const ephemeralChat = createInterviewEphemeralChatState(emptyProjectState);
+    const viewState = createInterviewControllerViewState(durableProject, liveMessages, true);
 
     expect(ephemeralChat.seedMessages).toEqual([]);
     expect(viewState.project).toEqual(emptyProjectState.project);

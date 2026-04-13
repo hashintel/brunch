@@ -3,7 +3,7 @@ import { createFileRoute } from '@tanstack/react-router';
 import { Skeleton } from '@/client/components/ui/skeleton';
 import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
 
-import { KnowledgeWorkspace } from './-knowledge-workspace.js';
+import { KnowledgeView } from './-knowledge-view.js';
 
 interface KnowledgeLoaderData {
   readonly entitySnapshot: EntitiesData;
@@ -62,6 +62,6 @@ function KnowledgeSkeleton() {
 
 export const Route = createFileRoute('/project/$id/knowledge')({
   loader: ({ params }) => fetchKnowledgeLoaderData(params.id),
-  component: KnowledgeWorkspace,
+  component: KnowledgeView,
   pendingComponent: KnowledgeSkeleton,
 });

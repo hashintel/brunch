@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 
-import { InterviewWorkspace } from './-interview-workspace.js';
+import { InterviewView } from './-interview-view.js';
 
 function createPendingQuestionMessage(): BrunchUIMessage {
   return {
@@ -350,7 +350,7 @@ function renderWorkspace() {
   const queryClient = createQueryClient();
   const rendered = render(
     <QueryClientProvider client={queryClient}>
-      <InterviewWorkspace />
+      <InterviewView />
     </QueryClientProvider>,
   );
 
@@ -373,7 +373,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('InterviewWorkspace', () => {
+describe('InterviewView', () => {
   it('renders the current project-scoped navigation links', async () => {
     renderWorkspace();
 
@@ -492,7 +492,7 @@ describe('InterviewWorkspace', () => {
     );
     rendered.rerender(
       <QueryClientProvider client={rendered.queryClient}>
-        <InterviewWorkspace />
+        <InterviewView />
       </QueryClientProvider>,
     );
 
@@ -530,7 +530,7 @@ describe('InterviewWorkspace', () => {
     );
     rendered.rerender(
       <QueryClientProvider client={rendered.queryClient}>
-        <InterviewWorkspace />
+        <InterviewView />
       </QueryClientProvider>,
     );
 

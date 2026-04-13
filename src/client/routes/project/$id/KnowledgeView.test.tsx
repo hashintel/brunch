@@ -6,7 +6,7 @@ import { vi } from 'vitest';
 
 import type { EntitiesData } from '@/shared/api-types.js';
 
-import { KnowledgeWorkspace, KnowledgeWorkspaceView } from './-knowledge-workspace.js';
+import { KnowledgeView, KnowledgeViewContent } from './-knowledge-view.js';
 
 let currentLoaderData: { entitySnapshot: EntitiesData };
 
@@ -60,7 +60,7 @@ afterEach(() => {
   };
 });
 
-describe('KnowledgeWorkspaceView', () => {
+describe('KnowledgeViewContent', () => {
   it('renders kind-grouped sections in registry order with labels and counts', () => {
     const entities: EntitiesData = {
       ...emptyEntities,
@@ -71,7 +71,7 @@ describe('KnowledgeWorkspaceView', () => {
       ],
     };
 
-    render(<KnowledgeWorkspaceView entities={entities} />);
+    render(<KnowledgeViewContent entities={entities} />);
 
     expect(screen.getByText('Goals')).toBeTruthy();
     expect(screen.getByText('1')).toBeTruthy();
@@ -84,7 +84,7 @@ describe('KnowledgeWorkspaceView', () => {
   });
 
   it('shows empty-state copy for kinds with no items', () => {
-    render(<KnowledgeWorkspaceView entities={emptyEntities} />);
+    render(<KnowledgeViewContent entities={emptyEntities} />);
 
     expect(screen.getByText("No goals yet. They'll appear as the interview progresses.")).toBeTruthy();
     expect(screen.getByText("No terms yet. They'll appear as the interview progresses.")).toBeTruthy();
@@ -124,7 +124,7 @@ describe('KnowledgeWorkspaceView', () => {
       ],
     };
 
-    render(<KnowledgeWorkspaceView entities={entities} />);
+    render(<KnowledgeViewContent entities={entities} />);
 
     expect(screen.getByText('Approved')).toBeTruthy();
     expect(screen.getByText('Rejected')).toBeTruthy();
@@ -145,7 +145,7 @@ describe('KnowledgeWorkspaceView', () => {
       ],
     };
 
-    render(<KnowledgeWorkspaceView entities={entities} />);
+    render(<KnowledgeViewContent entities={entities} />);
 
     expect(screen.getAllByText('Use SQLite').length).toBeGreaterThanOrEqual(1);
     expect(screen.getByText('Depends on')).toBeTruthy();
@@ -232,7 +232,7 @@ describe('KnowledgeWorkspaceView', () => {
       ],
     };
 
-    render(<KnowledgeWorkspaceView entities={entities} />);
+    render(<KnowledgeViewContent entities={entities} />);
 
     expect(screen.getByText('Constrained by')).toBeTruthy();
     expect(
@@ -253,7 +253,7 @@ describe('KnowledgeWorkspaceView', () => {
   });
 });
 
-describe('KnowledgeWorkspace', () => {
+describe('KnowledgeView', () => {
   it('renders route-level heading, navigation, and loader-backed content', () => {
     currentLoaderData = {
       entitySnapshot: {
@@ -262,7 +262,7 @@ describe('KnowledgeWorkspace', () => {
       },
     };
 
-    render(<KnowledgeWorkspace />);
+    render(<KnowledgeView />);
 
     expect(screen.getByRole('heading', { name: 'Knowledge' })).toBeTruthy();
     expect(screen.getByRole('link', { name: '← Back to interview' }).getAttribute('href')).toBe('/project/1');

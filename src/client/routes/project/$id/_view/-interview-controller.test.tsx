@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 
-import { useWorkspaceController } from './workspace-controller.js';
+import { useInterviewController } from './-interview-controller.js';
 
 function createPendingQuestionMessage(): BrunchUIMessage {
   return {
@@ -249,7 +249,7 @@ function messageText(messages: readonly BrunchUIMessage[]) {
 }
 
 function ControllerProbe() {
-  const workspace = useWorkspaceController();
+  const workspace = useInterviewController();
 
   return (
     <div>
@@ -297,7 +297,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('workspace controller', () => {
+describe('interview controller', () => {
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
     currentProjectState = createProjectState({
       assistantText: 'Earlier question?',

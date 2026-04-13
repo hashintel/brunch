@@ -20,15 +20,13 @@ import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/client/c
 import { EntitySidebar } from '@/client/components/EntitySidebar';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/client/components/ui/resizable';
 import { cn } from '@/client/lib/utils';
-import { useWorkspaceController } from '@/client/workspace/workspace-controller';
-import {
-  getPersistedSelectedPositions,
-  hasPersistedTurnResponse,
-} from '@/client/workspace/workspace-controller-core.js';
 import type { Impact, ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
 import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
+
+import { useInterviewController } from './-interview-controller';
+import { getPersistedSelectedPositions, hasPersistedTurnResponse } from './-interview-controller-core.js';
 
 const impactStyles = {
   high: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200',
@@ -284,9 +282,9 @@ function renderParts(message: BrunchUIMessage, isStreaming: boolean) {
   });
 }
 
-export function InterviewWorkspace() {
+export function InterviewView() {
   const { chat, entityState, project, workflow, phaseSummary, promptInput, turnCard } =
-    useWorkspaceController();
+    useInterviewController();
 
   const handleSubmit = (message: PromptInputMessage) => {
     chat.submitText(message.text ?? '');

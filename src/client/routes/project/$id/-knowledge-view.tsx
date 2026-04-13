@@ -125,7 +125,7 @@ function toKnowledgeEdges(
     });
 }
 
-export function KnowledgeWorkspaceView({ entities }: { entities: EntitiesData }) {
+export function KnowledgeViewContent({ entities }: { entities: EntitiesData }) {
   const contentMap = buildContentMap(entities);
   const totalItems = knowledgeKindRegistry.reduce(
     (sum, entry) => sum + entities[entry.collectionKey].length,
@@ -166,7 +166,7 @@ export function KnowledgeWorkspaceView({ entities }: { entities: EntitiesData })
 
 const knowledgeRouteApi = getRouteApi('/project/$id/knowledge');
 
-export function KnowledgeWorkspace() {
+export function KnowledgeView() {
   const { id } = knowledgeRouteApi.useParams();
   const { entitySnapshot } = knowledgeRouteApi.useLoaderData();
 
@@ -181,7 +181,7 @@ export function KnowledgeWorkspace() {
           Review captured knowledge items and relationships.
         </p>
       </div>
-      <KnowledgeWorkspaceView entities={entitySnapshot} />
+      <KnowledgeViewContent entities={entitySnapshot} />
     </ScrollArea>
   );
 }
