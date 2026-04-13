@@ -1,6 +1,6 @@
 ---
 name: cli-gh-axi
-description: 'Uses the gh-axi CLI for GitHub issue, pull request, workflow run, release, repo, search, and API operations from the shell. Prefer this over regular `gh` when an agent needs GitHub CLI output that is compact, structured, and suggestion-rich. Triggers on: gh, GitHub CLI, github issue, github pr, pull request, workflow run, github release, gh api, repo inspection, list PRs, view issue.'
+description: 'Uses the gh-axi CLI for GitHub shell operations: issue, pull request, workflow run, release, repo, search, and API tasks. Prefer this over regular `gh` for GitHub reads and simple mutations when an agent needs compact, structured, suggestion-rich output. Triggers on: gh, GitHub CLI, github issue, github pr, pull request, workflow run, github release, gh api, repo inspection, list PRs, view issue, check workflow runs, inspect repo, GitHub shell operations.'
 ---
 
 # gh-axi
