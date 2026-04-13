@@ -28,6 +28,8 @@ NEW COMPONENTS: shadcn/ui coss-ui base-ui
 
 - Progress
 - Meter
+- Kbd
+- Collapsible
 
 
 ## some early design sketches of the main flow (terminology and data model out of date; but UI style and layout relevant)
