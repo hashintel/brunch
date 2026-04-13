@@ -271,15 +271,15 @@
 25. **Per-phase conversation views + phase-transition navigation + knowledge sidebar relocation** `not-started`
     - Each phase route renders its own filtered conversation thread (turns where `turn.phase` matches)
     - Phase transition lifecycle: close mutation → on-success → `router.navigate({ to: '/project/$id/{next-phase}', params: { id } })`
-    - Knowledge sidebar moves from InterviewWorkspace into ViewLayout's Chat sub-layout as a right panel (compact, filterable by kind/phase)
-    - Old knowledge workspace route (`project/$id/knowledge.tsx`) retired; `KnowledgeWorkspace.test.tsx` and `KnowledgeWorkspaceScreen.tsx` retired or adapted
+    - Knowledge sidebar moves from InterviewView into ViewLayout's Chat sub-layout as a right panel (compact, filterable by kind/phase)
+    - Old knowledge route (`project/$id/knowledge.tsx`) retired; `KnowledgeView.test.tsx` adapted or replaced
     - Project index route (`/project/:id`) shows project summary with kickoff affordance (create project → redirect to `/framing`)
     - Requirements: → SPEC.md §Requirements #6, #7, #8
     - Decisions: → SPEC.md §Decisions D66, D71, D86, D87
     - Candidate invariant goals: per-phase views show only that phase's turns; phase-close confirmation navigates to the next phase route on success; knowledge sidebar in ChatLayout updates on observer extraction without re-fetching conversation; old knowledge route removed without regressing knowledge visibility
     - Invariants to respect: I24 (update for per-phase filtering), I72 (phase-close still works), I87 (requirements review still works), I48 (knowledge display intact)
     - Acceptance: each phase route shows only its turns; closing scope navigates to elicitation; knowledge items visible in Chat right sidebar with filter controls; old `/project/:id/knowledge` URL returns 404; `npm run verify` green
-    - **Verification approach**: inner — per-phase filtering tests; phase-transition navigation tests. Middle — InterviewWorkspace.test.tsx adapted for per-phase rendering. Outer — manual end-to-end: create project → framing → close → elicitation → close → requirements-review → close → acceptance-review → close → export.
+    - **Verification approach**: inner — per-phase filtering tests; phase-transition navigation tests. Middle — InterviewView.test.tsx adapted for per-phase rendering. Outer — manual end-to-end: create project → framing → close → elicitation → close → requirements-review → close → acceptance-review → close → export.
     - Depends on: 24b
 
 26. **Graph view stub in ViewLayout** `not-started`
