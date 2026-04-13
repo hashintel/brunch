@@ -265,7 +265,7 @@
      - Detailed commit plan: `memory/REFACTOR.md`
      - Commits 1-3 (characterization + projection extraction + relation widening) are server-side and can run in parallel with slice 23
      - Commits 4-6 (knowledge-surface rendering + active-path switch + test retirement) touch workspace loaders and should land before slice 24
-     - Progress: commit 1 landed characterization coverage; commit 2 landed named projection modes with behavior preserved
+     - Progress: commits 1-2 landed characterization + projection-mode extraction; commit 3 widened shared relation transport to the full persisted vocabulary
      - Requirements: → SPEC.md §Requirements #5, #7
      - Decisions: → SPEC.md §Decisions D49, D50, D87
      - Invariants to respect: I48 (knowledge display), I24 (workspace seam)

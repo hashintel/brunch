@@ -197,6 +197,94 @@ describe('api transport contracts', () => {
     });
   });
 
+  it('accepts the full persisted edge relation vocabulary in entity payloads', () => {
+    expect(
+      entitiesDataSchema.parse({
+        goals: [
+          {
+            id: 1,
+            project_id: 1,
+            kind: 'goal',
+            subtype: null,
+            content: 'Ship a useful first version',
+            rationale: null,
+          },
+        ],
+        terms: [
+          {
+            id: 2,
+            project_id: 1,
+            kind: 'term',
+            subtype: null,
+            content: 'ticket',
+            rationale: null,
+          },
+        ],
+        contexts: [
+          {
+            id: 3,
+            project_id: 1,
+            kind: 'context',
+            subtype: null,
+            content: 'The team currently works from a spreadsheet',
+            rationale: null,
+          },
+        ],
+        constraints: [
+          {
+            id: 4,
+            project_id: 1,
+            kind: 'constraint',
+            subtype: null,
+            content: 'Keep the first release simpler than Jira',
+            rationale: null,
+          },
+        ],
+        requirements: [],
+        criteria: [
+          {
+            id: 5,
+            project_id: 1,
+            kind: 'criterion',
+            subtype: null,
+            content: 'Export reflects the trusted graph state',
+            rationale: null,
+            reviewStatus: 'pending',
+          },
+        ],
+        decisions: [],
+        assumptions: [],
+        relationships: [
+          {
+            type: 'depends_on',
+            source: { collection: 'knowledge_item', kind: 'term', id: 2 },
+            target: { collection: 'knowledge_item', kind: 'context', id: 3 },
+          },
+          {
+            type: 'derived_from',
+            source: { collection: 'knowledge_item', kind: 'context', id: 3 },
+            target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+          },
+          {
+            type: 'constrains',
+            source: { collection: 'knowledge_item', kind: 'constraint', id: 4 },
+            target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+          },
+          {
+            type: 'verifies',
+            source: { collection: 'knowledge_item', kind: 'criterion', id: 5 },
+            target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+          },
+          {
+            type: 'refines',
+            source: { collection: 'knowledge_item', kind: 'criterion', id: 5 },
+            target: { collection: 'knowledge_item', kind: 'term', id: 2 },
+          },
+        ],
+      }),
+    ).toBeTruthy();
+  });
+
   it('validates the current export and mutation payload shapes', () => {
     expect(exportLoaderDataSchema.parse({ ready: false })).toEqual({ ready: false });
     expect(exportLoaderDataSchema.parse({ ready: true, markdown: '# Reviewed Spec' })).toEqual({

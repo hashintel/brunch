@@ -1572,6 +1572,66 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     ]);
   });
 
+  it('projects the full persisted edge relation vocabulary through the entity seam', () => {
+    const project = createProject(db, 'Test');
+    const goal = createKnowledgeItem(db, project.id, 'goal', 'Track work from creation to completion');
+    const term = createKnowledgeItem(db, project.id, 'term', 'ticket');
+    const context = createKnowledgeItem(db, project.id, 'context', 'The team currently uses a spreadsheet');
+    const constraint = createKnowledgeItem(
+      db,
+      project.id,
+      'constraint',
+      'Keep the first release simpler than Jira',
+    );
+    const criterion = createKnowledgeItem(
+      db,
+      project.id,
+      'criterion',
+      'Export preserves the trusted graph state',
+    );
+
+    const insertEdge = db.$client.prepare(
+      'INSERT INTO knowledge_edge (from_item_id, to_item_id, relation) VALUES (?, ?, ?)',
+    );
+    insertEdge.run(term.id, context.id, 'depends_on');
+    insertEdge.run(context.id, goal.id, 'derived_from');
+    insertEdge.run(constraint.id, goal.id, 'constrains');
+    insertEdge.run(criterion.id, goal.id, 'verifies');
+    insertEdge.run(criterion.id, term.id, 'refines');
+
+    const entities = getEntitiesForProject(db, project.id);
+
+    expect(entities.relationships).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'depends_on',
+          source: { collection: 'knowledge_item', kind: 'term', id: term.id },
+          target: { collection: 'knowledge_item', kind: 'context', id: context.id },
+        },
+        {
+          type: 'derived_from',
+          source: { collection: 'knowledge_item', kind: 'context', id: context.id },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
+        },
+        {
+          type: 'constrains',
+          source: { collection: 'knowledge_item', kind: 'constraint', id: constraint.id },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
+        },
+        {
+          type: 'verifies',
+          source: { collection: 'knowledge_item', kind: 'criterion', id: criterion.id },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
+        },
+        {
+          type: 'refines',
+          source: { collection: 'knowledge_item', kind: 'criterion', id: criterion.id },
+          target: { collection: 'knowledge_item', kind: 'term', id: term.id },
+        },
+      ]),
+    );
+  });
+
   it('creates dependency edges between assumptions through generic edge storage', () => {
     const project = createProject(db, 'Test');
     const a1 = createAssumption(db, project.id, 'Single user');

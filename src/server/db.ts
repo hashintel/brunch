@@ -827,7 +827,6 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
     WHERE
       source.project_id = ${projectId}
       AND target.project_id = ${projectId}
-      AND edge.relation = 'depends_on'
     ORDER BY
       CASE source.kind WHEN 'decision' THEN 0 WHEN 'assumption' THEN 1 ELSE 2 END,
       source.id,

@@ -162,7 +162,7 @@ export const entityReferenceSchema = z.object({
 });
 
 export const entityRelationshipSchema = z.object({
-  type: z.literal('depends_on'),
+  type: edgeRelationSchema,
   source: entityReferenceSchema,
   target: entityReferenceSchema,
 });

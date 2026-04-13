@@ -810,7 +810,7 @@ describe('GET /api/projects/:id/entities', () => {
     });
   });
 
-  it('characterizes the entities api dropping manifest-backed non-dependency relations', async () => {
+  it('projects manifest-backed relation vocabulary through the entities api', async () => {
     const scenario: ManifestScenario = {
       turns: [
         {
@@ -837,8 +837,28 @@ describe('GET /api/projects/:id/entities', () => {
           content: 'Keep the first release simpler than Jira',
           capturedAtTurn: 0,
         },
+        {
+          kind: 'term',
+          content: 'ticket',
+          capturedAtTurn: 0,
+        },
+        {
+          kind: 'requirement',
+          content: 'Preserve relation semantics through the shared transport',
+          capturedAtTurn: 0,
+        },
+        {
+          kind: 'criterion',
+          content: 'The routed client receives the same relation kinds persisted in storage',
+          capturedAtTurn: 0,
+        },
       ],
       edges: [
+        {
+          fromItemIndex: 3,
+          toItemIndex: 1,
+          relation: 'depends_on',
+        },
         {
           fromItemIndex: 2,
           toItemIndex: 0,
@@ -849,6 +869,16 @@ describe('GET /api/projects/:id/entities', () => {
           toItemIndex: 0,
           relation: 'derived_from',
         },
+        {
+          fromItemIndex: 5,
+          toItemIndex: 4,
+          relation: 'verifies',
+        },
+        {
+          fromItemIndex: 4,
+          toItemIndex: 0,
+          relation: 'refines',
+        },
       ],
     };
 
@@ -858,11 +888,45 @@ describe('GET /api/projects/:id/entities', () => {
       db.$client
         .prepare('SELECT relation FROM knowledge_edge WHERE rowid IS NOT NULL ORDER BY relation')
         .all(),
-    ).toEqual([{ relation: 'constrains' }, { relation: 'derived_from' }]);
+    ).toEqual([
+      { relation: 'constrains' },
+      { relation: 'depends_on' },
+      { relation: 'derived_from' },
+      { relation: 'refines' },
+      { relation: 'verifies' },
+    ]);
 
     const res = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
 
-    expect(res.body.relationships).toEqual([]);
+    expect(res.body.relationships).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'depends_on',
+          source: { collection: 'knowledge_item', kind: 'term', id: 4 },
+          target: { collection: 'knowledge_item', kind: 'context', id: 2 },
+        },
+        {
+          type: 'constrains',
+          source: { collection: 'knowledge_item', kind: 'constraint', id: 3 },
+          target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+        },
+        {
+          type: 'derived_from',
+          source: { collection: 'knowledge_item', kind: 'context', id: 2 },
+          target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+        },
+        {
+          type: 'verifies',
+          source: { collection: 'knowledge_item', kind: 'criterion', id: 6 },
+          target: { collection: 'knowledge_item', kind: 'requirement', id: 5 },
+        },
+        {
+          type: 'refines',
+          source: { collection: 'knowledge_item', kind: 'requirement', id: 5 },
+          target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+        },
+      ]),
+    );
   });
 });
 

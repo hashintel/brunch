@@ -131,7 +131,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 49. **Knowledge items persist generically but project through kind-specific collections at the entity API and workspace seams** — `knowledge_item` + `turn_knowledge_item` are the active persistence seam for all canonical knowledge writes. The shared `/api/projects/:id/entities` projection exposes kind-specific `goals`, `terms`, `contexts`, `constraints`, `requirements`, `criteria`, `decisions`, and `assumptions` collections rather than a flat mixed list, keeping tab-level affordances simple while preserving one generic storage model underneath. Depends on: D5, D13, D22. Supersedes: decision/assumption-only entity reads, mixed storage assumptions at the read seam, flat mixed generic projection.
 
-50. **Generic dependency edges read through one typed entity-graph seam** — `knowledge_edge` now owns persisted dependency edges for the active knowledge graph, and `/api/projects/:id/entities` projects them as one typed `relationships[]` payload with explicit source/target identity (`collection`, `kind`, `id`) so workspace surfaces can render dependency affordances without consulting legacy decision/assumption edge tables. Depends on: D5, D13, D22, D49. Supersedes: flat entity reads with no graph relationship projection and legacy-table-owned dependency edges.
+50. **Generic knowledge-graph edges read through one typed entity-graph seam** — `knowledge_edge` now owns persisted relation edges for the active knowledge graph, and `/api/projects/:id/entities` projects the full supported relation vocabulary as one typed `relationships[]` payload with explicit source/target identity (`collection`, `kind`, `id`) so workspace surfaces can render dependency, derivation, constraint, verification, and refinement affordances without consulting legacy decision/assumption edge tables. Depends on: D5, D13, D22, D49. Supersedes: flat entity reads with no graph relationship projection and legacy-table-owned dependency edges.
 
 57. **Turn-response projection is one shared semantic boundary for downstream consumers** — Interviewer history and observer context should both read structured replies through one projection module that resolves selected option content from persisted `data-turn-response` parts. Workspace response affordances (prompt visibility, "answered" state) derive from the presence of persisted `data-turn-response` user parts so selected-option replies and free-text-only replies share one seam after reload. When that seam is absent, downstream consumers should treat `turn.answer` as display/compatibility copy rather than reconstructing structured reply semantics from `option.is_selected`. Depends on: D24, D25. Supersedes: ad hoc context-local response parsing, observer-only scalar answer projection, selected-option fallback as a semantic compatibility seam, and `is_selected`-driven answered-state logic.
 
@@ -304,7 +304,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 | #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
 | --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I48 | Canonical knowledge kinds (`goal`, `term`, `context`, `constraint`, `requirement`, `criterion`, `decision`, `assumption`) persist with turn provenance, project through kind-specific entity collections and typed dependency edges, and surface through the shared knowledge registry without ontology drift or refresh regression — including scope-bundle coherence and compatibility collections | Slices 6e, 7b.1, 7b.2; refactor 5 (knowledge registry) | db.test.ts, app.test.ts, knowledge.test.ts, workspace-data.test.ts, workspace-controller.test.tsx, InterviewWorkspace.test.tsx | D5, D22, D49, D50, D52, D53, D59, D61, D67, D68 |
+| I48 | Canonical knowledge kinds (`goal`, `term`, `context`, `constraint`, `requirement`, `criterion`, `decision`, `assumption`) persist with turn provenance, project through kind-specific entity collections and typed knowledge-graph edges, and surface through the shared knowledge registry without ontology drift or refresh regression — including scope-bundle coherence and compatibility collections | Slices 6e, 7b.1, 7b.2; refactor 5 (knowledge registry) | db.test.ts, app.test.ts, knowledge.test.ts, workspace-data.test.ts, workspace-controller.test.tsx, InterviewWorkspace.test.tsx | D5, D22, D49, D50, D52, D53, D59, D61, D67, D68 |
 
 ### Observer widening seam
 
@@ -567,7 +567,7 @@ This projection difference is a deliberate design choice, not an implementation 
 
 | File                          | Tests | Protects                                              |
 | ----------------------------- | ----- | ----------------------------------------------------- |
-| db.test.ts                    | 47    | I5, I6, I9, I10, I11, I20, I48, I54, I72, I87, I98, I101 |
+| db.test.ts                    | 48    | I5, I6, I9, I10, I11, I20, I48, I54, I72, I87, I98, I101 |
 | knowledge.test.ts             | 1     | I48                                                   |
 | app.test.ts                   | 46    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99, I101 |
 | core.test.ts                  | 10    | I12, I13, I18, I72, I87                               |
@@ -602,7 +602,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | launcher.test.ts              | 3     | I5, I100                                              |
 | cli.test.ts                   | 1     | I100                                                  |
 | runtime-config.test.ts        | 3     | I100                                                  |
-| api-types.test.ts             | 7     | —                                                     |
+| api-types.test.ts             | 8     | —                                                     |
 | export-loader.test.ts         | 4     | D26, D65, D66, D70                                    |
 | ExportPreview.test.tsx        | 2     | I15, D26, D65, D66, D70                               |
 | export.test.ts                | 10    | D26, D65, D66, D70                                    |
