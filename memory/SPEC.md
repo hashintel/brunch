@@ -212,6 +212,8 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 86. **Phase-based routing with three concentric layout shells replaces workspace-based routing** — The client route surface organizes by workflow phase, not by workspace type. Each phase maps to its own route: `/project/:id/framing` (scope), `/project/:id/elicitation` (design), `/project/:id/requirements-review` (requirements), `/project/:id/acceptance-review` (criteria). Three nested layout shells compose the UI: (1) **AppLayout** (`__root.tsx`) — top bar with branding, file-path indicator, logo link to root; wraps all routes. (2) **ProjectLayout** (`project/$id/route.tsx`) — left sidebar with phase navigation list showing readiness/closeability indicators per phase; wraps everything under `/project/:id`. (3) **ViewLayout** (`project/$id/_view/route.tsx`) — a pathless layout route that switches between Chat and Graph sub-layouts via a `?view=chat|graph` search param validated at the layout level; wraps the four phase routes but not export or project summary. The Chat sub-layout provides a right sidebar with a compact, filterable knowledge-layer view. The Graph sub-layout provides a project-scoped knowledge graph visualization, optionally phase-filtered. Export (`/project/:id/export`) renders inside ProjectLayout without ViewLayout. The project summary (`/project/:id` index) is the landing/kickoff page. Phase transitions navigate on mutation success: close phase → server confirms → `router.navigate()` to the next phase route; no optimistic URL changes. Depends on: D9, D2, D65, D66, D71. Supersedes: D69, workspace-based sibling routing (interview/knowledge/export as flat siblings under one route level).
 87. **Layout-level data ownership distributes cache invalidation across three loading boundaries** — Each layout shell owns its own data-loading concern: ProjectLayout loads workflow state (phase statuses, readiness, closeability) — changes only on phase transitions. ViewLayout loads the knowledge layer (entities, relationships, review state) — changes when the observer extracts. Phase route loaders load conversation turns for that phase only — changes on turn submission. This natural partitioning means most mutations invalidate only one layout level's data, extending the viability of `router.invalidate()` before needing React Query's granular per-query-key caching. The graph view (project-scoped, optionally phase-filtered) shares knowledge data from ViewLayout's loader. Depends on: D22, D86. Supersedes: single-route-level loading where `router.invalidate()` re-fetches all project data on every mutation and SSE data part.
 
+88. **The entities API defaults to the active-path read model, with project-wide inventory behind an explicit mode** — `/api/projects/:id/entities` now serves the canonical trusted entity set for routed workspace surfaces by default, and callers that need the wider project inventory must opt into `?mode=project-wide`. This keeps interview, knowledge, and export aligned on the same active-path state while preserving an explicit project-global inspection seam. Depends on: D49, D50, D87. Supersedes: project-wide default entity reads at the routed workspace seam.
+
 ## Invariants
 
 <!-- Structural properties proven by implementation and protected by tests.
@@ -282,7 +284,7 @@ Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
 
 | #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
 | --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I24 | Workspace hydration, streaming projection, controller orchestration, mutation transport, and render-lifecycle boundaries remain stable across project entry, same-project refresh, observer-result invalidation, streamed pending-question cards, and chat submission | Slices 6b1, 6c, 6d, 6e, 6f; refactors 1–14 | InterviewWorkspace.test.tsx, workspace-data.test.ts, workspace-controller.test.tsx, chat-hydration.test.ts, client-mutation.test.ts, ProjectList.test.tsx, code-block.test.tsx, message.test.tsx, markdown-rendering.test.tsx, capability-boundaries.test.ts, build-boundary.test.ts | D9, D19, D22, D14, D34, D36, D37, D38, D39, D40, D41, D42, D43, D44, D58 |
+| I24 | Workspace hydration, streaming projection, controller orchestration, mutation transport, and render-lifecycle boundaries remain stable across project entry, same-project refresh, observer-result invalidation, streamed pending-question cards, and chat submission | Slices 6b1, 6c, 6d, 6e, 6f; refactors 1–14 | InterviewWorkspace.test.tsx, workspace-data.test.ts, workspace-loader.test.ts, workspace-controller.test.tsx, chat-hydration.test.ts, client-mutation.test.ts, ProjectList.test.tsx, code-block.test.tsx, message.test.tsx, markdown-rendering.test.tsx, capability-boundaries.test.ts, build-boundary.test.ts | D9, D19, D22, D14, D34, D36, D37, D38, D39, D40, D41, D42, D43, D44, D58 |
 
 ### Turn response seam
 
@@ -565,7 +567,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | ----------------------------- | ----- | ----------------------------------------------------- |
 | db.test.ts                    | 48    | I5, I6, I9, I10, I11, I20, I48, I54, I72, I87, I98, I101 |
 | knowledge.test.ts             | 1     | I48                                                   |
-| app.test.ts                   | 46    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99, I101 |
+| app.test.ts                   | 47    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99, I101 |
 | core.test.ts                  | 10    | I12, I13, I18, I72, I87                               |
 | interview.test.ts             | 17    | I16, I72, I87, I101                                   |
 | parts.test.ts                 | 15    | I17, I18, I44, I54, I72                               |
@@ -593,7 +595,7 @@ This projection difference is a deliberate design choice, not an implementation 
 | file-route-knowledge.test.ts  | 1     | I102                                                  |
 | file-route-export.test.ts     | 1     | I102                                                  |
 | KnowledgeWorkspace.test.tsx   | 6     | I15, I24, I48                                         |
-| workspace-loader.test.ts      | 7     | I24                                                   |
+| workspace-loader.test.ts      | 8     | I24                                                   |
 | project.test.ts               | 10    | I100                                                  |
 | launcher.test.ts              | 3     | I5, I100                                              |
 | cli.test.ts                   | 1     | I100                                                  |

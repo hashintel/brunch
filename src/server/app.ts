@@ -48,6 +48,7 @@ import {
   getEntitiesForProjectByMode,
   recordReviewFromTurnResponse,
   type DB,
+  type EntityProjectionMode,
 } from './db.js';
 import { isExportReady, renderExportMarkdown } from './export.js';
 import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
@@ -62,6 +63,14 @@ export interface AppOptions {
 export interface AppServices {
   readonly app: Express;
   readonly db: DB;
+}
+
+function parseEntityProjectionMode(rawMode: unknown): EntityProjectionMode | null {
+  if (rawMode === undefined) {
+    return 'active-path';
+  }
+
+  return rawMode === 'active-path' || rawMode === 'project-wide' ? rawMode : null;
 }
 
 export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
@@ -177,7 +186,12 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
       return;
     }
-    res.json(getEntitiesForProjectByMode(db, id, 'project-wide') satisfies EntitiesData);
+    const mode = parseEntityProjectionMode(req.query.mode);
+    if (!mode) {
+      res.status(400).json({ error: 'Invalid entity projection mode' } satisfies MutationErrorResponse);
+      return;
+    }
+    res.json(getEntitiesForProjectByMode(db, id, mode) satisfies EntitiesData);
   });
 
   // Export spec as markdown

@@ -764,7 +764,7 @@ describe('GET /api/projects/:id/entities', () => {
     const assumption = createAssumption(db, projectId, 'Users arrive with a concrete goal');
     addDecisionParentAssumption(db, decision.id, assumption.id);
 
-    const res = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const res = await request(app).get(`/api/projects/${projectId}/entities?mode=project-wide`).expect(200);
 
     expect(res.body).toMatchObject({
       goals: [],
@@ -925,6 +925,74 @@ describe('GET /api/projects/:id/entities', () => {
           source: { collection: 'knowledge_item', kind: 'requirement', id: 5 },
           target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
         },
+      ]),
+    );
+  });
+
+  it('defaults the entities api to the active-path projection and keeps project-wide reads explicit', async () => {
+    const { getProjectState } = await import('./core.js');
+    const { advanceHead, createKnowledgeItem, createTurn, linkKnowledgeItemToTurn } = await import('./db.js');
+
+    const scenario: ManifestScenario = {
+      turns: [
+        {
+          phase: 'scope',
+          question: 'What kind of workflow is this project replacing?',
+          answer: 'A spreadsheet-driven issue tracker process.',
+          options: [{ content: 'Spreadsheet replacement', is_recommended: true }],
+          selectedOptionPositions: [0],
+        },
+      ],
+      knowledgeItems: [
+        {
+          kind: 'goal',
+          content: 'Replace spreadsheet issue tracking with a durable workflow',
+          capturedAtTurn: 0,
+        },
+      ],
+      edges: [],
+    };
+
+    const projectId = seedFromManifest(db, scenario, 'Manifest Branching Project');
+    const projectState = getProjectState(db, projectId);
+    expect(projectState).not.toBeNull();
+    const rootTurn = projectState!.turns[0]!;
+
+    const abandonedBranchTurn = createTurn(db, projectId, {
+      phase: 'design',
+      parent_turn_id: rootTurn.id,
+      question: 'Which storage option should we take?',
+      answer: 'Follow the SQLite branch.',
+    });
+    const activeBranchTurn = createTurn(db, projectId, {
+      phase: 'design',
+      parent_turn_id: rootTurn.id,
+      question: 'Which storage option should we take?',
+      answer: 'Follow the Postgres branch.',
+    });
+    advanceHead(db, projectId, activeBranchTurn.id);
+
+    const abandonedDecision = createKnowledgeItem(db, projectId, 'decision', 'Use SQLite for persistence', {
+      rationale: 'This belonged to the abandoned branch.',
+    });
+    const activeDecision = createKnowledgeItem(db, projectId, 'decision', 'Use Postgres for persistence', {
+      rationale: 'This belongs to the active branch.',
+    });
+    linkKnowledgeItemToTurn(db, abandonedDecision.id, abandonedBranchTurn.id);
+    linkKnowledgeItemToTurn(db, activeDecision.id, activeBranchTurn.id);
+
+    const canonicalRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(canonicalRes.body.decisions).toEqual([
+      expect.objectContaining({ content: 'Use Postgres for persistence' }),
+    ]);
+
+    const projectWideRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(projectWideRes.body.decisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ content: 'Use SQLite for persistence' }),
+        expect.objectContaining({ content: 'Use Postgres for persistence' }),
       ]),
     );
   });
@@ -1480,7 +1548,9 @@ describe('phase outcomes + scope closure', () => {
       }),
     );
 
-    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
     expect(entitiesRes.body.requirements).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ content: 'Resume the interview from SQLite after restart' }),
@@ -1751,7 +1821,9 @@ describe('phase outcomes + scope closure', () => {
       }),
     );
 
-    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
     expect(entitiesRes.body.criteria).toEqual(
       expect.arrayContaining([
         expect.objectContaining({
@@ -2453,7 +2525,9 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       }),
     );
 
-    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
     expect(entitiesRes.body.requirements).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: approvedRequirement.id, reviewStatus: 'approved' }),
@@ -2553,7 +2627,9 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       }),
     );
 
-    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
     expect(entitiesRes.body.requirements).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: rejectedRequirement.id, reviewStatus: 'rejected' }),
@@ -2653,7 +2729,9 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       }),
     );
 
-    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
     expect(entitiesRes.body.criteria).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: approvedCriterion.id, reviewStatus: 'approved' }),
@@ -2744,7 +2822,9 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       },
     ]);
 
-    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
     expect(entitiesRes.body.criteria).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ id: rejectedCriterion.id, reviewStatus: 'rejected' }),

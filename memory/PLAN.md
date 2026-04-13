@@ -254,9 +254,9 @@
      - Detailed commit plan: `memory/REFACTOR.md`
      - Commits 1-3 (characterization + projection extraction + relation widening) are server-side and can run in parallel with slice 23
      - Commits 4-6 (knowledge-surface rendering + active-path switch + test retirement) touch workspace loaders and should land before slice 24
-     - Progress: commits 1-2 landed characterization + projection-mode extraction; commit 3 widened shared relation transport to the full persisted vocabulary; commit 4 taught the knowledge surface to render the richer graph deliberately while keeping dependency-only summaries explicit
+     - Progress: commits 1-2 landed characterization + projection-mode extraction; commit 3 widened shared relation transport to the full persisted vocabulary; commit 4 taught the knowledge surface to render the richer graph deliberately while keeping dependency-only summaries explicit; commit 5 made active-path the canonical routed entity read and pushed project-wide inventory behind an explicit mode
      - Requirements: → SPEC.md §Requirements #5, #7
-     - Decisions: → SPEC.md §Decisions D49, D50, D87
+     - Decisions: → SPEC.md §Decisions D49, D50, D87, D88
      - Invariants to respect: I48 (knowledge display), I24 (workspace seam)
      - Acceptance: seeded manifest scenarios prove the same entity set renders through API, workspace, and export; relationship vocabulary is not collapsed at the transport boundary
      - Depends on: 23 (commits 4-6 depend on directory routing being in place)
@@ -279,7 +279,7 @@
     - Each phase route renders its own filtered conversation thread (turns where `turn.phase` matches)
     - Phase transition lifecycle: close mutation → on-success → `router.navigate({ to: '/project/$id/{next-phase}', params: { id } })`
     - Knowledge sidebar moves from InterviewWorkspace into ViewLayout's Chat sub-layout as a right panel (compact, filterable by kind/phase)
-    - Old knowledge workspace route (`project_.$id.knowledge.tsx`) retired; `KnowledgeWorkspace.test.tsx` and `KnowledgeWorkspaceScreen.tsx` retired or adapted
+    - Old knowledge workspace route (`project/$id/knowledge.tsx`) retired; `KnowledgeWorkspace.test.tsx` and `KnowledgeWorkspaceScreen.tsx` retired or adapted
     - Project index route (`/project/:id`) shows project summary with kickoff affordance (create project → redirect to `/framing`)
     - Requirements: → SPEC.md §Requirements #6, #7, #8
     - Decisions: → SPEC.md §Decisions D66, D71, D86, D87
@@ -322,13 +322,12 @@
 done ─────────────────────────────────────────────────────────────┐
   Phase 1–7, 10: all complete                                     │
   Ad-hoc: 22 (Zod strip) done                                    │
+  Phase 11: 23 (directory routing + layout scaffolding) done      │
 ──────────────────────────────────────────────────────────────────┘
-Phase 11: 23 (directory routing + layout scaffolding)
-          23 ──→ 23a (entity-projection alignment)
+Phase 11: 23a (entity-projection alignment) in-progress (commits 5-6 remain)
           23a ──→ 24 (ProjectLayout sidebar + data split)
           24 ──→ 25 (per-phase views + transition nav + knowledge sidebar)
           25 ──→ 26 (graph view stub)
-          Note: 23a commits 1-3 can run in parallel with 23
 Phase 8:  25 ──→ 15 (edit mode — adapts to new layout)    [stretch]
           15 ──→ 15a (cascade execution + secondary threads) [stretch]
 Phase 9:  14 ──→ 16 (drizzle-kit audit remediation)
@@ -337,8 +336,7 @@ Deferred: 25 ──→ 13a (review lifecycle refinement — adapts to per-phase 
 
 ### Parallelism opportunities
 
-- **Phase 11 (routing refactor) is the next active work.** Slices 23→23a→24→25→26 form the critical path.
-- 23a commits 1-3 (server-side entity projection) can run in parallel with slice 23 (client routing restructure) — different file sets, no conflict.
+- **Phase 11 (routing refactor) is the active work.** 23a→24→25→26 is the critical path. 23 is done, 23a commits 5-6 remain.
 - 16 (drizzle-kit audit) is independent of Phase 11 and can run in parallel if needed.
 - 15/15a (knowledge-graph revisit) now depend on 25 (not just 12a) because the knowledge workspace is dissolving — edit mode needs to adapt to the new ChatLayout sidebar or Graph view.
 - 13a (review lifecycle refinement) now depends on 25 because review surfaces move into per-phase routes.
