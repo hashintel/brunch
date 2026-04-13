@@ -1,95 +1,124 @@
-# Handoff — 2026-04-12
+# Handoff — 2026-04-13
 
 ## Phase in flow
 
 ```
-grill ✓ → spec ✓ → plan ✓ → [design ✓] → scope ✓ → build ✓ → review ✓ → [sync]
+grill → spec ✓ → plan ✓ → [design] → [oracles] → scope → [spike] → build → review → [refactor] → sync ✓
+                                                     ↑
+                                              RESUME HERE
 ```
 
-- **Last completed skill**: `ln-review` — reviewed slices 17a and 14, no high-impact findings
-- **Current skill**: `ln-handoff` + `ln-sync` (in progress)
-- **Next action**: `/ln-sync` to refresh SPEC.md and PLAN.md after the implementation burst, then `/ln-scope` for slice 14a
+- **Last completed skills**: `ln-spec` (patch — D86/D87), `ln-plan` (patch — Phase 11), `ln-sync` — all done
+- **Next skill**: `/ln-scope` for slice 23
+- **Current skill**: `ln-handoff` (producing this document)
 
 ## Session summary
 
-Three slices landed plus a sync pass. The session started from the prior handoff which had slice 14's scope card ready.
+Routing redesign talkthrough → spec decisions → plan slices → sync → commit. No code changes — pure planning session.
 
-1. **ln-sync** — Refreshed PLAN.md and SPEC.md. Trimmed slice 17 completion block to 4 lines, updated parallelism notes (17 done), updated dependency graph. Updated SPEC.md coverage table with actual test counts (interview.test.ts 10→11, InterviewWorkspace.test.tsx 21→22, workspace-loader.test.ts 2→3, export.test.ts 6→9, added manifest.test.ts).
+1. **Dev talkthrough** — deep exploration of current routing (flat workspace model), data loading split (loaders vs React Query vs SSE), filesystem naming conventions, and phase/workspace semantics
+2. **Routing redesign discussion** — user proposed phase-based routing with three concentric layout shells (AppLayout → ProjectLayout → ViewLayout). Confirmed TanStack Router pathless layout routes support search param validation for Chat/Graph view switching.
+3. **`/ln-spec` patch** — added D86, D87; updated D9/D69/D85; added I15/I102 pending-update comments; updated lexicon and acceptance criterion 5
+4. **`/ln-plan` patch** — added Phase 11 slices 23-26; integrated REFACTOR.md as slice 23a; updated dependency graph and parallelism notes
+5. **`/ln-sync`** — fixed stale A40 reference (D69→D86), resolved slice 22 debt note, pruned horizon items, assessed REFACTOR.md conflict
+6. **Commit** — `91c18ec`
 
-2. **ln-scope → ln-build** for slice 17a (debug route removal + shiki decoupling):
-   - Replaced `CodeBlock` in `tool.tsx` with plain `<pre><code>` for JSON rendering
-   - Removed `preloadRichCodeHighlighter` from `markdown-rendering.tsx`
-   - Removed `/debug` route from router
-   - Deleted `ComponentDebug.tsx` + `debug-surface.tsx`
-   - Created `ai-elements.stories.tsx` Ladle story with full showcase
-   - Updated `build-boundary.test.ts` (no-shiki oracle, 1050KB budget) and `capability-boundaries.test.ts`
-   - Retired invariant I30 (moot), updated I28/I29/I32
-   - Commit: `78f7e89`
+## In-flight state (discussed but not fully captured in docs)
 
-3. **ln-scope → ln-build** for slice 14 (local-first storage + npx distribution):
-   - Created `project.ts` — `BrunchProject` interface, `findBrunchProject` (walk-up), `initBrunchProject`, `resolveBrunchProject`
-   - Created `launcher.ts` — Express serving API + static dist/ on one port, opens browser
-   - Created `cli.ts` — bin entry for `npx @hashintel/brunch`
-   - Fixed `db.ts` — migrations path resolved via `import.meta.url` instead of relative `./drizzle`
-   - Updated `index.ts` — dev server uses `resolveBrunchProject` when no `BRUNCH_DB` env var
-   - Added `open` dependency, `bin` entry in `package.json`
-   - 11 new tests (project.test.ts: 8, launcher.test.ts: 3)
-   - New invariant I100 (project resolution + launcher seam)
-   - Commits: `006b9b8`, `6306579`
+### Design nuances agreed in conversation
 
-4. **ln-review** of slices 17a and 14 — clean, no high-impact findings. One medium oracle gap: launcher-serves-static test doesn't create a mock dist/ (deferred to outer-loop manual testing).
+1. **Phase transition UX preference**: user confirmed option #3 — a transition prompt ("Framing complete. Continue to Elicitation?") rather than auto-navigate or stay-put. D86 captures the mechanic (close → on-success → navigate) but not the UX preference for an explicit handoff moment.
 
-## In-flight state
+2. **Data loading pragmatics**: phase routes will NOT have their own loaders initially. They read from ProjectLayout's loader via `useLoaderData({ from: '/project/$id' })` and filter turns client-side by `turn.phase`. Per-phase server endpoints are a Horizon item. D87 says "phase route loaders load conversation turns for that phase only" — the first implementation filters, not fetches separately.
 
-### Review findings (from ln-review, all deferred)
+3. **Knowledge workspace dissolution rationale**: user explicitly said the knowledge view "crept in early from the original spec" and wasn't actively designed. This motivated the routing redesign — phases as routes is the user's mental model.
 
-1. **tool.tsx: repeated `<pre><code>` pattern** — depth/low — three identical pre/code blocks in ToolInput/ToolOutput. Acceptable per YAGNI.
-2. **launcher.test.ts unused import** — coupling/low — `writeFileSync` imported but unused.
-3. **launcher-serves-static oracle gap** — oracle-coverage/medium — test 2 doesn't actually test static serving (no mock dist/). Deferred to outer-loop manual npx walkthrough.
-4. **launcher.ts owns resolution + serving** — coupling/low — `launch(cwd)` does both project resolution and server setup. Fine for single caller.
-5. **db.ts + launcher.ts: duplicated `__dirname` pattern** — coupling/low — standard ESM boilerplate, not worth abstracting.
-6. **index.ts dev/production divergence** — depth/low — intentional, well-bounded.
-7. **All oracle coverage met** except finding #3. Lexicon alignment clean.
+4. **`router.invalidate()` lease**: user considers this "a pretty big caveat" — the layout-level split buys time but won't solve it permanently. React Query granular caching is the eventual answer (Horizon item).
 
-### Key design insight preserved from prior session
+5. **Graph view scoping**: project-scoped by default, optionally phase-filtered. Not in conflict with nesting inside `_view/` — the phase child route can provide a phase filter while the graph defaults to showing everything.
 
-(Carried forward from prior handoff — still relevant for 14a)
-- Answered question cards are **read-only** — re-answering routes through the revisit model (Phase 8), not a casual UI toggle
-- Primary blue needs adjustment to match Hash logo (lighter sky blue) — not yet resolved via Figma
-- Badges should explore mono font — not yet implemented
+### REFACTOR.md sequencing rationale
 
-## Priority note from user
+Entity-projection refactor compiled by another agent. Sync analysis:
+- Commits 1-3 (characterization, projection extraction, relation widening) — server-side only, no conflict with slice 23
+- Commits 4-6 (knowledge-surface rendering, active-path switch, test retirement) — touch workspace loaders, must land BEFORE slice 24
+- Tracked as slice 23a between 23 and 24
 
-The first delivery deadline is approaching. Priority order:
-1. **Done**: slice 17 (UI refinement), slice 17a (shiki decoupling), slice 14 (local-first + npx)
-2. **Must-have next**: slice 14a (brownfield/greenfield) — this must land
-3. **Stretch**: slice 15 + 15a (knowledge-graph revisit) — may not land before deadline
-4. **Deferred**: 13a (review lifecycle refinement), 16 (drizzle-kit audit)
+### Phase name mapping (reference)
+
+| Server phase | User-facing name | Route segment |
+|---|---|---|
+| `scope` | Framing | `/framing` |
+| `design` | Elicitation | `/elicitation` |
+| `requirements` | Review: Requirements | `/requirements-review` |
+| `criteria` | Review: Criteria | `/acceptance-review` |
+
+### Target file structure (reference)
+
+```
+routes/
+├── __root.tsx                          ← AppLayout
+├── index.tsx                           ← / (project list)
+└── project/
+    └── $id/
+        ├── route.tsx                   ← ProjectLayout (left sidebar)
+        ├── index.tsx                   ← /project/:id (summary, redirects to active phase initially)
+        ├── export.tsx                  ← /project/:id/export (no ViewLayout)
+        └── _view/
+            ├── route.tsx               ← ViewLayout (?view=chat|graph switch)
+            ├── framing.tsx             ← scope
+            ├── elicitation.tsx         ← design
+            ├── requirements-review.tsx ← requirements
+            └── acceptance-review.tsx   ← criteria
+```
+
+### Key code locations for slice 23
+
+- `workspace-controller.ts:68` — `useLoaderData({ from: '/project/$id' })` hardcoded route reference
+- `workspace-loader.ts` — fetches both projectState and entitySnapshot in one call (needs splitting in slice 24, not 23)
+- `vite.config.ts` — TanStack Router plugin config needs `routesDirectory` update for directory scanning
+- `__root.tsx` — minimal div wrapper, becomes AppLayout shell
+- Current route files to migrate: `project.$id.tsx`, `project_.$id.knowledge.tsx`, `project_.$id.export.tsx`
 
 ## Persisted state
 
 ### Git
-- **Branch**: `ln/fe-545-storage-and-distro`
-- **Recent commits**: 6306579 → 006b9b8 → 415deb1 → 78f7e89
+
+- **Branch**: `ln/fe-581-e2e-manual-refine-1` (12 commits ahead of origin)
+- **HEAD**: `91c18ec` — docs commit
 - **Working tree**: clean
 
 ### Artifacts
-- `memory/SPEC.md` — **current** (coverage table updated, I30 retired, I28/I29/I32 updated, I100 added)
-- `memory/PLAN.md` — **current** (slices 17a and 14 marked done, parallelism notes updated)
-- `docs/design/LOCAL_STORAGE.md` — **current** (approved design, implemented in slice 14)
 
-### Test status
-264 tests: all pass. `npm run verify` green (0 lint errors, build succeeds).
+| File | Status | Notes |
+|---|---|---|
+| `memory/SPEC.md` | Current | D86/D87 added; D9/D69/D85 updated; I15/I102 pending-update comments |
+| `memory/PLAN.md` | Current | Phase 11 slices 23-26 + 23a; dependency graph updated |
+| `memory/REFACTOR.md` | Current | Entity-projection commit plan; tracked as slice 23a |
+
+### Verify status
+
+`npm run verify` — all green. 40 test files, 296 tests, lint/fmt/typecheck/build pass.
 
 ## Resume prompt
 
 ```
-I'm picking up from a build + review session. Read HANDOFF.md, then:
-1. Run /ln-sync to refresh docs after the implementation burst (slices 17a + 14)
-2. Then /ln-scope for slice 14a (greenfield/brownfield first-screen + exploration)
+Read HANDOFF.md, then memory/SPEC.md §Decisions D85, D86, D87
+and memory/PLAN.md §Phase 11 slice 23. Run /ln-scope for slice 23
+(directory-based routing infrastructure + layout shell scaffolding).
 
-Key context: slice 14a depends on slice 14 which just landed. Branch is
-ln/fe-545-storage-and-distro. The design doc is at docs/design/BROWNFIELD_EXPLORATION.md.
-
-Priority: slice 14a is the last must-have for the first delivery deadline.
+The SPEC decisions are committed, the plan is written — scope the
+first slice for implementation. Key context: phase routes initially
+all render the same InterviewWorkspace (behavior parity first,
+content redistribution in slices 24-25). The current __root.tsx is
+a minimal div wrapper. workspace-controller.ts:68 has a hardcoded
+useLoaderData route reference that will need updating.
 ```
+
+### Blockers
+
+None. Slice 23 is unblocked and ready to scope.
+
+### Parallel work available
+
+Slice 23a commits 1-3 (entity-projection characterization + extraction + widening) can be run by a separate agent in parallel with slice 23 — they touch only server-side entity projection logic. See `memory/REFACTOR.md` for the commit plan.
