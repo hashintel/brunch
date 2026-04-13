@@ -1,5 +1,5 @@
 ---
-name: router-core/auth-and-guards
+name: router-core-auth-and-guards
 description: >-
   Route protection with beforeLoad, redirect()/throw redirect(),
   isRedirect helper, authenticated layout routes (_authenticated),
@@ -11,7 +11,7 @@ library: tanstack-router
 library_version: '1.166.2'
 requires:
   - router-core
-  - router-core/data-loading
+  - router-core-data-loading
 sources:
   - TanStack/router:docs/router/guide/authenticated-routes.md
   - TanStack/router:docs/router/how-to/setup-authentication.md
@@ -455,4 +455,4 @@ Place protected routes as children of the `_authenticated` layout route. Public 
 
 ## Cross-References
 
-- See also: **router-core/data-loading/SKILL.md** — `beforeLoad` runs before `loader`; auth context flows into loader via route context
+- See also: **router-core-data-loading/SKILL.md** — `beforeLoad` runs before `loader`; auth context flows into loader via route context

@@ -1,5 +1,5 @@
 ---
-name: router-core/code-splitting
+name: router-core-code-splitting
 description: >-
   Automatic code splitting (autoCodeSplitting), .lazy.tsx convention,
   createLazyFileRoute, createLazyRoute, lazyRouteComponent, getRouteApi
@@ -318,5 +318,5 @@ const data = routeApi.useLoaderData()
 
 ## Cross-References
 
-- **router-core/data-loading** — Loader splitting decisions affect data loading performance. Splitting the loader adds latency before data can be fetched.
-- **router-core/type-safety** — `getRouteApi` is the type-safe way to access hooks from split files.
+- **router-core-data-loading** — Loader splitting decisions affect data loading performance. Splitting the loader adds latency before data can be fetched.
+- **router-core-type-safety** — `getRouteApi` is the type-safe way to access hooks from split files.

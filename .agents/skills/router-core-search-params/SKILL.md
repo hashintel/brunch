@@ -1,5 +1,5 @@
 ---
-name: router-core/search-params
+name: router-core-search-params
 description: >-
   validateSearch, search param validation with Zod/Valibot/ArkType adapters,
   fallback(), search middlewares (retainSearchParams, stripSearchParams),

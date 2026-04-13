@@ -1,5 +1,5 @@
 ---
-name: router-core/not-found-and-errors
+name: router-core-not-found-and-errors
 description: >-
   notFound() function, notFoundComponent, defaultNotFoundComponent,
   notFoundMode (fuzzy/root), errorComponent, CatchBoundary,
@@ -431,5 +431,5 @@ function ErrorFallback({ error }: { error: Error; reset: () => void }) {
 
 ## Cross-References
 
-- **router-core/data-loading** — `notFound()` thrown in loaders interacts with error boundaries and loader data availability. `errorComponent` retry requires `router.invalidate()`.
-- **router-core/type-safety** — `notFoundComponent` data is typed as `unknown`; validate before use.
+- **router-core-data-loading** — `notFound()` thrown in loaders interacts with error boundaries and loader data availability. `errorComponent` retry requires `router.invalidate()`.
+- **router-core-type-safety** — `notFoundComponent` data is typed as `unknown`; validate before use.

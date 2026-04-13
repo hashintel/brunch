@@ -229,5 +229,5 @@ function AboutPage() {
 
 ## Cross-References
 
-- [router-core/code-splitting](../../../router-core/skills/router-core/code-splitting/SKILL.md) — manual code splitting concepts
+- [router-core-code-splitting](../router-core-code-splitting/SKILL.md) — manual code splitting concepts
 - [virtual-file-routes](../../../virtual-file-routes/skills/virtual-file-routes/SKILL.md) — programmatic route trees

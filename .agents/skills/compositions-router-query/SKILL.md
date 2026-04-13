@@ -1,5 +1,5 @@
 ---
-name: compositions/router-query
+name: compositions-router-query
 description: >-
   Integrating TanStack Router with TanStack Query: queryClient
   in router context, ensureQueryData/prefetchQuery in loaders,
@@ -11,7 +11,7 @@ library: tanstack-router
 library_version: '1.166.2'
 requires:
   - router-core
-  - router-core/data-loading
+  - router-core-data-loading
   - react-router
 sources:
   - TanStack/router:docs/router/guide/external-data-loading.md
@@ -20,7 +20,7 @@ sources:
 
 # TanStack Router + TanStack Query Integration
 
-This skill requires familiarity with both TanStack Router and TanStack Query. Read [router-core](../../../../router-core/skills/router-core/SKILL.md) and [react-router](../../react-router/SKILL.md) first.
+This skill requires familiarity with both TanStack Router and TanStack Query. Read [router-core](../router-core/SKILL.md) and [react-router](../react-router/SKILL.md) first.
 
 This skill covers coordinating TanStack Query as an external data cache with TanStack Router's loader system. The router acts as a **coordinator** — it triggers data fetching during navigation, while Query manages caching, background refetching, and data lifecycle.
 
@@ -419,5 +419,5 @@ TanStack Router has its own SWR cache (`staleTime`, `gcTime`, `defaultPreloadSta
 
 ## Cross-References
 
-- [router-core/data-loading](../../../../router-core/skills/router-core/data-loading/SKILL.md) — built-in loader caching fundamentals
-- [router-core/ssr](../../../../router-core/skills/router-core/ssr/SKILL.md) — SSR setup for dehydration/hydration
+- [router-core-data-loading](../router-core-data-loading/SKILL.md) — built-in loader caching fundamentals
+- [router-core-ssr](../router-core-ssr/SKILL.md) — SSR setup for dehydration/hydration

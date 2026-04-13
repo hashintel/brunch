@@ -1,5 +1,5 @@
 ---
-name: router-core/data-loading
+name: router-core-data-loading
 description: >-
   Route loader option, loaderDeps for cache keys, staleTime/gcTime/
   defaultPreloadStaleTime SWR caching, pendingComponent/pendingMs/
@@ -474,12 +474,12 @@ Returning the whole `search` object means unrelated param changes (e.g., `sortDi
 
 ## Tensions
 
-- **Client-first loaders vs SSR expectations**: Loaders run on the client by default. When using SSR (TanStack Start), they run on both client and server. Browser-only APIs work by default but break under SSR. Server-only APIs (fs, db) break by default but work under Start server functions. See **router-core/ssr/SKILL.md**.
-- **Built-in SWR cache vs external cache coordination**: Router has built-in caching. When using TanStack Query, set `defaultPreloadStaleTime: 0` to avoid double-caching. See **compositions/router-query/SKILL.md**.
+- **Client-first loaders vs SSR expectations**: Loaders run on the client by default. When using SSR (TanStack Start), they run on both client and server. Browser-only APIs work by default but break under SSR. Server-only APIs (fs, db) break by default but work under Start server functions. See **router-core-ssr/SKILL.md**.
+- **Built-in SWR cache vs external cache coordination**: Router has built-in caching. When using TanStack Query, set `defaultPreloadStaleTime: 0` to avoid double-caching. See **compositions-router-query/SKILL.md**.
 
 ---
 
 ## Cross-References
 
-- See also: **router-core/search-params/SKILL.md** — `loaderDeps` consumes validated search params as cache keys
-- See also: **compositions/router-query/SKILL.md** — for external cache coordination with TanStack Query
+- See also: **router-core-search-params/SKILL.md** — `loaderDeps` consumes validated search params as cache keys
+- See also: **compositions-router-query/SKILL.md** — for external cache coordination with TanStack Query

@@ -22,7 +22,7 @@ sources:
 
 # React Router (`@tanstack/react-router`)
 
-This skill builds on router-core. Read [router-core](../../../router-core/skills/router-core/SKILL.md) first for foundational concepts.
+This skill builds on router-core. Read [router-core](../router-core/SKILL.md) first for foundational concepts.
 
 This skill covers the React-specific bindings, components, hooks, and setup for TanStack Router.
 
@@ -496,4 +496,4 @@ function App() {
 
 ## Cross-References
 
-- [router-core/SKILL.md](../../../router-core/skills/router-core/SKILL.md) — all sub-skills for domain-specific patterns (search params, data loading, navigation, auth, SSR, etc.)
+- [router-core/SKILL.md](../router-core/SKILL.md) — all sub-skills for domain-specific patterns (search params, data loading, navigation, auth, SSR, etc.)

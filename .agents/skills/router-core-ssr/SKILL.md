@@ -1,5 +1,5 @@
 ---
-name: router-core/ssr
+name: router-core-ssr
 description: >-
   Non-streaming and streaming SSR, RouterClient/RouterServer,
   renderRouterToString/renderRouterToStream, createRequestHandler,
@@ -12,7 +12,7 @@ library: tanstack-router
 library_version: '1.166.2'
 requires:
   - router-core
-  - router-core/data-loading
+  - router-core-data-loading
 sources:
   - TanStack/router:docs/router/guide/ssr.md
   - TanStack/router:docs/router/guide/document-head-management.md
@@ -23,7 +23,7 @@ sources:
 
 > **WARNING**: SSR APIs are experimental. They share internal implementations with TanStack Start and may change. **TanStack Start is the recommended way to do SSR in production** — use manual SSR setup only when integrating with an existing server.
 
-> **CRITICAL**: TanStack Router is CLIENT-FIRST. Loaders run on the client by default. With SSR enabled, loaders run on BOTH client AND server. They are NOT server-only like Remix/Next.js loaders. See [router-core/data-loading](../data-loading/SKILL.md).
+> **CRITICAL**: TanStack Router is CLIENT-FIRST. Loaders run on the client by default. With SSR enabled, loaders run on BOTH client AND server. They are NOT server-only like Remix/Next.js loaders. See [router-core-data-loading](../router-core-data-loading/SKILL.md).
 
 > **CRITICAL**: Do not generate Next.js patterns (`getServerSideProps`, App Router, server components) or Remix patterns (server-only loader exports). TanStack Router has its own SSR API.
 
@@ -429,9 +429,9 @@ TanStack Router loaders are client-first by design. When SSR is enabled, they ru
 - Database access does NOT belong in loaders (unlike Remix/Next) — use API routes
 - For server-only data logic with SSR, use TanStack Start's server functions
 
-See [router-core/data-loading](../data-loading/SKILL.md) for loader fundamentals.
+See [router-core-data-loading](../router-core-data-loading/SKILL.md) for loader fundamentals.
 
 ## Cross-References
 
-- [router-core/data-loading](../data-loading/SKILL.md) — SSR changes where loaders execute
-- [compositions/router-query](../../../../react-router/skills/compositions/router-query/SKILL.md) — SSR dehydration/hydration with TanStack Query
+- [router-core-data-loading](../router-core-data-loading/SKILL.md) — SSR changes where loaders execute
+- [compositions-router-query](../compositions-router-query/SKILL.md) — SSR dehydration/hydration with TanStack Query

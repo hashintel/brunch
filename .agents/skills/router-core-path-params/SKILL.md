@@ -1,5 +1,5 @@
 ---
-name: router-core/path-params
+name: router-core-path-params
 description: >-
   Dynamic path segments ($paramName), splat routes ($ / _splat),
   optional params ({-$paramName}), prefix/suffix patterns ({$param}.ext),

@@ -1,5 +1,5 @@
 ---
-name: router-core/navigation
+name: router-core-navigation
 description: >-
   Link component, useNavigate, Navigate component, router.navigate,
   ToOptions/NavigateOptions/LinkOptions, from/to relative navigation,
@@ -444,5 +444,5 @@ When you pass `search` as a plain object, it replaces all search params. Use the
 
 ## Cross-References
 
-- See also: **router-core/search-params/SKILL.md** — Link `search` prop interacts with search param validation
-- See also: **router-core/type-safety/SKILL.md** — `from` narrowing improves type inference on Link
+- See also: **router-core-search-params/SKILL.md** — Link `search` prop interacts with search param validation
+- See also: **router-core-type-safety/SKILL.md** — `from` narrowing improves type inference on Link
