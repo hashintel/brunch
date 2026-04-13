@@ -93,7 +93,6 @@ describe('generated route runtime ownership', () => {
     expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/-knowledge-workspace.tsx'))).toBe(
       true,
     );
-    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/-export-loader.ts'))).toBe(true);
     expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/-export-preview.tsx'))).toBe(true);
 
     // Old flat-file routes removed

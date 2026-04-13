@@ -8,17 +8,14 @@ import { describe, expect, it } from 'vitest';
 const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
 describe('file-route knowledge ownership', () => {
-  it('keeps the knowledge workspace file route thin while the generated tree owns the route entry', () => {
+  it('keeps the knowledge file route thin while the generated tree owns the route entry', () => {
     const knowledgeRouteSource = readRepoFile('src/client/routes/project/$id/knowledge.tsx');
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
-    const workspaceLoaderSource = readRepoFile('src/client/workspace/workspace-loader.ts');
 
     expect(knowledgeRouteSource).toContain("createFileRoute('/project/$id/knowledge')");
-    expect(knowledgeRouteSource).toContain('fetchKnowledgeWorkspaceLoaderData');
+    expect(knowledgeRouteSource).toContain('fetchKnowledgeLoaderData');
     expect(knowledgeRouteSource).toContain('KnowledgeWorkspace');
-    expect(knowledgeRouteSource).toContain('KnowledgeWorkspaceSkeleton');
-
-    expect(workspaceLoaderSource).toContain('fetchKnowledgeWorkspaceLoaderData');
+    expect(knowledgeRouteSource).toContain('KnowledgeSkeleton');
 
     expect(generatedRouteTreeSource).toContain("'/project/$id/knowledge'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/knowledge'");

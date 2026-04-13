@@ -20,7 +20,7 @@ describe('file-route dashboard ownership', () => {
     expect(dashboardRouteSource).toContain('component: ProjectList');
 
     expect(projectListRouteSource).toContain("fetch('/api/projects')");
-    expect(projectListRouteSource).toContain('ProjectListScreen');
+    expect(projectListRouteSource).toContain('useCreateProjectMutation');
     expect(projectListRouteSource).toContain("navigate({ to: '/project/$id'");
     expect(routeRootSource).toContain('Outlet');
     expect(routeRootSource).toContain('HashMark');

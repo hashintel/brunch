@@ -8,19 +8,16 @@ import { describe, expect, it } from 'vitest';
 const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
 describe('file-route export ownership', () => {
-  it('keeps the export preview file route thin while the generated tree owns the route entry', () => {
+  it('keeps the export file route thin with an inline loader while the generated tree owns the route entry', () => {
     const exportRouteSource = readRepoFile('src/client/routes/project/$id/export.tsx');
+    const exportPreviewSource = readRepoFile('src/client/routes/project/$id/-export-preview.tsx');
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
-    const exportLoaderSource = readRepoFile('src/client/routes/project/$id/-export-loader.ts');
-    const exportPreviewScreenSource = readRepoFile('src/client/screens/ExportPreviewScreen.tsx');
 
     expect(exportRouteSource).toContain("createFileRoute('/project/$id/export')");
-    expect(exportRouteSource).toContain('fetchExportPreviewLoaderData');
+    expect(exportRouteSource).toContain('fetchExportLoaderData');
     expect(exportRouteSource).toContain('ExportPreview');
 
-    expect(exportLoaderSource).toContain('response.json()');
-    expect(exportLoaderSource).toContain('ExportLoaderData');
-    expect(exportPreviewScreenSource).toContain('to="/project/$id/knowledge"');
+    expect(exportPreviewSource).toContain('to="/project/$id/knowledge"');
 
     expect(generatedRouteTreeSource).toContain("'/project/$id/export'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/export'");

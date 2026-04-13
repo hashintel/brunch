@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { WorkflowState } from '@/shared/api-types.js';
 
-import { PhaseNavigationSidebar } from './phase-navigation-sidebar.js';
+import { PhaseNavigationSidebar } from './route.js';
 
 function createWorkflowState(
   overrides?: Partial<Record<string, Partial<WorkflowState['phases']['scope']>>>,

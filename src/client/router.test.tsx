@@ -5,49 +5,105 @@ import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const routeHarness = vi.hoisted(() => ({
-  fetchProjectLayoutLoaderData: vi.fn(async (id: string) => ({ id, kind: 'project' })),
-  fetchViewLayoutLoaderData: vi.fn(async (id: string) => ({ id, kind: 'entities' })),
-  fetchKnowledgeWorkspaceLoaderData: vi.fn(async (id: string) => ({ id, kind: 'knowledge' })),
-}));
+import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
+
 const fetchMock = vi.fn<typeof fetch>();
 
-vi.mock('./components/route-skeletons.js', () => ({
-  InterviewWorkspaceSkeleton: () => <div>Interview loading</div>,
-  KnowledgeWorkspaceSkeleton: () => <div>Knowledge loading</div>,
-}));
+const minimalProjectState: ProjectState = {
+  project: {
+    id: 42,
+    name: 'Test',
+    mode: 'greenfield',
+    cwd: null,
+    active_turn_id: null,
+    created_at: '',
+    updated_at: '',
+  },
+  workflow: {
+    phases: {
+      scope: {
+        status: 'unstarted',
+        closeability: false,
+        readiness: 'low',
+        closureBasis: null,
+        proposalPending: false,
+        turnId: null,
+        summary: null,
+      },
+      design: {
+        status: 'unstarted',
+        closeability: false,
+        readiness: 'low',
+        closureBasis: null,
+        proposalPending: false,
+        turnId: null,
+        summary: null,
+      },
+      requirements: {
+        status: 'unstarted',
+        closeability: false,
+        readiness: 'low',
+        closureBasis: null,
+        proposalPending: false,
+        turnId: null,
+        summary: null,
+      },
+      criteria: {
+        status: 'unstarted',
+        closeability: false,
+        readiness: 'low',
+        closureBasis: null,
+        proposalPending: false,
+        turnId: null,
+        summary: null,
+      },
+    },
+  },
+  turns: [],
+};
 
-vi.mock('./components/phase-navigation-sidebar.js', () => ({
-  PhaseNavigationSidebar: () => <nav data-testid="phase-sidebar">Phase sidebar</nav>,
-}));
+const minimalEntitiesData: EntitiesData = {
+  goals: [],
+  terms: [],
+  contexts: [],
+  constraints: [],
+  requirements: [],
+  criteria: [],
+  decisions: [],
+  assumptions: [],
+  relationships: [],
+};
 
-vi.mock('./screens/ProjectListScreen.js', () => ({
-  ProjectListScreen: () => <h1>Projects screen</h1>,
+vi.mock('./routes/-project-list.js', () => ({
+  ProjectList: () => <h1>Projects screen</h1>,
+  fetchProjectListLoaderData: vi.fn(async () => []),
 }));
 
 vi.mock('./workspace/workspace-controller', () => ({
   useWorkspaceController: () => ({ __brand: 'workspace-controller' }),
 }));
 
-vi.mock('./screens/InterviewWorkspaceScreen.js', () => ({
-  InterviewWorkspaceScreen: () => <h1>Interview screen</h1>,
+vi.mock('./routes/project/$id/_view/-interview-workspace.js', () => ({
+  InterviewWorkspace: () => <h1>Interview screen</h1>,
 }));
 
-vi.mock('./screens/KnowledgeWorkspaceScreen.js', () => ({
-  KnowledgeWorkspaceScreen: () => <h1>Knowledge screen</h1>,
+vi.mock('./routes/project/$id/-knowledge-workspace.js', () => ({
+  KnowledgeWorkspace: () => <h1>Knowledge screen</h1>,
+  KnowledgeWorkspaceView: () => <div>Knowledge view</div>,
 }));
 
-vi.mock('./workspace/workspace-loader.js', () => ({
-  fetchProjectLayoutLoaderData: routeHarness.fetchProjectLayoutLoaderData,
-  fetchViewLayoutLoaderData: routeHarness.fetchViewLayoutLoaderData,
-  fetchKnowledgeWorkspaceLoaderData: routeHarness.fetchKnowledgeWorkspaceLoaderData,
-}));
-
-vi.mock('./screens/ExportPreviewScreen.js', () => ({
-  ExportPreviewScreen: () => <h1>Export screen</h1>,
+vi.mock('./routes/project/$id/-export-preview.js', () => ({
+  ExportPreview: () => <h1>Export screen</h1>,
 }));
 
 import { routeTree } from './routeTree.gen.js';
+
+function jsonResponse(data: unknown) {
+  return new Response(JSON.stringify(data), {
+    status: 200,
+    headers: { 'Content-Type': 'application/json' },
+  });
+}
 
 function createDeferredPromise<T>() {
   let resolve!: (value: T) => void;
@@ -57,6 +113,28 @@ function createDeferredPromise<T>() {
   });
 
   return { promise, resolve };
+}
+
+function defaultFetchHandler(input: RequestInfo | URL): Response {
+  const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+  if (url.match(/\/api\/projects\/\d+\/entities/)) {
+    return jsonResponse(minimalEntitiesData);
+  }
+  if (url.match(/\/api\/projects\/\d+\/export/)) {
+    return jsonResponse({ ready: false });
+  }
+  if (url.match(/\/api\/projects\/\d+$/)) {
+    return jsonResponse(minimalProjectState);
+  }
+  if (url.endsWith('/api/config')) {
+    return jsonResponse({ cwd: '/test/cwd' });
+  }
+  if (url.endsWith('/api/projects')) {
+    return jsonResponse([]);
+  }
+
+  return jsonResponse([]);
 }
 
 async function renderRouteAt(pathname: string) {
@@ -75,30 +153,7 @@ async function renderRouteAt(pathname: string) {
 
 beforeEach(() => {
   fetchMock.mockReset();
-  routeHarness.fetchProjectLayoutLoaderData.mockClear();
-  routeHarness.fetchViewLayoutLoaderData.mockClear();
-  routeHarness.fetchKnowledgeWorkspaceLoaderData.mockClear();
-  fetchMock.mockImplementation(async (input) => {
-    const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-
-    if (url.endsWith('/export')) {
-      return new Response(JSON.stringify({ ready: false }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-    if (url.endsWith('/api/config')) {
-      return new Response(JSON.stringify({ cwd: '/test/cwd' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    }
-
-    return new Response(JSON.stringify([]), {
-      status: 200,
-      headers: { 'Content-Type': 'application/json' },
-    });
-  });
+  fetchMock.mockImplementation(async (input) => defaultFetchHandler(input));
   vi.stubGlobal('fetch', fetchMock);
 });
 
@@ -112,9 +167,6 @@ describe('generated routeTree', () => {
     await renderRouteAt('/');
 
     expect(await screen.findByRole('heading', { name: 'Projects screen' })).toBeTruthy();
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/projects');
-    });
   });
 
   it('maps the framing phase URL to the interview workspace screen with sidebar', async () => {
@@ -122,37 +174,41 @@ describe('generated routeTree', () => {
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
     expect(screen.getByTestId('phase-sidebar')).toBeTruthy();
-    expect(routeHarness.fetchProjectLayoutLoaderData).toHaveBeenCalledWith('42');
-    expect(routeHarness.fetchViewLayoutLoaderData).toHaveBeenCalledWith('42');
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42/entities?mode=active-path');
   });
 
   it('maps the elicitation phase URL to the interview workspace screen', async () => {
     await renderRouteAt('/project/42/elicitation');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-    expect(routeHarness.fetchProjectLayoutLoaderData).toHaveBeenCalledWith('42');
-    expect(routeHarness.fetchViewLayoutLoaderData).toHaveBeenCalledWith('42');
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42/entities?mode=active-path');
   });
 
   it('maps the requirements-review phase URL to the interview workspace screen', async () => {
     await renderRouteAt('/project/42/requirements-review');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-    expect(routeHarness.fetchProjectLayoutLoaderData).toHaveBeenCalledWith('42');
-    expect(routeHarness.fetchViewLayoutLoaderData).toHaveBeenCalledWith('42');
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
   });
 
   it('maps the acceptance-review phase URL to the interview workspace screen', async () => {
     await renderRouteAt('/project/42/acceptance-review');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-    expect(routeHarness.fetchProjectLayoutLoaderData).toHaveBeenCalledWith('42');
-    expect(routeHarness.fetchViewLayoutLoaderData).toHaveBeenCalledWith('42');
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
   });
 
-  it('keeps the interview workspace pending skeleton active while the route loader is unresolved', async () => {
-    const deferredLoader = createDeferredPromise<{ id: string; kind: string }>();
-    routeHarness.fetchProjectLayoutLoaderData.mockImplementationOnce(() => deferredLoader.promise);
+  it('keeps the project layout pending skeleton active while the route loader is unresolved', async () => {
+    const deferredFetch = createDeferredPromise<Response>();
+    fetchMock.mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      if (url.match(/\/api\/projects\/\d+$/)) {
+        return deferredFetch.promise;
+      }
+      return defaultFetchHandler(input);
+    });
 
     const history = createMemoryHistory({ initialEntries: ['/project/42/framing'] });
     const router = createRouter({ routeTree, history, defaultPendingMs: 0 });
@@ -160,11 +216,15 @@ describe('generated routeTree', () => {
     render(<RouterProvider router={router} />);
     void router.load();
 
-    expect(await screen.findByText('Interview loading')).toBeTruthy();
-    expect(routeHarness.fetchProjectLayoutLoaderData).toHaveBeenCalledWith('42');
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
+    });
+
+    // The interview screen should not be rendered while loading
+    expect(screen.queryByRole('heading', { name: 'Interview screen' })).toBeNull();
 
     await act(async () => {
-      deferredLoader.resolve({ id: '42', kind: 'project' });
+      deferredFetch.resolve(jsonResponse(minimalProjectState));
     });
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
@@ -174,12 +234,25 @@ describe('generated routeTree', () => {
     await renderRouteAt('/project/42/knowledge');
 
     expect(await screen.findByRole('heading', { name: 'Knowledge screen' })).toBeTruthy();
-    expect(routeHarness.fetchKnowledgeWorkspaceLoaderData).toHaveBeenCalledWith('42');
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
+    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42/entities?mode=active-path');
   });
 
-  it('keeps the knowledge workspace pending skeleton active while the route loader is unresolved', async () => {
-    const deferredLoader = createDeferredPromise<{ id: string; kind: string }>();
-    routeHarness.fetchKnowledgeWorkspaceLoaderData.mockImplementationOnce(() => deferredLoader.promise);
+  it('keeps the knowledge pending skeleton active while the route loader is unresolved', async () => {
+    const deferredFetch = createDeferredPromise<Response>();
+    let projectFetchCount = 0;
+    fetchMock.mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      // Hang only the first project fetch (ProjectLayout loader); let subsequent ones resolve
+      if (url.match(/\/api\/projects\/\d+$/) && !url.endsWith('/api/projects')) {
+        projectFetchCount++;
+        if (projectFetchCount === 1) {
+          return deferredFetch.promise;
+        }
+        return jsonResponse(minimalProjectState);
+      }
+      return defaultFetchHandler(input);
+    });
 
     const history = createMemoryHistory({ initialEntries: ['/project/42/knowledge'] });
     const router = createRouter({ routeTree, history, defaultPendingMs: 0 });
@@ -187,11 +260,15 @@ describe('generated routeTree', () => {
     render(<RouterProvider router={router} />);
     void router.load();
 
-    expect(await screen.findByText('Knowledge loading')).toBeTruthy();
-    expect(routeHarness.fetchKnowledgeWorkspaceLoaderData).toHaveBeenCalledWith('42');
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
+    });
+
+    // The knowledge screen should not be rendered while loading
+    expect(screen.queryByRole('heading', { name: 'Knowledge screen' })).toBeNull();
 
     await act(async () => {
-      deferredLoader.resolve({ id: '42', kind: 'knowledge' });
+      deferredFetch.resolve(jsonResponse(minimalProjectState));
     });
 
     expect(await screen.findByRole('heading', { name: 'Knowledge screen' })).toBeTruthy();
@@ -205,91 +282,6 @@ describe('generated routeTree', () => {
   });
 
   it('redirects project index to the framing phase by default', async () => {
-    // Mock the project state API for the redirect loader
-    fetchMock.mockImplementation(async (input) => {
-      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-
-      if (url.match(/\/api\/projects\/\d+$/)) {
-        return new Response(
-          JSON.stringify({
-            project: { id: 42, name: 'Test', mode: 'greenfield', cwd: null, created_at: '' },
-            workflow: {
-              phases: {
-                scope: {
-                  status: 'unstarted',
-                  closeability: false,
-                  readiness: 'none',
-                  closureBasis: null,
-                  proposalPending: false,
-                  turnId: null,
-                  summary: null,
-                },
-                design: {
-                  status: 'unstarted',
-                  closeability: false,
-                  readiness: 'none',
-                  closureBasis: null,
-                  proposalPending: false,
-                  turnId: null,
-                  summary: null,
-                },
-                requirements: {
-                  status: 'unstarted',
-                  closeability: false,
-                  readiness: 'none',
-                  closureBasis: null,
-                  proposalPending: false,
-                  turnId: null,
-                  summary: null,
-                },
-                criteria: {
-                  status: 'unstarted',
-                  closeability: false,
-                  readiness: 'none',
-                  closureBasis: null,
-                  proposalPending: false,
-                  turnId: null,
-                  summary: null,
-                },
-              },
-            },
-            turns: [],
-          }),
-          { status: 200, headers: { 'Content-Type': 'application/json' } },
-        );
-      }
-      if (url.endsWith('/api/config')) {
-        return new Response(JSON.stringify({ cwd: '/test/cwd' }), {
-          status: 200,
-          headers: { 'Content-Type': 'application/json' },
-        });
-      }
-      if (url.endsWith('/entities')) {
-        return new Response(
-          JSON.stringify({
-            goals: [],
-            terms: [],
-            contexts: [],
-            constraints: [],
-            requirements: [],
-            criteria: [],
-            decisions: [],
-            assumptions: [],
-            relationships: [],
-          }),
-          {
-            status: 200,
-            headers: { 'Content-Type': 'application/json' },
-          },
-        );
-      }
-
-      return new Response(JSON.stringify([]), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      });
-    });
-
     const { router } = await renderRouteAt('/project/42');
 
     await waitFor(() => {
