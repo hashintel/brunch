@@ -51,7 +51,6 @@ type UseChatHarness = {
 };
 
 let currentLoaderData: WorkspaceLoaderData;
-let currentRouteId: string;
 const routerInvalidate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 const chatTransportOptions: unknown[] = [];
@@ -65,7 +64,6 @@ let useChatHarness: UseChatHarness;
 
 vi.mock('@tanstack/react-router', () => ({
   useLoaderData: () => currentLoaderData,
-  useParams: () => ({ id: currentRouteId }),
   useRouter: () => ({ invalidate: routerInvalidate }),
 }));
 
@@ -302,7 +300,6 @@ function renderController() {
 
 beforeEach(() => {
   currentLoaderData = createWorkspaceLoaderData();
-  currentRouteId = String(currentLoaderData.projectState.project.id);
   routerInvalidate.mockClear();
   fetchMock.mockReset();
   chatTransportOptions.length = 0;
@@ -440,7 +437,6 @@ describe('workspace controller', () => {
         relationships: [],
       },
     });
-    currentRouteId = '999';
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({

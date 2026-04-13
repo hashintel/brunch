@@ -84,7 +84,6 @@ vi.mock('@tanstack/react-router', () => ({
     </a>
   ),
   useLoaderData: () => currentLoaderData,
-  useParams: () => ({ id: String(currentLoaderData.projectState.project.id) }),
   useRouter: () => ({ invalidate: routerInvalidate }),
 }));
 
