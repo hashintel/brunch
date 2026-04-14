@@ -61,6 +61,7 @@ export interface InterviewControllerPromptInputState {
 export interface InterviewController {
   readonly project: InterviewDurableProjectState['project'];
   readonly workflow: InterviewDurableProjectState['workflow'];
+  readonly phaseTurns: readonly ProjectStateTurn[];
   readonly chat: InterviewControllerChatState;
   readonly turnCard: InterviewControllerTurnCardState | null;
   readonly phaseSummary: PhaseSummaryViewModel | null;
@@ -83,8 +84,15 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     [durableProject.turns, phase],
   );
 
+  const [stablePhaseTurns, setStablePhaseTurns] = useState(() =>
+    durableProject.turns.filter((turn) => turn.phase === phase),
+  );
   const [pendingCloseNavigation, setPendingCloseNavigation] = useState(false);
   const pendingCloseRef = useRef(false);
+
+  useEffect(() => {
+    setStablePhaseTurns(durableProject.turns.filter((turn) => turn.phase === phase));
+  }, [durableProject.project.id, phase]);
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: `/api/projects/${projectId}/chat` }),
@@ -185,6 +193,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   return {
     project: viewState.project,
     workflow: viewState.workflow,
+    phaseTurns: stablePhaseTurns,
     chat: {
       messages: phaseMessages,
       status,

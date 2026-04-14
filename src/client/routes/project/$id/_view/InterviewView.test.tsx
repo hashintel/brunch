@@ -61,8 +61,15 @@ let useChatImpl: (options: UseChatOptions) => {
 let useChatHarness: UseChatHarness;
 
 vi.mock('@tanstack/react-router', () => ({
-  Link: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
-    <a {...props}>{children}</a>
+  Link: ({
+    children,
+    to,
+    params,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { to?: string; params?: { id: string } }) => (
+    <a href={to?.replace('$id', params?.id ?? '')} {...props}>
+      {children}
+    </a>
   ),
   useLoaderData: ({ from }: { from: string }) => {
     if (from === '/project/$id') return currentProjectState;
@@ -127,6 +134,7 @@ function createProjectState({
   options = [],
   workflow,
   assistantParts,
+  turns,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -141,6 +149,7 @@ function createProjectState({
   }>;
   workflow?: ProjectState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
+  turns?: ProjectState['turns'];
 } = {}): ProjectState {
   return {
     project: {
@@ -155,12 +164,12 @@ function createProjectState({
     workflow: workflow ?? {
       phases: {
         scope: {
-          status: 'unstarted',
+          status: 'in_progress',
           closeability: false,
           readiness: 'low',
           closureBasis: null,
           proposalPending: false,
-          turnId: null,
+          turnId: 1,
           summary: null,
         },
         design: {
@@ -192,7 +201,7 @@ function createProjectState({
         },
       },
     },
-    turns: [
+    turns: turns ?? [
       {
         id: 1,
         project_id: projectId,
@@ -222,6 +231,7 @@ function createWorkspaceLoaderData({
   options = [],
   workflow,
   assistantParts,
+  turns,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -236,6 +246,7 @@ function createWorkspaceLoaderData({
   }>;
   workflow?: ProjectState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
+  turns?: ProjectState['turns'];
 } = {}): { projectState: ProjectState } {
   return {
     projectState: createProjectState({
@@ -246,6 +257,7 @@ function createWorkspaceLoaderData({
       options,
       workflow,
       assistantParts,
+      turns,
     }),
   };
 }
@@ -340,6 +352,271 @@ afterEach(() => {
 });
 
 describe('InterviewView', () => {
+  it('shows a phase-entry card for the current unstarted phase instead of a bare composer', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [],
+        workflow: {
+          phases: {
+            scope: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+          },
+        },
+      }),
+    );
+
+    renderWorkspace();
+
+    expect(await screen.findByTestId('workspace-state-card')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Begin Framing' })).toBeTruthy();
+    expect(screen.queryByLabelText('Type a message...')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Begin Framing' }));
+
+    expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Begin the framing interview.' });
+  });
+
+  it('shows an explicit next-step affordance when the current turn has already been answered', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: 'Desktop — Best fit for launch',
+        userParts: [
+          { type: 'text', text: 'Desktop — Best fit for launch' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
+          },
+        ],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    renderWorkspace();
+
+    expect(await screen.findByText('Continue Framing')).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Ask for the next step' })).toBeTruthy();
+    expect(screen.getByLabelText('Type a message...')).toBeTruthy();
+  });
+
+  it('renders historical completed turns as compact answered cards instead of replay placeholders', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'scope',
+            question: 'What should we build first?',
+            why: 'This frames the first iteration.',
+            impact: 'high',
+            answer: 'Build the web app',
+            is_resolution: false,
+            user_parts: JSON.stringify([{ type: 'text', text: 'Build the web app' }]),
+            assistant_parts: JSON.stringify([
+              {
+                type: 'tool-ask_question',
+                toolCallId: 'tool-1',
+                state: 'output-available',
+                input: {
+                  question: 'What should we build first?',
+                  why: 'This frames the first iteration.',
+                  impact: 'high',
+                  options: [
+                    { content: 'Web', is_recommended: true },
+                    { content: 'Desktop', is_recommended: false },
+                  ],
+                },
+                output: { ok: true, turnId: 1, optionCount: 2 },
+              },
+              {
+                type: 'data-observer-result',
+                data: {
+                  entityIds: {
+                    goals: [1],
+                    terms: [],
+                    contexts: [],
+                    constraints: [],
+                    requirements: [],
+                    criteria: [],
+                    decisions: [],
+                    assumptions: [],
+                  },
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+            ],
+          },
+          {
+            id: 2,
+            project_id: 1,
+            parent_turn_id: 1,
+            phase: 'scope',
+            question: 'Which platform should we target now?',
+            why: 'Platform shapes the next build.',
+            impact: 'medium',
+            answer: 'Ship the desktop app',
+            is_resolution: false,
+            user_parts: JSON.stringify([{ type: 'text', text: 'Ship the desktop app' }]),
+            assistant_parts: JSON.stringify([{ type: 'text', text: 'Which platform should we target now?' }]),
+            created_at: '2026-04-03 10:05:00',
+            options: [],
+          },
+        ],
+        workflow: {
+          phases: {
+            scope: {
+              status: 'in_progress',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: 2,
+              summary: null,
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+          },
+        },
+      }),
+    );
+
+    renderWorkspace();
+
+    await waitFor(() => {
+      expect(screen.getAllByTestId('answered-turn-card')).toHaveLength(2);
+    });
+    const answeredCards = screen.getAllByTestId('answered-turn-card');
+    expect(answeredCards[0].textContent).toContain('What should we build first?');
+    expect(answeredCards[0].textContent).toContain('Build the web app');
+    expect(answeredCards[0].textContent).toContain('Workspace knowledge updated');
+  });
+
+  it('renders continue/start control actions as control markers instead of user chat bubbles', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [],
+        workflow: {
+          phases: {
+            scope: {
+              status: 'in_progress',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+          },
+        },
+      }),
+    );
+
+    renderWorkspace();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'u-control', role: 'user', parts: [{ type: 'text', text: 'Continue the framing interview.' }] },
+      ]);
+    });
+
+    expect(await screen.findByText('Interview resumed')).toBeTruthy();
+    expect(screen.queryByText('Continue the framing interview.')).toBeNull();
+  });
+
   it('renders the turn card from a pending-question tool part before route invalidation', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
@@ -351,7 +628,7 @@ describe('InterviewView', () => {
 
     renderWorkspace();
 
-    expect(await screen.findByText('Earlier question?')).toBeTruthy();
+    expect((await screen.findByTestId('answered-turn-card')).textContent).toContain('Earlier question?');
     expect(screen.queryByText('Which platform should we target next?')).toBeNull();
     expect(screen.getByLabelText('Type a message...')).toBeTruthy();
 
@@ -376,7 +653,9 @@ describe('InterviewView', () => {
     setLoaderData(createWorkspaceLoaderData());
 
     const rendered = renderWorkspace();
-    expect(await screen.findByText('What should we build first?')).toBeTruthy();
+    expect((await screen.findByTestId('answered-turn-card')).textContent).toContain(
+      'What should we build first?',
+    );
 
     setLoaderData(
       createWorkspaceLoaderData({
@@ -390,7 +669,7 @@ describe('InterviewView', () => {
       </QueryClientProvider>,
     );
 
-    expect(screen.getByText('What should we build first?')).toBeTruthy();
+    expect(screen.getByTestId('answered-turn-card').textContent).toContain('What should we build first?');
     expect(screen.queryByText('Which platform should we target now?')).toBeNull();
     expect(screen.queryByText('Ship the desktop app')).toBeNull();
     expect(useChatHarness.setMessages).not.toHaveBeenCalled();
@@ -398,7 +677,9 @@ describe('InterviewView', () => {
 
   it('hydrates persisted transcript state when navigating to a different project', async () => {
     const rendered = renderWorkspace();
-    expect(await screen.findByText('What should we build first?')).toBeTruthy();
+    expect((await screen.findByTestId('answered-turn-card')).textContent).toContain(
+      'What should we build first?',
+    );
 
     setLoaderData(
       createWorkspaceLoaderData({
@@ -414,8 +695,8 @@ describe('InterviewView', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('How should project two start?')).toBeTruthy();
-      expect(screen.getByText('Begin with the API')).toBeTruthy();
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain('How should project two start?');
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain('Begin with the API');
     });
 
     expect(useChatHarness.setMessages).not.toHaveBeenCalled();
@@ -424,6 +705,8 @@ describe('InterviewView', () => {
   it('posts single-option turn responses with optional free-text and forwards a combined summary into chat', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
         options: [
           { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
           { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
@@ -471,6 +754,8 @@ describe('InterviewView', () => {
   it('posts many-selection turn responses and forwards a grouped summary into chat', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
         options: [
           { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
           { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
@@ -710,6 +995,8 @@ describe('InterviewView', () => {
   it('posts free-text-only turn responses and forwards the text into chat', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
         options: [
           { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
           { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
@@ -752,7 +1039,7 @@ describe('InterviewView', () => {
     });
   });
 
-  it('rehydrates persisted selected options from turn-response data even when option flags are false', async () => {
+  it('renders persisted selected options inside the compact answered card even when option flags are false', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         answer: 'Desktop — Best fit for launch',
@@ -772,17 +1059,14 @@ describe('InterviewView', () => {
 
     renderWorkspace();
 
-    const web = (await screen.findByRole('checkbox', { name: /web/i })) as HTMLInputElement;
-    const desktop = screen.getByRole('checkbox', { name: /desktop/i }) as HTMLInputElement;
+    const answeredCard = await screen.findByTestId('answered-turn-card');
 
-    expect(web.checked).toBe(false);
-    expect(desktop.checked).toBe(true);
-    expect(web.disabled).toBe(true);
-    expect(desktop.disabled).toBe(true);
+    expect(answeredCard.textContent).toContain('Desktop');
+    expect(answeredCard.textContent).toContain('Best fit for launch');
     expect(screen.getByLabelText('Type a message...')).toBeTruthy();
   });
 
-  it('locks a persisted free-text-only turn response after it has been saved', async () => {
+  it('renders a compact answered card for a persisted free-text-only response', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         answer: 'None of these fit our use case',
@@ -802,22 +1086,20 @@ describe('InterviewView', () => {
 
     renderWorkspace();
 
-    expect(await screen.findByText('None of these fit our use case')).toBeTruthy();
-    expect((screen.getByLabelText('Additional response context') as HTMLTextAreaElement).disabled).toBe(true);
-    expect(
-      (screen.getByRole('button', { name: /submit selected response/i }) as HTMLButtonElement).disabled,
-    ).toBe(true);
-    expect(
-      (screen.getByRole('button', { name: /submit free-text response/i }) as HTMLButtonElement).disabled,
-    ).toBe(true);
-    expect((screen.getByRole('checkbox', { name: /web/i }) as HTMLInputElement).disabled).toBe(true);
-    expect((screen.getByRole('checkbox', { name: /desktop/i }) as HTMLInputElement).disabled).toBe(true);
+    const answeredCard = await screen.findByTestId('answered-turn-card');
+
+    expect(answeredCard.textContent).toContain('None of the above');
+    expect(answeredCard.textContent).toContain('None of these fit our use case');
+    expect(screen.queryByLabelText('Additional response context')).toBeNull();
+    expect(screen.queryByRole('checkbox', { name: /web/i })).toBeNull();
     expect(screen.getByLabelText('Type a message...')).toBeTruthy();
   });
 
   it('shows a visible error when saving an option selection fails', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
         options: [
           { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
           { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },

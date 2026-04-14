@@ -115,12 +115,12 @@ function createProjectState({
     workflow: {
       phases: {
         scope: {
-          status: 'unstarted',
+          status: 'in_progress',
           closeability: false,
           readiness: 'low',
           closureBasis: null,
           proposalPending: false,
-          turnId: null,
+          turnId: 1,
           summary: null,
         },
         design: {

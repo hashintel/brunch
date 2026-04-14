@@ -98,7 +98,7 @@ export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
   return (
     <div className="flex h-full w-72 flex-col border-l bg-card">
       {/* Tab bar */}
-      <div className="flex border-b">
+      <div className="flex flex-wrap gap-1 border-b p-2">
         {knowledgeKindRegistry.map((entry) => {
           const count = entityState[entry.collectionKey].length;
           return (
@@ -107,10 +107,10 @@ export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
               type="button"
               onClick={() => setActiveTab(entry.collectionKey)}
               className={cn(
-                'flex-1 px-3 py-2 text-sm font-medium transition-colors',
+                'rounded-md px-3 py-2 text-sm font-medium transition-colors',
                 activeTab === entry.collectionKey
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-muted-foreground hover:text-foreground',
+                  ? 'bg-primary/10 text-primary'
+                  : 'text-muted-foreground hover:bg-muted hover:text-foreground',
               )}
             >
               {entry.label}

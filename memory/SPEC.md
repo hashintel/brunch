@@ -48,6 +48,7 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 15. The dashboard shows multiple elicitation runs / versions within one `.brunch/` directory.
 16. Partial-scope elicitation works for a feature or bounded sub-area, not just whole-product greenfield specs.
 17. Each phase exposes an explicit entry, handoff, or completion affordance when no active turn is open; the UI must not strand the user with a bare generic composer as the only visible action.
+18. Open interview phases default to the current unresolved turn or a visible generation state, and closed phases terminate in a handoff or completion artifact at the bottom of the workspace transcript.
 
 ## Assumptions
 
@@ -68,6 +69,8 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 | A51 | Kickoff plus the scope/design interview remain legible if the primary input surface is the workspace-owned active turn card rather than a persistent global composer. | medium | open | D89, D91 | Manual walkthroughs on kickoff, scope, and design states plus story review of entry / handoff patterns. |
 | A52 | Lightweight per-item approve / reject / comment review is sufficient for requirements and criteria without inline editing or repeated interviewer micro-turns. | medium | open | D90 | Manual review walkthroughs on seeded requirement and criteria scenarios. |
 | A53 | Contentless durable placeholders are sufficient to preserve transcript trust for live thinking/tool artifacts without persisting hidden reasoning or raw tool results. | medium | open | D92 | Manual replay/reload walkthroughs on streamed turns once transcript placeholders land. |
+| A54 | An open phase can reliably project a current unresolved turn or a visible generation state on first render without requiring the user to bootstrap the phase by typing or clicking a synthetic start message. | medium | open | D89, D94 | Manual walkthroughs on kickoff-ready, design-active, and resumed phase states. |
+| A55 | Observer capture can trail interviewer completion without eroding trust if the trailing status stays attached to the completed turn card rather than surfacing as a free-floating transcript row. | medium | open | D22, D95 | Manual timing walkthroughs plus runtime observation on seeded turns with known observer work. |
 
 ## Decisions
 
@@ -100,6 +103,9 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 90. **Requirements and criteria resolve through synthesized review sets** — the interviewer proposes candidate items from prior knowledge, the user acts per item through approve / reject / comment responses, and phase confirmation happens at the list level rather than through repeated micro-interviews. Depends on: A44, A52. Supersedes: —.
 91. **Kickoff uses workspace entry states in the same interaction family as elicitation** — greenfield/brownfield routing and the first scoping steps live in the project workspace through dedicated kickoff cards rather than root-route modals or a bare chat shell. Depends on: A47, A51. Supersedes: —.
 92. **Live-only assistant artifacts replay as contentless placeholders** — if thinking or tool use is surfaced live, hydration persists an inert marker that the artifact occurred without persisting hidden reasoning tokens or raw tool results. Depends on: A53. Supersedes: —.
+93. **Replay for elicitation phases is turn-shaped, not message-shaped** — completed interview turns collapse into answered-turn records that summarize the question, the structured user response, and the capture status, while control and closure events render in their own interaction family rather than as ordinary chat bubbles. Depends on: A51, A53. Supersedes: —.
+94. **Phase progression is bottom-anchored** — if a phase is open, the workspace transcript bottoms out in the current unresolved turn or a visible generation state; if a phase is closed, the transcript bottoms out in a handoff or completion artifact. Depends on: A51, A54. Supersedes: —.
+95. **Observer capture may trail interviewer progression if it stays turn-owned** — interviewer completion may unlock the next turn before observer capture finishes, but any trailing observer state remains attached to the just-answered turn card rather than surfacing as a free-floating transcript row. Depends on: A20, A53, A55. Supersedes: —.
 
 ## Critical Invariants
 
@@ -129,10 +135,13 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 | **project** | One elicitation run within a `.brunch/` directory. |
 | **turn** | One persisted interview checkpoint with parent linkage and typed parts. |
 | **active turn** | A live interviewer question in scope/design awaiting a structured user response inside the workspace card. |
+| **answered-turn card** | The compact replay form of a completed elicitation turn, summarizing the question, the structured response, and the turn-owned capture status. |
 | **response note** | The single attached text field on a structured user response; it may explain selections, add missing context, or redirect the interviewer. |
 | **review set** | A synthesized candidate list used in requirements or criteria review, resolved through lightweight per-item approve / reject / comment actions. |
 | **phase entry state** | The workspace state shown when a phase is open but no active turn exists yet. |
 | **phase handoff state** | The workspace state shown when a phase is complete and the next phase is available. |
+| **control marker** | A transcript-visible workspace event such as interview start, resume, or confirmation that is not rendered as a normal user chat bubble. |
+| **turn capture status** | The per-turn state describing what the observer has captured already, is still capturing, or failed to capture from that answered turn. |
 | **active path** | The trusted chain from HEAD to root in the primary conversation. |
 | **phase / mode** | One workflow stage: `scope`, `design`, `requirements`, or `criteria`. |
 | **phase outcome** | Durable closure artifact for a phase, including summary and closure basis. |
@@ -203,6 +212,7 @@ Every meaningful code change should pass `npm run fix` in the inner loop and `np
 ### Design Notes
 
 - **Legible replay fidelity beats exact replay fidelity for now** — hydrated transcripts may use placeholders or summary markers to indicate that reasoning or tool activity happened at a point in the conversation, even if the full original content is not persisted.
+- **Turn-first replay now beats message-first replay** — for scope/design, the replay unit should trend toward completed turns plus one live unresolved turn, not alternating assistant/user chat bubbles and stream markers.
 - **Brownfield kickoff has a deliberately modest proof bar** — this wave only needs durable useful knowledge plus a grounded first question, not a fully proven framing bundle before scope can proceed.
 - **Waiting states should become an explicit vocabulary in code** — the user-facing contract is that each major in-flight mode is visibly represented; deep lock/wait introspection is diagnostic scaffolding, not yet a product requirement.
 - **Manual verification is intentionally lightweight** — no heavyweight scripted walkthrough protocol yet; use seeded scenarios and see-and-inspect review rather than bureaucratic checklists.
@@ -249,3 +259,4 @@ Every meaningful code change should pass `npm run fix` in the inner loop and `np
 10. The verification gate passes.
 11. Scope/design use active-turn cards, requirements/criteria use review sets, and non-active phases expose entry / handoff / completion affordances instead of a bare generic composer.
 12. Hydrated transcripts preserve interviewer-side structure plus stable contentless placeholders for any live-only artifacts that were shown during streaming.
+13. Open phases bottom-load the current unresolved turn or a visible generation state, completed elicitation turns replay as answered-turn records, and closed phases bottom-load a handoff or completion artifact.

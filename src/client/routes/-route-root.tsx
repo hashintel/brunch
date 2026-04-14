@@ -12,7 +12,7 @@ export function RouteRoot({ cwd }: { cwd: string }) {
         </Link>
         <span className="font-mono text-xs text-sub">{cwd}</span>
       </header>
-      <main className="flex-1 overflow-hidden">
+      <main className="min-h-0 flex-1">
         <Outlet />
       </main>
     </div>

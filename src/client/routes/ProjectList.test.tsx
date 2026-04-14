@@ -13,6 +13,16 @@ const navigateMock = vi.fn();
 const fetchMock = vi.fn<typeof fetch>();
 
 vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    children,
+    to,
+    params,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { to: string; params?: { id: string } }) => (
+    <a href={to.replace('$id', params?.id ?? '')} {...props}>
+      {children}
+    </a>
+  ),
   getRouteApi: () => ({
     useLoaderData: () => currentProjects,
   }),
@@ -122,6 +132,30 @@ describe('ProjectList', () => {
     await waitFor(() => {
       expect(navigateMock).toHaveBeenCalledWith({ to: '/project/$id', params: { id: '7' } });
     });
+  });
+
+  it('renders project cards as real links into the workspace', () => {
+    currentProjects = [
+      {
+        id: 1,
+        name: 'Active project',
+        mode: 'greenfield',
+        cwd: null,
+        active_turn_id: 5,
+        created_at: '2026-04-10 09:00:00',
+        updated_at: '2026-04-10 09:30:00',
+        workflowSummary: {
+          scope: 'closed',
+          design: 'in_progress',
+          requirements: 'unstarted',
+          criteria: 'unstarted',
+        },
+      } satisfies ProjectListItem,
+    ];
+
+    renderProjectList();
+
+    expect(screen.getByRole('link', { name: /Active project/i }).getAttribute('href')).toBe('/project/1');
   });
 
   it('renders per-phase workflow status badges for each project', () => {

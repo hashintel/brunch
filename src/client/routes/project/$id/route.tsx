@@ -38,7 +38,7 @@ function ReadinessBadge({ readiness }: { readiness: WorkflowPhaseState['readines
   return (
     <span
       className={cn(
-        'rounded px-1 py-0.5 text-[10px] font-medium leading-none',
+        'rounded px-1 py-0.5 text-[10px] font-medium leading-none capitalize',
         readiness === 'high' && 'bg-emerald-100 text-emerald-700',
         readiness === 'medium' && 'bg-amber-100 text-amber-700',
         readiness === 'low' && 'bg-zinc-100 text-zinc-500',
@@ -49,9 +49,33 @@ function ReadinessBadge({ readiness }: { readiness: WorkflowPhaseState['readines
   );
 }
 
+function StatusBadge({ status }: { status: WorkflowPhaseState['status'] }) {
+  if (status === 'closed') {
+    return (
+      <span className="rounded bg-sky-100 px-1 py-0.5 text-[10px] font-medium leading-none text-sky-700">
+        Done
+      </span>
+    );
+  }
+
+  if (status === 'unstarted') {
+    return (
+      <span className="rounded bg-zinc-100 px-1 py-0.5 text-[10px] font-medium leading-none text-zinc-500">
+        Unstarted
+      </span>
+    );
+  }
+
+  return null;
+}
+
 function CloseabilityIndicator({ closeable }: { closeable: boolean }) {
   if (!closeable) return null;
   return <span className="size-1.5 rounded-full bg-emerald-500" title="Closeable" />;
+}
+
+function getCurrentReachablePhase(workflow: WorkflowState): WorkflowPhase | null {
+  return phaseOrder.find((phase) => workflow.phases[phase].status !== 'closed') ?? null;
 }
 
 export function PhaseNavigationSidebar({
@@ -61,6 +85,8 @@ export function PhaseNavigationSidebar({
   projectId: string;
   workflow: WorkflowState;
 }) {
+  const currentReachablePhase = getCurrentReachablePhase(workflow);
+
   return (
     <aside
       className="flex w-60 shrink-0 flex-col border-r border-rule bg-tint py-2"
@@ -70,6 +96,41 @@ export function PhaseNavigationSidebar({
         {phaseOrder.map((phase) => {
           const state = workflow.phases[phase];
           const segment = phaseRouteSegments[phase];
+          const isReachable =
+            state.status === 'closed' || currentReachablePhase === phase || currentReachablePhase === null;
+          const sharedClassName = cn(
+            'flex h-8 w-full items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors',
+            state.status === 'unstarted' ? 'text-sub' : 'text-ink',
+            !isReachable && 'cursor-not-allowed opacity-70',
+          );
+          const sharedProps = {
+            'data-phase': phase,
+            'data-phase-status': state.status,
+            'data-phase-readiness': state.readiness,
+            'data-phase-closeable': String(state.closeability),
+            'data-phase-reachable': String(isReachable),
+          };
+
+          const content = (
+            <>
+              <StatusIndicator status={state.status} />
+              <span className="flex-1 text-left">{phaseLabels[phase]}</span>
+              {state.status === 'in_progress' ? (
+                <CloseabilityIndicator closeable={state.closeability} />
+              ) : null}
+              {state.status === 'in_progress' ? <ReadinessBadge readiness={state.readiness} /> : null}
+              {state.status !== 'in_progress' ? <StatusBadge status={state.status} /> : null}
+            </>
+          );
+
+          if (!isReachable) {
+            return (
+              <div key={phase} aria-disabled="true" className={sharedClassName} {...sharedProps}>
+                {content}
+              </div>
+            );
+          }
+
           return (
             <Link
               key={phase}
@@ -77,19 +138,10 @@ export function PhaseNavigationSidebar({
               to={`/project/$id/${segment}`}
               params={{ id: projectId }}
               activeProps={{ className: 'bg-white shadow-[var(--shadow-card-ring)]' }}
-              className={cn(
-                'flex h-8 w-full items-center gap-1.5 rounded-md px-2 text-xs font-medium transition-colors',
-                state.status === 'unstarted' ? 'text-sub' : 'text-ink',
-              )}
-              data-phase={phase}
-              data-phase-status={state.status}
-              data-phase-readiness={state.readiness}
-              data-phase-closeable={state.closeability}
+              className={sharedClassName}
+              {...sharedProps}
             >
-              <StatusIndicator status={state.status} />
-              <span className="flex-1 text-left">{phaseLabels[phase]}</span>
-              <CloseabilityIndicator closeable={state.closeability} />
-              <ReadinessBadge readiness={state.readiness} />
+              {content}
             </Link>
           );
         })}

@@ -65,13 +65,10 @@ describe('PhaseNavigationSidebar', () => {
     const nav = screen.getByRole('navigation', { name: 'Phase navigation' });
     expect(nav).toBeTruthy();
 
-    const links = nav.querySelectorAll('a');
-    expect(links).toHaveLength(4);
-
-    expect(links[0].textContent).toContain('Framing');
-    expect(links[1].textContent).toContain('Elicitation');
-    expect(links[2].textContent).toContain('Requirements Review');
-    expect(links[3].textContent).toContain('Acceptance Review');
+    expect(screen.getByText('Framing')).toBeTruthy();
+    expect(screen.getByText('Elicitation')).toBeTruthy();
+    expect(screen.getByText('Requirements Review')).toBeTruthy();
+    expect(screen.getByText('Acceptance Review')).toBeTruthy();
   });
 
   it('shows correct status for each phase', async () => {
@@ -85,15 +82,15 @@ describe('PhaseNavigationSidebar', () => {
     await renderSidebar(workflow);
 
     const nav = screen.getByRole('navigation', { name: 'Phase navigation' });
-    const links = nav.querySelectorAll('a');
+    const rows = nav.querySelectorAll('[data-phase]');
 
-    expect(links[0].getAttribute('data-phase-status')).toBe('closed');
-    expect(links[1].getAttribute('data-phase-status')).toBe('in_progress');
-    expect(links[2].getAttribute('data-phase-status')).toBe('unstarted');
-    expect(links[3].getAttribute('data-phase-status')).toBe('unstarted');
+    expect(rows[0].getAttribute('data-phase-status')).toBe('closed');
+    expect(rows[1].getAttribute('data-phase-status')).toBe('in_progress');
+    expect(rows[2].getAttribute('data-phase-status')).toBe('unstarted');
+    expect(rows[3].getAttribute('data-phase-status')).toBe('unstarted');
   });
 
-  it('shows readiness bands for each phase', async () => {
+  it('shows readiness only for in-progress phases and keeps unstarted phases truthful', async () => {
     const workflow = createWorkflowState({
       scope: { status: 'closed', readiness: 'high' },
       design: { status: 'in_progress', readiness: 'medium' },
@@ -103,11 +100,12 @@ describe('PhaseNavigationSidebar', () => {
     await renderSidebar(workflow);
 
     const nav = screen.getByRole('navigation', { name: 'Phase navigation' });
-    const links = nav.querySelectorAll('a');
+    const rows = nav.querySelectorAll('[data-phase]');
 
-    expect(links[0].getAttribute('data-phase-readiness')).toBe('high');
-    expect(links[1].getAttribute('data-phase-readiness')).toBe('medium');
-    expect(links[2].getAttribute('data-phase-readiness')).toBe('low');
+    expect(rows[0].textContent).toContain('Done');
+    expect(rows[1].textContent).toContain('medium');
+    expect(rows[2].textContent).toContain('Unstarted');
+    expect(rows[2].textContent).not.toContain('low');
   });
 
   it('shows closeability for each phase', async () => {
@@ -119,21 +117,28 @@ describe('PhaseNavigationSidebar', () => {
     await renderSidebar(workflow);
 
     const nav = screen.getByRole('navigation', { name: 'Phase navigation' });
-    const links = nav.querySelectorAll('a');
+    const rows = nav.querySelectorAll('[data-phase]');
 
-    expect(links[0].getAttribute('data-phase-closeable')).toBe('true');
-    expect(links[1].getAttribute('data-phase-closeable')).toBe('false');
+    expect(rows[0].getAttribute('data-phase-closeable')).toBe('true');
+    expect(rows[1].getAttribute('data-phase-closeable')).toBe('false');
   });
 
-  it('generates correct navigation hrefs for each phase', async () => {
-    await renderSidebar(createWorkflowState());
+  it('gates future unopened phases while keeping the current phase reachable', async () => {
+    const workflow = createWorkflowState({
+      scope: { status: 'closed', readiness: 'high' },
+      design: { status: 'unstarted' },
+      requirements: { status: 'unstarted' },
+      criteria: { status: 'unstarted' },
+    });
+
+    await renderSidebar(workflow, '/project/42/elicitation');
 
     const nav = screen.getByRole('navigation', { name: 'Phase navigation' });
     const links = nav.querySelectorAll('a');
 
     expect(links[0].getAttribute('href')).toBe('/project/42/framing');
     expect(links[1].getAttribute('href')).toBe('/project/42/elicitation');
-    expect(links[2].getAttribute('href')).toBe('/project/42/requirements-review');
-    expect(links[3].getAttribute('href')).toBe('/project/42/acceptance-review');
+    expect(nav.querySelector('[data-phase="requirements"]')?.getAttribute('aria-disabled')).toBe('true');
+    expect(nav.querySelector('[data-phase="criteria"]')?.getAttribute('aria-disabled')).toBe('true');
   });
 });
