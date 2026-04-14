@@ -1,11 +1,13 @@
 ---
 name: ln-sync
-description: "Refresh `memory/SPEC.md` and `memory/PLAN.md` in mature mode — keep only live architecture and the rolling frontier, archive stale history, and flag drift against code."
+description: "Refresh `memory/SPEC.md` and `memory/PLAN.md` in mature mode — restore canonical truth, archive retired plan history, delete stale derivative artifacts, and flag drift against code."
 ---
 
 # Ln Sync
 
-Audit and refresh the two project documents so they stay lightweight enough for fast re-entry.
+Audit and refresh the canonical documents so they stay lightweight enough for fast re-entry.
+
+`ln-sync` is the family-wide ontology repair and garbage-collection pass. Merge equivalent facts, repair stale references, and delete exhausted derivative artifacts. Only `docs/archive/PLAN_HISTORY.md` acts as archive history.
 
 ## When to run
 
@@ -23,6 +25,8 @@ Prefer `ln-sync` at these moments:
 | `memory/SPEC.md` | what and why | active assumptions, current decisions, critical invariants, live constraints |
 | `memory/PLAN.md` | what's next | active frontier, near-horizon items, recent completions |
 | `docs/archive/PLAN_HISTORY.md` | historical ledger | older completed phases and retired plan history |
+| `HANDOFF.md` | derivative volatile transfer | only unfinished chat state not yet reconciled |
+| `memory/REFACTOR.md` | derivative temporary execution plan | only unfinished refactor steps |
 
 ## Procedure
 
@@ -36,6 +40,7 @@ Ask whether each file is still serving re-entry.
 
 - If `memory/SPEC.md` is carrying embedded truths, old implementation detail, or closed historical debates, prune it.
 - If `memory/PLAN.md` is mostly completed history, collapse it to a rolling frontier and archive the rest.
+- If `HANDOFF.md` or `memory/REFACTOR.md` no longer carry live temporary state, delete them.
 
 ### 3. SPEC pass — keep only live architecture
 
@@ -43,7 +48,7 @@ For each item in `memory/SPEC.md`, choose one:
 
 - **keep** — still unresolved or still constrains future work
 - **update** — wording / evidence / scope changed
-- **archive by removal** — embedded, moot, superseded, or redundant
+- **remove** — embedded, moot, superseded, or redundant
 
 #### Keep in SPEC
 
@@ -66,6 +71,8 @@ For each item in `memory/SPEC.md`, choose one:
 
 Do **not** remove durable seam rationale merely because code and tests now exist. Prune micro-decisions, not the architectural spine.
 
+Merge equivalent assumptions, decisions, and invariants instead of carrying parallel rows for the same seam-level fact. When rows merge or move, repair the references that point at them.
+
 When pruning, leave concise HTML comments naming removed IDs when useful. Do not renumber survivors.
 
 ### 4. PLAN pass — restore the rolling frontier
@@ -85,8 +92,9 @@ Rules:
 - only active / next items need detailed acceptance or traceability
 - keep dependency diagrams limited to active / next work
 - keep enough `Why now / unlocks` context that a fresh thread can understand frontier ordering without reading the full archive
+- do not archive handoffs, refactor plans, or sync reports
 
-### 5. Drift check
+### 5. Drift and ontology check
 
 Scan recent code / commits for:
 
@@ -94,8 +102,18 @@ Scan recent code / commits for:
 - durable decisions not reflected in `memory/SPEC.md`
 - active work not represented in `memory/PLAN.md`
 - stale references between `memory/PLAN.md` and `memory/SPEC.md`
+- equivalent facts that should merge instead of coexisting
+- stale derivative artifacts that should be deleted after reconciliation
 
-### 6. Report and update
+### 6. Garbage-collect derivative artifacts
+
+Delete exhausted temporary artifacts after their useful state has been reconciled:
+
+- remove stale `HANDOFF.md` files instead of preserving them as archive breadcrumbs
+- remove completed `memory/REFACTOR.md` files instead of leaving completion notes or pointers
+- if an ad hoc planning/status file was created with explicit permission and is now exhausted, reconcile any durable facts, then delete it unless the user asked to keep it
+
+### 7. Report and update
 
 Produce a concise sync report and make the edits.
 
@@ -107,6 +125,9 @@ Produce a concise sync report and make the edits.
 
 ### Archived
 - [history moved to PLAN_HISTORY.md]
+
+### Garbage-collected
+- [temporary artifacts deleted and why]
 
 ### Drift fixed
 - [concept / decision / frontier updates made]
@@ -121,7 +142,7 @@ After sync, present these options to the user (use `tool-ask-question`):
 
 | #   | Label             | Target       | Why |
 | --- | ----------------- | ------------ | --- |
-| 1   | Scope next item   | `ln-scope`   | Docs are current and the next work packet is ready |
+| 1   | Scope next item   | `ln-scope`   | Docs are current and the next slice is ready |
 | 2   | Revisit the plan  | `ln-plan`    | Sync changed priorities or exposed new frontier work |
 | 3   | Back to triage    | `ln-consult` | Direction needs reassessment |
 

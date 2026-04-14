@@ -6,10 +6,10 @@ argument-hint: "[behavior to deliver in this slice]"
 
 # Ln Scope
 
-Define **one** buildable work packet. In mature mode that can be either:
+Define **one** buildable scope card. The card always describes one slice, but it can carry one of two weights:
 
 - a **full scope card** for structural work
-- a **lightweight packet** for bounded feature or hardening work inside settled seams
+- a **light scope card** for bounded feature or hardening work inside settled seams
 
 If the target behavior needs "and", split it.
 
@@ -27,9 +27,11 @@ If this is a fresh thread or an unfamiliar area, also read `HANDOFF.md` if prese
 
 Write a 2-4 bullet orientation note naming the containing seam, the relevant frontier item, volatile handoff state, and the main open risk.
 
+Do not create new planning documents or scratch scope files without explicit permission. The canonical planning state remains `memory/SPEC.md` and `memory/PLAN.md`; the scope card is the session artifact that decides whether those documents need to change.
+
 ## Scope-weight decision
 
-Choose one before writing the packet.
+Choose one before writing the scope card.
 
 ### Full scope card
 
@@ -41,13 +43,13 @@ Use this when the work:
 - would alter future planning if it landed differently
 - is the first touch in an unfamiliar seam from a fresh thread
 
-### Lightweight packet
+### Light scope card
 
 Use this when the work is a bounded feature, hardening task, or bugfix inside settled seams you can already name.
 
-If a lightweight packet later trips the promotion checklist below, escalate it to full scope.
+If a light scope card later trips the promotion checklist below, stop and explicitly promote it to a full scope card.
 
-If you cannot name the containing seam, the governing decision, or the live invariant family that contains the work, it is not settled enough for lightweight mode.
+If you cannot name the containing seam, the governing decision, or the live invariant family that contains the work, it is not settled enough for light mode.
 
 ## Full scope card
 
@@ -91,7 +93,7 @@ Name the oracle strategy for this slice.
 - Outer: [oracle family] — [what it proves] (if applicable)
 ```
 
-## Lightweight packet
+## Light scope card
 
 ### Objective
 
@@ -114,7 +116,7 @@ Single sentence: what this work changes for the user, operator, or codebase.
 
 ### Promotion checklist
 
-If any answer is yes, stop treating the work as lightweight and promote it to a full scope card.
+If any answer is yes, stop treating the work as light and promote it to a full scope card before routing to `ln-build`. Do not quietly carry durable change under a light card.
 
 - [ ] Does this change a requirement?
 - [ ] Does this create, retire, or invalidate an assumption?
@@ -126,10 +128,10 @@ If any answer is yes, stop treating the work as lightweight and promote it to a 
 
 ## Traceability
 
-Traceability is **conditional on durable change**.
+Canonical reconciliation is **mandatory**; durable updates are **conditional**.
 
 - Full scope card: update `memory/SPEC.md` / `memory/PLAN.md` as needed during or after scoping.
-- Lightweight packet: do not add bookkeeping unless the promotion checklist fires.
+- Light scope card: run the promotion checklist explicitly. If it stays light, canonical reconciliation may be a no-op; if it promotes, reconcile the durable change before build.
 
 When adding or updating an assumption, apply the same-item test first:
 
@@ -137,11 +139,11 @@ When adding or updating an assumption, apply the same-item test first:
 
 ## Routing
 
-After the scope packet is complete, present these options to the user (use `tool-ask-question`):
+After the scope card is complete, present these options to the user (use `tool-ask-question`):
 
 | #   | Label          | Target       | Why |
 | --- | -------------- | ------------ | --- |
-| 1   | Build it       | `ln-build`   | The packet is defined and verified enough to implement |
+| 1   | Build it       | `ln-build`   | The scope card is defined and verified enough to implement |
 | 2   | Design oracles | `ln-oracles` | The verification strategy still needs explicit design |
 | 3   | Spike first    | `ln-spike`   | Technical uncertainty should be retired before coding |
 | 4   | Revise spec    | `ln-spec`    | Scoping revealed a durable architectural change |

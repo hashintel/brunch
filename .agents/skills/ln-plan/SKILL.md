@@ -1,12 +1,14 @@
 ---
 name: ln-plan
-description: "Break a feature or project area into frontier-ordered work packets and update `memory/PLAN.md`. Re-run to retire completed work, reorder priorities, or add new items."
+description: "Break a feature or project area into frontier-ordered slices and update `memory/PLAN.md`. Re-run to retire completed work, reorder priorities, or add new items."
 argument-hint: "[feature or project area to plan]"
 ---
 
 # Ln Plan
 
 Plan the **rolling frontier**, not the whole historical timeline.
+
+`memory/PLAN.md` is the canonical record of what's next. `docs/archive/PLAN_HISTORY.md` is the only sanctioned archive for retired plan history. Do not invent sidecar plan docs, milestone ledgers, or alternate memory locations without explicit permission.
 
 The mature-mode shape is:
 
@@ -34,8 +36,8 @@ Classify each item before deciding how much planning weight it needs.
 
 | Work type | Planning weight |
 | --- | --- |
-| Structural | full packet with `memory/SPEC.md` traceability |
-| Bounded feature | objective + acceptance + verification; add `memory/SPEC.md` links only if durable boundaries change |
+| Structural | full slice with `memory/SPEC.md` traceability |
+| Bounded feature | objective + acceptance + verification for a slice; add `memory/SPEC.md` links only if durable boundaries change |
 | Hardening | task-level objective + acceptance |
 | Bugfix | usually do not add to `memory/PLAN.md` unless it changes frontier priority |
 | Refactor | route through `ln-refactor` unless it is itself frontier work |
@@ -57,12 +59,12 @@ If live low-confidence assumptions block downstream work, stop the plan at that 
 
 ## Procedure
 
-1. Read `memory/PLAN.md` if it exists. Retire or archive stale completed material.
+1. Read `memory/PLAN.md` if it exists. Retire or archive stale completed material into `docs/archive/PLAN_HISTORY.md`.
 2. Read `memory/SPEC.md` if it exists. Pull only the live requirements, assumptions, decisions, and invariants that still constrain forward work.
 3. Explore the codebase enough to understand real boundaries.
 4. Draft or revise `Active`, `Next`, and `Horizon`.
 5. Add `Why now / unlocks` for `Active` or `Next` items when ordering would otherwise be opaque to a fresh thread.
-6. Keep `Recently Completed` to 2-3 terse items max. Move older history to `docs/archive/PLAN_HISTORY.md`.
+6. Keep `Recently Completed` to 2-3 terse items max. Move older history to `docs/archive/PLAN_HISTORY.md`, not to handoff files or ad hoc notes.
 7. Update `Dependencies` to reflect only active / next items.
 
 ## Traceability

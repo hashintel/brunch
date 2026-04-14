@@ -1,16 +1,16 @@
 ---
 name: ln-build
 description: "Implement one scoped slice using TDD red-green-refactor. Use when ready to write code for a defined slice of work, or when the user wants test-driven development."
-argument-hint: "[paste or reference a ln-scope packet]"
+argument-hint: "[paste or reference an ln-scope card]"
 ---
 
 # Ln Build
 
-Implement **one** work packet. Beck's red-green-refactor, one cycle, no scope creep.
+Implement **one** scope card. Beck's red-green-refactor, one cycle, no scope creep.
 
 ## Input
 
-A full scope card or lightweight packet from `ln-scope`, or a trivial direct-fix request: $ARGUMENTS
+A full or light scope card from `ln-scope`, or a trivial direct-fix request: $ARGUMENTS
 
 Extract: target behavior / objective, acceptance criteria, and verification approach.
 
@@ -26,6 +26,8 @@ If this is a fresh thread or an unfamiliar area, reload:
 Write a 2-4 bullet orientation note naming the containing seam, the frontier item, any manual verification debt, and the main open risk.
 
 If the request is a direct fix and you cannot name the containing seam or whether it is settled, stop and route through `ln-scope` first.
+
+Do not invent new planning docs, scratch histories, or alternate memory locations while building. Durable state reconciles back into `memory/SPEC.md` and `memory/PLAN.md`; temporary support artifacts stay in `HANDOFF.md` or `memory/REFACTOR.md` only while they are still live.
 
 ## Red
 
@@ -47,9 +49,11 @@ With tests green, improve names, boundaries, and obvious local structure. Do not
 
 Run the project's verification harness. All checks must pass.
 
-## Promotion check
+## Canonical reconciliation (mandatory)
 
-Traceability is **conditional**, not automatic.
+After verification, reconcile canonical state every time. The reconciliation may end in a no-op, but skipping it is not allowed.
+
+Traceability depth is **conditional**, not automatic.
 
 After the build lands and verification passes, ask:
 
@@ -63,7 +67,7 @@ After the build lands and verification passes, ask:
 - Mark the work done in `memory/PLAN.md` **if it was tracked there**
 - Update `Recently Completed` if the plan uses it
 - Do **not** add new SPEC/PLAN bookkeeping just because work happened
-- If the work was non-trivial, required manual verification, or leaves residual risk, leave a one-line breadcrumb in `Recently Completed` or `HANDOFF.md` using `Done / Verified / Watch`
+- If the work was non-trivial, required manual verification, or leaves residual risk, record `Done / Verified / Watch` in `memory/PLAN.md` `Recently Completed` when that watch matters beyond the current session
 
 ### If any answer is yes
 
@@ -98,7 +102,15 @@ Update only the touched traceability items.
 
 When uncertain between merge and add, add. When uncertain between update and no-op, update.
 
-If uncertain whether the seam is actually settled, promote — do not silently keep the work lightweight.
+If uncertain whether the seam is actually settled, promote — do not silently keep the work light.
+
+### Retire derivative artifacts
+
+After reconciliation, garbage-collect exhausted temporary files instead of leaving breadcrumbs or tombstones:
+
+- `HANDOFF.md` — keep only if unfinished volatile transfer state still exists; otherwise delete it
+- `memory/REFACTOR.md` — keep only while unfinished refactor steps still depend on it; otherwise delete it
+- Do not create archive copies, numbered handoffs, or completion-pointer files
 
 ## Routing
 

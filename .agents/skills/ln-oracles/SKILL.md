@@ -12,6 +12,8 @@ The best oracle removes the most bad degrees of freedom per unit time (Regehr). 
 
 Not every slice needs a full oracle-design pass. For trivial, purely structural slices, `ln-scope` may name the inner-loop checks directly. Use `ln-oracles` when the verification strategy itself is uncertain or materially shapes implementation order.
 
+Do not create standalone oracle-planning docs without explicit permission. Oracle design reconciles back into `memory/SPEC.md` and `memory/PLAN.md`.
+
 Read the [diagnostic framework](assets/diagnostic-framework.md) and [oracle taxonomy](assets/oracle-taxonomy.md) before starting.
 
 ## Input

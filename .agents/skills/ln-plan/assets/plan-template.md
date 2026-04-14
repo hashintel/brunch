@@ -3,7 +3,8 @@
      Authority: active frontier, near-horizon ordering, and dependencies that still matter.
 
      Keep this file light. Archive older completed work to docs/archive/PLAN_HISTORY.md.
-     Only Active / Next items should usually carry detailed traceability. -->
+     Only Active / Next items should usually carry detailed traceability.
+     Do not spread retired work history across handoff files, refactor plans, or ad hoc status notes. -->
 
 # Plan
 

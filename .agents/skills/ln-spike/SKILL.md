@@ -8,6 +8,8 @@ argument-hint: "[question to answer and what you'll try]"
 
 Retire one uncertainty. Output is knowledge, not code — spike code is throwaway, never promoted directly (Beck, XP). One question per spike; if multiple unknowns exist, run multiple spikes.
 
+Spike notes are temporary. Reconcile durable findings into `memory/SPEC.md` and `memory/PLAN.md` instead of inventing standalone investigation docs unless the user explicitly asks for one.
+
 ## Input
 
 The question and approach: $ARGUMENTS

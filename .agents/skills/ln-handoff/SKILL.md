@@ -10,6 +10,10 @@ Capture what lives in chat but not on disk. Git can reconstruct file changes. Bu
 
 The handoff must let a new thread act immediately without asking clarifying questions.
 
+`HANDOFF.md` is derivative and temporary. It is never canonical planning state: durable truth belongs in `memory/SPEC.md` and `memory/PLAN.md`, and retired history belongs only in `docs/archive/PLAN_HISTORY.md`.
+
+Default to one `HANDOFF.md` at the workspace root. Overwrite or replace the prior handoff; do not create numbered handoff archives, breadcrumb files, or completion tombstones without explicit permission.
+
 ## Procedure
 
 ### 1. Identify phase
@@ -41,7 +45,7 @@ This is the critical step. Scan the conversation for volatile artifacts — info
 - **Decisions and assumptions** discussed but not yet in `memory/SPEC.md`
 - **Evidence that informed diagnoses** — concrete proof points (API responses, test output, log lines, specific data) that caused the investigation to shift direction or a hypothesis to be confirmed/rejected. Without this, a new thread inherits conclusions but not the reasoning, and may re-investigate or contradict settled evidence.
 - **Failed attempts or dead ends** that affect what to try next
-- **Lightweight-work breadcrumbs** that did not promote into `memory/SPEC.md` or `memory/PLAN.md` — record `Done / Verified / Watch` so a fresh thread can inherit non-architectural context too
+- **Pending canonical reconciliation** — if a build, spike, or refactor changed reality but the follow-up `memory/SPEC.md` / `memory/PLAN.md` update has not happened yet, capture exactly what still must be reconciled
 
 Reproduce these with full fidelity — preserve the structure (scope card format, spike verdict format, etc.), not just a summary. The natural failure mode is to capture what you're actively working on and drop everything else. Resist this: scan the **entire** conversation, not just the recent context.
 
@@ -60,11 +64,14 @@ Write structured markdown following the [handoff template](assets/handoff-templa
 
 Write to the path given as argument, or `HANDOFF.md` at the nearest workspace root. In a monorepo, this is the workspace (package) the session was working in — not the repository root. Determine the workspace from the files touched during the session: look for the nearest `package.json`, `Cargo.toml`, `go.mod`, or similar project marker up from the most-edited files.
 
+Prefer overwriting the existing handoff instead of inventing a new filename.
+
 ### 5. Verify
 
 - Does every in-flight artifact from step 2 appear in the handoff? **Count them.** If step 2 found N items, the handoff must contain N items.
 - Are ALL review findings named — not just the active one? Is deferred review debt explicit?
 - Is diagnostic evidence preserved — not just conclusions, but the proof points that justified them?
+- Is the handoff carrying only still-volatile state? If something is durable and settled, it belongs in `memory/SPEC.md` or `memory/PLAN.md`, not here.
 - Could a new thread read this file and know what to do first without asking?
 - Is the resume prompt copy-pasteable?
 
@@ -73,4 +80,5 @@ Write to the path given as argument, or `HANDOFF.md` at the nearest workspace ro
 - **Write the file to disk.** Chat-only output defeats the purpose.
 - **In-flight state over persisted state.** Persisted state can be re-read; in-flight state cannot be re-derived. Weight accordingly.
 - **Preserve structure, don't summarize.** A half-done scope card should appear as a scope card, not a paragraph.
+- **Volatile transfer only.** `HANDOFF.md` is not an archive, history sink, or substitute for canonical reconciliation.
 - **No new work.** The handoff captures state — it does not advance the plan, fix bugs, or make decisions.

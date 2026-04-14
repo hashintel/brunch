@@ -9,7 +9,9 @@ Assess where the user is, classify the work, and suggest the next `ln-*` skill.
 
 If context is unclear, ask **one** clarifying question — then recommend.
 
-The mature-mode default is conditional, not ceremonial: only structural work should pay the full `spec → plan → scope → build` cost.
+The canonical rule is simple: durable planning state lives only in `memory/SPEC.md` and `memory/PLAN.md`, and new or uncertain work defaults to the canonical flow until a narrow exception is clearly justified.
+
+Do not invent new planning documents, sidecar ledgers, or alternate storage locations without explicit user permission. If a fact matters beyond the current step, reconcile it into `memory/SPEC.md` or `memory/PLAN.md`; if it is temporary transfer state, keep it in `HANDOFF.md` or `memory/REFACTOR.md` only while those derivative files are still live.
 
 Orient, then classify.
 
@@ -36,9 +38,9 @@ Classify the request before routing.
 | Work type | Signals | Default handling |
 | --- | --- | --- |
 | **Structural** | New seam, new boundary, durable architectural choice, invalidates assumptions | `ln-spec` / `ln-plan` / `ln-scope` as needed |
-| **Bounded feature** | New capability inside settled seams | `ln-scope` with a lightweight packet, then `ln-build` |
-| **Hardening** | Dependency audit, fixture work, perf, tooling upkeep | direct `ln-build` if scope is obvious; `ln-scope` only if the boundary is fuzzy |
-| **Bugfix** | Regression or incorrect behavior inside known seams | direct fix + test; route to `ln-build` only if useful |
+| **Bounded feature** | New capability inside settled seams | `ln-scope` with a light scope card, then `ln-build` |
+| **Hardening** | Dependency audit, fixture work, perf, tooling upkeep | direct `ln-build` only if the seam is already settled and scope is obvious; otherwise `ln-scope` |
+| **Bugfix** | Regression or incorrect behavior inside known seams | direct `ln-build` only if the seam is settled and reconciliation is likely to be a no-op |
 | **Refactor** | Rename, extract, restructure without changing behavior | `ln-refactor` |
 
 If the work crosses more than two seams, changes a requirement, or would change future planning if it went differently, promote it to **structural**.
@@ -49,17 +51,23 @@ Presume **structural** on a fresh thread when the work touches workflow closure,
 
 ## Canonical flow
 
-Typical structural flow is:
+Default rule:
 
 `ln-grill → ln-spec → ln-plan → [ln-design] → [ln-oracles] → ln-scope → [ln-spike] → ln-build → ln-review → [ln-refactor] → [ln-sync]`
 
-Typical bounded flow is:
+Bounded exception:
 
 `ln-scope → ln-build`
 
-Typical hardening / bugfix flow is:
+Direct-build exception:
 
 `ln-build`
+
+Only recommend the bounded or direct-build exceptions when all of these are true:
+
+- the containing seam is already named in the live docs
+- no durable requirement / assumption / decision / invariant change is expected
+- post-build reconciliation can plausibly be a no-op
 
 ## Routing table
 
@@ -71,7 +79,7 @@ Typical hardening / bugfix flow is:
 | Verification strategy is the main uncertainty | structural | `ln-oracles` |
 | Next work item needs precise boundaries | structural or bounded | `ln-scope` |
 | Module interface needs exploration | structural | `ln-design` |
-| Scope card or lightweight packet exists, ready to code | bounded, hardening, bugfix | `ln-build` |
+| Full or light scope card exists, ready to code | bounded, hardening, bugfix | `ln-build` |
 | Technical uncertainty blocks progress | any | `ln-spike` |
 | Code works but needs restructuring | refactor | `ln-refactor` |
 | Code works but quality / architecture needs audit | any | `ln-review` |

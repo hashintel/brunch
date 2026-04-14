@@ -8,6 +8,8 @@ argument-hint: "[feature or problem to specify]"
 
 Crystallize understanding into a **spec** — the reviewable decision record between shared agreement and actionable plan. Every section should close a decision; a spec that restates the conversation instead of narrowing the solution space has failed.
 
+`memory/SPEC.md` plus `memory/PLAN.md` are the only canonical planning state. Do not spin up sidecar specs, decision logs, or assumption ledgers without explicit permission.
+
 Skip steps that are unnecessary (e.g. already covered by prior skills in this session). This is not a checklist — it is a workflow.
 
 ## Input
