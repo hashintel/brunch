@@ -26,26 +26,28 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 - No hard turn-tree branching UX in V1; revisit operates through knowledge-graph edit mode + secondary threads instead.
 - No automatic cascade deletion; downstream effects are surfaced and re-resolved explicitly.
 - No task-planning surface; Brunch elicits specs, it does not plan implementation work for the user.
+- No general-purpose inline document editor in review phases; requirements and criteria review stay recommendation-led with lightweight user comments for revision.
 - No offline-first or multi-tab sync layer; the current system stays server-authoritative and local-first.
 
 ## Requirements
 
 1. `npx brunch` in a project directory with `ANTHROPIC_API_KEY` opens a working app in the browser with state in local `.brunch/`.
-2. First launch offers a greenfield / brownfield choice.
-3. Brownfield kickoff uses codebase exploration to ground the first interview turn.
-4. Structured turns support zero / one / many option selections plus free-text rationale.
-5. Users can see thinking, tool usage, and streaming progress in real time.
+2. First launch offers a greenfield / brownfield choice through kickoff entry states inside the project workspace.
+3. Brownfield kickoff uses codebase exploration to ground the kickoff flow and the first scope turn.
+4. Structured responses support one-or-many option selections, an explicit `none of the above` path, and one attached response note.
+5. Users can see thinking, tool usage, and streaming progress in real time; if live-only artifacts are shown, replay keeps durable inert placeholders instead of dropping them completely.
 6. The observer extracts typed knowledge items and graph edges from answered turns.
 7. The accumulated knowledge layer and readiness state stay visible during the interview.
 8. Each workflow mode has deterministic closeability plus a separate readiness signal.
 9. Phase close records summary text and closure basis.
 10. Users can revisit knowledge through edit mode, cascade preview, and a secondary thread.
-11. Requirements review synthesizes and audits the requirement set from the knowledge layer.
-12. Criteria review synthesizes and audits verification conditions from approved requirements plus the knowledge layer.
+11. Requirements review synthesizes a candidate requirement set from the knowledge layer and supports lightweight per-item approve / reject / comment resolution.
+12. Criteria review synthesizes a candidate verification set from approved requirements plus the knowledge layer and supports lightweight per-item approve / reject / comment resolution.
 13. Export is available only when workflow closure, review coverage, and staleness rules are satisfied.
 14. Closing and reopening the browser resumes the project from persisted state.
 15. The dashboard shows multiple elicitation runs / versions within one `.brunch/` directory.
 16. Partial-scope elicitation works for a feature or bounded sub-area, not just whole-product greenfield specs.
+17. Each phase exposes an explicit entry, handoff, or completion affordance when no active turn is open; the UI must not strand the user with a bare generic composer as the only visible action.
 
 ## Assumptions
 
@@ -58,11 +60,14 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 | A20 | Observer results can continue to ride the existing chat stream without unacceptable perceived latency. | high | open | D22 | Measure real observer latency; fall back to a dedicated sync channel if needed. |
 | A28 | `ToolLoopAgent` remains sufficient for longer multi-phase interviews without a handwritten loop. | high | open | D30 | Watch long-session manual runs and future probe harnesses. |
 | A40 | The canonical scope kinds (`goal`, `term`, `context`) can be discriminated well enough for first-pass review flows if low-confidence cases stay reviewable. | medium | open | D49, D68, D86 | Validate with curated fixtures plus manual review walkthroughs. |
-| A44 | The existing structured turn-response seam is sufficient for the first richer review-lifecycle refinements before a larger review-action redesign is needed. | medium | open | D57, D87 | Validate while adding richer review actions in requirements and criteria modes. |
-| A47 | Read-only codebase exploration plus the current prompt-shaped kickoff handoff are enough to ground meaningful brownfield kickoff turns without separate document-ingestion UX. | medium | open | D32, D82, D83 | Manual brownfield walkthroughs across varied repositories. |
+| A44 | The existing structured response seam is sufficient to support distinct review-set approve / reject / comment actions without introducing a second persistence model. | medium | open | D57, D90 | Validate while prototyping requirements and criteria review-list flows. |
+| A47 | Read-only codebase exploration plus the current prompt-shaped kickoff handoff are enough to ground meaningful brownfield kickoff turns without separate document-ingestion UX. | medium | open | D32, D82, D83, D91 | Manual brownfield walkthroughs across varied repositories. |
 | A48 | Knowledge-graph edges are sufficient to drive accurate cascade preview for revisit work. | medium | open | D50, D80 | Structural cascade tests plus manual judgment about scope. |
 | A49 | A modal secondary thread can resolve revisit implications without forcing a full interview restart. | medium | open | D80 | Manual revisit walkthrough once the thread lifecycle lands. |
 | A50 | Layout-level `router.invalidate()` remains fast enough for sidebar refresh after observer updates. | medium | open | D22, D87 | Manual latency checks during live interviews. |
+| A51 | Kickoff plus the scope/design interview remain legible if the primary input surface is the workspace-owned active turn card rather than a persistent global composer. | medium | open | D89, D91 | Manual walkthroughs on kickoff, scope, and design states plus story review of entry / handoff patterns. |
+| A52 | Lightweight per-item approve / reject / comment review is sufficient for requirements and criteria without inline editing or repeated interviewer micro-turns. | medium | open | D90 | Manual review walkthroughs on seeded requirement and criteria scenarios. |
+| A53 | Contentless durable placeholders are sufficient to preserve transcript trust for live thinking/tool artifacts without persisting hidden reasoning or raw tool results. | medium | open | D92 | Manual replay/reload walkthroughs on streamed turns once transcript placeholders land. |
 
 ## Decisions
 
@@ -79,7 +84,7 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 32. **Brownfield kickoff uses a read-only exploration tool subset** — `read`, `grep`, `find`, and `ls` ground the first scope turn without letting the kickoff mutate the repo.
 49. **Knowledge items persist generically but project through kind-specific collections** — storage stays generic; the app seam stays kind-aware.
 50. **Knowledge relationships live behind one typed graph seam** — persisted graph edges are first-class and drive dependency, derivation, and revisit behavior.
-57. **Structured turn response is the shared semantic boundary** — downstream consumers read structured replies, not scalar answer fallbacks.
+57. **Structured turn response is the shared semantic boundary** — the canonical user reply is option selection(s) plus one response note; downstream consumers read structured replies, not scalar answer fallbacks.
 61. **Mixed legacy/generic knowledge storage is transitional, not the target state** — the long-term architecture is one coherent generic knowledge model.
 65. **Phase outcomes are explicit durable records** — workflow status, closeability, readiness, and closure provenance project from durable phase outcomes on the active path.
 66. **Interviewer-recommended and user-forced closes share one transcript-friendly seam** — one phase-close transport handles both paths, with explicit closure basis.
@@ -91,6 +96,10 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 86. **The client is organized by phase routes and three concentric layout shells** — AppLayout, ProjectLayout, and ViewLayout own the user-facing route structure.
 87. **Layout-level data ownership partitions invalidation** — workflow state, knowledge state, and per-phase turns load at different route layers instead of one monolithic refresh boundary.
 88. **Entities default to the active-path read model** — project-wide inventory is explicit rather than the default workspace surface.
+89. **Primary elicitation input is workspace-owned and turn-owned** — scope/design answers happen inside the active turn card; phase entry and handoff states may have no live turn; the global bottom composer is not the canonical input seam for core elicitation. Depends on: A51. Supersedes: —.
+90. **Requirements and criteria resolve through synthesized review sets** — the interviewer proposes candidate items from prior knowledge, the user acts per item through approve / reject / comment responses, and phase confirmation happens at the list level rather than through repeated micro-interviews. Depends on: A44, A52. Supersedes: —.
+91. **Kickoff uses workspace entry states in the same interaction family as elicitation** — greenfield/brownfield routing and the first scoping steps live in the project workspace through dedicated kickoff cards rather than root-route modals or a bare chat shell. Depends on: A47, A51. Supersedes: —.
+92. **Live-only assistant artifacts replay as contentless placeholders** — if thinking or tool use is surfaced live, hydration persists an inert marker that the artifact occurred without persisting hidden reasoning tokens or raw tool results. Depends on: A53. Supersedes: —.
 
 ## Critical Invariants
 
@@ -119,6 +128,11 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 | ---- | ---------- |
 | **project** | One elicitation run within a `.brunch/` directory. |
 | **turn** | One persisted interview checkpoint with parent linkage and typed parts. |
+| **active turn** | A live interviewer question in scope/design awaiting a structured user response inside the workspace card. |
+| **response note** | The single attached text field on a structured user response; it may explain selections, add missing context, or redirect the interviewer. |
+| **review set** | A synthesized candidate list used in requirements or criteria review, resolved through lightweight per-item approve / reject / comment actions. |
+| **phase entry state** | The workspace state shown when a phase is open but no active turn exists yet. |
+| **phase handoff state** | The workspace state shown when a phase is complete and the next phase is available. |
 | **active path** | The trusted chain from HEAD to root in the primary conversation. |
 | **phase / mode** | One workflow stage: `scope`, `design`, `requirements`, or `criteria`. |
 | **phase outcome** | Durable closure artifact for a phase, including summary and closure basis. |
@@ -233,3 +247,5 @@ Every meaningful code change should pass `npm run fix` in the inner loop and `np
 8. The routed UI stays stable across dashboard, phase views, sidebar knowledge, and graph view.
 9. Resume works from persisted state.
 10. The verification gate passes.
+11. Scope/design use active-turn cards, requirements/criteria use review sets, and non-active phases expose entry / handoff / completion affordances instead of a bare generic composer.
+12. Hydrated transcripts preserve interviewer-side structure plus stable contentless placeholders for any live-only artifacts that were shown during streaming.
