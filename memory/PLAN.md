@@ -6,28 +6,37 @@
 
 ## Active
 
-1. **Story-first interaction pattern refinement** — now that terminal artifacts and turn lifecycle rules are clearer, refine the stable interaction family in `src/client/stories/` instead of discovering it inside routed code.
-   - Why now / unlocks: once the open-phase bottom state, collapsed-turn shape, and handoff/completion rules stabilize, stories can consolidate them into reusable patterns without inventing around missing behavior.
+1. **Story-first turn-card refinement** — now that grounding cards, question cards, and workspace-owned phase entry are the target interaction family, refine them first in `src/client/stories/` instead of discovering them inside routed code.
+   - Why now / unlocks: the grounding redesign changes the card family itself; stabilizing shapes in stories keeps routed work from inventing around moving semantics.
 
 2. **Review-set implementation across requirements + criteria** — replace repeated micro-interview review turns with synthesized per-item approve / reject / comment lists plus list-level confirmation.
-   - Why now / unlocks: the product model for scope/design is becoming turn-based and the product model for review is becoming list-based; landing review sets after the turn-state work preserves that separation cleanly.
+   - Why now / unlocks: the product model for grounding/design is becoming turn-card based while review remains list-based; landing review sets keeps that separation clean.
 
-3. **Kickoff and workspace entry adoption** — move greenfield/brownfield kickoff and early scoping entry into the same workspace-owned interaction family as the rest of the interview.
-   - Why now / unlocks: this should follow once open phases already know how to bottom out in a real unresolved turn or generation state instead of an explicit start prompt.
+3. **Specification-first creation and workspace terminology adoption** — root creation asks only for the specification name, and touched product surfaces start distinguishing workspace vs specification while internal `project` identifiers remain unchanged.
+   - Why now / unlocks: this establishes D82, D96, and D97 at the entry seam so grounding strategy can move into the workspace honestly instead of mutating a premature root-modal choice.
 
-4. **Brownfield kickoff typed grounding transport** — conditional follow-on if the current transcript-visible grounding handoff remains too brittle after kickoff adoption.
-   - Why now / unlocks: keeping it in the active queue lets brownfield grounding harden immediately after kickoff/workspace adoption if manual walkthroughs still show brittleness.
+4. **Grounding strategy selection inside the workspace** — the first grounding move chooses elicitation-first vs analysis-first in the workspace-owned turn flow instead of in the root modal.
+   - Why now / unlocks: once creation is specification-first, the actual grounding phase can own its opening move and converge both strategies inside one interaction family.
+
+5. **Grounding-card transcript primitive** — add visible provisional grounding cards with optional comment + continue semantics, keeping card content non-durable while allowing user reactions to feed later knowledge capture.
+   - Why now / unlocks: this is the core interaction seam required for brownfield grounding briefs and later interviewer-invoked context gathering.
+
+6. **Brownfield workspace-analysis grounding brief** — use read-only workspace analysis to produce the first visible grounding card, then hand off into the first substantive grounding question.
+   - Why now / unlocks: this lands analysis-first grounding on top of the new card/provenance model without yet solving the full reusable context-gathering loop.
 
 ## Next
 
 1. **Router/query ownership refinement for interview surfaces** — replace coarse route-wide invalidation with deliberate loader/query ownership.
-   - Why now / unlocks: still important, but the current visible pain is more about transcript/turn staging than refresh boundaries. Keep this narrow once the transcript column has a stable semantic shape.
+   - Why now / unlocks: still important, but keep it narrow until the new grounding-card flow settles and refresh pain can be judged against the revised interaction family.
 
-2. **Rich replay treatment for collapsed reasoning and observer progress** — once the turn lifecycle state machine is stable, make replay components visually match their live counterparts more closely.
-   - Why now / unlocks: with turn-owned capture replay landed, this is the next fidelity pass on transcript trust once the active UI lanes settle.
+2. **Reusable interviewer-invoked context gathering beyond opening grounding** — allow the interviewer to insert later workspace-analysis or research grounding cards when the next move needs more context.
+   - Why now / unlocks: the spec now treats context gathering as reusable capability, but defer generalization until the opening brownfield brief proves the card/provenance model.
 
-3. **Dashboard/result summaries and completeness metrics** — once workflow entry, review, and transcript trust are no longer masking basic usability.
-   - Why now / unlocks: promote this now so the post-interview surface can follow close behind the current interaction wave instead of getting stranded in the long tail.
+3. **Rich replay treatment for collapsed reasoning, observer progress, and grounding-card detail** — once the turn lifecycle and grounding-card primitives stabilize, make replay components visually match their live counterparts more closely, including collapsible detail where needed.
+   - Why now / unlocks: transcript trust is now about more than answered questions; replay has to carry provisional grounding artifacts legibly too.
+
+4. **Dashboard/result summaries and completeness metrics** — once workflow entry, grounding, review, and transcript trust are no longer masking basic usability.
+   - Why now / unlocks: promote this now so the post-interview surface can follow close behind the grounding redesign instead of getting stranded in the long tail.
 
 ## Horizon
 
@@ -49,16 +58,22 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 ## Dependencies
 
 ```text
-turn-lifecycle-state-machine-for-interviewer-and-observer
-  ├──→ turn-linked-capture-projection-and-compact-identifiers
-  ├──→ story-first-interaction-pattern-refinement
+story-first-turn-card-refinement
   ├──→ review-set-implementation-across-requirements-and-criteria
-  └──→ kickoff-and-workspace-entry-adoption
+  ├──→ grounding-card-transcript-primitive
+  └──→ rich-replay-treatment-for-collapsed-reasoning-observer-progress-and-grounding-card-detail
 
-turn-linked-capture-projection-and-compact-identifiers
-  └──→ rich-replay-treatment-for-collapsed-reasoning-and-observer-progress
+specification-first-creation-and-workspace-terminology-adoption
+  └──→ grounding-strategy-selection-inside-the-workspace
 
-router-query-ownership-refinement-for-interview-surfaces ──→ rich replay / trailing observer polish if runtime churn remains visible
+grounding-strategy-selection-inside-the-workspace
+  └──→ brownfield-workspace-analysis-grounding-brief
 
-kickoff-and-workspace-entry-adoption ──→ brownfield-kickoff-typed-grounding-transport (conditional)
+grounding-card-transcript-primitive
+  ├──→ brownfield-workspace-analysis-grounding-brief
+  ├──→ reusable-interviewer-invoked-context-gathering-beyond-opening-grounding
+  └──→ rich-replay-treatment-for-collapsed-reasoning-observer-progress-and-grounding-card-detail
+
+router-query-ownership-refinement-for-interview-surfaces
+  └──→ reusable-interviewer-invoked-context-gathering-beyond-opening-grounding if mid-turn refresh churn remains visible
 ```
