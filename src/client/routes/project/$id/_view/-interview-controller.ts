@@ -126,8 +126,8 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   );
 
   const viewState = useMemo(
-    () => createInterviewControllerViewState(durableProject, phaseMessages, isLoading),
-    [durableProject, isLoading, phaseMessages],
+    () => createInterviewControllerViewState(durableProject, phase, phaseMessages, isLoading),
+    [durableProject, isLoading, phase, phaseMessages],
   );
 
   const submitText = useCallback(

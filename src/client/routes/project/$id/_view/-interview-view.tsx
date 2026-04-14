@@ -1,5 +1,5 @@
 import { Link } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import {
   Conversation,
@@ -47,13 +47,6 @@ const phaseTitles: Record<WorkflowPhase, string> = {
   design: 'Elicitation',
   requirements: 'Requirements review',
   criteria: 'Acceptance review',
-};
-
-const phaseDescriptions: Record<WorkflowPhase, string> = {
-  scope: 'Capture the project goals, terms, context, and constraints before deeper commitments.',
-  design: 'Turn the scoped problem into clearer commitments, tradeoffs, and decision-ready structure.',
-  requirements: 'Review the emerging capability set and confirm what belongs in the spec.',
-  criteria: 'Review the verification set and confirm what will prove the spec is complete.',
 };
 
 const startPhaseMessages: Record<WorkflowPhase, string> = {
@@ -320,6 +313,44 @@ function readAssistantParts(turn: Pick<ProjectStateTurn, 'assistant_parts'>) {
   }
 }
 
+function readUserParts(turn: Pick<ProjectStateTurn, 'user_parts'>) {
+  if (!turn.user_parts) {
+    return [] as Array<{ type: string; text?: string; [key: string]: unknown }>;
+  }
+
+  try {
+    return JSON.parse(turn.user_parts) as Array<{ type: string; text?: string; [key: string]: unknown }>;
+  } catch {
+    return [] as Array<{ type: string; text?: string; [key: string]: unknown }>;
+  }
+}
+
+function turnIsControlOrClosureArtifact(
+  turn: Pick<ProjectStateTurn, 'assistant_parts' | 'is_resolution' | 'user_parts'>,
+) {
+  if (turn.is_resolution) {
+    return true;
+  }
+
+  const userParts = readUserParts(turn);
+  if (userParts.some((part) => part.type === 'data-confirmation')) {
+    return true;
+  }
+
+  const hasBootstrapControlText = userParts.some(
+    (part) =>
+      part.type === 'text' && typeof part.text === 'string' && getControlMarkerLabel(part.text) !== null,
+  );
+  if (hasBootstrapControlText) {
+    return true;
+  }
+
+  const assistantParts = readAssistantParts(turn);
+  return assistantParts.some(
+    (part) => part.type === 'tool-propose_phase_closure' || part.type === 'data-phase-summary',
+  );
+}
+
 function turnHasCompletedAnswer(turn: Pick<ProjectStateTurn, 'answer' | 'user_parts'>) {
   return Boolean(getPersistedTurnResponse(turn) || turn.answer?.trim());
 }
@@ -490,36 +521,68 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const { chat, project, workflow, phaseTurns, phaseSummary, promptInput, turnCard } =
     useInterviewController(phase);
   const phaseState = workflow.phases[phase];
+  const autoPresentKeyRef = useRef<string | null>(null);
   const currentReachablePhase =
     phaseOrder.find((candidate) => workflow.phases[candidate].status !== 'closed') ?? null;
   const nextPhase = getNextActivePhase(workflow.phases, phase);
-  const hasAnsweredPersistedTurn =
-    turnCard?.kind === 'persisted-turn' && turnHasCompletedAnswer(turnCard.turn);
+  const hasVisibleActiveTurn =
+    turnCard?.kind === 'pending-question' ||
+    (turnCard?.kind === 'persisted-turn' && !turnHasCompletedAnswer(turnCard.turn));
   const activePersistedTurnId =
     turnCard?.kind === 'persisted-turn' && !turnHasCompletedAnswer(turnCard.turn) ? turnCard.turn.id : null;
   const completedPhaseTurns = phaseTurns.filter(
-    (turn) => turnHasCompletedAnswer(turn) && turn.id !== activePersistedTurnId,
+    (turn) =>
+      turnHasCompletedAnswer(turn) &&
+      !turnIsControlOrClosureArtifact(turn) &&
+      turn.id !== activePersistedTurnId,
   );
-  const hasLivePhaseActivity =
-    chat.messages.length > 0 || turnCard !== null || phaseSummary !== null || chat.isLoading;
   const showLockedState =
     phaseState.status === 'unstarted' && currentReachablePhase !== phase && currentReachablePhase !== null;
-  const showEntryState =
-    phaseState.status === 'unstarted' && currentReachablePhase === phase && !hasLivePhaseActivity;
   const showClosedState = phaseState.status === 'closed';
   const showCompletionState = showClosedState && !nextPhase;
-  const showGeneratingState = !phaseSummary && chat.isLoading && (!turnCard || hasAnsweredPersistedTurn);
-  const showAwaitingNextAction =
-    phaseState.status === 'in_progress' &&
+  const autoPresentCommand =
+    !showLockedState &&
+    !showClosedState &&
+    currentReachablePhase === phase &&
     !phaseSummary &&
     !chat.isLoading &&
-    (!turnCard || hasAnsweredPersistedTurn);
+    !hasVisibleActiveTurn
+      ? phaseTurns.length === 0
+        ? startPhaseMessages[phase]
+        : continuePhaseMessages[phase]
+      : null;
+  const showGeneratingState =
+    !phaseSummary && (autoPresentCommand !== null || (chat.isLoading && !hasVisibleActiveTurn));
   const showPromptInput =
     promptInput.visible &&
     phaseState.status === 'in_progress' &&
-    !showEntryState &&
     !showLockedState &&
-    !showClosedState;
+    !showClosedState &&
+    !showGeneratingState &&
+    autoPresentCommand === null;
+
+  useEffect(() => {
+    if (!autoPresentCommand) {
+      autoPresentKeyRef.current = null;
+      return;
+    }
+
+    const autoPresentKey = `${project.id}:${phase}:${phaseState.status}:${phaseState.turnId ?? 'none'}:${phaseTurns.length}:${autoPresentCommand}`;
+    if (autoPresentKeyRef.current === autoPresentKey) {
+      return;
+    }
+
+    autoPresentKeyRef.current = autoPresentKey;
+    chat.submitText(autoPresentCommand);
+  }, [
+    autoPresentCommand,
+    chat.submitText,
+    phase,
+    phaseState.status,
+    phaseState.turnId,
+    phaseTurns.length,
+    project.id,
+  ]);
 
   const handleSubmit = (message: PromptInputMessage) => {
     chat.submitText(message.text ?? '');
@@ -545,100 +608,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             </WorkspaceStateCard>
           )}
 
-          {showEntryState && (
-            <WorkspaceStateCard
-              eyebrow="Phase entry"
-              title={`Begin ${phaseTitles[phase]}`}
-              description={phaseDescriptions[phase]}
-            >
-              <button
-                type="button"
-                onClick={() => chat.submitText(startPhaseMessages[phase])}
-                disabled={chat.isLoading}
-                className={cn(
-                  'rounded-md border px-3 py-2 text-sm transition-colors',
-                  chat.isLoading
-                    ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-                    : 'border-border bg-background text-foreground hover:bg-muted',
-                )}
-              >
-                Begin {phaseTitles[phase]}
-              </button>
-            </WorkspaceStateCard>
-          )}
-
           {isReviewPhase(phase) && phaseState.status === 'in_progress' && <ReviewPhaseBanner phase={phase} />}
-
-          {showGeneratingState && (
-            <WorkspaceStateCard
-              eyebrow="In progress"
-              title={`Preparing the next ${isReviewPhase(phase) ? 'review step' : 'interview turn'}`}
-              description="The workspace is waiting on the interviewer before the next step can be answered."
-            />
-          )}
-
-          {showAwaitingNextAction && (
-            <WorkspaceStateCard
-              eyebrow={isReviewPhase(phase) ? 'Review ready' : 'Awaiting next action'}
-              title={
-                isReviewPhase(phase) ? `Continue ${phaseTitles[phase]}` : `Continue ${phaseTitles[phase]}`
-              }
-              description={
-                isReviewPhase(phase)
-                  ? 'This review phase is ready for the next structured recommendation. Continue from the workspace instead of relying on the generic composer alone.'
-                  : 'The current turn is complete. Continue from the workspace to request the next structured interview step.'
-              }
-            >
-              <button
-                type="button"
-                onClick={() => chat.submitText(continuePhaseMessages[phase])}
-                disabled={chat.isLoading}
-                className={cn(
-                  'rounded-md border px-3 py-2 text-sm transition-colors',
-                  chat.isLoading
-                    ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-                    : 'border-border bg-background text-foreground hover:bg-muted',
-                )}
-              >
-                {isReviewPhase(phase) ? `Continue ${phaseTitles[phase]}` : 'Ask for the next step'}
-              </button>
-            </WorkspaceStateCard>
-          )}
-
-          {showClosedState && (
-            <WorkspaceStateCard
-              eyebrow={showCompletionState ? 'Workflow complete' : 'Phase handoff'}
-              title={
-                showCompletionState
-                  ? 'The interview workspace is complete'
-                  : `${phaseTitles[phase]} is complete`
-              }
-              description={
-                phaseState.summary ??
-                (showCompletionState
-                  ? 'All phases are closed. Review the export to inspect the current structured spec output.'
-                  : 'This phase has been closed and handed off to the next phase.')
-              }
-            >
-              {showCompletionState ? (
-                <Link
-                  to="/project/$id/export"
-                  params={{ id: String(project.id) }}
-                  className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
-                >
-                  Open export preview
-                </Link>
-              ) : nextPhase ? (
-                <Link
-                  to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
-                  params={{ id: String(project.id) }}
-                  className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
-                >
-                  Continue to {phaseTitles[nextPhase]}
-                </Link>
-              ) : null}
-            </WorkspaceStateCard>
-          )}
 
           {completedPhaseTurns.map((turn) => (
             <AnsweredTurnCard key={`answered-turn-${turn.id}`} turn={turn} />
@@ -673,6 +643,24 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               </Message>
             );
           })}
+
+          {!phaseSummary && phaseState.status === 'in_progress' && canForceClosePhase(workflow, phase) && (
+            <div className="my-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => chat.forcePhaseClosure(phase)}
+                disabled={chat.isLoading}
+                className={cn(
+                  'rounded-md border px-3 py-2 text-xs transition-colors',
+                  chat.isLoading
+                    ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+                    : 'border-border bg-background text-foreground hover:bg-muted',
+                )}
+              >
+                {getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase })}
+              </button>
+            </div>
+          )}
 
           {turnCard?.kind === 'persisted-turn' && !turnHasCompletedAnswer(turnCard.turn) && (
             <TurnCard
@@ -718,22 +706,47 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             />
           )}
 
-          {!phaseSummary && phaseState.status === 'in_progress' && canForceClosePhase(workflow, phase) && (
-            <div className="my-3 flex justify-end">
-              <button
-                type="button"
-                onClick={() => chat.forcePhaseClosure(phase)}
-                disabled={chat.isLoading}
-                className={cn(
-                  'rounded-md border px-3 py-2 text-xs transition-colors',
-                  chat.isLoading
-                    ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-                    : 'border-border bg-background text-foreground hover:bg-muted',
-                )}
-              >
-                {getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase })}
-              </button>
-            </div>
+          {showGeneratingState && (
+            <WorkspaceStateCard
+              eyebrow="In progress"
+              title={`Preparing the next ${isReviewPhase(phase) ? 'review step' : 'interview turn'}`}
+              description="The workspace is waiting on the interviewer before the next step can be answered."
+            />
+          )}
+
+          {showClosedState && (
+            <WorkspaceStateCard
+              eyebrow={showCompletionState ? 'Workflow complete' : 'Phase handoff'}
+              title={
+                showCompletionState
+                  ? 'The interview workspace is complete'
+                  : `${phaseTitles[phase]} is complete`
+              }
+              description={
+                phaseState.summary ??
+                (showCompletionState
+                  ? 'All phases are closed. Review the export to inspect the current structured spec output.'
+                  : 'This phase has been closed and handed off to the next phase.')
+              }
+            >
+              {showCompletionState ? (
+                <Link
+                  to="/project/$id/export"
+                  params={{ id: String(project.id) }}
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
+                >
+                  Open export preview
+                </Link>
+              ) : nextPhase ? (
+                <Link
+                  to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
+                  params={{ id: String(project.id) }}
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
+                >
+                  Continue to {phaseTitles[nextPhase]}
+                </Link>
+              ) : null}
+            </WorkspaceStateCard>
           )}
         </ConversationContent>
         <ConversationScrollButton />

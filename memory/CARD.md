@@ -1,12 +1,12 @@
 # Card: Phase Terminal Staging and Auto-Present Current Turn
 
-> Status: live scoped card. This is the current first build target on the workspace transcript frontier.
+> Status: implemented on 2026-04-14. Keep as the completed card for the terminal-staging slice; the active frontier has moved to turn lifecycle choreography.
 
 > Canonical path: `memory/CARD.md`
 
 **Slice**: `memory/PLAN.md` Active #1
 **Weight**: Full scope card
-**Status**: scoped
+**Status**: done
 
 ## Orientation
 

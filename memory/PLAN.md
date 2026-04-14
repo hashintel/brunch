@@ -8,15 +8,7 @@
 
 This wave now treats Brunch as a **structured interview workspace**, not a generic chat interface. The first shell-honesty pass is in the app: dashboard links are real, future phases are gated, review phases are visibly distinct, and replay now groups prior answers into compact turn cards. The remaining frontier is no longer "make anything less chat-shaped" in the abstract. It is now three sharper seams: where the phase column should terminate, how a turn progresses through active/in-flight/completed states, and how the observer's actual capture work attaches back to the turn that produced it.
 
-1. **Phase terminal staging and auto-present current turn** — structural `[status: not-started]`
-   - Objective: make each phase transcript column terminate in the correct artifact — an unresolved active turn (or visible generation state) for open phases, and a handoff/completion card for closed phases.
-   - Why now / unlocks: the current shell pass surfaced the next mismatch clearly: open phases still fall back to synthetic `Begin/Continue` actions, and closed-phase handoff cards render at the top instead of as the terminal object in the transcript column. Until this is corrected, the workspace still feels like a chat shell with overlays instead of a turn-driven interview surface.
-   - Acceptance: open scope/design phases load to the current unanswered turn or a visible "generating next turn" state without requiring a user-authored bootstrap message; closed phases end with a bottom-of-column handoff/completion card; any sticky top-bar status is supplemental rather than the primary terminal artifact; the transcript defaults to the bottom on load.
-   - Verification: inner — transcript-column state projection tests for open vs closed phase terminal artifacts. Outer — manual walkthrough on `issue-tracker-kickoff-ready`, `issue-tracker-design-active`, `issue-tracker-scope-closed`, and `issue-tracker-all-phases-closed` confirming that the bottom-most item matches workflow truth.
-   - Verification approach: inner — focused `InterviewView` state-model tests; outer — browser see-and-inspect review of top-vs-bottom staging and scroll anchoring; see `memory/SPEC.md` §Verification Design.
-   - Traceability: → Requirements 5, 8, 17, 18; Assumptions A51, A54; Decisions D89, D91, D94; Invariants I24, I72.
-
-2. **Turn lifecycle state machine for interviewer and observer** — structural `[status: scoped]`
+1. **Turn lifecycle state machine for interviewer and observer** — structural `[status: scoped]`
    - Objective: stage each elicitation turn as a turn-owned lifecycle (`active` → `submitted / interviewer-processing` → `collapsed / interviewer-complete`) with observer status attached to that turn instead of emitted as free-floating transcript rows.
    - Why now / unlocks: compact answered-turn replay improved transcript readability, but the live current-turn choreography is still under-modeled. The product now needs an explicit turn-state machine so submission, waiting, collapse, and next-turn reveal happen legibly and predictably.
    - Acceptance: active turns expose an explicit submit action; after submission, the same card locks and shows interviewer processing beneath it; interviewer completion is sufficient to collapse the answered card and reveal the next turn; observer status can continue in a bounded live region on the collapsed card without blocking the next turn; control/closure events no longer impersonate ordinary interview turns.
@@ -24,7 +16,7 @@ This wave now treats Brunch as a **structured interview workspace**, not a gener
    - Verification approach: inner — targeted transcript/turn-state tests; middle — replay assertions on design-active fixtures; outer — browser review of turn submission, collapse timing, and trailing observer status; see `memory/SPEC.md` §Verification Design.
    - Traceability: → Requirements 4, 5, 6, 17, 18; Assumptions A20, A53, A55; Decisions D24, D30, D57, D92, D93, D95; Invariants I24, I44, I54.
 
-3. **Turn-linked capture projection and compact identifiers** — structural `[status: not-started]`
+2. **Turn-linked capture projection and compact identifiers** — structural `[status: not-started]`
    - Objective: surface the actual knowledge items linked to each answered turn, using a compact identifier scheme that distinguishes kinds cleanly enough to make the observer's work legible in replay.
    - Why now / unlocks: the DB already links captured items to turns, but the client only shows a coarse "workspace knowledge updated" line. That blocks trust exactly where the new turn cards are supposed to help: users still cannot see what the observer actually captured from a given answer.
    - Acceptance: answered-turn cards list the actual linked captured items for that turn; the identifier scheme avoids kind collisions (`context` / `constraint` / `criterion` cannot all collapse to `C`); closure/control turns do not show misleading capture summaries; the captured section can later host trailing observer updates without changing its semantic shape.
@@ -62,6 +54,7 @@ This wave now treats Brunch as a **structured interview workspace**, not a gener
 
 ## Recently Completed
 
+- 2026-04-14 — **Phase terminal staging and auto-present current turn** — Done: open phases now auto-initiate the current turn instead of bottoming out in `Begin/Continue`, answered-turn replay filters control and closure artifacts, and closed phases end with their handoff/completion card at the bottom of the transcript column. Verified: `npm run verify`. Watch: manual browser confirmation is still needed on `issue-tracker-kickoff-ready`, `issue-tracker-design-active`, `issue-tracker-scope-closed`, and `issue-tracker-all-phases-closed`.
 - 2026-04-14 — **Workspace shell first honesty pass** — Done: dashboard links became real, root/dashboard scrolling was fixed, future phases became visible-but-disabled, review phases gained distinct shell framing, and transcript replay shifted from user bubbles toward compact answered-turn cards plus control markers. Verified: `npm run verify`. Watch: bottom-of-column terminal staging, turn-state choreography, and actual captured-item projection remain unfinished.
 - 2026-04-14 — **Fixture-backed walkthrough workspace** — Done: walkthrough-ready seed scenarios now front-load the public seed catalog, prove resume after re-open, and cover export-ready/manual-inspection states. Verified: `npm run verify`. Watch: story adoption and transcript-state inspection still need the next UI-facing lanes.
 - 2026-04-14 — **Brownfield kickoff rehabilitation** — Done: the first brownfield scope question now carries a transcript-visible grounding handoff and the observer sees brownfield-aware context. Verified: `npm run verify`. Watch: if manual repo walkthroughs still feel brittle, promote typed grounding transport.
@@ -71,12 +64,11 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 ## Dependencies
 
 ```text
-phase-terminal-staging-and-auto-present-current-turn
-  └──→ turn-lifecycle-state-machine-for-interviewer-and-observer
-          ├──→ turn-linked-capture-projection-and-compact-identifiers
-          ├──→ story-first-interaction-pattern-refinement
-          ├──→ review-set-implementation-across-requirements-and-criteria
-          └──→ kickoff-and-workspace-entry-adoption
+turn-lifecycle-state-machine-for-interviewer-and-observer
+  ├──→ turn-linked-capture-projection-and-compact-identifiers
+  ├──→ story-first-interaction-pattern-refinement
+  ├──→ review-set-implementation-across-requirements-and-criteria
+  └──→ kickoff-and-workspace-entry-adoption
 
 turn-linked-capture-projection-and-compact-identifiers
   └──→ rich-replay-treatment-for-collapsed-reasoning-and-observer-progress

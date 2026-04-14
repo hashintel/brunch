@@ -187,6 +187,34 @@ export function createInterviewEphemeralChatState(projectState: ProjectState): I
   };
 }
 
+function findPhaseTurn(
+  durableProject: InterviewDurableProjectState,
+  phase: WorkflowPhase,
+): ProjectStateTurn | null {
+  const phaseState = durableProject.workflow.phases[phase];
+  if (phaseState.status === 'closed') {
+    return null;
+  }
+
+  if (phaseState.turnId !== null) {
+    const currentPhaseTurn = durableProject.turns.find(
+      (turn) => turn.id === phaseState.turnId && turn.phase === phase,
+    );
+    if (currentPhaseTurn) {
+      return currentPhaseTurn;
+    }
+  }
+
+  for (let index = durableProject.turns.length - 1; index >= 0; index -= 1) {
+    const turn = durableProject.turns[index];
+    if (turn?.phase === phase) {
+      return turn;
+    }
+  }
+
+  return null;
+}
+
 function findPendingQuestion(messages: readonly BrunchUIMessage[]): PendingQuestionViewModel | null {
   function getStructuredQuestionInput(part: AskQuestionUIPart): StructuredQuestion | null {
     switch (part.state) {
@@ -265,10 +293,14 @@ function findPhaseSummary(messages: readonly BrunchUIMessage[]): PhaseSummaryVie
 
 export function createInterviewControllerViewState(
   durableProject: InterviewDurableProjectState,
+  phase: WorkflowPhase,
   messages: readonly BrunchUIMessage[],
   isLoading: boolean,
 ): InterviewControllerViewState {
-  const { project, workflow, lastTurn, showTurnCard, lastTurnHasResponse } = durableProject;
+  const { project, workflow } = durableProject;
+  const phaseTurn = findPhaseTurn(durableProject, phase);
+  const showTurnCard = Boolean(phaseTurn?.options?.length);
+  const phaseTurnHasResponse = hasPersistedTurnResponse(phaseTurn ?? undefined);
   const pendingQuestion = isLoading ? findPendingQuestion(messages) : null;
   const latestPhaseSummary = findPhaseSummary(messages);
   const phaseSummary =
@@ -279,8 +311,8 @@ export function createInterviewControllerViewState(
     ? null
     : pendingQuestion
       ? { kind: 'pending-question', pendingQuestion }
-      : showTurnCard && lastTurn && !isLoading
-        ? { kind: 'persisted-turn', turn: lastTurn }
+      : showTurnCard && phaseTurn && !isLoading
+        ? { kind: 'persisted-turn', turn: phaseTurn }
         : null;
 
   return {
@@ -289,7 +321,7 @@ export function createInterviewControllerViewState(
     turnCard,
     phaseSummary,
     promptInput: {
-      visible: phaseSummary || pendingQuestion ? false : !showTurnCard || lastTurnHasResponse,
+      visible: phaseSummary || pendingQuestion ? false : !showTurnCard || phaseTurnHasResponse,
     },
   };
 }
