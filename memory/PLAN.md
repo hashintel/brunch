@@ -20,6 +20,7 @@
    - Acceptance: the chosen kickoff mode yields usable grounding for the first scope turn, observer capture is coherent with that mode, and partial-codebase / partial-timeline wording fits feature-area elicitation instead of whole-product assumptions.
    - Verification: inner — interviewer-context, observer-boundary, and kickoff transport tests. Middle — kickoff round-trip state tests. Outer — manual brownfield runs across varied repos.
    - Verification approach: middle — structural kickoff/observer boundary tests plus persistence round-trips; outer — lightweight qualitative brownfield walkthroughs proving durable useful knowledge and a grounded first question; see `memory/SPEC.md` §Verification Design.
+   - Potential follow-up: if manual brownfield walkthroughs show the current prompt-shaped handoff is still brittle, promote kickoff grounding into an explicit typed transport that persists repo findings separately from the first question's `why` field so grounding survives persistence, hydration, and observer extraction without relying on phrasing conventions.
    - Traceability: → Requirements 3, 16; Assumption A47; Decisions D32, D82, D83; Invariant I101.
 
 3. **Story-first phase and transcript patterns** — bounded feature `[status: not-started]`
