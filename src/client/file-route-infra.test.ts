@@ -32,6 +32,9 @@ describe('generated route runtime ownership', () => {
     );
     expect(viteConfigSource).toContain("routeFileIgnorePattern: '.*\\\\.test\\\\.(ts|tsx)$'");
     expect(viteConfigSource).toContain("target: 'react'");
+    expect(viteConfigSource).toContain('cacheDir: getViteCacheDir(command, process.argv)');
+    expect(viteConfigSource).toContain('port: defaultDevServerPort');
+    expect(viteConfigSource).toContain('strictPort: true');
     expect(viteConfigSource.indexOf('tanstackRouter(')).toBeGreaterThan(-1);
     expect(viteConfigSource.indexOf('tanstackRouter(')).toBeLessThan(viteConfigSource.indexOf('react()'));
 

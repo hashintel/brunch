@@ -159,3 +159,18 @@ npm test
 - `memory/SPEC.md` — What and why (requirements, assumptions, decisions, invariants, verification)
 - `memory/PLAN.md` — What's next (phases, slices, spikes, dependencies)
 - `AGENTS.md` — Agent/AI coding instructions (symlinked as `CLAUDE.md`)
+
+## Technical note
+
+If the app loads as a blank page in development and the browser console shows `504 Outdated Optimize Dep`, Vite's optimized dependency cache has usually drifted out of sync with the running dev server.
+
+Brunch now keeps a separate Vite cache per dev-server port and refuses to silently move the default frontend off `:5173`, which makes accidental duplicate dev sessions much less likely to corrupt the active cache.
+
+If you still need to recover a wedged local dev session, stop the listeners on Brunch's dev ports, clear the Vite cache, and restart:
+
+```bash
+lsof -tiTCP:5173 -sTCP:LISTEN | xargs kill
+lsof -tiTCP:3000 -sTCP:LISTEN | xargs kill
+rm -rf node_modules/.vite-*
+npm run dev
+```

@@ -10,8 +10,40 @@ import { defineConfig } from 'vitest/config';
 import { getBackendProxyTarget } from './src/server/runtime-config';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+export const defaultDevServerPort = 5173;
 
-export default defineConfig({
+export const resolveDevServerPort = (argv: string[]) => {
+  const inlinePortFlag = argv.find((arg) => arg.startsWith('--port='));
+
+  if (inlinePortFlag) {
+    const port = Number.parseInt(inlinePortFlag.slice('--port='.length), 10);
+
+    if (Number.isInteger(port) && port > 0) {
+      return port;
+    }
+  }
+
+  const portFlagIndex = argv.findIndex((arg) => arg === '--port');
+
+  if (portFlagIndex !== -1) {
+    const port = Number.parseInt(argv[portFlagIndex + 1] ?? '', 10);
+
+    if (Number.isInteger(port) && port > 0) {
+      return port;
+    }
+  }
+
+  return defaultDevServerPort;
+};
+
+export const getViteCacheDir = (command: 'build' | 'serve', argv: string[]) =>
+  resolve(
+    __dirname,
+    command === 'serve' ? `node_modules/.vite-${resolveDevServerPort(argv)}` : 'node_modules/.vite-build',
+  );
+
+export default defineConfig(({ command }) => ({
+  cacheDir: getViteCacheDir(command, process.argv),
   plugins: [
     tanstackRouter({
       target: 'react',
@@ -31,6 +63,8 @@ export default defineConfig({
     dedupe: ['react', 'react-dom'],
   },
   server: {
+    port: defaultDevServerPort,
+    strictPort: true,
     proxy: {
       '/api': getBackendProxyTarget(process.env),
     },
@@ -41,4 +75,4 @@ export default defineConfig({
   test: {
     include: ['src/**/*.test.{js,ts,jsx,tsx}'],
   },
-});
+}));
