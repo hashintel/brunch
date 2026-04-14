@@ -59,7 +59,7 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 | A28 | `ToolLoopAgent` remains sufficient for longer multi-phase interviews without a handwritten loop. | high | open | D30 | Watch long-session manual runs and future probe harnesses. |
 | A40 | The canonical scope kinds (`goal`, `term`, `context`) can be discriminated well enough for first-pass review flows if low-confidence cases stay reviewable. | medium | open | D49, D68, D86 | Validate with curated fixtures plus manual review walkthroughs. |
 | A44 | The existing structured turn-response seam is sufficient for the first richer review-lifecycle refinements before a larger review-action redesign is needed. | medium | open | D57, D87 | Validate while adding richer review actions in requirements and criteria modes. |
-| A47 | Read-only codebase exploration is enough to ground meaningful brownfield kickoff turns without separate document-ingestion UX. | medium | open | D32, D82, D83 | Manual brownfield walkthroughs across varied repositories. |
+| A47 | Read-only codebase exploration plus the current prompt-shaped kickoff handoff are enough to ground meaningful brownfield kickoff turns without separate document-ingestion UX. | medium | open | D32, D82, D83 | Manual brownfield walkthroughs across varied repositories. |
 | A48 | Knowledge-graph edges are sufficient to drive accurate cascade preview for revisit work. | medium | open | D50, D80 | Structural cascade tests plus manual judgment about scope. |
 | A49 | A modal secondary thread can resolve revisit implications without forcing a full interview restart. | medium | open | D80 | Manual revisit walkthrough once the thread lifecycle lands. |
 | A50 | Layout-level `router.invalidate()` remains fast enough for sidebar refresh after observer updates. | medium | open | D22, D87 | Manual latency checks during live interviews. |
@@ -87,7 +87,7 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 80. **Knowledge-graph revisit replaces hard turn-tree branching for V1** — revisit starts from edit mode on knowledge items, traces cascade through graph edges, and resolves through a modal secondary thread.
 81. **Storage is local-first in `.brunch/` inside the project directory** — no global state store.
 82. **Kickoff begins with greenfield vs brownfield routing** — the first screen explicitly distinguishes new concepts from existing-codebase work.
-83. **Brownfield exploration feeds interviewer context, not direct knowledge writes** — the observer remains the sole durable entry point for knowledge creation.
+83. **Brownfield exploration feeds interviewer context and observer grounding, not direct knowledge writes** — the observer remains the sole durable entry point for knowledge creation; kickoff grounding currently rides through repo metadata plus the first scope question's transcript-visible handoff rather than a separate persisted kickoff artifact.
 86. **The client is organized by phase routes and three concentric layout shells** — AppLayout, ProjectLayout, and ViewLayout own the user-facing route structure.
 87. **Layout-level data ownership partitions invalidation** — workflow state, knowledge state, and per-phase turns load at different route layers instead of one monolithic refresh boundary.
 88. **Entities default to the active-path read model** — project-wide inventory is explicit rather than the default workspace surface.
@@ -107,9 +107,9 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 | I72  | Explicit phase outcomes project shared workflow status, closeability, readiness, and closure basis through one durable seam. | `phase-close.test.ts`, `db.test.ts`, `app.test.ts` | D65, D66 |
 | I87  | Requirements and criteria review ground themselves in their respective inventories, persist explicit review state, and gate closeability through the shared phase-close seam correctly. | `interview.test.ts`, `db.test.ts`, `app.test.ts` | D65, D66 |
 | I100 | `.brunch/` project resolution, launcher startup, actual bound URL reporting, and same-project runtime ownership stay correct in local-first distribution. | `project.test.ts`, `launcher.test.ts`, `cli.test.ts`, `runtime-config.test.ts` | D81 |
-| I101 | Project mode (greenfield vs brownfield) persists through schema, API, and interviewer configuration; brownfield gets exploration context without mutating later phases. | `db.test.ts`, `interview.test.ts`, `ProjectList.test.tsx` | D82, D83 |
+| I101 | Project mode (greenfield vs brownfield) persists through schema, API, interviewer configuration, and observer context; brownfield kickoff grounding reaches the first scope turn and observer without mutating later phases. | `db.test.ts`, `interview.test.ts`, `app.test.ts`, `context.test.ts`, `observer.test.ts`, `ProjectList.test.tsx` | D82, D83 |
 | I102 | File-route generation, directory-based nesting, and the three-shell route architecture remain the runtime routing source of truth; graph view stays code-split. | `router.test.tsx`, `file-route-*.test.ts`, `build-boundary.test.ts`, `GraphView.test.tsx` | D86 |
-| I103 | Trusted runtime-shaped fixture scenarios normalize back into the manifest seam and drive observer probes through one canonical scenario format. | `corpus.test.ts`, `manifest.test.ts` | D49 |
+| I103 | Trusted runtime-shaped fixture scenarios normalize back into the manifest seam, front-load the walkthrough seed catalog, and remain resumable/exportable through one canonical scenario format. | `corpus.test.ts`, `manifest.test.ts`, `walkthrough.test.ts` | D49 |
 
 ## Lexicon
 
@@ -140,6 +140,7 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 | **BrunchUIMessage** | Typed UI message contract spanning validation, persistence, SSE streaming, and hydration. |
 | **Data Part** | Typed custom message part used for structured input and domain-specific assistant output. |
 | **context builder** | Typed projection from project state into inference context for interviewer, observer, or closure logic. |
+| **walkthrough scenario** | Named trusted fixture scenario used to seed a resumable manual-inspection workspace. |
 
 ## Verification Design
 
@@ -218,7 +219,7 @@ Every meaningful code change should pass `npm run fix` in the inner loop and `np
 | `router.test.tsx` | I102 |
 | `GraphView.test.tsx` | I48, I102 |
 | `project.test.ts` / `launcher.test.ts` / `runtime-config.test.ts` | I4, I100 |
-| `corpus.test.ts` / `manifest.test.ts` | I103 |
+| `corpus.test.ts` / `manifest.test.ts` / `walkthrough.test.ts` | I103 |
 
 ## Acceptance Criteria
 

@@ -30,7 +30,7 @@ This wave is preferred over using router/query ownership as a first parallel lan
 
 ---
 
-## Agent A — Fixture-backed walkthrough workspace
+## Agent A — Fixture-backed walkthrough workspace `done`
 
 ### Goal
 Expand trusted seed scenarios into a walkthrough-ready workspace that can exercise kickoff, in-flight phase states, review-ready states, export-ready states, and resume behavior without ad hoc DB edits.
@@ -68,7 +68,7 @@ Expand trusted seed scenarios into a walkthrough-ready workspace that can exerci
 
 ---
 
-## Agent B — Brownfield kickoff rehabilitation
+## Agent B — Brownfield kickoff rehabilitation `done`
 
 ### Goal
 Repair brownfield scope kickoff so it yields **durable useful knowledge** and a **grounded first question** for feature-area work inside an existing codebase.
