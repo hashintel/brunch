@@ -10,6 +10,7 @@ import {
   getCurrentWorkflowState,
   createTurn,
   advanceHead,
+  getCapturedItemsForTurns,
   listProjects,
   createProject,
   type CreateProjectOptions,
@@ -31,9 +32,16 @@ export type TurnWithOptions = ProjectStateTurn;
 
 export function loadActivePathWithOptions(db: DB, projectId: number): TurnWithOptions[] {
   const rawActivePath = getActivePath(db, projectId);
+  const capturedItemsByTurn = getCapturedItemsForTurns(
+    db,
+    projectId,
+    rawActivePath.map((turn) => turn.id),
+  );
+
   return rawActivePath.map((t) => ({
     ...t,
     options: getOptionsForTurn(db, t.id),
+    captured_items: capturedItemsByTurn.get(t.id) ?? [],
   }));
 }
 

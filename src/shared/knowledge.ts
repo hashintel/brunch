@@ -108,6 +108,21 @@ export const knowledgeCollectionKeys = knowledgeKindRegistry.map(
   (entry) => entry.collectionKey,
 ) as KnowledgeCollectionKey[];
 
+export const knowledgeKindReferencePrefixes = {
+  goal: 'GOA',
+  term: 'TRM',
+  context: 'CON',
+  constraint: 'CST',
+  requirement: 'REQ',
+  criterion: 'CRT',
+  decision: 'DEC',
+  assumption: 'ASM',
+} as const satisfies Record<KnowledgeKind, string>;
+
+export function createKnowledgeReferenceCode(kind: KnowledgeKind, ordinal: number): string {
+  return `${knowledgeKindReferencePrefixes[kind]}-${ordinal}`;
+}
+
 export const genericKnowledgeKindRegistry = knowledgeKindRegistry.filter(
   (entry): entry is GenericKnowledgeKindMetadata => entry.entityCollection === 'knowledge_item',
 );

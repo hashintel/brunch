@@ -20,6 +20,7 @@ function renderKnowledgeItems(
     subtype: string | null;
     rationale: string | null;
     reviewStatus?: ReviewStatus;
+    referenceCode?: string;
   }>,
   emptyMessage: string,
 ) {
@@ -30,7 +31,14 @@ function renderKnowledgeItems(
   return items.map((item) => (
     <div key={item.id} className="rounded-md border p-2.5">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm">{item.content}</p>
+        <div className="space-y-1">
+          {item.referenceCode ? (
+            <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+              {item.referenceCode}
+            </p>
+          ) : null}
+          <p className="text-sm">{item.content}</p>
+        </div>
         {item.reviewStatus && (
           <Badge
             variant={
@@ -161,6 +169,11 @@ export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
 
                   return (
                     <div key={d.id} className="rounded-md border p-2.5">
+                      {d.referenceCode ? (
+                        <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                          {d.referenceCode}
+                        </p>
+                      ) : null}
                       <p className="text-sm">{d.content}</p>
                       {d.rationale && <p className="mt-1 text-xs text-muted-foreground">{d.rationale}</p>}
                       {dependencies.length > 0 && (
@@ -190,6 +203,11 @@ export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
 
                 return (
                   <div key={a.id} className="rounded-md border p-2.5">
+                    {a.referenceCode ? (
+                      <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                        {a.referenceCode}
+                      </p>
+                    ) : null}
                     <p className="text-sm">{a.content}</p>
                     {dependencies.length > 0 && (
                       <div className="mt-2">

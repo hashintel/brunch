@@ -87,6 +87,7 @@ export const askQuestionToolOutputSchema = z.object({
 });
 
 export const observerResultSchema = z.object({
+  turnId: z.number().int().positive().optional(),
   entityIds: z.object(createKnowledgeCollectionRecord(() => z.array(z.number()))),
 });
 

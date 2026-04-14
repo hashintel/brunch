@@ -55,6 +55,23 @@ export const turnOptionSchema = z.object({
   is_selected: z.boolean(),
 });
 
+const capturedTurnItemSchema = z.object({
+  collection: z.enum(['knowledge_item', 'decision', 'assumption']),
+  kind: z.enum([
+    'goal',
+    'term',
+    'context',
+    'constraint',
+    'requirement',
+    'criterion',
+    'decision',
+    'assumption',
+  ]),
+  id: z.number().int().positive(),
+  content: z.string(),
+  referenceCode: z.string().optional(),
+});
+
 export const projectStateTurnSchema = z.object({
   id: z.number().int().positive(),
   project_id: z.number().int().positive(),
@@ -69,6 +86,7 @@ export const projectStateTurnSchema = z.object({
   assistant_parts: z.string().nullable(),
   created_at: z.string(),
   options: z.array(turnOptionSchema).optional(),
+  captured_items: z.array(capturedTurnItemSchema).optional(),
 });
 
 export const createProjectRequestSchema = z
@@ -111,6 +129,7 @@ export const knowledgeItemSchema = z.object({
   subtype: z.string().nullable(),
   content: z.string(),
   rationale: z.string().nullable(),
+  referenceCode: z.string().optional(),
 });
 
 export const requirementEntitySchema = z.object({
@@ -121,6 +140,7 @@ export const requirementEntitySchema = z.object({
   content: z.string(),
   rationale: z.string().nullable(),
   reviewStatus: reviewStatusSchema.optional(),
+  referenceCode: z.string().optional(),
 });
 
 export const criterionEntitySchema = z.object({
@@ -131,6 +151,7 @@ export const criterionEntitySchema = z.object({
   content: z.string(),
   rationale: z.string().nullable(),
   reviewStatus: reviewStatusSchema.optional(),
+  referenceCode: z.string().optional(),
 });
 
 export const decisionEntitySchema = z.object({
@@ -138,12 +159,14 @@ export const decisionEntitySchema = z.object({
   project_id: z.number().int().positive(),
   content: z.string(),
   rationale: z.string().nullable(),
+  referenceCode: z.string().optional(),
 });
 
 export const assumptionEntitySchema = z.object({
   id: z.number().int().positive(),
   project_id: z.number().int().positive(),
   content: z.string(),
+  referenceCode: z.string().optional(),
 });
 
 export const entityReferenceSchema = z.object({

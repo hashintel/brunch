@@ -362,7 +362,10 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           const entityIds = await runObserver(db, persistedTurn, id);
           writer.write({
             type: 'data-observer-result',
-            data: { entityIds },
+            data: {
+              turnId: persistedTurn.id,
+              entityIds,
+            },
           });
         } catch {
           // Observer failures are non-fatal to the interviewer turn.

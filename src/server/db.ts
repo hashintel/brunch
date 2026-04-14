@@ -17,6 +17,7 @@ import type {
   EntityReference as SharedEntityReference,
   EntityRelationship as SharedEntityRelationship,
   ProjectMode,
+  ProjectStateTurn,
   ReadinessBand,
   RequirementEntity as SharedRequirementEntity,
   ReviewStatus,
@@ -26,6 +27,7 @@ import type {
 } from '@/shared/api-types.js';
 import { isAskQuestionUIPart, structuredQuestionSchema, type StructuredQuestion } from '@/shared/chat.js';
 import {
+  createKnowledgeReferenceCode,
   genericKnowledgeKindRegistry,
   type GenericKnowledgeCollectionKey,
   type GenericKnowledgeKind,
@@ -654,6 +656,18 @@ function getEntityCollectionForKind(kind: KnowledgeKind): EntityCollection {
   return 'knowledge_item';
 }
 
+function withReferenceCodes<T extends { id: number; kind: SharedKnowledgeKind }>(
+  items: readonly T[],
+): Array<T & { referenceCode: string }> {
+  return items
+    .slice()
+    .sort((left, right) => left.id - right.id)
+    .map((item, index) => ({
+      ...item,
+      referenceCode: createKnowledgeReferenceCode(item.kind, index + 1),
+    }));
+}
+
 function getReviewStatusesOnActivePath(
   db: DB,
   projectId: number,
@@ -805,15 +819,31 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
   const genericKnowledgeCollections = Object.fromEntries(
     genericKnowledgeKindRegistry.map((entry) => [
       entry.collectionKey,
-      entry.kind === 'requirement'
-        ? getRequirementEntitiesForProject(db, projectId)
-        : entry.kind === 'criterion'
-          ? getCriterionEntitiesForProject(db, projectId)
-          : getKnowledgeItemsForProjectByKind(db, projectId, entry.kind),
+      withReferenceCodes(
+        entry.kind === 'requirement'
+          ? getRequirementEntitiesForProject(db, projectId)
+          : entry.kind === 'criterion'
+            ? getCriterionEntitiesForProject(db, projectId)
+            : getKnowledgeItemsForProjectByKind(db, projectId, entry.kind),
+      ),
     ]),
   ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
-  const decisions = getKnowledgeItemsForProjectByKind(db, projectId, 'decision').map(toDecision);
-  const assumptions = getKnowledgeItemsForProjectByKind(db, projectId, 'assumption').map(toAssumption);
+  const decisions = withReferenceCodes(
+    getKnowledgeItemsForProjectByKind(db, projectId, 'decision')
+      .map(toDecision)
+      .map((decision) => ({
+        ...decision,
+        kind: 'decision' as const,
+      })),
+  ).map(({ kind: _, ...decision }) => decision);
+  const assumptions = withReferenceCodes(
+    getKnowledgeItemsForProjectByKind(db, projectId, 'assumption')
+      .map(toAssumption)
+      .map((assumption) => ({
+        ...assumption,
+        kind: 'assumption' as const,
+      })),
+  ).map(({ kind: _, ...assumption }) => assumption);
   const relationships = db.all(sql`
     SELECT
       edge.relation AS type,
@@ -902,4 +932,78 @@ export function getEntitiesForProject(db: DB, projectId: number): EntitiesForPro
 
 export function getEntitiesForProjectOnActivePath(db: DB, projectId: number): EntitiesForProject {
   return getEntitiesForProjectByMode(db, projectId, 'active-path');
+}
+
+export function getCapturedItemsForTurns(
+  db: DB,
+  projectId: number,
+  turnIds: readonly number[],
+): Map<number, NonNullable<ProjectStateTurn['captured_items']>> {
+  const capturedItemsByTurn = new Map<number, NonNullable<ProjectStateTurn['captured_items']>>();
+  if (turnIds.length === 0) {
+    return capturedItemsByTurn;
+  }
+
+  const projectWideEntities = getEntitiesForProject(db, projectId);
+  const itemsById = new Map<number, NonNullable<ProjectStateTurn['captured_items']>[number]>();
+  const addItems = (
+    items: ReadonlyArray<{ id: number; content: string; kind: SharedKnowledgeKind; referenceCode?: string }>,
+    collection: NonNullable<ProjectStateTurn['captured_items']>[number]['collection'],
+  ) => {
+    for (const item of items) {
+      itemsById.set(item.id, {
+        collection,
+        kind: item.kind,
+        id: item.id,
+        content: item.content,
+        referenceCode: item.referenceCode,
+      });
+    }
+  };
+
+  addItems(projectWideEntities.goals, 'knowledge_item');
+  addItems(projectWideEntities.terms, 'knowledge_item');
+  addItems(projectWideEntities.contexts, 'knowledge_item');
+  addItems(projectWideEntities.constraints, 'knowledge_item');
+  addItems(projectWideEntities.requirements, 'knowledge_item');
+  addItems(projectWideEntities.criteria, 'knowledge_item');
+  addItems(
+    projectWideEntities.decisions.map((item) => ({ ...item, kind: 'decision' as const })),
+    'decision',
+  );
+  addItems(
+    projectWideEntities.assumptions.map((item) => ({ ...item, kind: 'assumption' as const })),
+    'assumption',
+  );
+
+  const rows = db
+    .select({
+      turnId: schema.turnKnowledgeItem.turn_id,
+      itemId: schema.turnKnowledgeItem.item_id,
+    })
+    .from(schema.turnKnowledgeItem)
+    .innerJoin(schema.knowledgeItem, eq(schema.knowledgeItem.id, schema.turnKnowledgeItem.item_id))
+    .where(
+      and(
+        eq(schema.knowledgeItem.project_id, projectId),
+        eq(schema.turnKnowledgeItem.relation, 'captured'),
+        inArray(schema.turnKnowledgeItem.turn_id, [...turnIds]),
+      ),
+    )
+    .all() as Array<{ turnId: number; itemId: number }>;
+
+  rows.sort((left, right) => left.turnId - right.turnId || left.itemId - right.itemId);
+
+  for (const row of rows) {
+    const item = itemsById.get(row.itemId);
+    if (!item) {
+      continue;
+    }
+
+    const currentTurnItems = capturedItemsByTurn.get(row.turnId) ?? [];
+    currentTurnItems.push(item);
+    capturedItemsByTurn.set(row.turnId, currentTurnItems);
+  }
+
+  return capturedItemsByTurn;
 }

@@ -25,7 +25,11 @@ import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/p
 import { getNextActivePhase, phaseOrder, phaseRouteSegments } from '@/shared/phase-routes.js';
 
 import { useInterviewController } from './-interview-controller';
-import { getPersistedSelectedPositions, getPersistedTurnResponse } from './-interview-controller-core.js';
+import {
+  getPersistedSelectedPositions,
+  getPersistedTurnResponse,
+  turnHasCompletedAnswer,
+} from './-interview-controller-core.js';
 
 const impactStyles = {
   high: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200',
@@ -162,8 +166,10 @@ function TurnCard({
   options,
   onSubmitResponse,
   persistedSelectedPositions,
+  persistedFreeText,
   hasPersistedResponse,
   disabled,
+  state,
 }: {
   id: string;
   question: string;
@@ -172,14 +178,26 @@ function TurnCard({
   options: readonly TurnCardOption[];
   onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
   persistedSelectedPositions: number[];
+  persistedFreeText: string;
   hasPersistedResponse: boolean;
   disabled: boolean;
+  state: 'active' | 'submitted';
 }) {
   const [selectedPositions, setSelectedPositions] = useState<number[]>(persistedSelectedPositions);
-  const [freeText, setFreeText] = useState('');
+  const [freeText, setFreeText] = useState(persistedFreeText);
   const hasSelection = selectedPositions.length > 0;
   const hasFreeText = freeText.trim().length > 0;
-  const isReadOnly = disabled || hasPersistedResponse;
+  const isSubmitted = state === 'submitted';
+  const isReadOnly = disabled || hasPersistedResponse || isSubmitted;
+
+  useEffect(() => {
+    if (!hasPersistedResponse) {
+      return;
+    }
+
+    setSelectedPositions(persistedSelectedPositions);
+    setFreeText(persistedFreeText);
+  }, [hasPersistedResponse, persistedFreeText, persistedSelectedPositions]);
 
   function toggleSelection(position: number) {
     if (isReadOnly) {
@@ -252,6 +270,14 @@ function TurnCard({
       </div>
 
       <div className="mt-2 flex flex-col gap-1.5">
+        {isSubmitted ? (
+          <div
+            className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100"
+            data-testid="turn-processing-state"
+          >
+            Interviewer is processing this response.
+          </div>
+        ) : null}
         {options.map((option) => {
           const isSelected = selectedPositions.includes(option.position);
           return (
@@ -351,11 +377,13 @@ function turnIsControlOrClosureArtifact(
   );
 }
 
-function turnHasCompletedAnswer(turn: Pick<ProjectStateTurn, 'answer' | 'user_parts'>) {
-  return Boolean(getPersistedTurnResponse(turn) || turn.answer?.trim());
-}
-
-function AnsweredTurnCard({ turn }: { turn: ProjectStateTurn }) {
+function AnsweredTurnCard({
+  turn,
+  captureStatus,
+}: {
+  turn: ProjectStateTurn;
+  captureStatus?: 'waiting' | 'applying';
+}) {
   const persistedResponse = getPersistedTurnResponse(turn);
   const selectedOptionContents =
     turn.options
@@ -372,6 +400,7 @@ function AnsweredTurnCard({ turn }: { turn: ProjectStateTurn }) {
   const assistantParts = readAssistantParts(turn);
   const hasReasoning = assistantParts.some((part) => part.type === 'reasoning');
   const hasObserverResult = assistantParts.some((part) => part.type === 'data-observer-result');
+  const capturedItems = turn.captured_items ?? [];
 
   return (
     <div className="my-3 rounded-xl border bg-card p-4 shadow-sm" data-testid="answered-turn-card">
@@ -404,9 +433,28 @@ function AnsweredTurnCard({ turn }: { turn: ProjectStateTurn }) {
 
       <div className="mt-4 border-t pt-3 text-sm">
         <p className="font-medium text-muted-foreground">Captured</p>
-        <p className="mt-1 text-foreground">
-          {hasObserverResult ? 'Workspace knowledge updated from this answer.' : 'Still thinking…'}
-        </p>
+        {capturedItems.length > 0 ? (
+          <ul className="mt-2 space-y-2">
+            {capturedItems.map((item) => (
+              <li key={`${item.collection}:${item.id}`} className="rounded-md border bg-background px-3 py-2">
+                {item.referenceCode ? (
+                  <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {item.referenceCode}
+                  </p>
+                ) : null}
+                <p className="mt-1 text-foreground">{item.content}</p>
+              </li>
+            ))}
+          </ul>
+        ) : captureStatus === 'applying' ? (
+          <p className="mt-1 text-foreground">Applying captured knowledge to this answer…</p>
+        ) : captureStatus === 'waiting' ? (
+          <p className="mt-1 text-foreground">Capturing knowledge from this answer…</p>
+        ) : (
+          <p className="mt-1 text-foreground">
+            {hasObserverResult ? 'Workspace knowledge updated from this answer.' : 'Still thinking…'}
+          </p>
+        )}
       </div>
     </div>
   );
@@ -472,14 +520,7 @@ function renderParts(
       );
     }
     if (part.type === 'data-observer-result') {
-      return (
-        <TranscriptMetaPlaceholder
-          key={index}
-          testId="observer-result-placeholder"
-          label="Knowledge updated"
-          detail="Observer updates from this response were applied to the workspace knowledge view."
-        />
-      );
+      return null;
     }
     if (part.type === 'data-phase-summary') {
       if (options?.suppressPhaseSummary) {
@@ -518,23 +559,27 @@ function renderParts(
 }
 
 export function InterviewView({ phase }: { phase: WorkflowPhase }) {
-  const { chat, project, workflow, phaseTurns, phaseSummary, promptInput, turnCard } =
+  const { chat, project, workflow, phaseTurns, phaseSummary, promptInput, turnCard, captureStatusByTurnId } =
     useInterviewController(phase);
   const phaseState = workflow.phases[phase];
   const autoPresentKeyRef = useRef<string | null>(null);
   const currentReachablePhase =
     phaseOrder.find((candidate) => workflow.phases[candidate].status !== 'closed') ?? null;
   const nextPhase = getNextActivePhase(workflow.phases, phase);
+  const hasVisibleTurnCard = turnCard !== null;
   const hasVisibleActiveTurn =
     turnCard?.kind === 'pending-question' ||
     (turnCard?.kind === 'persisted-turn' && !turnHasCompletedAnswer(turnCard.turn));
-  const activePersistedTurnId =
-    turnCard?.kind === 'persisted-turn' && !turnHasCompletedAnswer(turnCard.turn) ? turnCard.turn.id : null;
+  const renderedPersistedTurnId =
+    turnCard?.kind === 'persisted-turn' &&
+    (!turnHasCompletedAnswer(turnCard.turn) || turnCard.state === 'submitted')
+      ? turnCard.turn.id
+      : null;
   const completedPhaseTurns = phaseTurns.filter(
     (turn) =>
       turnHasCompletedAnswer(turn) &&
       !turnIsControlOrClosureArtifact(turn) &&
-      turn.id !== activePersistedTurnId,
+      turn.id !== renderedPersistedTurnId,
   );
   const showLockedState =
     phaseState.status === 'unstarted' && currentReachablePhase !== phase && currentReachablePhase !== null;
@@ -552,7 +597,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
         : continuePhaseMessages[phase]
       : null;
   const showGeneratingState =
-    !phaseSummary && (autoPresentCommand !== null || (chat.isLoading && !hasVisibleActiveTurn));
+    !phaseSummary && (autoPresentCommand !== null || (chat.isLoading && !hasVisibleTurnCard));
   const showPromptInput =
     promptInput.visible &&
     phaseState.status === 'in_progress' &&
@@ -611,7 +656,11 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           {isReviewPhase(phase) && phaseState.status === 'in_progress' && <ReviewPhaseBanner phase={phase} />}
 
           {completedPhaseTurns.map((turn) => (
-            <AnsweredTurnCard key={`answered-turn-${turn.id}`} turn={turn} />
+            <AnsweredTurnCard
+              key={`answered-turn-${turn.id}`}
+              turn={turn}
+              captureStatus={captureStatusByTurnId.get(turn.id)}
+            />
           ))}
 
           {chat.messages.map((message, messageIndex) => {
@@ -662,20 +711,23 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             </div>
           )}
 
-          {turnCard?.kind === 'persisted-turn' && !turnHasCompletedAnswer(turnCard.turn) && (
-            <TurnCard
-              key={`persisted-turn-${turnCard.turn.id}`}
-              id={`persisted-turn-${turnCard.turn.id}`}
-              question={turnCard.turn.question}
-              why={turnCard.turn.why}
-              impact={turnCard.turn.impact}
-              options={turnCard.turn.options ?? []}
-              onSubmitResponse={turnCard.submitTurnResponse}
-              persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
-              hasPersistedResponse={false}
-              disabled={turnCard.disabled}
-            />
-          )}
+          {turnCard?.kind === 'persisted-turn' &&
+            (!turnHasCompletedAnswer(turnCard.turn) || turnCard.state === 'submitted') && (
+              <TurnCard
+                key={`persisted-turn-${turnCard.turn.id}`}
+                id={`persisted-turn-${turnCard.turn.id}`}
+                question={turnCard.turn.question}
+                why={turnCard.turn.why}
+                impact={turnCard.turn.impact}
+                options={turnCard.turn.options ?? []}
+                onSubmitResponse={turnCard.submitTurnResponse}
+                persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
+                persistedFreeText={getPersistedTurnResponse(turnCard.turn)?.freeText?.trim() ?? ''}
+                hasPersistedResponse={turnCard.state === 'submitted' && turnHasCompletedAnswer(turnCard.turn)}
+                disabled={turnCard.disabled}
+                state={turnCard.state}
+              />
+            )}
 
           {turnCard?.kind === 'pending-question' && (
             <TurnCard
@@ -686,8 +738,10 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               impact={turnCard.pendingQuestion.impact}
               options={turnCard.pendingQuestion.options}
               persistedSelectedPositions={[]}
+              persistedFreeText=""
               hasPersistedResponse={false}
               disabled={turnCard.disabled}
+              state="active"
             />
           )}
 

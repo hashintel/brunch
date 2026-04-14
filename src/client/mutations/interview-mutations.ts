@@ -11,7 +11,7 @@ import { findTurnOptionsByPositions } from '../routes/project/$id/_view/-intervi
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
 export interface SubmitTurnResponseMutationState {
-  readonly submitTurnResponse: (positions?: number[], freeText?: string) => Promise<void>;
+  readonly submitTurnResponse: (positions?: number[], freeText?: string) => Promise<boolean>;
   readonly isPending: boolean;
   readonly errorMessage: string | null;
   readonly clearError: () => void;
@@ -38,12 +38,12 @@ export function useSubmitTurnResponseMutation({
   return {
     submitTurnResponse: async (positions: number[] = [], freeText?: string) => {
       if (!turn) {
-        return;
+        return false;
       }
       const uniquePositions = [...new Set(positions)];
       const selectedOptions = findTurnOptionsByPositions(turn, uniquePositions);
       if (selectedOptions.length !== uniquePositions.length) {
-        return;
+        return false;
       }
       const trimmedFreeText = freeText?.trim();
       const responseText = formatTurnResponseText({
@@ -51,7 +51,7 @@ export function useSubmitTurnResponseMutation({
         freeText: trimmedFreeText,
       });
       if (!responseText) {
-        return;
+        return false;
       }
 
       const response: SubmitTurnResponseRequest =
@@ -73,8 +73,10 @@ export function useSubmitTurnResponseMutation({
         });
         await router.invalidate();
         await sendMessage({ text: responseText });
+        return true;
       } catch {
         // The shared mutation hook surfaces the failure state in the UI.
+        return false;
       }
     },
     isPending: mutation.isPending,

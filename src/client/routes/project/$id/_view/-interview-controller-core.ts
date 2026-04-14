@@ -43,7 +43,11 @@ export interface PhaseSummaryViewModel {
 }
 
 export type InterviewTurnCardViewModel =
-  | { readonly kind: 'persisted-turn'; readonly turn: ProjectStateTurn }
+  | {
+      readonly kind: 'persisted-turn';
+      readonly turn: ProjectStateTurn;
+      readonly state: 'active' | 'submitted';
+    }
   | { readonly kind: 'pending-question'; readonly pendingQuestion: PendingQuestionViewModel };
 
 export interface InterviewControllerViewState {
@@ -87,6 +91,12 @@ export function getPersistedTurnResponse(
 
 export function hasPersistedTurnResponse(turn: Pick<ProjectStateTurn, 'user_parts'> | undefined): boolean {
   return getPersistedTurnResponse(turn) !== null;
+}
+
+export function turnHasCompletedAnswer(
+  turn: Pick<ProjectStateTurn, 'answer' | 'user_parts'> | undefined,
+): boolean {
+  return Boolean(getPersistedTurnResponse(turn) || turn?.answer?.trim());
 }
 
 export function getPersistedSelectedPositions(
@@ -185,6 +195,28 @@ export function createInterviewEphemeralChatState(projectState: ProjectState): I
   return {
     seedMessages: hydrateMessages(projectState.turns),
   };
+}
+
+export function reconcileStablePhaseTurns(
+  stableTurns: readonly ProjectStateTurn[],
+  durableTurns: readonly ProjectStateTurn[],
+): ProjectStateTurn[] {
+  const stableTurnsById = new Map(stableTurns.map((turn) => [turn.id, turn]));
+
+  return durableTurns.map((durableTurn) => {
+    const stableTurn = stableTurnsById.get(durableTurn.id);
+    if (!stableTurn) {
+      return durableTurn;
+    }
+
+    if (turnHasCompletedAnswer(stableTurn)) {
+      const stableCapturedCount = stableTurn.captured_items?.length ?? 0;
+      const durableCapturedCount = durableTurn.captured_items?.length ?? 0;
+      return durableCapturedCount > stableCapturedCount ? durableTurn : stableTurn;
+    }
+
+    return turnHasCompletedAnswer(durableTurn) ? durableTurn : stableTurn;
+  });
 }
 
 function findPhaseTurn(
@@ -296,23 +328,30 @@ export function createInterviewControllerViewState(
   phase: WorkflowPhase,
   messages: readonly BrunchUIMessage[],
   isLoading: boolean,
+  submittedTurnId: number | null = null,
 ): InterviewControllerViewState {
   const { project, workflow } = durableProject;
   const phaseTurn = findPhaseTurn(durableProject, phase);
   const showTurnCard = Boolean(phaseTurn?.options?.length);
   const phaseTurnHasResponse = hasPersistedTurnResponse(phaseTurn ?? undefined);
-  const pendingQuestion = isLoading ? findPendingQuestion(messages) : null;
+  const isSubmittedTurn = phaseTurn?.id === submittedTurnId;
+  const pendingQuestion = isLoading || submittedTurnId !== null ? findPendingQuestion(messages) : null;
   const latestPhaseSummary = findPhaseSummary(messages);
   const phaseSummary =
-    latestPhaseSummary && (isLoading || workflow.phases[latestPhaseSummary.phase].proposalPending)
+    latestPhaseSummary &&
+    (isLoading || submittedTurnId !== null || workflow.phases[latestPhaseSummary.phase].proposalPending)
       ? latestPhaseSummary
       : null;
   const turnCard: InterviewTurnCardViewModel | null = phaseSummary
     ? null
     : pendingQuestion
       ? { kind: 'pending-question', pendingQuestion }
-      : showTurnCard && phaseTurn && !isLoading
-        ? { kind: 'persisted-turn', turn: phaseTurn }
+      : showTurnCard && phaseTurn && (!isLoading || isSubmittedTurn)
+        ? {
+            kind: 'persisted-turn',
+            turn: phaseTurn,
+            state: isSubmittedTurn ? 'submitted' : 'active',
+          }
         : null;
 
   return {
@@ -321,7 +360,8 @@ export function createInterviewControllerViewState(
     turnCard,
     phaseSummary,
     promptInput: {
-      visible: phaseSummary || pendingQuestion ? false : !showTurnCard || phaseTurnHasResponse,
+      visible:
+        phaseSummary || pendingQuestion ? false : !showTurnCard || (phaseTurnHasResponse && !isSubmittedTurn),
     },
   };
 }
