@@ -1,6 +1,6 @@
 ---
 name: ln-sync
-description: "Refresh memory/SPEC.md and memory/PLAN.md in mature mode — keep only live architecture and the rolling frontier, archive stale history, and flag drift against code."
+description: "Refresh `memory/SPEC.md` and `memory/PLAN.md` in mature mode — keep only live architecture and the rolling frontier, archive stale history, and flag drift against code."
 ---
 
 # Ln Sync
@@ -34,8 +34,8 @@ If either `memory/SPEC.md` or `memory/PLAN.md` is missing, route to `ln-spec` or
 
 Ask whether each file is still serving re-entry.
 
-- If `SPEC.md` is carrying embedded truths, old implementation detail, or closed historical debates, prune it.
-- If `PLAN.md` is mostly completed history, collapse it to a rolling frontier and archive the rest.
+- If `memory/SPEC.md` is carrying embedded truths, old implementation detail, or closed historical debates, prune it.
+- If `memory/PLAN.md` is mostly completed history, collapse it to a rolling frontier and archive the rest.
 
 ### 3. SPEC pass — keep only live architecture
 
@@ -91,9 +91,9 @@ Rules:
 Scan recent code / commits for:
 
 - new domain concepts not reflected in the lexicon
-- durable decisions not reflected in SPEC
-- active work not represented in PLAN
-- stale references between PLAN and SPEC
+- durable decisions not reflected in `memory/SPEC.md`
+- active work not represented in `memory/PLAN.md`
+- stale references between `memory/PLAN.md` and `memory/SPEC.md`
 
 ### 6. Report and update
 

@@ -1,6 +1,6 @@
 ---
 name: ln-plan
-description: "Break a feature or project area into frontier-ordered work packets and update memory/PLAN.md. Re-run to retire completed work, reorder priorities, or add new items."
+description: "Break a feature or project area into frontier-ordered work packets and update `memory/PLAN.md`. Re-run to retire completed work, reorder priorities, or add new items."
 argument-hint: "[feature or project area to plan]"
 ---
 
@@ -34,10 +34,10 @@ Classify each item before deciding how much planning weight it needs.
 
 | Work type | Planning weight |
 | --- | --- |
-| Structural | full packet with SPEC traceability |
-| Bounded feature | objective + acceptance + verification; add SPEC links only if durable boundaries change |
+| Structural | full packet with `memory/SPEC.md` traceability |
+| Bounded feature | objective + acceptance + verification; add `memory/SPEC.md` links only if durable boundaries change |
 | Hardening | task-level objective + acceptance |
-| Bugfix | usually do not add to PLAN unless it changes frontier priority |
+| Bugfix | usually do not add to `memory/PLAN.md` unless it changes frontier priority |
 | Refactor | route through `ln-refactor` unless it is itself frontier work |
 
 ### Anti-fragmentation
@@ -74,7 +74,7 @@ Traceability is conditional on structural significance.
 
 ## Output
 
-Write or update `./memory/PLAN.md` using `./assets/plan-template.md`.
+Write or update `memory/PLAN.md` using the [plan template](assets/plan-template.md).
 
 ## Routing
 

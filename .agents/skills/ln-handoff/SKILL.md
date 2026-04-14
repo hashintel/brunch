@@ -1,7 +1,7 @@
 ---
 name: ln-handoff
 description: "Capture volatile session state into a structured handoff document before context is lost. Use when ending a session, switching threads, approaching context limits, or at any juncture the user chooses."
-argument-hint: "[optional: path for handoff file, default HANDOFF.md]"
+argument-hint: "[optional: path for handoff file, default `HANDOFF.md`]"
 ---
 
 # Ln Handoff
@@ -41,7 +41,7 @@ This is the critical step. Scan the conversation for volatile artifacts — info
 - **Decisions and assumptions** discussed but not yet in `memory/SPEC.md`
 - **Evidence that informed diagnoses** — concrete proof points (API responses, test output, log lines, specific data) that caused the investigation to shift direction or a hypothesis to be confirmed/rejected. Without this, a new thread inherits conclusions but not the reasoning, and may re-investigate or contradict settled evidence.
 - **Failed attempts or dead ends** that affect what to try next
-- **Lightweight-work breadcrumbs** that did not promote into `SPEC.md` or `PLAN.md` — record `Done / Verified / Watch` so a fresh thread can inherit non-architectural context too
+- **Lightweight-work breadcrumbs** that did not promote into `memory/SPEC.md` or `memory/PLAN.md` — record `Done / Verified / Watch` so a fresh thread can inherit non-architectural context too
 
 Reproduce these with full fidelity — preserve the structure (scope card format, spike verdict format, etc.), not just a summary. The natural failure mode is to capture what you're actively working on and drop everything else. Resist this: scan the **entire** conversation, not just the recent context.
 
@@ -56,7 +56,7 @@ What IS on disk:
 
 ### 4. Produce handoff
 
-Write structured markdown following `./assets/handoff-template.md`.
+Write structured markdown following the [handoff template](assets/handoff-template.md).
 
 Write to the path given as argument, or `HANDOFF.md` at the nearest workspace root. In a monorepo, this is the workspace (package) the session was working in — not the repository root. Determine the workspace from the files touched during the session: look for the nearest `package.json`, `Cargo.toml`, `go.mod`, or similar project marker up from the most-edited files.
 

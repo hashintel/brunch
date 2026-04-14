@@ -29,7 +29,7 @@ If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent 
 - Scope card promised schema validation → is there a Zod parse in the test?
 - Scope card promised differential oracle → are there golden master fixtures?
 - Scope card promised round-trip oracle → is there a persist-then-query test?
-- SPEC.md §Acknowledged Blind Spots → has anything changed that should promote a blind spot to "needs an oracle now"?
+- `memory/SPEC.md` §Acknowledged Blind Spots → has anything changed that should promote a blind spot to "needs an oracle now"?
 
 Collect gaps as numbered findings (category: `oracle-coverage`).
 

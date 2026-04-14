@@ -19,7 +19,7 @@ The area to refactor: $ARGUMENTS
 1. Capture the problem. Explore the codebase to verify assertions. Present alternatives the user may not have considered. Hammer out exact scope — what changes, what stays.
 2. Check test coverage of the affected area. If coverage is insufficient for safe refactoring, the first step must be characterization tests (Feathers, *Working Effectively with Legacy Code*) — suggest `ln-build` for that before continuing.
 3. Break the refactor into tiny commits. Order by safety: renames first (align to the lexicon in `memory/SPEC.md` if it exists), then extractions (deepen shallow modules — Ousterhout), then interface alignments, then behavioral changes last. Each commit is a complete, passing state.
-4. Write the refactor plan to `./memory/REFACTOR.md`. Delete the file when the refactor is complete.
+4. Write the refactor plan to `memory/REFACTOR.md`. Delete the file when the refactor is complete.
 
 ## Output
 

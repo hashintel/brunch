@@ -39,7 +39,7 @@ The question and approach: $ARGUMENTS
 After the verdict, do all of these before presenting routing options:
 
 1. Mark the spike `done` in `memory/PLAN.md`
-2. Update `memory/SPEC.md` §Assumptions — set `Status` to `validated` or `invalidated` as evidence warrants, update `Confidence` if the evidence changed it, and flag implicated slices in PLAN.md
+2. Update `memory/SPEC.md` §Assumptions — set `Status` to `validated` or `invalidated` as evidence warrants, update `Confidence` if the evidence changed it, and flag implicated slices in `memory/PLAN.md`
 3. Add any new decisions to `memory/SPEC.md` §Decisions, new assumptions to §Assumptions
 4. If the verdict changes slice feasibility → update affected slices in `memory/PLAN.md`
 

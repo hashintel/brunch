@@ -1,6 +1,6 @@
 ---
 name: ln-scope
-description: "Define one thin vertical slice with target behavior, risks, and acceptance criteria. Use when scoping the next piece of work before building, or when a slice from PLAN.md needs precise definition."
+description: "Define one thin vertical slice with target behavior, risks, and acceptance criteria. Use when scoping the next piece of work before building, or when a slice from `memory/PLAN.md` needs precise definition."
 argument-hint: "[behavior to deliver in this slice]"
 ---
 
@@ -69,7 +69,7 @@ Every boundary the slice passes through, entry to exit:
 
 ```
 - RISK: [what might not work] → MITIGATION: [how to handle it]
-- ASSUMPTION: [what we're assuming] → VALIDATE: [how we'll know] → [→ SPEC.md §Assumptions]
+- ASSUMPTION: [what we're assuming] → VALIDATE: [how we'll know] → [→ memory/SPEC.md §Assumptions]
 ```
 
 High-risk unvalidated assumption → suggest `ln-spike` before `ln-build`.

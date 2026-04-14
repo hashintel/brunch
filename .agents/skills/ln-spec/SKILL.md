@@ -22,11 +22,11 @@ The feature or problem: $ARGUMENTS
 2. **Explore the codebase** to verify assertions, understand current state, and find existing patterns. If `memory/SPEC.md` exists, read it first — this is an update, not a blank-slate write.
 3. **Interview** (if understanding is thin), to close remaining gaps. Walk each branch of the design tree. For each question, provide your recommended answer. If the codebase can answer a question, explore it instead of asking. Use `ln-grill` if it hasn't already been run.
 4. **Sketch modules** to build or modify. Apply Ousterhout's depth test — favor deep modules with small interfaces and large hidden implementations, testable in isolation. Check with the user that modules match expectations. Use `ln-design` if it hasn't already been run.
-5. **Write or update** `./memory/SPEC.md`.
+5. **Write or update** `memory/SPEC.md`.
 
 ## Output
 
-Write or update `./memory/SPEC.md` following the template at `./assets/spec-template.md`. If the file already exists, read it first — preserve existing content, evolve sections that need change.
+Write or update `memory/SPEC.md` following the [spec template](assets/spec-template.md). If the file already exists, read it first — preserve existing content, evolve sections that need change.
 
 ### Verification Design boundary
 
@@ -64,9 +64,9 @@ Large cleanup is `ln-sync` work. When writing or patching, keep the touched area
 
 Every amendment must close its reference chain as far as the current lifecycle stage allows. After editing, verify:
 
-- **New assumption** → has: dependent decision(s), validation approach, and implicated slice(s) in PLAN.md **if PLAN.md already exists**
+- **New assumption** → has: dependent decision(s), validation approach, and implicated slice(s) in `memory/PLAN.md` **if `memory/PLAN.md` already exists**
 - **New decision** → has: dependent assumption(s), supersession note
-- **New invariant** → has: establishing slice in PLAN.md **if known**, protecting test (or `manual (outer loop)`), proved decision
+- **New invariant** → has: establishing slice in `memory/PLAN.md` **if known**, protecting test (or `manual (outer loop)`), proved decision
 - **New constraint** → has: rationale for exclusion
 - **New inner-loop oracle item** → names the invariant(s) it protects
 
