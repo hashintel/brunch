@@ -1,6 +1,8 @@
-# Scope: Phase Terminal Staging and Auto-Present Current Turn
+# Card: Phase Terminal Staging and Auto-Present Current Turn
 
 > Status: live scoped card. This is the current first build target on the workspace transcript frontier.
+
+> Canonical path: `memory/CARD.md`
 
 **Slice**: `memory/PLAN.md` Active #1
 **Weight**: Full scope card

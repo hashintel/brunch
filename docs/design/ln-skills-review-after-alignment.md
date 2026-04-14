@@ -237,7 +237,7 @@ Key questions:
 
 ### Handoff quality
 
-- Can a new thread resume from `HANDOFF.md` without clarifying questions?
+- Can a new thread resume from `memory/SPEC.md`, `memory/PLAN.md`, and the current card without clarifying questions?
 - Are volatile artifacts preserved with enough detail to prevent re-investigation?
 - Is review debt and verification state visible enough to survive thread boundaries?
 
