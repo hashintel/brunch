@@ -1,8 +1,17 @@
+import { existsSync } from 'node:fs';
+import { mkdtempSync, rmSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+
 import { describe, expect, it, vi } from 'vitest';
 
 import { runSeedCli } from './seed.js';
 
 describe('runSeedCli', () => {
+  function createTempDir(): string {
+    return mkdtempSync(join(tmpdir(), 'brunch-seed-'));
+  }
+
   it('lists only public trusted scenarios when no scenario is provided', () => {
     const io = {
       log: vi.fn(),
@@ -33,5 +42,44 @@ describe('runSeedCli', () => {
     expect(io.error.mock.calls[0]?.[0]).toBe('Unknown scenario: not-a-scenario');
     const advertisedCatalog = String(io.error.mock.calls[1]?.[0] ?? '');
     expect(advertisedCatalog).toContain('low-readiness-all-phases-closed');
+  });
+
+  it('defaults to the local .brunch project database when no db path is provided', () => {
+    const tempDir = createTempDir();
+    const io = {
+      log: vi.fn(),
+      error: vi.fn(),
+    };
+
+    try {
+      const exitCode = runSeedCli(['issue-tracker-kickoff-ready'], io, tempDir);
+
+      expect(exitCode).toBe(0);
+      expect(io.error).not.toHaveBeenCalled();
+      expect(existsSync(join(tempDir, '.brunch', 'brunch.db'))).toBe(true);
+      expect(String(io.log.mock.calls[0]?.[0] ?? '')).toContain(join(tempDir, '.brunch', 'brunch.db'));
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
+  });
+
+  it('uses BRUNCH_DB when provided and no explicit db path arg is given', () => {
+    const tempDir = createTempDir();
+    const configuredDbPath = join(tempDir, 'scratch.db');
+    const io = {
+      log: vi.fn(),
+      error: vi.fn(),
+    };
+
+    try {
+      const exitCode = runSeedCli(['issue-tracker-kickoff-ready'], io, tempDir, configuredDbPath);
+
+      expect(exitCode).toBe(0);
+      expect(io.error).not.toHaveBeenCalled();
+      expect(existsSync(configuredDbPath)).toBe(true);
+      expect(String(io.log.mock.calls[0]?.[0] ?? '')).toContain(configuredDbPath);
+    } finally {
+      rmSync(tempDir, { recursive: true, force: true });
+    }
   });
 });

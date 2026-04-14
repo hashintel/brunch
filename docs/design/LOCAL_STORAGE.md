@@ -58,6 +58,6 @@ const app = createApp(db, project)
 
 ## Open questions
 
-- Should `.brunch/` be added to common `.gitignore` templates? (Probably yes — DB contains API responses.)
+- `.brunch/` should be gitignored in repositories using Brunch — the SQLite DB contains local session state and API responses.
 - Should the walk-up depth be configurable? (Probably not — 5 levels is sufficient.)
 - Should `resolveBrunchProject` print a message when it creates a new `.brunch/`? (Yes — first-run feedback.)

@@ -46,18 +46,19 @@ Seed the dev database with pre-built project states for testing and development:
 # List available scenarios
 npm run seed
 
-# Seed into an explicit database file
-npm run seed issue-tracker-all-phases-closed ./brunch.db
+# Seed into the default project-local database (.brunch/brunch.db)
+npm run seed issue-tracker-all-phases-closed
 
-# Seed into a specific file
+# Wipe and re-seed the default project-local database
+mkdir -p .brunch
+rm -f .brunch/brunch.db .brunch/brunch.db-shm .brunch/brunch.db-wal
+npm run seed issue-tracker-all-phases-closed
+
+# Seed into a specific alternate file instead
 npm run seed issue-tracker-scope-closed ./tmp/test.db
-
-# Wipe and re-seed the same file
-rm -f brunch.db brunch.db-shm brunch.db-wal
-npm run seed issue-tracker-all-phases-closed ./brunch.db
 ```
 
-If you want `npm run dev` to use that same seeded file, launch it with `BRUNCH_DB=./brunch.db npm run dev`. For the full repeatable manual-testing workflow, use [docs/praxis/manual-testing.md](/Users/lunelson/.codex/worktrees/aed1/brunch/docs/praxis/manual-testing.md).
+`npm run dev` uses the same project-local default database unless you override it with `BRUNCH_DB`. For the full repeatable manual-testing workflow, use [docs/praxis/manual-testing.md](docs/praxis/manual-testing.md).
 
 **Synthetic scenarios** — lightweight fixtures kept mainly for narrow server tests and export-caveat inspection:
 

@@ -5,6 +5,6 @@ export default defineConfig({
   schema: './src/server/schema.ts',
   dialect: 'sqlite',
   dbCredentials: {
-    url: process.env.BRUNCH_DB || './brunch.db',
+    url: process.env.BRUNCH_DB?.trim() || './.brunch/brunch.db',
   },
 });

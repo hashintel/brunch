@@ -15,29 +15,28 @@ Use this as the default end-to-end loop when you want to repeatedly manual-test 
 
 ### Important DB-path note
 
-- `npm run seed` defaults to `./brunch.db`
-- `npm run dev` defaults to the resolved project-local database at `.brunch/brunch.db`
+- `npm run seed` now defaults to the same project-local database as the app runtime: `.brunch/brunch.db`
+- `npm run dev` also defaults to that resolved project-local database
+- `npm run studio` defaults to `.brunch/brunch.db` too
 
-If you seed one file and run the app against the other, the UI will not show the project you just seeded.
+Only use `BRUNCH_DB` or an explicit seed path when you intentionally want an alternate scratch database.
 
 ### Recommended repeatable workflow
 
-Use an explicit `BRUNCH_DB` so seeding and the dev server point at the same file:
+Use the project-local default unless you intentionally want a separate scratch DB:
 
 ```bash
-# 1. Choose one scratch database path for the whole session
-export BRUNCH_DB=./brunch.db
+# 1. Remove any previous seeded state
+mkdir -p .brunch
+rm -f .brunch/brunch.db .brunch/brunch.db-shm .brunch/brunch.db-wal
 
-# 2. Remove any previous seeded state
-rm -f "$BRUNCH_DB" "$BRUNCH_DB-shm" "$BRUNCH_DB-wal"
-
-# 3. Inspect the available walkthrough fixtures if needed
+# 2. Inspect the available walkthrough fixtures if needed
 npm run seed
 
-# 4. Seed the scenario you want to inspect
-npm run seed issue-tracker-design-active "$BRUNCH_DB"
+# 3. Seed the scenario you want to inspect
+npm run seed issue-tracker-design-active
 
-# 5. Launch the app against the same database
+# 4. Launch the app against the same database
 npm run dev
 ```
 
@@ -49,14 +48,14 @@ Then:
 4. To test resume, close the browser tab, reopen the app, and confirm the same project state is still present.
 5. To switch scenarios, stop the dev server, re-run the wipe + seed steps, then launch `npm run dev` again.
 
-### If you want to use the default project-local DB instead
+### If you want to use an alternate scratch DB instead
 
-This matches the runtime default without setting `BRUNCH_DB`:
+This is useful when you want to keep walkthrough state separate from the project-local default:
 
 ```bash
-mkdir -p .brunch
-rm -f .brunch/brunch.db .brunch/brunch.db-shm .brunch/brunch.db-wal
-npm run seed issue-tracker-design-active ./.brunch/brunch.db
+export BRUNCH_DB=./tmp/manual-testing.db
+rm -f "$BRUNCH_DB" "$BRUNCH_DB-shm" "$BRUNCH_DB-wal"
+npm run seed issue-tracker-design-active "$BRUNCH_DB"
 npm run dev
 ```
 

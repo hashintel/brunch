@@ -2,13 +2,20 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { createDb } from '../db.js';
+import { resolveConfiguredDbPath } from '../runtime-config.js';
 import { publicScenarios, publicScenarioNames } from './scenarios.js';
 
 type SeedCliIo = Pick<typeof console, 'log' | 'error'>;
 
-export function runSeedCli(args: string[], io: SeedCliIo = console): number {
+export function runSeedCli(
+  args: string[],
+  io: SeedCliIo = console,
+  cwd: string = process.cwd(),
+  configuredDbPath: string | undefined = process.env.BRUNCH_DB,
+): number {
   const scenarioName = args[0];
-  const dbPath = args[1] ?? './brunch.db';
+  const explicitDbPath = args[1]?.trim();
+  const dbPath = explicitDbPath || resolveConfiguredDbPath(configuredDbPath, cwd);
 
   if (!scenarioName || !publicScenarios[scenarioName]) {
     io.error(scenarioName ? `Unknown scenario: ${scenarioName}` : 'Usage: seed <scenario> [db-path]');
