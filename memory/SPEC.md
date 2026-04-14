@@ -85,7 +85,7 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 
 30. **AI SDK is the agent/runtime boundary** — `ToolLoopAgent` powers the interviewer, `generateObject` powers the observer, and AI SDK message/data-part contracts span streaming, persistence, and hydration.
 32. **Brownfield kickoff uses a read-only exploration tool subset** — `read`, `grep`, `find`, and `ls` ground the first scope turn without letting the kickoff mutate the repo.
-49. **Knowledge items persist generically but project through kind-specific collections** — storage stays generic; the app seam stays kind-aware.
+49. **Knowledge items persist generically but project through kind-specific collections plus stable reference codes** — storage stays generic; the app seam stays kind-aware, and identifier display derives server-owned kind-local ordinals from project-wide ordering instead of filtered client views.
 50. **Knowledge relationships live behind one typed graph seam** — persisted graph edges are first-class and drive dependency, derivation, and revisit behavior.
 57. **Structured turn response is the shared semantic boundary** — the canonical user reply is option selection(s) plus one response note; downstream consumers read structured replies, not scalar answer fallbacks.
 61. **Mixed legacy/generic knowledge storage is transitional, not the target state** — the long-term architecture is one coherent generic knowledge model.
@@ -105,7 +105,7 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 92. **Live-only assistant artifacts replay as contentless placeholders** — if thinking or tool use is surfaced live, hydration persists an inert marker that the artifact occurred without persisting hidden reasoning tokens or raw tool results. Depends on: A53. Supersedes: —.
 93. **Replay for elicitation phases is turn-shaped, not message-shaped** — completed interview turns collapse into answered-turn records that summarize the question, the structured user response, and the capture status, while control and closure events render in their own interaction family rather than as ordinary chat bubbles. Depends on: A51, A53. Supersedes: —.
 94. **Phase progression is bottom-anchored** — if a phase is open, the workspace transcript bottoms out in the current unresolved turn or a visible generation state; if a phase is closed, the transcript bottoms out in a handoff or completion artifact. Depends on: A51, A54. Supersedes: —.
-95. **Observer capture may trail interviewer progression if it stays turn-owned** — interviewer completion may unlock the next turn before observer capture finishes, but any trailing observer state remains attached to the just-answered turn card rather than surfacing as a free-floating transcript row. Depends on: A20, A53, A55. Supersedes: —.
+95. **Observer capture may trail interviewer progression if it stays turn-owned** — interviewer completion may unlock the next turn before observer capture finishes, but any trailing observer state remains attached to the just-answered turn card rather than surfacing as a free-floating transcript row; observer-result transport may carry the originating turn identity so late capture can hydrate back into that same card. Depends on: A20, A53, A55. Supersedes: —.
 
 ## Critical Invariants
 
@@ -115,10 +115,10 @@ Brunch supports both **greenfield** projects and **brownfield** projects. In bro
 | ---- | --------- | ------------ | ------ |
 | I4   | Vite proxy routing and the runtime backend-port seam stay aligned through one explicit configuration path. | `runtime-config.test.ts` | D81 |
 | I17  | Data Part schema validation remains confined to true LLM / HTTP boundaries rather than mirrored internal seams. | `parts.test.ts` | D24 |
-| I24  | Interview hydration, streaming projection, controller orchestration, mutation transport, and phase-filtered rendering remain stable through the routed interview surface. | `InterviewView.test.tsx`, `-interview-data.test.ts`, `-interview-controller.test.tsx`, `client-mutation.test.ts` | D30, D86, D87 |
+| I24  | Interview hydration, streaming projection, controller orchestration, mutation transport, and phase-filtered rendering remain stable through the routed interview surface, including turn-owned submit/interviewer-processing and trailing observer attachment. | `InterviewView.test.tsx`, `-interview-data.test.ts`, `-interview-controller.test.tsx`, `client-mutation.test.ts` | D30, D86, D87, D95 |
 | I44  | Structured turn responses round-trip through persistence, hydration, projection, and UI affordance state without collapsing back to scalar semantics. | `turn-response.test.ts`, `context.test.ts`, `InterviewView.test.tsx` | D57 |
-| I48  | Canonical knowledge kinds persist with provenance and project through typed entity collections plus graph edges without ontology drift. | `db.test.ts`, `knowledge.test.ts`, `EntitySidebar.test.tsx`, `GraphView.test.tsx` | D49, D50 |
-| I54  | Phase-aware observer extraction widens to all canonical knowledge kinds and survives persistence plus UI refresh without breaking sync. | `observer.test.ts`, `context.test.ts`, `app.test.ts` | D30, D49 |
+| I48  | Canonical knowledge kinds persist with provenance and project through typed entity collections, stable per-kind reference codes, turn-linked capture projection, and graph edges without ontology drift. | `db.test.ts`, `core.test.ts`, `knowledge.test.ts`, `EntitySidebar.test.tsx`, `InterviewView.test.tsx`, `GraphView.test.tsx` | D49, D50 |
+| I54  | Phase-aware observer extraction widens to all canonical knowledge kinds and survives persistence, turn-linked replay hydration, and UI refresh without breaking sync. | `observer.test.ts`, `context.test.ts`, `app.test.ts`, `InterviewView.test.tsx` | D30, D49, D95 |
 | I72  | Explicit phase outcomes project shared workflow status, closeability, readiness, and closure basis through one durable seam. | `phase-close.test.ts`, `db.test.ts`, `app.test.ts` | D65, D66 |
 | I87  | Requirements and criteria review ground themselves in their respective inventories, persist explicit review state, and gate closeability through the shared phase-close seam correctly. | `interview.test.ts`, `db.test.ts`, `app.test.ts` | D65, D66 |
 | I100 | `.brunch/` project resolution, launcher startup, actual bound URL reporting, and same-project runtime ownership stay correct in local-first distribution. | `project.test.ts`, `launcher.test.ts`, `cli.test.ts`, `runtime-config.test.ts` | D81 |
@@ -234,10 +234,12 @@ Every meaningful code change should pass `npm run fix` in the inner loop and `np
 | File | Protects |
 | ---- | -------- |
 | `db.test.ts` | I48, I72, I101 |
+| `core.test.ts` | I48 |
 | `app.test.ts` | I54, I72, I87 |
 | `context.test.ts` | I44, I54 |
 | `observer.test.ts` | I48, I54 |
-| `InterviewView.test.tsx` | I24, I44, I72 |
+| `EntitySidebar.test.tsx` | I48 |
+| `InterviewView.test.tsx` | I24, I44, I48, I54, I72 |
 | `interview.test.ts` | I87, I101 |
 | `phase-close.test.ts` | I72 |
 | `router.test.tsx` | I102 |

@@ -436,6 +436,7 @@ describe('POST /api/projects/:id/chat', () => {
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
       data: {
+        turnId: 1,
         entityIds: {
           goals: [1],
           terms: [2],
@@ -458,6 +459,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'Produce a clean implementation brief',
         rationale: 'The interview should end in a trustworthy handoff',
+        referenceCode: 'GOA-1',
       },
     ]);
     expect(entitiesRes.body.terms).toEqual([
@@ -468,6 +470,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'implementation brief',
         rationale: 'The turn named the artifact the project is trying to produce',
+        referenceCode: 'TRM-1',
       },
     ]);
     expect(entitiesRes.body.contexts).toEqual([
@@ -478,6 +481,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'The project starts from a fuzzy brief',
         rationale: 'The user is still establishing the problem context',
+        referenceCode: 'CON-1',
       },
     ]);
     expect(entitiesRes.body.constraints).toEqual([
@@ -488,6 +492,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: 'non-goal',
         content: 'Keep setup instant',
         rationale: 'The launcher should stay lightweight',
+        referenceCode: 'CST-1',
       },
     ]);
   });
@@ -574,6 +579,7 @@ describe('POST /api/projects/:id/chat', () => {
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
       data: {
+        turnId: 1,
         entityIds: {
           goals: [],
           terms: [],
@@ -596,6 +602,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'The first release still targets solo builders',
         rationale: 'The turn clarified the intended audience',
+        referenceCode: 'CON-1',
       },
     ]);
     expect(entitiesRes.body.constraints).toEqual([
@@ -606,6 +613,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: 'non-goal',
         content: 'Do not add a plugin system yet',
         rationale: 'The first release should stay narrow',
+        referenceCode: 'CST-1',
       },
     ]);
     expect(entitiesRes.body.decisions).toEqual([
@@ -614,6 +622,7 @@ describe('POST /api/projects/:id/chat', () => {
         project_id: projectId,
         content: 'Start with the web app',
         rationale: 'It is the fastest path to feedback',
+        referenceCode: 'DEC-1',
       },
     ]);
     expect(entitiesRes.body.assumptions).toEqual([
@@ -621,6 +630,7 @@ describe('POST /api/projects/:id/chat', () => {
         id: createdIds!.assumption,
         project_id: projectId,
         content: 'Users can work in a browser',
+        referenceCode: 'ASM-1',
       },
     ]);
     expect(entitiesRes.body.relationships).toEqual([
@@ -671,6 +681,7 @@ describe('POST /api/projects/:id/chat', () => {
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
       data: {
+        turnId: 1,
         entityIds: {
           goals: [],
           terms: [],
@@ -694,6 +705,7 @@ describe('POST /api/projects/:id/chat', () => {
         content: 'Resume the interview from SQLite after restart',
         rationale: 'Users will come back to finish the workflow',
         reviewStatus: 'pending',
+        referenceCode: 'REQ-1',
       },
     ]);
   });
@@ -737,6 +749,7 @@ describe('POST /api/projects/:id/chat', () => {
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
       data: {
+        turnId: 1,
         entityIds: {
           goals: [],
           terms: [],
@@ -760,6 +773,7 @@ describe('POST /api/projects/:id/chat', () => {
         content: 'Resuming restores the active path without data loss',
         rationale: 'This proves persistence worked for the branch the user was on',
         reviewStatus: 'pending',
+        referenceCode: 'CRT-1',
       },
     ]);
   });
@@ -2934,6 +2948,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
           {
             type: 'data-observer-result',
             data: {
+              turnId: turn.id,
               entityIds: {
                 goals: [],
                 terms: [],

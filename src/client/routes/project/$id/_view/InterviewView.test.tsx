@@ -45,6 +45,7 @@ type UseChatHarness = {
   sendMessage: ReturnType<typeof vi.fn>;
   setMessages: ReturnType<typeof vi.fn>;
   replaceMessages?: (messages: BrunchUIMessage[]) => void;
+  setStatus?: (status: 'ready' | 'submitted' | 'streaming') => void;
   onData?: UseChatOptions['onData'];
   onFinish?: UseChatOptions['onFinish'];
 };
@@ -266,7 +267,7 @@ function setLoaderData(data: { projectState: ProjectState }) {
   currentProjectState = data.projectState;
 }
 
-function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'ready'): (
+function createUseChatHarness(initialStatus: 'ready' | 'submitted' | 'streaming' = 'ready'): (
   options: UseChatOptions,
 ) => {
   messages: BrunchUIMessage[];
@@ -285,10 +286,14 @@ function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'rea
   return function useChatHarnessImpl(options: UseChatOptions) {
     const [, forceRender] = useState(0);
     const chatStates = useState(() => new Map<string, BrunchUIMessage[]>())[0];
+    const statusStates = useState(() => new Map<string, 'ready' | 'submitted' | 'streaming'>())[0];
     const chatId = options.id ?? 'default';
 
     if (!chatStates.has(chatId)) {
       chatStates.set(chatId, options.messages);
+    }
+    if (!statusStates.has(chatId)) {
+      statusStates.set(chatId, initialStatus);
     }
 
     const stableSetMessages = useCallback(
@@ -299,16 +304,24 @@ function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'rea
       },
       [chatId, chatStates],
     );
+    const stableSetStatus = useCallback(
+      (nextStatus: 'ready' | 'submitted' | 'streaming') => {
+        statusStates.set(chatId, nextStatus);
+        forceRender((count) => count + 1);
+      },
+      [chatId, statusStates],
+    );
 
     useChatHarness.onData = options.onData;
     useChatHarness.onFinish = options.onFinish;
     useChatHarness.replaceMessages = stableSetMessages;
+    useChatHarness.setStatus = stableSetStatus;
 
     return {
       messages: chatStates.get(chatId) ?? options.messages,
       sendMessage,
       setMessages: stableSetMessages,
-      status,
+      status: statusStates.get(chatId) ?? initialStatus,
     };
   };
 }
@@ -493,6 +506,15 @@ describe('InterviewView', () => {
               { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
               { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
             ],
+            captured_items: [
+              {
+                collection: 'knowledge_item',
+                kind: 'goal',
+                id: 1,
+                content: 'Ship the web app first',
+                referenceCode: 'GOA-1',
+              },
+            ],
           },
           {
             id: 2,
@@ -561,7 +583,8 @@ describe('InterviewView', () => {
     const answeredCards = screen.getAllByTestId('answered-turn-card');
     expect(answeredCards[0].textContent).toContain('What should we build first?');
     expect(answeredCards[0].textContent).toContain('Build the web app');
-    expect(answeredCards[0].textContent).toContain('Workspace knowledge updated');
+    expect(answeredCards[0].textContent).toContain('GOA-1');
+    expect(answeredCards[0].textContent).toContain('Ship the web app first');
   });
 
   it('renders continue/start control actions as control markers instead of user chat bubbles', async () => {
@@ -1237,6 +1260,318 @@ describe('InterviewView', () => {
     await waitFor(() => {
       expect(routerInvalidate).toHaveBeenCalledTimes(1);
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'None of these fit our use case' });
+    });
+  });
+
+  it('keeps the submitted turn card mounted and locked while interviewer processing', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    routerInvalidate.mockImplementationOnce(async () => {
+      setLoaderData(
+        createWorkspaceLoaderData({
+          answer: 'Desktop — Best fit for our launch',
+          userParts: [
+            { type: 'text', text: 'Desktop — Best fit for our launch' },
+            {
+              type: 'data-turn-response',
+              data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
+            },
+          ],
+          options: [
+            { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+            { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+          ],
+        }),
+      );
+    });
+    useChatHarness.sendMessage.mockImplementation(async () => {
+      useChatHarness.setStatus?.('submitted');
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'Best fit for our launch' },
+    });
+    fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('turn-processing-state').textContent).toContain(
+        'Interviewer is processing this response.',
+      );
+    });
+
+    const responseContext = screen.getByLabelText('Additional response context') as HTMLTextAreaElement;
+    const desktopOption = screen.getByRole('checkbox', { name: /desktop/i }) as HTMLInputElement;
+
+    expect(screen.getByText('What should we build first?')).toBeTruthy();
+    expect(screen.queryByText('Preparing the next interview turn')).toBeNull();
+    expect(responseContext.value).toBe('Best fit for our launch');
+    expect(responseContext.disabled).toBe(true);
+    expect(desktopOption.checked).toBe(true);
+    expect(desktopOption.disabled).toBe(true);
+  });
+
+  it('collapses a submitted turn into an answered card only when interviewer completion reveals the next step', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    routerInvalidate.mockImplementationOnce(async () => {
+      setLoaderData(
+        createWorkspaceLoaderData({
+          answer: 'Desktop — Best fit for our launch',
+          userParts: [
+            { type: 'text', text: 'Desktop — Best fit for our launch' },
+            {
+              type: 'data-turn-response',
+              data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
+            },
+          ],
+          options: [
+            { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+            { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+          ],
+        }),
+      );
+    });
+    useChatHarness.sendMessage.mockImplementation(async () => {
+      useChatHarness.setStatus?.('submitted');
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'Best fit for our launch' },
+    });
+    fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('turn-processing-state')).toBeTruthy();
+    });
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        {
+          id: 'turn-1-answer',
+          role: 'user',
+          parts: [{ type: 'text', text: 'Desktop — Best fit for our launch' }],
+        },
+        {
+          id: 'turn-1-assistant',
+          role: 'assistant',
+          parts: [{ type: 'text', text: 'What should we build first?' }],
+        },
+        createPendingQuestionMessage(),
+      ]);
+      useChatHarness.setStatus?.('ready');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain('What should we build first?');
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain('Desktop');
+      expect(screen.getByRole('checkbox', { name: /web/i })).toBeTruthy();
+      expect(screen.getByRole('checkbox', { name: /desktop/i })).toBeTruthy();
+    });
+
+    expect(screen.queryByTestId('turn-processing-state')).toBeNull();
+    expect(screen.queryByText('Preparing the next interview turn')).toBeNull();
+  });
+
+  it('keeps trailing observer status attached to the collapsed answered turn and upgrades in place when capture arrives', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    routerInvalidate.mockImplementationOnce(async () => {
+      setLoaderData(
+        createWorkspaceLoaderData({
+          answer: 'Desktop — Best fit for our launch',
+          userParts: [
+            { type: 'text', text: 'Desktop — Best fit for our launch' },
+            {
+              type: 'data-turn-response',
+              data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
+            },
+          ],
+          options: [
+            { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+            { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+          ],
+        }),
+      );
+    });
+    routerInvalidate.mockImplementationOnce(async () => {
+      setLoaderData(
+        createWorkspaceLoaderData({
+          turns: [
+            {
+              id: 1,
+              project_id: 1,
+              parent_turn_id: null,
+              phase: 'scope',
+              question: 'What should we build first?',
+              why: 'This frames the first iteration.',
+              impact: 'high',
+              answer: 'Desktop — Best fit for our launch',
+              is_resolution: false,
+              user_parts: JSON.stringify([
+                { type: 'text', text: 'Desktop — Best fit for our launch' },
+                {
+                  type: 'data-turn-response',
+                  data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
+                },
+              ]),
+              assistant_parts: JSON.stringify([
+                { type: 'text', text: 'What should we build first?' },
+                {
+                  type: 'data-observer-result',
+                  data: {
+                    turnId: 1,
+                    entityIds: {
+                      goals: [],
+                      terms: [],
+                      contexts: [1],
+                      constraints: [],
+                      requirements: [],
+                      criteria: [],
+                      decisions: [],
+                      assumptions: [],
+                    },
+                  },
+                },
+              ]),
+              created_at: '2026-04-03 10:00:00',
+              options: [
+                { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+                { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+              ],
+              captured_items: [
+                {
+                  collection: 'knowledge_item',
+                  kind: 'context',
+                  id: 1,
+                  content: 'The launch still targets desktop first',
+                  referenceCode: 'CON-1',
+                },
+              ],
+            },
+          ],
+        }),
+      );
+    });
+    useChatHarness.sendMessage.mockImplementation(async () => {
+      useChatHarness.setStatus?.('submitted');
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'Best fit for our launch' },
+    });
+    fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('turn-processing-state')).toBeTruthy();
+    });
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        {
+          id: 'turn-1-answer',
+          role: 'user',
+          parts: [{ type: 'text', text: 'Desktop — Best fit for our launch' }],
+        },
+        {
+          id: 'turn-1-assistant',
+          role: 'assistant',
+          parts: [{ type: 'text', text: 'What should we build first?' }],
+        },
+        createPendingQuestionMessage(),
+      ]);
+      useChatHarness.setStatus?.('ready');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain(
+        'Capturing knowledge from this answer…',
+      );
+      expect(screen.getByRole('checkbox', { name: /web/i })).toBeTruthy();
+    });
+    expect(screen.queryByTestId('observer-result-placeholder')).toBeNull();
+
+    await act(async () => {
+      useChatHarness.onData?.({
+        type: 'data-observer-result',
+        data: {
+          turnId: 1,
+          entityIds: {
+            goals: [],
+            terms: [],
+            contexts: [1],
+            constraints: [],
+            requirements: [],
+            criteria: [],
+            decisions: [],
+            assumptions: [],
+          },
+        },
+      });
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain('CON-1');
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain(
+        'The launch still targets desktop first',
+      );
+      expect(screen.queryByText('Applying captured knowledge to this answer…')).toBeNull();
     });
   });
 

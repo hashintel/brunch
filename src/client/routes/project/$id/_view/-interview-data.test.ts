@@ -310,7 +310,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(pendingResponse, 'scope', [], false)).toEqual({
       project: pendingResponse.project,
       workflow: pendingResponse.workflow,
-      turnCard: { kind: 'persisted-turn', turn: pendingResponse.lastTurn! },
+      turnCard: { kind: 'persisted-turn', turn: pendingResponse.lastTurn!, state: 'active' },
       phaseSummary: null,
       promptInput: { visible: false },
     });
@@ -324,16 +324,83 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(selectedResponse, 'scope', [], false)).toEqual({
       project: selectedResponse.project,
       workflow: selectedResponse.workflow,
-      turnCard: { kind: 'persisted-turn', turn: selectedResponse.lastTurn! },
+      turnCard: { kind: 'persisted-turn', turn: selectedResponse.lastTurn!, state: 'active' },
       phaseSummary: null,
       promptInput: { visible: true },
     });
     expect(createInterviewControllerViewState(freeTextOnlyResponse, 'scope', [], false)).toEqual({
       project: freeTextOnlyResponse.project,
       workflow: freeTextOnlyResponse.workflow,
-      turnCard: { kind: 'persisted-turn', turn: freeTextOnlyResponse.lastTurn! },
+      turnCard: { kind: 'persisted-turn', turn: freeTextOnlyResponse.lastTurn!, state: 'active' },
       phaseSummary: null,
       promptInput: { visible: true },
+    });
+  });
+
+  it('keeps a submitted turn card mounted until interviewer completion reveals the next step', () => {
+    const submittedResponse = createInterviewDurableProjectState(
+      createProjectState({
+        answer: 'Desktop — Best fit for launch',
+        userParts: [
+          { type: 'text', text: 'Desktop — Best fit for launch' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
+          },
+        ],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+        workflow: {
+          phases: {
+            scope: {
+              status: 'in_progress',
+              closeability: false,
+              readiness: 'medium',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: 1,
+              summary: null,
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+          },
+        },
+      }),
+    );
+
+    expect(createInterviewControllerViewState(submittedResponse, 'scope', [], true, 1)).toEqual({
+      project: submittedResponse.project,
+      workflow: submittedResponse.workflow,
+      turnCard: { kind: 'persisted-turn', turn: submittedResponse.lastTurn!, state: 'submitted' },
+      phaseSummary: null,
+      promptInput: { visible: false },
     });
   });
 
@@ -518,6 +585,7 @@ describe('workspace controller core', () => {
       turnCard: {
         kind: 'persisted-turn',
         turn: projectState.turns[1]!,
+        state: 'active',
       },
       phaseSummary: null,
       promptInput: { visible: false },

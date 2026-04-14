@@ -1529,7 +1529,7 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     ]);
   });
 
-  it('names project-wide and active-path entity projection modes without changing current outputs', () => {
+  it('keeps derived reference codes stable across project-wide and active-path entity projections', () => {
     const project = createProject(db, 'Test');
     const rootTurn = createTurn(db, project.id, {
       phase: 'scope',
@@ -1561,14 +1561,15 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     expect(getEntitiesForProjectByMode(db, project.id, 'active-path')).toEqual(
       getEntitiesForProjectOnActivePath(db, project.id),
     );
+
     expect(getEntitiesForProjectByMode(db, project.id, 'project-wide').decisions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ content: 'Use SQLite for persistence' }),
-        expect.objectContaining({ content: 'Use Postgres for persistence' }),
+        expect.objectContaining({ content: 'Use SQLite for persistence', referenceCode: 'DEC-1' }),
+        expect.objectContaining({ content: 'Use Postgres for persistence', referenceCode: 'DEC-2' }),
       ]),
     );
     expect(getEntitiesForProjectByMode(db, project.id, 'active-path').decisions).toEqual([
-      expect.objectContaining({ content: 'Use Postgres for persistence' }),
+      expect.objectContaining({ content: 'Use Postgres for persistence', referenceCode: 'DEC-2' }),
     ]);
   });
 
