@@ -2,7 +2,7 @@
 export default {
   stories: 'src/**/*.stories.{js,ts,tsx,mdx}',
   port: 61000,
-  viteConfig: './.ladle/vite.config.ts',
+  viteConfig: `${process.cwd()}/.ladle/vite.config.ts`,
   addons: {
     rtl: { enabled: false },
     a11y: { enabled: false },
