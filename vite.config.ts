@@ -12,8 +12,6 @@ import { getBackendProxyTarget } from './src/server/runtime-config';
 const __dirname = dirname(fileURLToPath(import.meta.url));
 export const defaultDevServerPort = 5173;
 
-const isLadleProcess = () => typeof process.env.VITE_LADLE_APP_ID === 'string';
-
 export const resolveDevServerPort = (argv: string[]) => {
   const inlinePortFlag = argv.find((arg) => arg.startsWith('--port='));
 
@@ -41,13 +39,7 @@ export const resolveDevServerPort = (argv: string[]) => {
 export const getViteCacheDir = (command: 'build' | 'serve', argv: string[]) =>
   resolve(
     __dirname,
-    isLadleProcess()
-      ? command === 'serve'
-        ? 'node_modules/.vite-ladle'
-        : 'node_modules/.vite-ladle-build'
-      : command === 'serve'
-        ? `node_modules/.vite-${resolveDevServerPort(argv)}`
-        : 'node_modules/.vite-build',
+    command === 'serve' ? `node_modules/.vite-${resolveDevServerPort(argv)}` : 'node_modules/.vite-build',
   );
 
 export default defineConfig(({ command }) => ({
