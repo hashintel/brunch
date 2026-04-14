@@ -159,16 +159,50 @@ Every meaningful code change should pass `npm run fix` in the inner loop and `np
 
 ### Verification Stance
 
-- **Inner loop** locks schema boundaries, domain state transitions, and seam-level regressions quickly.
-- **Middle loop** proves round-trips across persistence, routing, observer sync, and workflow closure.
-- **Outer loop** is still required for interview quality, brownfield grounding quality, revisit UX, and latency judgment.
+- Verification is first-class work; this wave stays **manual-heavy by deliberate choice**, not by accident.
+- **Inner loop** proves structural validity, boundary safety, and non-destructive behavior.
+- **Middle loop** proves replay, refresh-boundary ownership, and explicit state projection where cheap automated checks can remove bad degrees of freedom.
+- **Outer loop** is the authority for brownfield grounding quality, transcript legibility, waiting-state clarity, and phase-layout differentiation.
+- Outer-loop UI review uses a **dramaturgical see-and-inspect** posture: judge whether the product stages its state transitions legibly for a human, not just whether bytes round-trip.
+
+### Diagnostic Assessment
+
+| Dimension | Score | Notes | Change trigger |
+| --------- | ----- | ----- | -------------- |
+| Observability | partial | Persistence, manifests, DB state, and route seams are visible in text, but the most important failures in this wave still present as browser-visible transcript disappearance, waiting-state ambiguity, and layout legibility issues. | Promote instrumentation if manual browser inspection cannot explain refresh or lock behavior confidently. |
+| Reproducibility | partial | Trusted manifest seeding and capture-backed corpus give a strong base, but brownfield kickoff quality still varies by repo shape and live refresh behavior is not yet represented by a canonical replay matrix. | Promote a stronger corpus or replay harness if ad hoc brownfield/manual checks stop being trustworthy. |
+| Controllability | partial | The agent can iterate on fixtures, stories, and structural tests autonomously, but the core acceptance signals for this wave remain human judgment calls. | Raise controllability only if manual review becomes the bottleneck or repeated ambiguity blocks progress. |
+
+### Oracle Strategy by Loop Tier
+
+| Tier | Oracle families | What they prove | Main targets |
+| ---- | --------------- | --------------- | ------------ |
+| Inner | Schema validation, type-aware linting, focused unit/integration tests, negative-space regressions | Boundaries remain type-safe; persistence and transport seams do not silently collapse; obvious bad failures are caught cheaply. | I4, I17, I24, I44, I48, I54, I72, I87, I100, I101, I102, I103 |
+| Middle | Round-trip / replay oracles for seeded projects, hydration, export, and resume | Seeded or persisted state can be loaded, projected, re-rendered, and exported without losing required semantic markers. | Requirements 13, 14, 15; I24, I44, I100, I103 |
+| Middle | Route/query ownership integration oracles | Observer updates and response mutations refresh only their owned surfaces instead of tearing down unrelated transcript state. | Requirements 5, 7, 14; A20, A50; I24, I54, I102 |
+| Middle | Explicit state-model oracles for in-flight UI states | Every major in-flight mode is named, projectable, and visibly representable instead of collapsing into one opaque loading bit. | Requirement 5; I24, I44 |
+| Outer | Fixture-backed manual walkthroughs on seeded scenarios | Walkthrough fixtures are useful enough to inspect phase transitions, export output, resume behavior, and missing-view discovery. | Requirements 13, 14, 15; I100, I103 |
+| Outer | Brownfield kickoff walkthroughs on real repos, evaluated qualitatively | Kickoff yields durable useful knowledge and a grounded first question for feature-area work, without needing a fully automated quality score. | Requirements 3, 16; A47; I101 |
+| Outer | Dramaturgical story and transcript review | Phase differentiation, transcript artifact legibility, and waiting-state clarity are judged as staged user experience rather than just structural output. | Requirement 5; A15, A28, A40, A44, A50 |
+
+### Design Notes
+
+- **Legible replay fidelity beats exact replay fidelity for now** — hydrated transcripts may use placeholders or summary markers to indicate that reasoning or tool activity happened at a point in the conversation, even if the full original content is not persisted.
+- **Brownfield kickoff has a deliberately modest proof bar** — this wave only needs durable useful knowledge plus a grounded first question, not a fully proven framing bundle before scope can proceed.
+- **Waiting states should become an explicit vocabulary in code** — the user-facing contract is that each major in-flight mode is visibly represented; deep lock/wait introspection is diagnostic scaffolding, not yet a product requirement.
+- **Manual verification is intentionally lightweight** — no heavyweight scripted walkthrough protocol yet; use seeded scenarios and see-and-inspect review rather than bureaucratic checklists.
+- **Kickoff strategy comparison stays qualitative unless proven insufficient** — if the brownfield mode fork remains ambiguous after manual repo comparisons, promote that question to a spike with a stronger comparison harness.
 
 ### Acknowledged Blind Spots
 
-- Qualitative interviewer quality is still a human judgment problem.
-- Brownfield kickoff quality still depends on manual walkthroughs across different repos.
-- Observer latency and sidebar freshness need runtime observation, not just tests.
-- Revisit UX and secondary-thread adequacy cannot be closed purely by structural tests.
+| Blind spot | Reason | Current mitigation | Revisit trigger |
+| ---------- | ------ | ------------------ | --------------- |
+| Qualitative interviewer and kickoff quality across many repo shapes | Chosen manual-first; no broad brownfield corpus or score harness yet | Manual brownfield walkthroughs on representative repos | Brownfield regressions recur or kickoff strategy debates cannot be resolved qualitatively |
+| Transcript trust and readability after hydration | Exact replay of all reasoning/tool detail is intentionally deferred | Legible placeholders/summary markers plus manual transcript review | Users still cannot understand what happened after replay despite visible markers |
+| Actual lock/wait causality in the UI | Instrumentation is not yet the primary investment | Require explicit visible in-flight states and inspect browser behavior manually | Manual inspection cannot explain a repeated perceived lock or disappearance bug |
+| Story quality and phase differentiation | Design quality is not executable in a trustworthy way yet | Story variants reviewed against seeded walkthrough findings | Story/app drift grows or design disagreement blocks implementation |
+| Observer latency and layout refresh freshness | No explicit latency budget or perf gate yet | Runtime observation during manual sessions | A20 or A50 show recurring latency or coarse refresh pain |
+| Revisit UX and secondary-thread adequacy | That seam is still future work | Keep structural coverage on graph/persistence seams only | Revisit work moves from horizon into the active frontier |
 
 ### Current Coverage
 
