@@ -1,5 +1,7 @@
 # Worktree Agent Allocation Brief — retired for now
 
+> Status: retired. Keep only as historical context for a provisional parallelization idea, not as a current execution brief.
+
 This file is **not** the current source of truth for the next wave.
 
 The earlier parallel-work brief described a previous planning moment. Since then:
