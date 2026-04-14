@@ -1,120 +1,115 @@
 ---
 name: ln-build
 description: "Implement one scoped slice using TDD red-green-refactor. Use when ready to write code for a defined slice of work, or when the user wants test-driven development."
-argument-hint: "[paste or reference a ln-scope card]"
+argument-hint: "[paste or reference a ln-scope packet]"
 ---
 
 # Ln Build
 
-Implement **one** slice. Beck's red-green-refactor, one cycle, no scope creep.
+Implement **one** work packet. Beck's red-green-refactor, one cycle, no scope creep.
 
 ## Input
 
-A scope card from `ln-scope`, or one commit-sized step from `memory/REFACTOR.md`: $ARGUMENTS
+A full scope card or lightweight packet from `ln-scope`, or a trivial direct-fix request: $ARGUMENTS
 
-The canonical path is `ln-scope` → `ln-build`. For refactors, `ln-refactor` may hand off one commit-sized step to implement. If neither a scope card nor a single refactor step exists, suggest `ln-scope` or `ln-refactor` first. Accept a raw behavior description only for trivial changes where scoping would be ceremony.
+Extract: target behavior / objective, acceptance criteria, and verification approach.
 
-Extract: target behavior, boundary crossings, acceptance criteria, and **verification approach**. For refactor steps, derive these from the selected commit step and existing tests before writing new code.
+Re-enter before red.
+
+If this is a fresh thread or an unfamiliar area, reload:
+
+1. `memory/SPEC.md`
+2. `memory/PLAN.md`
+3. `HANDOFF.md` if present
+4. `docs/archive/PLAN_HISTORY.md` only if the frontier or touched area is still unclear
+
+Write a 2-4 bullet orientation note naming the containing seam, the frontier item, any manual verification debt, and the main open risk.
+
+If the request is a direct fix and you cannot name the containing seam or whether it is settled, stop and route through `ln-scope` first.
 
 ## Red
 
-Translate acceptance criteria into failing tests. If the scope card includes a verification approach, the oracle strategy informs test design — schema validation oracles become Zod parse assertions, differential oracles become golden master comparisons, round-trip oracles become persist-then-query cycles.
+Translate acceptance criteria into failing tests when the change benefits from them. For bugfixes or subtle seam changes, prefer one high-leverage regression test. For trivial maintenance or doc-only work, tests may be unnecessary.
 
-Run them. Confirm each fails for the expected reason — a test that fails with an error is not red, it is broken.
-
-If tests pass unexpectedly, the scope was wrong. Tighten assertions or revisit `ln-scope`.
+Run the relevant checks. Confirm failures are meaningful.
 
 ## Green
 
-Write the minimum code to pass the tests. Build inside-out: functional core first (pure domain logic, no I/O), then imperative shell (thin I/O adapter), then wire end-to-end (Bernhardt, "Boundaries").
+Write the minimum code to pass. Build inside-out: functional core first, thin I/O shell second, then end-to-end wiring.
 
-No speculative abstractions. YAGNI. Only extract when two concrete cases force it.
+No speculative abstractions. Only extract when two concrete cases force it.
 
 ## Refactor
 
-Tests are green. Now improve: align names to the lexicon in `memory/SPEC.md`, deepen shallow modules (Ousterhout), make invalid states unrepresentable (Minsky), delete anything unused. Never refactor while tests are red.
+With tests green, improve names, boundaries, and obvious local structure. Do not widen scope.
 
 ## Verify and commit
 
-Run the project's verification harness. All checks must pass. Commit: `feat: [target behavior in lowercase]`
+Run the project's verification harness. All checks must pass.
 
-## Traceability (mandatory — do before routing)
+## Promotion check
 
-After the slice lands and verification passes, update only the traceability items touched by this slice. For each candidate artifact, choose exactly one action: **add**, **update**, **merge**, **archive**, or **no-op**.
+Traceability is **conditional**, not automatic.
 
-### Local comparison set
+After the build lands and verification passes, ask:
 
-Compare new facts only against items the current slice already references:
+- [ ] Did this establish or change a seam / boundary?
+- [ ] Did this make or reverse a non-trivial design decision?
+- [ ] Did this retire or create an assumption?
+- [ ] Did this establish a new seam-level invariant?
 
-- the current slice block in `memory/PLAN.md` (and its tracer bullets)
-- rows in `memory/SPEC.md` named by the slice (§Assumptions, §Decisions, §Invariants to respect/established)
-- assumption/decision IDs from the scope card
-- test files added or changed in this slice
+### If all answers are no
 
-Do **not** scan the whole spec looking for the perfect merge target. If nothing in this local set clearly matches, **add** and let `ln-sync` consolidate later.
+- Mark the work done in `memory/PLAN.md` **if it was tracked there**
+- Update `Recently Completed` if the plan uses it
+- Do **not** add new SPEC/PLAN bookkeeping just because work happened
+- If the work was non-trivial, required manual verification, or leaves residual risk, leave a one-line breadcrumb in `Recently Completed` or `HANDOFF.md` using `Done / Verified / Watch`
 
-### Same-item tests
+### If any answer is yes
 
-Use these to decide whether a candidate fact is already covered by an existing local row:
+Update only the touched traceability items.
 
-- **Same assumption** = same boundary/component + same unresolved claim. Differences in wording, confidence, evidence, or validation method → same assumption.
-- **Same decision** = same seam/boundary + same chosen alternative. Narrower helpers, file layout, implementation mechanics, or first concrete use of an already-chosen pattern → same decision.
-- **Same invariant** = same seam/boundary + same rule template + same proved decision(s). Approve/reject, confirm/force-close, reload/refresh/resume, or kind/phase/state variants of one shared rule → same invariant.
+#### Same-item tests
 
-### Steps
+- **Same assumption** = same boundary/component + same unresolved claim
+- **Same decision** = same seam/boundary + same chosen alternative
+- **Same invariant** = same seam/boundary + same rule template + same proved decision(s)
 
-1. **Mark completion.** Mark the slice or tracer bullet `done` in `memory/PLAN.md`. Note newly unblocked downstream slices.
+#### Update rules
 
-2. **Assumptions** — for each assumption the slice touched or relied on:
-   - Evidence answered it → **update** status to `validated` or `invalidated`; flag implicated slices
-   - Evidence changed certainty only → **update** confidence
-   - Same assumption exists locally → **merge** into it
-   - New unresolved belief the slice depended on, not already guaranteed by code/tests, and if false would change future work → **add**
-   - Otherwise → **no-op**
+1. **PLAN**
+   - Mark the item done if it was tracked
+   - If the change closes or unblocks a frontier item, reflect that in `Active`, `Next`, or `Recently Completed`
 
-3. **Decisions** — a decision records a committed choice at a seam, not an execution diary entry:
-   - Slice only implemented an existing decision without changing the choice → **no-op**
-   - Same decision exists locally and choice stayed the same → **update** (clearer rationale/scope) or **merge** (narrower instance of same pattern)
-   - Slice chose one alternative among ≥2 plausible alternatives, non-trivial to reverse, future work could revisit → **add**
-   - Slice changed the answer at the same seam → **add** new row with `Supersedes: Dn`
-   - Otherwise → **no-op**
+2. **Assumptions**
+   - evidence answered it → update to `validated` or `invalidated`
+   - same assumption exists locally → merge/update
+   - new unresolved belief that would change future work if false → add
 
-4. **Invariants** — prefer one seam-level invariant over many branch-level invariants:
-   - No new/changed test protects the property → **no-op**
-   - Property is temporary migration state or one example of a broader rule → **merge** or **no-op**
-   - Same invariant exists locally and only `Protected by` grew → **update**
-   - Candidate is another branch/state/kind/phase/action variant of the same rule → **merge** (keep surviving ID, union `Protected by`, append to `Established by` only if the statement widened)
-   - Property can regress independently of all local invariants (different seam, rule, proved decision, or test family) → **add**
-   - Otherwise → **merge**
+3. **Decisions**
+   - existing decision merely implemented → no-op
+   - same decision, wider rationale/scope → update
+   - genuinely new alternative chosen at a seam → add
 
-5. **Completed-slice note in PLAN.md** — max 4 bullets / 6 lines:
-   - shipped outcome
-   - seam changed (optional)
-   - evidence (tests/manual)
-   - remaining debt or follow-up (optional)
-   - If a note already exists, **update** it; do not append another paragraph. If marking `done` plus invariant/decision updates already captures everything → **no-op**
+4. **Invariants**
+   - no new protecting oracle/test → no-op
+   - same seam-level invariant gained coverage → update
+   - genuinely independent seam/rule/proof → add
 
-6. **Verification coverage** — update `memory/SPEC.md` §Current Coverage. If the test file already appears, **update** counts; do not add a duplicate entry.
+When uncertain between merge and add, add. When uncertain between update and no-op, update.
 
-When uncertain between merge and add → add. When uncertain between update and no-op → update.
-
-## Temporary-document retirement
-
-If this build used a card from `memory/CARDS.md` or a step from `memory/REFACTOR.md`, check whether all items in that document are now complete. If so, confirm with the user that the document should be deleted — these are temporary working documents that should not outlive their purpose.
+If uncertain whether the seam is actually settled, promote — do not silently keep the work lightweight.
 
 ## Routing
 
-After traceability is complete, present these options to the user (use `tool-ask-question`):
+After verification and any necessary promotion updates, present these options to the user (use `tool-ask-question`):
 
-| #   | Label            | Target       | Why                                                          |
-| --- | ---------------- | ------------ | ------------------------------------------------------------ |
-| 1   | Scope next slice | `ln-scope`   | More slices remain — if multiple were unblocked, name them   |
-| 2   | Review the code  | `ln-review`  | Assess quality after an implementation burst (chains to `ln-refactor` if structural issues found) |
-| 3   | Revise spec      | `ln-spec`    | Build revealed the spec needs structural revision            |
-| 4   | Revise plan      | `ln-plan`    | Revisit the plan or re-prioritize                            |
-| 5   | Back to triage   | `ln-consult` | Direction needs reassessment                                 |
+| #   | Label            | Target       | Why |
+| --- | ---------------- | ------------ | --- |
+| 1   | Scope next item  | `ln-scope`   | More frontier work remains |
+| 2   | Review the code  | `ln-review`  | Assess quality after an implementation burst |
+| 3   | Revise spec      | `ln-spec`    | The build changed durable architecture |
+| 4   | Revise plan      | `ln-plan`    | The frontier or priorities changed |
+| 5   | Back to triage   | `ln-consult` | Direction needs reassessment |
 
-Recommended: **1** if pending slices exist, **2** after multiple consecutive builds.
-
----
-*Draws from [mattpocock/skills/tdd](https://github.com/mattpocock/skills/tree/main/tdd).*
+Recommended: **1** if more work remains, **2** after multiple consecutive builds.

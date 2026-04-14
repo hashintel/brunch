@@ -41,6 +41,7 @@ This is the critical step. Scan the conversation for volatile artifacts — info
 - **Decisions and assumptions** discussed but not yet in `memory/SPEC.md`
 - **Evidence that informed diagnoses** — concrete proof points (API responses, test output, log lines, specific data) that caused the investigation to shift direction or a hypothesis to be confirmed/rejected. Without this, a new thread inherits conclusions but not the reasoning, and may re-investigate or contradict settled evidence.
 - **Failed attempts or dead ends** that affect what to try next
+- **Lightweight-work breadcrumbs** that did not promote into `SPEC.md` or `PLAN.md` — record `Done / Verified / Watch` so a fresh thread can inherit non-architectural context too
 
 Reproduce these with full fidelity — preserve the structure (scope card format, spike verdict format, etc.), not just a summary. The natural failure mode is to capture what you're actively working on and drop everything else. Resist this: scan the **entire** conversation, not just the recent context.
 
@@ -51,6 +52,7 @@ What IS on disk:
 - **Git**: branch, recent commits (last 3-5), dirty/staged files
 - **Test status**: run the verification command if fast (<30s), otherwise note last known status
 - **Artifacts**: which of `memory/SPEC.md`, `memory/PLAN.md` exist? Are they current relative to what was discussed in conversation, or stale?
+- **Mini-sync triggers**: did manual verification happen, did frontier status change, or did residual risk surface without a doc update? If yes, name the exact drift the next thread must reconcile.
 
 ### 4. Produce handoff
 
