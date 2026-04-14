@@ -1,5 +1,6 @@
 import { table, h3 } from 'md-pen';
 
+import type { ProjectMode } from '@/shared/api-types.js';
 import { knowledgeKindRegistry } from '@/shared/knowledge.js';
 
 import type { TurnWithOptions } from './core.js';
@@ -104,6 +105,8 @@ export function buildInterviewerContext(
 export interface ObserverContextInput {
   turn: TurnWithOptions;
   activePathSummary: string;
+  projectMode?: ProjectMode;
+  projectCwd?: string | null;
   entities: {
     goals: Array<{ id: number; content: string }>;
     terms: Array<{ id: number; content: string }>;
@@ -124,6 +127,14 @@ export interface ObserverContextInput {
  */
 export function buildObserverContext(input: ObserverContextInput): string {
   const sections: string[] = [];
+
+  if (input.projectMode === 'brownfield') {
+    const projectContextLines = ['Project mode: brownfield'];
+    if (input.projectCwd) {
+      projectContextLines.push(`Project directory: ${input.projectCwd}`);
+    }
+    sections.push(projectContextLines.join('\n'));
+  }
 
   for (const entry of knowledgeKindRegistry) {
     const items = input.entities[entry.collectionKey];

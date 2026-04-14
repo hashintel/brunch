@@ -320,6 +320,44 @@ describe('observer-context-projection', () => {
     expect(result).toContain('Developers building APIs');
   });
 
+  it('includes brownfield project context when kickoff is grounded in an existing repo', () => {
+    const turn: Turn = {
+      id: 5,
+      project_id: 1,
+      parent_turn_id: 4,
+      phase: 'scope',
+      question: 'Which part of the existing auth flow should we refine first?',
+      answer: 'The login callback and redirect behavior.',
+      why: 'Grounding: The repo has a dedicated auth module and callback route. We need the first question to stay anchored in that seam.',
+      impact: 'high',
+      is_resolution: false,
+      user_parts: null,
+      assistant_parts: null,
+      created_at: '2026-01-01',
+    };
+
+    const result = buildObserverContext({
+      turn,
+      activePathSummary: '',
+      projectMode: 'brownfield',
+      projectCwd: '/tmp/repo',
+      entities: {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      },
+    });
+
+    expect(result).toContain('Project mode: brownfield');
+    expect(result).toContain('Project directory: /tmp/repo');
+    expect(result).toContain('Grounding: The repo has a dedicated auth module and callback route.');
+  });
+
   it('includes existing entity graph', () => {
     const turn: Turn = {
       id: 5,

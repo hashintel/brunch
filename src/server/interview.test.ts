@@ -212,6 +212,9 @@ describe('brownfield interviewer configuration', () => {
     expect(brownfieldPrompt).not.toBe(greenfieldPrompt);
     expect(brownfieldPrompt).toContain('explore');
     expect(brownfieldPrompt).toContain('/tmp/repo');
+    expect(brownfieldPrompt).toContain('Grounding:');
+    expect(brownfieldPrompt).toContain('bounded feature area');
+    expect(brownfieldPrompt).toContain('partial');
   });
 
   it('limits brownfield exploration instructions to the scope phase', () => {

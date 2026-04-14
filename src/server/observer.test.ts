@@ -182,6 +182,45 @@ describe('runObserver', () => {
     );
   });
 
+  it('marks brownfield scope turns as kickoff-aware in the observer prompt and context', async () => {
+    mockGenerateText.mockResolvedValue({
+      output: {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      },
+    });
+
+    const project = createProject(db, 'Spec', { mode: 'brownfield', cwd: '/tmp/repo' });
+    const turn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'Which billing workflow should we focus on first?',
+      answer: 'The invoice retry path.',
+      why: 'Grounding: The repo already has billing jobs and an invoice retry worker. We need to scope the first feature-area turn inside that seam.',
+    });
+
+    await runObserver(db, turn, project.id);
+
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('brownfield kickoff'),
+        prompt: expect.stringContaining('Project mode: brownfield'),
+      }),
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        prompt: expect.stringContaining(
+          'Grounding: The repo already has billing jobs and an invoice retry worker.',
+        ),
+      }),
+    );
+  });
+
   it('persists design-mode decisions and assumptions through the generic seam while allowing scope-kind/constraint spillover', async () => {
     mockGenerateText.mockResolvedValue({
       output: {

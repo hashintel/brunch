@@ -350,6 +350,29 @@ describe('POST /api/projects/:id/chat', () => {
     expect(turns[0].assistant_parts).not.toBeNull();
   });
 
+  it('passes brownfield kickoff mode options into the interviewer stream', async () => {
+    const createRes = await request(app)
+      .post('/api/projects')
+      .send({ name: 'Brownfield kickoff', mode: 'brownfield' })
+      .expect(201);
+
+    await request(app)
+      .post(`/api/projects/${createRes.body.id}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.any(Array),
+      'hello',
+      'scope',
+      { mode: 'brownfield', cwd: process.cwd() },
+    );
+  });
+
   it('emits canonical scope-kind observer results and persists them through the entities API', async () => {
     const projectId = await createTestProject();
     mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {

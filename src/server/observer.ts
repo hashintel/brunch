@@ -18,6 +18,7 @@ import {
   addAssumptionParentAssumption,
   getEntitiesForProject,
   getOptionsForTurn,
+  getProject,
   type DB,
   type Turn,
 } from './db.js';
@@ -79,7 +80,10 @@ export const observerOutputSchema = z.object({
 
 export type ObserverOutput = z.infer<typeof observerOutputSchema>;
 
-function buildObserverSystemPrompt(phase: Turn['phase']): string {
+function buildObserverSystemPrompt(
+  phase: Turn['phase'],
+  options?: { projectMode?: 'greenfield' | 'brownfield' },
+): string {
   const phaseBias =
     phase === 'scope'
       ? `For scope-mode turns, prioritize **goal**, **term**, **context**, and **constraint** items. Goals capture what the project is trying to achieve. Terms capture domain language or vocabulary that needs stable meaning. Context captures situational facts, actors, workflows, and problem context. Constraints capture boundaries on the acceptable solution space, including hard limits and non-goals. Do not collapse ordinary scope material into one generic bucket, do not force context into assumptions, and do not force constraints into requirements. Leave decisions and assumptions empty unless the turn makes them genuinely explicit.`
@@ -90,6 +94,11 @@ function buildObserverSystemPrompt(phase: Turn['phase']): string {
           : phase === 'criteria'
             ? `For criteria-mode turns, prioritize **criterion** items. Criteria capture verifiable success conditions and concrete evidence that would prove a requirement is satisfied. Distinguish criteria from requirements: a requirement states what the system must do, while a criterion states how someone will verify that success. You may still emit goal, term, context, or constraint corrections when the turn clearly revises scope understanding, but do not collapse a verification condition back into a requirement.`
             : `For later-mode turns, keep the extraction grounded in explicit commitments and beliefs from the current exchange. Only emit goal, term, context, or constraint items when the turn clearly revises project understanding rather than merely reviewing prior knowledge.`;
+
+  const brownfieldKickoffBias =
+    phase === 'scope' && options?.projectMode === 'brownfield'
+      ? `This scope turn comes from a brownfield kickoff in an existing codebase. Use repo-grounded cues from the question and why fields as evidence about durable terminology, context, constraints, and the likely feature boundary the user wants to explore. Prefer stable facts about the existing system or requested change over incidental file listings or transient exploration steps.`
+      : '';
 
   return `You are an observer agent analyzing a spec elicitation interview turn.
 
@@ -105,6 +114,8 @@ Your job is to extract goals, terms, context, constraints, requirements, criteri
 8. **Assumptions** — implicit or explicit beliefs underlying the decisions (e.g., "single-user tool", "users have API keys").
 
 ${phaseBias}
+
+${brownfieldKickoffBias}
 
 For decisions and assumptions, identify dependency edges to previously extracted entities by their IDs.
 
@@ -123,19 +134,22 @@ Rules:
  */
 export async function runObserver(db: DB, turn: Turn, projectId: number): Promise<ObserverEntityIds> {
   const entities = getEntitiesForProject(db, projectId);
+  const project = getProject(db, projectId);
   const context = buildObserverContext({
     turn: {
       ...turn,
       options: getOptionsForTurn(db, turn.id),
     },
     activePathSummary: '',
+    projectMode: project?.mode,
+    projectCwd: project?.cwd,
     entities,
   });
 
   const result = await generateText({
     model: anthropic(process.env.OBSERVER_MODEL || 'claude-haiku-4-5-20251001'),
     maxOutputTokens: 2048,
-    system: buildObserverSystemPrompt(turn.phase),
+    system: buildObserverSystemPrompt(turn.phase, { projectMode: project?.mode }),
     prompt: context,
     output: Output.object({ schema: observerOutputSchema }),
   });
