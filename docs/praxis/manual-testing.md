@@ -9,6 +9,68 @@ Outer-loop verification for slices that touch the user-facing boundary. Manual t
 
 This keeps the dev server and browser observable without leaving the agent session.
 
+## Fixture Walkthrough Workflow
+
+Use this as the default end-to-end loop when you want to repeatedly manual-test seeded states.
+
+### Important DB-path note
+
+- `npm run seed` defaults to `./brunch.db`
+- `npm run dev` defaults to the resolved project-local database at `.brunch/brunch.db`
+
+If you seed one file and run the app against the other, the UI will not show the project you just seeded.
+
+### Recommended repeatable workflow
+
+Use an explicit `BRUNCH_DB` so seeding and the dev server point at the same file:
+
+```bash
+# 1. Choose one scratch database path for the whole session
+export BRUNCH_DB=./brunch.db
+
+# 2. Remove any previous seeded state
+rm -f "$BRUNCH_DB" "$BRUNCH_DB-shm" "$BRUNCH_DB-wal"
+
+# 3. Inspect the available walkthrough fixtures if needed
+npm run seed
+
+# 4. Seed the scenario you want to inspect
+npm run seed issue-tracker-design-active "$BRUNCH_DB"
+
+# 5. Launch the app against the same database
+npm run dev
+```
+
+Then:
+
+1. Open `http://localhost:5173`.
+2. Confirm the seeded project appears in the dashboard.
+3. Walk through the specific state you seeded.
+4. To test resume, close the browser tab, reopen the app, and confirm the same project state is still present.
+5. To switch scenarios, stop the dev server, re-run the wipe + seed steps, then launch `npm run dev` again.
+
+### If you want to use the default project-local DB instead
+
+This matches the runtime default without setting `BRUNCH_DB`:
+
+```bash
+mkdir -p .brunch
+rm -f .brunch/brunch.db .brunch/brunch.db-shm .brunch/brunch.db-wal
+npm run seed issue-tracker-design-active ./.brunch/brunch.db
+npm run dev
+```
+
+### Choosing a scenario
+
+Start with these:
+
+- `issue-tracker-kickoff-ready` — blank kickoff workspace
+- `issue-tracker-design-active` — in-flight transcript state
+- `issue-tracker-criteria-ready` — review-phase workspace before export
+- `issue-tracker-all-phases-closed` — completed export-ready project
+- `forced-close-all-phases-closed` — export caveat for user-forced closure
+- `low-readiness-all-phases-closed` — export caveat for low-readiness closure
+
 ## Fixture capture
 
 After a confirmed-good manual session, materialize golden master fixtures by querying the database:
@@ -20,6 +82,19 @@ After a confirmed-good manual session, materialize golden master fixtures by que
 5. Re-run the observer corpus probes so the promoted capture proves the same fixture and probe path the repo already trusts.
 
 This keeps golden fixtures runtime-shaped without hand-authoring JSON or redoing manual SQL extraction every time. See SPEC.md §Oracle Strategy for how fixtures feed into the verification tiers.
+
+## Recommended walkthrough seeds
+
+Prefer the richer `issue-tracker-*` fixtures for manual walkthroughs. They are trusted manifest-backed scenarios, not ad hoc SQL snapshots.
+
+- `issue-tracker-kickoff-ready` — empty kickoff workspace and resume from a seeded blank project
+- `issue-tracker-scope-closed` — scope summary/confirmation artifacts and first design-ready handoff
+- `issue-tracker-design-active` — in-flight design transcript state
+- `issue-tracker-requirements-ready` — requirements closure artifacts and criteria handoff workspace
+- `issue-tracker-criteria-ready` — criteria review-ready workspace
+- `issue-tracker-all-phases-closed` — export-ready completed project
+- `forced-close-all-phases-closed` — synthetic caveat fixture for user-forced design closure
+- `low-readiness-all-phases-closed` — synthetic caveat fixture for low-readiness scope closure
 
 ## What to check
 

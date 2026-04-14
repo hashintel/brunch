@@ -2,6 +2,11 @@
   "name": "Issue Tracker",
   "description": "A tiny issue tracker for a small software team with tickets, comments, status changes, audit history, and role-based permissions.",
   "scenarios": {
+    "kickoff-ready": {
+      "turns": [],
+      "knowledgeItems": [],
+      "edges": []
+    },
     "scope-closed": {
       "turns": [
         {

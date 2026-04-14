@@ -46,18 +46,20 @@ Seed the dev database with pre-built project states for testing and development:
 # List available scenarios
 npm run seed
 
-# Seed into the default brunch.db (what npm run dev reads)
-npm run seed issue-tracker-all-phases-closed
+# Seed into an explicit database file
+npm run seed issue-tracker-all-phases-closed ./brunch.db
 
 # Seed into a specific file
 npm run seed issue-tracker-scope-closed ./tmp/test.db
 
-# Wipe and re-seed
-rm brunch.db brunch.db-shm brunch.db-wal
-npm run seed issue-tracker-all-phases-closed
+# Wipe and re-seed the same file
+rm -f brunch.db brunch.db-shm brunch.db-wal
+npm run seed issue-tracker-all-phases-closed ./brunch.db
 ```
 
-**Programmatic scenarios** — skeleton fixtures with minimal turns, no realistic parts:
+If you want `npm run dev` to use that same seeded file, launch it with `BRUNCH_DB=./brunch.db npm run dev`. For the full repeatable manual-testing workflow, use [docs/praxis/manual-testing.md](/Users/lunelson/.codex/worktrees/aed1/brunch/docs/praxis/manual-testing.md).
+
+**Synthetic scenarios** — lightweight fixtures kept mainly for narrow server tests and export-caveat inspection:
 
 | Scenario | State |
 |---|---|
@@ -69,21 +71,24 @@ npm run seed issue-tracker-all-phases-closed
 | `forced-close-all-phases-closed` | All four phases closed, with design closed via user-forced closure |
 | `low-readiness-all-phases-closed` | All four phases closed, with a synthetic low-readiness scope closure for export-caveat testing |
 
-**Manifest scenarios** — rich fixtures with realistic interview content, structured parts, knowledge items, and cross-kind edges (domain: tiny issue tracker):
+**Walkthrough scenarios** — rich manifest-backed fixtures with realistic interview content, structured parts, knowledge items, and cross-kind edges (domain: tiny issue tracker):
 
 | Scenario | State | Items | Edges |
 |---|---|---|---|
+| `issue-tracker-kickoff-ready` | Empty kickoff workspace | 0 | 0 |
 | `issue-tracker-scope-closed` | Scope closed (5 turns + proposal/confirm) | 12 (goals, terms, contexts, constraints) | 3 |
 | `issue-tracker-design-active` | + 2 design turns | 18 (+ decisions, assumptions) | 7 |
-| `issue-tracker-requirements-ready` | + design closed, requirements reviewed | 23 (+ 5 requirements, mixed review) | 10 |
-| `issue-tracker-criteria-ready` | + requirements closed, criteria reviewed | 27 (+ 4 criteria, mixed review) | 14 |
+| `issue-tracker-requirements-ready` | Requirements closed; criteria handoff is next | 23 (+ 5 requirements, mixed review) | 10 |
+| `issue-tracker-criteria-ready` | Criteria review in progress; export still gated | 27 (+ 4 criteria, mixed review) | 14 |
 | `issue-tracker-all-phases-closed` | All phases closed | 27 | 14 |
+
+For manual walkthroughs, prefer the `issue-tracker-*` scenarios above. The unprefixed synthetic fixtures remain available when you need caveat-focused export states or very small server-side seeds.
 
 ### Source tracing
 
 - **Programmatic**: `src/server/fixtures/scenarios.ts` — inline seed functions
 - **Manifest**: `src/server/fixtures/manifests/issue-tracker.json` — static JSON content; `src/server/fixtures/manifest.ts` — seeder that wires manifests through DB functions
-- Naming convention: `issue-tracker-*` scenarios come from the manifest; unprefixed ones are programmatic
+- Naming convention: `issue-tracker-*` scenarios come from the trusted manifest seam; unprefixed ones are synthetic helpers
 
 ## Architecture
 

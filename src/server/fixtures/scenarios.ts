@@ -8,6 +8,7 @@ import {
   createTurn,
   linkKnowledgeItemToTurn,
   type DB,
+  type WorkflowPhaseStatus,
 } from '../db.js';
 import { loadManifestScenarios } from './manifest.js';
 
@@ -354,6 +355,29 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
 
 export type ScenarioFn = (db: DB, projectName?: string) => number;
 
+type WalkthroughWorkflowSummary = Record<
+  'scope' | 'design' | 'requirements' | 'criteria',
+  WorkflowPhaseStatus
+>;
+
+export interface WalkthroughScenarioMatrixEntry {
+  scenarioName: string;
+  label: string;
+  source: 'manifest' | 'synthetic';
+  inspectionFocus: string;
+  expectedWorkflowSummary: WalkthroughWorkflowSummary;
+  manifestScenarioKey?: string;
+}
+
+function createWorkflowSummary(
+  scope: WorkflowPhaseStatus,
+  design: WorkflowPhaseStatus,
+  requirements: WorkflowPhaseStatus,
+  criteria: WorkflowPhaseStatus,
+): WalkthroughWorkflowSummary {
+  return { scope, design, requirements, criteria };
+}
+
 export const scenarios: Record<string, ScenarioFn> = {
   'scope-closed': (db, name = 'Scope Closed') => {
     const project = createProject(db, name);
@@ -385,9 +409,6 @@ export const scenarios: Record<string, ScenarioFn> = {
     seedAllPhasesClosedWithForcedDesign(db, project.id);
     return project.id;
   },
-};
-
-export const testOnlyScenarios: Record<string, ScenarioFn> = {
   'low-readiness-all-phases-closed': (db, name = 'Low-Readiness All Phases Closed') => {
     const project = createProject(db, name);
     seedAllPhasesClosedWithLowReadinessScope(db, project.id);
@@ -395,10 +416,84 @@ export const testOnlyScenarios: Record<string, ScenarioFn> = {
   },
 };
 
+export const testOnlyScenarios: Record<string, ScenarioFn> = {};
+
 export const manifestScenarios = loadManifestScenarios('issue-tracker');
 
+export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[] = [
+  {
+    scenarioName: 'issue-tracker-kickoff-ready',
+    label: 'Kickoff workspace',
+    source: 'manifest',
+    inspectionFocus: 'Blank greenfield kickoff, empty workspace rendering, and resume after seeding.',
+    expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
+    manifestScenarioKey: 'kickoff-ready',
+  },
+  {
+    scenarioName: 'issue-tracker-scope-closed',
+    label: 'Post-scope handoff',
+    source: 'manifest',
+    inspectionFocus: 'Scope summary/confirmation artifacts and the first design-ready workspace.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'in_progress', 'unstarted', 'unstarted'),
+    manifestScenarioKey: 'scope-closed',
+  },
+  {
+    scenarioName: 'issue-tracker-design-active',
+    label: 'In-flight design',
+    source: 'manifest',
+    inspectionFocus: 'Design-phase transcript state with scope already closed and resumable.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'in_progress', 'unstarted', 'unstarted'),
+    manifestScenarioKey: 'design-active',
+  },
+  {
+    scenarioName: 'issue-tracker-requirements-ready',
+    label: 'Criteria handoff',
+    source: 'manifest',
+    inspectionFocus:
+      'Requirements closure artifacts, criteria handoff, and resume behavior between review phases.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'in_progress'),
+    manifestScenarioKey: 'requirements-ready',
+  },
+  {
+    scenarioName: 'issue-tracker-criteria-ready',
+    label: 'Criteria review-ready',
+    source: 'manifest',
+    inspectionFocus: 'Criteria review turns, mixed approval state, and export-not-yet-ready gating.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'in_progress'),
+    manifestScenarioKey: 'criteria-ready',
+  },
+  {
+    scenarioName: 'issue-tracker-all-phases-closed',
+    label: 'Export-ready walkthrough',
+    source: 'manifest',
+    inspectionFocus: 'Full active-path export, final transcript review, and resume into a completed project.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'closed'),
+    manifestScenarioKey: 'all-phases-closed',
+  },
+  {
+    scenarioName: 'forced-close-all-phases-closed',
+    label: 'Forced-close export caveat',
+    source: 'synthetic',
+    inspectionFocus: 'Manual inspection of export caveats when design was closed via user-forced closure.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'closed'),
+  },
+  {
+    scenarioName: 'low-readiness-all-phases-closed',
+    label: 'Low-readiness export caveat',
+    source: 'synthetic',
+    inspectionFocus: 'Manual inspection of export caveats when scope closed with low readiness.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'closed'),
+  },
+] as const;
+
+export const walkthroughScenarioNames = walkthroughScenarioMatrix.map((entry) => entry.scenarioName);
+const walkthroughScenarioNameSet = new Set<string>(walkthroughScenarioNames);
+
 export const publicScenarios: Record<string, ScenarioFn> = { ...scenarios, ...manifestScenarios };
-export const publicScenarioNames = Object.keys(publicScenarios);
+export const publicScenarioNames = [
+  ...walkthroughScenarioNames.filter((name) => name in publicScenarios),
+  ...Object.keys(publicScenarios).filter((name) => !walkthroughScenarioNameSet.has(name)),
+];
 export const allScenarios: Record<string, ScenarioFn> = {
   ...publicScenarios,
   ...testOnlyScenarios,
