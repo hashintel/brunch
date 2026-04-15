@@ -11,20 +11,27 @@
   --font-sans: 'Inter Variable', sans-serif;
   --font-mono: 'Geist Mono Variable', ui-monospace, monospace;
 
-  /* Fine-grained text sizes matching Figma design proportions.
-     Tailwind v4 uses --text-* for text-* utilities.
-     Default gaps: xs=12px, sm=14px, base=16px.
-     These fill the 10–16px range needed for dense UI. */
-  --text-xxs: 0.625rem; /* 10px — micro labels, counters */
-  --text-xxs--line-height: 1rem;
+  /* Font weights — only normal, medium, semibold. No bold. */
+  --font-weight-*: initial;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+
+  /* Typography scale — six steps from 11px to 16px.
+     Reset all built-in sizes, then declare only the ones we use. */
+  --text-*: initial;
   --text-xs-minus: 0.6875rem; /* 11px — impact badges, tag labels */
   --text-xs-minus--line-height: 1rem;
-  /* xs = 0.75rem (12px) — built-in */
+  --text-xs: 0.75rem; /* 12px — secondary text */
+  --text-xs--line-height: 1rem;
   --text-xs-plus: 0.8125rem; /* 13px — secondary body, "why" text */
   --text-xs-plus--line-height: 1.125rem;
-  /* sm = 0.875rem (14px) — built-in */
+  --text-sm: 0.875rem; /* 14px — body text */
+  --text-sm--line-height: 1.25rem;
   --text-sm-plus: 0.9375rem; /* 15px — card headings, question text */
   --text-sm-plus--line-height: 1.375rem;
+  --text-base: 1rem; /* 16px — section headings */
+  --text-base--line-height: 1.5rem;
 
   /* Figma design grays — precise neutral ramp for borders, text, and surfaces.
      Coexist with shadcn semantic names during migration.

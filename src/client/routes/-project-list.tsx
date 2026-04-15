@@ -79,7 +79,7 @@ export function ProjectList() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-2xl p-6">
-        <h1 className="text-2xl font-bold">Brunch</h1>
+        <h1 className="text-base font-semibold">Brunch</h1>
         <p className="mt-1 text-muted-foreground">AI-guided spec elicitation</p>
 
         <Button onClick={handleOpen} disabled={createProjectMutation.isPending} className="mt-6 mb-2">

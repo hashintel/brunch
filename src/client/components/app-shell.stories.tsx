@@ -203,7 +203,6 @@ export const TypographyScale: Story = () => {
     <div className="flex flex-col gap-4">
       <h2 className="text-base font-medium text-ink">Typography scale</h2>
       <div className="flex flex-col gap-3 rounded-xl border border-rule p-4">
-        <p className="text-xxs text-hint">text-xxs (10px) — micro labels, counters</p>
         <p className="text-xs-minus text-hint">text-xs-minus (11px) — impact badges, tag labels</p>
         <p className="text-xs text-sub">text-xs (12px) — built-in, secondary text</p>
         <p className="text-xs-plus text-sub">text-xs-plus (13px) — secondary body, "why" text</p>

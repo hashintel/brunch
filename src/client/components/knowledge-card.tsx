@@ -1,5 +1,6 @@
 import { ChevronDown, Link as LinkIcon } from 'lucide-react';
 
+import { DrawerCard } from '@/client/components/drawer-card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import { cn } from '@/client/lib/utils';
 import type { EdgeRelation, ReviewStatus } from '@/shared/api-types.js';
@@ -11,12 +12,12 @@ import { knowledgeKindRegistry } from '@/shared/knowledge.js';
 const kindPrefix: Record<KnowledgeKind, string> = {
   goal: 'G',
   term: 'T',
-  context: 'Cx',
-  constraint: 'Co',
+  context: 'CTX',
+  constraint: 'NG', // stand-in for non-goal until type is added
   assumption: 'A',
   decision: 'D',
   requirement: 'R',
-  criterion: 'Cr',
+  criterion: 'CR',
 };
 
 export function itemLabel(kind: KnowledgeKind, id: number) {
@@ -66,7 +67,7 @@ export function ReviewBadge({ state }: { state: ReviewStatus }) {
 
 export function CountBadge({ count }: { count: number }) {
   return (
-    <span className="inline-flex h-5 items-center rounded-md bg-wash px-1.5 font-mono text-xxs font-medium text-sub">
+    <span className="inline-flex h-5 items-center rounded-md bg-wash px-1.5 font-mono text-xs-minus font-medium text-sub">
       {count}
     </span>
   );
@@ -220,65 +221,65 @@ export function KnowledgeGroupCard({
 export function KnowledgeDetailCard({
   item,
   edges,
+  defaultExpanded,
 }: {
   item: KnowledgeItemData;
   edges?: KnowledgeEdgeData[];
+  defaultExpanded?: boolean;
 }) {
-  return (
-    <div className="overflow-hidden rounded-xl border border-rule bg-tint">
-      {/* White header */}
-      <div className="rounded-xl bg-white p-4 shadow-[var(--shadow-card)]">
-        <div className="flex items-start justify-between">
-          <div className="flex flex-col gap-1">
-            <div className="flex items-center gap-2">
-              <span className="text-base font-medium text-hint">{itemLabel(item.kind, item.id)}</span>
-              <KindBadge kind={item.kind} />
-            </div>
-            <p className="text-base text-ink">{item.content}</p>
-          </div>
-          {item.reviewStatus && <ReviewBadge state={item.reviewStatus} />}
-        </div>
-      </div>
-
-      {/* Body sections */}
-      <div className="flex flex-col gap-3 px-4 pt-3 pb-4">
-        {item.rationale && (
-          <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-medium text-sub">Rationale</p>
-            <div className="rounded-lg bg-white p-3 shadow-[var(--shadow-card-ring)]">
-              <p className="text-sm leading-relaxed text-ink">{item.rationale}</p>
-            </div>
-          </div>
-        )}
-
-        {item.subtype && (
-          <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-medium text-sub">Subtype</p>
-            <div className="rounded-lg bg-white p-3 shadow-[var(--shadow-card-ring)]">
-              <p className="text-sm text-ink">{item.subtype}</p>
-            </div>
-          </div>
-        )}
-
-        {edges && edges.length > 0 && (
-          <div className="flex flex-col gap-1.5">
-            <p className="text-sm font-medium text-sub">Connections</p>
-            {edges.map((edge) => {
-              const relatedText = edge.relatedLabel ?? `item #${edge.relatedId}`;
-              return (
-                <div
-                  key={getKnowledgeEdgeKey(edge)}
-                  className="rounded-lg bg-white p-3 shadow-[var(--shadow-card-ring)]"
-                >
-                  <span className="text-sm font-medium text-hint">{edge.label}</span>
-                  <span className="text-sm text-ink"> {relatedText}</span>
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </div>
+  const header = (
+    <div className="flex items-baseline gap-2.5">
+      <span className="shrink-0 text-sm font-medium text-hint">{itemLabel(item.kind, item.id)}</span>
+      <p className="text-sm-plus text-ink">{item.content}</p>
     </div>
+  );
+
+  // Summary: rationale as a lighter text peek (visible when collapsed)
+  const summary = item.rationale ? (
+    <p className="text-xs-plus leading-relaxed text-sub">{item.rationale}</p>
+  ) : undefined;
+
+  // Children: the full maximized drawer content (rationale + subtype + edges).
+  // Only provided when there's more content than the summary alone,
+  // so the toggle has something extra to reveal.
+  const hasExtra = !!(item.subtype || (edges && edges.length > 0));
+  const children = hasExtra ? (
+    <>
+      {item.rationale && <p className="text-xs-plus leading-relaxed text-sub">{item.rationale}</p>}
+
+      {item.subtype && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-sm font-medium text-sub">Subtype</p>
+          <div className="rounded-lg bg-white p-3 shadow-[var(--shadow-card-ring)]">
+            <p className="text-sm text-ink">{item.subtype}</p>
+          </div>
+        </div>
+      )}
+
+      {edges && edges.length > 0 && (
+        <div className="flex flex-col gap-1.5">
+          <p className="text-sm font-medium text-sub">Connections</p>
+          {edges.map((edge) => {
+            const relatedText = edge.relatedLabel ?? `item #${edge.relatedId}`;
+            return (
+              <div
+                key={getKnowledgeEdgeKey(edge)}
+                className="rounded-lg bg-white p-3 shadow-[var(--shadow-card-ring)]"
+              >
+                <span className="text-sm font-medium text-hint">{edge.label}</span>
+                <span className="text-sm text-ink"> {relatedText}</span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </>
+  ) : undefined;
+
+  return (
+    <DrawerCard header={header} summary={summary} defaultExpanded={defaultExpanded}>
+      {children}
+    </DrawerCard>
   );
 }
 
@@ -289,7 +290,7 @@ export function MetadataRow({ items }: { items: { label: string; value: string }
     <div className="flex gap-6">
       {items.map((item) => (
         <div key={item.label}>
-          <span className="text-xxs text-hint">{item.label}</span>
+          <span className="text-xs-minus text-hint">{item.label}</span>
           <p className="text-sm font-medium text-ink">{item.value}</p>
         </div>
       ))}

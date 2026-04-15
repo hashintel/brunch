@@ -24,7 +24,7 @@ export function ExportPreview() {
       <Link to="/project/$id" params={{ id }} className="text-sm text-muted-foreground hover:text-foreground">
         ← Back to project
       </Link>
-      <h1 className="mt-4 text-2xl font-bold">Export Preview</h1>
+      <h1 className="mt-4 text-base font-semibold">Export Preview</h1>
 
       {data && !data.ready && (
         <div className="mt-4">
