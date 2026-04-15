@@ -91,6 +91,7 @@ export interface KnowledgeEdgeData {
   sourceCollection: string;
   relatedId: number;
   relatedCollection: string;
+  relatedKind?: KnowledgeKind;
   relatedLabel?: string;
 }
 
@@ -218,6 +219,16 @@ export function KnowledgeGroupCard({
 
 // ── Knowledge detail card — expanded view with rationale + edges ──────
 
+function EdgeRefBadge({ kind, id }: { kind?: KnowledgeKind; id: number }) {
+  const prefix = kind ? kindPrefix[kind] : '?';
+  return (
+    <span className="inline-flex h-5 items-center rounded bg-wash px-1.5 text-[11px] font-medium leading-none text-sub">
+      {prefix}
+      {id}
+    </span>
+  );
+}
+
 export function KnowledgeDetailCard({
   item,
   edges,
@@ -228,56 +239,45 @@ export function KnowledgeDetailCard({
   defaultExpanded?: boolean;
 }) {
   const header = (
-    <div className="flex items-baseline gap-2.5">
-      <span className="shrink-0 text-sm font-medium text-hint">{itemLabel(item.kind, item.id)}</span>
-      <p className="text-sm-plus text-ink">{item.content}</p>
+    <div className="flex items-baseline gap-2">
+      <span className="shrink-0 text-xs font-medium text-hint">{itemLabel(item.kind, item.id)}</span>
+      <p className="text-xs-plus text-ink">{item.content}</p>
     </div>
   );
 
-  // Summary: rationale as a lighter text peek (visible when collapsed)
-  const summary = item.rationale ? (
-    <p className="text-xs-plus leading-relaxed text-sub">{item.rationale}</p>
-  ) : undefined;
+  // Edge badge row — shown in both collapsed (as summary) and expanded (at bottom of children)
+  const edgeBadges =
+    edges && edges.length > 0 ? (
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-sub">Depends on:</span>
+        {edges.map((edge) => (
+          <EdgeRefBadge key={getKnowledgeEdgeKey(edge)} kind={edge.relatedKind} id={edge.relatedId} />
+        ))}
+      </div>
+    ) : null;
 
-  // Children: the full maximized drawer content (rationale + subtype + edges).
-  // Only provided when there's more content than the summary alone,
-  // so the toggle has something extra to reveal.
-  const hasExtra = !!(item.subtype || (edges && edges.length > 0));
-  const children = hasExtra ? (
+  // Summary: edge badges when collapsed (visible as peek strip)
+  const summary = edgeBadges ?? undefined;
+
+  // Children: rationale (the main expandable content) + edges at bottom.
+  // Card is expandable whenever rationale exists.
+  const children = item.rationale ? (
     <>
-      {item.rationale && <p className="text-xs-plus leading-relaxed text-sub">{item.rationale}</p>}
+      <p className="text-xs leading-relaxed text-sub">{item.rationale}</p>
 
       {item.subtype && (
-        <div className="flex flex-col gap-1.5">
-          <p className="text-sm font-medium text-sub">Subtype</p>
-          <div className="rounded-lg bg-white p-3 shadow-[var(--shadow-card-ring)]">
-            <p className="text-sm text-ink">{item.subtype}</p>
-          </div>
+        <div className="flex flex-col gap-1">
+          <p className="text-xs font-medium text-sub">Subtype</p>
+          <p className="text-xs text-ink">{item.subtype}</p>
         </div>
       )}
 
-      {edges && edges.length > 0 && (
-        <div className="flex flex-col gap-1.5">
-          <p className="text-sm font-medium text-sub">Connections</p>
-          {edges.map((edge) => {
-            const relatedText = edge.relatedLabel ?? `item #${edge.relatedId}`;
-            return (
-              <div
-                key={getKnowledgeEdgeKey(edge)}
-                className="rounded-lg bg-white p-3 shadow-[var(--shadow-card-ring)]"
-              >
-                <span className="text-sm font-medium text-hint">{edge.label}</span>
-                <span className="text-sm text-ink"> {relatedText}</span>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {edgeBadges}
     </>
   ) : undefined;
 
   return (
-    <DrawerCard header={header} summary={summary} defaultExpanded={defaultExpanded}>
+    <DrawerCard header={header} summary={summary} defaultExpanded={defaultExpanded} compact>
       {children}
     </DrawerCard>
   );

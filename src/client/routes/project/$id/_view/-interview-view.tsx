@@ -556,7 +556,8 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
     phaseOrder.find((candidate) => workflow.phases[candidate].status !== 'closed') ?? null;
   const nextPhase = getNextActivePhase(workflow.phases, phase);
   const hasVisibleTurnCard = turnCard !== null;
-  const hasVisibleActiveTurn =
+  // TODO: re-enable when auto-present is restored
+  const _hasVisibleActiveTurn =
     turnCard?.kind === 'pending-question' ||
     (turnCard?.kind === 'persisted-turn' && !turnHasCompletedAnswer(turnCard.turn));
   const renderedPersistedTurnId =
@@ -584,13 +585,10 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const autoPresentCommand = null;
   const showGeneratingState =
     !phaseSummary && (autoPresentCommand !== null || (chat.isLoading && !hasVisibleTurnCard));
-  const showPromptInput =
-    promptInput.visible &&
-    phaseState.status === 'in_progress' &&
-    !showLockedState &&
-    !showClosedState &&
-    !showGeneratingState &&
-    autoPresentCommand === null;
+  // TODO: prompt input is disabled while the phase-closure interaction model is being reworked.
+  // The turn-card family owns user input; the generic composer will return when the
+  // center-pane header controls phase start/continue lifecycle.
+  const showPromptInput = false;
 
   // TODO: auto-present is disabled while the phase-closure interaction model is being reworked.
   // The effect was automatically submitting start/continue commands, which causes runaway

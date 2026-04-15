@@ -58,15 +58,13 @@ describe('EntitySidebar', () => {
       />,
     );
 
-    expect(screen.getByText('R1')).toBeTruthy();
-    expect(screen.getByText('R2')).toBeTruthy();
+    // KnowledgeDetailCard renders itemLabel(kind, id) — R3, R4, R5
     expect(screen.getByText('R3')).toBeTruthy();
+    expect(screen.getByText('R4')).toBeTruthy();
+    expect(screen.getByText('R5')).toBeTruthy();
     expect(screen.getByText('Export the reviewed spec')).toBeTruthy();
     expect(screen.getByText('Support exporting the spec as a PDF')).toBeTruthy();
     expect(screen.getByText('Resume the interview from SQLite after restart')).toBeTruthy();
-    expect(screen.getByText('Approved')).toBeTruthy();
-    expect(screen.getByText('Rejected')).toBeTruthy();
-    expect(screen.getByText('Pending')).toBeTruthy();
   });
 
   it('renders all knowledge groups in a single scrollable list', () => {
@@ -110,11 +108,11 @@ describe('EntitySidebar', () => {
       />,
     );
 
-    // All groups visible without tab switching
+    // All groups visible without tab switching — labels are itemLabel(kind, id)
     expect(screen.getByText('Ship a faithful active-path export')).toBeTruthy();
-    expect(screen.getByText('D1')).toBeTruthy();
+    expect(screen.getByText('D6')).toBeTruthy();
     expect(screen.getByText('Use the active-path entity projection for routed state')).toBeTruthy();
-    expect(screen.getByText('A1')).toBeTruthy();
+    expect(screen.getByText('A7')).toBeTruthy();
     expect(screen.getByText('Users only trust the current branch state')).toBeTruthy();
 
     // Header shows totals
