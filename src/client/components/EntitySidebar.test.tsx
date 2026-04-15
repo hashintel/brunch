@@ -27,7 +27,7 @@ describe('EntitySidebar', () => {
               content: 'Export the reviewed spec',
               rationale: null,
               reviewStatus: 'approved',
-              referenceCode: 'REQ-1',
+              referenceCode: 'R1',
             },
             {
               id: 4,
@@ -37,7 +37,7 @@ describe('EntitySidebar', () => {
               content: 'Support exporting the spec as a PDF',
               rationale: null,
               reviewStatus: 'rejected',
-              referenceCode: 'REQ-2',
+              referenceCode: 'R2',
             },
             {
               id: 5,
@@ -47,7 +47,7 @@ describe('EntitySidebar', () => {
               content: 'Resume the interview from SQLite after restart',
               rationale: null,
               reviewStatus: 'pending',
-              referenceCode: 'REQ-3',
+              referenceCode: 'R3',
             },
           ],
           criteria: [],
@@ -60,9 +60,9 @@ describe('EntitySidebar', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Requirements/i }));
 
-    expect(screen.getByText('REQ-1')).toBeTruthy();
-    expect(screen.getByText('REQ-2')).toBeTruthy();
-    expect(screen.getByText('REQ-3')).toBeTruthy();
+    expect(screen.getByText('R1')).toBeTruthy();
+    expect(screen.getByText('R2')).toBeTruthy();
+    expect(screen.getByText('R3')).toBeTruthy();
     expect(screen.getByText('Export the reviewed spec')).toBeTruthy();
     expect(screen.getByText('Support exporting the spec as a PDF')).toBeTruthy();
     expect(screen.getByText('Resume the interview from SQLite after restart')).toBeTruthy();
@@ -96,7 +96,7 @@ describe('EntitySidebar', () => {
               project_id: 1,
               content: 'Use the active-path entity projection for routed state',
               rationale: 'Keeps routed state aligned with export',
-              referenceCode: 'DEC-1',
+              referenceCode: 'D1',
             },
           ],
           assumptions: [
@@ -104,7 +104,7 @@ describe('EntitySidebar', () => {
               id: 7,
               project_id: 1,
               content: 'Users only trust the current branch state',
-              referenceCode: 'ASM-1',
+              referenceCode: 'A1',
             },
           ],
           relationships: [
@@ -125,7 +125,7 @@ describe('EntitySidebar', () => {
 
     fireEvent.click(screen.getByRole('button', { name: /Decisions/i }));
 
-    expect(screen.getByText('DEC-1')).toBeTruthy();
+    expect(screen.getByText('D1')).toBeTruthy();
     expect(screen.getByText('Depends on')).toBeTruthy();
     expect(screen.getByText('Users only trust the current branch state')).toBeTruthy();
     expect(screen.queryByText('Refines')).toBeNull();

@@ -126,6 +126,7 @@ export const knowledgeItem = sqliteTable('knowledge_item', {
   subtype: text(),
   content: text().notNull(),
   rationale: text(),
+  kind_ordinal: integer().notNull(),
 });
 
 // --- Join tables (provenance + dependency DAGs) ---

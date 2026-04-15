@@ -512,7 +512,7 @@ describe('InterviewView', () => {
                 kind: 'goal',
                 id: 1,
                 content: 'Ship the web app first',
-                referenceCode: 'GOA-1',
+                referenceCode: 'GOAL1',
               },
             ],
           },
@@ -583,7 +583,7 @@ describe('InterviewView', () => {
     const answeredCards = screen.getAllByTestId('answered-turn-card');
     expect(answeredCards[0].textContent).toContain('What should we build first?');
     expect(answeredCards[0].textContent).toContain('Build the web app');
-    expect(answeredCards[0].textContent).toContain('GOA-1');
+    expect(answeredCards[0].textContent).toContain('GOAL1');
     expect(answeredCards[0].textContent).toContain('Ship the web app first');
   });
 
@@ -1491,7 +1491,7 @@ describe('InterviewView', () => {
                   kind: 'context',
                   id: 1,
                   content: 'The launch still targets desktop first',
-                  referenceCode: 'CON-1',
+                  referenceCode: 'CTX1',
                 },
               ],
             },
@@ -1567,7 +1567,7 @@ describe('InterviewView', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('answered-turn-card').textContent).toContain('CON-1');
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain('CTX1');
       expect(screen.getByTestId('answered-turn-card').textContent).toContain(
         'The launch still targets desktop first',
       );

@@ -1564,12 +1564,12 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
 
     expect(getEntitiesForProjectByMode(db, project.id, 'project-wide').decisions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ content: 'Use SQLite for persistence', referenceCode: 'DEC-1' }),
-        expect.objectContaining({ content: 'Use Postgres for persistence', referenceCode: 'DEC-2' }),
+        expect.objectContaining({ content: 'Use SQLite for persistence', referenceCode: 'D1' }),
+        expect.objectContaining({ content: 'Use Postgres for persistence', referenceCode: 'D2' }),
       ]),
     );
     expect(getEntitiesForProjectByMode(db, project.id, 'active-path').decisions).toEqual([
-      expect.objectContaining({ content: 'Use Postgres for persistence', referenceCode: 'DEC-2' }),
+      expect.objectContaining({ content: 'Use Postgres for persistence', referenceCode: 'D2' }),
     ]);
   });
 

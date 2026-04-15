@@ -109,18 +109,18 @@ export const knowledgeCollectionKeys = knowledgeKindRegistry.map(
 ) as KnowledgeCollectionKey[];
 
 export const knowledgeKindReferencePrefixes = {
-  goal: 'GOA',
-  term: 'TRM',
-  context: 'CON',
+  goal: 'GOAL',
+  term: 'TERM',
+  context: 'CTX',
   constraint: 'CST',
-  requirement: 'REQ',
-  criterion: 'CRT',
-  decision: 'DEC',
-  assumption: 'ASM',
+  requirement: 'R',
+  criterion: 'CRIT',
+  decision: 'D',
+  assumption: 'A',
 } as const satisfies Record<KnowledgeKind, string>;
 
 export function createKnowledgeReferenceCode(kind: KnowledgeKind, ordinal: number): string {
-  return `${knowledgeKindReferencePrefixes[kind]}-${ordinal}`;
+  return `${knowledgeKindReferencePrefixes[kind]}${ordinal}`;
 }
 
 export const genericKnowledgeKindRegistry = knowledgeKindRegistry.filter(

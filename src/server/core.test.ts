@@ -411,14 +411,14 @@ describe('getProjectState', () => {
         kind: 'context',
         id: context.id,
         content: 'The app starts from a fresh repo',
-        referenceCode: 'CON-1',
+        referenceCode: 'CTX1',
       },
       {
         collection: 'decision',
         kind: 'decision',
         id: decision.id,
         content: 'Start with the web app',
-        referenceCode: 'DEC-1',
+        referenceCode: 'D1',
       },
     ]);
   });

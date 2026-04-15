@@ -511,24 +511,26 @@ export type Decision = SharedDecision;
 export type Assumption = SharedAssumption;
 export type EntityReference = SharedEntityReference;
 export type EntityRelationship = SharedEntityRelationship;
-export type RequirementEntity = SharedRequirementEntity;
-export type CriterionEntity = SharedCriterionEntity;
+export type RequirementEntity = SharedRequirementEntity & { kind_ordinal: number };
+export type CriterionEntity = SharedCriterionEntity & { kind_ordinal: number };
 export type EntitiesForProject = EntitiesData;
 
-function toDecision(item: KnowledgeItem): Decision {
+function toDecision(item: KnowledgeItem): Decision & { kind_ordinal: number } {
   return {
     id: item.id,
     project_id: item.project_id,
     content: item.content,
     rationale: item.rationale,
+    kind_ordinal: item.kind_ordinal,
   };
 }
 
-function toAssumption(item: KnowledgeItem): Assumption {
+function toAssumption(item: KnowledgeItem): Assumption & { kind_ordinal: number } {
   return {
     id: item.id,
     project_id: item.project_id,
     content: item.content,
+    kind_ordinal: item.kind_ordinal,
   };
 }
 
@@ -547,6 +549,7 @@ export function createDecision(
         subtype: null,
         content,
         rationale: rationale ?? null,
+        kind_ordinal: sql`(SELECT COALESCE(MAX(kind_ordinal), 0) + 1 FROM knowledge_item WHERE project_id = ${projectId} AND kind = 'decision')`,
       })
       .returning()
       .get() as KnowledgeItem,
@@ -563,6 +566,7 @@ export function createAssumption(db: DB, projectId: number, content: string): As
         subtype: null,
         content,
         rationale: null,
+        kind_ordinal: sql`(SELECT COALESCE(MAX(kind_ordinal), 0) + 1 FROM knowledge_item WHERE project_id = ${projectId} AND kind = 'assumption')`,
       })
       .returning()
       .get() as KnowledgeItem,
@@ -592,6 +596,7 @@ export function createKnowledgeItem(
       subtype: options?.subtype ?? null,
       content,
       rationale: options?.rationale ?? null,
+      kind_ordinal: sql`(SELECT COALESCE(MAX(kind_ordinal), 0) + 1 FROM knowledge_item WHERE project_id = ${projectId} AND kind = ${kind})`,
     })
     .returning()
     .get() as KnowledgeItem;
@@ -656,15 +661,15 @@ function getEntityCollectionForKind(kind: KnowledgeKind): EntityCollection {
   return 'knowledge_item';
 }
 
-function withReferenceCodes<T extends { id: number; kind: SharedKnowledgeKind }>(
+function withReferenceCodes<T extends { id: number; kind: SharedKnowledgeKind; kind_ordinal: number }>(
   items: readonly T[],
 ): Array<T & { referenceCode: string }> {
   return items
     .slice()
     .sort((left, right) => left.id - right.id)
-    .map((item, index) => ({
+    .map((item) => ({
       ...item,
-      referenceCode: createKnowledgeReferenceCode(item.kind, index + 1),
+      referenceCode: createKnowledgeReferenceCode(item.kind, item.kind_ordinal),
     }));
 }
 
@@ -825,7 +830,7 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
           : entry.kind === 'criterion'
             ? getCriterionEntitiesForProject(db, projectId)
             : getKnowledgeItemsForProjectByKind(db, projectId, entry.kind),
-      ),
+      ).map(({ kind_ordinal: _, ...item }) => item),
     ]),
   ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
   const decisions = withReferenceCodes(
@@ -835,7 +840,7 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
         ...decision,
         kind: 'decision' as const,
       })),
-  ).map(({ kind: _, ...decision }) => decision);
+  ).map(({ kind: _, kind_ordinal: __, ...decision }) => decision);
   const assumptions = withReferenceCodes(
     getKnowledgeItemsForProjectByKind(db, projectId, 'assumption')
       .map(toAssumption)
@@ -843,7 +848,7 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
         ...assumption,
         kind: 'assumption' as const,
       })),
-  ).map(({ kind: _, ...assumption }) => assumption);
+  ).map(({ kind: _, kind_ordinal: __, ...assumption }) => assumption);
   const relationships = db.all(sql`
     SELECT
       edge.relation AS type,
