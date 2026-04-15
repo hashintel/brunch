@@ -82,6 +82,7 @@ export interface KnowledgeItemData {
   rationale?: string;
   subtype?: string;
   reviewStatus?: ReviewStatus;
+  referenceCode?: string;
 }
 
 export interface KnowledgeEdgeData {
@@ -93,10 +94,15 @@ export interface KnowledgeEdgeData {
   relatedCollection: string;
   relatedKind?: KnowledgeKind;
   relatedLabel?: string;
+  relatedReferenceCode?: string;
 }
 
 function getKnowledgeEdgeKey(edge: KnowledgeEdgeData): string {
   return [edge.type, edge.sourceCollection, edge.sourceId, edge.relatedCollection, edge.relatedId].join(':');
+}
+
+function displayReference(item: Pick<KnowledgeItemData, 'id' | 'kind' | 'referenceCode'>) {
+  return item.referenceCode ?? itemLabel(item.kind, item.id);
 }
 
 export function KnowledgeRow({
@@ -114,7 +120,7 @@ export function KnowledgeRow({
     >
       {indent && <LinkIcon className="size-3.5 shrink-0 text-hint" />}
       <div className="flex flex-1 items-center gap-2">
-        <span className="text-sm font-medium text-hint">{itemLabel(item.kind, item.id)}</span>
+        <span className="text-sm font-medium text-hint">{displayReference(item)}</span>
         <span className="text-sm text-ink">{item.content}</span>
       </div>
       {item.reviewStatus && <ReviewBadge state={item.reviewStatus} />}
@@ -219,12 +225,19 @@ export function KnowledgeGroupCard({
 
 // ── Knowledge detail card — expanded view with rationale + edges ──────
 
-function EdgeRefBadge({ kind, id }: { kind?: KnowledgeKind; id: number }) {
+function EdgeRefBadge({
+  kind,
+  id,
+  referenceCode,
+}: {
+  kind?: KnowledgeKind;
+  id: number;
+  referenceCode?: string;
+}) {
   const prefix = kind ? kindPrefix[kind] : '?';
   return (
     <span className="inline-flex h-5 items-center rounded bg-wash px-1.5 text-[11px] font-medium leading-none text-sub">
-      {prefix}
-      {id}
+      {referenceCode ?? `${prefix}${id}`}
     </span>
   );
 }
@@ -239,9 +252,12 @@ export function KnowledgeDetailCard({
   defaultExpanded?: boolean;
 }) {
   const header = (
-    <div className="flex items-baseline gap-2">
-      <span className="shrink-0 text-xs font-medium text-hint">{itemLabel(item.kind, item.id)}</span>
-      <p className="text-xs-plus text-ink">{item.content}</p>
+    <div className="flex items-start justify-between gap-2">
+      <div className="flex items-baseline gap-2">
+        <span className="shrink-0 text-xs font-medium text-hint">{displayReference(item)}</span>
+        <p className="text-xs-plus text-ink">{item.content}</p>
+      </div>
+      {item.reviewStatus ? <ReviewBadge state={item.reviewStatus} /> : null}
     </div>
   );
 
@@ -249,9 +265,14 @@ export function KnowledgeDetailCard({
   const edgeBadges =
     edges && edges.length > 0 ? (
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-xs text-sub">Depends on:</span>
+        <span className="text-xs text-sub">{edges[0]?.label ?? 'Links to'}:</span>
         {edges.map((edge) => (
-          <EdgeRefBadge key={getKnowledgeEdgeKey(edge)} kind={edge.relatedKind} id={edge.relatedId} />
+          <EdgeRefBadge
+            key={getKnowledgeEdgeKey(edge)}
+            kind={edge.relatedKind}
+            id={edge.relatedId}
+            referenceCode={edge.relatedReferenceCode}
+          />
         ))}
       </div>
     ) : null;

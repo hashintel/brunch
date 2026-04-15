@@ -224,6 +224,31 @@ function createProjectState({
   };
 }
 
+function createWorkflowState(
+  overrides?: Partial<
+    Record<keyof ProjectState['workflow']['phases'], Partial<ProjectState['workflow']['phases']['scope']>>
+  >,
+): ProjectState['workflow'] {
+  const defaultPhase = {
+    status: 'unstarted' as const,
+    closeability: false,
+    readiness: 'low' as const,
+    closureBasis: null,
+    proposalPending: false,
+    turnId: null,
+    summary: null,
+  };
+
+  return {
+    phases: {
+      scope: { ...defaultPhase, ...overrides?.scope },
+      design: { ...defaultPhase, ...overrides?.design },
+      requirements: { ...defaultPhase, ...overrides?.requirements },
+      criteria: { ...defaultPhase, ...overrides?.criteria },
+    },
+  };
+}
+
 function createWorkspaceLoaderData({
   projectId = 1,
   assistantText = 'What should we build first?',
@@ -454,6 +479,91 @@ describe('InterviewView', () => {
     await waitFor(() => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Continue the grounding phase.' });
     });
+  });
+
+  it('hides the header phase action for an unstarted reachable phase', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [],
+        workflow: createWorkflowState(),
+      }),
+    );
+
+    renderWorkspace();
+
+    expect(screen.getByText('Phase 1/4 – Grounding')).toBeTruthy();
+    expect(screen.queryByRole('button', { name: 'Close Phase' })).toBeNull();
+    expect(screen.queryByRole('link', { name: /advance to/i })).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Open export preview' })).toBeNull();
+  });
+
+  it('hides the header phase action when a phase is in progress but not closeable', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          scope: { status: 'in_progress', turnId: 1 },
+        }),
+      }),
+    );
+
+    renderWorkspace();
+
+    expect(screen.queryByRole('button', { name: 'Close Phase' })).toBeNull();
+    expect(screen.queryByRole('link', { name: /advance to/i })).toBeNull();
+  });
+
+  it('shows the header close action only when the phase is closeable', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          scope: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 1 },
+        }),
+      }),
+    );
+
+    renderWorkspace();
+
+    expect(screen.getByRole('button', { name: 'Close Phase' })).toBeTruthy();
+  });
+
+  it('shows an advance CTA in the header for a closed phase with a next phase', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high', summary: 'Grounding complete.' },
+          design: { status: 'unstarted' },
+        }),
+      }),
+    );
+
+    renderWorkspace();
+
+    const advanceLink = screen.getByRole('link', { name: 'Advance to Elicitation' });
+    expect(advanceLink.getAttribute('href')).toBe('/project/1/elicitation');
+    expect(screen.queryByRole('button', { name: 'Close Phase' })).toBeNull();
+  });
+
+  it('shows an export CTA in the header for the closed final phase', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high' },
+          design: { status: 'closed', readiness: 'high' },
+          requirements: { status: 'closed', readiness: 'high' },
+          criteria: {
+            status: 'closed',
+            readiness: 'high',
+            summary: 'Acceptance criteria review is complete.',
+          },
+        }),
+      }),
+    );
+
+    renderWorkspace('criteria');
+
+    const exportLinks = screen.getAllByRole('link', { name: 'Open export preview' });
+    expect(exportLinks[0]?.getAttribute('href')).toBe('/project/1/export');
+    expect(screen.queryByRole('button', { name: 'Close Phase' })).toBeNull();
   });
 
   it('renders historical completed turns as compact answered cards instead of replay placeholders', async () => {

@@ -620,6 +620,9 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const phaseIndex = phaseOrder.indexOf(phase);
   const phaseNumber = phaseIndex + 1;
   const phaseTotal = phaseOrder.length;
+  const showClosePhaseAction = phaseState.status === 'in_progress' && phaseState.closeability;
+  const showAdvanceAction = phaseState.status === 'closed' && Boolean(nextPhase);
+  const showExportAction = phaseState.status === 'closed' && !nextPhase;
 
   return (
     <div className="flex h-full flex-col">
@@ -659,15 +662,23 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             </span>
           </div>
         </div>
-        {phaseState.status === 'closed' && nextPhase ? (
+        {showAdvanceAction ? (
           <Link
-            to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
+            to={`/project/$id/${phaseRouteSegments[nextPhase!]}` as '/project/$id/framing'}
             params={{ id: String(project.id) }}
             className="inline-flex h-8 items-center justify-center rounded-md px-3.5 text-sm font-medium whitespace-nowrap transition-colors bg-card text-foreground shadow-[var(--shadow-card-ring)]"
           >
-            Advance to {getWorkflowPhaseLabel(nextPhase)}
+            Advance to {getWorkflowPhaseLabel(nextPhase!)}
           </Link>
-        ) : (
+        ) : showExportAction ? (
+          <Link
+            to="/project/$id/export"
+            params={{ id: String(project.id) }}
+            className="inline-flex h-8 items-center justify-center rounded-md px-3.5 text-sm font-medium whitespace-nowrap transition-colors bg-card text-foreground shadow-[var(--shadow-card-ring)]"
+          >
+            Open export preview
+          </Link>
+        ) : showClosePhaseAction ? (
           <ShellButton
             variant="outline"
             onClick={() => chat.forcePhaseClosure(phase)}
@@ -675,7 +686,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           >
             Close Phase
           </ShellButton>
-        )}
+        ) : null}
       </div>
       <ChatScroll className="min-h-0 flex-1">
         <div className="flex flex-col gap-8 mx-auto max-w-2xl px-4 py-3">

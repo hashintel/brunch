@@ -43,4 +43,11 @@ describe('file-route phase route ownership', () => {
       expect(source, `${phase} route should render InterviewView`).toContain('InterviewView');
     }
   });
+
+  it('keeps the routed interview surface wired through ChatScroll', () => {
+    const interviewViewSource = readRepoFile('src/client/routes/project/$id/_view/-interview-view.tsx');
+
+    expect(interviewViewSource).toContain('import { ChatScroll }');
+    expect(interviewViewSource).toContain('<ChatScroll');
+  });
 });

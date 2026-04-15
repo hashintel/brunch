@@ -58,20 +58,39 @@ function toKnowledgeItemData(
     ...(item.rationale ? { rationale: item.rationale } : {}),
     ...(item.subtype ? { subtype: item.subtype } : {}),
     ...(item.reviewStatus ? { reviewStatus: item.reviewStatus as KnowledgeItemData['reviewStatus'] } : {}),
+    ...(item.referenceCode ? { referenceCode: item.referenceCode } : {}),
   };
 }
 
-function buildEdgesForItem(entityState: EntitiesData, collection: string, id: number): KnowledgeEdgeData[] {
+function getReferenceCodeForEntity(
+  entityState: EntitiesData,
+  kind: KnowledgeKind,
+  id: number,
+): string | undefined {
+  const collectionKey = kindToCollectionKey[kind];
+  return entityState[collectionKey].find((item) => item.id === id)?.referenceCode;
+}
+
+function buildOutgoingEdgesForItem(
+  entityState: EntitiesData,
+  collection: string,
+  id: number,
+): KnowledgeEdgeData[] {
   return entityState.relationships
-    .filter((r) => r.source.collection === collection && r.source.id === id)
-    .map((r) => ({
-      type: r.type,
-      label: r.type === 'depends_on' ? 'Depends on' : r.type === 'derived_from' ? 'Derived from' : r.type,
-      sourceId: r.source.id,
-      sourceCollection: r.source.collection,
-      relatedId: r.target.id,
-      relatedCollection: r.target.collection,
-      relatedKind: r.target.kind,
+    .filter((relationship) => relationship.source.collection === collection && relationship.source.id === id)
+    .map((relationship) => ({
+      type: relationship.type,
+      label: 'Links to',
+      sourceId: relationship.source.id,
+      sourceCollection: relationship.source.collection,
+      relatedId: relationship.target.id,
+      relatedCollection: relationship.target.collection,
+      relatedKind: relationship.target.kind,
+      relatedReferenceCode: getReferenceCodeForEntity(
+        entityState,
+        relationship.target.kind,
+        relationship.target.id,
+      ),
     }));
 }
 
@@ -115,7 +134,7 @@ export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
               for (const item of items) {
                 groupItems.push({
                   item: toKnowledgeItemData(item, kind),
-                  edges: buildEdgesForItem(entityState, entityCollection, item.id),
+                  edges: buildOutgoingEdgesForItem(entityState, entityCollection, item.id),
                 });
               }
             }
