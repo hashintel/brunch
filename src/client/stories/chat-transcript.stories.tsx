@@ -1,15 +1,14 @@
 import type { Story, StoryDefault } from '@ladle/react';
-import { Check, Loader2 } from 'lucide-react';
-import { useState } from 'react';
+import { ArrowDownIcon, Check, Loader2 } from 'lucide-react';
+import { ScrollArea as ScrollAreaPrimitive } from 'radix-ui';
+import { useCallback, useRef, useState } from 'react';
+import { useStickToBottom } from 'use-stick-to-bottom';
 
-import {
-  Conversation,
-  ConversationContent,
-  ConversationScrollButton,
-} from '@/client/components/ai-elements/conversation';
 import { ShellButton } from '@/client/components/app-shell';
 import { DrawerCard } from '@/client/components/drawer-card';
+import { Button } from '@/client/components/ui/button';
 import { Checkbox } from '@/client/components/ui/checkbox';
+import { ScrollBar } from '@/client/components/ui/scroll-area';
 import { Textarea } from '@/client/components/ui/textarea';
 import { cn } from '@/client/lib/utils';
 
@@ -174,10 +173,10 @@ function ActiveQuestionCard({
         {impact[0]!.toUpperCase() + impact.slice(1)} Impact
       </span>
 
-      <div className="flex items-baseline gap-3">
-        <span className="shrink-0 text-[17px] font-medium text-hint">{questionCode}</span>
+      <div className="flex items-baseline gap-3 text-[17px] leading-[1.4]">
+        <span className="shrink-0  font-medium text-hint">{questionCode}</span>
         <div className="flex flex-col gap-1">
-          <p className="text-[17px]  font-medium tracking-[-0.015em] text-ink">{question}</p>
+          <p className="  font-medium tracking-[-0.015em] text-ink">{question}</p>
         </div>
       </div>
     </div>
@@ -337,13 +336,59 @@ const activeQuestion = {
   ],
 };
 
+// ── Scroll container — ScrollArea + stick-to-bottom ─────────────────
+
+function ChatScroll({ children, className }: { children: React.ReactNode; className?: string }) {
+  const { scrollRef, contentRef, scrollToBottom, isAtBottom } = useStickToBottom({
+    resize: 'smooth',
+    initial: 'smooth',
+  });
+
+  // Merge our scrollRef with the ScrollArea viewport ref
+  const viewportRef = useRef<HTMLDivElement>(null);
+  const mergedViewportRef = useCallback(
+    (node: HTMLDivElement | null) => {
+      viewportRef.current = node;
+      scrollRef(node);
+    },
+    [scrollRef],
+  );
+
+  const handleScrollToBottom = useCallback(() => {
+    void scrollToBottom();
+  }, [scrollToBottom]);
+
+  return (
+    <ScrollAreaPrimitive.Root className={cn('relative overflow-hidden', className)}>
+      <ScrollAreaPrimitive.Viewport ref={mergedViewportRef} className="size-full rounded-[inherit]">
+        <div ref={contentRef}>{children}</div>
+      </ScrollAreaPrimitive.Viewport>
+      <ScrollBar />
+      <ScrollAreaPrimitive.Corner />
+
+      {/* Scroll-to-bottom button */}
+      {!isAtBottom && (
+        <Button
+          className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full"
+          onClick={handleScrollToBottom}
+          size="icon"
+          type="button"
+          variant="outline"
+        >
+          <ArrowDownIcon className="size-4" />
+        </Button>
+      )}
+    </ScrollAreaPrimitive.Root>
+  );
+}
+
 // ── Story ───────────────────────────────────────────────────────────
 
 export const Transcript: Story = () => {
   return (
     <div className="flex h-screen flex-col">
-      <Conversation className="flex-1">
-        <ConversationContent className="flex flex-col gap-10 px-4 py-6">
+      <ChatScroll className="flex-1">
+        <div className="flex flex-col gap-10 px-4 pt-6 pb-40">
           <div className="flex flex-col gap-6">
             {answeredTurns.map((turn) => (
               <div key={turn.questionCode} className="mx-auto flex w-full max-w-2xl flex-col">
@@ -369,9 +414,8 @@ export const Transcript: Story = () => {
               <ShellButton variant="primary">Submit</ShellButton>
             </div>
           </div>
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
+        </div>
+      </ChatScroll>
     </div>
   );
 };
