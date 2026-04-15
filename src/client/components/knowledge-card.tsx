@@ -67,7 +67,7 @@ export function ReviewBadge({ state }: { state: ReviewStatus }) {
 
 export function CountBadge({ count }: { count: number }) {
   return (
-    <span className="inline-flex h-5 items-center rounded-md bg-wash px-1.5 font-mono text-xs-minus font-medium text-sub">
+    <span className="inline-flex h-5 items-center rounded-md bg-wash px-1.5 font-mono text-xxs font-medium text-sub">
       {count}
     </span>
   );
@@ -290,7 +290,7 @@ export function MetadataRow({ items }: { items: { label: string; value: string }
     <div className="flex gap-6">
       {items.map((item) => (
         <div key={item.label}>
-          <span className="text-xs-minus text-hint">{item.label}</span>
+          <span className="text-xxs text-hint">{item.label}</span>
           <p className="text-sm font-medium text-ink">{item.value}</p>
         </div>
       ))}

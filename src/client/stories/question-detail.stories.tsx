@@ -118,9 +118,7 @@ function QuestionCard({
                 className="data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
               />
               <span className={isSelected ? 'text-ink' : 'text-sub'}>{opt.content}</span>
-              {opt.isRecommended && (
-                <span className="text-xs-minus font-medium text-[#2070e6]">Recommended</span>
-              )}
+              {opt.isRecommended && <span className="text-xxs font-medium text-[#2070e6]">Recommended</span>}
             </label>
           );
         })}

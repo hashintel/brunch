@@ -20,18 +20,18 @@
   /* Typography scale — six steps from 11px to 16px.
      Reset all built-in sizes, then declare only the ones we use. */
   --text-*: initial;
-  --text-xs-minus: 0.6875rem; /* 11px — impact badges, tag labels */
-  --text-xs-minus--line-height: 1rem;
+  --text-xxs: 0.6875rem; /* 11px — impact badges, tag labels */
+  --text-xxs--line-height: 1.7;
   --text-xs: 0.75rem; /* 12px — secondary text */
-  --text-xs--line-height: 1rem;
+  --text-xs--line-height: 1.6;
   --text-xs-plus: 0.8125rem; /* 13px — secondary body, "why" text */
-  --text-xs-plus--line-height: 1.125rem;
+  --text-xs-plus--line-height: 1.55;
   --text-sm: 0.875rem; /* 14px — body text */
-  --text-sm--line-height: 1.25rem;
+  --text-sm--line-height: 1.5;
   --text-sm-plus: 0.9375rem; /* 15px — card headings, question text */
-  --text-sm-plus--line-height: 1.375rem;
+  --text-sm-plus--line-height: 1.5;
   --text-base: 1rem; /* 16px — section headings */
-  --text-base--line-height: 1.5rem;
+  --text-base--line-height: 1.4;
 
   /* Figma design grays — precise neutral ramp for borders, text, and surfaces.
      Coexist with shadcn semantic names during migration.
