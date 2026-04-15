@@ -19,6 +19,8 @@ Archived from the legacy phase-ledger form of `memory/PLAN.md` on 2026-04-14 dur
 - 2026-04-14 — **Ad-hoc: Typing Hygiene** — Zod was removed from non-LLM boundaries while preserving LLM and HTTP validation seams.
 - 2026-04-14 — **Phase 9 completed items** — launcher/runtime guard hardening (14b), trusted fixture hardening (16a), and capture-backed golden corpus work (16b) all shipped.
 
+- 2026-04-14 — **Phase terminal staging and auto-present current turn** — open phases auto-initiate the current turn, answered-turn replay filters control/closure artifacts, closed phases end with handoff/completion card.
+
 ## Recent Frontier Archives
 
 - 2026-04-14 — **Workspace shell first honesty pass** — dashboard links became real, root/dashboard scrolling was fixed, future phases became visible-but-disabled, review phases gained distinct shell framing, and transcript replay shifted from user bubbles toward compact answered-turn cards plus control markers.
