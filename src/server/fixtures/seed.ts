@@ -17,8 +17,28 @@ export function runSeedCli(
   const explicitDbPath = args[1]?.trim();
   const dbPath = explicitDbPath || resolveConfiguredDbPath(configuredDbPath, cwd);
 
-  if (!scenarioName || !publicScenarios[scenarioName]) {
-    io.error(scenarioName ? `Unknown scenario: ${scenarioName}` : 'Usage: seed <scenario> [db-path]');
+  if (!scenarioName) {
+    io.error('Usage: seed <scenario|--all> [db-path]');
+    io.error(`\nAvailable scenarios:\n${publicScenarioNames.map((name) => `  - ${name}`).join('\n')}`);
+    return 1;
+  }
+
+  if (scenarioName === '--all') {
+    const db = createDb(dbPath);
+    try {
+      for (const name of publicScenarioNames) {
+        const projectId = publicScenarios[name](db);
+        io.log(`Seeded "${name}" → project ${projectId}`);
+      }
+      io.log(`\nAll ${publicScenarioNames.length} scenarios seeded in ${dbPath}`);
+      return 0;
+    } finally {
+      db.$client.close();
+    }
+  }
+
+  if (!publicScenarios[scenarioName]) {
+    io.error(`Unknown scenario: ${scenarioName}`);
     io.error(`\nAvailable scenarios:\n${publicScenarioNames.map((name) => `  - ${name}`).join('\n')}`);
     return 1;
   }
