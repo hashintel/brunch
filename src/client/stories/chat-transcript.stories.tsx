@@ -1,14 +1,11 @@
 import type { Story, StoryDefault } from '@ladle/react';
-import { ArrowDownIcon, Check, Loader2 } from 'lucide-react';
-import { ScrollArea as ScrollAreaPrimitive } from 'radix-ui';
-import { useCallback, useRef, useState } from 'react';
-import { useStickToBottom } from 'use-stick-to-bottom';
+import { Check, Loader2 } from 'lucide-react';
+import { useState } from 'react';
 
 import { ShellButton } from '@/client/components/app-shell';
+import { ChatScroll } from '@/client/components/chat-scroll';
 import { DrawerCard } from '@/client/components/drawer-card';
-import { Button } from '@/client/components/ui/button';
 import { Checkbox } from '@/client/components/ui/checkbox';
-import { ScrollBar } from '@/client/components/ui/scroll-area';
 import { Textarea } from '@/client/components/ui/textarea';
 import { cn } from '@/client/lib/utils';
 
@@ -335,52 +332,6 @@ const activeQuestion = {
     { id: 3, content: 'Option C might be the best of both worlds' },
   ],
 };
-
-// ── Scroll container — ScrollArea + stick-to-bottom ─────────────────
-
-function ChatScroll({ children, className }: { children: React.ReactNode; className?: string }) {
-  const { scrollRef, contentRef, scrollToBottom, isAtBottom } = useStickToBottom({
-    resize: 'smooth',
-    initial: 'smooth',
-  });
-
-  // Merge our scrollRef with the ScrollArea viewport ref
-  const viewportRef = useRef<HTMLDivElement>(null);
-  const mergedViewportRef = useCallback(
-    (node: HTMLDivElement | null) => {
-      viewportRef.current = node;
-      scrollRef(node);
-    },
-    [scrollRef],
-  );
-
-  const handleScrollToBottom = useCallback(() => {
-    void scrollToBottom();
-  }, [scrollToBottom]);
-
-  return (
-    <ScrollAreaPrimitive.Root className={cn('relative overflow-hidden', className)}>
-      <ScrollAreaPrimitive.Viewport ref={mergedViewportRef} className="size-full rounded-[inherit]">
-        <div ref={contentRef}>{children}</div>
-      </ScrollAreaPrimitive.Viewport>
-      <ScrollBar />
-      <ScrollAreaPrimitive.Corner />
-
-      {/* Scroll-to-bottom button */}
-      {!isAtBottom && (
-        <Button
-          className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full"
-          onClick={handleScrollToBottom}
-          size="icon"
-          type="button"
-          variant="outline"
-        >
-          <ArrowDownIcon className="size-4" />
-        </Button>
-      )}
-    </ScrollAreaPrimitive.Root>
-  );
-}
 
 // ── Story ───────────────────────────────────────────────────────────
 

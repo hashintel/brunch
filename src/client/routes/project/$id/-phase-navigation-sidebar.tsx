@@ -54,17 +54,19 @@ function allWorkflowPhasesClosed(workflow: WorkflowState): boolean {
   return phaseOrder.every((phase) => workflow.phases[phase].status === 'closed');
 }
 
-function TimelineMarker({ status }: { status: WorkflowPhaseState['status'] | 'available' }) {
+function TimelineBullet({ status }: { status: WorkflowPhaseState['status'] | 'available' }) {
   if (status === 'closed' || status === 'available') {
-    return <span className="size-2.5 rounded-full bg-[#2070e6]" />;
+    return <span className="relative z-[1] size-3.5 shrink-0 rounded-full bg-[#2070e6]" />;
   }
 
   if (status === 'in_progress') {
-    return <span className="size-2.5 rounded-full border-[1.4px] border-[#2070e6] bg-white" />;
+    return (
+      <span className="relative z-[1] size-3.5 shrink-0 rounded-full border-[1.5px] border-[#2070e6] bg-background" />
+    );
   }
 
   return (
-    <span className="size-2.5 rounded-full border-[1.4px] border-dashed border-[rgba(32,32,32,0.35)] bg-white" />
+    <span className="relative z-[1] size-3.5 shrink-0 rounded-full border-[1.5px] border-dashed border-[rgba(32,32,32,0.3)] bg-background" />
   );
 }
 
@@ -72,7 +74,7 @@ function StatusMeta({ status }: { status: WorkflowPhaseState['status'] }) {
   return (
     <span
       className={cn(
-        'text-xxs font-medium',
+        'text-xs font-medium',
         status === 'closed' && 'text-[#2070e6]',
         status === 'in_progress' && 'text-[#2070e6]',
         status === 'unstarted' && 'text-sub',
@@ -87,7 +89,7 @@ function ReadinessMeta({ readiness }: { readiness: WorkflowPhaseState['readiness
   return (
     <span
       className={cn(
-        'rounded-full px-1.5 py-0.5 text-xxs font-medium',
+        'rounded-full px-1.5 py-0.5 text-xs font-medium',
         readiness === 'high' && 'bg-emerald-100 text-emerald-700',
         readiness === 'medium' && 'bg-amber-100 text-amber-700',
         readiness === 'low' && 'bg-zinc-100 text-zinc-500',
@@ -118,25 +120,24 @@ export function PhaseNavigationSidebar({
       className="flex h-full w-72 shrink-0 flex-col border-r border-rule bg-tint"
       data-testid="phase-sidebar"
     >
-      <div className="sticky top-0 z-10 border-b border-rule bg-tint px-3 py-3">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1 text-xs font-medium text-sub transition-colors hover:text-ink"
-        >
-          <ArrowLeftIcon className="size-3.5" />
-          <span>Back to Workspace</span>
-        </Link>
-        <div className="mt-3 flex flex-col gap-1">
-          <span className="text-xxs font-medium uppercase tracking-[0.08em] text-hint">Specification</span>
-          <p className="text-sm font-medium leading-snug text-ink" title={projectName}>
+      <div className="flex h-16 shrink-0 items-center border-b border-rule bg-background px-3">
+        <div className="flex flex-col gap-0.5">
+          <Link
+            to="/"
+            className="inline-flex items-center gap-1 text-xs text-hint transition-colors hover:text-ink"
+          >
+            <ArrowLeftIcon className="size-3" />
+            <span>Back to Workspace</span>
+          </Link>
+          <p className="truncate text-base font-medium leading-snug text-ink" title={projectName}>
             {projectName}
           </p>
         </div>
       </div>
 
       <ScrollArea className="min-h-0 flex-1">
-        <nav className="px-3 py-3" role="navigation" aria-label="Phase navigation">
-          <ol className="flex flex-col gap-1.5">
+        <nav className="px-3 py-4" role="navigation" aria-label="Phase navigation">
+          <ol className="relative ml-1.5">
             {phaseOrder.map((phase, index) => {
               const state = workflow.phases[phase];
               const segment = phaseRouteSegments[phase];
@@ -144,16 +145,8 @@ export function PhaseNavigationSidebar({
                 state.status === 'closed' ||
                 currentReachablePhase === phase ||
                 currentReachablePhase === null;
-              const previousPhase = index > 0 ? phaseOrder[index - 1] : null;
-              const hasNextStep = index < phaseOrder.length - 1 || outputAvailable;
-              const topSegmentComplete =
-                previousPhase !== null && workflow.phases[previousPhase].status === 'closed';
-              const bottomSegmentComplete = state.status === 'closed';
-              const sharedClassName = cn(
-                'mt-1 block min-h-16 rounded-xl border border-transparent px-3 py-2.5 text-left transition-colors',
-                isReachable ? 'hover:bg-white/90' : 'cursor-not-allowed opacity-75',
-                state.status === 'unstarted' ? 'text-sub' : 'text-ink',
-              );
+              const isLast = index === phaseOrder.length - 1 && !outputAvailable;
+              const lineActive = state.status === 'closed';
               const sharedProps = {
                 'data-phase': phase,
                 'data-phase-status': state.status,
@@ -162,91 +155,81 @@ export function PhaseNavigationSidebar({
                 'data-phase-reachable': String(isReachable),
                 'data-phase-turn-count': String(phaseTurnCounts[phase]),
               };
-              const content = (
-                <>
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-medium leading-tight text-ink">
-                        {getWorkflowPhaseLabel(phase)}
-                      </div>
-                      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xxs text-sub">
-                        <StatusMeta status={state.status} />
-                        {state.status === 'in_progress' ? (
-                          <ReadinessMeta readiness={state.readiness} />
-                        ) : null}
-                        <span className="text-hint">•</span>
-                        <span>{formatTurnCount(phaseTurnCounts[phase])}</span>
-                      </div>
-                    </div>
+
+              const body = (
+                <div className="min-w-0">
+                  <div
+                    className={cn(
+                      'text-base font-medium leading-tight',
+                      state.status === 'unstarted' ? 'text-sub' : 'text-ink',
+                    )}
+                  >
+                    {getWorkflowPhaseLabel(phase)}
                   </div>
-                </>
+                  <div className="mt-1 flex flex-col gap-0.5 text-xs text-sub">
+                    <div className="flex items-center gap-1.5">
+                      <StatusMeta status={state.status} />
+                      {state.status === 'in_progress' ? <ReadinessMeta readiness={state.readiness} /> : null}
+                    </div>
+                    <span>{formatTurnCount(phaseTurnCounts[phase])}</span>
+                  </div>
+                </div>
               );
 
               return (
-                <li key={phase} className="grid min-h-[4.5rem] grid-cols-[1rem_minmax(0,1fr)] gap-3">
-                  <div className="relative flex min-h-[4.5rem] justify-center">
-                    {previousPhase !== null ? (
-                      <span
-                        className={cn(
-                          'absolute top-0 h-1/2 w-px',
-                          topSegmentComplete ? 'bg-[#2070e6]' : 'bg-rule',
-                        )}
-                      />
-                    ) : null}
-                    {hasNextStep ? (
-                      <span
-                        className={cn(
-                          'absolute bottom-0 h-1/2 w-px',
-                          bottomSegmentComplete ? 'bg-[#2070e6]' : 'bg-rule',
-                        )}
-                      />
-                    ) : null}
-                    <span className="relative mt-4 flex h-4 items-center justify-center bg-tint">
-                      <TimelineMarker status={state.status} />
-                    </span>
-                  </div>
+                <li
+                  key={phase}
+                  className={cn('relative flex items-start gap-3 pb-6', isLast && 'pb-0')}
+                  aria-disabled={!isReachable ? 'true' : undefined}
+                  {...sharedProps}
+                >
+                  {/* Vertical line — runs from bullet to next bullet */}
+                  {!isLast && (
+                    <span
+                      className={cn(
+                        'absolute left-[6px] top-[17px] -bottom-[3px] w-0.5',
+                        lineActive ? 'bg-[#2070e6]' : 'bg-rule',
+                      )}
+                    />
+                  )}
 
+                  {/* Bullet */}
+                  <span className="mt-[3px] flex shrink-0 items-center justify-center">
+                    <TimelineBullet status={state.status} />
+                  </span>
+
+                  {/* Body */}
                   {isReachable ? (
                     <Link
                       // @ts-expect-error — dynamic route path from validated phase-route mapping
                       to={`/project/$id/${segment}`}
                       params={{ id: projectId }}
-                      activeProps={{ className: 'border-rule bg-white shadow-[var(--shadow-card-ring)]' }}
-                      className={sharedClassName}
-                      {...sharedProps}
+                      className="block text-left transition-colors"
                     >
-                      {content}
+                      {body}
                     </Link>
                   ) : (
-                    <div aria-disabled="true" className={sharedClassName} {...sharedProps}>
-                      {content}
-                    </div>
+                    <div className={cn(!isReachable && 'cursor-not-allowed opacity-75')}>{body}</div>
                   )}
                 </li>
               );
             })}
 
             {outputAvailable ? (
-              <li className="grid min-h-[4.5rem] grid-cols-[1rem_minmax(0,1fr)] gap-3">
-                <div className="relative flex min-h-[4.5rem] justify-center">
-                  <span className="absolute top-0 h-1/2 w-px bg-[#2070e6]" />
-                  <span className="relative mt-4 flex h-4 items-center justify-center bg-tint">
-                    <TimelineMarker status="available" />
-                  </span>
-                </div>
-
+              <li className="relative flex items-start gap-3">
+                <span className="mt-[3px] flex shrink-0 items-center justify-center">
+                  <TimelineBullet status="available" />
+                </span>
                 <Link
                   to="/project/$id/export"
                   params={{ id: projectId }}
-                  activeProps={{ className: 'border-rule bg-white shadow-[var(--shadow-card-ring)]' }}
-                  className="mt-1 block min-h-16 rounded-xl border border-transparent px-3 py-2.5 text-left transition-colors hover:bg-white/90"
+                  className="block text-left transition-colors"
                   data-phase="output"
                   data-phase-reachable="true"
                 >
-                  <div className="text-sm font-medium leading-tight text-ink">Output</div>
-                  <div className="mt-1 flex flex-wrap items-center gap-1.5 text-xxs text-sub">
+                  <div className="text-base font-medium leading-tight text-ink">Output</div>
+                  <div className="mt-1 flex flex-col gap-0.5 text-xs text-sub">
                     <span className="font-medium text-[#2070e6]">Available</span>
-                    <span className="text-hint">•</span>
                     <span>Markdown export</span>
                   </div>
                 </Link>

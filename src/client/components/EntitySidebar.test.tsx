@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 
-import { cleanup, fireEvent, render, screen } from '@testing-library/react';
+import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import { EntitySidebar } from './EntitySidebar.js';
@@ -58,8 +58,6 @@ describe('EntitySidebar', () => {
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Requirements/i }));
-
     expect(screen.getByText('R1')).toBeTruthy();
     expect(screen.getByText('R2')).toBeTruthy();
     expect(screen.getByText('R3')).toBeTruthy();
@@ -71,7 +69,7 @@ describe('EntitySidebar', () => {
     expect(screen.getByText('Pending')).toBeTruthy();
   });
 
-  it('keeps dependency summaries explicit when other relation kinds are present', () => {
+  it('renders all knowledge groups in a single scrollable list', () => {
     render(
       <EntitySidebar
         entityState={{
@@ -107,28 +105,19 @@ describe('EntitySidebar', () => {
               referenceCode: 'A1',
             },
           ],
-          relationships: [
-            {
-              type: 'depends_on',
-              source: { collection: 'decision', kind: 'decision', id: 6 },
-              target: { collection: 'assumption', kind: 'assumption', id: 7 },
-            },
-            {
-              type: 'refines',
-              source: { collection: 'decision', kind: 'decision', id: 6 },
-              target: { collection: 'knowledge_item', kind: 'goal', id: 8 },
-            },
-          ],
+          relationships: [],
         }}
       />,
     );
 
-    fireEvent.click(screen.getByRole('button', { name: /Decisions/i }));
-
+    // All groups visible without tab switching
+    expect(screen.getByText('Ship a faithful active-path export')).toBeTruthy();
     expect(screen.getByText('D1')).toBeTruthy();
-    expect(screen.getByText('Depends on')).toBeTruthy();
+    expect(screen.getByText('Use the active-path entity projection for routed state')).toBeTruthy();
+    expect(screen.getByText('A1')).toBeTruthy();
     expect(screen.getByText('Users only trust the current branch state')).toBeTruthy();
-    expect(screen.queryByText('Refines')).toBeNull();
-    expect(screen.queryByText('Ship a faithful active-path export')).toBeNull();
+
+    // Header shows totals
+    expect(screen.getByText('Knowledge Graph')).toBeTruthy();
   });
 });

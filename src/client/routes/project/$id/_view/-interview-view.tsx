@@ -1,11 +1,6 @@
 import { Link } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
-import {
-  Conversation,
-  ConversationContent,
-  ConversationScrollButton,
-} from '@/client/components/ai-elements/conversation';
 import { Message, MessageContent, MessageResponse } from '@/client/components/ai-elements/message';
 import {
   PromptInput,
@@ -17,6 +12,8 @@ import {
 } from '@/client/components/ai-elements/prompt-input';
 import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/client/components/ai-elements/reasoning';
 import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/client/components/ai-elements/tool';
+import { ShellButton } from '@/client/components/app-shell';
+import { ChatScroll } from '@/client/components/chat-scroll';
 import { cn } from '@/client/lib/utils';
 import type { Impact, ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import { isAskQuestionUIPart } from '@/shared/chat.js';
@@ -577,17 +574,14 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
     phaseState.status === 'unstarted' && currentReachablePhase !== phase && currentReachablePhase !== null;
   const showClosedState = phaseState.status === 'closed';
   const showCompletionState = showClosedState && !nextPhase;
-  const autoPresentCommand =
-    !showLockedState &&
-    !showClosedState &&
-    currentReachablePhase === phase &&
-    !phaseSummary &&
-    !chat.isLoading &&
-    !hasVisibleActiveTurn
-      ? phaseTurns.length === 0
-        ? startPhaseMessages[phase]
-        : continuePhaseMessages[phase]
-      : null;
+  // TODO: auto-present is disabled while the phase-closure interaction model is being reworked.
+  // Original computation kept as reference:
+  // const autoPresentCommand =
+  //   !showLockedState && !showClosedState && currentReachablePhase === phase &&
+  //   !phaseSummary && !chat.isLoading && !hasVisibleActiveTurn
+  //     ? phaseTurns.length === 0 ? startPhaseMessages[phase] : continuePhaseMessages[phase]
+  //     : null;
+  const autoPresentCommand = null;
   const showGeneratingState =
     !phaseSummary && (autoPresentCommand !== null || (chat.isLoading && !hasVisibleTurnCard));
   const showPromptInput =
@@ -598,19 +592,19 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
     !showGeneratingState &&
     autoPresentCommand === null;
 
+  // TODO: auto-present is disabled while the phase-closure interaction model is being reworked.
+  // The effect was automatically submitting start/continue commands, which causes runaway
+  // turn generation. Re-enable once the center-pane header owns phase lifecycle controls.
   useEffect(() => {
     if (!autoPresentCommand) {
       autoPresentKeyRef.current = null;
       return;
     }
-
-    const autoPresentKey = `${project.id}:${phase}:${phaseState.status}:${phaseState.turnId ?? 'none'}:${phaseTurns.length}:${autoPresentCommand}`;
-    if (autoPresentKeyRef.current === autoPresentKey) {
-      return;
-    }
-
-    autoPresentKeyRef.current = autoPresentKey;
-    chat.submitText(autoPresentCommand);
+    // Disabled: do not auto-submit.
+    // const autoPresentKey = `${project.id}:${phase}:${phaseState.status}:${phaseState.turnId ?? 'none'}:${phaseTurns.length}:${autoPresentCommand}`;
+    // if (autoPresentKeyRef.current === autoPresentKey) return;
+    // autoPresentKeyRef.current = autoPresentKey;
+    // chat.submitText(autoPresentCommand);
   }, [
     autoPresentCommand,
     chat.submitText,
@@ -625,10 +619,68 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
     chat.submitText(message.text ?? '');
   };
 
+  const phaseIndex = phaseOrder.indexOf(phase);
+  const phaseNumber = phaseIndex + 1;
+  const phaseTotal = phaseOrder.length;
+
   return (
     <div className="flex h-full flex-col">
-      <Conversation className="flex-1">
-        <ConversationContent className="mx-auto max-w-2xl px-4 py-3">
+      <div className="flex h-16 items-center justify-between border-b border-rule bg-background px-4">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-hint">
+            Phase {phaseNumber}/{phaseTotal} – {getWorkflowPhaseLabel(phase)}
+          </span>
+          <div className="flex items-center gap-2.5">
+            <span className="text-base">
+              <span className="text-sub">Status: </span>
+              <span className="font-medium text-[#2070e6]">
+                {phaseState.status === 'in_progress'
+                  ? 'In-Progress'
+                  : phaseState.status === 'closed'
+                    ? 'Closed'
+                    : 'Unstarted'}
+              </span>
+            </span>
+            <span className="text-hint">·</span>
+            <span className="text-base text-sub">
+              {phaseTurns.length} {phaseTurns.length === 1 ? 'Turn' : 'Turns'}
+            </span>
+            <span className="text-hint">·</span>
+            <span className="text-base">
+              <span className="text-sub">Readiness: </span>
+              <span
+                className={cn(
+                  'font-medium',
+                  phaseState.readiness === 'high' && 'text-emerald-600',
+                  phaseState.readiness === 'medium' && 'text-amber-600',
+                  phaseState.readiness === 'low' && 'text-sub',
+                )}
+              >
+                {phaseState.readiness[0]!.toUpperCase() + phaseState.readiness.slice(1)}
+              </span>
+            </span>
+          </div>
+        </div>
+        {phaseState.status === 'closed' && nextPhase ? (
+          <Link
+            to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
+            params={{ id: String(project.id) }}
+            className="inline-flex h-8 items-center justify-center rounded-md px-3.5 text-sm font-medium whitespace-nowrap transition-colors bg-card text-foreground shadow-[var(--shadow-card-ring)]"
+          >
+            Advance to {getWorkflowPhaseLabel(nextPhase)}
+          </Link>
+        ) : (
+          <ShellButton
+            variant="outline"
+            onClick={() => chat.forcePhaseClosure(phase)}
+            disabled={chat.isLoading}
+          >
+            Close Phase
+          </ShellButton>
+        )}
+      </div>
+      <ChatScroll className="min-h-0 flex-1">
+        <div className="flex flex-col gap-8 mx-auto max-w-2xl px-4 py-3">
           {showLockedState && currentReachablePhase && (
             <WorkspaceStateCard
               eyebrow="Locked phase"
@@ -794,9 +846,8 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               ) : null}
             </WorkspaceStateCard>
           )}
-        </ConversationContent>
-        <ConversationScrollButton />
-      </Conversation>
+        </div>
+      </ChatScroll>
 
       {showPromptInput && (
         <div className="border-t px-4 py-3">

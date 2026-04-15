@@ -231,7 +231,7 @@ export function ShellButton({
     <button
       type="button"
       className={cn(
-        'inline-flex h-8 items-center justify-center rounded-md px-3.5 text-sm font-medium whitespace-nowrap transition-colors',
+        'inline-flex h-8 items-center justify-center rounded-md px-3.5 text-sm font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-40',
         variant === 'ghost' && 'bg-wash text-sub hover:bg-wash/80',
         variant === 'outline' && 'bg-card text-foreground shadow-[var(--shadow-card-ring)]',
         variant === 'primary' &&
