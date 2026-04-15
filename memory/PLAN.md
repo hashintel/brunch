@@ -40,6 +40,10 @@
 
 ## Horizon
 
+- **Workflow projector extraction** — refactor `getCurrentWorkflowState()` into a pure projector over a `WorkflowSnapshot` struct (turn counts, outcomes, review coverage). No new tables; just separate DB loading from state-machine logic so callers never derive phase status ad hoc. Add transition-matrix tests. Consider indexes on `phase_outcome(project_id, phase, status)`, `knowledge_item(project_id, kind)`, `turn_knowledge_item(turn_id, relation, item_id)`. Independent lane; no feature dependency.
+- **Remove `cwd` from spec record, make workspace implicit** — `cwd` belongs to the runtime workspace context (the `.brunch/` directory), not to individual specs. Remove `cwd` column from `project`/`spec` table via migration; derive workspace path from server launch context and expose via `/api/workspace` or app context. No `workspace` table needed — the DB file location is the implicit workspace identity. Depends on: specification-first-creation (Active #3).
+- **Legacy knowledge facade cleanup** — drop dead schema tables (`decision`, `assumption`, `turn_decision`, `turn_assumption`, `decision_parent_decision`, `decision_parent_assumption`, `assumption_parent_assumption`, `requirement_decision`, `requirement`, `criterion`), remove facade functions (`createDecision`, `createAssumption`, `linkDecisionToTurn`, `linkAssumptionToTurn`, `addDecisionParentDecision`, `addDecisionParentAssumption`, `addAssumptionParentAssumption`), collapse `DecisionEntity`/`AssumptionEntity` API projection types into kind-discriminated `KnowledgeItem`. Drizzle migration for table drops. One axis — no rename bundled.
+- **Project → specification physical DB rename** — rename `project` table to `specification`, rename `project_id` FK columns across all tables, update API routes from `/api/projects` to `/api/specifications`. Drizzle migration. Staged after semantic rename (Active #3) and legacy facade cleanup have landed so the rename is purely mechanical. Depends on: legacy-knowledge-facade-cleanup, specification-first-creation (Active #3).
 - **Edit mode + cascade preview** — revisit affordance after the current interview-surface refinement wave settles.
 - **Cascade execution + secondary thread lifecycle** — structural follow-on after preview-only revisit is stable.
 - **Drizzle Kit audit remediation** — independent hardening lane.
@@ -64,7 +68,12 @@ story-first-turn-card-refinement
   └──→ rich-replay-treatment-for-collapsed-reasoning-observer-progress-and-grounding-card-detail
 
 specification-first-creation-and-workspace-terminology-adoption
-  └──→ grounding-strategy-selection-inside-the-workspace
+  ├──→ grounding-strategy-selection-inside-the-workspace
+  ├──→ remove-cwd-from-spec-record-make-workspace-implicit
+  └──→ project-to-specification-physical-db-rename
+
+legacy-knowledge-facade-cleanup
+  └──→ project-to-specification-physical-db-rename
 
 grounding-strategy-selection-inside-the-workspace
   └──→ brownfield-workspace-analysis-grounding-brief
