@@ -14,6 +14,6 @@ export default {
     msw: { enabled: false },
     source: { enabled: false },
     theme: { enabled: true },
-    width: { enabled: true },
+    width: { enabled: false },
   },
 };

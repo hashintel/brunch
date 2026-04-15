@@ -112,7 +112,11 @@ function QuestionCard({
                 isNone && 'opacity-40',
               )}
             >
-              <Checkbox checked={isSelected} onCheckedChange={() => toggleOption(opt.id)} />
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => toggleOption(opt.id)}
+                className="data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
+              />
               <span className={isSelected ? 'text-ink' : 'text-sub'}>{opt.content}</span>
               {opt.isRecommended && (
                 <span className="text-xs-minus font-medium text-[#2070e6]">Recommended</span>
@@ -124,8 +128,12 @@ function QuestionCard({
         <div className="my-1 border-t border-rule" />
 
         <label className="flex h-6 cursor-pointer items-center gap-2 rounded-lg text-left text-xs-plus">
-          <Checkbox checked={isNone} onCheckedChange={toggleNone} />
-          <span className={cn('text-sub', isNone && 'text-ink')}>None of these</span>
+          <Checkbox
+            checked={isNone}
+            onCheckedChange={toggleNone}
+            className="data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
+          />
+          <span className={cn('text-sub', isNone && 'text-ink')}>None of the above / I'm not sure</span>
         </label>
       </div>
 
@@ -135,7 +143,7 @@ function QuestionCard({
         <Textarea
           value={selection.rationale}
           onChange={(e) => setRationale(e.target.value)}
-          placeholder="Constraints, trade-offs, or reasoning worth capturing…"
+          placeholder="Constraints, trade-offs, motivations, or reasoning worth capturing…"
           className="min-h-16 resize-none rounded-none border-0 bg-transparent px-0 pb-5 pt-2 text-sm text-ink placeholder:text-hint focus-visible:ring-0"
         />
       </div>
@@ -161,7 +169,6 @@ const sampleQuestions = [
       { id: 1, content: 'No visible changes — pure backend refactor' },
       { id: 2, content: 'New validation features exposed to users', isRecommended: true },
       { id: 3, content: 'Full UX redesign around mathematical primitives' },
-      { id: 4, content: 'Not sure yet' },
     ],
   },
   {
