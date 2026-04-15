@@ -1,3 +1,4 @@
+import { readFileSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -10,6 +11,10 @@ import { defineConfig } from 'vitest/config';
 import { getBackendProxyTarget } from './src/server/runtime-config';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
+const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as {
+  version?: string;
+};
+
 export const defaultDevServerPort = 5173;
 
 export const resolveDevServerPort = (argv: string[]) => {
@@ -44,6 +49,9 @@ export const getViteCacheDir = (command: 'build' | 'serve', argv: string[]) =>
 
 export default defineConfig(({ command }) => ({
   cacheDir: getViteCacheDir(command, process.argv),
+  define: {
+    __APP_VERSION__: JSON.stringify(packageJson.version ?? '0.0.0'),
+  },
   plugins: [
     tanstackRouter({
       target: 'react',

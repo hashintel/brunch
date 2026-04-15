@@ -74,7 +74,7 @@ describe('captureProjectToManifestScenario', () => {
         {
           phase: 'scope',
           question: '',
-          answer: 'Confirm scope closure',
+          answer: 'Confirm grounding closure',
           isConfirmation: true,
         },
         {

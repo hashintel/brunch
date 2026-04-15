@@ -78,10 +78,10 @@ describe('phase-close commands', () => {
 
   it('derives close-action message text from the shared command model', () => {
     expect(getPhaseClosureCommandText({ kind: 'confirm-proposed-phase-closure', phase: 'scope' })).toBe(
-      'Confirm scope closure',
+      'Confirm grounding closure',
     );
     expect(getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase: 'design' })).toBe(
-      'Force design closure',
+      'Force elicitation closure',
     );
   });
 });
@@ -193,7 +193,7 @@ describe('force-close phase action projection', () => {
 
   it('builds the forced-close summary through one shared helper', () => {
     expect(getForcedPhaseClosureSummary('design')).toBe(
-      'Design closed by user without an interviewer recommendation.',
+      'Elicitation closed by user without an interviewer recommendation.',
     );
   });
 });

@@ -22,6 +22,7 @@ import type { Impact, ProjectState, ProjectStateTurn, WorkflowPhase } from '@/sh
 import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type { AskQuestionUIPart, BrunchUIMessage } from '@/shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
+import { getWorkflowPhaseLabel } from '@/shared/phase-display.js';
 import { getNextActivePhase, phaseOrder, phaseRouteSegments } from '@/shared/phase-routes.js';
 
 import { useInterviewController } from './-interview-controller';
@@ -46,25 +47,18 @@ function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectSt
   return getForceClosePhaseAction(workflow, phase).available;
 }
 
-const phaseTitles: Record<WorkflowPhase, string> = {
-  scope: 'Framing',
-  design: 'Elicitation',
-  requirements: 'Requirements review',
-  criteria: 'Acceptance review',
-};
-
 const startPhaseMessages: Record<WorkflowPhase, string> = {
-  scope: 'Begin the framing interview.',
-  design: 'Begin the elicitation interview.',
-  requirements: 'Begin requirements review.',
-  criteria: 'Begin acceptance review.',
+  scope: 'Begin the grounding phase.',
+  design: 'Begin the elicitation phase.',
+  requirements: 'Begin the requirements phase.',
+  criteria: 'Begin the acceptance criteria phase.',
 };
 
 const continuePhaseMessages: Record<WorkflowPhase, string> = {
-  scope: 'Continue the framing interview.',
-  design: 'Continue the elicitation interview.',
-  requirements: 'Continue requirements review.',
-  criteria: 'Continue acceptance review.',
+  scope: 'Continue the grounding phase.',
+  design: 'Continue the elicitation phase.',
+  requirements: 'Continue the requirements phase.',
+  criteria: 'Continue the acceptance criteria phase.',
 };
 
 function isReviewPhase(phase: WorkflowPhase) {
@@ -116,7 +110,7 @@ function ReviewPhaseBanner({ phase }: { phase: WorkflowPhase }) {
   return (
     <TranscriptMetaPlaceholder
       testId="review-phase-banner"
-      label={`${phaseTitles[phase]} workspace`}
+      label={`${getWorkflowPhaseLabel(phase)} workspace`}
       detail="This phase is staged as a structured review, not a freeform chat transcript."
     />
   );
@@ -135,9 +129,7 @@ function PhaseSummaryCard({
 }) {
   return (
     <div className="my-3 rounded-lg border bg-card p-4">
-      <div className="mb-2 text-[15px] font-semibold">
-        {phase[0].toUpperCase() + phase.slice(1)} closure proposal
-      </div>
+      <div className="mb-2 text-[15px] font-semibold">{getWorkflowPhaseLabel(phase)} closure proposal</div>
       <p className="text-sm text-muted-foreground">{summary}</p>
       <div className="mt-3 flex justify-end">
         <button
@@ -408,7 +400,7 @@ function AnsweredTurnCard({
       <div className="flex items-start gap-3">
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-            <span>{turn.phase.toUpperCase()}</span>
+            <span>{getWorkflowPhaseLabel(turn.phase)}</span>
             {turn.impact ? (
               <span className={cn('rounded px-2 py-0.5 uppercase', impactStyles[turn.impact])}>
                 {turn.impact} impact
@@ -640,15 +632,15 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           {showLockedState && currentReachablePhase && (
             <WorkspaceStateCard
               eyebrow="Locked phase"
-              title={`${phaseTitles[phase]} is not available yet`}
-              description={`Finish or enter ${phaseTitles[currentReachablePhase]} before opening this phase.`}
+              title={`${getWorkflowPhaseLabel(phase)} phase is not available yet`}
+              description={`Finish or enter ${getWorkflowPhaseLabel(currentReachablePhase)} before opening this phase.`}
             >
               <Link
                 to={`/project/$id/${phaseRouteSegments[currentReachablePhase]}` as '/project/$id/framing'}
                 params={{ id: String(project.id) }}
                 className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
               >
-                Go to {phaseTitles[currentReachablePhase]}
+                Go to {getWorkflowPhaseLabel(currentReachablePhase)}
               </Link>
             </WorkspaceStateCard>
           )}
@@ -774,7 +766,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               title={
                 showCompletionState
                   ? 'The interview workspace is complete'
-                  : `${phaseTitles[phase]} is complete`
+                  : `${getWorkflowPhaseLabel(phase)} phase is complete`
               }
               description={
                 phaseState.summary ??
@@ -797,7 +789,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                   params={{ id: String(project.id) }}
                   className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
                 >
-                  Continue to {phaseTitles[nextPhase]}
+                  Continue to {getWorkflowPhaseLabel(nextPhase)}
                 </Link>
               ) : null}
             </WorkspaceStateCard>

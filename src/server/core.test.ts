@@ -124,7 +124,7 @@ describe('prepareTurn', () => {
       phase: 'scope',
       parent_turn_id: proposalTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, outcome.id, confirmationTurn.id);
     finalizeTurn(db, project.id, confirmationTurn.id);
@@ -165,7 +165,7 @@ describe('prepareTurn', () => {
       phase: 'scope',
       parent_turn_id: scopeProposalTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     finalizeTurn(db, project.id, scopeConfirmationTurn.id);
@@ -189,7 +189,7 @@ describe('prepareTurn', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
     });
     confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
     finalizeTurn(db, project.id, designConfirmationTurn.id);
@@ -230,7 +230,7 @@ describe('prepareTurn', () => {
       phase: 'scope',
       parent_turn_id: scopeProposalTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     finalizeTurn(db, project.id, scopeConfirmationTurn.id);
@@ -254,7 +254,7 @@ describe('prepareTurn', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
     });
     confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
     finalizeTurn(db, project.id, designConfirmationTurn.id);
@@ -327,7 +327,7 @@ describe('prepareTurn', () => {
       phase: 'scope',
       parent_turn_id: scopeProposalTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     finalizeTurn(db, project.id, scopeConfirmationTurn.id);
@@ -344,9 +344,9 @@ describe('prepareTurn', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Force design closure',
+      answer: 'Force elicitation closure',
       user_parts: JSON.stringify([
-        { type: 'text', text: 'Force design closure' },
+        { type: 'text', text: 'Force elicitation closure' },
         {
           type: 'data-confirmation',
           data: { kind: 'force-close-active-phase', phase: 'design' },
@@ -358,7 +358,7 @@ describe('prepareTurn', () => {
       projectId: project.id,
       phase: 'design',
       proposal_turn_id: designForceCloseTurn.id,
-      summary: 'Design closed by user without an interviewer recommendation.',
+      summary: 'Elicitation closed by user without an interviewer recommendation.',
     });
     confirmPhaseOutcome(db, designOutcome.id, designForceCloseTurn.id);
     finalizeTurn(db, project.id, designForceCloseTurn.id);

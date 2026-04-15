@@ -1,6 +1,7 @@
 import * as z from 'zod/v4';
 
 import type { WorkflowPhaseStatus } from './api-types.js';
+import { getWorkflowPhaseCommandLabel, getWorkflowPhaseLabel } from './phase-display.js';
 
 export const workflowPhaseOrder = ['scope', 'design', 'requirements', 'criteria'] as const;
 export const workflowPhaseSchema = z.enum(workflowPhaseOrder);
@@ -61,8 +62,8 @@ export function getPhaseClosureCommandText(
   command: Pick<DataConfirmation, 'kind' | 'phase'> | Pick<PhaseClosureCommand, 'kind' | 'phase'>,
 ): string {
   return command.kind === 'confirm-proposed-phase-closure'
-    ? `Confirm ${command.phase} closure`
-    : `Force ${command.phase} closure`;
+    ? `Confirm ${getWorkflowPhaseCommandLabel(command.phase)} closure`
+    : `Force ${getWorkflowPhaseCommandLabel(command.phase)} closure`;
 }
 
 export function parsePhaseClosureCommand(value: unknown): PhaseClosureCommand | null {
@@ -152,7 +153,7 @@ export function getForceCloseActionErrorMessage(action: ForceClosePhaseAction): 
 }
 
 export function getForcedPhaseClosureSummary(phase: WorkflowPhase): string {
-  const phaseLabel = phase[0].toUpperCase() + phase.slice(1);
+  const phaseLabel = getWorkflowPhaseLabel(phase);
   return `${phaseLabel} closed by user without an interviewer recommendation.`;
 }
 

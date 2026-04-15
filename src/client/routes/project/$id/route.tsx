@@ -3,14 +3,8 @@ import { Link, Outlet, createFileRoute, useLoaderData, useParams } from '@tansta
 import { Skeleton } from '@/client/components/ui/skeleton';
 import { cn } from '@/client/lib/utils';
 import type { ProjectState, WorkflowPhase, WorkflowPhaseState, WorkflowState } from '@/shared/api-types.js';
+import { workflowPhaseLabels } from '@/shared/phase-display.js';
 import { phaseOrder, phaseRouteSegments } from '@/shared/phase-routes.js';
-
-const phaseLabels: Record<WorkflowPhase, string> = {
-  scope: 'Framing',
-  design: 'Elicitation',
-  requirements: 'Requirements Review',
-  criteria: 'Acceptance Review',
-};
 
 function StatusIndicator({ status }: { status: WorkflowPhaseState['status'] }) {
   if (status === 'closed') {
@@ -114,7 +108,7 @@ export function PhaseNavigationSidebar({
           const content = (
             <>
               <StatusIndicator status={state.status} />
-              <span className="flex-1 text-left">{phaseLabels[phase]}</span>
+              <span className="flex-1 text-left">{workflowPhaseLabels[phase]}</span>
               {state.status === 'in_progress' ? (
                 <CloseabilityIndicator closeable={state.closeability} />
               ) : null}

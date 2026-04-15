@@ -13,14 +13,15 @@ import {
 } from '@/client/components/ui/dialog';
 import { useCreateProjectMutation } from '@/client/mutations/project-mutations';
 import type { ProjectListItem, ProjectMode, WorkflowPhaseStatus } from '@/shared/api-types.js';
+import { workflowPhaseLabels } from '@/shared/phase-display.js';
 
 const projectListRouteApi = getRouteApi('/');
 
-const phaseLabels: Array<{ key: keyof ProjectListItem['workflowSummary']; label: string }> = [
-  { key: 'scope', label: 'Scope' },
-  { key: 'design', label: 'Design' },
-  { key: 'requirements', label: 'Requirements' },
-  { key: 'criteria', label: 'Criteria' },
+const projectListPhases: Array<keyof ProjectListItem['workflowSummary']> = [
+  'scope',
+  'design',
+  'requirements',
+  'criteria',
 ];
 
 const statusStyles = {
@@ -80,7 +81,6 @@ export function ProjectList() {
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-2xl p-6">
         <h1 className="text-base font-semibold">Brunch</h1>
-        <p className="mt-1 text-muted-foreground">AI-guided spec elicitation</p>
 
         <Button onClick={handleOpen} disabled={createProjectMutation.isPending} className="mt-6 mb-2">
           {createProjectMutation.isPending ? 'Creating...' : 'New project'}
@@ -105,12 +105,12 @@ export function ProjectList() {
                       Created: {new Date(project.created_at).toLocaleDateString()}
                     </CardDescription>
                     <div className="mt-2 flex gap-1.5">
-                      {phaseLabels.map(({ key, label }) => (
+                      {projectListPhases.map((phase) => (
                         <span
-                          key={key}
-                          className={`rounded-sm px-1.5 py-0.5 text-xs font-medium ${statusStyles[project.workflowSummary[key]]}`}
+                          key={phase}
+                          className={`rounded-sm px-1.5 py-0.5 text-xs font-medium ${statusStyles[project.workflowSummary[phase]]}`}
                         >
-                          {label}
+                          {workflowPhaseLabels[phase]}
                         </span>
                       ))}
                     </div>

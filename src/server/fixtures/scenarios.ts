@@ -49,8 +49,8 @@ export function seedClosedScope(db: DB, projectId: number) {
     phase: 'scope',
     parent_turn_id: scopeProposalTurn.id,
     question: '',
-    answer: 'Confirm scope closure',
-    user_parts: createConfirmationParts('Confirm scope closure', {
+    answer: 'Confirm grounding closure',
+    user_parts: createConfirmationParts('Confirm grounding closure', {
       kind: 'confirm-proposed-phase-closure',
       proposalTurnId: scopeProposalTurn.id,
       phase: 'scope',
@@ -90,8 +90,8 @@ export function seedRequirementsReady(db: DB, projectId: number) {
     phase: 'design',
     parent_turn_id: seededDesign.designTurn.id,
     question: '',
-    answer: 'Confirm design closure',
-    user_parts: createConfirmationParts('Confirm design closure', {
+    answer: 'Confirm elicitation closure',
+    user_parts: createConfirmationParts('Confirm elicitation closure', {
       kind: 'confirm-proposed-phase-closure',
       proposalTurnId: seededDesign.designTurn.id,
       phase: 'design',
@@ -206,8 +206,8 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
     phase: 'criteria',
     parent_turn_id: criteriaProposalTurn.id,
     question: '',
-    answer: 'Confirm criteria closure',
-    user_parts: createConfirmationParts('Confirm criteria closure', {
+    answer: 'Confirm acceptance criteria closure',
+    user_parts: createConfirmationParts('Confirm acceptance criteria closure', {
       kind: 'confirm-proposed-phase-closure',
       proposalTurnId: criteriaProposalTurn.id,
       phase: 'criteria',
@@ -245,8 +245,8 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
     phase: 'design',
     parent_turn_id: designTurn.id,
     question: '',
-    answer: 'Force design closure',
-    user_parts: createConfirmationParts('Force design closure', {
+    answer: 'Force elicitation closure',
+    user_parts: createConfirmationParts('Force elicitation closure', {
       kind: 'force-close-active-phase',
       phase: 'design',
     }),
@@ -257,7 +257,7 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
     projectId,
     phase: 'design',
     proposal_turn_id: designForceCloseTurn.id,
-    summary: 'Design closed by user without an interviewer recommendation.',
+    summary: 'Elicitation closed by user without an interviewer recommendation.',
   });
   confirmPhaseOutcome(db, designOutcome.id, designForceCloseTurn.id);
 
@@ -289,8 +289,8 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
     phase: 'design',
     parent_turn_id: designTurn.id,
     question: '',
-    answer: 'Confirm scope closure',
-    user_parts: createConfirmationParts('Confirm scope closure', {
+    answer: 'Confirm grounding closure',
+    user_parts: createConfirmationParts('Confirm grounding closure', {
       kind: 'confirm-proposed-phase-closure',
       proposalTurnId: designTurn.id,
       phase: 'scope',
@@ -319,8 +319,8 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
     phase: 'design',
     parent_turn_id: designProposalTurn.id,
     question: '',
-    answer: 'Confirm design closure',
-    user_parts: createConfirmationParts('Confirm design closure', {
+    answer: 'Confirm elicitation closure',
+    user_parts: createConfirmationParts('Confirm elicitation closure', {
       kind: 'confirm-proposed-phase-closure',
       proposalTurnId: designProposalTurn.id,
       phase: 'design',

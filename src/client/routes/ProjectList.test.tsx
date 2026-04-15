@@ -178,10 +178,10 @@ describe('ProjectList', () => {
     ];
 
     renderProjectList();
-    expect(screen.getByText('Scope')).toBeDefined();
-    expect(screen.getByText('Design')).toBeDefined();
+    expect(screen.getByText('Grounding')).toBeDefined();
+    expect(screen.getByText('Elicitation')).toBeDefined();
     expect(screen.getByText('Requirements')).toBeDefined();
-    expect(screen.getByText('Criteria')).toBeDefined();
+    expect(screen.getByText('Acceptance Criteria')).toBeDefined();
   });
 
   it('sends mode when creating a brownfield project', async () => {

@@ -79,7 +79,7 @@ describe('seedFromManifest', () => {
         {
           phase: 'scope',
           question: '',
-          answer: 'Confirm scope closure',
+          answer: 'Confirm grounding closure',
           isConfirmation: true,
         },
       ],
@@ -177,7 +177,7 @@ describe('seedFromManifest', () => {
         {
           phase: 'design',
           question: '',
-          answer: 'Confirm design closure',
+          answer: 'Confirm elicitation closure',
           isConfirmation: true,
         },
       ],

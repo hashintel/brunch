@@ -2,6 +2,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectState, WorkflowPhase } from '@/shared/api-types.js';
+import { getPhaseClosureCommandText } from '@/shared/phase-close.js';
 
 import { buildInterviewerContext } from './context.js';
 import type { DB } from './db.js';
@@ -1108,7 +1109,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u2',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm scope closure' },
+              { type: 'text', text: 'Confirm grounding closure' },
               {
                 type: 'data-confirmation',
                 data: {
@@ -1150,10 +1151,10 @@ describe('phase outcomes + scope closure', () => {
     );
     expect(projectRes.body.project.active_turn_id).toBe(2);
     expect(projectRes.body.turns.at(-1)).toMatchObject({
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     expect(JSON.parse(projectRes.body.turns.at(-1).user_parts ?? '[]')).toEqual([
-      { type: 'text', text: 'Confirm scope closure' },
+      { type: 'text', text: 'Confirm grounding closure' },
       {
         type: 'data-confirmation',
         data: {
@@ -1188,7 +1189,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u2',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm scope closure' },
+              { type: 'text', text: 'Confirm grounding closure' },
               {
                 type: 'data-confirmation',
                 data: {
@@ -1258,7 +1259,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u2',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm scope closure' },
+              { type: 'text', text: 'Confirm grounding closure' },
               {
                 type: 'data-confirmation',
                 data: {
@@ -1362,7 +1363,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u2',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm scope closure' },
+              { type: 'text', text: 'Confirm grounding closure' },
               {
                 type: 'data-confirmation',
                 data: {
@@ -1408,7 +1409,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u4',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm design closure' },
+              { type: 'text', text: 'Confirm elicitation closure' },
               {
                 type: 'data-confirmation',
                 data: {
@@ -1995,7 +1996,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u-criteria-confirm',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm criteria closure' },
+              { type: 'text', text: 'Confirm acceptance criteria closure' },
               {
                 type: 'data-confirmation',
                 data: {
@@ -2084,7 +2085,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u-criteria-final-confirm',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm criteria closure' },
+              { type: 'text', text: 'Confirm acceptance criteria closure' },
               {
                 type: 'data-confirmation',
                 data: {
@@ -2134,7 +2135,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u2',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm scope closure' },
+              { type: 'text', text: 'Confirm grounding closure' },
               {
                 type: 'data-confirmation',
                 data: {
@@ -2174,7 +2175,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u4',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Force design closure' },
+              { type: 'text', text: 'Force elicitation closure' },
               {
                 type: 'data-confirmation',
                 data: { kind: 'force-close-active-phase', phase: 'design' },
@@ -2210,10 +2211,10 @@ describe('phase outcomes + scope closure', () => {
     );
     expect(projectRes.body.turns.at(-1)).toMatchObject({
       phase: 'design',
-      answer: 'Force design closure',
+      answer: 'Force elicitation closure',
     });
     expect(JSON.parse(projectRes.body.turns.at(-1).user_parts ?? '[]')).toEqual([
-      { type: 'text', text: 'Force design closure' },
+      { type: 'text', text: 'Force elicitation closure' },
       {
         type: 'data-confirmation',
         data: { kind: 'force-close-active-phase', phase: 'design' },
@@ -2294,7 +2295,12 @@ describe('phase outcomes + scope closure', () => {
       phase: 'design',
       expectedError: 'Confirm the pending closure proposal instead of force-closing',
     },
-  ])('preserves force-close validation errors for $name', async ({ seed, phase, expectedError }) => {
+  ] satisfies Array<{
+    name: string;
+    seed: (projectId: number) => Promise<void> | void;
+    phase: WorkflowPhase;
+    expectedError: string;
+  }>)('preserves force-close validation errors for $name', async ({ seed, phase, expectedError }) => {
     const projectId = await createTestProject();
     await seed(projectId);
 
@@ -2306,7 +2312,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u1',
             role: 'user',
             parts: [
-              { type: 'text', text: `Force ${phase} closure` },
+              { type: 'text', text: getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase }) },
               {
                 type: 'data-confirmation',
                 data: { kind: 'force-close-active-phase', phase },
@@ -2348,7 +2354,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u2',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm design closure' },
+              { type: 'text', text: 'Confirm elicitation closure' },
               {
                 type: 'data-confirmation',
                 data: {

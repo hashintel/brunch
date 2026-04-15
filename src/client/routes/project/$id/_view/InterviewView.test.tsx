@@ -420,7 +420,7 @@ describe('InterviewView', () => {
     expect(screen.queryByLabelText('Type a message...')).toBeNull();
 
     await waitFor(() => {
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Begin the framing interview.' });
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Begin the grounding phase.' });
     });
   });
 
@@ -450,7 +450,7 @@ describe('InterviewView', () => {
     expect(screen.queryByLabelText('Type a message...')).toBeNull();
 
     await waitFor(() => {
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Continue the framing interview.' });
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Continue the grounding phase.' });
     });
   });
 
@@ -638,12 +638,12 @@ describe('InterviewView', () => {
 
     await act(async () => {
       useChatHarness.replaceMessages?.([
-        { id: 'u-control', role: 'user', parts: [{ type: 'text', text: 'Continue the framing interview.' }] },
+        { id: 'u-control', role: 'user', parts: [{ type: 'text', text: 'Continue the grounding phase.' }] },
       ]);
     });
 
     expect(await screen.findByText('Interview resumed')).toBeTruthy();
-    expect(screen.queryByText('Continue the framing interview.')).toBeNull();
+    expect(screen.queryByText('Continue the grounding phase.')).toBeNull();
   });
 
   it('filters closure control turns out of answered-turn replay', async () => {
@@ -673,10 +673,10 @@ describe('InterviewView', () => {
             question: 'Closure proposal',
             why: null,
             impact: null,
-            answer: 'Confirm scope closure',
+            answer: 'Confirm grounding closure',
             is_resolution: true,
             user_parts: JSON.stringify([
-              { type: 'text', text: 'Confirm scope closure' },
+              { type: 'text', text: 'Confirm grounding closure' },
               {
                 type: 'data-confirmation',
                 data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 2, phase: 'scope' },
@@ -746,7 +746,7 @@ describe('InterviewView', () => {
     });
     expect(screen.getByTestId('answered-turn-card').textContent).toContain('What should we build first?');
     expect(screen.getByTestId('answered-turn-card').textContent).not.toContain('Closure proposal');
-    expect(screen.getByTestId('answered-turn-card').textContent).not.toContain('Confirm scope closure');
+    expect(screen.getByTestId('answered-turn-card').textContent).not.toContain('Confirm grounding closure');
   });
 
   it('keeps later-phase active turns out of a closed phase and stages the handoff card at the bottom', async () => {
@@ -836,7 +836,7 @@ describe('InterviewView', () => {
 
     expect(answeredCard.textContent).toContain('What should we build first?');
     expect(screen.queryByText('Which architecture should we choose next?')).toBeNull();
-    expect(handoffCard.textContent).toContain('Framing is complete');
+    expect(handoffCard.textContent).toContain('Grounding phase is complete');
     expect(answeredCard.compareDocumentPosition(handoffCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
@@ -1087,12 +1087,12 @@ describe('InterviewView', () => {
 
     renderWorkspace();
 
-    fireEvent.click(await screen.findByRole('button', { name: /confirm scope closure/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /confirm grounding closure/i }));
 
     await waitFor(() => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
         parts: [
-          { type: 'text', text: 'Confirm scope closure' },
+          { type: 'text', text: 'Confirm grounding closure' },
           {
             type: 'data-confirmation',
             data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
@@ -1150,12 +1150,12 @@ describe('InterviewView', () => {
 
     renderWorkspace('design');
 
-    fireEvent.click(await screen.findByRole('button', { name: /force design closure/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /force elicitation closure/i }));
 
     await waitFor(() => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
         parts: [
-          { type: 'text', text: 'Force design closure' },
+          { type: 'text', text: 'Force elicitation closure' },
           {
             type: 'data-confirmation',
             data: { kind: 'force-close-active-phase', phase: 'design' },
@@ -1213,7 +1213,7 @@ describe('InterviewView', () => {
 
     renderWorkspace('design');
 
-    expect(screen.queryByRole('button', { name: /force design closure/i })).toBeNull();
+    expect(screen.queryByRole('button', { name: /force elicitation closure/i })).toBeNull();
   });
 
   it('posts free-text-only turn responses and forwards the text into chat', async () => {

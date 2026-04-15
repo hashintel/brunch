@@ -175,7 +175,7 @@ describe('user part round-trip', () => {
 
   it('round-trips forced-close confirmation user parts', () => {
     const parts: BrunchUserPart[] = [
-      { type: 'text', text: 'Force design closure' },
+      { type: 'text', text: 'Force elicitation closure' },
       {
         type: 'data-confirmation',
         data: { kind: 'force-close-active-phase', phase: 'design' },

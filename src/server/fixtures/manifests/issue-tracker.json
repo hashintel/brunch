@@ -124,7 +124,7 @@
         {
           "phase": "scope",
           "question": "",
-          "answer": "Confirm scope closure",
+          "answer": "Confirm grounding closure",
           "isConfirmation": true
         }
       ],
@@ -325,7 +325,7 @@
         {
           "phase": "scope",
           "question": "",
-          "answer": "Confirm scope closure",
+          "answer": "Confirm grounding closure",
           "isConfirmation": true
         },
         {
@@ -625,7 +625,7 @@
         {
           "phase": "scope",
           "question": "",
-          "answer": "Confirm scope closure",
+          "answer": "Confirm grounding closure",
           "isConfirmation": true
         },
         {
@@ -683,7 +683,7 @@
         {
           "phase": "design",
           "question": "",
-          "answer": "Confirm design closure",
+          "answer": "Confirm elicitation closure",
           "isConfirmation": true
         },
         {
@@ -1102,7 +1102,7 @@
         {
           "phase": "scope",
           "question": "",
-          "answer": "Confirm scope closure",
+          "answer": "Confirm grounding closure",
           "isConfirmation": true
         },
         {
@@ -1160,7 +1160,7 @@
         {
           "phase": "design",
           "question": "",
-          "answer": "Confirm design closure",
+          "answer": "Confirm elicitation closure",
           "isConfirmation": true
         },
         {
@@ -1713,7 +1713,7 @@
         {
           "phase": "scope",
           "question": "",
-          "answer": "Confirm scope closure",
+          "answer": "Confirm grounding closure",
           "isConfirmation": true
         },
         {
@@ -1771,7 +1771,7 @@
         {
           "phase": "design",
           "question": "",
-          "answer": "Confirm design closure",
+          "answer": "Confirm elicitation closure",
           "isConfirmation": true
         },
         {
@@ -1984,7 +1984,7 @@
         {
           "phase": "criteria",
           "question": "",
-          "answer": "Confirm criteria closure",
+          "answer": "Confirm acceptance criteria closure",
           "isConfirmation": true
         }
       ],

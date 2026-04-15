@@ -358,13 +358,13 @@ function PhaseCompletionCard() {
         <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[rgba(22,163,106,0.1)]">
           <Check className="size-3.5 text-[#16a34a]" />
         </div>
-        <p className="text-sm font-medium text-ink">Requirements review is complete</p>
+        <p className="text-sm font-medium text-ink">Requirements phase is complete</p>
       </div>
       <p className="mt-2 text-sm leading-relaxed text-sub">
-        All requirements have been reviewed and finalized. You can proceed to the acceptance criteria review.
+        All requirements have been reviewed and finalized. You can proceed to acceptance criteria.
       </p>
       <Button className="mt-3" variant="outline" onClick={() => console.log('Continue')}>
-        Continue to acceptance review
+        Continue to acceptance criteria
         <ChevronRight data-icon="inline-end" />
       </Button>
     </div>
@@ -426,7 +426,7 @@ function InteractiveReviewSet() {
     <div className="flex flex-col gap-4">
       {/* Sticky header */}
       <div className="overflow-hidden rounded-xl border border-rule bg-white p-5">
-        <h3 className="text-base font-medium text-ink">Requirements review</h3>
+        <h3 className="text-base font-medium text-ink">Requirements</h3>
         <p className="mt-1.5 text-sm leading-relaxed text-sub">
           Review the synthesized requirements. Comment on items that need revision, reject items to remove, or
           approve the list to proceed.

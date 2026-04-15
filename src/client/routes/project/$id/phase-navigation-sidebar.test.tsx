@@ -65,10 +65,10 @@ describe('PhaseNavigationSidebar', () => {
     const nav = screen.getByRole('navigation', { name: 'Phase navigation' });
     expect(nav).toBeTruthy();
 
-    expect(screen.getByText('Framing')).toBeTruthy();
+    expect(screen.getByText('Grounding')).toBeTruthy();
     expect(screen.getByText('Elicitation')).toBeTruthy();
-    expect(screen.getByText('Requirements Review')).toBeTruthy();
-    expect(screen.getByText('Acceptance Review')).toBeTruthy();
+    expect(screen.getByText('Requirements')).toBeTruthy();
+    expect(screen.getByText('Acceptance Criteria')).toBeTruthy();
   });
 
   it('shows correct status for each phase', async () => {

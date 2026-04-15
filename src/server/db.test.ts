@@ -237,7 +237,7 @@ describe('phase outcome lifecycle', () => {
     const confirmationTurn = createTurn(db, project.id, {
       phase: 'scope',
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
       parent_turn_id: closureTurn.id,
     });
     confirmPhaseOutcome(db, proposed.id, confirmationTurn.id);
@@ -313,10 +313,10 @@ describe('phase outcome lifecycle', () => {
     const scopeConfirmationTurn = createTurn(db, project.id, {
       phase: 'scope',
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
       parent_turn_id: scopeProposalTurn.id,
       user_parts: JSON.stringify([
-        { type: 'text', text: 'Confirm scope closure' },
+        { type: 'text', text: 'Confirm grounding closure' },
         {
           type: 'data-confirmation',
           data: {
@@ -341,10 +341,10 @@ describe('phase outcome lifecycle', () => {
     const designForceCloseTurn = createTurn(db, project.id, {
       phase: 'design',
       question: '',
-      answer: 'Force design closure',
+      answer: 'Force elicitation closure',
       parent_turn_id: designTurn.id,
       user_parts: JSON.stringify([
-        { type: 'text', text: 'Force design closure' },
+        { type: 'text', text: 'Force elicitation closure' },
         {
           type: 'data-confirmation',
           data: { kind: 'force-close-active-phase', phase: 'design' },
@@ -356,7 +356,7 @@ describe('phase outcome lifecycle', () => {
       projectId: project.id,
       phase: 'design',
       proposal_turn_id: designForceCloseTurn.id,
-      summary: 'Design closed by user without an interviewer recommendation.',
+      summary: 'Elicitation closed by user without an interviewer recommendation.',
     });
     confirmPhaseOutcome(db, designOutcome.id, designForceCloseTurn.id);
     advanceHead(db, project.id, designForceCloseTurn.id);
@@ -366,7 +366,7 @@ describe('phase outcome lifecycle', () => {
       status: 'closed',
       proposalPending: false,
       turnId: designForceCloseTurn.id,
-      summary: 'Design closed by user without an interviewer recommendation.',
+      summary: 'Elicitation closed by user without an interviewer recommendation.',
       closeability: false,
       readiness: 'high',
       closureBasis: 'user_forced',
@@ -410,10 +410,10 @@ describe('phase outcome lifecycle', () => {
     const scopeConfirmationTurn = createTurn(db, project.id, {
       phase: 'scope',
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
       parent_turn_id: scopeProposalTurn.id,
       user_parts: JSON.stringify([
-        { type: 'text', text: 'Confirm scope closure' },
+        { type: 'text', text: 'Confirm grounding closure' },
         {
           type: 'data-confirmation',
           data: {
@@ -445,10 +445,10 @@ describe('phase outcome lifecycle', () => {
     const designConfirmationTurn = createTurn(db, project.id, {
       phase: 'design',
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
       parent_turn_id: designTurn.id,
       user_parts: JSON.stringify([
-        { type: 'text', text: 'Confirm design closure' },
+        { type: 'text', text: 'Confirm elicitation closure' },
         {
           type: 'data-confirmation',
           data: {
@@ -496,7 +496,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'scope',
       parent_turn_id: scopeTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     advanceHead(db, project.id, scopeConfirmationTurn.id);
@@ -519,7 +519,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
     });
     confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
     advanceHead(db, project.id, designConfirmationTurn.id);
@@ -593,7 +593,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'scope',
       parent_turn_id: scopeTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     advanceHead(db, project.id, scopeConfirmationTurn.id);
@@ -616,7 +616,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
     });
     confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
     advanceHead(db, project.id, designConfirmationTurn.id);
@@ -710,7 +710,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'scope',
       parent_turn_id: scopeTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     advanceHead(db, project.id, scopeConfirmationTurn.id);
@@ -733,7 +733,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
     });
     confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
     advanceHead(db, project.id, designConfirmationTurn.id);
@@ -832,7 +832,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'scope',
       parent_turn_id: scopeTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     advanceHead(db, project.id, scopeConfirmationTurn.id);
@@ -855,7 +855,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
     });
     confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
     advanceHead(db, project.id, designConfirmationTurn.id);
@@ -1002,10 +1002,10 @@ describe('phase outcome lifecycle', () => {
     const scopeConfirmationTurn = createTurn(db, project.id, {
       phase: 'scope',
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
       parent_turn_id: scopeProposalTurn.id,
       user_parts: JSON.stringify([
-        { type: 'text', text: 'Confirm scope closure' },
+        { type: 'text', text: 'Confirm grounding closure' },
         {
           type: 'data-confirmation',
           data: {
