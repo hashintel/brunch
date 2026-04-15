@@ -114,6 +114,138 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 97. **Grounding is the product term for the first phase while `scope` remains the internal phase key for now** — user-facing language and future interaction design speak in terms of grounding sufficiency, while implementation identifiers may migrate in a later pass. Depends on: D96. Supersedes: scope / framing copy drift.
 98. **Interviewer-invoked context gathering is a reusable capability, not a brownfield-only startup ritual** — workspace analysis, future web research, and similar moves may appear as grounding cards whenever the interviewer needs more context for the next move. Depends on: D30, D32, D83. Supersedes: one-shot brownfield kickoff exploration.
 
+99. **Phase labels are canonical product terms independent of internal phase keys** — user-facing labels are: Grounding (`scope`), Elicitation (`design`), Requirements (`requirements`), Acceptance Criteria (`criteria`). The internal enum values remain unchanged. Depends on: D97. Supersedes: previous label mapping (Framing, Elicitation, Requirements Review, Acceptance Review).
+
+100. **Output is a conditional route, not a workflow phase** — the output/summary view is available when all four phases are closed; it does not participate in phase state management (no status, readiness, or closeability). It provides markdown export of the completed specification. Depends on: D65.
+
+101. **The top bar is the single home for the app tagline** — "AI-guided spec elicitation" appears only in the top bar header, not duplicated on the project list or elsewhere. Top bar composition: logo + app name + version (build-time from package.json) + separator + tagline + right-aligned cwd. Height: h-10 (40px). Depends on: D10.
+
+102. **Each pane has a sticky header with pane-scoped metadata** — the three-pane layout below the top bar provides per-pane sticky headers: project sidebar header (back link + project name), center pane header (phase position + status + turns + readiness + Close Phase action), knowledge sidebar header (title + item/connection counts). Depends on: D86.
+
+103. **Close Phase is a guarded action gated by closeability** — the Close Phase button appears in the center pane header only when status is in-progress, is enabled based on closeability logic (minimum turns threshold), and triggers a confirmation modal. Closed phases show a status badge instead of the button. Depends on: D65, D66.
+
+104. **Knowledge sidebar groups items by a hard-coded display registry** — knowledge kinds map to display groups with labels and visibility: Goals & Context (goal, context, constraint), Assumptions & Decisions (assumption, decision), Requirements (requirement), Acceptance Criteria (criterion), Hidden (term). The registry is adjustable as kinds evolve (e.g. constraint → non-goal). Depends on: D49.
+
+105. **DrawerCard is the shared card primitive for expandable content** — a reusable component with header/summary/children slots that renders as: static card (no content), summary-peeking card (summary only), or toggleable card (summary ↔ children). A `locked` prop disables toggle for controlled-state cards. Depends on: D86.
+
+106. **ChatScroll combines ScrollArea with stick-to-bottom for the center pane** — Radix ScrollArea (custom scrollbar rendering) wired with `useStickToBottom` (auto-scroll to bottom + scroll-down indicator). Used as the center pane scroll container. Depends on: D86.
+
+## Layout Architecture
+
+### Top Bar
+
+| Element | Content | Position |
+| ------- | ------- | -------- |
+| Logo | Placeholder (TBD) | left |
+| App name + version | "Brunch v{version}" | left, after logo |
+| Separator | Pipe character | left, after version |
+| Tagline | "AI-guided spec elicitation" | left, after separator |
+| Working directory | `cwd` in mono | right-aligned |
+
+Height: `h-10` (40px). Version injected at build time from `package.json`.
+
+### Three-Pane Layout
+
+Below the top bar, three vertical panes fill the remaining viewport height. Each pane has a sticky-positioned header and a scrollable body using ScrollArea.
+
+#### Left Pane — Project Navigation Sidebar
+
+**Sticky header:**
+- "< Back to Workspace" navigation link
+- Read-only project/specification name (set at creation, not editable)
+
+**Body — Phase stepper:**
+A vertical timeline with connecting line (blue for completed segments, gray for future). Strictly sequential — forward-only flow. Each phase item shows:
+
+| Phase | Internal key | Label |
+| ----- | ------------ | ----- |
+| 1 | `scope` | Grounding |
+| 2 | `design` | Elicitation |
+| 3 | `requirements` | Requirements |
+| 4 | `criteria` | Acceptance Criteria |
+| 5 | *(route only)* | Output |
+
+Per-phase metadata: status (colored: Closed / In-Progress / Unstarted), readiness band (when in-progress), turn count. Output appears conditionally when all phases are closed.
+
+#### Center Pane — Chat Transcript
+
+**Sticky header:**
+- "Phase N/M – [Phase Name]" — positional progress label
+- Status text (colored)
+- Turn count
+- Readiness band (when in-progress)
+- Close Phase button (right-aligned, in-progress only, gated by closeability, triggers confirmation)
+- Status badge replaces button when phase is closed
+
+**Body (in-progress phase):**
+- Phase entry header (title + description)
+- Answered question cards (collapsed, locked)
+- Activity placeholders ("Thought for Ns" + tools)
+- Active question card (expanded, locked open)
+- Back / Skip / Submit controls
+
+**Body (closed phase):**
+- Answered question cards
+- Activity placeholders
+- "Proceed to [next phase]" CTA at bottom
+
+Scroll container: ChatScroll (ScrollArea + useStickToBottom).
+
+#### Right Pane — Knowledge Graph Sidebar
+
+**Sticky header:**
+- "Knowledge Graph" title
+- Item count + connection count
+
+**Body — Grouped knowledge items:**
+
+| Group label | Kinds | Visible |
+| ----------- | ----- | ------- |
+| Goals & Context | goal, context, constraint | yes |
+| Assumptions & Decisions | assumption, decision | yes |
+| Requirements | requirement | yes |
+| Acceptance Criteria | criterion | yes |
+| *(hidden)* | term | no |
+
+Items render as compact DrawerCard instances: code + content in header, edge/dependency reference codes as drawer-peek summary when edges exist, plain card otherwise.
+
+### Design Tokens
+
+**Typography scale** (11px–16px, no sizes outside this range):
+
+| Token | Size | Usage |
+| ----- | ---- | ----- |
+| `text-xxs` | 11px | Impact badges, tag labels |
+| `text-xs` | 12px | Secondary text, metadata |
+| `text-xs-plus` | 13px | Secondary body, explanatory text |
+| `text-sm` | 14px | Body text |
+| `text-sm-plus` | 15px | Card headings, collapsed question text |
+| `text-base` | 16px | Section headings |
+
+Question card titles use arbitrary `text-[17px]` above the scale for emphasis.
+
+**Font weights**: normal (400), medium (500), semibold (600). No bold (700+).
+
+**Color tokens**:
+
+| Token | Hex | Usage |
+| ----- | --- | ----- |
+| `ink` | #202020 | Primary text |
+| `sub` | #5b5b5b | Subtitles, secondary text |
+| `hint` | #a6a6a6 | Placeholders, inactive elements |
+| `rule` | #e3e3e3 | Borders, dividers |
+| `wash` | #f0f0f0 | Ghost fills, tracks |
+| `tint` | #fafafa | Subtle background |
+
+**Accent blue** (interactive elements, recommendations, progress):
+- Primary: `#2070e6`
+- Gradient top: `#3484fa`
+- Ring/border: `#1060d6`
+
+**Shadow tokens**: `--shadow-card`, `--shadow-ring`, `--shadow-card-ring`.
+
+**Card structure pattern** (DrawerCard): outer `rounded-xl border border-rule bg-tint` shell, inner white header with `-m-px` border overlap trick and `shadow-card`, tinted drawer body below.
+
 ## Critical Invariants
 
 <!-- Pruned 2026-04-14: kept only seam-level invariants that still protect active work. -->
@@ -159,7 +291,7 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 | **control marker** | A transcript-visible workspace event such as interview start, resume, or confirmation that is not rendered as a normal user chat bubble. |
 | **turn capture status** | The per-turn state describing what the observer has captured already, is still capturing, or failed to capture from that answered turn. |
 | **active path** | The trusted chain from HEAD to root in the primary conversation. |
-| **phase / mode** | One workflow stage: `scope` *(product term: grounding)*, `design`, `requirements`, or `criteria`. |
+| **phase / mode** | One workflow stage: `scope` *(label: Grounding)*, `design` *(label: Elicitation)*, `requirements` *(label: Requirements)*, or `criteria` *(label: Acceptance Criteria)*. |
 | **phase outcome** | Durable closure artifact for a phase, including summary and closure basis. |
 | **closure basis** | Whether a confirmed phase close came from interviewer recommendation or explicit user-forced closure. |
 | **closeability** | Deterministic minimum bar for whether the user may close a phase now. |
@@ -169,6 +301,12 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 | **knowledge graph** | Typed relationships among knowledge items, including `depends_on`, `derived_from`, `constrains`, `verifies`, and `refines`. |
 | **secondary thread** | Modal revisit conversation anchored to a primary-path turn and used to resolve cascade implications. |
 | **needs-revisit** | Flag meaning an item is affected by upstream invalidation and must be explicitly resolved before the specification is whole again. |
+| **DrawerCard** | Shared card primitive with header/summary/children slots that supports static, summary-peeking, and toggleable (minimized ↔ maximized) render modes. A `locked` prop disables toggle for controlled-state cards. |
+| **ChatScroll** | Composite scroll container that wires Radix ScrollArea (custom scrollbar) with `useStickToBottom` (auto-scroll-to-bottom + scroll-down indicator). Used for the center pane transcript. |
+| **phase stepper** | The vertical timeline navigation in the left sidebar showing phases as sequential steps with connecting line, status, readiness, and turn count. |
+| **knowledge group** | A display-level grouping of knowledge kinds for the sidebar, defined by a hard-coded registry that maps kinds to group labels and visibility. |
+| **output view** | The terminal route available when all phases are closed, providing specification summary and markdown export. Not a workflow phase. |
+| **activity placeholder** | A compact transcript element between turn cards showing elapsed thinking time and tools used by the interviewer. |
 
 ### Boundary terms
 
