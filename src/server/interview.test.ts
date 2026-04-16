@@ -83,11 +83,11 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('design')).toContain('propose_phase_closure');
   });
 
-  it('grounds the requirements prompt in the current requirement inventory', () => {
+  it('grounds the requirements prompt in a full-set review turn', () => {
     expect(getSystemPrompt('requirements')).toContain('current requirement inventory');
-    expect(getSystemPrompt('requirements')).toContain('requirement-approval');
-    expect(getSystemPrompt('requirements')).toContain('requirement-rejection');
-    expect(getSystemPrompt('requirements')).toContain('requirementReview');
+    expect(getSystemPrompt('requirements')).toContain('Accept review');
+    expect(getSystemPrompt('requirements')).toContain('Request changes');
+    expect(getSystemPrompt('requirements')).not.toContain('requirementReview');
     expect(getSystemPrompt('requirements')).toContain('propose_phase_closure');
   });
 });

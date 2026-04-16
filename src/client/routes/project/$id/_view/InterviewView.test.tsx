@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProjectState } from '@/shared/api-types.js';
+import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 
 import { InterviewView } from './-interview-view.js';
@@ -51,6 +51,7 @@ type UseChatHarness = {
 };
 
 let currentProjectState: ProjectState;
+let currentEntityState: EntitiesData;
 const routerInvalidate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 let useChatImpl: (options: UseChatOptions) => {
@@ -74,6 +75,7 @@ vi.mock('@tanstack/react-router', () => ({
   ),
   useLoaderData: ({ from }: { from: string }) => {
     if (from === '/project/$id') return currentProjectState;
+    if (from === '/project/$id/_view') return currentEntityState;
     throw new Error(`Unexpected useLoaderData from: ${from}`);
   },
   useRouter: () => ({ invalidate: routerInvalidate }),
@@ -249,6 +251,21 @@ function createWorkflowState(
   };
 }
 
+function createEntityState(overrides: Partial<EntitiesData> = {}): EntitiesData {
+  return {
+    goals: [],
+    terms: [],
+    contexts: [],
+    constraints: [],
+    requirements: [],
+    criteria: [],
+    decisions: [],
+    assumptions: [],
+    relationships: [],
+    ...overrides,
+  };
+}
+
 function createWorkspaceLoaderData({
   projectId = 1,
   assistantText = 'What should we build first?',
@@ -258,6 +275,7 @@ function createWorkspaceLoaderData({
   workflow,
   assistantParts,
   turns,
+  entityState,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -273,7 +291,8 @@ function createWorkspaceLoaderData({
   workflow?: ProjectState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
   turns?: ProjectState['turns'];
-} = {}): { projectState: ProjectState } {
+  entityState?: EntitiesData;
+} = {}): { projectState: ProjectState; entityState: EntitiesData } {
   return {
     projectState: createProjectState({
       projectId,
@@ -285,11 +304,13 @@ function createWorkspaceLoaderData({
       assistantParts,
       turns,
     }),
+    entityState: entityState ?? createEntityState(),
   };
 }
 
-function setLoaderData(data: { projectState: ProjectState }) {
+function setLoaderData(data: { projectState: ProjectState; entityState: EntitiesData }) {
   currentProjectState = data.projectState;
+  currentEntityState = data.entityState;
 }
 
 function createUseChatHarness(initialStatus: 'ready' | 'submitted' | 'streaming' = 'ready'): (
@@ -1021,6 +1042,89 @@ describe('InterviewView', () => {
     await waitFor(() => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Continue the grounding phase.' });
     });
+  });
+
+  it('renders requirement reference codes and review actions on the requirements full-set review turn', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Please review the current requirement set.',
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+        ],
+        workflow: createWorkflowState({
+          requirements: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 1,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current requirement set.' },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+        entityState: createEntityState({
+          requirements: [
+            {
+              id: 31,
+              project_id: 1,
+              kind: 'requirement',
+              subtype: null,
+              content: 'Export the reviewed specification as markdown',
+              rationale: null,
+              reviewStatus: 'pending',
+              referenceCode: 'REQ1',
+            },
+            {
+              id: 32,
+              project_id: 1,
+              kind: 'requirement',
+              subtype: null,
+              content: 'Resume the interview from persisted local state',
+              rationale: null,
+              reviewStatus: 'approved',
+              referenceCode: 'REQ2',
+            },
+          ],
+        }),
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    expect(await screen.findByText('Current requirement set')).toBeTruthy();
+    expect(screen.getByText('REQ1')).toBeTruthy();
+    expect(screen.getByText('Export the reviewed specification as markdown')).toBeTruthy();
+    expect(screen.getByText('REQ2')).toBeTruthy();
+    expect(screen.getByText('Resume the interview from persisted local state')).toBeTruthy();
+    expect(screen.getByLabelText('Review note')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /accept review/i })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /request changes/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Submit review' })).toBeTruthy();
   });
 
   it('renders the turn card from a pending-question tool part before route invalidation', async () => {

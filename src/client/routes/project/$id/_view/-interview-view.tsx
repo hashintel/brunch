@@ -1,4 +1,4 @@
-import { Link } from '@tanstack/react-router';
+import { Link, useLoaderData } from '@tanstack/react-router';
 import { useEffect, useRef, useState } from 'react';
 
 import { Message, MessageContent, MessageResponse } from '@/client/components/ai-elements/message';
@@ -15,7 +15,13 @@ import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/client/c
 import { ShellButton } from '@/client/components/app-shell';
 import { ChatScroll } from '@/client/components/chat-scroll';
 import { cn } from '@/client/lib/utils';
-import type { Impact, ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
+import type {
+  EntitiesData,
+  Impact,
+  ProjectState,
+  ProjectStateTurn,
+  WorkflowPhase,
+} from '@/shared/api-types.js';
 import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type { AskQuestionUIPart, BrunchUIMessage } from '@/shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
@@ -42,6 +48,8 @@ type TurnCardOption = Pick<
   NonNullable<ProjectStateTurn['options']>[number],
   'position' | 'content' | 'is_recommended'
 >;
+
+type ReviewSetItem = Pick<EntitiesData['requirements'][number], 'content' | 'referenceCode' | 'reviewStatus'>;
 
 function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectStateTurn['phase']) {
   return getForceClosePhaseAction(workflow, phase).available;
@@ -222,6 +230,7 @@ function TurnCard({
   hasPersistedResponse,
   disabled,
   state,
+  reviewSet,
 }: {
   id: string;
   question: string;
@@ -234,11 +243,16 @@ function TurnCard({
   hasPersistedResponse: boolean;
   disabled: boolean;
   state: 'active' | 'submitted';
+  reviewSet?: {
+    readonly title: string;
+    readonly items: readonly ReviewSetItem[];
+  };
 }) {
   const [selectedPositions, setSelectedPositions] = useState<number[]>(persistedSelectedPositions);
   const [freeText, setFreeText] = useState(persistedFreeText);
   const hasSelection = selectedPositions.length > 0;
   const hasFreeText = freeText.trim().length > 0;
+  const isReviewTurn = Boolean(reviewSet);
   const isSubmitted = state === 'submitted';
   const isReadOnly = disabled || hasPersistedResponse || isSubmitted;
 
@@ -257,7 +271,13 @@ function TurnCard({
     }
 
     setSelectedPositions((current) =>
-      current.includes(position) ? current.filter((value) => value !== position) : [...current, position],
+      isReviewTurn
+        ? current.includes(position)
+          ? []
+          : [position]
+        : current.includes(position)
+          ? current.filter((value) => value !== position)
+          : [...current, position],
     );
   }
 
@@ -278,9 +298,30 @@ function TurnCard({
         </span>
       )}
 
+      {reviewSet ? (
+        <div className="mt-3 rounded-lg border bg-background p-3" data-testid="review-set-card">
+          <div className="mb-2 text-sm font-medium text-foreground">{reviewSet.title}</div>
+          <div className="space-y-2">
+            {reviewSet.items.map((item) => (
+              <div key={`${item.referenceCode ?? item.content}`} className="rounded-md border px-3 py-2">
+                {item.referenceCode ? (
+                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+                    {item.referenceCode}
+                  </div>
+                ) : null}
+                <div className="mt-1 text-sm text-foreground">{item.content}</div>
+                {item.reviewStatus ? (
+                  <div className="mt-1 text-xs text-muted-foreground">Status: {item.reviewStatus}</div>
+                ) : null}
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
+
       <div className="mt-3">
         <label className="mb-1 block text-sm font-medium" htmlFor={`turn-response-${id}`}>
-          Additional response context
+          {reviewSet ? 'Review note' : 'Additional response context'}
         </label>
         <textarea
           id={`turn-response-${id}`}
@@ -288,7 +329,11 @@ function TurnCard({
           value={freeText}
           onChange={(event) => setFreeText(event.target.value)}
           disabled={isReadOnly}
-          placeholder="Optional details to send with your selection, or required if no option fits"
+          placeholder={
+            reviewSet
+              ? 'Optional note explaining requested changes or confirming acceptance'
+              : 'Optional details to send with your selection, or required if no option fits'
+          }
           className="min-h-20 w-full rounded-md border bg-background px-3 py-2 text-sm"
         />
         <div className="mt-2 flex justify-end gap-2">
@@ -303,21 +348,23 @@ function TurnCard({
                 : 'border-border bg-background hover:bg-muted',
             )}
           >
-            Submit selected response
+            {reviewSet ? 'Submit review' : 'Submit selected response'}
           </button>
-          <button
-            type="button"
-            disabled={isReadOnly || hasSelection || !hasFreeText}
-            onClick={() => onSubmitResponse?.([], freeText)}
-            className={cn(
-              'rounded-md border px-3 py-2 text-sm transition-colors',
-              isReadOnly || hasSelection || !hasFreeText
-                ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-                : 'border-border bg-background hover:bg-muted',
-            )}
-          >
-            Submit free-text response
-          </button>
+          {reviewSet ? null : (
+            <button
+              type="button"
+              disabled={isReadOnly || hasSelection || !hasFreeText}
+              onClick={() => onSubmitResponse?.([], freeText)}
+              className={cn(
+                'rounded-md border px-3 py-2 text-sm transition-colors',
+                isReadOnly || hasSelection || !hasFreeText
+                  ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+                  : 'border-border bg-background hover:bg-muted',
+              )}
+            >
+              Submit free-text response
+            </button>
+          )}
         </div>
       </div>
 
@@ -344,7 +391,8 @@ function TurnCard({
               )}
             >
               <input
-                type="checkbox"
+                type={reviewSet ? 'radio' : 'checkbox'}
+                name={reviewSet ? `review-action-${id}` : undefined}
                 checked={isSelected}
                 onChange={() => toggleSelection(option.position)}
                 disabled={isReadOnly}
@@ -621,6 +669,7 @@ function renderParts(
 }
 
 export function InterviewView({ phase }: { phase: WorkflowPhase }) {
+  const entitySnapshot = useLoaderData({ from: '/project/$id/_view' });
   const {
     chat,
     project,
@@ -686,6 +735,13 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   // TODO: prompt input is disabled while the phase-closure interaction model is being reworked.
   // The turn-card family owns user input; the generic composer will return when the
   // center-pane header controls phase start/continue lifecycle.
+  const requirementsReviewSet =
+    phase === 'requirements'
+      ? {
+          title: 'Current requirement set',
+          items: entitySnapshot.requirements,
+        }
+      : undefined;
   const showPromptInput = false;
 
   // TODO: auto-present is disabled while the phase-closure interaction model is being reworked.
@@ -889,6 +945,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                 hasPersistedResponse={turnCard.state === 'submitted' && turnHasCompletedAnswer(turnCard.turn)}
                 disabled={turnCard.disabled}
                 state={turnCard.state}
+                reviewSet={requirementsReviewSet}
               />
             )}
 
@@ -905,6 +962,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               hasPersistedResponse={false}
               disabled={turnCard.disabled}
               state="active"
+              reviewSet={requirementsReviewSet}
             />
           )}
 
