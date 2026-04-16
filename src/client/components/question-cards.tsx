@@ -79,13 +79,13 @@ export function AnsweredQuestionCard({
   );
 
   const summary = (
-    <div className="flex flex-col gap-2.5">
-      <div className="flex items-center gap-1.5 text-xs">
-        <span className="text-sub">Chosen:</span>
+    <div className="flex flex-col gap-0">
+      <div className="flex items-center gap-2.5 text-xs">
+        <span className="text-sub">Choices:</span>
         <span className="text-ink">{chosenSummary}</span>
         {responseContext && (
           <>
-            <span className="text-hint">|</span>
+            <span className="text-rule">|</span>
             <span className="truncate text-sub">
               Context:{' '}
               <span className="italic text-ink">
@@ -95,6 +95,7 @@ export function AnsweredQuestionCard({
           </>
         )}
       </div>
+      <div className="my-2.5 border-t border-rule" />
       <div className="flex flex-wrap items-center gap-1.5">
         <span className="text-xs text-sub">Captured:</span>
         {displayCaptureStatus === 'trailing' ? (
