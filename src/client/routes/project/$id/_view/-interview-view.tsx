@@ -10,19 +10,18 @@ import {
   PromptInputTextarea,
   type PromptInputMessage,
 } from '@/client/components/ai-elements/prompt-input';
-import { Reasoning, ReasoningContent, ReasoningTrigger } from '@/client/components/ai-elements/reasoning';
-import { Tool, ToolContent, ToolHeader, ToolInput, ToolOutput } from '@/client/components/ai-elements/tool';
 import { ShellButton } from '@/client/components/app-shell';
 import { ChatScroll } from '@/client/components/chat-scroll';
 import {
   ActiveQuestionCard,
+  ActivityPlaceholder,
   AnsweredQuestionCard,
   GeneratingTurnPlaceholder,
 } from '@/client/components/question-cards';
 import { cn } from '@/client/lib/utils';
 import type { ProjectMode, ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
-import { isAskQuestionUIPart } from '@/shared/chat.js';
-import type { AskQuestionUIPart, BrunchUIMessage } from '@/shared/chat.js';
+import { isAskQuestionUIPart, summarizeAssistantActivity } from '@/shared/chat.js';
+import type { BrunchUIMessage } from '@/shared/chat.js';
 import {
   groundingStrategyChoices,
   groundingStrategyKickoffDescription,
@@ -33,6 +32,7 @@ import { getWorkflowPhaseLabel } from '@/shared/phase-display.js';
 import { getNextActivePhase, phaseOrder, phaseRouteSegments } from '@/shared/phase-routes.js';
 import {
   getAcceptedClosureReplay,
+  getPersistedActivitySummary,
   getPersistedSelectedPositions,
   getPersistedTurnResponse,
   turnHasCompletedAnswer,
@@ -264,66 +264,34 @@ function AcceptedClosureTurnCard({ phase, summary }: { phase: WorkflowPhase; sum
   );
 }
 
-function getQuestionDetail(part: AskQuestionUIPart) {
-  switch (part.state) {
-    case 'input-available':
-    case 'approval-requested':
-    case 'approval-responded':
-    case 'output-available':
-    case 'output-denied':
-      return part.input.question;
-    case 'output-error':
-      return part.input?.question ?? null;
-    case 'input-streaming':
-      return null;
+function renderActivitySummary(activitySummary: { seconds?: number; tools: string[] } | null) {
+  if (!activitySummary) {
+    return null;
   }
+
+  return <ActivityPlaceholder seconds={activitySummary.seconds} tools={activitySummary.tools} />;
 }
 
-function renderParts(
+function renderPersistedActivity(turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined) {
+  return renderActivitySummary(getPersistedActivitySummary(turn));
+}
+
+function renderMessageParts(
   message: BrunchUIMessage,
   isStreaming: boolean,
   options?: { suppressStructuredQuestion?: boolean; suppressPhaseSummary?: boolean },
 ) {
   return message.parts?.map((part, index) => {
-    if (part.type === 'reasoning') {
-      if (isStreaming && index === message.parts.length - 1) {
-        return (
-          <Reasoning key={index} isStreaming>
-            <ReasoningTrigger />
-            <ReasoningContent>{part.text}</ReasoningContent>
-          </Reasoning>
-        );
-      }
-
-      return <TranscriptMetaPlaceholder key={index} label="Reasoning shown live" />;
-    }
-    if (part.type === 'step-start') {
+    if (part.type === 'reasoning' || part.type === 'step-start') {
       return null;
     }
-    if (isAskQuestionUIPart(part)) {
-      if (isStreaming || options?.suppressStructuredQuestion) {
-        return null;
-      }
-
-      return (
-        <TranscriptMetaPlaceholder
-          key={index}
-          testId="structured-question-placeholder"
-          label="Structured interview question"
-          detail={getQuestionDetail(part)}
-        />
-      );
-    }
-    if (part.type === 'tool-propose_phase_closure') {
-      return (
-        <TranscriptMetaPlaceholder
-          key={index}
-          label="Phase closure proposal"
-          detail={part.input?.summary ?? 'A closure recommendation was prepared for this phase.'}
-        />
-      );
+    if (isAskQuestionUIPart(part) || part.type === 'tool-propose_phase_closure') {
+      return null;
     }
     if (part.type === 'data-observer-result') {
+      return null;
+    }
+    if (part.type === 'data-activity-summary') {
       return null;
     }
     if (part.type === 'data-phase-summary') {
@@ -341,15 +309,7 @@ function renderParts(
       );
     }
     if (part.type === 'dynamic-tool') {
-      return (
-        <Tool key={index} defaultOpen={part.state === 'output-available' || part.state === 'output-error'}>
-          <ToolHeader type={part.type} state={part.state} toolName={part.toolName} />
-          <ToolContent>
-            <ToolInput input={part.input} />
-            <ToolOutput output={part.output} errorText={part.errorText} />
-          </ToolContent>
-        </Tool>
-      );
+      return null;
     }
     if (part.type === 'text') {
       return (
@@ -566,17 +526,22 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             <div className="flex flex-col gap-6">
               {completedPhaseItems.map((item, index) =>
                 item.kind === 'answered-turn' ? (
-                  <AnsweredQuestionCard
-                    key={`answered-turn-${item.turn.id}`}
-                    turn={item.turn}
-                    questionCode={`Q${index + 1}`}
-                    captureStatus={captureStatusByTurnId.get(item.turn.id)}
-                  />
+                  <div key={`answered-turn-${item.turn.id}`} className="flex flex-col">
+                    {renderPersistedActivity(item.turn)}
+                    <AnsweredQuestionCard
+                      turn={item.turn}
+                      questionCode={`Q${index + 1}`}
+                      captureStatus={captureStatusByTurnId.get(item.turn.id)}
+                    />
+                  </div>
                 ) : (
                   <div
                     key={`accepted-closure-${item.acceptedClosure.turnId}`}
                     data-testid="accepted-closure-turn-card"
                   >
+                    {renderPersistedActivity(
+                      phaseTurns.find((turn) => turn.id === item.acceptedClosure.turnId),
+                    )}
                     <AcceptedClosureTurnCard
                       phase={item.acceptedClosure.phase}
                       summary={item.acceptedClosure.summary}
@@ -608,12 +573,25 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               return null;
             }
 
+            const activitySummary = summarizeAssistantActivity(message.parts);
+            const renderedParts = renderMessageParts(message, isLastAssistant && chat.isStreaming, {
+              suppressPhaseSummary,
+            });
+            const hasRenderedParts = renderedParts?.some((part) => part !== null) ?? false;
+
+            if (!activitySummary && !hasRenderedParts) {
+              return null;
+            }
+
             return (
-              <Message key={message.id} from={message.role}>
-                <MessageContent>
-                  {renderParts(message, isLastAssistant && chat.isStreaming, { suppressPhaseSummary })}
-                </MessageContent>
-              </Message>
+              <div key={message.id} className="flex flex-col">
+                {renderActivitySummary(activitySummary)}
+                {hasRenderedParts ? (
+                  <Message from={message.role}>
+                    <MessageContent>{renderedParts}</MessageContent>
+                  </Message>
+                ) : null}
+              </div>
             );
           })}
 
@@ -644,21 +622,26 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           {/* ── Zone 3: Active frontier ──────────────────────────────── */}
           {turnCard?.kind === 'persisted-turn' &&
             (!turnHasCompletedAnswer(turnCard.turn) || turnCard.state === 'submitted') && (
-              <ActiveQuestionCard
-                key={`persisted-turn-${turnCard.turn.id}`}
-                id={`persisted-turn-${turnCard.turn.id}`}
-                question={turnCard.turn.question}
-                why={turnCard.turn.why}
-                impact={turnCard.turn.impact}
-                options={turnCard.turn.options ?? []}
-                onSubmitResponse={turnCard.submitTurnResponse}
-                persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
-                persistedFreeText={getPersistedTurnResponse(turnCard.turn)?.freeText?.trim() ?? ''}
-                hasPersistedResponse={turnCard.state === 'submitted' && turnHasCompletedAnswer(turnCard.turn)}
-                disabled={turnCard.disabled}
-                state={turnCard.state}
-                reviewSet={reviewSet}
-              />
+              <div className="flex flex-col">
+                {renderPersistedActivity(turnCard.turn)}
+                <ActiveQuestionCard
+                  key={`persisted-turn-${turnCard.turn.id}`}
+                  id={`persisted-turn-${turnCard.turn.id}`}
+                  question={turnCard.turn.question}
+                  why={turnCard.turn.why}
+                  impact={turnCard.turn.impact}
+                  options={turnCard.turn.options ?? []}
+                  onSubmitResponse={turnCard.submitTurnResponse}
+                  persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
+                  persistedFreeText={getPersistedTurnResponse(turnCard.turn)?.freeText?.trim() ?? ''}
+                  hasPersistedResponse={
+                    turnCard.state === 'submitted' && turnHasCompletedAnswer(turnCard.turn)
+                  }
+                  disabled={turnCard.disabled}
+                  state={turnCard.state}
+                  reviewSet={reviewSet}
+                />
+              </div>
             )}
 
           {turnCard?.kind === 'pending-question' && (
@@ -703,12 +686,15 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           )}
 
           {phaseSummary && (
-            <PhaseSummaryCard
-              phase={phaseSummary.phase}
-              summary={phaseSummary.summary}
-              disabled={chat.isLoading}
-              onConfirm={() => chat.confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId)}
-            />
+            <div className="flex flex-col">
+              {renderPersistedActivity(phaseTurns.find((turn) => turn.id === phaseSummary.turnId))}
+              <PhaseSummaryCard
+                phase={phaseSummary.phase}
+                summary={phaseSummary.summary}
+                disabled={chat.isLoading}
+                onConfirm={() => chat.confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId)}
+              />
+            </div>
           )}
 
           {showGeneratingState && <GeneratingTurnPlaceholder />}

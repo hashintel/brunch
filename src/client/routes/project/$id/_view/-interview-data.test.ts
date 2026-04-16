@@ -150,6 +150,69 @@ describe('workspace controller core', () => {
     expect(refreshedChat.seedMessages).not.toEqual(initialChat.seedMessages);
   });
 
+  it('hydrates persisted activity summaries alongside observer state on assistant replay messages', () => {
+    const projectState = createProjectState();
+    projectState.turns[0] = {
+      ...projectState.turns[0]!,
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-activity-summary',
+          data: { seconds: 3, tools: ['structured question'] },
+        },
+        {
+          type: 'data-observer-result',
+          data: {
+            turnId: 1,
+            entityIds: {
+              goals: [1],
+              terms: [],
+              contexts: [],
+              constraints: [],
+              requirements: [],
+              criteria: [],
+              decisions: [],
+              assumptions: [],
+            },
+          },
+        },
+      ]),
+    };
+
+    expect(createInterviewEphemeralChatState(projectState).seedMessages).toEqual([
+      {
+        id: 'turn-1-answer',
+        role: 'user',
+        parts: [{ type: 'text', text: 'Build the web app' }],
+      },
+      {
+        id: 'turn-1-assistant',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'data-activity-summary',
+            data: { seconds: 3, tools: ['structured question'] },
+          },
+          {
+            type: 'data-observer-result',
+            data: {
+              turnId: 1,
+              entityIds: {
+                goals: [1],
+                terms: [],
+                contexts: [],
+                constraints: [],
+                requirements: [],
+                criteria: [],
+                decisions: [],
+                assumptions: [],
+              },
+            },
+          },
+        ],
+      },
+    ]);
+  });
+
   it('builds phase turn ID sets from persisted turns', () => {
     const projectState = createProjectState();
     const scopeIds = buildPhaseTurnIds(projectState.turns, 'scope');

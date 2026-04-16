@@ -418,6 +418,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     let prepared: ReturnType<typeof prepareTurn> | ReturnType<typeof prepareSuccessorTurn> | null = null;
     let confirmedClosureTurnId: number | null = null;
     let observedTurnId: number | null = null;
+    let interviewerElapsedMs: number | undefined;
     try {
       if (confirmationTarget) {
         const proposalTurn = getTurn(db, confirmationTarget.proposal_turn_id);
@@ -508,6 +509,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
             ? { mode: 'brownfield' as const, cwd: project.cwd }
             : undefined;
 
+        const interviewerStartedAt = Date.now();
         const interviewer = await streamInterviewer(
           db,
           prepared.turn,
@@ -525,6 +527,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         );
 
         const finishReason = await interviewer.finishReason;
+        interviewerElapsedMs = Date.now() - interviewerStartedAt;
         finalizeTurn(db, id, prepared.turn.id);
 
         const phaseOutcome = findPhaseOutcomeForTurn(db, id, prepared.turn.id);
@@ -572,7 +575,9 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
         const assistantText = extractTextFromMessage(responseMessage);
         persistFallbackQuestionText(db, prepared.turn.id, assistantText);
-        const assistantParts = filterAssistantParts(responseMessage.parts);
+        const assistantParts = filterAssistantParts(responseMessage.parts, {
+          elapsedMs: interviewerElapsedMs,
+        });
         updateTurn(db, prepared.turn.id, {
           assistant_parts: serializeParts(assistantParts),
         });

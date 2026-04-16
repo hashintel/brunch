@@ -4,6 +4,7 @@ import type { ProjectState, ProjectStateTurn } from './api-types.js';
 import {
   findTurnOptionsByPositions,
   getAcceptedClosureReplay,
+  getPersistedActivitySummary,
   getPersistedReviewAction,
   getReviewActionForSelectedPositions,
   safeParsePersistedAssistantParts,
@@ -118,6 +119,46 @@ describe('project-state-turn helpers', () => {
       phase: 'scope',
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
+  });
+
+  it('reads persisted activity summaries and falls back to older raw tool parts', () => {
+    expect(
+      getPersistedActivitySummary(
+        createTurn({
+          assistant_parts: JSON.stringify([
+            {
+              type: 'data-activity-summary',
+              data: { seconds: 3, tools: ['structured question'] },
+            },
+          ]),
+        }),
+      ),
+    ).toEqual({ seconds: 3, tools: ['structured question'] });
+
+    expect(
+      getPersistedActivitySummary(
+        createTurn({
+          assistant_parts: JSON.stringify([
+            { type: 'reasoning', text: 'Thinking…', state: 'done' },
+            {
+              type: 'tool-ask_question',
+              toolCallId: 'tool-1',
+              state: 'output-available',
+              input: {
+                question: 'What should we build first?',
+                why: 'This frames the first iteration.',
+                impact: 'high',
+                options: [
+                  { content: 'Web', is_recommended: true },
+                  { content: 'Desktop', is_recommended: false },
+                ],
+              },
+              output: { ok: true, turnId: 1, optionCount: 2 },
+            },
+          ]),
+        }),
+      ),
+    ).toEqual({ tools: ['structured question'] });
   });
 
   it('finds selected options by unique positions without route-private helpers', () => {

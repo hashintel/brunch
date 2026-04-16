@@ -3309,11 +3309,10 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         role: 'assistant',
         parts: [
           {
-            type: 'tool-ask_question',
-            toolCallId: 'tool-1',
-            state: 'output-available',
-            input: structuredQuestion,
-            output: { ok: true, turnId: turn.id, optionCount: structuredQuestion.options.length },
+            type: 'data-activity-summary',
+            data: {
+              tools: ['structured question'],
+            },
           },
           {
             type: 'data-observer-result',

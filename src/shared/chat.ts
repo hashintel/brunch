@@ -93,6 +93,11 @@ export const observerResultSchema = z.object({
   entityIds: z.object(createKnowledgeCollectionRecord(() => z.array(z.number()))),
 });
 
+export const activitySummarySchema = z.object({
+  seconds: z.number().int().positive().optional(),
+  tools: z.array(z.string()),
+});
+
 export const dataTurnResponseSchema = z
   .object({
     turnId: z.number(),
@@ -139,6 +144,7 @@ export type ReviewAction = z.infer<typeof reviewActionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
 export type ObserverEntityIds = ObserverResultData['entityIds'];
+export type ActivitySummary = z.infer<typeof activitySummarySchema>;
 export type DataTurnResponse = z.infer<typeof dataTurnResponseSchema>;
 export type { DataConfirmation };
 export type DataPhaseSummary = z.infer<typeof dataPhaseSummarySchema>;
@@ -151,6 +157,7 @@ export type BrunchMessageMetadata = {
 
 export type BrunchDataParts = {
   'observer-result': ObserverResultData;
+  'activity-summary': ActivitySummary;
   'turn-response': DataTurnResponse;
   confirmation: DataConfirmation;
   'phase-summary': DataPhaseSummary;
@@ -178,6 +185,7 @@ export type BrunchAssistantPart =
           | 'tool-ask_question'
           | 'tool-propose_phase_closure'
           | 'data-observer-result'
+          | 'data-activity-summary'
           | 'data-phase-summary';
       }
     >;
@@ -208,35 +216,97 @@ export const brunchValidationTools = {
 
 export const brunchDataPartSchemas = {
   'observer-result': observerResultSchema,
+  'activity-summary': activitySummarySchema,
   'turn-response': dataTurnResponseSchema,
   confirmation: dataConfirmationSchema,
   'phase-summary': dataPhaseSummarySchema,
 } as const;
 
+export type PersistedBrunchAssistantPart = Extract<
+  BrunchAssistantPart,
+  { type: 'text' | 'data-observer-result' | 'data-phase-summary' | 'data-activity-summary' }
+>;
+
 /** Part types that brunch persists for assistant turns. */
-const ASSISTANT_PART_TYPES: ReadonlySet<BrunchAssistantPart['type']> = new Set([
+const ASSISTANT_PART_TYPES: ReadonlySet<PersistedBrunchAssistantPart['type']> = new Set([
   'text',
-  'reasoning',
-  'step-start',
-  'tool-ask_question',
-  'tool-propose_phase_closure',
   'data-observer-result',
   'data-phase-summary',
-] as const satisfies BrunchAssistantPart['type'][]);
+  'data-activity-summary',
+] as const satisfies PersistedBrunchAssistantPart['type'][]);
 
-// Compile-time exhaustiveness: fails if BrunchAssistantPart gains a type not listed above.
-type _AssertComplete = [
-  Exclude<BrunchAssistantPart['type'], typeof ASSISTANT_PART_TYPES extends ReadonlySet<infer T> ? T : never>,
-] extends [never]
-  ? true
-  : 'ASSISTANT_PART_TYPES is missing a BrunchAssistantPart type';
-const _exhaustive: _AssertComplete = true;
+function getToolSummaryLabel(toolName: string): string {
+  switch (toolName) {
+    case 'ask_question':
+      return 'structured question';
+    case 'propose_phase_closure':
+      return 'phase closure proposal';
+    default:
+      return toolName.replaceAll(/[_-]+/g, ' ').trim();
+  }
+}
+
+function getActivityToolLabel(part: BrunchUIMessagePart): string | null {
+  if (part.type === 'tool-ask_question') {
+    return getToolSummaryLabel('ask_question');
+  }
+
+  if (part.type === 'tool-propose_phase_closure') {
+    return getToolSummaryLabel('propose_phase_closure');
+  }
+
+  if (part.type === 'dynamic-tool') {
+    return getToolSummaryLabel(part.toolName);
+  }
+
+  return null;
+}
+
+export function summarizeAssistantActivity(
+  parts: readonly BrunchUIMessagePart[],
+  elapsedMs?: number,
+): ActivitySummary | null {
+  let sawReasoning = false;
+  const tools = new Set<string>();
+
+  for (const part of parts) {
+    if (part.type === 'reasoning') {
+      sawReasoning = true;
+      continue;
+    }
+
+    const toolLabel = getActivityToolLabel(part);
+    if (toolLabel) {
+      tools.add(toolLabel);
+    }
+  }
+
+  if (!sawReasoning && tools.size === 0) {
+    return null;
+  }
+
+  return {
+    ...(sawReasoning && elapsedMs !== undefined ? { seconds: Math.max(1, Math.ceil(elapsedMs / 1000)) } : {}),
+    tools: [...tools],
+  };
+}
 
 /** Filter SDK message parts to only those brunch persists for assistant turns. */
-export function filterAssistantParts(parts: readonly BrunchUIMessagePart[]): BrunchAssistantPart[] {
-  return parts.filter((part): part is BrunchAssistantPart =>
-    ASSISTANT_PART_TYPES.has(part.type as BrunchAssistantPart['type']),
+export function filterAssistantParts(
+  parts: readonly BrunchUIMessagePart[],
+  options?: { elapsedMs?: number },
+): BrunchAssistantPart[] {
+  const activitySummary = summarizeAssistantActivity(parts, options?.elapsedMs);
+  const persistedParts = parts.filter((part): part is PersistedBrunchAssistantPart =>
+    ASSISTANT_PART_TYPES.has(part.type as PersistedBrunchAssistantPart['type']),
   );
+
+  return activitySummary
+    ? ([
+        { type: 'data-activity-summary', data: activitySummary },
+        ...persistedParts,
+      ] satisfies BrunchAssistantPart[])
+    : persistedParts;
 }
 
 export function isAskQuestionUIPart(part: BrunchUIMessagePart): part is AskQuestionUIPart {
