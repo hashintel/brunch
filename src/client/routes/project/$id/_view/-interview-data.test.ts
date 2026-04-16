@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
+import { getAcceptedClosureReplay, getPersistedSelectedPositions } from '@/shared/project-state-turn.js';
 
 import {
   buildPhaseTurnIds,
@@ -9,8 +10,6 @@ import {
   createInterviewDurableProjectState,
   createInterviewEphemeralChatState,
   filterMessagesByPhase,
-  getAcceptedClosureReplay,
-  getPersistedSelectedPositions,
 } from './-interview-controller-core.js';
 
 function createProjectState({

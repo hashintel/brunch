@@ -27,16 +27,17 @@ import type { AskQuestionUIPart, BrunchUIMessage } from '@/shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
 import { getWorkflowPhaseLabel } from '@/shared/phase-display.js';
 import { getNextActivePhase, phaseOrder, phaseRouteSegments } from '@/shared/phase-routes.js';
-
-import { useInterviewController } from './-interview-controller';
 import {
-  continuePhaseMessages,
   getAcceptedClosureReplay,
   getPersistedSelectedPositions,
   getPersistedTurnResponse,
-  startPhaseMessages,
+  safeParsePersistedAssistantParts,
   turnHasCompletedAnswer,
-} from './-interview-controller-core.js';
+  turnIsControlOrClosureArtifact,
+} from '@/shared/project-state-turn.js';
+
+import { useInterviewController } from './-interview-controller';
+import { continuePhaseMessages, startPhaseMessages } from './-interview-controller-core.js';
 
 const impactStyles = {
   high: 'bg-red-50 text-red-800 dark:bg-red-950 dark:text-red-200',
@@ -430,48 +431,6 @@ function getControlMarkerLabel(text: string): string | null {
   return null;
 }
 
-function readAssistantParts(turn: Pick<ProjectStateTurn, 'assistant_parts'>) {
-  if (!turn.assistant_parts) {
-    return [] as Array<{ type: string; [key: string]: unknown }>;
-  }
-
-  try {
-    return JSON.parse(turn.assistant_parts) as Array<{ type: string; [key: string]: unknown }>;
-  } catch {
-    return [] as Array<{ type: string; [key: string]: unknown }>;
-  }
-}
-
-function readUserParts(turn: Pick<ProjectStateTurn, 'user_parts'>) {
-  if (!turn.user_parts) {
-    return [] as Array<{ type: string; text?: string; [key: string]: unknown }>;
-  }
-
-  try {
-    return JSON.parse(turn.user_parts) as Array<{ type: string; text?: string; [key: string]: unknown }>;
-  } catch {
-    return [] as Array<{ type: string; text?: string; [key: string]: unknown }>;
-  }
-}
-
-function turnIsControlOrClosureArtifact(
-  turn: Pick<ProjectStateTurn, 'assistant_parts' | 'is_resolution' | 'turn_kind' | 'user_parts'>,
-) {
-  if (turn.turn_kind === 'kickoff' || turn.turn_kind === 'recovery' || turn.is_resolution) {
-    return true;
-  }
-
-  const userParts = readUserParts(turn);
-  if (userParts.some((part) => part.type === 'data-confirmation')) {
-    return true;
-  }
-
-  const assistantParts = readAssistantParts(turn);
-  return assistantParts.some(
-    (part) => part.type === 'tool-propose_phase_closure' || part.type === 'data-phase-summary',
-  );
-}
-
 function AcceptedClosureTurnCard({ phase, summary }: { phase: WorkflowPhase; summary: string }) {
   return (
     <WorkspaceStateCard
@@ -502,7 +461,7 @@ function AnsweredTurnCard({
         : turn.answer?.trim() || 'Awaiting response';
   const responseContext =
     persistedResponse?.freeText?.trim() || turn.answer?.trim() || 'No additional context provided.';
-  const assistantParts = readAssistantParts(turn);
+  const assistantParts = safeParsePersistedAssistantParts(turn.assistant_parts);
   const hasReasoning = assistantParts.some((part) => part.type === 'reasoning');
   const hasObserverResult = assistantParts.some((part) => part.type === 'data-observer-result');
   const capturedItems = turn.captured_items ?? [];

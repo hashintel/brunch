@@ -14,19 +14,22 @@
 
 ## Next
 
-1. **Grounding strategy selection inside the workspace kickoff flow** — the first grounding move chooses elicitation-first vs analysis-first from the workspace-owned kickoff/frontier seam instead of in the root modal.
+1. **Interview workflow transition extraction from `app.ts`** — move phase-confirmation, review accept-to-close, successor-frontier creation, and observer-scheduling policy into a smaller deep module with a narrow command/result seam, leaving `app.ts` as transport composition.
+   - Why now / unlocks: the frontier/review/closure model is now rich enough that every new interaction family risks deepening the `app.ts` monolith. Extracting the workflow seam now makes grounding-card and kickoff-follow-on work cheaper, safer, and easier to test in isolation.
+
+2. **Grounding strategy selection inside the workspace kickoff flow** — the first grounding move chooses elicitation-first vs analysis-first from the workspace-owned kickoff/frontier seam instead of in the root modal.
    - Why now / unlocks: once creation is specification-first and kickoff turns are real, grounding can own its opening move inside one interaction family.
 
-2. **Grounding-card transcript primitive** — add visible provisional grounding cards with optional comment + continue semantics, keeping card content non-durable while allowing user reactions to feed later knowledge capture.
+3. **Grounding-card transcript primitive** — add visible provisional grounding cards with optional comment + continue semantics, keeping card content non-durable while allowing user reactions to feed later knowledge capture.
    - Why now / unlocks: this is the next distinct turn-card family after kickoff/question/review and is required for brownfield grounding briefs and reusable context gathering.
 
-3. **Brownfield workspace-analysis grounding brief** — use read-only workspace analysis to produce the first visible grounding card, then hand off into the first substantive grounding question.
+4. **Brownfield workspace-analysis grounding brief** — use read-only workspace analysis to produce the first visible grounding card, then hand off into the first substantive grounding question.
    - Why now / unlocks: this lands analysis-first grounding on top of the revised kickoff/card/provenance model without yet solving the full reusable context-gathering loop.
 
-4. **Router/query ownership refinement for interview surfaces** — replace coarse route-wide invalidation with deliberate loader/query ownership after the revised frontier lifecycle settles.
+5. **Router/query ownership refinement for interview surfaces** — replace coarse route-wide invalidation with deliberate loader/query ownership after the revised frontier lifecycle settles.
    - Why now / unlocks: refresh pain should be judged against the new kickoff/generation/recovery model before investing in narrower ownership seams.
 
-5. **Rich replay treatment for kickoff, review, observer progress, and grounding-card detail** — once the turn lifecycle and grounding-card primitives stabilize, make replay components visually match their live counterparts more closely.
+6. **Rich replay treatment for kickoff, review, observer progress, and grounding-card detail** — once the turn lifecycle and grounding-card primitives stabilize, make replay components visually match their live counterparts more closely.
    - Why now / unlocks: transcript trust depends on carrying fixed kickoff turns, review outcomes, and provisional grounding artifacts legibly through hydration.
 
 ## Horizon
@@ -58,10 +61,13 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 
 ```text
 frontier-lifecycle-skeleton-across-open-phases
-  ├──→ grounding-strategy-selection-inside-the-workspace-kickoff-flow
-  ├──→ grounding-card-transcript-primitive
+  ├──→ interview-workflow-transition-extraction-from-app-ts
   ├──→ router-query-ownership-refinement-for-interview-surfaces
   └──→ rich-replay-treatment-for-kickoff-review-observer-progress-and-grounding-card-detail
+
+interview-workflow-transition-extraction-from-app-ts
+  ├──→ grounding-strategy-selection-inside-the-workspace-kickoff-flow
+  └──→ grounding-card-transcript-primitive
 
 specification-first-creation-and-workspace-terminology-adoption
   └──→ grounding-strategy-selection-inside-the-workspace-kickoff-flow
