@@ -28,6 +28,7 @@ export const workflowSummarySchema = z.object({
   design: workflowPhaseStatusSchema,
   requirements: workflowPhaseStatusSchema,
   criteria: workflowPhaseStatusSchema,
+  currentReadiness: readinessBandSchema.nullable(),
 });
 
 export const workflowPhaseStateSchema = z.object({

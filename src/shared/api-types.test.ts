@@ -29,6 +29,7 @@ describe('api transport contracts', () => {
           design: 'in_progress',
           requirements: 'unstarted',
           criteria: 'unstarted',
+          currentReadiness: 'medium',
         },
       }),
     ).toMatchObject({

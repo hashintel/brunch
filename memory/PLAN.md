@@ -11,6 +11,13 @@
 
 2. **Interview workflow transition extraction from `app.ts`** — move phase-confirmation, review accept-to-close, successor-frontier creation, and observer-scheduling policy into a smaller deep module with a narrow command/result seam, leaving `app.ts` as transport composition.
    - Why now / unlocks: the frontier/review/closure model is now rich enough that every new interaction family risks deepening the `app.ts` monolith. Extracting the workflow seam now makes grounding-card and kickoff-follow-on work cheaper, safer, and easier to test in isolation.
+   - What this slice must accomplish:
+     - separate HTTP/SSE transport concerns from workflow policy so `app.ts` stops owning phase-progression semantics directly
+     - unify the transition rules for the four advancement paths: ordinary answered frontier turns, full-set review accept-to-close, proposed phase-closure confirmation, and force-close
+     - preserve the frontier invariant explicitly: open phases bottom out in one actionable frontier or visible generation state, successor turns appear without dead gaps, and next-phase kickoff creation stays coupled to confirmed closure
+     - centralize observer scheduling and attachment policy so late observer results remain turn-owned and future interaction families do not each invent their own observer timing rules
+     - give upcoming grounding work (workspace-owned strategy choice, grounding cards, brownfield analysis brief) one place to add new interaction semantics instead of growing route-handler branches
+     - make workflow behavior testable as a deep module with focused command/result cases instead of forcing every transition change through `app.test.ts` and full stream orchestration
 
 ## Next
 
