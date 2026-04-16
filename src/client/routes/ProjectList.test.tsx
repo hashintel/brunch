@@ -151,6 +151,7 @@ describe('ProjectList', () => {
           design: 'in_progress',
           requirements: 'unstarted',
           criteria: 'unstarted',
+          currentReadiness: 'medium',
         },
       } satisfies ProjectListItem,
     ];
@@ -160,7 +161,7 @@ describe('ProjectList', () => {
     expect(screen.getByRole('link', { name: /Active project/i }).getAttribute('href')).toBe('/project/1');
   });
 
-  it('renders per-phase workflow status badges for each project', () => {
+  it('renders current phase indicator and status dots for each project', () => {
     currentProjects = [
       {
         id: 1,
@@ -175,15 +176,14 @@ describe('ProjectList', () => {
           design: 'in_progress',
           requirements: 'unstarted',
           criteria: 'unstarted',
+          currentReadiness: 'medium',
         },
       } satisfies ProjectListItem,
     ];
 
     renderProjectList();
-    expect(screen.getByText('Grounding')).toBeDefined();
-    expect(screen.getByText('Elicitation')).toBeDefined();
-    expect(screen.getByText('Requirements')).toBeDefined();
-    expect(screen.getByText('Acceptance Criteria')).toBeDefined();
+    expect(screen.getByText('Phase')).toBeDefined();
+    expect(screen.getByText(/2\/4 – Elicitation/)).toBeDefined();
   });
 
   it('sends mode when creating a brownfield specification', async () => {
