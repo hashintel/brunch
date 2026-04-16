@@ -374,6 +374,8 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
 
     return items;
   }, []);
+  const answeredTurnCount = completedPhaseItems.filter((item) => item.kind === 'answered-turn').length;
+  const activeQuestionCode = `Q${answeredTurnCount + 1}`;
   const showLockedState =
     phaseState.status === 'unstarted' && currentReachablePhase !== phase && currentReachablePhase !== null;
   const showClosedState = phaseState.status === 'closed';
@@ -633,6 +635,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                   <ActiveQuestionCard
                     key={`persisted-turn-${turnCard.turn.id}`}
                     id={`persisted-turn-${turnCard.turn.id}`}
+                    questionCode={activeQuestionCode}
                     question={turnCard.turn.question}
                     why={turnCard.turn.why}
                     impact={turnCard.turn.impact}
@@ -654,6 +657,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               <ActiveQuestionCard
                 key={turnCard.pendingQuestion.id}
                 id={turnCard.pendingQuestion.id}
+                questionCode={activeQuestionCode}
                 question={turnCard.pendingQuestion.question}
                 why={turnCard.pendingQuestion.why}
                 impact={turnCard.pendingQuestion.impact}

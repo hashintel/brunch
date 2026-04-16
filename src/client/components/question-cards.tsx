@@ -141,6 +141,7 @@ type ReviewSetItem = {
 
 export function ActiveQuestionCard({
   id,
+  questionCode,
   question,
   why,
   impact,
@@ -156,6 +157,7 @@ export function ActiveQuestionCard({
   reviewSet,
 }: {
   id: string;
+  questionCode?: string;
   question: string;
   why: string | null;
   impact: ProjectStateTurn['impact'];
@@ -224,7 +226,10 @@ export function ActiveQuestionCard({
       <span className={cn('text-xs font-medium', impactColor[displayImpact])}>
         {displayImpact[0]!.toUpperCase() + displayImpact.slice(1)} Impact
       </span>
-      <p className="text-[17px] leading-[1.4] font-medium tracking-[-0.015em] text-ink">{question}</p>
+      <div className="flex items-baseline gap-2.5">
+        {questionCode && <span className="shrink-0 text-[17px] font-medium text-hint">{questionCode}</span>}
+        <p className="text-[17px] leading-[1.4] font-medium tracking-[-0.015em] text-ink">{question}</p>
+      </div>
     </div>
   );
 
