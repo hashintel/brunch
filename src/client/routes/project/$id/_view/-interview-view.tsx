@@ -502,237 +502,247 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
         ) : null}
       </div>
       <ChatScroll className="min-h-0 flex-1">
-        <div className="flex flex-col mx-auto max-w-2xl px-4 py-3">
-          {showLockedState && currentReachablePhase && (
-            <WorkspaceStateCard
-              eyebrow="Locked phase"
-              title={`${getWorkflowPhaseLabel(phase)} phase is not available yet`}
-              description={`Finish or enter ${getWorkflowPhaseLabel(currentReachablePhase)} before opening this phase.`}
-            >
-              <Link
-                to={`/project/$id/${phaseRouteSegments[currentReachablePhase]}` as '/project/$id/framing'}
-                params={{ id: String(project.id) }}
-                className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
+        <div className="flex flex-col px-4 pt-3">
+          <div className="mx-auto w-full max-w-2xl">
+            {showLockedState && currentReachablePhase && (
+              <WorkspaceStateCard
+                eyebrow="Locked phase"
+                title={`${getWorkflowPhaseLabel(phase)} phase is not available yet`}
+                description={`Finish or enter ${getWorkflowPhaseLabel(currentReachablePhase)} before opening this phase.`}
               >
-                Go to {getWorkflowPhaseLabel(currentReachablePhase)}
-              </Link>
-            </WorkspaceStateCard>
-          )}
+                <Link
+                  to={`/project/$id/${phaseRouteSegments[currentReachablePhase]}` as '/project/$id/framing'}
+                  params={{ id: String(project.id) }}
+                  className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
+                >
+                  Go to {getWorkflowPhaseLabel(currentReachablePhase)}
+                </Link>
+              </WorkspaceStateCard>
+            )}
 
-          {isReviewPhase(phase) && phaseState.status === 'in_progress' && <ReviewPhaseBanner phase={phase} />}
+            {isReviewPhase(phase) && phaseState.status === 'in_progress' && (
+              <ReviewPhaseBanner phase={phase} />
+            )}
 
-          {/* ── Zone 1: Preceding answered turns ──────────────────────── */}
-          {completedPhaseItems.length > 0 && (
-            <div className="flex flex-col gap-6">
-              {completedPhaseItems.map((item, index) =>
-                item.kind === 'answered-turn' ? (
-                  <div key={`answered-turn-${item.turn.id}`} className="flex flex-col">
-                    {renderPersistedActivity(item.turn)}
-                    <AnsweredQuestionCard
-                      turn={item.turn}
-                      questionCode={`Q${index + 1}`}
-                      captureStatus={captureStatusByTurnId.get(item.turn.id)}
-                    />
-                  </div>
-                ) : (
-                  <div
-                    key={`accepted-closure-${item.acceptedClosure.turnId}`}
-                    data-testid="accepted-closure-turn-card"
-                  >
-                    {renderPersistedActivity(
-                      phaseTurns.find((turn) => turn.id === item.acceptedClosure.turnId),
-                    )}
-                    <AcceptedClosureTurnCard
-                      phase={item.acceptedClosure.phase}
-                      summary={item.acceptedClosure.summary}
-                    />
-                  </div>
-                ),
-              )}
-            </div>
-          )}
+            {/* ── Zone 1: Preceding answered turns ──────────────────────── */}
+            {completedPhaseItems.length > 0 && (
+              <div className="flex flex-col gap-6">
+                {completedPhaseItems.map((item, index) =>
+                  item.kind === 'answered-turn' ? (
+                    <div key={`answered-turn-${item.turn.id}`} className="flex flex-col">
+                      {renderPersistedActivity(item.turn)}
+                      <AnsweredQuestionCard
+                        turn={item.turn}
+                        questionCode={`Q${index + 1}`}
+                        captureStatus={captureStatusByTurnId.get(item.turn.id)}
+                      />
+                    </div>
+                  ) : (
+                    <div
+                      key={`accepted-closure-${item.acceptedClosure.turnId}`}
+                      data-testid="accepted-closure-turn-card"
+                    >
+                      {renderPersistedActivity(
+                        phaseTurns.find((turn) => turn.id === item.acceptedClosure.turnId),
+                      )}
+                      <AcceptedClosureTurnCard
+                        phase={item.acceptedClosure.phase}
+                        summary={item.acceptedClosure.summary}
+                      />
+                    </div>
+                  ),
+                )}
+              </div>
+            )}
 
-          {chat.messages.map((message, messageIndex) => {
-            if (/^turn-\d+-/.test(message.id)) {
-              return null;
-            }
-
-            const isLastAssistant = message.role === 'assistant' && messageIndex === chat.messages.length - 1;
-            const suppressPhaseSummary = Boolean(phaseSummary && isLastAssistant);
-
-            if (message.role === 'user') {
-              const textParts = message.parts?.filter((part) => part.type === 'text') ?? [];
-              const marker = textParts
-                .map((part) => getControlMarkerLabel(part.text))
-                .find((label): label is string => Boolean(label));
-
-              if (marker) {
-                return <TranscriptMetaPlaceholder key={message.id} label={marker} />;
+            {chat.messages.map((message, messageIndex) => {
+              if (/^turn-\d+-/.test(message.id)) {
+                return null;
               }
 
-              return null;
-            }
+              const isLastAssistant =
+                message.role === 'assistant' && messageIndex === chat.messages.length - 1;
+              const suppressPhaseSummary = Boolean(phaseSummary && isLastAssistant);
 
-            const activitySummary = summarizeAssistantActivity(message.parts);
-            const renderedParts = renderMessageParts(message, isLastAssistant && chat.isStreaming, {
-              suppressPhaseSummary,
-            });
-            const hasRenderedParts = renderedParts?.some((part) => part !== null) ?? false;
+              if (message.role === 'user') {
+                const textParts = message.parts?.filter((part) => part.type === 'text') ?? [];
+                const marker = textParts
+                  .map((part) => getControlMarkerLabel(part.text))
+                  .find((label): label is string => Boolean(label));
 
-            if (!activitySummary && !hasRenderedParts) {
-              return null;
-            }
+                if (marker) {
+                  return <TranscriptMetaPlaceholder key={message.id} label={marker} />;
+                }
 
-            return (
-              <div key={message.id} className="flex flex-col">
-                {renderActivitySummary(activitySummary)}
-                {hasRenderedParts ? (
-                  <Message from={message.role}>
-                    <MessageContent>{renderedParts}</MessageContent>
-                  </Message>
-                ) : null}
+                return null;
+              }
+
+              const activitySummary = summarizeAssistantActivity(message.parts);
+              const renderedParts = renderMessageParts(message, isLastAssistant && chat.isStreaming, {
+                suppressPhaseSummary,
+              });
+              const hasRenderedParts = renderedParts?.some((part) => part !== null) ?? false;
+
+              if (!activitySummary && !hasRenderedParts) {
+                return null;
+              }
+
+              return (
+                <div key={message.id} className="flex flex-col">
+                  {renderActivitySummary(activitySummary)}
+                  {hasRenderedParts ? (
+                    <Message from={message.role}>
+                      <MessageContent>{renderedParts}</MessageContent>
+                    </Message>
+                  ) : null}
+                </div>
+              );
+            })}
+
+            {!phaseSummary && phaseState.status === 'in_progress' && canForceClosePhase(workflow, phase) && (
+              <div className="my-3 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => chat.forcePhaseClosure(phase)}
+                  disabled={chat.isLoading}
+                  className={cn(
+                    'rounded-md border px-3 py-2 text-xs transition-colors',
+                    chat.isLoading
+                      ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+                      : 'border-border bg-background text-foreground hover:bg-muted',
+                  )}
+                >
+                  {getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase })}
+                </button>
               </div>
-            );
-          })}
-
-          {!phaseSummary && phaseState.status === 'in_progress' && canForceClosePhase(workflow, phase) && (
-            <div className="my-3 flex justify-end">
-              <button
-                type="button"
-                onClick={() => chat.forcePhaseClosure(phase)}
-                disabled={chat.isLoading}
-                className={cn(
-                  'rounded-md border px-3 py-2 text-xs transition-colors',
-                  chat.isLoading
-                    ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-                    : 'border-border bg-background text-foreground hover:bg-muted',
-                )}
-              >
-                {getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase })}
-              </button>
-            </div>
-          )}
+            )}
+          </div>
 
           {/* ── Zone 2: Divider between answered and frontier ─────────── */}
           {completedPhaseItems.length > 0 &&
             (turnCard?.kind === 'persisted-turn' ||
               turnCard?.kind === 'pending-question' ||
-              showGeneratingState) && <hr className="-mx-4 my-6 border-rule" />}
+              showGeneratingState) && <hr className="my-6 border-rule" />}
 
           {/* ── Zone 3: Active frontier ──────────────────────────────── */}
-          {turnCard?.kind === 'persisted-turn' &&
-            (!turnHasCompletedAnswer(turnCard.turn) || turnCard.state === 'submitted') && (
+          <div className="mx-auto w-full max-w-2xl">
+            {turnCard?.kind === 'persisted-turn' &&
+              (!turnHasCompletedAnswer(turnCard.turn) || turnCard.state === 'submitted') && (
+                <div className="flex flex-col">
+                  {renderPersistedActivity(turnCard.turn)}
+                  <ActiveQuestionCard
+                    key={`persisted-turn-${turnCard.turn.id}`}
+                    id={`persisted-turn-${turnCard.turn.id}`}
+                    question={turnCard.turn.question}
+                    why={turnCard.turn.why}
+                    impact={turnCard.turn.impact}
+                    options={turnCard.turn.options ?? []}
+                    onSubmitResponse={turnCard.submitTurnResponse}
+                    persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
+                    persistedFreeText={getPersistedTurnResponse(turnCard.turn)?.freeText?.trim() ?? ''}
+                    hasPersistedResponse={
+                      turnCard.state === 'submitted' && turnHasCompletedAnswer(turnCard.turn)
+                    }
+                    disabled={turnCard.disabled}
+                    state={turnCard.state}
+                    reviewSet={reviewSet}
+                  />
+                </div>
+              )}
+
+            {turnCard?.kind === 'pending-question' && (
+              <ActiveQuestionCard
+                key={turnCard.pendingQuestion.id}
+                id={turnCard.pendingQuestion.id}
+                question={turnCard.pendingQuestion.question}
+                why={turnCard.pendingQuestion.why}
+                impact={turnCard.pendingQuestion.impact}
+                options={turnCard.pendingQuestion.options}
+                persistedSelectedPositions={[]}
+                persistedFreeText=""
+                hasPersistedResponse={false}
+                disabled={turnCard.disabled}
+                state="active"
+                reviewSet={reviewSet}
+              />
+            )}
+
+            {turnCard?.kind === 'kickoff' && !showLockedState && (
+              <KickoffTurnCard
+                phase={turnCard.kickoff.phase}
+                mode={turnCard.kickoff.mode}
+                onProceed={() => turnCard.submitKickoff()}
+                onSelectStrategy={(mode) => turnCard.submitKickoff(mode)}
+                disabled={turnCard.disabled}
+              />
+            )}
+
+            {turnCard?.kind === 'recovery' && !showLockedState && (
+              <RecoveryTurnCard
+                phase={turnCard.recovery.phase}
+                onRecover={turnCard.submitRecovery}
+                disabled={turnCard.disabled}
+              />
+            )}
+
+            {turnCard?.kind === 'persisted-turn' && turnCard.errorMessage && (
+              <p role="alert" className="mt-3 text-sm text-destructive">
+                {turnCard.errorMessage}
+              </p>
+            )}
+
+            {phaseSummary && (
               <div className="flex flex-col">
-                {renderPersistedActivity(turnCard.turn)}
-                <ActiveQuestionCard
-                  key={`persisted-turn-${turnCard.turn.id}`}
-                  id={`persisted-turn-${turnCard.turn.id}`}
-                  question={turnCard.turn.question}
-                  why={turnCard.turn.why}
-                  impact={turnCard.turn.impact}
-                  options={turnCard.turn.options ?? []}
-                  onSubmitResponse={turnCard.submitTurnResponse}
-                  persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
-                  persistedFreeText={getPersistedTurnResponse(turnCard.turn)?.freeText?.trim() ?? ''}
-                  hasPersistedResponse={
-                    turnCard.state === 'submitted' && turnHasCompletedAnswer(turnCard.turn)
-                  }
-                  disabled={turnCard.disabled}
-                  state={turnCard.state}
-                  reviewSet={reviewSet}
+                {renderPersistedActivity(phaseTurns.find((turn) => turn.id === phaseSummary.turnId))}
+                <PhaseSummaryCard
+                  phase={phaseSummary.phase}
+                  summary={phaseSummary.summary}
+                  disabled={chat.isLoading}
+                  onConfirm={() => chat.confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId)}
                 />
               </div>
             )}
 
-          {turnCard?.kind === 'pending-question' && (
-            <ActiveQuestionCard
-              key={turnCard.pendingQuestion.id}
-              id={turnCard.pendingQuestion.id}
-              question={turnCard.pendingQuestion.question}
-              why={turnCard.pendingQuestion.why}
-              impact={turnCard.pendingQuestion.impact}
-              options={turnCard.pendingQuestion.options}
-              persistedSelectedPositions={[]}
-              persistedFreeText=""
-              hasPersistedResponse={false}
-              disabled={turnCard.disabled}
-              state="active"
-              reviewSet={reviewSet}
-            />
-          )}
+            {showGeneratingState && <GeneratingTurnPlaceholder />}
 
-          {turnCard?.kind === 'kickoff' && !showLockedState && (
-            <KickoffTurnCard
-              phase={turnCard.kickoff.phase}
-              mode={turnCard.kickoff.mode}
-              onProceed={() => turnCard.submitKickoff()}
-              onSelectStrategy={(mode) => turnCard.submitKickoff(mode)}
-              disabled={turnCard.disabled}
-            />
-          )}
+            {showClosedState && (
+              <WorkspaceStateCard
+                eyebrow={showCompletionState ? 'Workflow complete' : 'Phase handoff'}
+                title={
+                  showCompletionState
+                    ? 'The interview workspace is complete'
+                    : `${getWorkflowPhaseLabel(phase)} phase is complete`
+                }
+                description={
+                  phaseState.summary ??
+                  (showCompletionState
+                    ? 'All phases are closed. Review the export to inspect the current structured spec output.'
+                    : 'This phase has been closed and handed off to the next phase.')
+                }
+              >
+                {showCompletionState ? (
+                  <Link
+                    to="/project/$id/export"
+                    params={{ id: String(project.id) }}
+                    className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
+                  >
+                    Open export preview
+                  </Link>
+                ) : nextPhase ? (
+                  <Link
+                    to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
+                    params={{ id: String(project.id) }}
+                    className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
+                  >
+                    Continue to {getWorkflowPhaseLabel(nextPhase)}
+                  </Link>
+                ) : null}
+              </WorkspaceStateCard>
+            )}
+          </div>
 
-          {turnCard?.kind === 'recovery' && !showLockedState && (
-            <RecoveryTurnCard
-              phase={turnCard.recovery.phase}
-              onRecover={turnCard.submitRecovery}
-              disabled={turnCard.disabled}
-            />
-          )}
-
-          {turnCard?.kind === 'persisted-turn' && turnCard.errorMessage && (
-            <p role="alert" className="mx-auto mt-3 max-w-2xl text-sm text-destructive">
-              {turnCard.errorMessage}
-            </p>
-          )}
-
-          {phaseSummary && (
-            <div className="flex flex-col">
-              {renderPersistedActivity(phaseTurns.find((turn) => turn.id === phaseSummary.turnId))}
-              <PhaseSummaryCard
-                phase={phaseSummary.phase}
-                summary={phaseSummary.summary}
-                disabled={chat.isLoading}
-                onConfirm={() => chat.confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId)}
-              />
-            </div>
-          )}
-
-          {showGeneratingState && <GeneratingTurnPlaceholder />}
-
-          {showClosedState && (
-            <WorkspaceStateCard
-              eyebrow={showCompletionState ? 'Workflow complete' : 'Phase handoff'}
-              title={
-                showCompletionState
-                  ? 'The interview workspace is complete'
-                  : `${getWorkflowPhaseLabel(phase)} phase is complete`
-              }
-              description={
-                phaseState.summary ??
-                (showCompletionState
-                  ? 'All phases are closed. Review the export to inspect the current structured spec output.'
-                  : 'This phase has been closed and handed off to the next phase.')
-              }
-            >
-              {showCompletionState ? (
-                <Link
-                  to="/project/$id/export"
-                  params={{ id: String(project.id) }}
-                  className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
-                >
-                  Open export preview
-                </Link>
-              ) : nextPhase ? (
-                <Link
-                  to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
-                  params={{ id: String(project.id) }}
-                  className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
-                >
-                  Continue to {getWorkflowPhaseLabel(nextPhase)}
-                </Link>
-              ) : null}
-            </WorkspaceStateCard>
-          )}
+          {/* Bottom spacer — future home of phase-advance controls */}
+          <div className="h-30 shrink-0" />
         </div>
       </ChatScroll>
 

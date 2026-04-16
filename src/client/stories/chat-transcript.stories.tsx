@@ -56,7 +56,7 @@ function AnsweredQuestionCard({ data }: { data: AnsweredTurnData }) {
         </span>
         <button
           type="button"
-          className="flex text-[#16a34a] h-5 gap-1 -m-0.5 px-2 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[rgba(22,163,106,0.1)]"
+          className="flex text-[11px] text-[#16a34a] h-5 gap-1 -m-0.5 px-2 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[rgba(22,163,106,0.1)]"
         >
           Answered
           <Check className="size-2.5" />

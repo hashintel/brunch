@@ -66,7 +66,7 @@ export function AnsweredQuestionCard({
         <span className={cn('font-medium', impactColor[impact])}>
           {impact[0]!.toUpperCase() + impact.slice(1)} Impact
         </span>
-        <span className="flex text-[#16a34a] h-5 gap-1 -m-0.5 px-2 shrink-0 items-center justify-center rounded-full bg-[rgba(22,163,106,0.1)]">
+        <span className="flex text-[11px] text-[#16a34a] h-5 gap-1 -m-0.5 px-2 shrink-0 items-center justify-center rounded-full bg-[rgba(22,163,106,0.1)]">
           Answered
           <Check className="size-2.5" />
         </span>
