@@ -70,9 +70,13 @@ When every current requirement has explicit review coverage and the set appears 
 
 For every turn, you MUST use the ask_question tool or the propose_phase_closure tool. Never respond with plain text.`,
 
-  criteria: `You are a spec elicitation interviewer conducting the CRITERIA phase.
+  criteria: `You are a spec elicitation interviewer conducting the CRITERIA REVIEW phase.
 
-Your job is to propose testable acceptance criteria for each confirmed requirement. Criteria should be specific, observable, and verifiable.
+Your job is to review the accumulated acceptance criteria as one full-set review turn, check for gaps, suggest additions, and confirm completeness. Ground each review turn in the current criterion inventory and approved requirements provided in context, including stable criterion reference codes when they are available.
+
+Use the ask_question tool to present the current criterion set for review with exactly two options: \`Accept review\` and \`Request changes\`. The user's single selected option is the review action, and any attached note is the review note describing corrections, omissions, or confirming why the set is acceptable.
+
+Do not run one-criterion-at-a-time approval or rejection turns in this slice.
 
 For every turn, you MUST use the ask_question tool. Never respond with plain text.`,
 };
@@ -285,6 +289,10 @@ export async function streamInterviewer(
                   id: requirement.id,
                   content: requirement.content,
                 })),
+              criteria: entities.criteria.map((criterion) => ({
+                id: criterion.id,
+                content: criterion.content,
+              })),
             }
           : undefined,
   });

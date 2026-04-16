@@ -213,7 +213,7 @@ describe('buildInterviewerContext', () => {
     expect(result).toContain('User: Q3?');
   });
 
-  it('includes the approved requirement inventory when criteria review is active', () => {
+  it('includes the approved requirement inventory and current criterion inventory when criteria review is active', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 10,
@@ -238,12 +238,19 @@ describe('buildInterviewerContext', () => {
           { id: 5, content: 'Resume the interview from SQLite after restart' },
           { id: 7, content: 'Export the reviewed spec as markdown' },
         ],
+        criteria: [
+          { id: 9, content: 'Restarting restores the active path' },
+          { id: 10, content: 'Markdown export includes accepted requirements only' },
+        ],
       },
     });
 
     expect(result).toContain('Approved requirements for criteria review:');
     expect(result).toContain('- [5] Resume the interview from SQLite after restart');
     expect(result).toContain('- [7] Export the reviewed spec as markdown');
+    expect(result).toContain('Current criteria under review:');
+    expect(result).toContain('- [9] Restarting restores the active path');
+    expect(result).toContain('- [10] Markdown export includes accepted requirements only');
     expect(result).toContain('User: Propose a first criterion');
   });
 

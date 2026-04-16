@@ -48,12 +48,14 @@ import {
   getCurrentWorkflowState,
   getTurn,
   getOptionsForTurn,
+  linkKnowledgeItemToTurn,
   updateTurn,
   getEntitiesForProjectByMode,
   recordReviewFromTurnResponse,
   supersedePhaseOutcome,
   type DB,
   type EntityProjectionMode,
+  type Turn,
 } from './db.js';
 import { isExportReady, renderExportMarkdown } from './export.js';
 import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
@@ -109,6 +111,74 @@ function createNextPhaseKickoff(db: DB, projectId: number, parentTurnId: number)
     return null;
   }
   return frontierTurn.id;
+}
+
+function getFullSetReviewAction(
+  turn: Pick<Turn, 'phase'>,
+  selectedPositions: number[],
+  options: ReturnType<typeof getOptionsForTurn>,
+): 'accept' | 'request-changes' | null {
+  if ((turn.phase !== 'requirements' && turn.phase !== 'criteria') || selectedPositions.length !== 1) {
+    return null;
+  }
+
+  const normalizedOptions = options.map((option) => ({
+    ...option,
+    normalizedContent: option.content.trim().toLowerCase(),
+  }));
+  const acceptOption = normalizedOptions.find((option) => option.normalizedContent === 'accept review');
+  const requestChangesOption = normalizedOptions.find(
+    (option) => option.normalizedContent === 'request changes',
+  );
+
+  if (!acceptOption || !requestChangesOption) {
+    return null;
+  }
+
+  const [selectedPosition] = selectedPositions;
+  if (selectedPosition === acceptOption.position) {
+    return 'accept';
+  }
+  if (selectedPosition === requestChangesOption.position) {
+    return 'request-changes';
+  }
+
+  return null;
+}
+
+function acceptRequirementsReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
+  const requirements = getEntitiesForProjectByMode(db, projectId, 'project-wide').requirements;
+  for (const requirement of requirements) {
+    linkKnowledgeItemToTurn(db, requirement.id, turnId, 'reviewed');
+  }
+
+  createConfirmedPhaseOutcome(db, {
+    projectId,
+    phase: 'requirements',
+    proposal_turn_id: turnId,
+    confirmation_turn_id: turnId,
+    summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
+  });
+  createNextPhaseKickoff(db, projectId, turnId);
+
+  return { ok: true, advancedToPhase: 'criteria' };
+}
+
+function acceptCriteriaReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
+  const criteria = getEntitiesForProjectByMode(db, projectId, 'project-wide').criteria;
+  for (const criterion of criteria) {
+    linkKnowledgeItemToTurn(db, criterion.id, turnId, 'reviewed');
+  }
+
+  createConfirmedPhaseOutcome(db, {
+    projectId,
+    phase: 'criteria',
+    proposal_turn_id: turnId,
+    confirmation_turn_id: turnId,
+    summary: 'The reviewed criteria set is accepted and the specification is ready for output.',
+  });
+
+  return { ok: true, workflowCompleted: true };
 }
 
 export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
@@ -213,6 +283,18 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         dataPart,
       ] satisfies BrunchUserPart[]),
     });
+
+    const fullSetReviewAction = getFullSetReviewAction(turn, uniquePositions, options);
+    if (fullSetReviewAction === 'accept') {
+      const response =
+        turn.phase === 'requirements'
+          ? acceptRequirementsReview(db, projectId, turnId)
+          : turn.phase === 'criteria'
+            ? acceptCriteriaReview(db, projectId, turnId)
+            : ({ ok: true } satisfies SubmitTurnResponseResponse);
+      res.json(response satisfies SubmitTurnResponseResponse);
+      return;
+    }
 
     res.json({ ok: true } satisfies SubmitTurnResponseResponse);
   });

@@ -90,6 +90,14 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('requirements')).not.toContain('requirementReview');
     expect(getSystemPrompt('requirements')).toContain('propose_phase_closure');
   });
+
+  it('grounds the criteria prompt in a full-set review turn', () => {
+    expect(getSystemPrompt('criteria')).toContain('current criterion inventory');
+    expect(getSystemPrompt('criteria')).toContain('approved requirements');
+    expect(getSystemPrompt('criteria')).toContain('Accept review');
+    expect(getSystemPrompt('criteria')).toContain('Request changes');
+    expect(getSystemPrompt('criteria')).not.toContain('criterionReview');
+  });
 });
 
 describe('canProposePhaseClosure', () => {

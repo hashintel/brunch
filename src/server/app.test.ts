@@ -2509,6 +2509,153 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     ]);
   });
 
+  it('accepting the requirements full-set review closes requirements, approves the current set, and advances to criteria kickoff', async () => {
+    const projectId = await createTestProject();
+    const seededRequirements = seedRequirementsReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
+
+    const requirementOne = createKnowledgeItem(
+      db,
+      projectId,
+      'requirement',
+      'Export the reviewed specification as markdown',
+    );
+    const requirementTwo = createKnowledgeItem(
+      db,
+      projectId,
+      'requirement',
+      'Resume the interview from persisted local state',
+    );
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: seededRequirements.designConfirmationTurn.id,
+      question: 'Please review the current requirement set.',
+      why: 'Review the whole requirement set before moving forward.',
+      impact: 'high',
+      answer: '',
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    const response = await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0] })
+      .expect(200);
+
+    expect(response.body).toEqual({ ok: true, advancedToPhase: 'criteria' });
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.requirements).toEqual(
+      expect.objectContaining({
+        status: 'closed',
+        closureBasis: 'interviewer_recommended',
+        proposalPending: false,
+        turnId: reviewTurn.id,
+        summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
+      }),
+    );
+    expect(projectRes.body.workflow.phases.criteria).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        proposalPending: false,
+      }),
+    );
+    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.turns.at(-1)).toEqual(
+      expect.objectContaining({
+        phase: 'criteria',
+        answer: null,
+      }),
+    );
+
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(entitiesRes.body.requirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: requirementOne.id, reviewStatus: 'approved' }),
+        expect.objectContaining({ id: requirementTwo.id, reviewStatus: 'approved' }),
+      ]),
+    );
+  });
+
+  it('requesting changes on the requirements full-set review keeps requirements open and does not advance to criteria', async () => {
+    const projectId = await createTestProject();
+    const seededRequirements = seedRequirementsReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
+
+    const requirement = createKnowledgeItem(
+      db,
+      projectId,
+      'requirement',
+      'Export the reviewed specification as markdown',
+    );
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: seededRequirements.designConfirmationTurn.id,
+      question: 'Please review the current requirement set.',
+      why: 'Review the whole requirement set before moving forward.',
+      impact: 'high',
+      answer: '',
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    const response = await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [1], freeText: 'Add export rationale notes.' })
+      .expect(200);
+
+    expect(response.body).toEqual({ ok: true });
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.requirements).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        proposalPending: false,
+      }),
+    );
+    expect(projectRes.body.workflow.phases.criteria).toEqual(
+      expect.objectContaining({
+        status: 'unstarted',
+        proposalPending: false,
+      }),
+    );
+    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.turns.at(-1)).toEqual(
+      expect.objectContaining({
+        phase: 'requirements',
+      }),
+    );
+
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(entitiesRes.body.requirements).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: requirement.id, reviewStatus: 'pending' })]),
+    );
+  });
+
   it('persists explicit approved review state for a targeted requirement through the response seam', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
@@ -2705,6 +2852,139 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         expect.objectContaining({ id: rejectedRequirement.id, reviewStatus: 'rejected' }),
         expect.objectContaining({ id: pendingRequirement.id, reviewStatus: 'pending' }),
       ]),
+    );
+  });
+
+  it('accepting the criteria full-set review closes criteria, approves the current set, and makes export ready', async () => {
+    const projectId = await createTestProject();
+    const seededCriteria = seedCriteriaReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
+
+    const criterionOne = createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'Restarting restores the active path',
+    );
+    const criterionTwo = createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'Markdown export includes accepted requirements only',
+    );
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'criteria',
+      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
+      question: 'Please review the current criterion set.',
+      why: 'Review the whole criterion set before moving forward.',
+      impact: 'high',
+      answer: '',
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    const response = await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0] })
+      .expect(200);
+
+    expect(response.body).toEqual({ ok: true, workflowCompleted: true });
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    for (const phase of ['scope', 'design', 'requirements', 'criteria'] as const) {
+      expect(projectRes.body.workflow.phases[phase]).toEqual(
+        expect.objectContaining({
+          status: 'closed',
+        }),
+      );
+    }
+    expect(projectRes.body.workflow.phases.criteria).toEqual(
+      expect.objectContaining({
+        closureBasis: 'interviewer_recommended',
+        proposalPending: false,
+        turnId: reviewTurn.id,
+        summary: 'The reviewed criteria set is accepted and the specification is ready for output.',
+      }),
+    );
+    expect(projectRes.body.project.active_turn_id).toBe(reviewTurn.id);
+
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(entitiesRes.body.criteria).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: criterionOne.id, reviewStatus: 'approved' }),
+        expect.objectContaining({ id: criterionTwo.id, reviewStatus: 'approved' }),
+      ]),
+    );
+
+    const exportRes = await request(app).get(`/api/projects/${projectId}/export`).expect(200);
+    expect(exportRes.body.ready).toBe(true);
+  });
+
+  it('requesting changes on the criteria full-set review keeps criteria open and does not advance to output semantics', async () => {
+    const projectId = await createTestProject();
+    const seededCriteria = seedCriteriaReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
+
+    const criterion = createKnowledgeItem(db, projectId, 'criterion', 'Restarting restores the active path');
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'criteria',
+      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
+      question: 'Please review the current criterion set.',
+      why: 'Review the whole criterion set before moving forward.',
+      impact: 'high',
+      answer: '',
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    const response = await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [1], freeText: 'Add browser-reload wording.' })
+      .expect(200);
+
+    expect(response.body).toEqual({ ok: true });
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.criteria).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        proposalPending: false,
+      }),
+    );
+    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.turns.at(-1)).toEqual(
+      expect.objectContaining({
+        phase: 'criteria',
+      }),
+    );
+
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(entitiesRes.body.criteria).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: criterion.id, reviewStatus: 'pending' })]),
     );
   });
 

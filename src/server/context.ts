@@ -11,6 +11,7 @@ interface InterviewerContextOptions {
   entities?: {
     requirements?: Array<{ id: number; content: string }>;
     approvedRequirements?: Array<{ id: number; content: string }>;
+    criteria?: Array<{ id: number; content: string }>;
   };
 }
 
@@ -35,6 +36,18 @@ function formatRequirementReviewInventory(
 
   return `Current requirements under review:\n${requirements
     .map((requirement) => `- [${requirement.id}] ${requirement.content}`)
+    .join('\n')}`;
+}
+
+function formatCriterionReviewInventory(
+  criteria: NonNullable<InterviewerContextOptions['entities']>['criteria'],
+): string | null {
+  if (!criteria || criteria.length === 0) {
+    return null;
+  }
+
+  return `Current criteria under review:\n${criteria
+    .map((criterion) => `- [${criterion.id}] ${criterion.content}`)
     .join('\n')}`;
 }
 
@@ -93,6 +106,12 @@ export function buildInterviewerContext(
       : null;
   if (approvedRequirementInventory) {
     sections.push(approvedRequirementInventory);
+  }
+
+  const criterionInventory =
+    options.phase === 'criteria' ? formatCriterionReviewInventory(options.entities?.criteria) : null;
+  if (criterionInventory) {
+    sections.push(criterionInventory);
   }
 
   if (sections.length === 0) {

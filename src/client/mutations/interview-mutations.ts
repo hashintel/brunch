@@ -67,11 +67,14 @@ export function useSubmitTurnResponseMutation({
             };
 
       try {
-        await mutation.run({
+        const result = await mutation.run({
           turnId: turn.id,
           response,
         });
         await router.invalidate();
+        if (result.advancedToPhase || result.workflowCompleted) {
+          return true;
+        }
         await sendMessage({ text: responseText });
         return true;
       } catch {

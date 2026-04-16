@@ -1127,6 +1127,273 @@ describe('InterviewView', () => {
     expect(screen.getByRole('button', { name: 'Submit review' })).toBeTruthy();
   });
 
+  it('renders criterion reference codes and review actions on the criteria full-set review turn', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Please review the current criterion set.',
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 21, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+          { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+        ],
+        workflow: createWorkflowState({
+          criteria: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 1,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'criteria',
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current criterion set.' },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 21, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+        entityState: createEntityState({
+          criteria: [
+            {
+              id: 41,
+              project_id: 1,
+              kind: 'criterion',
+              subtype: null,
+              content: 'Restarting restores the active path',
+              rationale: null,
+              reviewStatus: 'pending',
+              referenceCode: 'CRIT1',
+            },
+            {
+              id: 42,
+              project_id: 1,
+              kind: 'criterion',
+              subtype: null,
+              content: 'Markdown export includes accepted requirements only',
+              rationale: null,
+              reviewStatus: 'approved',
+              referenceCode: 'CRIT2',
+            },
+          ],
+        }),
+      }),
+    );
+
+    renderWorkspace('criteria');
+
+    expect(await screen.findByText('Current criterion set')).toBeTruthy();
+    expect(screen.getByText('CRIT1')).toBeTruthy();
+    expect(screen.getByText('Restarting restores the active path')).toBeTruthy();
+    expect(screen.getByText('CRIT2')).toBeTruthy();
+    expect(screen.getByText('Markdown export includes accepted requirements only')).toBeTruthy();
+    expect(screen.getByLabelText('Review note')).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /accept review/i })).toBeTruthy();
+    expect(screen.getByRole('radio', { name: /request changes/i })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Submit review' })).toBeTruthy();
+  });
+
+  it('does not forward the accepted requirements review text into chat when the server already advanced to criteria', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Please review the current requirement set.',
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+        ],
+        workflow: createWorkflowState({
+          requirements: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 1,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current requirement set.' },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+        entityState: createEntityState({
+          requirements: [
+            {
+              id: 31,
+              project_id: 1,
+              kind: 'requirement',
+              subtype: null,
+              content: 'Export the reviewed specification as markdown',
+              rationale: null,
+              reviewStatus: 'pending',
+              referenceCode: 'REQ1',
+            },
+          ],
+        }),
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, advancedToPhase: 'criteria' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    fireEvent.click(await screen.findByRole('radio', { name: /accept review/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit review' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/turns/1/response',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'select-options',
+            positions: [0],
+          }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).not.toHaveBeenCalled();
+    });
+  });
+
+  it('does not forward the accepted criteria review text into chat when the server already completed the workflow', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Please review the current criterion set.',
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 21, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+          { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+        ],
+        workflow: createWorkflowState({
+          criteria: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 1,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'criteria',
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current criterion set.' },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 21, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+        entityState: createEntityState({
+          criteria: [
+            {
+              id: 41,
+              project_id: 1,
+              kind: 'criterion',
+              subtype: null,
+              content: 'Restarting restores the active path',
+              rationale: null,
+              reviewStatus: 'pending',
+              referenceCode: 'CRIT1',
+            },
+          ],
+        }),
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, workflowCompleted: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace('criteria');
+
+    fireEvent.click(await screen.findByRole('radio', { name: /accept review/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit review' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/turns/1/response',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'select-options',
+            positions: [0],
+          }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).not.toHaveBeenCalled();
+    });
+  });
+
   it('renders the turn card from a pending-question tool part before route invalidation', async () => {
     setLoaderData(
       createWorkspaceLoaderData({

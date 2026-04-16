@@ -49,7 +49,10 @@ type TurnCardOption = Pick<
   'position' | 'content' | 'is_recommended'
 >;
 
-type ReviewSetItem = Pick<EntitiesData['requirements'][number], 'content' | 'referenceCode' | 'reviewStatus'>;
+type ReviewSetItem = Pick<
+  EntitiesData['requirements'][number] | EntitiesData['criteria'][number],
+  'content' | 'referenceCode' | 'reviewStatus'
+>;
 
 function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectStateTurn['phase']) {
   return getForceClosePhaseAction(workflow, phase).available;
@@ -735,13 +738,18 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   // TODO: prompt input is disabled while the phase-closure interaction model is being reworked.
   // The turn-card family owns user input; the generic composer will return when the
   // center-pane header controls phase start/continue lifecycle.
-  const requirementsReviewSet =
+  const reviewSet =
     phase === 'requirements'
       ? {
           title: 'Current requirement set',
           items: entitySnapshot.requirements,
         }
-      : undefined;
+      : phase === 'criteria'
+        ? {
+            title: 'Current criterion set',
+            items: entitySnapshot.criteria,
+          }
+        : undefined;
   const showPromptInput = false;
 
   // TODO: auto-present is disabled while the phase-closure interaction model is being reworked.
@@ -945,7 +953,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                 hasPersistedResponse={turnCard.state === 'submitted' && turnHasCompletedAnswer(turnCard.turn)}
                 disabled={turnCard.disabled}
                 state={turnCard.state}
-                reviewSet={requirementsReviewSet}
+                reviewSet={reviewSet}
               />
             )}
 
@@ -962,7 +970,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               hasPersistedResponse={false}
               disabled={turnCard.disabled}
               state="active"
-              reviewSet={requirementsReviewSet}
+              reviewSet={reviewSet}
             />
           )}
 

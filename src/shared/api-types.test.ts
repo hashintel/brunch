@@ -296,6 +296,14 @@ describe('api transport contracts', () => {
       error: 'Failed to save response',
     });
     expect(submitTurnResponseResponseSchema.parse({ ok: true })).toEqual({ ok: true });
+    expect(submitTurnResponseResponseSchema.parse({ ok: true, advancedToPhase: 'criteria' })).toEqual({
+      ok: true,
+      advancedToPhase: 'criteria',
+    });
+    expect(submitTurnResponseResponseSchema.parse({ ok: true, workflowCompleted: true })).toEqual({
+      ok: true,
+      workflowCompleted: true,
+    });
   });
 
   it('rejects mismatched requirement and criterion kinds', () => {

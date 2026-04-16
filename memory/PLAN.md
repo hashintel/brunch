@@ -9,10 +9,7 @@
 1. **Frontier lifecycle skeleton across open phases** — establish the universal no-dead-state turn lifecycle: fixed kickoff turns for newly opened phases, visible generating-frontier states while successor turns are created, and exceptional recovery turns only when frontier continuity breaks.
    - Why now / unlocks: this is the new structural center from `memory/SPEC.md` (D94). It replaces the old auto-trigger workaround, guarantees a next visible action now that the raw composer is gone, and is the prerequisite for lightweight review and future grounding-card work.
 
-2. **Lightweight review turn v1 across requirements + criteria** — replace micro-interview review loops with full-set review turns that show stable item reference codes, one review note box, and explicit `accept review` / `request changes` submission; accepting a review closes the review phase and advances to the next kickoff/output frontier.
-   - Why now / unlocks: this lands the simplified review seam captured in D90 and depends on the frontier lifecycle from Active #1 so review never leaves the user in a dead state.
-
-3. **Specification-first creation and workspace terminology adoption** — root creation asks only for the specification name, and touched product surfaces start distinguishing workspace vs specification while internal `project` identifiers remain unchanged.
+2. **Specification-first creation and workspace terminology adoption** — root creation asks only for the specification name, and touched product surfaces start distinguishing workspace vs specification while internal `project` identifiers remain unchanged.
    - Why now / unlocks: this establishes D82, D96, and D97 at the entry seam so grounding strategy can move into the workspace honestly instead of mutating a premature root-modal choice.
 
 ## Next
@@ -51,9 +48,8 @@
 
 ## Recently Completed
 
-- 2026-04-15 — **Center pane sticky header and ChatScroll integration** — `InterviewView` now renders phase metadata and state-gated actions in the sticky center header, with `ChatScroll` as the route-owned transcript container.
-- 2026-04-15 — **Knowledge sidebar grouping registry** — `EntitySidebar` now groups visible knowledge kinds behind the hard-coded display registry with compact `DrawerCard` items and stable reference-code display.
-- 2026-04-15 — **Phase stepper sidebar** — `PhaseNavigationSidebar` now renders the sticky specification header, sequential phase timeline, and conditional Output row.
+- 2026-04-16 — **Criteria review accept-to-close wiring** — accepting the criteria full-set review now marks the presented criterion set approved, closes criteria on the same durable turn, makes the workflow output-ready, and suppresses the stale review text from being forwarded into chat after workflow completion.
+- 2026-04-16 — **Lightweight review turn v1 across requirements + criteria** — both review phases now use full-set review turns with stable item reference codes, one review note, explicit `Accept review` / `Request changes` actions, and accept-to-close progression into the next kickoff/output frontier.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
@@ -61,22 +57,18 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 
 ```text
 frontier-lifecycle-skeleton-across-open-phases
-  ├──→ lightweight-review-turn-v1-across-requirements-criteria
   ├──→ grounding-strategy-selection-inside-the-workspace-kickoff-flow
   ├──→ grounding-card-transcript-primitive
   ├──→ router-query-ownership-refinement-for-interview-surfaces
   └──→ rich-replay-treatment-for-kickoff-review-observer-progress-and-grounding-card-detail
 
 specification-first-creation-and-workspace-terminology-adoption
-  ├──→ grounding-strategy-selection-inside-the-workspace-kickoff-flow
-  ├──→ remove-cwd-from-spec-record-make-workspace-implicit
-  └──→ project-to-specification-physical-db-rename
+  └──→ grounding-strategy-selection-inside-the-workspace-kickoff-flow
 
 grounding-strategy-selection-inside-the-workspace-kickoff-flow
   └──→ brownfield-workspace-analysis-grounding-brief
 
 grounding-card-transcript-primitive
   ├──→ brownfield-workspace-analysis-grounding-brief
-  ├──→ reusable-interviewer-invoked-context-gathering-beyond-opening-grounding
   └──→ rich-replay-treatment-for-kickoff-review-observer-progress-and-grounding-card-detail
 ```

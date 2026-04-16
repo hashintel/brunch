@@ -234,6 +234,8 @@ export const submitTurnResponseRequestSchema = z.discriminatedUnion('kind', [
 
 export const submitTurnResponseResponseSchema = z.object({
   ok: z.literal(true),
+  advancedToPhase: workflowPhaseSchema.optional(),
+  workflowCompleted: z.literal(true).optional(),
 });
 
 export type ProjectMode = z.infer<typeof projectModeSchema>;
