@@ -6,13 +6,48 @@
 
 ## Active
 
-1. **Router/query ownership refinement for interview surfaces** — replace coarse route-wide invalidation with deliberate loader/query ownership now that transcript parity removes the worst disappearing-artifact confusion.
-   - Why now / unlocks: parity made the current collapse behavior legible; narrower ownership now reduces how often the interface has to collapse into hydrated state at all.
+1. **Demo walkthrough reset and seeded baseline** — wipe the local dev database, re-seed the canonical walkthrough scenarios, and turn the current demo weirdness into one explicit blocker matrix tied to named seeded states.
+   - Why now / unlocks: the app has accumulated remodeling across workflow, interaction, and fixture seams; a clean seeded baseline is the fastest way to stop debugging ghost state and gives every follow-on demo slice a repeatable inspection loop.
+   - What this slice must accomplish:
+     - standardize the reset loop around `.brunch/brunch.db` and the walkthrough scenarios in `docs/praxis/manual-testing.md`
+     - verify the most demo-relevant states after reseed: `issue-tracker-requirements-ready`, `issue-tracker-criteria-ready`, and `issue-tracker-all-phases-closed`
+     - capture the current visible failures as scenario-scoped demo blockers rather than one blended "weirdness" bucket
+     - confirm whether any remaining problems come from stale seeded data versus current projection logic
+
+2. **Distinct review-phase UI for requirements and acceptance criteria** — stop rendering review phases as ordinary interview questions and project them as synthesized set-review surfaces owned by the review seam.
+   - Why now / unlocks: this is the clearest demo-visible mismatch between the current product model and the current UI; fixing it makes requirements/criteria understandable and exposes the remaining transition bugs more honestly.
+   - Traceability: D90, D93, A52.
+   - What this slice must accomplish:
+     - make the active requirements/criteria frontier read as a set review, not a generic question turn that happens to have two options
+     - show the current requirement / criterion set, stable reference codes, and current review status as the primary content of the frontier card
+     - keep the lightweight review contract: explicit `accept review` / `request changes` plus one review note
+     - ensure hydrated seeded turns and live turns render through the same review-specific surface
+     - remove any remaining UI dependence on older per-item micro-question assumptions for full-set review
+
+3. **Phase transition and handoff stabilization for demo flows** — make every seeded demo phase end in a legible next action, with no empty shells or stranded in-progress states.
+   - Why now / unlocks: once review phases render correctly, the next most obvious demo failures are inert handoffs, ambiguous closure states, and missing export/continue affordances.
+   - Traceability: D94, D100, D101, D104.
+   - What this slice must accomplish:
+     - requirements acceptance advances cleanly into criteria kickoff without dead air
+     - criteria acceptance closes into a visible workflow-complete/export-ready state
+     - closed phases show explicit handoff / completion artifacts instead of relying on the generic shell to imply what happened
+     - force-close and proposed-close confirmations stay legible and do not leave stale active-phase projections behind
+
+4. **Transcript fidelity stabilization for seeded demo states** — make replayed interview history trustworthy enough that the demo reads like one coherent workspace instead of a partial hydration.
+   - Why now / unlocks: after review and transition fixes, the remaining trust gap is transcript coherence; the demo needs previous assistant moves, summaries, and turn-owned activity to survive reload and navigation.
+   - Traceability: D92, D93, D96, A53, A55.
+   - What this slice must accomplish:
+     - preserve the assistant-side shape that matters for the walkthrough: prior prompts, review framing, summaries, and turn-owned activity placeholders
+     - keep phase filtering compatible with the richer replay so each phase route still reads cleanly
+     - eliminate cases where the transcript implies a freeform chat model while the actual interaction is card-owned
 
 ## Next
 
-1. **Interview workflow transition extraction from `app.ts`** — move phase-confirmation, review accept-to-close, successor-frontier creation, and observer-scheduling policy into a smaller deep module with a narrow command/result seam, leaving `app.ts` as transport composition.
-   - Why now / unlocks: once transcript parity is stable, extracting the workflow seam will make future interaction families and ownership refinements cheaper, safer, and easier to test in isolation.
+1. **Router/query ownership refinement for interview surfaces** — replace coarse route-wide invalidation with deliberate loader/query ownership once the demo-visible projection bugs stop masking the actual invalidation problems.
+   - Why now / unlocks: the current ownership work is still valuable, but it is no longer the fastest route to a convincing demo; defer until the review/transition/transcript surfaces are trustworthy enough to optimize.
+
+2. **Interview workflow transition extraction from `app.ts`** — move phase-confirmation, review accept-to-close, successor-frontier creation, and observer-scheduling policy into a smaller deep module with a narrow command/result seam, leaving `app.ts` as transport composition.
+   - Why now / unlocks: once the demo path is stable, extracting the workflow seam will make future interaction families and ownership refinements cheaper, safer, and easier to test in isolation.
    - What this slice must accomplish:
      - separate HTTP/SSE transport concerns from workflow policy so `app.ts` stops owning phase-progression semantics directly
      - unify the transition rules for the four advancement paths: ordinary answered frontier turns, full-set review accept-to-close, proposed phase-closure confirmation, and force-close
@@ -53,6 +88,17 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 ## Dependencies
 
 ```text
+demo-walkthrough-reset-and-seeded-baseline
+  ├──→ distinct-review-phase-ui-for-requirements-and-acceptance-criteria
+  ├──→ phase-transition-and-handoff-stabilization-for-demo-flows
+  └──→ transcript-fidelity-stabilization-for-seeded-demo-states
+
+distinct-review-phase-ui-for-requirements-and-acceptance-criteria
+  └──→ phase-transition-and-handoff-stabilization-for-demo-flows
+
+phase-transition-and-handoff-stabilization-for-demo-flows
+  └──→ router-query-ownership-refinement-for-interview-surfaces
+
 interview-workflow-transition-extraction-from-app-ts
   └──→ grounding-card-transcript-primitive
 
