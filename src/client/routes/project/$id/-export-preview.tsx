@@ -1,6 +1,8 @@
 import { Link, getRouteApi } from '@tanstack/react-router';
+import { ArrowLeftIcon, BookOpenIcon, DownloadIcon } from 'lucide-react';
 
-import { Button } from '@/client/components/ui/button';
+import { ShellButton } from '@/client/components/app-shell.js';
+import { ScrollArea } from '@/client/components/ui/scroll-area';
 
 const exportPreviewRouteApi = getRouteApi('/project/$id/export');
 
@@ -20,44 +22,58 @@ export function ExportPreview() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
-      <Link to="/project/$id" params={{ id }} className="text-sm text-muted-foreground hover:text-foreground">
-        ← Back to specification
-      </Link>
-      <h1 className="mt-4 text-base font-semibold">Export Preview</h1>
-
-      {data && !data.ready && (
-        <div className="mt-4">
-          <p className="text-muted-foreground">
-            Export is not available yet. All workflow phases must be closed before exporting.
-          </p>
+    <div className="flex h-full flex-col overflow-hidden">
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="mx-auto max-w-3xl px-10 py-8">
           <Link
             to="/project/$id"
             params={{ id }}
-            className="mt-2 inline-block text-sm text-primary hover:underline"
+            className="inline-flex items-center gap-1 text-xs text-hint transition-colors hover:text-ink"
           >
-            Return to specification →
+            <ArrowLeftIcon className="size-3" />
+            <span>Back to specification</span>
           </Link>
-        </div>
-      )}
+          <h1 className="mt-4 text-sm-plus font-medium text-ink">Export Preview</h1>
 
-      {data?.ready && data.markdown && (
-        <div className="mt-4">
-          <div className="flex items-center gap-3">
-            <Button onClick={handleDownload}>Download .md</Button>
-            <Link
-              to="/project/$id/framing"
-              params={{ id }}
-              className="text-sm text-muted-foreground hover:text-foreground"
-            >
-              Review specification knowledge →
-            </Link>
-          </div>
-          <pre className="mt-4 overflow-auto rounded-md border bg-muted p-4 text-sm whitespace-pre-wrap">
-            {data.markdown}
-          </pre>
+          {data && !data.ready && (
+            <div className="mt-4">
+              <p className="text-sm text-sub">
+                Export is not available yet. All workflow phases must be closed before exporting.
+              </p>
+              <Link
+                to="/project/$id"
+                params={{ id }}
+                className="mt-2 inline-flex items-center gap-1 text-sm text-hint transition-colors hover:text-ink"
+              >
+                <ArrowLeftIcon className="size-3" />
+                <span>Return to specification</span>
+              </Link>
+            </div>
+          )}
+
+          {data?.ready && data.markdown && (
+            <div className="mt-4">
+              <div className="flex items-center gap-3">
+                <ShellButton variant="primary" onClick={handleDownload}>
+                  <DownloadIcon className="mr-1.5 size-3.5" />
+                  Download .md
+                </ShellButton>
+                <Link
+                  to="/project/$id/framing"
+                  params={{ id }}
+                  className="inline-flex items-center gap-1 text-sm text-hint transition-colors hover:text-ink"
+                >
+                  <BookOpenIcon className="size-3.5" />
+                  <span>Review specification knowledge</span>
+                </Link>
+              </div>
+              <pre className="mt-4 overflow-auto rounded-xl border border-rule bg-tint p-4 text-sm whitespace-pre-wrap text-sub shadow-[var(--shadow-card)]">
+                {data.markdown}
+              </pre>
+            </div>
+          )}
         </div>
-      )}
+      </ScrollArea>
     </div>
   );
 }
