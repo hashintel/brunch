@@ -85,13 +85,12 @@ export function AnsweredQuestionCard({
         <span className="text-ink">{chosenSummary}</span>
         {responseContext && (
           <>
-            <span className="text-rule">|</span>
-            <span className="truncate text-sub">
-              Context:{' '}
-              <span className="italic text-ink">
-                "{responseContext.length > 50 ? responseContext.slice(0, 50) + '…' : responseContext}"
+            <span className="shrink-0 text-rule">|</span>
+            <div className="min-w-0 grow">
+              <span className="block truncate text-sub">
+                Context: <span className="italic text-sub">"{responseContext}"</span>
               </span>
-            </span>
+            </div>
           </>
         )}
       </div>
