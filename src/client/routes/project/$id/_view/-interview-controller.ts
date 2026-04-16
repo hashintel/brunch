@@ -20,12 +20,14 @@ import {
   buildPhaseTurnIds,
   createInterviewControllerViewState,
   filterMessagesByPhase,
+  getKickoffMessage,
   reconcileStablePhaseTurns,
 } from './-interview-controller-core.js';
 import type {
+  InterviewDurableProjectState,
+  KickoffTurnViewModel,
   PendingQuestionViewModel,
   PhaseSummaryViewModel,
-  InterviewDurableProjectState,
 } from './-interview-controller-core.js';
 import { useInterviewDataAdapter } from './-interview-data.js';
 import { getProjectScopedChatId } from './-interview-hydration.js';
@@ -53,6 +55,12 @@ export type InterviewControllerTurnCardState =
       readonly kind: 'pending-question';
       readonly pendingQuestion: PendingQuestionViewModel;
       readonly disabled: true;
+    }
+  | {
+      readonly kind: 'kickoff';
+      readonly kickoff: KickoffTurnViewModel;
+      readonly disabled: boolean;
+      readonly submitKickoff: () => void;
     };
 
 export interface InterviewControllerPromptInputState {
@@ -68,6 +76,7 @@ export interface InterviewController {
   readonly chat: InterviewControllerChatState;
   readonly turnCard: InterviewControllerTurnCardState | null;
   readonly phaseSummary: PhaseSummaryViewModel | null;
+  readonly showGeneratingState: boolean;
   readonly promptInput: InterviewControllerPromptInputState;
 }
 
@@ -308,13 +317,31 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
               }
             },
           }
-        : {
-            kind: 'pending-question',
-            pendingQuestion: viewState.turnCard.pendingQuestion,
-            disabled: true,
-          }
+        : viewState.turnCard.kind === 'pending-question'
+          ? {
+              kind: 'pending-question',
+              pendingQuestion: viewState.turnCard.pendingQuestion,
+              disabled: true,
+            }
+          : (() => {
+              const kickoff = viewState.turnCard.kickoff;
+
+              return {
+                kind: 'kickoff' as const,
+                kickoff,
+                disabled: isLoading,
+                submitKickoff: () => {
+                  if (isLoading) {
+                    return;
+                  }
+
+                  submitText(getKickoffMessage(kickoff.phase, kickoff.mode));
+                },
+              };
+            })()
       : null,
     phaseSummary: viewState.phaseSummary,
+    showGeneratingState: viewState.showGeneratingState,
     promptInput: {
       visible: viewState.promptInput.visible,
       disabled: isLoading || submitTurnResponseMutation.isPending,

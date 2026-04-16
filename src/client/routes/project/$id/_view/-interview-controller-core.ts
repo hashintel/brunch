@@ -36,6 +36,13 @@ export interface PendingQuestionViewModel {
   readonly options: readonly PendingQuestionOption[];
 }
 
+export type KickoffMode = 'start' | 'continue';
+
+export interface KickoffTurnViewModel {
+  readonly phase: WorkflowPhase;
+  readonly mode: KickoffMode;
+}
+
 export interface PhaseSummaryViewModel {
   readonly turnId: number;
   readonly phase: ProjectStateTurn['phase'];
@@ -48,16 +55,40 @@ export type InterviewTurnCardViewModel =
       readonly turn: ProjectStateTurn;
       readonly state: 'active' | 'submitted';
     }
-  | { readonly kind: 'pending-question'; readonly pendingQuestion: PendingQuestionViewModel };
+  | { readonly kind: 'pending-question'; readonly pendingQuestion: PendingQuestionViewModel }
+  | { readonly kind: 'kickoff'; readonly kickoff: KickoffTurnViewModel };
 
 export interface InterviewControllerViewState {
   readonly project: InterviewDurableProjectState['project'];
   readonly workflow: InterviewDurableProjectState['workflow'];
   readonly turnCard: InterviewTurnCardViewModel | null;
   readonly phaseSummary: PhaseSummaryViewModel | null;
+  readonly showGeneratingState: boolean;
   readonly promptInput: {
     readonly visible: boolean;
   };
+}
+
+export const startPhaseMessages: Record<WorkflowPhase, string> = {
+  scope: 'Begin the grounding phase.',
+  design: 'Begin the elicitation phase.',
+  requirements: 'Begin the requirements phase.',
+  criteria: 'Begin the acceptance criteria phase.',
+};
+
+export const continuePhaseMessages: Record<WorkflowPhase, string> = {
+  scope: 'Continue the grounding phase.',
+  design: 'Continue the elicitation phase.',
+  requirements: 'Continue the requirements phase.',
+  criteria: 'Continue the acceptance criteria phase.',
+};
+
+export function getKickoffMode(turns: readonly ProjectStateTurn[], phase: WorkflowPhase): KickoffMode {
+  return turns.some((turn) => turn.phase === phase) ? 'continue' : 'start';
+}
+
+export function getKickoffMessage(phase: WorkflowPhase, mode: KickoffMode): string {
+  return mode === 'start' ? startPhaseMessages[phase] : continuePhaseMessages[phase];
 }
 
 function parseAssistantParts(json: string | null): BrunchAssistantPart[] {
@@ -331,6 +362,7 @@ export function createInterviewControllerViewState(
   submittedTurnId: number | null = null,
 ): InterviewControllerViewState {
   const { project, workflow } = durableProject;
+  const phaseState = workflow.phases[phase];
   const phaseTurn = findPhaseTurn(durableProject, phase);
   const showTurnCard = Boolean(phaseTurn?.options?.length);
   const phaseTurnHasResponse = hasPersistedTurnResponse(phaseTurn ?? undefined);
@@ -342,26 +374,44 @@ export function createInterviewControllerViewState(
     (isLoading || submittedTurnId !== null || workflow.phases[latestPhaseSummary.phase].proposalPending)
       ? latestPhaseSummary
       : null;
+  const showPersistedTurn =
+    showTurnCard &&
+    phaseTurn !== null &&
+    (!isLoading || isSubmittedTurn) &&
+    (!turnHasCompletedAnswer(phaseTurn) || isSubmittedTurn);
+  const showKickoff =
+    !isLoading && !phaseSummary && !pendingQuestion && phaseState.status !== 'closed' && !showPersistedTurn;
   const turnCard: InterviewTurnCardViewModel | null = phaseSummary
     ? null
     : pendingQuestion
       ? { kind: 'pending-question', pendingQuestion }
-      : showTurnCard && phaseTurn && (!isLoading || isSubmittedTurn)
+      : showPersistedTurn && phaseTurn
         ? {
             kind: 'persisted-turn',
             turn: phaseTurn,
             state: isSubmittedTurn ? 'submitted' : 'active',
           }
-        : null;
+        : showKickoff
+          ? {
+              kind: 'kickoff',
+              kickoff: {
+                phase,
+                mode: getKickoffMode(durableProject.turns, phase),
+              },
+            }
+          : null;
 
   return {
     project,
     workflow,
     turnCard,
     phaseSummary,
+    showGeneratingState: !phaseSummary && !turnCard && isLoading,
     promptInput: {
       visible:
-        phaseSummary || pendingQuestion ? false : !showTurnCard || (phaseTurnHasResponse && !isSubmittedTurn),
+        phaseSummary || pendingQuestion || showKickoff
+          ? false
+          : !showTurnCard || (phaseTurnHasResponse && !isSubmittedTurn),
     },
   };
 }

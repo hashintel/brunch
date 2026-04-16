@@ -24,8 +24,10 @@ import { getNextActivePhase, phaseOrder, phaseRouteSegments } from '@/shared/pha
 
 import { useInterviewController } from './-interview-controller';
 import {
+  continuePhaseMessages,
   getPersistedSelectedPositions,
   getPersistedTurnResponse,
+  startPhaseMessages,
   turnHasCompletedAnswer,
 } from './-interview-controller-core.js';
 
@@ -43,20 +45,6 @@ type TurnCardOption = Pick<
 function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectStateTurn['phase']) {
   return getForceClosePhaseAction(workflow, phase).available;
 }
-
-const startPhaseMessages: Record<WorkflowPhase, string> = {
-  scope: 'Begin the grounding phase.',
-  design: 'Begin the elicitation phase.',
-  requirements: 'Begin the requirements phase.',
-  criteria: 'Begin the acceptance criteria phase.',
-};
-
-const continuePhaseMessages: Record<WorkflowPhase, string> = {
-  scope: 'Continue the grounding phase.',
-  design: 'Continue the elicitation phase.',
-  requirements: 'Continue the requirements phase.',
-  criteria: 'Continue the acceptance criteria phase.',
-};
 
 function isReviewPhase(phase: WorkflowPhase) {
   return phase === 'requirements' || phase === 'criteria';
@@ -110,6 +98,47 @@ function ReviewPhaseBanner({ phase }: { phase: WorkflowPhase }) {
       label={`${getWorkflowPhaseLabel(phase)} workspace`}
       detail="This phase is staged as a structured review, not a freeform chat transcript."
     />
+  );
+}
+
+function KickoffTurnCard({
+  phase,
+  mode,
+  onProceed,
+  disabled,
+}: {
+  phase: WorkflowPhase;
+  mode: 'start' | 'continue';
+  onProceed: () => void;
+  disabled: boolean;
+}) {
+  const phaseLabel = getWorkflowPhaseLabel(phase);
+
+  return (
+    <WorkspaceStateCard
+      eyebrow={mode === 'start' ? 'Phase kickoff' : 'Continue phase'}
+      title={`${phaseLabel} phase`}
+      description={
+        mode === 'start'
+          ? `This phase is ready to begin. Proceed to generate the first ${isReviewPhase(phase) ? 'review step' : 'interview turn'}.`
+          : `This phase is open but has no current frontier turn. Proceed to generate the next ${isReviewPhase(phase) ? 'review step' : 'interview turn'}.`
+      }
+    >
+      <button
+        type="button"
+        data-testid="kickoff-turn-card"
+        onClick={onProceed}
+        disabled={disabled}
+        className={cn(
+          'rounded-md border px-3 py-2 text-sm transition-colors',
+          disabled
+            ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+            : 'border-border bg-background hover:bg-muted',
+        )}
+      >
+        Proceed
+      </button>
+    </WorkspaceStateCard>
   );
 }
 
@@ -548,14 +577,22 @@ function renderParts(
 }
 
 export function InterviewView({ phase }: { phase: WorkflowPhase }) {
-  const { chat, project, workflow, phaseTurns, phaseSummary, promptInput, turnCard, captureStatusByTurnId } =
-    useInterviewController(phase);
+  const {
+    chat,
+    project,
+    workflow,
+    phaseTurns,
+    phaseSummary,
+    promptInput,
+    turnCard,
+    captureStatusByTurnId,
+    showGeneratingState,
+  } = useInterviewController(phase);
   const phaseState = workflow.phases[phase];
   const autoPresentKeyRef = useRef<string | null>(null);
   const currentReachablePhase =
     phaseOrder.find((candidate) => workflow.phases[candidate].status !== 'closed') ?? null;
   const nextPhase = getNextActivePhase(workflow.phases, phase);
-  const hasVisibleTurnCard = turnCard !== null;
   // TODO: re-enable when auto-present is restored
   const _hasVisibleActiveTurn =
     turnCard?.kind === 'pending-question' ||
@@ -583,8 +620,6 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   //     ? phaseTurns.length === 0 ? startPhaseMessages[phase] : continuePhaseMessages[phase]
   //     : null;
   const autoPresentCommand = null;
-  const showGeneratingState =
-    !phaseSummary && (autoPresentCommand !== null || (chat.isLoading && !hasVisibleTurnCard));
   // TODO: prompt input is disabled while the phase-closure interaction model is being reworked.
   // The turn-card family owns user input; the generic composer will return when the
   // center-pane header controls phase start/continue lifecycle.
@@ -795,6 +830,15 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               hasPersistedResponse={false}
               disabled={turnCard.disabled}
               state="active"
+            />
+          )}
+
+          {turnCard?.kind === 'kickoff' && !showLockedState && (
+            <KickoffTurnCard
+              phase={turnCard.kickoff.phase}
+              mode={turnCard.kickoff.mode}
+              onProceed={turnCard.submitKickoff}
+              disabled={turnCard.disabled}
             />
           )}
 

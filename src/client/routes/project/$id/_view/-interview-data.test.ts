@@ -270,6 +270,7 @@ describe('workspace controller core', () => {
         turnId: 1,
         summary: 'Goals, terms, context, and constraints are sufficiently captured.',
       },
+      showGeneratingState: false,
       promptInput: { visible: false },
     });
   });
@@ -310,8 +311,9 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(pendingResponse, 'scope', [], false)).toEqual({
       project: pendingResponse.project,
       workflow: pendingResponse.workflow,
-      turnCard: { kind: 'persisted-turn', turn: pendingResponse.lastTurn!, state: 'active' },
+      turnCard: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'continue' } },
       phaseSummary: null,
+      showGeneratingState: false,
       promptInput: { visible: false },
     });
     expect(createInterviewControllerViewState(pendingResponse, 'scope', [], true)).toEqual({
@@ -319,21 +321,24 @@ describe('workspace controller core', () => {
       workflow: pendingResponse.workflow,
       turnCard: null,
       phaseSummary: null,
+      showGeneratingState: true,
       promptInput: { visible: false },
     });
     expect(createInterviewControllerViewState(selectedResponse, 'scope', [], false)).toEqual({
       project: selectedResponse.project,
       workflow: selectedResponse.workflow,
-      turnCard: { kind: 'persisted-turn', turn: selectedResponse.lastTurn!, state: 'active' },
+      turnCard: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'continue' } },
       phaseSummary: null,
-      promptInput: { visible: true },
+      showGeneratingState: false,
+      promptInput: { visible: false },
     });
     expect(createInterviewControllerViewState(freeTextOnlyResponse, 'scope', [], false)).toEqual({
       project: freeTextOnlyResponse.project,
       workflow: freeTextOnlyResponse.workflow,
-      turnCard: { kind: 'persisted-turn', turn: freeTextOnlyResponse.lastTurn!, state: 'active' },
+      turnCard: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'continue' } },
       phaseSummary: null,
-      promptInput: { visible: true },
+      showGeneratingState: false,
+      promptInput: { visible: false },
     });
   });
 
@@ -400,6 +405,7 @@ describe('workspace controller core', () => {
       workflow: submittedResponse.workflow,
       turnCard: { kind: 'persisted-turn', turn: submittedResponse.lastTurn!, state: 'submitted' },
       phaseSummary: null,
+      showGeneratingState: false,
       promptInput: { visible: false },
     });
   });
@@ -503,6 +509,7 @@ describe('workspace controller core', () => {
       },
     });
     expect(viewState.phaseSummary).toBeNull();
+    expect(viewState.showGeneratingState).toBe(false);
   });
 
   it('keeps turn-card projection scoped to the current phase', () => {
@@ -577,6 +584,7 @@ describe('workspace controller core', () => {
       workflow: durableProject.workflow,
       turnCard: null,
       phaseSummary: null,
+      showGeneratingState: false,
       promptInput: { visible: true },
     });
     expect(createInterviewControllerViewState(durableProject, 'design', [], false)).toEqual({
@@ -588,6 +596,7 @@ describe('workspace controller core', () => {
         state: 'active',
       },
       phaseSummary: null,
+      showGeneratingState: false,
       promptInput: { visible: false },
     });
   });

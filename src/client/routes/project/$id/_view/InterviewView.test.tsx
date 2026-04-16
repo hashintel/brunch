@@ -952,6 +952,39 @@ describe('InterviewView', () => {
     expect(answeredCard.compareDocumentPosition(handoffCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
+  it('renders a kickoff turn card when an open phase has no active frontier turn', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: '',
+        answer: '',
+        turns: [],
+        workflow: createWorkflowState({
+          scope: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        }),
+      }),
+    );
+
+    renderWorkspace();
+
+    expect((await screen.findByTestId('kickoff-turn-card')).textContent).toContain('Proceed');
+    expect(screen.getByText('Grounding phase')).toBeTruthy();
+    expect(screen.queryByLabelText('Type a message...')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('kickoff-turn-card'));
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Begin the grounding phase.' });
+    });
+  });
+
   it('renders the turn card from a pending-question tool part before route invalidation', async () => {
     setLoaderData(
       createWorkspaceLoaderData({

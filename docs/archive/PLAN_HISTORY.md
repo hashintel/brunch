@@ -23,6 +23,10 @@ Archived from the legacy phase-ledger form of `memory/PLAN.md` on 2026-04-14 dur
 
 ## Recent Frontier Archives
 
+- 2026-04-15 — **Top bar and phase label canonicalization** — RouteRoot gained the canonical top bar and shared phase-label registry across dashboard, sidebar, transcript copy, and fixtures.
+- 2026-04-15 — **Story-first turn-card refinement** — DrawerCard, question/knowledge detail cards, chat transcript story, and token scale canon landed as the presentational base for route integration.
+- 2026-04-14 — **Turn-owned captured-item projection and trailing observer attachment** — answered turns project captured knowledge with stable reference codes and keep late observer completion attached to the originating turn.
+- 2026-04-14 — **Turn-owned submit/interviewer-processing choreography** — active turns stay mounted through submit, lock inline during processing, and collapse only when the next state is ready.
 - 2026-04-14 — **Workspace shell first honesty pass** — dashboard links became real, root/dashboard scrolling was fixed, future phases became visible-but-disabled, review phases gained distinct shell framing, and transcript replay shifted from user bubbles toward compact answered-turn cards plus control markers.
 - 2026-04-14 — **Fixture-backed walkthrough workspace** — walkthrough-ready seed scenarios now front-load the public seed catalog, prove resume after re-open, and cover export-ready/manual-inspection states.
 

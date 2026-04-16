@@ -244,7 +244,9 @@ function ControllerProbe() {
           ? workspace.turnCard.turn.question
           : workspace.turnCard?.kind === 'pending-question'
             ? workspace.turnCard.pendingQuestion.question
-            : 'none'}
+            : workspace.turnCard?.kind === 'kickoff'
+              ? `${workspace.turnCard.kickoff.mode}:${workspace.turnCard.kickoff.phase}`
+              : 'none'}
       </div>
       <div data-testid="prompt-visible">{String(workspace.promptInput.visible)}</div>
     </div>
@@ -277,6 +279,19 @@ afterEach(() => {
 });
 
 describe('interview controller', () => {
+  it('projects a kickoff turn card when an open phase has no active frontier turn yet', async () => {
+    currentProjectState = createProjectState({ assistantText: '', answer: '' });
+    currentProjectState.project.active_turn_id = null;
+    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.turns = [];
+
+    renderController();
+
+    expect((await screen.findByTestId('turn-card-kind')).textContent).toBe('kickoff');
+    expect(screen.getByTestId('turn-card').textContent).toBe('start:scope');
+    expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
+  });
+
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
     currentProjectState = createProjectState({
       assistantText: 'Earlier question?',
@@ -315,7 +330,8 @@ describe('interview controller', () => {
     expect((await screen.findByTestId('messages')).textContent).toBe(
       'Build the web app|What should we build first?',
     );
-    expect(screen.getByTestId('turn-card').textContent).toBe('What should we build first?');
+    expect(screen.getByTestId('turn-card').textContent).toBe('continue:scope');
+    expect(screen.getByTestId('turn-card-kind').textContent).toBe('kickoff');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
     expect(fetchMock).not.toHaveBeenCalled();
   });
