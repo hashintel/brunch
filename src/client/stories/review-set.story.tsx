@@ -1,9 +1,9 @@
 /**
- * Pattern: Review set — synthesized requirement list with per-item
- * expand/comment/reject, stats bar, batch review submission, user-created
- * items, and phase completion.
+ * Pattern: Review set — synthesized requirement/criteria list with
+ * per-item commenting, collection-level stats, global review note,
+ * and full-set review submission (Accept Review / Request Changes).
  */
-import { Check, ChevronDown, ChevronRight, MessageSquare, Plus, X } from 'lucide-react';
+import { Check, ChevronRight, MessageSquare, Plus } from 'lucide-react';
 import { useState } from 'react';
 
 import { Button } from '@/client/components/ui/button';
@@ -30,7 +30,6 @@ interface ReviewItem {
 
 interface ReviewItemState {
   comment: string;
-  rejected: boolean;
 }
 
 // ── Fixture data ─────────────────────────────────────────────────────
@@ -117,30 +116,18 @@ const initialItems: ReviewItem[] = [
 function createInitialState(items: ReviewItem[]): Record<string, ReviewItemState> {
   const state: Record<string, ReviewItemState> = {};
   for (const item of items) {
-    state[item.id] = { comment: '', rejected: false };
+    state[item.id] = { comment: '' };
   }
-  // Pre-populate fixtures for demo
+  // Pre-populate fixture for demo
   state['REQ-3'] = {
     comment: 'This should be scoped to document-level rollback only, not field-level.',
-    rejected: false,
   };
-  state['REQ-4'] = { comment: '', rejected: true };
   return state;
 }
 
 // ── Stats Bar ────────────────────────────────────────────────────────
 
-function StatsBar({
-  total,
-  grounding,
-  commented,
-  rejected,
-}: {
-  total: number;
-  grounding: number;
-  commented: number;
-  rejected: number;
-}) {
+function StatsBar({ total, grounding, commented }: { total: number; grounding: number; commented: number }) {
   return (
     <div className="flex items-center gap-6">
       <div className="flex flex-col">
@@ -157,12 +144,6 @@ function StatsBar({
         </span>
         <span className="text-xs text-hint">Commented</span>
       </div>
-      <div className="flex flex-col">
-        <span className={cn('text-lg font-medium', rejected > 0 ? 'text-[#e14640]' : 'text-ink')}>
-          {rejected}
-        </span>
-        <span className="text-xs text-hint">Rejected</span>
-      </div>
     </div>
   );
 }
@@ -173,79 +154,31 @@ function ReviewItemRow({
   item,
   state,
   onCommentChange,
-  onReject,
-  onUnreject,
 }: {
   item: ReviewItem;
   state: ReviewItemState;
   onCommentChange: (comment: string) => void;
-  onReject: () => void;
-  onUnreject: () => void;
 }) {
   const hasComment = state.comment.trim().length > 0;
 
   return (
     <Collapsible>
-      {/* Collapsed row */}
+      {/* Header — always visible */}
       <div
         className={cn(
-          'flex items-center gap-3 border-b border-rule px-4 py-3',
-          state.rejected && 'bg-[rgba(225,70,64,0.03)] opacity-60',
+          'relative z-[1] flex items-start gap-3 border-b border-rule bg-white px-4 py-3 shadow-[var(--shadow-card)]',
           item.isRevised && 'bg-[rgba(37,99,235,0.03)]',
         )}
       >
-        {/* Reference code */}
-        <span className="w-12 shrink-0 font-mono text-xs font-medium text-hint">{item.id}</span>
+        {/* Reference code — aligned to first content line */}
+        <span className="w-14 shrink-0 pt-0.5 font-mono text-xs font-medium text-hint">{item.id}</span>
 
-        {/* Content */}
-        <span className="flex-1 truncate text-sm text-ink">{item.content}</span>
-
-        {/* Badges */}
-        {item.isUserCreated && (
-          <span className="inline-flex h-5 items-center rounded-md bg-[rgba(37,99,235,0.08)] px-1.5 text-[11px] font-medium text-[#2070e6]">
-            Added by you
-          </span>
-        )}
-        {item.isRevised && (
-          <span className="inline-flex h-5 items-center rounded-md bg-[rgba(37,99,235,0.08)] px-1.5 text-[11px] font-medium text-[#2070e6]">
-            Revised
-          </span>
-        )}
-
-        {/* Grounding indicator */}
-        <span className="flex items-center gap-0.5 text-xs text-hint">
-          <span className="text-[#2070e6]">●</span>
-          {item.grounding.length}
-        </span>
-
-        {/* Status badges */}
-        {hasComment && <MessageSquare className="size-3.5 text-[#d97706]" />}
-        {state.rejected && <X className="size-3.5 text-[#e14640]" />}
-
-        {/* Expand chevron */}
-        <CollapsibleTrigger asChild>
-          <button type="button" className="flex size-6 items-center justify-center rounded-md hover:bg-wash">
-            <ChevronDown className="size-4 text-hint" />
-          </button>
-        </CollapsibleTrigger>
-      </div>
-
-      {/* Expanded content */}
-      <CollapsibleContent>
-        <div className="flex flex-col gap-3 border-b border-rule bg-tint px-4 py-4">
-          {/* Full content */}
+        {/* Content block: title, rationale subline, grounding badges */}
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
           <p className="text-sm text-ink">{item.content}</p>
-
-          {/* Rationale */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-sub">Rationale</span>
-            <p className="text-sm leading-relaxed text-sub italic">{item.rationale}</p>
-          </div>
-
-          {/* Grounding links */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-sub">Grounded by</span>
-            <div className="flex flex-wrap gap-1.5">
+          <p className="line-clamp-2 text-xs leading-relaxed text-sub">{item.rationale}</p>
+          {item.grounding.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
               {item.grounding.map((ref) => (
                 <span
                   key={ref.code}
@@ -255,32 +188,46 @@ function ReviewItemRow({
                 </span>
               ))}
             </div>
-          </div>
+          )}
+        </div>
 
-          {/* Comment */}
-          <div className="flex flex-col gap-1">
-            <span className="text-xs font-medium text-sub">Comment</span>
-            <Textarea
-              value={state.comment}
-              onChange={(e) => onCommentChange(e.target.value)}
-              placeholder="Add a revision request or note…"
-              className="min-h-16 rounded-xl border-rule bg-white text-sm"
-            />
-          </div>
+        {/* Right-side badges + comment toggle */}
+        <div className="flex shrink-0 items-center gap-2 pt-0.5">
+          {item.isUserCreated && (
+            <span className="inline-flex h-5 items-center rounded-md bg-[rgba(37,99,235,0.08)] px-1.5 text-[11px] font-medium text-[#2070e6]">
+              Added by you
+            </span>
+          )}
+          {item.isRevised && (
+            <span className="inline-flex h-5 items-center rounded-md bg-[rgba(37,99,235,0.08)] px-1.5 text-[11px] font-medium text-[#2070e6]">
+              Revised
+            </span>
+          )}
 
-          {/* Reject / Un-reject */}
-          <div className="flex justify-end">
-            {state.rejected ? (
-              <Button variant="ghost" size="sm" onClick={onUnreject}>
-                Restore
-              </Button>
-            ) : (
-              <Button variant="destructive" size="sm" onClick={onReject}>
-                <X data-icon="inline-start" />
-                Reject
-              </Button>
-            )}
-          </div>
+          {/* Comment icon-button: trigger + status indicator */}
+          <CollapsibleTrigger asChild>
+            <button
+              type="button"
+              className="flex size-7 items-center justify-center rounded-md hover:bg-wash"
+            >
+              <MessageSquare
+                className={cn('size-4', hasComment ? 'fill-[#d97706]/15 text-[#d97706]' : 'text-hint')}
+              />
+            </button>
+          </CollapsibleTrigger>
+        </div>
+      </div>
+
+      {/* Comment drawer — edge-to-edge textarea */}
+      <CollapsibleContent>
+        <div className="border-b border-rule bg-tint px-4 pt-3">
+          <label className="text-xs text-sub">Comment</label>
+          <Textarea
+            value={state.comment}
+            onChange={(e) => onCommentChange(e.target.value)}
+            placeholder="Add a revision note for this item…"
+            className="min-h-16 resize-none rounded-none border-0 bg-transparent px-0 pt-2 pb-3 text-sm text-ink placeholder:text-hint focus-visible:ring-0"
+          />
         </div>
       </CollapsibleContent>
     </Collapsible>
@@ -378,32 +325,23 @@ function InteractiveReviewSet() {
   const [itemStates, setItemStates] = useState<Record<string, ReviewItemState>>(
     createInitialState(initialItems),
   );
-  const [approved, setApproved] = useState(false);
+  const [globalNote, setGlobalNote] = useState('');
+  const [accepted, setAccepted] = useState(false);
 
   // Derived stats
   const totalGrounding = items.reduce((sum, item) => sum + item.grounding.length, 0);
   const commentedCount = items.filter(
     (item) => (itemStates[item.id]?.comment ?? '').trim().length > 0,
   ).length;
-  const rejectedCount = items.filter((item) => itemStates[item.id]?.rejected).length;
 
-  // Has any edits? (compared to initial state)
-  const hasEdits =
-    commentedCount !==
-      Object.values(createInitialState(initialItems)).filter((s) => s.comment.trim().length > 0).length ||
-    rejectedCount !== Object.values(createInitialState(initialItems)).filter((s) => s.rejected).length ||
-    items.length !== initialItems.length;
+  // Has any feedback? (per-item comments or global note)
+  const hasAnyFeedback = commentedCount > 0 || globalNote.trim().length > 0;
 
   function updateItemState(id: string, update: Partial<ReviewItemState>) {
     setItemStates((prev) => ({
       ...prev,
       [id]: { ...prev[id]!, ...update },
     }));
-  }
-
-  function handleDiscard() {
-    setItems(initialItems);
-    setItemStates(createInitialState(initialItems));
   }
 
   function handleAddItem(content: string, rationale: string) {
@@ -418,68 +356,91 @@ function InteractiveReviewSet() {
     setItems((prev) => [...prev, newItem]);
     setItemStates((prev) => ({
       ...prev,
-      [newId]: { comment: '', rejected: false },
+      [newId]: { comment: '' },
     }));
+  }
+
+  function handleAccept() {
+    console.log('Accept review');
+    setAccepted(true);
+  }
+
+  function handleRequestChanges() {
+    const itemComments: Record<string, string> = {};
+    for (const [id, state] of Object.entries(itemStates)) {
+      if (state.comment.trim().length > 0) {
+        itemComments[id] = state.comment.trim();
+      }
+    }
+    console.log('Request changes', {
+      itemComments,
+      globalNote: globalNote.trim() || undefined,
+    });
   }
 
   return (
     <div className="flex flex-col gap-4">
-      {/* Sticky header */}
+      {/* Header card */}
       <div className="overflow-hidden rounded-xl border border-rule bg-white p-5">
         <h3 className="text-base font-medium text-ink">Requirements</h3>
         <p className="mt-1.5 text-sm leading-relaxed text-sub">
-          Review the synthesized requirements. Comment on items that need revision, reject items to remove, or
-          approve the list to proceed.
+          Review the synthesized requirements. Comment on individual items or add an overall review note, then
+          accept the review or request changes.
         </p>
         <div className="mt-4">
-          <StatsBar
-            total={items.length}
-            grounding={totalGrounding}
-            commented={commentedCount}
-            rejected={rejectedCount}
-          />
+          <StatsBar total={items.length} grounding={totalGrounding} commented={commentedCount} />
         </div>
       </div>
 
       {/* Item list */}
-      <div className="overflow-hidden rounded-xl border border-rule bg-white">
+      <div className="overflow-hidden rounded-xl bg-white shadow-[var(--shadow-card-ring)]">
         {items.map((item) => (
           <ReviewItemRow
             key={item.id}
             item={item}
-            state={itemStates[item.id] ?? { comment: '', rejected: false }}
+            state={itemStates[item.id] ?? { comment: '' }}
             onCommentChange={(comment) => updateItemState(item.id, { comment })}
-            onReject={() => updateItemState(item.id, { rejected: true })}
-            onUnreject={() => updateItemState(item.id, { rejected: false })}
           />
         ))}
         <AddRequirementRow onAdd={handleAddItem} />
       </div>
 
+      {/* Global review note */}
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-sub">Review note</span>
+        <Textarea
+          value={globalNote}
+          onChange={(e) => setGlobalNote(e.target.value)}
+          placeholder="Overall feedback on the review set…"
+          className="min-h-20 rounded-xl border-rule text-sm"
+        />
+      </div>
+
       {/* Review actions */}
       <div className="flex items-center justify-end gap-2">
-        {hasEdits ? (
+        {hasAnyFeedback ? (
           <>
-            <Button variant="ghost" onClick={handleDiscard}>
-              Discard review
+            <Button variant="outline" onClick={handleAccept}>
+              <Check data-icon="inline-start" />
+              Accept Review
             </Button>
-            <Button onClick={() => console.log('Submit review', itemStates)}>Submit review</Button>
+            <Button onClick={handleRequestChanges}>Request Changes</Button>
           </>
         ) : (
-          <Button variant="outline" onClick={() => setApproved(true)}>
+          <Button onClick={handleAccept}>
             <Check data-icon="inline-start" />
-            Approve
+            Accept Review
           </Button>
         )}
       </div>
 
       {/* Phase completion */}
-      {approved && <PhaseCompletionCard />}
+      {accepted && <PhaseCompletionCard />}
     </div>
   );
 }
 
-// ── Static Item State Variants ───────────────────────────────────────
+// ── Static Item Row ─────────────────────────────────────────────────
 
 function StaticReviewItem({
   item,
@@ -497,34 +458,47 @@ function StaticReviewItem({
       <p className="mb-2 text-xs text-hint">{label}</p>
       <div
         className={cn(
-          'flex items-center gap-3 rounded-xl border border-rule bg-white px-4 py-3',
-          state.rejected && 'bg-[rgba(225,70,64,0.03)] opacity-60',
+          'flex items-start gap-3 rounded-xl border border-rule bg-white px-4 py-3',
           item.isRevised && 'bg-[rgba(37,99,235,0.03)]',
         )}
       >
-        <span className="w-12 shrink-0 font-mono text-xs font-medium text-hint">{item.id}</span>
-        <span className="flex-1 truncate text-sm text-ink">{item.content}</span>
+        {/* Reference code */}
+        <span className="w-14 shrink-0 pt-0.5 font-mono text-xs font-medium text-hint">{item.id}</span>
 
-        {item.isUserCreated && (
-          <span className="inline-flex h-5 items-center rounded-md bg-[rgba(37,99,235,0.08)] px-1.5 text-[11px] font-medium text-[#2070e6]">
-            Added by you
-          </span>
-        )}
-        {item.isRevised && (
-          <span className="inline-flex h-5 items-center rounded-md bg-[rgba(37,99,235,0.08)] px-1.5 text-[11px] font-medium text-[#2070e6]">
-            Revised
-          </span>
-        )}
+        {/* Content block */}
+        <div className="flex min-w-0 flex-1 flex-col gap-1">
+          <p className="text-sm text-ink">{item.content}</p>
+          <p className="line-clamp-2 text-xs leading-relaxed text-sub">{item.rationale}</p>
+          {item.grounding.length > 0 && (
+            <div className="flex flex-wrap items-center gap-1">
+              {item.grounding.map((ref) => (
+                <span
+                  key={ref.code}
+                  className="inline-flex h-5 items-center rounded-md bg-wash px-1.5 font-mono text-[11px] font-medium text-sub"
+                >
+                  {ref.code}
+                </span>
+              ))}
+            </div>
+          )}
+        </div>
 
-        <span className="flex items-center gap-0.5 text-xs text-hint">
-          <span className="text-[#2070e6]">●</span>
-          {item.grounding.length}
-        </span>
-
-        {hasComment && <MessageSquare className="size-3.5 text-[#d97706]" />}
-        {state.rejected && <X className="size-3.5 text-[#e14640]" />}
-
-        <ChevronDown className="size-4 text-hint" />
+        {/* Badges + comment indicator */}
+        <div className="flex shrink-0 items-center gap-2 pt-0.5">
+          {item.isUserCreated && (
+            <span className="inline-flex h-5 items-center rounded-md bg-[rgba(37,99,235,0.08)] px-1.5 text-[11px] font-medium text-[#2070e6]">
+              Added by you
+            </span>
+          )}
+          {item.isRevised && (
+            <span className="inline-flex h-5 items-center rounded-md bg-[rgba(37,99,235,0.08)] px-1.5 text-[11px] font-medium text-[#2070e6]">
+              Revised
+            </span>
+          )}
+          <MessageSquare
+            className={cn('size-4', hasComment ? 'fill-[#d97706]/15 text-[#d97706]' : 'text-hint')}
+          />
+        </div>
       </div>
     </div>
   );
@@ -540,8 +514,8 @@ export function ReviewSetPage() {
           Pattern — Review Set
         </h1>
         <p className="mt-2.5 text-sm leading-relaxed text-sub">
-          Synthesized requirement list with per-item expand/comment/reject, collection-level stats, batch
-          review submission, user-created items, and phase completion.
+          Synthesized requirement list with per-item commenting, collection-level stats, global review note,
+          and full-set review submission (Accept Review / Request Changes).
         </p>
 
         <Separator className="my-8" />
@@ -550,8 +524,8 @@ export function ReviewSetPage() {
         <section>
           <h2 className="text-base font-medium text-ink">Interactive Review Set</h2>
           <p className="mt-1 text-sm text-sub">
-            Full interactive demo with expandable items, commenting, reject/restore, add requirement, and
-            three-state review action buttons.
+            Full interactive demo with per-item commenting via icon-button toggle, global review note, and
+            full-set Accept Review / Request Changes actions.
           </p>
 
           <div className="mt-6 max-w-3xl">
@@ -565,35 +539,21 @@ export function ReviewSetPage() {
         <section>
           <h2 className="text-base font-medium text-ink">Item State Variants</h2>
           <p className="mt-1 text-sm text-sub">
-            Each review item state shown individually: pending, commented, rejected, user-created, and
-            revised.
+            Each review item state shown individually: pending, commented, user-created, and revised.
           </p>
 
           <div className="mt-6 flex max-w-3xl flex-col gap-4">
-            <StaticReviewItem
-              label="Pending (no action taken)"
-              item={initialItems[0]!}
-              state={{ comment: '', rejected: false }}
-            />
+            <StaticReviewItem label="Pending (no comment)" item={initialItems[0]!} state={{ comment: '' }} />
             <StaticReviewItem
               label="Commented"
               item={initialItems[2]!}
-              state={{ comment: 'This should be scoped to document-level rollback only.', rejected: false }}
+              state={{ comment: 'This should be scoped to document-level rollback only.' }}
             />
-            <StaticReviewItem
-              label="Rejected"
-              item={initialItems[3]!}
-              state={{ comment: '', rejected: true }}
-            />
-            <StaticReviewItem
-              label="User-created"
-              item={initialItems[6]!}
-              state={{ comment: '', rejected: false }}
-            />
+            <StaticReviewItem label="User-created" item={initialItems[6]!} state={{ comment: '' }} />
             <StaticReviewItem
               label="Revised (re-presented after modification)"
               item={initialItems[7]!}
-              state={{ comment: '', rejected: false }}
+              state={{ comment: '' }}
             />
           </div>
         </section>
@@ -603,7 +563,7 @@ export function ReviewSetPage() {
         {/* ── Section 3: Phase Completion ────────────────────────────── */}
         <section>
           <h2 className="text-base font-medium text-ink">Phase Completion</h2>
-          <p className="mt-1 text-sm text-sub">The completion card shown after the review is approved.</p>
+          <p className="mt-1 text-sm text-sub">The completion card shown after the review is accepted.</p>
 
           <div className="mt-6 max-w-3xl">
             <PhaseCompletionCard />
