@@ -33,6 +33,7 @@ import { getNextActivePhase, phaseOrder, phaseRouteSegments } from '@/shared/pha
 import {
   getAcceptedClosureReplay,
   getPersistedActivitySummary,
+  getPersistedReviewSet,
   getPersistedSelectedPositions,
   getPersistedTurnResponse,
   turnHasCompletedAnswer,
@@ -291,6 +292,9 @@ function renderMessageParts(
     if (part.type === 'data-observer-result') {
       return null;
     }
+    if (part.type === 'data-review-set') {
+      return null;
+    }
     if (part.type === 'data-activity-summary') {
       return null;
     }
@@ -391,15 +395,15 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   // TODO: prompt input is disabled while the phase-closure interaction model is being reworked.
   // The turn-card family owns user input; the generic composer will return when the
   // center-pane header controls phase start/continue lifecycle.
-  const reviewSet =
+  const fallbackReviewSet =
     phase === 'requirements'
       ? {
-          title: 'Current requirement set',
+          title: 'Requirements',
           items: entitySnapshot.requirements,
         }
       : phase === 'criteria'
         ? {
-            title: 'Current criterion set',
+            title: 'Acceptance Criteria',
             items: entitySnapshot.criteria,
           }
         : undefined;
@@ -648,7 +652,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                     }
                     disabled={turnCard.disabled}
                     state={turnCard.state}
-                    reviewSet={reviewSet}
+                    reviewSet={getPersistedReviewSet(turnCard.turn) ?? fallbackReviewSet}
                   />
                 </div>
               )}
@@ -667,7 +671,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                 hasPersistedResponse={false}
                 disabled={turnCard.disabled}
                 state="active"
-                reviewSet={reviewSet}
+                reviewSet={fallbackReviewSet}
               />
             )}
 

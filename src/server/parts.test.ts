@@ -108,6 +108,21 @@ describe('assistant part round-trip', () => {
           },
         },
       },
+      {
+        type: 'data-review-set',
+        data: {
+          phase: 'requirements',
+          title: 'Requirements',
+          items: [
+            {
+              referenceCode: 'R1',
+              content: 'Resume the interview from persisted local state',
+              rationale: 'Core local-first promise.',
+              grounding: [{ code: 'GOAL1' }],
+            },
+          ],
+        },
+      },
     ];
 
     const json = serializeParts(parts);

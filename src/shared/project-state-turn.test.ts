@@ -6,6 +6,7 @@ import {
   getAcceptedClosureReplay,
   getPersistedActivitySummary,
   getPersistedReviewAction,
+  getPersistedReviewSet,
   getReviewActionForSelectedPositions,
   safeParsePersistedAssistantParts,
   safeParsePersistedUserParts,
@@ -186,5 +187,42 @@ describe('project-state-turn helpers', () => {
     expect(getReviewActionForSelectedPositions(reviewTurn, [0])).toBe('accept');
     expect(getReviewActionForSelectedPositions(reviewTurn, [1])).toBe('request-changes');
     expect(getReviewActionForSelectedPositions(createTurn({ phase: 'scope' }), [0])).toBeNull();
+  });
+
+  it('reads persisted turn-owned review-set artifacts from assistant parts', () => {
+    const reviewTurn = createTurn({
+      phase: 'requirements',
+      assistant_parts: JSON.stringify([
+        { type: 'text', text: 'Please review the synthesized requirement set.' },
+        {
+          type: 'data-review-set',
+          data: {
+            phase: 'requirements',
+            title: 'Requirements',
+            items: [
+              {
+                referenceCode: 'R1',
+                content: 'Resume the interview from persisted local state',
+                rationale: 'Core local-first promise.',
+                grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+              },
+            ],
+          },
+        },
+      ]),
+    });
+
+    expect(getPersistedReviewSet(reviewTurn)).toEqual({
+      phase: 'requirements',
+      title: 'Requirements',
+      items: [
+        {
+          referenceCode: 'R1',
+          content: 'Resume the interview from persisted local state',
+          rationale: 'Core local-first promise.',
+          grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+        },
+      ],
+    });
   });
 });

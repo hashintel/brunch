@@ -93,6 +93,25 @@ export const observerResultSchema = z.object({
   entityIds: z.object(createKnowledgeCollectionRecord(() => z.array(z.number()))),
 });
 
+export const reviewSetGroundingRefSchema = z.object({
+  code: z.string().min(1),
+});
+
+export const reviewSetItemSchema = z.object({
+  content: z.string().min(1),
+  referenceCode: z.string().min(1).optional(),
+  rationale: z.string().min(1).nullable().optional(),
+  grounding: z.array(reviewSetGroundingRefSchema).optional(),
+  isUserCreated: z.boolean().optional(),
+  isRevised: z.boolean().optional(),
+});
+
+export const reviewSetSchema = z.object({
+  phase: workflowPhaseSchema,
+  title: z.string().min(1),
+  items: z.array(reviewSetItemSchema),
+});
+
 export const activitySummarySchema = z.object({
   seconds: z.number().int().positive().optional(),
   tools: z.array(z.string()),
@@ -144,6 +163,7 @@ export type ReviewAction = z.infer<typeof reviewActionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
 export type ObserverEntityIds = ObserverResultData['entityIds'];
+export type ReviewSetData = z.infer<typeof reviewSetSchema>;
 export type ActivitySummary = z.infer<typeof activitySummarySchema>;
 export type DataTurnResponse = z.infer<typeof dataTurnResponseSchema>;
 export type { DataConfirmation };
@@ -157,6 +177,7 @@ export type BrunchMessageMetadata = {
 
 export type BrunchDataParts = {
   'observer-result': ObserverResultData;
+  'review-set': ReviewSetData;
   'activity-summary': ActivitySummary;
   'turn-response': DataTurnResponse;
   confirmation: DataConfirmation;
@@ -185,6 +206,7 @@ export type BrunchAssistantPart =
           | 'tool-ask_question'
           | 'tool-propose_phase_closure'
           | 'data-observer-result'
+          | 'data-review-set'
           | 'data-activity-summary'
           | 'data-phase-summary';
       }
@@ -216,6 +238,7 @@ export const brunchValidationTools = {
 
 export const brunchDataPartSchemas = {
   'observer-result': observerResultSchema,
+  'review-set': reviewSetSchema,
   'activity-summary': activitySummarySchema,
   'turn-response': dataTurnResponseSchema,
   confirmation: dataConfirmationSchema,
@@ -224,13 +247,21 @@ export const brunchDataPartSchemas = {
 
 export type PersistedBrunchAssistantPart = Extract<
   BrunchAssistantPart,
-  { type: 'text' | 'data-observer-result' | 'data-phase-summary' | 'data-activity-summary' }
+  {
+    type:
+      | 'text'
+      | 'data-observer-result'
+      | 'data-review-set'
+      | 'data-phase-summary'
+      | 'data-activity-summary';
+  }
 >;
 
 /** Part types that brunch persists for assistant turns. */
 const ASSISTANT_PART_TYPES: ReadonlySet<PersistedBrunchAssistantPart['type']> = new Set([
   'text',
   'data-observer-result',
+  'data-review-set',
   'data-phase-summary',
   'data-activity-summary',
 ] as const satisfies PersistedBrunchAssistantPart['type'][]);

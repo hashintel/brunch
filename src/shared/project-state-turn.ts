@@ -1,5 +1,6 @@
 import type { ProjectState, ProjectStateTurn, ReviewAction, WorkflowPhase } from './api-types.js';
 import {
+  type ReviewSetData,
   summarizeAssistantActivity,
   type ActivitySummary,
   type BrunchAssistantPart,
@@ -46,6 +47,17 @@ export function getPersistedReviewAction(
   turn: Pick<ProjectStateTurn, 'user_parts'> | undefined,
 ): ReviewAction | null {
   return getPersistedTurnResponse(turn)?.reviewAction ?? null;
+}
+
+export function getPersistedReviewSet(
+  turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined,
+): ReviewSetData | null {
+  return (
+    safeParsePersistedAssistantParts(turn?.assistant_parts).find(
+      (part): part is Extract<BrunchAssistantPart, { type: 'data-review-set' }> =>
+        part.type === 'data-review-set',
+    )?.data ?? null
+  );
 }
 
 export function hasPersistedTurnResponse(turn: Pick<ProjectStateTurn, 'user_parts'> | undefined): boolean {

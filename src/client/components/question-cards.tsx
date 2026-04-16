@@ -7,6 +7,7 @@ import { getPersistedTurnResponse } from '@/shared/project-state-turn.js';
 import { cn } from '../lib/utils';
 import { ShellButton } from './app-shell';
 import { DrawerCard } from './drawer-card';
+import { ReviewSetCard, type ReviewSetCardData } from './review-set-card';
 import { Checkbox } from './ui/checkbox';
 import { Skeleton } from './ui/skeleton';
 import { Textarea } from './ui/textarea';
@@ -133,12 +134,6 @@ type TurnCardOption = Pick<
   'position' | 'content' | 'is_recommended'
 >;
 
-type ReviewSetItem = {
-  content: string;
-  referenceCode?: string | null;
-  reviewStatus?: string | null;
-};
-
 export function ActiveQuestionCard({
   id,
   questionCode,
@@ -170,10 +165,7 @@ export function ActiveQuestionCard({
   hasPersistedResponse: boolean;
   disabled: boolean;
   state: 'active' | 'submitted';
-  reviewSet?: {
-    readonly title: string;
-    readonly items: readonly ReviewSetItem[];
-  };
+  reviewSet?: ReviewSetCardData;
 }) {
   const [selectedPositions, setSelectedPositions] = useState<number[]>(persistedSelectedPositions);
   const [freeText, setFreeText] = useState(persistedFreeText);
@@ -181,10 +173,11 @@ export function ActiveQuestionCard({
   const hasSelection = selectedPositions.length > 0;
   const hasFreeText = freeText.trim().length > 0;
   const canSubmit = hasSelection || (noneOfTheAbove && hasFreeText);
-  const isReviewTurn = Boolean(reviewSet);
   const isSubmitted = state === 'submitted';
   const isReadOnly = disabled || hasPersistedResponse || isSubmitted;
   const displayImpact = impact ?? 'low';
+  const acceptReviewPosition = options.find((option) => option.position === 0)?.position;
+  const requestChangesPosition = options.find((option) => option.position === 1)?.position;
 
   useEffect(() => {
     if (!hasPersistedResponse) {
@@ -195,6 +188,29 @@ export function ActiveQuestionCard({
     setFreeText(persistedFreeText);
   }, [hasPersistedResponse, persistedFreeText, persistedSelectedPositions]);
 
+  function submitReviewAction(position: number | undefined) {
+    if (position === undefined || isReadOnly) {
+      return;
+    }
+
+    void onSubmitResponse?.([position], freeText.trim() || undefined);
+  }
+
+  if (reviewSet) {
+    return (
+      <ReviewSetCard
+        reviewSet={reviewSet}
+        description={why ?? question}
+        note={freeText}
+        onNoteChange={setFreeText}
+        onAccept={() => submitReviewAction(acceptReviewPosition)}
+        onRequestChanges={() => submitReviewAction(requestChangesPosition)}
+        disabled={isReadOnly}
+        submitted={isSubmitted}
+      />
+    );
+  }
+
   function toggleSelection(position: number) {
     if (isReadOnly) {
       return;
@@ -202,13 +218,7 @@ export function ActiveQuestionCard({
 
     setNoneOfTheAbove(false);
     setSelectedPositions((current) =>
-      isReviewTurn
-        ? current.includes(position)
-          ? []
-          : [position]
-        : current.includes(position)
-          ? current.filter((value) => value !== position)
-          : [...current, position],
+      current.includes(position) ? current.filter((value) => value !== position) : [...current, position],
     );
   }
 
@@ -237,27 +247,6 @@ export function ActiveQuestionCard({
     <>
       {why && <p className="text-xs leading-relaxed text-sub">{why}</p>}
 
-      {reviewSet ? (
-        <div className="rounded-lg border bg-background p-3" data-testid="review-set-card">
-          <div className="mb-2 text-sm font-medium text-foreground">{reviewSet.title}</div>
-          <div className="space-y-2">
-            {reviewSet.items.map((item) => (
-              <div key={`${item.referenceCode ?? item.content}`} className="rounded-md border px-3 py-2">
-                {item.referenceCode ? (
-                  <div className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {item.referenceCode}
-                  </div>
-                ) : null}
-                <div className="mt-1 text-sm text-foreground">{item.content}</div>
-                {item.reviewStatus ? (
-                  <div className="mt-1 text-xs text-muted-foreground">Status: {item.reviewStatus}</div>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </div>
-      ) : null}
-
       <div className="flex flex-col gap-0.5">
         {options.map((opt) => {
           const isSelected = selectedPositions.includes(opt.position);
@@ -270,46 +259,33 @@ export function ActiveQuestionCard({
                 isReadOnly && 'cursor-not-allowed opacity-60',
               )}
             >
-              {isReviewTurn ? (
-                <input
-                  type="radio"
-                  name={`review-action-${id}`}
-                  checked={isSelected}
-                  onChange={() => toggleSelection(opt.position)}
-                  disabled={isReadOnly}
-                  aria-label={opt.content}
-                />
-              ) : (
-                <Checkbox
-                  checked={isSelected}
-                  onCheckedChange={() => toggleSelection(opt.position)}
-                  disabled={isReadOnly}
-                  aria-label={opt.content}
-                  className="mt-px shrink-0 data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
-                />
-              )}
+              <Checkbox
+                checked={isSelected}
+                onCheckedChange={() => toggleSelection(opt.position)}
+                disabled={isReadOnly}
+                aria-label={opt.content}
+                className="mt-px shrink-0 data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
+              />
               <span className={isSelected ? 'text-ink' : 'text-sub'}>{opt.content}</span>
               {opt.is_recommended && <span className="text-xxs font-medium text-[#2070e6]">Recommended</span>}
             </label>
           );
         })}
 
-        {!isReviewTurn && (
-          <>
-            <div className="my-1 border-t border-rule" />
-            <label className="flex min-h-6 cursor-pointer items-start gap-2 rounded-lg py-1 text-left text-xs-plus">
-              <Checkbox
-                checked={noneOfTheAbove}
-                onCheckedChange={toggleNone}
-                disabled={isReadOnly}
-                className="mt-px shrink-0 data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
-              />
-              <span className={cn('text-sub', noneOfTheAbove && 'text-ink')}>
-                None of the above / I'm not sure
-              </span>
-            </label>
-          </>
-        )}
+        <>
+          <div className="my-1 border-t border-rule" />
+          <label className="flex min-h-6 cursor-pointer items-start gap-2 rounded-lg py-1 text-left text-xs-plus">
+            <Checkbox
+              checked={noneOfTheAbove}
+              onCheckedChange={toggleNone}
+              disabled={isReadOnly}
+              className="mt-px shrink-0 data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
+            />
+            <span className={cn('text-sub', noneOfTheAbove && 'text-ink')}>
+              None of the above / I'm not sure
+            </span>
+          </label>
+        </>
       </div>
 
       {isSubmitted ? (
@@ -323,19 +299,15 @@ export function ActiveQuestionCard({
 
       <div className="-mx-4 -mb-4 border-t border-rule bg-white px-4 pt-3">
         <label className="text-xs text-sub" htmlFor={`turn-response-${id}`}>
-          {reviewSet ? 'Review note' : 'Please provide additional context for your answer.'}
+          Please provide additional context for your answer.
         </label>
         <Textarea
           id={`turn-response-${id}`}
-          aria-label={reviewSet ? 'Review note' : 'Additional response context'}
+          aria-label="Additional response context"
           value={freeText}
           onChange={(e) => setFreeText(e.target.value)}
           disabled={isReadOnly}
-          placeholder={
-            reviewSet
-              ? 'Optional note explaining requested changes or confirming acceptance'
-              : 'Constraints, trade-offs, motivations, or reasoning worth capturing…'
-          }
+          placeholder="Constraints, trade-offs, motivations, or reasoning worth capturing…"
           className="min-h-24 resize-none rounded-none border-0 bg-transparent px-0 pb-5 pt-2 text-sm-plus text-ink placeholder:text-hint focus-visible:ring-0"
         />
       </div>

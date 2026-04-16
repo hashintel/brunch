@@ -1135,6 +1135,27 @@ describe('InterviewView', () => {
             user_parts: null,
             assistant_parts: JSON.stringify([
               { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      referenceCode: 'R1',
+                      content: 'Export the reviewed specification as markdown',
+                      rationale: 'Keeps the accepted review output portable for sharing.',
+                      grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+                    },
+                    {
+                      referenceCode: 'R2',
+                      content: 'Resume the interview from persisted local state',
+                      rationale: 'Maintains the local-first continuity promise after reload.',
+                      grounding: [{ code: 'GOAL2' }],
+                    },
+                  ],
+                },
+              },
             ]),
             created_at: '2026-04-03 10:00:00',
             options: [
@@ -1172,15 +1193,16 @@ describe('InterviewView', () => {
 
     renderWorkspace('requirements');
 
-    expect(await screen.findByText('Current requirement set')).toBeTruthy();
-    expect(screen.getByText('REQ1')).toBeTruthy();
+    expect(await screen.findByText('Requirements')).toBeTruthy();
+    expect(screen.getByText('R1')).toBeTruthy();
     expect(screen.getByText('Export the reviewed specification as markdown')).toBeTruthy();
-    expect(screen.getByText('REQ2')).toBeTruthy();
+    expect(screen.getByText('Keeps the accepted review output portable for sharing.')).toBeTruthy();
+    expect(screen.getByText('GOAL1')).toBeTruthy();
+    expect(screen.getByText('R2')).toBeTruthy();
     expect(screen.getByText('Resume the interview from persisted local state')).toBeTruthy();
+    expect(screen.getByLabelText('Comment on R1')).toBeTruthy();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /accept review/i })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /request changes/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
   });
 
   it('renders criterion reference codes and review actions on the criteria full-set review turn', async () => {
@@ -1218,6 +1240,27 @@ describe('InterviewView', () => {
             user_parts: null,
             assistant_parts: JSON.stringify([
               { type: 'text', text: 'Please review the current criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      referenceCode: 'CRIT1',
+                      content: 'Restarting restores the active path',
+                      rationale: 'Shows the local persistence seam survives reloads.',
+                      grounding: [{ code: 'R1' }],
+                    },
+                    {
+                      referenceCode: 'CRIT2',
+                      content: 'Markdown export includes accepted requirements only',
+                      rationale: 'Prevents draft review content from leaking into export.',
+                      grounding: [{ code: 'R2' }, { code: 'D1' }],
+                    },
+                  ],
+                },
+              },
             ]),
             created_at: '2026-04-03 10:00:00',
             options: [
@@ -1255,15 +1298,14 @@ describe('InterviewView', () => {
 
     renderWorkspace('criteria');
 
-    expect(await screen.findByText('Current criterion set')).toBeTruthy();
+    expect(await screen.findByText('Acceptance Criteria')).toBeTruthy();
     expect(screen.getByText('CRIT1')).toBeTruthy();
     expect(screen.getByText('Restarting restores the active path')).toBeTruthy();
+    expect(screen.getByText('Shows the local persistence seam survives reloads.')).toBeTruthy();
     expect(screen.getByText('CRIT2')).toBeTruthy();
     expect(screen.getByText('Markdown export includes accepted requirements only')).toBeTruthy();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /accept review/i })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /request changes/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
   });
 
   it('does not forward the accepted requirements review text into chat when the server already advanced to criteria', async () => {
@@ -1335,8 +1377,7 @@ describe('InterviewView', () => {
 
     renderWorkspace('requirements');
 
-    fireEvent.click(await screen.findByRole('radio', { name: /accept review/i }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept Review' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1428,8 +1469,7 @@ describe('InterviewView', () => {
 
     renderWorkspace('criteria');
 
-    fireEvent.click(await screen.findByRole('radio', { name: /accept review/i }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept Review' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
