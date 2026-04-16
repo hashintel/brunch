@@ -158,7 +158,7 @@ describe('project-state-turn helpers', () => {
           ]),
         }),
       ),
-    ).toEqual({ tools: ['structured question'] });
+    ).toEqual({ tools: [] });
   });
 
   it('finds selected options by unique positions without route-private helpers', () => {

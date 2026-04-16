@@ -246,9 +246,12 @@ function getToolSummaryLabel(toolName: string): string {
   }
 }
 
+/** Tools that fire on every turn and add noise to the activity summary. */
+const FILTERED_ACTIVITY_TOOLS = new Set(['tool-ask_question']);
+
 function getActivityToolLabel(part: BrunchUIMessagePart): string | null {
-  if (part.type === 'tool-ask_question') {
-    return getToolSummaryLabel('ask_question');
+  if (FILTERED_ACTIVITY_TOOLS.has(part.type)) {
+    return null;
   }
 
   if (part.type === 'tool-propose_phase_closure') {

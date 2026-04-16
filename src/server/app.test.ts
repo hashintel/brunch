@@ -3309,12 +3309,6 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         role: 'assistant',
         parts: [
           {
-            type: 'data-activity-summary',
-            data: {
-              tools: ['structured question'],
-            },
-          },
-          {
             type: 'data-observer-result',
             data: {
               turnId: 1,

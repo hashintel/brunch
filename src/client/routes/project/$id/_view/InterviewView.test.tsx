@@ -1180,7 +1180,7 @@ describe('InterviewView', () => {
     expect(screen.getByLabelText('Review note')).toBeTruthy();
     expect(screen.getByRole('radio', { name: /accept review/i })).toBeTruthy();
     expect(screen.getByRole('radio', { name: /request changes/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Submit review' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy();
   });
 
   it('renders criterion reference codes and review actions on the criteria full-set review turn', async () => {
@@ -1263,7 +1263,7 @@ describe('InterviewView', () => {
     expect(screen.getByLabelText('Review note')).toBeTruthy();
     expect(screen.getByRole('radio', { name: /accept review/i })).toBeTruthy();
     expect(screen.getByRole('radio', { name: /request changes/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Submit review' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Submit' })).toBeTruthy();
   });
 
   it('does not forward the accepted requirements review text into chat when the server already advanced to criteria', async () => {
@@ -1336,7 +1336,7 @@ describe('InterviewView', () => {
     renderWorkspace('requirements');
 
     fireEvent.click(await screen.findByRole('radio', { name: /accept review/i }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Submit review' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1429,7 +1429,7 @@ describe('InterviewView', () => {
     renderWorkspace('criteria');
 
     fireEvent.click(await screen.findByRole('radio', { name: /accept review/i }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Submit review' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1564,7 +1564,7 @@ describe('InterviewView', () => {
     });
 
     fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1614,7 +1614,7 @@ describe('InterviewView', () => {
     fireEvent.change(await screen.findByLabelText('Additional response context'), {
       target: { value: 'Covers both launch paths' },
     });
-    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1853,7 +1853,7 @@ describe('InterviewView', () => {
       target: { value: 'None of these fit our use case' },
     });
 
-    fireEvent.click(await screen.findByRole('button', { name: /submit free-text response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1922,7 +1922,7 @@ describe('InterviewView', () => {
       target: { value: 'Best fit for our launch' },
     });
     fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('turn-processing-state').textContent).toContain(
@@ -1988,7 +1988,7 @@ describe('InterviewView', () => {
       target: { value: 'Best fit for our launch' },
     });
     fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('turn-processing-state')).toBeTruthy();
@@ -2128,7 +2128,7 @@ describe('InterviewView', () => {
       target: { value: 'Best fit for our launch' },
     });
     fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('turn-processing-state')).toBeTruthy();
@@ -2259,7 +2259,7 @@ describe('InterviewView', () => {
     renderWorkspace();
 
     fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     expect((await screen.findByRole('alert')).textContent).toContain('Selection could not be saved');
     expect(routerInvalidate).not.toHaveBeenCalled();

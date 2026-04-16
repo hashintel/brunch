@@ -5,6 +5,7 @@ import type { Impact, ProjectStateTurn } from '@/shared/api-types.js';
 import { getPersistedTurnResponse } from '@/shared/project-state-turn.js';
 
 import { cn } from '../lib/utils';
+import { ShellButton } from './app-shell';
 import { DrawerCard } from './drawer-card';
 import { Checkbox } from './ui/checkbox';
 import { Skeleton } from './ui/skeleton';
@@ -145,6 +146,8 @@ export function ActiveQuestionCard({
   impact,
   options,
   onSubmitResponse,
+  onBack,
+  onSkip,
   persistedSelectedPositions,
   persistedFreeText,
   hasPersistedResponse,
@@ -158,6 +161,8 @@ export function ActiveQuestionCard({
   impact: ProjectStateTurn['impact'];
   options: readonly TurnCardOption[];
   onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
+  onBack?: () => void;
+  onSkip?: () => void;
   persistedSelectedPositions: number[];
   persistedFreeText: string;
   hasPersistedResponse: boolean;
@@ -173,6 +178,7 @@ export function ActiveQuestionCard({
   const [noneOfTheAbove, setNoneOfTheAbove] = useState(false);
   const hasSelection = selectedPositions.length > 0;
   const hasFreeText = freeText.trim().length > 0;
+  const canSubmit = hasSelection || noneOfTheAbove || hasFreeText;
   const isReviewTurn = Boolean(reviewSet);
   const isSubmitted = state === 'submitted';
   const isReadOnly = disabled || hasPersistedResponse || isSubmitted;
@@ -254,7 +260,7 @@ export function ActiveQuestionCard({
             <label
               key={opt.position}
               className={cn(
-                'flex h-6 cursor-pointer items-center gap-2 rounded-lg text-left text-xs-plus',
+                'flex min-h-6 cursor-pointer items-start gap-2 rounded-lg py-1 text-left text-xs-plus',
                 noneOfTheAbove && 'opacity-40',
                 isReadOnly && 'cursor-not-allowed opacity-60',
               )}
@@ -274,7 +280,7 @@ export function ActiveQuestionCard({
                   onCheckedChange={() => toggleSelection(opt.position)}
                   disabled={isReadOnly}
                   aria-label={opt.content}
-                  className="data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
+                  className="mt-px shrink-0 data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
                 />
               )}
               <span className={isSelected ? 'text-ink' : 'text-sub'}>{opt.content}</span>
@@ -286,12 +292,12 @@ export function ActiveQuestionCard({
         {!isReviewTurn && (
           <>
             <div className="my-1 border-t border-rule" />
-            <label className="flex h-6 cursor-pointer items-center gap-2 rounded-lg text-left text-xs-plus">
+            <label className="flex min-h-6 cursor-pointer items-start gap-2 rounded-lg py-1 text-left text-xs-plus">
               <Checkbox
                 checked={noneOfTheAbove}
                 onCheckedChange={toggleNone}
                 disabled={isReadOnly}
-                className="data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
+                className="mt-px shrink-0 data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
               />
               <span className={cn('text-sub', noneOfTheAbove && 'text-ink')}>
                 None of the above / I'm not sure
@@ -338,51 +344,22 @@ export function ActiveQuestionCard({
       </DrawerCard>
 
       {!isSubmitted && (
-        <div className="mt-3 flex items-center justify-end gap-2">
-          {isReviewTurn ? (
-            <button
-              type="button"
-              disabled={isReadOnly || !hasSelection}
-              onClick={() => onSubmitResponse?.(selectedPositions, freeText)}
-              className={cn(
-                'inline-flex h-8 items-center justify-center rounded-md px-3.5 text-sm font-medium whitespace-nowrap transition-colors',
-                isReadOnly || !hasSelection
-                  ? 'cursor-not-allowed bg-muted text-muted-foreground'
-                  : 'bg-[#2070e6] text-white hover:bg-[#1060d6]',
-              )}
+        <div className="mt-3 flex items-center justify-between">
+          <ShellButton variant="ghost" disabled={isReadOnly} onClick={onBack}>
+            Back
+          </ShellButton>
+          <div className="flex items-center gap-2">
+            <ShellButton variant="ghost" disabled={isReadOnly} onClick={onSkip}>
+              Skip
+            </ShellButton>
+            <ShellButton
+              variant="primary"
+              disabled={isReadOnly || !canSubmit}
+              onClick={() => onSubmitResponse?.(selectedPositions, freeText.trim() || undefined)}
             >
-              Submit review
-            </button>
-          ) : (
-            <>
-              <button
-                type="button"
-                disabled={isReadOnly || !hasSelection}
-                onClick={() => onSubmitResponse?.(selectedPositions, freeText)}
-                className={cn(
-                  'inline-flex h-8 items-center justify-center rounded-md px-3.5 text-sm font-medium whitespace-nowrap transition-colors',
-                  isReadOnly || !hasSelection
-                    ? 'cursor-not-allowed bg-muted text-muted-foreground'
-                    : 'bg-[#2070e6] text-white hover:bg-[#1060d6]',
-                )}
-              >
-                Submit selected response
-              </button>
-              <button
-                type="button"
-                disabled={isReadOnly || hasSelection || !hasFreeText}
-                onClick={() => onSubmitResponse?.([], freeText)}
-                className={cn(
-                  'inline-flex h-8 items-center justify-center rounded-md px-3.5 text-sm font-medium whitespace-nowrap transition-colors',
-                  isReadOnly || hasSelection || !hasFreeText
-                    ? 'cursor-not-allowed bg-muted text-muted-foreground'
-                    : 'bg-card text-foreground shadow-[var(--shadow-card-ring)]',
-                )}
-              >
-                Submit free-text response
-              </button>
-            </>
-          )}
+              Submit
+            </ShellButton>
+          </div>
         </div>
       )}
     </>

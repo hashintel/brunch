@@ -617,7 +617,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           {completedPhaseItems.length > 0 &&
             (turnCard?.kind === 'persisted-turn' ||
               turnCard?.kind === 'pending-question' ||
-              showGeneratingState) && <hr className="my-6 border-rule" />}
+              showGeneratingState) && <hr className="-mx-4 my-6 border-rule" />}
 
           {/* ── Zone 3: Active frontier ──────────────────────────────── */}
           {turnCard?.kind === 'persisted-turn' &&
