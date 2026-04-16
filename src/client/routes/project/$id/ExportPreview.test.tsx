@@ -60,7 +60,7 @@ describe('ExportPreview', () => {
     expect(
       screen.getByText('Export is not available yet. All workflow phases must be closed before exporting.'),
     ).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Return to interview →' }).getAttribute('href')).toBe(
+    expect(screen.getByRole('link', { name: 'Return to specification →' }).getAttribute('href')).toBe(
       '/project/7',
     );
   });
@@ -73,8 +73,11 @@ describe('ExportPreview', () => {
 
     render(<ExportPreview />);
 
+    expect(screen.getByRole('link', { name: '← Back to specification' }).getAttribute('href')).toBe(
+      '/project/7',
+    );
     expect(screen.getByRole('button', { name: 'Download .md' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Review knowledge →' }).getAttribute('href')).toBe(
+    expect(screen.getByRole('link', { name: 'Review specification knowledge →' }).getAttribute('href')).toBe(
       '/project/7/framing',
     );
     expect(

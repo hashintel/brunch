@@ -83,7 +83,7 @@ export function ProjectList() {
         <h1 className="text-base font-semibold">Brunch</h1>
 
         <Button onClick={handleOpen} disabled={createProjectMutation.isPending} className="mt-6 mb-2">
-          {createProjectMutation.isPending ? 'Creating...' : 'New project'}
+          {createProjectMutation.isPending ? 'Creating...' : 'New specification'}
         </Button>
 
         {createProjectMutation.errorMessage && (
@@ -93,7 +93,7 @@ export function ProjectList() {
         )}
 
         {projects.length === 0 ? (
-          <p className="text-muted-foreground">No projects yet. Create one to get started.</p>
+          <p className="text-muted-foreground">No specifications yet. Create one to get started.</p>
         ) : (
           <div className="flex flex-col gap-2">
             {projects.map((project) => (
@@ -126,15 +126,15 @@ export function ProjectList() {
             {dialogStep === 'name' && (
               <>
                 <DialogHeader>
-                  <DialogTitle>New project</DialogTitle>
-                  <DialogDescription>Give your project a name.</DialogDescription>
+                  <DialogTitle>New specification</DialogTitle>
+                  <DialogDescription>Give your specification a name.</DialogDescription>
                 </DialogHeader>
                 <input
                   type="text"
                   value={projectName}
                   onChange={(event) => setProjectName(event.target.value)}
                   onKeyDown={(event) => event.key === 'Enter' && handleNameSubmit()}
-                  placeholder="Project name"
+                  placeholder="Specification name"
                   autoFocus
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
@@ -148,8 +148,8 @@ export function ProjectList() {
             {dialogStep === 'mode' && (
               <>
                 <DialogHeader>
-                  <DialogTitle>What kind of project?</DialogTitle>
-                  <DialogDescription>Choose how to start your spec elicitation.</DialogDescription>
+                  <DialogTitle>How should this specification start?</DialogTitle>
+                  <DialogDescription>Choose how to start grounding this specification.</DialogDescription>
                 </DialogHeader>
                 <div className="flex flex-col gap-3">
                   <button
