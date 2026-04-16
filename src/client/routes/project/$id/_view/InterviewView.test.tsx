@@ -1849,6 +1849,7 @@ describe('InterviewView', () => {
 
     renderWorkspace();
 
+    fireEvent.click(await screen.findByRole('checkbox', { name: /none of the above/i }));
     fireEvent.change(await screen.findByLabelText('Additional response context'), {
       target: { value: 'None of these fit our use case' },
     });

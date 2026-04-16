@@ -178,7 +178,7 @@ export function ActiveQuestionCard({
   const [noneOfTheAbove, setNoneOfTheAbove] = useState(false);
   const hasSelection = selectedPositions.length > 0;
   const hasFreeText = freeText.trim().length > 0;
-  const canSubmit = hasSelection || noneOfTheAbove || hasFreeText;
+  const canSubmit = hasSelection || (noneOfTheAbove && hasFreeText);
   const isReviewTurn = Boolean(reviewSet);
   const isSubmitted = state === 'submitted';
   const isReadOnly = disabled || hasPersistedResponse || isSubmitted;
