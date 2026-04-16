@@ -1,5 +1,5 @@
 import { Link, useLoaderData } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 
 import { Message, MessageContent, MessageResponse } from '@/client/components/ai-elements/message';
 import {
@@ -20,13 +20,7 @@ import {
   GeneratingTurnPlaceholder,
 } from '@/client/components/question-cards';
 import { cn } from '@/client/lib/utils';
-import type {
-  EntitiesData,
-  ProjectMode,
-  ProjectState,
-  ProjectStateTurn,
-  WorkflowPhase,
-} from '@/shared/api-types.js';
+import type { ProjectMode, ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type { AskQuestionUIPart, BrunchUIMessage } from '@/shared/chat.js';
 import {
@@ -41,15 +35,12 @@ import {
   getAcceptedClosureReplay,
   getPersistedSelectedPositions,
   getPersistedTurnResponse,
-  safeParsePersistedAssistantParts,
   turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
 } from '@/shared/project-state-turn.js';
 
 import { useInterviewController } from './-interview-controller';
 import { continuePhaseMessages, startPhaseMessages } from './-interview-controller-core.js';
-
-
 
 function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectStateTurn['phase']) {
   return getForceClosePhaseAction(workflow, phase).available;
@@ -251,8 +242,6 @@ function PhaseSummaryCard({
   );
 }
 
-
-
 function getControlMarkerLabel(text: string): string | null {
   if (Object.values(startPhaseMessages).includes(text as (typeof startPhaseMessages)[WorkflowPhase])) {
     return 'Interview started';
@@ -272,89 +261,6 @@ function AcceptedClosureTurnCard({ phase, summary }: { phase: WorkflowPhase; sum
       title={`${getWorkflowPhaseLabel(phase)} closure confirmed`}
       description={summary}
     />
-  );
-}
-
-function AnsweredTurnCard({
-  turn,
-  captureStatus,
-}: {
-  turn: ProjectStateTurn;
-  captureStatus?: 'waiting' | 'applying';
-}) {
-  const persistedResponse = getPersistedTurnResponse(turn);
-  const selectedOptionContents =
-    turn.options
-      ?.filter((option) => persistedResponse?.selectedOptionIds.includes(option.id))
-      .map((option) => option.content) ?? [];
-  const selectionSummary =
-    selectedOptionContents.length > 0
-      ? selectedOptionContents.join(', ')
-      : persistedResponse?.freeText
-        ? 'None of the above'
-        : turn.answer?.trim() || 'Awaiting response';
-  const responseContext =
-    persistedResponse?.freeText?.trim() || turn.answer?.trim() || 'No additional context provided.';
-  const assistantParts = safeParsePersistedAssistantParts(turn.assistant_parts);
-  const hasReasoning = assistantParts.some((part) => part.type === 'reasoning');
-  const hasObserverResult = assistantParts.some((part) => part.type === 'data-observer-result');
-  const capturedItems = turn.captured_items ?? [];
-
-  return (
-    <div className="my-3 rounded-xl border bg-card p-4 shadow-sm" data-testid="answered-turn-card">
-      {hasReasoning ? <p className="mb-2 text-sm italic text-muted-foreground">Thinking…</p> : null}
-      <div className="flex items-start gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2 text-xs font-medium text-muted-foreground">
-            <span>{getWorkflowPhaseLabel(turn.phase)}</span>
-            {turn.impact ? (
-              <span className={cn('rounded px-2 py-0.5 uppercase', impactStyles[turn.impact])}>
-                {turn.impact} impact
-              </span>
-            ) : null}
-          </div>
-          <h3 className="mt-2 text-lg font-semibold text-foreground">{turn.question}</h3>
-        </div>
-        <span className="rounded bg-emerald-100 px-2 py-1 text-xs font-semibold text-emerald-700">Done</span>
-      </div>
-
-      <div className="mt-4 grid gap-3 border-t pt-3 text-sm md:grid-cols-[minmax(0,1fr),minmax(0,2fr)]">
-        <div>
-          <p className="font-medium text-muted-foreground">Chosen</p>
-          <p className="mt-1 text-foreground">{selectionSummary}</p>
-        </div>
-        <div>
-          <p className="font-medium text-muted-foreground">Context</p>
-          <p className="mt-1 text-foreground">{responseContext}</p>
-        </div>
-      </div>
-
-      <div className="mt-4 border-t pt-3 text-sm">
-        <p className="font-medium text-muted-foreground">Captured</p>
-        {capturedItems.length > 0 ? (
-          <ul className="mt-2 space-y-2">
-            {capturedItems.map((item) => (
-              <li key={`${item.collection}:${item.id}`} className="rounded-md border bg-background px-3 py-2">
-                {item.referenceCode ? (
-                  <p className="font-mono text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
-                    {item.referenceCode}
-                  </p>
-                ) : null}
-                <p className="mt-1 text-foreground">{item.content}</p>
-              </li>
-            ))}
-          </ul>
-        ) : captureStatus === 'applying' ? (
-          <p className="mt-1 text-foreground">Applying captured knowledge to this answer…</p>
-        ) : captureStatus === 'waiting' ? (
-          <p className="mt-1 text-foreground">Capturing knowledge from this answer…</p>
-        ) : (
-          <p className="mt-1 text-foreground">
-            {hasObserverResult ? 'Workspace knowledge updated from this answer.' : 'Still thinking…'}
-          </p>
-        )}
-      </div>
-    </div>
   );
 }
 
@@ -636,7 +542,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
         ) : null}
       </div>
       <ChatScroll className="min-h-0 flex-1">
-        <div className="flex flex-col gap-8 mx-auto max-w-2xl px-4 py-3">
+        <div className="flex flex-col mx-auto max-w-2xl px-4 py-3">
           {showLockedState && currentReachablePhase && (
             <WorkspaceStateCard
               eyebrow="Locked phase"
@@ -655,24 +561,30 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
 
           {isReviewPhase(phase) && phaseState.status === 'in_progress' && <ReviewPhaseBanner phase={phase} />}
 
-          {completedPhaseItems.map((item) =>
-            item.kind === 'answered-turn' ? (
-              <AnsweredTurnCard
-                key={`answered-turn-${item.turn.id}`}
-                turn={item.turn}
-                captureStatus={captureStatusByTurnId.get(item.turn.id)}
-              />
-            ) : (
-              <div
-                key={`accepted-closure-${item.acceptedClosure.turnId}`}
-                data-testid="accepted-closure-turn-card"
-              >
-                <AcceptedClosureTurnCard
-                  phase={item.acceptedClosure.phase}
-                  summary={item.acceptedClosure.summary}
-                />
-              </div>
-            ),
+          {/* ── Zone 1: Preceding answered turns ──────────────────────── */}
+          {completedPhaseItems.length > 0 && (
+            <div className="flex flex-col gap-6">
+              {completedPhaseItems.map((item, index) =>
+                item.kind === 'answered-turn' ? (
+                  <AnsweredQuestionCard
+                    key={`answered-turn-${item.turn.id}`}
+                    turn={item.turn}
+                    questionCode={`Q${index + 1}`}
+                    captureStatus={captureStatusByTurnId.get(item.turn.id)}
+                  />
+                ) : (
+                  <div
+                    key={`accepted-closure-${item.acceptedClosure.turnId}`}
+                    data-testid="accepted-closure-turn-card"
+                  >
+                    <AcceptedClosureTurnCard
+                      phase={item.acceptedClosure.phase}
+                      summary={item.acceptedClosure.summary}
+                    />
+                  </div>
+                ),
+              )}
+            </div>
           )}
 
           {chat.messages.map((message, messageIndex) => {
@@ -723,9 +635,16 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             </div>
           )}
 
+          {/* ── Zone 2: Divider between answered and frontier ─────────── */}
+          {completedPhaseItems.length > 0 &&
+            (turnCard?.kind === 'persisted-turn' ||
+              turnCard?.kind === 'pending-question' ||
+              showGeneratingState) && <hr className="my-6 border-rule" />}
+
+          {/* ── Zone 3: Active frontier ──────────────────────────────── */}
           {turnCard?.kind === 'persisted-turn' &&
             (!turnHasCompletedAnswer(turnCard.turn) || turnCard.state === 'submitted') && (
-              <TurnCard
+              <ActiveQuestionCard
                 key={`persisted-turn-${turnCard.turn.id}`}
                 id={`persisted-turn-${turnCard.turn.id}`}
                 question={turnCard.turn.question}
@@ -743,7 +662,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             )}
 
           {turnCard?.kind === 'pending-question' && (
-            <TurnCard
+            <ActiveQuestionCard
               key={turnCard.pendingQuestion.id}
               id={turnCard.pendingQuestion.id}
               question={turnCard.pendingQuestion.question}
@@ -792,13 +711,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             />
           )}
 
-          {showGeneratingState && (
-            <WorkspaceStateCard
-              eyebrow="In progress"
-              title={`Preparing the next ${isReviewPhase(phase) ? 'review step' : 'interview turn'}`}
-              description="The workspace is waiting on the interviewer before the next step can be answered."
-            />
-          )}
+          {showGeneratingState && <GeneratingTurnPlaceholder />}
 
           {showClosedState && (
             <WorkspaceStateCard

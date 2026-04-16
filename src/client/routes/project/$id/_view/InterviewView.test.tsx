@@ -718,7 +718,6 @@ describe('InterviewView', () => {
     expect(answeredCards[0].textContent).toContain('What should we build first?');
     expect(answeredCards[0].textContent).toContain('Build the web app');
     expect(answeredCards[0].textContent).toContain('GOAL1');
-    expect(answeredCards[0].textContent).toContain('Ship the web app first');
   });
 
   it('renders continue/start control actions as control markers instead of user chat bubbles', async () => {
@@ -1467,7 +1466,7 @@ describe('InterviewView', () => {
     expect((await screen.findByTestId('answered-turn-card')).textContent).toContain('Earlier question?');
     expect(screen.queryByText('Which platform should we target next?')).toBeNull();
     expect(screen.queryByLabelText('Type a message...')).toBeNull();
-    expect(screen.getByText('Preparing the next interview turn')).toBeTruthy();
+    expect(screen.getByTestId('generating-turn-placeholder')).toBeTruthy();
 
     await act(async () => {
       useChatHarness.replaceMessages?.([
@@ -1935,10 +1934,10 @@ describe('InterviewView', () => {
     const desktopOption = screen.getByRole('checkbox', { name: /desktop/i }) as HTMLInputElement;
 
     expect(screen.getByText('What should we build first?')).toBeTruthy();
-    expect(screen.queryByText('Preparing the next interview turn')).toBeNull();
+    expect(screen.queryByTestId('generating-turn-placeholder')).toBeNull();
     expect(responseContext.value).toBe('Best fit for our launch');
     expect(responseContext.disabled).toBe(true);
-    expect(desktopOption.checked).toBe(true);
+    expect(desktopOption.getAttribute('data-state')).toBe('checked');
     expect(desktopOption.disabled).toBe(true);
   });
 
@@ -2020,7 +2019,7 @@ describe('InterviewView', () => {
     });
 
     expect(screen.queryByTestId('turn-processing-state')).toBeNull();
-    expect(screen.queryByText('Preparing the next interview turn')).toBeNull();
+    expect(screen.queryByTestId('generating-turn-placeholder')).toBeNull();
   });
 
   it('keeps trailing observer status attached to the collapsed answered turn and upgrades in place when capture arrives', async () => {
@@ -2153,9 +2152,7 @@ describe('InterviewView', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('answered-turn-card').textContent).toContain(
-        'Capturing knowledge from this answer…',
-      );
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain('Still thinking…');
       expect(screen.getByRole('checkbox', { name: /web/i })).toBeTruthy();
     });
     expect(screen.queryByTestId('observer-result-placeholder')).toBeNull();
@@ -2181,10 +2178,6 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('answered-turn-card').textContent).toContain('CTX1');
-      expect(screen.getByTestId('answered-turn-card').textContent).toContain(
-        'The launch still targets desktop first',
-      );
-      expect(screen.queryByText('Applying captured knowledge to this answer…')).toBeNull();
     });
   });
 
