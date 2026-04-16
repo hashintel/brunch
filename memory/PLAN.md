@@ -14,18 +14,27 @@
      - capture the current visible failures as scenario-scoped demo blockers rather than one blended "weirdness" bucket
      - confirm whether any remaining problems come from stale seeded data versus current projection logic
 
-2. **Distinct review-phase UI for requirements and acceptance criteria** — stop rendering review phases as ordinary interview questions and project them as synthesized set-review surfaces owned by the review seam.
-   - Why now / unlocks: this is the clearest demo-visible mismatch between the current product model and the current UI; fixing it makes requirements/criteria understandable and exposes the remaining transition bugs more honestly.
+2. **Accepted-set authority cleanup for requirements and criteria** — replace the status-filtered entity-pool model with one authoritative accepted review output per phase, and delete the leftover item-by-item review semantics.
+   - Why now / unlocks: the current code still mixes the new full-set review contract with older per-item review semantics (`reviewStatus`, targeted review payloads, manifest walkthrough history). Cleaning that authority boundary first simplifies every later UI and transition fix.
+   - Traceability: Requirements 11, 12; D57, D90, D93; A52.
+   - What this slice must accomplish:
+     - remove `reviewStatus` as a first-class concept for requirement / criterion entities and stop projecting approved / rejected / pending badges into the sidebar and review surfaces
+     - remove the targeted `requirementReview` / `criterionReview` turn semantics and the one-item-at-a-time approval flow from shared schemas, server behavior, fixtures, and tests
+     - stop treating review-phase observer output as immediately canonical requirements / criteria merely because it was inferred during an intermediate review turn
+     - define one accepted-set authority seam per review phase: `accept review` promotes the current synthesized set into the surviving requirement / criterion collection, while `request changes` keeps the phase open without creating canonical carry-forward state
+     - replace downstream dependencies on `reviewStatus` with accepted-set projections for closeability, criteria generation context, and export filtering
+
+3. **Distinct review-phase UI rebuilt on accepted-set authority** — rebuild requirements and criteria as review-specific surfaces after the authority cleanup, even if the old UI breaks in the meantime.
+   - Why now / unlocks: once the old semantics are gone, the UI should fail loudly instead of masking mismatches. Rebuilding on top of the cleaned contract yields a much simpler and more honest review surface.
    - Traceability: D90, D93, A52.
    - What this slice must accomplish:
-     - make the active requirements/criteria frontier read as a set review, not a generic question turn that happens to have two options
-     - show the current requirement / criterion set, stable reference codes, and current review status as the primary content of the frontier card
-     - keep the lightweight review contract: explicit `accept review` / `request changes` plus one review note
-     - ensure hydrated seeded turns and live turns render through the same review-specific surface
-     - remove any remaining UI dependence on older per-item micro-question assumptions for full-set review
+     - make the active requirements/criteria frontier read as a synthesized set review, not a generic interview question card
+     - show the current candidate set, stable reference codes, and the lightweight review action seam (`accept review` / `request changes` + one note) without per-item approval affordances
+     - make live and hydrated turns render through the same review-specific card family
+     - remove remaining presentation assumptions that requirements/criteria are just another branch of the ordinary Q&A surface
 
-3. **Phase transition and handoff stabilization for demo flows** — make every seeded demo phase end in a legible next action, with no empty shells or stranded in-progress states.
-   - Why now / unlocks: once review phases render correctly, the next most obvious demo failures are inert handoffs, ambiguous closure states, and missing export/continue affordances.
+4. **Phase transition and handoff stabilization for demo flows** — make every seeded demo phase end in a legible next action, with no empty shells or stranded in-progress states.
+   - Why now / unlocks: once review authority and UI are corrected, the next most obvious demo failures are inert handoffs, ambiguous closure states, and missing export/continue affordances.
    - Traceability: D94, D100, D101, D104.
    - What this slice must accomplish:
      - requirements acceptance advances cleanly into criteria kickoff without dead air
@@ -33,7 +42,7 @@
      - closed phases show explicit handoff / completion artifacts instead of relying on the generic shell to imply what happened
      - force-close and proposed-close confirmations stay legible and do not leave stale active-phase projections behind
 
-4. **Transcript fidelity stabilization for seeded demo states** — make replayed interview history trustworthy enough that the demo reads like one coherent workspace instead of a partial hydration.
+5. **Transcript fidelity stabilization for seeded demo states** — make replayed interview history trustworthy enough that the demo reads like one coherent workspace instead of a partial hydration.
    - Why now / unlocks: after review and transition fixes, the remaining trust gap is transcript coherence; the demo needs previous assistant moves, summaries, and turn-owned activity to survive reload and navigation.
    - Traceability: D92, D93, D96, A53, A55.
    - What this slice must accomplish:
@@ -89,11 +98,15 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 
 ```text
 demo-walkthrough-reset-and-seeded-baseline
-  ├──→ distinct-review-phase-ui-for-requirements-and-acceptance-criteria
+  ├──→ accepted-set-authority-cleanup-for-requirements-and-criteria
+  ├──→ distinct-review-phase-ui-rebuilt-on-accepted-set-authority
   ├──→ phase-transition-and-handoff-stabilization-for-demo-flows
   └──→ transcript-fidelity-stabilization-for-seeded-demo-states
 
-distinct-review-phase-ui-for-requirements-and-acceptance-criteria
+accepted-set-authority-cleanup-for-requirements-and-criteria
+  └──→ distinct-review-phase-ui-rebuilt-on-accepted-set-authority
+
+distinct-review-phase-ui-rebuilt-on-accepted-set-authority
   └──→ phase-transition-and-handoff-stabilization-for-demo-flows
 
 phase-transition-and-handoff-stabilization-for-demo-flows
