@@ -558,11 +558,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                   ) : item.kind === 'answered-review-turn' ? (
                     <div key={`answered-review-turn-${item.turn.id}`} className="flex flex-col">
                       {renderPersistedActivity(item.turn)}
-                      <AnsweredReviewSetCard
-                        turn={item.turn}
-                        questionCode={`Q${index + 1}`}
-                        reviewSet={item.reviewSet}
-                      />
+                      <AnsweredReviewSetCard turn={item.turn} reviewSet={item.reviewSet} />
                     </div>
                   ) : (
                     <div
@@ -735,25 +731,26 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             {showGeneratingState && <GeneratingTurnPlaceholder />}
 
             {showClosedState && (
-              <WorkspaceStateCard
-                eyebrow={showCompletionState ? 'Workflow complete' : 'Phase handoff'}
-                title={
-                  showCompletionState
-                    ? 'The interview workspace is complete'
-                    : `${getWorkflowPhaseLabel(phase)} phase is complete`
-                }
-                description={
-                  phaseState.summary ??
-                  (showCompletionState
-                    ? 'All phases are closed. Review the export to inspect the current structured spec output.'
-                    : 'This phase has been closed and handed off to the next phase.')
-                }
+              <div
+                className="flex min-h-[120px] flex-col items-start justify-center gap-3 rounded-xl bg-tint px-6 py-5"
+                data-testid="workspace-state-card"
               >
+                <p className="text-sm font-medium text-ink">
+                  {showCompletionState
+                    ? 'The interview workspace is complete'
+                    : `${getWorkflowPhaseLabel(phase)} phase is complete`}
+                </p>
+                <p className="text-xs-plus leading-relaxed text-sub">
+                  {phaseState.summary ??
+                    (showCompletionState
+                      ? 'All phases are closed. Review the export to inspect the current structured spec output.'
+                      : 'This phase has been closed and handed off to the next phase.')}
+                </p>
                 {showCompletionState ? (
                   <Link
                     to="/project/$id/export"
                     params={{ id: String(project.id) }}
-                    className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
+                    className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                   >
                     Open export preview
                   </Link>
@@ -761,12 +758,12 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                   <Link
                     to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
                     params={{ id: String(project.id) }}
-                    className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
+                    className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                   >
                     Continue to {getWorkflowPhaseLabel(nextPhase)}
                   </Link>
                 ) : null}
-              </WorkspaceStateCard>
+              </div>
             )}
           </div>
 

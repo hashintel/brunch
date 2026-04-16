@@ -129,35 +129,15 @@ export function AnsweredQuestionCard({
 
 export function AnsweredReviewSetCard({
   turn,
-  questionCode,
   reviewSet,
 }: {
   turn: ProjectStateTurn;
-  questionCode: string;
   reviewSet: ReviewSetCardData;
 }) {
   const persistedResponse = getPersistedTurnResponse(turn);
-  const impact = turn.impact ?? 'low';
 
   return (
-    <div className="flex flex-col gap-3" data-testid="answered-review-set-card">
-      <div className="flex flex-col gap-1.5 px-1">
-        <div className="flex flex-row items-center justify-between gap-2.5 text-[12px]">
-          <span className={cn('font-medium', impactColor[impact])}>
-            {impact[0]!.toUpperCase() + impact.slice(1)} Impact
-          </span>
-          <span className="flex h-5 shrink-0 items-center justify-center gap-1 rounded-full bg-[rgba(22,163,106,0.1)] px-2 text-[11px] text-[#16a34a]">
-            Answered
-            <Check className="size-2.5" />
-          </span>
-        </div>
-
-        <div className="flex items-baseline gap-2.5">
-          <span className="shrink-0 text-sm-plus font-medium text-hint">{questionCode}</span>
-          <p className="flex-1 text-sm-plus font-medium tracking-[-0.015em] text-ink">{turn.question}</p>
-        </div>
-      </div>
-
+    <div data-testid="answered-review-set-card">
       <ReviewSetCard
         reviewSet={reviewSet}
         description={turn.why ?? turn.question}
