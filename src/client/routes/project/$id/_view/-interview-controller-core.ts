@@ -53,6 +53,12 @@ export interface PhaseSummaryViewModel {
   readonly summary: string;
 }
 
+export interface AcceptedClosureReplayViewModel {
+  readonly turnId: number;
+  readonly phase: ProjectStateTurn['phase'];
+  readonly summary: string;
+}
+
 export type InterviewTurnCardViewModel =
   | {
       readonly kind: 'persisted-turn';
@@ -112,6 +118,43 @@ function parseUserParts(json: string | null): BrunchUserPart[] {
   } catch {
     return [];
   }
+}
+
+export function getAcceptedClosureReplay(
+  turn: Pick<ProjectStateTurn, 'id' | 'phase' | 'assistant_parts' | 'user_parts'>,
+  phaseState: Pick<ProjectState['workflow']['phases'][WorkflowPhase], 'status' | 'closureBasis' | 'summary'>,
+): AcceptedClosureReplayViewModel | null {
+  if (phaseState.status !== 'closed' || phaseState.closureBasis !== 'interviewer_recommended') {
+    return null;
+  }
+
+  const userConfirmation = parseUserParts(turn.user_parts).find(
+    (part): part is Extract<BrunchUserPart, { type: 'data-confirmation' }> =>
+      part.type === 'data-confirmation',
+  );
+  if (
+    !userConfirmation ||
+    userConfirmation.data.kind !== 'confirm-proposed-phase-closure' ||
+    userConfirmation.data.phase !== turn.phase ||
+    userConfirmation.data.proposalTurnId !== turn.id
+  ) {
+    return null;
+  }
+
+  const persistedSummary = parseAssistantParts(turn.assistant_parts).find(
+    (part): part is Extract<BrunchAssistantPart, { type: 'data-phase-summary' }> =>
+      part.type === 'data-phase-summary',
+  );
+  const summary = persistedSummary?.data.summary ?? phaseState.summary;
+  if (!summary) {
+    return null;
+  }
+
+  return {
+    turnId: turn.id,
+    phase: turn.phase,
+    summary,
+  };
 }
 
 function turnIsControlOrClosureArtifact(

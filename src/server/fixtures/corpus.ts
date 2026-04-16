@@ -3,7 +3,7 @@ import { createKnowledgeCollectionRecord } from '@/shared/knowledge.js';
 
 import type { TurnWithOptions } from '../core.js';
 import { loadActivePathWithOptions } from '../core.js';
-import { createDb, getEntitiesForProject, type DB } from '../db.js';
+import { createDb, findPhaseOutcomeForTurn, getEntitiesForProject, type DB } from '../db.js';
 import { runObserver, type ObserverOutput } from '../observer.js';
 import { safeDeserializeUserParts } from '../parts.js';
 import { projectTurnResponse } from '../turn-response.js';
@@ -220,7 +220,7 @@ export function captureProjectToManifestScenario(db: DB, projectId: number): Man
   const turns = loadActivePathWithOptions(db, projectId);
   const turnIndexById = new Map(turns.map((turn, index) => [turn.id, index]));
 
-  const manifestTurns = turns.map((turn) => {
+  const manifestTurns = turns.flatMap((turn) => {
     if (turn.question) {
       const response = projectTurnResponse(turn);
       if (!response) {
@@ -252,6 +252,11 @@ export function captureProjectToManifestScenario(db: DB, projectId: number): Man
     const isConfirmation = safeDeserializeUserParts(turn.user_parts).some(
       (part) => part.type === 'data-confirmation',
     );
+    const isClosureProposal = Boolean(findPhaseOutcomeForTurn(db, projectId, turn.id));
+
+    if (!isConfirmation && !isClosureProposal) {
+      return [];
+    }
 
     return {
       phase: turn.phase,

@@ -9,6 +9,7 @@ import {
   createInterviewDurableProjectState,
   createInterviewEphemeralChatState,
   filterMessagesByPhase,
+  getAcceptedClosureReplay,
   getPersistedSelectedPositions,
 } from './-interview-controller-core.js';
 
@@ -510,6 +511,90 @@ describe('workspace controller core', () => {
     });
     expect(viewState.phaseSummary).toBeNull();
     expect(viewState.showGeneratingState).toBe(false);
+  });
+
+  it('interprets accepted interviewer-recommended closure replay from the same durable turn', () => {
+    const projectState = createProjectState({
+      workflow: {
+        phases: {
+          scope: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 2,
+            summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+          },
+          design: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 3,
+            summary: null,
+          },
+          requirements: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        },
+      },
+    });
+    projectState.turns = [
+      projectState.turns[0],
+      {
+        id: 2,
+        project_id: 1,
+        parent_turn_id: 1,
+        phase: 'scope',
+        question: '',
+        why: null,
+        impact: null,
+        answer: 'Confirm grounding closure',
+        is_resolution: false,
+        user_parts: JSON.stringify([
+          { type: 'text', text: 'Confirm grounding closure' },
+          {
+            type: 'data-confirmation',
+            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 2, phase: 'scope' },
+          },
+        ]),
+        assistant_parts: JSON.stringify([
+          {
+            type: 'data-phase-summary',
+            data: {
+              turnId: 2,
+              phase: 'scope',
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+          },
+        ]),
+        created_at: '2026-04-03 10:05:00',
+        options: [],
+      },
+    ];
+
+    expect(getAcceptedClosureReplay(projectState.turns[1]!, projectState.workflow.phases.scope)).toEqual({
+      turnId: 2,
+      phase: 'scope',
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    });
   });
 
   it('keeps turn-card projection scoped to the current phase', () => {

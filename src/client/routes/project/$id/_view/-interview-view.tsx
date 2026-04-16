@@ -25,6 +25,7 @@ import { getNextActivePhase, phaseOrder, phaseRouteSegments } from '@/shared/pha
 import { useInterviewController } from './-interview-controller';
 import {
   continuePhaseMessages,
+  getAcceptedClosureReplay,
   getPersistedSelectedPositions,
   getPersistedTurnResponse,
   startPhaseMessages,
@@ -428,6 +429,16 @@ function turnIsControlOrClosureArtifact(
   );
 }
 
+function AcceptedClosureTurnCard({ phase, summary }: { phase: WorkflowPhase; summary: string }) {
+  return (
+    <WorkspaceStateCard
+      eyebrow="Phase closure confirmed"
+      title={`${getWorkflowPhaseLabel(phase)} closure confirmed`}
+      description={summary}
+    />
+  );
+}
+
 function AnsweredTurnCard({
   turn,
   captureStatus,
@@ -635,12 +646,31 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
     (!turnHasCompletedAnswer(turnCard.turn) || turnCard.state === 'submitted')
       ? turnCard.turn.id
       : null;
-  const completedPhaseTurns = phaseTurns.filter(
-    (turn) =>
-      turnHasCompletedAnswer(turn) &&
-      !turnIsControlOrClosureArtifact(turn) &&
-      turn.id !== renderedPersistedTurnId,
-  );
+  const completedPhaseItems = phaseTurns.reduce<
+    Array<
+      | { kind: 'answered-turn'; turn: ProjectStateTurn }
+      | {
+          kind: 'accepted-closure';
+          acceptedClosure: NonNullable<ReturnType<typeof getAcceptedClosureReplay>>;
+        }
+    >
+  >((items, turn) => {
+    if (turn.id === renderedPersistedTurnId) {
+      return items;
+    }
+
+    const acceptedClosure = getAcceptedClosureReplay(turn, phaseState);
+    if (acceptedClosure) {
+      items.push({ kind: 'accepted-closure', acceptedClosure });
+      return items;
+    }
+
+    if (turnHasCompletedAnswer(turn) && !turnIsControlOrClosureArtifact(turn)) {
+      items.push({ kind: 'answered-turn', turn });
+    }
+
+    return items;
+  }, []);
   const showLockedState =
     phaseState.status === 'unstarted' && currentReachablePhase !== phase && currentReachablePhase !== null;
   const showClosedState = phaseState.status === 'closed';
@@ -776,13 +806,25 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
 
           {isReviewPhase(phase) && phaseState.status === 'in_progress' && <ReviewPhaseBanner phase={phase} />}
 
-          {completedPhaseTurns.map((turn) => (
-            <AnsweredTurnCard
-              key={`answered-turn-${turn.id}`}
-              turn={turn}
-              captureStatus={captureStatusByTurnId.get(turn.id)}
-            />
-          ))}
+          {completedPhaseItems.map((item) =>
+            item.kind === 'answered-turn' ? (
+              <AnsweredTurnCard
+                key={`answered-turn-${item.turn.id}`}
+                turn={item.turn}
+                captureStatus={captureStatusByTurnId.get(item.turn.id)}
+              />
+            ) : (
+              <div
+                key={`accepted-closure-${item.acceptedClosure.turnId}`}
+                data-testid="accepted-closure-turn-card"
+              >
+                <AcceptedClosureTurnCard
+                  phase={item.acceptedClosure.phase}
+                  summary={item.acceptedClosure.summary}
+                />
+              </div>
+            ),
+          )}
 
           {chat.messages.map((message, messageIndex) => {
             if (/^turn-\d+-/.test(message.id)) {

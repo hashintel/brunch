@@ -230,7 +230,7 @@ describe('phase outcome lifecycle', () => {
       summary: proposed.summary,
       turnId: closureTurn.id,
       closeability: true,
-      readiness: 'high',
+      readiness: 'medium',
       closureBasis: null,
     });
 
@@ -250,7 +250,7 @@ describe('phase outcome lifecycle', () => {
       summary: proposed.summary,
       turnId: closureTurn.id,
       closeability: false,
-      readiness: 'high',
+      readiness: 'medium',
       closureBasis: 'interviewer_recommended',
     });
     expect(listPhaseOutcomesForProject(db, project.id)[0]).toMatchObject({
@@ -368,7 +368,7 @@ describe('phase outcome lifecycle', () => {
       turnId: designForceCloseTurn.id,
       summary: 'Elicitation closed by user without an interviewer recommendation.',
       closeability: false,
-      readiness: 'high',
+      readiness: 'medium',
       closureBasis: 'user_forced',
     });
     expect(listPhaseOutcomesForProject(db, project.id)[0]).toMatchObject({

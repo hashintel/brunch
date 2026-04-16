@@ -758,7 +758,7 @@ describe('InterviewView', () => {
     expect(screen.queryByText('Continue the grounding phase.')).toBeNull();
   });
 
-  it('filters closure control turns out of answered-turn replay', async () => {
+  it('replays accepted closure from the same durable turn as a resolved closure card', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         turns: [
@@ -855,10 +855,18 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(screen.getAllByTestId('answered-turn-card')).toHaveLength(1);
+      expect(screen.getByTestId('accepted-closure-turn-card')).toBeTruthy();
     });
     expect(screen.getByTestId('answered-turn-card').textContent).toContain('What should we build first?');
-    expect(screen.getByTestId('answered-turn-card').textContent).not.toContain('Closure proposal');
-    expect(screen.getByTestId('answered-turn-card').textContent).not.toContain('Confirm grounding closure');
+    expect(screen.getByTestId('accepted-closure-turn-card').textContent).toContain(
+      'Grounding closure confirmed',
+    );
+    expect(screen.getByTestId('accepted-closure-turn-card').textContent).toContain(
+      'Goals, terms, context, and constraints are sufficiently captured.',
+    );
+    expect(screen.getByTestId('accepted-closure-turn-card').textContent).not.toContain(
+      'Confirm grounding closure',
+    );
   });
 
   it('keeps later-phase active turns out of a closed phase and stages the handoff card at the bottom', async () => {

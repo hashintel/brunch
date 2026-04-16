@@ -307,6 +307,16 @@ export function confirmPhaseOutcome(db: DB, phaseOutcomeId: number, confirmation
     .run();
 }
 
+export function supersedePhaseOutcome(db: DB, phaseOutcomeId: number): void {
+  db.update(schema.phaseOutcome)
+    .set({
+      status: 'superseded',
+      superseded_at: sql`datetime('now')`,
+    })
+    .where(eq(schema.phaseOutcome.id, phaseOutcomeId))
+    .run();
+}
+
 export function createConfirmedPhaseOutcome(
   db: DB,
   input: CreatePhaseOutcomeInput & { confirmation_turn_id: number },
@@ -424,7 +434,10 @@ export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowStat
     number
   >;
   for (const turn of activePath) {
-    turnCounts[turn.phase] += 1;
+    const isSubstantiveTurn = turn.question.trim().length > 0 || getOptionsForTurn(db, turn.id).length > 0;
+    if (isSubstantiveTurn) {
+      turnCounts[turn.phase] += 1;
+    }
   }
 
   const currentOutcomes = listPhaseOutcomesForProject(db, projectId).filter(
