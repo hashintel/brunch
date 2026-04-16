@@ -985,6 +985,36 @@ describe('InterviewView', () => {
     });
   });
 
+  it('renders a recovery turn card when an open phase has a completed turn but no successor frontier', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          scope: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        }),
+      }),
+    );
+
+    renderWorkspace();
+
+    expect((await screen.findByTestId('recovery-turn-card')).textContent).toContain('Continue');
+    expect(screen.getByText('Restore the next interview turn')).toBeTruthy();
+    expect(screen.queryByLabelText('Type a message...')).toBeNull();
+
+    fireEvent.click(screen.getByTestId('recovery-turn-card'));
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Continue the grounding phase.' });
+    });
+  });
+
   it('renders the turn card from a pending-question tool part before route invalidation', async () => {
     setLoaderData(
       createWorkspaceLoaderData({

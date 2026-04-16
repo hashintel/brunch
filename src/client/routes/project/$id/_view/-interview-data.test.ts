@@ -275,7 +275,7 @@ describe('workspace controller core', () => {
     });
   });
 
-  it('projects prompt and turn-card visibility from persisted turn responses without embedding side effects', () => {
+  it('projects recovery turn-card visibility from persisted completed turns without embedding side effects', () => {
     const pendingResponse = createInterviewDurableProjectState(
       createProjectState({
         options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
@@ -311,7 +311,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(pendingResponse, 'scope', [], false)).toEqual({
       project: pendingResponse.project,
       workflow: pendingResponse.workflow,
-      turnCard: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'continue' } },
+      turnCard: { kind: 'recovery', recovery: { phase: 'scope' } },
       phaseSummary: null,
       showGeneratingState: false,
       promptInput: { visible: false },
@@ -327,7 +327,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(selectedResponse, 'scope', [], false)).toEqual({
       project: selectedResponse.project,
       workflow: selectedResponse.workflow,
-      turnCard: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'continue' } },
+      turnCard: { kind: 'recovery', recovery: { phase: 'scope' } },
       phaseSummary: null,
       showGeneratingState: false,
       promptInput: { visible: false },
@@ -335,7 +335,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(freeTextOnlyResponse, 'scope', [], false)).toEqual({
       project: freeTextOnlyResponse.project,
       workflow: freeTextOnlyResponse.workflow,
-      turnCard: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'continue' } },
+      turnCard: { kind: 'recovery', recovery: { phase: 'scope' } },
       phaseSummary: null,
       showGeneratingState: false,
       promptInput: { visible: false },

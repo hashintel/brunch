@@ -43,6 +43,10 @@ export interface KickoffTurnViewModel {
   readonly mode: KickoffMode;
 }
 
+export interface RecoveryTurnViewModel {
+  readonly phase: WorkflowPhase;
+}
+
 export interface PhaseSummaryViewModel {
   readonly turnId: number;
   readonly phase: ProjectStateTurn['phase'];
@@ -56,7 +60,8 @@ export type InterviewTurnCardViewModel =
       readonly state: 'active' | 'submitted';
     }
   | { readonly kind: 'pending-question'; readonly pendingQuestion: PendingQuestionViewModel }
-  | { readonly kind: 'kickoff'; readonly kickoff: KickoffTurnViewModel };
+  | { readonly kind: 'kickoff'; readonly kickoff: KickoffTurnViewModel }
+  | { readonly kind: 'recovery'; readonly recovery: RecoveryTurnViewModel };
 
 export interface InterviewControllerViewState {
   readonly project: InterviewDurableProjectState['project'];
@@ -107,6 +112,42 @@ function parseUserParts(json: string | null): BrunchUserPart[] {
   } catch {
     return [];
   }
+}
+
+function turnIsControlOrClosureArtifact(
+  turn: Pick<ProjectStateTurn, 'assistant_parts' | 'is_resolution' | 'user_parts'>,
+): boolean {
+  if (turn.is_resolution) {
+    return true;
+  }
+
+  const userParts = parseUserParts(turn.user_parts);
+  if (userParts.some((part) => part.type === 'data-confirmation')) {
+    return true;
+  }
+
+  const hasBootstrapControlText = userParts.some(
+    (part) =>
+      part.type === 'text' &&
+      (Object.values(startPhaseMessages).includes(part.text as (typeof startPhaseMessages)[WorkflowPhase]) ||
+        Object.values(continuePhaseMessages).includes(
+          part.text as (typeof continuePhaseMessages)[WorkflowPhase],
+        )),
+  );
+  if (hasBootstrapControlText) {
+    return true;
+  }
+
+  const assistantParts = parseAssistantParts(turn.assistant_parts);
+  return assistantParts.some(
+    (part) => part.type === 'tool-propose_phase_closure' || part.type === 'data-phase-summary',
+  );
+}
+
+function hasCompletedSubstantivePhaseTurn(turns: readonly ProjectStateTurn[], phase: WorkflowPhase): boolean {
+  return turns.some(
+    (turn) => turn.phase === phase && turnHasCompletedAnswer(turn) && !turnIsControlOrClosureArtifact(turn),
+  );
 }
 
 export function getPersistedTurnResponse(
@@ -379,8 +420,20 @@ export function createInterviewControllerViewState(
     phaseTurn !== null &&
     (!isLoading || isSubmittedTurn) &&
     (!turnHasCompletedAnswer(phaseTurn) || isSubmittedTurn);
+  const showRecovery =
+    !isLoading &&
+    !phaseSummary &&
+    !pendingQuestion &&
+    phaseState.status !== 'closed' &&
+    !showPersistedTurn &&
+    hasCompletedSubstantivePhaseTurn(durableProject.turns, phase);
   const showKickoff =
-    !isLoading && !phaseSummary && !pendingQuestion && phaseState.status !== 'closed' && !showPersistedTurn;
+    !isLoading &&
+    !phaseSummary &&
+    !pendingQuestion &&
+    phaseState.status !== 'closed' &&
+    !showPersistedTurn &&
+    !showRecovery;
   const turnCard: InterviewTurnCardViewModel | null = phaseSummary
     ? null
     : pendingQuestion
@@ -391,15 +444,22 @@ export function createInterviewControllerViewState(
             turn: phaseTurn,
             state: isSubmittedTurn ? 'submitted' : 'active',
           }
-        : showKickoff
+        : showRecovery
           ? {
-              kind: 'kickoff',
-              kickoff: {
+              kind: 'recovery',
+              recovery: {
                 phase,
-                mode: getKickoffMode(durableProject.turns, phase),
               },
             }
-          : null;
+          : showKickoff
+            ? {
+                kind: 'kickoff',
+                kickoff: {
+                  phase,
+                  mode: getKickoffMode(durableProject.turns, phase),
+                },
+              }
+            : null;
 
   return {
     project,
@@ -409,7 +469,7 @@ export function createInterviewControllerViewState(
     showGeneratingState: !phaseSummary && !turnCard && isLoading,
     promptInput: {
       visible:
-        phaseSummary || pendingQuestion || showKickoff
+        phaseSummary || pendingQuestion || showKickoff || showRecovery
           ? false
           : !showTurnCard || (phaseTurnHasResponse && !isSubmittedTurn),
     },

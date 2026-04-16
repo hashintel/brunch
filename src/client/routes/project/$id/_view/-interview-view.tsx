@@ -142,6 +142,39 @@ function KickoffTurnCard({
   );
 }
 
+function RecoveryTurnCard({
+  phase,
+  onRecover,
+  disabled,
+}: {
+  phase: WorkflowPhase;
+  onRecover: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <WorkspaceStateCard
+      eyebrow="Recovery needed"
+      title={`Restore the next ${isReviewPhase(phase) ? 'review step' : 'interview turn'}`}
+      description={`The last ${getWorkflowPhaseLabel(phase).toLowerCase()} turn is complete, but the next frontier is missing. Continue to recover it.`}
+    >
+      <button
+        type="button"
+        data-testid="recovery-turn-card"
+        onClick={onRecover}
+        disabled={disabled}
+        className={cn(
+          'rounded-md border px-3 py-2 text-sm transition-colors',
+          disabled
+            ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+            : 'border-border bg-background hover:bg-muted',
+        )}
+      >
+        Continue
+      </button>
+    </WorkspaceStateCard>
+  );
+}
+
 function PhaseSummaryCard({
   phase,
   summary,
@@ -838,6 +871,14 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               phase={turnCard.kickoff.phase}
               mode={turnCard.kickoff.mode}
               onProceed={turnCard.submitKickoff}
+              disabled={turnCard.disabled}
+            />
+          )}
+
+          {turnCard?.kind === 'recovery' && !showLockedState && (
+            <RecoveryTurnCard
+              phase={turnCard.recovery.phase}
+              onRecover={turnCard.submitRecovery}
               disabled={turnCard.disabled}
             />
           )}

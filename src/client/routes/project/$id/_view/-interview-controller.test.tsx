@@ -246,7 +246,9 @@ function ControllerProbe() {
             ? workspace.turnCard.pendingQuestion.question
             : workspace.turnCard?.kind === 'kickoff'
               ? `${workspace.turnCard.kickoff.mode}:${workspace.turnCard.kickoff.phase}`
-              : 'none'}
+              : workspace.turnCard?.kind === 'recovery'
+                ? `recovery:${workspace.turnCard.recovery.phase}`
+                : 'none'}
       </div>
       <div data-testid="prompt-visible">{String(workspace.promptInput.visible)}</div>
     </div>
@@ -292,6 +294,20 @@ describe('interview controller', () => {
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
   });
 
+  it('projects a recovery turn card when an open phase has a completed turn but no successor frontier', async () => {
+    currentProjectState = createProjectState({
+      options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+    });
+    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.project.active_turn_id = null;
+
+    renderController();
+
+    expect((await screen.findByTestId('turn-card-kind')).textContent).toBe('recovery');
+    expect(screen.getByTestId('turn-card').textContent).toBe('recovery:scope');
+    expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
+  });
+
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
     currentProjectState = createProjectState({
       assistantText: 'Earlier question?',
@@ -330,8 +346,8 @@ describe('interview controller', () => {
     expect((await screen.findByTestId('messages')).textContent).toBe(
       'Build the web app|What should we build first?',
     );
-    expect(screen.getByTestId('turn-card').textContent).toBe('continue:scope');
-    expect(screen.getByTestId('turn-card-kind').textContent).toBe('kickoff');
+    expect(screen.getByTestId('turn-card').textContent).toBe('recovery:scope');
+    expect(screen.getByTestId('turn-card-kind').textContent).toBe('recovery');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
     expect(fetchMock).not.toHaveBeenCalled();
   });

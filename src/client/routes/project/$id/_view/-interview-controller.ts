@@ -28,6 +28,7 @@ import type {
   KickoffTurnViewModel,
   PendingQuestionViewModel,
   PhaseSummaryViewModel,
+  RecoveryTurnViewModel,
 } from './-interview-controller-core.js';
 import { useInterviewDataAdapter } from './-interview-data.js';
 import { getProjectScopedChatId } from './-interview-hydration.js';
@@ -61,6 +62,12 @@ export type InterviewControllerTurnCardState =
       readonly kickoff: KickoffTurnViewModel;
       readonly disabled: boolean;
       readonly submitKickoff: () => void;
+    }
+  | {
+      readonly kind: 'recovery';
+      readonly recovery: RecoveryTurnViewModel;
+      readonly disabled: boolean;
+      readonly submitRecovery: () => void;
     };
 
 export interface InterviewControllerPromptInputState {
@@ -323,22 +330,39 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
               pendingQuestion: viewState.turnCard.pendingQuestion,
               disabled: true,
             }
-          : (() => {
-              const kickoff = viewState.turnCard.kickoff;
+          : viewState.turnCard.kind === 'kickoff'
+            ? (() => {
+                const kickoff = viewState.turnCard.kickoff;
 
-              return {
-                kind: 'kickoff' as const,
-                kickoff,
-                disabled: isLoading,
-                submitKickoff: () => {
-                  if (isLoading) {
-                    return;
-                  }
+                return {
+                  kind: 'kickoff' as const,
+                  kickoff,
+                  disabled: isLoading,
+                  submitKickoff: () => {
+                    if (isLoading) {
+                      return;
+                    }
 
-                  submitText(getKickoffMessage(kickoff.phase, kickoff.mode));
-                },
-              };
-            })()
+                    submitText(getKickoffMessage(kickoff.phase, kickoff.mode));
+                  },
+                };
+              })()
+            : (() => {
+                const recovery = viewState.turnCard.recovery;
+
+                return {
+                  kind: 'recovery' as const,
+                  recovery,
+                  disabled: isLoading,
+                  submitRecovery: () => {
+                    if (isLoading) {
+                      return;
+                    }
+
+                    submitText(getKickoffMessage(recovery.phase, 'continue'));
+                  },
+                };
+              })()
       : null,
     phaseSummary: viewState.phaseSummary,
     showGeneratingState: viewState.showGeneratingState,
