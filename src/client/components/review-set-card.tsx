@@ -5,6 +5,7 @@ import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import { Textarea } from '@/client/components/ui/textarea';
 import { cn } from '@/client/lib/utils';
+import type { ReviewAction } from '@/shared/api-types.js';
 
 export type ReviewSetGroundingRef = {
   code: string;
@@ -180,6 +181,7 @@ export function ReviewSetCard({
   disabled,
   submitted,
   initialComments,
+  resolvedAction,
 }: {
   reviewSet: ReviewSetCardData;
   description: string;
@@ -190,6 +192,7 @@ export function ReviewSetCard({
   disabled: boolean;
   submitted: boolean;
   initialComments?: Record<string, string>;
+  resolvedAction?: ReviewAction | null;
 }) {
   const [commentsByItem, setCommentsByItem] = useState<Record<string, string>>(initialComments ?? {});
   const totalGrounding = useMemo(
@@ -251,6 +254,18 @@ export function ReviewSetCard({
           data-testid="turn-processing-state"
         >
           Interviewer is processing this response.
+        </div>
+      ) : resolvedAction ? (
+        <div
+          className={cn(
+            'rounded-md border px-3 py-2 text-sm',
+            resolvedAction === 'accept'
+              ? 'border-emerald-200 bg-emerald-50 text-emerald-900 dark:border-emerald-900/60 dark:bg-emerald-950/40 dark:text-emerald-100'
+              : 'border-blue-200 bg-blue-50 text-blue-900 dark:border-blue-900/60 dark:bg-blue-950/40 dark:text-blue-100',
+          )}
+          data-testid="review-set-resolution"
+        >
+          {resolvedAction === 'accept' ? 'Review accepted.' : 'Changes requested.'}
         </div>
       ) : (
         <div className="flex items-center justify-end gap-2">

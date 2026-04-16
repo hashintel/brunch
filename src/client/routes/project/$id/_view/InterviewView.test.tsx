@@ -1308,6 +1308,112 @@ describe('InterviewView', () => {
     expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
   });
 
+  it('replays a closed review turn with the dedicated review-set card instead of the generic answered card', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: 'Accept review',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Accept review' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 1,
+                  selectedOptionIds: [11],
+                  reviewAction: 'accept',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      referenceCode: 'R1',
+                      content: 'Export the reviewed specification as markdown',
+                      rationale: 'Keeps the accepted review output portable for sharing.',
+                      grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+                    },
+                    {
+                      referenceCode: 'R2',
+                      content: 'Resume the interview from persisted local state',
+                      rationale: 'Maintains the local-first continuity promise after reload.',
+                      grounding: [{ code: 'GOAL2' }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: true },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+        workflow: createWorkflowState({
+          scope: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 99,
+            summary: 'Grounding closed.',
+          },
+          design: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 98,
+            summary: 'Design closed.',
+          },
+          requirements: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'user_forced',
+            proposalPending: false,
+            turnId: 1,
+            summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
+          },
+          criteria: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'user_forced',
+            proposalPending: false,
+            turnId: 97,
+            summary: 'Criteria closed.',
+          },
+        }),
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    expect(await screen.findByTestId('answered-review-set-card')).toBeTruthy();
+    expect(screen.queryByTestId('answered-turn-card')).toBeNull();
+    expect(screen.getByText('Requirements')).toBeTruthy();
+    expect(screen.getByText('R1')).toBeTruthy();
+    expect(screen.getByText('Review accepted.')).toBeTruthy();
+  });
+
   it('does not forward the accepted requirements review text into chat when the server already advanced to criteria', async () => {
     setLoaderData(
       createWorkspaceLoaderData({

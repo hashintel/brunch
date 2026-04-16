@@ -27,7 +27,7 @@ function createEntityState(overrides: Partial<EntitiesData> = {}): EntitiesData 
 }
 
 describe('EntitySidebar', () => {
-  it('renders server-owned reference codes and review badges for requirements', () => {
+  it('renders server-owned reference codes for requirements without review badges', () => {
     render(
       <EntitySidebar
         entityState={createEntityState({
@@ -73,9 +73,9 @@ describe('EntitySidebar', () => {
     expect(screen.getByText('Export the reviewed spec')).toBeTruthy();
     expect(screen.getByText('Support exporting the spec as a PDF')).toBeTruthy();
     expect(screen.getByText('Resume the interview from SQLite after restart')).toBeTruthy();
-    expect(screen.getAllByText('Approved')).toHaveLength(1);
-    expect(screen.getAllByText('Rejected')).toHaveLength(1);
-    expect(screen.getAllByText('Pending')).toHaveLength(1);
+    expect(screen.queryByText('Approved')).toBeNull();
+    expect(screen.queryByText('Rejected')).toBeNull();
+    expect(screen.queryByText('Pending')).toBeNull();
   });
 
   it('renders all visible knowledge groups, hides terms, and reports visible totals only', () => {

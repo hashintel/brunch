@@ -16,6 +16,7 @@ import {
   ActiveQuestionCard,
   ActivityPlaceholder,
   AnsweredQuestionCard,
+  AnsweredReviewSetCard,
   GeneratingTurnPlaceholder,
 } from '@/client/components/question-cards';
 import { cn } from '@/client/lib/utils';
@@ -33,6 +34,7 @@ import { getNextActivePhase, phaseOrder, phaseRouteSegments } from '@/shared/pha
 import {
   getAcceptedClosureReplay,
   getPersistedActivitySummary,
+  getPersistedReviewAction,
   getPersistedReviewSet,
   getPersistedSelectedPositions,
   getPersistedTurnResponse,
@@ -360,6 +362,11 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           kind: 'accepted-closure';
           acceptedClosure: NonNullable<ReturnType<typeof getAcceptedClosureReplay>>;
         }
+      | {
+          kind: 'answered-review-turn';
+          turn: ProjectStateTurn;
+          reviewSet: NonNullable<ReturnType<typeof getPersistedReviewSet>>;
+        }
     >
   >((items, turn) => {
     if (turn.id === renderedPersistedTurnId) {
@@ -373,7 +380,12 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
     }
 
     if (turnHasCompletedAnswer(turn) && !turnIsControlOrClosureArtifact(turn)) {
-      items.push({ kind: 'answered-turn', turn });
+      const reviewSet = getPersistedReviewSet(turn);
+      if (reviewSet && getPersistedReviewAction(turn)) {
+        items.push({ kind: 'answered-review-turn', turn, reviewSet });
+      } else {
+        items.push({ kind: 'answered-turn', turn });
+      }
     }
 
     return items;
@@ -541,6 +553,15 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                         turn={item.turn}
                         questionCode={`Q${index + 1}`}
                         captureStatus={captureStatusByTurnId.get(item.turn.id)}
+                      />
+                    </div>
+                  ) : item.kind === 'answered-review-turn' ? (
+                    <div key={`answered-review-turn-${item.turn.id}`} className="flex flex-col">
+                      {renderPersistedActivity(item.turn)}
+                      <AnsweredReviewSetCard
+                        turn={item.turn}
+                        questionCode={`Q${index + 1}`}
+                        reviewSet={item.reviewSet}
                       />
                     </div>
                   ) : (

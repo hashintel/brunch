@@ -46,7 +46,6 @@ function toKnowledgeItemData(
     content: string;
     rationale?: string | null;
     subtype?: string | null;
-    reviewStatus?: string;
     referenceCode?: string;
   },
   kind: KnowledgeItemData['kind'],
@@ -57,7 +56,6 @@ function toKnowledgeItemData(
     content: item.content,
     ...(item.rationale ? { rationale: item.rationale } : {}),
     ...(item.subtype ? { subtype: item.subtype } : {}),
-    ...(item.reviewStatus ? { reviewStatus: item.reviewStatus as KnowledgeItemData['reviewStatus'] } : {}),
     ...(item.referenceCode ? { referenceCode: item.referenceCode } : {}),
   };
 }
