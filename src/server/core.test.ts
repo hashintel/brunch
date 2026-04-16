@@ -387,6 +387,35 @@ describe('finalizeTurn', () => {
 });
 
 describe('getProjectState', () => {
+  it('seeds the first scope kickoff turn with grounding strategy choices', () => {
+    const project = createProject(db, 'Spec');
+
+    const state = getProjectState(db, project.id);
+
+    expect(state?.turns).toHaveLength(1);
+    expect(state?.turns[0]).toMatchObject({
+      phase: 'scope',
+      turn_kind: 'kickoff',
+      question: 'How should this specification start?',
+      why: 'Choose how to start grounding this specification.',
+      answer: null,
+      options: [
+        {
+          position: 0,
+          content: 'New concept from scratch',
+          is_recommended: true,
+          is_selected: false,
+        },
+        {
+          position: 1,
+          content: 'Feature within existing codebase',
+          is_recommended: false,
+          is_selected: false,
+        },
+      ],
+    });
+  });
+
   it('returns project plus active path turns', () => {
     const project = createProject(db, 'Spec');
     const turn = createTurn(db, project.id, {

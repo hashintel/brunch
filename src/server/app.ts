@@ -20,6 +20,10 @@ import {
 } from '@/shared/chat.js';
 import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import {
+  getGroundingStrategyModeForPosition,
+  isGroundingStrategyKickoffTurn,
+} from '@/shared/grounding-strategy.js';
+import {
   getForceCloseActionErrorMessage,
   getForceClosePhaseAction,
   getForcedPhaseClosureSummary,
@@ -49,6 +53,7 @@ import {
   getTurn,
   getOptionsForTurn,
   linkKnowledgeItemToTurn,
+  updateProjectMode,
   updateTurn,
   getEntitiesForProjectByMode,
   recordReviewFromTurnResponse,
@@ -245,6 +250,17 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     applyTurnResponseSelections(db, turnId, uniquePositions);
     recordReviewFromTurnResponse(db, turn, uniquePositions, 'requirementReview', 'requirement');
     recordReviewFromTurnResponse(db, turn, uniquePositions, 'criterionReview', 'criterion');
+
+    if (isGroundingStrategyKickoffTurn(turn)) {
+      const selectedMode =
+        uniquePositions.length === 1 ? getGroundingStrategyModeForPosition(uniquePositions[0]!) : null;
+      if (selectedMode) {
+        updateProjectMode(db, projectId, {
+          mode: selectedMode,
+          cwd: selectedMode === 'brownfield' ? projectCwd : null,
+        });
+      }
+    }
 
     const selectedOptionIds = selectedOptions.map((option) => option.id);
     const selectedOptionContents = selectedOptions.map((option) => option.content);

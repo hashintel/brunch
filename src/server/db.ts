@@ -517,6 +517,17 @@ export function advanceHead(db: DB, projectId: number, turnId: number): void {
   reconcilePhaseOutcomesForProject(db, projectId);
 }
 
+export function updateProjectMode(
+  db: DB,
+  projectId: number,
+  { mode, cwd }: { mode: ProjectMode; cwd: string | null },
+): void {
+  db.update(schema.project)
+    .set({ mode, cwd, updated_at: sql`datetime('now')` })
+    .where(eq(schema.project.id, projectId))
+    .run();
+}
+
 // --- Entity persistence (generic knowledge items + compatibility projections) ---
 
 export type KnowledgeItem = InferSelectModel<typeof schema.knowledgeItem>;

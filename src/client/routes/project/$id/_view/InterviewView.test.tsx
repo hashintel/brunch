@@ -982,12 +982,44 @@ describe('InterviewView', () => {
     expect(answeredCard.compareDocumentPosition(handoffCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('renders a kickoff turn card when an open phase has no active frontier turn', async () => {
+  it('renders grounding strategy choices in the scope kickoff card and submits the selected strategy', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         assistantText: '',
         answer: '',
-        turns: [],
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'scope',
+            turn_kind: 'kickoff',
+            question: 'How should this specification start?',
+            why: 'Choose how to start grounding this specification.',
+            impact: null,
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: null,
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              {
+                id: 11,
+                position: 0,
+                content: 'New concept from scratch',
+                is_recommended: true,
+                is_selected: false,
+              },
+              {
+                id: 12,
+                position: 1,
+                content: 'Feature within existing codebase',
+                is_recommended: false,
+                is_selected: false,
+              },
+            ],
+          },
+        ],
         workflow: createWorkflowState({
           scope: {
             status: 'in_progress',
@@ -995,23 +1027,47 @@ describe('InterviewView', () => {
             readiness: 'low',
             closureBasis: null,
             proposalPending: false,
-            turnId: null,
+            turnId: 1,
             summary: null,
           },
         }),
       }),
     );
 
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
     renderWorkspace();
 
-    expect((await screen.findByTestId('kickoff-turn-card')).textContent).toContain('Proceed');
-    expect(screen.getByText('Grounding phase')).toBeTruthy();
+    expect((await screen.findByTestId('kickoff-turn-card')).textContent).toContain(
+      'How should this specification start?',
+    );
+    expect(screen.getByText('New concept from scratch')).toBeTruthy();
+    expect(screen.getByText('Feature within existing codebase')).toBeTruthy();
     expect(screen.queryByLabelText('Type a message...')).toBeNull();
 
-    fireEvent.click(screen.getByTestId('kickoff-turn-card'));
+    fireEvent.click(screen.getByTestId('kickoff-strategy-option-brownfield'));
 
     await waitFor(() => {
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Begin the grounding phase.' });
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/turns/1/response',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'select-options',
+            positions: [1],
+          }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Feature within existing codebase' });
     });
   });
 

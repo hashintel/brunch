@@ -5,9 +5,10 @@ import type { ChatStatus } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import { useSubmitTurnResponseMutation } from '@/client/mutations/interview-mutations';
-import type { ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
+import type { ProjectMode, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import { brunchDataPartSchemas } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
+import { getGroundingStrategyPosition } from '@/shared/grounding-strategy.js';
 import {
   createConfirmProposedPhaseClosureCommand,
   createForceCloseActivePhaseCommand,
@@ -61,7 +62,7 @@ export type InterviewControllerTurnCardState =
       readonly kind: 'kickoff';
       readonly kickoff: KickoffTurnViewModel;
       readonly disabled: boolean;
-      readonly submitKickoff: () => void;
+      readonly submitKickoff: (mode?: ProjectMode) => void;
     }
   | {
       readonly kind: 'recovery';
@@ -338,8 +339,29 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                   kind: 'kickoff' as const,
                   kickoff,
                   disabled: isLoading,
-                  submitKickoff: () => {
+                  submitKickoff: (selectedMode?: ProjectMode) => {
                     if (isLoading) {
+                      return;
+                    }
+
+                    if (kickoff.phase === 'scope' && kickoff.mode === 'start' && selectedMode) {
+                      const kickoffTurnId =
+                        viewState.turnCard?.kind === 'kickoff'
+                          ? durableProject.workflow.phases.scope.turnId
+                          : null;
+                      const selectedPosition = getGroundingStrategyPosition(selectedMode);
+                      if (kickoffTurnId === null || selectedPosition === null) {
+                        return;
+                      }
+
+                      setSubmittedTurnId(kickoffTurnId);
+                      void submitTurnResponseMutation
+                        .submitTurnResponse([selectedPosition])
+                        .then((didSubmit) => {
+                          if (!didSubmit) {
+                            setSubmittedTurnId(null);
+                          }
+                        });
                       return;
                     }
 
