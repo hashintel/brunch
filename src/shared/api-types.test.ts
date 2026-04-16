@@ -29,6 +29,7 @@ describe('api transport contracts', () => {
           design: 'in_progress',
           requirements: 'unstarted',
           criteria: 'unstarted',
+          currentReadiness: 'medium',
         },
       }),
     ).toMatchObject({
@@ -99,6 +100,7 @@ describe('api transport contracts', () => {
             project_id: 1,
             parent_turn_id: 3,
             phase: 'design',
+            turn_kind: 'question',
             question: 'Which platform should we target?',
             why: 'Platform affects the first release shape.',
             impact: 'high',
@@ -296,6 +298,14 @@ describe('api transport contracts', () => {
       error: 'Failed to save response',
     });
     expect(submitTurnResponseResponseSchema.parse({ ok: true })).toEqual({ ok: true });
+    expect(submitTurnResponseResponseSchema.parse({ ok: true, advancedToPhase: 'criteria' })).toEqual({
+      ok: true,
+      advancedToPhase: 'criteria',
+    });
+    expect(submitTurnResponseResponseSchema.parse({ ok: true, workflowCompleted: true })).toEqual({
+      ok: true,
+      workflowCompleted: true,
+    });
   });
 
   it('rejects mismatched requirement and criterion kinds', () => {
@@ -343,6 +353,17 @@ describe('api transport contracts', () => {
       kind: 'select-options',
       positions: [0, 2],
       freeText: 'Covers both launch paths',
+    });
+    expect(
+      submitTurnResponseRequestSchema.parse({
+        kind: 'select-options',
+        positions: [0],
+        reviewAction: 'accept',
+      }),
+    ).toEqual({
+      kind: 'select-options',
+      positions: [0],
+      reviewAction: 'accept',
     });
     expect(
       submitTurnResponseRequestSchema.parse({

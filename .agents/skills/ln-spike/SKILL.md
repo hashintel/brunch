@@ -8,6 +8,8 @@ argument-hint: "[question to answer and what you'll try]"
 
 Retire one uncertainty. Output is knowledge, not code — spike code is throwaway, never promoted directly (Beck, XP). One question per spike; if multiple unknowns exist, run multiple spikes.
 
+Spike notes are temporary. Reconcile durable findings into `memory/SPEC.md` and `memory/PLAN.md` instead of inventing standalone investigation docs unless the user explicitly asks for one.
+
 ## Input
 
 The question and approach: $ARGUMENTS
@@ -39,7 +41,7 @@ The question and approach: $ARGUMENTS
 After the verdict, do all of these before presenting routing options:
 
 1. Mark the spike `done` in `memory/PLAN.md`
-2. Update `memory/SPEC.md` §Assumptions — set `Status` to `validated` or `invalidated` as evidence warrants, update `Confidence` if the evidence changed it, and flag implicated slices in PLAN.md
+2. Update `memory/SPEC.md` §Assumptions — set `Status` to `validated` or `invalidated` as evidence warrants, update `Confidence` if the evidence changed it, and flag implicated slices in `memory/PLAN.md`
 3. Add any new decisions to `memory/SPEC.md` §Decisions, new assumptions to §Assumptions
 4. If the verdict changes slice feasibility → update affected slices in `memory/PLAN.md`
 

@@ -23,8 +23,8 @@ describe('file-route dashboard ownership', () => {
     expect(projectListRouteSource).toContain('useCreateProjectMutation');
     expect(projectListRouteSource).toContain("navigate({ to: '/project/$id'");
     expect(routeRootSource).toContain('Outlet');
-    expect(routeRootSource).toContain('HashMark');
-    expect(routeRootSource).toContain('HashWordmark');
+    expect(routeRootSource).toContain('BrunchBrand');
+    expect(routeRootSource).toContain('__APP_VERSION__');
     expect(fileRouteRootSource).toContain('fetchAppConfig');
 
     expect(generatedRouteTreeSource).toContain("'/'");

@@ -2,12 +2,17 @@ import type { ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api
 import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type {
   AskQuestionUIPart,
-  BrunchAssistantPart,
   BrunchUIMessage,
   BrunchUserPart,
-  DataTurnResponse,
   StructuredQuestion,
 } from '@/shared/chat.js';
+import {
+  hasPersistedTurnResponse,
+  safeParsePersistedAssistantParts,
+  safeParsePersistedUserParts,
+  turnHasCompletedAnswer,
+  turnIsControlOrClosureArtifact,
+} from '@/shared/project-state-turn.js';
 
 export interface InterviewDurableProjectState {
   readonly project: ProjectState['project'];
@@ -36,6 +41,17 @@ export interface PendingQuestionViewModel {
   readonly options: readonly PendingQuestionOption[];
 }
 
+export type KickoffMode = 'start' | 'continue';
+
+export interface KickoffTurnViewModel {
+  readonly phase: WorkflowPhase;
+  readonly mode: KickoffMode;
+}
+
+export interface RecoveryTurnViewModel {
+  readonly phase: WorkflowPhase;
+}
+
 export interface PhaseSummaryViewModel {
   readonly turnId: number;
   readonly phase: ProjectStateTurn['phase'];
@@ -43,63 +59,51 @@ export interface PhaseSummaryViewModel {
 }
 
 export type InterviewTurnCardViewModel =
-  | { readonly kind: 'persisted-turn'; readonly turn: ProjectStateTurn }
-  | { readonly kind: 'pending-question'; readonly pendingQuestion: PendingQuestionViewModel };
+  | {
+      readonly kind: 'persisted-turn';
+      readonly turn: ProjectStateTurn;
+      readonly state: 'active' | 'submitted';
+    }
+  | { readonly kind: 'pending-question'; readonly pendingQuestion: PendingQuestionViewModel }
+  | { readonly kind: 'kickoff'; readonly kickoff: KickoffTurnViewModel }
+  | { readonly kind: 'recovery'; readonly recovery: RecoveryTurnViewModel };
 
 export interface InterviewControllerViewState {
   readonly project: InterviewDurableProjectState['project'];
   readonly workflow: InterviewDurableProjectState['workflow'];
   readonly turnCard: InterviewTurnCardViewModel | null;
   readonly phaseSummary: PhaseSummaryViewModel | null;
+  readonly showGeneratingState: boolean;
   readonly promptInput: {
     readonly visible: boolean;
   };
 }
 
-function parseAssistantParts(json: string | null): BrunchAssistantPart[] {
-  if (!json) return [];
-  try {
-    return JSON.parse(json) as BrunchAssistantPart[];
-  } catch {
-    return [];
-  }
+export const startPhaseMessages: Record<WorkflowPhase, string> = {
+  scope: 'Begin the grounding phase.',
+  design: 'Begin the elicitation phase.',
+  requirements: 'Begin the requirements phase.',
+  criteria: 'Begin the acceptance criteria phase.',
+};
+
+export const continuePhaseMessages: Record<WorkflowPhase, string> = {
+  scope: 'Continue the grounding phase.',
+  design: 'Continue the elicitation phase.',
+  requirements: 'Continue the requirements phase.',
+  criteria: 'Continue the acceptance criteria phase.',
+};
+
+export function getKickoffMode(turns: readonly ProjectStateTurn[], phase: WorkflowPhase): KickoffMode {
+  return turns.some((turn) => turn.phase === phase && turn.turn_kind !== 'kickoff') ? 'continue' : 'start';
 }
 
-function parseUserParts(json: string | null): BrunchUserPart[] {
-  if (!json) return [];
-  try {
-    return JSON.parse(json) as BrunchUserPart[];
-  } catch {
-    return [];
-  }
+export function getKickoffMessage(phase: WorkflowPhase, mode: KickoffMode): string {
+  return mode === 'start' ? startPhaseMessages[phase] : continuePhaseMessages[phase];
 }
 
-export function getPersistedTurnResponse(
-  turn: Pick<ProjectStateTurn, 'user_parts'> | undefined,
-): DataTurnResponse | null {
-  return (
-    parseUserParts(turn?.user_parts ?? null).find(
-      (part): part is Extract<BrunchUserPart, { type: 'data-turn-response' }> =>
-        part.type === 'data-turn-response',
-    )?.data ?? null
-  );
-}
-
-export function hasPersistedTurnResponse(turn: Pick<ProjectStateTurn, 'user_parts'> | undefined): boolean {
-  return getPersistedTurnResponse(turn) !== null;
-}
-
-export function getPersistedSelectedPositions(
-  turn: Pick<ProjectStateTurn, 'user_parts' | 'options'> | undefined,
-): number[] {
-  const persistedResponse = getPersistedTurnResponse(turn);
-  if (!persistedResponse) {
-    return [];
-  }
-
-  const selectedOptionIds = new Set(persistedResponse.selectedOptionIds);
-  return (
-    turn?.options?.filter((option) => selectedOptionIds.has(option.id)).map((option) => option.position) ?? []
+function hasCompletedSubstantivePhaseTurn(turns: readonly ProjectStateTurn[], phase: WorkflowPhase): boolean {
+  return turns.some(
+    (turn) => turn.phase === phase && turnHasCompletedAnswer(turn) && !turnIsControlOrClosureArtifact(turn),
   );
 }
 
@@ -107,7 +111,7 @@ function hydrateMessages(turns: readonly ProjectStateTurn[]): BrunchUIMessage[] 
   const messages: BrunchUIMessage[] = [];
 
   for (const turn of turns) {
-    const hydratedUserParts = parseUserParts(turn.user_parts);
+    const hydratedUserParts = safeParsePersistedUserParts(turn.user_parts);
     const userParts =
       hydratedUserParts.length > 0
         ? hydratedUserParts.some((part) => part.type === 'text') || !turn.answer
@@ -125,7 +129,7 @@ function hydrateMessages(turns: readonly ProjectStateTurn[]): BrunchUIMessage[] 
       });
     }
 
-    const assistantParts = parseAssistantParts(turn.assistant_parts);
+    const assistantParts = safeParsePersistedAssistantParts(turn.assistant_parts);
     if (assistantParts.length > 0) {
       messages.push({
         id: `turn-${turn.id}-assistant`,
@@ -185,6 +189,56 @@ export function createInterviewEphemeralChatState(projectState: ProjectState): I
   return {
     seedMessages: hydrateMessages(projectState.turns),
   };
+}
+
+export function reconcileStablePhaseTurns(
+  stableTurns: readonly ProjectStateTurn[],
+  durableTurns: readonly ProjectStateTurn[],
+): ProjectStateTurn[] {
+  const stableTurnsById = new Map(stableTurns.map((turn) => [turn.id, turn]));
+
+  return durableTurns.map((durableTurn) => {
+    const stableTurn = stableTurnsById.get(durableTurn.id);
+    if (!stableTurn) {
+      return durableTurn;
+    }
+
+    if (turnHasCompletedAnswer(stableTurn)) {
+      const stableCapturedCount = stableTurn.captured_items?.length ?? 0;
+      const durableCapturedCount = durableTurn.captured_items?.length ?? 0;
+      return durableCapturedCount > stableCapturedCount ? durableTurn : stableTurn;
+    }
+
+    return turnHasCompletedAnswer(durableTurn) ? durableTurn : stableTurn;
+  });
+}
+
+function findPhaseTurn(
+  durableProject: InterviewDurableProjectState,
+  phase: WorkflowPhase,
+): ProjectStateTurn | null {
+  const phaseState = durableProject.workflow.phases[phase];
+  if (phaseState.status === 'closed') {
+    return null;
+  }
+
+  if (phaseState.turnId !== null) {
+    const currentPhaseTurn = durableProject.turns.find(
+      (turn) => turn.id === phaseState.turnId && turn.phase === phase,
+    );
+    if (currentPhaseTurn) {
+      return currentPhaseTurn;
+    }
+  }
+
+  for (let index = durableProject.turns.length - 1; index >= 0; index -= 1) {
+    const turn = durableProject.turns[index];
+    if (turn?.phase === phase) {
+      return turn;
+    }
+  }
+
+  return null;
 }
 
 function findPendingQuestion(messages: readonly BrunchUIMessage[]): PendingQuestionViewModel | null {
@@ -265,46 +319,90 @@ function findPhaseSummary(messages: readonly BrunchUIMessage[]): PhaseSummaryVie
 
 export function createInterviewControllerViewState(
   durableProject: InterviewDurableProjectState,
+  phase: WorkflowPhase,
   messages: readonly BrunchUIMessage[],
   isLoading: boolean,
+  submittedTurnId: number | null = null,
 ): InterviewControllerViewState {
-  const { project, workflow, lastTurn, showTurnCard, lastTurnHasResponse } = durableProject;
-  const pendingQuestion = isLoading ? findPendingQuestion(messages) : null;
+  const { project, workflow } = durableProject;
+  const phaseState = workflow.phases[phase];
+  const phaseTurn = findPhaseTurn(durableProject, phase);
+  const frontierKind = phaseTurn?.turn_kind;
+  const showTurnCard =
+    frontierKind !== 'kickoff' && frontierKind !== 'recovery' && Boolean(phaseTurn?.options?.length);
+  const phaseTurnHasResponse = hasPersistedTurnResponse(phaseTurn ?? undefined);
+  const isSubmittedTurn = phaseTurn?.id === submittedTurnId;
+  const pendingQuestion = isLoading || submittedTurnId !== null ? findPendingQuestion(messages) : null;
   const latestPhaseSummary = findPhaseSummary(messages);
   const phaseSummary =
-    latestPhaseSummary && (isLoading || workflow.phases[latestPhaseSummary.phase].proposalPending)
+    latestPhaseSummary &&
+    (isLoading || submittedTurnId !== null || workflow.phases[latestPhaseSummary.phase].proposalPending)
       ? latestPhaseSummary
       : null;
+  const missingFrontier = phaseTurn === null || turnHasCompletedAnswer(phaseTurn);
+  const showPersistedTurn =
+    showTurnCard &&
+    phaseTurn !== null &&
+    (!isLoading || isSubmittedTurn) &&
+    (!turnHasCompletedAnswer(phaseTurn) || isSubmittedTurn);
+  const showRecovery =
+    !isLoading &&
+    !phaseSummary &&
+    !pendingQuestion &&
+    phaseState.status !== 'closed' &&
+    !showPersistedTurn &&
+    (frontierKind === 'recovery' ||
+      ((frontierKind === undefined || frontierKind === 'question') &&
+        missingFrontier &&
+        hasCompletedSubstantivePhaseTurn(durableProject.turns, phase)));
+  const showKickoff =
+    !isLoading &&
+    !phaseSummary &&
+    !pendingQuestion &&
+    phaseState.status !== 'closed' &&
+    !showPersistedTurn &&
+    (frontierKind === 'kickoff' ||
+      ((frontierKind === undefined || frontierKind === 'question') &&
+        missingFrontier &&
+        !hasCompletedSubstantivePhaseTurn(durableProject.turns, phase)));
   const turnCard: InterviewTurnCardViewModel | null = phaseSummary
     ? null
     : pendingQuestion
       ? { kind: 'pending-question', pendingQuestion }
-      : showTurnCard && lastTurn && !isLoading
-        ? { kind: 'persisted-turn', turn: lastTurn }
-        : null;
+      : showPersistedTurn && phaseTurn
+        ? {
+            kind: 'persisted-turn',
+            turn: phaseTurn,
+            state: isSubmittedTurn ? 'submitted' : 'active',
+          }
+        : showRecovery
+          ? {
+              kind: 'recovery',
+              recovery: {
+                phase,
+              },
+            }
+          : showKickoff
+            ? {
+                kind: 'kickoff',
+                kickoff: {
+                  phase,
+                  mode: getKickoffMode(durableProject.turns, phase),
+                },
+              }
+            : null;
 
   return {
     project,
     workflow,
     turnCard,
     phaseSummary,
+    showGeneratingState: !phaseSummary && !turnCard && isLoading,
     promptInput: {
-      visible: phaseSummary || pendingQuestion ? false : !showTurnCard || lastTurnHasResponse,
+      visible:
+        isLoading || phaseSummary || pendingQuestion || showKickoff || showRecovery
+          ? false
+          : !showTurnCard || (phaseTurnHasResponse && !isSubmittedTurn),
     },
   };
-}
-
-export function findTurnOptionByPosition(
-  turn: ProjectStateTurn | undefined,
-  position: number,
-): NonNullable<ProjectStateTurn['options']>[number] | undefined {
-  return turn?.options?.find((option) => option.position === position);
-}
-
-export function findTurnOptionsByPositions(
-  turn: ProjectStateTurn | undefined,
-  positions: number[],
-): NonNullable<ProjectStateTurn['options']> {
-  const uniquePositions = [...new Set(positions)];
-  return turn?.options?.filter((option) => uniquePositions.includes(option.position)) ?? [];
 }

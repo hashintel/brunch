@@ -3,7 +3,7 @@ import { createKnowledgeCollectionRecord } from '@/shared/knowledge.js';
 
 import type { TurnWithOptions } from '../core.js';
 import { loadActivePathWithOptions } from '../core.js';
-import { createDb, getEntitiesForProject, type DB } from '../db.js';
+import { createDb, findPhaseOutcomeForTurn, getEntitiesForProject, type DB } from '../db.js';
 import { runObserver, type ObserverOutput } from '../observer.js';
 import { safeDeserializeUserParts } from '../parts.js';
 import { projectTurnResponse } from '../turn-response.js';
@@ -220,45 +220,59 @@ export function captureProjectToManifestScenario(db: DB, projectId: number): Man
   const turns = loadActivePathWithOptions(db, projectId);
   const turnIndexById = new Map(turns.map((turn, index) => [turn.id, index]));
 
-  const manifestTurns = turns.map((turn) => {
+  const manifestTurns = turns.flatMap((turn) => {
+    if (turn.turn_kind === 'kickoff' || turn.turn_kind === 'recovery') {
+      return {
+        phase: turn.phase,
+        turnKind: turn.turn_kind,
+        question: '',
+        answer: null,
+      } satisfies ManifestScenario['turns'][number];
+    }
+
     if (turn.question) {
       const response = projectTurnResponse(turn);
-      if (!response) {
-        throw new Error(
-          `Turn ${turn.id} is missing the structured response data required for trusted capture`,
-        );
-      }
-
       const options = turn.options ?? [];
 
       return {
         phase: turn.phase,
+        ...(turn.turn_kind && turn.turn_kind !== 'question' ? { turnKind: turn.turn_kind } : {}),
         question: turn.question,
-        answer: turn.answer ?? '',
+        answer: turn.answer ?? null,
         why: turn.why ?? null,
         impact: turn.impact ?? null,
         options: options.map((option) => ({
           content: option.content,
           is_recommended: option.is_recommended,
         })),
-        selectedOptionPositions: options
-          .filter((option) => option.is_selected)
-          .sort((left, right) => left.position - right.position)
-          .map((option) => option.position),
-        freeText: response.freeText ?? null,
-      };
+        ...(response
+          ? {
+              selectedOptionPositions: options
+                .filter((option) => option.is_selected)
+                .sort((left, right) => left.position - right.position)
+                .map((option) => option.position),
+              freeText: response.freeText ?? null,
+              ...(response.reviewAction ? { reviewAction: response.reviewAction } : {}),
+            }
+          : {}),
+      } satisfies ManifestScenario['turns'][number];
     }
 
     const isConfirmation = safeDeserializeUserParts(turn.user_parts).some(
       (part) => part.type === 'data-confirmation',
     );
+    const isClosureProposal = Boolean(findPhaseOutcomeForTurn(db, projectId, turn.id));
+
+    if (!isConfirmation && !isClosureProposal) {
+      return [];
+    }
 
     return {
       phase: turn.phase,
       question: '',
       answer: turn.answer ?? '',
       ...(isConfirmation ? { isConfirmation: true } : { isProposal: true }),
-    };
+    } satisfies ManifestScenario['turns'][number];
   });
 
   const activeTurnIds = turns.map((turn) => turn.id);
@@ -597,7 +611,7 @@ function collectObservedTurnCapture(
 }
 
 export async function observeTurnWithRunObserver(input: ObserveTurnInput): Promise<ObservedTurnCapture> {
-  const createdIds = await runObserver(input.db, input.turn, input.projectId);
+  const createdIds = await runObserver(input.db, input.turn as import('../db.js').Turn, input.projectId);
   return collectObservedTurnCapture(input.db, input.projectId, createdIds);
 }
 

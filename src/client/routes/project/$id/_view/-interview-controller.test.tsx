@@ -115,12 +115,12 @@ function createProjectState({
     workflow: {
       phases: {
         scope: {
-          status: 'unstarted',
+          status: 'in_progress',
           closeability: false,
           readiness: 'low',
           closureBasis: null,
           proposalPending: false,
-          turnId: null,
+          turnId: 1,
           summary: null,
         },
         design: {
@@ -158,6 +158,7 @@ function createProjectState({
         project_id: projectId,
         parent_turn_id: null,
         phase: 'scope',
+        turn_kind: 'question',
         question: assistantText,
         why: 'This frames the first iteration.',
         impact: 'high',
@@ -244,7 +245,11 @@ function ControllerProbe() {
           ? workspace.turnCard.turn.question
           : workspace.turnCard?.kind === 'pending-question'
             ? workspace.turnCard.pendingQuestion.question
-            : 'none'}
+            : workspace.turnCard?.kind === 'kickoff'
+              ? `${workspace.turnCard.kickoff.mode}:${workspace.turnCard.kickoff.phase}`
+              : workspace.turnCard?.kind === 'recovery'
+                ? `recovery:${workspace.turnCard.recovery.phase}`
+                : 'none'}
       </div>
       <div data-testid="prompt-visible">{String(workspace.promptInput.visible)}</div>
     </div>
@@ -277,6 +282,33 @@ afterEach(() => {
 });
 
 describe('interview controller', () => {
+  it('projects a kickoff turn card when an open phase has no active frontier turn yet', async () => {
+    currentProjectState = createProjectState({ assistantText: '', answer: '' });
+    currentProjectState.project.active_turn_id = null;
+    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.turns = [];
+
+    renderController();
+
+    expect((await screen.findByTestId('turn-card-kind')).textContent).toBe('kickoff');
+    expect(screen.getByTestId('turn-card').textContent).toBe('start:scope');
+    expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
+  });
+
+  it('projects a recovery turn card when an open phase has a completed turn but no successor frontier', async () => {
+    currentProjectState = createProjectState({
+      options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+    });
+    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.project.active_turn_id = null;
+
+    renderController();
+
+    expect((await screen.findByTestId('turn-card-kind')).textContent).toBe('recovery');
+    expect(screen.getByTestId('turn-card').textContent).toBe('recovery:scope');
+    expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
+  });
+
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
     currentProjectState = createProjectState({
       assistantText: 'Earlier question?',
@@ -287,7 +319,7 @@ describe('interview controller', () => {
     renderController();
 
     expect((await screen.findByTestId('turn-card')).textContent).toBe('none');
-    expect(screen.getByTestId('prompt-visible').textContent).toBe('true');
+    expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
 
     await act(async () => {
       useChatHarness.replaceMessages?.([
@@ -315,7 +347,8 @@ describe('interview controller', () => {
     expect((await screen.findByTestId('messages')).textContent).toBe(
       'Build the web app|What should we build first?',
     );
-    expect(screen.getByTestId('turn-card').textContent).toBe('What should we build first?');
+    expect(screen.getByTestId('turn-card').textContent).toBe('recovery:scope');
+    expect(screen.getByTestId('turn-card-kind').textContent).toBe('recovery');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
     expect(fetchMock).not.toHaveBeenCalled();
   });

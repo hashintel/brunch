@@ -17,7 +17,9 @@ import type {
   EntityReference as SharedEntityReference,
   EntityRelationship as SharedEntityRelationship,
   ProjectMode,
+  ProjectStateTurn,
   ReadinessBand,
+  TurnKind,
   RequirementEntity as SharedRequirementEntity,
   ReviewStatus,
   WorkflowPhaseState as SharedWorkflowPhaseState,
@@ -26,6 +28,7 @@ import type {
 } from '@/shared/api-types.js';
 import { isAskQuestionUIPart, structuredQuestionSchema, type StructuredQuestion } from '@/shared/chat.js';
 import {
+  createKnowledgeReferenceCode,
   genericKnowledgeKindRegistry,
   type GenericKnowledgeCollectionKey,
   type GenericKnowledgeKind,
@@ -65,6 +68,7 @@ export interface CreatePhaseOutcomeInput {
 export interface CreateTurnInput {
   parent_turn_id?: number | null;
   phase: Phase;
+  turn_kind?: TurnKind;
   question: string;
   why?: string | null;
   impact?: Impact | null;
@@ -134,6 +138,7 @@ export function createTurn(db: DB, projectId: number, input: CreateTurnInput): T
       project_id: projectId,
       parent_turn_id: input.parent_turn_id ?? null,
       phase: input.phase,
+      turn_kind: input.turn_kind ?? 'question',
       question: input.question,
       why: input.why ?? null,
       impact: input.impact ?? null,
@@ -305,6 +310,16 @@ export function confirmPhaseOutcome(db: DB, phaseOutcomeId: number, confirmation
     .run();
 }
 
+export function supersedePhaseOutcome(db: DB, phaseOutcomeId: number): void {
+  db.update(schema.phaseOutcome)
+    .set({
+      status: 'superseded',
+      superseded_at: sql`datetime('now')`,
+    })
+    .where(eq(schema.phaseOutcome.id, phaseOutcomeId))
+    .run();
+}
+
 export function createConfirmedPhaseOutcome(
   db: DB,
   input: CreatePhaseOutcomeInput & { confirmation_turn_id: number },
@@ -422,7 +437,10 @@ export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowStat
     number
   >;
   for (const turn of activePath) {
-    turnCounts[turn.phase] += 1;
+    const isSubstantiveTurn = turn.question.trim().length > 0 || getOptionsForTurn(db, turn.id).length > 0;
+    if (isSubstantiveTurn) {
+      turnCounts[turn.phase] += 1;
+    }
   }
 
   const currentOutcomes = listPhaseOutcomesForProject(db, projectId).filter(
@@ -509,24 +527,26 @@ export type Decision = SharedDecision;
 export type Assumption = SharedAssumption;
 export type EntityReference = SharedEntityReference;
 export type EntityRelationship = SharedEntityRelationship;
-export type RequirementEntity = SharedRequirementEntity;
-export type CriterionEntity = SharedCriterionEntity;
+export type RequirementEntity = SharedRequirementEntity & { kind_ordinal: number };
+export type CriterionEntity = SharedCriterionEntity & { kind_ordinal: number };
 export type EntitiesForProject = EntitiesData;
 
-function toDecision(item: KnowledgeItem): Decision {
+function toDecision(item: KnowledgeItem): Decision & { kind_ordinal: number } {
   return {
     id: item.id,
     project_id: item.project_id,
     content: item.content,
     rationale: item.rationale,
+    kind_ordinal: item.kind_ordinal,
   };
 }
 
-function toAssumption(item: KnowledgeItem): Assumption {
+function toAssumption(item: KnowledgeItem): Assumption & { kind_ordinal: number } {
   return {
     id: item.id,
     project_id: item.project_id,
     content: item.content,
+    kind_ordinal: item.kind_ordinal,
   };
 }
 
@@ -545,6 +565,7 @@ export function createDecision(
         subtype: null,
         content,
         rationale: rationale ?? null,
+        kind_ordinal: sql`(SELECT COALESCE(MAX(kind_ordinal), 0) + 1 FROM knowledge_item WHERE project_id = ${projectId} AND kind = 'decision')`,
       })
       .returning()
       .get() as KnowledgeItem,
@@ -561,6 +582,7 @@ export function createAssumption(db: DB, projectId: number, content: string): As
         subtype: null,
         content,
         rationale: null,
+        kind_ordinal: sql`(SELECT COALESCE(MAX(kind_ordinal), 0) + 1 FROM knowledge_item WHERE project_id = ${projectId} AND kind = 'assumption')`,
       })
       .returning()
       .get() as KnowledgeItem,
@@ -590,6 +612,7 @@ export function createKnowledgeItem(
       subtype: options?.subtype ?? null,
       content,
       rationale: options?.rationale ?? null,
+      kind_ordinal: sql`(SELECT COALESCE(MAX(kind_ordinal), 0) + 1 FROM knowledge_item WHERE project_id = ${projectId} AND kind = ${kind})`,
     })
     .returning()
     .get() as KnowledgeItem;
@@ -652,6 +675,18 @@ function getEntityCollectionForKind(kind: KnowledgeKind): EntityCollection {
     return 'assumption';
   }
   return 'knowledge_item';
+}
+
+function withReferenceCodes<T extends { id: number; kind: SharedKnowledgeKind; kind_ordinal: number }>(
+  items: readonly T[],
+): Array<T & { referenceCode: string }> {
+  return items
+    .slice()
+    .sort((left, right) => left.id - right.id)
+    .map((item) => ({
+      ...item,
+      referenceCode: createKnowledgeReferenceCode(item.kind, item.kind_ordinal),
+    }));
 }
 
 function getReviewStatusesOnActivePath(
@@ -805,15 +840,31 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
   const genericKnowledgeCollections = Object.fromEntries(
     genericKnowledgeKindRegistry.map((entry) => [
       entry.collectionKey,
-      entry.kind === 'requirement'
-        ? getRequirementEntitiesForProject(db, projectId)
-        : entry.kind === 'criterion'
-          ? getCriterionEntitiesForProject(db, projectId)
-          : getKnowledgeItemsForProjectByKind(db, projectId, entry.kind),
+      withReferenceCodes(
+        entry.kind === 'requirement'
+          ? getRequirementEntitiesForProject(db, projectId)
+          : entry.kind === 'criterion'
+            ? getCriterionEntitiesForProject(db, projectId)
+            : getKnowledgeItemsForProjectByKind(db, projectId, entry.kind),
+      ).map(({ kind_ordinal: _, ...item }) => item),
     ]),
   ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
-  const decisions = getKnowledgeItemsForProjectByKind(db, projectId, 'decision').map(toDecision);
-  const assumptions = getKnowledgeItemsForProjectByKind(db, projectId, 'assumption').map(toAssumption);
+  const decisions = withReferenceCodes(
+    getKnowledgeItemsForProjectByKind(db, projectId, 'decision')
+      .map(toDecision)
+      .map((decision) => ({
+        ...decision,
+        kind: 'decision' as const,
+      })),
+  ).map(({ kind: _, kind_ordinal: __, ...decision }) => decision);
+  const assumptions = withReferenceCodes(
+    getKnowledgeItemsForProjectByKind(db, projectId, 'assumption')
+      .map(toAssumption)
+      .map((assumption) => ({
+        ...assumption,
+        kind: 'assumption' as const,
+      })),
+  ).map(({ kind: _, kind_ordinal: __, ...assumption }) => assumption);
   const relationships = db.all(sql`
     SELECT
       edge.relation AS type,
@@ -902,4 +953,78 @@ export function getEntitiesForProject(db: DB, projectId: number): EntitiesForPro
 
 export function getEntitiesForProjectOnActivePath(db: DB, projectId: number): EntitiesForProject {
   return getEntitiesForProjectByMode(db, projectId, 'active-path');
+}
+
+export function getCapturedItemsForTurns(
+  db: DB,
+  projectId: number,
+  turnIds: readonly number[],
+): Map<number, NonNullable<ProjectStateTurn['captured_items']>> {
+  const capturedItemsByTurn = new Map<number, NonNullable<ProjectStateTurn['captured_items']>>();
+  if (turnIds.length === 0) {
+    return capturedItemsByTurn;
+  }
+
+  const projectWideEntities = getEntitiesForProject(db, projectId);
+  const itemsById = new Map<number, NonNullable<ProjectStateTurn['captured_items']>[number]>();
+  const addItems = (
+    items: ReadonlyArray<{ id: number; content: string; kind: SharedKnowledgeKind; referenceCode?: string }>,
+    collection: NonNullable<ProjectStateTurn['captured_items']>[number]['collection'],
+  ) => {
+    for (const item of items) {
+      itemsById.set(item.id, {
+        collection,
+        kind: item.kind,
+        id: item.id,
+        content: item.content,
+        referenceCode: item.referenceCode,
+      });
+    }
+  };
+
+  addItems(projectWideEntities.goals, 'knowledge_item');
+  addItems(projectWideEntities.terms, 'knowledge_item');
+  addItems(projectWideEntities.contexts, 'knowledge_item');
+  addItems(projectWideEntities.constraints, 'knowledge_item');
+  addItems(projectWideEntities.requirements, 'knowledge_item');
+  addItems(projectWideEntities.criteria, 'knowledge_item');
+  addItems(
+    projectWideEntities.decisions.map((item) => ({ ...item, kind: 'decision' as const })),
+    'decision',
+  );
+  addItems(
+    projectWideEntities.assumptions.map((item) => ({ ...item, kind: 'assumption' as const })),
+    'assumption',
+  );
+
+  const rows = db
+    .select({
+      turnId: schema.turnKnowledgeItem.turn_id,
+      itemId: schema.turnKnowledgeItem.item_id,
+    })
+    .from(schema.turnKnowledgeItem)
+    .innerJoin(schema.knowledgeItem, eq(schema.knowledgeItem.id, schema.turnKnowledgeItem.item_id))
+    .where(
+      and(
+        eq(schema.knowledgeItem.project_id, projectId),
+        eq(schema.turnKnowledgeItem.relation, 'captured'),
+        inArray(schema.turnKnowledgeItem.turn_id, [...turnIds]),
+      ),
+    )
+    .all() as Array<{ turnId: number; itemId: number }>;
+
+  rows.sort((left, right) => left.turnId - right.turnId || left.itemId - right.itemId);
+
+  for (const row of rows) {
+    const item = itemsById.get(row.itemId);
+    if (!item) {
+      continue;
+    }
+
+    const currentTurnItems = capturedItemsByTurn.get(row.turnId) ?? [];
+    currentTurnItems.push(item);
+    capturedItemsByTurn.set(row.turnId, currentTurnItems);
+  }
+
+  return capturedItemsByTurn;
 }

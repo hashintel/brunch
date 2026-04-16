@@ -2,6 +2,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectState, WorkflowPhase } from '@/shared/api-types.js';
+import { getPhaseClosureCommandText } from '@/shared/phase-close.js';
 
 import { buildInterviewerContext } from './context.js';
 import type { DB } from './db.js';
@@ -167,6 +168,11 @@ function parseSSELines(body: string): Array<Record<string, unknown> | '[DONE]'> 
 async function createTestProject(name = 'Test Project'): Promise<number> {
   const res = await request(app).post('/api/projects').send({ name });
   return res.body.id;
+}
+
+async function getProjectSnapshot(projectId: number) {
+  const res = await request(app).get(`/api/projects/${projectId}`).expect(200);
+  return res.body as ProjectState;
 }
 
 function seedClosedScope(projectId: number) {
@@ -344,10 +350,33 @@ describe('POST /api/projects/:id/chat', () => {
 
     const { getActivePath } = await import('./db.js');
     const turns = getActivePath(db, projectId);
-    expect(turns).toHaveLength(1);
+    expect(turns).toHaveLength(2);
     expect(turns[0].answer).toBe('hello');
-    expect(turns[0].question).toBe('Hi');
-    expect(turns[0].assistant_parts).not.toBeNull();
+    expect(turns[1].question).toBe('Hi');
+    expect(turns[1].assistant_parts).not.toBeNull();
+  });
+
+  it('passes brownfield kickoff mode options into the interviewer stream', async () => {
+    const createRes = await request(app)
+      .post('/api/projects')
+      .send({ name: 'Brownfield kickoff', mode: 'brownfield' })
+      .expect(201);
+
+    await request(app)
+      .post(`/api/projects/${createRes.body.id}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.any(Array),
+      'hello',
+      'scope',
+      { mode: 'brownfield', cwd: process.cwd() },
+    );
   });
 
   it('emits canonical scope-kind observer results and persists them through the entities API', async () => {
@@ -413,6 +442,7 @@ describe('POST /api/projects/:id/chat', () => {
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
       data: {
+        turnId: 1,
         entityIds: {
           goals: [1],
           terms: [2],
@@ -435,6 +465,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'Produce a clean implementation brief',
         rationale: 'The interview should end in a trustworthy handoff',
+        referenceCode: 'GOAL1',
       },
     ]);
     expect(entitiesRes.body.terms).toEqual([
@@ -445,6 +476,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'implementation brief',
         rationale: 'The turn named the artifact the project is trying to produce',
+        referenceCode: 'TERM1',
       },
     ]);
     expect(entitiesRes.body.contexts).toEqual([
@@ -455,6 +487,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'The project starts from a fuzzy brief',
         rationale: 'The user is still establishing the problem context',
+        referenceCode: 'CTX1',
       },
     ]);
     expect(entitiesRes.body.constraints).toEqual([
@@ -465,6 +498,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: 'non-goal',
         content: 'Keep setup instant',
         rationale: 'The launcher should stay lightweight',
+        referenceCode: 'CST1',
       },
     ]);
   });
@@ -551,6 +585,7 @@ describe('POST /api/projects/:id/chat', () => {
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
       data: {
+        turnId: 1,
         entityIds: {
           goals: [],
           terms: [],
@@ -573,6 +608,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'The first release still targets solo builders',
         rationale: 'The turn clarified the intended audience',
+        referenceCode: 'CTX1',
       },
     ]);
     expect(entitiesRes.body.constraints).toEqual([
@@ -583,6 +619,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: 'non-goal',
         content: 'Do not add a plugin system yet',
         rationale: 'The first release should stay narrow',
+        referenceCode: 'CST1',
       },
     ]);
     expect(entitiesRes.body.decisions).toEqual([
@@ -591,6 +628,7 @@ describe('POST /api/projects/:id/chat', () => {
         project_id: projectId,
         content: 'Start with the web app',
         rationale: 'It is the fastest path to feedback',
+        referenceCode: 'D1',
       },
     ]);
     expect(entitiesRes.body.assumptions).toEqual([
@@ -598,6 +636,7 @@ describe('POST /api/projects/:id/chat', () => {
         id: createdIds!.assumption,
         project_id: projectId,
         content: 'Users can work in a browser',
+        referenceCode: 'A1',
       },
     ]);
     expect(entitiesRes.body.relationships).toEqual([
@@ -648,6 +687,7 @@ describe('POST /api/projects/:id/chat', () => {
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
       data: {
+        turnId: 1,
         entityIds: {
           goals: [],
           terms: [],
@@ -671,6 +711,7 @@ describe('POST /api/projects/:id/chat', () => {
         content: 'Resume the interview from SQLite after restart',
         rationale: 'Users will come back to finish the workflow',
         reviewStatus: 'pending',
+        referenceCode: 'R1',
       },
     ]);
   });
@@ -714,6 +755,7 @@ describe('POST /api/projects/:id/chat', () => {
     expect(observerEvent).toEqual({
       type: 'data-observer-result',
       data: {
+        turnId: 1,
         entityIds: {
           goals: [],
           terms: [],
@@ -737,6 +779,7 @@ describe('POST /api/projects/:id/chat', () => {
         content: 'Resuming restores the active path without data loss',
         rationale: 'This proves persistence worked for the branch the user was on',
         reviewStatus: 'pending',
+        referenceCode: 'CRIT1',
       },
     ]);
   });
@@ -1018,7 +1061,7 @@ describe('phase outcomes + scope closure', () => {
     expect(events).toContainEqual({
       type: 'data-phase-summary',
       data: {
-        turnId: 1,
+        turnId: 2,
         phase: 'scope',
         summary: 'Goals, terms, context, and constraints are sufficiently captured.',
       },
@@ -1027,19 +1070,19 @@ describe('phase outcomes + scope closure', () => {
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.scope).toEqual({
       status: 'in_progress',
-      closeability: true,
-      readiness: 'medium',
+      closeability: false,
+      readiness: 'low',
       closureBasis: null,
       proposalPending: true,
-      turnId: 1,
+      turnId: 2,
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
-    expect(JSON.parse(projectRes.body.turns[0].assistant_parts ?? '[]')).toEqual(
+    expect(JSON.parse(projectRes.body.turns[1].assistant_parts ?? '[]')).toEqual(
       expect.arrayContaining([
         {
           type: 'data-phase-summary',
           data: {
-            turnId: 1,
+            turnId: 2,
             phase: 'scope',
             summary: 'Goals, terms, context, and constraints are sufficiently captured.',
           },
@@ -1063,6 +1106,9 @@ describe('phase outcomes + scope closure', () => {
       })
       .expect(200);
 
+    const scopeProposalState = await getProjectSnapshot(projectId);
+    const scopeProposalTurnId = scopeProposalState.workflow.phases.scope.turnId;
+
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({
@@ -1071,12 +1117,12 @@ describe('phase outcomes + scope closure', () => {
             id: 'u2',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm scope closure' },
+              { type: 'text', text: 'Confirm grounding closure' },
               {
                 type: 'data-confirmation',
                 data: {
                   kind: 'confirm-proposed-phase-closure',
-                  proposalTurnId: 1,
+                  proposalTurnId: scopeProposalTurnId,
                   phase: 'scope',
                 },
               },
@@ -1090,10 +1136,10 @@ describe('phase outcomes + scope closure', () => {
     expect(projectRes.body.workflow.phases.scope).toEqual(
       expect.objectContaining({
         status: 'closed',
-        turnId: 1,
+        turnId: 2,
         summary: 'Goals, terms, context, and constraints are sufficiently captured.',
         closeability: false,
-        readiness: 'high',
+        readiness: 'low',
         closureBasis: 'interviewer_recommended',
         proposalPending: false,
       }),
@@ -1111,17 +1157,17 @@ describe('phase outcomes + scope closure', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(2);
-    expect(projectRes.body.turns.at(-1)).toMatchObject({
-      answer: 'Confirm scope closure',
+    expect(projectRes.body.project.active_turn_id).toBe(3);
+    expect(projectRes.body.turns.at(-2)).toMatchObject({
+      answer: 'Confirm grounding closure',
     });
-    expect(JSON.parse(projectRes.body.turns.at(-1).user_parts ?? '[]')).toEqual([
-      { type: 'text', text: 'Confirm scope closure' },
+    expect(JSON.parse(projectRes.body.turns.at(-2).user_parts ?? '[]')).toEqual([
+      { type: 'text', text: 'Confirm grounding closure' },
       {
         type: 'data-confirmation',
         data: {
           kind: 'confirm-proposed-phase-closure',
-          proposalTurnId: 1,
+          proposalTurnId: scopeProposalTurnId,
           phase: 'scope',
         },
       },
@@ -1143,6 +1189,9 @@ describe('phase outcomes + scope closure', () => {
       })
       .expect(200);
 
+    const scopeProposalState = await getProjectSnapshot(projectId);
+    const scopeProposalTurnId = scopeProposalState.workflow.phases.scope.turnId;
+
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({
@@ -1151,12 +1200,12 @@ describe('phase outcomes + scope closure', () => {
             id: 'u2',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm scope closure' },
+              { type: 'text', text: 'Confirm grounding closure' },
               {
                 type: 'data-confirmation',
                 data: {
                   kind: 'confirm-proposed-phase-closure',
-                  proposalTurnId: 1,
+                  proposalTurnId: scopeProposalTurnId,
                   phase: 'scope',
                 },
               },
@@ -1213,6 +1262,9 @@ describe('phase outcomes + scope closure', () => {
       })
       .expect(200);
 
+    const scopeProposalState = await getProjectSnapshot(projectId);
+    const scopeProposalTurnId = scopeProposalState.workflow.phases.scope.turnId;
+
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({
@@ -1221,12 +1273,12 @@ describe('phase outcomes + scope closure', () => {
             id: 'u2',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm scope closure' },
+              { type: 'text', text: 'Confirm grounding closure' },
               {
                 type: 'data-confirmation',
                 data: {
                   kind: 'confirm-proposed-phase-closure',
-                  proposalTurnId: 1,
+                  proposalTurnId: scopeProposalTurnId,
                   phase: 'scope',
                 },
               },
@@ -1263,7 +1315,7 @@ describe('phase outcomes + scope closure', () => {
     expect(events).toContainEqual({
       type: 'data-phase-summary',
       data: {
-        turnId: 3,
+        turnId: 4,
         phase: 'design',
         summary: 'The main architectural commitments are captured well enough to review requirements.',
       },
@@ -1272,11 +1324,11 @@ describe('phase outcomes + scope closure', () => {
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.design).toEqual({
       status: 'in_progress',
-      closeability: true,
-      readiness: 'medium',
+      closeability: false,
+      readiness: 'low',
       closureBasis: null,
       proposalPending: true,
-      turnId: 3,
+      turnId: 4,
       summary: 'The main architectural commitments are captured well enough to review requirements.',
     });
     expect(projectRes.body.workflow.phases.requirements).toEqual(
@@ -1293,7 +1345,7 @@ describe('phase outcomes + scope closure', () => {
         {
           type: 'data-phase-summary',
           data: {
-            turnId: 3,
+            turnId: 4,
             phase: 'design',
             summary: 'The main architectural commitments are captured well enough to review requirements.',
           },
@@ -1317,6 +1369,9 @@ describe('phase outcomes + scope closure', () => {
       })
       .expect(200);
 
+    const scopeProposalState = await getProjectSnapshot(projectId);
+    const scopeProposalTurnId = scopeProposalState.workflow.phases.scope.turnId;
+
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({
@@ -1325,12 +1380,12 @@ describe('phase outcomes + scope closure', () => {
             id: 'u2',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm scope closure' },
+              { type: 'text', text: 'Confirm grounding closure' },
               {
                 type: 'data-confirmation',
                 data: {
                   kind: 'confirm-proposed-phase-closure',
-                  proposalTurnId: 1,
+                  proposalTurnId: scopeProposalTurnId,
                   phase: 'scope',
                 },
               },
@@ -1363,6 +1418,9 @@ describe('phase outcomes + scope closure', () => {
       })
       .expect(200);
 
+    const designProposalState = await getProjectSnapshot(projectId);
+    const designProposalTurnId = designProposalState.workflow.phases.design.turnId;
+
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({
@@ -1371,12 +1429,12 @@ describe('phase outcomes + scope closure', () => {
             id: 'u4',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm design closure' },
+              { type: 'text', text: 'Confirm elicitation closure' },
               {
                 type: 'data-confirmation',
                 data: {
                   kind: 'confirm-proposed-phase-closure',
-                  proposalTurnId: 3,
+                  proposalTurnId: designProposalTurnId,
                   phase: 'design',
                 },
               },
@@ -1390,10 +1448,10 @@ describe('phase outcomes + scope closure', () => {
     expect(projectRes.body.workflow.phases.design).toEqual(
       expect.objectContaining({
         status: 'closed',
-        turnId: 3,
+        turnId: 4,
         summary: 'The main architectural commitments are captured well enough to review requirements.',
         closeability: false,
-        readiness: 'high',
+        readiness: 'low',
         closureBasis: 'interviewer_recommended',
         proposalPending: false,
       }),
@@ -1605,23 +1663,25 @@ describe('phase outcomes + scope closure', () => {
       })
       .expect(200);
 
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const requirementsProposalTurnId = projectRes.body.workflow.phases.requirements.turnId;
+
     const events = parseSSELines(collectSSE(chatRes)).filter((event) => event !== '[DONE]');
     expect(events).toContainEqual({
       type: 'data-phase-summary',
       data: {
-        turnId: reviewTurn.id + 1,
+        turnId: requirementsProposalTurnId,
         phase: 'requirements',
         summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
       },
     });
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.requirements).toEqual(
       expect.objectContaining({
         status: 'in_progress',
         closeability: true,
         proposalPending: true,
-        turnId: reviewTurn.id + 1,
+        turnId: requirementsProposalTurnId,
         summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
       }),
     );
@@ -1700,7 +1760,7 @@ describe('phase outcomes + scope closure', () => {
       expect.objectContaining({
         status: 'closed',
         closeability: false,
-        readiness: 'high',
+        readiness: 'medium',
         closureBasis: 'interviewer_recommended',
         proposalPending: false,
         turnId: proposalTurn.id,
@@ -1884,23 +1944,25 @@ describe('phase outcomes + scope closure', () => {
       })
       .expect(200);
 
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const criteriaProposalTurnId = projectRes.body.workflow.phases.criteria.turnId;
+
     const events = parseSSELines(collectSSE(chatRes)).filter((event) => event !== '[DONE]');
     expect(events).toContainEqual({
       type: 'data-phase-summary',
       data: {
-        turnId: reviewTurn.id + 1,
+        turnId: criteriaProposalTurnId,
         phase: 'criteria',
         summary: 'All criteria have been explicitly reviewed and the criteria set is ready to close.',
       },
     });
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.criteria).toEqual(
       expect.objectContaining({
         status: 'in_progress',
         closeability: true,
         proposalPending: true,
-        turnId: reviewTurn.id + 1,
+        turnId: criteriaProposalTurnId,
         summary: 'All criteria have been explicitly reviewed and the criteria set is ready to close.',
       }),
     );
@@ -1958,7 +2020,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u-criteria-confirm',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm criteria closure' },
+              { type: 'text', text: 'Confirm acceptance criteria closure' },
               {
                 type: 'data-confirmation',
                 data: {
@@ -1978,7 +2040,7 @@ describe('phase outcomes + scope closure', () => {
       expect.objectContaining({
         status: 'closed',
         closeability: false,
-        readiness: 'high',
+        readiness: 'medium',
         closureBasis: 'interviewer_recommended',
         proposalPending: false,
         turnId: proposalTurn.id,
@@ -2047,7 +2109,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u-criteria-final-confirm',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm criteria closure' },
+              { type: 'text', text: 'Confirm acceptance criteria closure' },
               {
                 type: 'data-confirmation',
                 data: {
@@ -2089,6 +2151,9 @@ describe('phase outcomes + scope closure', () => {
       })
       .expect(200);
 
+    const scopeProposalState = await getProjectSnapshot(projectId);
+    const scopeProposalTurnId = scopeProposalState.workflow.phases.scope.turnId;
+
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({
@@ -2097,12 +2162,12 @@ describe('phase outcomes + scope closure', () => {
             id: 'u2',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm scope closure' },
+              { type: 'text', text: 'Confirm grounding closure' },
               {
                 type: 'data-confirmation',
                 data: {
                   kind: 'confirm-proposed-phase-closure',
-                  proposalTurnId: 1,
+                  proposalTurnId: scopeProposalTurnId,
                   phase: 'scope',
                 },
               },
@@ -2137,7 +2202,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u4',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Force design closure' },
+              { type: 'text', text: 'Force elicitation closure' },
               {
                 type: 'data-confirmation',
                 data: { kind: 'force-close-active-phase', phase: 'design' },
@@ -2153,7 +2218,7 @@ describe('phase outcomes + scope closure', () => {
       expect.objectContaining({
         status: 'closed',
         closeability: false,
-        readiness: 'high',
+        readiness: 'medium',
         closureBasis: 'user_forced',
         proposalPending: false,
       }),
@@ -2171,12 +2236,12 @@ describe('phase outcomes + scope closure', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.turns.at(-1)).toMatchObject({
+    expect(projectRes.body.turns.at(-2)).toMatchObject({
       phase: 'design',
-      answer: 'Force design closure',
+      answer: 'Force elicitation closure',
     });
-    expect(JSON.parse(projectRes.body.turns.at(-1).user_parts ?? '[]')).toEqual([
-      { type: 'text', text: 'Force design closure' },
+    expect(JSON.parse(projectRes.body.turns.at(-2).user_parts ?? '[]')).toEqual([
+      { type: 'text', text: 'Force elicitation closure' },
       {
         type: 'data-confirmation',
         data: { kind: 'force-close-active-phase', phase: 'design' },
@@ -2257,7 +2322,12 @@ describe('phase outcomes + scope closure', () => {
       phase: 'design',
       expectedError: 'Confirm the pending closure proposal instead of force-closing',
     },
-  ])('preserves force-close validation errors for $name', async ({ seed, phase, expectedError }) => {
+  ] satisfies Array<{
+    name: string;
+    seed: (projectId: number) => Promise<void> | void;
+    phase: WorkflowPhase;
+    expectedError: string;
+  }>)('preserves force-close validation errors for $name', async ({ seed, phase, expectedError }) => {
     const projectId = await createTestProject();
     await seed(projectId);
 
@@ -2269,7 +2339,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u1',
             role: 'user',
             parts: [
-              { type: 'text', text: `Force ${phase} closure` },
+              { type: 'text', text: getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase }) },
               {
                 type: 'data-confirmation',
                 data: { kind: 'force-close-active-phase', phase },
@@ -2311,7 +2381,7 @@ describe('phase outcomes + scope closure', () => {
             id: 'u2',
             role: 'user',
             parts: [
-              { type: 'text', text: 'Confirm design closure' },
+              { type: 'text', text: 'Confirm elicitation closure' },
               {
                 type: 'data-confirmation',
                 data: {
@@ -2346,10 +2416,10 @@ describe('GET /api/projects/:id', () => {
 
     const res = await request(app).get(`/api/projects/${projectId}`).expect(200);
 
-    expect(res.body.turns).toHaveLength(1);
-    expect(res.body.turns[0].question).toBe(structuredQuestion.question);
-    expect(res.body.turns[0].options).toHaveLength(2);
-    expect(res.body.turns[0].options[0].content).toBe('Web');
+    expect(res.body.turns).toHaveLength(2);
+    expect(res.body.turns[1].question).toBe(structuredQuestion.question);
+    expect(res.body.turns[1].options).toHaveLength(2);
+    expect(res.body.turns[1].options[0].content).toBe('Web');
   });
 });
 
@@ -2368,7 +2438,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(200);
 
     const { getActivePath, getTurn, getOptionsForTurn } = await import('./db.js');
-    const turn = getActivePath(db, projectId)[0];
+    const turn = getActivePath(db, projectId)[1]!;
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
@@ -2410,7 +2480,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(200);
 
     const { getActivePath, getTurn, getOptionsForTurn } = await import('./db.js');
-    const turn = getActivePath(db, projectId)[0];
+    const turn = getActivePath(db, projectId)[1]!;
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
@@ -2437,6 +2507,169 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         },
       },
     ]);
+  });
+
+  it('accepting the requirements full-set review uses explicit reviewAction instead of option copy', async () => {
+    const projectId = await createTestProject();
+    const seededRequirements = seedRequirementsReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn, getTurn } = await import('./db.js');
+
+    const requirementOne = createKnowledgeItem(
+      db,
+      projectId,
+      'requirement',
+      'Export the reviewed specification as markdown',
+    );
+    const requirementTwo = createKnowledgeItem(
+      db,
+      projectId,
+      'requirement',
+      'Resume the interview from persisted local state',
+    );
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: seededRequirements.designConfirmationTurn.id,
+      question: 'Please review the current requirement set.',
+      why: 'Review the whole requirement set before moving forward.',
+      impact: 'high',
+      answer: '',
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Ship this set',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Revise this set',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    const response = await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
+      .expect(200);
+
+    expect(response.body).toEqual({ ok: true, advancedToPhase: 'criteria' });
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.requirements).toEqual(
+      expect.objectContaining({
+        status: 'closed',
+        closureBasis: 'interviewer_recommended',
+        proposalPending: false,
+        turnId: reviewTurn.id,
+        summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
+      }),
+    );
+    expect(projectRes.body.workflow.phases.criteria).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        proposalPending: false,
+      }),
+    );
+    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.turns.at(-1)).toEqual(
+      expect.objectContaining({
+        phase: 'criteria',
+        answer: null,
+      }),
+    );
+
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(entitiesRes.body.requirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: requirementOne.id, reviewStatus: 'approved' }),
+        expect.objectContaining({ id: requirementTwo.id, reviewStatus: 'approved' }),
+      ]),
+    );
+
+    expect(JSON.parse(getTurn(db, reviewTurn.id)?.user_parts ?? '[]')).toEqual([
+      { type: 'text', text: 'Ship this set' },
+      {
+        type: 'data-turn-response',
+        data: {
+          turnId: reviewTurn.id,
+          selectedOptionIds: expect.any(Array),
+          reviewAction: 'accept',
+        },
+      },
+    ]);
+  });
+  it('requesting changes on the requirements full-set review keeps requirements open and does not advance to criteria', async () => {
+    const projectId = await createTestProject();
+    const seededRequirements = seedRequirementsReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
+
+    const requirement = createKnowledgeItem(
+      db,
+      projectId,
+      'requirement',
+      'Export the reviewed specification as markdown',
+    );
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: seededRequirements.designConfirmationTurn.id,
+      question: 'Please review the current requirement set.',
+      why: 'Review the whole requirement set before moving forward.',
+      impact: 'high',
+      answer: '',
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Ship this set',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Revise this set',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    const response = await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({
+        kind: 'select-options',
+        positions: [1],
+        freeText: 'Add export rationale notes.',
+        reviewAction: 'request-changes',
+      })
+      .expect(200);
+
+    expect(response.body).toEqual({ ok: true });
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.requirements).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        proposalPending: false,
+      }),
+    );
+    expect(projectRes.body.workflow.phases.criteria).toEqual(
+      expect.objectContaining({
+        status: 'unstarted',
+        proposalPending: false,
+      }),
+    );
+    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.turns.at(-1)).toEqual(
+      expect.objectContaining({
+        phase: 'requirements',
+      }),
+    );
+
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(entitiesRes.body.requirements).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: requirement.id, reviewStatus: 'pending' })]),
+    );
   });
 
   it('persists explicit approved review state for a targeted requirement through the response seam', async () => {
@@ -2635,6 +2868,144 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         expect.objectContaining({ id: rejectedRequirement.id, reviewStatus: 'rejected' }),
         expect.objectContaining({ id: pendingRequirement.id, reviewStatus: 'pending' }),
       ]),
+    );
+  });
+
+  it('accepting the criteria full-set review uses explicit reviewAction instead of option copy', async () => {
+    const projectId = await createTestProject();
+    const seededCriteria = seedCriteriaReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
+
+    const criterionOne = createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'Restarting restores the active path',
+    );
+    const criterionTwo = createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'Markdown export includes accepted requirements only',
+    );
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'criteria',
+      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
+      question: 'Please review the current criterion set.',
+      why: 'Review the whole criterion set before moving forward.',
+      impact: 'high',
+      answer: '',
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Ship this set',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Revise this set',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    const response = await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
+      .expect(200);
+
+    expect(response.body).toEqual({ ok: true, workflowCompleted: true });
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    for (const phase of ['scope', 'design', 'requirements', 'criteria'] as const) {
+      expect(projectRes.body.workflow.phases[phase]).toEqual(
+        expect.objectContaining({
+          status: 'closed',
+        }),
+      );
+    }
+    expect(projectRes.body.workflow.phases.criteria).toEqual(
+      expect.objectContaining({
+        closureBasis: 'interviewer_recommended',
+        proposalPending: false,
+        turnId: reviewTurn.id,
+        summary: 'The reviewed criteria set is accepted and the specification is ready for output.',
+      }),
+    );
+    expect(projectRes.body.project.active_turn_id).toBe(reviewTurn.id);
+
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(entitiesRes.body.criteria).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: criterionOne.id, reviewStatus: 'approved' }),
+        expect.objectContaining({ id: criterionTwo.id, reviewStatus: 'approved' }),
+      ]),
+    );
+
+    const exportRes = await request(app).get(`/api/projects/${projectId}/export`).expect(200);
+    expect(exportRes.body.ready).toBe(true);
+  });
+
+  it('requesting changes on the criteria full-set review keeps criteria open and does not advance to output semantics', async () => {
+    const projectId = await createTestProject();
+    const seededCriteria = seedCriteriaReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
+
+    const criterion = createKnowledgeItem(db, projectId, 'criterion', 'Restarting restores the active path');
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'criteria',
+      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
+      question: 'Please review the current criterion set.',
+      why: 'Review the whole criterion set before moving forward.',
+      impact: 'high',
+      answer: '',
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Ship this set',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Revise this set',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    const response = await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({
+        kind: 'select-options',
+        positions: [1],
+        freeText: 'Add browser-reload wording.',
+        reviewAction: 'request-changes',
+      })
+      .expect(200);
+
+    expect(response.body).toEqual({ ok: true });
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    expect(projectRes.body.workflow.phases.criteria).toEqual(
+      expect.objectContaining({
+        status: 'in_progress',
+        proposalPending: false,
+      }),
+    );
+    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.turns.at(-1)).toEqual(
+      expect.objectContaining({
+        phase: 'criteria',
+      }),
+    );
+
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(entitiesRes.body.criteria).toEqual(
+      expect.arrayContaining([expect.objectContaining({ id: criterion.id, reviewStatus: 'pending' })]),
     );
   });
 
@@ -2849,7 +3220,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     const { getActivePath, getOptionsForTurn } = await import('./db.js');
     const { createInterviewEphemeralChatState } =
       await import('../client/routes/project/$id/_view/-interview-controller-core.js');
-    const turn = getActivePath(db, projectId)[0];
+    const turn = getActivePath(db, projectId)[1]!;
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
@@ -2866,9 +3237,9 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .filter((option) => option.is_selected)
       .map((option) => option.id);
 
-    expect(projectState.turns).toHaveLength(1);
-    expect(projectState.turns[0].answer).toBe('Web, Desktop — Covers both launch paths');
-    expect(JSON.parse(projectState.turns[0].user_parts ?? '[]')).toEqual([
+    expect(projectState.turns).toHaveLength(3);
+    expect(projectState.turns[1].answer).toBe('Web, Desktop — Covers both launch paths');
+    expect(JSON.parse(projectState.turns[1].user_parts ?? '[]')).toEqual([
       { type: 'text', text: 'Web, Desktop — Covers both launch paths' },
       {
         type: 'data-turn-response',
@@ -2882,6 +3253,33 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     const hydratedChat = createInterviewEphemeralChatState(projectState);
     expect(hydratedChat.seedMessages).toEqual([
+      {
+        id: 'turn-1-answer',
+        role: 'user',
+        parts: [{ type: 'text', text: 'hello' }],
+      },
+      {
+        id: 'turn-1-assistant',
+        role: 'assistant',
+        parts: [
+          {
+            type: 'data-observer-result',
+            data: {
+              turnId: 1,
+              entityIds: {
+                goals: [],
+                terms: [],
+                contexts: [],
+                constraints: [],
+                requirements: [],
+                criteria: [],
+                decisions: [],
+                assumptions: [],
+              },
+            },
+          },
+        ],
+      },
       {
         id: `turn-${turn.id}-answer`,
         role: 'user',
@@ -2911,6 +3309,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
           {
             type: 'data-observer-result',
             data: {
+              turnId: 1,
               entityIds: {
                 goals: [],
                 terms: [],
@@ -2949,7 +3348,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(200);
 
     const { getActivePath, getTurn, getOptionsForTurn } = await import('./db.js');
-    const turn = getActivePath(db, projectId)[0];
+    const turn = getActivePath(db, projectId)[1]!;
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
@@ -2983,7 +3382,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(200);
 
     const { getActivePath } = await import('./db.js');
-    const turn = getActivePath(db, projectId)[0];
+    const turn = getActivePath(db, projectId)[1]!;
 
     await request(app)
       .post(`/api/projects/${projectId}/turns/${turn.id}/response`)

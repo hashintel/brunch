@@ -1,213 +1,173 @@
-import { useState } from 'react';
+import { EmptyCard } from '@/client/components/app-shell';
+import { ScrollArea } from '@/client/components/ui/scroll-area';
+import type { EntitiesData } from '@/shared/api-types.js';
+import type { KnowledgeCollectionKey, KnowledgeKind } from '@/shared/knowledge.js';
+import { knowledgeKindRegistry } from '@/shared/knowledge.js';
 
-import { Badge } from '@/client/components/ui/badge';
-import { cn } from '@/client/lib/utils';
-import type { EntitiesData, ReviewStatus } from '@/shared/api-types.js';
-import {
-  knowledgeKindRegistry,
-  knowledgeKindRegistryByCollectionKey,
-  type KnowledgeCollectionKey,
-} from '@/shared/knowledge.js';
+import { KnowledgeDetailCard, type KnowledgeEdgeData, type KnowledgeItemData } from './knowledge-card';
 
-function entityKey(collection: 'knowledge_item' | 'decision' | 'assumption', id: number) {
-  return `${collection}:${id}`;
+// ── Hard-coded display grouping registry (D104) ─────────────────────
+//
+// | Group label              | Kinds                     | Visible |
+// | -------------------------| --------------------------| ------- |
+// | Goals & Context          | goal, context, constraint | yes     |
+// | Assumptions & Decisions  | assumption, decision      | yes     |
+// | Requirements             | requirement               | yes     |
+// | Acceptance Criteria      | criterion                 | yes     |
+// | (hidden)                 | term                      | no      |
+
+interface KnowledgeDisplayGroup {
+  label: string;
+  kinds: KnowledgeKind[];
 }
 
-function renderKnowledgeItems(
-  items: ReadonlyArray<{
+const knowledgeDisplayGroups: KnowledgeDisplayGroup[] = [
+  { label: 'Goals & Context', kinds: ['goal', 'context', 'constraint'] },
+  { label: 'Assumptions & Decisions', kinds: ['assumption', 'decision'] },
+  { label: 'Requirements', kinds: ['requirement'] },
+  { label: 'Acceptance Criteria', kinds: ['criterion'] },
+];
+
+// Map kind → collectionKey for looking up items in entityState
+const kindToCollectionKey: Record<KnowledgeKind, KnowledgeCollectionKey> = Object.fromEntries(
+  knowledgeKindRegistry.map((entry) => [entry.kind, entry.collectionKey]),
+) as Record<KnowledgeKind, KnowledgeCollectionKey>;
+
+// Map kind → entityCollection for edge lookups
+const kindToEntityCollection: Record<KnowledgeKind, string> = Object.fromEntries(
+  knowledgeKindRegistry.map((entry) => [entry.kind, entry.entityCollection]),
+) as Record<KnowledgeKind, string>;
+
+// ── Helpers ─────────────────────────────────────────────────────────
+
+function toKnowledgeItemData(
+  item: {
     id: number;
     content: string;
-    subtype: string | null;
-    rationale: string | null;
-    reviewStatus?: ReviewStatus;
-  }>,
-  emptyMessage: string,
-) {
-  if (items.length === 0) {
-    return <p className="text-sm italic text-muted-foreground">{emptyMessage}</p>;
-  }
-
-  return items.map((item) => (
-    <div key={item.id} className="rounded-md border p-2.5">
-      <div className="flex items-start justify-between gap-2">
-        <p className="text-sm">{item.content}</p>
-        {item.reviewStatus && (
-          <Badge
-            variant={
-              item.reviewStatus === 'approved'
-                ? 'default'
-                : item.reviewStatus === 'rejected'
-                  ? 'destructive'
-                  : 'secondary'
-            }
-          >
-            {item.reviewStatus === 'approved'
-              ? 'Approved'
-              : item.reviewStatus === 'rejected'
-                ? 'Rejected'
-                : 'Pending'}
-          </Badge>
-        )}
-      </div>
-      {item.subtype && <p className="mt-1 text-xs text-muted-foreground">{item.subtype}</p>}
-      {item.rationale && <p className="mt-1 text-xs text-muted-foreground">{item.rationale}</p>}
-    </div>
-  ));
+    rationale?: string | null;
+    subtype?: string | null;
+    reviewStatus?: string;
+    referenceCode?: string;
+  },
+  kind: KnowledgeItemData['kind'],
+): KnowledgeItemData {
+  return {
+    id: item.id,
+    kind,
+    content: item.content,
+    ...(item.rationale ? { rationale: item.rationale } : {}),
+    ...(item.subtype ? { subtype: item.subtype } : {}),
+    ...(item.reviewStatus ? { reviewStatus: item.reviewStatus as KnowledgeItemData['reviewStatus'] } : {}),
+    ...(item.referenceCode ? { referenceCode: item.referenceCode } : {}),
+  };
 }
 
-export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
-  const [activeTab, setActiveTab] = useState<KnowledgeCollectionKey>('decisions');
-  const {
-    goals,
-    terms,
-    contexts,
-    constraints,
-    requirements,
-    criteria,
-    decisions,
-    assumptions,
-    relationships,
-  } = entityState;
-  const contentByEntity = new Map<string, string>([
-    ...goals.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
-    ...terms.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
-    ...contexts.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
-    ...constraints.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
-    ...requirements.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
-    ...criteria.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
-    ...decisions.map((decision) => [entityKey('decision', decision.id), decision.content] as const),
-    ...assumptions.map((assumption) => [entityKey('assumption', assumption.id), assumption.content] as const),
-  ]);
+function getReferenceCodeForEntity(
+  entityState: EntitiesData,
+  kind: KnowledgeKind,
+  id: number,
+): string | undefined {
+  const collectionKey = kindToCollectionKey[kind];
+  return entityState[collectionKey].find((item) => item.id === id)?.referenceCode;
+}
 
-  function getDependencies(source: { collection: 'decision' | 'assumption'; id: number }) {
-    return relationships
-      .filter(
-        (relationship) =>
-          relationship.type === 'depends_on' &&
-          relationship.source.collection === source.collection &&
-          relationship.source.id === source.id,
-      )
-      .map((relationship) => {
-        const key = entityKey(relationship.target.collection, relationship.target.id);
-        const label = contentByEntity.get(key);
-        return label ? { key, label } : null;
-      })
-      .filter((dependency): dependency is { key: string; label: string } => dependency !== null);
-  }
+function buildOutgoingEdgesForItem(
+  entityState: EntitiesData,
+  collection: string,
+  id: number,
+): KnowledgeEdgeData[] {
+  return entityState.relationships
+    .filter((relationship) => relationship.source.collection === collection && relationship.source.id === id)
+    .map((relationship) => ({
+      type: relationship.type,
+      label: 'Links to',
+      sourceId: relationship.source.id,
+      sourceCollection: relationship.source.collection,
+      relatedId: relationship.target.id,
+      relatedCollection: relationship.target.collection,
+      relatedKind: relationship.target.kind,
+      relatedReferenceCode: getReferenceCodeForEntity(
+        entityState,
+        relationship.target.kind,
+        relationship.target.id,
+      ),
+    }));
+}
+
+// ── Component ───────────────────────────────────────────────────────
+
+export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
+  // Count only visible kinds (exclude term)
+  const visibleKinds = new Set(knowledgeDisplayGroups.flatMap((g) => g.kinds));
+  const totalItems = knowledgeKindRegistry
+    .filter((entry) => visibleKinds.has(entry.kind))
+    .reduce((sum, entry) => sum + entityState[entry.collectionKey].length, 0);
+  const totalConnections = entityState.relationships.length;
 
   return (
-    <div className="flex h-full w-72 flex-col border-l bg-card">
-      {/* Tab bar */}
-      <div className="flex border-b">
-        {knowledgeKindRegistry.map((entry) => {
-          const count = entityState[entry.collectionKey].length;
-          return (
-            <button
-              key={entry.collectionKey}
-              type="button"
-              onClick={() => setActiveTab(entry.collectionKey)}
-              className={cn(
-                'flex-1 px-3 py-2 text-sm font-medium transition-colors',
-                activeTab === entry.collectionKey
-                  ? 'border-b-2 border-primary text-primary'
-                  : 'text-muted-foreground hover:text-foreground',
-              )}
-            >
-              {entry.label}
-              {count > 0 && (
-                <Badge variant="secondary" className="ml-1.5 px-1.5 py-0 text-[10px]">
-                  {count}
-                </Badge>
-              )}
-            </button>
-          );
-        })}
+    <div className="flex h-full flex-col bg-background">
+      {/* Header */}
+      <div className="flex h-16 shrink-0 items-center border-b border-rule bg-background px-3">
+        <div className="flex flex-col gap-0.5">
+          <span className="text-xs text-hint">Knowledge Graph</span>
+          <div className="flex items-center gap-2.5 text-base text-sub">
+            <span>
+              <span className="font-medium text-ink">{totalItems}</span> Items
+            </span>
+            <span>
+              <span className="font-medium text-ink">{totalConnections}</span> Connections
+            </span>
+          </div>
+        </div>
       </div>
 
-      {/* Content */}
-      <div className="flex-1 overflow-y-auto p-3">
-        {(() => {
-          const activeEntry = knowledgeKindRegistryByCollectionKey[activeTab];
+      {/* Grouped knowledge list */}
+      <ScrollArea className="min-h-0 flex-1">
+        <div className="flex flex-col gap-6 p-4">
+          {knowledgeDisplayGroups.map((group) => {
+            // Collect all items across the group's kinds
+            const groupItems: { item: KnowledgeItemData; edges: KnowledgeEdgeData[] }[] = [];
+            for (const kind of group.kinds) {
+              const collectionKey = kindToCollectionKey[kind];
+              const entityCollection = kindToEntityCollection[kind];
+              const items = entityState[collectionKey];
+              for (const item of items) {
+                groupItems.push({
+                  item: toKnowledgeItemData(item, kind),
+                  edges: buildOutgoingEdgesForItem(entityState, entityCollection, item.id),
+                });
+              }
+            }
 
-          if (activeEntry.entityCollection === 'knowledge_item') {
-            const items =
-              activeTab === 'goals'
-                ? goals
-                : activeTab === 'terms'
-                  ? terms
-                  : activeTab === 'contexts'
-                    ? contexts
-                    : activeTab === 'constraints'
-                      ? constraints
-                      : activeTab === 'requirements'
-                        ? requirements
-                        : criteria;
+            const count = groupItems.length;
 
             return (
-              <div className="flex flex-col gap-2">
-                {renderKnowledgeItems(items, activeEntry.emptyStateCopy)}
-              </div>
-            );
-          }
-
-          if (activeTab === 'decisions') {
-            return (
-              <div className="flex flex-col gap-2">
-                {decisions.length === 0 && (
-                  <p className="text-sm italic text-muted-foreground">{activeEntry.emptyStateCopy}</p>
-                )}
-                {decisions.map((d) => {
-                  const dependencies = getDependencies({ collection: 'decision', id: d.id });
-
-                  return (
-                    <div key={d.id} className="rounded-md border p-2.5">
-                      <p className="text-sm">{d.content}</p>
-                      {d.rationale && <p className="mt-1 text-xs text-muted-foreground">{d.rationale}</p>}
-                      {dependencies.length > 0 && (
-                        <div className="mt-2">
-                          <p className="text-xs font-medium text-muted-foreground">Depends on</p>
-                          <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
-                            {dependencies.map((dependency) => (
-                              <li key={dependency.key}>{dependency.label}</li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-            );
-          }
-
-          return (
-            <div className="flex flex-col gap-2">
-              {assumptions.length === 0 && (
-                <p className="text-sm italic text-muted-foreground">{activeEntry.emptyStateCopy}</p>
-              )}
-              {assumptions.map((a) => {
-                const dependencies = getDependencies({ collection: 'assumption', id: a.id });
-
-                return (
-                  <div key={a.id} className="rounded-md border p-2.5">
-                    <p className="text-sm">{a.content}</p>
-                    {dependencies.length > 0 && (
-                      <div className="mt-2">
-                        <p className="text-xs font-medium text-muted-foreground">Depends on</p>
-                        <ul className="mt-1 list-disc pl-4 text-xs text-muted-foreground">
-                          {dependencies.map((dependency) => (
-                            <li key={dependency.key}>{dependency.label}</li>
-                          ))}
-                        </ul>
-                      </div>
-                    )}
+              <section key={group.label}>
+                <h3 className="mb-2 text-xs font-medium text-sub">
+                  {group.label}
+                  {count > 0 && <span className="ml-1.5 text-sub">{count}</span>}
+                </h3>
+                {count === 0 ? (
+                  <EmptyCard
+                    title={`No ${group.label.toLowerCase()} yet`}
+                    description="Items will appear as the interview progresses."
+                  />
+                ) : (
+                  <div className="flex flex-col gap-1.5">
+                    {groupItems.map(({ item, edges }) => (
+                      <KnowledgeDetailCard
+                        key={`${item.kind}-${item.id}`}
+                        item={item}
+                        edges={edges.length > 0 ? edges : undefined}
+                      />
+                    ))}
                   </div>
-                );
-              })}
-            </div>
-          );
-        })()}
-      </div>
+                )}
+              </section>
+            );
+          })}
+        </div>
+      </ScrollArea>
     </div>
   );
 }

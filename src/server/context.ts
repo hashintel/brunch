@@ -1,5 +1,6 @@
 import { table, h3 } from 'md-pen';
 
+import type { ProjectMode } from '@/shared/api-types.js';
 import { knowledgeKindRegistry } from '@/shared/knowledge.js';
 
 import type { TurnWithOptions } from './core.js';
@@ -10,6 +11,7 @@ interface InterviewerContextOptions {
   entities?: {
     requirements?: Array<{ id: number; content: string }>;
     approvedRequirements?: Array<{ id: number; content: string }>;
+    criteria?: Array<{ id: number; content: string }>;
   };
 }
 
@@ -34,6 +36,18 @@ function formatRequirementReviewInventory(
 
   return `Current requirements under review:\n${requirements
     .map((requirement) => `- [${requirement.id}] ${requirement.content}`)
+    .join('\n')}`;
+}
+
+function formatCriterionReviewInventory(
+  criteria: NonNullable<InterviewerContextOptions['entities']>['criteria'],
+): string | null {
+  if (!criteria || criteria.length === 0) {
+    return null;
+  }
+
+  return `Current criteria under review:\n${criteria
+    .map((criterion) => `- [${criterion.id}] ${criterion.content}`)
     .join('\n')}`;
 }
 
@@ -94,6 +108,12 @@ export function buildInterviewerContext(
     sections.push(approvedRequirementInventory);
   }
 
+  const criterionInventory =
+    options.phase === 'criteria' ? formatCriterionReviewInventory(options.entities?.criteria) : null;
+  if (criterionInventory) {
+    sections.push(criterionInventory);
+  }
+
   if (sections.length === 0) {
     return currentPrompt;
   }
@@ -104,6 +124,8 @@ export function buildInterviewerContext(
 export interface ObserverContextInput {
   turn: TurnWithOptions;
   activePathSummary: string;
+  projectMode?: ProjectMode;
+  projectCwd?: string | null;
   entities: {
     goals: Array<{ id: number; content: string }>;
     terms: Array<{ id: number; content: string }>;
@@ -124,6 +146,14 @@ export interface ObserverContextInput {
  */
 export function buildObserverContext(input: ObserverContextInput): string {
   const sections: string[] = [];
+
+  if (input.projectMode === 'brownfield') {
+    const projectContextLines = ['Project mode: brownfield'];
+    if (input.projectCwd) {
+      projectContextLines.push(`Project directory: ${input.projectCwd}`);
+    }
+    sections.push(projectContextLines.join('\n'));
+  }
 
   for (const entry of knowledgeKindRegistry) {
     const items = input.entities[entry.collectionKey];

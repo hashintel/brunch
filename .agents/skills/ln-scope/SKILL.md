@@ -1,26 +1,57 @@
 ---
 name: ln-scope
-description: "Define one thin vertical slice with target behavior, risks, and acceptance criteria. Use when scoping the next piece of work before building, or when a slice from PLAN.md needs precise definition."
+description: "Define one thin vertical slice with target behavior, risks, and acceptance criteria. Use when scoping the next piece of work before building, or when a slice from `memory/PLAN.md` needs precise definition."
 argument-hint: "[behavior to deliver in this slice]"
 ---
 
 # Ln Scope
 
-Define **one** tracer-bullet slice (Hunt & Thomas) — a thin end-to-end path, not a horizontal layer. If the target behavior needs "and", split it.
+Define **one** buildable scope card. The card always describes one slice, but it can carry one of two weights:
 
-**Sub-slicing restraint.** Create a new sub-slice only when it introduces at least one of: (1) a new lifecycle seam, (2) a new cross-boundary transport/persistence seam, (3) a new workflow-mode entry/exit behavior, or (4) a new unblocker for reaching the end-to-end working app state. Do **not** split off a separate slice just for another action/status permutation or a rarer branch on the same seam. If refinements accumulate, prefer one later cross-cutting refinement slice over fragmenting the current major slice.
+- a **full scope card** for structural work
+- a **light scope card** for bounded feature or hardening work inside settled seams
 
-**Main-path bias.** Scope the smallest slice set that covers the dominant user story and unblocks forward progress. Rare variants, polish, and refinement work should be named explicitly as deferred rather than silently folded into the current slice.
+If the target behavior needs "and", split it.
 
 ## Input
 
 The behavior to deliver: $ARGUMENTS
 
-If `memory/SPEC.md` exists, use its lexicon and respect its invariants.
+Orient before weighting.
 
-**Parallelism check.** If `memory/PLAN.md` exists, check `## Dependencies` and `### Parallelism opportunities`. If the current state (completed slices) unblocks multiple slices, surface them: "Slices X and Y are both unblocked — which to scope?" If the user names one, note the other(s) as available for concurrent work (e.g. a separate agent thread or session).
+If `memory/SPEC.md` exists, use its lexicon and respect its live invariants.
 
-## Scope Card
+If `memory/PLAN.md` exists, check whether the named work is already in `Active`, `Next`, or `Horizon`.
+
+If this is a fresh thread or an unfamiliar area, also read `HANDOFF.md` if present. Read `docs/archive/PLAN_HISTORY.md` only if the frontier rationale or touched area is still unclear.
+
+Write a 2-4 bullet orientation note naming the containing seam, the relevant frontier item, volatile handoff state, and the main open risk.
+
+Do not create new planning documents or scratch scope files without explicit permission. The canonical planning state remains `memory/SPEC.md` and `memory/PLAN.md`; the scope card is the session artifact that decides whether those documents need to change.
+
+## Scope-weight decision
+
+Choose one before writing the scope card.
+
+### Full scope card
+
+Use this when the work:
+
+- establishes or changes a seam / boundary
+- changes a requirement, assumption, decision, or invariant
+- crosses more than two major boundaries
+- would alter future planning if it landed differently
+- is the first touch in an unfamiliar seam from a fresh thread
+
+### Light scope card
+
+Use this when the work is a bounded feature, hardening task, or bugfix inside settled seams you can already name.
+
+If a light scope card later trips the promotion checklist below, stop and explicitly promote it to a full scope card.
+
+If you cannot name the containing seam, the governing decision, or the live invariant family that contains the work, it is not settled enough for light mode.
+
+## Full scope card
 
 ### Target Behavior
 
@@ -29,9 +60,10 @@ What is true when this slice is done? Single declarative sentence — observable
 ### Boundary Crossings
 
 Every boundary the slice passes through, entry to exit:
+
 ```
 → [entry point]
-→ [layer/boundary]
+→ [layer / boundary]
 → [exit point]
 ```
 
@@ -39,10 +71,10 @@ Every boundary the slice passes through, entry to exit:
 
 ```
 - RISK: [what might not work] → MITIGATION: [how to handle it]
-- ASSUMPTION: [what we're assuming] → VALIDATE: [how we'll know] → [→ SPEC.md §Assumptions]
+- ASSUMPTION: [what we're assuming] → VALIDATE: [how we'll know] → [→ memory/SPEC.md §Assumptions]
 ```
 
-High-risk unvalidated assumption → suggest `ln-spike` before `ln-build`. New assumptions must be added to `memory/SPEC.md` §Assumptions.
+High-risk unvalidated assumption → suggest `ln-spike` before `ln-build`.
 
 ### Acceptance Criteria
 
@@ -51,11 +83,9 @@ High-risk unvalidated assumption → suggest `ln-spike` before `ln-build`. New a
 ✓ [test name] — [observable assertion]
 ```
 
-These become the spec tests written first in `ln-build`. Every criterion must be checkable by running a command.
-
 ### Verification Approach
 
-Name the oracle strategy for this slice. If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, pick from the families already selected. If it doesn't, suggest running `ln-oracles` first unless the slice is trivial and purely structural, in which case naming the inner-loop checks directly may be sufficient.
+Name the oracle strategy for this slice.
 
 ```
 - Inner: [oracle family] — [what it proves]
@@ -63,37 +93,61 @@ Name the oracle strategy for this slice. If `memory/SPEC.md` §Oracle Strategy b
 - Outer: [oracle family] — [what it proves] (if applicable)
 ```
 
-A slice without a verification approach is not fully scoped. At minimum, inner-loop oracles must be named. Middle/outer are required when the slice touches LLM boundaries, visual rendering, or compositional behavior. Those slices should run through `ln-oracles` before `ln-build`.
+## Light scope card
 
-## Batch pre-scoping (optional)
+### Objective
 
-When several near-term slices follow a **proven structural pattern** with linear dependencies, scope them together into `memory/CARDS.md` instead of one at a time. This compresses planning without separate scope→build→scope context switches.
+Single sentence: what this work changes for the user, operator, or codebase.
 
-**Use when:** slices mirror a pattern already validated by earlier work, dependencies are linear and well-understood, and risk is in execution rather than discovery.
+### Acceptance Criteria
 
-**Avoid when:** slices are exploratory, the design space has genuine uncertainty, or building slice N could fundamentally change what slice N+1 should be.
+```
+✓ [observable result]
+✓ [observable result]
+```
 
-`memory/CARDS.md` is a **temporary derivative document** — no authority, derivative of `memory/PLAN.md` for active implementation convenience. Delete it once all cards are built or superseded. Same convention as `memory/REFACTOR.md`.
+### Verification Approach
 
-**Escape valve:** if a build invalidates a downstream card's assumptions, revise the card before building it — never build against stale scope.
+```
+- Inner: [command / test family]
+- Middle: [if needed]
+- Outer: [if needed]
+```
 
-## Traceability (mandatory — do before routing)
+### Promotion checklist
 
-After the scope card is complete, do these before presenting routing options:
+If any answer is yes, stop treating the work as light and promote it to a full scope card before routing to `ln-build`. Do not quietly carry durable change under a light card.
 
-1. New assumptions surfaced during scoping → apply `ln-build` §Same-item tests first. If the same assumption already exists in `memory/SPEC.md`, **update** or **merge** into it. Only **add** if no existing row covers the same boundary + claim.
+- [ ] Does this change a requirement?
+- [ ] Does this create, retire, or invalidate an assumption?
+- [ ] Does this make or reverse a non-trivial design decision?
+- [ ] Does this establish a new seam-level invariant?
+- [ ] Does it cross more than two major seams?
+- [ ] Is this the first touch in an unfamiliar seam from a fresh thread?
+- [ ] Can you not name the containing seam or current rationale from the live docs?
+
+## Traceability
+
+Canonical reconciliation is **mandatory**; durable updates are **conditional**.
+
+- Full scope card: update `memory/SPEC.md` / `memory/PLAN.md` as needed during or after scoping.
+- Light scope card: run the promotion checklist explicitly. If it stays light, canonical reconciliation may be a no-op; if it promotes, reconcile the durable change before build.
+
+When adding or updating an assumption, apply the same-item test first:
+
+- **Same assumption** = same boundary/component + same unresolved claim
 
 ## Routing
 
-After traceability is complete, present these options to the user (use `tool-ask-question`):
+After the scope card is complete, present these options to the user (use `tool-ask-question`):
 
-| #   | Label          | Target       | Why                                                  |
-| --- | -------------- | ------------ | ---------------------------------------------------- |
-| 1   | Build it       | `ln-build`   | Slice is defined and its verification strategy exists |
-| 2   | Design oracles | `ln-oracles` | Slice needs explicit oracle design before implementation |
-| 3   | Spike first    | `ln-spike`   | Technical uncertainty needs resolution               |
-| 4   | Revise spec    | `ln-spec`    | Scoping revealed the spec needs structural revision  |
-| 5   | Revise plan    | `ln-plan`    | Slice doesn't fit the current plan                   |
-| 6   | Back to triage | `ln-consult` | Scope revealed unclear state                         |
+| #   | Label          | Target       | Why |
+| --- | -------------- | ------------ | --- |
+| 1   | Build it       | `ln-build`   | The scope card is defined and verified enough to implement |
+| 2   | Design oracles | `ln-oracles` | The verification strategy still needs explicit design |
+| 3   | Spike first    | `ln-spike`   | Technical uncertainty should be retired before coding |
+| 4   | Revise spec    | `ln-spec`    | Scoping revealed a durable architectural change |
+| 5   | Revise plan    | `ln-plan`    | The work no longer fits the current frontier |
+| 6   | Back to triage | `ln-consult` | Scope revealed unclear state |
 
-Recommended: **2** if the slice lacks oracle strategy and is not trivial/purely structural; otherwise **1** unless risks flagged a spike.
+Recommended: **1** unless the promotion checklist fires or the verification approach is still unclear.

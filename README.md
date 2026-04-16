@@ -46,18 +46,21 @@ Seed the dev database with pre-built project states for testing and development:
 # List available scenarios
 npm run seed
 
-# Seed into the default brunch.db (what npm run dev reads)
+# Seed into the default project-local database (.brunch/brunch.db)
 npm run seed issue-tracker-all-phases-closed
 
-# Seed into a specific file
+# Wipe and re-seed the default project-local database
+mkdir -p .brunch
+rm -f .brunch/brunch.db .brunch/brunch.db-shm .brunch/brunch.db-wal
+npm run seed issue-tracker-all-phases-closed
+
+# Seed into a specific alternate file instead
 npm run seed issue-tracker-scope-closed ./tmp/test.db
-
-# Wipe and re-seed
-rm brunch.db brunch.db-shm brunch.db-wal
-npm run seed issue-tracker-all-phases-closed
 ```
 
-**Programmatic scenarios** — skeleton fixtures with minimal turns, no realistic parts:
+`npm run dev` uses the same project-local default database unless you override it with `BRUNCH_DB`. For the full repeatable manual-testing workflow, use [docs/praxis/manual-testing.md](docs/praxis/manual-testing.md).
+
+**Synthetic scenarios** — lightweight fixtures kept mainly for narrow server tests and export-caveat inspection:
 
 | Scenario | State |
 |---|---|
@@ -69,21 +72,24 @@ npm run seed issue-tracker-all-phases-closed
 | `forced-close-all-phases-closed` | All four phases closed, with design closed via user-forced closure |
 | `low-readiness-all-phases-closed` | All four phases closed, with a synthetic low-readiness scope closure for export-caveat testing |
 
-**Manifest scenarios** — rich fixtures with realistic interview content, structured parts, knowledge items, and cross-kind edges (domain: tiny issue tracker):
+**Walkthrough scenarios** — rich manifest-backed fixtures with realistic interview content, structured parts, knowledge items, and cross-kind edges (domain: tiny issue tracker):
 
 | Scenario | State | Items | Edges |
 |---|---|---|---|
+| `issue-tracker-kickoff-ready` | Empty kickoff workspace | 0 | 0 |
 | `issue-tracker-scope-closed` | Scope closed (5 turns + proposal/confirm) | 12 (goals, terms, contexts, constraints) | 3 |
 | `issue-tracker-design-active` | + 2 design turns | 18 (+ decisions, assumptions) | 7 |
-| `issue-tracker-requirements-ready` | + design closed, requirements reviewed | 23 (+ 5 requirements, mixed review) | 10 |
-| `issue-tracker-criteria-ready` | + requirements closed, criteria reviewed | 27 (+ 4 criteria, mixed review) | 14 |
+| `issue-tracker-requirements-ready` | Requirements closed; criteria handoff is next | 23 (+ 5 requirements, mixed review) | 10 |
+| `issue-tracker-criteria-ready` | Criteria review in progress; export still gated | 27 (+ 4 criteria, mixed review) | 14 |
 | `issue-tracker-all-phases-closed` | All phases closed | 27 | 14 |
+
+For manual walkthroughs, prefer the `issue-tracker-*` scenarios above. The unprefixed synthetic fixtures remain available when you need caveat-focused export states or very small server-side seeds.
 
 ### Source tracing
 
 - **Programmatic**: `src/server/fixtures/scenarios.ts` — inline seed functions
 - **Manifest**: `src/server/fixtures/manifests/issue-tracker.json` — static JSON content; `src/server/fixtures/manifest.ts` — seeder that wires manifests through DB functions
-- Naming convention: `issue-tracker-*` scenarios come from the manifest; unprefixed ones are programmatic
+- Naming convention: `issue-tracker-*` scenarios come from the trusted manifest seam; unprefixed ones are synthetic helpers
 
 ## Architecture
 
@@ -153,3 +159,18 @@ npm test
 - `memory/SPEC.md` — What and why (requirements, assumptions, decisions, invariants, verification)
 - `memory/PLAN.md` — What's next (phases, slices, spikes, dependencies)
 - `AGENTS.md` — Agent/AI coding instructions (symlinked as `CLAUDE.md`)
+
+## Technical note
+
+If the app loads as a blank page in development and the browser console shows `504 Outdated Optimize Dep`, Vite's optimized dependency cache has usually drifted out of sync with the running dev server.
+
+Brunch now keeps a separate Vite cache per dev-server port and refuses to silently move the default frontend off `:5173`, which makes accidental duplicate dev sessions much less likely to corrupt the active cache.
+
+If you still need to recover a wedged local dev session, stop the listeners on Brunch's dev ports, clear the Vite cache, and restart:
+
+```bash
+lsof -tiTCP:5173 -sTCP:LISTEN | xargs kill
+lsof -tiTCP:3000 -sTCP:LISTEN | xargs kill
+rm -rf node_modules/.vite-*
+npm run dev
+```

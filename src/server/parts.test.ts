@@ -42,6 +42,11 @@ describe('LLM-boundary data schemas', () => {
     expect(dataTurnResponseSchema.parse(value)).toEqual(value);
   });
 
+  it('validates explicit reviewAction payloads for full-set review turns', () => {
+    const value = { turnId: 1, selectedOptionIds: [2], reviewAction: 'accept' as const };
+    expect(dataTurnResponseSchema.parse(value)).toEqual(value);
+  });
+
   it('validates data-turn-response payloads with many selected options', () => {
     const value = { turnId: 1, selectedOptionIds: [2, 3], freeText: 'Need both' };
     expect(dataTurnResponseSchema.parse(value)).toEqual(value);
@@ -162,7 +167,10 @@ describe('user part round-trip', () => {
   it('round-trips persisted user parts', () => {
     const parts: BrunchUserPart[] = [
       { type: 'text', text: 'Web first — Best fit' },
-      { type: 'data-turn-response', data: { turnId: 4, selectedOptionIds: [9], freeText: 'Best fit' } },
+      {
+        type: 'data-turn-response',
+        data: { turnId: 4, selectedOptionIds: [9], freeText: 'Best fit', reviewAction: 'accept' },
+      },
       {
         type: 'data-confirmation',
         data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 4, phase: 'scope' },
@@ -175,7 +183,7 @@ describe('user part round-trip', () => {
 
   it('round-trips forced-close confirmation user parts', () => {
     const parts: BrunchUserPart[] = [
-      { type: 'text', text: 'Force design closure' },
+      { type: 'text', text: 'Force elicitation closure' },
       {
         type: 'data-confirmation',
         data: { kind: 'force-close-active-phase', phase: 'design' },

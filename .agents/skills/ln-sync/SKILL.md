@@ -1,145 +1,149 @@
 ---
 name: ln-sync
-description: "Refresh memory/SPEC.md and memory/PLAN.md — graduate assumptions, archive stale items, and flag drift between docs and code. Use periodically or when docs feel out of date."
+description: "Refresh `memory/SPEC.md` and `memory/PLAN.md` in mature mode — restore canonical truth, archive retired plan history, delete stale derivative artifacts, and flag drift against code."
 ---
 
 # Ln Sync
 
-Audit and refresh the two project documents. Create any that are missing.
+Audit and refresh the canonical documents so they stay lightweight enough for fast re-entry.
 
-## The two documents
+`ln-sync` is the family-wide ontology repair and garbage-collection pass. Merge equivalent facts, repair stale references, and delete exhausted derivative artifacts. Only `docs/archive/PLAN_HISTORY.md` acts as archive history.
 
-| File               | Authority    | Contains                                                                                                           |
-| ------------------ | ------------ | ------------------------------------------------------------------------------------------------------------------ |
-| **memory/SPEC.md** | What and why | Concept & goal, constraints, requirements, assumptions, decisions, lexicon, verification design, acceptance criteria |
-| **memory/PLAN.md** | What's next  | Phases containing ordered slices and spikes, each linking to SPEC.md requirements and assumptions                   |
+## When to run
+
+Prefer `ln-sync` at these moments:
+
+- milestone boundaries
+- before major refactors
+- at handoff / context compaction
+- when `memory/SPEC.md` or `memory/PLAN.md` feels overweight
+
+## Document roles
+
+| File | Authority | Keep live |
+| --- | --- | --- |
+| `memory/SPEC.md` | what and why | active assumptions, current decisions, critical invariants, live constraints |
+| `memory/PLAN.md` | what's next | active frontier, near-horizon items, recent completions |
+| `docs/archive/PLAN_HISTORY.md` | historical ledger | older completed phases and retired plan history |
+| `HANDOFF.md` | derivative volatile transfer | only unfinished chat state not yet reconciled |
+| `memory/REFACTOR.md` | derivative temporary execution plan | only unfinished refactor steps |
 
 ## Procedure
 
-### 1. Read both documents
+### 1. Read the current docs
 
-If either is missing, prompt `ln-spec` or `ln-plan` to create it.
+If either `memory/SPEC.md` or `memory/PLAN.md` is missing, route to `ln-spec` or `ln-plan` first.
 
-### 2. Graduation check
+### 2. Weight check
 
-For each assumption in `memory/SPEC.md` §Assumptions whose `Status` is `validated`:
-- If it establishes a durable truth → promote to §Lexicon as an invariant or term
-- If it resolved a choice → promote to §Decisions
-- Preserve `Status: validated` in §Assumptions
+Ask whether each file is still serving re-entry.
 
-For each assumption whose `Status` is `invalidated`:
-- If it led to an alternative choice → record in §Decisions (superseding the prior decision)
-- Preserve `Status: invalidated` in §Assumptions
-- Flag all implicated slices in `memory/PLAN.md`
+- If `memory/SPEC.md` is carrying embedded truths, old implementation detail, or closed historical debates, prune it.
+- If `memory/PLAN.md` is mostly completed history, collapse it to a rolling frontier and archive the rest.
+- If `HANDOFF.md` or `memory/REFACTOR.md` no longer carry live temporary state, delete them.
 
-### 2b. Consolidation pass
+### 3. SPEC pass — keep only live architecture
 
-`ln-build` is local and conservative — it only compares against items the current slice references. `ln-sync` owns whole-document consolidation: merging equivalent rows, generalizing micro-variants, and absorbing implementation-detail decisions.
+For each item in `memory/SPEC.md`, choose one:
 
-Read the full affected sections and merge overly-granular items before pruning.
+- **keep** — still unresolved or still constrains future work
+- **update** — wording / evidence / scope changed
+- **remove** — embedded, moot, superseded, or redundant
 
-#### Same-item tests (from ln-build — apply globally here)
+#### Keep in SPEC
 
-- **Same assumption** = same boundary/component + same unresolved claim
-- **Same decision** = same seam/boundary + same chosen alternative
-- **Same invariant** = same seam/boundary + same rule template + same proved decision(s)
+- concept and goal
+- constraints and non-goals
+- requirements
+- live assumptions only
+- current decisions only
+- durable seam-defining decisions even when implemented
+- critical seam-level invariants only
+- lexicon
+- verification stance / commands / blind spots
 
-#### Global consolidation rules
+#### Remove from SPEC
 
-- Keep the **oldest surviving ID** among equivalent rows
-- Rewrite that survivor to the **generalized statement**
-- Union metadata (`Protected by`, `Established by`, dependencies, implicated slices, validation evidence)
-- Remove absorbed rows and leave an HTML comment naming absorbed IDs and why
-- Do **not** renumber surviving items
-- Rewrite references in both `SPEC.md` and `PLAN.md` from absorbed IDs to the surviving ID
+- implementation diary entries
+- historical completion notes already reflected in code or tests
+- micro-variant decisions / invariants that are now embedded in a larger seam
+- validated assumptions that no longer change future work
 
-Comment format: `<!-- Consolidated 2026-04-XX: absorbed I54, I55 into I52 — same seam/rule, generalized wording -->`
+Do **not** remove durable seam rationale merely because code and tests now exist. Prune micro-decisions, not the architectural spine.
 
-#### Assumptions — merge when:
+Merge equivalent assumptions, decisions, and invariants instead of carrying parallel rows for the same seam-level fact. When rows merge or move, repair the references that point at them.
 
-- same boundary/component + same unresolved claim + differences are only wording, confidence, evidence, or validation method
-- After merge: keep one row, preserve strongest status/evidence, union dependent decisions and implicated slices
+When pruning, leave concise HTML comments naming removed IDs when useful. Do not renumber survivors.
 
-#### Decisions — merge when:
+### 4. PLAN pass — restore the rolling frontier
 
-- same seam/boundary + same chosen alternative + newer rows only add implementation detail, narrower examples, or first use cases of the same pattern
-- Keep separate when different alternatives at the same seam, or either choice could still be revisited independently
+Reshape `memory/PLAN.md` to:
 
-#### Invariants — merge when:
+- `Active`
+- `Next`
+- `Horizon`
+- `Recently Completed`
+- `Dependencies`
 
-- same seam/boundary + same rule template + same proved decision(s), or one row is a strict example/branch of the other
-- Prefer the generalized seam-level wording; union protecting test files and establishing slices
-- Keep separate only when they can regress independently because seam, rule, proof, or test family differs
+Rules:
 
-#### Completed-slice notes in PLAN.md
+- move older completed items to `docs/archive/PLAN_HISTORY.md`
+- keep only the last 2-3 completed items live
+- only active / next items need detailed acceptance or traceability
+- keep dependency diagrams limited to active / next work
+- keep enough `Why now / unlocks` context that a fresh thread can understand frontier ordering without reading the full archive
+- do not archive handoffs, refactor plans, or sync reports
 
-For every `done` slice:
-- keep at most one compact completion block (max 4 bullets / 6 lines): shipped outcome, seam changed, evidence, remaining debt
-- replace verbose `Observed current state` / `Observed code seam` narratives with the compact form
-- if the parent slice is `done`, fold tracer-bullet prose into the parent note
-- delete completion notes that only repeat acceptance text, invariant IDs, or commit history
+### 5. Drift and ontology check
 
-Git is the history. PLAN.md keeps only routing-relevant summaries.
+Scan recent code / commits for:
 
-### 2c. Pruning check
+- new domain concepts not reflected in the lexicon
+- durable decisions not reflected in `memory/SPEC.md`
+- active work not represented in `memory/PLAN.md`
+- stale references between `memory/PLAN.md` and `memory/SPEC.md`
+- equivalent facts that should merge instead of coexisting
+- stale derivative artifacts that should be deleted after reconciliation
 
-After consolidation, assess each remaining item for removal:
+### 6. Garbage-collect derivative artifacts
 
-| State | Criterion | Action |
-| --- | --- | --- |
-| **Embedded** | Now a structural property of code/tests/decisions/invariants; restating it as a live tracked item adds noise | Remove |
-| **Moot** | The concern no longer applies in the current architecture | Remove |
-| **Superseded** | Replaced by a newer decision/assumption/invariant and all references can point to the replacement | Remove, note replacement |
-| **Redundant** | Equivalent to another surviving row after consolidation | Remove |
+Delete exhausted temporary artifacts after their useful state has been reconciled:
 
-When pruning, leave a comment noting which IDs were removed and why (e.g. `<!-- Pruned 2026-04-03: removed A1, A2 — embedded in architecture -->`). Do not renumber surviving items.
+- remove stale `HANDOFF.md` files instead of preserving them as archive breadcrumbs
+- remove completed `memory/REFACTOR.md` files instead of leaving completion notes or pointers
+- if an ad hoc planning/status file was created with explicit permission and is now exhausted, reconcile any durable facts, then delete it unless the user asked to keep it
 
-After pruning, repair or replace any dangling cross-references in `memory/SPEC.md` and `memory/PLAN.md` that pointed at removed or absorbed items.
+### 7. Report and update
 
-### 3. Staleness check
-
-- **PLAN.md**: Are completed slices still marked in-progress? Are active items still relevant? Do slice/spike cross-references to SPEC.md §Requirements and §Assumptions still hold?
-- **SPEC.md**: Do §Lexicon terms match current code names? Have §Decisions been superseded by implementation reality? Are §Acceptance Criteria still accurate?
-
-### 4. Drift check
-
-Scan recent code changes (git log/diff) for:
-- New domain concepts not reflected in §Lexicon
-- Implicit decisions not recorded in §Decisions
-- New assumptions being made without tracking in §Assumptions
-- Broken traceability links between SPEC.md and PLAN.md
-
-### 5. Report and update
-
-Present findings, then update docs with user confirmation:
+Produce a concise sync report and make the edits.
 
 ```md
 ## Sync Report
 
-### Graduations
-- [assumption] → [promoted to Lexicon/Design Decisions]
-
 ### Pruned
-- [items removed as embedded/moot/superseded, with rationale]
+- [items removed and why]
 
-### Stale items
-- [item] in [file] — [what's wrong]
+### Archived
+- [history moved to PLAN_HISTORY.md]
 
-### Drift
-- [new concept/decision/assumption not yet tracked]
+### Garbage-collected
+- [temporary artifacts deleted and why]
 
-### Actions taken
-- [list of doc updates made]
+### Drift fixed
+- [concept / decision / frontier updates made]
+
+### Remaining live items
+- [important assumptions or frontier work that still matter]
 ```
 
 ## Routing
 
 After sync, present these options to the user (use `tool-ask-question`):
 
-| #   | Label             | Target       | Why                                        |
-| --- | ----------------- | ------------ | ------------------------------------------ |
-| 1   | Scope next slice  | `ln-scope`   | Docs are current, continue with next slice |
-| 2   | Revisit the plan  | `ln-plan`    | Sync surfaced new work or changed priority |
-| 3   | Back to triage    | `ln-consult` | Direction needs reassessment               |
+| #   | Label             | Target       | Why |
+| --- | ----------------- | ------------ | --- |
+| 1   | Scope next item   | `ln-scope`   | Docs are current and the next slice is ready |
+| 2   | Revisit the plan  | `ln-plan`    | Sync changed priorities or exposed new frontier work |
+| 3   | Back to triage    | `ln-consult` | Direction needs reassessment |
 
-Recommended: **1** if plan is on track, **2** if sync found significant drift.
+Recommended: **1** if the frontier is still sound, **2** if sync materially changed it.

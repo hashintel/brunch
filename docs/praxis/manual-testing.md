@@ -9,6 +9,71 @@ Outer-loop verification for slices that touch the user-facing boundary. Manual t
 
 This keeps the dev server and browser observable without leaving the agent session.
 
+## Fixture Walkthrough Workflow
+
+Use this as the default end-to-end loop when you want to repeatedly manual-test seeded states.
+
+### Important DB-path note
+
+- `npm run seed` now defaults to the same project-local database as the app runtime: `.brunch/brunch.db`
+- `npm run dev` also defaults to that resolved project-local database
+- `npm run studio` defaults to `.brunch/brunch.db` too
+
+Only use `BRUNCH_DB` or an explicit seed path when you intentionally want an alternate scratch database.
+
+### Recommended repeatable workflow
+
+Use the project-local default unless you intentionally want a separate scratch DB:
+
+```bash
+# 1. Remove any previous seeded state
+mkdir -p .brunch
+rm -f .brunch/brunch.db .brunch/brunch.db-shm .brunch/brunch.db-wal
+
+# 2. Inspect the available walkthrough fixtures if needed
+npm run seed
+
+# 3. Seed the scenario you want to inspect
+npm run seed issue-tracker-design-active
+
+# 4. Launch the app against the same database
+npm run dev
+```
+
+Then:
+
+1. Open `http://localhost:5173`.
+2. Confirm the seeded project appears in the dashboard.
+3. Walk through the specific state you seeded.
+4. To test resume, close the browser tab, reopen the app, and confirm the same project state is still present.
+5. To switch scenarios, stop the dev server, re-run the wipe + seed steps, then launch `npm run dev` again.
+
+### If you want to use an alternate scratch DB instead
+
+This is useful when you want to keep walkthrough state separate from the project-local default:
+
+```bash
+export BRUNCH_DB=./tmp/manual-testing.db
+rm -f "$BRUNCH_DB" "$BRUNCH_DB-shm" "$BRUNCH_DB-wal"
+npm run seed issue-tracker-design-active "$BRUNCH_DB"
+npm run dev
+```
+
+### Choosing a scenario
+
+Start with these:
+
+- `issue-tracker-kickoff-ready` — blank scope kickoff workspace
+- `issue-tracker-scope-closure-pending` — scope closure summary waiting for confirmation
+- `issue-tracker-design-kickoff-ready` — design handoff with an explicit kickoff frontier
+- `issue-tracker-design-recovery` — exceptional recovery frontier after a missing successor turn
+- `issue-tracker-requirements-ready` — requirements full-set review frontier
+- `issue-tracker-criteria-kickoff-ready` — criteria handoff with an explicit kickoff frontier
+- `issue-tracker-criteria-ready` — criteria full-set review frontier before export
+- `issue-tracker-all-phases-closed` — completed export-ready project
+- `forced-close-all-phases-closed` — export caveat for user-forced closure
+- `low-readiness-all-phases-closed` — export caveat for low-readiness closure
+
 ## Fixture capture
 
 After a confirmed-good manual session, materialize golden master fixtures by querying the database:
@@ -20,6 +85,22 @@ After a confirmed-good manual session, materialize golden master fixtures by que
 5. Re-run the observer corpus probes so the promoted capture proves the same fixture and probe path the repo already trusts.
 
 This keeps golden fixtures runtime-shaped without hand-authoring JSON or redoing manual SQL extraction every time. See SPEC.md §Oracle Strategy for how fixtures feed into the verification tiers.
+
+## Recommended walkthrough seeds
+
+Prefer the richer `issue-tracker-*` fixtures for manual walkthroughs. They now cover the main phase-transition states explicitly instead of relying on ambiguous mid-stream snapshots.
+
+- `issue-tracker-kickoff-ready` — empty kickoff workspace and resume from a seeded blank project
+- `issue-tracker-scope-closure-pending` — closure proposal visible and awaiting explicit confirmation
+- `issue-tracker-design-kickoff-ready` — first post-scope handoff with an explicit kickoff frontier
+- `issue-tracker-design-recovery` — exceptional recovery turn when design lost its successor frontier
+- `issue-tracker-requirements-kickoff-ready` — requirements handoff immediately after design closure
+- `issue-tracker-requirements-ready` — requirements full-set review frontier
+- `issue-tracker-criteria-kickoff-ready` — criteria handoff immediately after requirements closure
+- `issue-tracker-criteria-ready` — criteria full-set review frontier
+- `issue-tracker-all-phases-closed` — export-ready completed project
+- `forced-close-all-phases-closed` — synthetic caveat fixture for user-forced design closure
+- `low-readiness-all-phases-closed` — synthetic caveat fixture for low-readiness scope closure
 
 ## What to check
 

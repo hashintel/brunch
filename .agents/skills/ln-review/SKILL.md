@@ -24,12 +24,12 @@ Make invalid states unrepresentable (Yaron Minsky). Split optional fields into d
 
 ### Oracle coverage
 
-If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent slices implemented the oracles their persisted `memory/PLAN.md` verification approaches declare. If a scope card is available in session context, use it as a higher-resolution supplement, not the primary source of truth. Look for:
+If `memory/SPEC.md` §Oracle Strategy by Loop Tier exists, check whether recent slices implemented the oracles their persisted `memory/PLAN.md` verification approaches declare. If a full or light scope card is available in session context, use it as a higher-resolution supplement, not the primary source of truth. Look for:
 
 - Scope card promised schema validation → is there a Zod parse in the test?
 - Scope card promised differential oracle → are there golden master fixtures?
 - Scope card promised round-trip oracle → is there a persist-then-query test?
-- SPEC.md §Acknowledged Blind Spots → has anything changed that should promote a blind spot to "needs an oracle now"?
+- `memory/SPEC.md` §Acknowledged Blind Spots → has anything changed that should promote a blind spot to "needs an oracle now"?
 
 Collect gaps as numbered findings (category: `oracle-coverage`).
 

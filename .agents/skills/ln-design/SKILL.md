@@ -48,6 +48,8 @@ The best design often combines insights from multiple options. Ask which shape b
 
 Present the recommended module shape with rationale. If `memory/SPEC.md` exists, ensure names align with its lexicon.
 
+Do not invent a standalone design document unless the user explicitly asks for one. Durable design choices reconcile back into `memory/SPEC.md` and `memory/PLAN.md`.
+
 ## Routing
 
 After choosing a design, present these options to the user (use `tool-ask-question`):

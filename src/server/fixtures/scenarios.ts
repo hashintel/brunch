@@ -1,15 +1,19 @@
 import {
   advanceHead,
+  applyTurnResponseSelections,
   confirmPhaseOutcome,
   createKnowledgeItem,
+  createOption,
   createPhaseOutcome,
   createConfirmedPhaseOutcome,
   createProject,
   createTurn,
   linkKnowledgeItemToTurn,
+  updateTurn,
   type DB,
+  type WorkflowPhaseStatus,
 } from '../db.js';
-import { loadManifestScenarios } from './manifest.js';
+import { loadManifest, loadManifestScenarios, seedFromManifest, type ManifestScenario } from './manifest.js';
 
 function createConfirmationParts(text: string, data: object): string {
   return JSON.stringify([
@@ -19,6 +23,89 @@ function createConfirmationParts(text: string, data: object): string {
       data,
     },
   ]);
+}
+
+function createAcceptedReviewUserParts(turnId: number, selectedOptionIds: number[]): string {
+  return JSON.stringify([
+    { type: 'text', text: 'Accept review' },
+    {
+      type: 'data-turn-response',
+      data: {
+        turnId,
+        selectedOptionIds,
+        reviewAction: 'accept',
+      },
+    },
+  ]);
+}
+
+const issueTrackerManifest = loadManifest('issue-tracker');
+
+function sliceManifestScenario(scenario: ManifestScenario, turnCount: number): ManifestScenario {
+  const turns = scenario.turns.slice(0, turnCount);
+  const itemIndexMap = new Map<number, number>();
+
+  const knowledgeItems = scenario.knowledgeItems.flatMap((item, itemIndex) => {
+    if (item.capturedAtTurn >= turnCount) {
+      return [];
+    }
+
+    const nextItem = {
+      kind: item.kind,
+      content: item.content,
+      rationale: item.rationale ?? null,
+      capturedAtTurn: item.capturedAtTurn,
+      ...(item.reviewAction && item.reviewedAtTurn != null && item.reviewedAtTurn < turnCount
+        ? {
+            reviewAction: item.reviewAction,
+            reviewedAtTurn: item.reviewedAtTurn,
+          }
+        : {}),
+    };
+    itemIndexMap.set(itemIndex, itemIndexMap.size);
+    return [nextItem];
+  });
+
+  const edges = scenario.edges.flatMap((edge) => {
+    const fromItemIndex = itemIndexMap.get(edge.fromItemIndex);
+    const toItemIndex = itemIndexMap.get(edge.toItemIndex);
+    if (fromItemIndex == null || toItemIndex == null) {
+      return [];
+    }
+
+    return [
+      {
+        fromItemIndex,
+        toItemIndex,
+        relation: edge.relation,
+      },
+    ];
+  });
+
+  return { turns, knowledgeItems, edges };
+}
+
+function appendFrontierTurn(
+  scenario: ManifestScenario,
+  phase: ManifestScenario['turns'][number]['phase'],
+  turnKind: 'kickoff' | 'recovery',
+): ManifestScenario {
+  return {
+    ...scenario,
+    turns: [
+      ...scenario.turns,
+      {
+        phase,
+        turnKind,
+        question: '',
+        answer: null,
+      },
+    ],
+  };
+}
+
+function createManifestScenarioSeeder(scenario: ManifestScenario, defaultName: string): ScenarioFn {
+  return (db, projectName = defaultName) => seedFromManifest(db, scenario, projectName);
 }
 
 export function seedClosedScope(db: DB, projectId: number) {
@@ -48,8 +135,8 @@ export function seedClosedScope(db: DB, projectId: number) {
     phase: 'scope',
     parent_turn_id: scopeProposalTurn.id,
     question: '',
-    answer: 'Confirm scope closure',
-    user_parts: createConfirmationParts('Confirm scope closure', {
+    answer: 'Confirm grounding closure',
+    user_parts: createConfirmationParts('Confirm grounding closure', {
       kind: 'confirm-proposed-phase-closure',
       proposalTurnId: scopeProposalTurn.id,
       phase: 'scope',
@@ -89,8 +176,8 @@ export function seedRequirementsReady(db: DB, projectId: number) {
     phase: 'design',
     parent_turn_id: seededDesign.designTurn.id,
     question: '',
-    answer: 'Confirm design closure',
-    user_parts: createConfirmationParts('Confirm design closure', {
+    answer: 'Confirm elicitation closure',
+    user_parts: createConfirmationParts('Confirm elicitation closure', {
       kind: 'confirm-proposed-phase-closure',
       proposalTurnId: seededDesign.designTurn.id,
       phase: 'design',
@@ -102,6 +189,60 @@ export function seedRequirementsReady(db: DB, projectId: number) {
   return { ...seededDesign, designConfirmationTurn };
 }
 
+export function seedRequirementsReviewReady(db: DB, projectId: number) {
+  const seededRequirements = seedRequirementsReady(db, projectId);
+
+  const requirementCrud = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    'Create, edit, and close tickets with required fields: title, description, priority, and assignee',
+  );
+  const requirementAudit = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    'Every status change records the actor identity and ISO 8601 timestamp in the audit log',
+  );
+  const requirementPermissions = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    'Role-based visibility: admins see all tickets and settings, developers see assigned and unassigned tickets, viewers have read-only access',
+  );
+
+  for (const requirement of [requirementCrud, requirementAudit, requirementPermissions]) {
+    linkKnowledgeItemToTurn(db, requirement.id, seededRequirements.designConfirmationTurn.id, 'captured');
+  }
+
+  const reviewTurn = createTurn(db, projectId, {
+    phase: 'requirements',
+    parent_turn_id: seededRequirements.designConfirmationTurn.id,
+    question: 'Please review the current requirement set.',
+    why: 'Review the whole requirement set before moving forward.',
+    impact: 'high',
+    answer: null,
+  });
+  createOption(db, reviewTurn.id, {
+    position: 0,
+    content: 'Accept review',
+    is_recommended: true,
+  });
+  createOption(db, reviewTurn.id, {
+    position: 1,
+    content: 'Request changes',
+  });
+  advanceHead(db, projectId, reviewTurn.id);
+
+  return {
+    ...seededRequirements,
+    reviewTurn,
+    requirementCrud,
+    requirementAudit,
+    requirementPermissions,
+  };
+}
+
 function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: number) {
   const approvedRequirement = createKnowledgeItem(
     db,
@@ -109,58 +250,61 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
     'requirement',
     'Resume the interview from SQLite after restart',
   );
-  const rejectedRequirement = createKnowledgeItem(
+  const supportingRequirement = createKnowledgeItem(
     db,
     projectId,
     'requirement',
-    'Support exporting the spec as a PDF',
+    'Keep the local-first persistence seam simple for restart and resume',
   );
 
   const reviewTurn = createTurn(db, projectId, {
     phase: 'requirements',
     parent_turn_id: parentTurnId,
-    question: 'Are these requirements all reviewed now?',
-    answer: 'Yes — approve resume and reject PDF export',
+    question: 'Please review the current requirement set.',
+    why: 'Review the whole requirement set before moving forward.',
+    impact: 'high',
+    answer: 'Accept review',
+  });
+  const acceptOption = createOption(db, reviewTurn.id, {
+    position: 0,
+    content: 'Accept review',
+    is_recommended: true,
+  });
+  createOption(db, reviewTurn.id, {
+    position: 1,
+    content: 'Request changes',
+    is_recommended: false,
+  });
+  applyTurnResponseSelections(db, reviewTurn.id, [0]);
+  updateTurn(db, reviewTurn.id, {
+    user_parts: createAcceptedReviewUserParts(reviewTurn.id, [acceptOption.id]),
   });
   linkKnowledgeItemToTurn(db, approvedRequirement.id, reviewTurn.id, 'reviewed');
-  linkKnowledgeItemToTurn(db, rejectedRequirement.id, reviewTurn.id, 'rejected');
-  advanceHead(db, projectId, reviewTurn.id);
-
-  const requirementsProposalTurn = createTurn(db, projectId, {
-    phase: 'requirements',
-    parent_turn_id: reviewTurn.id,
-    question: '',
-    answer: 'The requirement set has explicit review coverage and is ready to move into criteria.',
-  });
-  advanceHead(db, projectId, requirementsProposalTurn.id);
-
-  const requirementsOutcome = createPhaseOutcome(db, {
+  linkKnowledgeItemToTurn(db, supportingRequirement.id, reviewTurn.id, 'reviewed');
+  createConfirmedPhaseOutcome(db, {
     projectId,
     phase: 'requirements',
-    proposal_turn_id: requirementsProposalTurn.id,
-    summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
+    proposal_turn_id: reviewTurn.id,
+    confirmation_turn_id: reviewTurn.id,
+    summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
   });
+  advanceHead(db, projectId, reviewTurn.id);
 
-  const requirementsConfirmationTurn = createTurn(db, projectId, {
-    phase: 'requirements',
-    parent_turn_id: requirementsProposalTurn.id,
+  const criteriaKickoffTurn = createTurn(db, projectId, {
+    phase: 'criteria',
+    parent_turn_id: reviewTurn.id,
+    turn_kind: 'kickoff',
     question: '',
-    answer: 'Confirm requirements closure',
-    user_parts: createConfirmationParts('Confirm requirements closure', {
-      kind: 'confirm-proposed-phase-closure',
-      proposalTurnId: requirementsProposalTurn.id,
-      phase: 'requirements',
-    }),
+    answer: null,
   });
-  confirmPhaseOutcome(db, requirementsOutcome.id, requirementsConfirmationTurn.id);
-  advanceHead(db, projectId, requirementsConfirmationTurn.id);
+  advanceHead(db, projectId, criteriaKickoffTurn.id);
 
   return {
     approvedRequirement,
-    rejectedRequirement,
+    supportingRequirement,
     reviewTurn,
-    requirementsProposalTurn,
-    requirementsConfirmationTurn,
+    requirementsConfirmationTurn: reviewTurn,
+    criteriaKickoffTurn,
   };
 }
 
@@ -175,56 +319,126 @@ export function seedCriteriaReady(db: DB, projectId: number) {
   return { ...seededRequirements, ...reviewedRequirements };
 }
 
+export function seedCriteriaReviewReady(db: DB, projectId: number) {
+  const seededCriteria = seedCriteriaReady(db, projectId);
+
+  const approvedRequirement = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    'Create, edit, and close tickets with required fields: title, description, priority, and assignee',
+  );
+  linkKnowledgeItemToTurn(
+    db,
+    approvedRequirement.id,
+    seededCriteria.requirementsConfirmationTurn.id,
+    'reviewed',
+  );
+
+  const criterionAudit = createKnowledgeItem(
+    db,
+    projectId,
+    'criterion',
+    'Changing a ticket status creates an audit log entry with actor, previous status, new status, and timestamp',
+  );
+  const criterionPermissions = createKnowledgeItem(
+    db,
+    projectId,
+    'criterion',
+    'A viewer cannot edit a ticket and receives a clear authorization failure without mutating data',
+  );
+  const criterionPerformance = createKnowledgeItem(
+    db,
+    projectId,
+    'criterion',
+    'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture',
+  );
+
+  for (const criterion of [criterionAudit, criterionPermissions, criterionPerformance]) {
+    linkKnowledgeItemToTurn(db, criterion.id, seededCriteria.criteriaKickoffTurn.id, 'captured');
+  }
+
+  const reviewTurn = createTurn(db, projectId, {
+    phase: 'criteria',
+    parent_turn_id: seededCriteria.criteriaKickoffTurn.id,
+    question: 'Please review the current criterion set.',
+    why: 'Review the whole criterion set before moving forward.',
+    impact: 'high',
+    answer: null,
+  });
+  createOption(db, reviewTurn.id, {
+    position: 0,
+    content: 'Accept review',
+    is_recommended: true,
+  });
+  createOption(db, reviewTurn.id, {
+    position: 1,
+    content: 'Request changes',
+  });
+  advanceHead(db, projectId, reviewTurn.id);
+
+  return {
+    ...seededCriteria,
+    approvedRequirement,
+    reviewTurn,
+    criterionAudit,
+    criterionPermissions,
+    criterionPerformance,
+  };
+}
+
 function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: number) {
   const criterion = createKnowledgeItem(db, projectId, 'criterion', 'Verify SQLite resume');
+  const supportingCriterion = createKnowledgeItem(
+    db,
+    projectId,
+    'criterion',
+    'Restarting the browser restores the active path from local persistence',
+  );
   const criterionReviewTurn = createTurn(db, projectId, {
     phase: 'criteria',
     parent_turn_id: parentTurnId,
-    question: 'Are these criteria reviewed?',
-    answer: 'Yes — approve the criterion',
+    question: 'Please review the current criterion set.',
+    why: 'Review the whole criterion set before moving forward.',
+    impact: 'high',
+    answer: 'Accept review',
+  });
+  const acceptOption = createOption(db, criterionReviewTurn.id, {
+    position: 0,
+    content: 'Accept review',
+    is_recommended: true,
+  });
+  createOption(db, criterionReviewTurn.id, {
+    position: 1,
+    content: 'Request changes',
+    is_recommended: false,
+  });
+  applyTurnResponseSelections(db, criterionReviewTurn.id, [0]);
+  updateTurn(db, criterionReviewTurn.id, {
+    user_parts: createAcceptedReviewUserParts(criterionReviewTurn.id, [acceptOption.id]),
   });
   linkKnowledgeItemToTurn(db, criterion.id, criterionReviewTurn.id, 'reviewed');
-  advanceHead(db, projectId, criterionReviewTurn.id);
-
-  const criteriaProposalTurn = createTurn(db, projectId, {
-    phase: 'criteria',
-    parent_turn_id: criterionReviewTurn.id,
-    question: '',
-    answer: 'Criteria review coverage is complete.',
-  });
-  advanceHead(db, projectId, criteriaProposalTurn.id);
-
-  const criteriaOutcome = createPhaseOutcome(db, {
+  linkKnowledgeItemToTurn(db, supportingCriterion.id, criterionReviewTurn.id, 'reviewed');
+  createConfirmedPhaseOutcome(db, {
     projectId,
     phase: 'criteria',
-    proposal_turn_id: criteriaProposalTurn.id,
-    summary: 'Criteria review coverage is complete.',
+    proposal_turn_id: criterionReviewTurn.id,
+    confirmation_turn_id: criterionReviewTurn.id,
+    summary: 'The reviewed criteria set is accepted and the specification is ready for output.',
   });
+  advanceHead(db, projectId, criterionReviewTurn.id);
 
-  const criteriaConfirmationTurn = createTurn(db, projectId, {
-    phase: 'criteria',
-    parent_turn_id: criteriaProposalTurn.id,
-    question: '',
-    answer: 'Confirm criteria closure',
-    user_parts: createConfirmationParts('Confirm criteria closure', {
-      kind: 'confirm-proposed-phase-closure',
-      proposalTurnId: criteriaProposalTurn.id,
-      phase: 'criteria',
-    }),
-  });
-  confirmPhaseOutcome(db, criteriaOutcome.id, criteriaConfirmationTurn.id);
-  advanceHead(db, projectId, criteriaConfirmationTurn.id);
-
-  return { criterion, criterionReviewTurn, criteriaProposalTurn, criteriaConfirmationTurn };
+  return {
+    criterion,
+    supportingCriterion,
+    criterionReviewTurn,
+    criteriaConfirmationTurn: criterionReviewTurn,
+  };
 }
 
 export function seedAllPhasesClosed(db: DB, projectId: number) {
   const seededCriteria = seedCriteriaReady(db, projectId);
-  const reviewedCriteria = seedClosedCriteriaReview(
-    db,
-    projectId,
-    seededCriteria.requirementsConfirmationTurn.id,
-  );
+  const reviewedCriteria = seedClosedCriteriaReview(db, projectId, seededCriteria.criteriaKickoffTurn.id);
 
   return { ...seededCriteria, ...reviewedCriteria };
 }
@@ -244,8 +458,8 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
     phase: 'design',
     parent_turn_id: designTurn.id,
     question: '',
-    answer: 'Force design closure',
-    user_parts: createConfirmationParts('Force design closure', {
+    answer: 'Force elicitation closure',
+    user_parts: createConfirmationParts('Force elicitation closure', {
       kind: 'force-close-active-phase',
       phase: 'design',
     }),
@@ -256,7 +470,7 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
     projectId,
     phase: 'design',
     proposal_turn_id: designForceCloseTurn.id,
-    summary: 'Design closed by user without an interviewer recommendation.',
+    summary: 'Elicitation closed by user without an interviewer recommendation.',
   });
   confirmPhaseOutcome(db, designOutcome.id, designForceCloseTurn.id);
 
@@ -264,7 +478,7 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
   const reviewedCriteria = seedClosedCriteriaReview(
     db,
     projectId,
-    reviewedRequirements.requirementsConfirmationTurn.id,
+    reviewedRequirements.criteriaKickoffTurn.id,
   );
 
   return {
@@ -288,8 +502,8 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
     phase: 'design',
     parent_turn_id: designTurn.id,
     question: '',
-    answer: 'Confirm scope closure',
-    user_parts: createConfirmationParts('Confirm scope closure', {
+    answer: 'Confirm grounding closure',
+    user_parts: createConfirmationParts('Confirm grounding closure', {
       kind: 'confirm-proposed-phase-closure',
       proposalTurnId: designTurn.id,
       phase: 'scope',
@@ -318,8 +532,8 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
     phase: 'design',
     parent_turn_id: designProposalTurn.id,
     question: '',
-    answer: 'Confirm design closure',
-    user_parts: createConfirmationParts('Confirm design closure', {
+    answer: 'Confirm elicitation closure',
+    user_parts: createConfirmationParts('Confirm elicitation closure', {
       kind: 'confirm-proposed-phase-closure',
       proposalTurnId: designProposalTurn.id,
       phase: 'design',
@@ -339,7 +553,7 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
   const reviewedCriteria = seedClosedCriteriaReview(
     db,
     projectId,
-    reviewedRequirements.requirementsConfirmationTurn.id,
+    reviewedRequirements.criteriaKickoffTurn.id,
   );
 
   return {
@@ -353,6 +567,29 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
 }
 
 export type ScenarioFn = (db: DB, projectName?: string) => number;
+
+type WalkthroughWorkflowSummary = Record<
+  'scope' | 'design' | 'requirements' | 'criteria',
+  WorkflowPhaseStatus
+>;
+
+export interface WalkthroughScenarioMatrixEntry {
+  scenarioName: string;
+  label: string;
+  source: 'manifest' | 'synthetic';
+  inspectionFocus: string;
+  expectedWorkflowSummary: WalkthroughWorkflowSummary;
+  manifestScenarioKey?: string;
+}
+
+function createWorkflowSummary(
+  scope: WorkflowPhaseStatus,
+  design: WorkflowPhaseStatus,
+  requirements: WorkflowPhaseStatus,
+  criteria: WorkflowPhaseStatus,
+): WalkthroughWorkflowSummary {
+  return { scope, design, requirements, criteria };
+}
 
 export const scenarios: Record<string, ScenarioFn> = {
   'scope-closed': (db, name = 'Scope Closed') => {
@@ -385,9 +622,6 @@ export const scenarios: Record<string, ScenarioFn> = {
     seedAllPhasesClosedWithForcedDesign(db, project.id);
     return project.id;
   },
-};
-
-export const testOnlyScenarios: Record<string, ScenarioFn> = {
   'low-readiness-all-phases-closed': (db, name = 'Low-Readiness All Phases Closed') => {
     const project = createProject(db, name);
     seedAllPhasesClosedWithLowReadinessScope(db, project.id);
@@ -395,10 +629,152 @@ export const testOnlyScenarios: Record<string, ScenarioFn> = {
   },
 };
 
+export const testOnlyScenarios: Record<string, ScenarioFn> = {};
+
 export const manifestScenarios = loadManifestScenarios('issue-tracker');
 
-export const publicScenarios: Record<string, ScenarioFn> = { ...scenarios, ...manifestScenarios };
-export const publicScenarioNames = Object.keys(publicScenarios);
+const phaseTransitionScenarios: Record<string, ScenarioFn> = {
+  'issue-tracker-scope-closure-pending': createManifestScenarioSeeder(
+    sliceManifestScenario(issueTrackerManifest.scenarios['scope-closed']!, 6),
+    'Issue Tracker (scope closure pending)',
+  ),
+  'issue-tracker-design-kickoff-ready': createManifestScenarioSeeder(
+    appendFrontierTurn(
+      sliceManifestScenario(issueTrackerManifest.scenarios['scope-closed']!, 7),
+      'design',
+      'kickoff',
+    ),
+    'Issue Tracker (design kickoff ready)',
+  ),
+  'issue-tracker-design-recovery': createManifestScenarioSeeder(
+    appendFrontierTurn(issueTrackerManifest.scenarios['design-active']!, 'design', 'recovery'),
+    'Issue Tracker (design recovery)',
+  ),
+  'issue-tracker-requirements-kickoff-ready': createManifestScenarioSeeder(
+    appendFrontierTurn(
+      sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 11),
+      'requirements',
+      'kickoff',
+    ),
+    'Issue Tracker (requirements kickoff ready)',
+  ),
+  'issue-tracker-criteria-kickoff-ready': createManifestScenarioSeeder(
+    appendFrontierTurn(
+      sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 18),
+      'criteria',
+      'kickoff',
+    ),
+    'Issue Tracker (criteria kickoff ready)',
+  ),
+  'issue-tracker-requirements-ready': (db, name = 'Issue Tracker (requirements review ready)') => {
+    const project = createProject(db, name);
+    seedRequirementsReviewReady(db, project.id);
+    return project.id;
+  },
+  'issue-tracker-criteria-ready': (db, name = 'Issue Tracker (criteria review ready)') => {
+    const project = createProject(db, name);
+    seedCriteriaReviewReady(db, project.id);
+    return project.id;
+  },
+};
+
+export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[] = [
+  {
+    scenarioName: 'issue-tracker-kickoff-ready',
+    label: 'Kickoff workspace',
+    source: 'manifest',
+    inspectionFocus: 'Blank greenfield kickoff, empty workspace rendering, and resume after seeding.',
+    expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
+    manifestScenarioKey: 'kickoff-ready',
+  },
+  {
+    scenarioName: 'issue-tracker-scope-closure-pending',
+    label: 'Scope closure pending',
+    source: 'synthetic',
+    inspectionFocus: 'Closure proposal summary is visible and waiting for explicit confirmation.',
+    expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
+  },
+  {
+    scenarioName: 'issue-tracker-design-kickoff-ready',
+    label: 'Design kickoff ready',
+    source: 'synthetic',
+    inspectionFocus: 'Scope handoff has landed and the next phase opens with an explicit kickoff frontier.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'in_progress', 'unstarted', 'unstarted'),
+  },
+  {
+    scenarioName: 'issue-tracker-design-recovery',
+    label: 'Design recovery frontier',
+    source: 'synthetic',
+    inspectionFocus:
+      'A completed design turn has no successor, so the exceptional recovery frontier is visible.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'in_progress', 'unstarted', 'unstarted'),
+  },
+  {
+    scenarioName: 'issue-tracker-requirements-kickoff-ready',
+    label: 'Requirements kickoff ready',
+    source: 'synthetic',
+    inspectionFocus: 'Design closure hands off into the requirements phase with a fresh kickoff frontier.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'in_progress', 'unstarted'),
+  },
+  {
+    scenarioName: 'issue-tracker-requirements-ready',
+    label: 'Requirements review ready',
+    source: 'synthetic',
+    inspectionFocus:
+      'The requirements phase shows the current full-set review frontier with explicit review actions.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'in_progress', 'unstarted'),
+  },
+  {
+    scenarioName: 'issue-tracker-criteria-kickoff-ready',
+    label: 'Criteria kickoff ready',
+    source: 'synthetic',
+    inspectionFocus: 'Requirements closure hands off into criteria with an explicit kickoff frontier.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'in_progress'),
+  },
+  {
+    scenarioName: 'issue-tracker-criteria-ready',
+    label: 'Criteria review ready',
+    source: 'synthetic',
+    inspectionFocus:
+      'The criteria phase shows the current full-set review frontier before export becomes available.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'in_progress'),
+  },
+  {
+    scenarioName: 'issue-tracker-all-phases-closed',
+    label: 'Export-ready walkthrough',
+    source: 'manifest',
+    inspectionFocus: 'Full active-path export, final transcript review, and resume into a completed project.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'closed'),
+    manifestScenarioKey: 'all-phases-closed',
+  },
+  {
+    scenarioName: 'forced-close-all-phases-closed',
+    label: 'Forced-close export caveat',
+    source: 'synthetic',
+    inspectionFocus: 'Manual inspection of export caveats when design was closed via user-forced closure.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'closed'),
+  },
+  {
+    scenarioName: 'low-readiness-all-phases-closed',
+    label: 'Low-readiness export caveat',
+    source: 'synthetic',
+    inspectionFocus: 'Manual inspection of export caveats when scope closed with low readiness.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'closed'),
+  },
+] as const;
+
+export const walkthroughScenarioNames = walkthroughScenarioMatrix.map((entry) => entry.scenarioName);
+const walkthroughScenarioNameSet = new Set<string>(walkthroughScenarioNames);
+
+export const publicScenarios: Record<string, ScenarioFn> = {
+  ...scenarios,
+  ...manifestScenarios,
+  ...phaseTransitionScenarios,
+};
+export const publicScenarioNames = [
+  ...walkthroughScenarioNames.filter((name) => name in publicScenarios),
+  ...Object.keys(publicScenarios).filter((name) => !walkthroughScenarioNameSet.has(name)),
+];
 export const allScenarios: Record<string, ScenarioFn> = {
   ...publicScenarios,
   ...testOnlyScenarios,

@@ -213,7 +213,7 @@ describe('buildInterviewerContext', () => {
     expect(result).toContain('User: Q3?');
   });
 
-  it('includes the approved requirement inventory when criteria review is active', () => {
+  it('includes the approved requirement inventory and current criterion inventory when criteria review is active', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 10,
@@ -238,12 +238,19 @@ describe('buildInterviewerContext', () => {
           { id: 5, content: 'Resume the interview from SQLite after restart' },
           { id: 7, content: 'Export the reviewed spec as markdown' },
         ],
+        criteria: [
+          { id: 9, content: 'Restarting restores the active path' },
+          { id: 10, content: 'Markdown export includes accepted requirements only' },
+        ],
       },
     });
 
     expect(result).toContain('Approved requirements for criteria review:');
     expect(result).toContain('- [5] Resume the interview from SQLite after restart');
     expect(result).toContain('- [7] Export the reviewed spec as markdown');
+    expect(result).toContain('Current criteria under review:');
+    expect(result).toContain('- [9] Restarting restores the active path');
+    expect(result).toContain('- [10] Markdown export includes accepted requirements only');
     expect(result).toContain('User: Propose a first criterion');
   });
 
@@ -291,6 +298,7 @@ describe('observer-context-projection', () => {
       project_id: 1,
       parent_turn_id: 4,
       phase: 'scope',
+      turn_kind: 'question',
       question: 'What is the target audience?',
       answer: 'Developers building APIs',
       why: 'Audience shapes feature priorities.',
@@ -320,12 +328,52 @@ describe('observer-context-projection', () => {
     expect(result).toContain('Developers building APIs');
   });
 
+  it('includes brownfield project context when kickoff is grounded in an existing repo', () => {
+    const turn: Turn = {
+      id: 5,
+      project_id: 1,
+      parent_turn_id: 4,
+      phase: 'scope',
+      turn_kind: 'question',
+      question: 'Which part of the existing auth flow should we refine first?',
+      answer: 'The login callback and redirect behavior.',
+      why: 'Grounding: The repo has a dedicated auth module and callback route. We need the first question to stay anchored in that seam.',
+      impact: 'high',
+      is_resolution: false,
+      user_parts: null,
+      assistant_parts: null,
+      created_at: '2026-01-01',
+    };
+
+    const result = buildObserverContext({
+      turn,
+      activePathSummary: '',
+      projectMode: 'brownfield',
+      projectCwd: '/tmp/repo',
+      entities: {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      },
+    });
+
+    expect(result).toContain('Project mode: brownfield');
+    expect(result).toContain('Project directory: /tmp/repo');
+    expect(result).toContain('Grounding: The repo has a dedicated auth module and callback route.');
+  });
+
   it('includes existing entity graph', () => {
     const turn: Turn = {
       id: 5,
       project_id: 1,
       parent_turn_id: 4,
       phase: 'scope',
+      turn_kind: 'question',
       question: 'Q5',
       answer: 'A5',
       why: null,
@@ -364,6 +412,7 @@ describe('observer-context-projection', () => {
       project_id: 1,
       parent_turn_id: 4,
       phase: 'scope',
+      turn_kind: 'question',
       question: 'Q5',
       answer: 'A5',
       why: null,
@@ -399,6 +448,7 @@ describe('observer-context-projection', () => {
       project_id: 1,
       parent_turn_id: 4,
       phase: 'requirements',
+      turn_kind: 'question',
       question: 'Which requirements are still missing?',
       answer: 'Web, Desktop — Covers both launch paths',
       why: 'Requirement review needs the chosen response shape.',
@@ -450,6 +500,7 @@ describe('observer-context-projection', () => {
       project_id: 1,
       parent_turn_id: 4,
       phase: 'scope',
+      turn_kind: 'question',
       question: 'Q5',
       answer: 'A5',
       why: null,
@@ -496,6 +547,7 @@ describe('observer-context-projection', () => {
       project_id: 1,
       parent_turn_id: 5,
       phase: 'criteria',
+      turn_kind: 'question',
       question: 'What would prove the resume flow is complete?',
       answer: 'It should restore the active path after restart.',
       why: null,

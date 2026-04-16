@@ -74,26 +74,27 @@ describe('captureProjectToManifestScenario', () => {
         {
           phase: 'scope',
           question: '',
-          answer: 'Confirm scope closure',
+          answer: 'Confirm grounding closure',
           isConfirmation: true,
         },
         {
           phase: 'requirements',
-          question: 'Does this requirement capture the core persistence need?',
-          why: 'We need one reviewed requirement to prove the review seam survives capture.',
+          question: 'Please review the current requirement set.',
+          why: 'We need one full-set review to prove the review seam survives capture.',
           impact: 'medium',
-          answer: 'Approve this requirement',
+          answer: 'Ship this set',
           options: [
             {
-              content: 'Approve this requirement',
+              content: 'Ship this set',
               is_recommended: true,
             },
             {
-              content: 'Reject this requirement',
+              content: 'Revise this set',
               is_recommended: false,
             },
           ],
           selectedOptionPositions: [0],
+          reviewAction: 'accept',
           freeText: null,
         },
       ],

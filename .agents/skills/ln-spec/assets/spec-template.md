@@ -3,7 +3,8 @@
      Authority: requirements, constraints, assumptions, decisions, invariants, domain language, verification strategy.
 
      When re-running ln-spec: read this file first, preserve existing content, evolve sections that need change.
-     Cross-referenced by PLAN.md slices and spikes via §-prefixed section links. -->
+     Cross-referenced by PLAN.md slices and spikes via §-prefixed section links.
+     Together with PLAN.md, this is the only canonical planning state; do not create sidecar spec ledgers without explicit permission. -->
 
 # [Project Name]
 

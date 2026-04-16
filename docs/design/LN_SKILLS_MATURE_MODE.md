@@ -51,6 +51,8 @@ The core change is **not** adding more document types. A single archiving policy
 
 The key rule: **promote on durable change, not on every exit.**
 
+Fresh-thread guardrail: if the agent cannot name the containing seam from the live docs, it should promote one notch heavier rather than assume the seam is settled.
+
 ### What "promote to SPEC/PLAN" means
 
 Update SPEC.md only if:
@@ -74,6 +76,13 @@ Update PLAN.md only if:
 - Verification — run the gate (`npm run verify`)
 - Clear routing to next step (exit routing still applies)
 - `ln-handoff` when ending a session (volatile state capture is always valuable)
+
+Fresh-thread re-entry is also mandatory:
+
+- read `memory/SPEC.md`
+- read `memory/PLAN.md`
+- read `memory/CARD.md` if a live scoped card exists
+- read `docs/archive/PLAN_HISTORY.md` only when live docs do not explain the touched area
 
 ## Document Evolution
 
@@ -122,7 +131,9 @@ Replace the current "full timeline from Phase 1" shape with:
 
 **Archive policy:** When a phase is fully complete, collapse it to a one-line entry in `docs/archive/PLAN_HISTORY.md` with a date. The active planning document should not exceed ~100 lines of content.
 
-**Completed-slice notes:** Max 1 line in the rolling frontier. Full completion notes (if needed for handoff) go in HANDOFF.md or the archive.
+**Completed-slice notes:** Max 1 line in the rolling frontier. Anything longer should go in the archive, not in an extra ad hoc handoff file.
+
+Active and Next items should also carry a short `Why now / unlocks` note whenever ordering would otherwise be opaque to a fresh thread.
 
 ## Skill-Level Changes
 
@@ -164,6 +175,8 @@ Change the traceability section from mandatory to conditional:
 If any box is checked → update SPEC.md and/or PLAN.md per the current traceability rules.
 If none → mark the item done in PLAN.md (if it's there), commit, and move on.
 ```
+
+If the work required manual verification, left residual risk, or would be non-obvious to a fresh thread, leave a tiny breadcrumb in `Recently Completed` or the archive using `Done / Verified / Watch`.
 
 ### ln-sync
 
@@ -221,6 +234,7 @@ The conditional traceability rule has a failure mode: work that *looks* bounded 
 - `ln-build`'s promotion check catches it at build time
 - `ln-sync` at milestone boundaries catches anything that slipped through
 - If a piece of work crosses >2 boundary seams or invalidates an assumption, escalate to full structural mode regardless of initial classification
+- On a fresh thread, inability to name the containing seam is itself a promotion signal
 
 ## Bottom Line
 

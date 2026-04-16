@@ -83,12 +83,20 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('design')).toContain('propose_phase_closure');
   });
 
-  it('grounds the requirements prompt in the current requirement inventory', () => {
+  it('grounds the requirements prompt in a full-set review turn', () => {
     expect(getSystemPrompt('requirements')).toContain('current requirement inventory');
-    expect(getSystemPrompt('requirements')).toContain('requirement-approval');
-    expect(getSystemPrompt('requirements')).toContain('requirement-rejection');
-    expect(getSystemPrompt('requirements')).toContain('requirementReview');
+    expect(getSystemPrompt('requirements')).toContain('Accept review');
+    expect(getSystemPrompt('requirements')).toContain('Request changes');
+    expect(getSystemPrompt('requirements')).not.toContain('requirementReview');
     expect(getSystemPrompt('requirements')).toContain('propose_phase_closure');
+  });
+
+  it('grounds the criteria prompt in a full-set review turn', () => {
+    expect(getSystemPrompt('criteria')).toContain('current criterion inventory');
+    expect(getSystemPrompt('criteria')).toContain('approved requirements');
+    expect(getSystemPrompt('criteria')).toContain('Accept review');
+    expect(getSystemPrompt('criteria')).toContain('Request changes');
+    expect(getSystemPrompt('criteria')).not.toContain('criterionReview');
   });
 });
 
@@ -212,6 +220,9 @@ describe('brownfield interviewer configuration', () => {
     expect(brownfieldPrompt).not.toBe(greenfieldPrompt);
     expect(brownfieldPrompt).toContain('explore');
     expect(brownfieldPrompt).toContain('/tmp/repo');
+    expect(brownfieldPrompt).toContain('Grounding:');
+    expect(brownfieldPrompt).toContain('bounded feature area');
+    expect(brownfieldPrompt).toContain('partial');
   });
 
   it('limits brownfield exploration instructions to the scope phase', () => {

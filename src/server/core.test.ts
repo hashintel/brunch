@@ -6,11 +6,13 @@ import { extractPrompt, finalizeTurn, getProjectState, prepareTurn } from './cor
 import {
   confirmPhaseOutcome,
   createDb,
+  createKnowledgeItem,
   createPhaseOutcome,
   createProject,
   createTurn,
   getProject,
   getTurn,
+  linkKnowledgeItemToTurn,
   type DB,
 } from './db.js';
 
@@ -122,7 +124,7 @@ describe('prepareTurn', () => {
       phase: 'scope',
       parent_turn_id: proposalTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, outcome.id, confirmationTurn.id);
     finalizeTurn(db, project.id, confirmationTurn.id);
@@ -163,7 +165,7 @@ describe('prepareTurn', () => {
       phase: 'scope',
       parent_turn_id: scopeProposalTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     finalizeTurn(db, project.id, scopeConfirmationTurn.id);
@@ -187,7 +189,7 @@ describe('prepareTurn', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
     });
     confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
     finalizeTurn(db, project.id, designConfirmationTurn.id);
@@ -228,7 +230,7 @@ describe('prepareTurn', () => {
       phase: 'scope',
       parent_turn_id: scopeProposalTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     finalizeTurn(db, project.id, scopeConfirmationTurn.id);
@@ -252,7 +254,7 @@ describe('prepareTurn', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
     });
     confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
     finalizeTurn(db, project.id, designConfirmationTurn.id);
@@ -325,7 +327,7 @@ describe('prepareTurn', () => {
       phase: 'scope',
       parent_turn_id: scopeProposalTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     finalizeTurn(db, project.id, scopeConfirmationTurn.id);
@@ -342,9 +344,9 @@ describe('prepareTurn', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Force design closure',
+      answer: 'Force elicitation closure',
       user_parts: JSON.stringify([
-        { type: 'text', text: 'Force design closure' },
+        { type: 'text', text: 'Force elicitation closure' },
         {
           type: 'data-confirmation',
           data: { kind: 'force-close-active-phase', phase: 'design' },
@@ -356,7 +358,7 @@ describe('prepareTurn', () => {
       projectId: project.id,
       phase: 'design',
       proposal_turn_id: designForceCloseTurn.id,
-      summary: 'Design closed by user without an interviewer recommendation.',
+      summary: 'Elicitation closed by user without an interviewer recommendation.',
     });
     confirmPhaseOutcome(db, designOutcome.id, designForceCloseTurn.id);
     finalizeTurn(db, project.id, designForceCloseTurn.id);
@@ -392,12 +394,39 @@ describe('getProjectState', () => {
       question: 'What are we building?',
       answer: 'A chat app',
     });
+    const context = createKnowledgeItem(db, project.id, 'context', 'The app starts from a fresh repo');
+    const decision = createKnowledgeItem(db, project.id, 'decision', 'Start with the web app');
+    linkKnowledgeItemToTurn(db, context.id, turn.id);
+    linkKnowledgeItemToTurn(db, decision.id, turn.id);
     finalizeTurn(db, project.id, turn.id);
 
     const state = getProjectState(db, project.id);
 
     expect(state?.project.id).toBe(project.id);
-    expect(state?.turns).toHaveLength(1);
+    expect(state?.turns).toHaveLength(2);
     expect(state?.turns[0].question).toBe('What are we building?');
+    expect(state?.turns[0].turn_kind).toBe('question');
+    expect(state?.turns[0].captured_items).toEqual([
+      {
+        collection: 'knowledge_item',
+        kind: 'context',
+        id: context.id,
+        content: 'The app starts from a fresh repo',
+        referenceCode: 'CTX1',
+      },
+      {
+        collection: 'decision',
+        kind: 'decision',
+        id: decision.id,
+        content: 'Start with the web app',
+        referenceCode: 'D1',
+      },
+    ]);
+    expect(state?.turns[1]).toMatchObject({
+      phase: 'scope',
+      turn_kind: 'recovery',
+      question: '',
+      answer: null,
+    });
   });
 });

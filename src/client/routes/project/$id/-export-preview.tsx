@@ -22,9 +22,9 @@ export function ExportPreview() {
   return (
     <div className="mx-auto max-w-2xl p-6">
       <Link to="/project/$id" params={{ id }} className="text-sm text-muted-foreground hover:text-foreground">
-        ← Back to project
+        ← Back to specification
       </Link>
-      <h1 className="mt-4 text-2xl font-bold">Export Preview</h1>
+      <h1 className="mt-4 text-base font-semibold">Export Preview</h1>
 
       {data && !data.ready && (
         <div className="mt-4">
@@ -36,7 +36,7 @@ export function ExportPreview() {
             params={{ id }}
             className="mt-2 inline-block text-sm text-primary hover:underline"
           >
-            Return to interview →
+            Return to specification →
           </Link>
         </div>
       )}
@@ -50,7 +50,7 @@ export function ExportPreview() {
               params={{ id }}
               className="text-sm text-muted-foreground hover:text-foreground"
             >
-              Review knowledge →
+              Review specification knowledge →
             </Link>
           </div>
           <pre className="mt-4 overflow-auto rounded-md border bg-muted p-4 text-sm whitespace-pre-wrap">

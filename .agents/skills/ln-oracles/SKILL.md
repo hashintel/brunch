@@ -12,13 +12,15 @@ The best oracle removes the most bad degrees of freedom per unit time (Regehr). 
 
 Not every slice needs a full oracle-design pass. For trivial, purely structural slices, `ln-scope` may name the inner-loop checks directly. Use `ln-oracles` when the verification strategy itself is uncertain or materially shapes implementation order.
 
-Read `./assets/diagnostic-framework.md` and `./assets/oracle-taxonomy.md` before starting.
+Do not create standalone oracle-planning docs without explicit permission. Oracle design reconciles back into `memory/SPEC.md` and `memory/PLAN.md`.
+
+Read the [diagnostic framework](assets/diagnostic-framework.md) and [oracle taxonomy](assets/oracle-taxonomy.md) before starting.
 
 ## Input
 
 The slices to design oracles for: $ARGUMENTS
 
-Read `memory/SPEC.md` (invariants, assumptions, decisions, verification design) and `memory/PLAN.md` (slices, acceptance criteria). If SPEC.md already has a §Verification Design section, this is an update -- read it as prior state to evolve, not preserve uncritically.
+Read `memory/SPEC.md` (invariants, assumptions, decisions, verification design) and `memory/PLAN.md` (slices, acceptance criteria). If `memory/SPEC.md` already has a §Verification Design section, this is an update -- read it as prior state to evolve, not preserve uncritically.
 
 ## Procedure
 
@@ -26,13 +28,13 @@ This is an **interactive process** -- each step involves presenting analysis and
 
 ### 1. Diagnose
 
-Score **Observability**, **Reproducibility**, and **Controllability** (see `./assets/diagnostic-framework.md`). Present the scoring table to the user with specific notes per dimension. Low scores constrain which oracle families are feasible and must be addressed before oracle selection proceeds.
+Score **Observability**, **Reproducibility**, and **Controllability** (see the [diagnostic framework](assets/diagnostic-framework.md)). Present the scoring table to the user with specific notes per dimension. Low scores constrain which oracle families are feasible and must be addressed before oracle selection proceeds.
 
 **Grill**: For each dimension scored below `high`, ask: is this a deliberate deferral, a blind spot, or something we should address now? What would change the score?
 
 ### 2. Extract verification claims
 
-From SPEC.md invariant bundles, acceptance criteria, and PLAN.md slice definitions -- list what must be proved. Distinguish:
+From `memory/SPEC.md` invariant bundles, acceptance criteria, and `memory/PLAN.md` slice definitions -- list what must be proved. Distinguish:
 
 - **Structural claims** (schema conformance, DB round-trips, type safety) -- oracle-able programmatically
 - **Behavioral claims** (LLM output quality, UX judgment) -- require human assessment or statistical thresholds
@@ -42,7 +44,7 @@ From SPEC.md invariant bundles, acceptance criteria, and PLAN.md slice definitio
 
 ### 3. Select oracle families
 
-Using `./assets/oracle-taxonomy.md`, select families ranked by ROI for this project's verification needs. Apply the combination principle: the best oracle is a pair of independent artifacts. Prefer pairs when they compound; don't force them when a single oracle suffices.
+Using the [oracle taxonomy](assets/oracle-taxonomy.md), select families ranked by ROI for this project's verification needs. Apply the combination principle: the best oracle is a pair of independent artifacts. Prefer pairs when they compound; don't force them when a single oracle suffices.
 
 **Grill**: For each selected family, present: what it proves, what it costs, and what it misses. Ask the user which tradeoffs are acceptable given timeline and confidence levels.
 
@@ -56,7 +58,7 @@ Assign each selected oracle to inner (ms, agent-autonomous), middle (seconds-min
 
 ### 5. Design per-slice verification approach
 
-For each in-scope slice in PLAN.md, specify: which oracles apply, what they prove, and which loop tier they belong to. This becomes the `**Verification approach**` annotation on each slice.
+For each in-scope slice in `memory/PLAN.md`, specify: which oracles apply, what they prove, and which loop tier they belong to. This becomes the `**Verification approach**` annotation on each slice.
 
 **Grill**: For each slice, ask: does this oracle strategy cover the slice's acceptance criteria? What's the gap between "oracle says pass" and "slice is actually correct"?
 
@@ -78,13 +80,13 @@ Update `memory/SPEC.md` §Verification Design:
 
 Update `memory/PLAN.md` per-slice annotations:
 
-- Add `**Verification approach**` line to each in-scope slice with oracle family, loop tier, and cross-reference to SPEC.md sections
+- Add `**Verification approach**` line to each in-scope slice with oracle family, loop tier, and cross-reference to `memory/SPEC.md` sections
 
 ### Cross-reference integrity
 
 After writing, verify:
-- Every SPEC.md invariant has at least one oracle assigned (inner, middle, or outer)
-- Every in-scope PLAN.md slice has a verification approach annotation
+- Every `memory/SPEC.md` invariant has at least one oracle assigned (inner, middle, or outer)
+- Every in-scope `memory/PLAN.md` slice has a verification approach annotation
 - The blind spots section is non-empty
 - Middle/outer loop oracles cross-reference the invariants or assumptions they prove
 

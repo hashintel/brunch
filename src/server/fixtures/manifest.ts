@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { EdgeRelation, Impact } from '@/shared/api-types.js';
+import type { EdgeRelation, Impact, ReviewAction, TurnKind } from '@/shared/api-types.js';
 import { formatTurnResponseText, type BrunchAssistantPart, type BrunchUserPart } from '@/shared/chat.js';
 import {
   createKnowledgeCollectionRecord,
@@ -43,13 +43,15 @@ export interface ManifestOption {
 
 export interface ManifestTurn {
   phase: WorkflowPhase;
+  turnKind?: TurnKind;
   question: string;
-  answer: string;
+  answer?: string | null;
   why?: string | null;
   impact?: Impact | null;
   options?: ManifestOption[];
   selectedOptionPositions?: number[];
   freeText?: string | null;
+  reviewAction?: ReviewAction;
   isProposal?: boolean;
   isConfirmation?: boolean;
 }
@@ -92,7 +94,14 @@ type CompiledQuestionTurn = {
   options: ManifestOption[];
   selectedOptionPositions: number[];
   freeText?: string;
-  responseText: string;
+  reviewAction?: ReviewAction;
+  responseText?: string;
+};
+
+type CompiledFrontierTurn = {
+  kind: 'frontier';
+  phase: WorkflowPhase;
+  turnKind: Exclude<TurnKind, 'question'>;
 };
 
 type CompiledProposalTurn = {
@@ -107,7 +116,11 @@ type CompiledConfirmationTurn = {
   proposalIndex: number;
 };
 
-type CompiledManifestTurn = CompiledQuestionTurn | CompiledProposalTurn | CompiledConfirmationTurn;
+type CompiledManifestTurn =
+  | CompiledQuestionTurn
+  | CompiledFrontierTurn
+  | CompiledProposalTurn
+  | CompiledConfirmationTurn;
 
 interface CompiledManifestScenario {
   turns: CompiledManifestTurn[];
@@ -159,7 +172,7 @@ function compileQuestionTurn(turn: ManifestTurn, turnIndex: number): CompiledQue
   const selectedOptionContents = selectedOptionPositions.map((position) => options[position]!.content);
   const selectedOnlyText = formatTurnResponseText({ selectedOptionContents });
   const explicitFreeText = normalizeOptionalText(turn.freeText);
-  const normalizedAnswer = normalizeOptionalText(turn.answer);
+  const normalizedAnswer = normalizeOptionalText(turn.answer ?? undefined);
   const freeText =
     explicitFreeText ??
     (selectedOptionPositions.length === 0
@@ -167,13 +180,7 @@ function compileQuestionTurn(turn: ManifestTurn, turnIndex: number): CompiledQue
       : normalizedAnswer && normalizedAnswer !== selectedOnlyText
         ? normalizedAnswer
         : undefined);
-  const responseText = formatTurnResponseText({ selectedOptionContents, freeText });
-
-  if (!responseText) {
-    throw new Error(
-      `Manifest turn ${turnIndex} must resolve to a structured response with at least one selection or free text`,
-    );
-  }
+  const responseText = formatTurnResponseText({ selectedOptionContents, freeText }) ?? undefined;
 
   return {
     kind: 'question',
@@ -183,8 +190,29 @@ function compileQuestionTurn(turn: ManifestTurn, turnIndex: number): CompiledQue
     impact: turn.impact ?? 'medium',
     options,
     selectedOptionPositions,
-    freeText,
-    responseText,
+    ...(freeText ? { freeText } : {}),
+    ...(turn.reviewAction ? { reviewAction: turn.reviewAction } : {}),
+    ...(responseText ? { responseText } : {}),
+  };
+}
+
+function compileFrontierTurn(turn: ManifestTurn, turnIndex: number): CompiledFrontierTurn {
+  if (turn.turnKind !== 'kickoff' && turn.turnKind !== 'recovery') {
+    throw new Error(`Manifest frontier turn ${turnIndex} must declare turnKind kickoff or recovery`);
+  }
+
+  if (normalizeOptionalText(turn.question)) {
+    throw new Error(`Manifest frontier turn ${turnIndex} must not include question text`);
+  }
+
+  if (normalizeOptionalText(turn.answer ?? undefined)) {
+    throw new Error(`Manifest frontier turn ${turnIndex} must not include an answer`);
+  }
+
+  return {
+    kind: 'frontier',
+    phase: turn.phase,
+    turnKind: turn.turnKind,
   };
 }
 
@@ -231,12 +259,18 @@ function compileManifestScenario(scenario: ManifestScenario): CompiledManifestSc
     if (turn.isProposal && turn.isConfirmation) {
       throw new Error(`Manifest turn ${index} cannot be both a proposal and a confirmation`);
     }
+    if (turn.turnKind && turn.turnKind !== 'question' && (turn.isProposal || turn.isConfirmation)) {
+      throw new Error(`Manifest turn ${index} cannot combine frontier turnKind with proposal/confirmation`);
+    }
 
-    const compiledTurn = turn.isConfirmation
-      ? compileConfirmationTurn(turn, index, compiledTurns)
-      : turn.isProposal
-        ? compileProposalTurn(turn, index)
-        : compileQuestionTurn(turn, index);
+    const compiledTurn =
+      turn.turnKind && turn.turnKind !== 'question'
+        ? compileFrontierTurn(turn, index)
+        : turn.isConfirmation
+          ? compileConfirmationTurn(turn, index, compiledTurns)
+          : turn.isProposal
+            ? compileProposalTurn(turn, index)
+            : compileQuestionTurn(turn, index);
     compiledTurns.push(compiledTurn);
   }
 
@@ -428,14 +462,31 @@ function seedCompiledManifestScenario(
       continue;
     }
 
+    if (turnDefinition.kind === 'frontier') {
+      const turn = createTurn(db, projectId, {
+        phase: turnDefinition.phase,
+        parent_turn_id: prevTurnId,
+        turn_kind: turnDefinition.turnKind,
+        question: '',
+        answer: null,
+        user_parts: null,
+        assistant_parts: null,
+      });
+      turnIdMap.set(i, turn.id);
+      advanceHead(db, projectId, turn.id);
+      prevTurnId = turn.id;
+      continue;
+    }
+
     const options = turnDefinition.options;
     const turn = createTurn(db, projectId, {
       phase: turnDefinition.phase,
       parent_turn_id: prevTurnId,
+      turn_kind: 'question',
       question: turnDefinition.question,
       why: turnDefinition.why,
       impact: turnDefinition.impact,
-      answer: turnDefinition.responseText,
+      answer: turnDefinition.responseText ?? null,
     });
     turnIdMap.set(i, turn.id);
 
@@ -454,21 +505,24 @@ function seedCompiledManifestScenario(
       applyTurnResponseSelections(db, turn.id, turnDefinition.selectedOptionPositions);
     }
 
-    const selectedIds = turnDefinition.selectedOptionPositions
-      .map((position) => optionIdsByPosition.get(position))
-      .filter((optionId): optionId is number => optionId != null);
-    const userParts = serializeParts([
-      { type: 'text', text: turnDefinition.responseText },
-      {
-        type: 'data-turn-response',
-        data: {
-          turnId: turn.id,
-          selectedOptionIds: selectedIds,
-          ...(turnDefinition.freeText ? { freeText: turnDefinition.freeText } : {}),
+    if (turnDefinition.responseText) {
+      const selectedIds = turnDefinition.selectedOptionPositions
+        .map((position) => optionIdsByPosition.get(position))
+        .filter((optionId): optionId is number => optionId != null);
+      const userParts = serializeParts([
+        { type: 'text', text: turnDefinition.responseText },
+        {
+          type: 'data-turn-response',
+          data: {
+            turnId: turn.id,
+            selectedOptionIds: selectedIds,
+            ...(turnDefinition.freeText ? { freeText: turnDefinition.freeText } : {}),
+            ...(turnDefinition.reviewAction ? { reviewAction: turnDefinition.reviewAction } : {}),
+          },
         },
-      },
-    ] satisfies BrunchUserPart[]);
-    updateTurn(db, turn.id, { user_parts: userParts });
+      ] satisfies BrunchUserPart[]);
+      updateTurn(db, turn.id, { user_parts: userParts });
+    }
 
     advanceHead(db, projectId, turn.id);
     prevTurnId = turn.id;

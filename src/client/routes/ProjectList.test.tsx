@@ -13,6 +13,16 @@ const navigateMock = vi.fn();
 const fetchMock = vi.fn<typeof fetch>();
 
 vi.mock('@tanstack/react-router', () => ({
+  Link: ({
+    children,
+    to,
+    params,
+    ...props
+  }: React.AnchorHTMLAttributes<HTMLAnchorElement> & { to: string; params?: { id: string } }) => (
+    <a href={to.replace('$id', params?.id ?? '')} {...props}>
+      {children}
+    </a>
+  ),
   getRouteApi: () => ({
     useLoaderData: () => currentProjects,
   }),
@@ -74,12 +84,12 @@ afterEach(() => {
 });
 
 describe('ProjectList', () => {
-  it('creates a greenfield project and navigates to its workspace', async () => {
+  it('creates a greenfield specification and navigates to its workspace', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
           id: 7,
-          name: 'New project',
+          name: 'New specification',
           mode: 'greenfield',
           cwd: null,
           active_turn_id: null,
@@ -94,13 +104,15 @@ describe('ProjectList', () => {
     );
 
     renderProjectList();
-    fireEvent.click(screen.getByRole('button', { name: 'New project' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New specification' }));
 
-    // Enter project name
+    // Enter specification name
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Project name')).toBeDefined();
+      expect(screen.getByPlaceholderText('Specification name')).toBeDefined();
     });
-    fireEvent.change(screen.getByPlaceholderText('Project name'), { target: { value: 'New project' } });
+    fireEvent.change(screen.getByPlaceholderText('Specification name'), {
+      target: { value: 'New specification' },
+    });
     fireEvent.click(screen.getByText('Next'));
 
     // Select greenfield mode
@@ -124,7 +136,7 @@ describe('ProjectList', () => {
     });
   });
 
-  it('renders per-phase workflow status badges for each project', () => {
+  it('renders project cards as real links into the workspace', () => {
     currentProjects = [
       {
         id: 1,
@@ -139,23 +151,47 @@ describe('ProjectList', () => {
           design: 'in_progress',
           requirements: 'unstarted',
           criteria: 'unstarted',
+          currentReadiness: 'medium',
         },
       } satisfies ProjectListItem,
     ];
 
     renderProjectList();
-    expect(screen.getByText('Scope')).toBeDefined();
-    expect(screen.getByText('Design')).toBeDefined();
-    expect(screen.getByText('Requirements')).toBeDefined();
-    expect(screen.getByText('Criteria')).toBeDefined();
+
+    expect(screen.getByRole('link', { name: /Active project/i }).getAttribute('href')).toBe('/project/1');
   });
 
-  it('sends mode when creating a brownfield project', async () => {
+  it('renders current phase indicator and status dots for each project', () => {
+    currentProjects = [
+      {
+        id: 1,
+        name: 'Active project',
+        mode: 'greenfield',
+        cwd: null,
+        active_turn_id: 5,
+        created_at: '2026-04-10 09:00:00',
+        updated_at: '2026-04-10 09:30:00',
+        workflowSummary: {
+          scope: 'closed',
+          design: 'in_progress',
+          requirements: 'unstarted',
+          criteria: 'unstarted',
+          currentReadiness: 'medium',
+        },
+      } satisfies ProjectListItem,
+    ];
+
+    renderProjectList();
+    expect(screen.getByText('Phase')).toBeDefined();
+    expect(screen.getByText(/2\/4 – Elicitation/)).toBeDefined();
+  });
+
+  it('sends mode when creating a brownfield specification', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
           id: 8,
-          name: 'New project',
+          name: 'New specification',
           mode: 'brownfield',
           cwd: '/server/path',
           active_turn_id: null,
@@ -170,13 +206,15 @@ describe('ProjectList', () => {
     );
 
     renderProjectList();
-    fireEvent.click(screen.getByRole('button', { name: 'New project' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New specification' }));
 
-    // Enter project name and proceed to mode step
+    // Enter specification name and proceed to mode step
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Project name')).toBeDefined();
+      expect(screen.getByPlaceholderText('Specification name')).toBeDefined();
     });
-    fireEvent.change(screen.getByPlaceholderText('Project name'), { target: { value: 'New project' } });
+    fireEvent.change(screen.getByPlaceholderText('Specification name'), {
+      target: { value: 'New specification' },
+    });
     fireEvent.click(screen.getByText('Next'));
 
     // Select brownfield mode
@@ -189,27 +227,29 @@ describe('ProjectList', () => {
       expect(fetchMock).toHaveBeenCalled();
       const call = fetchMock.mock.calls[0];
       const body = JSON.parse(call[1]?.body as string);
-      expect(body).toEqual({ name: 'New project', mode: 'brownfield' });
+      expect(body).toEqual({ name: 'New specification', mode: 'brownfield' });
       expect(body.cwd).toBeUndefined();
     });
   });
 
-  it('shows a visible error when project creation fails', async () => {
+  it('shows a visible error when specification creation fails', async () => {
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ error: 'Project name already exists' }), {
+      new Response(JSON.stringify({ error: 'Specification name already exists' }), {
         status: 409,
         headers: { 'Content-Type': 'application/json' },
       }),
     );
 
     renderProjectList();
-    fireEvent.click(screen.getByRole('button', { name: 'New project' }));
+    fireEvent.click(screen.getByRole('button', { name: 'New specification' }));
 
-    // Enter project name and proceed
+    // Enter specification name and proceed
     await waitFor(() => {
-      expect(screen.getByPlaceholderText('Project name')).toBeDefined();
+      expect(screen.getByPlaceholderText('Specification name')).toBeDefined();
     });
-    fireEvent.change(screen.getByPlaceholderText('Project name'), { target: { value: 'Bad project' } });
+    fireEvent.change(screen.getByPlaceholderText('Specification name'), {
+      target: { value: 'Bad specification' },
+    });
     fireEvent.click(screen.getByText('Next'));
 
     // Select greenfield to trigger fetch
@@ -218,7 +258,7 @@ describe('ProjectList', () => {
     });
     fireEvent.click(screen.getByText(/from scratch/i));
 
-    expect((await screen.findByRole('alert')).textContent).toContain('Project name already exists');
+    expect((await screen.findByRole('alert')).textContent).toContain('Specification name already exists');
     expect(navigateMock).not.toHaveBeenCalled();
   });
 });

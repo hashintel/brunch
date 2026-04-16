@@ -15,6 +15,8 @@ Name anti-patterns when you see a design drifting toward one. God objects, featu
 
 Sharpen the lexicon as you go. When a concept surfaces, pin it to a canonical term — propose one, test the user's reaction, note resistance. Vague language hides vague thinking. If `memory/SPEC.md` exists, pressure-test its §Lexicon against what the conversation reveals.
 
+Do not create planning artifacts here. Durable conclusions from grilling promote into `memory/SPEC.md` or `memory/PLAN.md` through the next routed skill.
+
 Pure elicitation — do not produce a plan or document.
 
 ## Routing

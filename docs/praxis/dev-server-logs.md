@@ -56,6 +56,6 @@ Browse and edit the SQLite database visually:
 npm run studio
 ```
 
-Opens `https://local.drizzle.studio` in the browser. Reads from `brunch.db` (or `$BRUNCH_DB`) — the same file the API server writes to. Config lives in `drizzle.config.ts`.
+Opens `https://local.drizzle.studio` in the browser. Reads from `.brunch/brunch.db` by default (or `$BRUNCH_DB` if set) — the same file the API server writes to. Config lives in `drizzle.config.ts`.
 
 Note: tests use in-memory databases, so test data won't appear in Studio. Only data from actual dev server sessions (`npm run dev`) is visible.

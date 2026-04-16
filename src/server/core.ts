@@ -1,6 +1,8 @@
-import type { ProjectListItem, ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
+import type { ProjectListItem, ProjectState, ProjectStateTurn, TurnKind } from '@/shared/api-types.js';
 import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { extractTextFromMessage } from '@/shared/chat.js';
+import type { WorkflowPhase } from '@/shared/phase-close.js';
+import { phaseOrder } from '@/shared/phase-routes.js';
 
 import {
   getProject,
@@ -10,8 +12,11 @@ import {
   getCurrentWorkflowState,
   createTurn,
   advanceHead,
+  getCapturedItemsForTurns,
   listProjects,
   createProject,
+  getTurn,
+  updateTurn,
   type CreateProjectOptions,
   type Turn,
   type DB,
@@ -31,9 +36,16 @@ export type TurnWithOptions = ProjectStateTurn;
 
 export function loadActivePathWithOptions(db: DB, projectId: number): TurnWithOptions[] {
   const rawActivePath = getActivePath(db, projectId);
+  const capturedItemsByTurn = getCapturedItemsForTurns(
+    db,
+    projectId,
+    rawActivePath.map((turn) => turn.id),
+  );
+
   return rawActivePath.map((t) => ({
     ...t,
     options: getOptionsForTurn(db, t.id),
+    captured_items: capturedItemsByTurn.get(t.id) ?? [],
   }));
 }
 
@@ -57,6 +69,87 @@ export function prepareTurn(
   return { project, turn, activePath };
 }
 
+function createFrontierOfferTurn(
+  db: DB,
+  projectId: number,
+  parentTurnId: number | null,
+  phase: WorkflowPhase,
+): Turn {
+  const phaseTurns = getActivePath(db, projectId).filter((turn) => turn.phase === phase);
+  const hasSubstantiveHistory = phaseTurns.some(
+    (turn) =>
+      turn.turn_kind !== 'kickoff' &&
+      (turn.question.trim().length > 0 || getOptionsForTurn(db, turn.id).length > 0),
+  );
+  const turnKind: TurnKind = hasSubstantiveHistory ? 'recovery' : 'kickoff';
+
+  return createTurn(db, projectId, {
+    parent_turn_id: parentTurnId,
+    phase,
+    turn_kind: turnKind,
+    question: '',
+    answer: null,
+    user_parts: null,
+    assistant_parts: null,
+    why: null,
+  });
+}
+
+export function ensureProjectFrontier(db: DB, projectId: number): Turn | null {
+  const project = getProject(db, projectId);
+  if (!project) {
+    return null;
+  }
+
+  const workflow = getCurrentWorkflowState(db, projectId);
+  const activePhase = getCurrentPhase(db, projectId);
+  const phaseState = workflow.phases[activePhase];
+  if (phaseState.status === 'closed' || phaseState.proposalPending) {
+    return null;
+  }
+
+  const activeTurn = project.active_turn_id ? getTurn(db, project.active_turn_id) : undefined;
+  if (activeTurn?.phase === activePhase && activeTurn.answer === null) {
+    return activeTurn;
+  }
+
+  const frontierTurn = createFrontierOfferTurn(db, projectId, project.active_turn_id ?? null, activePhase);
+  advanceHead(db, projectId, frontierTurn.id);
+  return frontierTurn;
+}
+
+export function prepareSuccessorTurn(
+  db: DB,
+  projectId: number,
+  phase: Turn['phase'],
+  parentTurnId: number | null,
+) {
+  const project = getProject(db, projectId);
+  if (!project) throw new Error(`Project ${projectId} not found`);
+  const activePath = loadActivePathWithOptions(db, projectId);
+  const turn = createTurn(db, projectId, {
+    parent_turn_id: parentTurnId,
+    phase,
+    question: '',
+    answer: null,
+    user_parts: null,
+    assistant_parts: null,
+  });
+  return { project, turn, activePath };
+}
+
+export function resolveTurn(db: DB, turnId: number, userMessage: string, userParts: BrunchUserPart[]): Turn {
+  updateTurn(db, turnId, {
+    answer: userMessage,
+    user_parts: serializeParts(userParts),
+  });
+  const resolvedTurn = getTurn(db, turnId);
+  if (!resolvedTurn) {
+    throw new Error(`Turn ${turnId} not found`);
+  }
+  return resolvedTurn;
+}
+
 export function finalizeTurn(db: DB, projectId: number, turnId: number): void {
   advanceHead(db, projectId, turnId);
 }
@@ -65,15 +158,17 @@ export function finalizeTurn(db: DB, projectId: number, turnId: number): void {
 export function getProjectState(db: DB, projectId: number): ProjectState | null {
   const project = getProject(db, projectId);
   if (!project) return null;
+  ensureProjectFrontier(db, projectId);
   const turns = loadActivePathWithOptions(db, projectId);
   const workflow = getCurrentWorkflowState(db, projectId);
-  return { project, workflow, turns };
+  return { project: getProject(db, projectId)!, workflow, turns };
 }
 
 /** List all projects with compact workflow summary. */
 export function listProjectStates(db: DB): ProjectListItem[] {
   return listProjects(db).map((project) => {
     const workflow = getCurrentWorkflowState(db, project.id);
+    const currentPhase = phaseOrder.find((p) => workflow.phases[p].status !== 'closed');
     return {
       ...project,
       workflowSummary: {
@@ -81,6 +176,7 @@ export function listProjectStates(db: DB): ProjectListItem[] {
         design: workflow.phases.design.status,
         requirements: workflow.phases.requirements.status,
         criteria: workflow.phases.criteria.status,
+        currentReadiness: currentPhase ? workflow.phases[currentPhase].readiness : null,
       },
     };
   });
@@ -88,5 +184,7 @@ export function listProjectStates(db: DB): ProjectListItem[] {
 
 /** Create a new project with the given name and optional mode/cwd. */
 export function createNewProject(db: DB, name: string, options?: CreateProjectOptions): Project {
-  return createProject(db, name, options);
+  const project = createProject(db, name, options);
+  ensureProjectFrontier(db, project.id);
+  return getProject(db, project.id)!;
 }

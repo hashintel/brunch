@@ -1,8 +1,9 @@
-import { getRouteApi, useNavigate } from '@tanstack/react-router';
+import { Link, getRouteApi, useNavigate } from '@tanstack/react-router';
+import { SignalHigh, SignalLow, SignalMedium } from 'lucide-react';
 import { useState } from 'react';
 
+import { EmptyCard, ShellButton } from '@/client/components/app-shell';
 import { Button } from '@/client/components/ui/button';
-import { Card, CardDescription, CardHeader, CardTitle } from '@/client/components/ui/card';
 import {
   Dialog,
   DialogContent,
@@ -12,22 +13,48 @@ import {
   DialogTitle,
 } from '@/client/components/ui/dialog';
 import { useCreateProjectMutation } from '@/client/mutations/project-mutations';
-import type { ProjectListItem, ProjectMode, WorkflowPhaseStatus } from '@/shared/api-types.js';
+import type { ProjectListItem, ProjectMode, ReadinessBand, WorkflowPhaseStatus } from '@/shared/api-types.js';
+import { workflowPhaseLabels } from '@/shared/phase-display.js';
+import { phaseOrder } from '@/shared/phase-routes.js';
 
 const projectListRouteApi = getRouteApi('/');
 
-const phaseLabels: Array<{ key: keyof ProjectListItem['workflowSummary']; label: string }> = [
-  { key: 'scope', label: 'Scope' },
-  { key: 'design', label: 'Design' },
-  { key: 'requirements', label: 'Requirements' },
-  { key: 'criteria', label: 'Criteria' },
-];
+function getCurrentPhaseInfo(summary: ProjectListItem['workflowSummary']): {
+  label: string;
+  number: number;
+} {
+  for (let i = 0; i < phaseOrder.length; i++) {
+    if (summary[phaseOrder[i]!] === 'in_progress') {
+      return { label: workflowPhaseLabels[phaseOrder[i]!], number: i + 1 };
+    }
+  }
+  if (phaseOrder.every((p) => summary[p] === 'closed')) {
+    return { label: 'Complete', number: phaseOrder.length };
+  }
+  return { label: workflowPhaseLabels[phaseOrder[0]!], number: 1 };
+}
 
-const statusStyles = {
-  closed: 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-200',
-  in_progress: 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-200',
-  unstarted: 'bg-muted text-muted-foreground',
-} satisfies Record<WorkflowPhaseStatus, string>;
+function PhaseDot({ status }: { status: WorkflowPhaseStatus }) {
+  if (status === 'closed') {
+    return <span className="size-2 rounded-full bg-[#2070e6]" />;
+  }
+  if (status === 'in_progress') {
+    return <span className="size-2 rounded-full border border-[#2070e6] bg-background" />;
+  }
+  return (
+    <span className="size-2 rounded-full border border-dashed border-[rgba(32,32,32,0.3)] bg-background" />
+  );
+}
+
+function ReadinessIcon({ readiness }: { readiness: ReadinessBand }) {
+  const iconClass = {
+    high: 'text-emerald-600',
+    medium: 'text-amber-500',
+    low: 'text-zinc-400',
+  }[readiness];
+  const Icon = { high: SignalHigh, medium: SignalMedium, low: SignalLow }[readiness];
+  return <Icon className={`size-3.5 ${iconClass}`} />;
+}
 
 type DialogStep = 'closed' | 'name' | 'mode';
 
@@ -77,107 +104,141 @@ export function ProjectList() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl p-6">
-      <h1 className="text-2xl font-bold">Brunch</h1>
-      <p className="mt-1 text-muted-foreground">AI-guided spec elicitation</p>
+    <div className="h-full overflow-y-auto">
+      <div className="mx-auto max-w-3xl p-6">
+        {createProjectMutation.errorMessage && (
+          <p role="alert" className="mb-4 text-sm text-destructive">
+            {createProjectMutation.errorMessage}
+          </p>
+        )}
 
-      <Button onClick={handleOpen} disabled={createProjectMutation.isPending} className="mt-6 mb-2">
-        {createProjectMutation.isPending ? 'Creating...' : 'New project'}
-      </Button>
-
-      {createProjectMutation.errorMessage && (
-        <p role="alert" className="mb-4 text-sm text-destructive">
-          {createProjectMutation.errorMessage}
-        </p>
-      )}
-
-      {projects.length === 0 ? (
-        <p className="text-muted-foreground">No projects yet. Create one to get started.</p>
-      ) : (
-        <div className="flex flex-col gap-2">
-          {projects.map((project) => (
-            <Card
-              key={project.id}
-              className="cursor-pointer transition-colors hover:bg-muted/50"
-              onClick={() => navigateToProject(project.id)}
+        {projects.length === 0 ? (
+          <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-rule bg-[#f7f7f7] px-8 py-16 text-center">
+            <p className="text-base font-medium tracking-[-0.015em] text-sub">No specifications yet</p>
+            <p className="max-w-sm text-sm leading-relaxed text-sub">
+              Create your first specification to start the interview process.
+            </p>
+            <div className="mt-2">
+              <ShellButton
+                variant="primary"
+                onClick={handleOpen}
+                disabled={createProjectMutation.isPending}
+                className="h-10 px-5 text-base"
+              >
+                {createProjectMutation.isPending ? 'Creating...' : 'New specification'}
+              </ShellButton>
+            </div>
+          </div>
+        ) : (
+          <>
+            <EmptyCard
+              title="Specification"
+              description="Start the interview to generate your next spec draft."
+              className="mb-4"
             >
-              <CardHeader>
-                <CardTitle>{project.name}</CardTitle>
-                <CardDescription>
-                  Created: {new Date(project.created_at).toLocaleDateString()}
-                </CardDescription>
-                <div className="mt-2 flex gap-1.5">
-                  {phaseLabels.map(({ key, label }) => (
-                    <span
-                      key={key}
-                      className={`rounded-sm px-1.5 py-0.5 text-xs font-medium ${statusStyles[project.workflowSummary[key]]}`}
-                    >
-                      {label}
-                    </span>
-                  ))}
-                </div>
-              </CardHeader>
-            </Card>
-          ))}
-        </div>
-      )}
-
-      <Dialog open={dialogStep !== 'closed'} onOpenChange={(open) => !open && handleClose()}>
-        <DialogContent>
-          {dialogStep === 'name' && (
-            <>
-              <DialogHeader>
-                <DialogTitle>New project</DialogTitle>
-                <DialogDescription>Give your project a name.</DialogDescription>
-              </DialogHeader>
-              <input
-                type="text"
-                value={projectName}
-                onChange={(event) => setProjectName(event.target.value)}
-                onKeyDown={(event) => event.key === 'Enter' && handleNameSubmit()}
-                placeholder="Project name"
-                autoFocus
-                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
-              />
-              <DialogFooter>
-                <Button onClick={handleNameSubmit} disabled={!projectName.trim()}>
-                  Next
-                </Button>
-              </DialogFooter>
-            </>
-          )}
-          {dialogStep === 'mode' && (
-            <>
-              <DialogHeader>
-                <DialogTitle>What kind of project?</DialogTitle>
-                <DialogDescription>Choose how to start your spec elicitation.</DialogDescription>
-              </DialogHeader>
-              <div className="flex flex-col gap-3">
-                <button
-                  type="button"
-                  onClick={() => handleModeSelect('greenfield')}
-                  className="rounded-lg border border-input p-4 text-left transition-colors hover:bg-muted/50"
+              <div className="mt-3">
+                <ShellButton
+                  variant="primary"
+                  onClick={handleOpen}
+                  disabled={createProjectMutation.isPending}
                 >
-                  <div className="font-medium">New concept from scratch</div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    Start with a blank slate and define everything fresh
-                  </div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handleModeSelect('brownfield')}
-                  className="rounded-lg border border-input p-4 text-left transition-colors hover:bg-muted/50"
-                >
-                  <div className="font-medium">Feature within existing codebase</div>
-                  <div className="mt-1 text-sm text-muted-foreground">
-                    The agent will explore your code before the first interview question
-                  </div>
-                </button>
+                  {createProjectMutation.isPending ? 'Creating...' : 'New specification'}
+                </ShellButton>
               </div>
-            </>
-          )}
-        </DialogContent>
-      </Dialog>
+            </EmptyCard>
+
+            <div className="grid grid-cols-2 gap-3">
+              {projects.map((project) => (
+                <Link
+                  key={project.id}
+                  to="/project/$id"
+                  params={{ id: String(project.id) }}
+                  className="block"
+                >
+                  <div className="cursor-pointer overflow-hidden rounded-xl border border-rule bg-white p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-tint">
+                    <div className="text-sm-plus leading-snug font-medium text-ink">{project.name}</div>
+                    <div className="mt-1.5 flex items-center gap-2">
+                      <span className="text-xs text-hint">Phase</span>
+                      <span className="text-xs font-medium text-[#2070e6]">
+                        {getCurrentPhaseInfo(project.workflowSummary).number}/{phaseOrder.length} –{' '}
+                        {getCurrentPhaseInfo(project.workflowSummary).label}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        {phaseOrder.map((phase) => (
+                          <PhaseDot key={phase} status={project.workflowSummary[phase]} />
+                        ))}
+                      </span>
+                      {project.workflowSummary.currentReadiness ? (
+                        <ReadinessIcon readiness={project.workflowSummary.currentReadiness} />
+                      ) : null}
+                    </div>
+                    <div className="mt-1 text-xs text-hint">
+                      Updated: {new Date(project.updated_at).toLocaleDateString()}
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          </>
+        )}
+
+        <Dialog open={dialogStep !== 'closed'} onOpenChange={(open) => !open && handleClose()}>
+          <DialogContent>
+            {dialogStep === 'name' && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>New specification</DialogTitle>
+                  <DialogDescription>Give your specification a name.</DialogDescription>
+                </DialogHeader>
+                <input
+                  type="text"
+                  value={projectName}
+                  onChange={(event) => setProjectName(event.target.value)}
+                  onKeyDown={(event) => event.key === 'Enter' && handleNameSubmit()}
+                  placeholder="Specification name"
+                  autoFocus
+                  className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
+                />
+                <DialogFooter>
+                  <Button onClick={handleNameSubmit} disabled={!projectName.trim()}>
+                    Next
+                  </Button>
+                </DialogFooter>
+              </>
+            )}
+            {dialogStep === 'mode' && (
+              <>
+                <DialogHeader>
+                  <DialogTitle>How should this specification start?</DialogTitle>
+                  <DialogDescription>Choose how to start grounding this specification.</DialogDescription>
+                </DialogHeader>
+                <div className="flex flex-col gap-3">
+                  <button
+                    type="button"
+                    onClick={() => handleModeSelect('greenfield')}
+                    className="rounded-lg border border-input p-4 text-left transition-colors hover:bg-muted/50"
+                  >
+                    <div className="font-medium">New concept from scratch</div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      Start with a blank slate and define everything fresh
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleModeSelect('brownfield')}
+                    className="rounded-lg border border-input p-4 text-left transition-colors hover:bg-muted/50"
+                  >
+                    <div className="font-medium">Feature within existing codebase</div>
+                    <div className="mt-1 text-sm text-muted-foreground">
+                      The agent will explore your code before the first interview question
+                    </div>
+                  </button>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
     </div>
   );
 }

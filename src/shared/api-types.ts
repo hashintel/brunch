@@ -1,5 +1,6 @@
 import * as z from 'zod/v4';
 
+import { reviewActionSchema } from './chat.js';
 import { phaseClosureBasisSchema, workflowPhaseSchema, type WorkflowPhase } from './phase-close.js';
 
 export type { WorkflowPhase };
@@ -7,6 +8,7 @@ export type { WorkflowPhase };
 export const workflowPhaseStatusSchema = z.enum(['unstarted', 'in_progress', 'closed']);
 export const readinessBandSchema = z.enum(['low', 'medium', 'high']);
 export const impactSchema = z.enum(['high', 'medium', 'low']);
+export const turnKindSchema = z.enum(['question', 'kickoff', 'recovery']);
 export const edgeRelationSchema = z.enum(['depends_on', 'derived_from', 'constrains', 'verifies', 'refines']);
 
 export const projectModeSchema = z.enum(['greenfield', 'brownfield']);
@@ -26,6 +28,7 @@ export const workflowSummarySchema = z.object({
   design: workflowPhaseStatusSchema,
   requirements: workflowPhaseStatusSchema,
   criteria: workflowPhaseStatusSchema,
+  currentReadiness: readinessBandSchema.nullable(),
 });
 
 export const workflowPhaseStateSchema = z.object({
@@ -55,11 +58,29 @@ export const turnOptionSchema = z.object({
   is_selected: z.boolean(),
 });
 
+const capturedTurnItemSchema = z.object({
+  collection: z.enum(['knowledge_item', 'decision', 'assumption']),
+  kind: z.enum([
+    'goal',
+    'term',
+    'context',
+    'constraint',
+    'requirement',
+    'criterion',
+    'decision',
+    'assumption',
+  ]),
+  id: z.number().int().positive(),
+  content: z.string(),
+  referenceCode: z.string().optional(),
+});
+
 export const projectStateTurnSchema = z.object({
   id: z.number().int().positive(),
   project_id: z.number().int().positive(),
   parent_turn_id: z.number().int().positive().nullable(),
   phase: workflowPhaseSchema,
+  turn_kind: turnKindSchema.optional(),
   question: z.string(),
   why: z.string().nullable(),
   impact: impactSchema.nullable(),
@@ -69,6 +90,7 @@ export const projectStateTurnSchema = z.object({
   assistant_parts: z.string().nullable(),
   created_at: z.string(),
   options: z.array(turnOptionSchema).optional(),
+  captured_items: z.array(capturedTurnItemSchema).optional(),
 });
 
 export const createProjectRequestSchema = z
@@ -111,6 +133,7 @@ export const knowledgeItemSchema = z.object({
   subtype: z.string().nullable(),
   content: z.string(),
   rationale: z.string().nullable(),
+  referenceCode: z.string().optional(),
 });
 
 export const requirementEntitySchema = z.object({
@@ -121,6 +144,7 @@ export const requirementEntitySchema = z.object({
   content: z.string(),
   rationale: z.string().nullable(),
   reviewStatus: reviewStatusSchema.optional(),
+  referenceCode: z.string().optional(),
 });
 
 export const criterionEntitySchema = z.object({
@@ -131,6 +155,7 @@ export const criterionEntitySchema = z.object({
   content: z.string(),
   rationale: z.string().nullable(),
   reviewStatus: reviewStatusSchema.optional(),
+  referenceCode: z.string().optional(),
 });
 
 export const decisionEntitySchema = z.object({
@@ -138,12 +163,14 @@ export const decisionEntitySchema = z.object({
   project_id: z.number().int().positive(),
   content: z.string(),
   rationale: z.string().nullable(),
+  referenceCode: z.string().optional(),
 });
 
 export const assumptionEntitySchema = z.object({
   id: z.number().int().positive(),
   project_id: z.number().int().positive(),
   content: z.string(),
+  referenceCode: z.string().optional(),
 });
 
 export const entityReferenceSchema = z.object({
@@ -197,6 +224,7 @@ export const submitTurnResponseSelectionRequestSchema = z.object({
   kind: z.literal('select-options'),
   positions: z.array(z.number().int().min(0)).min(1),
   freeText: z.string().trim().min(1).optional(),
+  reviewAction: reviewActionSchema.optional(),
 });
 
 export const submitTurnResponseFreeTextRequestSchema = z.object({
@@ -211,10 +239,14 @@ export const submitTurnResponseRequestSchema = z.discriminatedUnion('kind', [
 
 export const submitTurnResponseResponseSchema = z.object({
   ok: z.literal(true),
+  advancedToPhase: workflowPhaseSchema.optional(),
+  workflowCompleted: z.literal(true).optional(),
 });
 
 export type ProjectMode = z.infer<typeof projectModeSchema>;
 export type Impact = z.infer<typeof impactSchema>;
+export type TurnKind = z.infer<typeof turnKindSchema>;
+export type ReviewAction = z.infer<typeof reviewActionSchema>;
 export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
 export type EdgeRelation = z.infer<typeof edgeRelationSchema>;
 export type WorkflowPhaseStatus = z.infer<typeof workflowPhaseStatusSchema>;

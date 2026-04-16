@@ -6,12 +6,15 @@ import type {
   SubmitTurnResponseResponse,
 } from '@/shared/api-types.js';
 import { formatTurnResponseText } from '@/shared/chat.js';
+import {
+  findTurnOptionsByPositions,
+  getReviewActionForSelectedPositions,
+} from '@/shared/project-state-turn.js';
 
-import { findTurnOptionsByPositions } from '../routes/project/$id/_view/-interview-controller-core.js';
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
 export interface SubmitTurnResponseMutationState {
-  readonly submitTurnResponse: (positions?: number[], freeText?: string) => Promise<void>;
+  readonly submitTurnResponse: (positions?: number[], freeText?: string) => Promise<boolean>;
   readonly isPending: boolean;
   readonly errorMessage: string | null;
   readonly clearError: () => void;
@@ -38,12 +41,12 @@ export function useSubmitTurnResponseMutation({
   return {
     submitTurnResponse: async (positions: number[] = [], freeText?: string) => {
       if (!turn) {
-        return;
+        return false;
       }
       const uniquePositions = [...new Set(positions)];
       const selectedOptions = findTurnOptionsByPositions(turn, uniquePositions);
       if (selectedOptions.length !== uniquePositions.length) {
-        return;
+        return false;
       }
       const trimmedFreeText = freeText?.trim();
       const responseText = formatTurnResponseText({
@@ -51,15 +54,17 @@ export function useSubmitTurnResponseMutation({
         freeText: trimmedFreeText,
       });
       if (!responseText) {
-        return;
+        return false;
       }
 
+      const reviewAction = getReviewActionForSelectedPositions(turn, uniquePositions);
       const response: SubmitTurnResponseRequest =
         uniquePositions.length > 0
           ? {
               kind: 'select-options',
               positions: uniquePositions,
               ...(trimmedFreeText ? { freeText: trimmedFreeText } : {}),
+              ...(reviewAction ? { reviewAction } : {}),
             }
           : {
               kind: 'free-text',
@@ -67,14 +72,19 @@ export function useSubmitTurnResponseMutation({
             };
 
       try {
-        await mutation.run({
+        const result = await mutation.run({
           turnId: turn.id,
           response,
         });
         await router.invalidate();
+        if (result.advancedToPhase || result.workflowCompleted) {
+          return true;
+        }
         await sendMessage({ text: responseText });
+        return true;
       } catch {
         // The shared mutation hook surfaces the failure state in the UI.
+        return false;
       }
     },
     isPending: mutation.isPending,

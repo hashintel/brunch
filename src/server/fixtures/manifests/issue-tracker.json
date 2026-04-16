@@ -2,6 +2,11 @@
   "name": "Issue Tracker",
   "description": "A tiny issue tracker for a small software team with tickets, comments, status changes, audit history, and role-based permissions.",
   "scenarios": {
+    "kickoff-ready": {
+      "turns": [],
+      "knowledgeItems": [],
+      "edges": []
+    },
     "scope-closed": {
       "turns": [
         {
@@ -119,7 +124,7 @@
         {
           "phase": "scope",
           "question": "",
-          "answer": "Confirm scope closure",
+          "answer": "Confirm grounding closure",
           "isConfirmation": true
         }
       ],
@@ -320,7 +325,7 @@
         {
           "phase": "scope",
           "question": "",
-          "answer": "Confirm scope closure",
+          "answer": "Confirm grounding closure",
           "isConfirmation": true
         },
         {
@@ -620,7 +625,7 @@
         {
           "phase": "scope",
           "question": "",
-          "answer": "Confirm scope closure",
+          "answer": "Confirm grounding closure",
           "isConfirmation": true
         },
         {
@@ -678,7 +683,7 @@
         {
           "phase": "design",
           "question": "",
-          "answer": "Confirm design closure",
+          "answer": "Confirm elicitation closure",
           "isConfirmation": true
         },
         {
@@ -1097,7 +1102,7 @@
         {
           "phase": "scope",
           "question": "",
-          "answer": "Confirm scope closure",
+          "answer": "Confirm grounding closure",
           "isConfirmation": true
         },
         {
@@ -1155,7 +1160,7 @@
         {
           "phase": "design",
           "question": "",
-          "answer": "Confirm design closure",
+          "answer": "Confirm elicitation closure",
           "isConfirmation": true
         },
         {
@@ -1708,7 +1713,7 @@
         {
           "phase": "scope",
           "question": "",
-          "answer": "Confirm scope closure",
+          "answer": "Confirm grounding closure",
           "isConfirmation": true
         },
         {
@@ -1766,7 +1771,7 @@
         {
           "phase": "design",
           "question": "",
-          "answer": "Confirm design closure",
+          "answer": "Confirm elicitation closure",
           "isConfirmation": true
         },
         {
@@ -1979,7 +1984,7 @@
         {
           "phase": "criteria",
           "question": "",
-          "answer": "Confirm criteria closure",
+          "answer": "Confirm acceptance criteria closure",
           "isConfirmation": true
         }
       ],

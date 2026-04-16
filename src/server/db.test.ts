@@ -77,6 +77,9 @@ describe('createDb', () => {
       name: string;
     }>;
     expect(phaseOutcomeColumns.map((column) => column.name)).toContain('closure_basis');
+
+    const turnColumns = db.$client.prepare("PRAGMA table_info('turn')").all() as Array<{ name: string }>;
+    expect(turnColumns.map((column) => column.name)).toContain('turn_kind');
   });
 
   it('project table has mode and cwd columns', () => {
@@ -136,6 +139,7 @@ describe('turn CRUD', () => {
     expect(turn.phase).toBe('scope');
     expect(turn.question).toBe('What is the project about?');
     expect(turn.answer).toBe('A chat app');
+    expect(turn.turn_kind).toBe('question');
     expect(turn.is_resolution).toBe(false);
   });
 
@@ -230,14 +234,14 @@ describe('phase outcome lifecycle', () => {
       summary: proposed.summary,
       turnId: closureTurn.id,
       closeability: true,
-      readiness: 'high',
+      readiness: 'medium',
       closureBasis: null,
     });
 
     const confirmationTurn = createTurn(db, project.id, {
       phase: 'scope',
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
       parent_turn_id: closureTurn.id,
     });
     confirmPhaseOutcome(db, proposed.id, confirmationTurn.id);
@@ -250,7 +254,7 @@ describe('phase outcome lifecycle', () => {
       summary: proposed.summary,
       turnId: closureTurn.id,
       closeability: false,
-      readiness: 'high',
+      readiness: 'medium',
       closureBasis: 'interviewer_recommended',
     });
     expect(listPhaseOutcomesForProject(db, project.id)[0]).toMatchObject({
@@ -313,10 +317,10 @@ describe('phase outcome lifecycle', () => {
     const scopeConfirmationTurn = createTurn(db, project.id, {
       phase: 'scope',
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
       parent_turn_id: scopeProposalTurn.id,
       user_parts: JSON.stringify([
-        { type: 'text', text: 'Confirm scope closure' },
+        { type: 'text', text: 'Confirm grounding closure' },
         {
           type: 'data-confirmation',
           data: {
@@ -341,10 +345,10 @@ describe('phase outcome lifecycle', () => {
     const designForceCloseTurn = createTurn(db, project.id, {
       phase: 'design',
       question: '',
-      answer: 'Force design closure',
+      answer: 'Force elicitation closure',
       parent_turn_id: designTurn.id,
       user_parts: JSON.stringify([
-        { type: 'text', text: 'Force design closure' },
+        { type: 'text', text: 'Force elicitation closure' },
         {
           type: 'data-confirmation',
           data: { kind: 'force-close-active-phase', phase: 'design' },
@@ -356,7 +360,7 @@ describe('phase outcome lifecycle', () => {
       projectId: project.id,
       phase: 'design',
       proposal_turn_id: designForceCloseTurn.id,
-      summary: 'Design closed by user without an interviewer recommendation.',
+      summary: 'Elicitation closed by user without an interviewer recommendation.',
     });
     confirmPhaseOutcome(db, designOutcome.id, designForceCloseTurn.id);
     advanceHead(db, project.id, designForceCloseTurn.id);
@@ -366,9 +370,9 @@ describe('phase outcome lifecycle', () => {
       status: 'closed',
       proposalPending: false,
       turnId: designForceCloseTurn.id,
-      summary: 'Design closed by user without an interviewer recommendation.',
+      summary: 'Elicitation closed by user without an interviewer recommendation.',
       closeability: false,
-      readiness: 'high',
+      readiness: 'medium',
       closureBasis: 'user_forced',
     });
     expect(listPhaseOutcomesForProject(db, project.id)[0]).toMatchObject({
@@ -410,10 +414,10 @@ describe('phase outcome lifecycle', () => {
     const scopeConfirmationTurn = createTurn(db, project.id, {
       phase: 'scope',
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
       parent_turn_id: scopeProposalTurn.id,
       user_parts: JSON.stringify([
-        { type: 'text', text: 'Confirm scope closure' },
+        { type: 'text', text: 'Confirm grounding closure' },
         {
           type: 'data-confirmation',
           data: {
@@ -445,10 +449,10 @@ describe('phase outcome lifecycle', () => {
     const designConfirmationTurn = createTurn(db, project.id, {
       phase: 'design',
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
       parent_turn_id: designTurn.id,
       user_parts: JSON.stringify([
-        { type: 'text', text: 'Confirm design closure' },
+        { type: 'text', text: 'Confirm elicitation closure' },
         {
           type: 'data-confirmation',
           data: {
@@ -496,7 +500,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'scope',
       parent_turn_id: scopeTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     advanceHead(db, project.id, scopeConfirmationTurn.id);
@@ -519,7 +523,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
     });
     confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
     advanceHead(db, project.id, designConfirmationTurn.id);
@@ -593,7 +597,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'scope',
       parent_turn_id: scopeTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     advanceHead(db, project.id, scopeConfirmationTurn.id);
@@ -616,7 +620,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
     });
     confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
     advanceHead(db, project.id, designConfirmationTurn.id);
@@ -710,7 +714,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'scope',
       parent_turn_id: scopeTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     advanceHead(db, project.id, scopeConfirmationTurn.id);
@@ -733,7 +737,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
     });
     confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
     advanceHead(db, project.id, designConfirmationTurn.id);
@@ -832,7 +836,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'scope',
       parent_turn_id: scopeTurn.id,
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
     });
     confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
     advanceHead(db, project.id, scopeConfirmationTurn.id);
@@ -855,7 +859,7 @@ describe('phase outcome lifecycle', () => {
       phase: 'design',
       parent_turn_id: designTurn.id,
       question: '',
-      answer: 'Confirm design closure',
+      answer: 'Confirm elicitation closure',
     });
     confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
     advanceHead(db, project.id, designConfirmationTurn.id);
@@ -1002,10 +1006,10 @@ describe('phase outcome lifecycle', () => {
     const scopeConfirmationTurn = createTurn(db, project.id, {
       phase: 'scope',
       question: '',
-      answer: 'Confirm scope closure',
+      answer: 'Confirm grounding closure',
       parent_turn_id: scopeProposalTurn.id,
       user_parts: JSON.stringify([
-        { type: 'text', text: 'Confirm scope closure' },
+        { type: 'text', text: 'Confirm grounding closure' },
         {
           type: 'data-confirmation',
           data: {
@@ -1529,7 +1533,7 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     ]);
   });
 
-  it('names project-wide and active-path entity projection modes without changing current outputs', () => {
+  it('keeps derived reference codes stable across project-wide and active-path entity projections', () => {
     const project = createProject(db, 'Test');
     const rootTurn = createTurn(db, project.id, {
       phase: 'scope',
@@ -1561,14 +1565,15 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     expect(getEntitiesForProjectByMode(db, project.id, 'active-path')).toEqual(
       getEntitiesForProjectOnActivePath(db, project.id),
     );
+
     expect(getEntitiesForProjectByMode(db, project.id, 'project-wide').decisions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ content: 'Use SQLite for persistence' }),
-        expect.objectContaining({ content: 'Use Postgres for persistence' }),
+        expect.objectContaining({ content: 'Use SQLite for persistence', referenceCode: 'D1' }),
+        expect.objectContaining({ content: 'Use Postgres for persistence', referenceCode: 'D2' }),
       ]),
     );
     expect(getEntitiesForProjectByMode(db, project.id, 'active-path').decisions).toEqual([
-      expect.objectContaining({ content: 'Use Postgres for persistence' }),
+      expect.objectContaining({ content: 'Use Postgres for persistence', referenceCode: 'D2' }),
     ]);
   });
 

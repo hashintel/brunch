@@ -5,6 +5,7 @@ export interface ProjectedTurnResponse {
   selectedOptionIds: number[];
   selectedOptionContents: string[];
   freeText?: string;
+  reviewAction?: import('@/shared/chat.js').ReviewAction;
 }
 
 function findTurnResponsePart(turn: Pick<TurnWithOptions, 'user_parts'>): DataTurnResponsePart | undefined {
@@ -32,6 +33,7 @@ export function projectTurnResponse(
     selectedOptionIds,
     selectedOptionContents,
     freeText: responsePart.data.freeText,
+    reviewAction: responsePart.data.reviewAction,
   };
 }
 
@@ -47,6 +49,9 @@ export function formatProjectedTurnResponse(response: ProjectedTurnResponse): st
   }
   if (response.freeText) {
     lines.push(`  Free-text response: ${response.freeText}`);
+  }
+  if (response.reviewAction) {
+    lines.push(`  Review action: ${response.reviewAction}`);
   }
   return lines.join('\n');
 }

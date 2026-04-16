@@ -1,638 +1,427 @@
-<!-- SPEC.md — single source of truth for WHAT we're building and WHY.
-     Created by ln-spec · Read by all skills · Updated by ln-sync.
-     Authority: requirements, constraints, assumptions, decisions, invariants, domain language, verification strategy.
-
-     When re-running ln-spec: read this file first, preserve existing content, evolve sections that need change.
-     Cross-referenced by PLAN.md slices and spikes via §-prefixed section links. -->
+<!-- SPEC.md — live architecture register.
+     Created by ln-spec · Read by all skills · Refreshed by ln-sync.
+     Keep only active requirements, live assumptions, current decisions,
+     critical invariants, and the verification stance. -->
 
 # Brunch v2 — Spec Elicitation Tool
 
 ## Concept & Goal
 
-Brunch is an AI-guided spec elicitation tool that turns natural-language project goals into structured specifications through a structured interview that moves through four workflow modes: **scope** (goal / term / context / constraint discovery), **design** (commitment / exploration), **requirements** (audit / completeness), and **criteria** (verification). The interviewer agent leads the conversation with structured prompts, recommendations, and strategic grounding. A second observer agent extracts typed knowledge items from each turn and links them into a dependency graph. The output is a fire-and-forget specification document built from the active path.
+Brunch is an AI-guided spec elicitation tool that turns natural-language goals into structured specifications through a four-phase interview:
 
-Brunch supports both **greenfield** projects (new concept from scratch) and **brownfield** projects (new feature or sub-scope within an existing codebase). In brownfield mode, the interviewer agent explores the codebase using a read-only exploration tool subset before the first scope question, grounding the conversation in discovered context. Storage is **local-first**: a `.brunch/` directory in the project folder (like `.git`), containing the SQLite database and any configuration.
+- **grounding** *(current internal phase key: `scope`)* — goals, terms, context, constraints
+- **design** — commitments and tradeoffs
+- **requirements** — capability review and gap-finding
+- **criteria** — verification coverage
 
-The core data model:
+An interviewer agent conducts the conversation. A separate observer agent extracts typed knowledge items from each answered turn and links them into a knowledge graph. The interviewer may also invoke context-gathering capabilities when it lacks enough orientation for the next move; their visible outputs appear in the turn flow as grounding cards. The transcript is turn-shaped rather than message-shaped: a turn is a system-offered interaction that the user resolves, and an open phase should always bottom out in one actionable frontier turn or a visible generation state. The export is built from the active path's accepted review outputs plus reviewed knowledge.
 
-- **Turn list** — The primary conversation is an ordered list of turns. Each turn points to its parent. `project.active_turn_id` is the HEAD pointer. The turn list is the primary interview record. Hard turn-tree branching is deferred; the current linked-list structure supports it structurally but branching/forking is not exposed in V1.
-- **Secondary threads** — When the user revisits knowledge items (see Revisit model below), a modal secondary conversation thread is spawned, anchored to the highest implicitly associated turn in the primary conversation. Secondary threads carry their own turns and knowledge item associations, inheriting validity from the primary conversation through that anchor.
-- **Knowledge graph** — The target semantic layer is a typed cross-kind graph, not a set of disconnected sidebar buckets. Canonical durable knowledge kinds are: `goal`, `term`, `context`, `constraint`, `assumption`, `decision`, `requirement`, and `criterion`. These items can surface in any mode, link back to source turns, and connect through typed graph edges such as `depends_on`, `derived_from`, `constrains`, `verifies`, `motivates`, `defines`, and `refines`. The current `framing` label is a transitional Phase 4 umbrella, not the final canonical kind set.
-- **Capture-anytime / review-in-phase** — Modes are workflow controls, not exclusive capture windows. Any mode may surface any knowledge kind, but each mode owns the review/closure of the item families it is responsible for.
-- **Readiness layer** — Export readiness is not just "the last turn felt done." Each mode produces an explicit phase outcome, and item families carry explicit review state.
-- **Revisit model** — Revisit operates at the knowledge-graph level, not the turn-tree level. Users enter edit mode in the knowledge workspace, invalidate or remove knowledge items, and confirm the cascade. Affected downstream items (traced through knowledge graph edges) are flagged `needs-revisit`. A modal secondary conversation thread is spawned to walk through design-tree implications and re-resolve affected items, including downstream requirements and criteria. Affected phase outcomes reopen and must be re-closed before export. Knowledge item validity requires both: (1) linkage to a turn on the active path or in a secondary thread whose anchor is on the active path, and (2) no invalidated/removed parent items in the knowledge graph without resolution.
-
-The architecture (layered: db → core → adapters):
-
-- **Storage**: Local-first `.brunch/` directory in the project folder (like `.git`). Contains the SQLite database and any configuration. Multiple elicitation runs / project versions coexist within one `.brunch/` directory, visible on the project dashboard.
-- **Database**: SQLite via Drizzle ORM + `better-sqlite3` — TypeScript schema is single source of truth for types, DDL, and migrations. Auto-applies at startup.
-- **Core**: Interface-agnostic service layer — turn tree operations, project-state loading, typed prompt/context building, knowledge-item lifecycle, observer invocation, phase management, readiness management, and export. No transport knowledge.
-- **Agent engine**: AI SDK + Anthropic provider (`ai`, `@ai-sdk/anthropic`) — `ToolLoopAgent` powers the interviewer and `generateObject` powers the observer. During brownfield scope kickoff, the interviewer also has access to a read-only exploration subset of filesystem tools (`read`, `grep`, `find`, `ls`). Shared `BrunchUIMessage` / data-part contracts span request validation, persistence, server streaming, and client hydration. (D30)
-- **Observer agent**: Separate extraction call after each turn — captures typed knowledge items plus dependency / derivation edges using a phase-aware extraction policy. Invoked by core after turn completion.
-- **Web adapter**: Express.js returns AI SDK UI Message Stream SSE directly via `createUIMessageStream`. React + Vite + `@ai-sdk/react` `useChat` client consume the same typed message contract.
-- **Output**: Flattened markdown spec exported on demand from the active path's reviewed knowledge items
-
-Detailed schema and mode-model rationale: `docs/design/INTERVIEW_MODE_MODEL.md`.
+Brunch operates inside a **workspace**: the cwd-backed software context whose local `.brunch/` directory stores one or more specifications. Grounding supports two strategies: **elicitation-first** for greenfield work and **analysis-first** for brownfield work. Brownfield grounding begins with read-only workspace analysis that produces a visible grounding brief / grounding card, and later grounding may gather more context again when the interviewer needs it.
 
 ## Constraints & Non-goals
 
-- **Anthropic-only** — no multi-provider support (OpenAI, Gemini, Ollama)
-- **No automatic deletion cascading** — invalidation flags entities for review but does not delete or modify them. Cascade traces through knowledge graph edges; flagged items require explicit re-resolution through a secondary conversation thread. See D17, D80
-- **No task planning** — consumers of the spec, not part of this tool
-- **No exploratory pathway** — assumes user has a reasonably defined goal. The greenfield/brownfield choice is about *context*, not goal clarity
-- **No hard turn-tree branching for V1** — the linked-list turn structure supports future branching structurally, but fork/checkout UX is deferred. Revisit operates at the knowledge-graph level via edit mode + secondary threads
-- **No explicit document ingestion UX for V1** — no @-mentions, drag-and-drop, or file picker for feeding documents to the interviewer. Brownfield context comes from agent codebase exploration + user verbal input
-- **Single-user** — no collaborative editing
-- **No custom model selection UI** — single model, configurable via env var at most
-- **No Dolt** — replaced by SQLite with turn-tree versioning
-- **No AG-UI / CopilotKit** — AI SDK SSE protocol is sufficient
-- **No assistant-ui** — its runtime abstraction layer (`AssistantRuntimeProvider`) adds unnecessary indirection over `useChat`; brunch emits custom SSE from Express, not from AI SDK server-side, so the adapter chain (useChat → useChatRuntime → AssistantRuntimeProvider) is overhead without benefit
-- **No TanStack DB** — designed for local-first client-side collections with sync engines (ElectricSQL, PowerSync); brunch is server-authoritative, single-user, with no offline or multi-tab requirements. TanStack Query + SSE-driven invalidation is sufficient. Re-evaluate if offline, multi-tab, or complex cross-collection client queries become requirements
+- Anthropic-only for now.
+- No collaborative editing.
+- No explicit document-ingestion UX in V1.
+- No hard turn-tree branching UX in V1; revisit operates through knowledge-graph edit mode + secondary threads instead.
+- No automatic cascade deletion; downstream effects are surfaced and re-resolved explicitly.
+- No task-planning surface; Brunch elicits specs, it does not plan implementation work for the user.
+- No general-purpose inline document editor in review phases; requirements and criteria review stay recommendation-led with lightweight user comments for revision.
+- No offline-first or multi-tab sync layer; the current system stays server-authoritative and local-first.
 
 ## Requirements
 
-1. Run `npx brunch` in a project directory with just `ANTHROPIC_API_KEY` and have the tool open in the browser — setup is instant. State lives in a local `.brunch/` directory
-2. On first launch, choose between **greenfield** (blank concept) and **brownfield** (existing codebase). Brownfield triggers agent codebase exploration before the first interview turn
-3. Start a new project and have the agent begin a structured interview — scope questions establish goals, terms, context, and constraints before the design drill-down. In brownfield mode, the first turn is grounded in discovered codebase context
-4. Exploratory turns provide structured guidance (question, strategic grounding, options, recommendation when appropriate), but the user can answer with zero/one/many selections, rationale, and a custom answer when none of the options fit
-5. See the AI's thinking process, tool usage, and progress in real-time — CLI-quality visibility of the agent's streaming output
-6. The observer agent extracts typed knowledge items from each answered turn — `goal`, `term`, `context`, `constraint`, `assumption`, `decision`, `requirement`, `criterion` — plus dependency / derivation edges in the background
-7. See the accumulated knowledge layer and readiness state in a dashboard as the interview progresses
-8. Each workflow mode has its own deterministic closeability rule and a coarse readiness signal; the interviewer may recommend closing, and the user may close once the minimum bar is met
-9. Phase / mode transitions surface status, readiness, and closure provenance clearly, and record a summary plus basis when the phase is closed
-10. Revisit knowledge items through edit mode in the knowledge workspace — invalidate or remove items, see cascade implications traced through knowledge graph edges, and confirm changes. A modal secondary conversation thread re-resolves affected downstream items and reopened phases
-11. The requirements review mode gathers tentative requirements already surfaced, synthesizes a full requirement set from the knowledge layer, checks for gaps, and confirms completeness
-12. The criteria review mode gathers tentative criteria already surfaced, synthesizes verification conditions from the knowledge layer plus approved requirements, and confirms coverage
-13. Export the spec as markdown when all workflow modes are resolved, in-scope requirements and criteria are review-complete, and no upstream staleness remains on the active path
-14. Close the browser and resume later — the turn tree, knowledge items, and readiness state persist in SQLite
-15. The project dashboard shows all elicitation runs/versions within the local `.brunch/` with their workflow state rather than only a binary completion flag
-16. Partial-scope elicitation — the tool supports specifying a feature area or sub-scope within an existing project, not only greenfield whole-product specs
+1. `npx brunch` in a project directory with `ANTHROPIC_API_KEY` opens a working app in the browser with state in local `.brunch/`.
+2. Starting a new specification asks only for the specification name before entering the workspace; greenfield / brownfield grounding strategy is then chosen through grounding entry states inside the specification workspace.
+3. Brownfield grounding can use read-only workspace analysis to ground the opening flow and the first substantive question.
+4. Structured responses support turn-appropriate option selections or explicit action submissions, an explicit `none of the above` path where relevant, and one attached response note.
+5. Users can see thinking, tool usage, and streaming progress in real time; if live-only artifacts are shown, replay keeps durable inert placeholders instead of dropping them completely.
+6. The observer extracts typed knowledge items and graph edges from answered turns.
+7. The accumulated knowledge layer and readiness state stay visible during the interview.
+8. Each workflow mode has deterministic closeability plus a separate readiness signal.
+9. Phase close records summary text and closure basis.
+10. Users can revisit knowledge through edit mode, cascade preview, and a secondary thread.
+11. Requirements review synthesizes a candidate requirement set from the knowledge layer, presents stable item reference codes, and supports lightweight full-set review through one review note plus explicit `accept review` / `request changes` submission.
+12. Criteria review synthesizes a candidate verification set from accepted requirements plus the knowledge layer, presents stable item reference codes, and supports the same lightweight full-set review seam.
+13. Export is available only when workflow closure, accepted review outputs, and staleness rules are satisfied.
+14. Closing and reopening the browser resumes the specification from persisted state.
+15. The dashboard shows multiple specifications / elicitation runs within one `.brunch/` directory.
+16. Partial-scope elicitation works for a feature or bounded sub-area, not just whole-workspace greenfield specs.
+17. Each phase exposes an explicit kickoff, frontier, handoff, or completion affordance; the UI must not strand the user with a bare generic composer as the only visible action.
+18. Open interview phases default to the current frontier turn, a visible generation state, or an exceptional recovery turn when the frontier is missing, and closed phases terminate in a handoff or completion artifact at the bottom of the workspace transcript.
+19. The first phase is grounding in product language even while implementation continues to use the internal `scope` phase key until a later terminology pass.
+20. The interviewer may invoke context-gathering capabilities such as workspace analysis during grounding; their outputs appear as visible grounding cards interleaved with question cards.
+21. Grounding cards are provisional context, complete through optional user comment plus explicit continue, and do not directly create durable knowledge from their own content.
 
 ## Assumptions
 
-<!-- Pruned 2026-04-03: removed 18 assumptions that were validated and fully embedded in the
-     architecture (A1, A2, A5, A8–A13, A17–A19, A22–A27). Their truths are now structural
-     properties of the codebase, not open questions. IDs are stable — gaps are intentional. -->
+<!-- Pruned 2026-04-14: removed embedded or settled assumptions from earlier phases.
+     Kept only assumptions that still materially affect future work. -->
 
-<!-- Pruned 2026-04-07: removed A30, A31, A32 — validated and embedded in shipped client
-     architecture via D36, D37, D38 and invariants I31–I34. Keeping them as tracked questions
-     added noise without changing future decisions. -->
-
-<!-- Pruned 2026-04-08: removed A34, A35, A36, A37, A38 — validated and now embedded in
-     the generic knowledge/sidebar seam and phase-aware observer architecture via D49–D56
-     and invariants I48–I63. Keeping them as tracked questions added noise without changing
-     future decisions. -->
-
-<!-- Pruned 2026-04-08: removed A39 — validated and now embedded in the shipped slice-7
-     readiness architecture via D65, D66 and invariants I72, I73. Keeping it as a tracked
-     assumption would preserve a process-local question after the structural choice landed.
-     Pruned 2026-04-09: removed A42, A43 — temporary phase-close refactor cutover assumptions.
-     Both were validated and are now embedded in D73, D75 and invariants I85, I86 rather than
-     remaining live planning questions.
-     Pruned 2026-04-09: removed A29, A41 — validated implementation-era cutover assumptions now
-     embedded in shipped architecture rather than live planning questions.
-     Pruned 2026-04-12: removed A14, A21, A33, A45, A46 — all validated and now embedded as
-     structural properties of the codebase (I48/I54, I23/I24, I44, I87, I87 respectively).
-     Pruned 2026-04-13: removed A51, A52 — graph-view layout ownership and V1 filter scope are
-     now embedded in D86, I102, and the lexicon rather than remaining live planning questions. -->
-
-| #   | Assumption                                                                                                                                                                                         | Confidence    | Dependent decisions               | Implicated slices                   | Validation approach                                                                                                                                                                                                                                                                                                                 |
-| --- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------- | --------------------------------- | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| A3  | Separating interviewer from observer produces better interview quality than inline tool calling                                                                                                    | high          | D1                                | Observer agent                      | Spike confirms extraction is viable as separate call; interviewer prompt stays clean.                                                                                                                                                                                                                                               |
-| A4  | Observer extraction completes in 1-3s during user read/think time (10-60s), adding zero perceived latency                                                                                          | medium        | D1                                | Observer agent                      | Spike measured 14-17s with Sonnet. Haiku expected 2-5s — validate with `generateObject` model switch.                                                                                                                                                                                                                               |
-| A6  | Turn-tree branching in SQLite is sufficient for decision revisit and undo in a single-user tool                                                                                                    | high          | D7                                | Turn tree, Branching                | Validate with realistic branch/merge scenarios                                                                                                                                                                                                                                                                                      |
-| A7  | Users arriving at the tool have a reasonably defined goal                                                                                                                                          | medium        | —                                 | Scope phase                         | User testing; characterization kickoff mode mitigates if false                                                                                                                                                                                                                                                                      |
-| A15 | The LLM can produce a useful coarse readiness estimate and closure recommendation, but phase closure authority must not depend solely on that judgment                                             | medium        | D3, D65, D66, D70                | Phase resolution, readiness projection | Partially validated structurally: slices 8.2, 8.3, and 9.5 now prove the shared phase-closing seam supports interviewer-recommended closure across multiple phases plus user-forced design closure, with persisted closure basis surviving reload and handoff through requirements into criteria (`db.test.ts`, `core.test.ts`, `app.test.ts`, `InterviewView.test.tsx`). Remaining validation still depends on outer-loop comparison of model recommendations vs user overrides across varied project types. |
-| A16 | AI SDK `useChat` hook's `ToolUIPart` state machine models all permutations of pending, error, and success for tool calls                                                                           | high          | D14, D58                          | Rich chat UI, pending-question projection | Partially validated: typed `tool-ask_question` parts render with correct state labels, streamed ask-question output now projects into a dedicated pending-question turn-card state without fabricating persisted turns in `-interview-data.test.ts`, `-interview-controller.test.tsx`, and `InterviewView.test.tsx`, and manual browser verification confirmed the pending-question card now appears without refresh. |
-| A20 | Observer results can be delivered as typed data parts on the existing chat stream without holding the connection open unacceptably long                                                            | high          | D22                               | Observer agent, Entity sidebar      | Measure observer latency with `generateObject`; if >5s, fall back to out-of-band SSE                                                                                                                                                                                                                                                |
-| A28 | AI SDK `ToolLoopAgent` with `stopWhen: stepCountIs(N)` is sufficient for brunch's multi-step interviewing, review, and phase-transition needs — no custom agent loop required                      | high          | D30                               | Agent loop, Phase transitions       | Partially validated structurally: all four workflow modes (scope → design → requirements → criteria) prove phase-close handoff through the shared seam without a handwritten loop, including user-forced design close bypassing a recommendation. Full end-to-end validation (all modes closed → export) now complete. Remaining outer-loop judgment: whether ToolLoopAgent scaling is adequate for longer interviews (20+ turns). |
-| A40 | The observer and review workspace can discriminate `goal`, `term`, and `context` well enough for a first canonical-scope implementation if low-confidence cases stay reviewable instead of collapsing back into `framing` | medium        | D5, D67, D68, D86                 | 7b canonical knowledge model foundation; 8 design mode; 9 requirements-review mode; 25 per-phase views | Validate with curated fixture probes and the first canonical-scope review flow: measure confusion between `goal` / `term` / `context`, then confirm that workspace normalization/editing can correct low-confidence captures without losing provenance or blocking downstream review. |
-| A44 | The existing choice-turn response seam (multi-select plus free text) is sufficient for a first requirements-review interaction that asks whether the synthesized requirement set is complete, needs correction, or is missing items before dedicated per-item review actions exist | medium        | D24, D25                          | 9 requirements-review mode          | Partially validated structurally: slice 9.1 now proves requirements-review grounding can include the current requirement inventory, that a missing-requirement reply can round-trip through the existing turn-response seam into observer/entity refresh, and that requirements remains `in_progress` / not yet closeable after the first review interaction (`context.test.ts`, `interview.test.ts`, `db.test.ts`, `app.test.ts`). Usability of the reused choice-turn UI remains an outer-loop judgment before richer per-item review actions land. |
-| A47 | Agent codebase exploration (using read-only exploration tools: read, grep, find, ls) produces sufficient context for the interviewer to ground a meaningful first brownfield scope turn without explicit document ingestion UX | medium | D32, D82, D83 | Brownfield kickoff, project characterization | Validate with manual brownfield walkthroughs across varied codebases (small/large, monorepo/single-package, documented/undocumented). |
-| A48 | Knowledge graph edges are sufficient for tracing cascade implications when a knowledge item is invalidated or removed — the graph structure captures the meaningful dependency relationships that determine what needs re-resolution | medium | D5, D17, D80 | Knowledge-graph revisit, secondary threads | Validate structurally: cascade from invalidated assumption → affected decisions → affected requirements → affected criteria produces the expected `needs-revisit` set. Outer-loop: manual walkthrough judges whether cascade scope is appropriate (not too broad, not too narrow). |
-| A49 | A modal secondary conversation thread can re-resolve all cascade implications from a knowledge-graph edit without requiring the user to restart the entire interview — the interviewer can meaningfully discuss design-tree implications in isolation from the original conversation flow | medium | D80, D84 | Knowledge-graph revisit, secondary threads | Validate with manual revisit walkthrough: invalidate a mid-graph item, confirm the secondary thread produces coherent re-resolution without losing context from the primary conversation. |
-| A50 | `router.invalidate()` triggered by observer-result data parts provides adequate entity-sidebar update latency (<1s) when the sidebar moves from interview-controller-managed to ViewLayout-loader-managed, replacing the current manual `fetchInterviewEntities` refresh | medium | D22, D87 | 25 per-phase views | Manual test during live interview: compare sidebar update speed with the current manual-fetch approach; if latency exceeds ~1s, restore targeted entity fetch alongside router invalidation. |
+| #   | Assumption | Confidence | Status | Depends on | Validation approach |
+| --- | ---------- | ---------- | ------ | ---------- | ------------------- |
+| A15 | The LLM can offer useful coarse readiness and closure recommendations, but closure authority must remain explainable and user-legible rather than model-owned. | medium | open | D65, D66 | Manual comparison of model recommendations vs user judgment across varied projects. |
+| A20 | Observer results can continue to ride the existing chat stream without unacceptable perceived latency. | high | open | D22 | Measure real observer latency; fall back to a dedicated sync channel if needed. |
+| A28 | `ToolLoopAgent` remains sufficient for longer multi-phase interviews without a handwritten loop. | high | open | D30 | Watch long-session manual runs and future probe harnesses. |
+| A40 | The canonical scope kinds (`goal`, `term`, `context`) can be discriminated well enough for first-pass review flows if low-confidence cases stay reviewable. | medium | open | D49, D68, D86 | Validate with curated fixtures plus manual review walkthroughs. |
+| A44 | The existing structured response seam is sufficient to support fixed kickoff turns, lightweight review submissions (`accept review` / `request changes` plus one review note), and successor-turn creation without introducing a second persistence model. | medium | open | D57, D90, D94 | Validate while prototyping kickoff, review, and successor-frontier flows. |
+| A47 | Read-only workspace analysis plus a concise visible grounding brief are enough to ground meaningful brownfield opening turns without separate document-ingestion UX. | medium | open | D32, D82, D83, D91, D98 | Manual brownfield walkthroughs across varied repositories. |
+| A48 | Knowledge-graph edges are sufficient to drive accurate cascade preview for revisit work. | medium | open | D50, D80 | Structural cascade tests plus manual judgment about scope. |
+| A49 | A modal secondary thread can resolve revisit implications without forcing a full interview restart. | medium | open | D80 | Manual revisit walkthrough once the thread lifecycle lands. |
+| A50 | Layout-level `router.invalidate()` remains fast enough for sidebar refresh after observer updates. | medium | open | D22, D87 | Manual latency checks during live interviews. |
+| A51 | Grounding plus design remain legible if the primary input surface is the workspace-owned turn card family rather than a persistent global composer. | medium | open | D89, D91, D97 | Manual walkthroughs on grounding, design, and resumed states plus story review of entry / handoff patterns. |
+| A52 | Lightweight full-set review with stable item codes plus one review note is sufficient for requirements and criteria without inline editing or repeated interviewer micro-turns. | medium | open | D90 | Manual review walkthroughs on seeded requirement and criteria scenarios. |
+| A53 | Contentless durable placeholders are sufficient to preserve transcript trust for live thinking/tool artifacts without persisting hidden reasoning or raw tool results. | medium | open | D92 | Manual replay/reload walkthroughs on streamed turns once transcript placeholders land. |
+| A54 | An open phase can reliably project a kickoff turn, current frontier turn, visible generation state, or exceptional recovery turn on first render without requiring the user to bootstrap the phase by typing into a generic composer. | medium | open | D89, D94 | Manual walkthroughs on kickoff-ready, design-active, review-active, and recovery states. |
+| A55 | Observer capture can trail interviewer completion without eroding trust if the trailing status stays attached to the completed turn card rather than surfacing as a free-floating transcript row. | medium | open | D22, D95 | Manual timing walkthroughs plus runtime observation on seeded turns with known observer work. |
+| A56 | A visible grounding card with concise summary, optional detail, optional user comment, and explicit continue is enough user control for provisional context without turning grounding into a review workflow. | medium | open | D83, D89, D91, D98 | Manual walkthroughs on greenfield and brownfield kickoff variants once grounding cards land. |
 
 ## Decisions
 
-<!-- Pruned 2026-04-09: removed D31, D76 — implementation-era decisions embedded in shipped architecture.
-     Pruned 2026-04-10: removed D33–D44 — client refactor decisions now embedded as structural
-     properties of the client architecture. Protected by I24.
-     Pruned 2026-04-10: removed D45–D48 — turn-response implementation details folded into D24.
-     Protected by I44.
-     Pruned 2026-04-10: removed D52–D56 — observer-widening-per-phase details folded into D13 and D25.
-     Protected by I54.
-     Pruned 2026-04-12: removed D51 — absorbed into D49 (same seam: kind-specific entity projection).
-     Removed D60 — absorbed into D57 (same seam: turn-response projection boundary).
-     Removed D62 — moot, Phase 5 done and ontology landed in 7a/7b.
-     Removed D63 — embedded, knowledge workspace shipped in 12a.
-     Removed D64 — moot, sequencing decision completed (11a, 12a, 12b all shipped). -->
+<!-- Pruned 2026-04-14: removed embedded micro-decisions and kept only the current seams
+     that still shape forward work or future revisions. -->
 
-30. **Vercel AI SDK replaces both Claude Agent SDK and raw Anthropic SDK** — `@ai-sdk/anthropic` provider with AI SDK primitives: `ToolLoopAgent` powers the interviewer (typed tools via `tool()` with Zod schemas, multi-step loop via `stopWhen`), `generateObject` powers the observer (structured extraction with Zod schema, no JSON parsing), `createUIMessageStream` + `pipeUIMessageStreamToResponse` handle server-side streaming, `validateUIMessages` validates incoming chat payloads. No hand-written stream translator, no DomainEvent layer on the web path. The `@anthropic-ai/sdk` package remains as a transitive dependency only. Depends on: —. Supersedes: Claude Agent SDK, raw Anthropic SDK approach, D27 (generator composition), D28 (outputFormat), D29 (ResultMessage metrics), custom agent loop plan (old D31).
+10. **Distribution stays single-command and local-first** — `npx brunch` launches the app against the workspace's `.brunch/` state without requiring a separate hosted control plane.
 
-32. **Core filesystem tools following pi-mono pattern** — 7 generic tools (read, write, edit, bash, grep, find, ls) in `src/server/tools/`, each a factory function returning an AI SDK `tool()` bound to a working directory. Tools are thin wrappers around Node.js fs APIs and shell commands (rg, fd), with truncation limits (500 lines / 64KB) following pi-mono's defaults. The full surface remains available via `createCoreTools(cwd)`, while brownfield scope exploration now uses a read-only `createExplorationTools(cwd)` subset (`read`, `grep`, `find`, `ls`) rather than repo-mutating tools. Depends on: D30. Supersedes: —.
+22. **Observer-result sync stays in-band by default** — observer-created entity updates ride the existing chat stream and invalidate routed data from that seam unless runtime latency proves the need for a dedicated sync channel.
 
-49. **Knowledge items persist generically but project through kind-specific collections at the entity API and workspace seams** — `knowledge_item` + `turn_knowledge_item` are the active persistence seam for all canonical knowledge writes. The shared `/api/projects/:id/entities` projection exposes kind-specific `goals`, `terms`, `contexts`, `constraints`, `requirements`, `criteria`, `decisions`, and `assumptions` collections rather than a flat mixed list, keeping tab-level affordances simple while preserving one generic storage model underneath. Depends on: D5, D13, D22. Supersedes: decision/assumption-only entity reads, mixed storage assumptions at the read seam, flat mixed generic projection.
+24. **Data Parts carry structured user replies and domain-specific assistant artifacts** — selections, free-text response content, confirmations, summaries, and observer results all share the same typed message-part boundary instead of scalar-only transport.
 
-50. **Generic knowledge-graph edges read through one typed entity-graph seam** — `knowledge_edge` now owns persisted relation edges for the active knowledge graph, and `/api/projects/:id/entities` projects the full supported relation vocabulary as one typed `relationships[]` payload with explicit source/target identity (`collection`, `kind`, `id`) so workspace surfaces can render dependency, derivation, constraint, verification, and refinement affordances without consulting legacy decision/assumption edge tables. Depends on: D5, D13, D22, D49. Supersedes: flat entity reads with no graph relationship projection and legacy-table-owned dependency edges.
+30. **AI SDK is the agent/runtime boundary** — `ToolLoopAgent` powers the interviewer, `generateObject` powers the observer, and AI SDK message/data-part contracts span streaming, persistence, and hydration.
+32. **Workspace analysis is a read-only context-gathering capability** — `read`, `grep`, `find`, and `ls` may ground brownfield opening turns and later grounding follow-ups without mutating the workspace. Depends on: —. Supersedes: brownfield kickoff as a one-shot exploration ritual.
+49. **Knowledge items persist generically but project through kind-specific collections plus stable reference codes** — storage stays generic; the app seam stays kind-aware, and identifier display derives server-owned kind-local ordinals from project-wide ordering instead of filtered client views.
+50. **Knowledge relationships live behind one typed graph seam** — persisted graph edges are first-class and drive dependency, derivation, and revisit behavior.
+57. **Structured turn response is the shared semantic boundary** — the canonical user reply is a turn-kind-appropriate structured payload (action selection, option selection(s), and/or one response note); downstream consumers read structured replies, not scalar answer fallbacks.
+61. **Mixed legacy/generic knowledge storage is transitional, not the target state** — the long-term architecture is one coherent generic knowledge model.
+65. **Phase outcomes are explicit durable records** — workflow status, closeability, readiness, and closure provenance project from durable phase outcomes on the active path.
+66. **Interviewer-recommended and user-forced closes share one transcript-friendly seam** — one phase-close transport handles both paths, with explicit closure basis.
+68. **`framing` is a migration alias, not a canonical end-state kind** — long-term writes normalize into sharper scope kinds.
+80. **Knowledge-graph revisit replaces hard turn-tree branching for V1** — revisit starts from edit mode on knowledge items, traces cascade through graph edges, and resolves through a modal secondary thread.
+81. **Storage is local-first in `.brunch/` inside the workspace directory** — no global state store.
+82. **Grounding strategy is chosen inside the specification workspace** — the root route names / creates a specification, while greenfield vs brownfield grounding strategy belongs to the first in-workspace grounding move rather than the root modal. Depends on: D97. Supersedes: first-screen kickoff routing.
+83. **Grounding cards are provisional context, not durable knowledge** — context-gathering results remain visible orientation artifacts; only user reactions and subsequent conversational turns feed the observer's durable knowledge extraction. Depends on: D32. Supersedes: brownfield kickoff grounding as a prompt-shaped handoff only.
+86. **The client is organized by phase routes and three concentric layout shells** — AppLayout, ProjectLayout, and ViewLayout own the user-facing route structure.
+87. **Layout-level data ownership partitions invalidation** — workflow state, knowledge state, and per-phase turns load at different route layers instead of one monolithic refresh boundary.
+88. **Entities default to the active-path read model** — workspace-wide inventory is explicit rather than the default workspace surface.
+89. **Primary grounding/design input is workspace-owned and turn-owned** — grounding and design proceed through turn cards inside the workspace; grounding cards accept optional comment + continue, question cards collect substantive answers, and the global bottom composer is not the canonical input seam. Depends on: A51, A56. Supersedes: —.
+90. **Requirements and criteria resolve through synthesized review turns** — the interviewer proposes a full candidate set from prior knowledge, presents stable item reference codes, accepts one review note plus explicit `accept review` / `request changes` submission, and regenerates a revised full-set successor turn when changes are requested. In V1, accepting a review uses the same durable phase-progression seam: the accepted review output becomes authoritative carry-forward state, the phase closes through the shared closure mechanism, and the next phase kickoff turn is created without a dead state. Depends on: A44, A52. Supersedes: —.
+91. **Grounding uses workspace-owned turn cards in one interaction family** — grounding strategy choice, grounding briefs, and early interrogation live in the specification workspace rather than root-route modals or a bare chat shell. Depends on: A47, A51, A56. Supersedes: kickoff cards as a separate interaction family.
+92. **Live-only assistant artifacts replay as contentless placeholders** — if thinking or tool use is surfaced live, hydration persists an inert marker that the artifact occurred without persisting hidden reasoning tokens or raw tool results. Depends on: A53. Supersedes: —.
+93. **Replay for elicitation phases is turn-shaped, not message-shaped** — completed interview turns collapse into answered-turn records that summarize the offer, the structured user response, and the capture status, while kickoff, review, control, and closure events render in their own interaction family rather than as ordinary chat bubbles. Depends on: A51, A53. Supersedes: —.
+94. **Phase progression is frontier-anchored** — every open phase bottoms out in exactly one actionable frontier turn or a visible generation state; fixed kickoff turns seed newly opened phases, accepting a frontier turn durably creates its successor turn, successor generation avoids closed-without-frontier gaps, and recovery turns exist only to repair broken frontier state. Closure turns are durable proposal-shaped turns on the active path; accepting a closure turn resolves that same turn as confirmed closure and immediately creates the next phase kickoff turn, while rejecting one keeps the phase open and requires a same-phase successor frontier. If a phase is closed, the transcript bottoms out in a handoff or completion artifact. Depends on: A51, A54. Supersedes: —.
+95. **Frontier control semantics persist on the turn** — kickoff, recovery, and ordinary frontier questions carry an explicit persisted turn kind so controller and view projection do not infer control state from `why` text or bootstrap copy. Depends on: D94. Supersedes: `why`-based kickoff/recovery sentinels.
+96. **Observer capture may trail interviewer progression if it stays turn-owned** — interviewer completion may unlock the next turn before observer capture finishes, but any trailing observer state remains attached to the just-answered turn card rather than surfacing as a free-floating transcript row; observer-result transport may carry the originating turn identity so late capture can hydrate back into that same card. Depends on: A20, A53, A55. Supersedes: —.
+97. **Workspace and specification are distinct product concepts** — the workspace is the cwd-backed software context containing `.brunch/`; each specification is one elicitation run within that workspace, even while current DB/API internals still use `project` as the record name. Depends on: —. Supersedes: overloaded product use of `project`.
+98. **Grounding is the product term for the first phase while `scope` remains the internal phase key for now** — user-facing language and future interaction design speak in terms of grounding sufficiency, while implementation identifiers may migrate in a later pass. Depends on: D97. Supersedes: scope / framing copy drift.
+99. **Interviewer-invoked context gathering is a reusable capability, not a brownfield-only startup ritual** — workspace analysis, future web research, and similar moves may appear as grounding cards whenever the interviewer needs more context for the next move. Depends on: D30, D32, D83. Supersedes: one-shot brownfield kickoff exploration.
 
-57. **Turn-response projection is one shared semantic boundary for downstream consumers** — Interviewer history and observer context should both read structured replies through one projection module that resolves selected option content from persisted `data-turn-response` parts. Workspace response affordances (prompt visibility, "answered" state) derive from the presence of persisted `data-turn-response` user parts so selected-option replies and free-text-only replies share one seam after reload. When that seam is absent, downstream consumers should treat `turn.answer` as display/compatibility copy rather than reconstructing structured reply semantics from `option.is_selected`. Depends on: D24, D25. Supersedes: ad hoc context-local response parsing, observer-only scalar answer projection, selected-option fallback as a semantic compatibility seam, and `is_selected`-driven answered-state logic.
+100. **Phase labels are canonical product terms independent of internal phase keys** — user-facing labels are: Grounding (`scope`), Elicitation (`design`), Requirements (`requirements`), Acceptance Criteria (`criteria`). The internal enum values remain unchanged. Depends on: D98. Supersedes: previous label mapping (Framing, Elicitation, Requirements Review, Acceptance Review).
 
-58. **Pending questions are a distinct workspace view model, not invented persisted turns** — Streamed `tool-ask_question` output now projects into a dedicated `pending-question` controller/view-state branch with its own ephemeral identity and option list, while persisted turn cards continue to use the durable `ProjectStateTurn` shape and submission flow. Route and UI layers render the union through one turn-card surface without inventing sentinel turn IDs, negative option IDs, or borrowed ancestry metadata. Depends on: D24, A16. Supersedes: fabricated persisted-turn projection for streamed interviewer questions.
+101. **Output is a conditional route, not a workflow phase** — the output/summary view is available when all four phases are closed; it does not participate in phase state management (no status, readiness, or closeability). It provides markdown export of the completed specification. Depends on: D65.
 
-59. **Knowledge-kind metadata lives behind one shared registry seam** — The active knowledge ontology should declare ordering, collection keys, labels, context headings, and empty-state copy in one shared registry module. Observer-result payload schemas, observer-created ID maps, entities projection, observer context sections, and user-facing knowledge surfaces should read from that registry instead of re-declaring parallel arrays or object shapes. Depends on: D13, D22, D25, D49. Supersedes: duplicated knowledge-kind metadata across shared, server, and client seams.
+102. **The top bar is the single home for the app tagline** — "AI-guided spec elicitation" appears only in the top bar header, not duplicated on the project list or elsewhere. Top bar composition: logo + app name + version (build-time from package.json) + separator + tagline + right-aligned cwd. Height: h-10 (40px). Depends on: D10.
 
-61. **The current mixed knowledge storage model is transitional, not architectural target state** — The current split between generic `knowledge_item` rows for some kinds and dedicated legacy tables for `decision` / `assumption` is a migration seam, not the intended end state. The target is one coherent generic knowledge model — `knowledge_item` + `turn_knowledge_item` + `knowledge_edge` + `knowledge_review`, all keyed by canonical `kind + subtype` metadata across the full ontology — and not a permanent hybrid or a return to one-table-per-kind storage. Legacy `decision` / `assumption` tables and their specialized edge tables are temporary compatibility seams to retire. Depends on: D5, D17, D50, D59. Supersedes: treating mixed legacy/generic storage as an acceptable steady state.
+103. **Each pane has a sticky header with pane-scoped metadata** — the three-pane layout below the top bar provides per-pane sticky headers: project sidebar header (back link + project name), center pane header (phase position + status + turns + readiness + Close Phase action), knowledge sidebar header (title + item/connection counts). Depends on: D86.
 
-65. **Explicit phase outcomes persist closure provenance, while workflow state projects status, closeability, and readiness from the active path** — A phase outcome should persist as a durable `phase_outcome` row with proposal-turn provenance, closure-turn linkage, summary text, closure basis, and a captured readiness-band snapshot at the moment of close rather than hiding workflow state behind `turn.is_resolution` or transient UI state. The current workflow state for each phase should project (a) lifecycle status (`unstarted` / `in_progress` / `closed` / `invalidated`), (b) deterministic phase-specific closeability, and (c) current readiness band from the active path instead of collapsing them into one opaque completion bit. Depends on: D3, D17. Supersedes: D65-old workflow-state projection that exposed only proposal / confirmation state.
+104. **Close Phase is a guarded action gated by closeability** — the Close Phase button appears in the center pane header only when status is in-progress, is enabled based on closeability logic (minimum turns threshold), and triggers a confirmation modal. Closed phases show a status badge instead of the button. Depends on: D65, D66.
 
-66. **Phase closing uses one transcript-friendly seam whether the interviewer recommends it or the user forces it** — The interviewer may either ask another structured question or emit a closure recommendation with a typed `data-phase-summary` artifact. Once the phase-specific closeability rule is satisfied, the user may either accept that recommendation or force-close the phase anyway; both paths should persist through the same chat-friendly seam with explicit closure basis so downstream UI and export can distinguish normal close from carried debt. Depends on: D24, D30, D65. Supersedes: D66-old confirmation-only closure flow in which only the interviewer could initiate transition.
+105. **Knowledge sidebar groups items by a hard-coded display registry** — knowledge kinds map to display groups with labels and visibility: Goals & Context (goal, context, constraint), Assumptions & Decisions (assumption, decision), Requirements (requirement), Acceptance Criteria (criterion), Hidden (term). The registry is adjustable as kinds evolve (e.g. constraint → non-goal). Depends on: D49.
 
-67. **Scope closure stays anchored to a projected scope bundle, not a `framing` bucket** — Slice 7’s phase-outcome architecture remains valid if scope readiness reads from a projection over canonical `goal` / `term` / `context` / `constraint` items plus any unmigrated legacy `framing` rows during migration, rather than binding closure semantics to one transitional storage kind. Depends on: D3, D5, D61, D65. Supersedes: coupling scope closure semantics to the durability of the current `framing` label.
+106. **DrawerCard is the shared card primitive for expandable content** — a reusable component with header/summary/children slots that renders as: static card (no content), summary-peeking card (summary only), or toggleable card (summary ↔ children). A `locked` prop disables toggle for controlled-state cards. Depends on: D86.
 
-68. **`framing` is a migration-only intake alias, not a canonical durable kind** — New long-term writes should target canonical `goal`, `term`, `context`, and `constraint` items. Existing `framing` rows may remain readable through compatibility projections while they are normalized, reviewed, or superseded, but Phase 5/6 features should not require durable `framing` as a first-class destination. Depends on: D5, D61, D67. Supersedes: treating `framing` as part of the final ontology rather than a transitional intake seam.
+107. **ChatScroll combines ScrollArea with stick-to-bottom for the center pane** — Radix ScrollArea (custom scrollbar rendering) wired with `useStickToBottom` (auto-scroll to bottom + scroll-down indicator). Used as the center pane scroll container. Depends on: D86.
 
-69. **~~The first canonical knowledge workspace is phase-oriented list/detail review~~ — Superseded by D86.** The dedicated knowledge workspace route dissolves: review functions move into requirements-review and acceptance-review phase routes; knowledge overview becomes the ChatLayout right sidebar (compact, filterable by kind/phase) plus the Graph view option on ViewLayout (`?view=graph`). Graph visualization is no longer a "later enhancement" — it is a first-class view mode switchable at the layout level. Depends on: D17, D67, D68, D86. Supersedes: assuming the first non-sidebar knowledge surface must either stretch the sidebar or jump immediately to a freeform graph canvas.
+## Layout Architecture
 
-70. **First-pass closeability rules are deterministic, phase-specific, and intentionally minimal** — Closeability should start as an existential minimum bar the frontend can explain: a phase must have at least one phase-relevant captured signal before the user is allowed to close it. Readiness remains a separate descriptive band that may still be low when the user closes, which avoids both hidden model authority and false-precision percentage gates. Depends on: D65, D66. Supersedes: interviewer-only implicit closure thresholds.
+### Top Bar
 
-71. **The active interviewer phase is the first workflow phase on the active path without a closed outcome** — Once a phase is confirmed closed on the active path, subsequent turns should automatically enter the next workflow mode rather than inheriting the previous turn's phase. The shared workflow projection remains the source of truth for both server-side turn preparation and client-side phase display, so scope closure hands off directly into design mode before any design-specific closure mechanics exist. Depends on: D65, D66, D70. Supersedes: defaulting new turns to `scope` and hardcoding scope-only workflow display.
+| Element | Content | Position |
+| ------- | ------- | -------- |
+| Logo | Placeholder (TBD) | left |
+| App name + version | "Brunch v{version}" | left, after logo |
+| Separator | Pipe character | left, after version |
+| Tagline | "AI-guided spec elicitation" | left, after separator |
+| Working directory | `cwd` in mono | right-aligned |
 
-72. **User-forced phase closes reuse the typed confirmation seam instead of a separate mutation path** — Interviewer-recommended closes and user-forced closes should both travel through the same `data-confirmation` seam, now as explicit command variants rather than optional-field payloads. A recommendation acceptance carries `{ kind: 'confirm-proposed-phase-closure', proposalTurnId, phase }`; a user-forced close carries `{ kind: 'force-close-active-phase', phase }`. This preserves one chat-native close entrypoint without introducing a separate mutation path or UI-only state channel. Depends on: D66, D71. Supersedes: adding a dedicated force-close mutation path separate from proposal confirmation.
+Height: `h-10` (40px). Version injected at build time from `package.json`.
 
-73. **`data-confirmation` now carries an explicit discriminated phase-close command union end to end** — The chat transport for phase closing should make intent explicit at the schema boundary: `confirm-proposed-phase-closure` and `force-close-active-phase` are the payload variants, not an interpretation layered over optional fields. Shared builders, request validation, app routing, and persistence should all consume that same discriminated command shape so invalid mixed states are unrepresentable. Depends on: D66, D72. Supersedes: ad hoc optional-field branching over `data-confirmation` payloads.
+### Three-Pane Layout
 
-74. **Force-close availability projects from workflow truth through one shared policy seam** — The rule for whether a phase may be force-closed should be derived once from workflow state rather than re-encoded separately in UI predicates and server guards. In the current slice that shared projection remains intentionally narrow — design only, active phase only, closeable, and no pending proposal — but both affordance rendering and request validation should read the same policy and preserve the current rejection semantics. Depends on: D65, D66, D73. Supersedes: duplicated force-close availability checks across route and server layers.
+Below the top bar, three vertical panes fill the remaining viewport height. Each pane has a sticky-positioned header and a scrollable body using ScrollArea.
 
-75. **Workflow projection reads closure provenance only from durable phase outcomes** — Confirmed `phase_outcome` rows should store durable `closure_basis` directly at write time for both interviewer-recommended and user-forced closes, and workflow projection should trust that durable field as the sole provenance source. If a confirmed outcome lacks `closure_basis`, projection should surface `closureBasis: null` rather than reconstructing provenance from confirmation-turn payloads. Depends on: D65, D72, D73, D74. Supersedes: transcript-driven closure-basis recovery during workflow projection.
+#### Left Pane — Project Navigation Sidebar
 
-77. **The first explicit requirement approval seam reuses targeted review metadata plus active-path `turn_knowledge_item(relation='reviewed')` links** — Slice 9.2 should not wait for the full `knowledge_review` lifecycle before proving per-item review state. A requirements-review question may carry explicit approval metadata naming the target requirement and its approval option; if the user chooses that option, the response seam records a durable `reviewed` turn/item link for that requirement on the active path. Read-side projection then surfaces targeted requirements as `approved` and untouched requirements as `pending` without yet introducing edit/reject/stale semantics or changing requirements closeability. Depends on: D13, D24, D61, D65, D70. Supersedes: inferring requirement approval only from free-form response text or generic turn presence.
+**Sticky header:**
+- "< Back to Workspace" navigation link
+- Read-only project/specification name (set at creation, not editable)
 
-78. **The first explicit requirement rejection seam reuses targeted review metadata plus active-path `turn_knowledge_item(relation='rejected')` links, with latest explicit active-path review action winning projection** — Slice 9.3 should extend the same narrow per-item review seam rather than jumping to the full `knowledge_review` lifecycle. A requirements-review question may carry explicit rejection metadata naming the target requirement and its rejection option; if the user chooses that option, the response seam records a durable `rejected` turn/item link for that requirement on the active path. Read-side requirement projection resolves `approved` / `rejected` / `pending` from the latest explicit active-path review action so a later rejection can supersede an earlier approval without changing requirements closeability or overloading generic invalidation semantics. Depends on: D13, D24, D61, D65, D70, D77. Supersedes: treating the first approval as irrevocable on the active path, or reusing generic `invalidated` semantics for explicit user rejection.
+**Body — Phase stepper:**
+A vertical timeline with connecting line (blue for completed segments, gray for future). Strictly sequential — forward-only flow. Each phase item shows:
 
-79. **The first requirements closeability seam is deterministic review coverage over explicit per-item requirement state, and it reuses the shared phase-close proposal transport** — Slice 9.4 should not introduce a requirements-only completion bit or readiness gate. Requirements become closeable once the current requirement set has no `pending` review state — i.e. every requirement is explicitly `approved` or `rejected` — while readiness remains a separate descriptive signal. Once closeable, requirements review reuses the shared `propose_phase_closure` / `data-phase-summary` / `phase_outcome` seam already established in earlier phases; criteria remains unopened until the proposal is explicitly confirmed. Depends on: D65, D66, D70, D77, D78. Supersedes: keeping requirements permanently non-closeable until a later bespoke workflow seam exists.
-
-80. **Knowledge-graph revisit replaces hard turn-tree branching as the primary revisit mechanism** — Users revisit by editing knowledge items directly (invalidate/remove) in the knowledge workspace, not by forking the turn tree. Cascade invalidation traces downstream through knowledge graph edges (`depends_on`, `derived_from`, etc.), flagging affected items as `needs-revisit`. A modal secondary conversation thread is spawned to walk through design-tree implications, re-resolve affected items, and review downstream requirements/criteria. Affected phase outcomes reopen; the project is in an unfinished state until the secondary thread resolves all flagged items and phases are re-closed. One secondary thread at a time; the flow is strictly modal. Depends on: D5, D17, D65. Supersedes: turn-tree branching (requirements #9 old, #10 old) as the primary revisit model for V1.
-
-81. **Local-first storage in `.brunch/` project directory** — `npx brunch` creates a `.brunch/` directory in the current working directory (like `.git`), containing the SQLite database and configuration. Multiple elicitation runs / project versions coexist within one `.brunch/` directory. No global `~/.brunch/` store. Portability is a filesystem concern: copy the `.brunch/` directory. Depends on: D10. Supersedes: `~/.brunch/` global store option in D10.
-
-82. **First screen routes between greenfield and brownfield** — The initial project creation UI asks whether this is a new concept from scratch (greenfield) or a feature/sub-scope within an existing codebase (brownfield). Greenfield enters the scope interview directly. Brownfield triggers agent codebase exploration before the first interview turn. Depends on: D81, D32. Supersedes: implicit greenfield-only assumption.
-
-83. **Brownfield exploration feeds interviewer context, not the knowledge layer directly** — In brownfield mode, the interviewer agent uses a read-only exploration subset (`read`, `grep`, `find`, `ls`) during scope kickoff only, synthesizing discoveries into the first interview turn before normal phase prompts resume. The observer extracts knowledge items from that turn through the existing pipeline. No new pre-turn knowledge seeding mechanism. This keeps the architecture intact: the observer is the sole entry point for knowledge item creation. Depends on: D4, D30, D32, D82. Supersedes: pre-interview knowledge seeding.
-
-84. **Secondary conversation threads inherit validity from their primary-tree anchor** — A secondary thread is linked to the highest turn in the primary conversation that is implicitly associated (via knowledge item provenance) with the affected items. Knowledge items created or modified in the secondary thread are valid if and only if the anchor turn is on the active path of the primary conversation. This ensures that any future hard turn-tree branching above the anchor point would properly invalidate the secondary thread and its knowledge items. Depends on: D1, D80. Supersedes: —.
-
-26. **`md-pen` for programmatic markdown rendering** — Structured data (entity tables, dependency graphs, checklists) rendered to markdown via `md-pen` rather than hand-rolled string concatenation. Pure string-return functions (`table()`, `taskList()`, `mermaid()`, `heading()`, `alert()`, `details()`) compose by nesting — no AST, no intermediate representation. Escaping is context-aware per function (table cells, URLs, code fences), eliminating a class of bugs when rendering user-supplied text from interviews. Primary use cases: (1) observer context builders presenting growing entity graphs to agents (`table()` for decisions/assumptions with metadata, `taskList()` for reviewed/unreviewed items), (2) spec export rendering active-path entities into downloadable markdown (slice 13), (3) any future agent-facing or user-facing projection of structured data. Zero dependencies, ESM-only, TypeScript-first. Depends on: —. Supersedes: hand-rolled string assembly in context builders.
-
-### Domain model
-
-1. **Turn list as primary conversation record** — The primary conversation is an ordered linked list of turns. Each turn points to its parent. `project.active_turn_id` is the HEAD pointer. The linked-list structure supports future branching structurally, but hard fork/checkout UX is deferred for V1. Revisit operates at the knowledge-graph level via edit mode + secondary threads (D80), not by forking the turn list. Depends on: A6. Supersedes: D5-old snapshot versioning model, turn-tree branching as primary revisit mechanism.
-2. **Workflow phases are interview modes, not exclusive capture windows** — `scope`, `design`, `requirements`, and `criteria` are workflow modes that change interviewer behavior, observer extraction bias, and closure logic. Any mode may surface any knowledge kind, but each mode owns review and closure for the item families it is responsible for. Supersedes: phase model that implied entities first appear only inside their named phase.
-3. **Explicit phase outcomes replace turn-local phase booleans as the target phase-closure model** — A phase is not truly closed because one turn was marked special; it is closed because the active path has a closed, non-invalidated phase outcome for that mode. Closeability and readiness are separate projections, not synonyms for closure. The current `turn.is_resolution` field is an implementation seam on the way to explicit `phase_outcome` records. Depends on: A15. Supersedes: pure latest-turn `is_resolution` semantics.
-4. **Two-agent pattern (interviewer + observer)** — The interviewer focuses solely on conducting the interview. After each answered turn, a separate observer agent performs a structured extraction pass over the completed turn plus accumulated knowledge context. The observer can use a cheaper/faster model. Keeps the interviewer prompt clean and extraction independently testable. Depends on: A3, A4. Supersedes: —.
-5. **Canonical knowledge ontology expands beyond `framing` into eight reviewable kinds** — The target durable semantic layer is a typed knowledge graph with these canonical kinds: `goal`, `term`, `context`, `constraint`, `assumption`, `decision`, `requirement`, and `criterion`, with subtype support where needed. `framing` is a transitional intake label from the current implementation, not a final canonical durable kind. Items link back to source turns and connect through typed edges such as `depends_on`, `derived_from`, `constrains`, `verifies`, `motivates`, `defines`, and `refines`. Supersedes: separate decision / assumption graph as the sole semantic core, and the current six-kind `framing`-based ontology as the long-term target.
-6. **Capture-anytime, review-in-phase** — Knowledge kinds may surface in any mode. Later modes synthesize and review rather than pretending to capture everything from scratch: scope closes sufficient shared understanding of goals, terms, context, and constraints; design closes commitment coherence; requirements closes requirement completeness; and criteria closes verification coverage. Supersedes: rigid first-capture boundaries between scope, design, requirements, and criteria.
-17. **Soft invalidation traces through knowledge graph edges, not turn ancestry** — Revisit invalidates trust by walking dependency edges in the knowledge graph. When a knowledge item is invalidated or removed in edit mode, downstream items linked via `depends_on`, `derived_from`, etc. are flagged `needs-revisit`. Cascade direction follows the knowledge graph: scope-knowledge change (`goal` / `term` / `context` / `constraint`) → design + later reviews stale; design change → requirement + criteria reviews stale; requirement change → criteria reviews stale. Affected phase outcomes reopen. Resolution happens through a modal secondary conversation thread (D80). Path exclusion (lazy, via HEAD movement) remains for future hard turn-tree branching but is not the primary invalidation mechanism in V1. Supersedes: turn-local-frontier invalidation model, requirement/criterion-only invalidation tied narrowly to `reviewed_at`.
-13. **Observer captures typed knowledge items plus derived intelligence, but the ontology is optimized for reviewability rather than capture convenience** — The observer's extraction mandate extends beyond decisions and assumptions to include goals, terms, current context, constraints, emerging requirements, criteria-like signals, and derived observations that the interviewer surfaced during the turn. Capture-time typing can be somewhat provisional, but the target ontology must support later review, graph navigation, and normalization rather than collapsing ambiguous scope material into one broad `framing` bucket. These items are persisted in the knowledge layer so subsequent context builders can inject them as context. Supersedes: decisions/assumptions-only observer ontology.
-14. **Part-type rendering via AI Elements** — Client renders message parts using AI Elements copy-paste components: `Reasoning` (auto-open/close collapsible with duration), `MessageResponse` (streaming markdown via `streamdown`), `Tool` (7-state collapsible with status badges). `Conversation` provides auto-scroll. `PromptInput` provides `ChatStatus`-aware submit/stop button. shadcn/ui (radix-nova preset) + Tailwind 4 as the styling foundation. Depends on: A16, A17. Supersedes: hand-rolled inline-styled message rendering.
-23. **Parts-based persistence model (UIMessage/ModelMessage split)** — Two separate data layers: (1) **UI render state** (`UIMessage.parts[]` JSON) persisted per turn for faithful resume — captures reasoning blocks, tool-call lifecycle states, text, and custom Data Parts. (2) **Inference context** (`ModelMessage`-equivalent) derived at call time by typed context builders, never persisted. The turn tree remains canonical for branching history; parts remain the source of truth for rendering. Prompt/response payload evolution can move independently of persisted UI parts. Research: `docs/research/chat-application-data-models-conversation-turns-structured-data-generative-ui-persistence.md`. Depends on: A22. Supersedes: D15's scalar-only persistence model.
-24. **Custom Data Parts model structured turn responses beyond single-select choice** — User replies are not always plain text or one categorical pick. AI SDK Data Parts model structured input such as zero/one/many option selections, unified free-text response content, confirmations, and later review actions. Assistant messages use the same mechanism for domain-specific output such as phase summaries, observer results, and entity snapshots. Depends on: A22, A23. Supersedes: implicit assumption that a turn's conceptual answer is always one text string and that every structured reply is a single selected option.
-25. **Typed context builders are phase-aware projections over history + knowledge + readiness** — Different consumers of the turn tree need different projections of the same underlying state. `buildInterviewerContext(...)` provides conversational continuity. `buildObserverContext(...)` provides extraction-optimized context over the current turn plus accumulated knowledge and relevant history summary. Future builders include readiness / review projections for phase-outcome proposal and review modes. Builders read from the turn domain model first; while no dedicated response table exists, interviewer context may also read persisted structured user parts that are themselves the canonical response representation for a turn. Supersedes: single `formatHistory()` function in core.ts.
-
-### Technical stack
-
-7. **SQLite via better-sqlite3** — Zero-config embedded DB. Turn tree, knowledge items, graph edges, and readiness artifacts all live in SQLite tables. Schema defined in Drizzle (see D18). Depends on: A5, A6. Supersedes: Dolt (docker-based).
-8. **Express.js server emits AI SDK UI message streams directly** — The chat route validates incoming `BrunchUIMessage[]`, persists the new turn, merges the interviewer stream into `createUIMessageStream`, emits typed observer-result data parts in-band, and pipes the result to the response. No handwritten stream-translation layer remains on the web path. Depends on: A1, A19, D19. Supersedes: hand-rolled NDJSON and DomainEvent-to-SSE translation.
-9. **React + Vite + @ai-sdk/react + @tanstack/react-router client** — `useChat` for conversation streaming. TanStack Router for type-safe file-based routing with route loaders for data fetching on navigation (replaces manual `useEffect` hydration). The route surface is project list (`/`), project summary (`/project/:id`), four phase routes (`/framing`, `/elicitation`, `/requirements-review`, `/acceptance-review`), export (`/project/:id/export`), organized through three concentric layout shells (D86). See `docs/archive/BREADBOARD.md`. Depends on: A9, A10. Supersedes: Preact, both existing frontends, single-page no-routing layout.
-10. **npx-launchable single-command distribution** — `bin` entry, launcher starts Express (serves built Vite assets + API on one port), opens browser. Single env var: `ANTHROPIC_API_KEY`. DB auto-created in local `.brunch/` directory (see D81). Depends on: A8. Supersedes: multi-step Docker + env var setup.
-16. **Integer autoincrement primary keys** — All entity tables use `INTEGER PRIMARY KEY AUTOINCREMENT` instead of `TEXT` UUIDs. SQLite ROWID alias is simpler, matches the original DBML design, avoids UUID generation. No external systems reference these IDs. Client coerces to strings for `useChat` hydration (`turn-${id}-answer`, `turn-${id}-question`). Depends on: D7. Supersedes: `randomUUID()` TEXT PKs from slice 2.
-18. **Drizzle ORM replaces raw DDL** — TypeScript schema definition (`drizzle/schema.ts`) is single source of truth for types, DDL, and migrations. Auto-applies from `drizzle/migrations/` at startup. Drizzle Studio available for DB inspection during development. Depends on: A18, D7. Supersedes: raw DDL strings in db.ts, DBML design document, hand-written TypeScript interfaces.
-19. **Layered architecture with an AI SDK-native chat boundary** — Core interview orchestration is split into typed helpers (`prepareTurn`, `finalizeTurn`, context builders, persistence helpers) while Express owns the chat stream composition. The boundary between server and client is `BrunchUIMessage`, not a separate in-house event protocol. Observer-result data stays in-band on the same stream for cache coherence (see D22). CLI and MCP can still derive later from the stabilized domain operations, but the web path optimizes for the typed UI-message contract first. Depends on: A19, D8, D12. Supersedes: interview logic embedded in Express POST handler and the DomainEvent-to-SSE translation layer.
-21. **oxlint + oxfmt + tsgolint replaces eslint + tsc** — oxlint for linting (including 59 type-aware rules via tsgolint, the Go-based TypeScript backend), oxfmt for formatting (single quotes, 110 width, sorted imports). `npm run fix` (lint:fix + fmt) is the fast inner loop; `npm run verify` (check + test + build) is the commit gate. `--type-check` flag replaces `tsc --noEmit`. Depends on: —. Supersedes: eslint (removed), separate `tsc --noEmit` step.
-20. **CLI executable with subcommands** — `npx brunch` launches web UI (default). `npx brunch [command]` for CLI operations on the same DB. Future: sidecar MCP server. Depends on: D10, D19. Supersedes: web-only distribution model in D10.
-22. **Router-loader-based entity sync with in-band observer-result invalidation** — Observer-created entities sync to the React UI through typed `data-observer-result` parts on the existing chat stream. `useChat`'s `onData` callback calls `router.invalidate()` on observer-result data parts, which re-fetches ViewLayout's entity loader and updates the EntitySidebar. Route loaders own persisted entity state; the chat stream owns transient message state. If observer latency degrades (A50), a targeted entity fetch alongside router invalidation is the fallback. TanStack DB remains unnecessary for the current server-authoritative model. Research: `docs/research/async-server-state-to-ui-sync-for-chat-observer-agents.md`. Depends on: A20, A50, D4, D9, D19, D87. Supersedes: D22-old TanStack-Query-based entity refresh from manual fetch in interview-data adapter.
-85. **File-route generation owns runtime routing from the dedicated `src/client/routes` directory** — The Vite build runs `@tanstack/router-plugin` before the React plugin, scanning `./src/client/routes` and generating `./src/client/routeTree.gen.ts` with auto code splitting enabled. The generated route tree is a managed artifact committed to source and excluded from oxlint/oxfmt, and `src/client/router.tsx` bootstraps runtime routing directly from that generated tree. Routes use TanStack Router's **directory-based nesting** under `routes/project/$id/` with a pathless layout route (`_view/`) for the Chat/Graph view switch (D86). Colocated route-support modules stay inside their route directories behind TanStack ignore rules (`routeFileIgnorePattern` for tests and `-`-prefixed support files) so route owners remain thin. The build oracle reads the production manifest to confirm route components ship as split chunks. Target file structure: `routes/__root.tsx` (AppLayout), `routes/index.tsx` (project list), `routes/project/$id/route.tsx` (ProjectLayout), `routes/project/$id/index.tsx` (summary), `routes/project/$id/export.tsx`, `routes/project/$id/_view/route.tsx` (ViewLayout), `routes/project/$id/_view/{framing,elicitation,requirements-review,acceptance-review}.tsx`. Depends on: D9, D86. Supersedes: flat-file non-nested naming convention (`project_.$id.knowledge.tsx` etc.).
-86. **Phase-based routing with three concentric layout shells replaces workspace-based routing** — The client route surface organizes by workflow phase, not by workspace type. Each phase maps to its own route: `/project/:id/framing` (scope), `/project/:id/elicitation` (design), `/project/:id/requirements-review` (requirements), `/project/:id/acceptance-review` (criteria). Three nested layout shells compose the UI: (1) **AppLayout** (`__root.tsx`) — top bar with branding, file-path indicator, logo link to root; wraps all routes. (2) **ProjectLayout** (`project/$id/route.tsx`) — left sidebar with phase navigation list showing readiness/closeability indicators per phase; wraps everything under `/project/:id`. (3) **ViewLayout** (`project/$id/_view/route.tsx`) — a pathless layout route that switches between Chat and Graph sub-layouts via a `?view=chat|graph` search param validated at the layout level; wraps the four phase routes but not export or project summary. The Chat sub-layout provides a right sidebar with a compact, filterable knowledge-layer view. The Graph sub-layout provides a project-scoped knowledge graph visualization, optionally phase-filtered. Export (`/project/:id/export`) renders inside ProjectLayout without ViewLayout. The project summary (`/project/:id` index) is the landing/kickoff page. Phase transitions navigate on mutation success: close phase → server confirms → `router.navigate()` to the next phase route; no optimistic URL changes. Depends on: D9, D2, D65, D66, D71. Supersedes: D69, workspace-based sibling routing (interview/knowledge/export as flat siblings under one route level).
-87. **Layout-level data ownership distributes cache invalidation across three loading boundaries** — Each layout shell owns its own data-loading concern: ProjectLayout loads workflow state (phase statuses, readiness, closeability) — changes only on phase transitions. ViewLayout loads the knowledge layer (entities, relationships, review state) — changes when the observer extracts. Phase route loaders load conversation turns for that phase only — changes on turn submission. This natural partitioning means most mutations invalidate only one layout level's data, extending the viability of `router.invalidate()` before needing React Query's granular per-query-key caching. The graph view (project-scoped, optionally phase-filtered) shares knowledge data from ViewLayout's loader. Depends on: D22, D86. Supersedes: single-route-level loading where `router.invalidate()` re-fetches all project data on every mutation and SSE data part.
-
-88. **The entities API defaults to the active-path read model, with project-wide inventory behind an explicit mode** — `/api/projects/:id/entities` now serves the canonical trusted entity set for routed workspace surfaces by default, and callers that need the wider project inventory must opt into `?mode=project-wide`. This keeps interview, knowledge, and export aligned on the same active-path state while preserving an explicit project-global inspection seam. Depends on: D49, D50, D87. Supersedes: project-wide default entity reads at the routed workspace seam.
-
-## Invariants
-
-<!-- Structural properties proven by implementation and protected by tests.
-     Once established, must not regress.
-     Each links to the decision it proves and the tests that protect it.
-     Established by ln-build/ln-spike traceability.
-     Referenced by PLAN.md slices (to establish / to respect). -->
-
-<!-- Consolidated 2026-04-10: merged 96 invariant rows into domain families using same-seam/same-rule
-     heuristic. Surviving IDs are the oldest in each group. Absorbed IDs listed per family below.
-     Foundation invariants I1–I23 kept as-is. Client characterization invariants I26–I32 kept as-is. -->
-
-### Foundation
-
-| #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
-| --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I1  | SSE protocol conformance                                   | Slice 1 (skeleton)        | app.test.ts                          | D8          |
-| I2  | Stream lifecycle correctness                               | Slice 1 (skeleton)        | app.test.ts                          | D8          |
-| I3  | Thinking/text separation                                   | Slice 1 (skeleton)        | app.test.ts                          | D8          |
-| I4  | Vite proxy routing stays aligned with the dev API listener through one explicit backend-port configuration seam (`BRUNCH_PORT` → `PORT` → default) | Slice 1 (skeleton); slice 14b | runtime-config.test.ts, vite.config.ts (manual) | D10         |
-| I5  | DB lifecycle correctness                                   | Slice 2 (SQLite)          | db.test.ts, launcher.test.ts         | D7, D81     |
-| I6  | Turn persistence                                           | Slice 3 (turn tree)       | db.test.ts, app.test.ts             | D1, D7      |
-| I7  | Tool call SSE conformance                                  | Slice 3b (rich UI)        | app.test.ts, manual (outer loop)     | D8, D14     |
-| I8  | Tool part state rendering                                  | Slice 3b (rich UI)        | manual (outer loop)                  | D14         |
-| I9  | Turn tree parent chain                                     | Slice 3 (turn tree)       | db.test.ts                           | D1          |
-| I10 | Active path resolution                                     | Slice 3 (turn tree)       | db.test.ts                           | D1          |
-| I11 | Drizzle migration auto-apply                               | Slice 3c (Drizzle)        | db.test.ts                           | D18         |
-| I12 | Typed server chat boundary                                 | Slice 3c (Drizzle)        | core.test.ts, app.test.ts            | D19         |
-| I13 | Core/adapter separation                                    | Slice 3c (Drizzle)        | core.test.ts, app.test.ts            | D19         |
-| I14 | Project-scoped API routes                                  | Slice 3d (routing)        | app.test.ts                          | D9          |
-| I15 | Client router bootstrapping, URL-to-screen ownership, and route-linked navigation stay stable across the dashboard, four phase routes (framing/elicitation/requirements-review/acceptance-review), and export routes — all nested under three concentric layout shells (AppLayout → ProjectLayout with phase-navigation sidebar → ViewLayout with EntitySidebar) with directory-based file routing, layout-level data loading split, per-phase turn filtering, phase-transition navigation on close, and route-colocated interview modules; knowledge route retired (knowledge visible in ViewLayout sidebar) | Slice 3d (routing); route ownership refactor; slice 23 (directory routing); slice 24 (sidebar + data split); slice 24b (colocation + lexicon); slice 25 (per-phase views + sidebar relocation) | main.test.tsx, router.test.tsx, ProjectList.test.tsx, InterviewView.test.tsx, ExportPreview.test.tsx, phase-navigation-sidebar.test.tsx, file-route-interview.test.ts | D9, D85, D86, D87 |
-| I16 | Schema validation on agent tool output                     | Slice 4 (scope interview) | interview.test.ts                    | D2, A13     |
-| I17 | Data Part schema validation (LLM boundary only)            | Slice 4a (parts), slice 22 | parts.test.ts                       | D24         |
-| I18 | Parts round-trip fidelity                                  | Slice 4a (parts)          | parts.test.ts, core.test.ts          | D23         |
-| I19 | Context builder equivalence                                | Slice 4a (parts)          | context.test.ts                      | D25         |
-| I20 | Entity persistence with turn linkage                       | Slice 5 (observer)        | db.test.ts, observer.test.ts         | D4, D5      |
-| I21 | Observer-result in-band sync                               | Slice 5 (observer)        | observer.test.ts, app.test.ts        | D22         |
-| I22 | AI SDK-native interviewer path                             | Slice 6b (AI SDK pivot)   | app.test.ts, interview.test.ts       | D30         |
-| I23 | Entity sidebar reactive update                             | Slice 6 (sidebar)         | app.test.ts, manual (outer loop)     | D22         |
-
-### Project resolution + launcher
-
-| #    | Invariant                                                  | Established by            | Protected by                         | Proves      |
-| ---- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I100 | `.brunch/` project resolution walks up safely, rejects invalid `.brunch` path shapes early, and resolve-creates-or-finds local storage; packaged launcher/bin startup keeps `npx brunch` executable, binds and reports the actual bound localhost URL, rejects duplicate live launches for the same resolved `.brunch/` root, preserves API 404s when static assets are mounted, falls back on empty `BRUNCH_DB`, and still resolves drizzle migrations via `import.meta.url` instead of cwd | Slices 14, 14b | project.test.ts, launcher.test.ts, cli.test.ts, runtime-config.test.ts | D10, D81 |
-| I101 | Project mode (greenfield/brownfield) persists through schema, API, and interviewer configuration: brownfield scope gets read-only exploration tools, a scope-only exploration prompt, and a higher step budget; later phases keep their normal prompts; greenfield path is unchanged; server derives cwd from launcher context | Slice 14a | db.test.ts, interview.test.ts, app.test.ts, ProjectList.test.tsx | D32, D82, D83 |
-| I102 | TanStack file-route generation runs through the Vite plugin from `src/client/routes` into the managed `src/client/routeTree.gen.ts` artifact using directory-based nesting under `routes/project/$id/` with a pathless `_view/` layout route; runtime bootstrapping constructs the client router from that generated tree; thin route owners delegate loader/view wiring through ignored colocated support files without degrading route-level code splitting; the dashboard, four phase routes, export, and project index routes nest correctly under three layout shells (AppLayout → ProjectLayout → ViewLayout with EntitySidebar); knowledge route retired in slice 25; GraphView is lazy-loaded via `React.lazy` and lands in its own production chunk separate from ViewLayout (slice 26); and the production build keeps route components split into dynamic route chunks | Route ownership refactor steps 3-9; slice 23 (directory routing); slice 25 (knowledge route retired); slice 26 (graph view code-split) | file-route-infra.test.ts, file-route-dashboard.test.ts, file-route-interview.test.ts, file-route-export.test.ts, build-boundary.test.ts, GraphView.test.tsx, main.test.tsx, router.test.tsx | D85, D86 |
-
-### Fixture corpus seam
-
-| #    | Invariant                                                  | Established by            | Protected by                         | Proves      |
-| ---- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I103 | Trusted runtime-shaped active-path sessions can normalize back into the manifest fixture seam and replay as curated observer probes, so capture-backed fixtures and incremental observer regression checks share one canonical scenario format instead of ad hoc SQL extracts | Slice 16b | corpus.test.ts | D13, D22, D25, D49, D59 |
-
-### Client characterization
-
-| #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
-| --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I26 | Progressive code-render fallback                           | Client characterization   | code-block.test.tsx                  | D14         |
-| I27 | Equal-length branch replacement stability                  | Client characterization   | message.test.tsx                     | D14         |
-| I28 | No shiki in production build; streamdown remains lazy      | Slice 17a (shiki decoupling) | build-boundary.test.ts             | —           |
-| I29 | Code-block and shiki excluded from production import graph | Slice 17a (shiki decoupling) | capability-boundaries.test.ts     | D34         |
-| I31 | Assistant transcript rendering stays text-first            | Progressive rich rendering | markdown-rendering.test.tsx         | D36         |
-| I32 | Default entry excludes rich rendering                      | Progressive rich rendering | build-boundary.test.ts             | D36         |
-
-<!-- Pruned 2026-04-12: removed I30 — moot, debug surface route removed in slice 17a. -->
-
-### Interview seam
-
-<!-- Consolidated 2026-04-10: absorbed I25, I33, I34, I35, I36, I37, I38, I39, I40, I41, I42, I43,
-     I65, I67 into I24 — same seam (interview controller/data/hydration boundaries), generalized wording.
-     I37, I38 are render-sensitive primitive purity; I39, I40 are preload/budget; I41, I42 are
-     controller/mutation oracles; I43, I65, I67 are streaming/pending-question projection.
-     Renamed from "Workspace seam" to "Interview seam" in slice 24b (workspace lexicon retirement). -->
-
-| #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
-| --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I24 | Interview hydration, streaming projection, controller orchestration, mutation transport, and render-lifecycle boundaries remain stable across project entry, same-project refresh, observer-result invalidation via `router.invalidate()`, streamed pending-question cards, and chat submission — including per-phase turn filtering (`filterMessagesByPhase`), phase-transition navigation on close (`getNextActivePhase`), layout-level data loading split where ProjectLayout loads workflow state and ViewLayout loads entity data + EntitySidebar independently; all modules colocated under `routes/project/$id/_view/` with `-interview-` prefix | Slices 6b1, 6c, 6d, 6e, 6f; refactors 1–14; slice 24 (data split); slice 24b (colocation + lexicon); slice 25 (per-phase views + sidebar relocation) | InterviewView.test.tsx, -interview-data.test.ts, -interview-controller.test.tsx, -interview-hydration.test.ts, client-mutation.test.ts, ProjectList.test.tsx, code-block.test.tsx, message.test.tsx, markdown-rendering.test.tsx, capability-boundaries.test.ts, build-boundary.test.ts | D9, D19, D22, D14, D34, D36, D37, D38, D39, D40, D41, D42, D43, D44, D58, D87 |
-
-<!-- Sync 2026-04-13: renamed test files in I24 Protected by to match slice 24b lexicon retirement:
-     InterviewWorkspace.test.tsx → InterviewView.test.tsx, workspace-data.test.ts → -interview-data.test.ts,
-     chat-hydration.test.ts → -interview-hydration.test.ts, workspace-controller.test.tsx → -interview-controller.test.tsx.
-     KnowledgeWorkspace.test.tsx removed (knowledge route retired in slice 25). -->
-
-### Turn response seam
-
-<!-- Consolidated 2026-04-10: absorbed I45, I46, I47, I64, I66, I69, I70, I71 into I44 —
-     same seam (structured turn responses round-trip through persistence/hydration/projection). -->
-
-| #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
-| --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I44 | Structured turn responses (zero/one/many selected options plus optional free-text) round-trip through persistence, transcript hydration, interviewer-history projection, observer-context projection, and workspace affordance state without collapsing back to scalar-only semantics | Slices 6d.1–6d.3; refactors 1, 3, 6; post-refactor cleanup | parts.test.ts, app.test.ts, context.test.ts, turn-response.test.ts, observer.test.ts, -interview-data.test.ts, InterviewView.test.tsx | D23, D24, D25, D39, D45, D46, D47, D48, D57 |
-
-### Generic knowledge seam
-
-<!-- Consolidated 2026-04-10: absorbed I49, I50, I51, I52, I53, I68, I75, I77, I78 into I48 —
-     same seam (canonical kinds persist and project through the entity seam). -->
-
-| #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
-| --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I48 | Canonical knowledge kinds (`goal`, `term`, `context`, `constraint`, `requirement`, `criterion`, `decision`, `assumption`) persist with turn provenance, project through kind-specific entity collections and typed knowledge-graph edges, and surface through the shared knowledge registry without ontology drift or refresh regression — including scope-bundle coherence and compatibility collections | Slices 6e, 7b.1, 7b.2; refactor 5 (knowledge registry) | db.test.ts, app.test.ts, knowledge.test.ts, -interview-data.test.ts, -interview-controller.test.tsx, InterviewView.test.tsx, EntitySidebar.test.tsx | D5, D22, D49, D50, D52, D53, D59, D61, D67, D68 |
-
-### Observer widening seam
-
-<!-- Consolidated 2026-04-10: absorbed I55, I56, I57, I58, I59, I60, I61, I62, I63, I74, I76, I77 into I54 —
-     same seam (phase-aware observer widens to canonical kinds through the generic seam).
-     Note: I77 also absorbed into I48 above for the persistence/projection side; I54 covers
-     the observer extraction + result-part transport side. -->
-
-| #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
-| --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I54 | Phase-aware observer extraction widens to all canonical knowledge kinds through the generic seam: scope biases toward goals/terms/contexts/constraints, design biases toward decisions/assumptions with scope-kind spillover, requirements widens to requirements, criteria widens to criteria — and widened `data-observer-result` parts carry created IDs through persistence, SSE emission, entities projection, and workspace refresh without regressing observer sync | Slices 6f.1–6f.4b, 7b.1, 7b.2 | context.test.ts, observer.test.ts, parts.test.ts, app.test.ts, db.test.ts, InterviewView.test.tsx | D22, D24, D25, D49, D52, D53, D54, D55, D56, D68 |
-
-### Phase-close seam
-
-<!-- Consolidated 2026-04-10: absorbed I73, I79, I80, I81, I82, I83, I84, I85, I86 into I72 —
-     same seam (phase outcomes persist/project through shared workflow state). -->
-
-| #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
-| --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I72 | Explicit phase outcomes persist proposal/confirmation state with durable closure provenance, project shared workflow status/closeability/readiness/closureBasis from the active path, supersede when the proposal turn leaves that path, and advance the active phase on confirmation — through one discriminated phase-close command union and one shared policy seam for both interviewer-recommended and user-forced closes | Slices 7, 8.1–8.3; refactors 2, 4, 5, 6 (phase-close module) | db.test.ts, app.test.ts, core.test.ts, interview.test.ts, parts.test.ts, phase-close.test.ts, -interview-data.test.ts, InterviewView.test.tsx | D3, D17, D24, D65, D66, D70, D71, D72, D73, D74, D75 |
-
-### Requirements-review seam
-
-<!-- Consolidated 2026-04-10: absorbed I88, I89, I90, I91, I92, I93, I94, I95, I96 into I87 —
-     same seam (requirement review state round-trips through the shared phase-close seam). -->
-
-| #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
-| --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I87 | Requirements-review mode grounds the interviewer in the current requirement inventory, targeted approve/reject actions persist durable active-path review links with latest-action-wins projection, closeability derives from full review coverage, and the shared phase-close proposal/confirmation seam reuses for requirements → criteria handoff with correct mode advancement | Slices 9.1–9.5 | context.test.ts, interview.test.ts, db.test.ts, app.test.ts, core.test.ts, EntitySidebar.test.tsx | D24, D25, D49, D61, D65, D66, D70, D71, D77, D78, D79, A28, A44 |
-
-### Criteria-review seam
-
-| #   | Invariant                                                  | Established by            | Protected by                         | Proves      |
-| --- | ---------------------------------------------------------- | ------------------------- | ------------------------------------ | ----------- |
-| I97 | Criteria-mode interviewer context is grounded in the approved requirement inventory (not the full or pending set), and one initial criterion can round-trip through criteria-mode observer persistence → entities projection while criteria remains `in_progress` | Slice 10.1 | context.test.ts, app.test.ts | D25, D71, A28, A40 |
-| I98 | Targeted criterion approve/reject actions persist durable active-path review links with latest-action-wins projection (`approved` / `rejected` / `pending`), criteria closeability derives from full criterion review coverage, and the structured question seam carries criterion review metadata through the same response path as requirement reviews | Slice 10.2 | db.test.ts, app.test.ts | D24, D61, D65, D66, D70, A15, A28 |
-| I99 | The shared phase-close seam can propose and confirm criteria closure through the same transport used for scope/design/requirements, and confirming the final criteria outcome projects all four workflow phases as `closed` with no stale active interviewer phase | Slice 10.3 | app.test.ts | D65, D66, D71, A15, A28 |
+| Phase | Internal key | Label |
+| ----- | ------------ | ----- |
+| 1 | `scope` | Grounding |
+| 2 | `design` | Elicitation |
+| 3 | `requirements` | Requirements |
+| 4 | `criteria` | Acceptance Criteria |
+| 5 | *(route only)* | Output |
+
+Per-phase metadata: status (colored: Closed / In-Progress / Unstarted), readiness band (when in-progress), turn count. Output appears conditionally when all phases are closed.
+
+#### Center Pane — Chat Transcript
+
+**Sticky header:**
+- "Phase N/M – [Phase Name]" — positional progress label
+- Status text (colored)
+- Turn count
+- Readiness band (when in-progress)
+- Close Phase button (right-aligned, in-progress only, gated by closeability, triggers confirmation)
+- Status badge replaces button when phase is closed
+
+**Body (in-progress phase):**
+- Phase kickoff or prior answered/compacted turn cards above the frontier
+- Activity placeholders and visible generation state while the next generative turn is being created
+- Active frontier turn card (kickoff, grounding/question, review, or control/closure)
+- Turn-specific controls
+
+**Body (closed phase):**
+- Answered question cards
+- Activity placeholders
+- "Proceed to [next phase]" CTA at bottom
+
+Scroll container: ChatScroll (ScrollArea + useStickToBottom).
+
+#### Right Pane — Knowledge Graph Sidebar
+
+**Sticky header:**
+- "Knowledge Graph" title
+- Item count + connection count
+
+**Body — Grouped knowledge items:**
+
+| Group label | Kinds | Visible |
+| ----------- | ----- | ------- |
+| Goals & Context | goal, context, constraint | yes |
+| Assumptions & Decisions | assumption, decision | yes |
+| Requirements | requirement | yes |
+| Acceptance Criteria | criterion | yes |
+| *(hidden)* | term | no |
+
+Items render as compact DrawerCard instances: code + content in header, edge/dependency reference codes as drawer-peek summary when edges exist, plain card otherwise.
+
+### Design Tokens
+
+**Typography scale** (11px–16px, no sizes outside this range):
+
+| Token | Size | Usage |
+| ----- | ---- | ----- |
+| `text-xxs` | 11px | Impact badges, tag labels |
+| `text-xs` | 12px | Secondary text, metadata |
+| `text-xs-plus` | 13px | Secondary body, explanatory text |
+| `text-sm` | 14px | Body text |
+| `text-sm-plus` | 15px | Card headings, collapsed question text |
+| `text-base` | 16px | Section headings |
+
+Question card titles use arbitrary `text-[17px]` above the scale for emphasis.
+
+**Font weights**: normal (400), medium (500), semibold (600). No bold (700+).
+
+**Color tokens**:
+
+| Token | Hex | Usage |
+| ----- | --- | ----- |
+| `ink` | #202020 | Primary text |
+| `sub` | #5b5b5b | Subtitles, secondary text |
+| `hint` | #a6a6a6 | Placeholders, inactive elements |
+| `rule` | #e3e3e3 | Borders, dividers |
+| `wash` | #f0f0f0 | Ghost fills, tracks |
+| `tint` | #fafafa | Subtle background |
+
+**Accent blue** (interactive elements, recommendations, progress):
+- Primary: `#2070e6`
+- Gradient top: `#3484fa`
+- Ring/border: `#1060d6`
+
+**Shadow tokens**: `--shadow-card`, `--shadow-ring`, `--shadow-card-ring`.
+
+**Card structure pattern** (DrawerCard): outer `rounded-xl border border-rule bg-tint` shell, inner white header with `-m-px` border overlap trick and `shadow-card`, tinted drawer body below.
+
+## Critical Invariants
+
+<!-- Pruned 2026-04-14: kept only seam-level invariants that still protect active work. -->
+
+| #    | Invariant | Protected by | Proves |
+| ---- | --------- | ------------ | ------ |
+| I4   | Vite proxy routing and the runtime backend-port seam stay aligned through one explicit configuration path. | `runtime-config.test.ts` | D81 |
+| I17  | Data Part schema validation remains confined to true LLM / HTTP boundaries rather than mirrored internal seams. | `parts.test.ts` | D24 |
+| I24  | Interview hydration, streaming projection, controller orchestration, mutation transport, phase-filtered rendering, and successor-frontier continuity remain stable through the routed interview surface, including persisted frontier turn kinds for kickoff/recovery, turn-owned submit/interviewer-processing, visible generation states, and trailing observer attachment. | `InterviewView.test.tsx`, `-interview-data.test.ts`, `-interview-controller.test.tsx`, `client-mutation.test.ts` | D30, D86, D87, D94, D95 |
+| I44  | Structured turn responses round-trip through persistence, hydration, projection, and UI affordance state without collapsing back to scalar semantics. | `turn-response.test.ts`, `context.test.ts`, `InterviewView.test.tsx` | D57 |
+| I48  | Canonical knowledge kinds persist with provenance and project through typed entity collections, stable per-kind reference codes, turn-linked capture projection, and graph edges without ontology drift. | `db.test.ts`, `core.test.ts`, `knowledge.test.ts`, `EntitySidebar.test.tsx`, `InterviewView.test.tsx`, `GraphView.test.tsx` | D49, D50 |
+| I54  | Phase-aware observer extraction widens to all canonical knowledge kinds and survives persistence, turn-linked replay hydration, and UI refresh without breaking sync. | `observer.test.ts`, `context.test.ts`, `app.test.ts`, `InterviewView.test.tsx` | D30, D49, D95 |
+| I72  | Explicit phase outcomes project shared workflow status, closeability, readiness, and closure basis through one durable seam. | `phase-close.test.ts`, `db.test.ts`, `app.test.ts` | D65, D66 |
+| I87  | Requirements and criteria review ground themselves in their respective inventories, project stable review-set reference codes, accept lightweight full-set review replies, and carry accepted review outputs into downstream workflow without leaving dead frontier states. | `interview.test.ts`, `db.test.ts`, `app.test.ts` | D90, D94 |
+| I100 | `.brunch/` workspace resolution, launcher startup, actual bound URL reporting, and same-workspace runtime ownership stay correct in local-first distribution. | `project.test.ts`, `launcher.test.ts`, `cli.test.ts`, `runtime-config.test.ts` | D81 |
+| I101 | Grounding strategy and workspace-backed context gathering persist through schema, API, interviewer configuration, and observer context; grounding cards stay provisional and do not directly mutate durable knowledge. | `db.test.ts`, `interview.test.ts`, `app.test.ts`, `context.test.ts`, `observer.test.ts`, `ProjectList.test.tsx` | D82, D83, D98 |
+| I102 | File-route generation, directory-based nesting, and the three-shell route architecture remain the runtime routing source of truth; graph view stays code-split. | `router.test.tsx`, `file-route-*.test.ts`, `build-boundary.test.ts`, `GraphView.test.tsx` | D86 |
+| I103 | Trusted runtime-shaped fixture scenarios normalize back into the manifest seam, front-load the walkthrough seed catalog, and remain resumable/exportable through one canonical scenario format. | `corpus.test.ts`, `manifest.test.ts`, `walkthrough.test.ts` | D49 |
 
 ## Lexicon
 
-<!-- Canonical terms. Code names must match.
-     Method terms come first, then project-specific domain terms.
-     Survey with ln-review; realign with ln-refactor. -->
+### Core terms
 
-### Method terms
+| Term | Definition |
+| ---- | ---------- |
+| **workspace** | The cwd-backed software context whose local `.brunch/` directory stores specifications and runtime state. |
+| **specification** | One elicitation run within a workspace. Current DB/API internals still use `project` as the record name. |
+| **project** *(legacy internal term)* | The current implementation label for a specification record; not the preferred product term. |
+| **turn** | One persisted system-offered interaction on the active path, with typed offer/reply parts and parent linkage. Kickoff, question, review, closure, and recovery all use this seam. |
+| **turn kind** | The persisted control semantic on a turn: `question`, `kickoff`, or `recovery`. It determines frontier projection without relying on incidental copy or `why` text. |
+| **turn card** | The user-facing interaction unit inside the workspace transcript. Specific variants include kickoff, grounding, question, review, and control cards. |
+| **kickoff turn** | A fixed phase-entry turn that frames a newly opened phase and requires an explicit user action before the first generative move. |
+| **frontier turn** | The single actionable turn currently at the bottom of an open phase. |
+| **grounding card** | A turn card that presents provisional context from interviewer-invoked context gathering, accepts optional user comment, and completes through explicit continue. |
+| **question card** | A turn card that asks a structured interviewer question and expects a substantive user response. |
+| **review turn** | A full-set requirements or criteria review interaction that offers a synthesized candidate list with stable reference codes plus one review note field. |
+| **closure turn** | A durable control turn whose offer proposes closing a phase and whose reply explicitly accepts or rejects that proposal. Accepting it confirms the phase outcome on that same turn and immediately creates the next phase kickoff turn. |
+| **recovery turn** | An exceptional control turn used only when an open phase has lost its expected frontier and needs a visible next action restored. |
+| **active turn** | The live frontier turn currently awaiting user completion inside the workspace. |
+| **answered-turn card** | The compact replay form of a completed elicitation turn, summarizing the offer, the structured response, and the turn-owned capture status. |
+| **response note** | The single attached text field on a structured user response; it may explain selections, annotate a review, add missing context, or redirect the interviewer. |
+| **grounding** | The first phase of a specification, aimed at establishing enough orientation to proceed into design. Current internal phase key: `scope`. |
+| **grounding strategy** | The method used to reach grounding sufficiency: elicitation-first (`greenfield`) or analysis-first (`brownfield`). |
+| **grounding brief** | The concise visible summary surfaced on a grounding card after context gathering. |
+| **grounding sufficiency** | The threshold at which the interviewer has enough stable orientation to begin design. |
+| **review set** | A synthesized candidate list used in requirements or criteria review, presented with stable reference codes and resolved through `accept review` or `request changes` plus one review note. |
+| **accepted review set** | The terminal accepted review output for a review phase; this is the authoritative carry-forward set for later review and export seams. |
+| **phase entry state** | The workspace state shown when a phase kickoff turn is the current frontier. |
+| **phase handoff state** | The workspace state shown when a phase is complete and the next phase is available. |
+| **control marker** | A transcript-visible workspace event such as interview start, resume, or confirmation that is not rendered as a normal user chat bubble. |
+| **turn capture status** | The per-turn state describing what the observer has captured already, is still capturing, or failed to capture from that answered turn. |
+| **active path** | The trusted chain from HEAD to root in the primary conversation. |
+| **phase / mode** | One workflow stage: `scope` *(label: Grounding)*, `design` *(label: Elicitation)*, `requirements` *(label: Requirements)*, or `criteria` *(label: Acceptance Criteria)*. |
+| **phase outcome** | Durable closure artifact for a phase, including summary and closure basis. |
+| **closure basis** | Whether a confirmed phase close came from interviewer recommendation or explicit user-forced closure. |
+| **closeability** | Deterministic minimum bar for whether the user may close a phase now. |
+| **readiness band** | Coarse descriptive signal (`low`, `medium`, `high`) separate from closeability. |
+| **review action** | The explicit submit path on a review turn: `accept review` or `request changes`; the action gives any attached review note its meaning. |
+| **knowledge item** | Typed semantic record such as `goal`, `term`, `context`, `constraint`, `assumption`, `decision`, `requirement`, or `criterion`. |
+| **knowledge graph** | Typed relationships among knowledge items, including `depends_on`, `derived_from`, `constrains`, `verifies`, and `refines`. |
+| **secondary thread** | Modal revisit conversation anchored to a primary-path turn and used to resolve cascade implications. |
+| **needs-revisit** | Flag meaning an item is affected by upstream invalidation and must be explicitly resolved before the specification is whole again. |
+| **DrawerCard** | Shared card primitive with header/summary/children slots that supports static, summary-peeking, and toggleable (minimized ↔ maximized) render modes. A `locked` prop disables toggle for controlled-state cards. |
+| **ChatScroll** | Composite scroll container that wires Radix ScrollArea (custom scrollbar) with `useStickToBottom` (auto-scroll-to-bottom + scroll-down indicator). Used for the center pane transcript. |
+| **phase stepper** | The vertical timeline navigation in the left sidebar showing phases as sequential steps with connecting line, status, readiness, and turn count. |
+| **knowledge group** | A display-level grouping of knowledge kinds for the sidebar, defined by a hard-coded registry that maps kinds to group labels and visibility. |
+| **output view** | The terminal route available when all phases are closed, providing specification summary and markdown export. Not a workflow phase. |
+| **activity placeholder** | A compact transcript element between turn cards showing elapsed thinking time and tools used by the interviewer. |
 
-| Term            | Definition                                                                                     |
-| --------------- | ---------------------------------------------------------------------------------------------- |
-| **assumption**  | A falsifiable belief accepted as true; tracked with confidence, linked to decisions and slices |
-| **decision**    | A recorded choice that resolves a question; ordered, with supersession chain                   |
-| **invariant**   | A structural property proven by implementation and protected by tests; must not regress        |
-| **requirement** | A capability the system must provide                                                           |
-| **slice**       | A thin end-to-end tracer-bullet path through all integration layers                            |
-| **spike**       | A time-boxed throwaway investigation to answer one hard question                               |
+### Boundary terms
 
-### Domain terms
-
-| Term                   | Definition                                                                                                                                                                                                                                                                            |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **BrunchProject**      | The resolved `.brunch/` directory struct: `{ root, dbPath, cwd }`. Discovered by `findBrunchProject` (walk-up), created by `initBrunchProject`, or resolved by `resolveBrunchProject`. Represents the local storage location, not the elicitation run. See D81, I100.                  |
-| **project**            | A spec elicitation run within a `.brunch/` directory. Has a name, a HEAD pointer (`active_turn_id`), and workflow/readiness state. Multiple projects can coexist in one `.brunch/` directory (different runs, versions, or feature scopes).                                             |
-| **turn**               | A checkpoint in the interview history. Carries phase provenance plus typed interaction payloads and UI parts. Points to its parent turn. Turns belong to either the primary conversation or a secondary thread.                                                                        |
-| **active path**        | The chain from HEAD to root in the primary conversation. Determines which turns, knowledge items, phase outcomes, and review state are currently trusted. Secondary threads inherit validity from their anchor turn on the active path.                                                |
-| **phase** / **mode**   | A workflow stage of the interview: `scope`, `design`, `requirements`, `criteria`. Modes change interviewer behavior, observer extraction bias, and closure logic. They are not exclusive capture windows. Each phase maps to a client route segment: `/framing` (scope), `/elicitation` (design), `/requirements-review` (requirements), `/acceptance-review` (criteria). See D86. |
-| **choice turn**        | An exploratory interaction turn where the interviewer proposes structured options and strategic grounding. Supports zero/one/many selections plus a unified free-text response field that is optional when options are chosen and required when none are chosen.                      |
-| **review turn**        | A review interaction turn where the interviewer asks the user to approve, edit, reject, merge, or add to a synthesized item set. Early tracer bullets may approximate this with existing choice-turn responses before dedicated review-action payloads exist.                                  |
-| **turn response**      | The full structured user reply to a turn: chosen options plus optional/required free-text content. This is the conceptual answer shape even when compatibility scalars exist in storage or transport seams.                                                                           |
-| **free-text response** | User-authored text attached to a turn response. It can supplement chosen options or stand alone when no option fits.                                                                                                                                                                  |
-| **goal**               | A desired project outcome or value to optimize for: what the work is trying to achieve.                                                                                                                                                                                               |
-| **term**               | A named concept that needs stable definition so later discussion, review, and export use one lexicon consistently.                                                                                                                                                                    |
-| **context**            | A current-state fact, condition, or circumstance that shapes the problem space but is not itself a goal, constraint, assumption, decision, requirement, or criterion.                                                                                                                 |
-| **constraint**         | A boundary on the acceptable solution space, including hard limits, exclusions, and non-goals.                                                                                                                                                                                        |
-| **decision**           | A chosen fork or commitment in the design tree. Depends on earlier knowledge and can carry rationale.                                                                                                                                                                                 |
-| **assumption**         | A falsifiable belief that downstream choices rely on and that could prove false.                                                                                                                                                                                                      |
-| **requirement**        | A must-do capability of the system. Can surface in any mode, but is normalized and confirmed in requirements review.                                                                                                                                                                  |
-| **criterion**          | A verifiable success condition for a requirement. Can surface early, but is normalized and confirmed in criteria review.                                                                                                                                                              |
-| **framing**            | A transitional umbrella label from the current implementation for early scope capture. It currently mixes goals, terms, context, and similar scope-shaping material, and should be normalized into sharper canonical kinds rather than treated as a final durable ontology term.      |
-| **knowledge item**     | A semantic record in the knowledge layer. The target durable kinds are `goal`, `term`, `context`, `constraint`, `assumption`, `decision`, `requirement`, and `criterion`, with subtype support where needed.                                                                          |
-| **knowledge graph**    | The graph of knowledge items linked by typed edges such as `depends_on`, `derived_from`, `constrains`, `verifies`, `motivates`, `defines`, and `refines`.                                                                                                                            |
-| **capture-anytime**    | Rule that any knowledge kind may surface in any conversational mode.                                                                                                                                                                                                                  |
-| **review-in-phase**    | Rule that each mode owns the closure / approval of the item families it is responsible for.                                                                                                                                                                                           |
-| **close** (verb)       | Persist a phase outcome that ends the current phase on the active path. Distinct from merely having high readiness.                                                                                                                                                                   |
-| **phase status**       | Projected lifecycle state for a workflow mode on the active path: `unstarted`, `in_progress`, `closed`, or `invalidated`. Derived from phase outcomes plus current trust state rather than stored as a separate source of truth.                                                     |
-| **closeability**       | Deterministic, phase-specific minimum bar that determines whether the user is allowed to close a phase now. Separate from readiness and intended to be explainable in the frontend.                                                                                                   |
-| **readiness band**     | A coarse signal (`low`, `medium`, `high`) describing how well the current phase appears covered. Descriptive rather than gatekeeping. A snapshot may be captured on the phase outcome when the phase is closed.                                                                        |
-| **closure basis**      | Provenance for how a phase was closed, such as interviewer-recommended close accepted by the user versus user-forced close once closeability was satisfied.                                                                                                                           |
-| **phase outcome**      | The explicit workflow artifact for a mode: a proposed, closed, or superseded record tied back to the turn tree, carrying summary text, closure provenance, and any captured readiness snapshot.                                                                                       |
-| **knowledge review**   | An explicit per-item review record (`pending`, `approved`, `edited`, `rejected`, `stale`) tied to the mode responsible for closing that item family.                                                                                                                                  |
-| **branch** (verb)      | Fork the turn tree from a given turn, creating a new path and moving HEAD. Analogous to git branch + checkout. Deferred for V1 — revisit operates at the knowledge-graph level instead.                                                                                               |
-| **checkout** (verb)    | Move HEAD to an existing turn on a different branch without creating new turns. Analogous to git checkout. Deferred for V1.                                                                                                                                                           |
-| **graph view**         | A code-split view mode in ViewLayout activated by `?view=graph`. Displays all project entities grouped by kind (8 groups from `knowledgeKindRegistry`) with inline relationship indicators and kind filter controls. Replaces the chat+sidebar two-column layout when active. Phase-of-capture filtering remains deferred until the entities API exposes per-item phase provenance. See D86, D87, I102. |
-| **edit mode**          | A modal state in the ViewLayout knowledge sidebar or Graph view where the user can invalidate or remove knowledge items. Exiting edit mode triggers cascade calculation and spawns a secondary thread if items are affected. See D80.                                                                         |
-| **secondary thread**   | A modal conversation thread spawned to re-resolve knowledge graph implications after edit-mode changes. Anchored to the highest turn in the primary conversation associated with affected items. Carries its own turns; knowledge items created here inherit validity from the anchor. See D80, D84. |
-| **needs-revisit**      | Flag on a knowledge item indicating it has been affected by an upstream invalidation/removal and must be resolved (modified, replaced, or confirmed still valid) through a secondary thread before the project can return to a complete state.                                         |
-| **greenfield**         | A project starting from a blank concept with no existing codebase context. The default first-screen path.                                                                                                                                                                             |
-| **brownfield**         | A project within an existing codebase. The first-screen brownfield path triggers agent codebase exploration before the first interview turn. See D82, D83.                                                                                                                            |
-| **soft invalidation**  | Readiness staleness caused by upstream change in the knowledge graph. Cascade traces through knowledge graph edges (D17). Affected phase outcomes reopen. Entities are not automatically deleted — they are flagged `needs-revisit` for explicit re-resolution.                         |
-| **interviewer**        | The primary agent role: conducts the interview and review modes. It should propose structure, ask for rationale, and surface tradeoffs; it does not own semantic extraction.                                                                                                          |
-| **observer**           | The secondary agent role: performs a structured extraction pass after each answered turn, producing knowledge items and graph edges from a phase-aware context projection.                                                                                                            |
-| **core**               | The interface-agnostic service layer between the database and transport adapters. Owns turn preparation/finalization, context building, project state, knowledge lifecycle, readiness lifecycle, and export.                                                                          |
-| **spec readiness**     | Compound predicate: each mode has a closed, non-invalidated phase outcome, all in-scope requirements and criteria are review-complete, and no unresolved upstream staleness remains.                                                                                                  |
-| **UIMessage**          | AI SDK source of truth for UI state. `{ id, role, parts[], metadata? }`. Persisted for faithful resume. Reconstructed from stored `user_parts`/`assistant_parts` JSON on hydration. See D23.                                                                                          |
-| **ModelMessage**       | AI SDK representation optimized for LLM inference. Derived at call time by context builders (D25), never persisted. Leaner than `UIMessage` — no tool states, no reasoning, no custom data parts.                                                                                     |
-| **parts[]**            | Ordered array of typed content blocks in a `UIMessage`. Built-in types: `text`, `reasoning`, `tool-{name}`, `file`. Custom types via Data Parts: structured selections, confirmations, summaries, observer results, review actions, etc. Source of truth for rendering. See D23, D24. |
-| **Data Part**          | Custom typed `UIMessage` part (`data-{name}`) defined via Zod schema. Enables structured user input and domain-specific assistant output. Persisted in `parts[]` JSON. See D24.                                                                                                       |
-| **context builder**    | A typed function that projects turn-tree + knowledge + readiness data into inference context for a specific consumer (interviewer, observer, phase closure, review modes). Reads from the domain model, not from persisted parts. See D25.                                            |
-| **in-band sync**       | Observer knowledge updates delivered as typed data parts on the existing chat SSE stream. Default mechanism — zero additional infrastructure (D22).                                                                                                                                   |
-| **out-of-band sync**   | Observer knowledge updates delivered via a dedicated `EventSource` SSE channel (`/api/events/:projectId`). Fallback mechanism if observer becomes async (D22).                                                                                                                        |
-| **cache invalidation** | Signaling TanStack Query that cached data is stale. In the current web path, `useChat` `onData` invalidates the entity query from observer results, while route invalidation refreshes durable project state on stream completion.                                                    |
-| **ToolLoopAgent**      | AI SDK's built-in agent class that manages the model → tool-call → execute → re-submit loop. Powers the interviewer. Configured with `tools`, `stopWhen`, `providerOptions`. Methods: `generate()` (non-streaming), `stream()` (streaming). See D30.                                  |
-| **generateObject**     | AI SDK function for structured output. Takes a Zod schema and returns a validated object. Powers the observer's extraction pass. See D30.                                                                                                                                             |
-| **core tools**         | 7 generic filesystem tools (read, write, edit, bash, grep, find, ls) in `src/server/tools/`. Factory: `createCoreTools(cwd)`. Follow pi-mono's pattern. See D32.                                                                                                                      |
-| **BrunchUIMessage**    | `UIMessage<BrunchMessageMetadata, BrunchDataParts, BrunchUITools>` — the typed message contract spanning server validation, persistence, SSE streaming, and client hydration. Defined in `src/shared/chat.ts`.                                                                        |
+| Term | Definition |
+| ---- | ---------- |
+| **greenfield** | A grounding strategy for a new concept or under-specified area where the system grounds primarily through elicitation. |
+| **brownfield** | A grounding strategy for work inside an existing codebase where the system grounds through analysis, then interrogation. |
+| **context-gathering capability** | An interviewer-invoked capability such as workspace analysis or future web research that gathers provisional orientation for the next move. |
+| **BrunchUIMessage** | Typed UI message contract spanning validation, persistence, SSE streaming, and hydration. |
+| **Data Part** | Typed custom message part used for structured input and domain-specific assistant output. |
+| **context builder** | Typed projection from specification state into inference context for interviewer, observer, or closure logic. |
+| **walkthrough scenario** | Named trusted fixture scenario used to seed a resumable manual-inspection workspace. |
 
 ## Verification Design
 
-<!-- Verification is first-class work, not accessory. Designing and creating oracles is
-     second only to building the product itself. Every slice must declare its verification
-     approach as part of scoping; a slice without an oracle strategy is not scoped.
-
-     Three-tier feedback loops, cheapest first.
-     Inner: agent-autonomous, always-on (ms–seconds).
-     Middle: regression gates (seconds–minutes).
-     Outer: human observer, strategy redirect (minutes–hours).
-
-     Oracle taxonomy (Regehr): the best oracle removes the most bad degrees of freedom
-     per unit time. Coverage is easy to game; choose oracles that constrain actual wrongness. -->
-
-### Verification Stance
-
-Verification is not a phase that follows implementation — it is integral to every slice. A slice that ships code without declaring and building its oracles is incomplete. The `ln-scope` skill must name the oracle strategy; `ln-build` must implement it alongside the production code; `ln-review` must audit oracle coverage alongside code quality.
-
-### Diagnostic Assessment
-
-Scored per the arc-oracle diagnostic framework (high / partial / low):
-
-| Dimension           | Score   | Notes                                                                                                                                                                                                                                                                                       |
-| ------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Observability**   | partial | Inner/middle: high for persisted response structure, hydration state, interviewer-context projection, observer-created entity persistence, and explicit phase-outcome lifecycle because those seams are text-native and testable. For slice 9.1, the remaining partial is requirements-review groundedness: tests can prove the current requirement inventory reaches the interviewer seam and survives the review loop, but whether the emitted review prompt is genuinely useful still requires manual judgment. |
-| **Reproducibility** | partial | Deterministic systems (turn tree, DB, schema validation, context projection, readiness records): high. LLM boundary (interviewer output, observer extraction): low — non-deterministic. For slice 6d, the first 6f widening step, slice 7 phase closure, and slice 9.1 requirements review, we therefore prove structural coherence in the middle loop and defer qualitative ontology/closure/review judgment to the outer loop while prompt shape and review semantics are still settling. |
-| **Controllability** | partial | Single-user, local SQLite, mocked `generateText`, and explicit DB/API/sidebar seams keep the structural parts of observer widening, phase outcomes, and the first requirements-review loop agent-controllable. The remaining partial is qualitative review adequacy: groundedness and usefulness of the requirements-review prompt still need a human walkthrough, so the agent cannot fully close the loop autonomously yet. |
-
 ### Verification Commands
 
-| Step | Check             | Command             |
-| ---- | ----------------- | ------------------- |
-| 1    | Formatting        | `npm run fmt:check` |
-| 2    | Lint + type check | `npm run lint`      |
-| 3    | Unit tests        | `npm run test`      |
-| 4    | Build             | `npm run build`     |
-| all  | Full pipeline     | `npm run verify`    |
-
-Tooling: oxfmt (formatting), oxlint + tsgolint (lint + type-aware + type-check), vitest (tests), vite (build). Replaces eslint + `tsc --noEmit`.
+| Step | Check | Command |
+| ---- | ----- | ------- |
+| 1 | Formatting | `npm run fmt:check` |
+| 2 | Lint + type check | `npm run lint` |
+| 3 | Unit tests | `npm run test` |
+| 4 | Build | `npm run build` |
+| all | Full gate | `npm run verify` |
 
 ### Verification Policy
 
-End-to-end slices must be **user-testable**, not just programmatically tested. Each slice that touches the user-facing boundary should be manually verifiable via `npm run dev` (or equivalent). Use `/cli-cmux` for dev server panes and `/cli-cdp` for browser interaction during outer-loop verification.
+Every meaningful code change should pass `npm run fix` in the inner loop and `npm run verify` before commit. Slices that touch the user-facing boundary should also stay manually walkthrough-able via the local app.
+
+### Verification Stance
+
+- Verification is first-class work; this wave stays **manual-heavy by deliberate choice**, not by accident.
+- **Inner loop** proves structural validity, boundary safety, and non-destructive behavior.
+- **Middle loop** proves replay, refresh-boundary ownership, and explicit state projection where cheap automated checks can remove bad degrees of freedom.
+- **Outer loop** is the authority for brownfield grounding quality, transcript legibility, waiting-state clarity, and phase-layout differentiation.
+- Outer-loop UI review uses a **dramaturgical see-and-inspect** posture: judge whether the product stages its state transitions legibly for a human, not just whether bytes round-trip.
+
+### Diagnostic Assessment
+
+| Dimension | Score | Notes | Change trigger |
+| --------- | ----- | ----- | -------------- |
+| Observability | partial | Persistence, manifests, DB state, and route seams are visible in text, but the most important failures in this wave still present as browser-visible transcript disappearance, waiting-state ambiguity, and layout legibility issues. | Promote instrumentation if manual browser inspection cannot explain refresh or lock behavior confidently. |
+| Reproducibility | partial | Trusted manifest seeding and capture-backed corpus give a strong base, but brownfield kickoff quality still varies by repo shape and live refresh behavior is not yet represented by a canonical replay matrix. | Promote a stronger corpus or replay harness if ad hoc brownfield/manual checks stop being trustworthy. |
+| Controllability | partial | The agent can iterate on fixtures, stories, and structural tests autonomously, but the core acceptance signals for this wave remain human judgment calls. | Raise controllability only if manual review becomes the bottleneck or repeated ambiguity blocks progress. |
 
 ### Oracle Strategy by Loop Tier
 
-<!-- Oracle families drawn from Regehr's taxonomy. Each oracle is mapped to the invariant
-     or claim it proves, the loop tier it belongs to, and its cost/signal tradeoff.
-     The combination principle: the best oracle is often a pair of independent artifacts. -->
+| Tier | Oracle families | What they prove | Main targets |
+| ---- | --------------- | --------------- | ------------ |
+| Inner | Schema validation, type-aware linting, focused unit/integration tests, negative-space regressions | Boundaries remain type-safe; persistence and transport seams do not silently collapse; obvious bad failures are caught cheaply. | I4, I17, I24, I44, I48, I54, I72, I87, I100, I101, I102, I103 |
+| Middle | Round-trip / replay oracles for seeded projects, hydration, export, and resume | Seeded or persisted state can be loaded, projected, re-rendered, and exported without losing required semantic markers. | Requirements 13, 14, 15; I24, I44, I100, I103 |
+| Middle | Route/query ownership integration oracles | Observer updates and response mutations refresh only their owned surfaces instead of tearing down unrelated transcript state. | Requirements 5, 7, 14; A20, A50; I24, I54, I102 |
+| Middle | Explicit state-model oracles for in-flight UI states | Every major in-flight mode is named, projectable, and visibly representable instead of collapsing into one opaque loading bit. | Requirement 5; I24, I44 |
+| Outer | Fixture-backed manual walkthroughs on seeded scenarios | Walkthrough fixtures are useful enough to inspect phase transitions, export output, resume behavior, and missing-view discovery. | Requirements 13, 14, 15; I100, I103 |
+| Outer | Brownfield kickoff walkthroughs on real repos, evaluated qualitatively | Kickoff yields durable useful knowledge and a grounded first question for feature-area work, without needing a fully automated quality score. | Requirements 3, 16; A47; I101 |
+| Outer | Dramaturgical story and transcript review | Phase differentiation, transcript artifact legibility, and waiting-state clarity are judged as staged user experience rather than just structural output. | Requirement 5; A15, A28, A40, A44, A50 |
 
-**Inner loop** (ms–seconds): agent-autonomous, always-on
+### Design Notes
 
-| Oracle family                   | What it proves                                                                                                                                                                                          | Protects                               | Cost                                  |
-| ------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- | ------------------------------------- |
-| Schema validation               | LLM tool output conforms to the active turn/review/response payload schema; non-LLM boundaries (SDK output, persistence, server-to-client) trust TypeScript types                                      | I16 (planned), I17                     | Negligible — Zod parse on tool output |
-| Fast unit tests — SSE           | `SDKMessage` → correct SSE event strings                                                                                                                                                                | I1, I3, I7                             | ms                                    |
-| Fast unit tests — DB            | Turn persistence with phase provenance, entity writes with dependency edges                                                                                                                             | I5, I6, I9, I10, I11                   | ms                                    |
-| Fast unit tests — core          | DomainEvent streaming, core/adapter separation, structured turn creation                                                                                                                                | I12, I13                               | ms                                    |
-| Fast unit tests — parts         | Parts round-trip (DomainEvents → assemble → persist JSON → load → hydrate); Data Part schema validation (Zod parse on structured user input); context builder output shape                              | I17, I18, I19                          | ms                                    |
-| Fast unit tests — turn response | Structured turn-response schema and submit seams establish zero/one/many selected-option arrays plus the required-free-text rule; interviewer context projection stays response-shaped, not scalar-only | I17, I18, I19, I44                     | ms                                    |
-| Fast unit tests — observer sync | `observer-complete` emitted post-commit with entity IDs matching DB state; SSE adapter encodes as typed data part                                                                                       | D22, A20                               | ms                                    |
-| Fast unit tests — phase outcome lifecycle | Explicit phase-outcome records persist proposal/confirmation state, derive current readiness from the active path, and supersede correctly when upstream turns change                                     | I18, I24, I72                          | ms                                    |
-| Type-aware linting              | Semantic static checks (oxlint + tsgolint)                                                                                                                                                              | All                                    | ms                                    |
-
-**Middle loop** (seconds–minutes): regression gates
-
-| Oracle family                     | What it proves                                                                                                                           | Protects                                    | Cost                                     |
-| --------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- | ---------------------------------------- |
-| Differential testing (observer)   | Observer extraction meets ≥80% entity capture rate against golden master fixtures                                                        | I48, I54                                    | seconds per fixture; requires Claude API |
-| Round-trip oracle (turn response) | Structured turn response survives submit → persistence → hydration → interviewer-context composition with no drift                       | I17, I18, I19, I22, I44                     | seconds                                  |
-| Round-trip oracle (turn tree)     | Structured turns → active path → entity resolution intact                                                                                | I6, I9, I10                                 | ms                                       |
-| Integration tests                 | SSE stream contains expected event types in order; DB lifecycle survives close/reopen                                                    | I2, I5, I13, I14                            | seconds                                  |
-| Round-trip oracle (observer sync) | Mocked observer widening survives result schema → persistence → entities API → sidebar refresh with no drift                            | I20, I21, I23, A20                          | seconds                                  |
-| Round-trip oracle (phase outcome) | Mocked phase-closure proposals plus user confirmation survive submit → persistence → project reload → workspace workflow-state projection with no drift, including the first requirements closeability/proposal path | I18, I24, I72, I87                         | seconds                                  |
-| Model-based lifecycle oracle (phase outcome) | A tiny reference state machine (`none → proposed → confirmed → superseded/stale`) matches real readiness behavior across refresh, revisit, and active-path changes, including requirements staying `in_progress` while proposal is pending | I24, I72, I87, A15                         | seconds                                  |
-| Contract testing (requirements-review grounding) | The first requirements-review tracer bullet proves two contracts independently: the current requirement inventory reaches the requirements-mode interviewer context, and the emitted review turn stays requirements-shaped rather than falling back to generic design follow-up behavior | I19, A44                                   | seconds                                  |
-| Round-trip oracle (requirements review) | A requirements-review turn plus a user reply about either a missing requirement, a targeted approval, or a targeted rejection survives submit → persistence → requirement review linkage / observer result → entities API → workspace/sidebar refresh with no drift | I18, I21, I23, I87, A44                    | seconds                                  |
-| Model-based lifecycle oracle (requirements review) | A tiny reference rule proves the first requirements-review interactions leave `requirements` active, `in_progress`, and not yet closeable rather than accidentally reusing scope/design closure semantics | I24, I87, A15, A44                         | seconds                                  |
-
-**Outer loop** (minutes–hours): human observer
-
-| Oracle family                                | What it proves                                                                                                                                                    | Cost                         |
-| -------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------- |
-| Debug mode (observer visibility)             | Observer extraction is inspectable per-turn during manual testing                                                                                                 | UI delta on slice 5/6        |
-| Manual interview walkthrough — turn response | Zero/one/many option responses plus free-text-only replies remain coherent in runtime and give the interviewer enough structured context for a sensible follow-up | Human + browser              |
-| Manual interview walkthrough                 | Structured questions render correctly; interview quality is acceptable                                                                                            | Human time                   |
-| Fixture capture from manual runs             | Bootstrap golden master fixtures by querying DB after confirmed-good sessions                                                                                     | Human judgment + SQL query   |
-| Rich chat rendering                          | Tool call states, reasoning collapse, message parts render by type                                                                                                | Human + `/cli-cdp`           |
-| Resume test                                  | Close/reopen browser, verify state intact                                                                                                                         | Human + browser              |
-| Observer → sidebar reactivity                | `onData` → query invalidation updates sidebar after observer extraction                                                                                           | Human + `/cli-cdp` (slice 6) |
-| Manual phase-closure walkthrough             | The interviewer proposes scope closure at sensible moments, the summary is understandable, and confirmation/transition UX is coherent                                                                  | Human + browser (after 7a)   |
-| Manual requirements-review walkthrough       | The requirements-review turn feels grounded in the current requirement set, the reused choice-turn UI is acceptable for completeness review, the first explicit approve/reject actions remain legible as review state rather than deletion or invalidation, and the first close proposal feels timely once review coverage is complete | Human + browser              |
-
-### Design notes
-
-- **6d response-model oracle boundary** — Middle-loop oracles for slice 6d prove structural coherence only: the same turn response shape must survive submit, persistence, hydration, and interviewer-context projection. They do not attempt to score the quality of the next interviewer turn.
-- **Unified free-text field** — For slice 6d, rationale and custom-answer semantics are intentionally unified into one free-text response field. The oracle locks the cardinality rule: free text is optional when at least one option is chosen and required when zero options are chosen.
-- **Response-shaped projection over scalar answer wording** — The interviewer projection oracle should lock grouping and presence of chosen options and free-text content, but not exact prose. The goal is to move away from scalar-only `Answer:` semantics without overfitting prompt wording too early.
-- **No bridge oracle for `turn.answer`** — Because the project is still early and a breaking change is acceptable, oracle design does not spend budget on proving compatibility behavior for a scalar `turn.answer` seam.
-- **6f.1 observer-widening oracle boundary** — The first phase-aware observer slice should prove only structural coherence: mocked scope-mode `framing` output survives schema validation, generic persistence, entities API projection, and sidebar refresh. It should not gate on live-model framing quality while the ontology and label activations are still settling.
-- **Ontology fit is an outer-loop judgment first** — For the generic knowledge layer, semantic concerns (whether `framing` vs `assumption` vs early `requirement` is the right cut) are more important than transport plumbing, but they are not yet reproducible enough for a gating middle-loop oracle. Manual walkthroughs should judge kind discrimination and usefulness; fixture capture can bootstrap future differential observer probes once the typology stabilizes.
-- **No migration-hardening oracle for observer widening** — Existing data is not valuable enough yet to justify bridge or compatibility oracles across these observer-schema changes, so verification budget should go to current-state structural coherence and semantic quality instead.
-- **Slice 7 phase-closure oracle boundary** — Before 7a, slice 7 should prove the explicit readiness seam, not closure taste. The recommended pair is (1) a round-trip oracle over mocked `phase-summary` + `confirmation` artifacts and (2) a tiny model-based lifecycle oracle over `none → proposed → confirmed → superseded/stale`. This assumes a durable explicit phase-outcome record rather than inferred `turn.is_resolution` semantics.
-- **Deferred qualitative closure judgment is deliberate, not accidental** — For slice 7, summary quality and closure timing are acknowledged blind spots until 7a sharpens the ontology and knowledge-workspace direction. The middle loop should therefore lock proposal shape, confirmation persistence, active-path projection, and supersession semantics without pretending the model's closure judgment is already trustworthy.
-- **Slice 9.1 requirements-review oracle boundary** — The first requirements-review tracer bullet proves set-level completeness review, not full per-item approval semantics. The middle loop should lock two independent structural artifacts — (1) the current requirement inventory reaches the requirements-review interviewer seam and (2) a requirements-review reply about missing requirements survives the existing turn-response + observer + workspace refresh loop — while the outer loop judges whether the emitted review turn actually feels grounded and useful.
-- **Slice 9.2–9.5 requirements-review oracle boundary** — The current tracer bullets prove explicit per-item approval/rejection actions plus the first deterministic closeability/proposal/confirmation seam, not the full review lifecycle. The middle loop should lock (1) targeted approval/rejection turns carrying explicit review metadata, (2) matching responses producing durable active-path `reviewed` / `rejected` links for the named requirement, (3) read-side projection of `approved` / `rejected` / `pending` requirement state in the entities/sidebar seam, (4) a closeability/proposal round-trip in which fully reviewed requirements can emit a shared `data-phase-summary` proposal without yet closing the phase, and (5) a confirmation/handoff round-trip in which that proposed close advances the next interviewer turn into `criteria` without stale requirements-mode instructions.
+- **Legible replay fidelity beats exact replay fidelity for now** — hydrated transcripts may use placeholders or summary markers to indicate that reasoning or tool activity happened at a point in the conversation, even if the full original content is not persisted.
+- **Turn-first replay now beats message-first replay** — for scope/design, the replay unit should trend toward completed turns plus one live unresolved turn, not alternating assistant/user chat bubbles and stream markers.
+- **Brownfield kickoff has a deliberately modest proof bar** — this wave only needs durable useful knowledge plus a grounded first question, not a fully proven framing bundle before scope can proceed.
+- **Waiting states should become an explicit vocabulary in code** — the user-facing contract is that each major in-flight mode is visibly represented; deep lock/wait introspection is diagnostic scaffolding, not yet a product requirement.
+- **Manual verification is intentionally lightweight** — no heavyweight scripted walkthrough protocol yet; use seeded scenarios and see-and-inspect review rather than bureaucratic checklists.
+- **Kickoff strategy comparison stays qualitative unless proven insufficient** — if the brownfield mode fork remains ambiguous after manual repo comparisons, promote that question to a spike with a stronger comparison harness.
 
 ### Acknowledged Blind Spots
 
-| Blind spot                                              | Reason                                                                                                                              | Mitigation                                                                        | Revisit trigger                                                          |
-| ------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------- | ------------------------------------------------------------------------ |
-| Next-turn interviewer quality after response remodeling | Qualitative LLM behavior is non-deterministic and too expensive to gate in the middle loop while the response shape is still moving | Manual interview walkthrough in outer loop                                        | Revisit once response shape stabilizes across several remodelings        |
-| Exact interviewer projection wording                    | Prompt prose is still evolving; locking exact labels now would create churn without much signal                                     | Lock structure/grouping rather than exact text in projection tests                | Revisit when prompt vocabulary and transcript copy settle                |
-| Full breadth of future response variants                | Slice 6d starts by proving the general response-model seam, not every future UI variant or review action                            | Keep schema and projection extensible; add focused slice oracles as variants land | Revisit when multi-select UX and later review actions are implemented    |
-| Legacy scalar-answer compatibility                      | Existing data is not important enough to justify migration hardening, and a breaking change is acceptable                           | Skip bridge oracle; refactor directly toward the structured response model        | Revisit only if an external consumer starts depending on the scalar seam |
-
-### Observer History Projection
-
-<!-- Design note for the observer's verification context. -->
-
-The observer and interviewer receive the same conversation but through different projections. The interviewer receives conversational context ("where are we in the design space"). The observer receives extraction context: the existing knowledge graph (knowledge items, edges, and relevant readiness hints established so far) plus the current turn's Q&A. This makes each extraction incremental — "given what we already know, what did *this turn* add or revise?" — which sharpens the differential oracle: comparing the delta, not the total.
-
-This projection difference is a deliberate design choice, not an implementation detail. It affects prompt design, fixture structure, and evaluation criteria.
-
-### Acknowledged Blind Spots
-
-<!-- Arc-oracle requires naming what verification does NOT cover and why.
-     A verification design with no blind spots is incomplete. -->
-
-| Blind spot                         | Why uncovered                                                                                                                                                                                                                                                    | Mitigation                                                                                                                                                                                                                  | Revisit trigger                                                                                                    |
-| ---------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
-| Interview quality                  | LLM judgment; no programmatic oracle. Skill paradigm (D2) is the primary quality lever.                                                                                                                                                                          | Manual outer-loop testing.                                                                                                                                                                                                  | If interview quality proves inconsistent across project types.                                                     |
-| Observer extraction variance       | Spike measures capture rate single-shot per fixture; multi-run variance not measured.                                                                                                                                                                            | Acceptable for initial delivery.                                                                                                                                                                                            | If extraction consistency degrades as history grows.                                                               |
-| Cumulative entity graph integrity  | Individual extractions may be correct but compose into an incoherent graph over 15-20 turns. No programmatic check for drift.                                                                                                                                    | Debug mode (human eyeballs the growing graph). Future: structural property tests (no orphaned edges, no DAG cycles, monotonic entity count).                                                                                | After observer slice lands and manual testing reveals graph-level issues.                                          |
-| Ontology sharpness / kind discrimination | The generic knowledge-item typology is still being pressure-tested for semantic separation and naming quality, so a schema-valid observer result may still be conceptually wrong.                                                                                | Treat 6f.1 as structural-only in the middle loop; use manual walkthroughs to judge whether extracted `framing` is truly framing and capture confirmed-good sessions as future fixtures.                                       | Revisit once several good/bad observer examples have been captured and the kind vocabulary feels stable.           |
-| Phase transition UX                | Summary quality, resolution timing, confirmation flow. Fully visual.                                                                                                                                                                                             | Middle loop proves proposal contract, persistence, projection, and supersession. Manual phase-closure walkthroughs now possible with rich fixture scenarios (11c). | Revisit during outer-loop testing before distribution (slice 14). |
-| Requirements-review prompt grounding | Slice 9.1 proves the requirement inventory reaches the interviewer seam and the review loop stays coherent, but it does not force the emitted review question to quote or deeply reason over specific requirement text.                                                                                        | Manual requirements-review walkthrough judges whether the first review turn feels grounded enough; promote to a stronger contract or fixture-backed oracle if it feels generic.                                                                                      | Revisit if manual runs show requirements-review prompts drifting into generic follow-up instead of requirement-set review.                                |
-| Per-item requirement review semantics | Slices 9.2 and 9.3 now prove explicit requirement-level approval and rejection actions with durable `approved` / `rejected` / `pending` projection, but they still do not cover edit/add-missing payloads, merge semantics, or stale-state invalidation.                                                                                                        | Keep the first per-item slices narrow; add focused review-action seams and oracles for edit/add/merge/stale behavior in later tracer bullets.                                                                                                                           | Revisit when scoping the next tracer bullet inside slice 9.                                                       |
-| Criteria synthesis after requirements handoff | Slices 10.1–10.3 now prove criteria grounding in approved requirements, per-criterion review state, and criteria closure through the shared seam. Not yet proven: whether criteria synthesis quality holds across varied project types. | Middle loop covers structural grounding + lifecycle. Manual walkthroughs now possible with rich fixture scenarios (11c). | Revisit during outer-loop testing before distribution (slice 14). |
-| Performance under realistic load   | 20+ turns, growing history summaries, observer latency. No budget oracle.                                                                                                                                                                                        | Acceptable for single-user tool.                                                                                                                                                                                            | If latency becomes noticeable during manual testing.                                                               |
-| `onData` stale-closure correctness | The interview seam now has a component-level integration oracle, but it still mocks `useChat` and does not prove the exact live browser/runtime behavior of the AI SDK hook. Known `onFinish` stale-closure bug (ai-sdk#550) may still affect production wiring. | `InterviewView.test.tsx` protects the app-side invalidation logic; manual outer-loop validation remains required for live browser/runtime confirmation. If broken, fall back to parallel `EventSource` (D22 Option 2). | If sidebar fails to update after observer extraction during manual testing.                                        |
-| Parts/scalar consistency           | Persisted `assistant_parts` and scalar fields (`question`, `why`, `impact`, options) are two representations of the same turn content. No programmatic check that they agree.                                                                                    | Acceptable for initial delivery — scalars are written by MCP tool handler, parts assembled from stream. Both derive from the same `query()` call. Future: metamorphic oracle (text in parts matches scalars).               | If turns appear correct in one view (parts-based UI) but wrong in another (scalar-based entity queries or export). |
+| Blind spot | Reason | Current mitigation | Revisit trigger |
+| ---------- | ------ | ------------------ | --------------- |
+| Qualitative interviewer and kickoff quality across many repo shapes | Chosen manual-first; no broad brownfield corpus or score harness yet | Manual brownfield walkthroughs on representative repos | Brownfield regressions recur or kickoff strategy debates cannot be resolved qualitatively |
+| Transcript trust and readability after hydration | Exact replay of all reasoning/tool detail is intentionally deferred | Legible placeholders/summary markers plus manual transcript review | Users still cannot understand what happened after replay despite visible markers |
+| Actual lock/wait causality in the UI | Instrumentation is not yet the primary investment | Require explicit visible in-flight states and inspect browser behavior manually | Manual inspection cannot explain a repeated perceived lock or disappearance bug |
+| Story quality and phase differentiation | Design quality is not executable in a trustworthy way yet | Story variants reviewed against seeded walkthrough findings | Story/app drift grows or design disagreement blocks implementation |
+| Observer latency and layout refresh freshness | No explicit latency budget or perf gate yet | Runtime observation during manual sessions | A20 or A50 show recurring latency or coarse refresh pain |
+| Revisit UX and secondary-thread adequacy | That seam is still future work | Keep structural coverage on graph/persistence seams only | Revisit work moves from horizon into the active frontier |
 
 ### Current Coverage
 
-<!-- Updated by ln-build traceability after each slice. -->
+| File | Protects |
+| ---- | -------- |
+| `db.test.ts` | I48, I72, I101 |
+| `core.test.ts` | I48 |
+| `app.test.ts` | I54, I72, I87 |
+| `context.test.ts` | I44, I54 |
+| `observer.test.ts` | I48, I54 |
+| `EntitySidebar.test.tsx` | I48 |
+| `InterviewView.test.tsx` | I24, I44, I48, I54, I72 |
+| `interview.test.ts` | I87, I101 |
+| `phase-close.test.ts` | I72 |
+| `router.test.tsx` | I102 |
+| `GraphView.test.tsx` | I48, I102 |
+| `project.test.ts` / `launcher.test.ts` / `runtime-config.test.ts` | I4, I100 |
+| `corpus.test.ts` / `manifest.test.ts` / `walkthrough.test.ts` | I103 |
 
-| File                          | Tests | Protects                                              |
-| ----------------------------- | ----- | ----------------------------------------------------- |
-| db.test.ts                    | 48    | I5, I6, I9, I10, I11, I20, I48, I54, I72, I87, I98, I101 |
-| knowledge.test.ts             | 1     | I48                                                   |
-| app.test.ts                   | 47    | I1, I2, I3, I7, I14, I21, I23, I44, I48, I54, I72, I87, I98, I99, I101 |
-| core.test.ts                  | 10    | I12, I13, I18, I72, I87                               |
-| interview.test.ts             | 17    | I16, I72, I87, I101                                   |
-| parts.test.ts                 | 15    | I17, I18, I44, I54, I72                               |
-| context.test.ts               | 15    | I19, I44, I48, I54, I87                               |
-| observer.test.ts              | 9     | I20, I21, I44, I48, I54                               |
-| phase-close.test.ts           | 13    | I72                                                   |
-| turn-response.test.ts         | 4     | I44                                                   |
-| main.test.tsx                 | 1     | I15                                                   |
-| router.test.tsx               | 6     | I15, I102                                             |
-| InterviewView.test.tsx        | 12    | I15, I23, I24, I44, I48, I54, I72                     |
-| ProjectList.test.tsx          | 4     | I15, I24, I101                                        |
-| -interview-data.test.ts       | 8     | I24, I48, I72                                         |
-| -interview-hydration.test.ts  | 2     | I24                                                   |
-| -interview-controller.test.tsx | 5    | I24, I48                                              |
-| client-mutation.test.ts       | 6     | I24                                                   |
-| EntitySidebar.test.tsx        | 2     | I48, I87                                              |
-| GraphView.test.tsx            | 5     | I48, I102                                             |
-| code-block.test.tsx           | 4     | I24, I26                                              |
-| markdown-rendering.test.tsx   | 3     | I24, I31                                              |
-| message.test.tsx              | 2     | I24, I27                                              |
-| build-boundary.test.ts        | 1     | I24, I28, I32, I102                                   |
-| capability-boundaries.test.ts | 2     | I24, I29                                              |
-| file-route-infra.test.ts      | 1     | I102                                                  |
-| file-route-dashboard.test.ts  | 1     | I102                                                  |
-| file-route-interview.test.ts  | 3     | I102                                                  |
-| file-route-export.test.ts     | 1     | I102                                                  |
-| project.test.ts               | 10    | I100                                                  |
-| launcher.test.ts              | 5     | I5, I100                                              |
-| cli.test.ts                   | 1     | I100                                                  |
-| runtime-config.test.ts        | 7     | I4, I100                                              |
-| api-types.test.ts             | 8     | —                                                     |
-| export-loader.test.ts         | 4     | D26, D65, D66, D70                                    |
-| ExportPreview.test.tsx        | 2     | I15, D26, D65, D66, D70                               |
-| export.test.ts                | 9     | D26, D65, D66, D70                                    |
-| manifest.test.ts              | 5     | —                                                     |
-| corpus.test.ts                | 3     | I103                                                  |
+## Acceptance Criteria
 
-## Acceptance Criteria (exit conditions)
-
-1. `npx brunch` in a project directory with `ANTHROPIC_API_KEY` in scope opens a working app in the browser, with state in local `.brunch/`
-2. First screen offers greenfield vs brownfield choice; brownfield triggers agent codebase exploration that grounds the first interview turn
-3. Starting a new project launches an interview in scope mode with structured exploratory turns that support rationale and custom answers
-4. The observer extracts typed knowledge items and graph edges from each answered turn, visible through a durable knowledge surface rather than only transient chat state
-5. The knowledge graph is navigable — user can inspect what important items depend on, derive from, constrain, motivate, define, or verify, through the ChatLayout knowledge sidebar (compact, filterable) and the Graph view mode (`?view=graph`) rather than a narrow sidebar alone
-6. Each workflow mode surfaces closeability and readiness clearly, allows close once the minimum bar is met, and records an explicit phase outcome with summary and closure basis
-7. Invalidating or removing a knowledge item in edit mode traces cascade through knowledge graph edges, flags affected items, reopens affected phases, and spawns a secondary conversation thread that re-resolves implications
-8. Requirements review mode synthesizes the requirement set from the knowledge layer, surfaces gaps, and records explicit review state
-9. Criteria review mode synthesizes verification conditions from approved requirements plus the knowledge layer, and records explicit review state
-10. Export produces valid markdown spec only when all workflow modes are resolved, all in-scope requirement/criteria reviews are complete, and no unresolved upstream staleness remains
-11. Closing and reopening the browser resumes the interview from the active turn with knowledge and readiness state intact
-12. All inner and middle loop tests pass
-13. Partial-scope elicitation works — specifying a feature area within an existing project produces a coherent scoped spec
+1. `npx brunch` can start from a workspace directory with local-first persistence in `.brunch/`.
+2. Greenfield and brownfield grounding both work, with brownfield able to start from workspace analysis and converge into the same grounding phase purpose.
+3. Structured turns support rich responses without losing semantic fidelity.
+4. The knowledge layer stays visible, typed, and linked through graph relationships.
+5. Phase closeability, readiness, and closure provenance stay legible to the user.
+6. Requirements and criteria review remain explicit, lightweight, durable at the turn level, and export-relevant.
+7. Revisit can invalidate knowledge, surface cascade, and re-resolve through a secondary thread.
+8. The routed UI stays stable across dashboard, phase views, sidebar knowledge, and graph view.
+9. Resume works from persisted state.
+10. The verification gate passes.
+11. Grounding/design use workspace-owned turn cards, requirements/criteria use full-set review turns, and non-active phases expose kickoff / handoff / completion affordances instead of a bare generic composer.
+12. Hydrated transcripts preserve interviewer-side structure plus stable contentless placeholders for any live-only artifacts that were shown during streaming.
+13. Open phases bottom-load the current frontier turn, a visible generation state, or an exceptional recovery turn; completed elicitation turns replay as answered-turn records, and closed phases bottom-load a handoff or completion artifact.
+14. Grounding cards surface visible provisional context, allow optional user comment plus continue, and do not directly create durable knowledge from their own content.
