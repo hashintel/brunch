@@ -2,10 +2,11 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import {
   dataConfirmationSchema,
+  dataTurnResponseSchema,
   type BrunchAssistantPart,
   type BrunchUserPart,
-  userPartsSchema,
-} from '../shared/chat.js';
+} from '@/shared/chat.js';
+
 import { createDb, type DB } from './db.js';
 import {
   deserializeAssistantParts,
@@ -35,46 +36,21 @@ describe('migration-adds-parts-columns', () => {
   });
 });
 
-describe('data schemas', () => {
+describe('LLM-boundary data schemas', () => {
   it('validates data-turn-response payloads', () => {
-    const value = [
-      {
-        type: 'data-turn-response',
-        data: { turnId: 1, selectedOptionIds: [2], freeText: 'Best fit' },
-      },
-    ];
-
-    expect(userPartsSchema.parse(value)).toEqual(value);
+    const value = { turnId: 1, selectedOptionIds: [2], freeText: 'Best fit' };
+    expect(dataTurnResponseSchema.parse(value)).toEqual(value);
   });
 
   it('validates data-turn-response payloads with many selected options', () => {
-    const value = [
-      {
-        type: 'data-turn-response',
-        data: { turnId: 1, selectedOptionIds: [2, 3], freeText: 'Need both' },
-      },
-    ];
-
-    expect(userPartsSchema.parse(value)).toEqual(value);
+    const value = { turnId: 1, selectedOptionIds: [2, 3], freeText: 'Need both' };
+    expect(dataTurnResponseSchema.parse(value)).toEqual(value);
   });
 
   it('validates free-text-only data-turn-response payloads and rejects empty ones', () => {
-    const validValue = [
-      {
-        type: 'data-turn-response',
-        data: { turnId: 1, selectedOptionIds: [], freeText: 'None of these fit our use case' },
-      },
-    ];
-
-    expect(userPartsSchema.parse(validValue)).toEqual(validValue);
-    expect(() =>
-      userPartsSchema.parse([
-        {
-          type: 'data-turn-response',
-          data: { turnId: 1, selectedOptionIds: [] },
-        },
-      ]),
-    ).toThrow();
+    const validValue = { turnId: 1, selectedOptionIds: [], freeText: 'None of these fit our use case' };
+    expect(dataTurnResponseSchema.parse(validValue)).toEqual(validValue);
+    expect(() => dataTurnResponseSchema.parse({ turnId: 1, selectedOptionIds: [] })).toThrow();
   });
 
   it('validates explicit recommended-close data-confirmation payloads', () => {

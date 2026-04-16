@@ -3,7 +3,7 @@
 import type { ComponentType } from 'react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 
-import { cn } from '@/lib/utils';
+import { cn } from '@/client/lib/utils';
 
 export interface MarkdownRendererProps {
   children?: string;

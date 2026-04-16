@@ -1,6 +1,7 @@
 import { table, h3 } from 'md-pen';
 
-import { knowledgeKindRegistry } from '../shared/knowledge.js';
+import { knowledgeKindRegistry } from '@/shared/knowledge.js';
+
 import type { TurnWithOptions } from './core.js';
 import { formatProjectedTurnResponse, projectTurnResponse } from './turn-response.js';
 

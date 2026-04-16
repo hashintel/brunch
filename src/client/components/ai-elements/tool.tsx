@@ -12,9 +12,9 @@ import {
 import type { ComponentProps, ReactNode } from 'react';
 import { isValidElement } from 'react';
 
-import { Badge } from '@/components/ui/badge';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { cn } from '@/lib/utils';
+import { Badge } from '@/client/components/ui/badge';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
+import { cn } from '@/client/lib/utils';
 
 export type ToolProps = ComponentProps<typeof Collapsible>;
 

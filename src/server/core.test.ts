@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import type { BrunchUIMessage, BrunchUserPart } from '../shared/chat.js';
+import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
+
 import { extractPrompt, finalizeTurn, getProjectState, prepareTurn } from './core.js';
 import {
   confirmPhaseOutcome,

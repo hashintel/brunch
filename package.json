@@ -18,10 +18,11 @@
   "scripts": {
     "build": "vite build",
     "check": "npm run fmt:check && npm run lint && npm run typecheck",
-    "dev": "agent-tail run 'vite: lsof -ti:5173 | xargs kill -9 2>/dev/null; vite' 'api: lsof -ti:3000 | xargs kill -9 2>/dev/null; npx tsx --env-file=.env --watch src/server/index.ts'",
+    "dev": "agent-tail run 'vite: vite' 'api: npx tsx --env-file=.env --watch src/server/index.ts'",
     "fix": "npm run lint:fix && npm run fmt",
     "fmt": "oxfmt src/ vite.config.ts drizzle.config.ts",
     "fmt:check": "oxfmt --check src/ vite.config.ts drizzle.config.ts",
+    "ladle": "ladle serve",
     "lint": "oxlint --type-aware --type-check src/ vite.config.ts drizzle.config.ts",
     "lint:fix": "oxlint --type-aware --type-check --fix src/ vite.config.ts drizzle.config.ts",
     "seed": "npx tsx src/server/fixtures/seed.ts",
@@ -29,13 +30,13 @@
     "studio": "drizzle-kit studio",
     "test": "vitest run",
     "typecheck": "tsc --noEmit --project tsconfig.tools.json",
-    "ladle": "ladle serve --port 61000 --viteConfig vite.config.ts",
     "verify": "npm run check && npm run test && npm run build"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^3.0.66",
     "@ai-sdk/provider-utils": "^4.0.21",
     "@ai-sdk/react": "^3.0.145",
+    "@fontsource-variable/geist-mono": "^5.2.7",
     "@fontsource-variable/inter": "^5.2.8",
     "@ladle/react": "^5.1.1",
     "@radix-ui/react-use-controllable-state": "^1.2.2",
@@ -45,6 +46,7 @@
     "@tanstack/react-query": "^5.96.1",
     "@tanstack/react-router": "^1.168.10",
     "@vitejs/plugin-react": "^5.2.0",
+    "agentation": "^3.0.2",
     "ai": "^6.0.143",
     "better-sqlite3": "^12.8.0",
     "class-variance-authority": "^0.7.1",
@@ -71,6 +73,7 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
+    "@tanstack/router-plugin": "^1.167.18",
     "@testing-library/react": "^16.3.2",
     "@types/better-sqlite3": "^7.6.13",
     "@types/express": "^5.0.6",

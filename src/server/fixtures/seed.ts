@@ -1,16 +1,34 @@
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+
 import { createDb } from '../db.js';
-import { allScenarios, scenarioNames } from './scenarios.js';
+import { publicScenarios, publicScenarioNames } from './scenarios.js';
 
-const args = process.argv.slice(2);
-const scenarioName = args[0];
-const dbPath = args[1] ?? './brunch.db';
+type SeedCliIo = Pick<typeof console, 'log' | 'error'>;
 
-if (!scenarioName || !allScenarios[scenarioName]) {
-  console.error(scenarioName ? `Unknown scenario: ${scenarioName}` : 'Usage: seed <scenario> [db-path]');
-  console.error(`\nAvailable scenarios:\n${scenarioNames.map((n) => `  - ${n}`).join('\n')}`);
-  process.exit(1);
+export function runSeedCli(args: string[], io: SeedCliIo = console): number {
+  const scenarioName = args[0];
+  const dbPath = args[1] ?? './brunch.db';
+
+  if (!scenarioName || !publicScenarios[scenarioName]) {
+    io.error(scenarioName ? `Unknown scenario: ${scenarioName}` : 'Usage: seed <scenario> [db-path]');
+    io.error(`\nAvailable scenarios:\n${publicScenarioNames.map((name) => `  - ${name}`).join('\n')}`);
+    return 1;
+  }
+
+  const db = createDb(dbPath);
+  try {
+    const projectId = publicScenarios[scenarioName](db);
+    io.log(`Seeded "${scenarioName}" → project ${projectId} in ${dbPath}`);
+    return 0;
+  } finally {
+    db.$client.close();
+  }
 }
 
-const db = createDb(dbPath);
-const projectId = allScenarios[scenarioName](db);
-console.log(`Seeded "${scenarioName}" → project ${projectId} in ${dbPath}`);
+const isMainModule =
+  process.argv[1] != null && resolve(fileURLToPath(import.meta.url)) === resolve(process.argv[1]);
+
+if (isMainModule) {
+  process.exit(runSeedCli(process.argv.slice(2)));
+}

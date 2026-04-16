@@ -2,22 +2,37 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import tailwindcss from '@tailwindcss/vite';
+import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { agentTail } from 'agent-tail/vite';
 import { defineConfig } from 'vitest/config';
 
+import { getBackendProxyTarget } from './src/server/runtime-config';
+
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
 export default defineConfig({
-  plugins: [react(), tailwindcss(), agentTail()],
+  plugins: [
+    tanstackRouter({
+      target: 'react',
+      autoCodeSplitting: true,
+      routesDirectory: resolve(__dirname, 'src/client/routes'),
+      generatedRouteTree: resolve(__dirname, 'src/client/routeTree.gen.ts'),
+      routeFileIgnorePattern: '.*\\.test\\.(ts|tsx)$',
+    }),
+    react(),
+    tailwindcss(),
+    agentTail(),
+  ],
   resolve: {
     alias: {
-      '@': resolve(__dirname, './src/client'),
+      '@': resolve(__dirname, './src'),
     },
+    dedupe: ['react', 'react-dom'],
   },
   server: {
     proxy: {
-      '/api': 'http://localhost:3000',
+      '/api': getBackendProxyTarget(process.env),
     },
   },
   build: {

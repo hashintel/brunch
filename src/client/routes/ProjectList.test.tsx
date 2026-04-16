@@ -4,19 +4,22 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProjectListItem } from '../../shared/api-types.js';
-import { ProjectList } from './ProjectList.js';
+import type { ProjectListItem } from '@/shared/api-types.js';
+
+import { ProjectList } from './-project-list.js';
 
 let currentProjects: ProjectListItem[];
 const navigateMock = vi.fn();
 const fetchMock = vi.fn<typeof fetch>();
 
 vi.mock('@tanstack/react-router', () => ({
-  useLoaderData: () => currentProjects,
+  getRouteApi: () => ({
+    useLoaderData: () => currentProjects,
+  }),
   useNavigate: () => navigateMock,
 }));
 
-vi.mock('@/components/ui/button', () => ({
+vi.mock('@/client/components/ui/button', () => ({
   Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button type="button" {...props}>
       {children}
@@ -24,14 +27,14 @@ vi.mock('@/components/ui/button', () => ({
   ),
 }));
 
-vi.mock('@/components/ui/card', () => ({
+vi.mock('@/client/components/ui/card', () => ({
   Card: ({ children, ...props }: React.HTMLAttributes<HTMLDivElement>) => <div {...props}>{children}</div>,
   CardHeader: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   CardTitle: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   CardDescription: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
 }));
 
-vi.mock('@/components/ui/dialog', () => ({
+vi.mock('@/client/components/ui/dialog', () => ({
   Dialog: ({ children, open }: { children: React.ReactNode; open: boolean }) =>
     open ? <div data-testid="dialog">{children}</div> : null,
   DialogContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,

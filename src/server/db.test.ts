@@ -25,7 +25,9 @@ import {
   addDecisionParentDecision,
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
+  getEntitiesForProjectByMode,
   getEntitiesForProject,
+  getEntitiesForProjectOnActivePath,
   getScopeBundleForProject,
   listPhaseOutcomesForProject,
   getCurrentWorkflowState,
@@ -1525,6 +1527,109 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
         target: { collection: 'assumption', kind: 'assumption', id: parentAssumption.id },
       },
     ]);
+  });
+
+  it('names project-wide and active-path entity projection modes without changing current outputs', () => {
+    const project = createProject(db, 'Test');
+    const rootTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What storage options are on the table?',
+      answer: 'SQLite and Postgres are both possible.',
+    });
+    const abandonedBranchTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: rootTurn.id,
+      question: 'Which storage branch should we explore?',
+      answer: 'Explore the SQLite branch.',
+    });
+    const activeBranchTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: rootTurn.id,
+      question: 'Which storage branch should we explore?',
+      answer: 'Explore the Postgres branch.',
+    });
+    advanceHead(db, project.id, activeBranchTurn.id);
+
+    const abandonedDecision = createKnowledgeItem(db, project.id, 'decision', 'Use SQLite for persistence');
+    const activeDecision = createKnowledgeItem(db, project.id, 'decision', 'Use Postgres for persistence');
+    linkKnowledgeItemToTurn(db, abandonedDecision.id, abandonedBranchTurn.id);
+    linkKnowledgeItemToTurn(db, activeDecision.id, activeBranchTurn.id);
+
+    expect(getEntitiesForProjectByMode(db, project.id, 'project-wide')).toEqual(
+      getEntitiesForProject(db, project.id),
+    );
+    expect(getEntitiesForProjectByMode(db, project.id, 'active-path')).toEqual(
+      getEntitiesForProjectOnActivePath(db, project.id),
+    );
+    expect(getEntitiesForProjectByMode(db, project.id, 'project-wide').decisions).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ content: 'Use SQLite for persistence' }),
+        expect.objectContaining({ content: 'Use Postgres for persistence' }),
+      ]),
+    );
+    expect(getEntitiesForProjectByMode(db, project.id, 'active-path').decisions).toEqual([
+      expect.objectContaining({ content: 'Use Postgres for persistence' }),
+    ]);
+  });
+
+  it('projects the full persisted edge relation vocabulary through the entity seam', () => {
+    const project = createProject(db, 'Test');
+    const goal = createKnowledgeItem(db, project.id, 'goal', 'Track work from creation to completion');
+    const term = createKnowledgeItem(db, project.id, 'term', 'ticket');
+    const context = createKnowledgeItem(db, project.id, 'context', 'The team currently uses a spreadsheet');
+    const constraint = createKnowledgeItem(
+      db,
+      project.id,
+      'constraint',
+      'Keep the first release simpler than Jira',
+    );
+    const criterion = createKnowledgeItem(
+      db,
+      project.id,
+      'criterion',
+      'Export preserves the trusted graph state',
+    );
+
+    const insertEdge = db.$client.prepare(
+      'INSERT INTO knowledge_edge (from_item_id, to_item_id, relation) VALUES (?, ?, ?)',
+    );
+    insertEdge.run(term.id, context.id, 'depends_on');
+    insertEdge.run(context.id, goal.id, 'derived_from');
+    insertEdge.run(constraint.id, goal.id, 'constrains');
+    insertEdge.run(criterion.id, goal.id, 'verifies');
+    insertEdge.run(criterion.id, term.id, 'refines');
+
+    const entities = getEntitiesForProject(db, project.id);
+
+    expect(entities.relationships).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'depends_on',
+          source: { collection: 'knowledge_item', kind: 'term', id: term.id },
+          target: { collection: 'knowledge_item', kind: 'context', id: context.id },
+        },
+        {
+          type: 'derived_from',
+          source: { collection: 'knowledge_item', kind: 'context', id: context.id },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
+        },
+        {
+          type: 'constrains',
+          source: { collection: 'knowledge_item', kind: 'constraint', id: constraint.id },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
+        },
+        {
+          type: 'verifies',
+          source: { collection: 'knowledge_item', kind: 'criterion', id: criterion.id },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
+        },
+        {
+          type: 'refines',
+          source: { collection: 'knowledge_item', kind: 'criterion', id: criterion.id },
+          target: { collection: 'knowledge_item', kind: 'term', id: term.id },
+        },
+      ]),
+    );
   });
 
   it('creates dependency edges between assumptions through generic edge storage', () => {

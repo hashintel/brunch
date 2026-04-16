@@ -3,5 +3,5 @@
   "printWidth": 110,
   "singleQuote": true,
   "sortImports": true,
-  "ignorePatterns": ["*.md", "docs/**", "memory/**"]
+  "ignorePatterns": ["*.md", "docs/**", "memory/**", "src/client/routeTree.gen.ts"]
 }

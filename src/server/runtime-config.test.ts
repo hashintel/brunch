@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { afterEach, describe, expect, it } from 'vitest';
 
-import { resolveConfiguredDbPath } from './runtime-config.js';
+import { getBackendProxyTarget, resolveBackendPort, resolveConfiguredDbPath } from './runtime-config.js';
 
 describe('runtime config', () => {
   const tempDirs: string[] = [];
@@ -44,5 +44,29 @@ describe('runtime config', () => {
 
     expect(resolveConfiguredDbPath('/tmp/custom.db', cwd)).toBe('/tmp/custom.db');
     expect(existsSync(join(cwd, '.brunch'))).toBe(false);
+  });
+
+  it('prefers BRUNCH_PORT for the backend port and Vite proxy target', () => {
+    const env = { BRUNCH_PORT: '4310', PORT: '3999' } satisfies NodeJS.ProcessEnv;
+
+    expect(resolveBackendPort(env)).toBe(4310);
+    expect(getBackendProxyTarget(env)).toBe('http://localhost:4310');
+  });
+
+  it('falls back to PORT when BRUNCH_PORT is unset', () => {
+    const env = { PORT: '4123' } satisfies NodeJS.ProcessEnv;
+
+    expect(resolveBackendPort(env)).toBe(4123);
+    expect(getBackendProxyTarget(env)).toBe('http://localhost:4123');
+  });
+
+  it('uses the default backend port when no explicit port is configured', () => {
+    expect(resolveBackendPort({})).toBe(3000);
+    expect(getBackendProxyTarget({})).toBe('http://localhost:3000');
+  });
+
+  it('rejects invalid explicit backend ports', () => {
+    expect(() => resolveBackendPort({ BRUNCH_PORT: 'not-a-port' })).toThrow('Invalid BRUNCH_PORT value');
+    expect(() => resolveBackendPort({ PORT: '70000' })).toThrow('Invalid PORT value');
   });
 });

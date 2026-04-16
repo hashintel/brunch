@@ -62,17 +62,21 @@ const sampleDecisions: KnowledgeItemData[] = [
 const sampleEdges: KnowledgeEdgeData[] = [
   {
     type: 'depends_on',
+    label: 'Depends on',
     sourceId: 2,
     sourceCollection: 'decision',
-    targetId: 1,
-    targetCollection: 'decision',
+    relatedId: 1,
+    relatedCollection: 'decision',
+    relatedLabel: 'Use SQLite for local-first persistence',
   },
   {
     type: 'derived_from',
+    label: 'Derived from',
     sourceId: 3,
     sourceCollection: 'decision',
-    targetId: 2,
-    targetCollection: 'decision',
+    relatedId: 2,
+    relatedCollection: 'decision',
+    relatedLabel: 'Separate interviewer from observer agent',
   },
 ];
 

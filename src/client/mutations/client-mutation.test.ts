@@ -1,10 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import * as z from 'zod/v4';
 
 import { ClientMutationError, postJsonMutation } from './client-mutation.js';
 
 const fetchMock = vi.fn<typeof fetch>();
-const createProjectResponseSchema = z.object({ id: z.number().int().positive() });
 
 describe('client mutation', () => {
   beforeEach(() => {
@@ -25,10 +23,9 @@ describe('client mutation', () => {
     );
 
     await expect(
-      postJsonMutation(
+      postJsonMutation<{ id: number }, { name: string }>(
         '/api/projects',
         { name: 'New project' },
-        createProjectResponseSchema,
         'Failed to create project',
       ),
     ).resolves.toEqual({ id: 7 });
@@ -38,10 +35,9 @@ describe('client mutation', () => {
     fetchMock.mockRejectedValueOnce(new TypeError('network down'));
 
     await expect(
-      postJsonMutation(
+      postJsonMutation<{ id: number }, { name: string }>(
         '/api/projects',
         { name: 'New project' },
-        createProjectResponseSchema,
         'Failed to create project',
       ),
     ).rejects.toEqual(new ClientMutationError('Failed to create project'));
@@ -56,10 +52,9 @@ describe('client mutation', () => {
     );
 
     await expect(
-      postJsonMutation(
+      postJsonMutation<{ id: number }, { name: string }>(
         '/api/projects',
         { name: 'New project' },
-        createProjectResponseSchema,
         'Failed to create project',
       ),
     ).rejects.toMatchObject({
@@ -78,10 +73,9 @@ describe('client mutation', () => {
     );
 
     await expect(
-      postJsonMutation(
+      postJsonMutation<{ id: number }, { name: string }>(
         '/api/projects',
         { name: 'New project' },
-        createProjectResponseSchema,
         'Failed to create project',
       ),
     ).rejects.toMatchObject({
@@ -100,32 +94,9 @@ describe('client mutation', () => {
     );
 
     await expect(
-      postJsonMutation(
+      postJsonMutation<{ id: number }, { name: string }>(
         '/api/projects',
         { name: 'New project' },
-        createProjectResponseSchema,
-        'Failed to create project',
-      ),
-    ).rejects.toMatchObject({
-      name: 'ClientMutationError',
-      message: 'Failed to create project',
-      status: 200,
-    });
-  });
-
-  it('surfaces parseable but structurally invalid success payloads as mutation errors', async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ id: '7' }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-
-    await expect(
-      postJsonMutation(
-        '/api/projects',
-        { name: 'New project' },
-        createProjectResponseSchema,
         'Failed to create project',
       ),
     ).rejects.toMatchObject({

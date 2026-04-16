@@ -51,7 +51,6 @@ describe('EntitySidebar', () => {
           decisions: [],
           assumptions: [],
           relationships: [],
-          isLoading: false,
         }}
       />,
     );
@@ -64,5 +63,57 @@ describe('EntitySidebar', () => {
     expect(screen.getByText('Approved')).toBeTruthy();
     expect(screen.getByText('Rejected')).toBeTruthy();
     expect(screen.getByText('Pending')).toBeTruthy();
+  });
+
+  it('keeps dependency summaries explicit when other relation kinds are present', () => {
+    render(
+      <EntitySidebar
+        entityState={{
+          goals: [
+            {
+              id: 8,
+              project_id: 1,
+              kind: 'goal',
+              subtype: null,
+              content: 'Ship a faithful active-path export',
+              rationale: null,
+            },
+          ],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [
+            {
+              id: 6,
+              project_id: 1,
+              content: 'Use the active-path entity projection for routed state',
+              rationale: 'Keeps routed state aligned with export',
+            },
+          ],
+          assumptions: [{ id: 7, project_id: 1, content: 'Users only trust the current branch state' }],
+          relationships: [
+            {
+              type: 'depends_on',
+              source: { collection: 'decision', kind: 'decision', id: 6 },
+              target: { collection: 'assumption', kind: 'assumption', id: 7 },
+            },
+            {
+              type: 'refines',
+              source: { collection: 'decision', kind: 'decision', id: 6 },
+              target: { collection: 'knowledge_item', kind: 'goal', id: 8 },
+            },
+          ],
+        }}
+      />,
+    );
+
+    fireEvent.click(screen.getByRole('button', { name: /Decisions/i }));
+
+    expect(screen.getByText('Depends on')).toBeTruthy();
+    expect(screen.getByText('Users only trust the current branch state')).toBeTruthy();
+    expect(screen.queryByText('Refines')).toBeNull();
+    expect(screen.queryByText('Ship a faithful active-path export')).toBeNull();
   });
 });

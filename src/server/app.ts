@@ -2,7 +2,7 @@ import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessage
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 
-import { createProjectRequestSchema, submitTurnResponseRequestSchema } from '../shared/api-types.js';
+import { createProjectRequestSchema, submitTurnResponseRequestSchema } from '@/shared/api-types.js';
 import type {
   EntitiesData,
   ExportLoaderData,
@@ -10,21 +10,22 @@ import type {
   ProjectListItem,
   ProjectState,
   SubmitTurnResponseResponse,
-} from '../shared/api-types.js';
+} from '@/shared/api-types.js';
 import {
-  assistantPartsSchema,
   brunchDataPartSchemas,
   brunchValidationTools,
   extractTextFromMessage,
+  filterAssistantParts,
   formatTurnResponseText,
-} from '../shared/chat.js';
-import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '../shared/chat.js';
+} from '@/shared/chat.js';
+import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import {
   getForceCloseActionErrorMessage,
   getForceClosePhaseAction,
   getForcedPhaseClosureSummary,
   parsePhaseClosureCommand,
-} from '../shared/phase-close.js';
+} from '@/shared/phase-close.js';
+
 import {
   extractPrompt,
   finalizeTurn,
@@ -44,10 +45,10 @@ import {
   getTurn,
   getOptionsForTurn,
   updateTurn,
-  getEntitiesForProject,
-  getEntitiesForProjectOnActivePath,
+  getEntitiesForProjectByMode,
   recordReviewFromTurnResponse,
   type DB,
+  type EntityProjectionMode,
 } from './db.js';
 import { isExportReady, renderExportMarkdown } from './export.js';
 import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
@@ -64,12 +65,25 @@ export interface AppServices {
   readonly db: DB;
 }
 
+function parseEntityProjectionMode(rawMode: unknown): EntityProjectionMode | null {
+  if (rawMode === undefined) {
+    return 'active-path';
+  }
+
+  return rawMode === 'active-path' || rawMode === 'project-wide' ? rawMode : null;
+}
+
 export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const options = typeof dbPathOrOptions === 'string' ? { dbPath: dbPathOrOptions } : (dbPathOrOptions ?? {});
   const db = createDb(options.dbPath);
   const projectCwd = options.projectCwd ?? process.cwd();
   const app = express();
   app.use(express.json());
+
+  // App config (cwd for display in AppLayout)
+  app.get('/api/config', (_req: Request, res: Response) => {
+    res.json({ cwd: projectCwd });
+  });
 
   // List all projects
   app.get('/api/projects', (_req: Request, res: Response) => {
@@ -172,7 +186,12 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
       return;
     }
-    res.json(getEntitiesForProject(db, id) satisfies EntitiesData);
+    const mode = parseEntityProjectionMode(req.query.mode);
+    if (!mode) {
+      res.status(400).json({ error: 'Invalid entity projection mode' } satisfies MutationErrorResponse);
+      return;
+    }
+    res.json(getEntitiesForProjectByMode(db, id, mode) satisfies EntitiesData);
   });
 
   // Export spec as markdown
@@ -192,7 +211,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       res.json({ ready: false } satisfies ExportLoaderData);
       return;
     }
-    const entities = getEntitiesForProjectOnActivePath(db, id);
+    const entities = getEntitiesForProjectByMode(db, id, 'active-path');
     const markdown = renderExportMarkdown(projectState.project.name, entities, projectState.workflow);
     res.json({ ready: true, markdown } satisfies ExportLoaderData);
   });
@@ -357,7 +376,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
         const assistantText = extractTextFromMessage(responseMessage);
         persistFallbackQuestionText(db, prepared.turn.id, assistantText);
-        const assistantParts = assistantPartsSchema.parse(responseMessage.parts) as BrunchAssistantPart[];
+        const assistantParts = filterAssistantParts(responseMessage.parts);
         updateTurn(db, prepared.turn.id, {
           assistant_parts: serializeParts(assistantParts),
         });

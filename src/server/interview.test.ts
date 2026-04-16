@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
-import { structuredQuestionSchema, type StructuredQuestion } from '../shared/chat.js';
+import { structuredQuestionSchema, type StructuredQuestion } from '@/shared/chat.js';
+
 import { createDb, createProject, createTurn, getOptionsForTurn, getTurn, type DB } from './db.js';
 import {
   canProposePhaseClosure,

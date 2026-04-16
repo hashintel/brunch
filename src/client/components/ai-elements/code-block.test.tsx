@@ -12,7 +12,7 @@ const getCachedHighlightedCodeMock = vi.fn(() => null);
 const highlightCodeMock = vi.fn();
 const preloadRichCodeHighlighterMock = vi.fn();
 
-vi.mock('@/capabilities/code-highlighting', () => ({
+vi.mock('@/client/capabilities/code-highlighting', () => ({
   createPlainCodeTokens: createPlainCodeTokensMock,
   getCachedHighlightedCode: getCachedHighlightedCodeMock,
   highlightCode: highlightCodeMock,

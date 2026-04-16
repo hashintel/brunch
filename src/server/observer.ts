@@ -2,8 +2,9 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { generateText, Output } from 'ai';
 import * as z from 'zod/v4';
 
-import { type ObserverEntityIds } from '../shared/chat.js';
-import { createKnowledgeCollectionRecord } from '../shared/knowledge.js';
+import { type ObserverEntityIds } from '@/shared/chat.js';
+import { createKnowledgeCollectionRecord } from '@/shared/knowledge.js';
+
 import { buildObserverContext } from './context.js';
 import {
   createDecision,

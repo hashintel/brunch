@@ -9,10 +9,12 @@ const packageRoot = dirname(dirname(fileURLToPath(import.meta.url)));
 const cliEntrypoint = join(packageRoot, 'src', 'server', 'cli.ts');
 const require = createRequire(import.meta.url);
 const tsxEntrypoint = require.resolve('tsx');
+const launchCwd = process.cwd();
 
 const child = spawn(process.execPath, ['--import', tsxEntrypoint, cliEntrypoint, ...process.argv.slice(2)], {
   stdio: 'inherit',
-  env: process.env,
+  cwd: packageRoot,
+  env: { ...process.env, BRUNCH_LAUNCH_CWD: launchCwd },
 });
 
 child.on('close', (code) => {

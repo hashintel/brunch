@@ -1513,9 +1513,9 @@
         {
           "kind": "criterion",
           "content": "CSV export includes all visible fields and respects role-based visibility filters",
-          "capturedAtTurn": 22,
+          "capturedAtTurn": 21,
           "reviewAction": "rejected",
-          "reviewedAtTurn": 22
+          "reviewedAtTurn": 21
         }
       ],
       "edges": [

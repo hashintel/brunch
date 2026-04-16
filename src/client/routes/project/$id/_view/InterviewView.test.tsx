@@ -1,0 +1,844 @@
+// @vitest-environment happy-dom
+
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { useCallback, useState } from 'react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+
+import type { ProjectState } from '@/shared/api-types.js';
+import type { BrunchUIMessage } from '@/shared/chat.js';
+
+import { InterviewView } from './-interview-view.js';
+
+function createPendingQuestionMessage(): BrunchUIMessage {
+  return {
+    id: 'pending-question-assistant',
+    role: 'assistant',
+    parts: [
+      {
+        type: 'tool-ask_question',
+        toolCallId: 'tool-1',
+        state: 'output-available',
+        input: {
+          question: 'Which platform should we target next?',
+          why: 'Platform shapes the first build.',
+          impact: 'high',
+          options: [
+            { content: 'Web', is_recommended: true },
+            { content: 'Desktop', is_recommended: false },
+          ],
+        },
+        output: { ok: true, turnId: 2, optionCount: 2 },
+      },
+    ],
+  };
+}
+
+type UseChatOptions = {
+  id?: string;
+  messages: BrunchUIMessage[];
+  onData?: (dataPart: { type: string; data?: unknown }) => void;
+  onFinish?: () => void;
+};
+
+type UseChatHarness = {
+  sendMessage: ReturnType<typeof vi.fn>;
+  setMessages: ReturnType<typeof vi.fn>;
+  replaceMessages?: (messages: BrunchUIMessage[]) => void;
+  onData?: UseChatOptions['onData'];
+  onFinish?: UseChatOptions['onFinish'];
+};
+
+let currentProjectState: ProjectState;
+const routerInvalidate = vi.fn(async () => {});
+const fetchMock = vi.fn<typeof fetch>();
+let useChatImpl: (options: UseChatOptions) => {
+  messages: BrunchUIMessage[];
+  sendMessage: (message: { text?: string; parts?: Array<Record<string, unknown>> }) => Promise<void> | void;
+  setMessages: (messages: BrunchUIMessage[]) => void;
+  status: 'ready' | 'submitted' | 'streaming';
+};
+let useChatHarness: UseChatHarness;
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: ({ children, ...props }: React.AnchorHTMLAttributes<HTMLAnchorElement>) => (
+    <a {...props}>{children}</a>
+  ),
+  useLoaderData: ({ from }: { from: string }) => {
+    if (from === '/project/$id') return currentProjectState;
+    throw new Error(`Unexpected useLoaderData from: ${from}`);
+  },
+  useRouter: () => ({ invalidate: routerInvalidate }),
+}));
+
+vi.mock('@ai-sdk/react', () => ({
+  useChat: (options: UseChatOptions) => useChatImpl(options),
+}));
+
+vi.mock('ai', async () => {
+  const actual = await vi.importActual<typeof import('ai')>('ai');
+  return {
+    ...actual,
+    DefaultChatTransport: class DefaultChatTransport {
+      constructor(_options: unknown) {}
+    },
+  };
+});
+
+vi.mock('@/client/components/ai-elements/conversation', () => ({
+  Conversation: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  ConversationContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  ConversationScrollButton: () => null,
+}));
+
+vi.mock('@/client/components/ai-elements/message', () => ({
+  Message: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  MessageContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  MessageResponse: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+}));
+
+vi.mock('@/client/components/ai-elements/prompt-input', () => ({
+  PromptInput: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PromptInputBody: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PromptInputFooter: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  PromptInputSubmit: () => <button type="button">Send</button>,
+  PromptInputTextarea: () => <textarea aria-label="Type a message..." />,
+}));
+
+vi.mock('@/client/components/ai-elements/reasoning', () => ({
+  Reasoning: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  ReasoningContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  ReasoningTrigger: () => null,
+}));
+
+vi.mock('@/client/components/ai-elements/tool', () => ({
+  Tool: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  ToolHeader: () => null,
+  ToolContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
+  ToolInput: () => null,
+  ToolOutput: () => null,
+}));
+
+function createProjectState({
+  projectId = 1,
+  assistantText = 'What should we build first?',
+  answer = 'Build the web app',
+  userParts = [{ type: 'text', text: answer }] as Array<Record<string, unknown>>,
+  options = [],
+  workflow,
+  assistantParts,
+}: {
+  projectId?: number;
+  assistantText?: string;
+  answer?: string;
+  userParts?: Array<Record<string, unknown>>;
+  options?: Array<{
+    id: number;
+    position: number;
+    content: string;
+    is_recommended: boolean;
+    is_selected: boolean;
+  }>;
+  workflow?: ProjectState['workflow'];
+  assistantParts?: Array<Record<string, unknown>>;
+} = {}): ProjectState {
+  return {
+    project: {
+      id: projectId,
+      name: `Project ${projectId}`,
+      mode: 'greenfield',
+      cwd: null,
+      active_turn_id: 1,
+      created_at: '2026-04-03 10:00:00',
+      updated_at: '2026-04-03 10:00:00',
+    },
+    workflow: workflow ?? {
+      phases: {
+        scope: {
+          status: 'unstarted',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
+        design: {
+          status: 'unstarted',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
+        requirements: {
+          status: 'unstarted',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
+        criteria: {
+          status: 'unstarted',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
+      },
+    },
+    turns: [
+      {
+        id: 1,
+        project_id: projectId,
+        parent_turn_id: null,
+        phase: 'scope',
+        question: assistantText,
+        why: 'This frames the first iteration.',
+        impact: 'high',
+        answer,
+        is_resolution: false,
+        user_parts: JSON.stringify(userParts),
+        assistant_parts: JSON.stringify(
+          assistantParts ?? (assistantText ? [{ type: 'text', text: assistantText }] : []),
+        ),
+        created_at: '2026-04-03 10:00:00',
+        options,
+      },
+    ],
+  };
+}
+
+function createWorkspaceLoaderData({
+  projectId = 1,
+  assistantText = 'What should we build first?',
+  answer = 'Build the web app',
+  userParts,
+  options = [],
+  workflow,
+  assistantParts,
+}: {
+  projectId?: number;
+  assistantText?: string;
+  answer?: string;
+  userParts?: Array<Record<string, unknown>>;
+  options?: Array<{
+    id: number;
+    position: number;
+    content: string;
+    is_recommended: boolean;
+    is_selected: boolean;
+  }>;
+  workflow?: ProjectState['workflow'];
+  assistantParts?: Array<Record<string, unknown>>;
+} = {}): { projectState: ProjectState } {
+  return {
+    projectState: createProjectState({
+      projectId,
+      assistantText,
+      answer,
+      userParts,
+      options,
+      workflow,
+      assistantParts,
+    }),
+  };
+}
+
+function setLoaderData(data: { projectState: ProjectState }) {
+  currentProjectState = data.projectState;
+}
+
+function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'ready'): (
+  options: UseChatOptions,
+) => {
+  messages: BrunchUIMessage[];
+  sendMessage: (message: { text?: string; parts?: Array<Record<string, unknown>> }) => Promise<void> | void;
+  setMessages: (messages: BrunchUIMessage[]) => void;
+  status: 'ready' | 'submitted' | 'streaming';
+} {
+  const sendMessage = vi.fn(async () => {});
+  const setMessagesSpy = vi.fn();
+
+  useChatHarness = {
+    sendMessage,
+    setMessages: setMessagesSpy,
+  };
+
+  return function useChatHarnessImpl(options: UseChatOptions) {
+    const [, forceRender] = useState(0);
+    const chatStates = useState(() => new Map<string, BrunchUIMessage[]>())[0];
+    const chatId = options.id ?? 'default';
+
+    if (!chatStates.has(chatId)) {
+      chatStates.set(chatId, options.messages);
+    }
+
+    const stableSetMessages = useCallback(
+      (nextMessages: BrunchUIMessage[]) => {
+        setMessagesSpy(nextMessages);
+        chatStates.set(chatId, nextMessages);
+        forceRender((count) => count + 1);
+      },
+      [chatId, chatStates],
+    );
+
+    useChatHarness.onData = options.onData;
+    useChatHarness.onFinish = options.onFinish;
+    useChatHarness.replaceMessages = stableSetMessages;
+
+    return {
+      messages: chatStates.get(chatId) ?? options.messages,
+      sendMessage,
+      setMessages: stableSetMessages,
+      status,
+    };
+  };
+}
+
+function createQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        retry: false,
+        staleTime: 0,
+      },
+    },
+  });
+}
+
+function renderWorkspace(phase: 'scope' | 'design' | 'requirements' | 'criteria' = 'scope') {
+  const queryClient = createQueryClient();
+  const rendered = render(
+    <QueryClientProvider client={queryClient}>
+      <InterviewView phase={phase} />
+    </QueryClientProvider>,
+  );
+
+  return {
+    ...rendered,
+    queryClient,
+  };
+}
+
+beforeEach(() => {
+  setLoaderData(createWorkspaceLoaderData());
+  routerInvalidate.mockClear();
+  fetchMock.mockReset();
+  useChatImpl = createUseChatHarness();
+  vi.stubGlobal('fetch', fetchMock);
+});
+
+afterEach(() => {
+  cleanup();
+  vi.unstubAllGlobals();
+});
+
+describe('InterviewView', () => {
+  it('renders the turn card from a pending-question tool part before route invalidation', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Earlier question?',
+        answer: 'Earlier answer',
+      }),
+    );
+    useChatImpl = createUseChatHarness('streaming');
+
+    renderWorkspace();
+
+    expect(await screen.findByText('Earlier question?')).toBeTruthy();
+    expect(screen.queryByText('Which platform should we target next?')).toBeNull();
+    expect(screen.getByLabelText('Type a message...')).toBeTruthy();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        createPendingQuestionMessage(),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByText('Which platform should we target next?')).toBeTruthy();
+      expect(screen.getByRole('checkbox', { name: /web/i })).toBeTruthy();
+      expect(screen.getByRole('checkbox', { name: /desktop/i })).toBeTruthy();
+      expect(screen.queryByLabelText('Type a message...')).toBeNull();
+      expect(routerInvalidate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('refreshes durable loader-owned state for the same project without rewriting the live transcript', async () => {
+    setLoaderData(createWorkspaceLoaderData());
+
+    const rendered = renderWorkspace();
+    expect(await screen.findByText('What should we build first?')).toBeTruthy();
+
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Which platform should we target now?',
+        answer: 'Ship the desktop app',
+      }),
+    );
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <InterviewView phase="scope" />
+      </QueryClientProvider>,
+    );
+
+    expect(screen.getByText('What should we build first?')).toBeTruthy();
+    expect(screen.queryByText('Which platform should we target now?')).toBeNull();
+    expect(screen.queryByText('Ship the desktop app')).toBeNull();
+    expect(useChatHarness.setMessages).not.toHaveBeenCalled();
+  });
+
+  it('hydrates persisted transcript state when navigating to a different project', async () => {
+    const rendered = renderWorkspace();
+    expect(await screen.findByText('What should we build first?')).toBeTruthy();
+
+    setLoaderData(
+      createWorkspaceLoaderData({
+        projectId: 2,
+        assistantText: 'How should project two start?',
+        answer: 'Begin with the API',
+      }),
+    );
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <InterviewView phase="scope" />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('How should project two start?')).toBeTruthy();
+      expect(screen.getByText('Begin with the API')).toBeTruthy();
+    });
+
+    expect(useChatHarness.setMessages).not.toHaveBeenCalled();
+  });
+
+  it('posts single-option turn responses with optional free-text and forwards a combined summary into chat', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'Best fit for our launch' },
+    });
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/turns/1/response',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'select-options',
+            positions: [1],
+            freeText: 'Best fit for our launch',
+          }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Desktop — Best fit for our launch' });
+    });
+  });
+
+  it('posts many-selection turn responses and forwards a grouped summary into chat', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+          { id: 13, position: 2, content: 'Mobile', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: /web/i }));
+    fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'Covers both launch paths' },
+    });
+    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/turns/1/response',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'select-options',
+            positions: [0, 1],
+            freeText: 'Covers both launch paths',
+          }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        text: 'Web, Desktop — Covers both launch paths',
+      });
+    });
+  });
+
+  it('submits scope-closure confirmations through chat with typed confirmation parts', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: '',
+        answer: 'We have enough scope context',
+        workflow: {
+          phases: {
+            scope: {
+              status: 'in_progress',
+              closeability: true,
+              readiness: 'medium',
+              closureBasis: null,
+              proposalPending: true,
+              turnId: 1,
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+          },
+        } as any,
+        assistantParts: [
+          {
+            type: 'data-phase-summary',
+            data: {
+              turnId: 1,
+              phase: 'scope',
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+          },
+        ],
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.click(await screen.findByRole('button', { name: /confirm scope closure/i }));
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          { type: 'text', text: 'Confirm scope closure' },
+          {
+            type: 'data-confirmation',
+            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
+          },
+        ],
+      });
+    });
+  });
+
+  it('submits a force-close action for design through chat with typed confirmation parts', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: {
+          phases: {
+            scope: {
+              status: 'closed',
+              closeability: false,
+              readiness: 'high',
+              closureBasis: 'interviewer_recommended',
+              proposalPending: false,
+              turnId: 1,
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+            design: {
+              status: 'in_progress',
+              closeability: true,
+              readiness: 'medium',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+          },
+        } as any,
+      }),
+    );
+
+    renderWorkspace('design');
+
+    fireEvent.click(await screen.findByRole('button', { name: /force design closure/i }));
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          { type: 'text', text: 'Force design closure' },
+          {
+            type: 'data-confirmation',
+            data: { kind: 'force-close-active-phase', phase: 'design' },
+          },
+        ],
+      });
+    });
+  });
+
+  it('hides the force-close action when design already has a pending closure proposal', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: {
+          phases: {
+            scope: {
+              status: 'closed',
+              closeability: false,
+              readiness: 'high',
+              closureBasis: 'interviewer_recommended',
+              proposalPending: false,
+              turnId: 1,
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+            design: {
+              status: 'in_progress',
+              closeability: true,
+              readiness: 'medium',
+              closureBasis: null,
+              proposalPending: true,
+              turnId: 3,
+              summary: 'The main architectural commitments are captured well enough to review requirements.',
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+          },
+        } as any,
+      }),
+    );
+
+    renderWorkspace('design');
+
+    expect(screen.queryByRole('button', { name: /force design closure/i })).toBeNull();
+  });
+
+  it('posts free-text-only turn responses and forwards the text into chat', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'None of these fit our use case' },
+    });
+
+    fireEvent.click(await screen.findByRole('button', { name: /submit free-text response/i }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/turns/1/response',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'free-text',
+            freeText: 'None of these fit our use case',
+          }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'None of these fit our use case' });
+    });
+  });
+
+  it('rehydrates persisted selected options from turn-response data even when option flags are false', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: 'Desktop — Best fit for launch',
+        userParts: [
+          { type: 'text', text: 'Desktop — Best fit for launch' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
+          },
+        ],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    renderWorkspace();
+
+    const web = (await screen.findByRole('checkbox', { name: /web/i })) as HTMLInputElement;
+    const desktop = screen.getByRole('checkbox', { name: /desktop/i }) as HTMLInputElement;
+
+    expect(web.checked).toBe(false);
+    expect(desktop.checked).toBe(true);
+    expect(web.disabled).toBe(true);
+    expect(desktop.disabled).toBe(true);
+    expect(screen.getByLabelText('Type a message...')).toBeTruthy();
+  });
+
+  it('locks a persisted free-text-only turn response after it has been saved', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: 'None of these fit our use case',
+        userParts: [
+          { type: 'text', text: 'None of these fit our use case' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [], freeText: 'None of these fit our use case' },
+          },
+        ],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    renderWorkspace();
+
+    expect(await screen.findByText('None of these fit our use case')).toBeTruthy();
+    expect((screen.getByLabelText('Additional response context') as HTMLTextAreaElement).disabled).toBe(true);
+    expect(
+      (screen.getByRole('button', { name: /submit selected response/i }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByRole('button', { name: /submit free-text response/i }) as HTMLButtonElement).disabled,
+    ).toBe(true);
+    expect((screen.getByRole('checkbox', { name: /web/i }) as HTMLInputElement).disabled).toBe(true);
+    expect((screen.getByRole('checkbox', { name: /desktop/i }) as HTMLInputElement).disabled).toBe(true);
+    expect(screen.getByLabelText('Type a message...')).toBeTruthy();
+  });
+
+  it('shows a visible error when saving an option selection fails', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ error: 'Selection could not be saved' }), {
+        status: 500,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
+    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+
+    expect((await screen.findByRole('alert')).textContent).toContain('Selection could not be saved');
+    expect(routerInvalidate).not.toHaveBeenCalled();
+    expect(useChatHarness.sendMessage).not.toHaveBeenCalled();
+  });
+});

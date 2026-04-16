@@ -5,9 +5,9 @@ import { BrainIcon, ChevronDownIcon } from 'lucide-react';
 import type { ComponentProps, ReactNode } from 'react';
 import { createContext, memo, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
-import { ReasoningRenderer } from '@/capabilities/reasoning-rendering';
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
-import { cn } from '@/lib/utils';
+import { ReasoningRenderer } from '@/client/capabilities/reasoning-rendering';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
+import { cn } from '@/client/lib/utils';
 
 import { Shimmer } from './shimmer';
 

@@ -12,10 +12,10 @@ import {
   type CodeLanguage,
   type CodeToken,
   type TokenizedCode,
-} from '@/capabilities/code-highlighting';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { cn } from '@/lib/utils';
+} from '@/client/capabilities/code-highlighting';
+import { Button } from '@/client/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/client/components/ui/select';
+import { cn } from '@/client/lib/utils';
 
 // Shiki encodes font styles as bitflags: 1=italic, 2=bold, 4=underline
 /* oxlint-disable eslint(no-bitwise) -- shiki bitflag decoding */

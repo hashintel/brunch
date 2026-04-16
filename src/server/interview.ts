@@ -2,7 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import type { Tool } from '@ai-sdk/provider-utils';
 import { ToolLoopAgent, stepCountIs, tool } from 'ai';
 
-import type { ProjectMode } from '../shared/api-types.js';
+import type { ProjectMode } from '@/shared/api-types.js';
 import {
   askQuestionToolOutputSchema,
   phaseClosureProposalSchema,
@@ -12,7 +12,8 @@ import {
   type PhaseClosureProposal,
   type ProposePhaseClosureToolOutput,
   type StructuredQuestion,
-} from '../shared/chat.js';
+} from '@/shared/chat.js';
+
 import { buildInterviewerContext } from './context.js';
 import type { TurnWithOptions } from './core.js';
 import {

@@ -1,13 +1,24 @@
-import type { GlobalProvider } from '@ladle/react';
+import { ThemeState, type GlobalProvider } from '@ladle/react';
+import { Agentation } from 'agentation';
+import { useLayoutEffect } from 'react';
 
-import '../src/client/index.css';
+import './theme.css';
 
-const THEME_KEY = 'brunch-ladle-theme';
+export const Provider: GlobalProvider = ({ children, globalState: { theme } }) => {
+  useLayoutEffect(() => {
+    const root = document.documentElement;
+    root.classList.remove('light', 'dark');
+    if (theme === ThemeState.Dark) {
+      root.classList.add('dark');
+    } else if (theme === ThemeState.Light) {
+      root.classList.add('light');
+    }
+  }, [theme]);
 
-export const Provider: GlobalProvider = ({ children }) => {
   return (
-    <div className="min-h-screen bg-background p-6 text-foreground">
+    <>
       {children}
-    </div>
+      <Agentation endpoint="http://localhost:4747" />
+    </>
   );
 };

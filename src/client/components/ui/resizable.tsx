@@ -2,7 +2,7 @@
 
 import * as ResizablePrimitive from 'react-resizable-panels';
 
-import { cn } from '@/lib/utils';
+import { cn } from '@/client/lib/utils';
 
 function ResizablePanelGroup({ className, ...props }: ResizablePrimitive.GroupProps) {
   return (

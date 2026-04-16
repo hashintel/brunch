@@ -38,6 +38,8 @@ todo.txt
 
 # Claude Code worktrees
 .claude/worktrees/
+
+# tmp directory
 tmp/
 
 # codetours

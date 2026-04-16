@@ -23,16 +23,17 @@ import type {
   WorkflowPhaseState as SharedWorkflowPhaseState,
   WorkflowPhaseStatus,
   WorkflowState as SharedWorkflowState,
-} from '../shared/api-types.js';
-import { isAskQuestionUIPart, structuredQuestionSchema, type StructuredQuestion } from '../shared/chat.js';
+} from '@/shared/api-types.js';
+import { isAskQuestionUIPart, structuredQuestionSchema, type StructuredQuestion } from '@/shared/chat.js';
 import {
   genericKnowledgeKindRegistry,
   type GenericKnowledgeCollectionKey,
   type GenericKnowledgeKind,
   type KnowledgeEntityCollection,
   type KnowledgeKind as SharedKnowledgeKind,
-} from '../shared/knowledge.js';
-import { parsePhaseClosureCommand, type PhaseClosureBasis } from '../shared/phase-close.js';
+} from '@/shared/knowledge.js';
+import { parsePhaseClosureCommand, type PhaseClosureBasis } from '@/shared/phase-close.js';
+
 import {
   safeDeserializeAssistantParts,
   safeDeserializeUserParts,
@@ -798,7 +799,9 @@ function getKnowledgeItemIdsLinkedToActivePath(db: DB, projectId: number): Set<n
   return new Set(rows.map((row) => row.itemId));
 }
 
-export function getEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
+export type EntityProjectionMode = 'project-wide' | 'active-path';
+
+function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
   const genericKnowledgeCollections = Object.fromEntries(
     genericKnowledgeKindRegistry.map((entry) => [
       entry.collectionKey,
@@ -824,7 +827,6 @@ export function getEntitiesForProject(db: DB, projectId: number): EntitiesForPro
     WHERE
       source.project_id = ${projectId}
       AND target.project_id = ${projectId}
-      AND edge.relation = 'depends_on'
     ORDER BY
       CASE source.kind WHEN 'decision' THEN 0 WHEN 'assumption' THEN 1 ELSE 2 END,
       source.id,
@@ -858,10 +860,10 @@ export function getEntitiesForProject(db: DB, projectId: number): EntitiesForPro
   };
 }
 
-export function getEntitiesForProjectOnActivePath(db: DB, projectId: number): EntitiesForProject {
-  const entities = getEntitiesForProject(db, projectId);
-  const activeItemIds = getKnowledgeItemIdsLinkedToActivePath(db, projectId);
-
+function filterEntitiesToActivePath(
+  entities: EntitiesForProject,
+  activeItemIds: ReadonlySet<number>,
+): EntitiesForProject {
   return {
     goals: entities.goals.filter((item) => activeItemIds.has(item.id)),
     terms: entities.terms.filter((item) => activeItemIds.has(item.id)),
@@ -876,4 +878,28 @@ export function getEntitiesForProjectOnActivePath(db: DB, projectId: number): En
         activeItemIds.has(relationship.source.id) && activeItemIds.has(relationship.target.id),
     ),
   };
+}
+
+export function getEntitiesForProjectByMode(
+  db: DB,
+  projectId: number,
+  mode: EntityProjectionMode,
+): EntitiesForProject {
+  const projectWideEntities = getProjectWideEntitiesForProject(db, projectId);
+  if (mode === 'project-wide') {
+    return projectWideEntities;
+  }
+
+  return filterEntitiesToActivePath(
+    projectWideEntities,
+    getKnowledgeItemIdsLinkedToActivePath(db, projectId),
+  );
+}
+
+export function getEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
+  return getEntitiesForProjectByMode(db, projectId, 'project-wide');
+}
+
+export function getEntitiesForProjectOnActivePath(db: DB, projectId: number): EntitiesForProject {
+  return getEntitiesForProjectByMode(db, projectId, 'active-path');
 }

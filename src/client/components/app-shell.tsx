@@ -1,8 +1,7 @@
 import { ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react';
 
-import { cn } from '@/lib/utils';
-
-import type { WorkflowPhase, WorkflowPhaseStatus } from '../../shared/api-types.js';
+import { cn } from '@/client/lib/utils';
+import type { WorkflowPhase, WorkflowPhaseStatus } from '@/shared/api-types.js';
 
 // ── Stage sidebar (expanded, 240px) ──────────────────────────────────
 

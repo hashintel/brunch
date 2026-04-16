@@ -1,15 +1,13 @@
 import { useState } from 'react';
 
-import { Badge } from '@/components/ui/badge';
-import { cn } from '@/lib/utils';
-import type { WorkspaceDurableEntityState } from '@/workspace/workspace-controller-core';
-
-import type { ReviewStatus } from '../../shared/api-types.js';
+import { Badge } from '@/client/components/ui/badge';
+import { cn } from '@/client/lib/utils';
+import type { EntitiesData, ReviewStatus } from '@/shared/api-types.js';
 import {
   knowledgeKindRegistry,
   knowledgeKindRegistryByCollectionKey,
   type KnowledgeCollectionKey,
-} from '../../shared/knowledge.js';
+} from '@/shared/knowledge.js';
 
 function entityKey(collection: 'knowledge_item' | 'decision' | 'assumption', id: number) {
   return `${collection}:${id}`;
@@ -24,9 +22,8 @@ function renderKnowledgeItems(
     reviewStatus?: ReviewStatus;
   }>,
   emptyMessage: string,
-  isLoading: boolean,
 ) {
-  if (items.length === 0 && !isLoading) {
+  if (items.length === 0) {
     return <p className="text-sm italic text-muted-foreground">{emptyMessage}</p>;
   }
 
@@ -58,7 +55,7 @@ function renderKnowledgeItems(
   ));
 }
 
-export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEntityState }) {
+export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
   const [activeTab, setActiveTab] = useState<KnowledgeCollectionKey>('decisions');
   const {
     goals,
@@ -70,7 +67,6 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
     decisions,
     assumptions,
     relationships,
-    isLoading,
   } = entityState;
   const contentByEntity = new Map<string, string>([
     ...goals.map((item) => [entityKey('knowledge_item', item.id), item.content] as const),
@@ -130,8 +126,6 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
 
       {/* Content */}
       <div className="flex-1 overflow-y-auto p-3">
-        {isLoading && <p className="text-sm text-muted-foreground">Loading...</p>}
-
         {(() => {
           const activeEntry = knowledgeKindRegistryByCollectionKey[activeTab];
 
@@ -151,7 +145,7 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
 
             return (
               <div className="flex flex-col gap-2">
-                {renderKnowledgeItems(items, activeEntry.emptyStateCopy, isLoading)}
+                {renderKnowledgeItems(items, activeEntry.emptyStateCopy)}
               </div>
             );
           }
@@ -159,7 +153,7 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
           if (activeTab === 'decisions') {
             return (
               <div className="flex flex-col gap-2">
-                {decisions.length === 0 && !isLoading && (
+                {decisions.length === 0 && (
                   <p className="text-sm italic text-muted-foreground">{activeEntry.emptyStateCopy}</p>
                 )}
                 {decisions.map((d) => {
@@ -188,7 +182,7 @@ export function EntitySidebar({ entityState }: { entityState: WorkspaceDurableEn
 
           return (
             <div className="flex flex-col gap-2">
-              {assumptions.length === 0 && !isLoading && (
+              {assumptions.length === 0 && (
                 <p className="text-sm italic text-muted-foreground">{activeEntry.emptyStateCopy}</p>
               )}
               {assumptions.map((a) => {
