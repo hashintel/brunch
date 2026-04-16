@@ -1,4 +1,4 @@
-import type { ProjectState, ProjectStateTurn, WorkflowPhase } from './api-types.js';
+import type { ProjectState, ProjectStateTurn, ReviewAction, WorkflowPhase } from './api-types.js';
 import type { BrunchAssistantPart, BrunchUserPart, DataTurnResponse } from './chat.js';
 
 export function safeParsePersistedAssistantParts(json: string | null | undefined): BrunchAssistantPart[] {
@@ -34,6 +34,12 @@ export function getPersistedTurnResponse(
         part.type === 'data-turn-response',
     )?.data ?? null
   );
+}
+
+export function getPersistedReviewAction(
+  turn: Pick<ProjectStateTurn, 'user_parts'> | undefined,
+): ReviewAction | null {
+  return getPersistedTurnResponse(turn)?.reviewAction ?? null;
 }
 
 export function hasPersistedTurnResponse(turn: Pick<ProjectStateTurn, 'user_parts'> | undefined): boolean {
@@ -73,6 +79,25 @@ export function findTurnOptionsByPositions(
 ): NonNullable<ProjectStateTurn['options']> {
   const uniquePositions = [...new Set(positions)];
   return turn?.options?.filter((option) => uniquePositions.includes(option.position)) ?? [];
+}
+
+export function getReviewActionForSelectedPositions(
+  turn: Pick<ProjectStateTurn, 'phase'> | undefined,
+  positions: number[],
+): ReviewAction | null {
+  if ((turn?.phase !== 'requirements' && turn?.phase !== 'criteria') || positions.length !== 1) {
+    return null;
+  }
+
+  const [position] = positions;
+  if (position === 0) {
+    return 'accept';
+  }
+  if (position === 1) {
+    return 'request-changes';
+  }
+
+  return null;
 }
 
 export function turnIsControlOrClosureArtifact(

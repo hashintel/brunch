@@ -60,7 +60,7 @@ import {
 import { isExportReady, renderExportMarkdown } from './export.js';
 import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
-import { safeDeserializeAssistantParts, serializeParts } from './parts.js';
+import { safeDeserializeAssistantParts, safeDeserializeUserParts, serializeParts } from './parts.js';
 
 export interface AppOptions {
   readonly dbPath?: string;
@@ -113,37 +113,19 @@ function createNextPhaseKickoff(db: DB, projectId: number, parentTurnId: number)
   return frontierTurn.id;
 }
 
-function getFullSetReviewAction(
-  turn: Pick<Turn, 'phase'>,
-  selectedPositions: number[],
-  options: ReturnType<typeof getOptionsForTurn>,
+function getPersistedFullSetReviewAction(
+  turn: Pick<Turn, 'phase' | 'user_parts'>,
 ): 'accept' | 'request-changes' | null {
-  if ((turn.phase !== 'requirements' && turn.phase !== 'criteria') || selectedPositions.length !== 1) {
+  if (turn.phase !== 'requirements' && turn.phase !== 'criteria') {
     return null;
   }
 
-  const normalizedOptions = options.map((option) => ({
-    ...option,
-    normalizedContent: option.content.trim().toLowerCase(),
-  }));
-  const acceptOption = normalizedOptions.find((option) => option.normalizedContent === 'accept review');
-  const requestChangesOption = normalizedOptions.find(
-    (option) => option.normalizedContent === 'request changes',
+  const responsePart = safeDeserializeUserParts(turn.user_parts).find(
+    (part): part is Extract<BrunchUserPart, { type: 'data-turn-response' }> =>
+      part.type === 'data-turn-response',
   );
 
-  if (!acceptOption || !requestChangesOption) {
-    return null;
-  }
-
-  const [selectedPosition] = selectedPositions;
-  if (selectedPosition === acceptOption.position) {
-    return 'accept';
-  }
-  if (selectedPosition === requestChangesOption.position) {
-    return 'request-changes';
-  }
-
-  return null;
+  return responsePart?.data.reviewAction ?? null;
 }
 
 function acceptRequirementsReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
@@ -271,9 +253,17 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       freeText,
     });
 
+    const reviewAction =
+      parsedRequest.data.kind === 'select-options' ? parsedRequest.data.reviewAction : null;
+
     const dataPart = {
       type: 'data-turn-response',
-      data: { turnId, selectedOptionIds, ...(freeText ? { freeText } : {}) },
+      data: {
+        turnId,
+        selectedOptionIds,
+        ...(freeText ? { freeText } : {}),
+        ...(reviewAction ? { reviewAction } : {}),
+      },
     } as const satisfies Extract<BrunchUserPart, { type: 'data-turn-response' }>;
 
     updateTurn(db, turnId, {
@@ -284,7 +274,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       ] satisfies BrunchUserPart[]),
     });
 
-    const fullSetReviewAction = getFullSetReviewAction(turn, uniquePositions, options);
+    const fullSetReviewAction = getPersistedFullSetReviewAction(getTurn(db, turnId) ?? turn);
     if (fullSetReviewAction === 'accept') {
       const response =
         turn.phase === 'requirements'

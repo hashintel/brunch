@@ -6,34 +6,32 @@
 
 ## Active
 
-1. **Frontier lifecycle skeleton across open phases** — establish the universal no-dead-state turn lifecycle: fixed kickoff turns for newly opened phases, visible generating-frontier states while successor turns are created, and exceptional recovery turns only when frontier continuity breaks.
-   - Why now / unlocks: this is the new structural center from `memory/SPEC.md` (D94). It replaces the old auto-trigger workaround, guarantees a next visible action now that the raw composer is gone, and is the prerequisite for lightweight review and future grounding-card work.
-
-2. **Specification-first creation and workspace terminology adoption** — root creation asks only for the specification name, and touched product surfaces start distinguishing workspace vs specification while internal `project` identifiers remain unchanged.
+1. **Specification-first creation and workspace terminology adoption** — root creation asks only for the specification name, and touched product surfaces start distinguishing workspace vs specification while internal `project` identifiers remain unchanged.
    - Why now / unlocks: this establishes D82, D96, and D97 at the entry seam so grounding strategy can move into the workspace honestly instead of mutating a premature root-modal choice.
+
+2. **Interview workflow transition extraction from `app.ts`** — move phase-confirmation, review accept-to-close, successor-frontier creation, and observer-scheduling policy into a smaller deep module with a narrow command/result seam, leaving `app.ts` as transport composition.
+   - Why now / unlocks: the frontier/review/closure model is now rich enough that every new interaction family risks deepening the `app.ts` monolith. Extracting the workflow seam now makes grounding-card and kickoff-follow-on work cheaper, safer, and easier to test in isolation.
 
 ## Next
 
-1. **Interview workflow transition extraction from `app.ts`** — move phase-confirmation, review accept-to-close, successor-frontier creation, and observer-scheduling policy into a smaller deep module with a narrow command/result seam, leaving `app.ts` as transport composition.
-   - Why now / unlocks: the frontier/review/closure model is now rich enough that every new interaction family risks deepening the `app.ts` monolith. Extracting the workflow seam now makes grounding-card and kickoff-follow-on work cheaper, safer, and easier to test in isolation.
-
-2. **Grounding strategy selection inside the workspace kickoff flow** — the first grounding move chooses elicitation-first vs analysis-first from the workspace-owned kickoff/frontier seam instead of in the root modal.
+1. **Grounding strategy selection inside the workspace kickoff flow** — the first grounding move chooses elicitation-first vs analysis-first from the workspace-owned kickoff/frontier seam instead of in the root modal.
    - Why now / unlocks: once creation is specification-first and kickoff turns are real, grounding can own its opening move inside one interaction family.
 
-3. **Grounding-card transcript primitive** — add visible provisional grounding cards with optional comment + continue semantics, keeping card content non-durable while allowing user reactions to feed later knowledge capture.
+2. **Grounding-card transcript primitive** — add visible provisional grounding cards with optional comment + continue semantics, keeping card content non-durable while allowing user reactions to feed later knowledge capture.
    - Why now / unlocks: this is the next distinct turn-card family after kickoff/question/review and is required for brownfield grounding briefs and reusable context gathering.
 
-4. **Brownfield workspace-analysis grounding brief** — use read-only workspace analysis to produce the first visible grounding card, then hand off into the first substantive grounding question.
+3. **Brownfield workspace-analysis grounding brief** — use read-only workspace analysis to produce the first visible grounding card, then hand off into the first substantive grounding question.
    - Why now / unlocks: this lands analysis-first grounding on top of the revised kickoff/card/provenance model without yet solving the full reusable context-gathering loop.
 
-5. **Router/query ownership refinement for interview surfaces** — replace coarse route-wide invalidation with deliberate loader/query ownership after the revised frontier lifecycle settles.
+4. **Router/query ownership refinement for interview surfaces** — replace coarse route-wide invalidation with deliberate loader/query ownership after the revised frontier lifecycle settles.
    - Why now / unlocks: refresh pain should be judged against the new kickoff/generation/recovery model before investing in narrower ownership seams.
 
-6. **Rich replay treatment for kickoff, review, observer progress, and grounding-card detail** — once the turn lifecycle and grounding-card primitives stabilize, make replay components visually match their live counterparts more closely.
+5. **Rich replay treatment for kickoff, review, observer progress, and grounding-card detail** — once the turn lifecycle and grounding-card primitives stabilize, make replay components visually match their live counterparts more closely.
    - Why now / unlocks: transcript trust depends on carrying fixed kickoff turns, review outcomes, and provisional grounding artifacts legibly through hydration.
 
 ## Horizon
 
+- **Interaction-semantics hardening bundle** — retire remaining incidental UI coupling in a small follow-on bundle: encode full-set review semantics directly on review options/tool payloads instead of deriving `reviewAction` from option ordering, and clean up any remaining control-marker or transcript affordances that still infer semantics from presentation copy.
 - **Output route and markdown export refinement** — conditional route available when all phases are closed, with accepted review outputs projected into markdown export (D100).
 - **Close Phase confirmation modal** — modal UX for the Close Phase button with readiness/turn-count context and closeability gating (D103); review phases may stay on their lighter accept-to-close path.
 - **Workflow projector extraction** — refactor `getCurrentWorkflowState()` into a pure projector over a `WorkflowSnapshot` struct. Independent lane.
@@ -51,26 +49,21 @@
 
 ## Recently Completed
 
+- 2026-04-16 — **Frontier lifecycle skeleton across open phases** — the open-phase seam now bottoms out in fixed kickoff turns, visible generation states, same-turn review accept-to-close progression, and exceptional recovery turns, closing the no-dead-state frontier tracked under D94.
+- 2026-04-16 — **Persist explicit full-set review actions through response + fixture seams** — requirements/criteria review submissions now carry explicit persisted `reviewAction` semantics, server acceptance no longer depends on option copy, client review submissions include the action in transport, and manifest/corpus/synthetic fixture seams round-trip the full-set review action without modeling per-item review turns as the user interaction.
 - 2026-04-16 — **Persist frontier turn kinds for kickoff and recovery** — open-phase frontier turns now carry explicit persisted `turn_kind` semantics (`question` / `kickoff` / `recovery`), and controller/view projection no longer depends on `why` sentinels to classify kickoff vs recovery cards.
-- 2026-04-16 — **Criteria review accept-to-close wiring** — accepting the criteria full-set review now marks the presented criterion set approved, closes criteria on the same durable turn, makes the workflow output-ready, and suppresses the stale review text from being forwarded into chat after workflow completion.
-- 2026-04-16 — **Lightweight review turn v1 across requirements + criteria** — both review phases now use full-set review turns with stable item reference codes, one review note, explicit `Accept review` / `Request changes` actions, and accept-to-close progression into the next kickoff/output frontier.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
 ## Dependencies
 
 ```text
-frontier-lifecycle-skeleton-across-open-phases
-  ├──→ interview-workflow-transition-extraction-from-app-ts
-  ├──→ router-query-ownership-refinement-for-interview-surfaces
-  └──→ rich-replay-treatment-for-kickoff-review-observer-progress-and-grounding-card-detail
+specification-first-creation-and-workspace-terminology-adoption
+  └──→ grounding-strategy-selection-inside-the-workspace-kickoff-flow
 
 interview-workflow-transition-extraction-from-app-ts
   ├──→ grounding-strategy-selection-inside-the-workspace-kickoff-flow
   └──→ grounding-card-transcript-primitive
-
-specification-first-creation-and-workspace-terminology-adoption
-  └──→ grounding-strategy-selection-inside-the-workspace-kickoff-flow
 
 grounding-strategy-selection-inside-the-workspace-kickoff-flow
   └──→ brownfield-workspace-analysis-grounding-brief

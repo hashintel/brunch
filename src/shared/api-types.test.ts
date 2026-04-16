@@ -355,6 +355,17 @@ describe('api transport contracts', () => {
     });
     expect(
       submitTurnResponseRequestSchema.parse({
+        kind: 'select-options',
+        positions: [0],
+        reviewAction: 'accept',
+      }),
+    ).toEqual({
+      kind: 'select-options',
+      positions: [0],
+      reviewAction: 'accept',
+    });
+    expect(
+      submitTurnResponseRequestSchema.parse({
         kind: 'free-text',
         freeText: 'None of these fit',
       }),

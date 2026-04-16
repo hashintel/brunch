@@ -2509,10 +2509,10 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     ]);
   });
 
-  it('accepting the requirements full-set review closes requirements, approves the current set, and advances to criteria kickoff', async () => {
+  it('accepting the requirements full-set review uses explicit reviewAction instead of option copy', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
-    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
+    const { advanceHead, createKnowledgeItem, createOption, createTurn, getTurn } = await import('./db.js');
 
     const requirementOne = createKnowledgeItem(
       db,
@@ -2537,19 +2537,19 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     });
     createOption(db, reviewTurn.id, {
       position: 0,
-      content: 'Accept review',
+      content: 'Ship this set',
       is_recommended: true,
     });
     createOption(db, reviewTurn.id, {
       position: 1,
-      content: 'Request changes',
+      content: 'Revise this set',
       is_recommended: false,
     });
     advanceHead(db, projectId, reviewTurn.id);
 
     const response = await request(app)
       .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ kind: 'select-options', positions: [0] })
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
       .expect(200);
 
     expect(response.body).toEqual({ ok: true, advancedToPhase: 'criteria' });
@@ -2587,8 +2587,19 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         expect.objectContaining({ id: requirementTwo.id, reviewStatus: 'approved' }),
       ]),
     );
-  });
 
+    expect(JSON.parse(getTurn(db, reviewTurn.id)?.user_parts ?? '[]')).toEqual([
+      { type: 'text', text: 'Ship this set' },
+      {
+        type: 'data-turn-response',
+        data: {
+          turnId: reviewTurn.id,
+          selectedOptionIds: expect.any(Array),
+          reviewAction: 'accept',
+        },
+      },
+    ]);
+  });
   it('requesting changes on the requirements full-set review keeps requirements open and does not advance to criteria', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
@@ -2611,19 +2622,24 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     });
     createOption(db, reviewTurn.id, {
       position: 0,
-      content: 'Accept review',
+      content: 'Ship this set',
       is_recommended: true,
     });
     createOption(db, reviewTurn.id, {
       position: 1,
-      content: 'Request changes',
+      content: 'Revise this set',
       is_recommended: false,
     });
     advanceHead(db, projectId, reviewTurn.id);
 
     const response = await request(app)
       .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ kind: 'select-options', positions: [1], freeText: 'Add export rationale notes.' })
+      .send({
+        kind: 'select-options',
+        positions: [1],
+        freeText: 'Add export rationale notes.',
+        reviewAction: 'request-changes',
+      })
       .expect(200);
 
     expect(response.body).toEqual({ ok: true });
@@ -2855,7 +2871,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
   });
 
-  it('accepting the criteria full-set review closes criteria, approves the current set, and makes export ready', async () => {
+  it('accepting the criteria full-set review uses explicit reviewAction instead of option copy', async () => {
     const projectId = await createTestProject();
     const seededCriteria = seedCriteriaReady(projectId);
     const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
@@ -2883,19 +2899,19 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     });
     createOption(db, reviewTurn.id, {
       position: 0,
-      content: 'Accept review',
+      content: 'Ship this set',
       is_recommended: true,
     });
     createOption(db, reviewTurn.id, {
       position: 1,
-      content: 'Request changes',
+      content: 'Revise this set',
       is_recommended: false,
     });
     advanceHead(db, projectId, reviewTurn.id);
 
     const response = await request(app)
       .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ kind: 'select-options', positions: [0] })
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
       .expect(200);
 
     expect(response.body).toEqual({ ok: true, workflowCompleted: true });
@@ -2949,19 +2965,24 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     });
     createOption(db, reviewTurn.id, {
       position: 0,
-      content: 'Accept review',
+      content: 'Ship this set',
       is_recommended: true,
     });
     createOption(db, reviewTurn.id, {
       position: 1,
-      content: 'Request changes',
+      content: 'Revise this set',
       is_recommended: false,
     });
     advanceHead(db, projectId, reviewTurn.id);
 
     const response = await request(app)
       .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ kind: 'select-options', positions: [1], freeText: 'Add browser-reload wording.' })
+      .send({
+        kind: 'select-options',
+        positions: [1],
+        freeText: 'Add browser-reload wording.',
+        reviewAction: 'request-changes',
+      })
       .expect(200);
 
     expect(response.body).toEqual({ ok: true });

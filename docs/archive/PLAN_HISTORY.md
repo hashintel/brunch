@@ -23,6 +23,8 @@ Archived from the legacy phase-ledger form of `memory/PLAN.md` on 2026-04-14 dur
 
 ## Recent Frontier Archives
 
+- 2026-04-16 — **Criteria review accept-to-close wiring** — accepting the criteria full-set review now marks the presented criterion set approved, closes criteria on the same durable turn, makes the workflow output-ready, and suppresses the stale review text from being forwarded into chat after workflow completion.
+- 2026-04-16 — **Lightweight review turn v1 across requirements + criteria** — both review phases now use full-set review turns with stable item reference codes, one review note, explicit `Accept review` / `Request changes` actions, and accept-to-close progression into the next kickoff/output frontier.
 - 2026-04-16 — **Criteria full-set review turn parity** — criteria gained the same full-set review prompt/context/UI seam as requirements, including current criterion inventory, stable criterion reference codes, one review note, and explicit `Accept review` / `Request changes` actions.
 - 2026-04-16 — **Requirements review accept-to-close wiring** — accepting the requirements full-set review now marks the presented requirement set approved, closes requirements on the same durable turn, creates the criteria kickoff frontier, and suppresses the stale review text from being forwarded into criteria chat.
 - 2026-04-15 — **Center pane sticky header and ChatScroll integration** — `InterviewView` now renders phase metadata and state-gated actions in the sticky center header, with `ChatScroll` as the route-owned transcript container.

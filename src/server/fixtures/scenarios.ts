@@ -1,5 +1,6 @@
 import {
   advanceHead,
+  applyTurnResponseSelections,
   confirmPhaseOutcome,
   createKnowledgeItem,
   createOption,
@@ -8,6 +9,7 @@ import {
   createProject,
   createTurn,
   linkKnowledgeItemToTurn,
+  updateTurn,
   type DB,
   type WorkflowPhaseStatus,
 } from '../db.js';
@@ -19,6 +21,20 @@ function createConfirmationParts(text: string, data: object): string {
     {
       type: 'data-confirmation',
       data,
+    },
+  ]);
+}
+
+function createAcceptedReviewUserParts(turnId: number, selectedOptionIds: number[]): string {
+  return JSON.stringify([
+    { type: 'text', text: 'Accept review' },
+    {
+      type: 'data-turn-response',
+      data: {
+        turnId,
+        selectedOptionIds,
+        reviewAction: 'accept',
+      },
     },
   ]);
 }
@@ -234,58 +250,61 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
     'requirement',
     'Resume the interview from SQLite after restart',
   );
-  const rejectedRequirement = createKnowledgeItem(
+  const supportingRequirement = createKnowledgeItem(
     db,
     projectId,
     'requirement',
-    'Support exporting the spec as a PDF',
+    'Keep the local-first persistence seam simple for restart and resume',
   );
 
   const reviewTurn = createTurn(db, projectId, {
     phase: 'requirements',
     parent_turn_id: parentTurnId,
-    question: 'Are these requirements all reviewed now?',
-    answer: 'Yes — approve resume and reject PDF export',
+    question: 'Please review the current requirement set.',
+    why: 'Review the whole requirement set before moving forward.',
+    impact: 'high',
+    answer: 'Accept review',
+  });
+  const acceptOption = createOption(db, reviewTurn.id, {
+    position: 0,
+    content: 'Accept review',
+    is_recommended: true,
+  });
+  createOption(db, reviewTurn.id, {
+    position: 1,
+    content: 'Request changes',
+    is_recommended: false,
+  });
+  applyTurnResponseSelections(db, reviewTurn.id, [0]);
+  updateTurn(db, reviewTurn.id, {
+    user_parts: createAcceptedReviewUserParts(reviewTurn.id, [acceptOption.id]),
   });
   linkKnowledgeItemToTurn(db, approvedRequirement.id, reviewTurn.id, 'reviewed');
-  linkKnowledgeItemToTurn(db, rejectedRequirement.id, reviewTurn.id, 'rejected');
-  advanceHead(db, projectId, reviewTurn.id);
-
-  const requirementsProposalTurn = createTurn(db, projectId, {
-    phase: 'requirements',
-    parent_turn_id: reviewTurn.id,
-    question: '',
-    answer: 'The requirement set has explicit review coverage and is ready to move into criteria.',
-  });
-  advanceHead(db, projectId, requirementsProposalTurn.id);
-
-  const requirementsOutcome = createPhaseOutcome(db, {
+  linkKnowledgeItemToTurn(db, supportingRequirement.id, reviewTurn.id, 'reviewed');
+  createConfirmedPhaseOutcome(db, {
     projectId,
     phase: 'requirements',
-    proposal_turn_id: requirementsProposalTurn.id,
-    summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
+    proposal_turn_id: reviewTurn.id,
+    confirmation_turn_id: reviewTurn.id,
+    summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
   });
+  advanceHead(db, projectId, reviewTurn.id);
 
-  const requirementsConfirmationTurn = createTurn(db, projectId, {
-    phase: 'requirements',
-    parent_turn_id: requirementsProposalTurn.id,
+  const criteriaKickoffTurn = createTurn(db, projectId, {
+    phase: 'criteria',
+    parent_turn_id: reviewTurn.id,
+    turn_kind: 'kickoff',
     question: '',
-    answer: 'Confirm requirements closure',
-    user_parts: createConfirmationParts('Confirm requirements closure', {
-      kind: 'confirm-proposed-phase-closure',
-      proposalTurnId: requirementsProposalTurn.id,
-      phase: 'requirements',
-    }),
+    answer: null,
   });
-  confirmPhaseOutcome(db, requirementsOutcome.id, requirementsConfirmationTurn.id);
-  advanceHead(db, projectId, requirementsConfirmationTurn.id);
+  advanceHead(db, projectId, criteriaKickoffTurn.id);
 
   return {
     approvedRequirement,
-    rejectedRequirement,
+    supportingRequirement,
     reviewTurn,
-    requirementsProposalTurn,
-    requirementsConfirmationTurn,
+    requirementsConfirmationTurn: reviewTurn,
+    criteriaKickoffTurn,
   };
 }
 
@@ -336,12 +355,12 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
   );
 
   for (const criterion of [criterionAudit, criterionPermissions, criterionPerformance]) {
-    linkKnowledgeItemToTurn(db, criterion.id, seededCriteria.requirementsConfirmationTurn.id, 'captured');
+    linkKnowledgeItemToTurn(db, criterion.id, seededCriteria.criteriaKickoffTurn.id, 'captured');
   }
 
   const reviewTurn = createTurn(db, projectId, {
     phase: 'criteria',
-    parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
+    parent_turn_id: seededCriteria.criteriaKickoffTurn.id,
     question: 'Please review the current criterion set.',
     why: 'Review the whole criterion set before moving forward.',
     impact: 'high',
@@ -370,54 +389,56 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
 
 function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: number) {
   const criterion = createKnowledgeItem(db, projectId, 'criterion', 'Verify SQLite resume');
+  const supportingCriterion = createKnowledgeItem(
+    db,
+    projectId,
+    'criterion',
+    'Restarting the browser restores the active path from local persistence',
+  );
   const criterionReviewTurn = createTurn(db, projectId, {
     phase: 'criteria',
     parent_turn_id: parentTurnId,
-    question: 'Are these criteria reviewed?',
-    answer: 'Yes — approve the criterion',
+    question: 'Please review the current criterion set.',
+    why: 'Review the whole criterion set before moving forward.',
+    impact: 'high',
+    answer: 'Accept review',
+  });
+  const acceptOption = createOption(db, criterionReviewTurn.id, {
+    position: 0,
+    content: 'Accept review',
+    is_recommended: true,
+  });
+  createOption(db, criterionReviewTurn.id, {
+    position: 1,
+    content: 'Request changes',
+    is_recommended: false,
+  });
+  applyTurnResponseSelections(db, criterionReviewTurn.id, [0]);
+  updateTurn(db, criterionReviewTurn.id, {
+    user_parts: createAcceptedReviewUserParts(criterionReviewTurn.id, [acceptOption.id]),
   });
   linkKnowledgeItemToTurn(db, criterion.id, criterionReviewTurn.id, 'reviewed');
-  advanceHead(db, projectId, criterionReviewTurn.id);
-
-  const criteriaProposalTurn = createTurn(db, projectId, {
-    phase: 'criteria',
-    parent_turn_id: criterionReviewTurn.id,
-    question: '',
-    answer: 'Criteria review coverage is complete.',
-  });
-  advanceHead(db, projectId, criteriaProposalTurn.id);
-
-  const criteriaOutcome = createPhaseOutcome(db, {
+  linkKnowledgeItemToTurn(db, supportingCriterion.id, criterionReviewTurn.id, 'reviewed');
+  createConfirmedPhaseOutcome(db, {
     projectId,
     phase: 'criteria',
-    proposal_turn_id: criteriaProposalTurn.id,
-    summary: 'Criteria review coverage is complete.',
+    proposal_turn_id: criterionReviewTurn.id,
+    confirmation_turn_id: criterionReviewTurn.id,
+    summary: 'The reviewed criteria set is accepted and the specification is ready for output.',
   });
+  advanceHead(db, projectId, criterionReviewTurn.id);
 
-  const criteriaConfirmationTurn = createTurn(db, projectId, {
-    phase: 'criteria',
-    parent_turn_id: criteriaProposalTurn.id,
-    question: '',
-    answer: 'Confirm acceptance criteria closure',
-    user_parts: createConfirmationParts('Confirm acceptance criteria closure', {
-      kind: 'confirm-proposed-phase-closure',
-      proposalTurnId: criteriaProposalTurn.id,
-      phase: 'criteria',
-    }),
-  });
-  confirmPhaseOutcome(db, criteriaOutcome.id, criteriaConfirmationTurn.id);
-  advanceHead(db, projectId, criteriaConfirmationTurn.id);
-
-  return { criterion, criterionReviewTurn, criteriaProposalTurn, criteriaConfirmationTurn };
+  return {
+    criterion,
+    supportingCriterion,
+    criterionReviewTurn,
+    criteriaConfirmationTurn: criterionReviewTurn,
+  };
 }
 
 export function seedAllPhasesClosed(db: DB, projectId: number) {
   const seededCriteria = seedCriteriaReady(db, projectId);
-  const reviewedCriteria = seedClosedCriteriaReview(
-    db,
-    projectId,
-    seededCriteria.requirementsConfirmationTurn.id,
-  );
+  const reviewedCriteria = seedClosedCriteriaReview(db, projectId, seededCriteria.criteriaKickoffTurn.id);
 
   return { ...seededCriteria, ...reviewedCriteria };
 }
@@ -457,7 +478,7 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
   const reviewedCriteria = seedClosedCriteriaReview(
     db,
     projectId,
-    reviewedRequirements.requirementsConfirmationTurn.id,
+    reviewedRequirements.criteriaKickoffTurn.id,
   );
 
   return {
@@ -532,7 +553,7 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
   const reviewedCriteria = seedClosedCriteriaReview(
     db,
     projectId,
-    reviewedRequirements.requirementsConfirmationTurn.id,
+    reviewedRequirements.criteriaKickoffTurn.id,
   );
 
   return {

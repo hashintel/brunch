@@ -6,7 +6,10 @@ import type {
   SubmitTurnResponseResponse,
 } from '@/shared/api-types.js';
 import { formatTurnResponseText } from '@/shared/chat.js';
-import { findTurnOptionsByPositions } from '@/shared/project-state-turn.js';
+import {
+  findTurnOptionsByPositions,
+  getReviewActionForSelectedPositions,
+} from '@/shared/project-state-turn.js';
 
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
@@ -54,12 +57,14 @@ export function useSubmitTurnResponseMutation({
         return false;
       }
 
+      const reviewAction = getReviewActionForSelectedPositions(turn, uniquePositions);
       const response: SubmitTurnResponseRequest =
         uniquePositions.length > 0
           ? {
               kind: 'select-options',
               positions: uniquePositions,
               ...(trimmedFreeText ? { freeText: trimmedFreeText } : {}),
+              ...(reviewAction ? { reviewAction } : {}),
             }
           : {
               kind: 'free-text',

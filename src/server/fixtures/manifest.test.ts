@@ -19,20 +19,21 @@ afterEach(() => {
 });
 
 describe('seedFromManifest', () => {
-  it('persists selected option ids in user_parts so seeded turns rehydrate with option text', () => {
+  it('persists selected option ids and explicit reviewAction in user_parts so seeded turns rehydrate with semantic intent', () => {
     const scenario: ManifestScenario = {
       turns: [
         {
-          phase: 'scope',
-          question: 'Which launch surface should we prioritize?',
+          phase: 'requirements',
+          question: 'Please review the current requirement set.',
           why: 'The fixture should preserve the selected option text after reload.',
           impact: 'high',
-          answer: 'Start with the web workspace.',
+          answer: 'Ship this set',
           options: [
-            { content: 'CLI-first workflow', is_recommended: false },
-            { content: 'Web workspace', is_recommended: true },
+            { content: 'Ship this set', is_recommended: true },
+            { content: 'Revise this set', is_recommended: false },
           ],
-          selectedOptionPositions: [1],
+          selectedOptionPositions: [0],
+          reviewAction: 'accept',
         },
       ],
       knowledgeItems: [],
@@ -44,19 +45,18 @@ describe('seedFromManifest', () => {
     const projectedResponse = projectTurnResponse(turn);
 
     expect(projectedResponse).toEqual({
-      selectedOptionIds: [turn.options![1]!.id],
-      selectedOptionContents: ['Web workspace'],
-      freeText: 'Start with the web workspace.',
+      selectedOptionIds: [turn.options![0]!.id],
+      selectedOptionContents: ['Ship this set'],
+      reviewAction: 'accept',
+      freeText: undefined,
     });
-    expect(formatProjectedTurnResponse(projectedResponse!)).toContain('Chosen options: Web workspace');
+    expect(formatProjectedTurnResponse(projectedResponse!)).toContain('Chosen options: Ship this set');
     expect(turn.answer).toBe(
       formatTurnResponseText({
-        selectedOptionContents: ['Web workspace'],
-        freeText: 'Start with the web workspace.',
+        selectedOptionContents: ['Ship this set'],
       }),
     );
   });
-
   it('patches assistant parts to match the live persisted contracts for questions and phase proposals', () => {
     const scenario: ManifestScenario = {
       turns: [

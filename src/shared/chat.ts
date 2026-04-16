@@ -35,6 +35,8 @@ export const criterionRejectionReviewSchema = z.object({
 
 export const criterionReviewSchema = z.union([criterionApprovalReviewSchema, criterionRejectionReviewSchema]);
 
+export const reviewActionSchema = z.enum(['accept', 'request-changes']);
+
 function validateReviewOptionPosition(
   review: { approveOptionPosition: number } | { rejectOptionPosition: number },
   field: string,
@@ -96,6 +98,7 @@ export const dataTurnResponseSchema = z
     turnId: z.number(),
     selectedOptionIds: z.array(z.number()),
     freeText: z.string().trim().min(1).optional(),
+    reviewAction: reviewActionSchema.optional(),
   })
   .superRefine((value, ctx) => {
     if (value.selectedOptionIds.length === 0 && !value.freeText) {
@@ -132,6 +135,7 @@ export type CriterionApprovalReview = z.infer<typeof criterionApprovalReviewSche
 export type CriterionRejectionReview = z.infer<typeof criterionRejectionReviewSchema>;
 export type CriterionReview = z.infer<typeof criterionReviewSchema>;
 export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
+export type ReviewAction = z.infer<typeof reviewActionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
 export type ObserverEntityIds = ObserverResultData['entityIds'];

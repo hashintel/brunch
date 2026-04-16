@@ -4,6 +4,8 @@ import type { ProjectState, ProjectStateTurn } from './api-types.js';
 import {
   findTurnOptionsByPositions,
   getAcceptedClosureReplay,
+  getPersistedReviewAction,
+  getReviewActionForSelectedPositions,
   safeParsePersistedAssistantParts,
   safeParsePersistedUserParts,
   turnIsControlOrClosureArtifact,
@@ -125,5 +127,23 @@ describe('project-state-turn helpers', () => {
       'Web',
       'Desktop',
     ]);
+  });
+
+  it('reads and derives explicit review actions for full-set review turns', () => {
+    const reviewTurn = createTurn({
+      phase: 'requirements',
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Ship this set' },
+        {
+          type: 'data-turn-response',
+          data: { turnId: 1, selectedOptionIds: [11], reviewAction: 'accept' },
+        },
+      ]),
+    });
+
+    expect(getPersistedReviewAction(reviewTurn)).toBe('accept');
+    expect(getReviewActionForSelectedPositions(reviewTurn, [0])).toBe('accept');
+    expect(getReviewActionForSelectedPositions(reviewTurn, [1])).toBe('request-changes');
+    expect(getReviewActionForSelectedPositions(createTurn({ phase: 'scope' }), [0])).toBeNull();
   });
 });

@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import type { EdgeRelation, Impact, TurnKind } from '@/shared/api-types.js';
+import type { EdgeRelation, Impact, ReviewAction, TurnKind } from '@/shared/api-types.js';
 import { formatTurnResponseText, type BrunchAssistantPart, type BrunchUserPart } from '@/shared/chat.js';
 import {
   createKnowledgeCollectionRecord,
@@ -51,6 +51,7 @@ export interface ManifestTurn {
   options?: ManifestOption[];
   selectedOptionPositions?: number[];
   freeText?: string | null;
+  reviewAction?: ReviewAction;
   isProposal?: boolean;
   isConfirmation?: boolean;
 }
@@ -93,6 +94,7 @@ type CompiledQuestionTurn = {
   options: ManifestOption[];
   selectedOptionPositions: number[];
   freeText?: string;
+  reviewAction?: ReviewAction;
   responseText?: string;
 };
 
@@ -189,6 +191,7 @@ function compileQuestionTurn(turn: ManifestTurn, turnIndex: number): CompiledQue
     options,
     selectedOptionPositions,
     ...(freeText ? { freeText } : {}),
+    ...(turn.reviewAction ? { reviewAction: turn.reviewAction } : {}),
     ...(responseText ? { responseText } : {}),
   };
 }
@@ -514,6 +517,7 @@ function seedCompiledManifestScenario(
             turnId: turn.id,
             selectedOptionIds: selectedIds,
             ...(turnDefinition.freeText ? { freeText: turnDefinition.freeText } : {}),
+            ...(turnDefinition.reviewAction ? { reviewAction: turnDefinition.reviewAction } : {}),
           },
         },
       ] satisfies BrunchUserPart[]);

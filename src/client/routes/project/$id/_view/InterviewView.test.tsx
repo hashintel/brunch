@@ -1292,6 +1292,7 @@ describe('InterviewView', () => {
           body: JSON.stringify({
             kind: 'select-options',
             positions: [0],
+            reviewAction: 'accept',
           }),
         }),
       );
@@ -1384,6 +1385,7 @@ describe('InterviewView', () => {
           body: JSON.stringify({
             kind: 'select-options',
             positions: [0],
+            reviewAction: 'accept',
           }),
         }),
       );

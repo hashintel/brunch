@@ -1,5 +1,6 @@
 import * as z from 'zod/v4';
 
+import { reviewActionSchema } from './chat.js';
 import { phaseClosureBasisSchema, workflowPhaseSchema, type WorkflowPhase } from './phase-close.js';
 
 export type { WorkflowPhase };
@@ -222,6 +223,7 @@ export const submitTurnResponseSelectionRequestSchema = z.object({
   kind: z.literal('select-options'),
   positions: z.array(z.number().int().min(0)).min(1),
   freeText: z.string().trim().min(1).optional(),
+  reviewAction: reviewActionSchema.optional(),
 });
 
 export const submitTurnResponseFreeTextRequestSchema = z.object({
@@ -243,6 +245,7 @@ export const submitTurnResponseResponseSchema = z.object({
 export type ProjectMode = z.infer<typeof projectModeSchema>;
 export type Impact = z.infer<typeof impactSchema>;
 export type TurnKind = z.infer<typeof turnKindSchema>;
+export type ReviewAction = z.infer<typeof reviewActionSchema>;
 export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
 export type EdgeRelation = z.infer<typeof edgeRelationSchema>;
 export type WorkflowPhaseStatus = z.infer<typeof workflowPhaseStatusSchema>;

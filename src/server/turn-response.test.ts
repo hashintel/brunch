@@ -23,6 +23,7 @@ describe('projectTurnResponse', () => {
             turnId: 1,
             selectedOptionIds: [11, 12],
             freeText: 'Covers both launch paths',
+            reviewAction: 'accept',
           },
         },
       ]),
@@ -38,6 +39,7 @@ describe('projectTurnResponse', () => {
       selectedOptionIds: [11, 12],
       selectedOptionContents: ['Web', 'Desktop'],
       freeText: 'Covers both launch paths',
+      reviewAction: 'accept',
     });
   });
 

@@ -252,6 +252,7 @@ export function captureProjectToManifestScenario(db: DB, projectId: number): Man
                 .sort((left, right) => left.position - right.position)
                 .map((option) => option.position),
               freeText: response.freeText ?? null,
+              ...(response.reviewAction ? { reviewAction: response.reviewAction } : {}),
             }
           : {}),
       } satisfies ManifestScenario['turns'][number];
