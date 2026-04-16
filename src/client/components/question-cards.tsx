@@ -41,16 +41,18 @@ export function AnsweredQuestionCard({
   captureStatus?: 'waiting' | 'applying';
 }) {
   const persistedResponse = getPersistedTurnResponse(turn);
-  const selectedOptionContents =
-    turn.options
-      ?.filter((option) => persistedResponse?.selectedOptionIds.includes(option.id))
-      .map((option) => option.content) ?? [];
+  const selectedPositions =
+    persistedResponse && turn.options
+      ? turn.options
+          .filter((opt) => persistedResponse.selectedOptionIds.includes(opt.id))
+          .map((opt) => opt.position + 1)
+      : [];
   const chosenSummary =
-    selectedOptionContents.length > 0
-      ? selectedOptionContents.join(', ')
+    selectedPositions.length > 0
+      ? selectedPositions.join(', ')
       : persistedResponse?.freeText
-        ? 'None of the above'
-        : turn.answer?.trim() || 'Awaiting response';
+        ? 'None'
+        : turn.answer?.trim() || '—';
   const responseContext = persistedResponse?.freeText?.trim() || turn.answer?.trim() || null;
   const capturedItems = turn.captured_items ?? [];
   const displayCaptureStatus: 'done' | 'trailing' =
@@ -77,36 +79,40 @@ export function AnsweredQuestionCard({
   );
 
   const summary = (
-    <div className="flex flex-col gap-1">
-      <div className="flex items-center gap-1.5 text-xs text-sub">
-        <span>
-          <span className="font-medium text-ink">Chosen:</span> {chosenSummary}
-        </span>
+    <div className="flex flex-col gap-2.5">
+      <div className="flex items-center gap-1.5 text-xs">
+        <span className="text-sub">Chosen:</span>
+        <span className="text-ink">{chosenSummary}</span>
         {responseContext && (
           <>
             <span className="text-hint">|</span>
-            <span className="truncate">
-              <span className="font-medium text-ink">Context:</span>{' '}
-              <span className="italic">
+            <span className="truncate text-sub">
+              Context:{' '}
+              <span className="italic text-ink">
                 "{responseContext.length > 50 ? responseContext.slice(0, 50) + '…' : responseContext}"
               </span>
             </span>
           </>
         )}
       </div>
-      <div className="flex items-center gap-1.5 text-xs">
-        <span className="font-medium text-hint">Captured:</span>
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="text-xs text-sub">Captured:</span>
         {displayCaptureStatus === 'trailing' ? (
-          <span className="flex items-center gap-1 text-sub">
+          <span className="flex items-center gap-1 text-xs text-sub">
             <Loader2 className="size-3 animate-spin" />
             Still thinking…
           </span>
         ) : capturedItems.length > 0 ? (
-          <span className="font-mono text-sub">
-            {capturedItems.map((item) => item.referenceCode ?? `#${item.id}`).join(', ')}
-          </span>
+          capturedItems.map((item) => (
+            <span
+              key={`${item.collection}:${item.id}`}
+              className="inline-flex h-5 items-center rounded bg-wash px-1.5 text-[11px] font-medium leading-none text-sub"
+            >
+              {item.referenceCode ?? `#${item.id}`}
+            </span>
+          ))
         ) : (
-          <span className="text-hint">—</span>
+          <span className="text-xs text-hint">—</span>
         )}
       </div>
     </div>

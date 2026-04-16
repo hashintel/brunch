@@ -2013,7 +2013,7 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('answered-turn-card').textContent).toContain('What should we build first?');
-      expect(screen.getByTestId('answered-turn-card').textContent).toContain('Desktop');
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain('Chosen:');
       expect(screen.getByRole('checkbox', { name: /web/i })).toBeTruthy();
       expect(screen.getByRole('checkbox', { name: /desktop/i })).toBeTruthy();
     });
@@ -2203,7 +2203,8 @@ describe('InterviewView', () => {
 
     const answeredCard = await screen.findByTestId('answered-turn-card');
 
-    expect(answeredCard.textContent).toContain('Desktop');
+    expect(answeredCard.textContent).toContain('Chosen:');
+    expect(answeredCard.textContent).toContain('2');
     expect(answeredCard.textContent).toContain('Best fit for launch');
   });
 
@@ -2229,7 +2230,8 @@ describe('InterviewView', () => {
 
     const answeredCard = await screen.findByTestId('answered-turn-card');
 
-    expect(answeredCard.textContent).toContain('None of the above');
+    expect(answeredCard.textContent).toContain('Chosen:');
+    expect(answeredCard.textContent).toContain('None');
     expect(answeredCard.textContent).toContain('None of these fit our use case');
     expect(screen.queryByLabelText('Additional response context')).toBeNull();
     expect(screen.queryByRole('checkbox', { name: /web/i })).toBeNull();
