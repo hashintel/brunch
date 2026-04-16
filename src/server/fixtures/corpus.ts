@@ -221,32 +221,40 @@ export function captureProjectToManifestScenario(db: DB, projectId: number): Man
   const turnIndexById = new Map(turns.map((turn, index) => [turn.id, index]));
 
   const manifestTurns = turns.flatMap((turn) => {
+    if (turn.turn_kind === 'kickoff' || turn.turn_kind === 'recovery') {
+      return {
+        phase: turn.phase,
+        turnKind: turn.turn_kind,
+        question: '',
+        answer: null,
+      } satisfies ManifestScenario['turns'][number];
+    }
+
     if (turn.question) {
       const response = projectTurnResponse(turn);
-      if (!response) {
-        throw new Error(
-          `Turn ${turn.id} is missing the structured response data required for trusted capture`,
-        );
-      }
-
       const options = turn.options ?? [];
 
       return {
         phase: turn.phase,
+        ...(turn.turn_kind && turn.turn_kind !== 'question' ? { turnKind: turn.turn_kind } : {}),
         question: turn.question,
-        answer: turn.answer ?? '',
+        answer: turn.answer ?? null,
         why: turn.why ?? null,
         impact: turn.impact ?? null,
         options: options.map((option) => ({
           content: option.content,
           is_recommended: option.is_recommended,
         })),
-        selectedOptionPositions: options
-          .filter((option) => option.is_selected)
-          .sort((left, right) => left.position - right.position)
-          .map((option) => option.position),
-        freeText: response.freeText ?? null,
-      };
+        ...(response
+          ? {
+              selectedOptionPositions: options
+                .filter((option) => option.is_selected)
+                .sort((left, right) => left.position - right.position)
+                .map((option) => option.position),
+              freeText: response.freeText ?? null,
+            }
+          : {}),
+      } satisfies ManifestScenario['turns'][number];
     }
 
     const isConfirmation = safeDeserializeUserParts(turn.user_parts).some(
@@ -263,7 +271,7 @@ export function captureProjectToManifestScenario(db: DB, projectId: number): Man
       question: '',
       answer: turn.answer ?? '',
       ...(isConfirmation ? { isConfirmation: true } : { isProposal: true }),
-    };
+    } satisfies ManifestScenario['turns'][number];
   });
 
   const activeTurnIds = turns.map((turn) => turn.id);
@@ -602,7 +610,7 @@ function collectObservedTurnCapture(
 }
 
 export async function observeTurnWithRunObserver(input: ObserveTurnInput): Promise<ObservedTurnCapture> {
-  const createdIds = await runObserver(input.db, input.turn, input.projectId);
+  const createdIds = await runObserver(input.db, input.turn as import('../db.js').Turn, input.projectId);
   return collectObservedTurnCapture(input.db, input.projectId, createdIds);
 }
 

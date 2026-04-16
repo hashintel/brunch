@@ -165,6 +165,40 @@ describe('seedFromManifest', () => {
     );
   });
 
+  it('persists explicit frontier turn kinds and unanswered question frontiers', () => {
+    const scenario: ManifestScenario = {
+      turns: [
+        {
+          phase: 'scope',
+          turnKind: 'kickoff',
+          question: '',
+          answer: null,
+        },
+        {
+          phase: 'scope',
+          question: 'Which launch surface should we prioritize?',
+          why: 'The fixture should preserve an unresolved question frontier.',
+          impact: 'high',
+          answer: null,
+          options: [
+            { content: 'CLI-first workflow', is_recommended: false },
+            { content: 'Web workspace', is_recommended: true },
+          ],
+        },
+      ],
+      knowledgeItems: [],
+      edges: [],
+    };
+
+    const projectId = seedFromManifest(db, scenario, 'Frontier Seed');
+    const turns = loadActivePathWithOptions(db, projectId);
+
+    expect(turns[0]).toMatchObject({ turn_kind: 'kickoff', answer: null, question: '' });
+    expect(turns[1]).toMatchObject({ turn_kind: 'question', answer: null });
+    expect(turns[1]?.options).toHaveLength(2);
+    expect(projectTurnResponse(turns[1]!)).toBeNull();
+  });
+
   it('fails fast when a confirmation turn has no matching proposal for its phase', () => {
     const scenario: ManifestScenario = {
       turns: [

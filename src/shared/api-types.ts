@@ -7,6 +7,7 @@ export type { WorkflowPhase };
 export const workflowPhaseStatusSchema = z.enum(['unstarted', 'in_progress', 'closed']);
 export const readinessBandSchema = z.enum(['low', 'medium', 'high']);
 export const impactSchema = z.enum(['high', 'medium', 'low']);
+export const turnKindSchema = z.enum(['question', 'kickoff', 'recovery']);
 export const edgeRelationSchema = z.enum(['depends_on', 'derived_from', 'constrains', 'verifies', 'refines']);
 
 export const projectModeSchema = z.enum(['greenfield', 'brownfield']);
@@ -77,6 +78,7 @@ export const projectStateTurnSchema = z.object({
   project_id: z.number().int().positive(),
   parent_turn_id: z.number().int().positive().nullable(),
   phase: workflowPhaseSchema,
+  turn_kind: turnKindSchema.optional(),
   question: z.string(),
   why: z.string().nullable(),
   impact: impactSchema.nullable(),
@@ -240,6 +242,7 @@ export const submitTurnResponseResponseSchema = z.object({
 
 export type ProjectMode = z.infer<typeof projectModeSchema>;
 export type Impact = z.infer<typeof impactSchema>;
+export type TurnKind = z.infer<typeof turnKindSchema>;
 export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
 export type EdgeRelation = z.infer<typeof edgeRelationSchema>;
 export type WorkflowPhaseStatus = z.infer<typeof workflowPhaseStatusSchema>;

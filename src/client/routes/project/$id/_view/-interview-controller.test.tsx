@@ -158,6 +158,7 @@ function createProjectState({
         project_id: projectId,
         parent_turn_id: null,
         phase: 'scope',
+        turn_kind: 'question',
         question: assistantText,
         why: 'This frames the first iteration.',
         impact: 'high',
@@ -318,7 +319,7 @@ describe('interview controller', () => {
     renderController();
 
     expect((await screen.findByTestId('turn-card')).textContent).toBe('none');
-    expect(screen.getByTestId('prompt-visible').textContent).toBe('true');
+    expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
 
     await act(async () => {
       useChatHarness.replaceMessages?.([

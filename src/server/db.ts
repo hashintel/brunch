@@ -19,6 +19,7 @@ import type {
   ProjectMode,
   ProjectStateTurn,
   ReadinessBand,
+  TurnKind,
   RequirementEntity as SharedRequirementEntity,
   ReviewStatus,
   WorkflowPhaseState as SharedWorkflowPhaseState,
@@ -67,6 +68,7 @@ export interface CreatePhaseOutcomeInput {
 export interface CreateTurnInput {
   parent_turn_id?: number | null;
   phase: Phase;
+  turn_kind?: TurnKind;
   question: string;
   why?: string | null;
   impact?: Impact | null;
@@ -136,6 +138,7 @@ export function createTurn(db: DB, projectId: number, input: CreateTurnInput): T
       project_id: projectId,
       parent_turn_id: input.parent_turn_id ?? null,
       phase: input.phase,
+      turn_kind: input.turn_kind ?? 'question',
       question: input.question,
       why: input.why ?? null,
       impact: input.impact ?? null,

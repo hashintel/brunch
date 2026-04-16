@@ -90,6 +90,7 @@ function createProjectState({
         project_id: projectId,
         parent_turn_id: null,
         phase: 'scope',
+        turn_kind: 'question',
         question: assistantText,
         why: 'This frames the first iteration.',
         impact: 'high',
@@ -276,67 +277,186 @@ describe('workspace controller core', () => {
     });
   });
 
-  it('projects recovery turn-card visibility from persisted completed turns without embedding side effects', () => {
-    const pendingResponse = createInterviewDurableProjectState(
-      createProjectState({
-        options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
-      }),
-    );
-    const selectedResponse = createInterviewDurableProjectState(
-      createProjectState({
-        answer: 'Web — Best fit for launch',
-        userParts: [
-          { type: 'text', text: 'Web — Best fit for launch' },
-          {
-            type: 'data-turn-response',
-            data: { turnId: 1, selectedOptionIds: [11], freeText: 'Best fit for launch' },
+  it('projects recovery turn-card visibility from the persisted frontier turn kind', () => {
+    const recoveryState = createInterviewDurableProjectState({
+      project: {
+        id: 1,
+        name: 'Project 1',
+        mode: 'greenfield',
+        cwd: null,
+        active_turn_id: 2,
+        created_at: '2026-04-03 10:00:00',
+        updated_at: '2026-04-03 10:00:00',
+      },
+      workflow: {
+        phases: {
+          scope: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 2,
+            summary: null,
           },
-        ],
-        options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
-      }),
-    );
-    const freeTextOnlyResponse = createInterviewDurableProjectState(
-      createProjectState({
-        answer: 'None of these fit our use case',
-        userParts: [
-          { type: 'text', text: 'None of these fit our use case' },
-          {
-            type: 'data-turn-response',
-            data: { turnId: 1, selectedOptionIds: [], freeText: 'None of these fit our use case' },
+          design: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
           },
-        ],
-        options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
-      }),
-    );
+          requirements: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        },
+      },
+      turns: [
+        {
+          id: 1,
+          project_id: 1,
+          parent_turn_id: null,
+          phase: 'scope',
+          turn_kind: 'question',
+          question: 'What should we build first?',
+          why: 'This frames the first iteration.',
+          impact: 'high',
+          answer: 'Build the web app',
+          is_resolution: false,
+          user_parts: JSON.stringify([{ type: 'text', text: 'Build the web app' }]),
+          assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
+          created_at: '2026-04-03 10:00:00',
+          options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+        },
+        {
+          id: 2,
+          project_id: 1,
+          parent_turn_id: 1,
+          phase: 'scope',
+          turn_kind: 'recovery',
+          question: '',
+          why: null,
+          impact: null,
+          answer: null,
+          is_resolution: false,
+          user_parts: null,
+          assistant_parts: null,
+          created_at: '2026-04-03 10:01:00',
+          options: [],
+        },
+      ],
+    });
 
-    expect(createInterviewControllerViewState(pendingResponse, 'scope', [], false)).toEqual({
-      project: pendingResponse.project,
-      workflow: pendingResponse.workflow,
+    expect(createInterviewControllerViewState(recoveryState, 'scope', [], false)).toEqual({
+      project: recoveryState.project,
+      workflow: recoveryState.workflow,
       turnCard: { kind: 'recovery', recovery: { phase: 'scope' } },
       phaseSummary: null,
       showGeneratingState: false,
       promptInput: { visible: false },
     });
-    expect(createInterviewControllerViewState(pendingResponse, 'scope', [], true)).toEqual({
-      project: pendingResponse.project,
-      workflow: pendingResponse.workflow,
+    expect(createInterviewControllerViewState(recoveryState, 'scope', [], true)).toEqual({
+      project: recoveryState.project,
+      workflow: recoveryState.workflow,
       turnCard: null,
       phaseSummary: null,
       showGeneratingState: true,
       promptInput: { visible: false },
     });
-    expect(createInterviewControllerViewState(selectedResponse, 'scope', [], false)).toEqual({
-      project: selectedResponse.project,
-      workflow: selectedResponse.workflow,
-      turnCard: { kind: 'recovery', recovery: { phase: 'scope' } },
-      phaseSummary: null,
-      showGeneratingState: false,
-      promptInput: { visible: false },
+  });
+
+  it('projects kickoff turn-card visibility from the persisted frontier turn kind', () => {
+    const kickoffState = createInterviewDurableProjectState({
+      project: {
+        id: 1,
+        name: 'Project 1',
+        mode: 'greenfield',
+        cwd: null,
+        active_turn_id: 1,
+        created_at: '2026-04-03 10:00:00',
+        updated_at: '2026-04-03 10:00:00',
+      },
+      workflow: {
+        phases: {
+          scope: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 1,
+            summary: null,
+          },
+          design: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          requirements: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        },
+      },
+      turns: [
+        {
+          id: 1,
+          project_id: 1,
+          parent_turn_id: null,
+          phase: 'scope',
+          turn_kind: 'kickoff',
+          question: '',
+          why: null,
+          impact: null,
+          answer: null,
+          is_resolution: false,
+          user_parts: null,
+          assistant_parts: null,
+          created_at: '2026-04-03 10:00:00',
+          options: [],
+        },
+      ],
     });
-    expect(createInterviewControllerViewState(freeTextOnlyResponse, 'scope', [], false)).toEqual({
-      project: freeTextOnlyResponse.project,
-      workflow: freeTextOnlyResponse.workflow,
-      turnCard: { kind: 'recovery', recovery: { phase: 'scope' } },
+
+    expect(createInterviewControllerViewState(kickoffState, 'scope', [], false)).toEqual({
+      project: kickoffState.project,
+      workflow: kickoffState.workflow,
+      turnCard: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'start' } },
       phaseSummary: null,
       showGeneratingState: false,
       promptInput: { visible: false },

@@ -2,6 +2,7 @@ import {
   advanceHead,
   confirmPhaseOutcome,
   createKnowledgeItem,
+  createOption,
   createPhaseOutcome,
   createConfirmedPhaseOutcome,
   createProject,
@@ -10,7 +11,7 @@ import {
   type DB,
   type WorkflowPhaseStatus,
 } from '../db.js';
-import { loadManifestScenarios } from './manifest.js';
+import { loadManifest, loadManifestScenarios, seedFromManifest, type ManifestScenario } from './manifest.js';
 
 function createConfirmationParts(text: string, data: object): string {
   return JSON.stringify([
@@ -20,6 +21,75 @@ function createConfirmationParts(text: string, data: object): string {
       data,
     },
   ]);
+}
+
+const issueTrackerManifest = loadManifest('issue-tracker');
+
+function sliceManifestScenario(scenario: ManifestScenario, turnCount: number): ManifestScenario {
+  const turns = scenario.turns.slice(0, turnCount);
+  const itemIndexMap = new Map<number, number>();
+
+  const knowledgeItems = scenario.knowledgeItems.flatMap((item, itemIndex) => {
+    if (item.capturedAtTurn >= turnCount) {
+      return [];
+    }
+
+    const nextItem = {
+      kind: item.kind,
+      content: item.content,
+      rationale: item.rationale ?? null,
+      capturedAtTurn: item.capturedAtTurn,
+      ...(item.reviewAction && item.reviewedAtTurn != null && item.reviewedAtTurn < turnCount
+        ? {
+            reviewAction: item.reviewAction,
+            reviewedAtTurn: item.reviewedAtTurn,
+          }
+        : {}),
+    };
+    itemIndexMap.set(itemIndex, itemIndexMap.size);
+    return [nextItem];
+  });
+
+  const edges = scenario.edges.flatMap((edge) => {
+    const fromItemIndex = itemIndexMap.get(edge.fromItemIndex);
+    const toItemIndex = itemIndexMap.get(edge.toItemIndex);
+    if (fromItemIndex == null || toItemIndex == null) {
+      return [];
+    }
+
+    return [
+      {
+        fromItemIndex,
+        toItemIndex,
+        relation: edge.relation,
+      },
+    ];
+  });
+
+  return { turns, knowledgeItems, edges };
+}
+
+function appendFrontierTurn(
+  scenario: ManifestScenario,
+  phase: ManifestScenario['turns'][number]['phase'],
+  turnKind: 'kickoff' | 'recovery',
+): ManifestScenario {
+  return {
+    ...scenario,
+    turns: [
+      ...scenario.turns,
+      {
+        phase,
+        turnKind,
+        question: '',
+        answer: null,
+      },
+    ],
+  };
+}
+
+function createManifestScenarioSeeder(scenario: ManifestScenario, defaultName: string): ScenarioFn {
+  return (db, projectName = defaultName) => seedFromManifest(db, scenario, projectName);
 }
 
 export function seedClosedScope(db: DB, projectId: number) {
@@ -103,6 +173,60 @@ export function seedRequirementsReady(db: DB, projectId: number) {
   return { ...seededDesign, designConfirmationTurn };
 }
 
+export function seedRequirementsReviewReady(db: DB, projectId: number) {
+  const seededRequirements = seedRequirementsReady(db, projectId);
+
+  const requirementCrud = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    'Create, edit, and close tickets with required fields: title, description, priority, and assignee',
+  );
+  const requirementAudit = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    'Every status change records the actor identity and ISO 8601 timestamp in the audit log',
+  );
+  const requirementPermissions = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    'Role-based visibility: admins see all tickets and settings, developers see assigned and unassigned tickets, viewers have read-only access',
+  );
+
+  for (const requirement of [requirementCrud, requirementAudit, requirementPermissions]) {
+    linkKnowledgeItemToTurn(db, requirement.id, seededRequirements.designConfirmationTurn.id, 'captured');
+  }
+
+  const reviewTurn = createTurn(db, projectId, {
+    phase: 'requirements',
+    parent_turn_id: seededRequirements.designConfirmationTurn.id,
+    question: 'Please review the current requirement set.',
+    why: 'Review the whole requirement set before moving forward.',
+    impact: 'high',
+    answer: null,
+  });
+  createOption(db, reviewTurn.id, {
+    position: 0,
+    content: 'Accept review',
+    is_recommended: true,
+  });
+  createOption(db, reviewTurn.id, {
+    position: 1,
+    content: 'Request changes',
+  });
+  advanceHead(db, projectId, reviewTurn.id);
+
+  return {
+    ...seededRequirements,
+    reviewTurn,
+    requirementCrud,
+    requirementAudit,
+    requirementPermissions,
+  };
+}
+
 function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: number) {
   const approvedRequirement = createKnowledgeItem(
     db,
@@ -174,6 +298,74 @@ export function seedCriteriaReady(db: DB, projectId: number) {
   );
 
   return { ...seededRequirements, ...reviewedRequirements };
+}
+
+export function seedCriteriaReviewReady(db: DB, projectId: number) {
+  const seededCriteria = seedCriteriaReady(db, projectId);
+
+  const approvedRequirement = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    'Create, edit, and close tickets with required fields: title, description, priority, and assignee',
+  );
+  linkKnowledgeItemToTurn(
+    db,
+    approvedRequirement.id,
+    seededCriteria.requirementsConfirmationTurn.id,
+    'reviewed',
+  );
+
+  const criterionAudit = createKnowledgeItem(
+    db,
+    projectId,
+    'criterion',
+    'Changing a ticket status creates an audit log entry with actor, previous status, new status, and timestamp',
+  );
+  const criterionPermissions = createKnowledgeItem(
+    db,
+    projectId,
+    'criterion',
+    'A viewer cannot edit a ticket and receives a clear authorization failure without mutating data',
+  );
+  const criterionPerformance = createKnowledgeItem(
+    db,
+    projectId,
+    'criterion',
+    'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture',
+  );
+
+  for (const criterion of [criterionAudit, criterionPermissions, criterionPerformance]) {
+    linkKnowledgeItemToTurn(db, criterion.id, seededCriteria.requirementsConfirmationTurn.id, 'captured');
+  }
+
+  const reviewTurn = createTurn(db, projectId, {
+    phase: 'criteria',
+    parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
+    question: 'Please review the current criterion set.',
+    why: 'Review the whole criterion set before moving forward.',
+    impact: 'high',
+    answer: null,
+  });
+  createOption(db, reviewTurn.id, {
+    position: 0,
+    content: 'Accept review',
+    is_recommended: true,
+  });
+  createOption(db, reviewTurn.id, {
+    position: 1,
+    content: 'Request changes',
+  });
+  advanceHead(db, projectId, reviewTurn.id);
+
+  return {
+    ...seededCriteria,
+    approvedRequirement,
+    reviewTurn,
+    criterionAudit,
+    criterionPermissions,
+    criterionPerformance,
+  };
 }
 
 function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: number) {
@@ -420,6 +612,51 @@ export const testOnlyScenarios: Record<string, ScenarioFn> = {};
 
 export const manifestScenarios = loadManifestScenarios('issue-tracker');
 
+const phaseTransitionScenarios: Record<string, ScenarioFn> = {
+  'issue-tracker-scope-closure-pending': createManifestScenarioSeeder(
+    sliceManifestScenario(issueTrackerManifest.scenarios['scope-closed']!, 6),
+    'Issue Tracker (scope closure pending)',
+  ),
+  'issue-tracker-design-kickoff-ready': createManifestScenarioSeeder(
+    appendFrontierTurn(
+      sliceManifestScenario(issueTrackerManifest.scenarios['scope-closed']!, 7),
+      'design',
+      'kickoff',
+    ),
+    'Issue Tracker (design kickoff ready)',
+  ),
+  'issue-tracker-design-recovery': createManifestScenarioSeeder(
+    appendFrontierTurn(issueTrackerManifest.scenarios['design-active']!, 'design', 'recovery'),
+    'Issue Tracker (design recovery)',
+  ),
+  'issue-tracker-requirements-kickoff-ready': createManifestScenarioSeeder(
+    appendFrontierTurn(
+      sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 11),
+      'requirements',
+      'kickoff',
+    ),
+    'Issue Tracker (requirements kickoff ready)',
+  ),
+  'issue-tracker-criteria-kickoff-ready': createManifestScenarioSeeder(
+    appendFrontierTurn(
+      sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 18),
+      'criteria',
+      'kickoff',
+    ),
+    'Issue Tracker (criteria kickoff ready)',
+  ),
+  'issue-tracker-requirements-ready': (db, name = 'Issue Tracker (requirements review ready)') => {
+    const project = createProject(db, name);
+    seedRequirementsReviewReady(db, project.id);
+    return project.id;
+  },
+  'issue-tracker-criteria-ready': (db, name = 'Issue Tracker (criteria review ready)') => {
+    const project = createProject(db, name);
+    seedCriteriaReviewReady(db, project.id);
+    return project.id;
+  },
+};
+
 export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[] = [
   {
     scenarioName: 'issue-tracker-kickoff-ready',
@@ -430,37 +667,56 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
     manifestScenarioKey: 'kickoff-ready',
   },
   {
-    scenarioName: 'issue-tracker-scope-closed',
-    label: 'Post-scope handoff',
-    source: 'manifest',
-    inspectionFocus: 'Scope summary/confirmation artifacts and the first design-ready workspace.',
-    expectedWorkflowSummary: createWorkflowSummary('closed', 'in_progress', 'unstarted', 'unstarted'),
-    manifestScenarioKey: 'scope-closed',
+    scenarioName: 'issue-tracker-scope-closure-pending',
+    label: 'Scope closure pending',
+    source: 'synthetic',
+    inspectionFocus: 'Closure proposal summary is visible and waiting for explicit confirmation.',
+    expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
   },
   {
-    scenarioName: 'issue-tracker-design-active',
-    label: 'In-flight design',
-    source: 'manifest',
-    inspectionFocus: 'Design-phase transcript state with scope already closed and resumable.',
+    scenarioName: 'issue-tracker-design-kickoff-ready',
+    label: 'Design kickoff ready',
+    source: 'synthetic',
+    inspectionFocus: 'Scope handoff has landed and the next phase opens with an explicit kickoff frontier.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'in_progress', 'unstarted', 'unstarted'),
-    manifestScenarioKey: 'design-active',
+  },
+  {
+    scenarioName: 'issue-tracker-design-recovery',
+    label: 'Design recovery frontier',
+    source: 'synthetic',
+    inspectionFocus:
+      'A completed design turn has no successor, so the exceptional recovery frontier is visible.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'in_progress', 'unstarted', 'unstarted'),
+  },
+  {
+    scenarioName: 'issue-tracker-requirements-kickoff-ready',
+    label: 'Requirements kickoff ready',
+    source: 'synthetic',
+    inspectionFocus: 'Design closure hands off into the requirements phase with a fresh kickoff frontier.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'in_progress', 'unstarted'),
   },
   {
     scenarioName: 'issue-tracker-requirements-ready',
-    label: 'Criteria handoff',
-    source: 'manifest',
+    label: 'Requirements review ready',
+    source: 'synthetic',
     inspectionFocus:
-      'Requirements closure artifacts, criteria handoff, and resume behavior between review phases.',
+      'The requirements phase shows the current full-set review frontier with explicit review actions.',
+    expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'in_progress', 'unstarted'),
+  },
+  {
+    scenarioName: 'issue-tracker-criteria-kickoff-ready',
+    label: 'Criteria kickoff ready',
+    source: 'synthetic',
+    inspectionFocus: 'Requirements closure hands off into criteria with an explicit kickoff frontier.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'in_progress'),
-    manifestScenarioKey: 'requirements-ready',
   },
   {
     scenarioName: 'issue-tracker-criteria-ready',
-    label: 'Criteria review-ready',
-    source: 'manifest',
-    inspectionFocus: 'Criteria review turns, mixed approval state, and export-not-yet-ready gating.',
+    label: 'Criteria review ready',
+    source: 'synthetic',
+    inspectionFocus:
+      'The criteria phase shows the current full-set review frontier before export becomes available.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'in_progress'),
-    manifestScenarioKey: 'criteria-ready',
   },
   {
     scenarioName: 'issue-tracker-all-phases-closed',
@@ -489,7 +745,11 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
 export const walkthroughScenarioNames = walkthroughScenarioMatrix.map((entry) => entry.scenarioName);
 const walkthroughScenarioNameSet = new Set<string>(walkthroughScenarioNames);
 
-export const publicScenarios: Record<string, ScenarioFn> = { ...scenarios, ...manifestScenarios };
+export const publicScenarios: Record<string, ScenarioFn> = {
+  ...scenarios,
+  ...manifestScenarios,
+  ...phaseTransitionScenarios,
+};
 export const publicScenarioNames = [
   ...walkthroughScenarioNames.filter((name) => name in publicScenarios),
   ...Object.keys(publicScenarios).filter((name) => !walkthroughScenarioNameSet.has(name)),

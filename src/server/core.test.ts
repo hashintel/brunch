@@ -405,6 +405,7 @@ describe('getProjectState', () => {
     expect(state?.project.id).toBe(project.id);
     expect(state?.turns).toHaveLength(2);
     expect(state?.turns[0].question).toBe('What are we building?');
+    expect(state?.turns[0].turn_kind).toBe('question');
     expect(state?.turns[0].captured_items).toEqual([
       {
         collection: 'knowledge_item',
@@ -423,6 +424,7 @@ describe('getProjectState', () => {
     ]);
     expect(state?.turns[1]).toMatchObject({
       phase: 'scope',
+      turn_kind: 'recovery',
       question: '',
       answer: null,
     });

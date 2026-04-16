@@ -1,4 +1,4 @@
-import type { ProjectListItem, ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
+import type { ProjectListItem, ProjectState, ProjectStateTurn, TurnKind } from '@/shared/api-types.js';
 import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { extractTextFromMessage } from '@/shared/chat.js';
 import type { WorkflowPhase } from '@/shared/phase-close.js';
@@ -76,17 +76,21 @@ function createFrontierOfferTurn(
 ): Turn {
   const phaseTurns = getActivePath(db, projectId).filter((turn) => turn.phase === phase);
   const hasSubstantiveHistory = phaseTurns.some(
-    (turn) => turn.question.trim().length > 0 || getOptionsForTurn(db, turn.id).length > 0,
+    (turn) =>
+      turn.turn_kind !== 'kickoff' &&
+      (turn.question.trim().length > 0 || getOptionsForTurn(db, turn.id).length > 0),
   );
+  const turnKind: TurnKind = hasSubstantiveHistory ? 'recovery' : 'kickoff';
 
   return createTurn(db, projectId, {
     parent_turn_id: parentTurnId,
     phase,
+    turn_kind: turnKind,
     question: '',
     answer: null,
     user_parts: null,
     assistant_parts: null,
-    why: hasSubstantiveHistory ? 'Recovery frontier' : 'Phase kickoff',
+    why: null,
   });
 }
 

@@ -26,6 +26,9 @@ export const turn = sqliteTable('turn', {
     .references(() => project.id),
   parent_turn_id: integer().references((): any => turn.id),
   phase: text({ enum: ['scope', 'design', 'requirements', 'criteria'] }).notNull(),
+  turn_kind: text({ enum: ['question', 'kickoff', 'recovery'] })
+    .notNull()
+    .default('question'),
   question: text().notNull().default(''),
   why: text(),
   impact: text({ enum: ['high', 'medium', 'low'] }),

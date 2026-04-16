@@ -210,6 +210,7 @@ function createProjectState({
         project_id: projectId,
         parent_turn_id: null,
         phase: 'scope',
+        turn_kind: 'question',
         question: assistantText,
         why: 'This frames the first iteration.',
         impact: 'high',

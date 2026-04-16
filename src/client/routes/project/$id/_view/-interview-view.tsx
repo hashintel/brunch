@@ -455,22 +455,14 @@ function readUserParts(turn: Pick<ProjectStateTurn, 'user_parts'>) {
 }
 
 function turnIsControlOrClosureArtifact(
-  turn: Pick<ProjectStateTurn, 'assistant_parts' | 'is_resolution' | 'user_parts'>,
+  turn: Pick<ProjectStateTurn, 'assistant_parts' | 'is_resolution' | 'turn_kind' | 'user_parts'>,
 ) {
-  if (turn.is_resolution) {
+  if (turn.turn_kind === 'kickoff' || turn.turn_kind === 'recovery' || turn.is_resolution) {
     return true;
   }
 
   const userParts = readUserParts(turn);
   if (userParts.some((part) => part.type === 'data-confirmation')) {
-    return true;
-  }
-
-  const hasBootstrapControlText = userParts.some(
-    (part) =>
-      part.type === 'text' && typeof part.text === 'string' && getControlMarkerLabel(part.text) !== null,
-  );
-  if (hasBootstrapControlText) {
     return true;
   }
 

@@ -30,6 +30,7 @@ function normalizeManifestScenario(manifestScenarioKey: string) {
       issueTrackerManifest.scenarios[manifestScenarioKey]!,
       `Normalized ${manifestScenarioKey}`,
     );
+    getProjectState(db, projectId);
     return captureProjectToManifestScenario(db, projectId);
   } finally {
     db.$client.close();
@@ -90,6 +91,28 @@ describe('walkthroughScenarioMatrix', () => {
       });
     });
   }
+
+  it('materializes the transition-frontier fixtures with the expected terminal turn kinds', async () => {
+    await withReopenedSeededScenario('issue-tracker-design-kickoff-ready', ({ db, projectId }) => {
+      const projectState = getProjectState(db, projectId);
+      expect(projectState?.turns.at(-1)).toMatchObject({ phase: 'design', turn_kind: 'kickoff' });
+    });
+
+    await withReopenedSeededScenario('issue-tracker-design-recovery', ({ db, projectId }) => {
+      const projectState = getProjectState(db, projectId);
+      expect(projectState?.turns.at(-1)).toMatchObject({ phase: 'design', turn_kind: 'recovery' });
+    });
+
+    await withReopenedSeededScenario('issue-tracker-requirements-ready', ({ db, projectId }) => {
+      const projectState = getProjectState(db, projectId);
+      expect(projectState?.turns.at(-1)).toMatchObject({ phase: 'requirements', turn_kind: 'question' });
+    });
+
+    await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
+      const projectState = getProjectState(db, projectId);
+      expect(projectState?.turns.at(-1)).toMatchObject({ phase: 'criteria', turn_kind: 'question' });
+    });
+  });
 
   it('round-trips the export-ready walkthrough scenario through seed, reopen, and markdown export', async () => {
     await withReopenedSeededScenario('issue-tracker-all-phases-closed', ({ db, projectId }) => {

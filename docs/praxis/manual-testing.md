@@ -63,9 +63,13 @@ npm run dev
 
 Start with these:
 
-- `issue-tracker-kickoff-ready` — blank kickoff workspace
-- `issue-tracker-design-active` — in-flight transcript state
-- `issue-tracker-criteria-ready` — review-phase workspace before export
+- `issue-tracker-kickoff-ready` — blank scope kickoff workspace
+- `issue-tracker-scope-closure-pending` — scope closure summary waiting for confirmation
+- `issue-tracker-design-kickoff-ready` — design handoff with an explicit kickoff frontier
+- `issue-tracker-design-recovery` — exceptional recovery frontier after a missing successor turn
+- `issue-tracker-requirements-ready` — requirements full-set review frontier
+- `issue-tracker-criteria-kickoff-ready` — criteria handoff with an explicit kickoff frontier
+- `issue-tracker-criteria-ready` — criteria full-set review frontier before export
 - `issue-tracker-all-phases-closed` — completed export-ready project
 - `forced-close-all-phases-closed` — export caveat for user-forced closure
 - `low-readiness-all-phases-closed` — export caveat for low-readiness closure
@@ -84,13 +88,16 @@ This keeps golden fixtures runtime-shaped without hand-authoring JSON or redoing
 
 ## Recommended walkthrough seeds
 
-Prefer the richer `issue-tracker-*` fixtures for manual walkthroughs. They are trusted manifest-backed scenarios, not ad hoc SQL snapshots.
+Prefer the richer `issue-tracker-*` fixtures for manual walkthroughs. They now cover the main phase-transition states explicitly instead of relying on ambiguous mid-stream snapshots.
 
 - `issue-tracker-kickoff-ready` — empty kickoff workspace and resume from a seeded blank project
-- `issue-tracker-scope-closed` — scope summary/confirmation artifacts and first design-ready handoff
-- `issue-tracker-design-active` — in-flight design transcript state
-- `issue-tracker-requirements-ready` — requirements closure artifacts and criteria handoff workspace
-- `issue-tracker-criteria-ready` — criteria review-ready workspace
+- `issue-tracker-scope-closure-pending` — closure proposal visible and awaiting explicit confirmation
+- `issue-tracker-design-kickoff-ready` — first post-scope handoff with an explicit kickoff frontier
+- `issue-tracker-design-recovery` — exceptional recovery turn when design lost its successor frontier
+- `issue-tracker-requirements-kickoff-ready` — requirements handoff immediately after design closure
+- `issue-tracker-requirements-ready` — requirements full-set review frontier
+- `issue-tracker-criteria-kickoff-ready` — criteria handoff immediately after requirements closure
+- `issue-tracker-criteria-ready` — criteria full-set review frontier
 - `issue-tracker-all-phases-closed` — export-ready completed project
 - `forced-close-all-phases-closed` — synthetic caveat fixture for user-forced design closure
 - `low-readiness-all-phases-closed` — synthetic caveat fixture for low-readiness scope closure

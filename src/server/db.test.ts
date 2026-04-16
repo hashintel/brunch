@@ -77,6 +77,9 @@ describe('createDb', () => {
       name: string;
     }>;
     expect(phaseOutcomeColumns.map((column) => column.name)).toContain('closure_basis');
+
+    const turnColumns = db.$client.prepare("PRAGMA table_info('turn')").all() as Array<{ name: string }>;
+    expect(turnColumns.map((column) => column.name)).toContain('turn_kind');
   });
 
   it('project table has mode and cwd columns', () => {
@@ -136,6 +139,7 @@ describe('turn CRUD', () => {
     expect(turn.phase).toBe('scope');
     expect(turn.question).toBe('What is the project about?');
     expect(turn.answer).toBe('A chat app');
+    expect(turn.turn_kind).toBe('question');
     expect(turn.is_resolution).toBe(false);
   });
 

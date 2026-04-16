@@ -48,6 +48,7 @@
 
 ## Recently Completed
 
+- 2026-04-16 — **Persist frontier turn kinds for kickoff and recovery** — open-phase frontier turns now carry explicit persisted `turn_kind` semantics (`question` / `kickoff` / `recovery`), and controller/view projection no longer depends on `why` sentinels to classify kickoff vs recovery cards.
 - 2026-04-16 — **Criteria review accept-to-close wiring** — accepting the criteria full-set review now marks the presented criterion set approved, closes criteria on the same durable turn, makes the workflow output-ready, and suppresses the stale review text from being forwarded into chat after workflow completion.
 - 2026-04-16 — **Lightweight review turn v1 across requirements + criteria** — both review phases now use full-set review turns with stable item reference codes, one review note, explicit `Accept review` / `Request changes` actions, and accept-to-close progression into the next kickoff/output frontier.
 

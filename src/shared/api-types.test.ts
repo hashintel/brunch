@@ -99,6 +99,7 @@ describe('api transport contracts', () => {
             project_id: 1,
             parent_turn_id: 3,
             phase: 'design',
+            turn_kind: 'question',
             question: 'Which platform should we target?',
             why: 'Platform affects the first release shape.',
             impact: 'high',
