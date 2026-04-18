@@ -38,6 +38,44 @@ const { createApp } = await import('./app.js');
 let app: ReturnType<typeof createApp>['app'];
 let db: DB;
 
+function createMockObserverResult(overrides?: {
+  entityIds?: Partial<
+    Record<
+      | 'goals'
+      | 'terms'
+      | 'contexts'
+      | 'constraints'
+      | 'requirements'
+      | 'criteria'
+      | 'decisions'
+      | 'assumptions',
+      number[]
+    >
+  >;
+  draftReviewItems?: {
+    requirements?: Array<{ content: string; rationale: string | null }>;
+    criteria?: Array<{ content: string; rationale: string | null }>;
+  };
+}) {
+  return {
+    entityIds: {
+      goals: [],
+      terms: [],
+      contexts: [],
+      constraints: [],
+      requirements: [],
+      criteria: [],
+      decisions: [],
+      assumptions: [],
+      ...overrides?.entityIds,
+    },
+    draftReviewItems: {
+      requirements: overrides?.draftReviewItems?.requirements ?? [],
+      criteria: overrides?.draftReviewItems?.criteria ?? [],
+    },
+  };
+}
+
 const structuredQuestion = {
   question: 'What platform should we support first?',
   why: 'Platform choice determines the first UI and deployment constraints.',
@@ -244,16 +282,7 @@ beforeEach(() => {
   mockStreamInterviewer.mockReset();
   mockRunObserver.mockReset();
   mockStreamInterviewer.mockImplementation(async () => makeTextInterviewer('Hi'));
-  mockRunObserver.mockResolvedValue({
-    goals: [],
-    terms: [],
-    contexts: [],
-    constraints: [],
-    requirements: [],
-    criteria: [],
-    decisions: [],
-    assumptions: [],
-  });
+  mockRunObserver.mockResolvedValue(createMockObserverResult());
 
   const result = createApp();
   app = result.app;
@@ -471,16 +500,14 @@ describe('POST /api/projects/:id/chat', () => {
       for (const itemId of [goal.id, term.id, context.id, constraint.id]) {
         linkKnowledgeItemToTurn(dbArg as DB, itemId, (turnArg as { id: number }).id);
       }
-      return {
-        goals: [goal.id],
-        terms: [term.id],
-        contexts: [context.id],
-        constraints: [constraint.id],
-        requirements: [],
-        criteria: [],
-        decisions: [],
-        assumptions: [],
-      };
+      return createMockObserverResult({
+        entityIds: {
+          goals: [goal.id],
+          terms: [term.id],
+          contexts: [context.id],
+          constraints: [constraint.id],
+        },
+      });
     });
 
     const res = await request(app)
@@ -506,6 +533,10 @@ describe('POST /api/projects/:id/chat', () => {
           criteria: [],
           decisions: [],
           assumptions: [],
+        },
+        draftReviewItems: {
+          requirements: [],
+          criteria: [],
         },
       },
     });
@@ -613,16 +644,14 @@ describe('POST /api/projects/:id/chat', () => {
         assumption: assumption.id,
         decision: decision.id,
       };
-      return {
-        goals: [],
-        terms: [],
-        contexts: [contextItem.id],
-        constraints: [constraint.id],
-        requirements: [],
-        criteria: [],
-        decisions: [decision.id],
-        assumptions: [assumption.id],
-      };
+      return createMockObserverResult({
+        entityIds: {
+          contexts: [contextItem.id],
+          constraints: [constraint.id],
+          decisions: [decision.id],
+          assumptions: [assumption.id],
+        },
+      });
     });
 
     const res = await request(app)
@@ -649,6 +678,10 @@ describe('POST /api/projects/:id/chat', () => {
           criteria: [],
           decisions: [createdIds!.decision],
           assumptions: [createdIds!.assumption],
+        },
+        draftReviewItems: {
+          requirements: [],
+          criteria: [],
         },
       },
     });
@@ -702,98 +735,20 @@ describe('POST /api/projects/:id/chat', () => {
     ]);
   });
 
-  it('emits widened observer results and persists requirements-mode requirement items through the entities API', async () => {
+  it('emits draft requirement observer results while leaving durable entities empty before review acceptance', async () => {
     const projectId = await createTestProject();
-    mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
-      const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
-      const requirement = createKnowledgeItem(
-        dbArg as DB,
-        projectIdArg as number,
-        'requirement',
-        'Resume the interview from SQLite after restart',
-        {
-          rationale: 'Users will come back to finish the workflow',
+    mockRunObserver.mockImplementation(async () =>
+      createMockObserverResult({
+        draftReviewItems: {
+          requirements: [
+            {
+              content: 'Resume the interview from SQLite after restart',
+              rationale: 'Users will come back to finish the workflow',
+            },
+          ],
         },
-      );
-      linkKnowledgeItemToTurn(dbArg as DB, requirement.id, (turnArg as { id: number }).id);
-      return {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [requirement.id],
-        criteria: [],
-        decisions: [],
-        assumptions: [],
-      };
-    });
-
-    const res = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
-      .send({
-        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
-      })
-      .expect(200);
-
-    const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
-    const observerEvent = events.find((event) => event.type === 'data-observer-result');
-
-    expect(observerEvent).toEqual({
-      type: 'data-observer-result',
-      data: {
-        turnId: 1,
-        entityIds: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [1],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-        },
-      },
-    });
-
-    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
-    expect(entitiesRes.body.requirements).toEqual([
-      {
-        id: 1,
-        project_id: projectId,
-        kind: 'requirement',
-        subtype: null,
-        content: 'Resume the interview from SQLite after restart',
-        rationale: 'Users will come back to finish the workflow',
-        referenceCode: createKnowledgeReferenceCode('requirement', 1),
-      },
-    ]);
-  });
-
-  it('emits widened observer results and persists criteria-mode criterion items through the entities API', async () => {
-    const projectId = await createTestProject();
-    mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
-      const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
-      const criterion = createKnowledgeItem(
-        dbArg as DB,
-        projectIdArg as number,
-        'criterion',
-        'Resuming restores the active path without data loss',
-        {
-          rationale: 'This proves persistence worked for the branch the user was on',
-        },
-      );
-      linkKnowledgeItemToTurn(dbArg as DB, criterion.id, (turnArg as { id: number }).id);
-      return {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [criterion.id],
-        decisions: [],
-        assumptions: [],
-      } as never;
-    });
+      }),
+    );
 
     const res = await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -815,25 +770,79 @@ describe('POST /api/projects/:id/chat', () => {
           contexts: [],
           constraints: [],
           requirements: [],
-          criteria: [1],
+          criteria: [],
           decisions: [],
           assumptions: [],
+        },
+        draftReviewItems: {
+          requirements: [
+            {
+              content: 'Resume the interview from SQLite after restart',
+              rationale: 'Users will come back to finish the workflow',
+            },
+          ],
+          criteria: [],
         },
       },
     });
 
     const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
-    expect(entitiesRes.body.criteria).toEqual([
-      {
-        id: 1,
-        project_id: projectId,
-        kind: 'criterion',
-        subtype: null,
-        content: 'Resuming restores the active path without data loss',
-        rationale: 'This proves persistence worked for the branch the user was on',
-        referenceCode: createKnowledgeReferenceCode('criterion', 1),
+    expect(entitiesRes.body.requirements).toEqual([]);
+  });
+
+  it('emits draft criterion observer results while leaving durable entities empty before review acceptance', async () => {
+    const projectId = await createTestProject();
+    mockRunObserver.mockImplementation(async () =>
+      createMockObserverResult({
+        draftReviewItems: {
+          criteria: [
+            {
+              content: 'Resuming restores the active path without data loss',
+              rationale: 'This proves persistence worked for the branch the user was on',
+            },
+          ],
+        },
+      }),
+    );
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
+    const observerEvent = events.find((event) => event.type === 'data-observer-result');
+
+    expect(observerEvent).toEqual({
+      type: 'data-observer-result',
+      data: {
+        turnId: 1,
+        entityIds: {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+        },
+        draftReviewItems: {
+          requirements: [],
+          criteria: [
+            {
+              content: 'Resuming restores the active path without data loss',
+              rationale: 'This proves persistence worked for the branch the user was on',
+            },
+          ],
+        },
       },
-    ]);
+    });
+
+    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.criteria).toEqual([]);
   });
 });
 
@@ -1553,9 +1562,7 @@ describe('phase outcomes + scope closure', () => {
   it('persists a missing requirement through the requirements-review response loop and keeps requirements not yet closeable', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
-    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
-
-    createKnowledgeItem(db, projectId, 'requirement', 'Resume the interview from SQLite after restart');
+    const { advanceHead, createOption, createTurn, getTurn } = await import('./db.js');
 
     const reviewTurn = createTurn(db, projectId, {
       phase: 'requirements',
@@ -1594,41 +1601,25 @@ describe('phase outcomes + scope closure', () => {
     mockStreamInterviewer.mockImplementation(async () =>
       makeTextInterviewer('Thanks, what else is missing?'),
     );
-    mockRunObserver.mockImplementation(async (dbArg, turnArg, observedProjectId) => {
-      const { createKnowledgeItem } = await import('./db.js');
+    mockRunObserver.mockImplementation(async (_dbArg, turnArg, observedProjectId) => {
       const turn = turnArg as { phase: string; answer: string | null };
       expect(turn.phase).toBe('requirements');
       expect(observedProjectId).toBe(projectId);
 
       if (!turn.answer?.includes('Export the reviewed spec as markdown')) {
-        return {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-        };
+        return createMockObserverResult();
       }
 
-      const requirement = createKnowledgeItem(
-        dbArg as DB,
-        observedProjectId as number,
-        'requirement',
-        'Export the reviewed spec as markdown',
-      );
-      return {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [requirement.id],
-        criteria: [],
-        decisions: [],
-        assumptions: [],
-      };
+      return createMockObserverResult({
+        draftReviewItems: {
+          requirements: [
+            {
+              content: 'Export the reviewed spec as markdown',
+              rationale: null,
+            },
+          ],
+        },
+      });
     });
 
     await request(app)
@@ -1661,10 +1652,25 @@ describe('phase outcomes + scope closure', () => {
     const entitiesRes = await request(app)
       .get(`/api/projects/${projectId}/entities?mode=project-wide`)
       .expect(200);
-    expect(entitiesRes.body.requirements).toEqual(
+    expect(entitiesRes.body.requirements).toEqual([]);
+
+    const refreshedProjectState = await getProjectSnapshot(projectId);
+    const frontierTurn = getTurn(db, refreshedProjectState.project.active_turn_id!);
+    expect(JSON.parse(frontierTurn?.assistant_parts ?? '[]')).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ content: 'Resume the interview from SQLite after restart' }),
-        expect.objectContaining({ content: 'Export the reviewed spec as markdown' }),
+        {
+          type: 'data-review-set',
+          data: {
+            phase: 'requirements',
+            title: 'Requirements',
+            items: [
+              {
+                content: 'Export the reviewed spec as markdown',
+                referenceCode: createKnowledgeReferenceCode('requirement', 1),
+              },
+            ],
+          },
+        },
       ]),
     );
   });
@@ -1870,32 +1876,25 @@ describe('phase outcomes + scope closure', () => {
     expect(refreshedProjectRes.body.turns.at(-1).phase).toBe('criteria');
   });
 
-  it('grounds the first criteria turn in approved requirements and round-trips a criterion through observer persistence', async () => {
+  it('grounds the first criteria turn in approved requirements while keeping criteria draft-only before acceptance', async () => {
     const projectId = await createTestProject();
     seedCriteriaReady(projectId);
 
     mockStreamInterviewer.mockImplementation(async () =>
       makeTextInterviewer('What would prove the resume flow is complete?'),
     );
-    mockRunObserver.mockImplementation(async (dbArg, turnArg, observedProjectId) => {
-      const { createKnowledgeItem } = await import('./db.js');
-      const criterion = createKnowledgeItem(
-        dbArg as DB,
-        observedProjectId as number,
-        'criterion',
-        'Closing and reopening the browser restores the active path',
-      );
-      return {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [criterion.id],
-        decisions: [],
-        assumptions: [],
-      };
-    });
+    mockRunObserver.mockImplementation(async () =>
+      createMockObserverResult({
+        draftReviewItems: {
+          criteria: [
+            {
+              content: 'Closing and reopening the browser restores the active path',
+              rationale: null,
+            },
+          ],
+        },
+      }),
+    );
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -1936,13 +1935,7 @@ describe('phase outcomes + scope closure', () => {
     const entitiesRes = await request(app)
       .get(`/api/projects/${projectId}/entities?mode=project-wide`)
       .expect(200);
-    expect(entitiesRes.body.criteria).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          content: 'Closing and reopening the browser restores the active path',
-        }),
-      ]),
-    );
+    expect(entitiesRes.body.criteria).toEqual([]);
   });
 
   it('emits a criteria phase-summary proposal once every criterion is explicitly reviewed', async () => {
@@ -2564,13 +2557,42 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
   it('persists a synthesized requirement review-set payload on runtime review turns', async () => {
     const projectId = await createTestProject();
     seedRequirementsReady(projectId);
-    const { createKnowledgeItem } = await import('./db.js');
+    const { updateTurn } = await import('./db.js');
 
-    createKnowledgeItem(db, projectId, 'requirement', 'Export the reviewed specification as markdown', {
-      rationale: 'Keeps the accepted review output portable for sharing.',
-    });
-    createKnowledgeItem(db, projectId, 'requirement', 'Resume the interview from persisted local state', {
-      rationale: 'Lets users continue after a restart.',
+    const requirementSeedState = await getProjectSnapshot(projectId);
+    const requirementSeedTurnId = requirementSeedState.turns.at(-1)?.id;
+    updateTurn(db, requirementSeedTurnId!, {
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-observer-result',
+          data: {
+            turnId: requirementSeedTurnId,
+            entityIds: {
+              goals: [],
+              terms: [],
+              contexts: [],
+              constraints: [],
+              requirements: [],
+              criteria: [],
+              decisions: [],
+              assumptions: [],
+            },
+            draftReviewItems: {
+              requirements: [
+                {
+                  content: 'Export the reviewed specification as markdown',
+                  rationale: 'Keeps the accepted review output portable for sharing.',
+                },
+                {
+                  content: 'Resume the interview from persisted local state',
+                  rationale: 'Lets users continue after a restart.',
+                },
+              ],
+              criteria: [],
+            },
+          },
+        },
+      ]),
     });
 
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
@@ -2976,13 +2998,42 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
   it('persists a synthesized criteria review-set payload on runtime review turns', async () => {
     const projectId = await createTestProject();
     seedCriteriaReady(projectId);
-    const { createKnowledgeItem } = await import('./db.js');
+    const { updateTurn } = await import('./db.js');
 
-    createKnowledgeItem(db, projectId, 'criterion', 'Restarting restores the active path', {
-      rationale: 'Proves the persisted branch resumes cleanly.',
-    });
-    createKnowledgeItem(db, projectId, 'criterion', 'Markdown export includes accepted requirements only', {
-      rationale: 'Checks the final handoff stays scoped to accepted output.',
+    const criterionSeedState = await getProjectSnapshot(projectId);
+    const criterionSeedTurnId = criterionSeedState.turns.at(-1)?.id;
+    updateTurn(db, criterionSeedTurnId!, {
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-observer-result',
+          data: {
+            turnId: criterionSeedTurnId,
+            entityIds: {
+              goals: [],
+              terms: [],
+              contexts: [],
+              constraints: [],
+              requirements: [],
+              criteria: [],
+              decisions: [],
+              assumptions: [],
+            },
+            draftReviewItems: {
+              requirements: [],
+              criteria: [
+                {
+                  content: 'Restarting restores the active path',
+                  rationale: 'Proves the persisted branch resumes cleanly.',
+                },
+                {
+                  content: 'Markdown export includes accepted requirements only',
+                  rationale: 'Checks the final handoff stays scoped to accepted output.',
+                },
+              ],
+            },
+          },
+        },
+      ]),
     });
 
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
@@ -3375,6 +3426,10 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
                 decisions: [],
                 assumptions: [],
               },
+              draftReviewItems: {
+                requirements: [],
+                criteria: [],
+              },
             },
           },
         ],
@@ -3411,6 +3466,10 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
                 criteria: [],
                 decisions: [],
                 assumptions: [],
+              },
+              draftReviewItems: {
+                requirements: [],
+                criteria: [],
               },
             },
           },

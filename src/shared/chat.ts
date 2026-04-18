@@ -77,9 +77,20 @@ export const askQuestionToolOutputSchema = z.object({
   optionCount: z.number(),
 });
 
+export const observerDraftReviewItemSchema = z.object({
+  content: z.string().min(1),
+  rationale: z.string().nullable(),
+});
+
+export const observerReviewDraftsSchema = z.object({
+  requirements: z.array(observerDraftReviewItemSchema),
+  criteria: z.array(observerDraftReviewItemSchema),
+});
+
 export const observerResultSchema = z.object({
   turnId: z.number().int().positive().optional(),
   entityIds: z.object(createKnowledgeCollectionRecord(() => z.array(z.number()))),
+  draftReviewItems: observerReviewDraftsSchema.optional(),
 });
 
 export const reviewSetGroundingRefSchema = z.object({
@@ -145,6 +156,8 @@ export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
 export type ReviewAction = z.infer<typeof reviewActionSchema>;
 export type ReviewActionOption = z.infer<typeof reviewActionOptionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
+export type ObserverDraftReviewItem = z.infer<typeof observerDraftReviewItemSchema>;
+export type ObserverReviewDrafts = z.infer<typeof observerReviewDraftsSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
 export type ObserverEntityIds = ObserverResultData['entityIds'];
 export type ReviewSetData = z.infer<typeof reviewSetSchema>;

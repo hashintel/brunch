@@ -2,7 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { generateText, Output } from 'ai';
 import * as z from 'zod/v4';
 
-import { type ObserverEntityIds } from '@/shared/chat.js';
+import { type ObserverDraftReviewItem, type ObserverEntityIds } from '@/shared/chat.js';
 import {
   createKnowledgeCollectionRecord,
   knowledgeKindRegistry,
@@ -23,6 +23,8 @@ import {
   addDecisionParentDecision,
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
+  getDraftCriterionEntitiesForProject,
+  getDraftRequirementEntitiesForProject,
   getEntitiesForProject,
   getOptionsForTurn,
   getProject,
@@ -173,8 +175,17 @@ Rules:
  * Run the observer agent. Extracts entities from the completed turn,
  * persists them to the DB, and returns created entity IDs.
  */
-export async function runObserver(db: DB, turn: Turn, projectId: number): Promise<ObserverEntityIds> {
+export async function runObserver(
+  db: DB,
+  turn: Turn,
+  projectId: number,
+): Promise<{
+  entityIds: ObserverEntityIds;
+  draftReviewItems: { requirements: ObserverDraftReviewItem[]; criteria: ObserverDraftReviewItem[] };
+}> {
   const entities = getEntitiesForProject(db, projectId);
+  const draftRequirements = getDraftRequirementEntitiesForProject(db, projectId);
+  const draftCriteria = getDraftCriterionEntitiesForProject(db, projectId);
   const project = getProject(db, projectId);
   const context = buildObserverContext({
     turn: {
@@ -184,7 +195,18 @@ export async function runObserver(db: DB, turn: Turn, projectId: number): Promis
     activePathSummary: '',
     projectMode: project?.mode,
     projectCwd: project?.cwd,
-    entities,
+    entities:
+      turn.phase === 'requirements'
+        ? {
+            ...entities,
+            requirements: draftRequirements,
+          }
+        : turn.phase === 'criteria'
+          ? {
+              ...entities,
+              criteria: draftCriteria,
+            }
+          : entities,
   });
 
   const result = await generateText({
@@ -199,6 +221,10 @@ export async function runObserver(db: DB, turn: Turn, projectId: number): Promis
 
   // Persist entities in a transaction-like sequence
   const createdEntityIds = createKnowledgeCollectionRecord(() => [] as number[]);
+  const draftReviewItems = {
+    requirements: [] as ObserverDraftReviewItem[],
+    criteria: [] as ObserverDraftReviewItem[],
+  };
 
   for (const item of parsed.goals) {
     const goal = createKnowledgeItem(db, projectId, 'goal', item.content, {
@@ -234,19 +260,17 @@ export async function runObserver(db: DB, turn: Turn, projectId: number): Promis
   }
 
   for (const item of parsed.requirements) {
-    const requirement = createKnowledgeItem(db, projectId, 'requirement', item.content, {
+    draftReviewItems.requirements.push({
+      content: item.content,
       rationale: item.rationale,
     });
-    linkKnowledgeItemToTurn(db, requirement.id, turn.id);
-    createdEntityIds.requirements.push(requirement.id);
   }
 
   for (const item of parsed.criteria) {
-    const criterion = createKnowledgeItem(db, projectId, 'criterion', item.content, {
+    draftReviewItems.criteria.push({
+      content: item.content,
       rationale: item.rationale,
     });
-    linkKnowledgeItemToTurn(db, criterion.id, turn.id);
-    createdEntityIds.criteria.push(criterion.id);
   }
 
   for (const d of parsed.decisions) {
@@ -272,5 +296,8 @@ export async function runObserver(db: DB, turn: Turn, projectId: number): Promis
     }
   }
 
-  return createdEntityIds;
+  return {
+    entityIds: createdEntityIds,
+    draftReviewItems,
+  };
 }

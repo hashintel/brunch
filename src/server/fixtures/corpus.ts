@@ -559,14 +559,14 @@ function collectObservedTurnCapture(
 ): ObservedTurnCapture {
   const entities = getEntitiesForProject(db, projectId);
   const createdIdSet = new Set<number>([
-    ...createdIds.goals,
-    ...createdIds.terms,
-    ...createdIds.contexts,
-    ...createdIds.constraints,
-    ...createdIds.requirements,
-    ...createdIds.criteria,
-    ...createdIds.decisions,
-    ...createdIds.assumptions,
+    ...createdIds.entityIds.goals,
+    ...createdIds.entityIds.terms,
+    ...createdIds.entityIds.contexts,
+    ...createdIds.entityIds.constraints,
+    ...createdIds.entityIds.requirements,
+    ...createdIds.entityIds.criteria,
+    ...createdIds.entityIds.decisions,
+    ...createdIds.entityIds.assumptions,
   ]);
   const contentById = getAllEntityContentById(db, projectId);
 
@@ -587,12 +587,24 @@ function collectObservedTurnCapture(
       rationale: item.rationale ?? null,
       subtype: item.subtype ?? null,
     }));
-  capture.requirements = entities.requirements
-    .filter((item) => createdIdSet.has(item.id))
-    .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
-  capture.criteria = entities.criteria
-    .filter((item) => createdIdSet.has(item.id))
-    .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
+  capture.requirements =
+    createdIds.draftReviewItems.requirements.length > 0
+      ? createdIds.draftReviewItems.requirements.map((item) => ({
+          content: item.content,
+          rationale: item.rationale ?? null,
+        }))
+      : entities.requirements
+          .filter((item) => createdIdSet.has(item.id))
+          .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
+  capture.criteria =
+    createdIds.draftReviewItems.criteria.length > 0
+      ? createdIds.draftReviewItems.criteria.map((item) => ({
+          content: item.content,
+          rationale: item.rationale ?? null,
+        }))
+      : entities.criteria
+          .filter((item) => createdIdSet.has(item.id))
+          .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
   capture.decisions = entities.decisions
     .filter((item) => createdIdSet.has(item.id))
     .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));

@@ -80,7 +80,8 @@ describe('runObserver', () => {
     const project = createProject(db, 'Spec');
     const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
 
-    const entityIds = await runObserver(db, turn, project.id);
+    const observerResult = await runObserver(db, turn, project.id);
+    const { entityIds, draftReviewItems } = observerResult;
     const entities = getEntitiesForProject(db, project.id);
     const provenanceRows = db.$client
       .prepare('SELECT turn_id, item_id, relation FROM turn_knowledge_item ORDER BY item_id ASC')
@@ -94,6 +95,7 @@ describe('runObserver', () => {
     expect(entityIds.criteria).toEqual([]);
     expect(entityIds.decisions).toEqual([]);
     expect(entityIds.assumptions).toEqual([]);
+    expect(draftReviewItems).toEqual({ requirements: [], criteria: [] });
     expect(entities.goals[0]).toMatchObject({
       kind: 'goal',
       content: 'Produce a clean implementation brief',
@@ -267,7 +269,8 @@ describe('runObserver', () => {
       answer: 'Start with the web app and skip plugins for now.',
     });
 
-    const entityIds = await runObserver(db, turn, project.id);
+    const observerResult = await runObserver(db, turn, project.id);
+    const { entityIds, draftReviewItems } = observerResult;
     const entities = getEntitiesForProject(db, project.id);
 
     expect(entityIds.goals).toEqual([]);
@@ -278,6 +281,7 @@ describe('runObserver', () => {
     expect(entityIds.constraints).toHaveLength(1);
     expect(entityIds.decisions).toHaveLength(1);
     expect(entityIds.assumptions).toHaveLength(1);
+    expect(draftReviewItems).toEqual({ requirements: [], criteria: [] });
 
     const [newContextId] = entityIds.contexts;
     const [newConstraintId] = entityIds.constraints;
@@ -386,7 +390,7 @@ describe('runObserver', () => {
     );
   });
 
-  it('persists requirements-mode requirement items with turn provenance and returns their ids', async () => {
+  it('keeps requirements-mode requirement items as turn-owned draft review inputs instead of durable entities', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -412,34 +416,35 @@ describe('runObserver', () => {
       answer: 'It must resume an interview from SQLite after a browser restart.',
     });
 
-    const entityIds = await runObserver(db, turn, project.id);
+    const observerResult = await runObserver(db, turn, project.id);
     const entities = getEntitiesForProject(db, project.id);
     const provenanceRows = db.$client
       .prepare('SELECT turn_id, item_id, relation FROM turn_knowledge_item ORDER BY item_id ASC')
       .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
 
-    expect(entityIds).toEqual({
-      goals: [],
-      terms: [],
-      contexts: [],
-      constraints: [],
-      requirements: [1],
-      criteria: [],
-      decisions: [],
-      assumptions: [],
-    });
-    expect(entities.requirements[0]).toMatchObject({
-      kind: 'requirement',
-      content: 'The app must resume an interview from SQLite after a browser restart',
-      rationale: 'Users will leave and come back mid-session',
-    });
-    expect(provenanceRows).toEqual([
-      {
-        turn_id: turn.id,
-        item_id: entityIds.requirements[0],
-        relation: 'captured',
+    expect(observerResult).toEqual({
+      entityIds: {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
       },
-    ]);
+      draftReviewItems: {
+        requirements: [
+          {
+            content: 'The app must resume an interview from SQLite after a browser restart',
+            rationale: 'Users will leave and come back mid-session',
+          },
+        ],
+        criteria: [],
+      },
+    });
+    expect(entities.requirements).toEqual([]);
+    expect(provenanceRows).toEqual([]);
   });
 
   it('calls generateText with a requirements-biased prompt that prioritizes requirements and defers criteria extraction', async () => {
@@ -456,16 +461,49 @@ describe('runObserver', () => {
       },
     });
 
-    const { createKnowledgeItem } = await import('./db.js');
+    const { advanceHead, updateTurn } = await import('./db.js');
     const project = createProject(db, 'Spec');
-    createKnowledgeItem(db, project.id, 'requirement', 'Resume interviews from SQLite', {
-      rationale: 'Users will return later',
+    const priorTurn = createTurn(db, project.id, {
+      phase: 'requirements',
+      question: 'Which requirements are still missing?',
+      answer: 'Resume interviews from SQLite',
+    });
+    updateTurn(db, priorTurn.id, {
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-observer-result',
+          data: {
+            turnId: priorTurn.id,
+            entityIds: {
+              goals: [],
+              terms: [],
+              contexts: [],
+              constraints: [],
+              requirements: [],
+              criteria: [],
+              decisions: [],
+              assumptions: [],
+            },
+            draftReviewItems: {
+              requirements: [
+                {
+                  content: 'Resume interviews from SQLite',
+                  rationale: 'Users will return later',
+                },
+              ],
+              criteria: [],
+            },
+          },
+        },
+      ]),
     });
     const turn = createTurn(db, project.id, {
       phase: 'requirements',
+      parent_turn_id: priorTurn.id,
       question: 'Which requirements are still missing?',
       answer: 'We still need to preserve the active path after a restart.',
     });
+    advanceHead(db, project.id, turn.id);
 
     await runObserver(db, turn, project.id);
 
@@ -537,7 +575,7 @@ describe('runObserver', () => {
     );
   });
 
-  it('persists criteria-mode criterion items with turn provenance and returns their ids', async () => {
+  it('keeps criteria-mode criterion items as turn-owned draft review inputs instead of durable entities', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -563,43 +601,35 @@ describe('runObserver', () => {
       answer: 'Resuming should restore the active path without losing any work.',
     });
 
-    const entityIds = (await runObserver(db, turn, project.id)) as never as {
-      goals: [];
-      terms: [];
-      contexts: number[];
-      constraints: number[];
-      requirements: number[];
-      criteria: number[];
-      decisions: number[];
-      assumptions: number[];
-    };
+    const observerResult = await runObserver(db, turn, project.id);
     const entities = getEntitiesForProject(db, project.id);
     const provenanceRows = db.$client
       .prepare('SELECT turn_id, item_id, relation FROM turn_knowledge_item ORDER BY item_id ASC')
       .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
 
-    expect(entityIds).toEqual({
-      goals: [],
-      terms: [],
-      contexts: [],
-      constraints: [],
-      requirements: [],
-      criteria: [1],
-      decisions: [],
-      assumptions: [],
-    });
-    expect(entities.criteria[0]).toMatchObject({
-      kind: 'criterion',
-      content: 'Resuming restores the active path without data loss',
-      rationale: 'This proves persistence worked for the branch the user was on',
-    });
-    expect(provenanceRows).toEqual([
-      {
-        turn_id: turn.id,
-        item_id: entityIds.criteria[0],
-        relation: 'captured',
+    expect(observerResult).toEqual({
+      entityIds: {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
       },
-    ]);
+      draftReviewItems: {
+        requirements: [],
+        criteria: [
+          {
+            content: 'Resuming restores the active path without data loss',
+            rationale: 'This proves persistence worked for the branch the user was on',
+          },
+        ],
+      },
+    });
+    expect(entities.criteria).toEqual([]);
+    expect(provenanceRows).toEqual([]);
   });
 
   it('calls generateText with a criteria-biased prompt that prioritizes criteria and distinguishes them from requirements', async () => {
@@ -616,19 +646,52 @@ describe('runObserver', () => {
       },
     });
 
-    const { createKnowledgeItem } = await import('./db.js');
+    const { advanceHead, createKnowledgeItem, updateTurn } = await import('./db.js');
     const project = createProject(db, 'Spec');
     createKnowledgeItem(db, project.id, 'requirement', 'Resume interviews from SQLite', {
       rationale: 'Users return later',
     });
-    createKnowledgeItem(db, project.id, 'criterion', 'Resuming restores the active path', {
-      rationale: 'Protect the persistence seam',
+    const priorTurn = createTurn(db, project.id, {
+      phase: 'criteria',
+      question: 'Which criteria prove the resume requirement is satisfied?',
+      answer: 'Resuming restores the active path',
+    });
+    updateTurn(db, priorTurn.id, {
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-observer-result',
+          data: {
+            turnId: priorTurn.id,
+            entityIds: {
+              goals: [],
+              terms: [],
+              contexts: [],
+              constraints: [],
+              requirements: [],
+              criteria: [],
+              decisions: [],
+              assumptions: [],
+            },
+            draftReviewItems: {
+              requirements: [],
+              criteria: [
+                {
+                  content: 'Resuming restores the active path',
+                  rationale: 'Protect the persistence seam',
+                },
+              ],
+            },
+          },
+        },
+      ]),
     });
     const turn = createTurn(db, project.id, {
       phase: 'criteria',
+      parent_turn_id: priorTurn.id,
       question: 'Which criteria prove the resume requirement is satisfied?',
       answer: 'We should prove the active path restores cleanly after a restart.',
     });
+    advanceHead(db, project.id, turn.id);
 
     await runObserver(db, turn, project.id);
 

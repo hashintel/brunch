@@ -20,10 +20,11 @@ import type { TurnWithOptions } from './core.js';
 import {
   createOption,
   getAcceptedRequirementEntitiesForProject,
+  getDraftCriterionEntitiesForProject,
+  getDraftRequirementEntitiesForProject,
   createPhaseOutcome,
   updateTurn,
   getTurn,
-  getEntitiesForProject,
   getCurrentWorkflowState,
   type DB,
   type Turn,
@@ -289,14 +290,15 @@ export async function streamInterviewer(
   modeOptions?: InterviewerModeOptions,
 ): ReturnType<InterviewerAgent['stream']> {
   const agent = createInterviewerAgent(db, turn.id, phase, turn.project_id, modeOptions);
-  const entities = getEntitiesForProject(db, turn.project_id);
+  const draftRequirements = getDraftRequirementEntitiesForProject(db, turn.project_id);
+  const draftCriteria = getDraftCriterionEntitiesForProject(db, turn.project_id);
   const acceptedRequirements = getAcceptedRequirementEntitiesForProject(db, turn.project_id);
   const fullPrompt = buildInterviewerContext(activePath, userMessage, {
     phase,
     entities:
       phase === 'requirements'
         ? {
-            requirements: entities.requirements.map((requirement) => ({
+            requirements: draftRequirements.map((requirement) => ({
               id: requirement.id,
               content: requirement.content,
             })),
@@ -307,7 +309,7 @@ export async function streamInterviewer(
                 id: requirement.id,
                 content: requirement.content,
               })),
-              criteria: entities.criteria.map((criterion) => ({
+              criteria: draftCriteria.map((criterion) => ({
                 id: criterion.id,
                 content: criterion.content,
               })),

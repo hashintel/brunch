@@ -130,7 +130,7 @@ describe('assistant part round-trip', () => {
     expect(deserializeAssistantParts(json)).toEqual(parts);
   });
 
-  it('round-trips mixed observer-result ids through persisted assistant parts', () => {
+  it('round-trips mixed observer-result ids and draft review inputs through persisted assistant parts', () => {
     const parts: BrunchAssistantPart[] = [
       { type: 'text', text: 'Captured observer delta.', state: 'done' },
       {
@@ -145,6 +145,15 @@ describe('assistant part round-trip', () => {
             criteria: [],
             decisions: [9],
             assumptions: [10],
+          },
+          draftReviewItems: {
+            requirements: [
+              {
+                content: 'Export the reviewed spec as markdown',
+                rationale: null,
+              },
+            ],
+            criteria: [],
           },
         },
       },

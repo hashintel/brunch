@@ -51,6 +51,8 @@ import {
   findProposedPhaseOutcomeByTurn,
   getCurrentPhase,
   getCurrentWorkflowState,
+  getDraftCriterionEntitiesForProject,
+  getDraftRequirementEntitiesForProject,
   getTurn,
   getOptionsForTurn,
   linkKnowledgeItemToTurn,
@@ -90,7 +92,7 @@ function parseEntityProjectionMode(rawMode: unknown): EntityProjectionMode | nul
 function appendObserverResultToTurn(
   db: DB,
   turnId: number,
-  entityIds: Awaited<ReturnType<typeof runObserver>>,
+  observerResult: Awaited<ReturnType<typeof runObserver>>,
 ): void {
   const turn = getTurn(db, turnId);
   if (!turn) {
@@ -104,7 +106,7 @@ function appendObserverResultToTurn(
     type: 'data-observer-result',
     data: {
       turnId,
-      entityIds,
+      ...observerResult,
     },
   });
   updateTurn(db, turnId, {
@@ -575,13 +577,13 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
             );
 
           if (shouldObserve && observedTurn) {
-            const entityIds = await runObserver(db, observedTurn, id);
-            appendObserverResultToTurn(db, observedTurn.id, entityIds);
+            const observerResult = await runObserver(db, observedTurn, id);
+            appendObserverResultToTurn(db, observedTurn.id, observerResult);
             writer.write({
               type: 'data-observer-result',
               data: {
                 turnId: observedTurn.id,
-                entityIds,
+                ...observerResult,
               },
             });
           }
@@ -600,10 +602,10 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         const assistantParts = filterAssistantParts(responseMessage.parts, {
           elapsedMs: interviewerElapsedMs,
         });
-        const synthesizedReviewSet = buildReviewSetForPhase(
-          prepared.turn.phase,
-          getEntitiesForProjectByMode(db, id, 'project-wide'),
-        );
+        const synthesizedReviewSet = buildReviewSetForPhase(prepared.turn.phase, {
+          requirements: getDraftRequirementEntitiesForProject(db, id),
+          criteria: getDraftCriterionEntitiesForProject(db, id),
+        });
         const persistedAssistantParts = synthesizedReviewSet
           ? [
               ...assistantParts.filter((part) => part.type !== 'data-review-set'),

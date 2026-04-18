@@ -25,7 +25,14 @@ import type {
   WorkflowPhaseStatus,
   WorkflowState as SharedWorkflowState,
 } from '@/shared/api-types.js';
-import { reviewSetSchema, type BrunchAssistantPart, type ReviewSetData } from '@/shared/chat.js';
+import {
+  observerResultSchema,
+  reviewSetSchema,
+  type BrunchAssistantPart,
+  type ObserverDraftReviewItem,
+  type ObserverResultData,
+  type ReviewSetData,
+} from '@/shared/chat.js';
 import {
   createKnowledgeReferenceCode,
   genericKnowledgeKindRegistry,
@@ -760,6 +767,21 @@ function getGenericKnowledgeEntitiesForProjectByKind<K extends GenericKnowledgeK
   })) as Array<GenericKnowledgeEntity<K>>;
 }
 
+function getPersistedObserverResultForTurn(
+  turn: Pick<Turn, 'assistant_parts'> | undefined,
+): ObserverResultData | null {
+  const persistedObserverResult = safeDeserializeAssistantParts(turn?.assistant_parts).find(
+    (part): part is Extract<BrunchAssistantPart, { type: 'data-observer-result' }> =>
+      part.type === 'data-observer-result',
+  );
+  if (!persistedObserverResult) {
+    return null;
+  }
+
+  const parsedObserverResult = observerResultSchema.safeParse(persistedObserverResult.data);
+  return parsedObserverResult.success ? parsedObserverResult.data : null;
+}
+
 function getPersistedReviewSetForTurn(turn: Pick<Turn, 'assistant_parts'> | undefined): ReviewSetData | null {
   const persistedReviewSet = safeDeserializeAssistantParts(turn?.assistant_parts).find(
     (part): part is Extract<BrunchAssistantPart, { type: 'data-review-set' }> =>
@@ -820,6 +842,92 @@ function materializeAcceptedReviewSetItems(
   }
 
   return itemIds;
+}
+
+function getDraftReviewItemsForProject(
+  db: DB,
+  projectId: number,
+  kind: 'requirement' | 'criterion',
+): ObserverDraftReviewItem[] {
+  const seenContents = new Set<string>();
+  const draftItems: ObserverDraftReviewItem[] = [];
+
+  for (const turn of getActivePath(db, projectId)) {
+    const observerResult = getPersistedObserverResultForTurn(turn);
+    const items =
+      kind === 'requirement'
+        ? observerResult?.draftReviewItems?.requirements
+        : observerResult?.draftReviewItems?.criteria;
+
+    for (const item of items ?? []) {
+      const normalizedContent = item.content.trim();
+      if (!normalizedContent || seenContents.has(normalizedContent)) {
+        continue;
+      }
+
+      seenContents.add(normalizedContent);
+      draftItems.push({
+        content: item.content,
+        rationale: item.rationale ?? null,
+      });
+    }
+  }
+
+  return draftItems;
+}
+
+function createDraftReviewEntities(
+  projectId: number,
+  kind: 'requirement',
+  draftItems: ObserverDraftReviewItem[],
+): SharedRequirementEntity[];
+function createDraftReviewEntities(
+  projectId: number,
+  kind: 'criterion',
+  draftItems: ObserverDraftReviewItem[],
+): SharedCriterionEntity[];
+function createDraftReviewEntities(
+  projectId: number,
+  kind: 'requirement' | 'criterion',
+  draftItems: ObserverDraftReviewItem[],
+): Array<SharedRequirementEntity | SharedCriterionEntity> {
+  if (kind === 'requirement') {
+    return draftItems.map((item, index) => ({
+      id: index + 1,
+      project_id: projectId,
+      kind: 'requirement',
+      subtype: null,
+      content: item.content,
+      rationale: item.rationale ?? null,
+      referenceCode: createKnowledgeReferenceCode('requirement', index + 1),
+    }));
+  }
+
+  return draftItems.map((item, index) => ({
+    id: index + 1,
+    project_id: projectId,
+    kind: 'criterion',
+    subtype: null,
+    content: item.content,
+    rationale: item.rationale ?? null,
+    referenceCode: createKnowledgeReferenceCode('criterion', index + 1),
+  }));
+}
+
+export function getDraftRequirementEntitiesForProject(db: DB, projectId: number): SharedRequirementEntity[] {
+  return createDraftReviewEntities(
+    projectId,
+    'requirement',
+    getDraftReviewItemsForProject(db, projectId, 'requirement'),
+  );
+}
+
+export function getDraftCriterionEntitiesForProject(db: DB, projectId: number): SharedCriterionEntity[] {
+  return createDraftReviewEntities(
+    projectId,
+    'criterion',
+    getDraftReviewItemsForProject(db, projectId, 'criterion'),
+  );
 }
 
 export function getAcceptedRequirementEntitiesForProject(db: DB, projectId: number): RequirementEntity[] {
