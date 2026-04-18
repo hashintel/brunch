@@ -134,6 +134,8 @@ function getReviewPhaseControlCopy(phase: WorkflowPhase) {
       kickoffDescription: 'This phase is ready to assemble the current requirement set for review.',
       recoveryTitle: 'Restore the current requirements review',
       recoveryDescription: 'The current requirements review frontier is missing. Continue to restore it.',
+      proposalTitle: 'Requirements review ready to accept',
+      confirmLabel: 'Accept reviewed requirements',
     };
   }
 
@@ -144,6 +146,8 @@ function getReviewPhaseControlCopy(phase: WorkflowPhase) {
       recoveryTitle: 'Restore the current acceptance criteria review',
       recoveryDescription:
         'The current acceptance criteria review frontier is missing. Continue to restore it.',
+      proposalTitle: 'Acceptance Criteria review ready to accept',
+      confirmLabel: 'Accept reviewed criteria',
     };
   }
 
@@ -278,9 +282,13 @@ function PhaseSummaryCard({
   onConfirm: () => void;
   disabled: boolean;
 }) {
+  const reviewCopy = getReviewPhaseControlCopy(phase);
+
   return (
     <div className="my-3 rounded-lg border bg-card p-4">
-      <div className="mb-2 text-[15px] font-semibold">{getWorkflowPhaseLabel(phase)} closure proposal</div>
+      <div className="mb-2 text-[15px] font-semibold">
+        {reviewCopy ? reviewCopy.proposalTitle : `${getWorkflowPhaseLabel(phase)} closure proposal`}
+      </div>
       <p className="text-sm text-muted-foreground">{summary}</p>
       <div className="mt-3 flex justify-end">
         <button
@@ -294,7 +302,9 @@ function PhaseSummaryCard({
               : 'border-border bg-background hover:bg-muted',
           )}
         >
-          {getPhaseClosureCommandText({ kind: 'confirm-proposed-phase-closure', phase })}
+          {reviewCopy
+            ? reviewCopy.confirmLabel
+            : getPhaseClosureCommandText({ kind: 'confirm-proposed-phase-closure', phase })}
         </button>
       </div>
     </div>

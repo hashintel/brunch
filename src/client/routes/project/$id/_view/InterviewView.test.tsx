@@ -2271,6 +2271,7 @@ describe('InterviewView', () => {
 
     renderWorkspace();
 
+    expect(screen.getByText('Grounding closure proposal')).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: /confirm grounding closure/i }));
 
     await waitFor(() => {
@@ -2280,6 +2281,153 @@ describe('InterviewView', () => {
           {
             type: 'data-confirmation',
             data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
+          },
+        ],
+      });
+    });
+  });
+
+  it('renders a review-specific proposal card for requirements and keeps the same confirmation payload', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: '',
+        answer: 'The reviewed requirement set is ready.',
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            turn_kind: 'question',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              {
+                type: 'data-phase-summary',
+                data: {
+                  turnId: 1,
+                  phase: 'requirements',
+                  summary:
+                    'The requirement set has explicit review coverage and is ready to move into criteria.',
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [],
+          },
+        ],
+        workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high' },
+          design: { status: 'closed', readiness: 'high' },
+          requirements: {
+            status: 'in_progress',
+            closeability: true,
+            readiness: 'high',
+            closureBasis: null,
+            proposalPending: true,
+            turnId: 1,
+            summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
+          },
+        }),
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    expect(await screen.findByText('Requirements review ready to accept')).toBeTruthy();
+    expect(
+      screen.getByText(
+        'The requirement set has explicit review coverage and is ready to move into criteria.',
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText('Requirements closure proposal')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Accept reviewed requirements' }));
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          { type: 'text', text: 'Confirm requirements closure' },
+          {
+            type: 'data-confirmation',
+            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'requirements' },
+          },
+        ],
+      });
+    });
+  });
+
+  it('renders a review-specific proposal card for criteria and keeps the same confirmation payload', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: '',
+        answer: 'The reviewed criteria set is ready.',
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'criteria',
+            turn_kind: 'question',
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              {
+                type: 'data-phase-summary',
+                data: {
+                  turnId: 1,
+                  phase: 'criteria',
+                  summary:
+                    'All criteria have been explicitly reviewed and the criteria set is ready to close.',
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [],
+          },
+        ],
+        workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high' },
+          design: { status: 'closed', readiness: 'high' },
+          requirements: { status: 'closed', readiness: 'high' },
+          criteria: {
+            status: 'in_progress',
+            closeability: true,
+            readiness: 'high',
+            closureBasis: null,
+            proposalPending: true,
+            turnId: 1,
+            summary: 'All criteria have been explicitly reviewed and the criteria set is ready to close.',
+          },
+        }),
+      }),
+    );
+
+    renderWorkspace('criteria');
+
+    expect(await screen.findByText('Acceptance Criteria review ready to accept')).toBeTruthy();
+    expect(
+      screen.getByText('All criteria have been explicitly reviewed and the criteria set is ready to close.'),
+    ).toBeTruthy();
+    expect(screen.queryByText('Acceptance Criteria closure proposal')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Accept reviewed criteria' }));
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          { type: 'text', text: 'Confirm acceptance criteria closure' },
+          {
+            type: 'data-confirmation',
+            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'criteria' },
           },
         ],
       });
