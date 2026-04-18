@@ -39,14 +39,15 @@ Full-fidelity frontier. The demo shortcut period is over; the active burden is n
      - keep `EntitySidebar` grouping (D105) and stable per-kind reference codes (D49) working across the collapse
      - make Drizzle migrations explicit about the drop so the reseed path stays trustworthy
 
-4. **Interaction-family canonicalization: turn cards are the only input seam** — finalize workspace-owned turn cards as the canonical input surface and retire the straggling alternatives.
-   - Why now / unlocks: D89 / D91 / D99 declared turn cards canonical, but remnants of the older kickoff-as-separate-family, one-shot brownfield ritual, and global bottom composer still exist as fallbacks. Retiring them lets grounding, design, and review share one visible input contract without disambiguation logic.
-   - Traceability: D89, D91, D99; A51, A54, A56; I24.
+4. **Interaction-family canonicalization: durable turn cards plus projected control cards** — finalize the workspace stream as the canonical interaction surface: durable turn cards for substantive elicitation, projected control cards for structural affordances, and no straggling alternative input seams.
+   - Why now / unlocks: D89 / D91 / D95 / D99 / D110 now distinguish authored conversational turns from projected control affordances, but remnants of the older kickoff-as-turn, one-shot brownfield ritual, and global bottom composer still exist as fallbacks. Retiring them lets grounding, design, and review share one honest stream contract without pretending every visible card is a durable turn.
+   - Traceability: D89, D91, D95, D99, D110; A51, A54, A56; I24.
    - What this slice must accomplish:
      - remove the generic bottom composer as a canonical input path; any remaining uses become explicit debug / admin affordances or are deleted
-     - fold the previous kickoff interaction family into the turn-card family so kickoff, grounding cards, question cards, and review cards share one projection
+     - replace persisted kickoff / recovery-as-turn assumptions with projected control-card seams derived from workflow state
+     - fold the previous kickoff interaction family into the workspace stream so kickoff, grounding cards, question cards, review cards, and handoff controls share one coherent projection model without all becoming the same durable artifact type
      - retire the one-shot brownfield kickoff ritual in favor of reusable interviewer-invoked context gathering that produces grounding cards (D99)
-     - confirm greenfield and brownfield grounding both enter through the workspace turn-card surface
+     - confirm greenfield and brownfield grounding both enter through the workspace stream surface
 
 5. **Phase transition and handoff stabilization on the cleaned model** — make every phase end in a legible next action, with no empty shells or stranded in-progress states, after review and input semantics stop fighting the projector.
    - Why now / unlocks: the remaining handoff bugs are real, but fixing them before the semantic cleanup would just restabilize the wrong model. Once review authority, ontology, and input seams are cleaned, transition work can become a straightforward projection pass instead of another exception layer.
