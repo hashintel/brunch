@@ -729,48 +729,48 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             )}
 
             {showGeneratingState && <GeneratingTurnPlaceholder />}
-
-            {showClosedState && (
-              <div
-                className="flex min-h-[120px] flex-col items-start justify-center gap-3 rounded-xl bg-tint px-6 py-5"
-                data-testid="workspace-state-card"
-              >
-                <p className="text-sm font-medium text-ink">
-                  {showCompletionState
-                    ? 'The interview workspace is complete'
-                    : `${getWorkflowPhaseLabel(phase)} phase is complete`}
-                </p>
-                <p className="text-xs-plus leading-relaxed text-sub">
-                  {phaseState.summary ??
-                    (showCompletionState
-                      ? 'All phases are closed. Review the export to inspect the current structured spec output.'
-                      : 'This phase has been closed and handed off to the next phase.')}
-                </p>
-                {showCompletionState ? (
-                  <Link
-                    to="/project/$id/export"
-                    params={{ id: String(project.id) }}
-                    className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
-                  >
-                    Open export preview
-                  </Link>
-                ) : nextPhase ? (
-                  <Link
-                    to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
-                    params={{ id: String(project.id) }}
-                    className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
-                  >
-                    Continue to {getWorkflowPhaseLabel(nextPhase)}
-                  </Link>
-                ) : null}
-              </div>
-            )}
           </div>
 
           {/* Bottom spacer — future home of phase-advance controls */}
           <div className="h-30 shrink-0" />
         </div>
       </ChatScroll>
+
+      {showClosedState && (
+        <div
+          className="flex min-h-[120px] shrink-0 flex-col items-start justify-center gap-3 border-t border-rule bg-tint px-6 py-5"
+          data-testid="workspace-state-card"
+        >
+          <p className="text-sm font-medium text-ink">
+            {showCompletionState
+              ? 'The interview workspace is complete'
+              : `${getWorkflowPhaseLabel(phase)} phase is complete`}
+          </p>
+          <p className="text-xs-plus leading-relaxed text-sub">
+            {phaseState.summary ??
+              (showCompletionState
+                ? 'All phases are closed. Review the export to inspect the current structured spec output.'
+                : 'This phase has been closed and handed off to the next phase.')}
+          </p>
+          {showCompletionState ? (
+            <Link
+              to="/project/$id/export"
+              params={{ id: String(project.id) }}
+              className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+            >
+              Open export preview
+            </Link>
+          ) : nextPhase ? (
+            <Link
+              to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
+              params={{ id: String(project.id) }}
+              className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+            >
+              Continue to {getWorkflowPhaseLabel(nextPhase)}
+            </Link>
+          ) : null}
+        </div>
+      )}
 
       {showPromptInput && (
         <div className="border-t px-4 py-3">
