@@ -517,7 +517,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const phaseIndex = phaseOrder.indexOf(phase);
   const phaseNumber = phaseIndex + 1;
   const phaseTotal = phaseOrder.length;
-  const showClosePhaseAction = phaseState.status === 'in_progress' && phaseState.closeability;
+  const showClosePhaseAction = canForceClosePhase(workflow, phase);
   const showAdvanceAction = phaseState.status === 'closed' && Boolean(nextPhase);
   const showExportAction = phaseState.status === 'closed' && !nextPhase;
 

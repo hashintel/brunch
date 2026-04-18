@@ -562,18 +562,74 @@ describe('InterviewView', () => {
     expect(screen.queryByRole('link', { name: /advance to/i })).toBeNull();
   });
 
-  it('shows the header close action only when the phase is closeable', async () => {
+  it('shows the header close action only when force-close is available for design', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 1 },
+          scope: { status: 'closed', readiness: 'high' },
+          design: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 1 },
         }),
       }),
     );
 
-    renderWorkspace();
+    renderWorkspace('design');
 
     expect(screen.getByRole('button', { name: 'Close Phase' })).toBeTruthy();
+  });
+
+  it('hides the header close action for a review proposal state even when the phase is closeable', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: '',
+        answer: 'The reviewed requirement set is ready.',
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            turn_kind: 'question',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              {
+                type: 'data-phase-summary',
+                data: {
+                  turnId: 1,
+                  phase: 'requirements',
+                  summary:
+                    'The requirement set has explicit review coverage and is ready to move into criteria.',
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [],
+          },
+        ],
+        workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high' },
+          design: { status: 'closed', readiness: 'high' },
+          requirements: {
+            status: 'in_progress',
+            closeability: true,
+            readiness: 'high',
+            closureBasis: null,
+            proposalPending: true,
+            turnId: 1,
+            summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
+          },
+        }),
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    expect(screen.queryByRole('button', { name: 'Close Phase' })).toBeNull();
+    expect(await screen.findByRole('button', { name: 'Accept reviewed requirements' })).toBeTruthy();
   });
 
   it('shows an advance CTA in the header for a closed phase with a next phase', async () => {
