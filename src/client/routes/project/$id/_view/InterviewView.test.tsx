@@ -1228,10 +1228,10 @@ describe('InterviewView', () => {
     expect(screen.getByText('GOAL1')).toBeTruthy();
     expect(screen.getByText('R2')).toBeTruthy();
     expect(screen.getByText('Resume the interview from persisted local state')).toBeTruthy();
-    expect(screen.queryByLabelText('Comment on R1')).toBeNull();
-    expect(screen.queryByText('Items')).toBeNull();
-    expect(screen.queryByText('Grounding')).toBeNull();
-    expect(screen.queryByText('Commented')).toBeNull();
+    expect(screen.getByLabelText('Comment on R1')).toBeTruthy();
+    expect(screen.getByText('Items')).toBeTruthy();
+    expect(screen.getByText('Grounding')).toBeTruthy();
+    expect(screen.getByText('Commented')).toBeTruthy();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
   });
@@ -1335,8 +1335,9 @@ describe('InterviewView', () => {
     expect(screen.getByText('Shows the local persistence seam survives reloads.')).toBeTruthy();
     expect(screen.getByText('CRIT2')).toBeTruthy();
     expect(screen.getByText('Markdown export includes accepted requirements only')).toBeTruthy();
-    expect(screen.queryByText('Items')).toBeNull();
-    expect(screen.queryByText('Grounding')).toBeNull();
+    expect(screen.getByLabelText('Comment on CRIT1')).toBeTruthy();
+    expect(screen.getByText('Items')).toBeTruthy();
+    expect(screen.getByText('Grounding')).toBeTruthy();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
   });
@@ -1393,8 +1394,8 @@ describe('InterviewView', () => {
       expect(screen.getByText('Requirements')).toBeTruthy();
       expect(screen.getByText('REQ1')).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
-      expect(screen.queryByLabelText('Comment on REQ1')).toBeNull();
-      expect(screen.queryByText('Items')).toBeNull();
+      expect(screen.getByLabelText('Comment on REQ1')).toBeTruthy();
+      expect(screen.getByText('Items')).toBeTruthy();
       expect(routerInvalidate).not.toHaveBeenCalled();
     });
   });

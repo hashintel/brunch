@@ -1,7 +1,7 @@
 /**
  * Pattern: Review set — synthesized requirement/criteria list with
- * stable reference codes, grounding context, one review note, and
- * full-set review submission (Accept Review / Request Changes).
+ * per-item commenting, collection-level stats, global review note,
+ * and full-set review submission (Accept Review / Request Changes).
  */
 import { useState } from 'react';
 
@@ -111,6 +111,9 @@ function InteractiveReviewSet() {
         onRequestChanges={() => console.log('Request changes')}
         disabled={false}
         submitted={false}
+        initialComments={{
+          R3: 'This should be scoped to document-level rollback only, not field-level.',
+        }}
       />
 
       {accepted ? (
@@ -135,8 +138,8 @@ export function ReviewSetPage() {
           Pattern — Review Set
         </h1>
         <p className="mt-2.5 text-sm leading-relaxed text-sub">
-          Synthesized requirement list with stable reference codes, grounding context, one review note, and
-          full-set review submission (Accept Review / Request Changes).
+          Synthesized requirement list with per-item commenting, collection-level stats, global review note,
+          and full-set review submission (Accept Review / Request Changes).
         </p>
 
         <Separator className="my-8" />
@@ -145,7 +148,7 @@ export function ReviewSetPage() {
         <section>
           <h2 className="text-base font-medium text-ink">Interactive Review Set</h2>
           <p className="mt-1 text-sm text-sub">
-            Full interactive demo with a lightweight candidate-set review surface, one overall note, and
+            Full interactive demo with per-item commenting via icon-button toggle, global review note, and
             full-set Accept Review / Request Changes actions.
           </p>
 
