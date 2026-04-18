@@ -127,6 +127,29 @@ function ReviewPhaseBanner({ phase }: { phase: WorkflowPhase }) {
   );
 }
 
+function getReviewPhaseControlCopy(phase: WorkflowPhase) {
+  if (phase === 'requirements') {
+    return {
+      kickoffTitle: 'Requirements review',
+      kickoffDescription: 'This phase is ready to assemble the current requirement set for review.',
+      recoveryTitle: 'Restore the current requirements review',
+      recoveryDescription: 'The current requirements review frontier is missing. Continue to restore it.',
+    };
+  }
+
+  if (phase === 'criteria') {
+    return {
+      kickoffTitle: 'Acceptance Criteria review',
+      kickoffDescription: 'This phase is ready to assemble the current acceptance criteria set for review.',
+      recoveryTitle: 'Restore the current acceptance criteria review',
+      recoveryDescription:
+        'The current acceptance criteria review frontier is missing. Continue to restore it.',
+    };
+  }
+
+  return null;
+}
+
 function KickoffTurnCard({
   phase,
   mode,
@@ -142,18 +165,27 @@ function KickoffTurnCard({
 }) {
   const phaseLabel = getWorkflowPhaseLabel(phase);
   const showsGroundingStrategyChoice = phase === 'scope' && mode === 'start' && Boolean(onSelectStrategy);
+  const reviewCopy = getReviewPhaseControlCopy(phase);
 
   return (
     <WorkspaceStateCard
       testId="kickoff-turn-card"
       eyebrow={mode === 'start' ? 'Phase kickoff' : 'Continue phase'}
-      title={showsGroundingStrategyChoice ? groundingStrategyKickoffQuestion : `${phaseLabel} phase`}
+      title={
+        showsGroundingStrategyChoice
+          ? groundingStrategyKickoffQuestion
+          : reviewCopy
+            ? reviewCopy.kickoffTitle
+            : `${phaseLabel} phase`
+      }
       description={
         showsGroundingStrategyChoice
           ? groundingStrategyKickoffDescription
-          : mode === 'start'
-            ? `This phase is ready to begin. Proceed to generate the first ${isReviewPhase(phase) ? 'review step' : 'interview turn'}.`
-            : `This phase is open but has no current frontier turn. Proceed to generate the next ${isReviewPhase(phase) ? 'review step' : 'interview turn'}.`
+          : reviewCopy
+            ? reviewCopy.kickoffDescription
+            : mode === 'start'
+              ? `This phase is ready to begin. Proceed to generate the first ${isReviewPhase(phase) ? 'review step' : 'interview turn'}.`
+              : `This phase is open but has no current frontier turn. Proceed to generate the next ${isReviewPhase(phase) ? 'review step' : 'interview turn'}.`
       }
     >
       {showsGroundingStrategyChoice ? (
@@ -205,11 +237,17 @@ function RecoveryTurnCard({
   onRecover: () => void;
   disabled: boolean;
 }) {
+  const reviewCopy = getReviewPhaseControlCopy(phase);
+
   return (
     <WorkspaceStateCard
       eyebrow="Recovery needed"
-      title={`Restore the next ${isReviewPhase(phase) ? 'review step' : 'interview turn'}`}
-      description={`The last ${getWorkflowPhaseLabel(phase).toLowerCase()} turn is complete, but the next frontier is missing. Continue to recover it.`}
+      title={reviewCopy ? reviewCopy.recoveryTitle : `Restore the next interview turn`}
+      description={
+        reviewCopy
+          ? reviewCopy.recoveryDescription
+          : `The last ${getWorkflowPhaseLabel(phase).toLowerCase()} turn is complete, but the next frontier is missing. Continue to recover it.`
+      }
     >
       <button
         type="button"

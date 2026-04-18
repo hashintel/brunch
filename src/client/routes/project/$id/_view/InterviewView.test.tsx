@@ -1304,6 +1304,118 @@ describe('InterviewView', () => {
     });
   });
 
+  it('renders a review-specific kickoff card for requirements', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high' },
+          design: { status: 'closed', readiness: 'high' },
+          requirements: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        }),
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    const kickoffCard = await screen.findByTestId('kickoff-turn-card');
+    expect(kickoffCard.textContent).toContain('Requirements review');
+    expect(kickoffCard.textContent).toContain(
+      'This phase is ready to assemble the current requirement set for review.',
+    );
+    expect(kickoffCard.textContent).not.toContain('review step');
+    expect(kickoffCard.textContent).not.toContain('interview turn');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Proceed' }));
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Begin the requirements phase.' });
+    });
+  });
+
+  it('renders a review-specific recovery card for criteria', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high' },
+          design: { status: 'closed', readiness: 'high' },
+          requirements: { status: 'closed', readiness: 'high' },
+          criteria: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'scope',
+            turn_kind: 'question',
+            question: 'What should we build first?',
+            why: 'This frames the first iteration.',
+            impact: 'high',
+            answer: 'Build the web app',
+            is_resolution: false,
+            user_parts: JSON.stringify([{ type: 'text', text: 'Build the web app' }]),
+            assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
+            created_at: '2026-04-03 10:00:00',
+            options: [],
+          },
+          {
+            id: 2,
+            project_id: 1,
+            parent_turn_id: 1,
+            phase: 'criteria',
+            turn_kind: 'question',
+            question: 'Which acceptance criterion matters most?',
+            why: 'This anchors the first review pass.',
+            impact: 'high',
+            answer: 'Reloading preserves the accepted requirement set.',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Reloading preserves the accepted requirement set.' },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Which acceptance criterion matters most?' },
+            ]),
+            created_at: '2026-04-03 10:05:00',
+            options: [],
+          },
+        ],
+      }),
+    );
+
+    renderWorkspace('criteria');
+
+    const recoveryCard = await screen.findByTestId('workspace-state-card');
+    expect(recoveryCard.textContent).toContain('Restore the current acceptance criteria review');
+    expect(recoveryCard.textContent).toContain(
+      'The current acceptance criteria review frontier is missing. Continue to restore it.',
+    );
+    expect(recoveryCard.textContent).not.toContain('interview turn');
+
+    fireEvent.click(screen.getByTestId('recovery-turn-card'));
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        text: 'Continue the acceptance criteria phase.',
+      });
+    });
+  });
+
   it('renders requirement reference codes and review actions on the requirements full-set review turn', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
