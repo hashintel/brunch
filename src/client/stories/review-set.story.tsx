@@ -111,6 +111,7 @@ function InteractiveReviewSet() {
         onRequestChanges={() => console.log('Request changes')}
         disabled={false}
         submitted={false}
+        showItemComments
         initialComments={{
           R3: 'This should be scoped to document-level rollback only, not field-level.',
         }}
@@ -169,6 +170,7 @@ export function ReviewSetPage() {
               title="Requirements phase is complete"
               description="All requirements have been reviewed and finalized. You can proceed to acceptance criteria."
               cta="Continue to acceptance criteria"
+              testId="story-review-phase-completion-card"
             />
           </div>
         </section>
