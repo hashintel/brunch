@@ -55,6 +55,11 @@ function createReviewSetAssistantParts({
           { action: 'accept', optionPosition: 0 },
           { action: 'request-changes', optionPosition: 1 },
         ],
+        reviewSet: {
+          phase,
+          title,
+          items,
+        },
       },
       output: { ok: true, turnId: 0, optionCount: 2 },
     },

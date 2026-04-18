@@ -10,6 +10,25 @@ export const reviewActionOptionSchema = z.object({
   optionPosition: z.number().int().min(0),
 });
 
+export const reviewSetGroundingRefSchema = z.object({
+  code: z.string().min(1),
+});
+
+export const reviewSetItemSchema = z.object({
+  content: z.string().min(1),
+  referenceCode: z.string().min(1).optional(),
+  rationale: z.string().min(1).nullable().optional(),
+  grounding: z.array(reviewSetGroundingRefSchema).optional(),
+  isUserCreated: z.boolean().optional(),
+  isRevised: z.boolean().optional(),
+});
+
+export const reviewSetSchema = z.object({
+  phase: workflowPhaseSchema,
+  title: z.string().min(1),
+  items: z.array(reviewSetItemSchema),
+});
+
 function validateReviewActionOptionPosition(
   reviewAction: z.infer<typeof reviewActionOptionSchema>,
   field: string,
@@ -39,6 +58,7 @@ export const structuredQuestionSchema = z
       )
       .min(2),
     reviewActions: z.array(reviewActionOptionSchema).optional(),
+    reviewSet: reviewSetSchema.optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
@@ -91,25 +111,6 @@ export const observerResultSchema = z.object({
   turnId: z.number().int().positive().optional(),
   entityIds: z.object(createKnowledgeCollectionRecord(() => z.array(z.number()))),
   draftReviewItems: observerReviewDraftsSchema.optional(),
-});
-
-export const reviewSetGroundingRefSchema = z.object({
-  code: z.string().min(1),
-});
-
-export const reviewSetItemSchema = z.object({
-  content: z.string().min(1),
-  referenceCode: z.string().min(1).optional(),
-  rationale: z.string().min(1).nullable().optional(),
-  grounding: z.array(reviewSetGroundingRefSchema).optional(),
-  isUserCreated: z.boolean().optional(),
-  isRevised: z.boolean().optional(),
-});
-
-export const reviewSetSchema = z.object({
-  phase: workflowPhaseSchema,
-  title: z.string().min(1),
-  items: z.array(reviewSetItemSchema),
 });
 
 export const activitySummarySchema = z.object({

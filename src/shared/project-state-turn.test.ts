@@ -191,6 +191,17 @@ describe('project-state-turn helpers', () => {
               { action: 'accept', optionPosition: 0 },
               { action: 'request-changes', optionPosition: 1 },
             ],
+            reviewSet: {
+              phase: 'requirements',
+              title: 'Requirements',
+              items: [
+                {
+                  referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                  content: 'Resume the interview from persisted local state',
+                  rationale: 'Core local-first promise.',
+                },
+              ],
+            },
           },
           output: { ok: true, turnId: 1, optionCount: 2 },
         },

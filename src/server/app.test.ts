@@ -2,6 +2,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectState, WorkflowPhase } from '@/shared/api-types.js';
+import { type StructuredQuestion } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { getPhaseClosureCommandText } from '@/shared/phase-close.js';
 
@@ -76,15 +77,48 @@ function createMockObserverResult(overrides?: {
   };
 }
 
-const structuredQuestion = {
+const structuredQuestion: StructuredQuestion = {
   question: 'What platform should we support first?',
   why: 'Platform choice determines the first UI and deployment constraints.',
-  impact: 'high' as const,
+  impact: 'high',
   options: [
     { content: 'Web', is_recommended: true },
     { content: 'Desktop', is_recommended: false },
   ],
 };
+
+function createRuntimeReviewQuestion({
+  phase,
+  title,
+  question,
+  why,
+  items,
+}: {
+  phase: 'requirements' | 'criteria';
+  title: string;
+  question: string;
+  why: string;
+  items: Array<{ content: string; rationale?: string | null; referenceCode?: string }>;
+}): StructuredQuestion {
+  return {
+    question,
+    why,
+    impact: 'high',
+    options: [
+      { content: 'Accept review', is_recommended: true },
+      { content: 'Request changes', is_recommended: false },
+    ],
+    reviewActions: [
+      { action: 'accept', optionPosition: 0 },
+      { action: 'request-changes', optionPosition: 1 },
+    ],
+    reviewSet: {
+      phase,
+      title,
+      items,
+    },
+  };
+}
 
 function createReviewSetAssistantParts({
   phase,
@@ -116,6 +150,11 @@ function createReviewSetAssistantParts({
           { action: 'accept', optionPosition: 0 },
           { action: 'request-changes', optionPosition: 1 },
         ],
+        reviewSet: {
+          phase,
+          title,
+          items,
+        },
       },
       output: { ok: true, turnId: 0, optionCount: 2 },
     },
@@ -154,16 +193,20 @@ function makeTextInterviewer(text = 'Hi') {
   };
 }
 
-async function makeStructuredQuestionInterviewer(dbArg: DB, turnId: number) {
+async function makeStructuredQuestionInterviewer(
+  dbArg: DB,
+  turnId: number,
+  input: StructuredQuestion = structuredQuestion,
+) {
   const { updateTurn, createOption } = await import('./db.js');
 
   updateTurn(dbArg, turnId, {
-    question: structuredQuestion.question,
-    why: structuredQuestion.why,
-    impact: structuredQuestion.impact,
+    question: input.question,
+    why: input.why,
+    impact: input.impact,
   });
 
-  structuredQuestion.options.forEach((option, index) => {
+  input.options.forEach((option, index) => {
     createOption(dbArg, turnId, {
       position: index,
       content: option.content,
@@ -180,12 +223,12 @@ async function makeStructuredQuestionInterviewer(dbArg: DB, turnId: number) {
           type: 'tool-input-available',
           toolCallId: 'tool-1',
           toolName: 'ask_question',
-          input: structuredQuestion,
+          input,
         },
         {
           type: 'tool-output-available',
           toolCallId: 'tool-1',
-          output: { ok: true, turnId, optionCount: structuredQuestion.options.length },
+          output: { ok: true, turnId, optionCount: input.options.length },
         },
       ]),
     finishReason: Promise.resolve('tool-calls'),
@@ -2554,10 +2597,29 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     ]);
   });
 
-  it('persists a synthesized requirement review-set payload on runtime review turns', async () => {
+  it('persists interviewer-owned requirement review metadata on runtime review turns and accepts from it', async () => {
     const projectId = await createTestProject();
     seedRequirementsReady(projectId);
     const { updateTurn } = await import('./db.js');
+
+    const runtimeRequirementReview = createRuntimeReviewQuestion({
+      phase: 'requirements',
+      title: 'Requirements',
+      question: 'Please review the current requirement set.',
+      why: 'The first review turn should carry its own durable review metadata.',
+      items: [
+        {
+          content: 'Export the reviewed specification as markdown',
+          rationale: 'Keeps the accepted review output portable for sharing.',
+          referenceCode: createKnowledgeReferenceCode('requirement', 1),
+        },
+        {
+          content: 'Resume the interview from persisted local state',
+          rationale: 'Lets users continue after a restart.',
+          referenceCode: createKnowledgeReferenceCode('requirement', 2),
+        },
+      ],
+    });
 
     const requirementSeedState = await getProjectSnapshot(projectId);
     const requirementSeedTurnId = requirementSeedState.turns.at(-1)?.id;
@@ -2580,12 +2642,8 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
             draftReviewItems: {
               requirements: [
                 {
-                  content: 'Export the reviewed specification as markdown',
-                  rationale: 'Keeps the accepted review output portable for sharing.',
-                },
-                {
-                  content: 'Resume the interview from persisted local state',
-                  rationale: 'Lets users continue after a restart.',
+                  content: 'Fallback requirement inventory should not become the persisted review set',
+                  rationale: 'This proves the runtime turn no longer depends on synthesized inventory.',
                 },
               ],
               criteria: [],
@@ -2596,7 +2654,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     });
 
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
-      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id, runtimeRequirementReview),
     );
 
     await request(app)
@@ -2615,32 +2673,50 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
     const reviewTurn = projectRes.body.turns.find(
       (turn: { phase: string; question: string }) =>
-        turn.phase === 'requirements' && turn.question === structuredQuestion.question,
+        turn.phase === 'requirements' && turn.question === runtimeRequirementReview.question,
     );
     expect(reviewTurn).toBeDefined();
-    expect(JSON.parse(reviewTurn.assistant_parts ?? '[]')).toEqual(
+    const assistantParts = JSON.parse(reviewTurn.assistant_parts ?? '[]');
+    expect(assistantParts).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          type: 'tool-ask_question',
+          input: expect.objectContaining({
+            reviewActions: runtimeRequirementReview.reviewActions,
+            reviewSet: runtimeRequirementReview.reviewSet,
+          }),
+        }),
         {
           type: 'data-review-set',
-          data: {
-            phase: 'requirements',
-            title: 'Requirements',
-            items: [
-              {
-                content: 'Export the reviewed specification as markdown',
-                rationale: 'Keeps the accepted review output portable for sharing.',
-                referenceCode: createKnowledgeReferenceCode('requirement', 1),
-              },
-              {
-                content: 'Resume the interview from persisted local state',
-                rationale: 'Lets users continue after a restart.',
-                referenceCode: createKnowledgeReferenceCode('requirement', 2),
-              },
-            ],
-          },
+          data: runtimeRequirementReview.reviewSet,
         },
       ]),
     );
+    expect(JSON.stringify(assistantParts)).not.toContain(
+      'Fallback requirement inventory should not become the persisted review set',
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
+      .expect(200, { ok: true, advancedToPhase: 'criteria' });
+
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(entitiesRes.body.requirements).toEqual(
+      expect.arrayContaining(
+        runtimeRequirementReview.reviewSet!.items.map((item) =>
+          expect.objectContaining({ content: item.content }),
+        ),
+      ),
+    );
+    expect(
+      entitiesRes.body.requirements.some(
+        (requirement: { content: string }) =>
+          requirement.content === 'Fallback requirement inventory should not become the persisted review set',
+      ),
+    ).toBe(false);
   });
 
   it('accepting the requirements full-set review uses explicit reviewAction instead of option copy', async () => {
@@ -2995,10 +3071,29 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(400);
   });
 
-  it('persists a synthesized criteria review-set payload on runtime review turns', async () => {
+  it('persists interviewer-owned criteria review metadata on runtime review turns and accepts from it', async () => {
     const projectId = await createTestProject();
     seedCriteriaReady(projectId);
     const { updateTurn } = await import('./db.js');
+
+    const runtimeCriteriaReview = createRuntimeReviewQuestion({
+      phase: 'criteria',
+      title: 'Acceptance Criteria',
+      question: 'Please review the current criterion set.',
+      why: 'The first criteria review turn should carry its own durable review metadata.',
+      items: [
+        {
+          content: 'Restarting restores the active path',
+          rationale: 'Proves the persisted branch resumes cleanly.',
+          referenceCode: createKnowledgeReferenceCode('criterion', 1),
+        },
+        {
+          content: 'Markdown export includes accepted requirements only',
+          rationale: 'Checks the final handoff stays scoped to accepted output.',
+          referenceCode: createKnowledgeReferenceCode('criterion', 2),
+        },
+      ],
+    });
 
     const criterionSeedState = await getProjectSnapshot(projectId);
     const criterionSeedTurnId = criterionSeedState.turns.at(-1)?.id;
@@ -3022,12 +3117,8 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
               requirements: [],
               criteria: [
                 {
-                  content: 'Restarting restores the active path',
-                  rationale: 'Proves the persisted branch resumes cleanly.',
-                },
-                {
-                  content: 'Markdown export includes accepted requirements only',
-                  rationale: 'Checks the final handoff stays scoped to accepted output.',
+                  content: 'Fallback criteria inventory should not become the persisted review set',
+                  rationale: 'This proves the runtime turn no longer depends on synthesized inventory.',
                 },
               ],
             },
@@ -3037,7 +3128,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     });
 
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
-      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id, runtimeCriteriaReview),
     );
 
     await request(app)
@@ -3056,32 +3147,50 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
     const reviewTurn = projectRes.body.turns.find(
       (turn: { phase: string; question: string }) =>
-        turn.phase === 'criteria' && turn.question === structuredQuestion.question,
+        turn.phase === 'criteria' && turn.question === runtimeCriteriaReview.question,
     );
     expect(reviewTurn).toBeDefined();
-    expect(JSON.parse(reviewTurn.assistant_parts ?? '[]')).toEqual(
+    const assistantParts = JSON.parse(reviewTurn.assistant_parts ?? '[]');
+    expect(assistantParts).toEqual(
       expect.arrayContaining([
+        expect.objectContaining({
+          type: 'tool-ask_question',
+          input: expect.objectContaining({
+            reviewActions: runtimeCriteriaReview.reviewActions,
+            reviewSet: runtimeCriteriaReview.reviewSet,
+          }),
+        }),
         {
           type: 'data-review-set',
-          data: {
-            phase: 'criteria',
-            title: 'Acceptance Criteria',
-            items: [
-              {
-                content: 'Restarting restores the active path',
-                rationale: 'Proves the persisted branch resumes cleanly.',
-                referenceCode: createKnowledgeReferenceCode('criterion', 1),
-              },
-              {
-                content: 'Markdown export includes accepted requirements only',
-                rationale: 'Checks the final handoff stays scoped to accepted output.',
-                referenceCode: createKnowledgeReferenceCode('criterion', 2),
-              },
-            ],
-          },
+          data: runtimeCriteriaReview.reviewSet,
         },
       ]),
     );
+    expect(JSON.stringify(assistantParts)).not.toContain(
+      'Fallback criteria inventory should not become the persisted review set',
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
+      .expect(200, { ok: true, workflowCompleted: true });
+
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(entitiesRes.body.criteria).toEqual(
+      expect.arrayContaining(
+        runtimeCriteriaReview.reviewSet!.items.map((item) =>
+          expect.objectContaining({ content: item.content }),
+        ),
+      ),
+    );
+    expect(
+      entitiesRes.body.criteria.some(
+        (criterion: { content: string }) =>
+          criterion.content === 'Fallback criteria inventory should not become the persisted review set',
+      ),
+    ).toBe(false);
   });
 
   it('accepting the criteria full-set review uses explicit reviewAction instead of option copy', async () => {

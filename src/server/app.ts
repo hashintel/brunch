@@ -17,8 +17,9 @@ import {
   extractTextFromMessage,
   filterAssistantParts,
   formatTurnResponseText,
+  structuredQuestionSchema,
 } from '@/shared/chat.js';
-import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
+import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart, ReviewSetData } from '@/shared/chat.js';
 import {
   getGroundingStrategyModeForPosition,
   isGroundingStrategyKickoffTurn,
@@ -135,6 +136,39 @@ function getPersistedFullSetReviewAction(
   );
 
   return responsePart?.data.reviewAction ?? null;
+}
+
+function getPersistedRuntimeReviewMetadata(
+  phase: Turn['phase'],
+  message: Pick<BrunchUIMessage, 'parts'>,
+): {
+  reviewQuestionPart: Extract<BrunchAssistantPart, { type: 'tool-ask_question' }>;
+  reviewSet: ReviewSetData;
+} | null {
+  if (phase !== 'requirements' && phase !== 'criteria') {
+    return null;
+  }
+
+  const reviewQuestionPart = message.parts.find(
+    (part): part is Extract<BrunchAssistantPart, { type: 'tool-ask_question' }> =>
+      part.type === 'tool-ask_question' && 'input' in part,
+  );
+  if (!reviewQuestionPart) {
+    return null;
+  }
+
+  const parsedInput = structuredQuestionSchema.safeParse(reviewQuestionPart.input);
+  if (!parsedInput.success || !parsedInput.data.reviewSet || parsedInput.data.reviewSet.phase !== phase) {
+    return null;
+  }
+
+  return {
+    reviewQuestionPart: {
+      ...reviewQuestionPart,
+      input: parsedInput.data,
+    },
+    reviewSet: parsedInput.data.reviewSet,
+  };
 }
 
 function acceptRequirementsReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
@@ -602,19 +636,28 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         const assistantParts = filterAssistantParts(responseMessage.parts, {
           elapsedMs: interviewerElapsedMs,
         });
-        const synthesizedReviewSet = buildReviewSetForPhase(prepared.turn.phase, {
-          requirements: getDraftRequirementEntitiesForProject(db, id),
-          criteria: getDraftCriterionEntitiesForProject(db, id),
-        });
-        const persistedAssistantParts = synthesizedReviewSet
-          ? [
-              ...assistantParts.filter((part) => part.type !== 'data-review-set'),
-              {
-                type: 'data-review-set' as const,
-                data: synthesizedReviewSet,
-              },
-            ]
-          : assistantParts;
+        const persistedReviewMetadata = getPersistedRuntimeReviewMetadata(
+          prepared.turn.phase,
+          responseMessage,
+        );
+        const synthesizedReviewSet =
+          persistedReviewMetadata?.reviewSet ??
+          buildReviewSetForPhase(prepared.turn.phase, {
+            requirements: getDraftRequirementEntitiesForProject(db, id),
+            criteria: getDraftCriterionEntitiesForProject(db, id),
+          });
+        const persistedAssistantParts = [
+          ...assistantParts.filter((part) => part.type !== 'data-review-set'),
+          ...(persistedReviewMetadata ? [persistedReviewMetadata.reviewQuestionPart] : []),
+          ...(synthesizedReviewSet
+            ? [
+                {
+                  type: 'data-review-set' as const,
+                  data: synthesizedReviewSet,
+                },
+              ]
+            : []),
+        ];
         updateTurn(db, prepared.turn.id, {
           assistant_parts: serializeParts(persistedAssistantParts),
         });

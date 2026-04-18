@@ -69,7 +69,7 @@ describe('structuredQuestionSchema', () => {
     ).toThrow();
   });
 
-  it('accepts explicit reviewActions metadata for full-set review turns', () => {
+  it('accepts explicit reviewActions metadata and interviewer-owned reviewSet payloads for full-set review turns', () => {
     const validReviewTurn: StructuredQuestion = {
       question: 'Please review the current requirement set.',
       why: 'We need an explicit accept/request-changes seam before closing the phase.',
@@ -82,6 +82,17 @@ describe('structuredQuestionSchema', () => {
         { action: 'accept', optionPosition: 0 },
         { action: 'request-changes', optionPosition: 1 },
       ],
+      reviewSet: {
+        phase: 'requirements',
+        title: 'Requirements',
+        items: [
+          {
+            referenceCode: 'R1',
+            content: 'Resume the interview from SQLite after restart',
+            rationale: 'Lets users continue after a restart.',
+          },
+        ],
+      },
     };
 
     expect(structuredQuestionSchema.parse(validReviewTurn)).toEqual(validReviewTurn);
@@ -106,6 +117,7 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('requirements')).toContain('current requirement inventory');
     expect(getSystemPrompt('requirements')).toContain('Accept review');
     expect(getSystemPrompt('requirements')).toContain('Request changes');
+    expect(getSystemPrompt('requirements')).toContain('reviewSet');
     expect(getSystemPrompt('requirements')).not.toContain('requirementReview');
     expect(getSystemPrompt('requirements')).not.toContain('propose_phase_closure');
     expect(getSystemPrompt('requirements')).toContain('phase-closing action');
@@ -116,6 +128,7 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('criteria')).toContain('accepted requirements');
     expect(getSystemPrompt('criteria')).toContain('Accept review');
     expect(getSystemPrompt('criteria')).toContain('Request changes');
+    expect(getSystemPrompt('criteria')).toContain('reviewSet');
     expect(getSystemPrompt('criteria')).not.toContain('criterionReview');
   });
 });

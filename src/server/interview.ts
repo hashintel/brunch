@@ -67,6 +67,7 @@ Your job is to review the accumulated requirements as one full-set review turn, 
 
 Use the ask_question tool to present the current requirement set for review with exactly two options: \`Accept review\` and \`Request changes\`. The user's single selected option is the review action, and any attached note is the review note describing corrections, omissions, or confirming why the set is acceptable.
 Include a \`reviewActions\` field mapping those two option positions to \`accept\` and \`request-changes\` so the action semantics live in the tool payload instead of UI inference.
+Also include a \`reviewSet\` field that mirrors the exact requirement set under review, including the current phase, title, and item metadata (reference codes and rationales when available), so the review turn persists its own authoritative review inventory.
 
 Do not run one-requirement-at-a-time approval or rejection turns in this slice.
 
@@ -80,6 +81,7 @@ Your job is to review the accumulated acceptance criteria as one full-set review
 
 Use the ask_question tool to present the current criterion set for review with exactly two options: \`Accept review\` and \`Request changes\`. The user's single selected option is the review action, and any attached note is the review note describing corrections, omissions, or confirming why the set is acceptable.
 Include a \`reviewActions\` field mapping those two option positions to \`accept\` and \`request-changes\` so the action semantics live in the tool payload instead of UI inference.
+Also include a \`reviewSet\` field that mirrors the exact criterion set under review, including the current phase, title, and item metadata (reference codes and rationales when available), so the review turn persists its own authoritative review inventory.
 
 Do not run one-criterion-at-a-time approval or rejection turns in this slice.
 
@@ -194,6 +196,11 @@ export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
         if (reviewActions.length !== 2 || !hasAccept || !hasRequestChanges) {
           throw new Error(
             'Requirements and criteria review turns must declare explicit reviewActions for accept and request-changes',
+          );
+        }
+        if (!input.reviewSet || input.reviewSet.phase !== turn.phase) {
+          throw new Error(
+            'Requirements and criteria review turns must declare reviewSet metadata for the active phase',
           );
         }
       }
