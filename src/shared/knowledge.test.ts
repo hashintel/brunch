@@ -7,7 +7,9 @@ import {
   knowledgeEntityCollections,
   knowledgeKindReferencePrefixes,
   knowledgeKindRegistry,
+  knowledgeKindSemanticRoles,
   knowledgeKinds,
+  observerPhaseOntologyPolicies,
 } from './knowledge.js';
 
 describe('knowledge kind registry', () => {
@@ -132,5 +134,43 @@ describe('knowledge kind registry', () => {
     expect(createKnowledgeReferenceCode('criterion', 7)).toBe('AC7');
     expect(createKnowledgeReferenceCode('decision', 8)).toBe('D8');
     expect(createKnowledgeReferenceCode('assumption', 9)).toBe('A9');
+  });
+
+  it('exports semantic roles for every canonical knowledge kind', () => {
+    expect(Object.keys(knowledgeKindSemanticRoles)).toEqual(knowledgeKinds);
+    expect(knowledgeKindSemanticRoles).toEqual({
+      goal: 'desired project outcome or target state',
+      term: 'domain language that needs stable shared meaning',
+      context: 'situational truth, actors, workflows, or bounded area under discussion',
+      constraint: 'boundary on acceptable scope or solution space, including non-goals',
+      requirement: 'must-do capability or obligation the product needs to satisfy',
+      criterion: 'verifiable success condition or observable check that proves a requirement is satisfied',
+      decision: 'explicit commitment about the chosen approach',
+      assumption: 'supporting belief that could later prove false',
+    });
+  });
+
+  it('declares observer phase ontology policy in one shared place', () => {
+    expect(observerPhaseOntologyPolicies.scope).toEqual({
+      focusKinds: ['goal', 'term', 'context', 'constraint'],
+      allowedKinds: ['goal', 'term', 'context', 'constraint', 'decision', 'assumption'],
+      correctionKinds: [],
+    });
+    expect(observerPhaseOntologyPolicies.design).toEqual({
+      focusKinds: ['decision', 'assumption'],
+      allowedKinds: ['goal', 'term', 'context', 'constraint', 'decision', 'assumption'],
+      correctionKinds: ['goal', 'term', 'context', 'constraint'],
+    });
+    expect(observerPhaseOntologyPolicies.requirements).toEqual({
+      focusKinds: ['requirement'],
+      allowedKinds: ['goal', 'term', 'context', 'constraint', 'requirement'],
+      correctionKinds: ['goal', 'term', 'context', 'constraint'],
+      deferredKinds: ['criterion'],
+    });
+    expect(observerPhaseOntologyPolicies.criteria).toEqual({
+      focusKinds: ['criterion'],
+      allowedKinds: ['goal', 'term', 'context', 'constraint', 'criterion'],
+      correctionKinds: ['goal', 'term', 'context', 'constraint'],
+    });
   });
 });

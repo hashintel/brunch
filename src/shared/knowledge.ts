@@ -145,6 +145,50 @@ export const knowledgeKindReferencePrefixes = Object.fromEntries(
   [K in KnowledgeKind]: Extract<KnowledgeKindMetadata, { kind: K }>['referenceCodePrefix'];
 };
 
+export const knowledgeKindSemanticRoles = {
+  goal: 'desired project outcome or target state',
+  term: 'domain language that needs stable shared meaning',
+  context: 'situational truth, actors, workflows, or bounded area under discussion',
+  constraint: 'boundary on acceptable scope or solution space, including non-goals',
+  requirement: 'must-do capability or obligation the product needs to satisfy',
+  criterion: 'verifiable success condition or observable check that proves a requirement is satisfied',
+  decision: 'explicit commitment about the chosen approach',
+  assumption: 'supporting belief that could later prove false',
+} as const satisfies { [K in KnowledgeKind]: string };
+
+export type ObserverPhase = 'scope' | 'design' | 'requirements' | 'criteria';
+
+export interface ObserverPhaseOntologyPolicy {
+  focusKinds: readonly KnowledgeKind[];
+  allowedKinds: readonly KnowledgeKind[];
+  correctionKinds: readonly KnowledgeKind[];
+  deferredKinds?: readonly KnowledgeKind[];
+}
+
+export const observerPhaseOntologyPolicies = {
+  scope: {
+    focusKinds: ['goal', 'term', 'context', 'constraint'],
+    allowedKinds: ['goal', 'term', 'context', 'constraint', 'decision', 'assumption'],
+    correctionKinds: [],
+  },
+  design: {
+    focusKinds: ['decision', 'assumption'],
+    allowedKinds: ['goal', 'term', 'context', 'constraint', 'decision', 'assumption'],
+    correctionKinds: ['goal', 'term', 'context', 'constraint'],
+  },
+  requirements: {
+    focusKinds: ['requirement'],
+    allowedKinds: ['goal', 'term', 'context', 'constraint', 'requirement'],
+    correctionKinds: ['goal', 'term', 'context', 'constraint'],
+    deferredKinds: ['criterion'],
+  },
+  criteria: {
+    focusKinds: ['criterion'],
+    allowedKinds: ['goal', 'term', 'context', 'constraint', 'criterion'],
+    correctionKinds: ['goal', 'term', 'context', 'constraint'],
+  },
+} as const satisfies Record<ObserverPhase, ObserverPhaseOntologyPolicy>;
+
 export function createKnowledgeReferenceCode(kind: KnowledgeKind, ordinal: number): string {
   return `${knowledgeKindRegistryByKind[kind].referenceCodePrefix}${ordinal}`;
 }

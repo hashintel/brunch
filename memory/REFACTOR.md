@@ -18,7 +18,7 @@ Resolve the remaining ontology ambiguity explicitly: either requirements and cri
 - [x] Replace hard-coded reference-code expectations in tests and helper fixtures with derived expectations where possible, so later prefix changes become a contract update instead of a broad brittle rewrite.
 - [x] Switch the canonical reference-code contract to the intended prefixes (`G`, `T`, `A`, `D`, `CTX`, `CON`, `R`, `AC`) and update runtime expectations to match.
 - [x] Normalize story, fixture, and demo code samples to the canonical reference-code scheme so non-runtime surfaces stop teaching stale identifiers.
-- [ ] Extract a shared observer ontology policy that declares which knowledge kinds are valid in each phase and what semantic role each kind plays.
+- [x] Extract a shared observer ontology policy that declares which knowledge kinds are valid in each phase and what semantic role each kind plays.
 - [ ] Rebuild observer schema and prompt assembly from that shared ontology policy so the observer no longer hand-maintains a parallel ontology definition.
 - [ ] Make an explicit architectural decision about requirement and criterion durability, then codify it in both docs and code before changing behavior.
 - [ ] If requirements and criteria are review-authoritative only, remove direct pre-acceptance observer persistence for them and route them through the accepted-review path while preserving synthesis inputs for later review.
