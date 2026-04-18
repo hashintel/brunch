@@ -531,7 +531,7 @@ describe('POST /api/projects/:id/chat', () => {
         linkDecisionToTurn,
         linkAssumptionToTurn,
       } = await import('./db.js');
-      const framing = createKnowledgeItem(
+      const contextItem = createKnowledgeItem(
         dbArg as DB,
         projectIdArg as number,
         'context',
@@ -558,12 +558,12 @@ describe('POST /api/projects/:id/chat', () => {
         'It is the fastest path to feedback',
       );
       addDecisionParentAssumption(dbArg as DB, decision.id, assumption.id);
-      linkKnowledgeItemToTurn(dbArg as DB, framing.id, (turnArg as { id: number }).id);
+      linkKnowledgeItemToTurn(dbArg as DB, contextItem.id, (turnArg as { id: number }).id);
       linkKnowledgeItemToTurn(dbArg as DB, constraint.id, (turnArg as { id: number }).id);
       linkAssumptionToTurn(dbArg as DB, assumption.id, (turnArg as { id: number }).id);
       linkDecisionToTurn(dbArg as DB, decision.id, (turnArg as { id: number }).id);
       createdIds = {
-        context: framing.id,
+        context: contextItem.id,
         constraint: constraint.id,
         assumption: assumption.id,
         decision: decision.id,
@@ -571,7 +571,7 @@ describe('POST /api/projects/:id/chat', () => {
       return {
         goals: [],
         terms: [],
-        contexts: [framing.id],
+        contexts: [contextItem.id],
         constraints: [constraint.id],
         requirements: [],
         criteria: [],

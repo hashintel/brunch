@@ -1297,10 +1297,10 @@
         },
         {
           "phase": "criteria",
-          "question": "This criterion verifies the permission model. Does the negative-case framing capture the security boundary correctly?",
+          "question": "This criterion verifies the permission model. Does the negative-case coverage capture the security boundary correctly?",
           "why": "Security criteria work best as negative constraints — verifying what cannot happen is often more important than what can.",
           "impact": "high",
-          "answer": "Approve — the negative-case framing is exactly right for security boundaries",
+          "answer": "Approve — the negative-case coverage is exactly right for security boundaries",
           "options": [
             {
               "content": "Approve — non-admin deletion and audit modification are the right security boundaries to verify",
@@ -1908,10 +1908,10 @@
         },
         {
           "phase": "criteria",
-          "question": "This criterion verifies the permission model. Does the negative-case framing capture the security boundary correctly?",
+          "question": "This criterion verifies the permission model. Does the negative-case coverage capture the security boundary correctly?",
           "why": "Security criteria work best as negative constraints — verifying what cannot happen is often more important than what can.",
           "impact": "high",
-          "answer": "Approve — the negative-case framing is exactly right for security boundaries",
+          "answer": "Approve — the negative-case coverage is exactly right for security boundaries",
           "options": [
             {
               "content": "Approve — non-admin deletion and audit modification are the right security boundaries to verify",
