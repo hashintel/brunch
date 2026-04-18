@@ -350,6 +350,24 @@ request rather than reporting a completed fact (`BOUNDARY_RETRY_REQUESTED`,
 - **Durable runtime-operations table.** Only introduce if restart-resumable long
   jobs or multi-process coordination becomes necessary.
 
+## Relation To The Projector Frontier
+
+This design note is the machine/runtime articulation of the merged stream
+projector frontier in `memory/PLAN.md`.
+
+That frontier depends on four explicit contracts:
+
+- a pure `deriveSpecificationLanding(snapshot)` reconciler that produces the one
+  truthful bottom artifact for hydration and resume
+- a narrowed `OpenPhaseLanding` contract that feeds the phase chart only open-phase
+  states
+- a slim spec chart that owns only cross-phase legality and `phaseOutcome` retry
+- a runtime host that owns queue reseeding, leases, cancellation, stale-event
+  rejection, and write-ordering discipline
+
+This is how the projector cutover stops treating kickoff/recovery as durable turn
+truth and starts treating them as projected controls over anchored workflow facts.
+
 ## Refactor Targets For Current Drafts
 
 The current draft files in this directory still reflect the older kickoff/recovery
@@ -364,6 +382,10 @@ other way around.
 - keep `recording_phase_outcome` as the real phase-boundary durable write
 - push queue ownership, lease management, and stale-event rejection into a runtime
   host around the chart
+- narrow the child-phase input to open-phase landing states rather than handing it a
+  kickoff turn id
+- derive handoff/completion from `phaseOutcome` and landing reconciliation rather
+  than treating them as second chart-owned boundary writes
 
 ### `phase-machine.ts`
 
@@ -373,6 +395,17 @@ other way around.
 - replace `RECOVERY_GENERATED` semantics with a projected recovery control that
   leads back to a normal successor-frontier path
 - keep closure rejection on the normal reply path
+- initialize from narrowed open-phase landing input, not from an assumed kickoff
+  turn id
+
+## Suggested Refactor Sequence
+
+1. Define `SpecificationLanding`, `OpenPhaseLanding`, and
+   `deriveSpecificationLanding(snapshot)` in design/shared types.
+2. Introduce the specification runtime host around the charts.
+3. Rewrite the chart drafts so hydration and restart flow through landing unions.
+4. Cut server/client projector, fixtures, and tests over to projected controls and
+   derived landings.
 
 ## Files
 
