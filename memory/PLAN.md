@@ -39,8 +39,18 @@ Full-fidelity frontier. The demo shortcut period is over; the active burden is n
      - keep `EntitySidebar` grouping (D105) and stable per-kind reference codes (D49) working across the collapse
      - make Drizzle migrations explicit about the drop so the reseed path stays trustworthy
 
-4. **Interaction-family canonicalization: durable turn cards plus projected control cards** — finalize the workspace stream as the canonical interaction surface: durable turn cards for substantive elicitation, projected control cards for structural affordances, and no straggling alternative input seams.
-   - Why now / unlocks: D89 / D91 / D95 / D99 / D110 now distinguish authored conversational turns from projected control affordances, but remnants of the older kickoff-as-turn, one-shot brownfield ritual, and global bottom composer still exist as fallbacks. Retiring them lets grounding, design, and review share one honest stream contract without pretending every visible card is a durable turn.
+4. **Merged stream projector cutover: turns, anchored facts, and projected controls** — make the center column honest about artifact types by projecting it from active-path turns, anchored workflow facts, and projected control / activity / phase-marker elements instead of treating every visible card as a durable turn.
+   - Why now / unlocks: D94 / D95 / D110 changed the conceptual model. As long as kickoff, recovery, and phase-boundary affordances still masquerade as ordinary turns, later UI cleanup keeps restabilizing the wrong abstraction. This slice establishes the runtime read-model seam the rest of the interaction cleanup can build on.
+   - Traceability: D65, D93, D94, D95, D96, D110; A44, A51, A54; I24, I72.
+   - What this slice must accomplish:
+     - introduce an explicit workspace-stream projection model that can interleave durable conversational turns, anchored workflow facts, projected control cards, projected phase markers, and activity cards without requiring each artifact to be a turn row
+     - stop using persisted kickoff / recovery turn kinds as product truth; kickoff and recovery should project from workflow state and durable conditions even if transitional storage still reuses turn fields internally
+     - anchor phase-end projection to `phaseOutcome` records and define how start/end markers attach to nearby turns without joining the branch-bearing linked list
+     - preserve the active-path invalidation rule: if an anchored non-turn fact points at a turn that falls off the trusted branch, that fact is superseded or hidden rather than left floating in the stream
+     - keep hydration/resume truthful when a phase opens into entry state, recovery state, visible generation state, or closed-phase handoff state
+
+5. **Interaction-family canonicalization: durable turn cards plus projected control cards** — finalize the workspace stream as the canonical interaction surface for user action, with durable turn cards for substantive elicitation, projected control cards for structural affordances, and no straggling alternative input seams.
+   - Why now / unlocks: once the merged stream projector is honest about artifact types, the older kickoff-as-turn, one-shot brownfield ritual, and global bottom composer fallbacks can be removed without inventing another exception layer. This slice makes the new stream model the only real interaction contract.
    - Traceability: D89, D91, D95, D99, D110; A51, A54, A56; I24.
    - What this slice must accomplish:
      - remove the generic bottom composer as a canonical input path; any remaining uses become explicit debug / admin affordances or are deleted
@@ -49,7 +59,7 @@ Full-fidelity frontier. The demo shortcut period is over; the active burden is n
      - retire the one-shot brownfield kickoff ritual in favor of reusable interviewer-invoked context gathering that produces grounding cards (D99)
      - confirm greenfield and brownfield grounding both enter through the workspace stream surface
 
-5. **Phase transition and handoff stabilization on the cleaned model** — make every phase end in a legible next action, with no empty shells or stranded in-progress states, after review and input semantics stop fighting the projector.
+6. **Phase transition and handoff stabilization on the cleaned model** — make every phase end in a legible next action, with no empty shells or stranded in-progress states, after review and input semantics stop fighting the projector.
    - Why now / unlocks: the remaining handoff bugs are real, but fixing them before the semantic cleanup would just restabilize the wrong model. Once review authority, ontology, and input seams are cleaned, transition work can become a straightforward projection pass instead of another exception layer.
    - Traceability: D94, D100, D101, D104; A54.
    - What this slice must accomplish:
@@ -58,7 +68,7 @@ Full-fidelity frontier. The demo shortcut period is over; the active burden is n
      - closed phases show explicit handoff / completion artifacts instead of relying on the generic shell to imply what happened
      - force-close and proposed-close confirmations stay legible and do not leave stale active-phase projections behind
 
-6. **Naming normalization: project → specification, scope → grounding, cwd removal** — align internal identifiers, route keys, and schema columns with the product vocabulary settled in D97 / D98.
+7. **Naming normalization: project → specification, scope → grounding, cwd removal** — align internal identifiers, route keys, and schema columns with the product vocabulary settled in D97 / D98.
    - Why now / unlocks: after the semantic, ontology, and interaction layers are clean, the naming drift is the last pervasive legacy burden. Doing it after the deeper model cleanup avoids rebase pain across the same files while still preventing new surfaces from inheriting the vocabulary split. This is the most invasive slice — it touches schema, routes, and API types — and should be planned as a sequence of safe commits.
    - Traceability: D97, D98; Horizon `project → specification physical DB rename`, Horizon `cwd removal`.
    - What this slice must accomplish:
@@ -117,10 +127,14 @@ framing-kind-retirement-and-canonical-scope-kind-normalization
   └──→ legacy-knowledge-facade-cleanup
 
 legacy-knowledge-facade-cleanup
-  └──→ interaction-family-canonicalization-turn-cards-as-only-input-seam
+  └──→ merged-stream-projector-cutover-turns-anchored-facts-and-projected-controls
   └──→ naming-normalization-project-specification-scope-grounding-cwd-removal
 
-interaction-family-canonicalization-turn-cards-as-only-input-seam
+merged-stream-projector-cutover-turns-anchored-facts-and-projected-controls
+  └──→ interaction-family-canonicalization-durable-turn-cards-plus-projected-control-cards
+  └──→ phase-transition-and-handoff-stabilization-on-the-cleaned-model
+
+interaction-family-canonicalization-durable-turn-cards-plus-projected-control-cards
   └──→ phase-transition-and-handoff-stabilization-on-the-cleaned-model
   └──→ naming-normalization-project-specification-scope-grounding-cwd-removal
 
