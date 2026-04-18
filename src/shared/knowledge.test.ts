@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  createKnowledgeReferenceCode,
   knowledgeCollectionKeyByKind,
   knowledgeEntityCollectionByKind,
   knowledgeEntityCollections,
+  knowledgeKindReferencePrefixes,
   knowledgeKindRegistry,
   knowledgeKinds,
 } from './knowledge.js';
@@ -18,6 +20,7 @@ describe('knowledge kind registry', () => {
         contextHeading: 'Existing Goals',
         emptyStateCopy: "No goals yet. They'll appear as the interview progresses.",
         entityCollection: 'knowledge_item',
+        referenceCodePrefix: 'GOAL',
       },
       {
         kind: 'term',
@@ -26,6 +29,7 @@ describe('knowledge kind registry', () => {
         contextHeading: 'Existing Terms',
         emptyStateCopy: "No terms yet. They'll appear as the interview progresses.",
         entityCollection: 'knowledge_item',
+        referenceCodePrefix: 'TERM',
       },
       {
         kind: 'context',
@@ -34,6 +38,7 @@ describe('knowledge kind registry', () => {
         contextHeading: 'Existing Context',
         emptyStateCopy: "No context items yet. They'll appear as the interview progresses.",
         entityCollection: 'knowledge_item',
+        referenceCodePrefix: 'CTX',
       },
       {
         kind: 'constraint',
@@ -42,6 +47,7 @@ describe('knowledge kind registry', () => {
         contextHeading: 'Existing Constraints',
         emptyStateCopy: "No constraints yet. They'll appear as the interview progresses.",
         entityCollection: 'knowledge_item',
+        referenceCodePrefix: 'CST',
       },
       {
         kind: 'requirement',
@@ -50,6 +56,7 @@ describe('knowledge kind registry', () => {
         contextHeading: 'Existing Requirements',
         emptyStateCopy: "No requirements yet. They'll appear as the interview progresses.",
         entityCollection: 'knowledge_item',
+        referenceCodePrefix: 'R',
       },
       {
         kind: 'criterion',
@@ -58,6 +65,7 @@ describe('knowledge kind registry', () => {
         contextHeading: 'Existing Criteria',
         emptyStateCopy: "No criteria yet. They'll appear as the interview progresses.",
         entityCollection: 'knowledge_item',
+        referenceCodePrefix: 'CRIT',
       },
       {
         kind: 'decision',
@@ -66,6 +74,7 @@ describe('knowledge kind registry', () => {
         contextHeading: 'Existing Decisions',
         emptyStateCopy: "No decisions yet. They'll appear as the interview progresses.",
         entityCollection: 'decision',
+        referenceCodePrefix: 'D',
       },
       {
         kind: 'assumption',
@@ -74,11 +83,12 @@ describe('knowledge kind registry', () => {
         contextHeading: 'Existing Assumptions',
         emptyStateCopy: "No assumptions yet. They'll appear as the interview progresses.",
         entityCollection: 'assumption',
+        referenceCodePrefix: 'A',
       },
     ]);
   });
 
-  it('exports canonical kind and collection tuples plus a kind-to-collection mapping', () => {
+  it('exports canonical kind, collection, and reference-code metadata', () => {
     expect(knowledgeKinds).toEqual(knowledgeKindRegistry.map((entry) => entry.kind));
     expect(knowledgeEntityCollections).toEqual(['knowledge_item', 'decision', 'assumption']);
     expect(knowledgeCollectionKeyByKind).toEqual({
@@ -101,5 +111,26 @@ describe('knowledge kind registry', () => {
       decision: 'decision',
       assumption: 'assumption',
     });
+    expect(knowledgeKindReferencePrefixes).toEqual({
+      goal: 'GOAL',
+      term: 'TERM',
+      context: 'CTX',
+      constraint: 'CST',
+      requirement: 'R',
+      criterion: 'CRIT',
+      decision: 'D',
+      assumption: 'A',
+    });
+  });
+
+  it('derives reference codes from registry-owned per-kind prefixes', () => {
+    expect(createKnowledgeReferenceCode('goal', 2)).toBe('GOAL2');
+    expect(createKnowledgeReferenceCode('term', 3)).toBe('TERM3');
+    expect(createKnowledgeReferenceCode('context', 4)).toBe('CTX4');
+    expect(createKnowledgeReferenceCode('constraint', 5)).toBe('CST5');
+    expect(createKnowledgeReferenceCode('requirement', 6)).toBe('R6');
+    expect(createKnowledgeReferenceCode('criterion', 7)).toBe('CRIT7');
+    expect(createKnowledgeReferenceCode('decision', 8)).toBe('D8');
+    expect(createKnowledgeReferenceCode('assumption', 9)).toBe('A9');
   });
 });

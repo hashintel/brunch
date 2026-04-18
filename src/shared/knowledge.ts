@@ -35,6 +35,7 @@ export interface KnowledgeKindRegistryEntry {
   contextHeading: string;
   emptyStateCopy: string;
   entityCollection: KnowledgeEntityCollection;
+  referenceCodePrefix: string;
 }
 
 export const knowledgeKindRegistry = [
@@ -45,6 +46,7 @@ export const knowledgeKindRegistry = [
     contextHeading: 'Existing Goals',
     emptyStateCopy: "No goals yet. They'll appear as the interview progresses.",
     entityCollection: 'knowledge_item',
+    referenceCodePrefix: 'GOAL',
   },
   {
     kind: 'term',
@@ -53,6 +55,7 @@ export const knowledgeKindRegistry = [
     contextHeading: 'Existing Terms',
     emptyStateCopy: "No terms yet. They'll appear as the interview progresses.",
     entityCollection: 'knowledge_item',
+    referenceCodePrefix: 'TERM',
   },
   {
     kind: 'context',
@@ -61,6 +64,7 @@ export const knowledgeKindRegistry = [
     contextHeading: 'Existing Context',
     emptyStateCopy: "No context items yet. They'll appear as the interview progresses.",
     entityCollection: 'knowledge_item',
+    referenceCodePrefix: 'CTX',
   },
   {
     kind: 'constraint',
@@ -69,6 +73,7 @@ export const knowledgeKindRegistry = [
     contextHeading: 'Existing Constraints',
     emptyStateCopy: "No constraints yet. They'll appear as the interview progresses.",
     entityCollection: 'knowledge_item',
+    referenceCodePrefix: 'CST',
   },
   {
     kind: 'requirement',
@@ -77,6 +82,7 @@ export const knowledgeKindRegistry = [
     contextHeading: 'Existing Requirements',
     emptyStateCopy: "No requirements yet. They'll appear as the interview progresses.",
     entityCollection: 'knowledge_item',
+    referenceCodePrefix: 'R',
   },
   {
     kind: 'criterion',
@@ -85,6 +91,7 @@ export const knowledgeKindRegistry = [
     contextHeading: 'Existing Criteria',
     emptyStateCopy: "No criteria yet. They'll appear as the interview progresses.",
     entityCollection: 'knowledge_item',
+    referenceCodePrefix: 'CRIT',
   },
   {
     kind: 'decision',
@@ -93,6 +100,7 @@ export const knowledgeKindRegistry = [
     contextHeading: 'Existing Decisions',
     emptyStateCopy: "No decisions yet. They'll appear as the interview progresses.",
     entityCollection: 'decision',
+    referenceCodePrefix: 'D',
   },
   {
     kind: 'assumption',
@@ -101,6 +109,7 @@ export const knowledgeKindRegistry = [
     contextHeading: 'Existing Assumptions',
     emptyStateCopy: "No assumptions yet. They'll appear as the interview progresses.",
     entityCollection: 'assumption',
+    referenceCodePrefix: 'A',
   },
 ] as const satisfies readonly KnowledgeKindRegistryEntry[];
 
@@ -124,19 +133,20 @@ export const knowledgeEntityCollectionByKind = Object.fromEntries(
   [K in KnowledgeKind]: Extract<KnowledgeKindMetadata, { kind: K }>['entityCollection'];
 };
 
-export const knowledgeKindReferencePrefixes = {
-  goal: 'GOAL',
-  term: 'TERM',
-  context: 'CTX',
-  constraint: 'CST',
-  requirement: 'R',
-  criterion: 'CRIT',
-  decision: 'D',
-  assumption: 'A',
-} as const satisfies Record<KnowledgeKind, string>;
+export const knowledgeKindRegistryByKind = Object.fromEntries(
+  knowledgeKindRegistry.map((entry) => [entry.kind, entry]),
+) as {
+  [K in KnowledgeKind]: Extract<KnowledgeKindMetadata, { kind: K }>;
+};
+
+export const knowledgeKindReferencePrefixes = Object.fromEntries(
+  knowledgeKindRegistry.map((entry) => [entry.kind, entry.referenceCodePrefix]),
+) as {
+  [K in KnowledgeKind]: Extract<KnowledgeKindMetadata, { kind: K }>['referenceCodePrefix'];
+};
 
 export function createKnowledgeReferenceCode(kind: KnowledgeKind, ordinal: number): string {
-  return `${knowledgeKindReferencePrefixes[kind]}${ordinal}`;
+  return `${knowledgeKindRegistryByKind[kind].referenceCodePrefix}${ordinal}`;
 }
 
 export const genericKnowledgeKindRegistry = knowledgeKindRegistry.filter(
