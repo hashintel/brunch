@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 
-import { knowledgeKindRegistry } from './knowledge.js';
+import {
+  knowledgeCollectionKeyByKind,
+  knowledgeEntityCollections,
+  knowledgeKindRegistry,
+  knowledgeKinds,
+} from './knowledge.js';
 
 describe('knowledge kind registry', () => {
   it('defines the eight canonical knowledge kinds with stable collection metadata in sidebar order', () => {
@@ -70,5 +75,20 @@ describe('knowledge kind registry', () => {
         entityCollection: 'assumption',
       },
     ]);
+  });
+
+  it('exports canonical kind and collection tuples plus a kind-to-collection mapping', () => {
+    expect(knowledgeKinds).toEqual(knowledgeKindRegistry.map((entry) => entry.kind));
+    expect(knowledgeEntityCollections).toEqual(['knowledge_item', 'decision', 'assumption']);
+    expect(knowledgeCollectionKeyByKind).toEqual({
+      goal: 'goals',
+      term: 'terms',
+      context: 'contexts',
+      constraint: 'constraints',
+      requirement: 'requirements',
+      criterion: 'criteria',
+      decision: 'decisions',
+      assumption: 'assumptions',
+    });
   });
 });

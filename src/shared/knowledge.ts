@@ -1,24 +1,32 @@
-export type KnowledgeKind =
-  | 'goal'
-  | 'term'
-  | 'context'
-  | 'constraint'
-  | 'requirement'
-  | 'criterion'
-  | 'decision'
-  | 'assumption';
+export const knowledgeKinds = [
+  'goal',
+  'term',
+  'context',
+  'constraint',
+  'requirement',
+  'criterion',
+  'decision',
+  'assumption',
+] as const;
 
-export type KnowledgeCollectionKey =
-  | 'goals'
-  | 'terms'
-  | 'contexts'
-  | 'constraints'
-  | 'requirements'
-  | 'criteria'
-  | 'decisions'
-  | 'assumptions';
+export type KnowledgeKind = (typeof knowledgeKinds)[number];
 
-export type KnowledgeEntityCollection = 'knowledge_item' | 'decision' | 'assumption';
+export const knowledgeCollectionKeys = [
+  'goals',
+  'terms',
+  'contexts',
+  'constraints',
+  'requirements',
+  'criteria',
+  'decisions',
+  'assumptions',
+] as const;
+
+export type KnowledgeCollectionKey = (typeof knowledgeCollectionKeys)[number];
+
+export const knowledgeEntityCollections = ['knowledge_item', 'decision', 'assumption'] as const;
+
+export type KnowledgeEntityCollection = (typeof knowledgeEntityCollections)[number];
 
 export interface KnowledgeKindRegistryEntry {
   kind: KnowledgeKind;
@@ -104,9 +112,11 @@ export type GenericKnowledgeKindMetadata = Extract<
 export type GenericKnowledgeKind = GenericKnowledgeKindMetadata['kind'];
 export type GenericKnowledgeCollectionKey = GenericKnowledgeKindMetadata['collectionKey'];
 
-export const knowledgeCollectionKeys = knowledgeKindRegistry.map(
-  (entry) => entry.collectionKey,
-) as KnowledgeCollectionKey[];
+export const knowledgeCollectionKeyByKind = Object.fromEntries(
+  knowledgeKindRegistry.map((entry) => [entry.kind, entry.collectionKey]),
+) as {
+  [K in KnowledgeKind]: Extract<KnowledgeKindMetadata, { kind: K }>['collectionKey'];
+};
 
 export const knowledgeKindReferencePrefixes = {
   goal: 'GOAL',

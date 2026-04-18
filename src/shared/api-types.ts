@@ -1,6 +1,7 @@
 import * as z from 'zod/v4';
 
 import { reviewActionSchema } from './chat.js';
+import { knowledgeEntityCollections, knowledgeKinds } from './knowledge.js';
 import { phaseClosureBasisSchema, workflowPhaseSchema, type WorkflowPhase } from './phase-close.js';
 
 export type { WorkflowPhase };
@@ -59,17 +60,8 @@ export const turnOptionSchema = z.object({
 });
 
 const capturedTurnItemSchema = z.object({
-  collection: z.enum(['knowledge_item', 'decision', 'assumption']),
-  kind: z.enum([
-    'goal',
-    'term',
-    'context',
-    'constraint',
-    'requirement',
-    'criterion',
-    'decision',
-    'assumption',
-  ]),
+  collection: z.enum(knowledgeEntityCollections),
+  kind: z.enum(knowledgeKinds),
   id: z.number().int().positive(),
   content: z.string(),
   referenceCode: z.string().optional(),
@@ -114,16 +106,7 @@ export const projectStateSchema = z.object({
   turns: z.array(projectStateTurnSchema),
 });
 
-const knowledgeItemKindSchema = z.enum([
-  'goal',
-  'term',
-  'context',
-  'constraint',
-  'requirement',
-  'criterion',
-  'decision',
-  'assumption',
-]);
+const knowledgeItemKindSchema = z.enum(knowledgeKinds);
 export const knowledgeItemSchema = z.object({
   id: z.number().int().positive(),
   project_id: z.number().int().positive(),
@@ -170,17 +153,8 @@ export const assumptionEntitySchema = z.object({
 });
 
 export const entityReferenceSchema = z.object({
-  collection: z.enum(['knowledge_item', 'decision', 'assumption']),
-  kind: z.enum([
-    'goal',
-    'term',
-    'context',
-    'constraint',
-    'requirement',
-    'criterion',
-    'decision',
-    'assumption',
-  ]),
+  collection: z.enum(knowledgeEntityCollections),
+  kind: z.enum(knowledgeKinds),
   id: z.number().int().positive(),
 });
 

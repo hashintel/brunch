@@ -11,7 +11,7 @@ import {
 } from '@/shared/chat.js';
 import {
   createKnowledgeCollectionRecord,
-  knowledgeKindRegistry,
+  knowledgeCollectionKeyByKind,
   type KnowledgeKind,
 } from '@/shared/knowledge.js';
 import {
@@ -134,10 +134,6 @@ interface CompiledManifestScenario {
   knowledgeItems: ManifestKnowledgeItem[];
   edges: ManifestEdge[];
 }
-
-const knowledgeCollectionKeyByKind = new Map(
-  knowledgeKindRegistry.map((entry) => [entry.kind, entry.collectionKey] as const),
-);
 
 function normalizeOptionalText(value: string | null | undefined): string | undefined {
   const normalized = value?.trim();
@@ -557,7 +553,7 @@ function seedCompiledManifestScenario(
     linkKnowledgeItemToTurn(db, item.id, captureTurnId, 'captured');
 
     const observerEntityIds = getObserverEntityIdsForTurn(observerEntityIdsByTurn, mi.capturedAtTurn);
-    const collectionKey = knowledgeCollectionKeyByKind.get(mi.kind);
+    const collectionKey = knowledgeCollectionKeyByKind[mi.kind];
     if (!collectionKey) {
       throw new Error(`Unsupported knowledge kind "${mi.kind}" in manifest item ${k}`);
     }

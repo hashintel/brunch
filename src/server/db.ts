@@ -580,6 +580,11 @@ export type EntityReference = SharedEntityReference;
 export type EntityRelationship = SharedEntityRelationship;
 export type RequirementEntity = SharedRequirementEntity & { kind_ordinal: number };
 export type CriterionEntity = SharedCriterionEntity & { kind_ordinal: number };
+type GenericKnowledgeEntity<K extends GenericKnowledgeKind> = K extends 'requirement'
+  ? RequirementEntity
+  : K extends 'criterion'
+    ? CriterionEntity
+    : KnowledgeItem & { kind: K };
 export type EntitiesForProject = EntitiesData;
 
 function toDecision(item: KnowledgeItem): Decision & { kind_ordinal: number } {
@@ -740,18 +745,15 @@ function withReferenceCodes<T extends { id: number; kind: SharedKnowledgeKind; k
     }));
 }
 
-function getRequirementEntitiesForProject(db: DB, projectId: number): RequirementEntity[] {
-  return getKnowledgeItemsForProjectByKind(db, projectId, 'requirement').map((item) => ({
+function getGenericKnowledgeEntitiesForProjectByKind<K extends GenericKnowledgeKind>(
+  db: DB,
+  projectId: number,
+  kind: K,
+): Array<GenericKnowledgeEntity<K>> {
+  return getKnowledgeItemsForProjectByKind(db, projectId, kind).map((item) => ({
     ...item,
-    kind: 'requirement',
-  }));
-}
-
-function getCriterionEntitiesForProject(db: DB, projectId: number): CriterionEntity[] {
-  return getKnowledgeItemsForProjectByKind(db, projectId, 'criterion').map((item) => ({
-    ...item,
-    kind: 'criterion',
-  }));
+    kind,
+  })) as Array<GenericKnowledgeEntity<K>>;
 }
 
 export function getAcceptedRequirementEntitiesForProject(db: DB, projectId: number): RequirementEntity[] {
@@ -760,7 +762,9 @@ export function getAcceptedRequirementEntitiesForProject(db: DB, projectId: numb
     return [];
   }
 
-  return getRequirementEntitiesForProject(db, projectId).filter((item) => acceptedIds.has(item.id));
+  return getGenericKnowledgeEntitiesForProjectByKind(db, projectId, 'requirement').filter((item) =>
+    acceptedIds.has(item.id),
+  );
 }
 
 export function getAcceptedCriterionEntitiesForProject(db: DB, projectId: number): CriterionEntity[] {
@@ -769,7 +773,9 @@ export function getAcceptedCriterionEntitiesForProject(db: DB, projectId: number
     return [];
   }
 
-  return getCriterionEntitiesForProject(db, projectId).filter((item) => acceptedIds.has(item.id));
+  return getGenericKnowledgeEntitiesForProjectByKind(db, projectId, 'criterion').filter((item) =>
+    acceptedIds.has(item.id),
+  );
 }
 
 export function getScopeBundleForProject(db: DB, projectId: number) {
@@ -808,13 +814,9 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
   const genericKnowledgeCollections = Object.fromEntries(
     genericKnowledgeKindRegistry.map((entry) => [
       entry.collectionKey,
-      withReferenceCodes(
-        entry.kind === 'requirement'
-          ? getRequirementEntitiesForProject(db, projectId)
-          : entry.kind === 'criterion'
-            ? getCriterionEntitiesForProject(db, projectId)
-            : getKnowledgeItemsForProjectByKind(db, projectId, entry.kind),
-      ).map(({ kind_ordinal: _, ...item }) => item),
+      withReferenceCodes(getGenericKnowledgeEntitiesForProjectByKind(db, projectId, entry.kind)).map(
+        ({ kind_ordinal: _, ...item }) => item,
+      ),
     ]),
   ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
   const decisions = withReferenceCodes(

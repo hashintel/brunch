@@ -4,7 +4,9 @@ import {
   createProjectRequestSchema,
   criterionEntitySchema,
   entitiesDataSchema,
+  entityReferenceSchema,
   exportLoaderDataSchema,
+  knowledgeItemSchema,
   mutationErrorResponseSchema,
   projectListItemSchema,
   projectStateSchema,
@@ -12,6 +14,7 @@ import {
   submitTurnResponseRequestSchema,
   submitTurnResponseResponseSchema,
 } from './api-types.js';
+import { knowledgeEntityCollections, knowledgeKinds } from './knowledge.js';
 
 describe('api transport contracts', () => {
   it('validates the current project-list payload shape', () => {
@@ -242,6 +245,42 @@ describe('api transport contracts', () => {
 
     expect(parsed.requirements[0]).not.toHaveProperty('reviewStatus');
     expect(parsed.criteria[0]).not.toHaveProperty('reviewStatus');
+  });
+
+  it('accepts the canonical knowledge kinds and entity collections from the shared ontology contract', () => {
+    for (const kind of knowledgeKinds) {
+      expect(
+        knowledgeItemSchema.parse({
+          id: 1,
+          project_id: 1,
+          kind,
+          subtype: null,
+          content: `Example ${kind}`,
+          rationale: null,
+        }),
+      ).toMatchObject({ kind });
+    }
+
+    for (const collection of knowledgeEntityCollections) {
+      expect(
+        entityReferenceSchema.parse({
+          collection,
+          kind: collection === 'decision' ? 'decision' : collection === 'assumption' ? 'assumption' : 'goal',
+          id: 1,
+        }),
+      ).toMatchObject({ collection });
+    }
+
+    expect(() =>
+      knowledgeItemSchema.parse({
+        id: 1,
+        project_id: 1,
+        kind: 'framing',
+        subtype: null,
+        content: 'Legacy kind should fail',
+        rationale: null,
+      }),
+    ).toThrow();
   });
 
   it('accepts the full persisted edge relation vocabulary in entity payloads', () => {
