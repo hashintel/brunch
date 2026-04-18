@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ProjectState, ProjectStateTurn } from './api-types.js';
+import { createKnowledgeReferenceCode } from './knowledge.js';
 import {
   findTurnOptionsByPositions,
   getAcceptedClosureReplay,
@@ -221,10 +222,13 @@ describe('project-state-turn helpers', () => {
             title: 'Requirements',
             items: [
               {
-                referenceCode: 'R1',
+                referenceCode: createKnowledgeReferenceCode('requirement', 1),
                 content: 'Resume the interview from persisted local state',
                 rationale: 'Core local-first promise.',
-                grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+                grounding: [
+                  { code: createKnowledgeReferenceCode('goal', 1) },
+                  { code: createKnowledgeReferenceCode('context', 1) },
+                ],
               },
             ],
           },
@@ -237,10 +241,13 @@ describe('project-state-turn helpers', () => {
       title: 'Requirements',
       items: [
         {
-          referenceCode: 'R1',
+          referenceCode: createKnowledgeReferenceCode('requirement', 1),
           content: 'Resume the interview from persisted local state',
           rationale: 'Core local-first promise.',
-          grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+          grounding: [
+            { code: createKnowledgeReferenceCode('goal', 1) },
+            { code: createKnowledgeReferenceCode('context', 1) },
+          ],
         },
       ],
     });

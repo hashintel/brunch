@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
 import { extractPrompt, finalizeTurn, getProjectState, prepareTurn } from './core.js';
 import {
@@ -441,14 +442,14 @@ describe('getProjectState', () => {
         kind: 'context',
         id: context.id,
         content: 'The app starts from a fresh repo',
-        referenceCode: 'CTX1',
+        referenceCode: createKnowledgeReferenceCode('context', 1),
       },
       {
         collection: 'decision',
         kind: 'decision',
         id: decision.id,
         content: 'Start with the web app',
-        referenceCode: 'D1',
+        referenceCode: createKnowledgeReferenceCode('decision', 1),
       },
     ]);
     expect(state?.turns[1]).toMatchObject({

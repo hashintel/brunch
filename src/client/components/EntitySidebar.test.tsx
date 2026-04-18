@@ -4,6 +4,7 @@ import { cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { EntitiesData } from '@/shared/api-types.js';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
 import { EntitySidebar } from './EntitySidebar.js';
 
@@ -39,7 +40,7 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Export the reviewed spec',
               rationale: null,
-              referenceCode: 'R1',
+              referenceCode: createKnowledgeReferenceCode('requirement', 1),
             },
             {
               id: 4,
@@ -48,7 +49,7 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Support exporting the spec as a PDF',
               rationale: null,
-              referenceCode: 'R2',
+              referenceCode: createKnowledgeReferenceCode('requirement', 2),
             },
             {
               id: 5,
@@ -57,16 +58,16 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Resume the interview from SQLite after restart',
               rationale: null,
-              referenceCode: 'R3',
+              referenceCode: createKnowledgeReferenceCode('requirement', 3),
             },
           ],
         })}
       />,
     );
 
-    expect(screen.getByText('R1')).toBeTruthy();
-    expect(screen.getByText('R2')).toBeTruthy();
-    expect(screen.getByText('R3')).toBeTruthy();
+    expect(screen.getByText(createKnowledgeReferenceCode('requirement', 1))).toBeTruthy();
+    expect(screen.getByText(createKnowledgeReferenceCode('requirement', 2))).toBeTruthy();
+    expect(screen.getByText(createKnowledgeReferenceCode('requirement', 3))).toBeTruthy();
     expect(screen.getByText('Export the reviewed spec')).toBeTruthy();
     expect(screen.getByText('Support exporting the spec as a PDF')).toBeTruthy();
     expect(screen.getByText('Resume the interview from SQLite after restart')).toBeTruthy();
@@ -87,7 +88,7 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Ship a faithful active-path export',
               rationale: null,
-              referenceCode: 'GOAL1',
+              referenceCode: createKnowledgeReferenceCode('goal', 1),
             },
           ],
           terms: [
@@ -98,7 +99,7 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Invisible term',
               rationale: null,
-              referenceCode: 'TERM1',
+              referenceCode: createKnowledgeReferenceCode('term', 1),
             },
           ],
           contexts: [
@@ -109,7 +110,7 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Current flow is chat-first',
               rationale: null,
-              referenceCode: 'CTX1',
+              referenceCode: createKnowledgeReferenceCode('context', 1),
             },
           ],
           requirements: [
@@ -120,7 +121,7 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Export must be markdown',
               rationale: null,
-              referenceCode: 'R1',
+              referenceCode: createKnowledgeReferenceCode('requirement', 1),
             },
           ],
           criteria: [
@@ -131,7 +132,7 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Export reflects approved items only',
               rationale: null,
-              referenceCode: 'CRIT1',
+              referenceCode: createKnowledgeReferenceCode('criterion', 1),
             },
           ],
           decisions: [
@@ -140,7 +141,7 @@ describe('EntitySidebar', () => {
               project_id: 1,
               content: 'Use the active-path entity projection for routed state',
               rationale: 'Keeps routed state aligned with export',
-              referenceCode: 'D1',
+              referenceCode: createKnowledgeReferenceCode('decision', 1),
             },
           ],
           assumptions: [
@@ -148,7 +149,7 @@ describe('EntitySidebar', () => {
               id: 7,
               project_id: 1,
               content: 'Users only trust the current branch state',
-              referenceCode: 'A1',
+              referenceCode: createKnowledgeReferenceCode('assumption', 1),
             },
           ],
         })}
@@ -183,7 +184,7 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Ship something useful',
               rationale: null,
-              referenceCode: 'GOAL1',
+              referenceCode: createKnowledgeReferenceCode('goal', 1),
             },
           ],
           contexts: [
@@ -194,7 +195,7 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Users already work in docs',
               rationale: null,
-              referenceCode: 'CTX1',
+              referenceCode: createKnowledgeReferenceCode('context', 1),
             },
           ],
           constraints: [
@@ -205,7 +206,7 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Keep first run local-first',
               rationale: null,
-              referenceCode: 'CST1',
+              referenceCode: createKnowledgeReferenceCode('constraint', 1),
             },
           ],
         })}
@@ -230,7 +231,7 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Ship a useful first version',
               rationale: null,
-              referenceCode: 'GOAL1',
+              referenceCode: createKnowledgeReferenceCode('goal', 1),
             },
           ],
           contexts: [
@@ -241,7 +242,7 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'The team currently works from a spreadsheet',
               rationale: null,
-              referenceCode: 'CTX1',
+              referenceCode: createKnowledgeReferenceCode('context', 1),
             },
           ],
           relationships: [
@@ -256,7 +257,7 @@ describe('EntitySidebar', () => {
     );
 
     expect(screen.getByText('Links to:')).toBeTruthy();
-    expect(screen.getAllByText('CTX1')).toHaveLength(2);
+    expect(screen.getAllByText(createKnowledgeReferenceCode('context', 1))).toHaveLength(2);
     const header = screen.getByText('Knowledge Graph').parentElement?.textContent ?? '';
     expect(header).toContain('1 Connections');
   });
@@ -273,7 +274,7 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Ship a useful first version',
               rationale: null,
-              referenceCode: 'GOAL1',
+              referenceCode: createKnowledgeReferenceCode('goal', 1),
             },
           ],
         })}

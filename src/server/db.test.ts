@@ -5,6 +5,8 @@ import { join } from 'path';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+
 import {
   createDb,
   getOrCreateProject,
@@ -1437,21 +1439,21 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
         kind: 'goal',
         id: goal.id,
         content: 'Ship a trustworthy spec handoff',
-        referenceCode: 'GOAL1',
+        referenceCode: createKnowledgeReferenceCode('goal', 1),
       },
       {
         collection: 'decision',
         kind: 'decision',
         id: decision.id,
         content: 'Start with the web app',
-        referenceCode: 'D1',
+        referenceCode: createKnowledgeReferenceCode('decision', 1),
       },
       {
         collection: 'assumption',
         kind: 'assumption',
         id: assumption.id,
         content: 'Users can work in a browser',
-        referenceCode: 'A1',
+        referenceCode: createKnowledgeReferenceCode('assumption', 1),
       },
     ]);
   });
@@ -1691,12 +1693,21 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
 
     expect(getEntitiesForProjectByMode(db, project.id, 'project-wide').decisions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ content: 'Use SQLite for persistence', referenceCode: 'D1' }),
-        expect.objectContaining({ content: 'Use Postgres for persistence', referenceCode: 'D2' }),
+        expect.objectContaining({
+          content: 'Use SQLite for persistence',
+          referenceCode: createKnowledgeReferenceCode('decision', 1),
+        }),
+        expect.objectContaining({
+          content: 'Use Postgres for persistence',
+          referenceCode: createKnowledgeReferenceCode('decision', 2),
+        }),
       ]),
     );
     expect(getEntitiesForProjectByMode(db, project.id, 'active-path').decisions).toEqual([
-      expect.objectContaining({ content: 'Use Postgres for persistence', referenceCode: 'D2' }),
+      expect.objectContaining({
+        content: 'Use Postgres for persistence',
+        referenceCode: createKnowledgeReferenceCode('decision', 2),
+      }),
     ]);
   });
 

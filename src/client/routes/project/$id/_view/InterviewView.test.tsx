@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
 import { InterviewView } from './-interview-view.js';
 
@@ -730,7 +731,7 @@ describe('InterviewView', () => {
                 kind: 'goal',
                 id: 1,
                 content: 'Ship the web app first',
-                referenceCode: 'GOAL1',
+                referenceCode: createKnowledgeReferenceCode('goal', 1),
               },
             ],
           },
@@ -801,7 +802,7 @@ describe('InterviewView', () => {
     const answeredCards = screen.getAllByTestId('answered-turn-card');
     expect(answeredCards[0].textContent).toContain('What should we build first?');
     expect(answeredCards[0].textContent).toContain('Build the web app');
-    expect(answeredCards[0].textContent).toContain('GOAL1');
+    expect(answeredCards[0].textContent).toContain(createKnowledgeReferenceCode('goal', 1));
   });
 
   it('renders continue/start control actions as control markers instead of user chat bubbles', async () => {
@@ -1129,7 +1130,7 @@ describe('InterviewView', () => {
               subtype: null,
               content: 'Export the reviewed specification as markdown',
               rationale: null,
-              referenceCode: 'R1',
+              referenceCode: createKnowledgeReferenceCode('requirement', 1),
             },
           ],
         }),
@@ -1512,16 +1513,19 @@ describe('InterviewView', () => {
                   title: 'Requirements',
                   items: [
                     {
-                      referenceCode: 'R1',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 1),
                       content: 'Export the reviewed specification as markdown',
                       rationale: 'Keeps the accepted review output portable for sharing.',
-                      grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+                      grounding: [
+                        { code: createKnowledgeReferenceCode('goal', 1) },
+                        { code: createKnowledgeReferenceCode('context', 1) },
+                      ],
                     },
                     {
-                      referenceCode: 'R2',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 2),
                       content: 'Resume the interview from persisted local state',
                       rationale: 'Maintains the local-first continuity promise after reload.',
-                      grounding: [{ code: 'GOAL2' }],
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 2) }],
                     },
                   ],
                 },
@@ -1543,7 +1547,7 @@ describe('InterviewView', () => {
               subtype: null,
               content: 'Export the reviewed specification as markdown',
               rationale: null,
-              referenceCode: 'REQ1',
+              referenceCode: createKnowledgeReferenceCode('requirement', 1),
             },
             {
               id: 32,
@@ -1552,7 +1556,7 @@ describe('InterviewView', () => {
               subtype: null,
               content: 'Resume the interview from persisted local state',
               rationale: null,
-              referenceCode: 'REQ2',
+              referenceCode: createKnowledgeReferenceCode('requirement', 2),
             },
           ],
         }),
@@ -1564,15 +1568,17 @@ describe('InterviewView', () => {
     expect(await screen.findByTestId('active-review-set-card')).toBeTruthy();
     expect(screen.queryByTestId('active-question-card')).toBeNull();
     expect(await screen.findByText('Requirements')).toBeTruthy();
-    expect(screen.getByText('R1')).toBeTruthy();
+    expect(screen.getByText(createKnowledgeReferenceCode('requirement', 1))).toBeTruthy();
     expect(screen.getByText('Export the reviewed specification as markdown')).toBeTruthy();
     expect(screen.getByText('Keeps the accepted review output portable for sharing.')).toBeTruthy();
-    expect(screen.getByText('GOAL1')).toBeTruthy();
-    expect(screen.getByText('R2')).toBeTruthy();
+    expect(screen.getByText(createKnowledgeReferenceCode('goal', 1))).toBeTruthy();
+    expect(screen.getByText(createKnowledgeReferenceCode('requirement', 2))).toBeTruthy();
     expect(screen.getByText('Resume the interview from persisted local state')).toBeTruthy();
     expect(screen.getByText('Items')).toBeTruthy();
     expect(screen.getByText('Grounding')).toBeTruthy();
-    expect(screen.queryByLabelText('Comment on R1')).toBeNull();
+    expect(
+      screen.queryByLabelText(`Comment on ${createKnowledgeReferenceCode('requirement', 1)}`),
+    ).toBeNull();
     expect(screen.queryByText('Commented')).toBeNull();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
@@ -1620,16 +1626,19 @@ describe('InterviewView', () => {
                   title: 'Acceptance Criteria',
                   items: [
                     {
-                      referenceCode: 'CRIT1',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 1),
                       content: 'Restarting restores the active path',
                       rationale: 'Shows the local persistence seam survives reloads.',
-                      grounding: [{ code: 'R1' }],
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 1) }],
                     },
                     {
-                      referenceCode: 'CRIT2',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 2),
                       content: 'Markdown export includes accepted requirements only',
                       rationale: 'Prevents draft review content from leaking into export.',
-                      grounding: [{ code: 'R2' }, { code: 'D1' }],
+                      grounding: [
+                        { code: createKnowledgeReferenceCode('requirement', 2) },
+                        { code: createKnowledgeReferenceCode('decision', 1) },
+                      ],
                     },
                   ],
                 },
@@ -1651,7 +1660,7 @@ describe('InterviewView', () => {
               subtype: null,
               content: 'Restarting restores the active path',
               rationale: null,
-              referenceCode: 'CRIT1',
+              referenceCode: createKnowledgeReferenceCode('criterion', 1),
             },
             {
               id: 42,
@@ -1660,7 +1669,7 @@ describe('InterviewView', () => {
               subtype: null,
               content: 'Markdown export includes accepted requirements only',
               rationale: null,
-              referenceCode: 'CRIT2',
+              referenceCode: createKnowledgeReferenceCode('criterion', 2),
             },
           ],
         }),
@@ -1672,14 +1681,14 @@ describe('InterviewView', () => {
     expect(await screen.findByTestId('active-review-set-card')).toBeTruthy();
     expect(screen.queryByTestId('active-question-card')).toBeNull();
     expect(await screen.findByText('Acceptance Criteria')).toBeTruthy();
-    expect(screen.getByText('CRIT1')).toBeTruthy();
+    expect(screen.getByText(createKnowledgeReferenceCode('criterion', 1))).toBeTruthy();
     expect(screen.getByText('Restarting restores the active path')).toBeTruthy();
     expect(screen.getByText('Shows the local persistence seam survives reloads.')).toBeTruthy();
-    expect(screen.getByText('CRIT2')).toBeTruthy();
+    expect(screen.getByText(createKnowledgeReferenceCode('criterion', 2))).toBeTruthy();
     expect(screen.getByText('Markdown export includes accepted requirements only')).toBeTruthy();
     expect(screen.getByText('Items')).toBeTruthy();
     expect(screen.getByText('Grounding')).toBeTruthy();
-    expect(screen.queryByLabelText('Comment on CRIT1')).toBeNull();
+    expect(screen.queryByLabelText(`Comment on ${createKnowledgeReferenceCode('criterion', 1)}`)).toBeNull();
     expect(screen.queryByText('Commented')).toBeNull();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
@@ -1710,7 +1719,7 @@ describe('InterviewView', () => {
               subtype: null,
               content: 'Export the reviewed specification as markdown',
               rationale: 'Keeps the accepted review output portable for sharing.',
-              referenceCode: 'REQ1',
+              referenceCode: createKnowledgeReferenceCode('requirement', 1),
             },
           ],
         }),
@@ -1736,10 +1745,12 @@ describe('InterviewView', () => {
       expect(screen.queryByTestId('active-question-card')).toBeNull();
       expect(screen.getByTestId('review-set-card')).toBeTruthy();
       expect(screen.getByText('Requirements')).toBeTruthy();
-      expect(screen.getByText('REQ1')).toBeTruthy();
+      expect(screen.getByText(createKnowledgeReferenceCode('requirement', 1))).toBeTruthy();
       expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
       expect(screen.getByText('Items')).toBeTruthy();
-      expect(screen.queryByLabelText('Comment on REQ1')).toBeNull();
+      expect(
+        screen.queryByLabelText(`Comment on ${createKnowledgeReferenceCode('requirement', 1)}`),
+      ).toBeNull();
       expect(screen.queryByText('Commented')).toBeNull();
       expect(routerInvalidate).not.toHaveBeenCalled();
     });
@@ -1779,16 +1790,19 @@ describe('InterviewView', () => {
                   title: 'Requirements',
                   items: [
                     {
-                      referenceCode: 'R1',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 1),
                       content: 'Export the reviewed specification as markdown',
                       rationale: 'Keeps the accepted review output portable for sharing.',
-                      grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+                      grounding: [
+                        { code: createKnowledgeReferenceCode('goal', 1) },
+                        { code: createKnowledgeReferenceCode('context', 1) },
+                      ],
                     },
                     {
-                      referenceCode: 'R2',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 2),
                       content: 'Resume the interview from persisted local state',
                       rationale: 'Maintains the local-first continuity promise after reload.',
-                      grounding: [{ code: 'GOAL2' }],
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 2) }],
                     },
                   ],
                 },
@@ -1847,7 +1861,7 @@ describe('InterviewView', () => {
     expect(await screen.findByTestId('answered-review-set-card')).toBeTruthy();
     expect(screen.queryByTestId('answered-turn-card')).toBeNull();
     expect(screen.getByText('Requirements')).toBeTruthy();
-    expect(screen.getByText('R1')).toBeTruthy();
+    expect(screen.getByText(createKnowledgeReferenceCode('requirement', 1))).toBeTruthy();
     expect(screen.getByText('Review accepted.')).toBeTruthy();
   });
 
@@ -1922,7 +1936,7 @@ describe('InterviewView', () => {
               subtype: null,
               content: 'Export the reviewed specification as markdown',
               rationale: null,
-              referenceCode: 'REQ1',
+              referenceCode: createKnowledgeReferenceCode('requirement', 1),
             },
           ],
         }),
@@ -2032,7 +2046,7 @@ describe('InterviewView', () => {
               subtype: null,
               content: 'Restarting restores the active path',
               rationale: null,
-              referenceCode: 'CRIT1',
+              referenceCode: createKnowledgeReferenceCode('criterion', 1),
             },
           ],
         }),
@@ -2871,7 +2885,7 @@ describe('InterviewView', () => {
                   kind: 'context',
                   id: 1,
                   content: 'The launch still targets desktop first',
-                  referenceCode: 'CTX1',
+                  referenceCode: createKnowledgeReferenceCode('context', 1),
                 },
               ],
             },
@@ -2945,7 +2959,9 @@ describe('InterviewView', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('answered-turn-card').textContent).toContain('CTX1');
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain(
+        createKnowledgeReferenceCode('context', 1),
+      );
     });
   });
 

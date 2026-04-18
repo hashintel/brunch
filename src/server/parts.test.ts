@@ -6,6 +6,7 @@ import {
   type BrunchAssistantPart,
   type BrunchUserPart,
 } from '@/shared/chat.js';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
 import { createDb, type DB } from './db.js';
 import {
@@ -115,10 +116,10 @@ describe('assistant part round-trip', () => {
           title: 'Requirements',
           items: [
             {
-              referenceCode: 'R1',
+              referenceCode: createKnowledgeReferenceCode('requirement', 1),
               content: 'Resume the interview from persisted local state',
               rationale: 'Core local-first promise.',
-              grounding: [{ code: 'GOAL1' }],
+              grounding: [{ code: createKnowledgeReferenceCode('goal', 1) }],
             },
           ],
         },

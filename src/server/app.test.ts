@@ -2,6 +2,7 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectState, WorkflowPhase } from '@/shared/api-types.js';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { getPhaseClosureCommandText } from '@/shared/phase-close.js';
 
 import { buildInterviewerContext } from './context.js';
@@ -474,7 +475,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'Produce a clean implementation brief',
         rationale: 'The interview should end in a trustworthy handoff',
-        referenceCode: 'GOAL1',
+        referenceCode: createKnowledgeReferenceCode('goal', 1),
       },
     ]);
     expect(entitiesRes.body.terms).toEqual([
@@ -485,7 +486,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'implementation brief',
         rationale: 'The turn named the artifact the project is trying to produce',
-        referenceCode: 'TERM1',
+        referenceCode: createKnowledgeReferenceCode('term', 1),
       },
     ]);
     expect(entitiesRes.body.contexts).toEqual([
@@ -496,7 +497,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'The project starts from a fuzzy brief',
         rationale: 'The user is still establishing the problem context',
-        referenceCode: 'CTX1',
+        referenceCode: createKnowledgeReferenceCode('context', 1),
       },
     ]);
     expect(entitiesRes.body.constraints).toEqual([
@@ -507,7 +508,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: 'non-goal',
         content: 'Keep setup instant',
         rationale: 'The launcher should stay lightweight',
-        referenceCode: 'CST1',
+        referenceCode: createKnowledgeReferenceCode('constraint', 1),
       },
     ]);
   });
@@ -617,7 +618,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'The first release still targets solo builders',
         rationale: 'The turn clarified the intended audience',
-        referenceCode: 'CTX1',
+        referenceCode: createKnowledgeReferenceCode('context', 1),
       },
     ]);
     expect(entitiesRes.body.constraints).toEqual([
@@ -628,7 +629,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: 'non-goal',
         content: 'Do not add a plugin system yet',
         rationale: 'The first release should stay narrow',
-        referenceCode: 'CST1',
+        referenceCode: createKnowledgeReferenceCode('constraint', 1),
       },
     ]);
     expect(entitiesRes.body.decisions).toEqual([
@@ -637,7 +638,7 @@ describe('POST /api/projects/:id/chat', () => {
         project_id: projectId,
         content: 'Start with the web app',
         rationale: 'It is the fastest path to feedback',
-        referenceCode: 'D1',
+        referenceCode: createKnowledgeReferenceCode('decision', 1),
       },
     ]);
     expect(entitiesRes.body.assumptions).toEqual([
@@ -645,7 +646,7 @@ describe('POST /api/projects/:id/chat', () => {
         id: createdIds!.assumption,
         project_id: projectId,
         content: 'Users can work in a browser',
-        referenceCode: 'A1',
+        referenceCode: createKnowledgeReferenceCode('assumption', 1),
       },
     ]);
     expect(entitiesRes.body.relationships).toEqual([
@@ -719,7 +720,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'Resume the interview from SQLite after restart',
         rationale: 'Users will come back to finish the workflow',
-        referenceCode: 'R1',
+        referenceCode: createKnowledgeReferenceCode('requirement', 1),
       },
     ]);
   });
@@ -786,7 +787,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'Resuming restores the active path without data loss',
         rationale: 'This proves persistence worked for the branch the user was on',
-        referenceCode: 'CRIT1',
+        referenceCode: createKnowledgeReferenceCode('criterion', 1),
       },
     ]);
   });

@@ -16,7 +16,7 @@ import {
   submitTurnResponseRequestSchema,
   submitTurnResponseResponseSchema,
 } from './api-types.js';
-import { knowledgeEntityCollections, knowledgeKinds } from './knowledge.js';
+import { createKnowledgeReferenceCode, knowledgeEntityCollections, knowledgeKinds } from './knowledge.js';
 
 describe('api transport contracts', () => {
   it('validates the current project-list payload shape', () => {
@@ -258,14 +258,14 @@ describe('api transport contracts', () => {
         subtype: null,
         content: 'Use SQLite for local storage',
         rationale: 'Zero-config first-run matters',
-        referenceCode: 'D1',
+        referenceCode: createKnowledgeReferenceCode('decision', 1),
       }),
     ).toEqual({
       id: 4,
       project_id: 1,
       content: 'Use SQLite for local storage',
       rationale: 'Zero-config first-run matters',
-      referenceCode: 'D1',
+      referenceCode: createKnowledgeReferenceCode('decision', 1),
     });
 
     expect(
@@ -276,13 +276,13 @@ describe('api transport contracts', () => {
         subtype: null,
         content: 'Users can work in a browser',
         rationale: null,
-        referenceCode: 'A1',
+        referenceCode: createKnowledgeReferenceCode('assumption', 1),
       }),
     ).toEqual({
       id: 5,
       project_id: 1,
       content: 'Users can work in a browser',
-      referenceCode: 'A1',
+      referenceCode: createKnowledgeReferenceCode('assumption', 1),
     });
   });
 
