@@ -14,6 +14,8 @@ A full or light scope card from `ln-scope`, or a trivial direct-fix request: $AR
 
 Extract: target behavior / objective, acceptance criteria, and verification approach.
 
+Treat the scope card as the next implementation step inside its containing `memory/PLAN.md` frontier item. The frontier item is the plan-level work item; the scope card is just the current execution step inside it. Unless `ln-plan` has already split the frontier into separate items, do **not** infer a new Linear issue or Graphite branch from scope-card granularity; multiple consecutive scope cards may land on the same branch.
+
 Re-enter before red.
 
 If this is a fresh thread or an unfamiliar area, reload:

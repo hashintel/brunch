@@ -1,6 +1,6 @@
 # Graphite Workflow
 
-Graphite manages the stacked branch structure. Every slice gets its own branch; the stack mirrors PLAN.md dependencies.
+Graphite manages the stacked branch structure. Every plan-level `memory/PLAN.md` frontier item gets its own branch; the stack mirrors PLAN.md dependencies. Here, a **frontier item** means one named work item in the plan itself — not a scope card or an implementation sub-slice discovered during `ln-scope` / `ln-build`. Those refinements stay on the same branch unless `ln-plan` is rerun and splits the frontier into separate PLAN.md items.
 
 ## git vs gt boundary
 
@@ -12,7 +12,7 @@ Use **git** for local operations that don't touch the stack:
 
 Use **gt** (via `/cli-graphite`) for stack-aware operations:
 
-- `gt create ln/{issue-id}-{keywords}` — create a new stacked branch
+- `gt create ln/{issue-id}-{keywords}` — create a new stacked branch for the current frontier item
 - `gt submit` — push the stack to remote and create/update PRs
 - `gt restack` — rebase the stack after changes to a parent branch
 - `gt move --onto <branch>` — reparent a branch in the stack
@@ -21,17 +21,25 @@ Use **gt** (via `/cli-graphite`) for stack-aware operations:
 
 **Why the split matters:** `gt` commands maintain Graphite's internal metadata about branch parentage. Using raw `git checkout -b` or `git rebase` bypasses this metadata and can corrupt the stack. Commits and reads don't touch stack metadata, so plain git is fine for those.
 
+## Branch granularity
+
+- Branch / Linear-issue granularity follows the containing `memory/PLAN.md` frontier item.
+- A frontier item is the plan-level work item; scope cards and implementation sub-slices are execution detail inside it.
+- `ln-scope` may narrow one frontier item into multiple buildable sub-slices or consecutive scope cards; keep them on one branch.
+- Only create a new branch when starting a different frontier item, or after `ln-plan` explicitly splits the frontier into separate PLAN.md items that should stack independently.
+- If scoping shows the current frontier item is too large, revise `memory/PLAN.md` first, then align the branch stack to the revised frontier.
+
 ## Branch naming
 
 - **Format**: `ln/{issue-id}-{keywords}` (e.g. `ln/fe-534-walking-skeleton`)
 - **PR title**: `{issue-id | upper}: {Linear issue title in sentence case}` (e.g. `FE-534: Walking skeleton SDK to SSE to React`)
 - PR descriptions are written only when tying off a branch — not during active development.
 
-## Typical slice lifecycle
+## Typical frontier-item lifecycle
 
 ```
-gt create ln/fe-XXX-keywords     # new branch on top of stack
-# ... implement slice ...
+gt create ln/fe-XXX-keywords     # new branch for one PLAN.md frontier item
+# ... implement one or more scoped sub-slices on this branch ...
 git add <files> && git commit    # plain git for commits
 npm run verify                   # gate before submit
 gt submit                        # push + create/update PR
