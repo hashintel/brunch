@@ -48,6 +48,50 @@ const structuredQuestion = {
   ],
 };
 
+function createReviewSetAssistantParts({
+  phase,
+  title,
+  question,
+  why,
+  items,
+}: {
+  phase: 'requirements' | 'criteria';
+  title: string;
+  question: string;
+  why: string;
+  items: Array<{ content: string; rationale?: string | null; referenceCode?: string }>;
+}) {
+  return JSON.stringify([
+    {
+      type: 'tool-ask_question',
+      toolCallId: `tool-${phase}-review`,
+      state: 'output-available',
+      input: {
+        question,
+        why,
+        impact: 'high',
+        options: [
+          { content: 'Accept review', is_recommended: true },
+          { content: 'Request changes', is_recommended: false },
+        ],
+        reviewActions: [
+          { action: 'accept', optionPosition: 0 },
+          { action: 'request-changes', optionPosition: 1 },
+        ],
+      },
+      output: { ok: true, turnId: 0, optionCount: 2 },
+    },
+    {
+      type: 'data-review-set',
+      data: {
+        phase,
+        title,
+        items,
+      },
+    },
+  ]);
+}
+
 function makeUIChunkStream(chunks: Array<Record<string, unknown>>) {
   return new ReadableStream({
     start(controller) {
@@ -2632,6 +2676,91 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       },
     ]);
   });
+  it('accepting the requirements review materializes only the persisted review-set items onto the active path', async () => {
+    const projectId = await createTestProject();
+    const seededRequirements = seedRequirementsReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
+
+    const acceptedExistingRequirement = createKnowledgeItem(
+      db,
+      projectId,
+      'requirement',
+      'Export the reviewed specification as markdown',
+      {
+        rationale: 'Keeps the accepted review output portable for sharing.',
+      },
+    );
+    createKnowledgeItem(db, projectId, 'requirement', 'Support exporting the spec as a PDF');
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: seededRequirements.designConfirmationTurn.id,
+      question: 'Please review the current requirement set.',
+      why: 'Review the whole requirement set before moving forward.',
+      impact: 'high',
+      answer: '',
+      assistant_parts: createReviewSetAssistantParts({
+        phase: 'requirements',
+        title: 'Requirements',
+        question: 'Please review the current requirement set.',
+        why: 'Review the whole requirement set before moving forward.',
+        items: [
+          {
+            referenceCode: createKnowledgeReferenceCode('requirement', 1),
+            content: 'Export the reviewed specification as markdown',
+            rationale: 'Keeps the accepted review output portable for sharing.',
+          },
+          {
+            referenceCode: createKnowledgeReferenceCode('requirement', 2),
+            content: 'Resume the interview from persisted local state',
+            rationale: 'Users should be able to continue after a restart.',
+          },
+        ],
+      }),
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
+      .expect(200);
+
+    const activePathEntitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(activePathEntitiesRes.body.requirements).toEqual([
+      expect.objectContaining({ id: acceptedExistingRequirement.id }),
+      expect.objectContaining({ content: 'Resume the interview from persisted local state' }),
+    ]);
+
+    const projectWideEntitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(
+      projectWideEntitiesRes.body.requirements.filter(
+        (requirement: { content: string }) =>
+          requirement.content === 'Export the reviewed specification as markdown',
+      ),
+    ).toHaveLength(1);
+    expect(
+      projectWideEntitiesRes.body.requirements.map((requirement: { content: string }) => requirement.content),
+    ).toEqual(
+      expect.arrayContaining([
+        'Export the reviewed specification as markdown',
+        'Resume the interview from persisted local state',
+        'Support exporting the spec as a PDF',
+      ]),
+    );
+  });
+
   it('requesting changes on the requirements full-set review keeps requirements open and does not advance to criteria', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
@@ -2883,6 +3012,90 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     const exportRes = await request(app).get(`/api/projects/${projectId}/export`).expect(200);
     expect(exportRes.body.ready).toBe(true);
+  });
+
+  it('accepting the criteria review materializes only the persisted review-set items onto the active path', async () => {
+    const projectId = await createTestProject();
+    const seededCriteria = seedCriteriaReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
+
+    const acceptedExistingCriterion = createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'Restarting restores the active path',
+      {
+        rationale: 'Proves the persisted branch resumes cleanly.',
+      },
+    );
+    createKnowledgeItem(db, projectId, 'criterion', 'PDF export renders the reviewed requirements');
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'criteria',
+      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
+      question: 'Please review the current criterion set.',
+      why: 'Review the whole criterion set before moving forward.',
+      impact: 'high',
+      answer: '',
+      assistant_parts: createReviewSetAssistantParts({
+        phase: 'criteria',
+        title: 'Acceptance Criteria',
+        question: 'Please review the current criterion set.',
+        why: 'Review the whole criterion set before moving forward.',
+        items: [
+          {
+            referenceCode: createKnowledgeReferenceCode('criterion', 1),
+            content: 'Restarting restores the active path',
+            rationale: 'Proves the persisted branch resumes cleanly.',
+          },
+          {
+            referenceCode: createKnowledgeReferenceCode('criterion', 2),
+            content: 'Markdown export includes accepted requirements only',
+            rationale: 'Checks the final handoff stays scoped to accepted output.',
+          },
+        ],
+      }),
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
+      .expect(200);
+
+    const activePathEntitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(activePathEntitiesRes.body.criteria).toEqual([
+      expect.objectContaining({ id: acceptedExistingCriterion.id }),
+      expect.objectContaining({ content: 'Markdown export includes accepted requirements only' }),
+    ]);
+
+    const projectWideEntitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(
+      projectWideEntitiesRes.body.criteria.filter(
+        (criterion: { content: string }) => criterion.content === 'Restarting restores the active path',
+      ),
+    ).toHaveLength(1);
+    expect(
+      projectWideEntitiesRes.body.criteria.map((criterion: { content: string }) => criterion.content),
+    ).toEqual(
+      expect.arrayContaining([
+        'Restarting restores the active path',
+        'Markdown export includes accepted requirements only',
+        'PDF export renders the reviewed requirements',
+      ]),
+    );
   });
 
   it('requesting changes on the criteria full-set review keeps criteria open and does not advance to output semantics', async () => {

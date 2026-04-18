@@ -54,6 +54,8 @@ import {
   getTurn,
   getOptionsForTurn,
   linkKnowledgeItemToTurn,
+  materializeAcceptedCriteriaReviewSet,
+  materializeAcceptedRequirementsReviewSet,
   updateProjectMode,
   updateTurn,
   getEntitiesForProjectByMode,
@@ -134,9 +136,12 @@ function getPersistedFullSetReviewAction(
 }
 
 function acceptRequirementsReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
-  const requirements = getEntitiesForProjectByMode(db, projectId, 'project-wide').requirements;
-  for (const requirement of requirements) {
-    linkKnowledgeItemToTurn(db, requirement.id, turnId, 'reviewed');
+  const materializedRequirementIds = materializeAcceptedRequirementsReviewSet(db, projectId, turnId);
+  if (materializedRequirementIds === null) {
+    const requirements = getEntitiesForProjectByMode(db, projectId, 'project-wide').requirements;
+    for (const requirement of requirements) {
+      linkKnowledgeItemToTurn(db, requirement.id, turnId, 'reviewed');
+    }
   }
 
   createConfirmedPhaseOutcome(db, {
@@ -152,9 +157,12 @@ function acceptRequirementsReview(db: DB, projectId: number, turnId: number): Su
 }
 
 function acceptCriteriaReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
-  const criteria = getEntitiesForProjectByMode(db, projectId, 'project-wide').criteria;
-  for (const criterion of criteria) {
-    linkKnowledgeItemToTurn(db, criterion.id, turnId, 'reviewed');
+  const materializedCriterionIds = materializeAcceptedCriteriaReviewSet(db, projectId, turnId);
+  if (materializedCriterionIds === null) {
+    const criteria = getEntitiesForProjectByMode(db, projectId, 'project-wide').criteria;
+    for (const criterion of criteria) {
+      linkKnowledgeItemToTurn(db, criterion.id, turnId, 'reviewed');
+    }
   }
 
   createConfirmedPhaseOutcome(db, {

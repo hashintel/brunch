@@ -25,6 +25,7 @@ import type {
   WorkflowPhaseStatus,
   WorkflowState as SharedWorkflowState,
 } from '@/shared/api-types.js';
+import { reviewSetSchema, type BrunchAssistantPart, type ReviewSetData } from '@/shared/chat.js';
 import {
   createKnowledgeReferenceCode,
   genericKnowledgeKindRegistry,
@@ -37,7 +38,11 @@ import {
 } from '@/shared/knowledge.js';
 import { parsePhaseClosureCommand, type PhaseClosureBasis } from '@/shared/phase-close.js';
 
-import { safeDeserializeUserParts, type DataConfirmationPart } from './parts.js';
+import {
+  safeDeserializeAssistantParts,
+  safeDeserializeUserParts,
+  type DataConfirmationPart,
+} from './parts.js';
 import * as schema from './schema.js';
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
@@ -755,6 +760,68 @@ function getGenericKnowledgeEntitiesForProjectByKind<K extends GenericKnowledgeK
   })) as Array<GenericKnowledgeEntity<K>>;
 }
 
+function getPersistedReviewSetForTurn(turn: Pick<Turn, 'assistant_parts'> | undefined): ReviewSetData | null {
+  const persistedReviewSet = safeDeserializeAssistantParts(turn?.assistant_parts).find(
+    (part): part is Extract<BrunchAssistantPart, { type: 'data-review-set' }> =>
+      part.type === 'data-review-set',
+  );
+  if (!persistedReviewSet) {
+    return null;
+  }
+
+  const parsedReviewSet = reviewSetSchema.safeParse(persistedReviewSet.data);
+  return parsedReviewSet.success ? parsedReviewSet.data : null;
+}
+
+function findExistingKnowledgeItemForReviewSetItem(
+  db: DB,
+  projectId: number,
+  kind: 'requirement' | 'criterion',
+  content: string,
+): KnowledgeItem | undefined {
+  return db
+    .select()
+    .from(schema.knowledgeItem)
+    .where(
+      and(
+        eq(schema.knowledgeItem.project_id, projectId),
+        eq(schema.knowledgeItem.kind, kind),
+        eq(schema.knowledgeItem.content, content),
+      ),
+    )
+    .orderBy(schema.knowledgeItem.id)
+    .get() as KnowledgeItem | undefined;
+}
+
+function materializeAcceptedReviewSetItems(
+  db: DB,
+  projectId: number,
+  turnId: number,
+  phase: 'requirements' | 'criteria',
+): number[] | null {
+  const reviewTurn = getTurn(db, turnId);
+  const reviewSet = getPersistedReviewSetForTurn(reviewTurn);
+  if (!reviewSet || reviewSet.phase !== phase) {
+    return null;
+  }
+
+  const kind = phase === 'requirements' ? 'requirement' : 'criterion';
+  const itemIds: number[] = [];
+
+  for (const item of reviewSet.items) {
+    const existingItem = findExistingKnowledgeItemForReviewSetItem(db, projectId, kind, item.content);
+    const materializedItem =
+      existingItem ??
+      createKnowledgeItem(db, projectId, kind, item.content, {
+        rationale: item.rationale ?? null,
+      });
+    linkKnowledgeItemToTurn(db, materializedItem.id, turnId, 'reviewed');
+    itemIds.push(materializedItem.id);
+  }
+
+  return itemIds;
+}
+
 export function getAcceptedRequirementEntitiesForProject(db: DB, projectId: number): RequirementEntity[] {
   const acceptedIds = getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'requirements', 'requirement');
   if (acceptedIds.size === 0) {
@@ -775,6 +842,22 @@ export function getAcceptedCriterionEntitiesForProject(db: DB, projectId: number
   return getGenericKnowledgeEntitiesForProjectByKind(db, projectId, 'criterion').filter((item) =>
     acceptedIds.has(item.id),
   );
+}
+
+export function materializeAcceptedRequirementsReviewSet(
+  db: DB,
+  projectId: number,
+  turnId: number,
+): number[] | null {
+  return materializeAcceptedReviewSetItems(db, projectId, turnId, 'requirements');
+}
+
+export function materializeAcceptedCriteriaReviewSet(
+  db: DB,
+  projectId: number,
+  turnId: number,
+): number[] | null {
+  return materializeAcceptedReviewSetItems(db, projectId, turnId, 'criteria');
 }
 
 export function getScopeBundleForProject(db: DB, projectId: number) {
