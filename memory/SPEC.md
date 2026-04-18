@@ -14,7 +14,9 @@ Brunch is an AI-guided spec elicitation tool that turns natural-language goals i
 - **requirements** — capability review and gap-finding
 - **criteria** — verification coverage
 
-An interviewer agent conducts the conversation. A separate observer agent extracts typed knowledge items from each answered turn and links them into a knowledge graph. The interviewer may also invoke context-gathering capabilities when it lacks enough orientation for the next move; their visible outputs appear in the turn flow as grounding cards. The transcript is turn-shaped rather than message-shaped: a turn is a system-offered interaction that the user resolves, and an open phase should always bottom out in one actionable frontier turn or a visible generation state. The export is built from the active path's accepted review outputs plus reviewed knowledge.
+An interviewer agent conducts the conversation. A separate observer agent extracts typed knowledge items from each answered turn and links them into a knowledge graph. The interviewer may also invoke context-gathering capabilities when it lacks enough orientation for the next move; their visible outputs appear in the turn flow as grounding cards. The transcript is turn-shaped rather than message-shaped: a turn is a system-offered interaction that the user resolves, and an open phase should always bottom out in one actionable frontier turn or a visible generation state.
+
+Brunch is strongest while certainty is still being formed: when the real work is clarifying the target, surfacing commitments, and making unresolvedness legible before downstream implementation decomposition takes over. Its output is a calibrated handoff, not fake closure — a truthful starting point for implementation that makes visible what is known, chosen, constrained, required, and still open. Export is therefore built from the active path's accepted review outputs plus reviewed knowledge, not from laundering unresolved uncertainty into a prematurely final document.
 
 Brunch operates inside a **workspace**: the cwd-backed software context whose local `.brunch/` directory stores one or more specifications. Grounding supports two strategies: **elicitation-first** for greenfield work and **analysis-first** for brownfield work. Brownfield grounding begins with read-only workspace analysis that produces a visible grounding brief / grounding card, and later grounding may gather more context again when the interviewer needs it.
 
@@ -26,6 +28,7 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 - No hard turn-tree branching UX in V1; revisit operates through knowledge-graph edit mode + secondary threads instead.
 - No automatic cascade deletion; downstream effects are surfaced and re-resolved explicitly.
 - No task-planning surface; Brunch elicits specs, it does not plan implementation work for the user.
+- No downstream execution-management workflow in V1; Brunch ends at the handoff boundary rather than owning implementation after export.
 - No general-purpose inline document editor in review phases; requirements and criteria review stay recommendation-led with lightweight user comments for revision.
 - No offline-first or multi-tab sync layer; the current system stays server-authoritative and local-first.
 
