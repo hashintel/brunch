@@ -20,7 +20,7 @@ describe('knowledge kind registry', () => {
         contextHeading: 'Existing Goals',
         emptyStateCopy: "No goals yet. They'll appear as the interview progresses.",
         entityCollection: 'knowledge_item',
-        referenceCodePrefix: 'GOAL',
+        referenceCodePrefix: 'G',
       },
       {
         kind: 'term',
@@ -29,7 +29,7 @@ describe('knowledge kind registry', () => {
         contextHeading: 'Existing Terms',
         emptyStateCopy: "No terms yet. They'll appear as the interview progresses.",
         entityCollection: 'knowledge_item',
-        referenceCodePrefix: 'TERM',
+        referenceCodePrefix: 'T',
       },
       {
         kind: 'context',
@@ -47,7 +47,7 @@ describe('knowledge kind registry', () => {
         contextHeading: 'Existing Constraints',
         emptyStateCopy: "No constraints yet. They'll appear as the interview progresses.",
         entityCollection: 'knowledge_item',
-        referenceCodePrefix: 'CST',
+        referenceCodePrefix: 'CON',
       },
       {
         kind: 'requirement',
@@ -65,7 +65,7 @@ describe('knowledge kind registry', () => {
         contextHeading: 'Existing Criteria',
         emptyStateCopy: "No criteria yet. They'll appear as the interview progresses.",
         entityCollection: 'knowledge_item',
-        referenceCodePrefix: 'CRIT',
+        referenceCodePrefix: 'AC',
       },
       {
         kind: 'decision',
@@ -112,24 +112,24 @@ describe('knowledge kind registry', () => {
       assumption: 'assumption',
     });
     expect(knowledgeKindReferencePrefixes).toEqual({
-      goal: 'GOAL',
-      term: 'TERM',
+      goal: 'G',
+      term: 'T',
       context: 'CTX',
-      constraint: 'CST',
+      constraint: 'CON',
       requirement: 'R',
-      criterion: 'CRIT',
+      criterion: 'AC',
       decision: 'D',
       assumption: 'A',
     });
   });
 
   it('derives reference codes from registry-owned per-kind prefixes', () => {
-    expect(createKnowledgeReferenceCode('goal', 2)).toBe('GOAL2');
-    expect(createKnowledgeReferenceCode('term', 3)).toBe('TERM3');
+    expect(createKnowledgeReferenceCode('goal', 2)).toBe('G2');
+    expect(createKnowledgeReferenceCode('term', 3)).toBe('T3');
     expect(createKnowledgeReferenceCode('context', 4)).toBe('CTX4');
-    expect(createKnowledgeReferenceCode('constraint', 5)).toBe('CST5');
+    expect(createKnowledgeReferenceCode('constraint', 5)).toBe('CON5');
     expect(createKnowledgeReferenceCode('requirement', 6)).toBe('R6');
-    expect(createKnowledgeReferenceCode('criterion', 7)).toBe('CRIT7');
+    expect(createKnowledgeReferenceCode('criterion', 7)).toBe('AC7');
     expect(createKnowledgeReferenceCode('decision', 8)).toBe('D8');
     expect(createKnowledgeReferenceCode('assumption', 9)).toBe('A9');
   });

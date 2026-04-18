@@ -46,7 +46,7 @@ export const knowledgeKindRegistry = [
     contextHeading: 'Existing Goals',
     emptyStateCopy: "No goals yet. They'll appear as the interview progresses.",
     entityCollection: 'knowledge_item',
-    referenceCodePrefix: 'GOAL',
+    referenceCodePrefix: 'G',
   },
   {
     kind: 'term',
@@ -55,7 +55,7 @@ export const knowledgeKindRegistry = [
     contextHeading: 'Existing Terms',
     emptyStateCopy: "No terms yet. They'll appear as the interview progresses.",
     entityCollection: 'knowledge_item',
-    referenceCodePrefix: 'TERM',
+    referenceCodePrefix: 'T',
   },
   {
     kind: 'context',
@@ -73,7 +73,7 @@ export const knowledgeKindRegistry = [
     contextHeading: 'Existing Constraints',
     emptyStateCopy: "No constraints yet. They'll appear as the interview progresses.",
     entityCollection: 'knowledge_item',
-    referenceCodePrefix: 'CST',
+    referenceCodePrefix: 'CON',
   },
   {
     kind: 'requirement',
@@ -91,7 +91,7 @@ export const knowledgeKindRegistry = [
     contextHeading: 'Existing Criteria',
     emptyStateCopy: "No criteria yet. They'll appear as the interview progresses.",
     entityCollection: 'knowledge_item',
-    referenceCodePrefix: 'CRIT',
+    referenceCodePrefix: 'AC',
   },
   {
     kind: 'decision',

@@ -4,21 +4,15 @@ import { DrawerCard } from '@/client/components/drawer-card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import { cn } from '@/client/lib/utils';
 import type { EdgeRelation } from '@/shared/api-types.js';
-import type { KnowledgeKind } from '@/shared/knowledge.js';
-import { knowledgeKindRegistry } from '@/shared/knowledge.js';
+import {
+  knowledgeKindReferencePrefixes,
+  knowledgeKindRegistry,
+  type KnowledgeKind,
+} from '@/shared/knowledge.js';
 
 // ── ID prefix for each kind ───────────────────────────────────────────
 
-const kindPrefix: Record<KnowledgeKind, string> = {
-  goal: 'G',
-  term: 'T',
-  context: 'CTX',
-  constraint: 'NG', // stand-in for non-goal until type is added
-  assumption: 'A',
-  decision: 'D',
-  requirement: 'R',
-  criterion: 'CR',
-};
+const kindPrefix = knowledgeKindReferencePrefixes;
 
 export function itemLabel(kind: KnowledgeKind, id: number) {
   return `${kindPrefix[kind]}${id}`;
