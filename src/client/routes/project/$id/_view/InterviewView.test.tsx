@@ -34,6 +34,34 @@ function createPendingQuestionMessage(): BrunchUIMessage {
   };
 }
 
+function createPendingReviewMessage(): BrunchUIMessage {
+  return {
+    id: 'pending-review-assistant',
+    role: 'assistant',
+    parts: [
+      {
+        type: 'tool-ask_question',
+        toolCallId: 'tool-review',
+        state: 'output-available',
+        input: {
+          question: 'Please review the current requirement set.',
+          why: 'Review the whole requirement set before moving forward.',
+          impact: 'high',
+          options: [
+            { content: 'Accept review', is_recommended: true },
+            { content: 'Request changes', is_recommended: false },
+          ],
+          reviewActions: [
+            { action: 'accept', optionPosition: 0 },
+            { action: 'request-changes', optionPosition: 1 },
+          ],
+        },
+        output: { ok: true, turnId: 2, optionCount: 2 },
+      },
+    ],
+  };
+}
+
 type UseChatOptions = {
   id?: string;
   messages: BrunchUIMessage[];
@@ -1200,7 +1228,10 @@ describe('InterviewView', () => {
     expect(screen.getByText('GOAL1')).toBeTruthy();
     expect(screen.getByText('R2')).toBeTruthy();
     expect(screen.getByText('Resume the interview from persisted local state')).toBeTruthy();
-    expect(screen.getByLabelText('Comment on R1')).toBeTruthy();
+    expect(screen.queryByLabelText('Comment on R1')).toBeNull();
+    expect(screen.queryByText('Items')).toBeNull();
+    expect(screen.queryByText('Grounding')).toBeNull();
+    expect(screen.queryByText('Commented')).toBeNull();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
   });
@@ -1304,8 +1335,68 @@ describe('InterviewView', () => {
     expect(screen.getByText('Shows the local persistence seam survives reloads.')).toBeTruthy();
     expect(screen.getByText('CRIT2')).toBeTruthy();
     expect(screen.getByText('Markdown export includes accepted requirements only')).toBeTruthy();
+    expect(screen.queryByText('Items')).toBeNull();
+    expect(screen.queryByText('Grounding')).toBeNull();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
+  });
+
+  it('renders a pending review turn through the same lightweight review card family before route invalidation', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Earlier question?',
+        answer: 'Earlier answer',
+        workflow: createWorkflowState({
+          requirements: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 2,
+            summary: null,
+          },
+        }),
+        entityState: createEntityState({
+          requirements: [
+            {
+              id: 31,
+              project_id: 1,
+              kind: 'requirement',
+              subtype: null,
+              content: 'Export the reviewed specification as markdown',
+              rationale: 'Keeps the accepted review output portable for sharing.',
+              reviewStatus: 'pending',
+              referenceCode: 'REQ1',
+            },
+          ],
+        }),
+      }),
+    );
+    useChatImpl = createUseChatHarness('streaming');
+
+    renderWorkspace('requirements');
+
+    expect(await screen.findByTestId('review-phase-banner')).toBeTruthy();
+    expect(screen.getByTestId('generating-turn-placeholder')).toBeTruthy();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        createPendingReviewMessage(),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('review-set-card')).toBeTruthy();
+      expect(screen.getByText('Requirements')).toBeTruthy();
+      expect(screen.getByText('REQ1')).toBeTruthy();
+      expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
+      expect(screen.queryByLabelText('Comment on REQ1')).toBeNull();
+      expect(screen.queryByText('Items')).toBeNull();
+      expect(routerInvalidate).not.toHaveBeenCalled();
+    });
   });
 
   it('replays a closed review turn with the dedicated review-set card instead of the generic answered card', async () => {
