@@ -153,6 +153,65 @@ export function AnsweredReviewSetCard({
   );
 }
 
+export function ActiveReviewSetCard({
+  options,
+  onSubmitResponse,
+  persistedFreeText,
+  hasPersistedResponse,
+  disabled,
+  state,
+  reviewSet,
+  question,
+  why,
+}: {
+  options: readonly TurnCardOption[];
+  onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
+  persistedFreeText: string;
+  hasPersistedResponse: boolean;
+  disabled: boolean;
+  state: 'active' | 'submitted';
+  reviewSet: ReviewSetCardData;
+  question: string;
+  why: string | null;
+}) {
+  const [note, setNote] = useState(persistedFreeText);
+  const isSubmitted = state === 'submitted';
+  const isReadOnly = disabled || hasPersistedResponse || isSubmitted;
+  const acceptReviewPosition = options.find((option) => option.position === 0)?.position;
+  const requestChangesPosition = options.find((option) => option.position === 1)?.position;
+
+  useEffect(() => {
+    if (!hasPersistedResponse) {
+      return;
+    }
+
+    setNote(persistedFreeText);
+  }, [hasPersistedResponse, persistedFreeText]);
+
+  function submitReviewAction(position: number | undefined) {
+    if (position === undefined || isReadOnly) {
+      return;
+    }
+
+    void onSubmitResponse?.([position], note.trim() || undefined);
+  }
+
+  return (
+    <div data-testid="active-review-set-card">
+      <ReviewSetCard
+        reviewSet={reviewSet}
+        description={why ?? question}
+        note={note}
+        onNoteChange={setNote}
+        onAccept={() => submitReviewAction(acceptReviewPosition)}
+        onRequestChanges={() => submitReviewAction(requestChangesPosition)}
+        disabled={isReadOnly}
+        submitted={isSubmitted}
+      />
+    </div>
+  );
+}
+
 // ── Active question card ────────────────────────────────────────────
 
 type TurnCardOption = Pick<
@@ -175,7 +234,6 @@ export function ActiveQuestionCard({
   hasPersistedResponse,
   disabled,
   state,
-  reviewSet,
 }: {
   id: string;
   questionCode?: string;
@@ -191,7 +249,6 @@ export function ActiveQuestionCard({
   hasPersistedResponse: boolean;
   disabled: boolean;
   state: 'active' | 'submitted';
-  reviewSet?: ReviewSetCardData;
 }) {
   const [selectedPositions, setSelectedPositions] = useState<number[]>(persistedSelectedPositions);
   const [freeText, setFreeText] = useState(persistedFreeText);
@@ -202,8 +259,6 @@ export function ActiveQuestionCard({
   const isSubmitted = state === 'submitted';
   const isReadOnly = disabled || hasPersistedResponse || isSubmitted;
   const displayImpact = impact ?? 'low';
-  const acceptReviewPosition = options.find((option) => option.position === 0)?.position;
-  const requestChangesPosition = options.find((option) => option.position === 1)?.position;
 
   useEffect(() => {
     if (!hasPersistedResponse) {
@@ -213,29 +268,6 @@ export function ActiveQuestionCard({
     setSelectedPositions(persistedSelectedPositions);
     setFreeText(persistedFreeText);
   }, [hasPersistedResponse, persistedFreeText, persistedSelectedPositions]);
-
-  function submitReviewAction(position: number | undefined) {
-    if (position === undefined || isReadOnly) {
-      return;
-    }
-
-    void onSubmitResponse?.([position], freeText.trim() || undefined);
-  }
-
-  if (reviewSet) {
-    return (
-      <ReviewSetCard
-        reviewSet={reviewSet}
-        description={why ?? question}
-        note={freeText}
-        onNoteChange={setFreeText}
-        onAccept={() => submitReviewAction(acceptReviewPosition)}
-        onRequestChanges={() => submitReviewAction(requestChangesPosition)}
-        disabled={isReadOnly}
-        submitted={isSubmitted}
-      />
-    );
-  }
 
   function toggleSelection(position: number) {
     if (isReadOnly) {
@@ -341,7 +373,7 @@ export function ActiveQuestionCard({
   );
 
   return (
-    <>
+    <div data-testid="active-question-card">
       <DrawerCard header={header} defaultExpanded locked>
         {body}
       </DrawerCard>
@@ -365,7 +397,7 @@ export function ActiveQuestionCard({
           </div>
         </div>
       )}
-    </>
+    </div>
   );
 }
 

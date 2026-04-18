@@ -13,6 +13,7 @@ import {
 import { ShellButton } from '@/client/components/app-shell';
 import { ChatScroll } from '@/client/components/chat-scroll';
 import {
+  ActiveReviewSetCard,
   ActiveQuestionCard,
   ActivityPlaceholder,
   AnsweredQuestionCard,
@@ -653,44 +654,80 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               (!turnHasCompletedAnswer(turnCard.turn) || turnCard.state === 'submitted') && (
                 <div className="flex flex-col">
                   {renderPersistedActivity(turnCard.turn)}
-                  <ActiveQuestionCard
-                    key={`persisted-turn-${turnCard.turn.id}`}
-                    id={`persisted-turn-${turnCard.turn.id}`}
-                    questionCode={activeQuestionCode}
-                    question={turnCard.turn.question}
-                    why={turnCard.turn.why}
-                    impact={turnCard.turn.impact}
-                    options={turnCard.turn.options ?? []}
-                    onSubmitResponse={turnCard.submitTurnResponse}
-                    persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
-                    persistedFreeText={getPersistedTurnResponse(turnCard.turn)?.freeText?.trim() ?? ''}
-                    hasPersistedResponse={
-                      turnCard.state === 'submitted' && turnHasCompletedAnswer(turnCard.turn)
+                  {(() => {
+                    const reviewSet = getPersistedReviewSet(turnCard.turn) ?? fallbackReviewSet;
+
+                    if (reviewSet) {
+                      return (
+                        <ActiveReviewSetCard
+                          key={`persisted-review-turn-${turnCard.turn.id}`}
+                          question={turnCard.turn.question}
+                          why={turnCard.turn.why}
+                          options={turnCard.turn.options ?? []}
+                          onSubmitResponse={turnCard.submitTurnResponse}
+                          persistedFreeText={getPersistedTurnResponse(turnCard.turn)?.freeText?.trim() ?? ''}
+                          hasPersistedResponse={
+                            turnCard.state === 'submitted' && turnHasCompletedAnswer(turnCard.turn)
+                          }
+                          disabled={turnCard.disabled}
+                          state={turnCard.state}
+                          reviewSet={reviewSet}
+                        />
+                      );
                     }
-                    disabled={turnCard.disabled}
-                    state={turnCard.state}
-                    reviewSet={getPersistedReviewSet(turnCard.turn) ?? fallbackReviewSet}
-                  />
+
+                    return (
+                      <ActiveQuestionCard
+                        key={`persisted-turn-${turnCard.turn.id}`}
+                        id={`persisted-turn-${turnCard.turn.id}`}
+                        questionCode={activeQuestionCode}
+                        question={turnCard.turn.question}
+                        why={turnCard.turn.why}
+                        impact={turnCard.turn.impact}
+                        options={turnCard.turn.options ?? []}
+                        onSubmitResponse={turnCard.submitTurnResponse}
+                        persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
+                        persistedFreeText={getPersistedTurnResponse(turnCard.turn)?.freeText?.trim() ?? ''}
+                        hasPersistedResponse={
+                          turnCard.state === 'submitted' && turnHasCompletedAnswer(turnCard.turn)
+                        }
+                        disabled={turnCard.disabled}
+                        state={turnCard.state}
+                      />
+                    );
+                  })()}
                 </div>
               )}
 
-            {turnCard?.kind === 'pending-question' && (
-              <ActiveQuestionCard
-                key={turnCard.pendingQuestion.id}
-                id={turnCard.pendingQuestion.id}
-                questionCode={activeQuestionCode}
-                question={turnCard.pendingQuestion.question}
-                why={turnCard.pendingQuestion.why}
-                impact={turnCard.pendingQuestion.impact}
-                options={turnCard.pendingQuestion.options}
-                persistedSelectedPositions={[]}
-                persistedFreeText=""
-                hasPersistedResponse={false}
-                disabled={turnCard.disabled}
-                state="active"
-                reviewSet={fallbackReviewSet}
-              />
-            )}
+            {turnCard?.kind === 'pending-question' &&
+              (fallbackReviewSet ? (
+                <ActiveReviewSetCard
+                  key={`pending-review-turn-${turnCard.pendingQuestion.id}`}
+                  question={turnCard.pendingQuestion.question}
+                  why={turnCard.pendingQuestion.why}
+                  options={turnCard.pendingQuestion.options}
+                  persistedFreeText=""
+                  hasPersistedResponse={false}
+                  disabled={turnCard.disabled}
+                  state="active"
+                  reviewSet={fallbackReviewSet}
+                />
+              ) : (
+                <ActiveQuestionCard
+                  key={turnCard.pendingQuestion.id}
+                  id={turnCard.pendingQuestion.id}
+                  questionCode={activeQuestionCode}
+                  question={turnCard.pendingQuestion.question}
+                  why={turnCard.pendingQuestion.why}
+                  impact={turnCard.pendingQuestion.impact}
+                  options={turnCard.pendingQuestion.options}
+                  persistedSelectedPositions={[]}
+                  persistedFreeText=""
+                  hasPersistedResponse={false}
+                  disabled={turnCard.disabled}
+                  state="active"
+                />
+              ))}
 
             {turnCard?.kind === 'kickoff' && !showLockedState && (
               <KickoffTurnCard

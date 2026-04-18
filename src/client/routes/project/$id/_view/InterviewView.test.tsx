@@ -1221,6 +1221,8 @@ describe('InterviewView', () => {
 
     renderWorkspace('requirements');
 
+    expect(await screen.findByTestId('active-review-set-card')).toBeTruthy();
+    expect(screen.queryByTestId('active-question-card')).toBeNull();
     expect(await screen.findByText('Requirements')).toBeTruthy();
     expect(screen.getByText('R1')).toBeTruthy();
     expect(screen.getByText('Export the reviewed specification as markdown')).toBeTruthy();
@@ -1329,6 +1331,8 @@ describe('InterviewView', () => {
 
     renderWorkspace('criteria');
 
+    expect(await screen.findByTestId('active-review-set-card')).toBeTruthy();
+    expect(screen.queryByTestId('active-question-card')).toBeNull();
     expect(await screen.findByText('Acceptance Criteria')).toBeTruthy();
     expect(screen.getByText('CRIT1')).toBeTruthy();
     expect(screen.getByText('Restarting restores the active path')).toBeTruthy();
@@ -1390,6 +1394,8 @@ describe('InterviewView', () => {
     });
 
     await waitFor(() => {
+      expect(screen.getByTestId('active-review-set-card')).toBeTruthy();
+      expect(screen.queryByTestId('active-question-card')).toBeNull();
       expect(screen.getByTestId('review-set-card')).toBeTruthy();
       expect(screen.getByText('Requirements')).toBeTruthy();
       expect(screen.getByText('REQ1')).toBeTruthy();
