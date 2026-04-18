@@ -1,8 +1,10 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  assumptionEntitySchema,
   createProjectRequestSchema,
   criterionEntitySchema,
+  decisionEntitySchema,
   entitiesDataSchema,
   entityReferenceSchema,
   exportLoaderDataSchema,
@@ -245,6 +247,43 @@ describe('api transport contracts', () => {
 
     expect(parsed.requirements[0]).not.toHaveProperty('reviewStatus');
     expect(parsed.criteria[0]).not.toHaveProperty('reviewStatus');
+  });
+
+  it('derives decision and assumption transport schemas from the canonical knowledge-item contract', () => {
+    expect(
+      decisionEntitySchema.parse({
+        id: 4,
+        project_id: 1,
+        kind: 'decision',
+        subtype: null,
+        content: 'Use SQLite for local storage',
+        rationale: 'Zero-config first-run matters',
+        referenceCode: 'D1',
+      }),
+    ).toEqual({
+      id: 4,
+      project_id: 1,
+      content: 'Use SQLite for local storage',
+      rationale: 'Zero-config first-run matters',
+      referenceCode: 'D1',
+    });
+
+    expect(
+      assumptionEntitySchema.parse({
+        id: 5,
+        project_id: 1,
+        kind: 'assumption',
+        subtype: null,
+        content: 'Users can work in a browser',
+        rationale: null,
+        referenceCode: 'A1',
+      }),
+    ).toEqual({
+      id: 5,
+      project_id: 1,
+      content: 'Users can work in a browser',
+      referenceCode: 'A1',
+    });
   });
 
   it('accepts the canonical knowledge kinds and entity collections from the shared ontology contract', () => {

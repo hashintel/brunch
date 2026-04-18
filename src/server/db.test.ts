@@ -29,6 +29,7 @@ import {
   getEntitiesForProjectByMode,
   getEntitiesForProject,
   getEntitiesForProjectOnActivePath,
+  getCapturedItemsForTurns,
   getScopeBundleForProject,
   listPhaseOutcomesForProject,
   getCurrentWorkflowState,
@@ -1417,6 +1418,42 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
         .get(turn.id, a.id),
     ).toEqual({ relation: 'captured' });
     expect(db.$client.prepare('SELECT COUNT(*) AS count FROM turn_assumption').get()).toEqual({ count: 0 });
+  });
+
+  it('projects captured items for replay through one collection-driven seam', () => {
+    const project = createProject(db, 'Test');
+    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const goal = createKnowledgeItem(db, project.id, 'goal', 'Ship a trustworthy spec handoff');
+    const decision = createDecision(db, project.id, 'Start with the web app', 'Fastest path to feedback');
+    const assumption = createAssumption(db, project.id, 'Users can work in a browser');
+
+    linkKnowledgeItemToTurn(db, goal.id, turn.id);
+    linkDecisionToTurn(db, decision.id, turn.id);
+    linkAssumptionToTurn(db, assumption.id, turn.id);
+
+    expect(getCapturedItemsForTurns(db, project.id, [turn.id]).get(turn.id)).toEqual([
+      {
+        collection: 'knowledge_item',
+        kind: 'goal',
+        id: goal.id,
+        content: 'Ship a trustworthy spec handoff',
+        referenceCode: 'GOAL1',
+      },
+      {
+        collection: 'decision',
+        kind: 'decision',
+        id: decision.id,
+        content: 'Start with the web app',
+        referenceCode: 'D1',
+      },
+      {
+        collection: 'assumption',
+        kind: 'assumption',
+        id: assumption.id,
+        content: 'Users can work in a browser',
+        referenceCode: 'A1',
+      },
+    ]);
   });
 
   it('persists canonical scope kinds plus later generic knowledge kinds with project linkage, metadata, and turn provenance', () => {

@@ -137,19 +137,19 @@ export const criterionEntitySchema = z.object({
   referenceCode: z.string().optional(),
 });
 
-export const decisionEntitySchema = z.object({
-  id: z.number().int().positive(),
-  project_id: z.number().int().positive(),
-  content: z.string(),
-  rationale: z.string().nullable(),
-  referenceCode: z.string().optional(),
+export const decisionEntitySchema = knowledgeItemSchema.pick({
+  id: true,
+  project_id: true,
+  content: true,
+  rationale: true,
+  referenceCode: true,
 });
 
-export const assumptionEntitySchema = z.object({
-  id: z.number().int().positive(),
-  project_id: z.number().int().positive(),
-  content: z.string(),
-  referenceCode: z.string().optional(),
+export const assumptionEntitySchema = knowledgeItemSchema.pick({
+  id: true,
+  project_id: true,
+  content: true,
+  referenceCode: true,
 });
 
 export const entityReferenceSchema = z.object({

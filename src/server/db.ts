@@ -29,6 +29,7 @@ import {
   createKnowledgeReferenceCode,
   genericKnowledgeKindRegistry,
   knowledgeEntityCollectionByKind,
+  knowledgeKindRegistry,
   type GenericKnowledgeCollectionKey,
   type GenericKnowledgeKind,
   type KnowledgeEntityCollection,
@@ -586,25 +587,30 @@ type GenericKnowledgeEntity<K extends GenericKnowledgeKind> = K extends 'require
   : K extends 'criterion'
     ? CriterionEntity
     : KnowledgeItem & { kind: K };
+type ProjectedKnowledgeEntity<K extends 'decision' | 'assumption'> = K extends 'decision'
+  ? Decision & { kind_ordinal: number }
+  : Assumption & { kind_ordinal: number };
 export type EntitiesForProject = EntitiesData;
 
-function toDecision(item: KnowledgeItem): Decision & { kind_ordinal: number } {
-  return {
+function projectKnowledgeItemEntity<K extends 'decision' | 'assumption'>(
+  item: KnowledgeItem,
+  kind: K,
+): ProjectedKnowledgeEntity<K> {
+  const base = {
     id: item.id,
     project_id: item.project_id,
     content: item.content,
-    rationale: item.rationale,
     kind_ordinal: item.kind_ordinal,
   };
-}
 
-function toAssumption(item: KnowledgeItem): Assumption & { kind_ordinal: number } {
-  return {
-    id: item.id,
-    project_id: item.project_id,
-    content: item.content,
-    kind_ordinal: item.kind_ordinal,
-  };
+  if (kind === 'decision') {
+    return {
+      ...base,
+      rationale: item.rationale,
+    } as ProjectedKnowledgeEntity<K>;
+  }
+
+  return base as ProjectedKnowledgeEntity<K>;
 }
 
 export function createDecision(
@@ -613,7 +619,7 @@ export function createDecision(
   content: string,
   rationale?: string | null,
 ): Decision {
-  return toDecision(
+  return projectKnowledgeItemEntity(
     db
       .insert(schema.knowledgeItem)
       .values({
@@ -626,11 +632,12 @@ export function createDecision(
       })
       .returning()
       .get() as KnowledgeItem,
+    'decision',
   );
 }
 
 export function createAssumption(db: DB, projectId: number, content: string): Assumption {
-  return toAssumption(
+  return projectKnowledgeItemEntity(
     db
       .insert(schema.knowledgeItem)
       .values({
@@ -643,6 +650,7 @@ export function createAssumption(db: DB, projectId: number, content: string): As
       })
       .returning()
       .get() as KnowledgeItem,
+    'assumption',
   );
 }
 
@@ -812,7 +820,7 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
   ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
   const decisions = withReferenceCodes(
     getKnowledgeItemsForProjectByKind(db, projectId, 'decision')
-      .map(toDecision)
+      .map((item) => projectKnowledgeItemEntity(item, 'decision'))
       .map((decision) => ({
         ...decision,
         kind: 'decision' as const,
@@ -820,7 +828,7 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
   ).map(({ kind: _, kind_ordinal: __, ...decision }) => decision);
   const assumptions = withReferenceCodes(
     getKnowledgeItemsForProjectByKind(db, projectId, 'assumption')
-      .map(toAssumption)
+      .map((item) => projectKnowledgeItemEntity(item, 'assumption'))
       .map((assumption) => ({
         ...assumption,
         kind: 'assumption' as const,
@@ -980,35 +988,24 @@ export function getCapturedItemsForTurns(
 
   const projectWideEntities = getEntitiesForProject(db, projectId);
   const itemsById = new Map<number, NonNullable<ProjectStateTurn['captured_items']>[number]>();
-  const addItems = (
-    items: ReadonlyArray<{ id: number; content: string; kind: SharedKnowledgeKind; referenceCode?: string }>,
-    collection: NonNullable<ProjectStateTurn['captured_items']>[number]['collection'],
-  ) => {
+
+  for (const entry of knowledgeKindRegistry) {
+    const items = projectWideEntities[entry.collectionKey] as ReadonlyArray<{
+      id: number;
+      content: string;
+      referenceCode?: string;
+      kind?: SharedKnowledgeKind;
+    }>;
     for (const item of items) {
       itemsById.set(item.id, {
-        collection,
-        kind: item.kind,
+        collection: entry.entityCollection,
+        kind: item.kind ?? entry.kind,
         id: item.id,
         content: item.content,
         referenceCode: item.referenceCode,
       });
     }
-  };
-
-  addItems(projectWideEntities.goals, 'knowledge_item');
-  addItems(projectWideEntities.terms, 'knowledge_item');
-  addItems(projectWideEntities.contexts, 'knowledge_item');
-  addItems(projectWideEntities.constraints, 'knowledge_item');
-  addItems(projectWideEntities.requirements, 'knowledge_item');
-  addItems(projectWideEntities.criteria, 'knowledge_item');
-  addItems(
-    projectWideEntities.decisions.map((item) => ({ ...item, kind: 'decision' as const })),
-    'decision',
-  );
-  addItems(
-    projectWideEntities.assumptions.map((item) => ({ ...item, kind: 'assumption' as const })),
-    'assumption',
-  );
+  }
 
   const rows = db
     .select({
