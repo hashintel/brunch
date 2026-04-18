@@ -23,13 +23,11 @@ const sampleGoals: KnowledgeItemData[] = [
     id: 1,
     kind: 'goal',
     content: 'Enable structured specification elicitation through AI-guided interviews',
-    reviewStatus: 'approved',
   },
   {
     id: 2,
     kind: 'goal',
     content: 'Support both greenfield and brownfield project scoping',
-    reviewStatus: 'pending',
   },
 ];
 
@@ -41,7 +39,6 @@ const sampleDecisions: KnowledgeItemData[] = [
     rationale:
       'Single-file database simplifies distribution and backup. No server process needed. SQLite handles concurrent reads well for a single-user tool.',
     subtype: 'architectural',
-    reviewStatus: 'approved',
   },
   {
     id: 2,
@@ -49,13 +46,11 @@ const sampleDecisions: KnowledgeItemData[] = [
     content: 'Separate interviewer from observer agent',
     rationale:
       'Keeps the interview prompt clean and focused. Observer extraction happens in a separate call during user think time.',
-    reviewStatus: 'approved',
   },
   {
     id: 3,
     kind: 'decision',
     content: 'Use Vercel AI SDK as the primary agent framework',
-    reviewStatus: 'pending',
   },
 ];
 

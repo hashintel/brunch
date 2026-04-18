@@ -154,6 +154,6 @@ describe('GraphView', () => {
 
     const requirementCard = screen.getByText('Export spec as markdown').closest('[data-entity-card]')!;
     expect(requirementCard).toBeTruthy();
-    expect(within(requirementCard as HTMLElement).getByText('Approved')).toBeTruthy();
+    expect(within(requirementCard as HTMLElement).queryByText('Approved')).toBeNull();
   });
 });

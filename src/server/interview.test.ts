@@ -106,12 +106,13 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('requirements')).toContain('Accept review');
     expect(getSystemPrompt('requirements')).toContain('Request changes');
     expect(getSystemPrompt('requirements')).not.toContain('requirementReview');
-    expect(getSystemPrompt('requirements')).toContain('propose_phase_closure');
+    expect(getSystemPrompt('requirements')).not.toContain('propose_phase_closure');
+    expect(getSystemPrompt('requirements')).toContain('phase-closing action');
   });
 
   it('grounds the criteria prompt in a full-set review turn', () => {
     expect(getSystemPrompt('criteria')).toContain('current criterion inventory');
-    expect(getSystemPrompt('criteria')).toContain('approved requirements');
+    expect(getSystemPrompt('criteria')).toContain('accepted requirements');
     expect(getSystemPrompt('criteria')).toContain('Accept review');
     expect(getSystemPrompt('criteria')).toContain('Request changes');
     expect(getSystemPrompt('criteria')).not.toContain('criterionReview');
@@ -119,11 +120,11 @@ describe('getSystemPrompt', () => {
 });
 
 describe('canProposePhaseClosure', () => {
-  it('enables closure proposals for scope and design, and for requirements only once closeable', () => {
+  it('enables closure proposals only for scope and design', () => {
     expect(canProposePhaseClosure('scope')).toBe(true);
     expect(canProposePhaseClosure('design')).toBe(true);
     expect(canProposePhaseClosure('requirements', false)).toBe(false);
-    expect(canProposePhaseClosure('requirements', true)).toBe(true);
+    expect(canProposePhaseClosure('requirements', true)).toBe(false);
     expect(canProposePhaseClosure('criteria')).toBe(false);
   });
 });

@@ -406,6 +406,7 @@ function seedCompiledManifestScenario(
   // Track manifest turn index → actual turn ID
   const turnIdMap = new Map<number, number>();
   const phaseOutcomeIdByProposalTurnIndex = new Map<number, number>();
+  const confirmationTurnIdByPhase = new Map<WorkflowPhase, number>();
   const observerEntityIdsByTurn = new Map<number, ObserverEntityIds>();
   let prevTurnId: number | null = null;
 
@@ -443,6 +444,7 @@ function seedCompiledManifestScenario(
       });
       turnIdMap.set(i, turn.id);
       confirmPhaseOutcome(db, phaseOutcomeId, turn.id);
+      confirmationTurnIdByPhase.set(turnDefinition.phase, turn.id);
 
       advanceHead(db, projectId, turn.id);
       prevTurnId = turn.id;
@@ -569,6 +571,19 @@ function seedCompiledManifestScenario(
         );
       }
       linkKnowledgeItemToTurn(db, item.id, reviewTurnId, mi.reviewAction);
+
+      // Legacy manifest scenarios still record per-item review outcomes before the
+      // final phase confirmation. Mirror accepted requirements/criteria onto the
+      // confirmation turn so active-path projections can derive the surviving set
+      // from the same confirmed-phase seam used at runtime.
+      const confirmationPhase =
+        mi.kind === 'requirement' ? 'requirements' : mi.kind === 'criterion' ? 'criteria' : null;
+      if (mi.reviewAction === 'reviewed' && confirmationPhase) {
+        const confirmationTurnId = confirmationTurnIdByPhase.get(confirmationPhase);
+        if (confirmationTurnId != null) {
+          linkKnowledgeItemToTurn(db, item.id, confirmationTurnId, 'reviewed');
+        }
+      }
     }
   }
 

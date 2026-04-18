@@ -719,7 +719,6 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'Resume the interview from SQLite after restart',
         rationale: 'Users will come back to finish the workflow',
-        reviewStatus: 'pending',
         referenceCode: 'R1',
       },
     ]);
@@ -787,7 +786,6 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'Resuming restores the active path without data loss',
         rationale: 'This proves persistence worked for the branch the user was on',
-        reviewStatus: 'pending',
         referenceCode: 'CRIT1',
       },
     ]);
@@ -1688,7 +1686,7 @@ describe('phase outcomes + scope closure', () => {
     expect(projectRes.body.workflow.phases.requirements).toEqual(
       expect.objectContaining({
         status: 'in_progress',
-        closeability: true,
+        closeability: false,
         proposalPending: true,
         turnId: requirementsProposalTurnId,
         summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
@@ -1969,7 +1967,7 @@ describe('phase outcomes + scope closure', () => {
     expect(projectRes.body.workflow.phases.criteria).toEqual(
       expect.objectContaining({
         status: 'in_progress',
-        closeability: true,
+        closeability: false,
         proposalPending: true,
         turnId: criteriaProposalTurnId,
         summary: 'All criteria have been explicitly reviewed and the criteria set is ready to close.',
@@ -2613,10 +2611,13 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(200);
     expect(entitiesRes.body.requirements).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: requirementOne.id, reviewStatus: 'approved' }),
-        expect.objectContaining({ id: requirementTwo.id, reviewStatus: 'approved' }),
+        expect.objectContaining({ id: requirementOne.id }),
+        expect.objectContaining({ id: requirementTwo.id }),
       ]),
     );
+    for (const requirement of entitiesRes.body.requirements) {
+      expect(requirement).not.toHaveProperty('reviewStatus');
+    }
 
     expect(JSON.parse(getTurn(db, reviewTurn.id)?.user_parts ?? '[]')).toEqual([
       { type: 'text', text: 'Ship this set' },
@@ -2719,8 +2720,11 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .get(`/api/projects/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(entitiesRes.body.requirements).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: requirement.id, reviewStatus: 'pending' })]),
+      expect.arrayContaining([expect.objectContaining({ id: requirement.id })]),
     );
+    for (const candidateRequirement of entitiesRes.body.requirements) {
+      expect(candidateRequirement).not.toHaveProperty('reviewStatus');
+    }
   });
 
   it('rejects requirements review submissions that omit the explicit reviewAction', async () => {
@@ -2868,10 +2872,13 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(200);
     expect(entitiesRes.body.criteria).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: criterionOne.id, reviewStatus: 'approved' }),
-        expect.objectContaining({ id: criterionTwo.id, reviewStatus: 'approved' }),
+        expect.objectContaining({ id: criterionOne.id }),
+        expect.objectContaining({ id: criterionTwo.id }),
       ]),
     );
+    for (const criterion of entitiesRes.body.criteria) {
+      expect(criterion).not.toHaveProperty('reviewStatus');
+    }
 
     const exportRes = await request(app).get(`/api/projects/${projectId}/export`).expect(200);
     expect(exportRes.body.ready).toBe(true);
@@ -2955,8 +2962,11 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .get(`/api/projects/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(entitiesRes.body.criteria).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: criterion.id, reviewStatus: 'pending' })]),
+      expect.arrayContaining([expect.objectContaining({ id: criterion.id })]),
     );
+    for (const candidateCriterion of entitiesRes.body.criteria) {
+      expect(candidateCriterion).not.toHaveProperty('reviewStatus');
+    }
   });
 
   it('round-trips structured turn responses through project reload, transcript hydration, and interviewer history', async () => {

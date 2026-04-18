@@ -22,6 +22,7 @@ import {
   linkDecisionToTurn,
   linkAssumptionToTurn,
   linkKnowledgeItemToTurn,
+  createConfirmedPhaseOutcome,
   addDecisionParentDecision,
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
@@ -482,7 +483,7 @@ describe('phase outcome lifecycle', () => {
     });
   });
 
-  it('makes requirements closeable only when every requirement has explicit non-pending review state', async () => {
+  it('keeps requirements non-closeable until an accepted review closes the phase', async () => {
     const project = getOrCreateProject(db);
 
     const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
@@ -574,12 +575,12 @@ describe('phase outcome lifecycle', () => {
 
     expect(getCurrentWorkflowState(db, project.id).phases.requirements).toMatchObject({
       status: 'in_progress',
-      closeability: true,
+      closeability: false,
       proposalPending: false,
     });
   });
 
-  it('projects criterion review status as approved, rejected, or pending from the latest active-path action', async () => {
+  it('projects criteria without per-item review status on the project-wide read model', async () => {
     const project = getOrCreateProject(db);
 
     const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
@@ -689,14 +690,17 @@ describe('phase outcome lifecycle', () => {
     const entities = getEntitiesForProject(db, project.id);
     expect(entities.criteria).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: approvedCriterion.id, reviewStatus: 'approved' }),
-        expect.objectContaining({ id: rejectedCriterion.id, reviewStatus: 'rejected' }),
-        expect.objectContaining({ id: pendingCriterion.id, reviewStatus: 'pending' }),
+        expect.objectContaining({ id: approvedCriterion.id, content: approvedCriterion.content }),
+        expect.objectContaining({ id: rejectedCriterion.id, content: rejectedCriterion.content }),
+        expect.objectContaining({ id: pendingCriterion.id, content: pendingCriterion.content }),
       ]),
     );
+    for (const criterion of entities.criteria) {
+      expect(criterion).not.toHaveProperty('reviewStatus');
+    }
   });
 
-  it('makes criteria closeable only when every criterion has explicit non-pending review state', async () => {
+  it('keeps criteria non-closeable until an accepted review closes the phase', async () => {
     const project = getOrCreateProject(db);
 
     const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
@@ -813,9 +817,88 @@ describe('phase outcome lifecycle', () => {
 
     expect(getCurrentWorkflowState(db, project.id).phases.criteria).toMatchObject({
       status: 'in_progress',
-      closeability: true,
+      closeability: false,
       proposalPending: false,
     });
+  });
+
+  it('projects only the accepted requirements on the active path after requirements review closes', () => {
+    const project = getOrCreateProject(db);
+
+    const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    advanceHead(db, project.id, scopeTurn.id);
+
+    const scopeOutcome = createConfirmedPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'scope',
+      proposal_turn_id: scopeTurn.id,
+      confirmation_turn_id: scopeTurn.id,
+      summary: 'Scope captured.',
+    });
+    expect(scopeOutcome.phase).toBe('scope');
+
+    const designTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: scopeTurn.id,
+      question: 'Tradeoff?',
+      answer: 'Keep it small',
+    });
+    advanceHead(db, project.id, designTurn.id);
+
+    const designOutcome = createConfirmedPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'design',
+      proposal_turn_id: designTurn.id,
+      confirmation_turn_id: designTurn.id,
+      summary: 'Design captured.',
+    });
+    expect(designOutcome.phase).toBe('design');
+
+    const acceptedRequirement = createKnowledgeItem(
+      db,
+      project.id,
+      'requirement',
+      'Export the reviewed spec',
+    );
+    const staleRequirement = createKnowledgeItem(
+      db,
+      project.id,
+      'requirement',
+      'Support exporting the spec as a PDF',
+    );
+    linkKnowledgeItemToTurn(db, acceptedRequirement.id, designTurn.id, 'captured');
+    linkKnowledgeItemToTurn(db, staleRequirement.id, designTurn.id, 'captured');
+
+    const reviewTurn = createTurn(db, project.id, {
+      phase: 'requirements',
+      parent_turn_id: designTurn.id,
+      question: 'Please review the current requirement set.',
+      answer: 'Accept review',
+    });
+    linkKnowledgeItemToTurn(db, acceptedRequirement.id, reviewTurn.id, 'reviewed');
+    advanceHead(db, project.id, reviewTurn.id);
+
+    createConfirmedPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'requirements',
+      proposal_turn_id: reviewTurn.id,
+      confirmation_turn_id: reviewTurn.id,
+      summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
+    });
+
+    const criteriaKickoffTurn = createTurn(db, project.id, {
+      phase: 'criteria',
+      parent_turn_id: reviewTurn.id,
+      turn_kind: 'kickoff',
+      question: '',
+      answer: null,
+    });
+    advanceHead(db, project.id, criteriaKickoffTurn.id);
+
+    const entities = getEntitiesForProjectOnActivePath(db, project.id);
+    expect(entities.requirements).toEqual([
+      expect.objectContaining({ id: acceptedRequirement.id, content: 'Export the reviewed spec' }),
+    ]);
   });
 
   it('confirms a proposed requirements outcome, clears the pending proposal, and keeps criteria active', async () => {
@@ -904,7 +987,7 @@ describe('phase outcome lifecycle', () => {
 
     expect(getCurrentWorkflowState(db, project.id).phases.requirements).toMatchObject({
       status: 'in_progress',
-      closeability: true,
+      closeability: false,
       proposalPending: true,
       turnId: requirementsProposalTurn.id,
       summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
@@ -1444,7 +1527,7 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     ]);
   });
 
-  it('projects the latest explicit requirement review state from active-path review links', () => {
+  it('projects requirements without per-item review status from active-path review links', () => {
     const project = createProject(db, 'Test');
     const rejectedRequirement = createKnowledgeItem(
       db,
@@ -1477,10 +1560,13 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     const entities = getEntitiesForProject(db, project.id);
     expect(entities.requirements).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: rejectedRequirement.id, reviewStatus: 'rejected' }),
-        expect.objectContaining({ id: pendingRequirement.id, reviewStatus: 'pending' }),
+        expect.objectContaining({ id: rejectedRequirement.id, content: rejectedRequirement.content }),
+        expect.objectContaining({ id: pendingRequirement.id, content: pendingRequirement.content }),
       ]),
     );
+    for (const requirement of entities.requirements) {
+      expect(requirement).not.toHaveProperty('reviewStatus');
+    }
     expect(getCurrentWorkflowState(db, project.id).phases.requirements).toMatchObject({
       status: 'in_progress',
       closeability: false,

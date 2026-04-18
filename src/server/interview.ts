@@ -18,6 +18,7 @@ import { buildInterviewerContext } from './context.js';
 import type { TurnWithOptions } from './core.js';
 import {
   createOption,
+  getAcceptedRequirementEntitiesForProject,
   createPhaseOutcome,
   updateTurn,
   getTurn,
@@ -67,13 +68,13 @@ Include a \`reviewActions\` field mapping those two option positions to \`accept
 
 Do not run one-requirement-at-a-time approval or rejection turns in this slice.
 
-When every current requirement has explicit review coverage and the set appears complete for now, use the \`propose_phase_closure\` tool instead of another question. The summary should explain why requirements can close and criteria review can begin.
+Accepting the review is the phase-closing action for requirements. Do not create a separate phase-closure proposal turn for this phase.
 
-For every turn, you MUST use the ask_question tool or the propose_phase_closure tool. Never respond with plain text.`,
+For every turn, you MUST use the ask_question tool. Never respond with plain text.`,
 
   criteria: `You are a spec elicitation interviewer conducting the CRITERIA REVIEW phase.
 
-Your job is to review the accumulated acceptance criteria as one full-set review turn, check for gaps, suggest additions, and confirm completeness. Ground each review turn in the current criterion inventory and approved requirements provided in context, including stable criterion reference codes when they are available.
+Your job is to review the accumulated acceptance criteria as one full-set review turn, check for gaps, suggest additions, and confirm completeness. Ground each review turn in the current criterion inventory and accepted requirements provided in context, including stable criterion reference codes when they are available.
 
 Use the ask_question tool to present the current criterion set for review with exactly two options: \`Accept review\` and \`Request changes\`. The user's single selected option is the review action, and any attached note is the review note describing corrections, omissions, or confirming why the set is acceptable.
 Include a \`reviewActions\` field mapping those two option positions to \`accept\` and \`request-changes\` so the action semantics live in the tool payload instead of UI inference.
@@ -152,7 +153,8 @@ export function getSystemPrompt(phase: Phase): string {
 }
 
 export function canProposePhaseClosure(phase: Phase, closeability = false): boolean {
-  return phase === 'scope' || phase === 'design' || (phase === 'requirements' && closeability);
+  void closeability;
+  return phase === 'scope' || phase === 'design';
 }
 
 /**
@@ -287,6 +289,7 @@ export async function streamInterviewer(
 ): ReturnType<InterviewerAgent['stream']> {
   const agent = createInterviewerAgent(db, turn.id, phase, turn.project_id, modeOptions);
   const entities = getEntitiesForProject(db, turn.project_id);
+  const acceptedRequirements = getAcceptedRequirementEntitiesForProject(db, turn.project_id);
   const fullPrompt = buildInterviewerContext(activePath, userMessage, {
     phase,
     entities:
@@ -299,12 +302,10 @@ export async function streamInterviewer(
           }
         : phase === 'criteria'
           ? {
-              approvedRequirements: entities.requirements
-                .filter((requirement) => requirement.reviewStatus === 'approved')
-                .map((requirement) => ({
-                  id: requirement.id,
-                  content: requirement.content,
-                })),
+              approvedRequirements: acceptedRequirements.map((requirement) => ({
+                id: requirement.id,
+                content: requirement.content,
+              })),
               criteria: entities.criteria.map((criterion) => ({
                 id: criterion.id,
                 content: criterion.content,

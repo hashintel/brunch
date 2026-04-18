@@ -21,7 +21,6 @@ import type {
   ReadinessBand,
   TurnKind,
   RequirementEntity as SharedRequirementEntity,
-  ReviewStatus,
   WorkflowPhaseState as SharedWorkflowPhaseState,
   WorkflowPhaseStatus,
   WorkflowState as SharedWorkflowState,
@@ -47,7 +46,7 @@ export type PhaseOutcome = InferSelectModel<typeof schema.phaseOutcome>;
 export type Phase = Turn['phase'];
 export type Impact = NonNullable<Turn['impact']>;
 export type PhaseOutcomeStatus = PhaseOutcome['status'];
-export type { WorkflowPhaseStatus, ReadinessBand, ReviewStatus };
+export type { WorkflowPhaseStatus, ReadinessBand };
 export type ClosureBasis = PhaseClosureBasis | null;
 
 export type WorkflowPhaseState = SharedWorkflowPhaseState;
@@ -381,16 +380,62 @@ function getClosureBasisForOutcome(outcome: PhaseOutcome | undefined): ClosureBa
   return outcome.closure_basis ?? null;
 }
 
-function hasRequirementsReviewCoverage(db: DB, projectId: number): boolean {
-  const requirements = getRequirementEntitiesForProject(db, projectId);
-  return (
-    requirements.length > 0 && requirements.every((requirement) => requirement.reviewStatus !== 'pending')
+function findConfirmedPhaseOutcomeOnActivePath(
+  db: DB,
+  projectId: number,
+  phase: Phase,
+): PhaseOutcome | undefined {
+  const activeTurnIds = new Set(getActivePath(db, projectId).map((turn) => turn.id));
+  if (activeTurnIds.size === 0) {
+    return undefined;
+  }
+
+  return listPhaseOutcomesForProject(db, projectId).find(
+    (outcome) =>
+      outcome.phase === phase &&
+      outcome.status === 'confirmed' &&
+      activeTurnIds.has(outcome.proposal_turn_id),
   );
 }
 
+function getAcceptedKnowledgeItemIdsForPhase(
+  db: DB,
+  projectId: number,
+  phase: 'requirements' | 'criteria',
+  kind: 'requirement' | 'criterion',
+): Set<number> {
+  const confirmationTurnId = findConfirmedPhaseOutcomeOnActivePath(
+    db,
+    projectId,
+    phase,
+  )?.confirmation_turn_id;
+  if (!confirmationTurnId) {
+    return new Set();
+  }
+
+  const rows = db
+    .select({ itemId: schema.turnKnowledgeItem.item_id })
+    .from(schema.turnKnowledgeItem)
+    .innerJoin(schema.knowledgeItem, eq(schema.knowledgeItem.id, schema.turnKnowledgeItem.item_id))
+    .where(
+      and(
+        eq(schema.knowledgeItem.project_id, projectId),
+        eq(schema.knowledgeItem.kind, kind),
+        eq(schema.turnKnowledgeItem.turn_id, confirmationTurnId),
+        eq(schema.turnKnowledgeItem.relation, 'reviewed'),
+      ),
+    )
+    .all() as Array<{ itemId: number }>;
+
+  return new Set(rows.map((row) => row.itemId));
+}
+
+function hasRequirementsReviewCoverage(db: DB, projectId: number): boolean {
+  return getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'requirements', 'requirement').size > 0;
+}
+
 function hasCriteriaReviewCoverage(db: DB, projectId: number): boolean {
-  const criteria = getCriterionEntitiesForProject(db, projectId);
-  return criteria.length > 0 && criteria.every((criterion) => criterion.reviewStatus !== 'pending');
+  return getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'criteria', 'criterion').size > 0;
 }
 
 function getPhaseCloseability(
@@ -695,62 +740,36 @@ function withReferenceCodes<T extends { id: number; kind: SharedKnowledgeKind; k
     }));
 }
 
-function getReviewStatusesOnActivePath(
-  db: DB,
-  projectId: number,
-  kind: 'requirement' | 'criterion',
-): Map<number, ReviewStatus> {
-  const activePath = getActivePath(db, projectId);
-  if (activePath.length === 0) {
-    return new Map();
-  }
-
-  const activeTurnIds = activePath.map((turn) => turn.id);
-  const turnOrder = new Map(activePath.map((turn, index) => [turn.id, index]));
-  const reviewRows = db
-    .select({
-      itemId: schema.turnKnowledgeItem.item_id,
-      turnId: schema.turnKnowledgeItem.turn_id,
-      relation: schema.turnKnowledgeItem.relation,
-    })
-    .from(schema.turnKnowledgeItem)
-    .innerJoin(schema.knowledgeItem, eq(schema.knowledgeItem.id, schema.turnKnowledgeItem.item_id))
-    .where(
-      and(
-        eq(schema.knowledgeItem.project_id, projectId),
-        eq(schema.knowledgeItem.kind, kind),
-        inArray(schema.turnKnowledgeItem.relation, ['reviewed', 'rejected']),
-        inArray(schema.turnKnowledgeItem.turn_id, activeTurnIds),
-      ),
-    )
-    .all() as Array<{ itemId: number; turnId: number; relation: 'reviewed' | 'rejected' }>;
-
-  reviewRows.sort((left, right) => (turnOrder.get(left.turnId) ?? 0) - (turnOrder.get(right.turnId) ?? 0));
-
-  const statuses = new Map<number, ReviewStatus>();
-  for (const row of reviewRows) {
-    statuses.set(row.itemId, row.relation === 'reviewed' ? 'approved' : 'rejected');
-  }
-
-  return statuses;
-}
-
 function getRequirementEntitiesForProject(db: DB, projectId: number): RequirementEntity[] {
-  const reviewStatuses = getReviewStatusesOnActivePath(db, projectId, 'requirement');
   return getKnowledgeItemsForProjectByKind(db, projectId, 'requirement').map((item) => ({
     ...item,
     kind: 'requirement',
-    reviewStatus: reviewStatuses.get(item.id) ?? 'pending',
   }));
 }
 
 function getCriterionEntitiesForProject(db: DB, projectId: number): CriterionEntity[] {
-  const reviewStatuses = getReviewStatusesOnActivePath(db, projectId, 'criterion');
   return getKnowledgeItemsForProjectByKind(db, projectId, 'criterion').map((item) => ({
     ...item,
     kind: 'criterion',
-    reviewStatus: reviewStatuses.get(item.id) ?? 'pending',
   }));
+}
+
+export function getAcceptedRequirementEntitiesForProject(db: DB, projectId: number): RequirementEntity[] {
+  const acceptedIds = getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'requirements', 'requirement');
+  if (acceptedIds.size === 0) {
+    return [];
+  }
+
+  return getRequirementEntitiesForProject(db, projectId).filter((item) => acceptedIds.has(item.id));
+}
+
+export function getAcceptedCriterionEntitiesForProject(db: DB, projectId: number): CriterionEntity[] {
+  const acceptedIds = getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'criteria', 'criterion');
+  if (acceptedIds.size === 0) {
+    return [];
+  }
+
+  return getCriterionEntitiesForProject(db, projectId).filter((item) => acceptedIds.has(item.id));
 }
 
 export function getScopeBundleForProject(db: DB, projectId: number) {
@@ -863,19 +882,52 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
 function filterEntitiesToActivePath(
   entities: EntitiesForProject,
   activeItemIds: ReadonlySet<number>,
+  options?: {
+    acceptedRequirementIds?: ReadonlySet<number>;
+    acceptedCriterionIds?: ReadonlySet<number>;
+  },
 ): EntitiesForProject {
+  const requirements =
+    options?.acceptedRequirementIds && options.acceptedRequirementIds.size > 0
+      ? entities.requirements.filter((item) => options.acceptedRequirementIds?.has(item.id))
+      : entities.requirements.filter((item) => activeItemIds.has(item.id));
+  const criteria =
+    options?.acceptedCriterionIds && options.acceptedCriterionIds.size > 0
+      ? entities.criteria.filter((item) => options.acceptedCriterionIds?.has(item.id))
+      : entities.criteria.filter((item) => activeItemIds.has(item.id));
+  const goals = entities.goals.filter((item) => activeItemIds.has(item.id));
+  const terms = entities.terms.filter((item) => activeItemIds.has(item.id));
+  const contexts = entities.contexts.filter((item) => activeItemIds.has(item.id));
+  const constraints = entities.constraints.filter((item) => activeItemIds.has(item.id));
+  const decisions = entities.decisions.filter((item) => activeItemIds.has(item.id));
+  const assumptions = entities.assumptions.filter((item) => activeItemIds.has(item.id));
+
+  const visibleIdsByCollection = {
+    knowledge_item: new Set([
+      ...goals.map((item) => item.id),
+      ...terms.map((item) => item.id),
+      ...contexts.map((item) => item.id),
+      ...constraints.map((item) => item.id),
+      ...requirements.map((item) => item.id),
+      ...criteria.map((item) => item.id),
+    ]),
+    decision: new Set(decisions.map((item) => item.id)),
+    assumption: new Set(assumptions.map((item) => item.id)),
+  } satisfies Record<EntityRelationship['source']['collection'], Set<number>>;
+
   return {
-    goals: entities.goals.filter((item) => activeItemIds.has(item.id)),
-    terms: entities.terms.filter((item) => activeItemIds.has(item.id)),
-    contexts: entities.contexts.filter((item) => activeItemIds.has(item.id)),
-    constraints: entities.constraints.filter((item) => activeItemIds.has(item.id)),
-    requirements: entities.requirements.filter((item) => activeItemIds.has(item.id)),
-    criteria: entities.criteria.filter((item) => activeItemIds.has(item.id)),
-    decisions: entities.decisions.filter((item) => activeItemIds.has(item.id)),
-    assumptions: entities.assumptions.filter((item) => activeItemIds.has(item.id)),
+    goals,
+    terms,
+    contexts,
+    constraints,
+    requirements,
+    criteria,
+    decisions,
+    assumptions,
     relationships: entities.relationships.filter(
       (relationship) =>
-        activeItemIds.has(relationship.source.id) && activeItemIds.has(relationship.target.id),
+        visibleIdsByCollection[relationship.source.collection].has(relationship.source.id) &&
+        visibleIdsByCollection[relationship.target.collection].has(relationship.target.id),
     ),
   };
 }
@@ -893,6 +945,15 @@ export function getEntitiesForProjectByMode(
   return filterEntitiesToActivePath(
     projectWideEntities,
     getKnowledgeItemIdsLinkedToActivePath(db, projectId),
+    {
+      acceptedRequirementIds: getAcceptedKnowledgeItemIdsForPhase(
+        db,
+        projectId,
+        'requirements',
+        'requirement',
+      ),
+      acceptedCriterionIds: getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'criteria', 'criterion'),
+    },
   );
 }
 
