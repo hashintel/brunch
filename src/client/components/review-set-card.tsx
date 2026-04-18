@@ -1,5 +1,5 @@
 import { Check, MessageSquare } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 
 import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
@@ -147,14 +147,21 @@ export function ReviewPhaseCompletionCard({
   description,
   cta,
   onContinue,
+  action,
+  testId,
 }: {
   title: string;
   description: string;
-  cta: string;
+  cta?: string;
   onContinue?: () => void;
+  action?: ReactNode;
+  testId?: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-rule bg-wash p-5">
+    <div
+      className="overflow-hidden rounded-xl border border-rule bg-wash p-5"
+      {...(testId ? { 'data-testid': testId } : {})}
+    >
       <div className="flex items-center gap-2">
         <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[rgba(22,163,106,0.1)]">
           <Check className="size-3.5 text-[#16a34a]" />
@@ -162,7 +169,9 @@ export function ReviewPhaseCompletionCard({
         <p className="text-sm font-medium text-ink">{title}</p>
       </div>
       <p className="mt-2 text-sm leading-relaxed text-sub">{description}</p>
-      {onContinue ? (
+      {action ? (
+        action
+      ) : onContinue && cta ? (
         <Button className="mt-3" variant="outline" onClick={onContinue}>
           {cta}
         </Button>

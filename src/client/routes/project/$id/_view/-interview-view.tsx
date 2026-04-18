@@ -20,6 +20,7 @@ import {
   AnsweredReviewSetCard,
   GeneratingTurnPlaceholder,
 } from '@/client/components/question-cards';
+import { ReviewPhaseCompletionCard } from '@/client/components/review-set-card';
 import { cn } from '@/client/lib/utils';
 import type { ProjectMode, ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import { isAskQuestionUIPart, summarizeAssistantActivity } from '@/shared/chat.js';
@@ -52,6 +53,22 @@ function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectSt
 
 function isReviewPhase(phase: WorkflowPhase) {
   return phase === 'requirements' || phase === 'criteria';
+}
+
+function getReviewPhaseCompletionDescription(
+  phase: WorkflowPhase,
+  summary: string | null,
+  nextPhase: WorkflowPhase | null,
+) {
+  if (summary) {
+    return summary;
+  }
+
+  if (phase === 'requirements' && nextPhase) {
+    return `The reviewed requirement set is accepted and ready for ${getWorkflowPhaseLabel(nextPhase).toLowerCase()}.`;
+  }
+
+  return 'The accepted criteria set is ready for export.';
 }
 
 function TranscriptMetaPlaceholder({
@@ -773,41 +790,75 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
         </div>
       </ChatScroll>
 
-      {showClosedState && (
-        <div
-          className="flex min-h-[120px] shrink-0 flex-col items-start justify-center gap-3 border-t border-rule bg-tint px-6 py-5"
-          data-testid="workspace-state-card"
-        >
-          <p className="text-sm font-medium text-ink">
-            {showCompletionState
-              ? 'The interview workspace is complete'
-              : `${getWorkflowPhaseLabel(phase)} phase is complete`}
-          </p>
-          <p className="text-xs-plus leading-relaxed text-sub">
-            {phaseState.summary ??
-              (showCompletionState
-                ? 'All phases are closed. Review the export to inspect the current structured spec output.'
-                : 'This phase has been closed and handed off to the next phase.')}
-          </p>
-          {showCompletionState ? (
-            <Link
-              to="/project/$id/export"
-              params={{ id: String(project.id) }}
-              className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
-            >
-              Open export preview
-            </Link>
-          ) : nextPhase ? (
-            <Link
-              to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
-              params={{ id: String(project.id) }}
-              className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
-            >
-              Continue to {getWorkflowPhaseLabel(nextPhase)}
-            </Link>
-          ) : null}
-        </div>
-      )}
+      {showClosedState &&
+        (isReviewPhase(phase) ? (
+          <div className="shrink-0 border-t border-rule bg-tint px-6 py-5">
+            <div className="mx-auto w-full max-w-2xl">
+              <ReviewPhaseCompletionCard
+                testId="review-phase-completion-card"
+                title={`${getWorkflowPhaseLabel(phase)} review is complete`}
+                description={getReviewPhaseCompletionDescription(
+                  phase,
+                  phaseState.summary,
+                  nextPhase ?? null,
+                )}
+                action={
+                  showCompletionState ? (
+                    <Link
+                      to="/project/$id/export"
+                      params={{ id: String(project.id) }}
+                      className="mt-3 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                    >
+                      Open export preview
+                    </Link>
+                  ) : nextPhase ? (
+                    <Link
+                      to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
+                      params={{ id: String(project.id) }}
+                      className="mt-3 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                    >
+                      Continue to {getWorkflowPhaseLabel(nextPhase)}
+                    </Link>
+                  ) : null
+                }
+              />
+            </div>
+          </div>
+        ) : (
+          <div
+            className="flex min-h-[120px] shrink-0 flex-col items-start justify-center gap-3 border-t border-rule bg-tint px-6 py-5"
+            data-testid="workspace-state-card"
+          >
+            <p className="text-sm font-medium text-ink">
+              {showCompletionState
+                ? 'The interview workspace is complete'
+                : `${getWorkflowPhaseLabel(phase)} phase is complete`}
+            </p>
+            <p className="text-xs-plus leading-relaxed text-sub">
+              {phaseState.summary ??
+                (showCompletionState
+                  ? 'All phases are closed. Review the export to inspect the current structured spec output.'
+                  : 'This phase has been closed and handed off to the next phase.')}
+            </p>
+            {showCompletionState ? (
+              <Link
+                to="/project/$id/export"
+                params={{ id: String(project.id) }}
+                className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+              >
+                Open export preview
+              </Link>
+            ) : nextPhase ? (
+              <Link
+                to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
+                params={{ id: String(project.id) }}
+                className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+              >
+                Continue to {getWorkflowPhaseLabel(nextPhase)}
+              </Link>
+            ) : null}
+          </div>
+        ))}
 
       {showPromptInput && (
         <div className="border-t px-4 py-3">

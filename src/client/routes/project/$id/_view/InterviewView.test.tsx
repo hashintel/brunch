@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testing-library/react';
 import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -1007,6 +1007,182 @@ describe('InterviewView', () => {
     expect(screen.queryByText('Which architecture should we choose next?')).toBeNull();
     expect(handoffCard.textContent).toContain('Grounding phase is complete');
     expect(answeredCard.compareDocumentPosition(handoffCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('renders a review-specific handoff card for a closed requirements phase', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: 'Looks good to me.',
+            is_resolution: false,
+            user_parts: JSON.stringify([{ type: 'text', text: 'Looks good to me.' }]),
+            assistant_parts: JSON.stringify([
+              {
+                type: 'tool-ask_question',
+                toolCallId: 'tool-review',
+                state: 'output-available',
+                input: {
+                  question: 'Please review the current requirement set.',
+                  why: 'Review the whole requirement set before moving forward.',
+                  impact: 'high',
+                  options: [
+                    { content: 'Accept review', is_recommended: true },
+                    { content: 'Request changes', is_recommended: false },
+                  ],
+                  reviewActions: [
+                    { action: 'accept', optionPosition: 0 },
+                    { action: 'request-changes', optionPosition: 1 },
+                  ],
+                },
+                output: { ok: true, turnId: 1, optionCount: 2 },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: true },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+        workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high' },
+          design: { status: 'closed', readiness: 'high' },
+          requirements: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 1,
+            summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
+          },
+          criteria: { status: 'unstarted', readiness: 'low' },
+        }),
+        entityState: createEntityState({
+          requirements: [
+            {
+              id: 31,
+              project_id: 1,
+              kind: 'requirement',
+              subtype: null,
+              content: 'Export the reviewed specification as markdown',
+              rationale: null,
+              reviewStatus: 'approved',
+              referenceCode: 'R1',
+            },
+          ],
+        }),
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    const answeredCard = await screen.findByTestId('answered-turn-card');
+    const handoffCard = await screen.findByTestId('review-phase-completion-card');
+
+    expect(handoffCard.textContent).toContain('Requirements review is complete');
+    expect(handoffCard.textContent).toContain(
+      'The reviewed requirement set is accepted and ready for acceptance criteria.',
+    );
+    expect(screen.queryByTestId('workspace-state-card')).toBeNull();
+    expect(
+      within(handoffCard).getByRole('link', { name: 'Continue to Acceptance Criteria' }).getAttribute('href'),
+    ).toBe('/project/1/acceptance-review');
+    expect(answeredCard.compareDocumentPosition(handoffCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('renders a review-specific completion card for a closed criteria phase', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'criteria',
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            answer: 'Accepted.',
+            is_resolution: false,
+            user_parts: JSON.stringify([{ type: 'text', text: 'Accepted.' }]),
+            assistant_parts: JSON.stringify([
+              {
+                type: 'tool-ask_question',
+                toolCallId: 'tool-review',
+                state: 'output-available',
+                input: {
+                  question: 'Please review the current criterion set.',
+                  why: 'Review the whole criterion set before moving forward.',
+                  impact: 'high',
+                  options: [
+                    { content: 'Accept review', is_recommended: true },
+                    { content: 'Request changes', is_recommended: false },
+                  ],
+                  reviewActions: [
+                    { action: 'accept', optionPosition: 0 },
+                    { action: 'request-changes', optionPosition: 1 },
+                  ],
+                },
+                output: { ok: true, turnId: 1, optionCount: 2 },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 21, position: 0, content: 'Accept review', is_recommended: true, is_selected: true },
+              { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+        workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high' },
+          design: { status: 'closed', readiness: 'high' },
+          requirements: { status: 'closed', readiness: 'high' },
+          criteria: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 1,
+            summary: 'The accepted criteria set is ready for export.',
+          },
+        }),
+        entityState: createEntityState({
+          criteria: [
+            {
+              id: 41,
+              project_id: 1,
+              kind: 'criterion',
+              subtype: null,
+              content: 'Restarting restores the active path',
+              rationale: null,
+              reviewStatus: 'approved',
+              referenceCode: 'C1',
+            },
+          ],
+        }),
+      }),
+    );
+
+    renderWorkspace('criteria');
+
+    const answeredCard = await screen.findByTestId('answered-turn-card');
+    const completionCard = await screen.findByTestId('review-phase-completion-card');
+
+    expect(completionCard.textContent).toContain('Acceptance Criteria review is complete');
+    expect(completionCard.textContent).toContain('The accepted criteria set is ready for export.');
+    expect(screen.queryByTestId('workspace-state-card')).toBeNull();
+    expect(
+      within(completionCard).getByRole('link', { name: 'Open export preview' }).getAttribute('href'),
+    ).toBe('/project/1/export');
+    expect(
+      answeredCard.compareDocumentPosition(completionCard) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
   });
 
   it('renders grounding strategy choices in the scope kickoff card and submits the selected strategy', async () => {
