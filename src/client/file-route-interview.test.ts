@@ -34,14 +34,22 @@ describe('file-route phase route ownership', () => {
     expect(viewLayoutSource).toMatch(/import\(.+graph-view/);
   });
 
-  it('keeps phase routes thin — each renders InterviewView via colocated support file', () => {
-    const phaseRoutes = ['framing', 'elicitation', 'requirements-review', 'acceptance-review'];
+  it('keeps phase routes thin — canonical phase screens render InterviewView via colocated support files', () => {
+    const phaseRoutes = ['grounding', 'elicitation', 'requirements-review', 'acceptance-review'];
 
     for (const phase of phaseRoutes) {
       const source = readRepoFile(`src/client/routes/project/$id/_view/${phase}.tsx`);
       expect(source, `${phase} route should use createFileRoute`).toContain('createFileRoute');
       expect(source, `${phase} route should render InterviewView`).toContain('InterviewView');
     }
+  });
+
+  it('keeps the legacy framing route as a thin redirect to grounding', () => {
+    const source = readRepoFile('src/client/routes/project/$id/_view/framing.tsx');
+
+    expect(source).toContain('createFileRoute');
+    expect(source).toContain('redirect');
+    expect(source).toContain("to: '/project/$id/grounding'");
   });
 
   it('keeps the routed interview surface wired through ChatScroll', () => {

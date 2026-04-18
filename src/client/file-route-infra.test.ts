@@ -58,6 +58,7 @@ describe('generated route runtime ownership', () => {
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/index'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/export'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/route'");
+    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/grounding'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/framing'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/elicitation'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/requirements-review'");
@@ -66,6 +67,7 @@ describe('generated route runtime ownership', () => {
     // Route IDs confirm nesting hierarchy
     expect(generatedRouteTreeSource).toContain("id: '/project/$id'");
     expect(generatedRouteTreeSource).toContain("id: '/_view'");
+    expect(generatedRouteTreeSource).toContain("id: '/grounding'");
     expect(generatedRouteTreeSource).toContain("id: '/framing'");
 
     // No old flat-file route imports remain
@@ -79,6 +81,7 @@ describe('generated route runtime ownership', () => {
     expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/route.tsx'))).toBe(true);
 
     // Phase routes
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/grounding.tsx'))).toBe(true);
     expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/framing.tsx'))).toBe(true);
     expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/elicitation.tsx'))).toBe(true);
     expect(

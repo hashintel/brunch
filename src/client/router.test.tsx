@@ -164,13 +164,23 @@ describe('generated routeTree', () => {
     expect(await screen.findByRole('heading', { name: 'Projects screen' })).toBeTruthy();
   });
 
-  it('maps the framing phase URL to the interview workspace screen with sidebar', async () => {
-    await renderRouteAt('/project/42/framing');
+  it('maps the grounding phase URL to the interview workspace screen with sidebar', async () => {
+    await renderRouteAt('/project/42/grounding');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
     expect(screen.getByTestId('phase-sidebar')).toBeTruthy();
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/42/entities?mode=active-path');
+  });
+
+  it('redirects the legacy framing URL to the canonical grounding route', async () => {
+    const { router } = await renderRouteAt('/project/42/framing');
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/project/42/grounding');
+    });
+
+    expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
   });
 
   it('maps the elicitation phase URL to the interview workspace screen', async () => {
@@ -205,7 +215,7 @@ describe('generated routeTree', () => {
       return defaultFetchHandler(input);
     });
 
-    const history = createMemoryHistory({ initialEntries: ['/project/42/framing'] });
+    const history = createMemoryHistory({ initialEntries: ['/project/42/grounding'] });
     const router = createRouter({ routeTree, history, defaultPendingMs: 0 });
 
     render(<RouterProvider router={router} />);
@@ -232,11 +242,11 @@ describe('generated routeTree', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/42/export');
   });
 
-  it('redirects project index to the framing phase by default', async () => {
+  it('redirects project index to the grounding phase by default', async () => {
     const { router } = await renderRouteAt('/project/42');
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/project/42/framing');
+      expect(router.state.location.pathname).toBe('/project/42/grounding');
     });
   });
 });

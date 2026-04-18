@@ -1,11 +1,7 @@
-import { createFileRoute } from '@tanstack/react-router';
-
-import { InterviewView } from './-interview-view.js';
-
-function FramingView() {
-  return <InterviewView phase="scope" />;
-}
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/project/$id/_view/framing')({
-  component: FramingView,
+  beforeLoad: ({ params }) => {
+    throw redirect({ to: '/project/$id/grounding', params });
+  },
 });

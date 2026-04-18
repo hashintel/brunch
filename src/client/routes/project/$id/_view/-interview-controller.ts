@@ -283,7 +283,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     const nextPhase = getNextActivePhase(durableProject.workflow.phases, phase);
     if (nextPhase) {
       void router.navigate({
-        to: `/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing',
+        to: `/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/grounding',
         params: { id: String(projectId) },
       });
     }

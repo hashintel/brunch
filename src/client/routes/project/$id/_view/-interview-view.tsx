@@ -561,7 +561,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
         </div>
         {showAdvanceAction ? (
           <Link
-            to={`/project/$id/${phaseRouteSegments[nextPhase!]}` as '/project/$id/framing'}
+            to={`/project/$id/${phaseRouteSegments[nextPhase!]}` as '/project/$id/grounding'}
             params={{ id: String(project.id) }}
             className="inline-flex h-8 items-center justify-center rounded-md px-3.5 text-sm font-medium whitespace-nowrap transition-colors bg-card text-foreground shadow-[var(--shadow-card-ring)]"
           >
@@ -595,7 +595,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                 description={`Finish or enter ${getWorkflowPhaseLabel(currentReachablePhase)} before opening this phase.`}
               >
                 <Link
-                  to={`/project/$id/${phaseRouteSegments[currentReachablePhase]}` as '/project/$id/framing'}
+                  to={`/project/$id/${phaseRouteSegments[currentReachablePhase]}` as '/project/$id/grounding'}
                   params={{ id: String(project.id) }}
                   className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
                 >
@@ -861,7 +861,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                     </Link>
                   ) : nextPhase ? (
                     <Link
-                      to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
+                      to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/grounding'}
                       params={{ id: String(project.id) }}
                       className="mt-3 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                     >
@@ -898,7 +898,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               </Link>
             ) : nextPhase ? (
               <Link
-                to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
+                to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/grounding'}
                 params={{ id: String(project.id) }}
                 className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
               >

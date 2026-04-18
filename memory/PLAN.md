@@ -35,7 +35,7 @@ The current active frontier should now be read not just as product/design cleanu
    - What this slice must accomplish:
      - remove `framing` from the canonical scope-kind enum and from observer output contracts
      - migrate existing persisted `framing` rows into the appropriate canonical kind (likely `context` or `goal` depending on provenance)
-     - remove the `_view/framing.tsx` route surface and any framing-specific card / sidebar affordances
+     - remove `_view/framing.tsx` as the canonical interview surface, keeping only legacy redirect compatibility if needed, and retire any framing-specific card / sidebar affordances
      - update fixtures, scenarios, tests, and stories to stop producing or asserting on `framing`
 
 3. **Legacy knowledge facade cleanup** — drop the dead schema tables and collapse the remaining legacy types into the kind-discriminated `KnowledgeItem` model.
@@ -116,6 +116,7 @@ The current active frontier should now be read not just as product/design cleanu
 
 ## Recently Completed
 
+- 2026-04-18 — **Canonical grounding route cut over with legacy framing redirect** — the first phase now enters through `/grounding`, index/export/in-workspace navigation now targets the canonical grounding URL, the file-routed interview surface gained a dedicated `grounding.tsx` entry, and the legacy `/framing` route now redirects instead of remaining the primary product surface. Done: `npm run verify`. Watch: Active item 1 still needs any remaining persisted/fixture-level framing retirement beyond the route surface.
 - 2026-04-18 — **Phase header close action now follows the force-close policy seam** — the routed interview header now shows `Close Phase` only when `getForceClosePhaseAction()` says force-close is actually available, so review proposal states no longer expose a contradictory invalid close path while design keeps the existing typed force-close command. Done: `npm run verify`. Watch: Active item 1 still includes any remaining broader review-phase distinctness beyond proposal, entry, active, replayed, and closed-state presentation.
 - 2026-04-18 — **Review-phase proposal cards use review-specific acceptance copy** — proposal-pending requirements and criteria states in the routed interview view now render review-specific accept-the-reviewed-set copy instead of the generic closure-proposal presenter, while the confirmation flow still submits the same typed closure command payload. Done: `npm run verify`. Watch: Active item 1 still includes any remaining broader review-phase distinctness beyond proposal, entry, active, replayed, and closed-state presentation.
 - 2026-04-18 — **Review-phase kickoff and recovery cards use review-specific copy** — requirements and criteria kickoff / recovery states in the routed interview view now describe candidate-set review flow instead of generic interview-step copy, while the existing proceed / continue action wiring stays unchanged. Done: `npm run verify`. Watch: Active item 1 still includes any remaining broader review-phase distinctness beyond entry, active, and closed-state presentation.
