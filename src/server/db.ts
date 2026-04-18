@@ -28,6 +28,7 @@ import type {
 import {
   createKnowledgeReferenceCode,
   genericKnowledgeKindRegistry,
+  knowledgeEntityCollectionByKind,
   type GenericKnowledgeCollectionKey,
   type GenericKnowledgeKind,
   type KnowledgeEntityCollection,
@@ -723,16 +724,6 @@ function getKnowledgeItemsForProjectByKind(
     .all() as KnowledgeItem[];
 }
 
-function getEntityCollectionForKind(kind: KnowledgeKind): EntityCollection {
-  if (kind === 'decision') {
-    return 'decision';
-  }
-  if (kind === 'assumption') {
-    return 'assumption';
-  }
-  return 'knowledge_item';
-}
-
 function withReferenceCodes<T extends { id: number; kind: SharedKnowledgeKind; kind_ordinal: number }>(
   items: readonly T[],
 ): Array<T & { referenceCode: string }> {
@@ -868,17 +859,42 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
     relationships: relationships.map((relationship) => ({
       type: relationship.type,
       source: {
-        collection: getEntityCollectionForKind(relationship.source_kind),
+        collection: knowledgeEntityCollectionByKind[relationship.source_kind],
         kind: relationship.source_kind,
         id: relationship.source_id,
       },
       target: {
-        collection: getEntityCollectionForKind(relationship.target_kind),
+        collection: knowledgeEntityCollectionByKind[relationship.target_kind],
         kind: relationship.target_kind,
         id: relationship.target_id,
       },
     })),
   };
+}
+
+function filterGenericKnowledgeCollectionsToActivePath(
+  entities: EntitiesForProject,
+  activeItemIds: ReadonlySet<number>,
+  options?: {
+    acceptedRequirementIds?: ReadonlySet<number>;
+    acceptedCriterionIds?: ReadonlySet<number>;
+  },
+): Pick<EntitiesForProject, GenericKnowledgeCollectionKey> {
+  return Object.fromEntries(
+    genericKnowledgeKindRegistry.map((entry) => {
+      const acceptedIds =
+        entry.kind === 'requirement'
+          ? options?.acceptedRequirementIds
+          : entry.kind === 'criterion'
+            ? options?.acceptedCriterionIds
+            : undefined;
+      const visibleItems =
+        acceptedIds && acceptedIds.size > 0
+          ? entities[entry.collectionKey].filter((item) => acceptedIds.has(item.id))
+          : entities[entry.collectionKey].filter((item) => activeItemIds.has(item.id));
+      return [entry.collectionKey, visibleItems];
+    }),
+  ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
 }
 
 function filterEntitiesToActivePath(
@@ -889,41 +905,26 @@ function filterEntitiesToActivePath(
     acceptedCriterionIds?: ReadonlySet<number>;
   },
 ): EntitiesForProject {
-  const requirements =
-    options?.acceptedRequirementIds && options.acceptedRequirementIds.size > 0
-      ? entities.requirements.filter((item) => options.acceptedRequirementIds?.has(item.id))
-      : entities.requirements.filter((item) => activeItemIds.has(item.id));
-  const criteria =
-    options?.acceptedCriterionIds && options.acceptedCriterionIds.size > 0
-      ? entities.criteria.filter((item) => options.acceptedCriterionIds?.has(item.id))
-      : entities.criteria.filter((item) => activeItemIds.has(item.id));
-  const goals = entities.goals.filter((item) => activeItemIds.has(item.id));
-  const terms = entities.terms.filter((item) => activeItemIds.has(item.id));
-  const contexts = entities.contexts.filter((item) => activeItemIds.has(item.id));
-  const constraints = entities.constraints.filter((item) => activeItemIds.has(item.id));
+  const genericKnowledgeCollections = filterGenericKnowledgeCollectionsToActivePath(
+    entities,
+    activeItemIds,
+    options,
+  );
   const decisions = entities.decisions.filter((item) => activeItemIds.has(item.id));
   const assumptions = entities.assumptions.filter((item) => activeItemIds.has(item.id));
 
   const visibleIdsByCollection = {
-    knowledge_item: new Set([
-      ...goals.map((item) => item.id),
-      ...terms.map((item) => item.id),
-      ...contexts.map((item) => item.id),
-      ...constraints.map((item) => item.id),
-      ...requirements.map((item) => item.id),
-      ...criteria.map((item) => item.id),
-    ]),
+    knowledge_item: new Set(
+      genericKnowledgeKindRegistry.flatMap((entry) =>
+        genericKnowledgeCollections[entry.collectionKey].map((item) => item.id),
+      ),
+    ),
     decision: new Set(decisions.map((item) => item.id)),
     assumption: new Set(assumptions.map((item) => item.id)),
   } satisfies Record<EntityRelationship['source']['collection'], Set<number>>;
 
   return {
-    goals,
-    terms,
-    contexts,
-    constraints,
-    requirements,
-    criteria,
+    ...genericKnowledgeCollections,
     decisions,
     assumptions,
     relationships: entities.relationships.filter(

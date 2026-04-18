@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   knowledgeCollectionKeyByKind,
+  knowledgeEntityCollectionByKind,
   knowledgeEntityCollections,
   knowledgeKindRegistry,
   knowledgeKinds,
@@ -89,6 +90,16 @@ describe('knowledge kind registry', () => {
       criterion: 'criteria',
       decision: 'decisions',
       assumption: 'assumptions',
+    });
+    expect(knowledgeEntityCollectionByKind).toEqual({
+      goal: 'knowledge_item',
+      term: 'knowledge_item',
+      context: 'knowledge_item',
+      constraint: 'knowledge_item',
+      requirement: 'knowledge_item',
+      criterion: 'knowledge_item',
+      decision: 'decision',
+      assumption: 'assumption',
     });
   });
 });

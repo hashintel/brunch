@@ -1,8 +1,12 @@
 import { EmptyCard } from '@/client/components/app-shell';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import type { EntitiesData } from '@/shared/api-types.js';
-import type { KnowledgeCollectionKey, KnowledgeKind } from '@/shared/knowledge.js';
-import { knowledgeKindRegistry } from '@/shared/knowledge.js';
+import type { KnowledgeEntityCollection, KnowledgeKind } from '@/shared/knowledge.js';
+import {
+  knowledgeCollectionKeyByKind,
+  knowledgeEntityCollectionByKind,
+  knowledgeKindRegistry,
+} from '@/shared/knowledge.js';
 
 import { KnowledgeDetailCard, type KnowledgeEdgeData, type KnowledgeItemData } from './knowledge-card';
 
@@ -27,16 +31,6 @@ const knowledgeDisplayGroups: KnowledgeDisplayGroup[] = [
   { label: 'Requirements', kinds: ['requirement'] },
   { label: 'Acceptance Criteria', kinds: ['criterion'] },
 ];
-
-// Map kind → collectionKey for looking up items in entityState
-const kindToCollectionKey: Record<KnowledgeKind, KnowledgeCollectionKey> = Object.fromEntries(
-  knowledgeKindRegistry.map((entry) => [entry.kind, entry.collectionKey]),
-) as Record<KnowledgeKind, KnowledgeCollectionKey>;
-
-// Map kind → entityCollection for edge lookups
-const kindToEntityCollection: Record<KnowledgeKind, string> = Object.fromEntries(
-  knowledgeKindRegistry.map((entry) => [entry.kind, entry.entityCollection]),
-) as Record<KnowledgeKind, string>;
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -65,13 +59,13 @@ function getReferenceCodeForEntity(
   kind: KnowledgeKind,
   id: number,
 ): string | undefined {
-  const collectionKey = kindToCollectionKey[kind];
+  const collectionKey = knowledgeCollectionKeyByKind[kind];
   return entityState[collectionKey].find((item) => item.id === id)?.referenceCode;
 }
 
 function buildOutgoingEdgesForItem(
   entityState: EntitiesData,
-  collection: string,
+  collection: KnowledgeEntityCollection,
   id: number,
 ): KnowledgeEdgeData[] {
   return entityState.relationships
@@ -126,8 +120,8 @@ export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
             // Collect all items across the group's kinds
             const groupItems: { item: KnowledgeItemData; edges: KnowledgeEdgeData[] }[] = [];
             for (const kind of group.kinds) {
-              const collectionKey = kindToCollectionKey[kind];
-              const entityCollection = kindToEntityCollection[kind];
+              const collectionKey = knowledgeCollectionKeyByKind[kind];
+              const entityCollection = knowledgeEntityCollectionByKind[kind];
               const items = entityState[collectionKey];
               for (const item of items) {
                 groupItems.push({

@@ -118,6 +118,12 @@ export const knowledgeCollectionKeyByKind = Object.fromEntries(
   [K in KnowledgeKind]: Extract<KnowledgeKindMetadata, { kind: K }>['collectionKey'];
 };
 
+export const knowledgeEntityCollectionByKind = Object.fromEntries(
+  knowledgeKindRegistry.map((entry) => [entry.kind, entry.entityCollection]),
+) as {
+  [K in KnowledgeKind]: Extract<KnowledgeKindMetadata, { kind: K }>['entityCollection'];
+};
+
 export const knowledgeKindReferencePrefixes = {
   goal: 'GOAL',
   term: 'TERM',
