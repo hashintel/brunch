@@ -4,6 +4,7 @@ import { structuredQuestionSchema, type StructuredQuestion } from '@/shared/chat
 
 import { createDb, createProject, createTurn, getOptionsForTurn, getTurn, type DB } from './db.js';
 import {
+  buildReviewSetForPhase,
   canProposePhaseClosure,
   getBrownfieldScopePrompt,
   getInterviewerInstructions,
@@ -254,6 +255,69 @@ describe('brownfield interviewer configuration', () => {
     expect(getInterviewerInstructions('requirements', { mode: 'brownfield', cwd: '/tmp/repo' })).toBe(
       getSystemPrompt('requirements'),
     );
+  });
+});
+
+describe('buildReviewSetForPhase', () => {
+  it('builds persisted review-set payloads for requirements and criteria from the current review inventory', () => {
+    expect(
+      buildReviewSetForPhase('requirements', {
+        requirements: [
+          {
+            id: 1,
+            project_id: 1,
+            kind: 'requirement',
+            subtype: null,
+            content: 'Resume the interview from SQLite after restart',
+            rationale: 'Lets users continue after a restart.',
+            referenceCode: 'R1',
+          },
+        ],
+        criteria: [],
+      }),
+    ).toEqual({
+      phase: 'requirements',
+      title: 'Requirements',
+      items: [
+        {
+          content: 'Resume the interview from SQLite after restart',
+          rationale: 'Lets users continue after a restart.',
+          referenceCode: 'R1',
+        },
+      ],
+    });
+
+    expect(
+      buildReviewSetForPhase('criteria', {
+        requirements: [],
+        criteria: [
+          {
+            id: 2,
+            project_id: 1,
+            kind: 'criterion',
+            subtype: null,
+            content: 'Restarting restores the active path',
+            rationale: 'Proves the persisted branch resumes cleanly.',
+            referenceCode: 'AC1',
+          },
+        ],
+      }),
+    ).toEqual({
+      phase: 'criteria',
+      title: 'Acceptance Criteria',
+      items: [
+        {
+          content: 'Restarting restores the active path',
+          rationale: 'Proves the persisted branch resumes cleanly.',
+          referenceCode: 'AC1',
+        },
+      ],
+    });
+  });
+
+  it('returns null outside the review phases', () => {
+    expect(buildReviewSetForPhase('scope', { requirements: [], criteria: [] })).toBeNull();
+    expect(buildReviewSetForPhase('design', { requirements: [], criteria: [] })).toBeNull();
   });
 });
 

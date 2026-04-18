@@ -65,7 +65,7 @@ import {
   type Turn,
 } from './db.js';
 import { isExportReady, renderExportMarkdown } from './export.js';
-import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
+import { buildReviewSetForPhase, persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { safeDeserializeAssistantParts, safeDeserializeUserParts, serializeParts } from './parts.js';
 
@@ -600,8 +600,21 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         const assistantParts = filterAssistantParts(responseMessage.parts, {
           elapsedMs: interviewerElapsedMs,
         });
+        const synthesizedReviewSet = buildReviewSetForPhase(
+          prepared.turn.phase,
+          getEntitiesForProjectByMode(db, id, 'project-wide'),
+        );
+        const persistedAssistantParts = synthesizedReviewSet
+          ? [
+              ...assistantParts.filter((part) => part.type !== 'data-review-set'),
+              {
+                type: 'data-review-set' as const,
+                data: synthesizedReviewSet,
+              },
+            ]
+          : assistantParts;
         updateTurn(db, prepared.turn.id, {
-          assistant_parts: serializeParts(assistantParts),
+          assistant_parts: serializeParts(persistedAssistantParts),
         });
       },
       onError: (error) => (error instanceof Error ? error.message : 'Unknown error'),

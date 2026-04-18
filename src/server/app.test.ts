@@ -2561,6 +2561,66 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     ]);
   });
 
+  it('persists a synthesized requirement review-set payload on runtime review turns', async () => {
+    const projectId = await createTestProject();
+    seedRequirementsReady(projectId);
+    const { createKnowledgeItem } = await import('./db.js');
+
+    createKnowledgeItem(db, projectId, 'requirement', 'Export the reviewed specification as markdown', {
+      rationale: 'Keeps the accepted review output portable for sharing.',
+    });
+    createKnowledgeItem(db, projectId, 'requirement', 'Resume the interview from persisted local state', {
+      rationale: 'Lets users continue after a restart.',
+    });
+
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-runtime-requirements',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Review the current requirement set' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const reviewTurn = projectRes.body.turns.find(
+      (turn: { phase: string; question: string }) =>
+        turn.phase === 'requirements' && turn.question === structuredQuestion.question,
+    );
+    expect(reviewTurn).toBeDefined();
+    expect(JSON.parse(reviewTurn.assistant_parts ?? '[]')).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'data-review-set',
+          data: {
+            phase: 'requirements',
+            title: 'Requirements',
+            items: [
+              {
+                content: 'Export the reviewed specification as markdown',
+                rationale: 'Keeps the accepted review output portable for sharing.',
+                referenceCode: createKnowledgeReferenceCode('requirement', 1),
+              },
+              {
+                content: 'Resume the interview from persisted local state',
+                rationale: 'Lets users continue after a restart.',
+                referenceCode: createKnowledgeReferenceCode('requirement', 2),
+              },
+            ],
+          },
+        },
+      ]),
+    );
+  });
+
   it('accepting the requirements full-set review uses explicit reviewAction instead of option copy', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
@@ -2911,6 +2971,66 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
       .send({ kind: 'select-options', positions: [0] })
       .expect(400);
+  });
+
+  it('persists a synthesized criteria review-set payload on runtime review turns', async () => {
+    const projectId = await createTestProject();
+    seedCriteriaReady(projectId);
+    const { createKnowledgeItem } = await import('./db.js');
+
+    createKnowledgeItem(db, projectId, 'criterion', 'Restarting restores the active path', {
+      rationale: 'Proves the persisted branch resumes cleanly.',
+    });
+    createKnowledgeItem(db, projectId, 'criterion', 'Markdown export includes accepted requirements only', {
+      rationale: 'Checks the final handoff stays scoped to accepted output.',
+    });
+
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-runtime-criteria',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Review the current criterion set' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const reviewTurn = projectRes.body.turns.find(
+      (turn: { phase: string; question: string }) =>
+        turn.phase === 'criteria' && turn.question === structuredQuestion.question,
+    );
+    expect(reviewTurn).toBeDefined();
+    expect(JSON.parse(reviewTurn.assistant_parts ?? '[]')).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'data-review-set',
+          data: {
+            phase: 'criteria',
+            title: 'Acceptance Criteria',
+            items: [
+              {
+                content: 'Restarting restores the active path',
+                rationale: 'Proves the persisted branch resumes cleanly.',
+                referenceCode: createKnowledgeReferenceCode('criterion', 1),
+              },
+              {
+                content: 'Markdown export includes accepted requirements only',
+                rationale: 'Checks the final handoff stays scoped to accepted output.',
+                referenceCode: createKnowledgeReferenceCode('criterion', 2),
+              },
+            ],
+          },
+        },
+      ]),
+    );
   });
 
   it('accepting the criteria full-set review uses explicit reviewAction instead of option copy', async () => {

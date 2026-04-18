@@ -2,7 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import type { Tool } from '@ai-sdk/provider-utils';
 import { ToolLoopAgent, stepCountIs, tool } from 'ai';
 
-import type { ProjectMode } from '@/shared/api-types.js';
+import type { EntitiesData, ProjectMode } from '@/shared/api-types.js';
 import {
   askQuestionToolOutputSchema,
   phaseClosureProposalSchema,
@@ -11,6 +11,7 @@ import {
   type AskQuestionToolOutput,
   type PhaseClosureProposal,
   type ProposePhaseClosureToolOutput,
+  type ReviewSetData,
   type StructuredQuestion,
 } from '@/shared/chat.js';
 
@@ -316,6 +317,37 @@ export async function streamInterviewer(
   return agent.stream({
     prompt: fullPrompt,
   });
+}
+
+export function buildReviewSetForPhase(
+  phase: Phase,
+  entities: Pick<EntitiesData, 'requirements' | 'criteria'>,
+): ReviewSetData | null {
+  if (phase === 'requirements') {
+    return {
+      phase,
+      title: 'Requirements',
+      items: entities.requirements.map((requirement) => ({
+        content: requirement.content,
+        ...(requirement.referenceCode ? { referenceCode: requirement.referenceCode } : {}),
+        ...(requirement.rationale ? { rationale: requirement.rationale } : {}),
+      })),
+    };
+  }
+
+  if (phase === 'criteria') {
+    return {
+      phase,
+      title: 'Acceptance Criteria',
+      items: entities.criteria.map((criterion) => ({
+        content: criterion.content,
+        ...(criterion.referenceCode ? { referenceCode: criterion.referenceCode } : {}),
+        ...(criterion.rationale ? { rationale: criterion.rationale } : {}),
+      })),
+    };
+  }
+
+  return null;
 }
 
 export function persistFallbackQuestionText(db: DB, turnId: number, assistantText: string): void {

@@ -22,7 +22,7 @@ Resolve the remaining ontology ambiguity explicitly: either requirements and cri
 - [x] Rebuild observer schema and prompt assembly from that shared ontology policy so the observer no longer hand-maintains a parallel ontology definition.
 - [x] Make an explicit architectural decision about requirement and criterion durability, then codify it in both docs and code before changing behavior.
 - [ ] If requirements and criteria are review-authoritative only, remove direct pre-acceptance observer persistence for them and route them through the accepted-review path while preserving synthesis inputs for later review.
-  - Progress: accepted requirements / criteria review now materializes the persisted `data-review-set` instead of blanket-linking every project-wide review-kind item; the remaining step is to stop observer-side pre-acceptance persistence and feed those review sets from synthesis-only draft inputs.
+  - Progress: accepted requirements / criteria review now materializes the persisted `data-review-set` instead of blanket-linking every project-wide review-kind item, and runtime review turns now persist a synthesized `data-review-set` payload from the current review inventory. The remaining step is to stop observer-side pre-acceptance persistence and feed those review sets from synthesis-only draft inputs.
 - [ ] If requirements and criteria are intentionally durable before acceptance, update the canonical documentation and tests so the spec matches the already-supported behavior instead of implying a different model.
 - [ ] Sweep replay, entities payload, observer-result, and review-flow tests to ensure the final ontology and reference-code contract are expressed consistently across persistence, transport, hydration, and UI-facing examples.
 
