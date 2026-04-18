@@ -39,7 +39,6 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Export the reviewed spec',
               rationale: null,
-              reviewStatus: 'approved',
               referenceCode: 'R1',
             },
             {
@@ -49,7 +48,6 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Support exporting the spec as a PDF',
               rationale: null,
-              reviewStatus: 'rejected',
               referenceCode: 'R2',
             },
             {
@@ -59,7 +57,6 @@ describe('EntitySidebar', () => {
               subtype: null,
               content: 'Resume the interview from SQLite after restart',
               rationale: null,
-              reviewStatus: 'pending',
               referenceCode: 'R3',
             },
           ],

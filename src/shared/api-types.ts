@@ -124,8 +124,6 @@ const knowledgeItemKindSchema = z.enum([
   'decision',
   'assumption',
 ]);
-export const reviewStatusSchema = z.enum(['approved', 'rejected', 'pending']);
-
 export const knowledgeItemSchema = z.object({
   id: z.number().int().positive(),
   project_id: z.number().int().positive(),
@@ -143,7 +141,6 @@ export const requirementEntitySchema = z.object({
   subtype: z.string().nullable(),
   content: z.string(),
   rationale: z.string().nullable(),
-  reviewStatus: reviewStatusSchema.optional(),
   referenceCode: z.string().optional(),
 });
 
@@ -154,7 +151,6 @@ export const criterionEntitySchema = z.object({
   subtype: z.string().nullable(),
   content: z.string(),
   rationale: z.string().nullable(),
-  reviewStatus: reviewStatusSchema.optional(),
   referenceCode: z.string().optional(),
 });
 
@@ -247,7 +243,6 @@ export type ProjectMode = z.infer<typeof projectModeSchema>;
 export type Impact = z.infer<typeof impactSchema>;
 export type TurnKind = z.infer<typeof turnKindSchema>;
 export type ReviewAction = z.infer<typeof reviewActionSchema>;
-export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
 export type EdgeRelation = z.infer<typeof edgeRelationSchema>;
 export type WorkflowPhaseStatus = z.infer<typeof workflowPhaseStatusSchema>;
 export type ReadinessBand = z.infer<typeof readinessBandSchema>;

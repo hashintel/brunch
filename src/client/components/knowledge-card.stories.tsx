@@ -7,7 +7,6 @@ import {
   KnowledgeGroupCard,
   KnowledgeRow,
   MetadataRow,
-  ReviewBadge,
   type KnowledgeEdgeData,
   type KnowledgeItemData,
 } from './knowledge-card';
@@ -93,15 +92,6 @@ export const Badges: Story = () => {
           <KindBadge kind="decision" />
           <KindBadge kind="requirement" />
           <KindBadge kind="criterion" />
-        </div>
-      </div>
-
-      <div>
-        <p className="mb-2 text-xs text-hint">Review badges</p>
-        <div className="flex gap-2">
-          <ReviewBadge state="approved" />
-          <ReviewBadge state="rejected" />
-          <ReviewBadge state="pending" />
         </div>
       </div>
 

@@ -194,9 +194,54 @@ describe('api transport contracts', () => {
         ],
       }),
     ).toMatchObject({
-      requirements: [{ reviewStatus: 'approved' }],
-      criteria: [{ reviewStatus: 'pending' }],
+      requirements: [
+        {
+          kind: 'requirement',
+          content: 'Resume interviews after reload',
+        },
+      ],
+      criteria: [
+        {
+          kind: 'criterion',
+          content: 'Reload restores the active path',
+        },
+      ],
     });
+
+    const parsed = entitiesDataSchema.parse({
+      goals: [],
+      terms: [],
+      contexts: [],
+      constraints: [],
+      requirements: [
+        {
+          id: 2,
+          project_id: 1,
+          kind: 'requirement',
+          subtype: null,
+          content: 'Resume interviews after reload',
+          rationale: 'Users leave mid-flow',
+          reviewStatus: 'approved',
+        },
+      ],
+      criteria: [
+        {
+          id: 3,
+          project_id: 1,
+          kind: 'criterion',
+          subtype: 'acceptance',
+          content: 'Reload restores the active path',
+          rationale: 'This proves persistence works',
+          reviewStatus: 'pending',
+        },
+      ],
+      decisions: [],
+      assumptions: [],
+      relationships: [],
+    });
+
+    expect(parsed.requirements[0]).not.toHaveProperty('reviewStatus');
+    expect(parsed.criteria[0]).not.toHaveProperty('reviewStatus');
   });
 
   it('accepts the full persisted edge relation vocabulary in entity payloads', () => {
@@ -285,6 +330,30 @@ describe('api transport contracts', () => {
         ],
       }),
     ).toBeTruthy();
+
+    const parsed = entitiesDataSchema.parse({
+      goals: [],
+      terms: [],
+      contexts: [],
+      constraints: [],
+      requirements: [],
+      criteria: [
+        {
+          id: 5,
+          project_id: 1,
+          kind: 'criterion',
+          subtype: null,
+          content: 'Export reflects the trusted graph state',
+          rationale: null,
+          reviewStatus: 'pending',
+        },
+      ],
+      decisions: [],
+      assumptions: [],
+      relationships: [],
+    });
+
+    expect(parsed.criteria[0]).not.toHaveProperty('reviewStatus');
   });
 
   it('validates the current export and mutation payload shapes', () => {

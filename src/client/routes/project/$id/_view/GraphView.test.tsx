@@ -59,7 +59,6 @@ function populatedEntities(): EntitiesData {
         subtype: null,
         content: 'Export spec as markdown',
         rationale: null,
-        reviewStatus: 'approved',
       },
     ],
     criteria: [],
@@ -149,7 +148,7 @@ describe('GraphView', () => {
     expect(screen.getByText('Ship a working MVP')).toBeTruthy();
   });
 
-  it('shows review status badges on requirements and criteria', () => {
+  it('keeps requirement cards free of legacy review-status badges', () => {
     render(<GraphView entityState={populatedEntities()} />);
 
     const requirementCard = screen.getByText('Export spec as markdown').closest('[data-entity-card]')!;
