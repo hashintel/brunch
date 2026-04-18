@@ -13,7 +13,8 @@ Full-fidelity frontier. The demo shortcut period is over; the active burden is n
    - Traceability: D90, D93; A52; I87.
    - What this slice must accomplish:
      - make the active requirements / criteria frontier read as a synthesized set review, not a generic interview question card
-     - show the current candidate set, stable reference codes, and the lightweight review action seam (`accept review` / `request changes` + one note) without per-item approval affordances
+     - show the current candidate set, stable reference codes, and the lightweight whole-set review seam (`accept review` / `request changes` + one authoritative note) without reintroducing per-item approval authority
+     - preserve the richer shared `ReviewSetCard` structure, including future-facing per-item comment affordances, unless a later explicit design decision changes that boundary
      - make live and hydrated turns render through the same review-specific card family
      - remove remaining presentation assumptions that requirements / criteria are just another branch of the ordinary Q&A surface
 
@@ -93,11 +94,9 @@ Full-fidelity frontier. The demo shortcut period is over; the active burden is n
 
 ## Recently Completed
 
-- 2026-04-18 — **Lightweight review card cutover for active review turns** — requirements and criteria review turns now render through the same lightweight review-set card in both persisted and streamed pending states, legacy per-item comment/stat affordances are removed from the active review surface, and the component story now matches the one-note full-set review seam. Done: `npm run verify`. Watch: Active item 1 still includes broader review-phase distinctness and later handoff/completion polish.
+- 2026-04-18 — **Shared review-card route cutover with preserved card structure** — requirements and criteria review turns now render through the same `ReviewSetCard` path in both persisted and streamed pending states, while the richer shared card structure (stats and per-item comment affordances) remains intact even though review authority stays at the whole-set accept/request-changes seam. Done: `npm run verify`. Watch: Active item 1 still includes broader review-phase distinctness and later handoff/completion polish.
 - 2026-04-18 — **Accepted-set authority cleanup and legacy review semantics retirement** — replaced `reviewStatus`-driven downstream behavior with accepted-set projections, removed review badges from the UI, rewired requirements / criteria review prompts and submission semantics around explicit full-set review actions, and updated seeded walkthrough fixtures so confirmed review sets replay through the same accepted-set seam used at runtime. Done: `npm run verify`.
 - 2026-04-18 — **Explicit review-action payload seam for full-set review turns** — requirements and criteria review turns now carry explicit `reviewActions` metadata in the persisted tool payload, the submit path validates and persists the matching explicit `reviewAction`, targeted `requirementReview` / `criterionReview` turn metadata and per-item response writes are retired, and seeded review fixtures replay through the same contract. Done: `npm run verify`. Watch: accepted-set projection still depends on legacy `reviewStatus` reads until the next cleanup slice lands.
-- 2026-04-16 — **Transcript parity for existing turn families** — persisted assistant-side replay now stores concise activity summaries instead of raw reasoning / tool parts, hydrated answered / frontier cards reuse the same activity-placeholder family as live transcript updates, and route invalidation no longer needs generic placeholder fallbacks for existing turn families. Done: `npm run verify`. Watch: manual reload / invalidation walkthrough still outstanding.
-- 2026-04-16 — **DrawerCard-based question card family and generating-turn placeholder** — ordinary interview turns now render through dedicated question-card components: compact answered cards, expanded active cards, inline activity placeholders, and a skeleton-backed generating-turn placeholder, replacing the older generic turn-card treatment for question-turn replay and in-flight generation.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
