@@ -13,6 +13,7 @@ import { ScrollArea } from '@/client/components/ui/scroll-area';
 import { Separator } from '@/client/components/ui/separator';
 import { Textarea } from '@/client/components/ui/textarea';
 import { cn } from '@/client/lib/utils';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
 // ── Data types ───────────────────────────────────────────────────────
 
@@ -58,6 +59,8 @@ const impactBg: Record<Impact, string> = {
 
 // ── Fixture data ─────────────────────────────────────────────────────
 
+const code = createKnowledgeReferenceCode;
+
 const sampleOptions: TurnOption[] = [
   { id: 1, content: 'Flag conflicts for human resolution' },
   { id: 2, content: 'Auto-resolve using priority weights', isRecommended: true },
@@ -72,7 +75,13 @@ const answeredTurnVariants: AnsweredTurnData[] = [
     impact: 'high',
     chosen: ['New validation features exposed to users', 'Full UX redesign around mathematical primitives'],
     context: 'This really is an important architectural decision that affects every downstream team.',
-    captured: [{ code: 'ASM-5' }, { code: 'ASM-6' }, { code: 'DEC-2' }, { code: 'CST-3' }, { code: 'CST-4' }],
+    captured: [
+      { code: code('assumption', 5) },
+      { code: code('assumption', 6) },
+      { code: code('decision', 2) },
+      { code: code('constraint', 3) },
+      { code: code('constraint', 4) },
+    ],
     captureStatus: 'done',
   },
   {
@@ -99,7 +108,7 @@ const answeredTurnVariants: AnsweredTurnData[] = [
     impact: 'medium',
     chosen: ['WebSocket-based real-time push', 'SSE fallback for constrained environments'],
     context: null,
-    captured: [{ code: 'DEC-1' }, { code: 'REQ-2' }],
+    captured: [{ code: code('decision', 1) }, { code: code('requirement', 2) }],
     captureStatus: 'done',
   },
   {
@@ -108,7 +117,7 @@ const answeredTurnVariants: AnsweredTurnData[] = [
     impact: 'high',
     chosen: null,
     context: 'Full migration should happen in staged batches with rollback capability at each step.',
-    captured: [{ code: 'GOL-1' }],
+    captured: [{ code: code('goal', 1) }],
     captureStatus: 'done',
   },
   {
@@ -117,7 +126,7 @@ const answeredTurnVariants: AnsweredTurnData[] = [
     impact: 'medium',
     chosen: ['None'],
     context: 'The real option is a hybrid RBAC/ABAC model scoped per tenant with cross-tenant federation.',
-    captured: [{ code: 'CTX-1' }],
+    captured: [{ code: code('context', 1) }],
     captureStatus: 'done',
   },
 ];

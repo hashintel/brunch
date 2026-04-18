@@ -8,10 +8,13 @@ import { DrawerCard } from '@/client/components/drawer-card';
 import { Checkbox } from '@/client/components/ui/checkbox';
 import { Textarea } from '@/client/components/ui/textarea';
 import { cn } from '@/client/lib/utils';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
 export default {
   title: 'Patterns / Chat',
 } satisfies StoryDefault;
+
+const code = createKnowledgeReferenceCode;
 
 // ── Types ───────────────────────────────────────────────────────────
 
@@ -245,7 +248,7 @@ const answeredTurns: (AnsweredTurnData & { seconds: number; tools: string[] })[]
     impact: 'high',
     chosen: ['Structured spec elicitation'],
     context: 'We need to replace the ad-hoc interview notes with something repeatable.',
-    captured: ['G1', 'G2', 'CTX1'],
+    captured: [code('goal', 1), code('goal', 2), code('context', 1)],
     captureStatus: 'done',
     seconds: 4,
     tools: ['Read', 'Bash'],
@@ -257,7 +260,7 @@ const answeredTurns: (AnsweredTurnData & { seconds: number; tools: string[] })[]
     impact: 'high',
     chosen: ['Single-user for v1', 'Collaboration deferred to v2'],
     context: 'Multi-tenant adds too much complexity for the timeline we have.',
-    captured: ['A1', 'A2', 'D1', 'CTX2'],
+    captured: [code('assumption', 1), code('assumption', 2), code('decision', 1), code('context', 2)],
     captureStatus: 'done',
     seconds: 7,
     tools: ['Read', 'Bash'],
@@ -268,7 +271,7 @@ const answeredTurns: (AnsweredTurnData & { seconds: number; tools: string[] })[]
     impact: 'medium',
     chosen: ['SQLite'],
     context: null,
-    captured: ['D2', 'D3'],
+    captured: [code('decision', 2), code('decision', 3)],
     captureStatus: 'done',
     seconds: 3,
     tools: ['Read'],
@@ -280,7 +283,13 @@ const answeredTurns: (AnsweredTurnData & { seconds: number; tools: string[] })[]
     impact: 'high',
     chosen: ['New validation features exposed to users', 'Full UX redesign'],
     context: 'This really is an important architectural decision that affects every downstream team.',
-    captured: ['A5', 'A6', 'D4', 'CR1', 'CR2'],
+    captured: [
+      code('assumption', 5),
+      code('assumption', 6),
+      code('decision', 4),
+      code('criterion', 1),
+      code('criterion', 2),
+    ],
     captureStatus: 'done',
     seconds: 12,
     tools: ['Read', 'Grep'],
@@ -291,7 +300,7 @@ const answeredTurns: (AnsweredTurnData & { seconds: number; tools: string[] })[]
     impact: 'medium',
     chosen: ['Flag conflicts for human resolution'],
     context: 'Auto-resolve felt too risky given the regulatory context.',
-    captured: ['R1', 'R2'],
+    captured: [code('requirement', 1), code('requirement', 2)],
     captureStatus: 'done',
     seconds: 5,
     tools: ['Read', 'Bash'],
@@ -302,7 +311,7 @@ const answeredTurns: (AnsweredTurnData & { seconds: number; tools: string[] })[]
     impact: 'low',
     chosen: ['Feature flags for gradual deprecation'],
     context: null,
-    captured: ['D5'],
+    captured: [code('decision', 5)],
     captureStatus: 'done',
     seconds: 2,
     tools: ['Read'],

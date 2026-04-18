@@ -12,84 +12,97 @@ import {
 } from '@/client/components/review-set-card';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import { Separator } from '@/client/components/ui/separator';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
 // ── Fixture data ─────────────────────────────────────────────────────
 
+const code = createKnowledgeReferenceCode;
+
 const initialItems: ReviewSetCardItem[] = [
   {
-    referenceCode: 'R1',
+    referenceCode: code('requirement', 1),
     content: 'Live cursor presence indicators for all active collaborators',
     rationale:
       'Multiple stakeholders emphasized real-time awareness as critical for concurrent editing workflows.',
-    grounding: [{ code: 'GOL-1' }, { code: 'GOL-2' }, { code: 'CTX-3' }, { code: 'DEC-1' }],
+    grounding: [
+      { code: code('goal', 1) },
+      { code: code('goal', 2) },
+      { code: code('context', 3) },
+      { code: code('decision', 1) },
+    ],
   },
   {
-    referenceCode: 'R2',
+    referenceCode: code('requirement', 2),
     content: 'Real-time synchronization of document edits across all connected clients',
     rationale:
       'Core product commitment to collaborative editing requires sub-second sync with conflict-free merge semantics.',
     grounding: [
-      { code: 'GOL-1' },
-      { code: 'GOL-3' },
-      { code: 'CTX-1' },
-      { code: 'CST-2' },
-      { code: 'DEC-3' },
-      { code: 'ASM-1' },
-      { code: 'ASM-2' },
+      { code: code('goal', 1) },
+      { code: code('goal', 3) },
+      { code: code('context', 1) },
+      { code: code('constraint', 2) },
+      { code: code('decision', 3) },
+      { code: code('assumption', 1) },
+      { code: code('assumption', 2) },
     ],
   },
   {
-    referenceCode: 'R3',
+    referenceCode: code('requirement', 3),
     content: 'Version history with rollback functionality',
     rationale:
       'Multiple knowledge items point to the need for audit trails and undo capability at the document level.',
-    grounding: [{ code: 'GOL-2' }, { code: 'DEC-4' }, { code: 'CST-1' }],
+    grounding: [{ code: code('goal', 2) }, { code: code('decision', 4) }, { code: code('constraint', 1) }],
   },
   {
-    referenceCode: 'R4',
+    referenceCode: code('requirement', 4),
     content: 'Offline editing mode with automatic conflict resolution on reconnect',
     rationale: 'Enterprise users in the field need to continue working without network connectivity.',
-    grounding: [{ code: 'CTX-4' }, { code: 'CST-3' }],
+    grounding: [{ code: code('context', 4) }, { code: code('constraint', 3) }],
   },
   {
-    referenceCode: 'R5',
+    referenceCode: code('requirement', 5),
     content: 'Granular permissions control at document, section, and field levels',
     rationale:
       'Multi-tenant architecture requires fine-grained access boundaries to prevent data leakage across teams.',
     grounding: [
-      { code: 'GOL-4' },
-      { code: 'CST-1' },
-      { code: 'CST-4' },
-      { code: 'DEC-2' },
-      { code: 'ASM-3' },
+      { code: code('goal', 4) },
+      { code: code('constraint', 1) },
+      { code: code('constraint', 4) },
+      { code: code('decision', 2) },
+      { code: code('assumption', 3) },
     ],
   },
   {
-    referenceCode: 'R6',
+    referenceCode: code('requirement', 6),
     content: 'Document export in PDF, Markdown, and DOCX formats',
     rationale: 'Interoperability with external stakeholder toolchains was cited across multiple interviews.',
-    grounding: [{ code: 'CTX-2' }, { code: 'DEC-5' }, { code: 'ASM-4' }],
+    grounding: [{ code: code('context', 2) }, { code: code('decision', 5) }, { code: code('assumption', 4) }],
   },
   {
-    referenceCode: 'R7',
+    referenceCode: code('requirement', 7),
     content: 'Collaborative annotation and commenting on document sections',
     rationale: 'Review workflows need inline discussion threads anchored to specific content ranges.',
     grounding: [
-      { code: 'GOL-1' },
-      { code: 'GOL-5' },
-      { code: 'CTX-5' },
-      { code: 'DEC-6' },
-      { code: 'DEC-7' },
-      { code: 'ASM-5' },
+      { code: code('goal', 1) },
+      { code: code('goal', 5) },
+      { code: code('context', 5) },
+      { code: code('decision', 6) },
+      { code: code('decision', 7) },
+      { code: code('assumption', 5) },
     ],
     isUserCreated: true,
   },
   {
-    referenceCode: 'R8',
+    referenceCode: code('requirement', 8),
     content: 'Notification system for document changes with configurable granularity',
     rationale:
       'Users need awareness of changes without information overload; digest frequency should be tunable.',
-    grounding: [{ code: 'GOL-3' }, { code: 'CTX-6' }, { code: 'DEC-8' }, { code: 'ASM-6' }],
+    grounding: [
+      { code: code('goal', 3) },
+      { code: code('context', 6) },
+      { code: code('decision', 8) },
+      { code: code('assumption', 6) },
+    ],
     isRevised: true,
   },
 ];

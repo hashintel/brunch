@@ -1,3 +1,5 @@
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+
 import {
   advanceHead,
   applyTurnResponseSelections,
@@ -93,6 +95,7 @@ function createAcceptedReviewUserParts(turnId: number, selectedOptionIds: number
 }
 
 const issueTrackerManifest = loadManifest('issue-tracker');
+const code = createKnowledgeReferenceCode;
 
 function sliceManifestScenario(scenario: ManifestScenario, turnCount: number): ManifestScenario {
   const turns = scenario.turns.slice(0, turnCount);
@@ -282,22 +285,22 @@ export function seedRequirementsReviewReady(db: DB, projectId: number) {
       why: 'Review the whole requirement set before moving forward.',
       items: [
         {
-          referenceCode: 'R1',
+          referenceCode: code('requirement', 1),
           content: requirementCrud.content,
           rationale: 'Captures the core ticket lifecycle the tool must support from day one.',
-          grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }, { code: 'D1' }],
+          grounding: [{ code: code('goal', 1) }, { code: code('context', 1) }, { code: code('decision', 1) }],
         },
         {
-          referenceCode: 'R2',
+          referenceCode: code('requirement', 2),
           content: requirementAudit.content,
           rationale: 'Protects accountability and traceability for regulated workflows.',
-          grounding: [{ code: 'CTX2' }, { code: 'CST1' }],
+          grounding: [{ code: code('context', 2) }, { code: code('constraint', 1) }],
         },
         {
-          referenceCode: 'R3',
+          referenceCode: code('requirement', 3),
           content: requirementPermissions.content,
           rationale: 'Ensures each role sees only the operations appropriate to its responsibility.',
-          grounding: [{ code: 'GOAL2' }, { code: 'CST2' }],
+          grounding: [{ code: code('goal', 2) }, { code: code('constraint', 2) }],
           isRevised: true,
         },
       ],
@@ -351,16 +354,16 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
       why: 'Review the whole requirement set before moving forward.',
       items: [
         {
-          referenceCode: 'R1',
+          referenceCode: code('requirement', 1),
           content: approvedRequirement.content,
           rationale: 'Keeps resume behavior explicit in the accepted requirement set.',
-          grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+          grounding: [{ code: code('goal', 1) }, { code: code('context', 1) }],
         },
         {
-          referenceCode: 'R2',
+          referenceCode: code('requirement', 2),
           content: supportingRequirement.content,
           rationale: 'Preserves the local-first persistence seam as a first-order concern.',
-          grounding: [{ code: 'D1' }, { code: 'A1' }],
+          grounding: [{ code: code('decision', 1) }, { code: code('assumption', 1) }],
         },
       ],
     }),
@@ -472,23 +475,23 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
       why: 'Review the whole criterion set before moving forward.',
       items: [
         {
-          referenceCode: 'CRIT1',
+          referenceCode: code('criterion', 1),
           content: criterionAudit.content,
           rationale: 'Makes the audit requirement observable in a seeded acceptance check.',
-          grounding: [{ code: 'R1' }, { code: 'CTX2' }],
+          grounding: [{ code: code('requirement', 1) }, { code: code('context', 2) }],
         },
         {
-          referenceCode: 'CRIT2',
+          referenceCode: code('criterion', 2),
           content: criterionPermissions.content,
           rationale: 'Verifies role-based visibility through a concrete denial path.',
-          grounding: [{ code: 'R1' }, { code: 'CST2' }],
+          grounding: [{ code: code('requirement', 1) }, { code: code('constraint', 2) }],
           isUserCreated: true,
         },
         {
-          referenceCode: 'CRIT3',
+          referenceCode: code('criterion', 3),
           content: criterionPerformance.content,
           rationale: 'Pins the seeded demo to a legible performance target.',
-          grounding: [{ code: 'R1' }, { code: 'A1' }],
+          grounding: [{ code: code('requirement', 1) }, { code: code('assumption', 1) }],
           isRevised: true,
         },
       ],
@@ -537,16 +540,16 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
       why: 'Review the whole criterion set before moving forward.',
       items: [
         {
-          referenceCode: 'CRIT1',
+          referenceCode: code('criterion', 1),
           content: criterion.content,
           rationale: 'Provides a concise seeded acceptance check for the resume path.',
-          grounding: [{ code: 'R1' }],
+          grounding: [{ code: code('requirement', 1) }],
         },
         {
-          referenceCode: 'CRIT2',
+          referenceCode: code('criterion', 2),
           content: supportingCriterion.content,
           rationale: 'Shows the user-visible reload behavior that proves persistence worked.',
-          grounding: [{ code: 'R1' }, { code: 'CTX1' }],
+          grounding: [{ code: code('requirement', 1) }, { code: code('context', 1) }],
         },
       ],
     }),
