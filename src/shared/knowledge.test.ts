@@ -5,6 +5,7 @@ import {
   knowledgeCollectionKeyByKind,
   knowledgeEntityCollectionByKind,
   knowledgeEntityCollections,
+  knowledgeKindDurabilityPolicies,
   knowledgeKindReferencePrefixes,
   knowledgeKindRegistry,
   knowledgeKindSemanticRoles,
@@ -171,6 +172,19 @@ describe('knowledge kind registry', () => {
       focusKinds: ['criterion'],
       allowedKinds: ['goal', 'term', 'context', 'constraint', 'criterion'],
       correctionKinds: ['goal', 'term', 'context', 'constraint'],
+    });
+  });
+
+  it('makes requirement and criterion durability authority explicit', () => {
+    expect(knowledgeKindDurabilityPolicies).toEqual({
+      goal: { authority: 'observer_capture', family: 'exploration', reviewPhase: null },
+      term: { authority: 'observer_capture', family: 'exploration', reviewPhase: null },
+      context: { authority: 'observer_capture', family: 'exploration', reviewPhase: null },
+      constraint: { authority: 'observer_capture', family: 'exploration', reviewPhase: null },
+      requirement: { authority: 'accepted_review', family: 'review', reviewPhase: 'requirements' },
+      criterion: { authority: 'accepted_review', family: 'review', reviewPhase: 'criteria' },
+      decision: { authority: 'observer_capture', family: 'exploration', reviewPhase: null },
+      assumption: { authority: 'observer_capture', family: 'exploration', reviewPhase: null },
     });
   });
 });

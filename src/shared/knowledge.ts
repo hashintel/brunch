@@ -165,6 +165,15 @@ export interface ObserverPhaseOntologyPolicy {
   deferredKinds?: readonly KnowledgeKind[];
 }
 
+export type KnowledgeKindDurabilityAuthority = 'observer_capture' | 'accepted_review';
+export type KnowledgeKindOntologyFamily = 'exploration' | 'review';
+
+export interface KnowledgeKindDurabilityPolicy {
+  authority: KnowledgeKindDurabilityAuthority;
+  family: KnowledgeKindOntologyFamily;
+  reviewPhase: Extract<ObserverPhase, 'requirements' | 'criteria'> | null;
+}
+
 export const observerPhaseOntologyPolicies = {
   scope: {
     focusKinds: ['goal', 'term', 'context', 'constraint'],
@@ -188,6 +197,49 @@ export const observerPhaseOntologyPolicies = {
     correctionKinds: ['goal', 'term', 'context', 'constraint'],
   },
 } as const satisfies Record<ObserverPhase, ObserverPhaseOntologyPolicy>;
+
+export const knowledgeKindDurabilityPolicies = {
+  goal: {
+    authority: 'observer_capture',
+    family: 'exploration',
+    reviewPhase: null,
+  },
+  term: {
+    authority: 'observer_capture',
+    family: 'exploration',
+    reviewPhase: null,
+  },
+  context: {
+    authority: 'observer_capture',
+    family: 'exploration',
+    reviewPhase: null,
+  },
+  constraint: {
+    authority: 'observer_capture',
+    family: 'exploration',
+    reviewPhase: null,
+  },
+  requirement: {
+    authority: 'accepted_review',
+    family: 'review',
+    reviewPhase: 'requirements',
+  },
+  criterion: {
+    authority: 'accepted_review',
+    family: 'review',
+    reviewPhase: 'criteria',
+  },
+  decision: {
+    authority: 'observer_capture',
+    family: 'exploration',
+    reviewPhase: null,
+  },
+  assumption: {
+    authority: 'observer_capture',
+    family: 'exploration',
+    reviewPhase: null,
+  },
+} as const satisfies { [K in KnowledgeKind]: KnowledgeKindDurabilityPolicy };
 
 export function createKnowledgeReferenceCode(kind: KnowledgeKind, ordinal: number): string {
   return `${knowledgeKindRegistryByKind[kind].referenceCodePrefix}${ordinal}`;
