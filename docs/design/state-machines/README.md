@@ -144,6 +144,173 @@ and the name makes that explicit.
   machine is silent on who that actor is; likely an interviewer follow-up
   run or a scripted fallback.
 
+## Known gaps
+
+These are the things most likely to be missed or go wrong given the current
+model. They are ordered roughly by how load-bearing they are for the
+invariants already claimed.
+
+### Hydration mid-flight is not modeled
+
+The machines cover the happy startup paths: `SPEC_HYDRATED` lands in
+`phase_running`, in `seeding_next_kickoff`, or in `complete` depending on
+durable state. They do not cover crashing or reloading *inside*
+`generating_successor`, `interviewer_processing`, `recording_phase_outcome`,
+or `seeding_next_kickoff`.
+
+What can go wrong:
+- Reload during `generating_successor`: the in-flight generation is lost,
+  and if no durable successor turn was written, the frontier pointer still
+  points at the previously-answered turn. Without an explicit rule, the
+  system could silently reopen to `awaiting_reply` on an already-answered
+  frontier, or worse, appear to have no frontier at all.
+- Reload during `recording_phase_outcome`: the durable write may or may
+  not have landed. The hydration path needs to distinguish "outcome
+  recorded but next kickoff not seeded" from "outcome not recorded."
+- Reload during `seeding_next_kickoff`: similar — the kickoff turn may or
+  may not exist in durable storage.
+
+What is missing: a hydration rule that, given the persisted turn graph and
+phase-outcome records, computes which statechart node to land in. Likely
+rules: frontier turn id matches an unanswered durable turn → `awaiting_reply`;
+frontier turn id matches an answered turn with no successor → `awaiting_recovery`;
+most recent phase-outcome record without a seeded next kickoff →
+`seeding_next_kickoff`; and so on. This rule should be written down and
+encoded into the `SPEC_HYDRATED` guards.
+
+### Interviewer agent lifecycle is outside the chart
+
+SPEC.md D30 and A28 treat the interviewer as a long-lived `ToolLoopAgent`
+that spans turns. The phase machine treats `INTERVIEWER_DECIDED` as an
+arriving fact but does not name who starts, resumes, pauses, or tears down
+the interviewer.
+
+What can go wrong:
+- Two interviewer runs racing if the machine re-enters
+  `interviewer_processing` while a prior run is still active.
+- Interviewer holding streaming connections past a force-close, leaking
+  resources or emitting `INTERVIEWER_DECIDED` into a machine that has
+  already transitioned to `closed_via_force`.
+- Ambiguity about which phase "owns" the interviewer session when the
+  underlying agent is spec-level or longer-lived.
+
+What is missing: a model for invoking the interviewer as a child actor of
+the phase machine (or spec machine), with explicit start on entering
+`interviewer_processing`, cancel on exit, and an output contract that maps
+to `INTERVIEWER_DECIDED`.
+
+### Observer queue persistence across restarts
+
+`p-queue` is in-memory. If the process crashes with pending observer
+captures, those are lost. There is no state in either machine that tracks
+"turns whose capture has not yet succeeded."
+
+What can go wrong:
+- A turn answered just before a crash permanently loses its observer
+  extraction, silently reducing knowledge-graph coverage.
+- Hydration cannot reconstruct which captures to re-enqueue without a
+  durable capture-status field on each turn record.
+
+What is missing: a persistence contract for per-turn capture status plus
+a hydration step that re-seeds the queue from turns whose status is
+`pending` or `failed`. The `SPEC_HYDRATED` event could carry a
+`pendingCaptureTurnIds: TurnId[]` array.
+
+### Turn-durability ordering is implicit
+
+The phase machine assumes `SUCCESSOR_GENERATED` fires *after* the new turn
+is durable, because the event carries a real turn id that the machine
+then writes into `frontierTurnId`. If this ordering ever flipped —
+emitting the event before persisting, or persisting a turn without firing
+the event — the "no open phase without a frontier" invariant would
+silently break.
+
+What can go wrong:
+- A successor turn is persisted but the event is lost: frontier advances
+  in durable storage but the machine still points at the old frontier.
+- The event fires before persistence completes and the persistence fails:
+  machine believes the new frontier exists; reload disagrees.
+
+What is missing: a comment in the phase machine (and in the interviewer
+integration code) pinning this ordering, and ideally a small integration
+test that asserts "turn durable before SUCCESSOR_GENERATED event."
+
+### Closure rejection has no explicit path
+
+When a user rejects a closure turn proposal (D94), the machine handles it
+as a normal `REPLY_SUBMITTED`, with the interviewer then producing a
+same-phase successor. This works implicitly but is unnamed in the chart
+and in the events.
+
+What can go wrong:
+- A reader of the chart assumes there is no way to reject a closure turn
+  because no state or event calls it out.
+- The interviewer's decision on a closure rejection accidentally routes
+  to `closure_proposal` again, causing an immediate re-proposal loop.
+
+What is missing: either an explicit `CLOSURE_REJECTED` event distinct
+from `REPLY_SUBMITTED`, or a comment in `interviewer_processing` noting
+that closure-turn replies flow through the normal path and that the
+interviewer is responsible for not immediately re-proposing closure.
+
+### Event arrival races
+
+XState serializes events per actor, but external systems emitting into
+the machine can race. Notable cases:
+- `REPLY_SUBMITTED` and `FORCE_CLOSE_REQUESTED` arriving near-simultaneously.
+- `INTERVIEWER_DECIDED` arriving after the machine already transitioned
+  (e.g., force-close landed first).
+- `SUCCESSOR_GENERATED` arriving after `FORCE_CLOSE_REQUESTED`.
+
+What can go wrong:
+- Late `INTERVIEWER_DECIDED` or `SUCCESSOR_GENERATED` events landing in a
+  final state are silently dropped by XState — which is correct, but
+  side effects tied to those events (e.g., writing the generated turn to
+  durable storage) may have already happened. The machine has no undo.
+
+What is missing: an explicit rule for handling late events after force
+close, ideally at the integration-code layer (cancel the interviewer,
+discard in-flight generation) rather than inside the chart. Worth naming
+in this document so it is not forgotten.
+
+### Recovery turn origination is unspecified
+
+`awaiting_recovery` relies on some external actor creating a recovery
+turn and firing `RECOVERY_GENERATED`. The chart says nothing about who
+that actor is, what triggers it, or what happens if it fails.
+
+What can go wrong:
+- Phase is permanently stuck in `awaiting_recovery` with no mechanism to
+  produce a recovery turn.
+- Recovery-turn generation itself fails and there is no
+  `RECOVERY_FAILED` event — the only failure paths in the current chart
+  are `GENERATION_FAILED` from the forward direction.
+
+What is missing: either a recovery-generator child actor invoked on
+entry to `awaiting_recovery` (with its own failure handling), or a
+product decision that recovery is always user-triggered (in which case
+the chart should reflect that the user has an explicit affordance).
+
+### Multi-spec / workspace level is uncovered
+
+Per SPEC.md Requirement 15, the dashboard shows multiple specifications
+per workspace. The current design stops at the single-spec level; there
+is no workspace-level machine coordinating which spec actor is alive,
+how specs are persisted as actor state, or how navigation across specs
+interacts with any running spec actor.
+
+Likely low-risk because each spec machine is independent, but worth
+naming so it is not discovered late.
+
+### Revisit and secondary threads are out of scope
+
+D80's knowledge-graph revisit and modal secondary threads are explicit
+future work in SPEC.md. They are outside the current machines. When they
+land, they will likely need their own small machine (secondary thread
+lifecycle) and a seam by which they can invalidate knowledge items on
+the main path — which may in turn require the phase machine to react to
+invalidation events. Flagged here as a known future integration point.
+
 ## Files
 
 - `phase-machine.ts` — phase frontier machine

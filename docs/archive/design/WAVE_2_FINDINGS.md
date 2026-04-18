@@ -8,7 +8,7 @@ Status: **in progress**. These findings are a first pass, not a full walkthrough
 
 Grounding docs:
 
-- `docs/design/WAVE_2_PREP.md`
+- `docs/archive/design/WAVE_2_PREP.md`
 - `docs/praxis/manual-testing.md`
 - `docs/design/DESIGN_SCRATCH.md`
 - `docs/research/tanstack-loaders-vs-queries.md`

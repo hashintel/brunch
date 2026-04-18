@@ -261,4 +261,4 @@ Do not scope the next two slices until we can answer:
 
 ## Immediate next action
 
-Use `memory/PLAN.md`, this prep note, and `docs/design/WAVE_2_FINDINGS.md` as the grounding set for scoping **Workspace semantic shell scaffolding**.
+Historical note: this prep artifact was archived after its findings were absorbed into later planning and implementation. If revisiting the original evidence set, read this file alongside `memory/PLAN.md` at the corresponding revision and `docs/archive/design/WAVE_2_FINDINGS.md`.
