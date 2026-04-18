@@ -2543,6 +2543,27 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       why: 'Review the whole requirement set before moving forward.',
       impact: 'high',
       answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-requirements-review',
+          state: 'output-available',
+          input: {
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            options: [
+              { content: 'Ship this set', is_recommended: true },
+              { content: 'Revise this set', is_recommended: false },
+            ],
+            reviewActions: [
+              { action: 'accept', optionPosition: 0 },
+              { action: 'request-changes', optionPosition: 1 },
+            ],
+          },
+          output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+      ]),
     });
     createOption(db, reviewTurn.id, {
       position: 0,
@@ -2628,6 +2649,27 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       why: 'Review the whole requirement set before moving forward.',
       impact: 'high',
       answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-requirements-review',
+          state: 'output-available',
+          input: {
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            options: [
+              { content: 'Ship this set', is_recommended: true },
+              { content: 'Revise this set', is_recommended: false },
+            ],
+            reviewActions: [
+              { action: 'accept', optionPosition: 0 },
+              { action: 'request-changes', optionPosition: 1 },
+            ],
+          },
+          output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+      ]),
     });
     createOption(db, reviewTurn.id, {
       position: 0,
@@ -2681,134 +2723,23 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
   });
 
-  it('persists explicit approved review state for a targeted requirement through the response seam', async () => {
+  it('rejects requirements review submissions that omit the explicit reviewAction', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
-    const { advanceHead, createKnowledgeItem, createOption, createTurn, updateTurn } =
-      await import('./db.js');
+    const { advanceHead, createOption, createTurn, updateTurn } = await import('./db.js');
 
-    const approvedRequirement = createKnowledgeItem(db, projectId, 'requirement', 'Export the reviewed spec');
-    const pendingRequirement = createKnowledgeItem(
-      db,
-      projectId,
-      'requirement',
-      'Resume the interview from SQLite after restart',
-    );
     const reviewInput = {
-      question: `Should we approve requirement [${approvedRequirement.id}] Export the reviewed spec?`,
-      why: 'Requirements review should record explicit approval state one item at a time.',
+      question: 'Please review the current requirement set.',
+      why: 'Review turns must persist explicit accept/request-changes semantics.',
       impact: 'high' as const,
       options: [
-        { content: 'Approve this requirement', is_recommended: true },
-        { content: 'This requirement needs correction', is_recommended: false },
+        { content: 'Accept review', is_recommended: true },
+        { content: 'Request changes', is_recommended: false },
       ],
-      requirementReview: {
-        kind: 'requirement-approval' as const,
-        requirementId: approvedRequirement.id,
-        approveOptionPosition: 0,
-      },
-    };
-
-    const reviewTurn = createTurn(db, projectId, {
-      phase: 'requirements',
-      parent_turn_id: seededRequirements.designConfirmationTurn.id,
-      question: reviewInput.question,
-      why: reviewInput.why,
-      impact: reviewInput.impact,
-      answer: '',
-    });
-    createOption(db, reviewTurn.id, {
-      position: 0,
-      content: 'Approve this requirement',
-      is_recommended: true,
-    });
-    createOption(db, reviewTurn.id, {
-      position: 1,
-      content: 'This requirement needs correction',
-      is_recommended: false,
-    });
-    updateTurn(db, reviewTurn.id, {
-      assistant_parts: JSON.stringify([
-        {
-          type: 'tool-ask_question',
-          toolCallId: 'tool-review',
-          state: 'output-available',
-          input: reviewInput,
-          output: { ok: true, turnId: reviewTurn.id, optionCount: reviewInput.options.length },
-        },
-      ]),
-    });
-    advanceHead(db, projectId, reviewTurn.id);
-
-    await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ kind: 'select-options', positions: [0] })
-      .expect(200);
-
-    const reviewedRows = db.$client
-      .prepare(
-        `SELECT item_id, turn_id, relation FROM turn_knowledge_item WHERE relation = 'reviewed' ORDER BY item_id`,
-      )
-      .all() as Array<{ item_id: number; turn_id: number; relation: string }>;
-    expect(reviewedRows).toEqual([
-      {
-        item_id: approvedRequirement.id,
-        turn_id: reviewTurn.id,
-        relation: 'reviewed',
-      },
-    ]);
-
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    expect(projectRes.body.workflow.phases.requirements).toEqual(
-      expect.objectContaining({
-        status: 'in_progress',
-        closeability: false,
-        proposalPending: false,
-      }),
-    );
-
-    const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
-      .expect(200);
-    expect(entitiesRes.body.requirements).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: approvedRequirement.id, reviewStatus: 'approved' }),
-        expect.objectContaining({ id: pendingRequirement.id, reviewStatus: 'pending' }),
-      ]),
-    );
-  });
-
-  it('persists explicit rejected review state for a targeted requirement through the response seam', async () => {
-    const projectId = await createTestProject();
-    const seededRequirements = seedRequirementsReady(projectId);
-    const { advanceHead, createKnowledgeItem, createOption, createTurn, updateTurn } =
-      await import('./db.js');
-
-    const rejectedRequirement = createKnowledgeItem(
-      db,
-      projectId,
-      'requirement',
-      'Support exporting the spec as a PDF',
-    );
-    const pendingRequirement = createKnowledgeItem(
-      db,
-      projectId,
-      'requirement',
-      'Resume the interview from SQLite after restart',
-    );
-    const reviewInput = {
-      question: `Should we reject requirement [${rejectedRequirement.id}] Support exporting the spec as a PDF?`,
-      why: 'Requirements review should record explicit rejection state one item at a time.',
-      impact: 'high' as const,
-      options: [
-        { content: 'Reject this requirement', is_recommended: true },
-        { content: 'Keep this requirement for now', is_recommended: false },
+      reviewActions: [
+        { action: 'accept' as const, optionPosition: 0 },
+        { action: 'request-changes' as const, optionPosition: 1 },
       ],
-      requirementReview: {
-        kind: 'requirement-rejection' as const,
-        requirementId: rejectedRequirement.id,
-        rejectOptionPosition: 0,
-      },
     };
 
     const reviewTurn = createTurn(db, projectId, {
@@ -2845,39 +2776,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     await request(app)
       .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
       .send({ kind: 'select-options', positions: [0] })
-      .expect(200);
-
-    const rejectedRows = db.$client
-      .prepare(
-        `SELECT item_id, turn_id, relation FROM turn_knowledge_item WHERE relation = 'rejected' ORDER BY item_id`,
-      )
-      .all() as Array<{ item_id: number; turn_id: number; relation: string }>;
-    expect(rejectedRows).toEqual([
-      {
-        item_id: rejectedRequirement.id,
-        turn_id: reviewTurn.id,
-        relation: 'rejected',
-      },
-    ]);
-
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    expect(projectRes.body.workflow.phases.requirements).toEqual(
-      expect.objectContaining({
-        status: 'in_progress',
-        closeability: false,
-        proposalPending: false,
-      }),
-    );
-
-    const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
-      .expect(200);
-    expect(entitiesRes.body.requirements).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: rejectedRequirement.id, reviewStatus: 'rejected' }),
-        expect.objectContaining({ id: pendingRequirement.id, reviewStatus: 'pending' }),
-      ]),
-    );
+      .expect(400);
   });
 
   it('accepting the criteria full-set review uses explicit reviewAction instead of option copy', async () => {
@@ -2905,6 +2804,27 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       why: 'Review the whole criterion set before moving forward.',
       impact: 'high',
       answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-criteria-review',
+          state: 'output-available',
+          input: {
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            options: [
+              { content: 'Ship this set', is_recommended: true },
+              { content: 'Revise this set', is_recommended: false },
+            ],
+            reviewActions: [
+              { action: 'accept', optionPosition: 0 },
+              { action: 'request-changes', optionPosition: 1 },
+            ],
+          },
+          output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+      ]),
     });
     createOption(db, reviewTurn.id, {
       position: 0,
@@ -2971,6 +2891,27 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       why: 'Review the whole criterion set before moving forward.',
       impact: 'high',
       answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-criteria-review',
+          state: 'output-available',
+          input: {
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            options: [
+              { content: 'Ship this set', is_recommended: true },
+              { content: 'Revise this set', is_recommended: false },
+            ],
+            reviewActions: [
+              { action: 'accept', optionPosition: 0 },
+              { action: 'request-changes', optionPosition: 1 },
+            ],
+          },
+          output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+      ]),
     });
     createOption(db, reviewTurn.id, {
       position: 0,
@@ -3015,201 +2956,6 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(200);
     expect(entitiesRes.body.criteria).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: criterion.id, reviewStatus: 'pending' })]),
-    );
-  });
-
-  it('persists explicit approved review state for a targeted criterion through the response seam', async () => {
-    const projectId = await createTestProject();
-    const seededCriteria = seedCriteriaReady(projectId);
-    const { advanceHead, createKnowledgeItem, createOption, createTurn, updateTurn } =
-      await import('./db.js');
-
-    const approvedCriterion = createKnowledgeItem(
-      db,
-      projectId,
-      'criterion',
-      'Markdown preview renders the reviewed requirements',
-    );
-    const pendingCriterion = createKnowledgeItem(
-      db,
-      projectId,
-      'criterion',
-      'Restarting the browser resumes the active path',
-    );
-    const reviewInput = {
-      question: `Should we approve criterion [${approvedCriterion.id}] Markdown preview renders the reviewed requirements?`,
-      why: 'Criteria review should record explicit approval state one item at a time.',
-      impact: 'high' as const,
-      options: [
-        { content: 'Approve this criterion', is_recommended: true },
-        { content: 'This criterion needs correction', is_recommended: false },
-      ],
-      criterionReview: {
-        kind: 'criterion-approval' as const,
-        criterionId: approvedCriterion.id,
-        approveOptionPosition: 0,
-      },
-    };
-
-    const reviewTurn = createTurn(db, projectId, {
-      phase: 'criteria',
-      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
-      question: reviewInput.question,
-      why: reviewInput.why,
-      impact: reviewInput.impact,
-      answer: '',
-    });
-    createOption(db, reviewTurn.id, {
-      position: 0,
-      content: 'Approve this criterion',
-      is_recommended: true,
-    });
-    createOption(db, reviewTurn.id, {
-      position: 1,
-      content: 'This criterion needs correction',
-      is_recommended: false,
-    });
-    updateTurn(db, reviewTurn.id, {
-      assistant_parts: JSON.stringify([
-        {
-          type: 'tool-ask_question',
-          toolCallId: 'tool-criterion-review',
-          state: 'output-available',
-          input: reviewInput,
-          output: { ok: true, turnId: reviewTurn.id, optionCount: reviewInput.options.length },
-        },
-      ]),
-    });
-    advanceHead(db, projectId, reviewTurn.id);
-
-    await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ kind: 'select-options', positions: [0] })
-      .expect(200);
-
-    const reviewedRows = db.$client
-      .prepare(
-        `SELECT item_id, turn_id, relation FROM turn_knowledge_item WHERE item_id = ? AND relation = 'reviewed'`,
-      )
-      .all(approvedCriterion.id) as Array<{ item_id: number; turn_id: number; relation: string }>;
-    expect(reviewedRows).toEqual([
-      {
-        item_id: approvedCriterion.id,
-        turn_id: reviewTurn.id,
-        relation: 'reviewed',
-      },
-    ]);
-
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    expect(projectRes.body.workflow.phases.criteria).toEqual(
-      expect.objectContaining({
-        status: 'in_progress',
-        closeability: false,
-        proposalPending: false,
-      }),
-    );
-
-    const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
-      .expect(200);
-    expect(entitiesRes.body.criteria).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: approvedCriterion.id, reviewStatus: 'approved' }),
-        expect.objectContaining({ id: pendingCriterion.id, reviewStatus: 'pending' }),
-      ]),
-    );
-  });
-
-  it('persists explicit rejected review state for a targeted criterion through the response seam', async () => {
-    const projectId = await createTestProject();
-    const seededCriteria = seedCriteriaReady(projectId);
-    const { advanceHead, createKnowledgeItem, createOption, createTurn, updateTurn } =
-      await import('./db.js');
-
-    const rejectedCriterion = createKnowledgeItem(
-      db,
-      projectId,
-      'criterion',
-      'PDF export renders the reviewed requirements',
-    );
-    const pendingCriterion = createKnowledgeItem(
-      db,
-      projectId,
-      'criterion',
-      'Restarting the browser resumes the active path',
-    );
-    const reviewInput = {
-      question: `Should we reject criterion [${rejectedCriterion.id}] PDF export renders the reviewed requirements?`,
-      why: 'Criteria review should record explicit rejection state one item at a time.',
-      impact: 'high' as const,
-      options: [
-        { content: 'Reject this criterion', is_recommended: true },
-        { content: 'Keep this criterion for now', is_recommended: false },
-      ],
-      criterionReview: {
-        kind: 'criterion-rejection' as const,
-        criterionId: rejectedCriterion.id,
-        rejectOptionPosition: 0,
-      },
-    };
-
-    const reviewTurn = createTurn(db, projectId, {
-      phase: 'criteria',
-      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
-      question: reviewInput.question,
-      why: reviewInput.why,
-      impact: reviewInput.impact,
-      answer: '',
-    });
-    createOption(db, reviewTurn.id, {
-      position: 0,
-      content: 'Reject this criterion',
-      is_recommended: true,
-    });
-    createOption(db, reviewTurn.id, {
-      position: 1,
-      content: 'Keep this criterion for now',
-      is_recommended: false,
-    });
-    updateTurn(db, reviewTurn.id, {
-      assistant_parts: JSON.stringify([
-        {
-          type: 'tool-ask_question',
-          toolCallId: 'tool-criterion-review-reject',
-          state: 'output-available',
-          input: reviewInput,
-          output: { ok: true, turnId: reviewTurn.id, optionCount: reviewInput.options.length },
-        },
-      ]),
-    });
-    advanceHead(db, projectId, reviewTurn.id);
-
-    await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ kind: 'select-options', positions: [0] })
-      .expect(200);
-
-    const rejectedRows = db.$client
-      .prepare(
-        `SELECT item_id, turn_id, relation FROM turn_knowledge_item WHERE item_id = ? AND relation = 'rejected'`,
-      )
-      .all(rejectedCriterion.id) as Array<{ item_id: number; turn_id: number; relation: string }>;
-    expect(rejectedRows).toEqual([
-      {
-        item_id: rejectedCriterion.id,
-        turn_id: reviewTurn.id,
-        relation: 'rejected',
-      },
-    ]);
-
-    const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
-      .expect(200);
-    expect(entitiesRes.body.criteria).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: rejectedCriterion.id, reviewStatus: 'rejected' }),
-        expect.objectContaining({ id: pendingCriterion.id, reviewStatus: 'pending' }),
-      ]),
     );
   });
 

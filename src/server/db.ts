@@ -26,7 +26,6 @@ import type {
   WorkflowPhaseStatus,
   WorkflowState as SharedWorkflowState,
 } from '@/shared/api-types.js';
-import { isAskQuestionUIPart, structuredQuestionSchema, type StructuredQuestion } from '@/shared/chat.js';
 import {
   createKnowledgeReferenceCode,
   genericKnowledgeKindRegistry,
@@ -37,11 +36,7 @@ import {
 } from '@/shared/knowledge.js';
 import { parsePhaseClosureCommand, type PhaseClosureBasis } from '@/shared/phase-close.js';
 
-import {
-  safeDeserializeAssistantParts,
-  safeDeserializeUserParts,
-  type DataConfirmationPart,
-} from './parts.js';
+import { safeDeserializeUserParts, type DataConfirmationPart } from './parts.js';
 import * as schema from './schema.js';
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
@@ -756,63 +751,6 @@ function getCriterionEntitiesForProject(db: DB, projectId: number): CriterionEnt
     kind: 'criterion',
     reviewStatus: reviewStatuses.get(item.id) ?? 'pending',
   }));
-}
-
-function getReviewFromTurn<F extends 'requirementReview' | 'criterionReview'>(
-  turn: Pick<Turn, 'assistant_parts'>,
-  field: F,
-): NonNullable<StructuredQuestion[F]> | null {
-  for (const part of safeDeserializeAssistantParts(turn.assistant_parts)) {
-    if (!isAskQuestionUIPart(part) || !('input' in part)) {
-      continue;
-    }
-
-    const parsedInput = structuredQuestionSchema.safeParse(part.input);
-    if (!parsedInput.success || !parsedInput.data[field]) {
-      continue;
-    }
-
-    return parsedInput.data[field];
-  }
-
-  return null;
-}
-
-export function recordReviewFromTurnResponse(
-  db: DB,
-  turn: Turn,
-  selectedPositions: number[],
-  field: 'requirementReview' | 'criterionReview',
-  kind: 'requirement' | 'criterion',
-): void {
-  const review = getReviewFromTurn(turn, field);
-  if (!review) {
-    return;
-  }
-
-  const selectedReviewOptionPosition =
-    'approveOptionPosition' in review ? review.approveOptionPosition : review.rejectOptionPosition;
-  if (!selectedPositions.includes(selectedReviewOptionPosition)) {
-    return;
-  }
-
-  const entityId =
-    kind === 'requirement'
-      ? (review as { requirementId: number }).requirementId
-      : (review as { criterionId: number }).criterionId;
-  const entity = db.select().from(schema.knowledgeItem).where(eq(schema.knowledgeItem.id, entityId)).get() as
-    | KnowledgeItem
-    | undefined;
-  if (!entity || entity.project_id !== turn.project_id || entity.kind !== kind) {
-    return;
-  }
-
-  linkKnowledgeItemToTurn(
-    db,
-    entity.id,
-    turn.id,
-    'approveOptionPosition' in review ? 'reviewed' : 'rejected',
-  );
 }
 
 export function getScopeBundleForProject(db: DB, projectId: number) {

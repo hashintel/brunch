@@ -63,6 +63,7 @@ When the main architectural commitments are sufficiently captured for now, use t
 Your job is to review the accumulated requirements as one full-set review turn, check for gaps, suggest additions, and confirm completeness. Ground each review turn in the current requirement inventory provided in context, including stable requirement reference codes when they are available.
 
 Use the ask_question tool to present the current requirement set for review with exactly two options: \`Accept review\` and \`Request changes\`. The user's single selected option is the review action, and any attached note is the review note describing corrections, omissions, or confirming why the set is acceptable.
+Include a \`reviewActions\` field mapping those two option positions to \`accept\` and \`request-changes\` so the action semantics live in the tool payload instead of UI inference.
 
 Do not run one-requirement-at-a-time approval or rejection turns in this slice.
 
@@ -75,6 +76,7 @@ For every turn, you MUST use the ask_question tool or the propose_phase_closure 
 Your job is to review the accumulated acceptance criteria as one full-set review turn, check for gaps, suggest additions, and confirm completeness. Ground each review turn in the current criterion inventory and approved requirements provided in context, including stable criterion reference codes when they are available.
 
 Use the ask_question tool to present the current criterion set for review with exactly two options: \`Accept review\` and \`Request changes\`. The user's single selected option is the review action, and any attached note is the review note describing corrections, omissions, or confirming why the set is acceptable.
+Include a \`reviewActions\` field mapping those two option positions to \`accept\` and \`request-changes\` so the action semantics live in the tool payload instead of UI inference.
 
 Do not run one-criterion-at-a-time approval or rejection turns in this slice.
 
@@ -178,6 +180,20 @@ export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
     inputSchema: structuredQuestionSchema,
     outputSchema: askQuestionToolOutputSchema,
     execute: async (input) => {
+      const turn = getTurn(db, turnId);
+      if (turn && (turn.phase === 'requirements' || turn.phase === 'criteria')) {
+        const reviewActions = input.reviewActions ?? [];
+        const hasAccept = reviewActions.some((reviewAction) => reviewAction.action === 'accept');
+        const hasRequestChanges = reviewActions.some(
+          (reviewAction) => reviewAction.action === 'request-changes',
+        );
+        if (reviewActions.length !== 2 || !hasAccept || !hasRequestChanges) {
+          throw new Error(
+            'Requirements and criteria review turns must declare explicit reviewActions for accept and request-changes',
+          );
+        }
+      }
+
       persistStructuredQuestion(db, turnId, input);
       return {
         ok: true as const,

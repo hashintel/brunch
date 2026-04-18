@@ -20,11 +20,13 @@ function createReviewSetAssistantParts({
   phase,
   title,
   prompt,
+  why,
   items,
 }: {
   phase: 'requirements' | 'criteria';
   title: string;
   prompt: string;
+  why: string;
   items: Array<{
     referenceCode: string;
     content: string;
@@ -35,6 +37,25 @@ function createReviewSetAssistantParts({
   }>;
 }): string {
   return serializeParts([
+    {
+      type: 'tool-ask_question',
+      toolCallId: `fixture-${phase}-review`,
+      state: 'output-available',
+      input: {
+        question: prompt,
+        why,
+        impact: 'high',
+        options: [
+          { content: 'Accept review', is_recommended: true },
+          { content: 'Request changes', is_recommended: false },
+        ],
+        reviewActions: [
+          { action: 'accept', optionPosition: 0 },
+          { action: 'request-changes', optionPosition: 1 },
+        ],
+      },
+      output: { ok: true, turnId: 0, optionCount: 2 },
+    },
     { type: 'text', text: prompt },
     {
       type: 'data-review-set',
@@ -258,6 +279,7 @@ export function seedRequirementsReviewReady(db: DB, projectId: number) {
       phase: 'requirements',
       title: 'Requirements',
       prompt: 'Please review the current requirement set.',
+      why: 'Review the whole requirement set before moving forward.',
       items: [
         {
           referenceCode: 'R1',
@@ -326,6 +348,7 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
       phase: 'requirements',
       title: 'Requirements',
       prompt: 'Please review the current requirement set.',
+      why: 'Review the whole requirement set before moving forward.',
       items: [
         {
           referenceCode: 'R1',
@@ -446,6 +469,7 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
       phase: 'criteria',
       title: 'Acceptance Criteria',
       prompt: 'Please review the current criterion set.',
+      why: 'Review the whole criterion set before moving forward.',
       items: [
         {
           referenceCode: 'CRIT1',
@@ -510,6 +534,7 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
       phase: 'criteria',
       title: 'Acceptance Criteria',
       prompt: 'Please review the current criterion set.',
+      why: 'Review the whole criterion set before moving forward.',
       items: [
         {
           referenceCode: 'CRIT1',

@@ -3,7 +3,12 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { EdgeRelation, Impact, ReviewAction, TurnKind } from '@/shared/api-types.js';
-import { formatTurnResponseText, type BrunchAssistantPart, type BrunchUserPart } from '@/shared/chat.js';
+import {
+  formatTurnResponseText,
+  type BrunchAssistantPart,
+  type BrunchUserPart,
+  type ReviewActionOption,
+} from '@/shared/chat.js';
 import {
   createKnowledgeCollectionRecord,
   knowledgeKindRegistry,
@@ -52,6 +57,7 @@ export interface ManifestTurn {
   selectedOptionPositions?: number[];
   freeText?: string | null;
   reviewAction?: ReviewAction;
+  reviewActions?: ReviewActionOption[];
   isProposal?: boolean;
   isConfirmation?: boolean;
 }
@@ -95,6 +101,7 @@ type CompiledQuestionTurn = {
   selectedOptionPositions: number[];
   freeText?: string;
   reviewAction?: ReviewAction;
+  reviewActions?: ReviewActionOption[];
   responseText?: string;
 };
 
@@ -192,6 +199,7 @@ function compileQuestionTurn(turn: ManifestTurn, turnIndex: number): CompiledQue
     selectedOptionPositions,
     ...(freeText ? { freeText } : {}),
     ...(turn.reviewAction ? { reviewAction: turn.reviewAction } : {}),
+    ...(turn.reviewActions ? { reviewActions: turn.reviewActions } : {}),
     ...(responseText ? { responseText } : {}),
   };
 }
@@ -328,6 +336,7 @@ function buildQuestionAssistantParts(
         why: turn.why,
         impact: turn.impact,
         options: turn.options,
+        ...(turn.reviewActions ? { reviewActions: turn.reviewActions } : {}),
       },
       output: {
         ok: true,

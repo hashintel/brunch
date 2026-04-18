@@ -1448,6 +1448,25 @@ describe('InterviewView', () => {
             is_resolution: false,
             user_parts: null,
             assistant_parts: JSON.stringify([
+              {
+                type: 'tool-ask_question',
+                toolCallId: 'tool-review',
+                state: 'output-available',
+                input: {
+                  question: 'Please review the current requirement set.',
+                  why: 'Review the whole requirement set before moving forward.',
+                  impact: 'high',
+                  options: [
+                    { content: 'Accept review', is_recommended: true },
+                    { content: 'Request changes', is_recommended: false },
+                  ],
+                  reviewActions: [
+                    { action: 'accept', optionPosition: 0 },
+                    { action: 'request-changes', optionPosition: 1 },
+                  ],
+                },
+                output: { ok: true, turnId: 1, optionCount: 2 },
+              },
               { type: 'text', text: 'Please review the current requirement set.' },
             ]),
             created_at: '2026-04-03 10:00:00',
@@ -1540,6 +1559,25 @@ describe('InterviewView', () => {
             is_resolution: false,
             user_parts: null,
             assistant_parts: JSON.stringify([
+              {
+                type: 'tool-ask_question',
+                toolCallId: 'tool-review',
+                state: 'output-available',
+                input: {
+                  question: 'Please review the current criterion set.',
+                  why: 'Review the whole criterion set before moving forward.',
+                  impact: 'high',
+                  options: [
+                    { content: 'Accept review', is_recommended: true },
+                    { content: 'Request changes', is_recommended: false },
+                  ],
+                  reviewActions: [
+                    { action: 'accept', optionPosition: 0 },
+                    { action: 'request-changes', optionPosition: 1 },
+                  ],
+                },
+                output: { ok: true, turnId: 1, optionCount: 2 },
+              },
               { type: 'text', text: 'Please review the current criterion set.' },
             ]),
             created_at: '2026-04-03 10:00:00',

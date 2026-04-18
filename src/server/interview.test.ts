@@ -53,19 +53,37 @@ describe('structuredQuestionSchema', () => {
     expect(() =>
       structuredQuestionSchema.parse({
         question: 'Should we approve this requirement?',
-        why: 'Requirement review should use the explicit requirementReview payload.',
+        why: 'Review turns should carry explicit review action metadata in the tool payload.',
         impact: 'high',
         options: [
           { content: 'Approve', is_recommended: true },
           { content: 'Reject', is_recommended: false },
         ],
-        review: {
+        requirementReview: {
           kind: 'requirement-approval',
           requirementId: 42,
           approveOptionPosition: 0,
         },
       }),
     ).toThrow();
+  });
+
+  it('accepts explicit reviewActions metadata for full-set review turns', () => {
+    const validReviewTurn: StructuredQuestion = {
+      question: 'Please review the current requirement set.',
+      why: 'We need an explicit accept/request-changes seam before closing the phase.',
+      impact: 'high',
+      options: [
+        { content: 'Accept review', is_recommended: true },
+        { content: 'Request changes', is_recommended: false },
+      ],
+      reviewActions: [
+        { action: 'accept', optionPosition: 0 },
+        { action: 'request-changes', optionPosition: 1 },
+      ],
+    };
+
+    expect(structuredQuestionSchema.parse(validReviewTurn)).toEqual(validReviewTurn);
   });
 });
 

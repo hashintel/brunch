@@ -4,54 +4,23 @@ import * as z from 'zod/v4';
 import { createKnowledgeCollectionRecord } from './knowledge.js';
 import { dataConfirmationSchema, workflowPhaseSchema, type DataConfirmation } from './phase-close.js';
 
-export const requirementApprovalReviewSchema = z.object({
-  kind: z.literal('requirement-approval'),
-  requirementId: z.number().int().positive(),
-  approveOptionPosition: z.number().int().min(0),
-});
-
-export const requirementRejectionReviewSchema = z.object({
-  kind: z.literal('requirement-rejection'),
-  requirementId: z.number().int().positive(),
-  rejectOptionPosition: z.number().int().min(0),
-});
-
-export const requirementReviewSchema = z.union([
-  requirementApprovalReviewSchema,
-  requirementRejectionReviewSchema,
-]);
-
-export const criterionApprovalReviewSchema = z.object({
-  kind: z.literal('criterion-approval'),
-  criterionId: z.number().int().positive(),
-  approveOptionPosition: z.number().int().min(0),
-});
-
-export const criterionRejectionReviewSchema = z.object({
-  kind: z.literal('criterion-rejection'),
-  criterionId: z.number().int().positive(),
-  rejectOptionPosition: z.number().int().min(0),
-});
-
-export const criterionReviewSchema = z.union([criterionApprovalReviewSchema, criterionRejectionReviewSchema]);
-
 export const reviewActionSchema = z.enum(['accept', 'request-changes']);
+export const reviewActionOptionSchema = z.object({
+  action: reviewActionSchema,
+  optionPosition: z.number().int().min(0),
+});
 
-function validateReviewOptionPosition(
-  review: { approveOptionPosition: number } | { rejectOptionPosition: number },
+function validateReviewActionOptionPosition(
+  reviewAction: z.infer<typeof reviewActionOptionSchema>,
   field: string,
   optionCount: number,
   ctx: z.RefinementCtx,
 ): void {
-  const isApproval = 'approveOptionPosition' in review;
-  const position = isApproval ? review.approveOptionPosition : review.rejectOptionPosition;
-  const positionField = isApproval ? 'approveOptionPosition' : 'rejectOptionPosition';
-
-  if (position >= optionCount) {
+  if (reviewAction.optionPosition >= optionCount) {
     ctx.addIssue({
       code: 'custom',
-      message: `${field}.${positionField} must reference an existing option`,
-      path: [field, positionField],
+      message: `${field}.optionPosition must reference an existing option`,
+      path: [field, 'optionPosition'],
     });
   }
 }
@@ -69,16 +38,36 @@ export const structuredQuestionSchema = z
         }),
       )
       .min(2),
-    requirementReview: requirementReviewSchema.optional(),
-    criterionReview: criterionReviewSchema.optional(),
+    reviewActions: z.array(reviewActionOptionSchema).optional(),
   })
   .strict()
   .superRefine((value, ctx) => {
-    if (value.requirementReview) {
-      validateReviewOptionPosition(value.requirementReview, 'requirementReview', value.options.length, ctx);
-    }
-    if (value.criterionReview) {
-      validateReviewOptionPosition(value.criterionReview, 'criterionReview', value.options.length, ctx);
+    if (value.reviewActions) {
+      const seenActions = new Set<string>();
+      const seenPositions = new Set<number>();
+
+      for (let index = 0; index < value.reviewActions.length; index++) {
+        const reviewAction = value.reviewActions[index]!;
+        validateReviewActionOptionPosition(reviewAction, `reviewActions.${index}`, value.options.length, ctx);
+
+        if (seenActions.has(reviewAction.action)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'reviewActions must not repeat the same action',
+            path: ['reviewActions', index, 'action'],
+          });
+        }
+        if (seenPositions.has(reviewAction.optionPosition)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'reviewActions must not repeat the same optionPosition',
+            path: ['reviewActions', index, 'optionPosition'],
+          });
+        }
+
+        seenActions.add(reviewAction.action);
+        seenPositions.add(reviewAction.optionPosition);
+      }
     }
   });
 
@@ -152,14 +141,9 @@ export const proposePhaseClosureToolOutputSchema = z.object({
 });
 
 export { dataConfirmationSchema };
-export type RequirementApprovalReview = z.infer<typeof requirementApprovalReviewSchema>;
-export type RequirementRejectionReview = z.infer<typeof requirementRejectionReviewSchema>;
-export type RequirementReview = z.infer<typeof requirementReviewSchema>;
-export type CriterionApprovalReview = z.infer<typeof criterionApprovalReviewSchema>;
-export type CriterionRejectionReview = z.infer<typeof criterionRejectionReviewSchema>;
-export type CriterionReview = z.infer<typeof criterionReviewSchema>;
 export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
 export type ReviewAction = z.infer<typeof reviewActionSchema>;
+export type ReviewActionOption = z.infer<typeof reviewActionOptionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
 export type ObserverEntityIds = ObserverResultData['entityIds'];

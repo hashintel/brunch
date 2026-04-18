@@ -173,7 +173,27 @@ describe('project-state-turn helpers', () => {
 
   it('reads and derives explicit review actions for full-set review turns', () => {
     const reviewTurn = createTurn({
-      phase: 'requirements',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-review',
+          state: 'output-available',
+          input: {
+            question: 'Please review the requirement set.',
+            why: 'Review keeps the set truthful before closing the phase.',
+            impact: 'high',
+            options: [
+              { content: 'Accept review', is_recommended: true },
+              { content: 'Request changes', is_recommended: false },
+            ],
+            reviewActions: [
+              { action: 'accept', optionPosition: 0 },
+              { action: 'request-changes', optionPosition: 1 },
+            ],
+          },
+          output: { ok: true, turnId: 1, optionCount: 2 },
+        },
+      ]),
       user_parts: JSON.stringify([
         { type: 'text', text: 'Ship this set' },
         {
@@ -186,7 +206,7 @@ describe('project-state-turn helpers', () => {
     expect(getPersistedReviewAction(reviewTurn)).toBe('accept');
     expect(getReviewActionForSelectedPositions(reviewTurn, [0])).toBe('accept');
     expect(getReviewActionForSelectedPositions(reviewTurn, [1])).toBe('request-changes');
-    expect(getReviewActionForSelectedPositions(createTurn({ phase: 'scope' }), [0])).toBeNull();
+    expect(getReviewActionForSelectedPositions(createTurn(), [0])).toBeNull();
   });
 
   it('reads persisted turn-owned review-set artifacts from assistant parts', () => {

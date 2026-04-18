@@ -1,5 +1,6 @@
 import type { ProjectState, ProjectStateTurn, ReviewAction, WorkflowPhase } from './api-types.js';
 import {
+  structuredQuestionSchema,
   type ReviewSetData,
   summarizeAssistantActivity,
   type ActivitySummary,
@@ -99,23 +100,34 @@ export function findTurnOptionsByPositions(
   return turn?.options?.filter((option) => uniquePositions.includes(option.position)) ?? [];
 }
 
-export function getReviewActionForSelectedPositions(
-  turn: Pick<ProjectStateTurn, 'phase'> | undefined,
-  positions: number[],
-): ReviewAction | null {
-  if ((turn?.phase !== 'requirements' && turn?.phase !== 'criteria') || positions.length !== 1) {
+function getPersistedStructuredQuestion(turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined) {
+  const askQuestionPart = safeParsePersistedAssistantParts(turn?.assistant_parts).find(
+    (part): part is Extract<BrunchAssistantPart, { type: 'tool-ask_question' }> =>
+      part.type === 'tool-ask_question' && 'input' in part,
+  );
+  if (!askQuestionPart) {
     return null;
   }
 
-  const [position] = positions;
-  if (position === 0) {
-    return 'accept';
-  }
-  if (position === 1) {
-    return 'request-changes';
+  const parsedInput = structuredQuestionSchema.safeParse(askQuestionPart.input);
+  return parsedInput.success ? parsedInput.data : null;
+}
+
+export function getReviewActionForSelectedPositions(
+  turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined,
+  positions: number[],
+): ReviewAction | null {
+  if (positions.length !== 1) {
+    return null;
   }
 
-  return null;
+  const [position] = [...new Set(positions)];
+  const structuredQuestion = getPersistedStructuredQuestion(turn);
+  const explicitReviewAction = structuredQuestion?.reviewActions?.find(
+    (reviewAction) => reviewAction.optionPosition === position,
+  );
+
+  return explicitReviewAction?.action ?? null;
 }
 
 export function turnIsControlOrClosureArtifact(

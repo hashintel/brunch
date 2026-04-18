@@ -29,6 +29,7 @@ import {
   getForcedPhaseClosureSummary,
   parsePhaseClosureCommand,
 } from '@/shared/phase-close.js';
+import { getReviewActionForSelectedPositions } from '@/shared/project-state-turn.js';
 
 import {
   ensureProjectFrontier,
@@ -56,7 +57,6 @@ import {
   updateProjectMode,
   updateTurn,
   getEntitiesForProjectByMode,
-  recordReviewFromTurnResponse,
   supersedePhaseOutcome,
   type DB,
   type EntityProjectionMode,
@@ -248,8 +248,6 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       return;
     }
     applyTurnResponseSelections(db, turnId, uniquePositions);
-    recordReviewFromTurnResponse(db, turn, uniquePositions, 'requirementReview', 'requirement');
-    recordReviewFromTurnResponse(db, turn, uniquePositions, 'criterionReview', 'criterion');
 
     if (isGroundingStrategyKickoffTurn(turn)) {
       const selectedMode =
@@ -271,6 +269,22 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
     const reviewAction =
       parsedRequest.data.kind === 'select-options' ? parsedRequest.data.reviewAction : null;
+    const expectedReviewAction =
+      parsedRequest.data.kind === 'select-options'
+        ? getReviewActionForSelectedPositions(turn, uniquePositions)
+        : null;
+
+    if (expectedReviewAction && reviewAction !== expectedReviewAction) {
+      res
+        .status(400)
+        .json({ error: 'Review turns must submit the explicit reviewAction for the selected option' });
+      return;
+    }
+
+    if (!expectedReviewAction && reviewAction) {
+      res.status(400).json({ error: 'reviewAction is only valid for review turns' });
+      return;
+    }
 
     const dataPart = {
       type: 'data-turn-response',
@@ -278,7 +292,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         turnId,
         selectedOptionIds,
         ...(freeText ? { freeText } : {}),
-        ...(reviewAction ? { reviewAction } : {}),
+        ...(expectedReviewAction ? { reviewAction: expectedReviewAction } : {}),
       },
     } as const satisfies Extract<BrunchUserPart, { type: 'data-turn-response' }>;
 

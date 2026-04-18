@@ -1,3 +1,4 @@
+import { structuredQuestionSchema, type BrunchAssistantPart } from '@/shared/chat.js';
 import type { KnowledgeCollectionKey } from '@/shared/knowledge.js';
 import { createKnowledgeCollectionRecord } from '@/shared/knowledge.js';
 
@@ -5,7 +6,7 @@ import type { TurnWithOptions } from '../core.js';
 import { loadActivePathWithOptions } from '../core.js';
 import { createDb, findPhaseOutcomeForTurn, getEntitiesForProject, type DB } from '../db.js';
 import { runObserver, type ObserverOutput } from '../observer.js';
-import { safeDeserializeUserParts } from '../parts.js';
+import { safeDeserializeAssistantParts, safeDeserializeUserParts } from '../parts.js';
 import { projectTurnResponse } from '../turn-response.js';
 import {
   loadManifest,
@@ -94,6 +95,19 @@ type EdgeRow = {
 };
 
 const issueTrackerManifest = loadManifest('issue-tracker');
+
+function getPersistedReviewActions(turn: Pick<TurnWithOptions, 'assistant_parts'>) {
+  const askQuestionPart = safeDeserializeAssistantParts(turn.assistant_parts).find(
+    (part): part is Extract<BrunchAssistantPart, { type: 'tool-ask_question' }> =>
+      part.type === 'tool-ask_question' && 'input' in part,
+  );
+  if (!askQuestionPart) {
+    return undefined;
+  }
+
+  const parsedInput = structuredQuestionSchema.safeParse(askQuestionPart.input);
+  return parsedInput.success ? parsedInput.data.reviewActions : undefined;
+}
 
 export const curatedGoldenCorpus: GoldenCorpus = {
   name: 'Observer Golden Corpus',
@@ -255,6 +269,7 @@ export function captureProjectToManifestScenario(db: DB, projectId: number): Man
               ...(response.reviewAction ? { reviewAction: response.reviewAction } : {}),
             }
           : {}),
+        ...(getPersistedReviewActions(turn) ? { reviewActions: getPersistedReviewActions(turn) } : {}),
       } satisfies ManifestScenario['turns'][number];
     }
 
