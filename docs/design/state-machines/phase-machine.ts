@@ -1,28 +1,20 @@
 // Phase frontier state machine for Brunch.
 // Paste-ready for Stately Studio (studio.stately.ai) — XState v5.
 //
-// One instance per open phase (spawned as an actor by the spec-level machine).
-// Observer capture is delegated to a spec-level p-queue via the
-// `enqueueObserverCapture` action; this machine never blocks on it.
+// One instance per open phase (spawned as an invoked child by the spec
+// machine). Pure in-memory orchestration: no durable writes, no knowledge
+// of phase keys. Signals closure to the parent via one of two final states
+// whose `output` carries the closure basis.
 
 import { setup, assign } from 'xstate';
 
 type TurnId = string;
 
-type TurnKind =
-  | 'kickoff'
-  | 'question'
-  | 'grounding'
-  | 'review'
-  | 'closure'
-  | 'recovery';
+type TurnKind = 'kickoff' | 'question' | 'grounding' | 'review' | 'closure' | 'recovery';
 
-type SuccessorKind =
-  | 'question'
-  | 'grounding'
-  | 'review'
-  | 'closure_proposal'
-  | 'accept_close';
+type SuccessorKind = 'question' | 'grounding' | 'review' | 'closure_proposal' | 'accept_close';
+
+type ClosureBasis = 'interviewer' | 'force';
 
 type Context = {
   frontierTurnId: TurnId | null;
@@ -33,41 +25,35 @@ type Context = {
 };
 
 type Event =
-  | { type: 'USER_ACTION_KICKOFF'; turnId: TurnId }
-  | { type: 'USER_SUBMIT_REPLY'; turnId: TurnId; payload: unknown }
-  | { type: 'USER_FORCE_CLOSE' }
+  | { type: 'KICKOFF_ACCEPTED'; turnId: TurnId }
+  | { type: 'REPLY_SUBMITTED'; turnId: TurnId; payload: unknown }
+  | { type: 'FORCE_CLOSE_REQUESTED' }
   | { type: 'INTERVIEWER_DECIDED'; successorKind: SuccessorKind }
-  | { type: 'SUCCESSOR_READY'; turnId: TurnId; turnKind: TurnKind }
+  | { type: 'SUCCESSOR_GENERATED'; turnId: TurnId; turnKind: TurnKind }
   | { type: 'GENERATION_FAILED'; reason: string }
-  | { type: 'RECOVERY_READY'; turnId: TurnId }
-  | { type: 'CLOSURE_RECORDED' };
+  | { type: 'RECOVERY_GENERATED'; turnId: TurnId };
+
+type Output = { basis: ClosureBasis };
 
 export const phaseMachine = setup({
   types: {
     context: {} as Context,
     events: {} as Event,
     input: {} as { kickoffTurnId: TurnId },
+    output: {} as Output,
   },
   actions: {
-    // Fire-and-forget: push the just-answered turn into the spec-level
-    // observer p-queue. Never awaited from the phase machine.
-    enqueueObserverCapture: (_, _params: { turnId: TurnId }) => {
-      // parent.send({ type: 'ENQUEUE_OBSERVER', turnId: params.turnId })
-    },
-    // On entering `closed`, ask the spec machine to seed the next phase's
-    // kickoff turn. Modeled as an action so there is no intermediate state
-    // in which the user can get stranded between phases.
-    emitCreateNextPhaseKickoff: () => {
-      // parent.send({ type: 'CREATE_NEXT_PHASE_KICKOFF' })
+    // Fire-and-forget: tell the parent spec machine that a turn was
+    // answered. The parent decides whether to enqueue observer capture.
+    emitTurnAnswered: (_, _params: { turnId: TurnId }) => {
+      // sendParent({ type: 'TURN_ANSWERED', turnId: params.turnId })
     },
   },
   guards: {
     isAcceptClose: ({ event }) =>
-      event.type === 'INTERVIEWER_DECIDED' &&
-      event.successorKind === 'accept_close',
+      event.type === 'INTERVIEWER_DECIDED' && event.successorKind === 'accept_close',
     isClosureProposal: ({ event }) =>
-      event.type === 'INTERVIEWER_DECIDED' &&
-      event.successorKind === 'closure_proposal',
+      event.type === 'INTERVIEWER_DECIDED' && event.successorKind === 'closure_proposal',
     isGenerativeSuccessor: ({ event }) =>
       event.type === 'INTERVIEWER_DECIDED' &&
       (event.successorKind === 'question' ||
@@ -83,44 +69,46 @@ export const phaseMachine = setup({
     pendingSuccessorKind: null,
     generationFailure: null,
   }),
-  initial: 'entry_pending',
+  initial: 'awaiting_kickoff',
   states: {
     // Kickoff turn is the frontier; user has not yet actioned it.
-    entry_pending: {
+    awaiting_kickoff: {
       on: {
-        USER_ACTION_KICKOFF: {
+        KICKOFF_ACCEPTED: {
           target: 'active.interviewer_processing',
           actions: [
             assign(({ event }) => ({ lastAnsweredTurnId: event.turnId })),
-            // Kickoff answers generally have no extractable knowledge, but
-            // enqueueing is cheap and keeps policy out of the state machine.
             {
-              type: 'enqueueObserverCapture',
+              type: 'emitTurnAnswered',
               params: ({ event }) => ({ turnId: event.turnId }),
             },
           ],
         },
-        USER_FORCE_CLOSE: 'closing',
+        FORCE_CLOSE_REQUESTED: 'closed_via_force',
       },
     },
 
     // Open phase. Exactly one frontier turn exists at all times here.
+    // Force close is allowed from any substate; the transition is hoisted
+    // here so all four substates inherit it.
     active: {
+      on: {
+        FORCE_CLOSE_REQUESTED: 'closed_via_force',
+      },
       initial: 'awaiting_reply',
       states: {
         awaiting_reply: {
           on: {
-            USER_SUBMIT_REPLY: {
+            REPLY_SUBMITTED: {
               target: 'interviewer_processing',
               actions: [
                 assign(({ event }) => ({ lastAnsweredTurnId: event.turnId })),
                 {
-                  type: 'enqueueObserverCapture',
+                  type: 'emitTurnAnswered',
                   params: ({ event }) => ({ turnId: event.turnId }),
                 },
               ],
             },
-            USER_FORCE_CLOSE: '#phase.closing',
           },
         },
 
@@ -130,30 +118,25 @@ export const phaseMachine = setup({
         interviewer_processing: {
           on: {
             INTERVIEWER_DECIDED: [
-              { guard: 'isAcceptClose', target: '#phase.closing' },
+              { guard: 'isAcceptClose', target: '#phase.closed_via_interviewer' },
               {
                 guard: 'isClosureProposal',
                 target: 'generating_successor',
-                actions: assign({
-                  pendingSuccessorKind: 'closure_proposal',
-                }),
+                actions: assign({ pendingSuccessorKind: 'closure_proposal' }),
               },
               {
                 guard: 'isGenerativeSuccessor',
                 target: 'generating_successor',
                 actions: assign(({ event }) => ({
                   pendingSuccessorKind:
-                    event.type === 'INTERVIEWER_DECIDED'
-                      ? event.successorKind
-                      : null,
+                    event.type === 'INTERVIEWER_DECIDED' ? event.successorKind : null,
                 })),
               },
             ],
             GENERATION_FAILED: {
-              target: 'recovery_needed',
+              target: 'awaiting_recovery',
               actions: assign(({ event }) => ({
-                generationFailure:
-                  event.type === 'GENERATION_FAILED' ? event.reason : null,
+                generationFailure: event.type === 'GENERATION_FAILED' ? event.reason : null,
               })),
             },
           },
@@ -164,21 +147,18 @@ export const phaseMachine = setup({
         // visualize those phases of generation.
         generating_successor: {
           on: {
-            SUCCESSOR_READY: {
+            SUCCESSOR_GENERATED: {
               target: 'awaiting_reply',
               actions: assign(({ event }) => ({
-                frontierTurnId:
-                  event.type === 'SUCCESSOR_READY' ? event.turnId : null,
-                frontierTurnKind:
-                  event.type === 'SUCCESSOR_READY' ? event.turnKind : null,
+                frontierTurnId: event.type === 'SUCCESSOR_GENERATED' ? event.turnId : null,
+                frontierTurnKind: event.type === 'SUCCESSOR_GENERATED' ? event.turnKind : null,
                 pendingSuccessorKind: null,
               })),
             },
             GENERATION_FAILED: {
-              target: 'recovery_needed',
+              target: 'awaiting_recovery',
               actions: assign(({ event }) => ({
-                generationFailure:
-                  event.type === 'GENERATION_FAILED' ? event.reason : null,
+                generationFailure: event.type === 'GENERATION_FAILED' ? event.reason : null,
                 pendingSuccessorKind: null,
               })),
             },
@@ -188,13 +168,12 @@ export const phaseMachine = setup({
         // Reached only when generation failed or an external detector found
         // the phase lost its frontier. The only exit is a recovery turn
         // becoming the new frontier.
-        recovery_needed: {
+        awaiting_recovery: {
           on: {
-            RECOVERY_READY: {
+            RECOVERY_GENERATED: {
               target: 'awaiting_reply',
               actions: assign(({ event }) => ({
-                frontierTurnId:
-                  event.type === 'RECOVERY_READY' ? event.turnId : null,
+                frontierTurnId: event.type === 'RECOVERY_GENERATED' ? event.turnId : null,
                 frontierTurnKind: 'recovery',
                 generationFailure: null,
               })),
@@ -204,19 +183,19 @@ export const phaseMachine = setup({
       },
     },
 
-    // Phase outcome is being recorded. Entry guarantees a durable write
-    // before transitioning to `closed`.
-    closing: {
-      on: {
-        CLOSURE_RECORDED: {
-          target: 'closed',
-          actions: 'emitCreateNextPhaseKickoff',
-        },
-      },
+    // Terminal states. Output carries the closure basis up to the spec
+    // machine via `onDone`; no durable writes happen here.
+    closed_via_interviewer: {
+      type: 'final',
     },
-
-    closed: {
+    closed_via_force: {
       type: 'final',
     },
   },
+  // Parent reads the basis from `event.output.basis` on its `onDone`.
+  // The final state id is encoded in the xstate done event type.
+  output: ({ event }) =>
+    event.type === 'xstate.done.state.phase.closed_via_force'
+      ? { basis: 'force' }
+      : { basis: 'interviewer' },
 });
