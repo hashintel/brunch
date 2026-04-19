@@ -73,6 +73,14 @@ describe('walkthroughScenarioMatrix', () => {
     );
   });
 
+  it('keeps manifest-backed walkthrough authority limited to kickoff and export anchors', () => {
+    expect(
+      walkthroughScenarioMatrix
+        .filter((entry) => entry.source === 'manifest')
+        .map((entry) => entry.scenarioName),
+    ).toEqual(['issue-tracker-kickoff-ready', 'issue-tracker-all-phases-closed']);
+  });
+
   for (const entry of walkthroughScenarioMatrix) {
     it(`keeps ${entry.scenarioName} resumable after seeding`, async () => {
       await withReopenedSeededScenario(entry.scenarioName, ({ db, projectId }) => {
@@ -113,20 +121,44 @@ describe('walkthroughScenarioMatrix', () => {
       expect(projectState?.landing).toEqual({ kind: 'recovery', phase: 'design' });
     });
 
+    await withReopenedSeededScenario('issue-tracker-criteria-kickoff-ready', ({ db, projectId }) => {
+      const projectState = getProjectState(db, projectId);
+      const requirementsTurns = projectState?.turns.filter((turn) => turn.phase === 'requirements') ?? [];
+      const requirementsTurn = requirementsTurns[0] ?? null;
+
+      expect(projectState?.landing).toEqual({ kind: 'kickoff', phase: 'criteria', mode: 'start' });
+      expect(requirementsTurns).toHaveLength(1);
+      expect(requirementsTurn?.question).toBe('Please review the current requirement set.');
+      expect(requirementsTurn?.assistant_parts).toContain('data-review-set');
+      expect(requirementsTurn?.user_parts).toContain('"reviewAction":"accept"');
+    });
+
     await withReopenedSeededScenario('issue-tracker-requirements-ready', ({ db, projectId }) => {
       const projectState = getProjectState(db, projectId);
+      const requirementsTurns = projectState?.turns.filter((turn) => turn.phase === 'requirements') ?? [];
+      const requirementsTurn = requirementsTurns[0] ?? null;
+
       expect(projectState?.landing).toMatchObject({ kind: 'frontier-turn', phase: 'requirements' });
       expect(projectState?.landing?.kind === 'frontier-turn' ? projectState.landing.turnId : null).toBeTypeOf(
         'number',
       );
+      expect(requirementsTurns).toHaveLength(1);
+      expect(requirementsTurn?.question).toBe('Please review the current requirement set.');
+      expect(requirementsTurn?.assistant_parts).toContain('data-review-set');
     });
 
     await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
       const projectState = getProjectState(db, projectId);
+      const criteriaTurns = projectState?.turns.filter((turn) => turn.phase === 'criteria') ?? [];
+      const criteriaTurn = criteriaTurns[0] ?? null;
+
       expect(projectState?.landing).toMatchObject({ kind: 'frontier-turn', phase: 'criteria' });
       expect(projectState?.landing?.kind === 'frontier-turn' ? projectState.landing.turnId : null).toBeTypeOf(
         'number',
       );
+      expect(criteriaTurns).toHaveLength(1);
+      expect(criteriaTurn?.question).toBe('Please review the current criterion set.');
+      expect(criteriaTurn?.assistant_parts).toContain('data-review-set');
     });
   });
 
