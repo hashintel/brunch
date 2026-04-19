@@ -54,10 +54,6 @@ describe('walkthroughScenarioMatrix', () => {
     );
   });
 
-  it('keeps public walkthrough authority entirely typed', () => {
-    expect(walkthroughScenarioMatrix.filter((entry) => entry.source === 'manifest')).toEqual([]);
-  });
-
   for (const entry of walkthroughScenarioMatrix) {
     it(`keeps ${entry.scenarioName} resumable after seeding`, async () => {
       await withReopenedSeededScenario(entry.scenarioName, ({ db, projectId }) => {
@@ -65,8 +61,6 @@ describe('walkthroughScenarioMatrix', () => {
 
         expect(projectState).not.toBeNull();
         expect(summarizeWorkflow(projectState!)).toEqual(entry.expectedWorkflowSummary);
-
-        expect(entry.manifestScenarioKey).toBeUndefined();
       });
     });
   }

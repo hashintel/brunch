@@ -847,10 +847,8 @@ type WalkthroughWorkflowSummary = Record<
 export interface WalkthroughScenarioMatrixEntry {
   scenarioName: string;
   label: string;
-  source: 'manifest' | 'synthetic';
   inspectionFocus: string;
   expectedWorkflowSummary: WalkthroughWorkflowSummary;
-  manifestScenarioKey?: string;
 }
 
 function createWorkflowSummary(
@@ -963,7 +961,6 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
   {
     scenarioName: 'brownfield-grounding-replay',
     label: 'Brownfield reusable grounding replay',
-    source: 'synthetic',
     inspectionFocus:
       'Brownfield kickoff, answered grounding-card continue, later reusable context gathering, and resume all stay legible through the same replay seam.',
     expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
@@ -971,28 +968,24 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
   {
     scenarioName: 'issue-tracker-kickoff-ready',
     label: 'Kickoff workspace',
-    source: 'synthetic',
     inspectionFocus: 'Blank greenfield kickoff, empty workspace rendering, and resume after seeding.',
     expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
   },
   {
     scenarioName: 'issue-tracker-scope-closure-pending',
     label: 'Scope closure pending',
-    source: 'synthetic',
     inspectionFocus: 'Closure proposal summary is visible and waiting for explicit confirmation.',
     expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
   },
   {
     scenarioName: 'issue-tracker-design-kickoff-ready',
     label: 'Design kickoff ready',
-    source: 'synthetic',
     inspectionFocus: 'Scope handoff has landed and the next phase opens with an explicit kickoff frontier.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'in_progress', 'unstarted', 'unstarted'),
   },
   {
     scenarioName: 'issue-tracker-design-recovery',
     label: 'Design recovery frontier',
-    source: 'synthetic',
     inspectionFocus:
       'A completed design turn has no successor, so the exceptional recovery frontier is visible.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'in_progress', 'unstarted', 'unstarted'),
@@ -1000,14 +993,12 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
   {
     scenarioName: 'issue-tracker-requirements-kickoff-ready',
     label: 'Requirements kickoff ready',
-    source: 'synthetic',
     inspectionFocus: 'Design closure hands off into the requirements phase with a fresh kickoff frontier.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'in_progress', 'unstarted'),
   },
   {
     scenarioName: 'issue-tracker-requirements-ready',
     label: 'Requirements review ready',
-    source: 'synthetic',
     inspectionFocus:
       'The requirements phase shows the current full-set review frontier with explicit review actions.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'in_progress', 'unstarted'),
@@ -1015,14 +1006,12 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
   {
     scenarioName: 'issue-tracker-criteria-kickoff-ready',
     label: 'Criteria kickoff ready',
-    source: 'synthetic',
     inspectionFocus: 'Requirements closure hands off into criteria with an explicit kickoff frontier.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'in_progress'),
   },
   {
     scenarioName: 'issue-tracker-criteria-ready',
     label: 'Criteria review ready',
-    source: 'synthetic',
     inspectionFocus:
       'The criteria phase shows the current full-set review frontier before export becomes available.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'in_progress'),
@@ -1030,21 +1019,18 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
   {
     scenarioName: 'issue-tracker-all-phases-closed',
     label: 'Export-ready walkthrough',
-    source: 'synthetic',
     inspectionFocus: 'Full active-path export, final transcript review, and resume into a completed project.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'closed'),
   },
   {
     scenarioName: 'forced-close-all-phases-closed',
     label: 'Forced-close export caveat',
-    source: 'synthetic',
     inspectionFocus: 'Manual inspection of export caveats when design was closed via user-forced closure.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'closed'),
   },
   {
     scenarioName: 'low-readiness-all-phases-closed',
     label: 'Low-readiness export caveat',
-    source: 'synthetic',
     inspectionFocus: 'Manual inspection of export caveats when scope closed with low readiness.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'closed'),
   },
