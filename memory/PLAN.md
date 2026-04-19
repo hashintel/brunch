@@ -30,8 +30,8 @@ The current active frontier should now be read not just as product/design cleanu
        - criteria full-set review acceptance closes the final phase and yields workflow-complete / export-ready state
        - criteria closure confirmation no longer leaves a stale active interviewer phase projected after close
        - the narrow D113 lifecycle seam is proved for current reachable kickoff auto-present, recovery auto-continue, and rejected auto-submit fallback
+       - closed phases now surface dedicated completion / handoff artifacts in the workspace stream instead of replaying accepted closure through the larger generic workspace-state shell
      - **Remaining before this frontier item can honestly retire**
-       - closed phases still need clearer explicit handoff / completion artifacts in the workspace stream instead of relying on the larger generic shell to imply what happened
        - force-close and proposed-close confirmation paths still need one final legibility / stale-projection pass, especially around design force-close and end-of-phase confirmation edge states
        - if those remaining edges expose broader lifecycle ownership gaps, scope only the smallest additional D113 follow-on needed; do not widen runtime ownership preemptively
      - **Not part of this item**
@@ -103,6 +103,7 @@ The current active frontier should now be read not just as product/design cleanu
 
 ## Recently Completed
 
+- 2026-04-19 — **Closed-phase stream artifacts now read as explicit completion / handoff states** — accepted closure replay now renders through dedicated completion chrome instead of the generic workspace-state shell, and non-review closed-phase handoffs carry explicit handoff framing in the workspace stream. Verified: `npm run verify`.
 - 2026-04-19 — **Legacy fixture side path removed; one TS-native fixture model remains** — the public walkthrough catalog now proves direct builder ownership, app and observer tests seed projects through direct TS setup, the observer corpus probes seed from TS helpers instead of a second scenario format, and the legacy fixture support layer plus fixture artifacts are deleted. Verified: `npm run verify`.
 - 2026-04-19 — **Public walkthrough seeds now prefer canonical review-turn helpers over stale late-phase scenario slices** — the public `requirements-ready` / `criteria-ready` seeds now resolve through the helper-backed full-set review seams, and the `issue-tracker-*` kickoff-ready later-phase walkthrough fixtures no longer slice stale per-item requirement drafts into public truth. Walkthrough regression coverage now asserts persisted `data-review-set` metadata on the seeded requirements / criteria review turns. Verified: `npm run verify`.
 - 2026-04-19 — **D113 rejected auto-submit hardening landed under Active item 1** — specification-scoped auto phase intents now treat rejected submit promises as failed submissions instead of leaving the reachable phase stuck in lifecycle-owned generating state. The helper marks the current auto intent failed, re-projects the kickoff/recovery control, and still suppresses duplicate retry across rerender/remount until durable landing changes. Verified: `npm run verify`.

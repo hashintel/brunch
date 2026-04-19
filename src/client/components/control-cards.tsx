@@ -1,3 +1,5 @@
+import { ArrowRight, Check } from 'lucide-react';
+
 import { cn } from '@/client/lib/utils';
 import type { ProjectMode, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import {
@@ -65,6 +67,55 @@ export function ReviewPhaseBanner({ phase }: { phase: WorkflowPhase }) {
       label={`${getWorkflowPhaseLabel(phase)} workspace`}
       detail="This phase is staged as a structured review, not a freeform chat transcript."
     />
+  );
+}
+
+function PhaseTransitionArtifactCard({
+  eyebrow,
+  title,
+  description,
+  children,
+  testId,
+  tone,
+}: {
+  eyebrow: string;
+  title: string;
+  description: string;
+  children?: React.ReactNode;
+  testId?: string;
+  tone: 'completion' | 'handoff';
+}) {
+  const isCompletion = tone === 'completion';
+
+  return (
+    <div
+      className={cn(
+        'my-3 overflow-hidden rounded-xl border p-5 shadow-[var(--shadow-card-ring)]',
+        isCompletion
+          ? 'border-[rgba(22,163,74,0.2)] bg-[rgba(22,163,74,0.06)]'
+          : 'border-[rgba(32,112,230,0.18)] bg-[rgba(32,112,230,0.05)]',
+      )}
+      {...(testId ? { 'data-testid': testId } : {})}
+    >
+      <div className="flex items-center gap-2">
+        <div
+          className={cn(
+            'flex size-6 shrink-0 items-center justify-center rounded-full',
+            isCompletion ? 'bg-[rgba(22,163,74,0.12)]' : 'bg-[rgba(32,112,230,0.12)]',
+          )}
+        >
+          {isCompletion ? (
+            <Check className="size-3.5 text-[#16a34a]" />
+          ) : (
+            <ArrowRight className="size-3.5 text-[#2070e6]" />
+          )}
+        </div>
+        <p className="text-xs font-semibold uppercase tracking-wide text-sub">{eyebrow}</p>
+      </div>
+      <h2 className="mt-3 text-base font-semibold text-ink">{title}</h2>
+      <p className="mt-2 text-sm leading-relaxed text-sub">{description}</p>
+      {children ? <div className="mt-4 flex flex-wrap items-center gap-2">{children}</div> : null}
+    </div>
   );
 }
 
@@ -254,10 +305,11 @@ export function PhaseSummaryCard({
 
 export function AcceptedClosureCard({ phase, summary }: { phase: WorkflowPhase; summary: string }) {
   return (
-    <WorkspaceStateCard
+    <PhaseTransitionArtifactCard
       eyebrow="Phase closure confirmed"
       title={`${getWorkflowPhaseLabel(phase)} closure confirmed`}
       description={summary}
+      tone="completion"
     />
   );
 }
@@ -274,7 +326,7 @@ export function PhaseHandoffCard({
   children?: React.ReactNode;
 }) {
   return (
-    <WorkspaceStateCard
+    <PhaseTransitionArtifactCard
       testId="phase-handoff-card"
       eyebrow="Phase handoff"
       title={`${getWorkflowPhaseLabel(phase)} complete — next: ${getWorkflowPhaseLabel(nextPhase)}`}
@@ -282,8 +334,9 @@ export function PhaseHandoffCard({
         summary ??
         `${getWorkflowPhaseLabel(phase)} is closed. Continue to ${getWorkflowPhaseLabel(nextPhase)} when you are ready.`
       }
+      tone="handoff"
     >
       {children}
-    </WorkspaceStateCard>
+    </PhaseTransitionArtifactCard>
   );
 }

@@ -1228,10 +1228,14 @@ describe('InterviewView', () => {
       expect(screen.getByTestId('accepted-closure-card')).toBeTruthy();
     });
     expect(screen.getByTestId('answered-turn-card').textContent).toContain('What should we build first?');
+    expect(screen.getByTestId('accepted-closure-card').textContent).toContain('Phase closure confirmed');
     expect(screen.getByTestId('accepted-closure-card').textContent).toContain('Grounding closure confirmed');
     expect(screen.getByTestId('accepted-closure-card').textContent).toContain(
       'Goals, terms, context, and constraints are sufficiently captured.',
     );
+    expect(
+      within(screen.getByTestId('accepted-closure-card')).queryByTestId('workspace-state-card'),
+    ).toBeNull();
     expect(screen.getByTestId('accepted-closure-card').textContent).not.toContain(
       'Confirm grounding closure',
     );
@@ -1325,6 +1329,7 @@ describe('InterviewView', () => {
     expect(answeredCard.textContent).toContain('What should we build first?');
     expect(screen.queryByText('Which architecture should we choose next?')).toBeNull();
     expect(screen.queryByTestId('workspace-state-card')).toBeNull();
+    expect(handoffCard.textContent).toContain('Phase handoff');
     expect(handoffCard.textContent).toContain('Grounding complete — next: Elicitation');
     expect(handoffCard.textContent).toContain(
       'Goals, terms, context, and constraints are sufficiently captured.',
