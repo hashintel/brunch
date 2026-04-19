@@ -3,6 +3,7 @@ import { useRouter } from '@tanstack/react-router';
 import type {
   ProjectMode,
   ProjectStateTurn,
+  ReviewAction,
   SubmitPhaseIntentRequest,
   SubmitPhaseIntentResponse,
   SubmitTurnResponseRequest,
@@ -18,7 +19,11 @@ import {
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
 export interface SubmitTurnResponseMutationState {
-  readonly submitTurnResponse: (positions?: number[], freeText?: string) => Promise<boolean>;
+  readonly submitTurnResponse: (
+    positions?: number[],
+    freeText?: string,
+    reviewAction?: ReviewAction,
+  ) => Promise<boolean>;
   readonly isPending: boolean;
   readonly errorMessage: string | null;
   readonly clearError: () => void;
@@ -98,7 +103,11 @@ export function useSubmitTurnResponseMutation({
   );
 
   return {
-    submitTurnResponse: async (positions: number[] = [], freeText?: string) => {
+    submitTurnResponse: async (
+      positions: number[] = [],
+      freeText?: string,
+      reviewActionOverride?: ReviewAction,
+    ) => {
       if (!turn) {
         return false;
       }
@@ -116,7 +125,7 @@ export function useSubmitTurnResponseMutation({
         return false;
       }
 
-      const reviewAction = getReviewActionForSelectedPositions(turn, uniquePositions);
+      const reviewAction = reviewActionOverride ?? getReviewActionForSelectedPositions(turn, uniquePositions);
       const response: SubmitTurnResponseRequest =
         uniquePositions.length > 0
           ? {

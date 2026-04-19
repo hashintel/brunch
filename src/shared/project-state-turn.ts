@@ -119,6 +119,18 @@ function getPersistedStructuredQuestion(turn: Pick<ProjectStateTurn, 'assistant_
   return parsedInput.success ? parsedInput.data : null;
 }
 
+export function getReviewPositionForAction(
+  turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined,
+  action: ReviewAction,
+): number | null {
+  const structuredQuestion = getPersistedStructuredQuestion(turn);
+  const explicitReviewAction = structuredQuestion?.reviewActions?.find(
+    (reviewAction) => reviewAction.action === action,
+  );
+
+  return explicitReviewAction?.optionPosition ?? null;
+}
+
 export function getReviewActionForSelectedPositions(
   turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined,
   positions: number[],

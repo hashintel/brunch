@@ -8,7 +8,7 @@ import {
   useSubmitPhaseIntentMutation,
   useSubmitTurnResponseMutation,
 } from '@/client/mutations/interview-mutations';
-import type { ProjectMode, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
+import type { ProjectMode, ProjectStateTurn, ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
 import { brunchDataPartSchemas } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import {
@@ -53,7 +53,11 @@ export type InterviewControllerBottomArtifactState =
       readonly state: 'active' | 'submitted';
       readonly disabled: boolean;
       readonly errorMessage: string | null;
-      readonly submitTurnResponse: (positions: number[], freeText?: string) => Promise<void>;
+      readonly submitTurnResponse: (
+        positions: number[],
+        freeText?: string,
+        reviewAction?: ReviewAction,
+      ) => Promise<void>;
     }
   | {
       readonly kind: 'pending-question';
@@ -347,7 +351,11 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
             state: viewState.bottomArtifact.state,
             disabled: viewState.bottomArtifact.state === 'submitted',
             errorMessage: submitTurnResponseMutation.errorMessage,
-            submitTurnResponse: async (positions: number[], freeText?: string) => {
+            submitTurnResponse: async (
+              positions: number[],
+              freeText?: string,
+              reviewAction?: ReviewAction,
+            ) => {
               const turnId =
                 viewState.bottomArtifact?.kind === 'persisted-turn' ? viewState.bottomArtifact.turn.id : null;
               if (turnId === null) {
@@ -355,7 +363,11 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
               }
 
               setSubmittedTurnId(turnId);
-              const didSubmit = await submitTurnResponseMutation.submitTurnResponse(positions, freeText);
+              const didSubmit = await submitTurnResponseMutation.submitTurnResponse(
+                positions,
+                freeText,
+                reviewAction,
+              );
               if (!didSubmit) {
                 setSubmittedTurnId(null);
               }

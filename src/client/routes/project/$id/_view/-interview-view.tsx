@@ -36,6 +36,7 @@ import {
   getPersistedReviewSet,
   getPersistedSelectedPositions,
   getPersistedTurnResponse,
+  getReviewPositionForAction,
   turnHasCompletedAnswer,
 } from '@/shared/project-state-turn.js';
 
@@ -353,8 +354,14 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                       <ActiveReviewSetCard
                         question={artifact.artifact.turn.question}
                         why={artifact.artifact.turn.why}
-                        options={artifact.artifact.turn.options ?? []}
-                        onSubmitResponse={artifact.artifact.submitTurnResponse}
+                        onSubmitReviewAction={(reviewAction, freeText) => {
+                          const position = getReviewPositionForAction(artifact.artifact.turn, reviewAction);
+                          if (position === null) {
+                            return;
+                          }
+
+                          return artifact.artifact.submitTurnResponse([position], freeText, reviewAction);
+                        }}
                         persistedFreeText={
                           getPersistedTurnResponse(artifact.artifact.turn)?.freeText?.trim() ?? ''
                         }
@@ -432,7 +439,6 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                     key={`pending-review-turn-${artifact.artifact.pendingQuestion.id}`}
                     question={artifact.artifact.pendingQuestion.question}
                     why={artifact.artifact.pendingQuestion.why}
-                    options={artifact.artifact.pendingQuestion.options}
                     persistedFreeText=""
                     hasPersistedResponse={false}
                     disabled={artifact.artifact.disabled}

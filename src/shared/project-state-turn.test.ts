@@ -11,6 +11,7 @@ import {
   getPersistedReviewAction,
   getPersistedReviewSet,
   getReviewActionForSelectedPositions,
+  getReviewPositionForAction,
   safeParsePersistedAssistantParts,
   safeParsePersistedUserParts,
   turnHasCompletedAnswer,
@@ -363,6 +364,9 @@ describe('project-state-turn helpers', () => {
     });
 
     expect(getPersistedReviewAction(reviewTurn)).toBe('accept');
+    expect(getReviewPositionForAction(reviewTurn, 'accept')).toBe(0);
+    expect(getReviewPositionForAction(reviewTurn, 'request-changes')).toBe(1);
+    expect(getReviewPositionForAction(createTurn(), 'accept')).toBeNull();
     expect(getReviewActionForSelectedPositions(reviewTurn, [0])).toBe('accept');
     expect(getReviewActionForSelectedPositions(reviewTurn, [1])).toBe('request-changes');
     expect(getReviewActionForSelectedPositions(createTurn(), [0])).toBeNull();

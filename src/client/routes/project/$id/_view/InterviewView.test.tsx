@@ -2230,6 +2230,125 @@ describe('InterviewView', () => {
     });
   });
 
+  it('submits review buttons by explicit review action metadata instead of assumed option order', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Please review the current requirement set.',
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 11, position: 0, content: 'Request changes', is_recommended: false, is_selected: false },
+          { id: 12, position: 1, content: 'Accept review', is_recommended: true, is_selected: false },
+        ],
+        workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          design: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 98,
+          },
+          requirements: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 1,
+            summary: null,
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            turnId: null,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              {
+                type: 'tool-ask_question',
+                toolCallId: 'tool-review',
+                state: 'output-available',
+                input: {
+                  question: 'Please review the current requirement set.',
+                  why: 'Review the whole requirement set before moving forward.',
+                  impact: 'high',
+                  options: [
+                    { content: 'Request changes', is_recommended: false },
+                    { content: 'Accept review', is_recommended: true },
+                  ],
+                  reviewActions: [
+                    { action: 'request-changes', optionPosition: 0 },
+                    { action: 'accept', optionPosition: 1 },
+                  ],
+                },
+                output: { ok: true, turnId: 1, optionCount: 2 },
+              },
+              { type: 'text', text: 'Please review the current requirement set.' },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Request changes', is_recommended: false, is_selected: false },
+              { id: 12, position: 1, content: 'Accept review', is_recommended: true, is_selected: false },
+            ],
+          },
+        ],
+        entityState: createEntityState({
+          requirements: [
+            {
+              id: 31,
+              project_id: 1,
+              kind: 'requirement',
+              subtype: null,
+              content: 'Export the reviewed specification as markdown',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('requirement', 1),
+            },
+          ],
+        }),
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, advancedToPhase: 'criteria' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept Review' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/turns/1/response',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'select-options',
+            positions: [1],
+            reviewAction: 'accept',
+          }),
+        }),
+      );
+    });
+  });
+
   it('does not forward the accepted criteria review text into chat when the server already completed the workflow', async () => {
     setLoaderData(
       createWorkspaceLoaderData({

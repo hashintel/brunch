@@ -1,7 +1,7 @@
 import { Check, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import type { Impact, ProjectStateTurn } from '@/shared/api-types.js';
+import type { Impact, ProjectStateTurn, ReviewAction } from '@/shared/api-types.js';
 import type { GroundingCardData } from '@/shared/chat.js';
 import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/project-state-turn.js';
 
@@ -279,8 +279,7 @@ export function ActiveGroundingCard({
 }
 
 export function ActiveReviewSetCard({
-  options,
-  onSubmitResponse,
+  onSubmitReviewAction,
   persistedFreeText,
   hasPersistedResponse,
   disabled,
@@ -289,8 +288,7 @@ export function ActiveReviewSetCard({
   question,
   why,
 }: {
-  options: readonly TurnCardOption[];
-  onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
+  onSubmitReviewAction?: (reviewAction: ReviewAction, freeText?: string) => void | Promise<void>;
   persistedFreeText: string;
   hasPersistedResponse: boolean;
   disabled: boolean;
@@ -302,8 +300,6 @@ export function ActiveReviewSetCard({
   const [note, setNote] = useState(persistedFreeText);
   const isSubmitted = state === 'submitted';
   const isReadOnly = disabled || hasPersistedResponse || isSubmitted;
-  const acceptReviewPosition = options.find((option) => option.position === 0)?.position;
-  const requestChangesPosition = options.find((option) => option.position === 1)?.position;
 
   useEffect(() => {
     if (!hasPersistedResponse) {
@@ -313,12 +309,12 @@ export function ActiveReviewSetCard({
     setNote(persistedFreeText);
   }, [hasPersistedResponse, persistedFreeText]);
 
-  function submitReviewAction(position: number | undefined) {
-    if (position === undefined || isReadOnly) {
+  function submitReviewAction(reviewAction: ReviewAction) {
+    if (isReadOnly) {
       return;
     }
 
-    void onSubmitResponse?.([position], note.trim() || undefined);
+    void onSubmitReviewAction?.(reviewAction, note.trim() || undefined);
   }
 
   return (
@@ -328,8 +324,8 @@ export function ActiveReviewSetCard({
         description={why ?? question}
         note={note}
         onNoteChange={setNote}
-        onAccept={() => submitReviewAction(acceptReviewPosition)}
-        onRequestChanges={() => submitReviewAction(requestChangesPosition)}
+        onAccept={() => submitReviewAction('accept')}
+        onRequestChanges={() => submitReviewAction('request-changes')}
         disabled={isReadOnly}
         submitted={isSubmitted}
       />
