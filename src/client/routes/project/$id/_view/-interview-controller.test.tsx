@@ -350,7 +350,7 @@ describe('interview controller', () => {
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ok: true, messageText: 'Feature within existing codebase' }), {
+      new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -374,7 +374,14 @@ describe('interview controller', () => {
 
     await waitFor(() => {
       expect(routerInvalidate).toHaveBeenCalled();
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Feature within existing codebase' });
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+          },
+        ],
+      });
     });
   });
 
@@ -387,7 +394,7 @@ describe('interview controller', () => {
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ok: true, messageText: 'Continue the grounding phase.' }), {
+      new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -411,7 +418,14 @@ describe('interview controller', () => {
 
     await waitFor(() => {
       expect(routerInvalidate).toHaveBeenCalled();
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Continue the grounding phase.' });
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: { kind: 'phase-continue', phase: 'scope' },
+          },
+        ],
+      });
     });
   });
 

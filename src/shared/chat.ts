@@ -3,6 +3,7 @@ import * as z from 'zod/v4';
 
 import { createKnowledgeCollectionRecord } from './knowledge.js';
 import { dataConfirmationSchema, workflowPhaseSchema, type DataConfirmation } from './phase-close.js';
+import { phaseIntentRequestSchema, type PhaseIntentRequest } from './phase-intents.js';
 
 export const reviewActionSchema = z.enum(['accept', 'request-changes']);
 export const reviewActionOptionSchema = z.object({
@@ -179,6 +180,7 @@ export type BrunchDataParts = {
   'activity-summary': ActivitySummary;
   'turn-response': DataTurnResponse;
   confirmation: DataConfirmation;
+  'phase-intent': PhaseIntentRequest;
   'phase-summary': DataPhaseSummary;
 };
 
@@ -211,7 +213,7 @@ export type BrunchAssistantPart =
     >;
 export type BrunchUserPart = Extract<
   BrunchUIMessagePart,
-  { type: 'text' | 'data-turn-response' | 'data-confirmation' }
+  { type: 'text' | 'data-turn-response' | 'data-confirmation' | 'data-phase-intent' }
 >;
 export type AskQuestionUIPart = Extract<BrunchUIMessagePart, { type: 'tool-ask_question' }>;
 export type ObserverResultUIPart = Extract<BrunchUIMessagePart, { type: 'data-observer-result' }>;
@@ -234,6 +236,7 @@ const persistedUserPartSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('text'), text: z.string() }).loose(),
   z.object({ type: z.literal('data-turn-response'), data: dataTurnResponseSchema }).loose(),
   z.object({ type: z.literal('data-confirmation'), data: dataConfirmationSchema }).loose(),
+  z.object({ type: z.literal('data-phase-intent'), data: phaseIntentRequestSchema }).loose(),
 ]);
 
 function safeDecodePersistedParts<PART>(
@@ -295,6 +298,7 @@ export const brunchDataPartSchemas = {
   'activity-summary': activitySummarySchema,
   'turn-response': dataTurnResponseSchema,
   confirmation: dataConfirmationSchema,
+  'phase-intent': phaseIntentRequestSchema,
   'phase-summary': dataPhaseSummarySchema,
 } as const;
 

@@ -3,6 +3,7 @@ import * as z from 'zod/v4';
 import { reviewActionSchema } from './chat.js';
 import { knowledgeEntityCollections, knowledgeKinds } from './knowledge.js';
 import { phaseClosureBasisSchema, workflowPhaseSchema, type WorkflowPhase } from './phase-close.js';
+import { phaseIntentRequestSchema } from './phase-intents.js';
 
 export type { WorkflowPhase };
 
@@ -232,21 +233,10 @@ export const submitTurnResponseResponseSchema = z.object({
   workflowCompleted: z.literal(true).optional(),
 });
 
-export const submitPhaseIntentRequestSchema = z.discriminatedUnion('kind', [
-  z.object({
-    kind: z.literal('phase-entry'),
-    phase: workflowPhaseSchema,
-    mode: projectModeSchema.optional(),
-  }),
-  z.object({
-    kind: z.literal('phase-continue'),
-    phase: workflowPhaseSchema,
-  }),
-]);
+export const submitPhaseIntentRequestSchema = phaseIntentRequestSchema;
 
 export const submitPhaseIntentResponseSchema = z.object({
   ok: z.literal(true),
-  messageText: z.string(),
 });
 
 export type ProjectMode = z.infer<typeof projectModeSchema>;

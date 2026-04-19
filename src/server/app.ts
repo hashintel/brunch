@@ -35,6 +35,7 @@ import {
   getForcedPhaseClosureSummary,
   parsePhaseClosureCommand,
 } from '@/shared/phase-close.js';
+import { getPhaseIntentDisplayText } from '@/shared/phase-intents.js';
 import { getReviewActionForSelectedPositions } from '@/shared/project-state-turn.js';
 
 import {
@@ -461,16 +462,29 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       lastUserMessage?.role === 'user' && lastUserMessage.parts.length > 0
         ? lastUserMessage.parts.filter(
             (part): part is BrunchUserPart =>
-              part.type === 'text' || part.type === 'data-turn-response' || part.type === 'data-confirmation',
+              part.type === 'text' ||
+              part.type === 'data-turn-response' ||
+              part.type === 'data-confirmation' ||
+              part.type === 'data-phase-intent',
           )
         : [{ type: 'text', text: prompt }];
     const confirmationPart = userParts.find(
       (part): part is Extract<BrunchUserPart, { type: 'data-confirmation' }> =>
         part.type === 'data-confirmation',
     );
+    const phaseIntentPart = userParts.find(
+      (part): part is Extract<BrunchUserPart, { type: 'data-phase-intent' }> =>
+        part.type === 'data-phase-intent',
+    );
     const phaseClosureCommand = confirmationPart ? parsePhaseClosureCommand(confirmationPart.data) : null;
+    const phaseIntentPrompt = phaseIntentPart ? getPhaseIntentDisplayText(phaseIntentPart.data) : '';
+    const promptText = prompt.trim() || phaseIntentPrompt;
+    const persistedUserParts =
+      phaseIntentPart && !userParts.some((part) => part.type === 'text')
+        ? ([{ type: 'text', text: phaseIntentPrompt }, ...userParts] satisfies BrunchUserPart[])
+        : userParts;
 
-    if (!prompt.trim() && !confirmationPart) {
+    if (!promptText && !confirmationPart && !phaseIntentPart) {
       res.status(400).json({ error: 'message content is required' });
       return;
     }
@@ -518,10 +532,10 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           res.status(404).json({ error: 'Phase closure proposal not found' });
           return;
         }
-        resolveTurn(db, proposalTurn.id, prompt, userParts);
+        resolveTurn(db, proposalTurn.id, promptText, persistedUserParts);
         confirmedClosureTurnId = proposalTurn.id;
       } else if (forceClosePhase) {
-        prepared = prepareTurn(db, id, prompt, userParts, forceClosePhase);
+        prepared = prepareTurn(db, id, promptText, persistedUserParts, forceClosePhase);
       } else {
         ensureProjectFrontier(db, id);
         const frontierProject = getProjectState(db, id)?.project;
@@ -535,7 +549,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
 
         if (activeTurn?.answer === null) {
-          resolveTurn(db, activeTurn.id, prompt, userParts);
+          resolveTurn(db, activeTurn.id, promptText, persistedUserParts);
           observedTurnId = activeTurn.id;
           prepared = prepareSuccessorTurn(db, id, activeTurn.phase, activeTurn.id);
         } else {
@@ -606,7 +620,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           db,
           prepared.turn,
           prepared.activePath,
-          prompt,
+          promptText,
           prepared.turn.phase,
           modeOptions,
         );
@@ -639,7 +653,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           const shouldObserve =
             observedTurn &&
             observedTurn.answer !== null &&
-            !userParts.some((part) => part.type === 'data-confirmation') &&
+            !persistedUserParts.some((part) => part.type === 'data-confirmation') &&
             !safeDeserializeAssistantParts(observedTurn.assistant_parts).some(
               (part) => part.type === 'data-observer-result',
             );

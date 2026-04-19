@@ -864,7 +864,11 @@ describe('InterviewView', () => {
 
     await act(async () => {
       useChatHarness.replaceMessages?.([
-        { id: 'u-control', role: 'user', parts: [{ type: 'text', text: 'Continue the grounding phase.' }] },
+        {
+          id: 'u-control',
+          role: 'user',
+          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'scope' } }],
+        },
       ]);
     });
 
@@ -1267,7 +1271,7 @@ describe('InterviewView', () => {
     setLoaderData(loaderData);
 
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ok: true, messageText: 'Feature within existing codebase' }), {
+      new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -1296,7 +1300,14 @@ describe('InterviewView', () => {
     });
 
     await waitFor(() => {
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Feature within existing codebase' });
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+          },
+        ],
+      });
     });
   });
 
@@ -1324,7 +1335,7 @@ describe('InterviewView', () => {
     expect(screen.queryByLabelText('Type a message...')).toBeNull();
 
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ok: true, messageText: 'Continue the grounding phase.' }), {
+      new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -1333,7 +1344,14 @@ describe('InterviewView', () => {
     fireEvent.click(screen.getByTestId('recovery-control-card'));
 
     await waitFor(() => {
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Continue the grounding phase.' });
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: { kind: 'phase-continue', phase: 'scope' },
+          },
+        ],
+      });
     });
   });
 
@@ -1367,7 +1385,7 @@ describe('InterviewView', () => {
     expect(kickoffCard.textContent).not.toContain('interview turn');
 
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ok: true, messageText: 'Begin the requirements phase.' }), {
+      new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -1376,7 +1394,14 @@ describe('InterviewView', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Proceed' }));
 
     await waitFor(() => {
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Begin the requirements phase.' });
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: { kind: 'phase-entry', phase: 'requirements' },
+          },
+        ],
+      });
     });
   });
 
@@ -1448,7 +1473,7 @@ describe('InterviewView', () => {
     expect(recoveryCard.textContent).not.toContain('interview turn');
 
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ok: true, messageText: 'Continue the acceptance criteria phase.' }), {
+      new Response(JSON.stringify({ ok: true }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -1458,7 +1483,12 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
-        text: 'Continue the acceptance criteria phase.',
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: { kind: 'phase-continue', phase: 'criteria' },
+          },
+        ],
       });
     });
   });

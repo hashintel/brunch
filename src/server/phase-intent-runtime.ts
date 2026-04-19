@@ -10,7 +10,6 @@ import {
   getGroundingStrategyTitle,
   isGroundingStrategyKickoffTurn,
 } from '@/shared/grounding-strategy.js';
-import { getPhaseIntentMessage } from '@/shared/phase-intents.js';
 import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
 
 import { loadActivePathWithOptions } from './core.js';
@@ -28,7 +27,6 @@ import { serializeParts } from './parts.js';
 
 export interface PhaseIntentRuntimeResult {
   readonly ok: true;
-  readonly messageText: string;
 }
 
 export interface PhaseIntentRuntimeError {
@@ -81,10 +79,7 @@ function persistGroundingStrategyKickoffSelection({
     ] satisfies BrunchUserPart[]),
   });
 
-  return {
-    ok: true,
-    messageText,
-  };
+  return { ok: true };
 }
 
 function findLatestPhaseTurn(
@@ -142,16 +137,10 @@ export function submitPhaseIntentWithRuntimeCompatibility({
         mode: request.mode,
         cwd: request.mode === 'brownfield' ? projectCwd : null,
       });
-      return {
-        ok: true,
-        messageText,
-      };
+      return { ok: true };
     }
 
-    return {
-      ok: true,
-      messageText: getPhaseIntentMessage(request.phase, 'phase-entry'),
-    };
+    return { ok: true };
   }
 
   if (
@@ -161,8 +150,5 @@ export function submitPhaseIntentWithRuntimeCompatibility({
     return { ok: false, status: 409, error: 'Phase continue is not currently available' };
   }
 
-  return {
-    ok: true,
-    messageText: getPhaseIntentMessage(request.phase, 'phase-continue'),
-  };
+  return { ok: true };
 }

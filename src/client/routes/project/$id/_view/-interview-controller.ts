@@ -11,13 +11,13 @@ import {
 import type { ProjectMode, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import { brunchDataPartSchemas } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
-import { getGroundingStrategyTitle } from '@/shared/grounding-strategy.js';
 import {
   createConfirmProposedPhaseClosureCommand,
   createForceCloseActivePhaseCommand,
   getPhaseClosureCommandText,
 } from '@/shared/phase-close.js';
 import type { DataConfirmation } from '@/shared/phase-close.js';
+import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
 import { getNextActivePhase, phaseRouteSegments } from '@/shared/phase-routes.js';
 
 import {
@@ -285,6 +285,24 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     [isLoading, sendMessage],
   );
 
+  const submitPhaseIntentCommand = useCallback(
+    (intent: PhaseIntentRequest) => {
+      if (isLoading) {
+        return;
+      }
+
+      void sendMessage({
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: intent,
+          },
+        ],
+      });
+    },
+    [isLoading, sendMessage],
+  );
+
   const confirmPhaseClosure = useCallback(
     (closurePhase: ProjectStateTurn['phase'], turnId: number) => {
       submitPhaseClosureCommand(createConfirmProposedPhaseClosureCommand(closurePhase, turnId));
@@ -369,10 +387,11 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                     }
 
                     if (kickoff.phase === 'scope' && kickoff.mode === 'start' && selectedMode) {
-                      const kickoffText = getGroundingStrategyTitle(selectedMode);
-                      if (!kickoffText) {
-                        return;
-                      }
+                      const intent: PhaseIntentRequest = {
+                        kind: 'phase-entry',
+                        phase: kickoff.phase,
+                        mode: selectedMode,
+                      };
 
                       void submitPhaseIntentMutation
                         .submitPhaseEntry(kickoff.phase, { mode: selectedMode })
@@ -381,10 +400,21 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                             return;
                           }
 
-                          submitText(result.messageText);
+                          submitPhaseIntentCommand(intent);
                         });
                       return;
                     }
+
+                    const intent: PhaseIntentRequest =
+                      kickoff.mode === 'start'
+                        ? {
+                            kind: 'phase-entry',
+                            phase: kickoff.phase,
+                          }
+                        : {
+                            kind: 'phase-continue',
+                            phase: kickoff.phase,
+                          };
 
                     const submitIntent =
                       kickoff.mode === 'start'
@@ -396,7 +426,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                         return;
                       }
 
-                      submitText(result.messageText);
+                      submitPhaseIntentCommand(intent);
                     });
                   },
                 };
@@ -419,7 +449,10 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                           return;
                         }
 
-                        submitText(result.messageText);
+                        submitPhaseIntentCommand({
+                          kind: 'phase-continue',
+                          phase: recovery.phase,
+                        });
                       });
                     },
                   };

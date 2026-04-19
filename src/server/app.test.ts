@@ -482,7 +482,7 @@ describe('POST /api/projects/:id/chat', () => {
     await request(app)
       .post(`/api/projects/${projectId}/phase-intent`)
       .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
-      .expect(200, { ok: true, messageText: 'Feature within existing codebase' });
+      .expect(200, { ok: true });
 
     expect(getProject(db, projectId)).toMatchObject({
       mode: 'brownfield',
@@ -493,7 +493,16 @@ describe('POST /api/projects/:id/chat', () => {
       .post(`/api/projects/${projectId}/chat`)
       .send({
         messages: [
-          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'Feature within existing codebase' }] },
+          {
+            id: 'u1',
+            role: 'user',
+            parts: [
+              {
+                type: 'data-phase-intent',
+                data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+              },
+            ],
+          },
         ],
       })
       .expect(200);
@@ -2537,7 +2546,6 @@ describe('POST /api/projects/:id/phase-intent', () => {
       .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
       .expect(200, {
         ok: true,
-        messageText: 'Feature within existing codebase',
       });
 
     expect(getProject(db, project.id)).toMatchObject({
@@ -2553,7 +2561,12 @@ describe('POST /api/projects/:id/phase-intent', () => {
           {
             id: 'u-kickoff-brownfield',
             role: 'user',
-            parts: [{ type: 'text', text: 'Feature within existing codebase' }],
+            parts: [
+              {
+                type: 'data-phase-intent',
+                data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+              },
+            ],
           },
         ],
       })
@@ -2582,7 +2595,6 @@ describe('POST /api/projects/:id/phase-intent', () => {
       .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
       .expect(200, {
         ok: true,
-        messageText: 'Feature within existing codebase',
       });
 
     const updatedKickoffTurn = getActivePath(db, project.id)[0]!;
@@ -2612,7 +2624,6 @@ describe('POST /api/projects/:id/phase-intent', () => {
       .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
       .expect(200, {
         ok: true,
-        messageText: 'Feature within existing codebase',
       });
 
     const updatedKickoffTurn = getActivePath(db, project.id)[0]!;

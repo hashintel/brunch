@@ -36,6 +36,7 @@ import { isAskQuestionUIPart, summarizeAssistantActivity } from '@/shared/chat.j
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
 import { getWorkflowPhaseLabel } from '@/shared/phase-display.js';
+import { getPhaseIntentMarkerLabel } from '@/shared/phase-intents.js';
 import { getNextActivePhase, phaseOrder, phaseRouteSegments } from '@/shared/phase-routes.js';
 import {
   getPersistedActivitySummary,
@@ -73,13 +74,28 @@ function getReviewPhaseCompletionDescription(
   return 'The accepted criteria set is ready for export.';
 }
 
-function getControlMarkerLabel(text: string): string | null {
-  if (Object.values(startPhaseMessages).includes(text as (typeof startPhaseMessages)[WorkflowPhase])) {
-    return 'Interview started';
+function getControlMarkerLabel(message: BrunchUIMessage): string | null {
+  const phaseIntent = message.parts?.find(
+    (part): part is Extract<(typeof message.parts)[number], { type: 'data-phase-intent' }> =>
+      part.type === 'data-phase-intent',
+  );
+  if (phaseIntent) {
+    return getPhaseIntentMarkerLabel(phaseIntent.data);
   }
 
-  if (Object.values(continuePhaseMessages).includes(text as (typeof continuePhaseMessages)[WorkflowPhase])) {
-    return 'Interview resumed';
+  const textParts = message.parts?.filter((part) => part.type === 'text') ?? [];
+  for (const part of textParts) {
+    if (Object.values(startPhaseMessages).includes(part.text as (typeof startPhaseMessages)[WorkflowPhase])) {
+      return 'Interview started';
+    }
+
+    if (
+      Object.values(continuePhaseMessages).includes(
+        part.text as (typeof continuePhaseMessages)[WorkflowPhase],
+      )
+    ) {
+      return 'Interview resumed';
+    }
   }
 
   return null;
@@ -374,10 +390,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               );
 
               if (message.role === 'user') {
-                const textParts = message.parts?.filter((part) => part.type === 'text') ?? [];
-                const marker = textParts
-                  .map((part) => getControlMarkerLabel(part.text))
-                  .find((label): label is string => Boolean(label));
+                const marker = getControlMarkerLabel(message);
 
                 if (marker) {
                   return <TranscriptMetaPlaceholder key={message.id} label={marker} />;
