@@ -665,17 +665,14 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
     is_recommended: true,
   });
   updateTurn(db, firstGroundingTurn.id, {
-    user_parts: serializeParts([
-      { type: 'text', text: 'Continue — Focus on the routed workspace stream seam.' },
-      {
-        type: 'data-turn-response',
-        data: {
-          turnId: firstGroundingTurn.id,
-          selectedOptionIds: [firstContinueOption.id],
-          freeText: 'Focus on the routed workspace stream seam.',
-        },
+    user_parts: serializeFixtureTurnResponseUserParts({
+      text: 'Continue — Focus on the routed workspace stream seam.',
+      data: {
+        turnId: firstGroundingTurn.id,
+        selectedOptionIds: [firstContinueOption.id],
+        freeText: 'Focus on the routed workspace stream seam.',
       },
-    ]),
+    }),
   });
   applyTurnResponseSelections(db, firstGroundingTurn.id, [0]);
   advanceHead(db, projectId, firstGroundingTurn.id);
@@ -696,16 +693,11 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
     parent_turn_id: substantiveTurn.id,
     question: '',
     answer: null,
-    assistant_parts: serializeParts([
-      {
-        type: 'data-grounding-card',
-        data: {
-          summary: 'Later context gathering narrowed the work to turn-finalization ownership.',
-          detail: 'Continue to move from replay evidence back into the next substantive question.',
-          continueLabel: 'Continue',
-        },
-      },
-    ]),
+    assistant_parts: serializeFixtureGroundingCardAssistantParts({
+      summary: 'Later context gathering narrowed the work to turn-finalization ownership.',
+      detail: 'Continue to move from replay evidence back into the next substantive question.',
+      continueLabel: 'Continue',
+    }),
   });
   createOption(db, laterGroundingTurn.id, {
     position: 0,
@@ -759,12 +751,12 @@ export const scenarios: Record<string, ScenarioFn> = {
   },
   'requirements-ready': (db, name = 'Requirements Ready') => {
     const project = createProject(db, name);
-    seedRequirementsReady(db, project.id);
+    seedRequirementsReviewReady(db, project.id);
     return project.id;
   },
   'criteria-ready': (db, name = 'Criteria Ready') => {
     const project = createProject(db, name);
-    seedCriteriaReady(db, project.id);
+    seedCriteriaReviewReady(db, project.id);
     return project.id;
   },
   'all-phases-closed': (db, name = 'All Phases Closed') => {
@@ -788,6 +780,17 @@ export const testOnlyScenarios: Record<string, ScenarioFn> = {};
 
 export const manifestScenarios = loadManifestScenarios('issue-tracker');
 
+const publicManifestAnchorScenarios: Record<string, ScenarioFn> = {
+  'issue-tracker-kickoff-ready': createManifestScenarioSeeder(
+    issueTrackerManifest.scenarios['kickoff-ready']!,
+    'Issue Tracker (kickoff ready)',
+  ),
+  'issue-tracker-all-phases-closed': createManifestScenarioSeeder(
+    issueTrackerManifest.scenarios['all-phases-closed']!,
+    'Issue Tracker (all phases closed)',
+  ),
+};
+
 const phaseTransitionScenarios: Record<string, ScenarioFn> = {
   'brownfield-grounding-replay': (db, name = 'Brownfield reusable grounding replay') => {
     const project = createProject(db, name, {
@@ -809,14 +812,16 @@ const phaseTransitionScenarios: Record<string, ScenarioFn> = {
     issueTrackerManifest.scenarios['design-active']!,
     'Issue Tracker (design recovery)',
   ),
-  'issue-tracker-requirements-kickoff-ready': createManifestScenarioSeeder(
-    sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 11),
-    'Issue Tracker (requirements kickoff ready)',
-  ),
-  'issue-tracker-criteria-kickoff-ready': createManifestScenarioSeeder(
-    sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 18),
-    'Issue Tracker (criteria kickoff ready)',
-  ),
+  'issue-tracker-requirements-kickoff-ready': (db, name = 'Issue Tracker (requirements kickoff ready)') => {
+    const project = createProject(db, name);
+    seedRequirementsReady(db, project.id);
+    return project.id;
+  },
+  'issue-tracker-criteria-kickoff-ready': (db, name = 'Issue Tracker (criteria kickoff ready)') => {
+    const project = createProject(db, name);
+    seedCriteriaReady(db, project.id);
+    return project.id;
+  },
   'issue-tracker-requirements-ready': (db, name = 'Issue Tracker (requirements review ready)') => {
     const project = createProject(db, name);
     seedRequirementsReviewReady(db, project.id);
@@ -927,7 +932,7 @@ const walkthroughScenarioNameSet = new Set<string>(walkthroughScenarioNames);
 
 export const publicScenarios: Record<string, ScenarioFn> = {
   ...scenarios,
-  ...manifestScenarios,
+  ...publicManifestAnchorScenarios,
   ...phaseTransitionScenarios,
 };
 export const publicScenarioNames = [
@@ -936,6 +941,7 @@ export const publicScenarioNames = [
 ];
 export const allScenarios: Record<string, ScenarioFn> = {
   ...publicScenarios,
+  ...manifestScenarios,
   ...testOnlyScenarios,
 };
 export const scenarioNames = publicScenarioNames;

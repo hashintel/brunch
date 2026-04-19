@@ -29,6 +29,8 @@ describe('runSeedCli', () => {
     expect(listOutput).toContain('issue-tracker-criteria-kickoff-ready');
     expect(listOutput).toContain('forced-close-all-phases-closed');
     expect(listOutput).toContain('low-readiness-all-phases-closed');
+    expect(listOutput).not.toContain('issue-tracker-scope-closed');
+    expect(listOutput).not.toContain('issue-tracker-design-active');
   });
 
   it('rejects unknown scenarios through the public seed CLI', () => {
