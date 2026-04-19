@@ -24,20 +24,33 @@ The current active frontier should now be read not just as product/design cleanu
    - Why now / unlocks: the remaining handoff bugs are real, but fixing them before the semantic cleanup would just restabilize the wrong model. Once review authority, ontology, and input seams are cleaned, transition work can become a straightforward projection pass instead of another exception layer. This item also establishes the truthful transition boundaries that the later router/query ownership pass should refine rather than guess at. It now also has to absorb the runtime/state-machine seam strongly enough that automatic phase lifecycle behaviors do not get reintroduced as route-local effects.
    - Traceability: D94, D100, D101, D104, D113; A54, A57.
    - Boundary with Next item 3: this item owns workflow semantics, projected handoff/completion behavior, and the minimum route/query changes needed to make those transitions truthful. It does **not** own the broad ownership/invalidation cleanup pass; only take loader/query changes here when they are the smallest honest fix for a handoff bug.
-   - What this slice must accomplish:
-     - requirements acceptance advances cleanly into criteria kickoff without dead air
-     - criteria acceptance closes into a visible workflow-complete / export-ready state
-     - closed phases show explicit handoff / completion artifacts instead of relying on the generic shell to imply what happened
-     - force-close and proposed-close confirmations stay legible and do not leave stale active-phase projections behind
-     - automatic phase-entry / phase-continue behavior is either restored through a specification-scoped, duplicate-safe lifecycle seam or explicitly held off; do not re-enable auto-present as a view-local effect while `docs/design/state-machines/README.md` still assigns that responsibility to lifecycle ownership
-       - Done 2026-04-19: the first D113 proving slice landed for auto-present on the current reachable kickoff phase through a specification-scoped lifecycle helper. It submits typed phase-entry intents only, suppresses duplicate submit across rerender/remount, leaves router ownership of navigation plus durable read-model rendering unchanged, and does not auto-choose grounding strategy kickoff on `scope`.
-       - Done 2026-04-19: the next D113 follow-on slice landed for auto-continue on the current reachable recovery phase through that same specification-scoped seam. It submits typed idempotent `phase-continue` intents only, suppresses duplicate submit across rerender/remount, falls back to the projected recovery card after failed auto-submit instead of retry-looping, and keeps router ownership of navigation plus durable read-model rendering unchanged.
-       - Remaining: do not widen lifecycle ownership beyond current reachable kickoff auto-present plus current reachable recovery auto-continue without fresh scoping; broader continue paths, force-close races, and any stronger runtime-host machinery remain deferred.
+   - **Status board (sync 2026-04-19):**
+     - **Done / proved in current code + tests**
+       - requirements full-set review acceptance advances directly into criteria kickoff without dead air
+       - criteria full-set review acceptance closes the final phase and yields workflow-complete / export-ready state
+       - criteria closure confirmation no longer leaves a stale active interviewer phase projected after close
+       - the narrow D113 lifecycle seam is proved for current reachable kickoff auto-present, recovery auto-continue, and rejected auto-submit fallback
+     - **Remaining before this frontier item can honestly retire**
+       - closed phases still need clearer explicit handoff / completion artifacts in the workspace stream instead of relying on the larger generic shell to imply what happened
+       - force-close and proposed-close confirmation paths still need one final legibility / stale-projection pass, especially around design force-close and end-of-phase confirmation edge states
+       - if those remaining edges expose broader lifecycle ownership gaps, scope only the smallest additional D113 follow-on needed; do not widen runtime ownership preemptively
+     - **Not part of this item**
+       - broad router/query ownership cleanup still belongs to Next item 3
+       - naming normalization still belongs to Next item 1
+   - **Evidence currently carrying the item:**
+     - `src/server/app.test.ts` covers requirements acceptance into criteria kickoff, criteria acceptance into fully closed workflow/output-ready state, no stale active phase after criteria closure confirmation, and the shared force-close confirmation seam
+     - `src/server/fixtures/walkthrough.test.ts` covers resumed kickoff/recovery landings plus export-ready seeded replay
+     - `src/client/routes/project/$id/_view/*test.tsx` continues to carry the routed workspace/read-model projection seam while these transition slices land
+   - **D113 lifecycle boundary inside this item:**
+     - Done 2026-04-19: the first proving slice landed for auto-present on the current reachable kickoff phase through a specification-scoped lifecycle helper. It submits typed phase-entry intents only, suppresses duplicate submit across rerender/remount, leaves router ownership of navigation plus durable read-model rendering unchanged, and does not auto-choose grounding strategy kickoff on `scope`.
+     - Done 2026-04-19: the next follow-on slice landed for auto-continue on the current reachable recovery phase through that same specification-scoped seam. It submits typed idempotent `phase-continue` intents only, suppresses duplicate submit across rerender/remount, falls back to the projected recovery card after failed auto-submit instead of retry-looping, and keeps router ownership of navigation plus durable read-model rendering unchanged.
+     - Done 2026-04-19: rejected auto-submit now marks the current auto intent failed and re-projects the kickoff/recovery control instead of leaving the reachable phase stuck in lifecycle-owned generating state.
+     - Remaining: do not widen lifecycle ownership beyond current reachable kickoff auto-present plus current reachable recovery auto-continue without fresh scoping; broader continue paths, force-close races, and any stronger runtime-host machinery remain deferred.
    - When to pick up the D113 concern:
      - immediately before any slice that would re-enable auto-present / auto-continue, move recovery/continue ownership back into the route view, or depend on remount-tied effects for lifecycle progress
      - immediately when a bug involves duplicate submits, late lifecycle outputs, force-close races, or restart/remount ambiguity about which in-flight effect is still authoritative
    - How to pick it up:
-     - first prove the boundary on one narrow path (likely auto-present for the current reachable phase) using a specification-scoped lifecycle helper that consumes durable truth and emits typed idempotent intents
+     - first prove the boundary on one narrow path using a specification-scoped lifecycle helper that consumes durable truth and emits typed idempotent intents
      - keep router ownership of navigation and durable read-model rendering unchanged while testing whether a minimal lifecycle seam is sufficient
      - only widen toward broader runtime machinery if that narrow proving slice cannot suppress duplicates / stale outputs cleanly
    - Feed forward into Next item 3 whenever an ownership issue is encountered:
