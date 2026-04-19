@@ -2932,6 +2932,89 @@ describe('InterviewView', () => {
     });
   });
 
+  it('shows a closure confirmation control marker while proposal confirmation is submitting', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: '',
+        answer: 'We have enough scope context',
+        workflow: {
+          phases: {
+            scope: {
+              status: 'in_progress',
+              closeability: true,
+              readiness: 'medium',
+              closureBasis: null,
+              proposalPending: true,
+              turnId: 1,
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+          },
+        } as any,
+        assistantParts: [
+          {
+            type: 'data-phase-summary',
+            data: {
+              turnId: 1,
+              phase: 'scope',
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+          },
+        ],
+      }),
+    );
+    useChatHarness.sendMessage.mockImplementation(async () => {
+      useChatHarness.replaceMessages?.([
+        {
+          id: 'u-close',
+          role: 'user',
+          parts: [
+            {
+              type: 'data-confirmation',
+              data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
+            },
+          ],
+        },
+      ]);
+      useChatHarness.setStatus?.('submitted');
+    });
+
+    renderWorkspace();
+
+    fireEvent.click(await screen.findByRole('button', { name: /confirm grounding closure/i }));
+
+    expect(await screen.findByText('Confirm grounding closure')).toBeTruthy();
+    expect(screen.getByTestId('generating-turn-placeholder')).toBeTruthy();
+    expect(screen.queryByText('Grounding closure proposal')).toBeNull();
+    expect(screen.queryByRole('button', { name: /confirm grounding closure/i })).toBeNull();
+  });
+
   it('renders a review-specific proposal card for requirements and keeps the same confirmation payload', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
@@ -3140,6 +3223,96 @@ describe('InterviewView', () => {
         ],
       });
     });
+  });
+
+  it('shows a force-close control marker while design force-close is submitting', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'design',
+            question: 'Which architecture should we choose next?',
+            why: 'This shapes implementation commitments.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Which architecture should we choose next?' },
+            ]),
+            created_at: '2026-04-03 10:05:00',
+            options: [{ id: 21, position: 0, content: 'Monolith', is_recommended: true, is_selected: false }],
+          },
+        ],
+        workflow: {
+          phases: {
+            scope: {
+              status: 'closed',
+              closeability: false,
+              readiness: 'high',
+              closureBasis: 'interviewer_recommended',
+              proposalPending: false,
+              turnId: 11,
+              summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+            },
+            design: {
+              status: 'in_progress',
+              closeability: true,
+              readiness: 'medium',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: 1,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+          },
+        } as any,
+      }),
+    );
+    useChatHarness.sendMessage.mockImplementation(async () => {
+      useChatHarness.replaceMessages?.([
+        {
+          id: 'u-force-close',
+          role: 'user',
+          parts: [
+            {
+              type: 'data-confirmation',
+              data: { kind: 'force-close-active-phase', phase: 'design' },
+            },
+          ],
+        },
+      ]);
+      useChatHarness.setStatus?.('submitted');
+    });
+
+    renderWorkspace('design');
+
+    expect(screen.getByText('Which architecture should we choose next?')).toBeTruthy();
+    fireEvent.click(await screen.findByRole('button', { name: /force elicitation closure/i }));
+
+    expect(await screen.findByText('Force elicitation closure', { selector: 'p' })).toBeTruthy();
+    expect(screen.getByTestId('generating-turn-placeholder')).toBeTruthy();
+    expect(screen.queryByText('Which architecture should we choose next?')).toBeNull();
   });
 
   it('hides the force-close action when design already has a pending closure proposal', async () => {

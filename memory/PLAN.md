@@ -31,9 +31,9 @@ The current active frontier should now be read not just as product/design cleanu
        - criteria closure confirmation no longer leaves a stale active interviewer phase projected after close
        - the narrow D113 lifecycle seam is proved for current reachable kickoff auto-present, recovery auto-continue, and rejected auto-submit fallback
        - closed phases now surface dedicated completion / handoff artifacts in the workspace stream instead of replaying accepted closure through the larger generic workspace-state shell
+       - proposed-close confirmations and design force-close now show explicit in-flight control markers while stale proposal/frontier projection is suppressed during submit
      - **Remaining before this frontier item can honestly retire**
-       - force-close and proposed-close confirmation paths still need one final legibility / stale-projection pass, especially around design force-close and end-of-phase confirmation edge states
-       - if those remaining edges expose broader lifecycle ownership gaps, scope only the smallest additional D113 follow-on needed; do not widen runtime ownership preemptively
+       - none at the current scoped boundary; retire this frontier item on the next planning refresh unless fresh verification exposes a broader D113 lifecycle gap
      - **Not part of this item**
        - broad router/query ownership cleanup still belongs to Next item 3
        - naming normalization still belongs to Next item 1
@@ -103,6 +103,7 @@ The current active frontier should now be read not just as product/design cleanu
 
 ## Recently Completed
 
+- 2026-04-19 — **Force-close and close-confirmation now read as explicit in-flight control actions** — typed proposal confirmations and design force-close requests now surface control markers in the workspace stream while stale proposal/frontier projection is suppressed during submit. Verified: `npm run verify`.
 - 2026-04-19 — **Closed-phase stream artifacts now read as explicit completion / handoff states** — accepted closure replay now renders through dedicated completion chrome instead of the generic workspace-state shell, and non-review closed-phase handoffs carry explicit handoff framing in the workspace stream. Verified: `npm run verify`.
 - 2026-04-19 — **Legacy fixture side path removed; one TS-native fixture model remains** — the public walkthrough catalog now proves direct builder ownership, app and observer tests seed projects through direct TS setup, the observer corpus probes seed from TS helpers instead of a second scenario format, and the legacy fixture support layer plus fixture artifacts are deleted. Verified: `npm run verify`.
 - 2026-04-19 — **Public walkthrough seeds now prefer canonical review-turn helpers over stale late-phase scenario slices** — the public `requirements-ready` / `criteria-ready` seeds now resolve through the helper-backed full-set review seams, and the `issue-tracker-*` kickoff-ready later-phase walkthrough fixtures no longer slice stale per-item requirement drafts into public truth. Walkthrough regression coverage now asserts persisted `data-review-set` metadata on the seeded requirements / criteria review turns. Verified: `npm run verify`.

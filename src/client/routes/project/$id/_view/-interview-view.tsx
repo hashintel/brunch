@@ -68,7 +68,15 @@ function getControlMarkerLabel(message: BrunchUIMessage): string | null {
     (part): part is Extract<NonNullable<BrunchUIMessage['parts']>[number], { type: 'data-phase-intent' }> =>
       part.type === 'data-phase-intent',
   );
-  return phaseIntent ? getPhaseIntentMarkerLabel(phaseIntent.data) : null;
+  if (phaseIntent) {
+    return getPhaseIntentMarkerLabel(phaseIntent.data);
+  }
+
+  const phaseConfirmation = message.parts?.find(
+    (part): part is Extract<NonNullable<BrunchUIMessage['parts']>[number], { type: 'data-confirmation' }> =>
+      part.type === 'data-confirmation',
+  );
+  return phaseConfirmation ? getPhaseClosureCommandText(phaseConfirmation.data) : null;
 }
 
 function projectLiveControlMarkers(messages: readonly BrunchUIMessage[]): WorkspaceStreamMarker[] {
@@ -602,6 +610,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
 
             {bottomArtifact?.kind !== 'phase-summary' &&
               phaseState.status === 'in_progress' &&
+              !chat.isLoading &&
               canForceClosePhase(workflow, phase) && (
                 <div className="my-3 flex justify-end">
                   <button
