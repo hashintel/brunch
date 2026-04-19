@@ -4,13 +4,19 @@ import type { SpecificationLanding, WorkflowPhase, WorkflowState } from '@/share
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
 import { phaseOrder } from '@/shared/phase-routes.js';
 
-const autoPhaseEntryRegistry = new Map<number, string>();
+const autoPhaseIntentRegistry = new Map<
+  number,
+  {
+    key: string;
+    status: 'pending' | 'failed';
+  }
+>();
 
 function getCurrentReachablePhase(workflow: WorkflowState): WorkflowPhase | null {
   return phaseOrder.find((phase) => workflow.phases[phase].status !== 'closed') ?? null;
 }
 
-function getAutoPresentPhaseEntryIntent({
+function getAutoPhaseIntent({
   phase,
   workflow,
   landing,
@@ -20,15 +26,18 @@ function getAutoPresentPhaseEntryIntent({
   landing: SpecificationLanding | null;
 }): PhaseIntentRequest | null {
   const currentReachablePhase = getCurrentReachablePhase(workflow);
-  if (phase !== currentReachablePhase) {
+  if (phase !== currentReachablePhase || !landing || landing.phase !== phase) {
     return null;
   }
 
-  if (!landing || landing.kind !== 'kickoff' || landing.phase !== phase || landing.mode !== 'start') {
-    return null;
+  if (landing.kind === 'recovery') {
+    return {
+      kind: 'phase-continue',
+      phase,
+    };
   }
 
-  if (phase === 'scope') {
+  if (landing.kind !== 'kickoff' || landing.mode !== 'start' || phase === 'scope') {
     return null;
   }
 
@@ -38,17 +47,17 @@ function getAutoPresentPhaseEntryIntent({
   };
 }
 
-function getAutoPhaseEntryKey(intent: PhaseIntentRequest): string {
+function getAutoPhaseIntentKey(intent: PhaseIntentRequest): string {
   return `${intent.kind}:${intent.phase}${
     intent.kind === 'phase-entry' && intent.mode ? `:${intent.mode}` : ''
   }`;
 }
 
 export function resetSpecificationLifecycleRegistryForTesting() {
-  autoPhaseEntryRegistry.clear();
+  autoPhaseIntentRegistry.clear();
 }
 
-export function useSpecificationScopedAutoPhaseEntry({
+export function useSpecificationScopedAutoPhaseIntent({
   projectId,
   phase,
   workflow,
@@ -64,13 +73,14 @@ export function useSpecificationScopedAutoPhaseEntry({
   submitPhaseIntent: (intent: PhaseIntentRequest) => Promise<boolean>;
 }): boolean {
   const autoIntent = useMemo(
-    () => getAutoPresentPhaseEntryIntent({ phase, workflow, landing }),
+    () => getAutoPhaseIntent({ phase, workflow, landing }),
     [landing, phase, workflow],
   );
-  const autoKey = autoIntent ? getAutoPhaseEntryKey(autoIntent) : null;
-  const [isAutoSubmitting, setIsAutoSubmitting] = useState(
-    () => Boolean(autoKey) && autoPhaseEntryRegistry.get(projectId) === autoKey,
-  );
+  const autoKey = autoIntent ? getAutoPhaseIntentKey(autoIntent) : null;
+  const [isAutoSubmitting, setIsAutoSubmitting] = useState(() => {
+    const registryEntry = autoKey ? autoPhaseIntentRegistry.get(projectId) : null;
+    return registryEntry?.key === autoKey && registryEntry.status === 'pending';
+  });
 
   useEffect(() => {
     const currentReachablePhase = getCurrentReachablePhase(workflow);
@@ -80,13 +90,14 @@ export function useSpecificationScopedAutoPhaseEntry({
     }
 
     if (!autoKey || !autoIntent) {
-      autoPhaseEntryRegistry.delete(projectId);
+      autoPhaseIntentRegistry.delete(projectId);
       setIsAutoSubmitting(false);
       return;
     }
 
-    if (autoPhaseEntryRegistry.get(projectId) === autoKey) {
-      setIsAutoSubmitting(true);
+    const registryEntry = autoPhaseIntentRegistry.get(projectId);
+    if (registryEntry?.key === autoKey) {
+      setIsAutoSubmitting(registryEntry.status === 'pending');
       return;
     }
 
@@ -94,7 +105,10 @@ export function useSpecificationScopedAutoPhaseEntry({
       return;
     }
 
-    autoPhaseEntryRegistry.set(projectId, autoKey);
+    autoPhaseIntentRegistry.set(projectId, {
+      key: autoKey,
+      status: 'pending',
+    });
     setIsAutoSubmitting(true);
 
     let cancelled = false;
@@ -103,8 +117,12 @@ export function useSpecificationScopedAutoPhaseEntry({
         return;
       }
 
-      if (autoPhaseEntryRegistry.get(projectId) === autoKey) {
-        autoPhaseEntryRegistry.delete(projectId);
+      const latestEntry = autoPhaseIntentRegistry.get(projectId);
+      if (latestEntry?.key === autoKey) {
+        autoPhaseIntentRegistry.set(projectId, {
+          key: autoKey,
+          status: 'failed',
+        });
       }
       if (!cancelled) {
         setIsAutoSubmitting(false);

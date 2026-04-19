@@ -537,35 +537,113 @@ describe('InterviewView', () => {
     expect(screen.queryByLabelText('Type a message...')).toBeNull();
   });
 
-  // TODO: re-enable when auto-present is restored after phase-closure rework
-  it.skip('auto-continues an open phase instead of showing a continue card when the last turn is already answered', async () => {
+  it('auto-continues the current reachable recovery phase through a typed phase-intent', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
-        answer: 'Desktop — Best fit for launch',
-        userParts: [
-          { type: 'text', text: 'Desktop — Best fit for launch' },
-          {
-            type: 'data-turn-response',
-            data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
+        workflow: createWorkflowState({
+          scope: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 11,
+            summary: 'Grounding complete.',
           },
-        ],
-        options: [
-          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
-          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+          design: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          requirements: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'design',
+            turn_kind: 'question',
+            question: 'Which platform should we target first?',
+            why: 'This chooses the first delivery surface.',
+            impact: 'high',
+            answer: 'Desktop — Best fit for launch',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Desktop — Best fit for launch' },
+              {
+                type: 'data-turn-response',
+                data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Which platform should we target first?' },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: true },
+            ],
+          },
         ],
       }),
     );
 
-    renderWorkspace();
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
 
-    expect(await screen.findByText('Preparing the next interview turn')).toBeTruthy();
-    expect(screen.queryByText('Continue Framing')).toBeNull();
-    expect(screen.queryByRole('button', { name: 'Ask for the next step' })).toBeNull();
-    expect(screen.queryByLabelText('Type a message...')).toBeNull();
+    renderWorkspace('design');
 
     await waitFor(() => {
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Continue the grounding phase.' });
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/phase-intent',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'design' }),
+        }),
+      );
     });
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: { kind: 'phase-continue', phase: 'design' },
+          },
+        ],
+      });
+    });
+
+    expect(await screen.findByTestId('generating-turn-placeholder')).toBeTruthy();
+    expect(screen.queryByTestId('recovery-control-card')).toBeNull();
+    expect(screen.queryByLabelText('Type a message...')).toBeNull();
   });
 
   it('hides the header phase action for an unstarted reachable phase', async () => {
@@ -1405,7 +1483,7 @@ describe('InterviewView', () => {
     });
   });
 
-  it('renders a recovery turn card when an open phase has a completed turn but no successor frontier', async () => {
+  it('auto-continues scope recovery when an open phase has a completed turn but no successor frontier', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
@@ -1422,12 +1500,6 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace();
-
-    expect((await screen.findByTestId('recovery-control-card')).textContent).toContain('Continue');
-    expect(screen.getByText('Restore the next interview turn')).toBeTruthy();
-    expect(screen.queryByLabelText('Type a message...')).toBeNull();
-
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
@@ -1435,7 +1507,18 @@ describe('InterviewView', () => {
       }),
     );
 
-    fireEvent.click(screen.getByTestId('recovery-control-card'));
+    renderWorkspace();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/phase-intent',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'scope' }),
+        }),
+      );
+    });
 
     await waitFor(() => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
@@ -1447,6 +1530,10 @@ describe('InterviewView', () => {
         ],
       });
     });
+
+    expect(await screen.findByTestId('generating-turn-placeholder')).toBeTruthy();
+    expect(screen.queryByTestId('recovery-control-card')).toBeNull();
+    expect(screen.queryByLabelText('Type a message...')).toBeNull();
   });
 
   it('renders grounding cards as a distinct active turn affordance and submits continue with an optional note', async () => {
@@ -1624,7 +1711,7 @@ describe('InterviewView', () => {
     expect(useChatHarness.sendMessage).not.toHaveBeenCalled();
   });
 
-  it('renders a review-specific recovery card for criteria', async () => {
+  it('auto-continues criteria recovery through the typed phase-intent seam', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
@@ -1682,15 +1769,6 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace('criteria');
-
-    const recoveryCard = await screen.findByTestId('workspace-state-card');
-    expect(recoveryCard.textContent).toContain('Restore the current acceptance criteria review');
-    expect(recoveryCard.textContent).toContain(
-      'The current acceptance criteria review frontier is missing. Continue to restore it.',
-    );
-    expect(recoveryCard.textContent).not.toContain('interview turn');
-
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
@@ -1698,7 +1776,18 @@ describe('InterviewView', () => {
       }),
     );
 
-    fireEvent.click(screen.getByTestId('recovery-control-card'));
+    renderWorkspace('criteria');
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/phase-intent',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'criteria' }),
+        }),
+      );
+    });
 
     await waitFor(() => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
@@ -1710,6 +1799,9 @@ describe('InterviewView', () => {
         ],
       });
     });
+
+    expect(await screen.findByTestId('generating-turn-placeholder')).toBeTruthy();
+    expect(screen.queryByTestId('workspace-state-card')).toBeNull();
   });
 
   it('renders requirement reference codes and review actions on the requirements full-set review turn', async () => {

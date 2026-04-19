@@ -35,7 +35,7 @@ import type {
 } from './-interview-controller-core.js';
 import { useInterviewDataAdapter } from './-interview-data.js';
 import { getProjectScopedChatId } from './-interview-hydration.js';
-import { useSpecificationScopedAutoPhaseEntry } from './-specification-lifecycle.js';
+import { useSpecificationScopedAutoPhaseIntent } from './-specification-lifecycle.js';
 
 export interface InterviewControllerChatState {
   readonly messages: readonly BrunchUIMessage[];
@@ -296,7 +296,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     }
   }, [pendingCloseNavigation, durableProject.workflow, phase, router, projectId]);
 
-  const isAutoPresentingKickoff = useSpecificationScopedAutoPhaseEntry({
+  const isAutoSubmittingPhaseIntent = useSpecificationScopedAutoPhaseIntent({
     projectId,
     phase,
     workflow: durableProject.workflow,
@@ -313,9 +313,9 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
         phaseMessages,
         isLoading,
         submittedTurnId,
-        isAutoPresentingKickoff,
+        isAutoSubmittingPhaseIntent,
       ),
-    [durableProject, isAutoPresentingKickoff, isLoading, phase, phaseMessages, submittedTurnId],
+    [durableProject, isAutoSubmittingPhaseIntent, isLoading, phase, phaseMessages, submittedTurnId],
   );
 
   useEffect(() => {

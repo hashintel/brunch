@@ -328,7 +328,7 @@ describe('interview controller', () => {
     expect(screen.getByTestId('bottom-artifact').textContent).toBe('start:scope');
   });
 
-  it('projects a recovery turn card when an open phase has a completed turn but no successor frontier', async () => {
+  it('auto-continues scope recovery when an open phase has a completed turn but no successor frontier', async () => {
     currentProjectState = createProjectState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
@@ -336,10 +336,27 @@ describe('interview controller', () => {
     currentProjectState.project.active_turn_id = null;
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
     renderController();
 
-    expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('recovery');
-    expect(screen.getByTestId('bottom-artifact').textContent).toBe('recovery:scope');
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/phase-intent',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'scope' }),
+        }),
+      );
+    });
+
+    expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('generating');
   });
 
   it('submits the grounding strategy kickoff from landing-only state without a seeded kickoff turn', async () => {
@@ -494,6 +511,71 @@ describe('interview controller', () => {
     expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('generating');
   });
 
+  it('auto-submits a typed phase-continue for the current reachable recovery phase', async () => {
+    currentProjectState = createProjectState({
+      options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+    });
+    currentProjectState.project.active_turn_id = null;
+    currentProjectState.workflow.phases.scope = {
+      status: 'closed',
+      closeability: false,
+      readiness: 'high',
+      closureBasis: 'interviewer_recommended',
+      proposalPending: false,
+      turnId: 11,
+      summary: 'Grounding complete.',
+    };
+    currentProjectState.workflow.phases.design = {
+      status: 'in_progress',
+      closeability: false,
+      readiness: 'medium',
+      closureBasis: null,
+      proposalPending: false,
+      turnId: null,
+      summary: null,
+    };
+    currentProjectState.turns = [
+      {
+        ...currentProjectState.turns[0]!,
+        phase: 'design',
+      },
+    ];
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderController('design');
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/phase-intent',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'design' }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: { kind: 'phase-continue', phase: 'design' },
+          },
+        ],
+      });
+    });
+
+    expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('generating');
+  });
+
   it('does not duplicate the auto phase-entry submit across rerender and remount', async () => {
     currentProjectState = createProjectState({ turns: [] });
     currentProjectState.project.active_turn_id = null;
@@ -551,6 +633,103 @@ describe('interview controller', () => {
     });
   });
 
+  it('does not duplicate the auto phase-continue submit across rerender and remount', async () => {
+    currentProjectState = createProjectState({
+      options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+    });
+    currentProjectState.project.active_turn_id = null;
+    currentProjectState.workflow.phases.scope = {
+      status: 'closed',
+      closeability: false,
+      readiness: 'high',
+      closureBasis: 'interviewer_recommended',
+      proposalPending: false,
+      turnId: 11,
+      summary: 'Grounding complete.',
+    };
+    currentProjectState.workflow.phases.design = {
+      status: 'in_progress',
+      closeability: false,
+      readiness: 'medium',
+      closureBasis: null,
+      proposalPending: false,
+      turnId: null,
+      summary: null,
+    };
+    currentProjectState.turns = [
+      {
+        ...currentProjectState.turns[0]!,
+        phase: 'design',
+      },
+    ];
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const rendered = renderController('design');
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <ControllerProbe phase="design" />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    rendered.unmount();
+    renderController('design');
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  it('suppresses repeated auto phase-continue retries after a failed submit until landing changes', async () => {
+    currentProjectState = createProjectState({
+      options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+    });
+    currentProjectState.project.active_turn_id = null;
+    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+
+    fetchMock.mockRejectedValueOnce(new Error('network down'));
+
+    const rendered = renderController();
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('recovery');
+    });
+
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <ControllerProbe />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('recovery');
+    });
+  });
+
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
     currentProjectState = createProjectState({
       assistantText: 'Earlier question?',
@@ -577,19 +756,34 @@ describe('interview controller', () => {
     });
   });
 
-  it('seeds chat state from loader data without a post-mount entity fetch', async () => {
+  it('seeds chat state from loader data while auto-continuing the current reachable recovery phase', async () => {
     currentProjectState = createProjectState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
 
     renderController();
 
     expect((await screen.findByTestId('messages')).textContent).toBe(
       'Build the web app|What should we build first?',
     );
-    expect(screen.getByTestId('bottom-artifact').textContent).toBe('recovery:scope');
-    expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('recovery');
-    expect(fetchMock).not.toHaveBeenCalled();
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/phase-intent',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'scope' }),
+        }),
+      );
+    });
+    expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('generating');
   });
 
   it('rehydrates the transcript on explicit project navigation', async () => {
