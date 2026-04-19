@@ -11,6 +11,7 @@ import {
   createConfirmedPhaseOutcome,
   createProject,
   createTurn,
+  getOptionsForTurn,
   linkKnowledgeItemToTurn,
   updateTurn,
   type DB,
@@ -26,58 +27,9 @@ import {
   serializeFixtureQuestionAssistantParts,
   serializeFixtureTurnResponseUserParts,
 } from './helpers.js';
-import { loadManifest, loadManifestScenarios, seedFromManifest, type ManifestScenario } from './manifest.js';
+import { loadManifestScenarios } from './manifest.js';
 
-const issueTrackerManifest = loadManifest('issue-tracker');
 const code = createKnowledgeReferenceCode;
-
-function sliceManifestScenario(scenario: ManifestScenario, turnCount: number): ManifestScenario {
-  const turns = scenario.turns.slice(0, turnCount);
-  const itemIndexMap = new Map<number, number>();
-
-  const knowledgeItems = scenario.knowledgeItems.flatMap((item, itemIndex) => {
-    if (item.capturedAtTurn >= turnCount) {
-      return [];
-    }
-
-    const nextItem = {
-      kind: item.kind,
-      content: item.content,
-      rationale: item.rationale ?? null,
-      capturedAtTurn: item.capturedAtTurn,
-      ...(item.reviewAction && item.reviewedAtTurn != null && item.reviewedAtTurn < turnCount
-        ? {
-            reviewAction: item.reviewAction,
-            reviewedAtTurn: item.reviewedAtTurn,
-          }
-        : {}),
-    };
-    itemIndexMap.set(itemIndex, itemIndexMap.size);
-    return [nextItem];
-  });
-
-  const edges = scenario.edges.flatMap((edge) => {
-    const fromItemIndex = itemIndexMap.get(edge.fromItemIndex);
-    const toItemIndex = itemIndexMap.get(edge.toItemIndex);
-    if (fromItemIndex == null || toItemIndex == null) {
-      return [];
-    }
-
-    return [
-      {
-        fromItemIndex,
-        toItemIndex,
-        relation: edge.relation,
-      },
-    ];
-  });
-
-  return { turns, knowledgeItems, edges };
-}
-
-function createManifestScenarioSeeder(scenario: ManifestScenario, defaultName: string): ScenarioFn {
-  return (db, projectName = defaultName) => seedFromManifest(db, scenario, projectName);
-}
 
 export function seedClosedScope(db: DB, projectId: number) {
   const scopeTurn = createTurn(db, projectId, {
@@ -116,6 +68,32 @@ export function seedClosedScope(db: DB, projectId: number) {
   advanceHead(db, projectId, scopeConfirmationTurn.id);
 
   return { scopeTurn, scopeProposalTurn, scopeConfirmationTurn };
+}
+
+export function seedScopeClosurePending(db: DB, projectId: number) {
+  const scopeTurn = createTurn(db, projectId, {
+    phase: 'scope',
+    question: 'What platform?',
+    answer: 'Web',
+  });
+  advanceHead(db, projectId, scopeTurn.id);
+
+  const scopeProposalTurn = createTurn(db, projectId, {
+    phase: 'scope',
+    parent_turn_id: scopeTurn.id,
+    question: '',
+    answer: 'We have enough scope context',
+  });
+  advanceHead(db, projectId, scopeProposalTurn.id);
+
+  createPhaseOutcome(db, {
+    projectId,
+    phase: 'scope',
+    proposal_turn_id: scopeProposalTurn.id,
+    summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+  });
+
+  return { scopeTurn, scopeProposalTurn };
 }
 
 export function seedActiveDesign(db: DB, projectId: number) {
@@ -648,6 +626,152 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
   };
 }
 
+export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
+  const seededRequirements = seedRequirementsReviewReady(db, projectId);
+  const requirementsAcceptOption = getOptionsForTurn(db, seededRequirements.reviewTurn.id).find(
+    (option) => option.position === 0,
+  );
+
+  if (!requirementsAcceptOption) {
+    throw new Error('Issue-tracker requirements review seed is missing the accept option');
+  }
+
+  applyTurnResponseSelections(db, seededRequirements.reviewTurn.id, [0]);
+  updateTurn(db, seededRequirements.reviewTurn.id, {
+    user_parts: serializeFixtureAcceptedReviewUserParts({
+      turnId: seededRequirements.reviewTurn.id,
+      selectedOptionIds: [requirementsAcceptOption.id],
+    }),
+  });
+  linkKnowledgeItemToTurn(
+    db,
+    seededRequirements.requirementCrud.id,
+    seededRequirements.reviewTurn.id,
+    'reviewed',
+  );
+  linkKnowledgeItemToTurn(
+    db,
+    seededRequirements.requirementAudit.id,
+    seededRequirements.reviewTurn.id,
+    'reviewed',
+  );
+  linkKnowledgeItemToTurn(
+    db,
+    seededRequirements.requirementPermissions.id,
+    seededRequirements.reviewTurn.id,
+    'reviewed',
+  );
+  createConfirmedPhaseOutcome(db, {
+    projectId,
+    phase: 'requirements',
+    proposal_turn_id: seededRequirements.reviewTurn.id,
+    confirmation_turn_id: seededRequirements.reviewTurn.id,
+    summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
+  });
+  advanceHead(db, projectId, seededRequirements.reviewTurn.id);
+
+  const criterionAudit = createKnowledgeItem(
+    db,
+    projectId,
+    'criterion',
+    'Changing a ticket status creates an audit log entry with actor, previous status, new status, and timestamp',
+  );
+  const criterionPermissions = createKnowledgeItem(
+    db,
+    projectId,
+    'criterion',
+    'A viewer cannot edit a ticket and receives a clear authorization failure without mutating data',
+  );
+  const criterionPerformance = createKnowledgeItem(
+    db,
+    projectId,
+    'criterion',
+    'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture',
+  );
+
+  for (const criterion of [criterionAudit, criterionPermissions, criterionPerformance]) {
+    linkKnowledgeItemToTurn(db, criterion.id, seededRequirements.reviewTurn.id, 'captured');
+  }
+
+  const criteriaReviewTurn = createTurn(db, projectId, {
+    phase: 'criteria',
+    parent_turn_id: seededRequirements.reviewTurn.id,
+    question: 'Please review the current criterion set.',
+    why: 'Review the whole criterion set before moving forward.',
+    impact: 'high',
+    answer: 'Accept review',
+    assistant_parts: serializeFixtureQuestionAssistantParts({
+      turnId: 0,
+      toolCallId: 'fixture-criteria-review',
+      input: createFixtureReviewQuestionInput({
+        phase: 'criteria',
+        title: 'Acceptance Criteria',
+        prompt: 'Please review the current criterion set.',
+        why: 'Review the whole criterion set before moving forward.',
+        items: [
+          {
+            referenceCode: code('criterion', 1),
+            content: criterionAudit.content,
+            rationale: 'Makes the audit requirement observable in a seeded acceptance check.',
+            grounding: [{ code: code('requirement', 1) }, { code: code('context', 2) }],
+          },
+          {
+            referenceCode: code('criterion', 2),
+            content: criterionPermissions.content,
+            rationale: 'Verifies role-based visibility through a concrete denial path.',
+            grounding: [{ code: code('requirement', 1) }, { code: code('constraint', 2) }],
+            isUserCreated: true,
+          },
+          {
+            referenceCode: code('criterion', 3),
+            content: criterionPerformance.content,
+            rationale: 'Pins the seeded demo to a legible performance target.',
+            grounding: [{ code: code('requirement', 1) }, { code: code('assumption', 1) }],
+            isRevised: true,
+          },
+        ],
+      }),
+    }),
+  });
+  const criteriaAcceptOption = createOption(db, criteriaReviewTurn.id, {
+    position: 0,
+    content: 'Accept review',
+    is_recommended: true,
+  });
+  createOption(db, criteriaReviewTurn.id, {
+    position: 1,
+    content: 'Request changes',
+  });
+  applyTurnResponseSelections(db, criteriaReviewTurn.id, [0]);
+  updateTurn(db, criteriaReviewTurn.id, {
+    user_parts: serializeFixtureAcceptedReviewUserParts({
+      turnId: criteriaReviewTurn.id,
+      selectedOptionIds: [criteriaAcceptOption.id],
+    }),
+  });
+  linkKnowledgeItemToTurn(db, criterionAudit.id, criteriaReviewTurn.id, 'reviewed');
+  linkKnowledgeItemToTurn(db, criterionPermissions.id, criteriaReviewTurn.id, 'reviewed');
+  linkKnowledgeItemToTurn(db, criterionPerformance.id, criteriaReviewTurn.id, 'reviewed');
+  createConfirmedPhaseOutcome(db, {
+    projectId,
+    phase: 'criteria',
+    proposal_turn_id: criteriaReviewTurn.id,
+    confirmation_turn_id: criteriaReviewTurn.id,
+    summary: 'The reviewed criteria set is accepted and the specification is ready for output.',
+  });
+  advanceHead(db, projectId, criteriaReviewTurn.id);
+
+  return {
+    ...seededRequirements,
+    criterionAudit,
+    criterionPermissions,
+    criterionPerformance,
+    criteriaConfirmationTurn: criteriaReviewTurn,
+    criteriaReviewTurn,
+    requirementsConfirmationTurn: seededRequirements.reviewTurn,
+  };
+}
+
 export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number) {
   const firstGroundingTurn = createTurn(db, projectId, {
     phase: 'scope',
@@ -780,17 +904,6 @@ export const testOnlyScenarios: Record<string, ScenarioFn> = {};
 
 export const manifestScenarios = loadManifestScenarios('issue-tracker');
 
-const publicManifestAnchorScenarios: Record<string, ScenarioFn> = {
-  'issue-tracker-kickoff-ready': createManifestScenarioSeeder(
-    issueTrackerManifest.scenarios['kickoff-ready']!,
-    'Issue Tracker (kickoff ready)',
-  ),
-  'issue-tracker-all-phases-closed': createManifestScenarioSeeder(
-    issueTrackerManifest.scenarios['all-phases-closed']!,
-    'Issue Tracker (all phases closed)',
-  ),
-};
-
 const phaseTransitionScenarios: Record<string, ScenarioFn> = {
   'brownfield-grounding-replay': (db, name = 'Brownfield reusable grounding replay') => {
     const project = createProject(db, name, {
@@ -800,18 +913,25 @@ const phaseTransitionScenarios: Record<string, ScenarioFn> = {
     seedBrownfieldReusableGroundingReplay(db, project.id);
     return project.id;
   },
-  'issue-tracker-scope-closure-pending': createManifestScenarioSeeder(
-    sliceManifestScenario(issueTrackerManifest.scenarios['scope-closed']!, 6),
-    'Issue Tracker (scope closure pending)',
-  ),
-  'issue-tracker-design-kickoff-ready': createManifestScenarioSeeder(
-    sliceManifestScenario(issueTrackerManifest.scenarios['scope-closed']!, 7),
-    'Issue Tracker (design kickoff ready)',
-  ),
-  'issue-tracker-design-recovery': createManifestScenarioSeeder(
-    issueTrackerManifest.scenarios['design-active']!,
-    'Issue Tracker (design recovery)',
-  ),
+  'issue-tracker-kickoff-ready': (db, name = 'Issue Tracker (kickoff ready)') => {
+    const project = createProject(db, name);
+    return project.id;
+  },
+  'issue-tracker-scope-closure-pending': (db, name = 'Issue Tracker (scope closure pending)') => {
+    const project = createProject(db, name);
+    seedScopeClosurePending(db, project.id);
+    return project.id;
+  },
+  'issue-tracker-design-kickoff-ready': (db, name = 'Issue Tracker (design kickoff ready)') => {
+    const project = createProject(db, name);
+    seedClosedScope(db, project.id);
+    return project.id;
+  },
+  'issue-tracker-design-recovery': (db, name = 'Issue Tracker (design recovery)') => {
+    const project = createProject(db, name);
+    seedActiveDesign(db, project.id);
+    return project.id;
+  },
   'issue-tracker-requirements-kickoff-ready': (db, name = 'Issue Tracker (requirements kickoff ready)') => {
     const project = createProject(db, name);
     seedRequirementsReady(db, project.id);
@@ -832,6 +952,11 @@ const phaseTransitionScenarios: Record<string, ScenarioFn> = {
     seedCriteriaReviewReady(db, project.id);
     return project.id;
   },
+  'issue-tracker-all-phases-closed': (db, name = 'Issue Tracker (all phases closed)') => {
+    const project = createProject(db, name);
+    seedIssueTrackerAllPhasesClosed(db, project.id);
+    return project.id;
+  },
 };
 
 export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[] = [
@@ -846,10 +971,9 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
   {
     scenarioName: 'issue-tracker-kickoff-ready',
     label: 'Kickoff workspace',
-    source: 'manifest',
+    source: 'synthetic',
     inspectionFocus: 'Blank greenfield kickoff, empty workspace rendering, and resume after seeding.',
     expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
-    manifestScenarioKey: 'kickoff-ready',
   },
   {
     scenarioName: 'issue-tracker-scope-closure-pending',
@@ -906,10 +1030,9 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
   {
     scenarioName: 'issue-tracker-all-phases-closed',
     label: 'Export-ready walkthrough',
-    source: 'manifest',
+    source: 'synthetic',
     inspectionFocus: 'Full active-path export, final transcript review, and resume into a completed project.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'closed'),
-    manifestScenarioKey: 'all-phases-closed',
   },
   {
     scenarioName: 'forced-close-all-phases-closed',
@@ -932,7 +1055,6 @@ const walkthroughScenarioNameSet = new Set<string>(walkthroughScenarioNames);
 
 export const publicScenarios: Record<string, ScenarioFn> = {
   ...scenarios,
-  ...publicManifestAnchorScenarios,
   ...phaseTransitionScenarios,
 };
 export const publicScenarioNames = [

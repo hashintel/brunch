@@ -7,11 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { getProjectState } from '../core.js';
 import { createDb, getActivePath, getEntitiesForProjectOnActivePath } from '../db.js';
 import { renderExportMarkdown } from '../export.js';
-import { captureProjectToManifestScenario } from './corpus.js';
-import { loadManifest, seedFromManifest } from './manifest.js';
 import { publicScenarios, publicScenarioNames, walkthroughScenarioMatrix } from './scenarios.js';
-
-const issueTrackerManifest = loadManifest('issue-tracker');
 
 function summarizeWorkflow(projectState: NonNullable<ReturnType<typeof getProjectState>>) {
   return {
@@ -20,21 +16,6 @@ function summarizeWorkflow(projectState: NonNullable<ReturnType<typeof getProjec
     requirements: projectState.workflow.phases.requirements.status,
     criteria: projectState.workflow.phases.criteria.status,
   };
-}
-
-function normalizeManifestScenario(manifestScenarioKey: string) {
-  const db = createDb();
-  try {
-    const projectId = seedFromManifest(
-      db,
-      issueTrackerManifest.scenarios[manifestScenarioKey]!,
-      `Normalized ${manifestScenarioKey}`,
-    );
-    getProjectState(db, projectId);
-    return captureProjectToManifestScenario(db, projectId);
-  } finally {
-    db.$client.close();
-  }
 }
 
 async function withReopenedSeededScenario<T>(
@@ -73,12 +54,8 @@ describe('walkthroughScenarioMatrix', () => {
     );
   });
 
-  it('keeps manifest-backed walkthrough authority limited to kickoff and export anchors', () => {
-    expect(
-      walkthroughScenarioMatrix
-        .filter((entry) => entry.source === 'manifest')
-        .map((entry) => entry.scenarioName),
-    ).toEqual(['issue-tracker-kickoff-ready', 'issue-tracker-all-phases-closed']);
+  it('keeps public walkthrough authority entirely typed', () => {
+    expect(walkthroughScenarioMatrix.filter((entry) => entry.source === 'manifest')).toEqual([]);
   });
 
   for (const entry of walkthroughScenarioMatrix) {
@@ -89,13 +66,7 @@ describe('walkthroughScenarioMatrix', () => {
         expect(projectState).not.toBeNull();
         expect(summarizeWorkflow(projectState!)).toEqual(entry.expectedWorkflowSummary);
 
-        if (!entry.manifestScenarioKey) {
-          return;
-        }
-
-        expect(captureProjectToManifestScenario(db, projectId)).toEqual(
-          normalizeManifestScenario(entry.manifestScenarioKey),
-        );
+        expect(entry.manifestScenarioKey).toBeUndefined();
       });
     });
   }
