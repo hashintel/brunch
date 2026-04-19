@@ -10,6 +10,7 @@ import {
   safeDecodePersistedAssistantParts,
   safeDecodePersistedUserParts,
   structuredQuestionSchema,
+  type GroundingCardData,
   type ReviewSetData,
   summarizeAssistantActivity,
   type ActivitySummary,
@@ -51,6 +52,17 @@ export function getPersistedReviewSet(
     safeParsePersistedAssistantParts(turn?.assistant_parts).find(
       (part): part is Extract<BrunchAssistantPart, { type: 'data-review-set' }> =>
         part.type === 'data-review-set',
+    )?.data ?? null
+  );
+}
+
+export function getPersistedGroundingCard(
+  turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined,
+): GroundingCardData | null {
+  return (
+    safeParsePersistedAssistantParts(turn?.assistant_parts).find(
+      (part): part is Extract<BrunchAssistantPart, { type: 'data-grounding-card' }> =>
+        part.type === 'data-grounding-card',
     )?.data ?? null
   );
 }

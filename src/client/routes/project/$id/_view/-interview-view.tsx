@@ -13,9 +13,11 @@ import {
   WorkspaceStateCard,
 } from '@/client/components/control-cards';
 import {
+  ActiveGroundingCard,
   ActiveReviewSetCard,
   ActiveQuestionCard,
   ActivityPlaceholder,
+  AnsweredGroundingCard,
   AnsweredQuestionCard,
   AnsweredReviewSetCard,
   GeneratingTurnPlaceholder,
@@ -304,6 +306,15 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                 );
               }
 
+              if (artifact.kind === 'answered-grounding-card') {
+                return (
+                  <div key={`answered-grounding-card-${artifact.turn.id}`} className="flex flex-col">
+                    {renderPersistedActivity(artifact.turn)}
+                    <AnsweredGroundingCard groundingCard={artifact.groundingCard} turn={artifact.turn} />
+                  </div>
+                );
+              }
+
               if (artifact.kind === 'answered-review-turn') {
                 return (
                   <div key={`answered-review-turn-${artifact.turn.id}`} className="flex flex-col">
@@ -376,6 +387,36 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                         state={artifact.artifact.state}
                       />
                     )}
+                    {artifact.artifact.errorMessage ? (
+                      <p role="alert" className="mt-3 text-sm text-destructive">
+                        {artifact.artifact.errorMessage}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              }
+
+              if (artifact.kind === 'persisted-grounding-card') {
+                return (
+                  <div
+                    key={`persisted-grounding-card-${artifact.artifact.turn.id}`}
+                    className="flex flex-col"
+                  >
+                    {renderPersistedActivity(artifact.artifact.turn)}
+                    <ActiveGroundingCard
+                      groundingCard={artifact.groundingCard}
+                      onSubmitResponse={artifact.artifact.submitTurnResponse}
+                      persistedFreeText={
+                        getPersistedTurnResponse(artifact.artifact.turn)?.freeText?.trim() ?? ''
+                      }
+                      hasPersistedResponse={
+                        artifact.artifact.state === 'submitted' &&
+                        turnHasCompletedAnswer(artifact.artifact.turn)
+                      }
+                      disabled={artifact.artifact.disabled}
+                      state={artifact.artifact.state}
+                      continuePosition={artifact.artifact.turn.options?.[0]?.position}
+                    />
                     {artifact.artifact.errorMessage ? (
                       <p role="alert" className="mt-3 text-sm text-destructive">
                         {artifact.artifact.errorMessage}

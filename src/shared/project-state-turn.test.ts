@@ -7,6 +7,7 @@ import {
   findTurnOptionsByPositions,
   getAcceptedClosureReplay,
   getPersistedActivitySummary,
+  getPersistedGroundingCard,
   getPersistedReviewAction,
   getPersistedReviewSet,
   getReviewActionForSelectedPositions,
@@ -199,6 +200,44 @@ describe('project-state-turn helpers', () => {
       ),
     ).toBe(true);
     expect(turnIsControlOrClosureArtifact(createTurn())).toBe(false);
+    expect(
+      turnIsControlOrClosureArtifact(
+        createTurn({
+          assistant_parts: JSON.stringify([
+            {
+              type: 'data-grounding-card',
+              data: {
+                summary: 'The repo already uses local-first persistence.',
+                detail: 'Provisional context only.',
+              },
+            },
+          ]),
+        }),
+      ),
+    ).toBe(false);
+  });
+
+  it('reads persisted grounding-card artifacts from assistant parts', () => {
+    const groundingTurn = createTurn({
+      answer: null,
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-grounding-card',
+          data: {
+            summary: 'The repo already uses local-first persistence.',
+            detail: 'The next turn should narrow the feature-area boundary before design choices.',
+            continueLabel: 'Continue',
+          },
+        },
+      ]),
+      options: [{ id: 11, position: 0, content: 'Continue', is_recommended: true, is_selected: false }],
+    });
+
+    expect(getPersistedGroundingCard(groundingTurn)).toEqual({
+      summary: 'The repo already uses local-first persistence.',
+      detail: 'The next turn should narrow the feature-area boundary before design choices.',
+      continueLabel: 'Continue',
+    });
   });
 
   it('replays an accepted closure from the persisted confirmation and summary parts', () => {

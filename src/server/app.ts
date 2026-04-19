@@ -36,7 +36,10 @@ import {
   parsePhaseClosureCommand,
 } from '@/shared/phase-close.js';
 import { getPhaseIntentDisplayText } from '@/shared/phase-intents.js';
-import { getReviewActionForSelectedPositions } from '@/shared/project-state-turn.js';
+import {
+  getPersistedGroundingCard,
+  getReviewActionForSelectedPositions,
+} from '@/shared/project-state-turn.js';
 
 import {
   extractPrompt,
@@ -517,6 +520,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     let prepared: ReturnType<typeof prepareTurn> | ReturnType<typeof prepareSuccessorTurn> | null = null;
     let confirmedClosureTurnId: number | null = null;
     let observedTurnId: number | null = null;
+    let skipObserverForCurrentChatTurn = false;
     let interviewerElapsedMs: number | undefined;
     try {
       if (confirmationTarget) {
@@ -569,10 +573,12 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
 
         if (activeTurn?.answer === null) {
+          skipObserverForCurrentChatTurn = Boolean(getPersistedGroundingCard(activeTurn));
           resolveTurn(db, activeTurn.id, promptText, persistedUserParts);
           observedTurnId = activeTurn.id;
           prepared = prepareSuccessorTurn(db, id, activeTurn.phase, activeTurn.id);
         } else {
+          skipObserverForCurrentChatTurn = Boolean(activeTurn && getPersistedGroundingCard(activeTurn));
           const answeredTurn = prepareTurn(db, id, promptText, persistedUserParts, currentPhase);
           finalizeTurn(db, id, answeredTurn.turn.id);
           observedTurnId = answeredTurn.turn.id;
@@ -662,6 +668,8 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           const shouldObserve =
             observedTurn &&
             observedTurn.answer !== null &&
+            !skipObserverForCurrentChatTurn &&
+            !getPersistedGroundingCard(observedTurn) &&
             !persistedUserParts.some((part) => part.type === 'data-confirmation') &&
             !safeDeserializeAssistantParts(observedTurn.assistant_parts).some(
               (part) => part.type === 'data-observer-result',

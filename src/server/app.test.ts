@@ -2795,6 +2795,64 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     ]);
   });
 
+  it('skips observer capture for answered grounding-card turns while still advancing to the next interviewer turn', async () => {
+    const projectId = await createTestProject();
+    const { advanceHead, createOption, createTurn, getActivePath } = await import('./db.js');
+    const groundingTurn = createTurn(db, projectId, {
+      phase: 'scope',
+      question: '',
+      answer: null,
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-grounding-card',
+          data: {
+            summary: 'The repo already uses SQLite-backed local persistence.',
+            detail: 'This is provisional context before the first substantive question.',
+            continueLabel: 'Continue',
+          },
+        },
+      ]),
+    });
+    createOption(db, groundingTurn.id, {
+      position: 0,
+      content: 'Continue',
+      is_recommended: true,
+    });
+    advanceHead(db, projectId, groundingTurn.id);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${groundingTurn.id}/response`)
+      .send({
+        kind: 'select-options',
+        positions: [0],
+        freeText: 'Focus on the routed interview workspace.',
+      })
+      .expect(200);
+
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-grounding-continue',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Continue — Focus on the routed interview workspace.' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockRunObserver).not.toHaveBeenCalled();
+    expect(getActivePath(db, projectId).at(-1)).toMatchObject({
+      phase: 'scope',
+      question: structuredQuestion.question,
+    });
+  });
+
   it('persists interviewer-owned requirement review metadata on runtime review turns and accepts from it', async () => {
     const projectId = await createTestProject();
     seedRequirementsReady(projectId);

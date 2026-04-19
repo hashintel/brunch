@@ -2,6 +2,7 @@ import { Check, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Impact, ProjectStateTurn } from '@/shared/api-types.js';
+import type { GroundingCardData } from '@/shared/chat.js';
 import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/project-state-turn.js';
 
 import { cn } from '../lib/utils';
@@ -149,6 +150,130 @@ export function AnsweredReviewSetCard({
         submitted={false}
         resolvedAction={getPersistedReviewAction(turn)}
       />
+    </div>
+  );
+}
+
+export function AnsweredGroundingCard({
+  groundingCard,
+  turn,
+}: {
+  groundingCard: GroundingCardData;
+  turn: ProjectStateTurn;
+}) {
+  const persistedResponse = getPersistedTurnResponse(turn);
+  const note = persistedResponse?.freeText?.trim() ?? '';
+
+  return (
+    <div data-testid="answered-grounding-card">
+      <DrawerCard
+        locked
+        header={
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium uppercase tracking-wide text-[#2070e6]">Grounding</span>
+            <p className="text-sm-plus font-medium tracking-[-0.015em] text-ink">{groundingCard.summary}</p>
+          </div>
+        }
+        summary={
+          <div className="flex flex-col gap-2 text-xs-plus text-sub">
+            {groundingCard.detail ? <p className="leading-relaxed text-sub">{groundingCard.detail}</p> : null}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-sub">Note:</span>
+              <span className={note ? 'text-ink' : 'text-hint'}>{note || 'None'}</span>
+            </div>
+          </div>
+        }
+      />
+    </div>
+  );
+}
+
+export function ActiveGroundingCard({
+  groundingCard,
+  onSubmitResponse,
+  persistedFreeText,
+  hasPersistedResponse,
+  disabled,
+  state,
+  continuePosition,
+}: {
+  groundingCard: GroundingCardData;
+  onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
+  persistedFreeText: string;
+  hasPersistedResponse: boolean;
+  disabled: boolean;
+  state: 'active' | 'submitted';
+  continuePosition: number | undefined;
+}) {
+  const [note, setNote] = useState(persistedFreeText);
+  const isSubmitted = state === 'submitted';
+  const isReadOnly = disabled || hasPersistedResponse || isSubmitted || continuePosition === undefined;
+  const continueLabel = groundingCard.continueLabel?.trim() || 'Continue';
+
+  useEffect(() => {
+    if (!hasPersistedResponse) {
+      return;
+    }
+
+    setNote(persistedFreeText);
+  }, [hasPersistedResponse, persistedFreeText]);
+
+  return (
+    <div data-testid="active-grounding-card">
+      <DrawerCard
+        locked
+        defaultExpanded
+        header={
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium uppercase tracking-wide text-[#2070e6]">Grounding</span>
+            <p className="text-[17px] leading-[1.4] font-medium tracking-[-0.015em] text-ink">
+              {groundingCard.summary}
+            </p>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {groundingCard.detail ? (
+            <p className="text-xs-plus leading-relaxed text-sub">{groundingCard.detail}</p>
+          ) : null}
+
+          {isSubmitted ? (
+            <div
+              className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100"
+              data-testid="turn-processing-state"
+            >
+              Interviewer is processing this grounding note.
+            </div>
+          ) : null}
+
+          <div className="-mx-4 -mb-4 border-t border-rule bg-white px-4 pt-3">
+            <label className="text-xs text-sub" htmlFor="grounding-card-note">
+              Add an optional note before continuing.
+            </label>
+            <Textarea
+              id="grounding-card-note"
+              aria-label="Grounding card note"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              disabled={isReadOnly}
+              placeholder="Missing context, caveats, or feature-area corrections worth carrying forward…"
+              className="min-h-24 resize-none rounded-none border-0 bg-transparent px-0 pb-5 pt-2 text-sm-plus text-ink placeholder:text-hint focus-visible:ring-0"
+            />
+          </div>
+        </div>
+      </DrawerCard>
+
+      {!isSubmitted ? (
+        <div className="mt-3 flex justify-end">
+          <ShellButton
+            variant="primary"
+            disabled={isReadOnly}
+            onClick={() => onSubmitResponse?.([continuePosition!], note.trim() || undefined)}
+          >
+            {continueLabel}
+          </ShellButton>
+        </div>
+      ) : null}
     </div>
   );
 }

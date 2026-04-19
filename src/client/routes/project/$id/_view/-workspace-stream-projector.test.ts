@@ -149,6 +149,59 @@ describe('projectWorkspaceStream', () => {
     expect(activeArtifact.questionCode).toBe('Q2');
   });
 
+  it('projects grounding cards without consuming question numbering', () => {
+    const answeredGroundingTurn = createTurn({
+      id: 1,
+      question: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-grounding-card',
+          data: {
+            summary: 'The repo already uses SQLite-backed local persistence.',
+            detail: 'This is provisional context for the next move.',
+          },
+        },
+      ]),
+      options: [{ id: 10, position: 0, content: 'Continue', is_recommended: true, is_selected: true }],
+    });
+    const basePersistedTurn = createBottomArtifact('persisted-turn');
+    if (basePersistedTurn.kind !== 'persisted-turn') {
+      throw new Error('Expected persisted-turn bottom artifact');
+    }
+    const persistedTurn = {
+      ...basePersistedTurn,
+      turn: createTurn({
+        id: 2,
+        answer: null,
+        question: '',
+        user_parts: null,
+        assistant_parts: JSON.stringify([
+          {
+            type: 'data-grounding-card',
+            data: {
+              summary: 'The feature area lives under src/client/routes/project.',
+              detail: 'Continue to move into the first substantive question.',
+            },
+          },
+        ]),
+        options: [{ id: 11, position: 0, content: 'Continue', is_recommended: true, is_selected: false }],
+      }),
+    } satisfies Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
+
+    const projection = projectWorkspaceStream({
+      phase: 'scope',
+      phaseTurns: [answeredGroundingTurn, persistedTurn.turn],
+      phaseState: createPhaseState({ turnId: persistedTurn.turn.id }),
+      bottomArtifact: persistedTurn,
+    });
+
+    expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'answered-grounding-card',
+      'divider',
+      'persisted-grounding-card',
+    ]);
+  });
+
   it('projects the review-phase banner as a phase marker', () => {
     const projection = projectWorkspaceStream({
       phase: 'requirements',

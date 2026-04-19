@@ -1414,6 +1414,153 @@ describe('InterviewView', () => {
     });
   });
 
+  it('renders grounding cards as a distinct active turn affordance and submits continue with an optional note', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          scope: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 1,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'scope',
+            turn_kind: 'question',
+            question: '',
+            why: null,
+            impact: null,
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              {
+                type: 'data-grounding-card',
+                data: {
+                  summary:
+                    'The repo already uses SQLite-backed local persistence and a routed interview surface.',
+                  detail: 'This is provisional context before the next substantive grounding question.',
+                  continueLabel: 'Continue',
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [{ id: 11, position: 0, content: 'Continue', is_recommended: true, is_selected: false }],
+          },
+        ],
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    const groundingCard = await screen.findByTestId('active-grounding-card');
+    expect(groundingCard.textContent).toContain('Grounding');
+    expect(groundingCard.textContent).toContain('SQLite-backed local persistence');
+    expect(screen.queryByTestId('active-question-card')).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Grounding card note'), {
+      target: { value: 'Focus on the routed workspace seam, not export.' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/turns/1/response',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'select-options',
+            positions: [0],
+            freeText: 'Focus on the routed workspace seam, not export.',
+          }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        text: 'Continue — Focus on the routed workspace seam, not export.',
+      });
+    });
+  });
+
+  it('replays answered grounding cards separately from answered question cards', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          scope: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'scope',
+            turn_kind: 'question',
+            question: '',
+            why: null,
+            impact: null,
+            answer: 'Continue — Focus on the routed workspace seam, not export.',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 1,
+                  selectedOptionIds: [11],
+                  freeText: 'Focus on the routed workspace seam, not export.',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              {
+                type: 'data-grounding-card',
+                data: {
+                  summary:
+                    'The repo already uses SQLite-backed local persistence and a routed interview surface.',
+                  detail: 'This is provisional context before the next substantive grounding question.',
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [{ id: 11, position: 0, content: 'Continue', is_recommended: true, is_selected: true }],
+          },
+        ],
+      }),
+    );
+
+    renderWorkspace();
+
+    const answeredGroundingCard = await screen.findByTestId('answered-grounding-card');
+    expect(answeredGroundingCard.textContent).toContain('Grounding');
+    expect(answeredGroundingCard.textContent).toContain('Focus on the routed workspace seam, not export.');
+    expect(screen.queryByTestId('answered-turn-card')).toBeNull();
+  });
+
   it('renders a review-specific kickoff card for requirements', async () => {
     setLoaderData(
       createWorkspaceLoaderData({

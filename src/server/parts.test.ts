@@ -126,6 +126,14 @@ describe('assistant part round-trip', () => {
           ],
         },
       },
+      {
+        type: 'data-grounding-card',
+        data: {
+          summary: 'The repo already uses SQLite-backed local persistence and a routed three-pane app shell.',
+          detail: 'This grounding brief is provisional context for the next interview move.',
+          continueLabel: 'Continue',
+        },
+      },
     ];
 
     const json = serializeParts(parts);

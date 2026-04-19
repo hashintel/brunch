@@ -283,14 +283,14 @@ Question card titles use arbitrary `text-[17px]` above the scale for emphasis.
 | ---- | --------- | ------------ | ------ |
 | I4   | Vite proxy routing and the runtime backend-port seam stay aligned through one explicit configuration path. | `runtime-config.test.ts` | D81 |
 | I17  | Data Part schema validation remains confined to true LLM / HTTP boundaries rather than mirrored internal seams. | `parts.test.ts` | D24 |
-| I24  | Interview hydration, streaming projection, controller orchestration, mutation transport, phase-filtered rendering, and successor-frontier continuity remain stable through the routed interview surface, including concise durable activity summaries for replay, projected kickoff/recovery/handoff controls, landing-only grounding-strategy kickoff submission, turn-owned submit/interviewer-processing, visible generation states, anchored phase-boundary projection, and trailing observer attachment. | `InterviewView.test.tsx`, `transcript-parity.test.tsx`, `-interview-data.test.ts`, `-interview-controller.test.tsx`, `app.test.ts`, `client-mutation.test.ts` | D30, D86, D87, D92, D94, D95, D110 |
+| I24  | Interview hydration, streaming projection, controller orchestration, mutation transport, phase-filtered rendering, and successor-frontier continuity remain stable through the routed interview surface, including concise durable activity summaries for replay, projected kickoff/recovery/handoff controls, grounding-card replay and continue affordances, landing-only grounding-strategy kickoff submission, turn-owned submit/interviewer-processing, visible generation states, anchored phase-boundary projection, and trailing observer attachment. | `InterviewView.test.tsx`, `-workspace-stream-projector.test.ts`, `transcript-parity.test.tsx`, `-interview-data.test.ts`, `-interview-controller.test.tsx`, `app.test.ts`, `client-mutation.test.ts` | D30, D86, D87, D92, D94, D95, D110 |
 | I44  | Structured turn responses round-trip through persistence, hydration, projection, and UI affordance state without collapsing back to scalar semantics. | `turn-response.test.ts`, `context.test.ts`, `InterviewView.test.tsx` | D57 |
 | I48  | Canonical knowledge kinds persist with provenance and project through typed entity collections, stable per-kind reference codes, turn-linked capture projection, and graph edges without ontology drift. | `db.test.ts`, `core.test.ts`, `knowledge.test.ts`, `EntitySidebar.test.tsx`, `InterviewView.test.tsx`, `GraphView.test.tsx` | D49, D50 |
 | I54  | Phase-aware capture preserves the committed ontology boundary: grounding / elicitation persist only durable exploration knowledge, accepted review outputs materialize durable requirements / criteria, and both seams survive persistence, turn-linked replay hydration, and UI refresh without breaking sync. | `observer.test.ts`, `context.test.ts`, `app.test.ts`, `InterviewView.test.tsx` | D30, D49, D90, D95, D108 |
 | I72  | Explicit phase outcomes project shared workflow status, closeability, readiness, closure basis, and closed-phase boundary markers through one durable seam. | `phase-close.test.ts`, `db.test.ts`, `app.test.ts` | D65, D66, D110 |
 | I87  | Requirements and criteria review ground themselves in their respective inventories, persist interviewer-owned review metadata on the review turn itself, project stable review-set reference codes, accept lightweight full-set review replies, and carry accepted review outputs into downstream workflow without leaving dead frontier states. | `interview.test.ts`, `db.test.ts`, `app.test.ts` | D90, D94 |
 | I100 | `.brunch/` workspace resolution, launcher startup, actual bound URL reporting, and same-workspace runtime ownership stay correct in local-first distribution. | `project.test.ts`, `launcher.test.ts`, `cli.test.ts`, `runtime-config.test.ts` | D81 |
-| I101 | Grounding strategy and workspace-backed context gathering persist through schema, API, interviewer configuration, and observer context; grounding cards stay provisional and do not directly mutate durable knowledge. | `db.test.ts`, `interview.test.ts`, `app.test.ts`, `context.test.ts`, `observer.test.ts`, `ProjectList.test.tsx` | D82, D83, D98 |
+| I101 | Grounding strategy and workspace-backed context gathering persist through schema, API, interviewer configuration, and observer context; grounding-card assistant metadata round-trips through persistence/projection, and grounding cards stay provisional rather than directly mutating durable knowledge. | `db.test.ts`, `interview.test.ts`, `app.test.ts`, `context.test.ts`, `observer.test.ts`, `parts.test.ts`, `project-state-turn.test.ts`, `ProjectList.test.tsx` | D82, D83, D98 |
 | I102 | File-route generation, directory-based nesting, and the three-shell route architecture remain the runtime routing source of truth; graph view stays code-split. | `router.test.tsx`, `file-route-*.test.ts`, `build-boundary.test.ts`, `GraphView.test.tsx` | D86 |
 | I103 | Trusted runtime-shaped fixture scenarios normalize back into the manifest seam, front-load the walkthrough seed catalog, and remain resumable/exportable through one canonical scenario format. | `corpus.test.ts`, `manifest.test.ts`, `walkthrough.test.ts` | D49 |
 
@@ -437,11 +437,14 @@ Every meaningful code change should pass `npm run fix` in the inner loop and `np
 | ---- | -------- |
 | `db.test.ts` | I48, I72, I101 |
 | `core.test.ts` | I48 |
-| `app.test.ts` | I24, I54, I72, I87 |
+| `app.test.ts` | I24, I54, I72, I87, I101 |
 | `context.test.ts` | I44, I54 |
 | `observer.test.ts` | I48, I54 |
+| `parts.test.ts` | I17, I101 |
+| `project-state-turn.test.ts` | I24, I44, I101 |
 | `EntitySidebar.test.tsx` | I48 |
 | `InterviewView.test.tsx` | I24, I44, I48, I54, I72 |
+| `-workspace-stream-projector.test.ts` | I24 |
 | `transcript-parity.test.tsx` | I24 |
 | `interview.test.ts` | I87, I101 |
 | `phase-close.test.ts` | I72 |

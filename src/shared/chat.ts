@@ -30,6 +30,12 @@ export const reviewSetSchema = z.object({
   items: z.array(reviewSetItemSchema),
 });
 
+export const groundingCardSchema = z.object({
+  summary: z.string().min(1),
+  detail: z.string().min(1).nullable().optional(),
+  continueLabel: z.string().min(1).nullable().optional(),
+});
+
 function validateReviewActionOptionPosition(
   reviewAction: z.infer<typeof reviewActionOptionSchema>,
   field: string,
@@ -163,6 +169,7 @@ export type ObserverReviewDrafts = z.infer<typeof observerReviewDraftsSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
 export type ObserverEntityIds = ObserverResultData['entityIds'];
 export type ReviewSetData = z.infer<typeof reviewSetSchema>;
+export type GroundingCardData = z.infer<typeof groundingCardSchema>;
 export type ActivitySummary = z.infer<typeof activitySummarySchema>;
 export type DataTurnResponse = z.infer<typeof dataTurnResponseSchema>;
 export type { DataConfirmation };
@@ -177,6 +184,7 @@ export type BrunchMessageMetadata = {
 export type BrunchDataParts = {
   'observer-result': ObserverResultData;
   'review-set': ReviewSetData;
+  'grounding-card': GroundingCardData;
   'activity-summary': ActivitySummary;
   'turn-response': DataTurnResponse;
   confirmation: DataConfirmation;
@@ -207,6 +215,7 @@ export type BrunchAssistantPart =
           | 'tool-propose_phase_closure'
           | 'data-observer-result'
           | 'data-review-set'
+          | 'data-grounding-card'
           | 'data-activity-summary'
           | 'data-phase-summary';
       }
@@ -228,6 +237,7 @@ const persistedAssistantPartSchema = z.discriminatedUnion('type', [
     .loose(),
   z.object({ type: z.literal('data-observer-result'), data: observerResultSchema }).loose(),
   z.object({ type: z.literal('data-review-set'), data: reviewSetSchema }).loose(),
+  z.object({ type: z.literal('data-grounding-card'), data: groundingCardSchema }).loose(),
   z.object({ type: z.literal('data-activity-summary'), data: activitySummarySchema }).loose(),
   z.object({ type: z.literal('data-phase-summary'), data: dataPhaseSummarySchema }).loose(),
 ]);
@@ -295,6 +305,7 @@ export const brunchValidationTools = {
 export const brunchDataPartSchemas = {
   'observer-result': observerResultSchema,
   'review-set': reviewSetSchema,
+  'grounding-card': groundingCardSchema,
   'activity-summary': activitySummarySchema,
   'turn-response': dataTurnResponseSchema,
   confirmation: dataConfirmationSchema,
@@ -309,6 +320,7 @@ export type PersistedBrunchAssistantPart = Extract<
       | 'text'
       | 'data-observer-result'
       | 'data-review-set'
+      | 'data-grounding-card'
       | 'data-phase-summary'
       | 'data-activity-summary';
   }
@@ -319,6 +331,7 @@ const ASSISTANT_PART_TYPES: ReadonlySet<PersistedBrunchAssistantPart['type']> = 
   'text',
   'data-observer-result',
   'data-review-set',
+  'data-grounding-card',
   'data-phase-summary',
   'data-activity-summary',
 ] as const satisfies PersistedBrunchAssistantPart['type'][]);

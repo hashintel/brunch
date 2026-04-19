@@ -1,6 +1,7 @@
 import type { ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import {
   getAcceptedClosureReplay,
+  getPersistedGroundingCard,
   getPersistedReviewAction,
   getPersistedReviewSet,
   turnHasCompletedAnswer,
@@ -30,6 +31,11 @@ export type WorkspaceStreamArtifact =
       readonly questionCode: string;
     }
   | {
+      readonly kind: 'answered-grounding-card';
+      readonly turn: ProjectStateTurn;
+      readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
+    }
+  | {
       readonly kind: 'answered-review-turn';
       readonly turn: ProjectStateTurn;
       readonly reviewSet: NonNullable<ReturnType<typeof getPersistedReviewSet>>;
@@ -46,6 +52,11 @@ export type WorkspaceStreamArtifact =
       readonly kind: 'persisted-turn';
       readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
       readonly questionCode: string;
+    }
+  | {
+      readonly kind: 'persisted-grounding-card';
+      readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
+      readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
     }
   | {
       readonly kind: 'pending-question';
@@ -144,6 +155,16 @@ function projectHistoryArtifacts({
       continue;
     }
 
+    const groundingCard = getPersistedGroundingCard(turn);
+    if (groundingCard) {
+      historyArtifacts.push({
+        kind: 'answered-grounding-card',
+        turn,
+        groundingCard,
+      });
+      continue;
+    }
+
     const reviewSet = getPersistedReviewSet(turn);
     if (reviewSet && getPersistedReviewAction(turn)) {
       historyArtifacts.push({
@@ -172,12 +193,22 @@ function projectBottomArtifact(
   const questionCode = `Q${answeredTurnCount + 1}`;
 
   switch (bottomArtifact?.kind) {
-    case 'persisted-turn':
+    case 'persisted-turn': {
+      const groundingCard = getPersistedGroundingCard(bottomArtifact.turn);
+      if (groundingCard) {
+        return {
+          kind: 'persisted-grounding-card',
+          artifact: bottomArtifact,
+          groundingCard,
+        };
+      }
+
       return {
         kind: 'persisted-turn',
         artifact: bottomArtifact,
         questionCode,
       };
+    }
     case 'pending-question':
       return {
         kind: 'pending-question',
@@ -239,6 +270,7 @@ function shouldInsertDivider({
     historyArtifacts.length > 0 &&
     (controlArtifacts.length > 0 ||
       bottomArtifact?.kind === 'persisted-turn' ||
+      bottomArtifact?.kind === 'persisted-grounding-card' ||
       bottomArtifact?.kind === 'pending-question' ||
       bottomArtifact?.kind === 'phase-summary' ||
       bottomArtifact?.kind === 'generating' ||
