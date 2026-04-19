@@ -13,6 +13,15 @@ import {
 import { ShellButton } from '@/client/components/app-shell';
 import { ChatScroll } from '@/client/components/chat-scroll';
 import {
+  AcceptedClosureTurnCard,
+  KickoffTurnCard,
+  PhaseSummaryCard,
+  RecoveryTurnCard,
+  ReviewPhaseBanner,
+  TranscriptMetaPlaceholder,
+  WorkspaceStateCard,
+} from '@/client/components/control-cards';
+import {
   ActiveReviewSetCard,
   ActiveQuestionCard,
   ActivityPlaceholder,
@@ -22,14 +31,9 @@ import {
 } from '@/client/components/question-cards';
 import { ReviewPhaseCompletionCard } from '@/client/components/review-set-card';
 import { cn } from '@/client/lib/utils';
-import type { ProjectMode, ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
+import type { ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import { isAskQuestionUIPart, summarizeAssistantActivity } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
-import {
-  groundingStrategyChoices,
-  groundingStrategyKickoffDescription,
-  groundingStrategyKickoffQuestion,
-} from '@/shared/grounding-strategy.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
 import { getWorkflowPhaseLabel } from '@/shared/phase-display.js';
 import { getNextActivePhase, phaseOrder, phaseRouteSegments } from '@/shared/phase-routes.js';
@@ -71,246 +75,6 @@ function getReviewPhaseCompletionDescription(
   return 'The accepted criteria set is ready for export.';
 }
 
-function TranscriptMetaPlaceholder({
-  label,
-  detail,
-  testId,
-}: {
-  label: string;
-  detail?: string | null;
-  testId?: string;
-}) {
-  return (
-    <div
-      data-testid={testId}
-      className="my-2 rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
-    >
-      <p className="font-medium text-foreground/80">{label}</p>
-      {detail ? <p className="mt-1 leading-relaxed">{detail}</p> : null}
-    </div>
-  );
-}
-
-function WorkspaceStateCard({
-  eyebrow,
-  title,
-  description,
-  children,
-  testId,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  children?: React.ReactNode;
-  testId?: string;
-}) {
-  return (
-    <div
-      className="my-3 rounded-xl border bg-card p-4 shadow-sm"
-      {...(testId ? { 'data-testid': testId } : { 'data-testid': 'workspace-state-card' })}
-    >
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{eyebrow}</p>
-      <h2 className="mt-1 text-base font-semibold text-foreground">{title}</h2>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
-      {children ? <div className="mt-4 flex flex-wrap items-center gap-2">{children}</div> : null}
-    </div>
-  );
-}
-
-function ReviewPhaseBanner({ phase }: { phase: WorkflowPhase }) {
-  return (
-    <TranscriptMetaPlaceholder
-      testId="review-phase-banner"
-      label={`${getWorkflowPhaseLabel(phase)} workspace`}
-      detail="This phase is staged as a structured review, not a freeform chat transcript."
-    />
-  );
-}
-
-function getReviewPhaseControlCopy(phase: WorkflowPhase) {
-  if (phase === 'requirements') {
-    return {
-      kickoffTitle: 'Requirements review',
-      kickoffDescription: 'This phase is ready to assemble the current requirement set for review.',
-      recoveryTitle: 'Restore the current requirements review',
-      recoveryDescription: 'The current requirements review frontier is missing. Continue to restore it.',
-      proposalTitle: 'Requirements review ready to accept',
-      confirmLabel: 'Accept reviewed requirements',
-    };
-  }
-
-  if (phase === 'criteria') {
-    return {
-      kickoffTitle: 'Acceptance Criteria review',
-      kickoffDescription: 'This phase is ready to assemble the current acceptance criteria set for review.',
-      recoveryTitle: 'Restore the current acceptance criteria review',
-      recoveryDescription:
-        'The current acceptance criteria review frontier is missing. Continue to restore it.',
-      proposalTitle: 'Acceptance Criteria review ready to accept',
-      confirmLabel: 'Accept reviewed criteria',
-    };
-  }
-
-  return null;
-}
-
-function KickoffTurnCard({
-  phase,
-  mode,
-  onProceed,
-  onSelectStrategy,
-  disabled,
-}: {
-  phase: WorkflowPhase;
-  mode: 'start' | 'continue';
-  onProceed: () => void;
-  onSelectStrategy?: (mode: ProjectMode) => void;
-  disabled: boolean;
-}) {
-  const phaseLabel = getWorkflowPhaseLabel(phase);
-  const showsGroundingStrategyChoice = phase === 'scope' && mode === 'start' && Boolean(onSelectStrategy);
-  const reviewCopy = getReviewPhaseControlCopy(phase);
-
-  return (
-    <WorkspaceStateCard
-      testId="kickoff-turn-card"
-      eyebrow={mode === 'start' ? 'Phase kickoff' : 'Continue phase'}
-      title={
-        showsGroundingStrategyChoice
-          ? groundingStrategyKickoffQuestion
-          : reviewCopy
-            ? reviewCopy.kickoffTitle
-            : `${phaseLabel} phase`
-      }
-      description={
-        showsGroundingStrategyChoice
-          ? groundingStrategyKickoffDescription
-          : reviewCopy
-            ? reviewCopy.kickoffDescription
-            : mode === 'start'
-              ? `This phase is ready to begin. Proceed to generate the first ${isReviewPhase(phase) ? 'review step' : 'interview turn'}.`
-              : `This phase is open but has no current frontier turn. Proceed to generate the next ${isReviewPhase(phase) ? 'review step' : 'interview turn'}.`
-      }
-    >
-      {showsGroundingStrategyChoice ? (
-        <div className="flex w-full flex-col gap-3">
-          {groundingStrategyChoices.map((choice) => (
-            <button
-              key={choice.mode}
-              type="button"
-              data-testid={`kickoff-strategy-option-${choice.mode}`}
-              onClick={() => onSelectStrategy?.(choice.mode)}
-              disabled={disabled}
-              className={cn(
-                'rounded-lg border border-input p-4 text-left transition-colors',
-                disabled
-                  ? 'cursor-not-allowed bg-muted text-muted-foreground'
-                  : 'bg-background hover:bg-muted/50',
-              )}
-            >
-              <div className="font-medium">{choice.title}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{choice.description}</div>
-            </button>
-          ))}
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={onProceed}
-          disabled={disabled}
-          className={cn(
-            'rounded-md border px-3 py-2 text-sm transition-colors',
-            disabled
-              ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-              : 'border-border bg-background hover:bg-muted',
-          )}
-        >
-          Proceed
-        </button>
-      )}
-    </WorkspaceStateCard>
-  );
-}
-
-function RecoveryTurnCard({
-  phase,
-  onRecover,
-  disabled,
-}: {
-  phase: WorkflowPhase;
-  onRecover: () => void;
-  disabled: boolean;
-}) {
-  const reviewCopy = getReviewPhaseControlCopy(phase);
-
-  return (
-    <WorkspaceStateCard
-      eyebrow="Recovery needed"
-      title={reviewCopy ? reviewCopy.recoveryTitle : `Restore the next interview turn`}
-      description={
-        reviewCopy
-          ? reviewCopy.recoveryDescription
-          : `The last ${getWorkflowPhaseLabel(phase).toLowerCase()} turn is complete, but the next frontier is missing. Continue to recover it.`
-      }
-    >
-      <button
-        type="button"
-        data-testid="recovery-turn-card"
-        onClick={onRecover}
-        disabled={disabled}
-        className={cn(
-          'rounded-md border px-3 py-2 text-sm transition-colors',
-          disabled
-            ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-            : 'border-border bg-background hover:bg-muted',
-        )}
-      >
-        Continue
-      </button>
-    </WorkspaceStateCard>
-  );
-}
-
-function PhaseSummaryCard({
-  phase,
-  summary,
-  onConfirm,
-  disabled,
-}: {
-  phase: ProjectStateTurn['phase'];
-  summary: string;
-  onConfirm: () => void;
-  disabled: boolean;
-}) {
-  const reviewCopy = getReviewPhaseControlCopy(phase);
-
-  return (
-    <div className="my-3 rounded-lg border bg-card p-4">
-      <div className="mb-2 text-[15px] font-semibold">
-        {reviewCopy ? reviewCopy.proposalTitle : `${getWorkflowPhaseLabel(phase)} closure proposal`}
-      </div>
-      <p className="text-sm text-muted-foreground">{summary}</p>
-      <div className="mt-3 flex justify-end">
-        <button
-          type="button"
-          onClick={onConfirm}
-          disabled={disabled}
-          className={cn(
-            'rounded-md border px-3 py-2 text-sm transition-colors',
-            disabled
-              ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-              : 'border-border bg-background hover:bg-muted',
-          )}
-        >
-          {reviewCopy
-            ? reviewCopy.confirmLabel
-            : getPhaseClosureCommandText({ kind: 'confirm-proposed-phase-closure', phase })}
-        </button>
-      </div>
-    </div>
-  );
-}
-
 function getControlMarkerLabel(text: string): string | null {
   if (Object.values(startPhaseMessages).includes(text as (typeof startPhaseMessages)[WorkflowPhase])) {
     return 'Interview started';
@@ -321,16 +85,6 @@ function getControlMarkerLabel(text: string): string | null {
   }
 
   return null;
-}
-
-function AcceptedClosureTurnCard({ phase, summary }: { phase: WorkflowPhase; summary: string }) {
-  return (
-    <WorkspaceStateCard
-      eyebrow="Phase closure confirmed"
-      title={`${getWorkflowPhaseLabel(phase)} closure confirmed`}
-      description={summary}
-    />
-  );
 }
 
 function renderActivitySummary(activitySummary: { seconds?: number; tools: string[] } | null) {
