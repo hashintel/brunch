@@ -1,4 +1,5 @@
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+import { createForceCloseActivePhaseCommand } from '@/shared/phase-close.js';
 
 import {
   advanceHead,
@@ -16,88 +17,16 @@ import {
   type WorkflowPhaseStatus,
 } from '../db.js';
 import { serializeParts } from '../parts.js';
+import {
+  createFixtureReviewQuestionInput,
+  serializeFixtureAcceptedReviewUserParts,
+  serializeFixtureConfirmationUserParts,
+  serializeFixtureGroundingCardAssistantParts,
+  serializeFixturePhaseConfirmationUserParts,
+  serializeFixtureQuestionAssistantParts,
+  serializeFixtureTurnResponseUserParts,
+} from './helpers.js';
 import { loadManifest, loadManifestScenarios, seedFromManifest, type ManifestScenario } from './manifest.js';
-
-function createReviewSetAssistantParts({
-  phase,
-  title,
-  prompt,
-  why,
-  items,
-}: {
-  phase: 'requirements' | 'criteria';
-  title: string;
-  prompt: string;
-  why: string;
-  items: Array<{
-    referenceCode: string;
-    content: string;
-    rationale?: string;
-    grounding?: Array<{ code: string }>;
-    isUserCreated?: boolean;
-    isRevised?: boolean;
-  }>;
-}): string {
-  return serializeParts([
-    {
-      type: 'tool-ask_question',
-      toolCallId: `fixture-${phase}-review`,
-      state: 'output-available',
-      input: {
-        question: prompt,
-        why,
-        impact: 'high',
-        options: [
-          { content: 'Accept review', is_recommended: true },
-          { content: 'Request changes', is_recommended: false },
-        ],
-        reviewActions: [
-          { action: 'accept', optionPosition: 0 },
-          { action: 'request-changes', optionPosition: 1 },
-        ],
-        reviewSet: {
-          phase,
-          title,
-          items,
-        },
-      },
-      output: { ok: true, turnId: 0, optionCount: 2 },
-    },
-    { type: 'text', text: prompt },
-    {
-      type: 'data-review-set',
-      data: {
-        phase,
-        title,
-        items,
-      },
-    },
-  ]);
-}
-
-function createConfirmationParts(text: string, data: object): string {
-  return JSON.stringify([
-    { type: 'text', text },
-    {
-      type: 'data-confirmation',
-      data,
-    },
-  ]);
-}
-
-function createAcceptedReviewUserParts(turnId: number, selectedOptionIds: number[]): string {
-  return JSON.stringify([
-    { type: 'text', text: 'Accept review' },
-    {
-      type: 'data-turn-response',
-      data: {
-        turnId,
-        selectedOptionIds,
-        reviewAction: 'accept',
-      },
-    },
-  ]);
-}
 
 const issueTrackerManifest = loadManifest('issue-tracker');
 const code = createKnowledgeReferenceCode;
@@ -178,10 +107,9 @@ export function seedClosedScope(db: DB, projectId: number) {
     parent_turn_id: scopeProposalTurn.id,
     question: '',
     answer: 'Confirm grounding closure',
-    user_parts: createConfirmationParts('Confirm grounding closure', {
-      kind: 'confirm-proposed-phase-closure',
-      proposalTurnId: scopeProposalTurn.id,
+    user_parts: serializeFixturePhaseConfirmationUserParts({
       phase: 'scope',
+      proposalTurnId: scopeProposalTurn.id,
     }),
   });
   confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
@@ -219,10 +147,9 @@ export function seedRequirementsReady(db: DB, projectId: number) {
     parent_turn_id: seededDesign.designTurn.id,
     question: '',
     answer: 'Confirm elicitation closure',
-    user_parts: createConfirmationParts('Confirm elicitation closure', {
-      kind: 'confirm-proposed-phase-closure',
-      proposalTurnId: seededDesign.designTurn.id,
+    user_parts: serializeFixturePhaseConfirmationUserParts({
       phase: 'design',
+      proposalTurnId: seededDesign.designTurn.id,
     }),
   });
   confirmPhaseOutcome(db, designOutcome.id, designConfirmationTurn.id);
@@ -264,32 +191,40 @@ export function seedRequirementsReviewReady(db: DB, projectId: number) {
     why: 'Review the whole requirement set before moving forward.',
     impact: 'high',
     answer: null,
-    assistant_parts: createReviewSetAssistantParts({
-      phase: 'requirements',
-      title: 'Requirements',
-      prompt: 'Please review the current requirement set.',
-      why: 'Review the whole requirement set before moving forward.',
-      items: [
-        {
-          referenceCode: code('requirement', 1),
-          content: requirementCrud.content,
-          rationale: 'Captures the core ticket lifecycle the tool must support from day one.',
-          grounding: [{ code: code('goal', 1) }, { code: code('context', 1) }, { code: code('decision', 1) }],
-        },
-        {
-          referenceCode: code('requirement', 2),
-          content: requirementAudit.content,
-          rationale: 'Protects accountability and traceability for regulated workflows.',
-          grounding: [{ code: code('context', 2) }, { code: code('constraint', 1) }],
-        },
-        {
-          referenceCode: code('requirement', 3),
-          content: requirementPermissions.content,
-          rationale: 'Ensures each role sees only the operations appropriate to its responsibility.',
-          grounding: [{ code: code('goal', 2) }, { code: code('constraint', 2) }],
-          isRevised: true,
-        },
-      ],
+    assistant_parts: serializeFixtureQuestionAssistantParts({
+      turnId: 0,
+      toolCallId: 'fixture-requirements-review',
+      input: createFixtureReviewQuestionInput({
+        phase: 'requirements',
+        title: 'Requirements',
+        prompt: 'Please review the current requirement set.',
+        why: 'Review the whole requirement set before moving forward.',
+        items: [
+          {
+            referenceCode: code('requirement', 1),
+            content: requirementCrud.content,
+            rationale: 'Captures the core ticket lifecycle the tool must support from day one.',
+            grounding: [
+              { code: code('goal', 1) },
+              { code: code('context', 1) },
+              { code: code('decision', 1) },
+            ],
+          },
+          {
+            referenceCode: code('requirement', 2),
+            content: requirementAudit.content,
+            rationale: 'Protects accountability and traceability for regulated workflows.',
+            grounding: [{ code: code('context', 2) }, { code: code('constraint', 1) }],
+          },
+          {
+            referenceCode: code('requirement', 3),
+            content: requirementPermissions.content,
+            rationale: 'Ensures each role sees only the operations appropriate to its responsibility.',
+            grounding: [{ code: code('goal', 2) }, { code: code('constraint', 2) }],
+            isRevised: true,
+          },
+        ],
+      }),
     }),
   });
   createOption(db, reviewTurn.id, {
@@ -333,25 +268,29 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
     why: 'Review the whole requirement set before moving forward.',
     impact: 'high',
     answer: 'Accept review',
-    assistant_parts: createReviewSetAssistantParts({
-      phase: 'requirements',
-      title: 'Requirements',
-      prompt: 'Please review the current requirement set.',
-      why: 'Review the whole requirement set before moving forward.',
-      items: [
-        {
-          referenceCode: code('requirement', 1),
-          content: approvedRequirement.content,
-          rationale: 'Keeps resume behavior explicit in the accepted requirement set.',
-          grounding: [{ code: code('goal', 1) }, { code: code('context', 1) }],
-        },
-        {
-          referenceCode: code('requirement', 2),
-          content: supportingRequirement.content,
-          rationale: 'Preserves the local-first persistence seam as a first-order concern.',
-          grounding: [{ code: code('decision', 1) }, { code: code('assumption', 1) }],
-        },
-      ],
+    assistant_parts: serializeFixtureQuestionAssistantParts({
+      turnId: 0,
+      toolCallId: 'fixture-requirements-review',
+      input: createFixtureReviewQuestionInput({
+        phase: 'requirements',
+        title: 'Requirements',
+        prompt: 'Please review the current requirement set.',
+        why: 'Review the whole requirement set before moving forward.',
+        items: [
+          {
+            referenceCode: code('requirement', 1),
+            content: approvedRequirement.content,
+            rationale: 'Keeps resume behavior explicit in the accepted requirement set.',
+            grounding: [{ code: code('goal', 1) }, { code: code('context', 1) }],
+          },
+          {
+            referenceCode: code('requirement', 2),
+            content: supportingRequirement.content,
+            rationale: 'Preserves the local-first persistence seam as a first-order concern.',
+            grounding: [{ code: code('decision', 1) }, { code: code('assumption', 1) }],
+          },
+        ],
+      }),
     }),
   });
   const acceptOption = createOption(db, reviewTurn.id, {
@@ -366,7 +305,10 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
   });
   applyTurnResponseSelections(db, reviewTurn.id, [0]);
   updateTurn(db, reviewTurn.id, {
-    user_parts: createAcceptedReviewUserParts(reviewTurn.id, [acceptOption.id]),
+    user_parts: serializeFixtureAcceptedReviewUserParts({
+      turnId: reviewTurn.id,
+      selectedOptionIds: [acceptOption.id],
+    }),
   });
   linkKnowledgeItemToTurn(db, approvedRequirement.id, reviewTurn.id, 'reviewed');
   linkKnowledgeItemToTurn(db, supportingRequirement.id, reviewTurn.id, 'reviewed');
@@ -444,33 +386,37 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
     why: 'Review the whole criterion set before moving forward.',
     impact: 'high',
     answer: null,
-    assistant_parts: createReviewSetAssistantParts({
-      phase: 'criteria',
-      title: 'Acceptance Criteria',
-      prompt: 'Please review the current criterion set.',
-      why: 'Review the whole criterion set before moving forward.',
-      items: [
-        {
-          referenceCode: code('criterion', 1),
-          content: criterionAudit.content,
-          rationale: 'Makes the audit requirement observable in a seeded acceptance check.',
-          grounding: [{ code: code('requirement', 1) }, { code: code('context', 2) }],
-        },
-        {
-          referenceCode: code('criterion', 2),
-          content: criterionPermissions.content,
-          rationale: 'Verifies role-based visibility through a concrete denial path.',
-          grounding: [{ code: code('requirement', 1) }, { code: code('constraint', 2) }],
-          isUserCreated: true,
-        },
-        {
-          referenceCode: code('criterion', 3),
-          content: criterionPerformance.content,
-          rationale: 'Pins the seeded demo to a legible performance target.',
-          grounding: [{ code: code('requirement', 1) }, { code: code('assumption', 1) }],
-          isRevised: true,
-        },
-      ],
+    assistant_parts: serializeFixtureQuestionAssistantParts({
+      turnId: 0,
+      toolCallId: 'fixture-criteria-review',
+      input: createFixtureReviewQuestionInput({
+        phase: 'criteria',
+        title: 'Acceptance Criteria',
+        prompt: 'Please review the current criterion set.',
+        why: 'Review the whole criterion set before moving forward.',
+        items: [
+          {
+            referenceCode: code('criterion', 1),
+            content: criterionAudit.content,
+            rationale: 'Makes the audit requirement observable in a seeded acceptance check.',
+            grounding: [{ code: code('requirement', 1) }, { code: code('context', 2) }],
+          },
+          {
+            referenceCode: code('criterion', 2),
+            content: criterionPermissions.content,
+            rationale: 'Verifies role-based visibility through a concrete denial path.',
+            grounding: [{ code: code('requirement', 1) }, { code: code('constraint', 2) }],
+            isUserCreated: true,
+          },
+          {
+            referenceCode: code('criterion', 3),
+            content: criterionPerformance.content,
+            rationale: 'Pins the seeded demo to a legible performance target.',
+            grounding: [{ code: code('requirement', 1) }, { code: code('assumption', 1) }],
+            isRevised: true,
+          },
+        ],
+      }),
     }),
   });
   createOption(db, reviewTurn.id, {
@@ -509,25 +455,29 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
     why: 'Review the whole criterion set before moving forward.',
     impact: 'high',
     answer: 'Accept review',
-    assistant_parts: createReviewSetAssistantParts({
-      phase: 'criteria',
-      title: 'Acceptance Criteria',
-      prompt: 'Please review the current criterion set.',
-      why: 'Review the whole criterion set before moving forward.',
-      items: [
-        {
-          referenceCode: code('criterion', 1),
-          content: criterion.content,
-          rationale: 'Provides a concise seeded acceptance check for the resume path.',
-          grounding: [{ code: code('requirement', 1) }],
-        },
-        {
-          referenceCode: code('criterion', 2),
-          content: supportingCriterion.content,
-          rationale: 'Shows the user-visible reload behavior that proves persistence worked.',
-          grounding: [{ code: code('requirement', 1) }, { code: code('context', 1) }],
-        },
-      ],
+    assistant_parts: serializeFixtureQuestionAssistantParts({
+      turnId: 0,
+      toolCallId: 'fixture-criteria-review',
+      input: createFixtureReviewQuestionInput({
+        phase: 'criteria',
+        title: 'Acceptance Criteria',
+        prompt: 'Please review the current criterion set.',
+        why: 'Review the whole criterion set before moving forward.',
+        items: [
+          {
+            referenceCode: code('criterion', 1),
+            content: criterion.content,
+            rationale: 'Provides a concise seeded acceptance check for the resume path.',
+            grounding: [{ code: code('requirement', 1) }],
+          },
+          {
+            referenceCode: code('criterion', 2),
+            content: supportingCriterion.content,
+            rationale: 'Shows the user-visible reload behavior that proves persistence worked.',
+            grounding: [{ code: code('requirement', 1) }, { code: code('context', 1) }],
+          },
+        ],
+      }),
     }),
   });
   const acceptOption = createOption(db, criterionReviewTurn.id, {
@@ -542,7 +492,10 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
   });
   applyTurnResponseSelections(db, criterionReviewTurn.id, [0]);
   updateTurn(db, criterionReviewTurn.id, {
-    user_parts: createAcceptedReviewUserParts(criterionReviewTurn.id, [acceptOption.id]),
+    user_parts: serializeFixtureAcceptedReviewUserParts({
+      turnId: criterionReviewTurn.id,
+      selectedOptionIds: [acceptOption.id],
+    }),
   });
   linkKnowledgeItemToTurn(db, criterion.id, criterionReviewTurn.id, 'reviewed');
   linkKnowledgeItemToTurn(db, supportingCriterion.id, criterionReviewTurn.id, 'reviewed');
@@ -590,10 +543,10 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
     parent_turn_id: designTurn.id,
     question: '',
     answer: 'Force elicitation closure',
-    user_parts: createConfirmationParts('Force elicitation closure', {
-      kind: 'force-close-active-phase',
-      phase: 'design',
-    }),
+    user_parts: serializeFixtureConfirmationUserParts(
+      createForceCloseActivePhaseCommand('design'),
+      'Force elicitation closure',
+    ),
   });
   advanceHead(db, projectId, designForceCloseTurn.id);
 
@@ -634,10 +587,9 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
     parent_turn_id: designTurn.id,
     question: '',
     answer: 'Confirm grounding closure',
-    user_parts: createConfirmationParts('Confirm grounding closure', {
-      kind: 'confirm-proposed-phase-closure',
-      proposalTurnId: designTurn.id,
+    user_parts: serializeFixturePhaseConfirmationUserParts({
       phase: 'scope',
+      proposalTurnId: designTurn.id,
     }),
   });
   advanceHead(db, projectId, scopeClosureTurn.id);
@@ -664,10 +616,9 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
     parent_turn_id: designProposalTurn.id,
     question: '',
     answer: 'Confirm elicitation closure',
-    user_parts: createConfirmationParts('Confirm elicitation closure', {
-      kind: 'confirm-proposed-phase-closure',
-      proposalTurnId: designProposalTurn.id,
+    user_parts: serializeFixturePhaseConfirmationUserParts({
       phase: 'design',
+      proposalTurnId: designProposalTurn.id,
     }),
   });
   advanceHead(db, projectId, designConfirmationTurn.id);
@@ -702,16 +653,11 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
     phase: 'scope',
     question: '',
     answer: 'Continue — Focus on the routed workspace stream seam.',
-    assistant_parts: serializeParts([
-      {
-        type: 'data-grounding-card',
-        data: {
-          summary: 'The repo already uses SQLite-backed local persistence.',
-          detail: 'This provisional brief grounds the first brownfield move.',
-          continueLabel: 'Continue',
-        },
-      },
-    ]),
+    assistant_parts: serializeFixtureGroundingCardAssistantParts({
+      summary: 'The repo already uses SQLite-backed local persistence.',
+      detail: 'This provisional brief grounds the first brownfield move.',
+      continueLabel: 'Continue',
+    }),
   });
   const firstContinueOption = createOption(db, firstGroundingTurn.id, {
     position: 0,
