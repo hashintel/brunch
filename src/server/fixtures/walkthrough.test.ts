@@ -7,7 +7,12 @@ import { describe, expect, it } from 'vitest';
 import { getProjectState } from '../core.js';
 import { createDb, getActivePath, getEntitiesForProjectOnActivePath } from '../db.js';
 import { renderExportMarkdown } from '../export.js';
-import { publicScenarios, publicScenarioNames, walkthroughScenarioMatrix } from './scenarios.js';
+import {
+  publicScenarios,
+  publicScenarioNames,
+  walkthroughScenarioMatrix,
+  type WalkthroughScenarioMatrixEntry,
+} from './scenarios.js';
 
 function summarizeWorkflow(projectState: NonNullable<ReturnType<typeof getProjectState>>) {
   return {
@@ -47,6 +52,30 @@ async function withReopenedSeededScenario<T>(
   }
 }
 
+async function withReopenedWalkthroughScenario<T>(
+  entry: Pick<WalkthroughScenarioMatrixEntry, 'seedScenario'>,
+  run: (context: { db: ReturnType<typeof createDb>; projectId: number }) => Promise<T> | T,
+): Promise<T> {
+  const tempDir = mkdtempSync(join(tmpdir(), 'brunch-fixture-'));
+  const dbPath = join(tempDir, 'fixture.db');
+
+  const seedDb = createDb(dbPath);
+  let projectId: number;
+  try {
+    projectId = entry.seedScenario(seedDb);
+  } finally {
+    seedDb.$client.close();
+  }
+
+  const reopenedDb = createDb(dbPath);
+  try {
+    return await run({ db: reopenedDb, projectId });
+  } finally {
+    reopenedDb.$client.close();
+    rmSync(tempDir, { recursive: true, force: true });
+  }
+}
+
 describe('walkthroughScenarioMatrix', () => {
   it('front-loads the walkthrough workspace scenarios in the public seed catalog', () => {
     expect(publicScenarioNames.slice(0, walkthroughScenarioMatrix.length)).toEqual(
@@ -54,9 +83,15 @@ describe('walkthroughScenarioMatrix', () => {
     );
   });
 
+  it('wires every walkthrough entry directly to the public TypeScript builder catalog', () => {
+    for (const entry of walkthroughScenarioMatrix) {
+      expect(publicScenarios[entry.scenarioName]).toBe(entry.seedScenario);
+    }
+  });
+
   for (const entry of walkthroughScenarioMatrix) {
     it(`keeps ${entry.scenarioName} resumable after seeding`, async () => {
-      await withReopenedSeededScenario(entry.scenarioName, ({ db, projectId }) => {
+      await withReopenedWalkthroughScenario(entry, ({ db, projectId }) => {
         const projectState = getProjectState(db, projectId);
 
         expect(projectState).not.toBeNull();

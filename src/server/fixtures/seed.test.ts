@@ -5,12 +5,23 @@ import { join } from 'node:path';
 
 import { describe, expect, it, vi } from 'vitest';
 
+import { publicScenarioNames, publicScenarios, walkthroughScenarioMatrix } from './scenarios.js';
 import { runSeedCli } from './seed.js';
 
 describe('runSeedCli', () => {
   function createTempDir(): string {
     return mkdtempSync(join(tmpdir(), 'brunch-seed-'));
   }
+
+  it('keeps the public seed catalog wired to TypeScript scenario builders only', () => {
+    for (const scenarioName of publicScenarioNames) {
+      expect(publicScenarios[scenarioName]).toBeTypeOf('function');
+    }
+
+    for (const entry of walkthroughScenarioMatrix) {
+      expect(publicScenarios[entry.scenarioName]).toBe(entry.seedScenario);
+    }
+  });
 
   it('lists only public trusted scenarios when no scenario is provided', () => {
     const io = {
