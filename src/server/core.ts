@@ -8,6 +8,7 @@ import {
 } from '@/shared/grounding-strategy.js';
 import type { WorkflowPhase } from '@/shared/phase-close.js';
 import { phaseOrder } from '@/shared/phase-routes.js';
+import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
 
 import {
   getProject,
@@ -183,7 +184,12 @@ export function getProjectState(db: DB, projectId: number): ProjectState | null 
   ensureProjectFrontier(db, projectId);
   const turns = loadActivePathWithOptions(db, projectId);
   const workflow = getCurrentWorkflowState(db, projectId);
-  return { project: getProject(db, projectId)!, workflow, turns };
+  return {
+    project: getProject(db, projectId)!,
+    workflow,
+    landing: deriveSpecificationLanding({ workflow, turns }),
+    turns,
+  };
 }
 
 /** List all projects with compact workflow summary. */

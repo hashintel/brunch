@@ -1,4 +1,11 @@
-import type { ProjectState, ProjectStateTurn, ReviewAction, WorkflowPhase } from './api-types.js';
+import type {
+  KickoffLandingMode,
+  ProjectState,
+  ProjectStateTurn,
+  ReviewAction,
+  SpecificationLanding,
+  WorkflowPhase,
+} from './api-types.js';
 import {
   structuredQuestionSchema,
   type ReviewSetData,
@@ -8,6 +15,7 @@ import {
   type BrunchUserPart,
   type DataTurnResponse,
 } from './chat.js';
+import { workflowPhaseOrder } from './phase-close.js';
 
 export function safeParsePersistedAssistantParts(json: string | null | undefined): BrunchAssistantPart[] {
   if (!json) {
@@ -146,6 +154,57 @@ export function turnIsControlOrClosureArtifact(
   return assistantParts.some(
     (part) => part.type === 'tool-propose_phase_closure' || part.type === 'data-phase-summary',
   );
+}
+
+function getKickoffLandingMode(
+  turns: readonly Pick<ProjectStateTurn, 'phase' | 'turn_kind'>[],
+  phase: WorkflowPhase,
+): KickoffLandingMode {
+  return turns.some((turn) => turn.phase === phase && turn.turn_kind !== 'kickoff') ? 'continue' : 'start';
+}
+
+export function deriveSpecificationLanding(
+  snapshot: Pick<ProjectState, 'workflow' | 'turns'>,
+): SpecificationLanding | null {
+  const phase = workflowPhaseOrder.find(
+    (candidatePhase) => snapshot.workflow.phases[candidatePhase].status !== 'closed',
+  );
+  if (!phase) {
+    return null;
+  }
+
+  const phaseState = snapshot.workflow.phases[phase];
+  if (phaseState.status === 'closed' || phaseState.proposalPending) {
+    return null;
+  }
+
+  const phaseTurns = snapshot.turns.filter((turn) => turn.phase === phase);
+  const frontierTurn = [...phaseTurns]
+    .reverse()
+    .find((turn) => !turnHasCompletedAnswer(turn) && !turnIsControlOrClosureArtifact(turn));
+  if (frontierTurn) {
+    return {
+      kind: 'frontier-turn',
+      phase,
+      turnId: frontierTurn.id,
+    };
+  }
+
+  const hasCompletedSubstantiveHistory = phaseTurns.some(
+    (turn) => turnHasCompletedAnswer(turn) && !turnIsControlOrClosureArtifact(turn),
+  );
+  if (hasCompletedSubstantiveHistory) {
+    return {
+      kind: 'recovery',
+      phase,
+    };
+  }
+
+  return {
+    kind: 'kickoff',
+    phase,
+    mode: getKickoffLandingMode(phaseTurns, phase),
+  };
 }
 
 export function getPersistedActivitySummary(

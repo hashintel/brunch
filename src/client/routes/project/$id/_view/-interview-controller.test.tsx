@@ -7,6 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
+import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
 
 import { useInterviewController } from './-interview-controller.js';
 
@@ -102,7 +103,7 @@ function createProjectState({
     is_selected: boolean;
   }>;
 } = {}): ProjectState {
-  return {
+  const projectState: ProjectState = {
     project: {
       id: projectId,
       name: `Project ${projectId}`,
@@ -170,6 +171,11 @@ function createProjectState({
         options,
       },
     ],
+  };
+
+  return {
+    ...projectState,
+    landing: deriveSpecificationLanding(projectState),
   };
 }
 
@@ -287,6 +293,7 @@ describe('interview controller', () => {
     currentProjectState.project.active_turn_id = null;
     currentProjectState.workflow.phases.scope.turnId = null;
     currentProjectState.turns = [];
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
     renderController();
 
@@ -301,6 +308,7 @@ describe('interview controller', () => {
     });
     currentProjectState.workflow.phases.scope.turnId = null;
     currentProjectState.project.active_turn_id = null;
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
     renderController();
 

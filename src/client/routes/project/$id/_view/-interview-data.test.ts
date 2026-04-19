@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import type { ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
-import { getAcceptedClosureReplay, getPersistedSelectedPositions } from '@/shared/project-state-turn.js';
+import {
+  deriveSpecificationLanding,
+  getAcceptedClosureReplay,
+  getPersistedSelectedPositions,
+} from '@/shared/project-state-turn.js';
 
 import {
   buildPhaseTurnIds,
@@ -33,7 +37,7 @@ function createProjectState({
   }>;
   workflow?: ProjectState['workflow'];
 } = {}): ProjectState {
-  return {
+  const projectState: ProjectState = {
     project: {
       id: projectId,
       name: `Project ${projectId}`,
@@ -101,6 +105,11 @@ function createProjectState({
         options,
       },
     ],
+  };
+
+  return {
+    ...projectState,
+    landing: deriveSpecificationLanding(projectState),
   };
 }
 
@@ -339,14 +348,14 @@ describe('workspace controller core', () => {
     });
   });
 
-  it('projects recovery turn-card visibility from the persisted frontier turn kind', () => {
+  it('projects recovery turn-card visibility from the derived landing seam', () => {
     const recoveryState = createInterviewDurableProjectState({
       project: {
         id: 1,
         name: 'Project 1',
         mode: 'greenfield',
         cwd: null,
-        active_turn_id: 2,
+        active_turn_id: 1,
         created_at: '2026-04-03 10:00:00',
         updated_at: '2026-04-03 10:00:00',
       },
@@ -358,7 +367,7 @@ describe('workspace controller core', () => {
             readiness: 'medium',
             closureBasis: null,
             proposalPending: false,
-            turnId: 2,
+            turnId: null,
             summary: null,
           },
           design: {
@@ -390,6 +399,7 @@ describe('workspace controller core', () => {
           },
         },
       },
+      landing: { kind: 'recovery', phase: 'scope' },
       turns: [
         {
           id: 1,
@@ -406,22 +416,6 @@ describe('workspace controller core', () => {
           assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
           created_at: '2026-04-03 10:00:00',
           options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
-        },
-        {
-          id: 2,
-          project_id: 1,
-          parent_turn_id: 1,
-          phase: 'scope',
-          turn_kind: 'recovery',
-          question: '',
-          why: null,
-          impact: null,
-          answer: null,
-          is_resolution: false,
-          user_parts: null,
-          assistant_parts: null,
-          created_at: '2026-04-03 10:01:00',
-          options: [],
         },
       ],
     });
@@ -444,14 +438,14 @@ describe('workspace controller core', () => {
     });
   });
 
-  it('projects kickoff turn-card visibility from the persisted frontier turn kind', () => {
+  it('projects kickoff turn-card visibility from the derived landing seam', () => {
     const kickoffState = createInterviewDurableProjectState({
       project: {
         id: 1,
         name: 'Project 1',
         mode: 'greenfield',
         cwd: null,
-        active_turn_id: 1,
+        active_turn_id: null,
         created_at: '2026-04-03 10:00:00',
         updated_at: '2026-04-03 10:00:00',
       },
@@ -463,7 +457,7 @@ describe('workspace controller core', () => {
             readiness: 'low',
             closureBasis: null,
             proposalPending: false,
-            turnId: 1,
+            turnId: null,
             summary: null,
           },
           design: {
@@ -495,24 +489,8 @@ describe('workspace controller core', () => {
           },
         },
       },
-      turns: [
-        {
-          id: 1,
-          project_id: 1,
-          parent_turn_id: null,
-          phase: 'scope',
-          turn_kind: 'kickoff',
-          question: '',
-          why: null,
-          impact: null,
-          answer: null,
-          is_resolution: false,
-          user_parts: null,
-          assistant_parts: null,
-          created_at: '2026-04-03 10:00:00',
-          options: [],
-        },
-      ],
+      landing: { kind: 'kickoff', phase: 'scope', mode: 'start' },
+      turns: [],
     });
 
     expect(createInterviewControllerViewState(kickoffState, 'scope', [], false)).toEqual({
@@ -843,6 +821,7 @@ describe('workspace controller core', () => {
       },
     ];
     projectState.project.active_turn_id = 2;
+    projectState.landing = deriveSpecificationLanding(projectState);
 
     const durableProject = createInterviewDurableProjectState(projectState);
 

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import type { ProjectState, ProjectStateTurn } from './api-types.js';
 import { createKnowledgeReferenceCode } from './knowledge.js';
 import {
+  deriveSpecificationLanding,
   findTurnOptionsByPositions,
   getAcceptedClosureReplay,
   getPersistedActivitySummary,
@@ -52,10 +53,92 @@ function createPhaseState(
   };
 }
 
+function createProjectState(
+  overrides: Partial<ProjectState> = {},
+  phaseOverrides: Partial<ProjectState['workflow']['phases']['scope']> = {},
+  turns: ProjectState['turns'] = [createTurn()],
+): ProjectState {
+  return {
+    project: {
+      id: 1,
+      name: 'Project 1',
+      mode: 'greenfield',
+      cwd: null,
+      active_turn_id: turns.at(-1)?.id ?? null,
+      created_at: '2026-04-16 10:00:00',
+      updated_at: '2026-04-16 10:00:00',
+    },
+    workflow: {
+      phases: {
+        scope: {
+          status: 'in_progress',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: turns.at(-1)?.phase === 'scope' ? (turns.at(-1)?.id ?? null) : null,
+          summary: null,
+          ...phaseOverrides,
+        },
+        design: createPhaseState({ status: 'unstarted', closureBasis: null, summary: null, turnId: null }),
+        requirements: createPhaseState({
+          status: 'unstarted',
+          closureBasis: null,
+          summary: null,
+          turnId: null,
+        }),
+        criteria: createPhaseState({ status: 'unstarted', closureBasis: null, summary: null, turnId: null }),
+      },
+    },
+    turns,
+    ...overrides,
+  };
+}
+
 describe('project-state-turn helpers', () => {
   it('safely parses persisted assistant and user parts', () => {
     expect(safeParsePersistedAssistantParts('not-json')).toEqual([]);
     expect(safeParsePersistedUserParts(null)).toEqual([]);
+  });
+
+  it('derives truthful open-phase landing from workflow state and active-path turns', () => {
+    expect(
+      deriveSpecificationLanding(
+        createProjectState({}, { turnId: null }, [
+          createTurn({
+            id: 1,
+            answer: 'Build the web app',
+            options: [],
+          }),
+        ]),
+      ),
+    ).toEqual({ kind: 'recovery', phase: 'scope' });
+
+    expect(
+      deriveSpecificationLanding(
+        createProjectState({}, { turnId: 2 }, [
+          createTurn({
+            id: 1,
+            answer: 'Build the web app',
+            options: [],
+          }),
+          createTurn({
+            id: 2,
+            parent_turn_id: 1,
+            answer: null,
+            options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+          }),
+        ]),
+      ),
+    ).toEqual({ kind: 'frontier-turn', phase: 'scope', turnId: 2 });
+
+    expect(
+      deriveSpecificationLanding(
+        createProjectState({}, { turnId: null }, [
+          createTurn({ id: 1, turn_kind: 'kickoff', answer: null, options: [], question: '' }),
+        ]),
+      ),
+    ).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
   });
 
   it('classifies kickoff, recovery, confirmation, and closure-summary turns as control artifacts', () => {

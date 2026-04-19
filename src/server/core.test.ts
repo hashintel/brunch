@@ -393,6 +393,7 @@ describe('getProjectState', () => {
 
     const state = getProjectState(db, project.id);
 
+    expect(state?.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
     expect(state?.turns).toHaveLength(1);
     expect(state?.turns[0]).toMatchObject({
       phase: 'scope',
@@ -433,6 +434,7 @@ describe('getProjectState', () => {
     const state = getProjectState(db, project.id);
 
     expect(state?.project.id).toBe(project.id);
+    expect(state?.landing).toEqual({ kind: 'recovery', phase: 'scope' });
     expect(state?.turns).toHaveLength(2);
     expect(state?.turns[0].question).toBe('What are we building?');
     expect(state?.turns[0].turn_kind).toBe('question');

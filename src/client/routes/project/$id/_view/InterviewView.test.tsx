@@ -8,6 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
 
 import { InterviewView } from './-interview-view.js';
 
@@ -183,7 +184,7 @@ function createProjectState({
   assistantParts?: Array<Record<string, unknown>>;
   turns?: ProjectState['turns'];
 } = {}): ProjectState {
-  return {
+  const projectState: ProjectState = {
     project: {
       id: projectId,
       name: `Project ${projectId}`,
@@ -253,6 +254,11 @@ function createProjectState({
         options,
       },
     ],
+  };
+
+  return {
+    ...projectState,
+    landing: deriveSpecificationLanding(projectState),
   };
 }
 
@@ -1482,6 +1488,13 @@ describe('InterviewView', () => {
           { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
         ],
         workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          design: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 98,
+          },
           requirements: {
             status: 'in_progress',
             closeability: false,
@@ -1595,6 +1608,19 @@ describe('InterviewView', () => {
           { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
         ],
         workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          design: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 98,
+          },
+          requirements: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 97,
+          },
           criteria: {
             status: 'in_progress',
             closeability: false,
@@ -1876,6 +1902,13 @@ describe('InterviewView', () => {
           { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
         ],
         workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          design: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 98,
+          },
           requirements: {
             status: 'in_progress',
             closeability: false,
@@ -1986,6 +2019,19 @@ describe('InterviewView', () => {
           { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
         ],
         workflow: createWorkflowState({
+          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          design: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 98,
+          },
+          requirements: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 97,
+          },
           criteria: {
             status: 'in_progress',
             closeability: false,

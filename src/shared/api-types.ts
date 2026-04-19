@@ -51,6 +51,24 @@ export const workflowStateSchema = z.object({
   }),
 });
 
+export const kickoffLandingModeSchema = z.enum(['start', 'continue']);
+export const specificationLandingSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('kickoff'),
+    phase: workflowPhaseSchema,
+    mode: kickoffLandingModeSchema,
+  }),
+  z.object({
+    kind: z.literal('frontier-turn'),
+    phase: workflowPhaseSchema,
+    turnId: z.number().int().positive(),
+  }),
+  z.object({
+    kind: z.literal('recovery'),
+    phase: workflowPhaseSchema,
+  }),
+]);
+
 export const turnOptionSchema = z.object({
   id: z.number().int().positive(),
   position: z.number().int().min(0),
@@ -103,6 +121,7 @@ export const projectListItemsSchema = z.array(projectListItemSchema);
 export const projectStateSchema = z.object({
   project: projectSchema,
   workflow: workflowStateSchema,
+  landing: specificationLandingSchema.nullable().optional(),
   turns: z.array(projectStateTurnSchema),
 });
 
@@ -226,6 +245,8 @@ export type CreateProjectResponse = z.infer<typeof createProjectResponseSchema>;
 export type WorkflowSummary = z.infer<typeof workflowSummarySchema>;
 export type WorkflowPhaseState = z.infer<typeof workflowPhaseStateSchema>;
 export type WorkflowState = z.infer<typeof workflowStateSchema>;
+export type KickoffLandingMode = z.infer<typeof kickoffLandingModeSchema>;
+export type SpecificationLanding = z.infer<typeof specificationLandingSchema>;
 export type TurnOption = z.infer<typeof turnOptionSchema>;
 export type ProjectStateTurn = z.infer<typeof projectStateTurnSchema>;
 export type ProjectListItem = z.infer<typeof projectListItemSchema>;
