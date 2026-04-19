@@ -27,7 +27,6 @@ import {
   serializeFixtureQuestionAssistantParts,
   serializeFixtureTurnResponseUserParts,
 } from './helpers.js';
-import { loadManifestScenarios } from './manifest.js';
 
 const code = createKnowledgeReferenceCode;
 
@@ -898,10 +897,6 @@ export const scenarios: Record<string, ScenarioFn> = {
   },
 };
 
-export const testOnlyScenarios: Record<string, ScenarioFn> = {};
-
-export const manifestScenarios = loadManifestScenarios('issue-tracker');
-
 const phaseTransitionScenarios: Record<string, ScenarioFn> = {
   'brownfield-grounding-replay': (db, name = 'Brownfield reusable grounding replay') => {
     const project = createProject(db, name, {
@@ -1047,9 +1042,4 @@ export const publicScenarioNames = [
   ...walkthroughScenarioNames.filter((name) => name in publicScenarios),
   ...Object.keys(publicScenarios).filter((name) => !walkthroughScenarioNameSet.has(name)),
 ];
-export const allScenarios: Record<string, ScenarioFn> = {
-  ...publicScenarios,
-  ...manifestScenarios,
-  ...testOnlyScenarios,
-};
 export const scenarioNames = publicScenarioNames;
