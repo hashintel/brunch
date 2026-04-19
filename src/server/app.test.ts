@@ -8,7 +8,6 @@ import { getPhaseClosureCommandText } from '@/shared/phase-close.js';
 
 import { buildInterviewerContext } from './context.js';
 import type { DB } from './db.js';
-import { seedFromManifest, type ManifestScenario } from './fixtures/manifest.js';
 import {
   seedActiveDesign as _seedActiveDesign,
   seedAllPhasesClosed as _seedAllPhasesClosed,
@@ -1076,79 +1075,59 @@ describe('GET /api/projects/:id/entities', () => {
     });
   });
 
-  it('projects manifest-backed relation vocabulary through the entities api', async () => {
-    const scenario: ManifestScenario = {
-      turns: [
-        {
-          phase: 'scope',
-          question: 'What are we building?',
-          answer: 'A lightweight issue tracker.',
-          options: [{ content: 'Issue tracker', is_recommended: true }],
-          selectedOptionPositions: [0],
-        },
-      ],
-      knowledgeItems: [
-        {
-          kind: 'goal',
-          content: 'Track work from creation to completion',
-          capturedAtTurn: 0,
-        },
-        {
-          kind: 'context',
-          content: 'The team currently works from a spreadsheet',
-          capturedAtTurn: 0,
-        },
-        {
-          kind: 'constraint',
-          content: 'Keep the first release simpler than Jira',
-          capturedAtTurn: 0,
-        },
-        {
-          kind: 'term',
-          content: 'ticket',
-          capturedAtTurn: 0,
-        },
-        {
-          kind: 'requirement',
-          content: 'Preserve relation semantics through the shared transport',
-          capturedAtTurn: 0,
-        },
-        {
-          kind: 'criterion',
-          content: 'The routed client receives the same relation kinds persisted in storage',
-          capturedAtTurn: 0,
-        },
-      ],
-      edges: [
-        {
-          fromItemIndex: 3,
-          toItemIndex: 1,
-          relation: 'depends_on',
-        },
-        {
-          fromItemIndex: 2,
-          toItemIndex: 0,
-          relation: 'constrains',
-        },
-        {
-          fromItemIndex: 1,
-          toItemIndex: 0,
-          relation: 'derived_from',
-        },
-        {
-          fromItemIndex: 5,
-          toItemIndex: 4,
-          relation: 'verifies',
-        },
-        {
-          fromItemIndex: 4,
-          toItemIndex: 0,
-          relation: 'refines',
-        },
-      ],
-    };
+  it('projects relation vocabulary through the entities api', async () => {
+    const { advanceHead, createKnowledgeItem, createTurn, linkKnowledgeItemToTurn } = await import('./db.js');
 
-    const projectId = seedFromManifest(db, scenario, 'Manifest relation characterization');
+    const projectId = await createTestProject('Relation characterization');
+    const rootTurn = createTurn(db, projectId, {
+      phase: 'scope',
+      question: 'What are we building?',
+      answer: 'A lightweight issue tracker.',
+    });
+    advanceHead(db, projectId, rootTurn.id);
+
+    const goal = createKnowledgeItem(db, projectId, 'goal', 'Track work from creation to completion');
+    const context = createKnowledgeItem(
+      db,
+      projectId,
+      'context',
+      'The team currently works from a spreadsheet',
+    );
+    const constraint = createKnowledgeItem(
+      db,
+      projectId,
+      'constraint',
+      'Keep the first release simpler than Jira',
+    );
+    const term = createKnowledgeItem(db, projectId, 'term', 'ticket');
+    const requirement = createKnowledgeItem(
+      db,
+      projectId,
+      'requirement',
+      'Preserve relation semantics through the shared transport',
+    );
+    const criterion = createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'The routed client receives the same relation kinds persisted in storage',
+    );
+
+    for (const item of [goal, context, constraint, term, requirement, criterion]) {
+      linkKnowledgeItemToTurn(db, item.id, rootTurn.id);
+    }
+
+    for (const [fromItemId, toItemId, relation] of [
+      [term.id, context.id, 'depends_on'],
+      [constraint.id, goal.id, 'constrains'],
+      [context.id, goal.id, 'derived_from'],
+      [criterion.id, requirement.id, 'verifies'],
+      [requirement.id, goal.id, 'refines'],
+    ] as const) {
+      db.$client
+        .prepare('INSERT INTO knowledge_edge (from_item_id, to_item_id, relation) VALUES (?, ?, ?)')
+        .run(fromItemId, toItemId, relation);
+    }
 
     expect(
       db.$client
@@ -1168,61 +1147,51 @@ describe('GET /api/projects/:id/entities', () => {
       expect.arrayContaining([
         {
           type: 'depends_on',
-          source: { collection: 'knowledge_item', kind: 'term', id: 4 },
-          target: { collection: 'knowledge_item', kind: 'context', id: 2 },
+          source: { collection: 'knowledge_item', kind: 'term', id: term.id },
+          target: { collection: 'knowledge_item', kind: 'context', id: context.id },
         },
         {
           type: 'constrains',
-          source: { collection: 'knowledge_item', kind: 'constraint', id: 3 },
-          target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+          source: { collection: 'knowledge_item', kind: 'constraint', id: constraint.id },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
         },
         {
           type: 'derived_from',
-          source: { collection: 'knowledge_item', kind: 'context', id: 2 },
-          target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+          source: { collection: 'knowledge_item', kind: 'context', id: context.id },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
         },
         {
           type: 'verifies',
-          source: { collection: 'knowledge_item', kind: 'criterion', id: 6 },
-          target: { collection: 'knowledge_item', kind: 'requirement', id: 5 },
+          source: { collection: 'knowledge_item', kind: 'criterion', id: criterion.id },
+          target: { collection: 'knowledge_item', kind: 'requirement', id: requirement.id },
         },
         {
           type: 'refines',
-          source: { collection: 'knowledge_item', kind: 'requirement', id: 5 },
-          target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+          source: { collection: 'knowledge_item', kind: 'requirement', id: requirement.id },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
         },
       ]),
     );
   });
 
   it('keeps canonical entities on the active path while project-wide inventory stays explicit', async () => {
-    const { getProjectState } = await import('./core.js');
     const { advanceHead, createKnowledgeItem, createTurn, linkKnowledgeItemToTurn } = await import('./db.js');
 
-    const scenario: ManifestScenario = {
-      turns: [
-        {
-          phase: 'scope',
-          question: 'What kind of workflow is this project replacing?',
-          answer: 'A spreadsheet-driven issue tracker process.',
-          options: [{ content: 'Spreadsheet replacement', is_recommended: true }],
-          selectedOptionPositions: [0],
-        },
-      ],
-      knowledgeItems: [
-        {
-          kind: 'goal',
-          content: 'Replace spreadsheet issue tracking with a durable workflow',
-          capturedAtTurn: 0,
-        },
-      ],
-      edges: [],
-    };
+    const projectId = await createTestProject('Branching Project');
+    const rootTurn = createTurn(db, projectId, {
+      phase: 'scope',
+      question: 'What kind of workflow is this project replacing?',
+      answer: 'A spreadsheet-driven issue tracker process.',
+    });
+    advanceHead(db, projectId, rootTurn.id);
 
-    const projectId = seedFromManifest(db, scenario, 'Manifest Branching Project');
-    const projectState = getProjectState(db, projectId);
-    expect(projectState).not.toBeNull();
-    const rootTurn = projectState!.turns[0]!;
+    const goal = createKnowledgeItem(
+      db,
+      projectId,
+      'goal',
+      'Replace spreadsheet issue tracking with a durable workflow',
+    );
+    linkKnowledgeItemToTurn(db, goal.id, rootTurn.id);
 
     const abandonedBranchTurn = createTurn(db, projectId, {
       phase: 'design',
