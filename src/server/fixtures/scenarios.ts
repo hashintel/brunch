@@ -697,6 +697,84 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
   };
 }
 
+export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number) {
+  const firstGroundingTurn = createTurn(db, projectId, {
+    phase: 'scope',
+    question: '',
+    answer: 'Continue — Focus on the routed workspace stream seam.',
+    assistant_parts: serializeParts([
+      {
+        type: 'data-grounding-card',
+        data: {
+          summary: 'The repo already uses SQLite-backed local persistence.',
+          detail: 'This provisional brief grounds the first brownfield move.',
+          continueLabel: 'Continue',
+        },
+      },
+    ]),
+  });
+  const firstContinueOption = createOption(db, firstGroundingTurn.id, {
+    position: 0,
+    content: 'Continue',
+    is_recommended: true,
+  });
+  updateTurn(db, firstGroundingTurn.id, {
+    user_parts: serializeParts([
+      { type: 'text', text: 'Continue — Focus on the routed workspace stream seam.' },
+      {
+        type: 'data-turn-response',
+        data: {
+          turnId: firstGroundingTurn.id,
+          selectedOptionIds: [firstContinueOption.id],
+          freeText: 'Focus on the routed workspace stream seam.',
+        },
+      },
+    ]),
+  });
+  applyTurnResponseSelections(db, firstGroundingTurn.id, [0]);
+  advanceHead(db, projectId, firstGroundingTurn.id);
+
+  const substantiveTurn = createTurn(db, projectId, {
+    phase: 'scope',
+    parent_turn_id: firstGroundingTurn.id,
+    question: 'Which seam needs another grounding pass before we keep going?',
+    answer: 'The chat-runtime finalization path and replay seam.',
+    user_parts: serializeParts([
+      { type: 'text', text: 'The chat-runtime finalization path and replay seam.' },
+    ]),
+  });
+  advanceHead(db, projectId, substantiveTurn.id);
+
+  const laterGroundingTurn = createTurn(db, projectId, {
+    phase: 'scope',
+    parent_turn_id: substantiveTurn.id,
+    question: '',
+    answer: null,
+    assistant_parts: serializeParts([
+      {
+        type: 'data-grounding-card',
+        data: {
+          summary: 'Later context gathering narrowed the work to turn-finalization ownership.',
+          detail: 'Continue to move from replay evidence back into the next substantive question.',
+          continueLabel: 'Continue',
+        },
+      },
+    ]),
+  });
+  createOption(db, laterGroundingTurn.id, {
+    position: 0,
+    content: 'Continue',
+    is_recommended: true,
+  });
+  advanceHead(db, projectId, laterGroundingTurn.id);
+
+  return {
+    firstGroundingTurn,
+    substantiveTurn,
+    laterGroundingTurn,
+  };
+}
+
 export type ScenarioFn = (db: DB, projectName?: string) => number;
 
 type WalkthroughWorkflowSummary = Record<
@@ -765,6 +843,14 @@ export const testOnlyScenarios: Record<string, ScenarioFn> = {};
 export const manifestScenarios = loadManifestScenarios('issue-tracker');
 
 const phaseTransitionScenarios: Record<string, ScenarioFn> = {
+  'brownfield-grounding-replay': (db, name = 'Brownfield reusable grounding replay') => {
+    const project = createProject(db, name, {
+      mode: 'brownfield',
+      cwd: '/tmp/repo',
+    });
+    seedBrownfieldReusableGroundingReplay(db, project.id);
+    return project.id;
+  },
   'issue-tracker-scope-closure-pending': createManifestScenarioSeeder(
     sliceManifestScenario(issueTrackerManifest.scenarios['scope-closed']!, 6),
     'Issue Tracker (scope closure pending)',
@@ -798,6 +884,14 @@ const phaseTransitionScenarios: Record<string, ScenarioFn> = {
 };
 
 export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[] = [
+  {
+    scenarioName: 'brownfield-grounding-replay',
+    label: 'Brownfield reusable grounding replay',
+    source: 'synthetic',
+    inspectionFocus:
+      'Brownfield kickoff, answered grounding-card continue, later reusable context gathering, and resume all stay legible through the same replay seam.',
+    expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
+  },
   {
     scenarioName: 'issue-tracker-kickoff-ready',
     label: 'Kickoff workspace',
