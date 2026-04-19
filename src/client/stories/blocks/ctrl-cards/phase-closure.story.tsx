@@ -4,7 +4,7 @@
  * Shows closure proposal, accepted closure replay, review phase completion,
  * and workflow-complete terminal variants.
  */
-import { AcceptedClosureTurnCard, PhaseSummaryCard } from '@/client/components/control-cards';
+import { AcceptedClosureCard, PhaseSummaryCard } from '@/client/components/control-cards';
 import { ReviewPhaseCompletionCard } from '@/client/components/review-set-card';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import { Separator } from '@/client/components/ui/separator';
@@ -59,10 +59,10 @@ export function PhaseClosureStory() {
         {/* ── Accepted closure replay ───────────────────────────────── */}
         <section>
           <h2 className="text-base font-medium text-ink">Accepted closure replay</h2>
-          <p className="mt-1 text-xs text-hint">AcceptedClosureTurnCard · phase=design</p>
+          <p className="mt-1 text-xs text-hint">AcceptedClosureCard · phase=design</p>
 
           <div className="mt-6 max-w-2xl">
-            <AcceptedClosureTurnCard
+            <AcceptedClosureCard
               phase="design"
               summary="Design elicitation concluded after 12 interview turns covering architecture, data model, API surface, and integration strategy."
             />

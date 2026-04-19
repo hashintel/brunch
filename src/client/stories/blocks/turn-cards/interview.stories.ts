@@ -1,5 +1,5 @@
 export default {
-  title: 'Stream Blocks / Turns / Interview',
+  title: 'Blocks / Turn Cards / Interview',
 };
 
 export { GroundingStory } from './interview/grounding.story';

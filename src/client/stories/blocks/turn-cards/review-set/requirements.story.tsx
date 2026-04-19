@@ -63,6 +63,14 @@ const requirementItems: ReviewSetCardItem[] = [
     grounding: [{ code: code('constraint', 4) }, { code: code('assumption', 7) }],
     isRevised: true,
   },
+  {
+    referenceCode: code('requirement', 7),
+    content: 'API integration with the legacy CRM system for bidirectional contact synchronization',
+    rationale:
+      'Added by the user during review to capture a requirement surfaced in a stakeholder meeting after the initial grounding phase.',
+    grounding: [{ code: code('goal', 1) }, { code: code('context', 1) }],
+    isUserCreated: true,
+  },
 ];
 
 const reviewDescription =

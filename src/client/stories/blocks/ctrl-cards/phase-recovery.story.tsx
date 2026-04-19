@@ -3,7 +3,7 @@
  *
  * Shows recovery variants for each phase that can encounter a missing frontier turn.
  */
-import { RecoveryTurnCard } from '@/client/components/control-cards';
+import { RecoveryControlCard } from '@/client/components/control-cards';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import { Separator } from '@/client/components/ui/separator';
 
@@ -23,10 +23,10 @@ export function PhaseRecoveryStory() {
         {/* ── Elicitation recovery ──────────────────────────────────── */}
         <section>
           <h2 className="text-base font-medium text-ink">Elicitation recovery</h2>
-          <p className="mt-1 text-xs text-hint">RecoveryTurnCard · phase=design</p>
+          <p className="mt-1 text-xs text-hint">RecoveryControlCard · phase=design</p>
 
           <div className="mt-6 max-w-2xl">
-            <RecoveryTurnCard
+            <RecoveryControlCard
               phase="design"
               onRecover={() => console.log('recover:design')}
               disabled={false}
@@ -39,10 +39,10 @@ export function PhaseRecoveryStory() {
         {/* ── Requirements recovery ────────────────────────────────── */}
         <section>
           <h2 className="text-base font-medium text-ink">Requirements recovery</h2>
-          <p className="mt-1 text-xs text-hint">RecoveryTurnCard · phase=requirements</p>
+          <p className="mt-1 text-xs text-hint">RecoveryControlCard · phase=requirements</p>
 
           <div className="mt-6 max-w-2xl">
-            <RecoveryTurnCard
+            <RecoveryControlCard
               phase="requirements"
               onRecover={() => console.log('recover:requirements')}
               disabled={false}
@@ -55,10 +55,10 @@ export function PhaseRecoveryStory() {
         {/* ── Criteria recovery ────────────────────────────────────── */}
         <section>
           <h2 className="text-base font-medium text-ink">Criteria recovery</h2>
-          <p className="mt-1 text-xs text-hint">RecoveryTurnCard · phase=criteria</p>
+          <p className="mt-1 text-xs text-hint">RecoveryControlCard · phase=criteria</p>
 
           <div className="mt-6 max-w-2xl">
-            <RecoveryTurnCard
+            <RecoveryControlCard
               phase="criteria"
               onRecover={() => console.log('recover:criteria')}
               disabled={false}

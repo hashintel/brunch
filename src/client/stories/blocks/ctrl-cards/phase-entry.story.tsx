@@ -4,7 +4,7 @@
  * Shows the merged phase-entry concept: interactive kickoff state
  * (when a phase has zero turns) and continue-phase variant.
  */
-import { KickoffTurnCard } from '@/client/components/control-cards';
+import { KickoffControlCard } from '@/client/components/control-cards';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import { Separator } from '@/client/components/ui/separator';
 
@@ -25,11 +25,11 @@ export function PhaseEntryStory() {
         <section>
           <h2 className="text-base font-medium text-ink">Grounding kickoff (strategy choice)</h2>
           <p className="mt-1 text-xs text-hint">
-            KickoffTurnCard · phase=scope · mode=start · onSelectStrategy provided
+            KickoffControlCard · phase=scope · mode=start · onSelectStrategy provided
           </p>
 
           <div className="mt-6 max-w-2xl">
-            <KickoffTurnCard
+            <KickoffControlCard
               phase="scope"
               mode="start"
               onProceed={() => console.log('proceed:scope')}
@@ -44,10 +44,12 @@ export function PhaseEntryStory() {
         {/* ── Elicitation kickoff (simple proceed) ──────────────────── */}
         <section>
           <h2 className="text-base font-medium text-ink">Elicitation kickoff (simple proceed)</h2>
-          <p className="mt-1 text-xs text-hint">KickoffTurnCard · phase=design · mode=start · no strategy</p>
+          <p className="mt-1 text-xs text-hint">
+            KickoffControlCard · phase=design · mode=start · no strategy
+          </p>
 
           <div className="mt-6 max-w-2xl">
-            <KickoffTurnCard
+            <KickoffControlCard
               phase="design"
               mode="start"
               onProceed={() => console.log('proceed:design')}
@@ -61,10 +63,10 @@ export function PhaseEntryStory() {
         {/* ── Continue phase ────────────────────────────────────────── */}
         <section>
           <h2 className="text-base font-medium text-ink">Continue phase</h2>
-          <p className="mt-1 text-xs text-hint">KickoffTurnCard · phase=design · mode=continue</p>
+          <p className="mt-1 text-xs text-hint">KickoffControlCard · phase=design · mode=continue</p>
 
           <div className="mt-6 max-w-2xl">
-            <KickoffTurnCard
+            <KickoffControlCard
               phase="design"
               mode="continue"
               onProceed={() => console.log('proceed:design:continue')}
@@ -78,10 +80,10 @@ export function PhaseEntryStory() {
         {/* ── Requirements review kickoff ───────────────────────────── */}
         <section>
           <h2 className="text-base font-medium text-ink">Requirements review kickoff</h2>
-          <p className="mt-1 text-xs text-hint">KickoffTurnCard · phase=requirements · mode=start</p>
+          <p className="mt-1 text-xs text-hint">KickoffControlCard · phase=requirements · mode=start</p>
 
           <div className="mt-6 max-w-2xl">
-            <KickoffTurnCard
+            <KickoffControlCard
               phase="requirements"
               mode="start"
               onProceed={() => console.log('proceed:requirements')}
@@ -95,10 +97,10 @@ export function PhaseEntryStory() {
         {/* ── Acceptance criteria review kickoff ────────────────────── */}
         <section>
           <h2 className="text-base font-medium text-ink">Acceptance criteria review kickoff</h2>
-          <p className="mt-1 text-xs text-hint">KickoffTurnCard · phase=criteria · mode=start</p>
+          <p className="mt-1 text-xs text-hint">KickoffControlCard · phase=criteria · mode=start</p>
 
           <div className="mt-6 max-w-2xl">
-            <KickoffTurnCard
+            <KickoffControlCard
               phase="criteria"
               mode="start"
               onProceed={() => console.log('proceed:criteria')}

@@ -1,5 +1,5 @@
 export default {
-  title: 'Stream Blocks / Turns / Review Set',
+  title: 'Blocks / Turn Cards / Review Set',
 };
 
 export { RequirementsStory } from './review-set/requirements.story';

@@ -1,14 +1,14 @@
-import type { Story, StoryDefault } from '@ladle/react';
-
+/**
+ * Knowledge detail cards — KnowledgeDetailCard with DrawerCard in various
+ * states (summary + children, summary only, children only, neither).
+ */
 import {
   KnowledgeDetailCard,
   type KnowledgeEdgeData,
   type KnowledgeItemData,
 } from '@/client/components/knowledge-card';
-
-export default {
-  title: 'Patterns / Cards / Knowledge',
-} satisfies StoryDefault;
+import { ScrollArea } from '@/client/components/ui/scroll-area';
+import { Separator } from '@/client/components/ui/separator';
 
 // ── Fixture data ────────────────────────────────────────────────────
 
@@ -34,16 +34,12 @@ const edges: KnowledgeEdgeData[] = [
 ];
 
 // ── Permutations ────────────────────────────────────────────────────
-//
-// Each card demos a different combination of summary (rationale),
-// children (subtype/edges), or neither.
 
 const items: {
   item: KnowledgeItemData;
   edges?: KnowledgeEdgeData[];
   label: string;
 }[] = [
-  // summary + children (rationale + subtype + edges) — full toggle
   {
     label: 'Summary + children (rationale, subtype, edges)',
     item: {
@@ -55,7 +51,6 @@ const items: {
     },
     edges,
   },
-  // summary + children (rationale + edges, no subtype)
   {
     label: 'Summary + children (rationale, edges)',
     item: {
@@ -68,7 +63,6 @@ const items: {
     },
     edges: [edges[0]!],
   },
-  // summary only (rationale, no subtype/edges) — static summary strip
   {
     label: 'Summary only (rationale, no extras) — no toggle',
     item: {
@@ -79,7 +73,6 @@ const items: {
         'Field teams in construction and logistics frequently lose connectivity for hours at a time.',
     },
   },
-  // children only (subtype, no rationale) — full collapse toggle
   {
     label: 'Children only (subtype, no rationale) — full collapse',
     item: {
@@ -90,7 +83,6 @@ const items: {
       subtype: 'performance',
     },
   },
-  // children only (edges, no rationale) — full collapse toggle
   {
     label: 'Children only (edges, no rationale) — full collapse',
     item: {
@@ -100,7 +92,6 @@ const items: {
     },
     edges: [edges[1]!],
   },
-  // neither — static card, no drawer
   {
     label: 'Neither summary nor children — static card',
     item: {
@@ -109,7 +100,6 @@ const items: {
       content: 'Enable structured specification elicitation through AI-guided interviews',
     },
   },
-  // summary + children (rationale + subtype) — short content
   {
     label: 'Summary + children (short content)',
     item: {
@@ -120,12 +110,11 @@ const items: {
       subtype: 'scope',
     },
   },
-  // summary only — long content
   {
     label: 'Summary only — long content',
     item: {
       id: 1,
-      kind: 'constraint', // stand-in for non-goal (NG prefix)
+      kind: 'constraint',
       content:
         'Multi-tenant collaboration with real-time co-editing across geographically distributed teams is explicitly out of scope for the initial release',
       rationale:
@@ -134,31 +123,48 @@ const items: {
   },
 ];
 
-// ── All permutations ────────────────────────────────────────────────
+// ── Story ────────────────────────────────────────────────────────────
 
-export const AllPermutations: Story = () => {
+export function DetailCardsStory() {
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-3">
-      {items.map((entry, i) => (
-        <div key={i}>
-          <p className="mb-1.5 text-xs text-hint">{entry.label}</p>
-          <KnowledgeDetailCard item={entry.item} edges={entry.edges} />
-        </div>
-      ))}
-    </div>
-  );
-};
+    <ScrollArea className="flex-1">
+      <div className="mx-auto max-w-5xl p-8">
+        <h1 className="text-[22px] leading-none font-medium tracking-[-0.015em] text-ink">
+          Knowledge Detail Cards
+        </h1>
+        <p className="mt-2.5 text-sm leading-relaxed text-sub">
+          KnowledgeDetailCard permutations — summary + children, summary only, children only, and static.
+        </p>
 
-// ── Expanded by default ─────────────────────────────────────────────
+        <Separator className="my-8" />
 
-export const Expanded: Story = () => {
-  return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-3">
-      {items
-        .filter((entry) => entry.edges || entry.item.subtype)
-        .map((entry, i) => (
-          <KnowledgeDetailCard key={i} item={entry.item} edges={entry.edges} defaultExpanded />
-        ))}
-    </div>
+        {/* ── All permutations (collapsed) ─────────────────────────── */}
+        <section>
+          <h2 className="text-base font-medium text-ink">All permutations (collapsed)</h2>
+          <div className="mt-6 flex max-w-2xl flex-col gap-3">
+            {items.map((entry, i) => (
+              <div key={i}>
+                <p className="mb-1.5 text-xs text-hint">{entry.label}</p>
+                <KnowledgeDetailCard item={entry.item} edges={entry.edges} />
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <Separator className="my-8" />
+
+        {/* ── Expanded by default ──────────────────────────────────── */}
+        <section>
+          <h2 className="text-base font-medium text-ink">Expanded by default</h2>
+          <div className="mt-6 flex max-w-2xl flex-col gap-3">
+            {items
+              .filter((entry) => entry.edges || entry.item.subtype)
+              .map((entry, i) => (
+                <KnowledgeDetailCard key={i} item={entry.item} edges={entry.edges} defaultExpanded />
+              ))}
+          </div>
+        </section>
+      </div>
+    </ScrollArea>
   );
-};
+}
