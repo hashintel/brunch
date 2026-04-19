@@ -32,6 +32,12 @@ The current active frontier should now be read not just as product/design cleanu
      - preserve the active-path invalidation rule: if an anchored non-turn fact points at a turn that falls off the trusted branch, that fact is superseded or hidden rather than left floating in the stream
      - keep hydration/resume truthful when a phase opens into projected entry, frontier reply, visible generation, projected recovery, or closed-phase handoff state
      - rewrite fixtures, seeded scenarios, and tests to assert on projected controls and derived landings rather than on kickoff / recovery turn rows
+   - Execution guidance for this frontier:
+     - treat the cutover as a **read-model + seed-contract transition**, not as a historical data migration project; while the model is still fluid, prefer destructive reset / reseed over compatibility work for legacy local data
+     - keep seeds aligned to **durable authority only**: active-path substantive turns, `phaseOutcome`, and workflow facts; do not encode projected kickoff / recovery / handoff states as if they were canonical authored rows
+     - make server and client tests assert on **derived landing / projection output** rather than on the existence of legacy `turn_kind` control rows
+     - if kickoff / recovery rows still exist internally during transition, treat them as **transitional submit plumbing only**; no new product behavior, fixture happy path, or UI read model should depend on them as truth
+     - retire seed helpers and manifest patterns that manufacture control turns as authoritative state as soon as the corresponding projector seam exists, so future slices do not silently reintroduce the legacy model
 
 2. **Interaction-family canonicalization: durable turn cards plus projected control cards** — finalize the workspace stream as the canonical interaction surface for user action, with durable turn cards for substantive elicitation, projected control cards for structural affordances, and no straggling alternative input seams.
    - Why now / unlocks: once the merged stream projector is honest about artifact types, the older kickoff-as-turn, one-shot brownfield ritual, and global bottom composer fallbacks can be removed without inventing another exception layer. This slice makes the new stream model the only real interaction contract.
