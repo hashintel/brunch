@@ -4,7 +4,7 @@
 
 # Plan
 
-Full-fidelity frontier. The demo shortcut period is over; the active burden is no longer "make the walkthrough legible" but "make the model truthful again." The codebase still speaks several overlapping product languages at once — legacy scope aliases, mixed knowledge facades, turn-shaped control artifacts, and multiple interaction families — so the frontier still prioritizes semantic and interaction-model recovery first. The distinct review-phase UI slice is now complete enough to retire from the live frontier; remaining review polish belongs to the broader stream / interaction cleanup rather than blocking onward motion. Items 1 and 2 have narrowed into cleanup tails; the next major architecture move begins at the merged-stream projector cutover.
+Full-fidelity frontier. The demo shortcut period is over; the active burden is no longer "make the walkthrough legible" but "make the model truthful again." The codebase still speaks several overlapping product languages at once — legacy scope aliases, mixed knowledge facades, turn-shaped control artifacts, and multiple interaction families — so the frontier still prioritizes semantic and interaction-model recovery first. The distinct review-phase UI slice is now complete enough to retire from the live frontier, and the last legacy knowledge-facade cleanup is now done as well. The next major architecture move is now unambiguously the merged-stream projector cutover.
 
 ## Active
 
@@ -12,33 +12,14 @@ Full-fidelity frontier. The demo shortcut period is over; the active burden is n
 
 The current active frontier should now be read not just as product/design cleanup, but as a concrete realignment program over the live code seams that still embody the older model.
 
-- **Workflow + persistence seam (`src/server/core.ts`, `src/server/app.ts`, `src/server/db.ts`, `src/server/schema.ts`, `src/shared/api-types.ts`, `src/shared/project-state-turn.ts`)** — this stack still fabricates kickoff / recovery as durable `turn_kind` rows, auto-seeds frontier turns through `ensureProjectFrontier()`, and exposes frontier/control meaning through turn records. Active items 3, 4, and 5 must replace that with explicit stream projection, anchored phase-outcome authority, truthful hydration landings, and projected control semantics.
-- **Workspace stream controller + routed interview view (`src/client/routes/project/$id/_view/-interview-controller-core.ts`, `src/client/routes/project/$id/_view/-interview-controller.ts`, `src/client/routes/project/$id/_view/-interview-data.ts`, `src/client/routes/project/$id/_view/-interview-view.tsx`)** — the review-specific card family is now good enough to stop blocking progress, but this pipeline still chooses bottom-of-phase UI from `turn_kind`, missing-frontier heuristics, and generic closed-shell fallbacks. Active items 3, 4, and 5 must move it to an explicit merged stream projector that can render durable turn cards, projected kickoff / recovery / handoff controls, phase markers, and activity cards without pretending they are all turns.
-- **Card primitives and closed-state affordances (`src/client/components/question-cards.tsx`, `src/client/components/review-set-card.tsx`)** — requirements and criteria now have their own card family, but the larger card shell still conflates substantive turn cards with structural control / completion artifacts. Active items 4 and 5 must finish that separation while preserving the accepted-set review seam.
-- **Ontology + sidebar/read-model seam (`src/shared/knowledge.ts`, `src/client/components/EntitySidebar.tsx`, `src/server/db.ts`, `src/server/observer.ts`, `src/shared/api-types.ts`)** — the canonical ontology contract and review-authority seam are now largely aligned, but legacy facade tables and typed projections still leak through persistence reads and shared/server schema seams. Active item 2 must finish collapsing those leftovers so the UI, observer, persistence, and fixtures all speak the same kind language.
-- **Fixtures, manifests, seeded scenarios, and oracle tests (`src/server/fixtures/manifest.ts`, `src/server/fixtures/scenarios.ts`, `src/server/fixtures/manifests/*.json`, `src/server/fixtures/corpus.ts`, `src/server/fixtures/walkthrough.test.ts`, `src/server/core.test.ts`, `src/server/app.test.ts`, `src/client/routes/project/$id/_view/*test.tsx`)** — these files still encode kickoff / recovery as durable frontier rows, assertions on `turn_kind`, and a few legacy compatibility seams that the target architecture demotes to projection detail. Active items 2, 3, 4, and 5 must rewrite the seeded states and tests around canonical kinds, projected control cards, anchored phase outcomes, and resumed landing states instead.
-- **Naming, routing, and grounding-language seam (`src/shared/phase-routes.ts`, `src/shared/phase-display.ts`, `src/client/routes/project/$id/_view/framing.tsx`, `src/client/routes/project/$id/index.tsx`, `src/server/interview.ts`, `src/server/tools/index.ts`, `src/shared/grounding-strategy.ts`)** — the codebase still mixes `scope`, legacy `/framing` compatibility, kickoff-specific brownfield ritual language, and route names that predate the grounding/card-owned model. Active items 1, 4, and especially 6 must simplify these seams so reusable grounding/context-gathering and later naming normalization do not keep inheriting obsolete product language.
+- **Workflow + persistence seam (`src/server/core.ts`, `src/server/app.ts`, `src/server/db.ts`, `src/server/schema.ts`, `src/shared/api-types.ts`, `src/shared/project-state-turn.ts`)** — this stack still fabricates kickoff / recovery as durable `turn_kind` rows, auto-seeds frontier turns through `ensureProjectFrontier()`, and exposes frontier/control meaning through turn records. Active items 1, 2, and 3 must replace that with explicit stream projection, anchored phase-outcome authority, truthful hydration landings, and projected control semantics.
+- **Workspace stream controller + routed interview view (`src/client/routes/project/$id/_view/-interview-controller-core.ts`, `src/client/routes/project/$id/_view/-interview-controller.ts`, `src/client/routes/project/$id/_view/-interview-data.ts`, `src/client/routes/project/$id/_view/-interview-view.tsx`)** — the review-specific card family is now good enough to stop blocking progress, but this pipeline still chooses bottom-of-phase UI from `turn_kind`, missing-frontier heuristics, and generic closed-shell fallbacks. Active items 1, 2, and 3 must move it to an explicit merged stream projector that can render durable turn cards, projected kickoff / recovery / handoff controls, phase markers, and activity cards without pretending they are all turns.
+- **Card primitives and closed-state affordances (`src/client/components/question-cards.tsx`, `src/client/components/review-set-card.tsx`)** — requirements and criteria now have their own card family, but the larger card shell still conflates substantive turn cards with structural control / completion artifacts. Active items 2 and 3 must finish that separation while preserving the accepted-set review seam.
+- **Ontology + sidebar/read-model seam (`src/shared/knowledge.ts`, `src/client/components/EntitySidebar.tsx`, `src/server/db.ts`, `src/server/observer.ts`, `src/shared/api-types.ts`)** — the canonical ontology contract and review-authority seam are now aligned on one `knowledge_item` collection contract, and the dead per-type schema tables are gone. This seam is no longer its own active frontier item, but it remains an important dependency surface for the projector and later naming cleanup.
+- **Fixtures, manifests, seeded scenarios, and oracle tests (`src/server/fixtures/manifest.ts`, `src/server/fixtures/scenarios.ts`, `src/server/fixtures/manifests/*.json`, `src/server/fixtures/corpus.ts`, `src/server/fixtures/walkthrough.test.ts`, `src/server/core.test.ts`, `src/server/app.test.ts`, `src/client/routes/project/$id/_view/*test.tsx`)** — these files still encode kickoff / recovery as durable frontier rows and assertions on `turn_kind`, even though the target architecture demotes those to projection detail. Active items 1, 2, and 3 must rewrite the seeded states and tests around projected control cards, anchored phase outcomes, and resumed landing states instead.
+- **Naming, routing, and grounding-language seam (`src/shared/phase-routes.ts`, `src/shared/phase-display.ts`, `src/client/routes/project/$id/index.tsx`, `src/server/interview.ts`, `src/server/tools/index.ts`, `src/shared/grounding-strategy.ts`)** — the codebase still mixes `scope`, kickoff-specific brownfield ritual language, and route names that predate the grounding/card-owned model. Active items 2 and especially 4 must simplify these seams so reusable grounding/context-gathering and later naming normalization do not keep inheriting obsolete product language.
 
-1. **Framing compatibility retirement tail and canonical grounding normalization** — finish the last compatibility-only cleanup around the retired `framing` alias so canonical grounding/context naming is the only live non-legacy path.
-   - Why now / unlocks: the runtime, observer, fixtures, and review seams no longer depend on `framing` on the happy path; what remains is mostly compatibility routing and test/sample residue. Clearing that tail keeps naming normalization from carrying a half-retired alias indefinitely.
-   - Traceability: D49, D68; A40; I48.
-   - What this slice must accomplish:
-     - confirm no durable writes or observer contracts still emit `framing` on the happy path
-     - decide whether the legacy `/framing` redirect route still needs to exist; if not, delete it and its compatibility assertions
-     - retire leftover compatibility tests or sample payloads that mention `framing`
-     - keep canonical grounding/context naming as the only non-compatibility language across active fixtures and UI
-
-2. **Legacy knowledge facade cleanup** — drop the dead schema tables and collapse the remaining legacy types into the kind-discriminated `KnowledgeItem` model.
-   - Why now / unlocks: D61 flagged the mixed legacy / generic knowledge storage as transitional. The canonical ontology contract, review-authority seam, and interviewer-owned review metadata are now aligned enough that the remaining work is mostly physical schema/read-model cleanup instead of product-truth discovery. Finishing the facade cleanup removes the last major source of ontology drift before the merged-stream cutover.
-   - Traceability: Requirements 22, 23; D49, D50, D61, D105, D108, D109; I48, I54.
-   - What this slice must accomplish:
-     - drop dead schema tables left over from the pre-generic knowledge model
-     - collapse remaining legacy per-type entity collections into generic `KnowledgeItem` reads behind the existing typed projections
-     - preserve the canonical ontology contract for durable exploration knowledge (`goal`, `term`, `context`, `constraint`, `decision`, `assumption`), accepted-review requirements / criteria, and the `constraint` subtype `non-goal`
-     - keep `EntitySidebar` grouping (D105) and stable per-kind reference codes (D49) working across the collapse
-     - make Drizzle migrations explicit about the drop so the reseed path stays trustworthy
-
-3. **Merged stream projector cutover: truthful landings, slim charts, and projected controls** — make the center column honest about artifact types by projecting it from active-path turns, anchored workflow facts, and projected control / activity / phase-marker elements instead of treating every visible card as a durable turn, and make hydration land in those projected states through a pure reconciler rather than through kickoff/recovery turn heuristics.
+1. **Merged stream projector cutover: truthful landings, slim charts, and projected controls** — make the center column honest about artifact types by projecting it from active-path turns, anchored workflow facts, and projected control / activity / phase-marker elements instead of treating every visible card as a durable turn, and make hydration land in those projected states through a pure reconciler rather than through kickoff/recovery turn heuristics.
    - Why now / unlocks: D94 / D95 / D110 changed the conceptual model. As long as kickoff, recovery, and phase-boundary affordances still masquerade as ordinary turns, later UI cleanup keeps restabilizing the wrong abstraction. This slice establishes the machine/runtime/read-model contract that the rest of the interaction cleanup can build on.
    - Traceability: D65, D93, D94, D95, D96, D110; A44, A51, A54, A55; I24, I72.
    - What this slice must accomplish:
@@ -52,7 +33,7 @@ The current active frontier should now be read not just as product/design cleanu
      - keep hydration/resume truthful when a phase opens into projected entry, frontier reply, visible generation, projected recovery, or closed-phase handoff state
      - rewrite fixtures, seeded scenarios, and tests to assert on projected controls and derived landings rather than on kickoff / recovery turn rows
 
-4. **Interaction-family canonicalization: durable turn cards plus projected control cards** — finalize the workspace stream as the canonical interaction surface for user action, with durable turn cards for substantive elicitation, projected control cards for structural affordances, and no straggling alternative input seams.
+2. **Interaction-family canonicalization: durable turn cards plus projected control cards** — finalize the workspace stream as the canonical interaction surface for user action, with durable turn cards for substantive elicitation, projected control cards for structural affordances, and no straggling alternative input seams.
    - Why now / unlocks: once the merged stream projector is honest about artifact types, the older kickoff-as-turn, one-shot brownfield ritual, and global bottom composer fallbacks can be removed without inventing another exception layer. This slice makes the new stream model the only real interaction contract.
    - Traceability: D89, D91, D95, D99, D110; A51, A54, A56; I24.
    - What this slice must accomplish:
@@ -62,7 +43,7 @@ The current active frontier should now be read not just as product/design cleanu
      - retire the one-shot brownfield kickoff ritual in favor of reusable interviewer-invoked context gathering that produces grounding cards (D99)
      - confirm greenfield and brownfield grounding both enter through the workspace stream surface
 
-5. **Phase transition and handoff stabilization on the cleaned model** — make every phase end in a legible next action, with no empty shells or stranded in-progress states, after review and input semantics stop fighting the projector.
+3. **Phase transition and handoff stabilization on the cleaned model** — make every phase end in a legible next action, with no empty shells or stranded in-progress states, after review and input semantics stop fighting the projector.
    - Why now / unlocks: the remaining handoff bugs are real, but fixing them before the semantic cleanup would just restabilize the wrong model. Once review authority, ontology, and input seams are cleaned, transition work can become a straightforward projection pass instead of another exception layer.
    - Traceability: D94, D100, D101, D104; A54.
    - What this slice must accomplish:
@@ -71,7 +52,7 @@ The current active frontier should now be read not just as product/design cleanu
      - closed phases show explicit handoff / completion artifacts instead of relying on the generic shell to imply what happened
      - force-close and proposed-close confirmations stay legible and do not leave stale active-phase projections behind
 
-6. **Naming normalization: project → specification, scope → grounding, cwd removal** — align internal identifiers, route keys, and schema columns with the product vocabulary settled in D97 / D98.
+4. **Naming normalization: project → specification, scope → grounding, cwd removal** — align internal identifiers, route keys, and schema columns with the product vocabulary settled in D97 / D98.
    - Why now / unlocks: after the semantic, ontology, and interaction layers are clean, the naming drift is the last pervasive legacy burden. Doing it after the deeper model cleanup avoids rebase pain across the same files while still preventing new surfaces from inheriting the vocabulary split. This is the most invasive slice — it touches schema, routes, and API types — and should be planned as a sequence of safe commits.
    - Traceability: D97, D98; Horizon `project → specification physical DB rename`, Horizon `cwd removal`.
    - What this slice must accomplish:
@@ -108,22 +89,15 @@ The current active frontier should now be read not just as product/design cleanu
 
 ## Recently Completed
 
+- 2026-04-19 — **Legacy knowledge facade cleanup retired as an active frontier item** — decision/assumption entity references now use the canonical `knowledge_item` collection contract, dead legacy per-type schema tables and relationship tables were removed from `src/server/schema.ts`, and `drizzle/0010_retire_legacy_knowledge_tables.sql` now drops the retired tables so runtime boot, seeding, and projection all flow only through `knowledge_item`, `turn_knowledge_item`, and `knowledge_edge`. Done: `npm run verify`.
+- 2026-04-19 — **Retired the legacy `/framing` route compatibility seam** — removed `src/client/routes/project/$id/_view/framing.tsx`, regenerated `src/client/routeTree.gen.ts` without `/project/$id/framing`, and updated file-route / router coverage so canonical grounding is the only live first-phase route. Done: `npm run verify`.
 - 2026-04-18 — **Runtime-generated review turns now persist their own interviewer-owned review metadata** — `src/shared/chat.ts` now allows `ask_question` review turns to carry a full `reviewSet` payload alongside explicit `reviewActions`, `src/server/interview.ts` now instructs and validates requirements / criteria review turns to emit that metadata for the active phase, and `src/server/app.ts` now persists the generated `tool-ask_question` part plus a derived `data-review-set` from that same authoritative review metadata before falling back to synthesized inventory. `src/server/app.test.ts`, `src/server/interview.test.ts`, and `src/shared/project-state-turn.test.ts` now prove the first runtime-generated requirements / criteria review turns round-trip explicit accept/request-changes semantics plus the persisted review set through submit and replay without relying on synthesized fallback inventory on the happy path. Done: `npm run verify`.
-- 2026-04-18 — **Review-authoritative requirement and criterion capture now stays draft-only until acceptance** — `src/server/observer.ts` now keeps requirements and criteria in `data-observer-result` draft review inputs instead of pre-acceptance `knowledge_item` rows, `src/server/db.ts` now derives draft review inventory from those turn-owned observer artifacts, and accepted review remains the first point where durable requirement / criterion entities materialize. Done: `npm run verify`.
-- 2026-04-18 — **Canonical grounding route cut over with legacy framing redirect** — the first phase now enters through `/grounding`, index/export/in-workspace navigation now targets the canonical grounding URL, the file-routed interview surface gained a dedicated `grounding.tsx` entry, and the legacy `/framing` route now redirects instead of remaining the primary product surface. Done: `npm run verify`. Watch: Active item 1 is now only the compatibility-retirement tail.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
 ## Dependencies
 
 ```text
-framing-compatibility-retirement-tail-and-canonical-grounding-normalization
-  └──→ legacy-knowledge-facade-cleanup
-
-legacy-knowledge-facade-cleanup
-  └──→ merged-stream-projector-cutover-turns-anchored-facts-and-projected-controls
-  └──→ naming-normalization-project-specification-scope-grounding-cwd-removal
-
 merged-stream-projector-cutover-turns-anchored-facts-and-projected-controls
   └──→ interaction-family-canonicalization-durable-turn-cards-plus-projected-control-cards
   └──→ phase-transition-and-handoff-stabilization-on-the-cleaned-model

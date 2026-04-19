@@ -772,8 +772,8 @@ describe('POST /api/projects/:id/chat', () => {
     expect(entitiesRes.body.relationships).toEqual([
       {
         type: 'depends_on',
-        source: { collection: 'decision', kind: 'decision', id: createdIds!.decision },
-        target: { collection: 'assumption', kind: 'assumption', id: createdIds!.assumption },
+        source: { collection: 'knowledge_item', kind: 'decision', id: createdIds!.decision },
+        target: { collection: 'knowledge_item', kind: 'assumption', id: createdIds!.assumption },
       },
     ]);
   });
@@ -950,8 +950,8 @@ describe('GET /api/projects/:id/entities', () => {
       relationships: [
         {
           type: 'depends_on',
-          source: { collection: 'decision', kind: 'decision', id: decision.id },
-          target: { collection: 'assumption', kind: 'assumption', id: assumption.id },
+          source: { collection: 'knowledge_item', kind: 'decision', id: decision.id },
+          target: { collection: 'knowledge_item', kind: 'assumption', id: assumption.id },
         },
       ],
     });

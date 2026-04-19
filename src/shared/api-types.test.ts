@@ -193,8 +193,8 @@ describe('api transport contracts', () => {
         relationships: [
           {
             type: 'depends_on',
-            source: { collection: 'decision', kind: 'decision', id: 4 },
-            target: { collection: 'assumption', kind: 'assumption', id: 5 },
+            source: { collection: 'knowledge_item', kind: 'decision', id: 4 },
+            target: { collection: 'knowledge_item', kind: 'assumption', id: 5 },
           },
         ],
       }),
@@ -304,7 +304,7 @@ describe('api transport contracts', () => {
       expect(
         entityReferenceSchema.parse({
           collection,
-          kind: collection === 'decision' ? 'decision' : collection === 'assumption' ? 'assumption' : 'goal',
+          kind: 'goal',
           id: 1,
         }),
       ).toMatchObject({ collection });

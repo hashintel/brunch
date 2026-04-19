@@ -445,7 +445,7 @@ describe('getProjectState', () => {
         referenceCode: createKnowledgeReferenceCode('context', 1),
       },
       {
-        collection: 'decision',
+        collection: 'knowledge_item',
         kind: 'decision',
         id: decision.id,
         content: 'Start with the web app',

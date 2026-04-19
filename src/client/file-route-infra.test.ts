@@ -73,12 +73,12 @@ describe('generated route runtime ownership', () => {
     expect(generatedRouteTreeSource).not.toContain("from './routes/project_.$id");
   });
 
-  it('keeps the legacy framing redirect route available for compatibility', () => {
+  it('does not keep the retired framing compatibility route in the generated tree', () => {
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
 
-    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/framing'");
-    expect(generatedRouteTreeSource).toContain("id: '/framing'");
-    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/framing.tsx'))).toBe(true);
+    expect(generatedRouteTreeSource).not.toContain("from './routes/project/$id/_view/framing'");
+    expect(generatedRouteTreeSource).not.toContain("id: '/framing'");
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/framing.tsx'))).toBe(false);
   });
 
   it('keeps directory-based route files and colocated support files in place', () => {

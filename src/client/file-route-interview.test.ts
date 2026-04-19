@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -44,12 +44,8 @@ describe('file-route phase route ownership', () => {
     }
   });
 
-  it('keeps the legacy framing route as a thin redirect to grounding', () => {
-    const source = readRepoFile('src/client/routes/project/$id/_view/framing.tsx');
-
-    expect(source).toContain('createFileRoute');
-    expect(source).toContain('redirect');
-    expect(source).toContain("to: '/project/$id/grounding'");
+  it('retires the legacy framing route file', () => {
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/framing.tsx'))).toBe(false);
   });
 
   it('keeps the routed interview surface wired through ChatScroll', () => {

@@ -76,7 +76,7 @@ describe('knowledge kind registry', () => {
         label: 'Decisions',
         contextHeading: 'Existing Decisions',
         emptyStateCopy: "No decisions yet. They'll appear as the interview progresses.",
-        entityCollection: 'decision',
+        entityCollection: 'knowledge_item',
         referenceCodePrefix: 'D',
       },
       {
@@ -85,7 +85,7 @@ describe('knowledge kind registry', () => {
         label: 'Assumptions',
         contextHeading: 'Existing Assumptions',
         emptyStateCopy: "No assumptions yet. They'll appear as the interview progresses.",
-        entityCollection: 'assumption',
+        entityCollection: 'knowledge_item',
         referenceCodePrefix: 'A',
       },
     ]);
@@ -93,7 +93,7 @@ describe('knowledge kind registry', () => {
 
   it('exports canonical kind, collection, and reference-code metadata', () => {
     expect(knowledgeKinds).toEqual(knowledgeKindRegistry.map((entry) => entry.kind));
-    expect(knowledgeEntityCollections).toEqual(['knowledge_item', 'decision', 'assumption']);
+    expect(knowledgeEntityCollections).toEqual(['knowledge_item']);
     expect(knowledgeCollectionKeyByKind).toEqual({
       goal: 'goals',
       term: 'terms',
@@ -111,8 +111,8 @@ describe('knowledge kind registry', () => {
       constraint: 'knowledge_item',
       requirement: 'knowledge_item',
       criterion: 'knowledge_item',
-      decision: 'decision',
-      assumption: 'assumption',
+      decision: 'knowledge_item',
+      assumption: 'knowledge_item',
     });
     expect(knowledgeKindReferencePrefixes).toEqual({
       goal: 'G',

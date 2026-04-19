@@ -1113,13 +1113,13 @@ function filterEntitiesToActivePath(
   const assumptions = entities.assumptions.filter((item) => activeItemIds.has(item.id));
 
   const visibleIdsByCollection = {
-    knowledge_item: new Set(
-      genericKnowledgeKindRegistry.flatMap((entry) =>
+    knowledge_item: new Set([
+      ...genericKnowledgeKindRegistry.flatMap((entry) =>
         genericKnowledgeCollections[entry.collectionKey].map((item) => item.id),
       ),
-    ),
-    decision: new Set(decisions.map((item) => item.id)),
-    assumption: new Set(assumptions.map((item) => item.id)),
+      ...decisions.map((item) => item.id),
+      ...assumptions.map((item) => item.id),
+    ]),
   } satisfies Record<EntityRelationship['source']['collection'], Set<number>>;
 
   return {

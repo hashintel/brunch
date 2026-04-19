@@ -24,7 +24,7 @@ export const knowledgeCollectionKeys = [
 
 export type KnowledgeCollectionKey = (typeof knowledgeCollectionKeys)[number];
 
-export const knowledgeEntityCollections = ['knowledge_item', 'decision', 'assumption'] as const;
+export const knowledgeEntityCollections = ['knowledge_item'] as const;
 
 export type KnowledgeEntityCollection = (typeof knowledgeEntityCollections)[number];
 
@@ -99,7 +99,7 @@ export const knowledgeKindRegistry = [
     label: 'Decisions',
     contextHeading: 'Existing Decisions',
     emptyStateCopy: "No decisions yet. They'll appear as the interview progresses.",
-    entityCollection: 'decision',
+    entityCollection: 'knowledge_item',
     referenceCodePrefix: 'D',
   },
   {
@@ -108,17 +108,17 @@ export const knowledgeKindRegistry = [
     label: 'Assumptions',
     contextHeading: 'Existing Assumptions',
     emptyStateCopy: "No assumptions yet. They'll appear as the interview progresses.",
-    entityCollection: 'assumption',
+    entityCollection: 'knowledge_item',
     referenceCodePrefix: 'A',
   },
 ] as const satisfies readonly KnowledgeKindRegistryEntry[];
 
 export type KnowledgeKindMetadata = (typeof knowledgeKindRegistry)[number];
-export type GenericKnowledgeKindMetadata = Extract<
-  KnowledgeKindMetadata,
-  { entityCollection: 'knowledge_item' }
->;
-export type GenericKnowledgeKind = GenericKnowledgeKindMetadata['kind'];
+
+const genericKnowledgeKinds = ['goal', 'term', 'context', 'constraint', 'requirement', 'criterion'] as const;
+
+export type GenericKnowledgeKind = (typeof genericKnowledgeKinds)[number];
+export type GenericKnowledgeKindMetadata = Extract<KnowledgeKindMetadata, { kind: GenericKnowledgeKind }>;
 export type GenericKnowledgeCollectionKey = GenericKnowledgeKindMetadata['collectionKey'];
 
 export const knowledgeCollectionKeyByKind = Object.fromEntries(
@@ -246,7 +246,8 @@ export function createKnowledgeReferenceCode(kind: KnowledgeKind, ordinal: numbe
 }
 
 export const genericKnowledgeKindRegistry = knowledgeKindRegistry.filter(
-  (entry): entry is GenericKnowledgeKindMetadata => entry.entityCollection === 'knowledge_item',
+  (entry): entry is GenericKnowledgeKindMetadata =>
+    genericKnowledgeKinds.includes(entry.kind as GenericKnowledgeKind),
 );
 
 export const knowledgeKindRegistryByCollectionKey = Object.fromEntries(

@@ -323,18 +323,18 @@ describe('runObserver', () => {
       expect.arrayContaining([
         {
           type: 'depends_on',
-          source: { collection: 'decision', kind: 'decision', id: newDecisionId },
-          target: { collection: 'decision', kind: 'decision', id: existingDecision.id },
+          source: { collection: 'knowledge_item', kind: 'decision', id: newDecisionId },
+          target: { collection: 'knowledge_item', kind: 'decision', id: existingDecision.id },
         },
         {
           type: 'depends_on',
-          source: { collection: 'decision', kind: 'decision', id: newDecisionId },
-          target: { collection: 'assumption', kind: 'assumption', id: existingAssumption.id },
+          source: { collection: 'knowledge_item', kind: 'decision', id: newDecisionId },
+          target: { collection: 'knowledge_item', kind: 'assumption', id: existingAssumption.id },
         },
         {
           type: 'depends_on',
-          source: { collection: 'assumption', kind: 'assumption', id: newAssumptionId },
-          target: { collection: 'assumption', kind: 'assumption', id: existingAssumption.id },
+          source: { collection: 'knowledge_item', kind: 'assumption', id: newAssumptionId },
+          target: { collection: 'knowledge_item', kind: 'assumption', id: existingAssumption.id },
         },
       ]),
     );

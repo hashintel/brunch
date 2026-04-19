@@ -49,7 +49,7 @@ afterEach(() => {
 });
 
 describe('createDb', () => {
-  it('creates all schema tables, including the generic knowledge edge seam', () => {
+  it('creates only the canonical schema tables, including the generic knowledge edge seam', () => {
     const tables = db.$client
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
       .all() as Array<{ name: string }>;
@@ -58,23 +58,29 @@ describe('createDb', () => {
       'project',
       'turn',
       'option',
-      'decision',
-      'assumption',
-      'requirement',
-      'criterion',
       'knowledge_item',
       'knowledge_edge',
-      'turn_decision',
-      'turn_assumption',
       'turn_knowledge_item',
-      'decision_parent_decision',
-      'decision_parent_assumption',
-      'assumption_parent_assumption',
-      'requirement_decision',
       'phase_outcome',
     ];
     for (const table of expected) {
       expect(names).toContain(table);
+    }
+
+    const retired = [
+      'decision',
+      'assumption',
+      'requirement',
+      'criterion',
+      'turn_decision',
+      'turn_assumption',
+      'decision_parent_decision',
+      'decision_parent_assumption',
+      'assumption_parent_assumption',
+      'requirement_decision',
+    ];
+    for (const table of retired) {
+      expect(names).not.toContain(table);
     }
 
     const phaseOutcomeColumns = db.$client.prepare("PRAGMA table_info('phase_outcome')").all() as Array<{
@@ -1372,7 +1378,11 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
       content: string;
     };
     expect(stored).toEqual({ kind: 'decision', content: 'Use SQLite for persistence' });
-    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM decision').get()).toEqual({ count: 0 });
+    expect(
+      db.$client
+        .prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'decision'")
+        .get(),
+    ).toEqual({ count: 0 });
   });
 
   it('creates an assumption as a generic knowledge item with project linkage', () => {
@@ -1387,7 +1397,11 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
       content: string;
     };
     expect(stored).toEqual({ kind: 'assumption', content: 'SQLite handles concurrent writes' });
-    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM assumption').get()).toEqual({ count: 0 });
+    expect(
+      db.$client
+        .prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'assumption'")
+        .get(),
+    ).toEqual({ count: 0 });
   });
 
   it('links a decision to a turn through generic provenance', () => {
@@ -1403,7 +1417,13 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
         .prepare('SELECT relation FROM turn_knowledge_item WHERE turn_id = ? AND item_id = ?')
         .get(turn.id, d.id),
     ).toEqual({ relation: 'captured' });
-    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM turn_decision').get()).toEqual({ count: 0 });
+    expect(
+      db.$client
+        .prepare(
+          "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'turn_decision'",
+        )
+        .get(),
+    ).toEqual({ count: 0 });
   });
 
   it('links an assumption to a turn through generic provenance', () => {
@@ -1419,7 +1439,13 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
         .prepare('SELECT relation FROM turn_knowledge_item WHERE turn_id = ? AND item_id = ?')
         .get(turn.id, a.id),
     ).toEqual({ relation: 'captured' });
-    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM turn_assumption').get()).toEqual({ count: 0 });
+    expect(
+      db.$client
+        .prepare(
+          "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'turn_assumption'",
+        )
+        .get(),
+    ).toEqual({ count: 0 });
   });
 
   it('projects captured items for replay through one collection-driven seam', () => {
@@ -1442,14 +1468,14 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
         referenceCode: createKnowledgeReferenceCode('goal', 1),
       },
       {
-        collection: 'decision',
+        collection: 'knowledge_item',
         kind: 'decision',
         id: decision.id,
         content: 'Start with the web app',
         referenceCode: createKnowledgeReferenceCode('decision', 1),
       },
       {
-        collection: 'assumption',
+        collection: 'knowledge_item',
         kind: 'assumption',
         id: assumption.id,
         content: 'Users can work in a browser',
@@ -1621,9 +1647,13 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     const entities = getEntitiesForProject(db, project.id);
     expect(entities.decisions).toHaveLength(2);
     expect(db.$client.prepare('SELECT COUNT(*) AS count FROM knowledge_edge').get()).toEqual({ count: 1 });
-    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM decision_parent_decision').get()).toEqual({
-      count: 0,
-    });
+    expect(
+      db.$client
+        .prepare(
+          "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'decision_parent_decision'",
+        )
+        .get(),
+    ).toEqual({ count: 0 });
   });
 
   it('projects generic parent links through one typed relationship read model', () => {
@@ -1642,18 +1672,18 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     expect(entities.relationships).toEqual([
       {
         type: 'depends_on',
-        source: { collection: 'decision', kind: 'decision', id: dependentDecision.id },
-        target: { collection: 'decision', kind: 'decision', id: parentDecision.id },
+        source: { collection: 'knowledge_item', kind: 'decision', id: dependentDecision.id },
+        target: { collection: 'knowledge_item', kind: 'decision', id: parentDecision.id },
       },
       {
         type: 'depends_on',
-        source: { collection: 'decision', kind: 'decision', id: dependentDecision.id },
-        target: { collection: 'assumption', kind: 'assumption', id: parentAssumption.id },
+        source: { collection: 'knowledge_item', kind: 'decision', id: dependentDecision.id },
+        target: { collection: 'knowledge_item', kind: 'assumption', id: parentAssumption.id },
       },
       {
         type: 'depends_on',
-        source: { collection: 'assumption', kind: 'assumption', id: dependentAssumption.id },
-        target: { collection: 'assumption', kind: 'assumption', id: parentAssumption.id },
+        source: { collection: 'knowledge_item', kind: 'assumption', id: dependentAssumption.id },
+        target: { collection: 'knowledge_item', kind: 'assumption', id: parentAssumption.id },
       },
     ]);
   });
@@ -1779,9 +1809,13 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     const entities = getEntitiesForProject(db, project.id);
     expect(entities.assumptions).toHaveLength(2);
     expect(db.$client.prepare('SELECT COUNT(*) AS count FROM knowledge_edge').get()).toEqual({ count: 1 });
-    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM assumption_parent_assumption').get()).toEqual({
-      count: 0,
-    });
+    expect(
+      db.$client
+        .prepare(
+          "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'assumption_parent_assumption'",
+        )
+        .get(),
+    ).toEqual({ count: 0 });
   });
 
   it('projects a canonical scope bundle without consulting legacy commitment storage', () => {

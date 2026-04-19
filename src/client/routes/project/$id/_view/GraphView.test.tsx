@@ -74,8 +74,8 @@ function populatedEntities(): EntitiesData {
     relationships: [
       {
         type: 'depends_on',
-        source: { collection: 'decision', kind: 'decision', id: 5 },
-        target: { collection: 'assumption', kind: 'assumption', id: 6 },
+        source: { collection: 'knowledge_item', kind: 'decision', id: 5 },
+        target: { collection: 'knowledge_item', kind: 'assumption', id: 6 },
       },
       {
         type: 'derived_from',

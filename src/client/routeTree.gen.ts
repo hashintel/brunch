@@ -16,7 +16,6 @@ import { Route as ProjectIdExportRouteImport } from './routes/project/$id/export
 import { Route as ProjectIdViewRouteRouteImport } from './routes/project/$id/_view/route'
 import { Route as ProjectIdViewRequirementsReviewRouteImport } from './routes/project/$id/_view/requirements-review'
 import { Route as ProjectIdViewGroundingRouteImport } from './routes/project/$id/_view/grounding'
-import { Route as ProjectIdViewFramingRouteImport } from './routes/project/$id/_view/framing'
 import { Route as ProjectIdViewElicitationRouteImport } from './routes/project/$id/_view/elicitation'
 import { Route as ProjectIdViewAcceptanceReviewRouteImport } from './routes/project/$id/_view/acceptance-review'
 
@@ -55,11 +54,6 @@ const ProjectIdViewGroundingRoute = ProjectIdViewGroundingRouteImport.update({
   path: '/grounding',
   getParentRoute: () => ProjectIdViewRouteRoute,
 } as any)
-const ProjectIdViewFramingRoute = ProjectIdViewFramingRouteImport.update({
-  id: '/framing',
-  path: '/framing',
-  getParentRoute: () => ProjectIdViewRouteRoute,
-} as any)
 const ProjectIdViewElicitationRoute =
   ProjectIdViewElicitationRouteImport.update({
     id: '/elicitation',
@@ -80,7 +74,6 @@ export interface FileRoutesByFullPath {
   '/project/$id/': typeof ProjectIdIndexRoute
   '/project/$id/acceptance-review': typeof ProjectIdViewAcceptanceReviewRoute
   '/project/$id/elicitation': typeof ProjectIdViewElicitationRoute
-  '/project/$id/framing': typeof ProjectIdViewFramingRoute
   '/project/$id/grounding': typeof ProjectIdViewGroundingRoute
   '/project/$id/requirements-review': typeof ProjectIdViewRequirementsReviewRoute
 }
@@ -90,7 +83,6 @@ export interface FileRoutesByTo {
   '/project/$id/export': typeof ProjectIdExportRoute
   '/project/$id/acceptance-review': typeof ProjectIdViewAcceptanceReviewRoute
   '/project/$id/elicitation': typeof ProjectIdViewElicitationRoute
-  '/project/$id/framing': typeof ProjectIdViewFramingRoute
   '/project/$id/grounding': typeof ProjectIdViewGroundingRoute
   '/project/$id/requirements-review': typeof ProjectIdViewRequirementsReviewRoute
 }
@@ -103,7 +95,6 @@ export interface FileRoutesById {
   '/project/$id/': typeof ProjectIdIndexRoute
   '/project/$id/_view/acceptance-review': typeof ProjectIdViewAcceptanceReviewRoute
   '/project/$id/_view/elicitation': typeof ProjectIdViewElicitationRoute
-  '/project/$id/_view/framing': typeof ProjectIdViewFramingRoute
   '/project/$id/_view/grounding': typeof ProjectIdViewGroundingRoute
   '/project/$id/_view/requirements-review': typeof ProjectIdViewRequirementsReviewRoute
 }
@@ -116,7 +107,6 @@ export interface FileRouteTypes {
     | '/project/$id/'
     | '/project/$id/acceptance-review'
     | '/project/$id/elicitation'
-    | '/project/$id/framing'
     | '/project/$id/grounding'
     | '/project/$id/requirements-review'
   fileRoutesByTo: FileRoutesByTo
@@ -126,7 +116,6 @@ export interface FileRouteTypes {
     | '/project/$id/export'
     | '/project/$id/acceptance-review'
     | '/project/$id/elicitation'
-    | '/project/$id/framing'
     | '/project/$id/grounding'
     | '/project/$id/requirements-review'
   id:
@@ -138,7 +127,6 @@ export interface FileRouteTypes {
     | '/project/$id/'
     | '/project/$id/_view/acceptance-review'
     | '/project/$id/_view/elicitation'
-    | '/project/$id/_view/framing'
     | '/project/$id/_view/grounding'
     | '/project/$id/_view/requirements-review'
   fileRoutesById: FileRoutesById
@@ -199,13 +187,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectIdViewGroundingRouteImport
       parentRoute: typeof ProjectIdViewRouteRoute
     }
-    '/project/$id/_view/framing': {
-      id: '/project/$id/_view/framing'
-      path: '/framing'
-      fullPath: '/project/$id/framing'
-      preLoaderRoute: typeof ProjectIdViewFramingRouteImport
-      parentRoute: typeof ProjectIdViewRouteRoute
-    }
     '/project/$id/_view/elicitation': {
       id: '/project/$id/_view/elicitation'
       path: '/elicitation'
@@ -226,7 +207,6 @@ declare module '@tanstack/react-router' {
 interface ProjectIdViewRouteRouteChildren {
   ProjectIdViewAcceptanceReviewRoute: typeof ProjectIdViewAcceptanceReviewRoute
   ProjectIdViewElicitationRoute: typeof ProjectIdViewElicitationRoute
-  ProjectIdViewFramingRoute: typeof ProjectIdViewFramingRoute
   ProjectIdViewGroundingRoute: typeof ProjectIdViewGroundingRoute
   ProjectIdViewRequirementsReviewRoute: typeof ProjectIdViewRequirementsReviewRoute
 }
@@ -234,7 +214,6 @@ interface ProjectIdViewRouteRouteChildren {
 const ProjectIdViewRouteRouteChildren: ProjectIdViewRouteRouteChildren = {
   ProjectIdViewAcceptanceReviewRoute: ProjectIdViewAcceptanceReviewRoute,
   ProjectIdViewElicitationRoute: ProjectIdViewElicitationRoute,
-  ProjectIdViewFramingRoute: ProjectIdViewFramingRoute,
   ProjectIdViewGroundingRoute: ProjectIdViewGroundingRoute,
   ProjectIdViewRequirementsReviewRoute: ProjectIdViewRequirementsReviewRoute,
 }

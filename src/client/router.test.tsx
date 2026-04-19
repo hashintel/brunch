@@ -173,16 +173,6 @@ describe('generated routeTree', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/projects/42/entities?mode=active-path');
   });
 
-  it('redirects the legacy framing URL to the canonical grounding route', async () => {
-    const { router } = await renderRouteAt('/project/42/framing');
-
-    await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/project/42/grounding');
-    });
-
-    expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-  });
-
   it('maps the elicitation phase URL to the interview workspace screen', async () => {
     await renderRouteAt('/project/42/elicitation');
 
