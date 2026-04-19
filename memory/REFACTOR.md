@@ -12,7 +12,7 @@ Introduce one authoritative workspace-stream projection seam with a discriminate
 2. [done] Introduce a single discriminated bottom-artifact model and route the controller/view bottom region through it so kickoff, recovery, proposal, generating, handoff, and completion states no longer depend on parallel booleans.
 3. [done] Extract a workspace-stream projector that maps durable workflow state, conversational turns, and anchored closure facts into ordered render artifacts while preserving current behavior.
 4. [done] Move kickoff and recovery submission behind phase-entry and phase-continue intents so the client stops branching on whether a legacy control row exists.
-5. Hide transitional kickoff and recovery row compatibility inside one server-side runtime adapter and stop exposing that implementation detail to controller logic.
+5. [done] Hide transitional kickoff and recovery row compatibility inside one server-side runtime adapter and stop exposing that implementation detail to controller logic.
 6. Consolidate fixture seeding and capture rules around the same projected-control contract so manifest compilation, seeded scenarios, and round-trip capture all encode the same authority model.
 
 ## Decisions

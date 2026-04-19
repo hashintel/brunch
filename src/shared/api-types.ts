@@ -247,7 +247,6 @@ export const submitPhaseIntentRequestSchema = z.discriminatedUnion('kind', [
 export const submitPhaseIntentResponseSchema = z.object({
   ok: z.literal(true),
   messageText: z.string(),
-  submittedTurnId: z.number().int().positive().nullable().optional(),
 });
 
 export type ProjectMode = z.infer<typeof projectModeSchema>;

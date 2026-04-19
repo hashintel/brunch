@@ -381,9 +381,6 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                             return;
                           }
 
-                          if (result.submittedTurnId) {
-                            setSubmittedTurnId(result.submittedTurnId);
-                          }
                           submitText(result.messageText);
                         });
                       return;
@@ -399,9 +396,6 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                         return;
                       }
 
-                      if (result.submittedTurnId) {
-                        setSubmittedTurnId(result.submittedTurnId);
-                      }
                       submitText(result.messageText);
                     });
                   },
@@ -425,9 +419,6 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                           return;
                         }
 
-                        if (result.submittedTurnId) {
-                          setSubmittedTurnId(result.submittedTurnId);
-                        }
                         submitText(result.messageText);
                       });
                     },

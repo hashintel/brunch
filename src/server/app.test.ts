@@ -482,7 +482,7 @@ describe('POST /api/projects/:id/chat', () => {
     await request(app)
       .post(`/api/projects/${projectId}/phase-intent`)
       .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
-      .expect(200, { ok: true, messageText: 'Feature within existing codebase', submittedTurnId: null });
+      .expect(200, { ok: true, messageText: 'Feature within existing codebase' });
 
     expect(getProject(db, projectId)).toMatchObject({
       mode: 'brownfield',
@@ -2527,7 +2527,6 @@ describe('POST /api/projects/:id/phase-intent', () => {
       .expect(200, {
         ok: true,
         messageText: 'Feature within existing codebase',
-        submittedTurnId: null,
       });
 
     expect(getProject(db, project.id)).toMatchObject({
@@ -2573,7 +2572,6 @@ describe('POST /api/projects/:id/phase-intent', () => {
       .expect(200, {
         ok: true,
         messageText: 'Feature within existing codebase',
-        submittedTurnId: kickoffTurn?.id,
       });
 
     const updatedKickoffTurn = getActivePath(db, project.id)[0]!;
