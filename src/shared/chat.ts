@@ -216,6 +216,61 @@ export type BrunchUserPart = Extract<
 export type AskQuestionUIPart = Extract<BrunchUIMessagePart, { type: 'tool-ask_question' }>;
 export type ObserverResultUIPart = Extract<BrunchUIMessagePart, { type: 'data-observer-result' }>;
 
+const persistedAssistantPartSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('reasoning'), text: z.string() }).loose(),
+  z.object({ type: z.literal('step-start') }).loose(),
+  z.object({ type: z.literal('text'), text: z.string() }).loose(),
+  z.object({ type: z.literal('tool-ask_question'), input: structuredQuestionSchema }).loose(),
+  z
+    .object({ type: z.literal('tool-propose_phase_closure'), input: phaseClosureProposalSchema.optional() })
+    .loose(),
+  z.object({ type: z.literal('data-observer-result'), data: observerResultSchema }).loose(),
+  z.object({ type: z.literal('data-review-set'), data: reviewSetSchema }).loose(),
+  z.object({ type: z.literal('data-activity-summary'), data: activitySummarySchema }).loose(),
+  z.object({ type: z.literal('data-phase-summary'), data: dataPhaseSummarySchema }).loose(),
+]);
+
+const persistedUserPartSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('text'), text: z.string() }).loose(),
+  z.object({ type: z.literal('data-turn-response'), data: dataTurnResponseSchema }).loose(),
+  z.object({ type: z.literal('data-confirmation'), data: dataConfirmationSchema }).loose(),
+]);
+
+function safeDecodePersistedParts<PART>(
+  json: string | null | undefined,
+  partSchema: z.ZodType<PART>,
+): PART[] {
+  if (!json) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    const decodedParts: PART[] = [];
+    for (const part of parsed) {
+      const decoded = partSchema.safeParse(part);
+      if (decoded.success) {
+        decodedParts.push(decoded.data);
+      }
+    }
+    return decodedParts;
+  } catch {
+    return [];
+  }
+}
+
+export function safeDecodePersistedAssistantParts(json: string | null | undefined): BrunchAssistantPart[] {
+  return safeDecodePersistedParts(json, persistedAssistantPartSchema as z.ZodType<BrunchAssistantPart>);
+}
+
+export function safeDecodePersistedUserParts(json: string | null | undefined): BrunchUserPart[] {
+  return safeDecodePersistedParts(json, persistedUserPartSchema as z.ZodType<BrunchUserPart>);
+}
+
 export const askQuestionValidationTool = tool({
   description:
     'Ask the user a structured interview question with options, strategic grounding, and impact signal.',

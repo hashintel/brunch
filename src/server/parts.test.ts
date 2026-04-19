@@ -3,6 +3,8 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   dataConfirmationSchema,
   dataTurnResponseSchema,
+  safeDecodePersistedAssistantParts,
+  safeDecodePersistedUserParts,
   type BrunchAssistantPart,
   type BrunchUserPart,
 } from '@/shared/chat.js';
@@ -234,6 +236,26 @@ describe('safe deserialization', () => {
   it('returns empty arrays for malformed persisted JSON', () => {
     expect(safeDeserializeAssistantParts('not-json')).toEqual([]);
     expect(safeDeserializeUserParts('not-json')).toEqual([]);
+  });
+
+  it('drops malformed persisted part shapes without leaking them into projection helpers', () => {
+    expect(
+      safeDecodePersistedAssistantParts(
+        JSON.stringify([
+          { type: 'text', text: 'Legible persisted text' },
+          { type: 'data-review-set', data: { phase: 'requirements' } },
+        ]),
+      ),
+    ).toEqual([{ type: 'text', text: 'Legible persisted text' }]);
+
+    expect(
+      safeDecodePersistedUserParts(
+        JSON.stringify([
+          { type: 'text', text: 'Resume work' },
+          { type: 'data-turn-response', data: { turnId: 1, selectedOptionIds: [] } },
+        ]),
+      ),
+    ).toEqual([{ type: 'text', text: 'Resume work' }]);
   });
 
   it('returns empty arrays for null persisted JSON', () => {

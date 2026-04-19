@@ -2584,6 +2584,37 @@ describe('POST /api/projects/:id/phase-intent', () => {
     expect(updatedKickoffTurn.answer).toBe('Feature within existing codebase');
     expect(selectedOption?.content).toBe('Feature within existing codebase');
   });
+
+  it('selects the seeded kickoff option by typed intent instead of exact display copy', async () => {
+    const { createProject, getActivePath, getOptionsForTurn } = await import('./db.js');
+    const { ensureProjectFrontier } = await import('./core.js');
+    const project = createProject(db, 'Seeded kickoff copy drift');
+    const kickoffTurn = ensureProjectFrontier(db, project.id);
+
+    expect(kickoffTurn?.turn_kind).toBe('kickoff');
+    db.$client
+      .prepare('update option set content = ? where turn_id = ? and position = ?')
+      .run('Legacy brownfield kickoff label', kickoffTurn?.id, 1);
+
+    await request(app)
+      .post(`/api/projects/${project.id}/phase-intent`)
+      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .expect(200, {
+        ok: true,
+        messageText: 'Feature within existing codebase',
+      });
+
+    const updatedKickoffTurn = getActivePath(db, project.id)[0]!;
+    const brownfieldOption = getOptionsForTurn(db, updatedKickoffTurn.id).find(
+      (option) => option.position === 1,
+    );
+
+    expect(updatedKickoffTurn.answer).toBe('Feature within existing codebase');
+    expect(brownfieldOption).toMatchObject({
+      content: 'Legacy brownfield kickoff label',
+      is_selected: true,
+    });
+  });
 });
 
 describe('POST /api/projects/:id/turns/:turnId/response', () => {

@@ -3,7 +3,13 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
-import { extractPrompt, finalizeTurn, getProjectState, prepareTurn } from './core.js';
+import {
+  extractPrompt,
+  finalizeTurn,
+  getProjectState,
+  prepareTurn,
+  readProjectStateProjection,
+} from './core.js';
 import {
   confirmPhaseOutcome,
   createDb,
@@ -11,6 +17,7 @@ import {
   createPhaseOutcome,
   createProject,
   createTurn,
+  getActivePath,
   getProject,
   getTurn,
   linkKnowledgeItemToTurn,
@@ -388,7 +395,32 @@ describe('finalizeTurn', () => {
 });
 
 describe('getProjectState', () => {
-  it('projects the first scope landing as kickoff with grounding strategy choices', () => {
+  it('keeps projection-only reads free of fabricated kickoff or recovery rows', () => {
+    const project = createProject(db, 'Spec');
+
+    const kickoffProjection = readProjectStateProjection(db, project.id);
+
+    expect(kickoffProjection?.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+    expect(kickoffProjection?.turns).toEqual([]);
+    expect(getActivePath(db, project.id)).toEqual([]);
+
+    const turn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What are we building?',
+      answer: 'A chat app',
+    });
+    finalizeTurn(db, project.id, turn.id);
+
+    const recoveryProjection = readProjectStateProjection(db, project.id);
+
+    expect(recoveryProjection?.landing).toEqual({ kind: 'recovery', phase: 'scope' });
+    expect(recoveryProjection?.turns.filter((candidate) => candidate.turn_kind === 'question')).toHaveLength(
+      1,
+    );
+    expect(recoveryProjection?.turns.some((candidate) => candidate.turn_kind === 'recovery')).toBe(false);
+  });
+
+  it('projects the first scope landing as kickoff with grounding strategy choices once the runtime seeds entry state', () => {
     const project = createProject(db, 'Spec');
 
     const state = getProjectState(db, project.id);

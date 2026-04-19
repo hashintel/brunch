@@ -209,21 +209,58 @@ describe('projectWorkspaceStream', () => {
     ]);
   });
 
-  it('routes closed-phase handoff and workflow-complete states to the footer artifact', () => {
+  it('keeps closed-phase history ordering stable when handoff and completion artifacts move to the footer', () => {
+    const answeredTurn = createTurn({ id: 1, phase: 'requirements', question: 'Review requirements' });
+    const closureTurn = createTurn({
+      id: 2,
+      phase: 'requirements',
+      answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-phase-summary',
+          data: { turnId: 2, phase: 'requirements', summary: 'Accepted requirements' },
+        },
+      ]),
+      user_parts: JSON.stringify([
+        {
+          type: 'data-confirmation',
+          data: {
+            kind: 'confirm-proposed-phase-closure',
+            phase: 'requirements',
+            proposalTurnId: 2,
+          },
+        },
+      ]),
+    });
+
     const handoffProjection = projectWorkspaceStream({
-      phaseTurns: [],
-      phaseState: createPhaseState({ status: 'closed', summary: 'Grounding done' }),
+      phaseTurns: [answeredTurn, closureTurn],
+      phaseState: createPhaseState({
+        status: 'closed',
+        closureBasis: 'interviewer_recommended',
+        summary: 'Accepted requirements',
+      }),
       bottomArtifact: createBottomArtifact('phase-handoff'),
     });
-    expect(handoffProjection.streamArtifacts).toEqual([]);
+    expect(handoffProjection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'answered-turn',
+      'accepted-closure',
+    ]);
     expect(handoffProjection.footerArtifact?.kind).toBe('phase-handoff');
 
     const completionProjection = projectWorkspaceStream({
-      phaseTurns: [],
-      phaseState: createPhaseState({ status: 'closed', summary: 'Complete' }),
+      phaseTurns: [answeredTurn, closureTurn],
+      phaseState: createPhaseState({
+        status: 'closed',
+        closureBasis: 'interviewer_recommended',
+        summary: 'Accepted requirements',
+      }),
       bottomArtifact: createBottomArtifact('workflow-complete'),
     });
-    expect(completionProjection.streamArtifacts).toEqual([]);
+    expect(completionProjection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'answered-turn',
+      'accepted-closure',
+    ]);
     expect(completionProjection.footerArtifact?.kind).toBe('workflow-complete');
   });
 });

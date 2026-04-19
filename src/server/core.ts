@@ -177,19 +177,25 @@ export function finalizeTurn(db: DB, projectId: number, turnId: number): void {
   advanceHead(db, projectId, turnId);
 }
 
+export function readProjectStateProjection(db: DB, projectId: number): ProjectState | null {
+  const project = getProject(db, projectId);
+  if (!project) return null;
+  const turns = loadActivePathWithOptions(db, projectId);
+  const workflow = getCurrentWorkflowState(db, projectId);
+  return {
+    project,
+    workflow,
+    landing: deriveSpecificationLanding({ workflow, turns }),
+    turns,
+  };
+}
+
 /** Get project state: project + active path turns enriched with options. */
 export function getProjectState(db: DB, projectId: number): ProjectState | null {
   const project = getProject(db, projectId);
   if (!project) return null;
   ensureProjectFrontier(db, projectId);
-  const turns = loadActivePathWithOptions(db, projectId);
-  const workflow = getCurrentWorkflowState(db, projectId);
-  return {
-    project: getProject(db, projectId)!,
-    workflow,
-    landing: deriveSpecificationLanding({ workflow, turns }),
-    turns,
-  };
+  return readProjectStateProjection(db, projectId);
 }
 
 /** List all projects with compact workflow summary. */
