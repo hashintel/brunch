@@ -1252,39 +1252,7 @@ describe('InterviewView', () => {
     const loaderData = createWorkspaceLoaderData({
       assistantText: '',
       answer: '',
-      turns: [
-        {
-          id: 1,
-          project_id: 1,
-          parent_turn_id: null,
-          phase: 'scope',
-          turn_kind: 'kickoff',
-          question: 'How should this specification start?',
-          why: 'Choose how to start grounding this specification.',
-          impact: null,
-          answer: null,
-          is_resolution: false,
-          user_parts: null,
-          assistant_parts: null,
-          created_at: '2026-04-03 10:00:00',
-          options: [
-            {
-              id: 11,
-              position: 0,
-              content: 'New concept from scratch',
-              is_recommended: true,
-              is_selected: false,
-            },
-            {
-              id: 12,
-              position: 1,
-              content: 'Feature within existing codebase',
-              is_recommended: false,
-              is_selected: false,
-            },
-          ],
-        },
-      ],
+      turns: [],
       workflow: createWorkflowState({
         scope: {
           status: 'in_progress',
@@ -1292,7 +1260,7 @@ describe('InterviewView', () => {
           readiness: 'low',
           closureBasis: null,
           proposalPending: false,
-          turnId: 1,
+          turnId: null,
           summary: null,
         },
       }),
@@ -1320,14 +1288,11 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/response',
+        '/api/projects/1/kickoff-response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            kind: 'select-options',
-            positions: [1],
-          }),
+          body: JSON.stringify({ mode: 'brownfield' }),
         }),
       );
     });

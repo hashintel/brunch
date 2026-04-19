@@ -43,3 +43,7 @@ export function getGroundingStrategyModeForPosition(position: number): ProjectMo
 export function getGroundingStrategyPosition(mode: ProjectMode): number | null {
   return groundingStrategyChoices.find((choice) => choice.mode === mode)?.position ?? null;
 }
+
+export function getGroundingStrategyTitle(mode: ProjectMode): string | null {
+  return groundingStrategyChoices.find((choice) => choice.mode === mode)?.title ?? null;
+}

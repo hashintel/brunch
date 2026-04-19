@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -91,6 +91,7 @@ function createProjectState({
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
   options = [],
+  turns,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -102,14 +103,34 @@ function createProjectState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
+  turns?: ProjectState['turns'];
 } = {}): ProjectState {
+  const resolvedTurns = turns ?? [
+    {
+      id: 1,
+      project_id: projectId,
+      parent_turn_id: null,
+      phase: 'scope',
+      turn_kind: 'question',
+      question: assistantText,
+      why: 'This frames the first iteration.',
+      impact: 'high',
+      answer,
+      is_resolution: false,
+      user_parts: JSON.stringify([{ type: 'text', text: answer }]),
+      assistant_parts: JSON.stringify([{ type: 'text', text: assistantText }]),
+      created_at: '2026-04-03 10:00:00',
+      options,
+    },
+  ];
+
   const projectState: ProjectState = {
     project: {
       id: projectId,
       name: `Project ${projectId}`,
       mode: 'greenfield',
       cwd: null,
-      active_turn_id: 1,
+      active_turn_id: resolvedTurns.at(-1)?.id ?? null,
       created_at: '2026-04-03 10:00:00',
       updated_at: '2026-04-03 10:00:00',
     },
@@ -153,24 +174,7 @@ function createProjectState({
         },
       },
     },
-    turns: [
-      {
-        id: 1,
-        project_id: projectId,
-        parent_turn_id: null,
-        phase: 'scope',
-        turn_kind: 'question',
-        question: assistantText,
-        why: 'This frames the first iteration.',
-        impact: 'high',
-        answer,
-        is_resolution: false,
-        user_parts: JSON.stringify([{ type: 'text', text: answer }]),
-        assistant_parts: JSON.stringify([{ type: 'text', text: assistantText }]),
-        created_at: '2026-04-03 10:00:00',
-        options,
-      },
-    ],
+    turns: resolvedTurns,
   };
 
   return {
@@ -258,6 +262,17 @@ function ControllerProbe() {
                 : 'none'}
       </div>
       <div data-testid="prompt-visible">{String(workspace.promptInput.visible)}</div>
+      <button
+        type="button"
+        data-testid="submit-kickoff-brownfield"
+        onClick={() => {
+          if (workspace.turnCard?.kind === 'kickoff') {
+            workspace.turnCard.submitKickoff('brownfield');
+          }
+        }}
+      >
+        Submit brownfield kickoff
+      </button>
     </div>
   );
 }
@@ -315,6 +330,41 @@ describe('interview controller', () => {
     expect((await screen.findByTestId('turn-card-kind')).textContent).toBe('recovery');
     expect(screen.getByTestId('turn-card').textContent).toBe('recovery:scope');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
+  });
+
+  it('submits the grounding strategy kickoff from landing-only state without a seeded kickoff turn', async () => {
+    currentProjectState = createProjectState({ assistantText: '', answer: '', turns: [] });
+    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.project.active_turn_id = null;
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderController();
+
+    await screen.findByTestId('turn-card-kind');
+    fireEvent.click(screen.getByTestId('submit-kickoff-brownfield'));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/kickoff-response',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mode: 'brownfield' }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalled();
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Feature within existing codebase' });
+    });
   });
 
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {

@@ -4,11 +4,14 @@ import { DefaultChatTransport } from 'ai';
 import type { ChatStatus } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useSubmitTurnResponseMutation } from '@/client/mutations/interview-mutations';
+import {
+  useSubmitKickoffResponseMutation,
+  useSubmitTurnResponseMutation,
+} from '@/client/mutations/interview-mutations';
 import type { ProjectMode, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import { brunchDataPartSchemas } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
-import { getGroundingStrategyPosition } from '@/shared/grounding-strategy.js';
+import { getGroundingStrategyPosition, getGroundingStrategyTitle } from '@/shared/grounding-strategy.js';
 import {
   createConfirmProposedPhaseClosureCommand,
   createForceCloseActivePhaseCommand,
@@ -176,6 +179,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     turn: durableProject.lastTurn,
     sendMessage,
   });
+  const submitKickoffResponseMutation = useSubmitKickoffResponseMutation({ projectId });
   const isLoading = status === 'submitted' || status === 'streaming';
 
   // Phase-filtered messages for display
@@ -350,16 +354,32 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                           ? durableProject.workflow.phases.scope.turnId
                           : null;
                       const selectedPosition = getGroundingStrategyPosition(selectedMode);
-                      if (kickoffTurnId === null || selectedPosition === null) {
+                      if (selectedPosition === null) {
                         return;
                       }
 
-                      setSubmittedTurnId(kickoffTurnId);
-                      void submitTurnResponseMutation
-                        .submitTurnResponse([selectedPosition])
+                      if (kickoffTurnId !== null) {
+                        setSubmittedTurnId(kickoffTurnId);
+                        void submitTurnResponseMutation
+                          .submitTurnResponse([selectedPosition])
+                          .then((didSubmit) => {
+                            if (!didSubmit) {
+                              setSubmittedTurnId(null);
+                            }
+                          });
+                        return;
+                      }
+
+                      const kickoffText = getGroundingStrategyTitle(selectedMode);
+                      if (!kickoffText) {
+                        return;
+                      }
+
+                      void submitKickoffResponseMutation
+                        .submitKickoffResponse(selectedMode)
                         .then((didSubmit) => {
-                          if (!didSubmit) {
-                            setSubmittedTurnId(null);
+                          if (didSubmit) {
+                            submitText(kickoffText);
                           }
                         });
                       return;
@@ -390,7 +410,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     showGeneratingState: viewState.showGeneratingState,
     promptInput: {
       visible: viewState.promptInput.visible,
-      disabled: isLoading || submitTurnResponseMutation.isPending,
+      disabled: isLoading || submitTurnResponseMutation.isPending || submitKickoffResponseMutation.isPending,
     },
   };
 }

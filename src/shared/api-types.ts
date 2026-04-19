@@ -232,10 +232,20 @@ export const submitTurnResponseResponseSchema = z.object({
   workflowCompleted: z.literal(true).optional(),
 });
 
+export const submitKickoffResponseRequestSchema = z.object({
+  mode: projectModeSchema,
+});
+
+export const submitKickoffResponseResponseSchema = z.object({
+  ok: z.literal(true),
+});
+
 export type ProjectMode = z.infer<typeof projectModeSchema>;
 export type Impact = z.infer<typeof impactSchema>;
 export type TurnKind = z.infer<typeof turnKindSchema>;
 export type ReviewAction = z.infer<typeof reviewActionSchema>;
+export type SubmitKickoffResponseRequest = z.infer<typeof submitKickoffResponseRequestSchema>;
+export type SubmitKickoffResponseResponse = z.infer<typeof submitKickoffResponseResponseSchema>;
 export type EdgeRelation = z.infer<typeof edgeRelationSchema>;
 export type WorkflowPhaseStatus = z.infer<typeof workflowPhaseStatusSchema>;
 export type ReadinessBand = z.infer<typeof readinessBandSchema>;

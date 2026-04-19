@@ -1,7 +1,10 @@
 import { useRouter } from '@tanstack/react-router';
 
 import type {
+  ProjectMode,
   ProjectStateTurn,
+  SubmitKickoffResponseRequest,
+  SubmitKickoffResponseResponse,
   SubmitTurnResponseRequest,
   SubmitTurnResponseResponse,
 } from '@/shared/api-types.js';
@@ -18,6 +21,43 @@ export interface SubmitTurnResponseMutationState {
   readonly isPending: boolean;
   readonly errorMessage: string | null;
   readonly clearError: () => void;
+}
+
+export interface SubmitKickoffResponseMutationState {
+  readonly submitKickoffResponse: (mode: ProjectMode) => Promise<boolean>;
+  readonly isPending: boolean;
+  readonly errorMessage: string | null;
+  readonly clearError: () => void;
+}
+
+export function useSubmitKickoffResponseMutation({
+  projectId,
+}: {
+  projectId: number;
+}): SubmitKickoffResponseMutationState {
+  const router = useRouter();
+  const mutation = useClientMutation((response: SubmitKickoffResponseRequest) =>
+    postJsonMutation<SubmitKickoffResponseResponse, SubmitKickoffResponseRequest>(
+      `/api/projects/${projectId}/kickoff-response`,
+      response,
+      'Failed to save kickoff response',
+    ),
+  );
+
+  return {
+    submitKickoffResponse: async (mode: ProjectMode) => {
+      try {
+        await mutation.run({ mode });
+        await router.invalidate();
+        return true;
+      } catch {
+        return false;
+      }
+    },
+    isPending: mutation.isPending,
+    errorMessage: mutation.errorMessage,
+    clearError: mutation.clearError,
+  };
 }
 
 export function useSubmitTurnResponseMutation({

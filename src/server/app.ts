@@ -2,13 +2,18 @@ import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessage
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 
-import { createProjectRequestSchema, submitTurnResponseRequestSchema } from '@/shared/api-types.js';
+import {
+  createProjectRequestSchema,
+  submitKickoffResponseRequestSchema,
+  submitTurnResponseRequestSchema,
+} from '@/shared/api-types.js';
 import type {
   EntitiesData,
   ExportLoaderData,
   MutationErrorResponse,
   ProjectListItem,
   ProjectState,
+  SubmitKickoffResponseResponse,
   SubmitTurnResponseResponse,
 } from '@/shared/api-types.js';
 import {
@@ -30,7 +35,10 @@ import {
   getForcedPhaseClosureSummary,
   parsePhaseClosureCommand,
 } from '@/shared/phase-close.js';
-import { getReviewActionForSelectedPositions } from '@/shared/project-state-turn.js';
+import {
+  deriveSpecificationLanding,
+  getReviewActionForSelectedPositions,
+} from '@/shared/project-state-turn.js';
 
 import {
   ensureProjectFrontier,
@@ -38,6 +46,7 @@ import {
   finalizeTurn,
   getProjectState,
   listProjectStates,
+  loadActivePathWithOptions,
   createNewProject,
   prepareSuccessorTurn,
   prepareTurn,
@@ -53,6 +62,7 @@ import {
   getCurrentPhase,
   getCurrentWorkflowState,
   getDraftCriterionEntitiesForProject,
+  getProject,
   getDraftRequirementEntitiesForProject,
   getTurn,
   getOptionsForTurn,
@@ -257,6 +267,43 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       return;
     }
     res.json(state satisfies ProjectState);
+  });
+
+  app.post('/api/projects/:id/kickoff-response', (req: Request, res: Response) => {
+    const projectId = Number(req.params.id);
+
+    if (Number.isNaN(projectId)) {
+      res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
+      return;
+    }
+
+    const parsedRequest = submitKickoffResponseRequestSchema.safeParse(req.body);
+    if (!parsedRequest.success) {
+      res.status(400).json({ error: 'Invalid kickoff response payload' } satisfies MutationErrorResponse);
+      return;
+    }
+
+    const project = getProject(db, projectId);
+    if (!project) {
+      res.status(404).json({ error: 'Project not found' } satisfies MutationErrorResponse);
+      return;
+    }
+
+    const landing = deriveSpecificationLanding({
+      workflow: getCurrentWorkflowState(db, projectId),
+      turns: loadActivePathWithOptions(db, projectId),
+    });
+    if (landing?.kind !== 'kickoff' || landing.phase !== 'scope' || landing.mode !== 'start') {
+      res.status(409).json({ error: 'Grounding strategy kickoff is not currently available' });
+      return;
+    }
+
+    updateProjectMode(db, projectId, {
+      mode: parsedRequest.data.mode,
+      cwd: parsedRequest.data.mode === 'brownfield' ? projectCwd : null,
+    });
+
+    res.json({ ok: true } satisfies SubmitKickoffResponseResponse);
   });
 
   // Submit a turn response on a turn.

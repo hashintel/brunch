@@ -474,20 +474,20 @@ describe('POST /api/projects/:id/chat', () => {
   });
 
   it('passes brownfield kickoff mode options into the interviewer stream after the projected kickoff selects existing codebase', async () => {
-    const projectId = await createTestProject('Brownfield kickoff');
-    const initialSnapshot = await getProjectSnapshot(projectId);
-    const kickoffSubmitTurnId = initialSnapshot.turns.at(-1)?.id;
+    const { createProject, getActivePath, getProject } = await import('./db.js');
+    const projectId = createProject(db, 'Brownfield kickoff').id;
 
-    expect(initialSnapshot.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+    expect(getActivePath(db, projectId)).toHaveLength(0);
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${kickoffSubmitTurnId}/response`)
-      .send({ kind: 'select-options', positions: [1] })
-      .expect(200);
+      .post(`/api/projects/${projectId}/kickoff-response`)
+      .send({ mode: 'brownfield' })
+      .expect(200, { ok: true });
 
-    const updatedSnapshot = await getProjectSnapshot(projectId);
-    expect(updatedSnapshot.project.mode).toBe('brownfield');
-    expect(updatedSnapshot.project.cwd).toBe(process.cwd());
+    expect(getProject(db, projectId)).toMatchObject({
+      mode: 'brownfield',
+      cwd: process.cwd(),
+    });
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -2511,6 +2511,48 @@ describe('GET /api/projects/:id', () => {
     expect(res.body.turns[1].question).toBe(structuredQuestion.question);
     expect(res.body.turns[1].options).toHaveLength(2);
     expect(res.body.turns[1].options[0].content).toBe('Web');
+  });
+});
+
+describe('POST /api/projects/:id/kickoff-response', () => {
+  it('persists brownfield mode from landing-only kickoff state without creating a kickoff row first', async () => {
+    const { createProject, getActivePath, getProject } = await import('./db.js');
+    const project = createProject(db, 'Landing-only kickoff');
+
+    expect(getActivePath(db, project.id)).toHaveLength(0);
+
+    await request(app)
+      .post(`/api/projects/${project.id}/kickoff-response`)
+      .send({ mode: 'brownfield' })
+      .expect(200, { ok: true });
+
+    expect(getProject(db, project.id)).toMatchObject({
+      mode: 'brownfield',
+      cwd: process.cwd(),
+    });
+    expect(getActivePath(db, project.id)).toHaveLength(0);
+
+    await request(app)
+      .post(`/api/projects/${project.id}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-kickoff-brownfield',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Feature within existing codebase' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.any(Array),
+      'Feature within existing codebase',
+      'scope',
+      { mode: 'brownfield', cwd: process.cwd() },
+    );
   });
 });
 
