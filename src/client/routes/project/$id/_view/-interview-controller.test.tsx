@@ -730,6 +730,71 @@ describe('interview controller', () => {
     });
   });
 
+  it('falls back to the projected kickoff card when auto phase-entry submit rejects', async () => {
+    currentProjectState = createProjectState({ turns: [] });
+    currentProjectState.project.active_turn_id = null;
+    currentProjectState.workflow.phases.scope = {
+      status: 'closed',
+      closeability: false,
+      readiness: 'high',
+      closureBasis: 'interviewer_recommended',
+      proposalPending: false,
+      turnId: 11,
+      summary: 'Grounding complete.',
+    };
+    currentProjectState.workflow.phases.design = {
+      status: 'closed',
+      closeability: false,
+      readiness: 'high',
+      closureBasis: 'interviewer_recommended',
+      proposalPending: false,
+      turnId: 12,
+      summary: 'Elicitation complete.',
+    };
+    currentProjectState.workflow.phases.requirements = {
+      status: 'in_progress',
+      closeability: false,
+      readiness: 'low',
+      closureBasis: null,
+      proposalPending: false,
+      turnId: null,
+      summary: null,
+    };
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    useChatHarness.sendMessage.mockRejectedValueOnce(new Error('chat down'));
+
+    const rendered = renderController('requirements');
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('kickoff');
+      expect(screen.getByTestId('bottom-artifact').textContent).toBe('start:requirements');
+    });
+
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <ControllerProbe phase="requirements" />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('kickoff');
+    });
+  });
+
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
     currentProjectState = createProjectState({
       assistantText: 'Earlier question?',

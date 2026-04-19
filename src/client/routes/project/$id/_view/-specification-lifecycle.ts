@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { SpecificationLanding, WorkflowPhase, WorkflowState } from '@/shared/api-types.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
@@ -57,6 +57,16 @@ export function resetSpecificationLifecycleRegistryForTesting() {
   autoPhaseIntentRegistry.clear();
 }
 
+function markAutoPhaseIntentFailed(projectId: number, autoKey: string) {
+  const latestEntry = autoPhaseIntentRegistry.get(projectId);
+  if (latestEntry?.key === autoKey) {
+    autoPhaseIntentRegistry.set(projectId, {
+      key: autoKey,
+      status: 'failed',
+    });
+  }
+}
+
 export function useSpecificationScopedAutoPhaseIntent({
   projectId,
   phase,
@@ -81,6 +91,13 @@ export function useSpecificationScopedAutoPhaseIntent({
     const registryEntry = autoKey ? autoPhaseIntentRegistry.get(projectId) : null;
     return registryEntry?.key === autoKey && registryEntry.status === 'pending';
   });
+  const isMountedRef = useRef(true);
+
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     const currentReachablePhase = getCurrentReachablePhase(workflow);
@@ -111,27 +128,23 @@ export function useSpecificationScopedAutoPhaseIntent({
     });
     setIsAutoSubmitting(true);
 
-    let cancelled = false;
-    void submitPhaseIntent(autoIntent).then((didSubmit) => {
-      if (didSubmit) {
-        return;
-      }
+    void submitPhaseIntent(autoIntent)
+      .then((didSubmit) => {
+        if (didSubmit) {
+          return;
+        }
 
-      const latestEntry = autoPhaseIntentRegistry.get(projectId);
-      if (latestEntry?.key === autoKey) {
-        autoPhaseIntentRegistry.set(projectId, {
-          key: autoKey,
-          status: 'failed',
-        });
-      }
-      if (!cancelled) {
-        setIsAutoSubmitting(false);
-      }
-    });
-
-    return () => {
-      cancelled = true;
-    };
+        markAutoPhaseIntentFailed(projectId, autoKey);
+        if (isMountedRef.current) {
+          setIsAutoSubmitting(false);
+        }
+      })
+      .catch(() => {
+        markAutoPhaseIntentFailed(projectId, autoKey);
+        if (isMountedRef.current) {
+          setIsAutoSubmitting(false);
+        }
+      });
   }, [autoIntent, autoKey, isChatLoading, phase, projectId, submitPhaseIntent, workflow]);
 
   return isAutoSubmitting;

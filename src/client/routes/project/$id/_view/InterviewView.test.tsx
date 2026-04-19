@@ -646,6 +646,93 @@ describe('InterviewView', () => {
     expect(screen.queryByLabelText('Type a message...')).toBeNull();
   });
 
+  it('falls back to the projected recovery card when auto phase-continue submit rejects', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          scope: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 11,
+            summary: 'Grounding complete.',
+          },
+          design: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'design',
+            turn_kind: 'question',
+            question: 'Which platform should we target first?',
+            why: 'This chooses the first delivery surface.',
+            impact: 'high',
+            answer: 'Desktop — Best fit for launch',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Desktop — Best fit for launch' },
+              {
+                type: 'data-turn-response',
+                data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Which platform should we target first?' },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: true },
+            ],
+          },
+        ],
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    useChatHarness.sendMessage.mockRejectedValueOnce(new Error('chat down'));
+
+    const rendered = renderWorkspace('design');
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    const recoveryCard = await screen.findByTestId('recovery-control-card');
+    expect(recoveryCard.textContent).toContain('Continue');
+    expect(screen.queryByTestId('generating-turn-placeholder')).toBeNull();
+
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <InterviewView phase="design" />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('recovery-control-card')).toBeTruthy();
+    });
+  });
+
   it('hides the header phase action for an unstarted reachable phase', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
