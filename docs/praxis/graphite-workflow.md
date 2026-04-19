@@ -26,6 +26,7 @@ Use **gt** (via `/cli-graphite`) for stack-aware operations:
 - Branch / Linear-issue granularity follows the containing `memory/PLAN.md` frontier item.
 - A frontier item is the plan-level work item; scope cards and implementation sub-slices are execution detail inside it.
 - `ln-scope` may narrow one frontier item into multiple buildable sub-slices or consecutive scope cards; keep them on one branch.
+- If several consecutive scope cards are prepared ahead of time, keep that execution queue in `memory/CARDS.md`; do not split branches just to mirror commit-sized steps.
 - Only create a new branch when starting a different frontier item, or after `ln-plan` explicitly splits the frontier into separate PLAN.md items that should stack independently.
 - If scoping shows the current frontier item is too large, revise `memory/PLAN.md` first, then align the branch stack to the revised frontier.
 

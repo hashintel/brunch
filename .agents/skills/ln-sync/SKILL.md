@@ -26,6 +26,7 @@ Prefer `ln-sync` at these moments:
 | `memory/PLAN.md` | what's next | active frontier, near-horizon items, recent completions |
 | `docs/archive/PLAN_HISTORY.md` | historical ledger | older completed phases and retired plan history |
 | `HANDOFF.md` | derivative volatile transfer | only unfinished chat state not yet reconciled |
+| `memory/CARDS.md` | derivative execution queue | only unfinished prepared scope cards inside one frontier item |
 | `memory/REFACTOR.md` | derivative temporary execution plan | only unfinished refactor steps |
 
 ## Procedure
@@ -40,7 +41,7 @@ Ask whether each file is still serving re-entry.
 
 - If `memory/SPEC.md` is carrying embedded truths, old implementation detail, or closed historical debates, prune it.
 - If `memory/PLAN.md` is mostly completed history, collapse it to a rolling frontier and archive the rest.
-- If `HANDOFF.md` or `memory/REFACTOR.md` no longer carry live temporary state, delete them.
+- If `HANDOFF.md`, `memory/CARDS.md`, or `memory/REFACTOR.md` no longer carry live temporary state, delete them.
 
 ### 3. SPEC pass — keep only live architecture
 
@@ -103,6 +104,7 @@ Scan recent code / commits for:
 - active work not represented in `memory/PLAN.md`
 - stale references between `memory/PLAN.md` and `memory/SPEC.md`
 - equivalent facts that should merge instead of coexisting
+- prepared cards in `memory/CARDS.md` that should be retired, re-scoped, or reconciled into the next thread's live state
 - stale derivative artifacts that should be deleted after reconciliation
 
 ### 6. Garbage-collect derivative artifacts
@@ -110,6 +112,7 @@ Scan recent code / commits for:
 Delete exhausted temporary artifacts after their useful state has been reconciled:
 
 - remove stale `HANDOFF.md` files instead of preserving them as archive breadcrumbs
+- remove exhausted `memory/CARDS.md` queues instead of letting old prepared cards masquerade as live work
 - remove completed `memory/REFACTOR.md` files instead of leaving completion notes or pointers
 - if an ad hoc planning/status file was created with explicit permission and is now exhausted, reconcile any durable facts, then delete it unless the user asked to keep it
 
