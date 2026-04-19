@@ -133,7 +133,7 @@ export const curatedGoldenCorpus: GoldenCorpus = {
     },
     'issue-tracker-requirements': {
       description:
-        'Issue-tracker requirements probe that keeps review-mode observer coverage without relying on manifest-shaped setup.',
+        'Issue-tracker requirements probe that keeps review-mode observer coverage without relying on any legacy scenario-format setup.',
       provenance: 'Direct TypeScript seed setup for the current observer probe seam.',
       scenario: {
         phase: 'requirements',
