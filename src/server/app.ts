@@ -20,12 +20,9 @@ import {
   brunchDataPartSchemas,
   brunchValidationTools,
   extractTextFromMessage,
-  filterAssistantParts,
   formatTurnResponseText,
-  groundingCardSchema,
-  structuredQuestionSchema,
 } from '@/shared/chat.js';
-import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart, ReviewSetData } from '@/shared/chat.js';
+import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import {
   getGroundingStrategyModeForPosition,
   isGroundingStrategyKickoffTurn,
@@ -84,6 +81,7 @@ import {
   getPhaseIntentRuntimeAvailabilityError,
   submitPhaseIntentWithRuntimeCompatibility,
 } from './phase-intent-runtime.js';
+import { materializeTurnArtifacts } from './turn-artifacts.js';
 
 export interface AppOptions {
   readonly dbPath?: string;
@@ -141,61 +139,6 @@ function getPersistedFullSetReviewAction(
   );
 
   return responsePart?.data.reviewAction ?? null;
-}
-
-function getPersistedRuntimeReviewMetadata(
-  phase: Turn['phase'],
-  message: Pick<BrunchUIMessage, 'parts'>,
-): {
-  reviewQuestionPart: Extract<BrunchAssistantPart, { type: 'tool-ask_question' }>;
-  reviewSet: ReviewSetData;
-} | null {
-  if (phase !== 'requirements' && phase !== 'criteria') {
-    return null;
-  }
-
-  const reviewQuestionPart = message.parts.find(
-    (part): part is Extract<BrunchAssistantPart, { type: 'tool-ask_question' }> =>
-      part.type === 'tool-ask_question' && 'input' in part,
-  );
-  if (!reviewQuestionPart) {
-    return null;
-  }
-
-  const parsedInput = structuredQuestionSchema.safeParse(reviewQuestionPart.input);
-  if (!parsedInput.success || !parsedInput.data.reviewSet || parsedInput.data.reviewSet.phase !== phase) {
-    return null;
-  }
-
-  return {
-    reviewQuestionPart: {
-      ...reviewQuestionPart,
-      input: parsedInput.data,
-    },
-    reviewSet: parsedInput.data.reviewSet,
-  };
-}
-
-function getPersistedRuntimeGroundingCardMetadata(
-  message: Pick<BrunchUIMessage, 'parts'>,
-): Extract<BrunchAssistantPart, { type: 'data-grounding-card' }> | null {
-  const groundingCardPart = message.parts.find(
-    (part): part is Extract<BrunchUIMessage['parts'][number], { type: 'tool-present_grounding_card' }> =>
-      part.type === 'tool-present_grounding_card' && 'input' in part,
-  );
-  if (!groundingCardPart) {
-    return null;
-  }
-
-  const parsedInput = groundingCardSchema.safeParse(groundingCardPart.input);
-  if (!parsedInput.success) {
-    return null;
-  }
-
-  return {
-    type: 'data-grounding-card',
-    data: parsedInput.data,
-  };
 }
 
 function acceptRequirementsReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
@@ -721,35 +664,16 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
         const assistantText = extractTextFromMessage(responseMessage);
         persistFallbackQuestionText(db, prepared.turn.id, assistantText);
-        const assistantParts = filterAssistantParts(responseMessage.parts, {
-          elapsedMs: interviewerElapsedMs,
+        const synthesizedReviewSet = buildReviewSetForPhase(prepared.turn.phase, {
+          requirements: getDraftRequirementEntitiesForProject(db, id),
+          criteria: getDraftCriterionEntitiesForProject(db, id),
         });
-        const persistedReviewMetadata = getPersistedRuntimeReviewMetadata(
-          prepared.turn.phase,
+        const persistedAssistantParts = materializeTurnArtifacts({
+          phase: prepared.turn.phase,
           responseMessage,
-        );
-        const persistedGroundingCard = getPersistedRuntimeGroundingCardMetadata(responseMessage);
-        const synthesizedReviewSet =
-          persistedReviewMetadata?.reviewSet ??
-          buildReviewSetForPhase(prepared.turn.phase, {
-            requirements: getDraftRequirementEntitiesForProject(db, id),
-            criteria: getDraftCriterionEntitiesForProject(db, id),
-          });
-        const persistedAssistantParts = [
-          ...assistantParts.filter(
-            (part) => part.type !== 'data-review-set' && part.type !== 'data-grounding-card',
-          ),
-          ...(persistedReviewMetadata ? [persistedReviewMetadata.reviewQuestionPart] : []),
-          ...(persistedGroundingCard ? [persistedGroundingCard] : []),
-          ...(synthesizedReviewSet
-            ? [
-                {
-                  type: 'data-review-set' as const,
-                  data: synthesizedReviewSet,
-                },
-              ]
-            : []),
-        ];
+          elapsedMs: interviewerElapsedMs,
+          fallbackReviewSet: synthesizedReviewSet,
+        });
         updateTurn(db, prepared.turn.id, {
           assistant_parts: serializeParts(persistedAssistantParts),
         });
