@@ -29,10 +29,10 @@ import {
 } from './-interview-controller-core.js';
 import type {
   InterviewDurableProjectState,
-  KickoffTurnViewModel,
+  KickoffControlViewModel,
   PendingQuestionViewModel,
   PhaseSummaryViewModel,
-  RecoveryTurnViewModel,
+  RecoveryControlViewModel,
 } from './-interview-controller-core.js';
 import { useInterviewDataAdapter } from './-interview-data.js';
 import { getProjectScopedChatId } from './-interview-hydration.js';
@@ -47,7 +47,7 @@ export interface InterviewControllerChatState {
   readonly forcePhaseClosure: (phase: ProjectStateTurn['phase']) => void;
 }
 
-export type InterviewControllerTurnCardState =
+export type InterviewControllerActiveArtifactState =
   | {
       readonly kind: 'persisted-turn';
       readonly turn: ProjectStateTurn;
@@ -63,13 +63,13 @@ export type InterviewControllerTurnCardState =
     }
   | {
       readonly kind: 'kickoff';
-      readonly kickoff: KickoffTurnViewModel;
+      readonly kickoff: KickoffControlViewModel;
       readonly disabled: boolean;
       readonly submitKickoff: (mode?: ProjectMode) => void;
     }
   | {
       readonly kind: 'recovery';
-      readonly recovery: RecoveryTurnViewModel;
+      readonly recovery: RecoveryControlViewModel;
       readonly disabled: boolean;
       readonly submitRecovery: () => void;
     };
@@ -85,7 +85,7 @@ export interface InterviewController {
   readonly phaseTurns: readonly ProjectStateTurn[];
   readonly captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   readonly chat: InterviewControllerChatState;
-  readonly turnCard: InterviewControllerTurnCardState | null;
+  readonly activeArtifact: InterviewControllerActiveArtifactState | null;
   readonly phaseSummary: PhaseSummaryViewModel | null;
   readonly showGeneratingState: boolean;
   readonly promptInput: InterviewControllerPromptInputState;
@@ -199,7 +199,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
       return;
     }
 
-    if (viewState.turnCard?.kind === 'pending-question' || viewState.phaseSummary) {
+    if (viewState.activeArtifact?.kind === 'pending-question' || viewState.phaseSummary) {
       setCaptureStatusByTurnId((current) => {
         if (current.has(submittedTurnId)) {
           return current;
@@ -212,7 +212,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     if (durableProject.workflow.phases[phase].status === 'closed' || phaseTurnId !== submittedTurnId) {
       setSubmittedTurnId(null);
     }
-  }, [submittedTurnId, durableProject.workflow, phase, viewState.phaseSummary, viewState.turnCard]);
+  }, [submittedTurnId, durableProject.workflow, phase, viewState.phaseSummary, viewState.activeArtifact]);
 
   useEffect(() => {
     setCaptureStatusByTurnId((current) => {
@@ -307,17 +307,17 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
       confirmPhaseClosure,
       forcePhaseClosure,
     },
-    turnCard: viewState.turnCard
-      ? viewState.turnCard.kind === 'persisted-turn'
+    activeArtifact: viewState.activeArtifact
+      ? viewState.activeArtifact.kind === 'persisted-turn'
         ? {
             kind: 'persisted-turn',
-            turn: viewState.turnCard.turn,
-            state: viewState.turnCard.state,
-            disabled: viewState.turnCard.state === 'submitted',
+            turn: viewState.activeArtifact.turn,
+            state: viewState.activeArtifact.state,
+            disabled: viewState.activeArtifact.state === 'submitted',
             errorMessage: submitTurnResponseMutation.errorMessage,
             submitTurnResponse: async (positions: number[], freeText?: string) => {
               const turnId =
-                viewState.turnCard?.kind === 'persisted-turn' ? viewState.turnCard.turn.id : null;
+                viewState.activeArtifact?.kind === 'persisted-turn' ? viewState.activeArtifact.turn.id : null;
               if (turnId === null) {
                 return;
               }
@@ -329,15 +329,15 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
               }
             },
           }
-        : viewState.turnCard.kind === 'pending-question'
+        : viewState.activeArtifact.kind === 'pending-question'
           ? {
               kind: 'pending-question',
-              pendingQuestion: viewState.turnCard.pendingQuestion,
+              pendingQuestion: viewState.activeArtifact.pendingQuestion,
               disabled: true,
             }
-          : viewState.turnCard.kind === 'kickoff'
+          : viewState.activeArtifact.kind === 'kickoff'
             ? (() => {
-                const kickoff = viewState.turnCard.kickoff;
+                const kickoff = viewState.activeArtifact.kickoff;
 
                 return {
                   kind: 'kickoff' as const,
@@ -350,7 +350,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
 
                     if (kickoff.phase === 'scope' && kickoff.mode === 'start' && selectedMode) {
                       const kickoffTurnId =
-                        viewState.turnCard?.kind === 'kickoff'
+                        viewState.activeArtifact?.kind === 'kickoff'
                           ? durableProject.workflow.phases.scope.turnId
                           : null;
                       const selectedPosition = getGroundingStrategyPosition(selectedMode);
@@ -390,7 +390,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                 };
               })()
             : (() => {
-                const recovery = viewState.turnCard.recovery;
+                const recovery = viewState.activeArtifact.recovery;
 
                 return {
                   kind: 'recovery' as const,

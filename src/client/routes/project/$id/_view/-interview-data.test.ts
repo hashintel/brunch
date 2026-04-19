@@ -341,7 +341,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(proposedScope, 'scope', messages, false)).toEqual({
       project: proposedScope.project,
       workflow: proposedScope.workflow,
-      turnCard: null,
+      activeArtifact: null,
       phaseSummary: {
         phase: 'scope',
         turnId: 1,
@@ -402,7 +402,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(recoveryState, 'scope', [], false)).toEqual({
       project: recoveryState.project,
       workflow: recoveryState.workflow,
-      turnCard: { kind: 'recovery', recovery: { phase: 'scope' } },
+      activeArtifact: { kind: 'recovery', recovery: { phase: 'scope' } },
       phaseSummary: null,
       showGeneratingState: false,
       promptInput: { visible: false },
@@ -410,7 +410,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(recoveryState, 'scope', [], true)).toEqual({
       project: recoveryState.project,
       workflow: recoveryState.workflow,
-      turnCard: null,
+      activeArtifact: null,
       phaseSummary: null,
       showGeneratingState: true,
       promptInput: { visible: false },
@@ -467,7 +467,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(kickoffState, 'scope', [], false)).toEqual({
       project: kickoffState.project,
       workflow: kickoffState.workflow,
-      turnCard: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'start' } },
+      activeArtifact: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'start' } },
       phaseSummary: null,
       showGeneratingState: false,
       promptInput: { visible: false },
@@ -535,7 +535,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(submittedResponse, 'scope', [], true, 1)).toEqual({
       project: submittedResponse.project,
       workflow: submittedResponse.workflow,
-      turnCard: { kind: 'persisted-turn', turn: submittedResponse.lastTurn!, state: 'submitted' },
+      activeArtifact: { kind: 'persisted-turn', turn: submittedResponse.lastTurn!, state: 'submitted' },
       phaseSummary: null,
       showGeneratingState: false,
       promptInput: { visible: false },
@@ -627,7 +627,7 @@ describe('workspace controller core', () => {
     expect(viewState.project).toEqual(emptyProjectState.project);
     expect(viewState.workflow).toEqual(emptyProjectState.workflow);
     expect(viewState.promptInput.visible).toBe(false);
-    expect(viewState.turnCard).toEqual({
+    expect(viewState.activeArtifact).toEqual({
       kind: 'pending-question',
       pendingQuestion: {
         id: 'pending-question-assistant:tool-1',
@@ -799,7 +799,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(durableProject, 'scope', [], false)).toEqual({
       project: durableProject.project,
       workflow: durableProject.workflow,
-      turnCard: null,
+      activeArtifact: null,
       phaseSummary: null,
       showGeneratingState: false,
       promptInput: { visible: true },
@@ -807,7 +807,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(durableProject, 'design', [], false)).toEqual({
       project: durableProject.project,
       workflow: durableProject.workflow,
-      turnCard: {
+      activeArtifact: {
         kind: 'persisted-turn',
         turn: projectState.turns[1]!,
         state: 'active',

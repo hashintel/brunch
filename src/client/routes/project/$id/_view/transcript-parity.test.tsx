@@ -152,7 +152,7 @@ vi.mock('./-interview-controller.js', () => ({
       confirmPhaseClosure: vi.fn(),
       forcePhaseClosure: vi.fn(),
     },
-    turnCard: {
+    activeArtifact: {
       kind: 'persisted-turn',
       turn: testState.activeTurn,
       state: 'active',

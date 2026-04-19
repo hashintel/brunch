@@ -969,16 +969,14 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(screen.getAllByTestId('answered-turn-card')).toHaveLength(1);
-      expect(screen.getByTestId('accepted-closure-turn-card')).toBeTruthy();
+      expect(screen.getByTestId('accepted-closure-card')).toBeTruthy();
     });
     expect(screen.getByTestId('answered-turn-card').textContent).toContain('What should we build first?');
-    expect(screen.getByTestId('accepted-closure-turn-card').textContent).toContain(
-      'Grounding closure confirmed',
-    );
-    expect(screen.getByTestId('accepted-closure-turn-card').textContent).toContain(
+    expect(screen.getByTestId('accepted-closure-card').textContent).toContain('Grounding closure confirmed');
+    expect(screen.getByTestId('accepted-closure-card').textContent).toContain(
       'Goals, terms, context, and constraints are sufficiently captured.',
     );
-    expect(screen.getByTestId('accepted-closure-turn-card').textContent).not.toContain(
+    expect(screen.getByTestId('accepted-closure-card').textContent).not.toContain(
       'Confirm grounding closure',
     );
   });
@@ -1277,7 +1275,7 @@ describe('InterviewView', () => {
 
     renderWorkspace();
 
-    expect((await screen.findByTestId('kickoff-turn-card')).textContent).toContain(
+    expect((await screen.findByTestId('kickoff-control-card')).textContent).toContain(
       'How should this specification start?',
     );
     expect(screen.getByText('New concept from scratch')).toBeTruthy();
@@ -1321,11 +1319,11 @@ describe('InterviewView', () => {
 
     renderWorkspace();
 
-    expect((await screen.findByTestId('recovery-turn-card')).textContent).toContain('Continue');
+    expect((await screen.findByTestId('recovery-control-card')).textContent).toContain('Continue');
     expect(screen.getByText('Restore the next interview turn')).toBeTruthy();
     expect(screen.queryByLabelText('Type a message...')).toBeNull();
 
-    fireEvent.click(screen.getByTestId('recovery-turn-card'));
+    fireEvent.click(screen.getByTestId('recovery-control-card'));
 
     await waitFor(() => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Continue the grounding phase.' });
@@ -1353,7 +1351,7 @@ describe('InterviewView', () => {
 
     renderWorkspace('requirements');
 
-    const kickoffCard = await screen.findByTestId('kickoff-turn-card');
+    const kickoffCard = await screen.findByTestId('kickoff-control-card');
     expect(kickoffCard.textContent).toContain('Requirements review');
     expect(kickoffCard.textContent).toContain(
       'This phase is ready to assemble the current requirement set for review.',
@@ -1435,7 +1433,7 @@ describe('InterviewView', () => {
     );
     expect(recoveryCard.textContent).not.toContain('interview turn');
 
-    fireEvent.click(screen.getByTestId('recovery-turn-card'));
+    fireEvent.click(screen.getByTestId('recovery-control-card'));
 
     await waitFor(() => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({

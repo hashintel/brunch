@@ -249,16 +249,16 @@ function ControllerProbe() {
     <div>
       <div data-testid="project-name">{workspace.project.name}</div>
       <div data-testid="messages">{messageText(workspace.chat.messages)}</div>
-      <div data-testid="turn-card-kind">{workspace.turnCard?.kind ?? 'none'}</div>
-      <div data-testid="turn-card">
-        {workspace.turnCard?.kind === 'persisted-turn'
-          ? workspace.turnCard.turn.question
-          : workspace.turnCard?.kind === 'pending-question'
-            ? workspace.turnCard.pendingQuestion.question
-            : workspace.turnCard?.kind === 'kickoff'
-              ? `${workspace.turnCard.kickoff.mode}:${workspace.turnCard.kickoff.phase}`
-              : workspace.turnCard?.kind === 'recovery'
-                ? `recovery:${workspace.turnCard.recovery.phase}`
+      <div data-testid="active-artifact-kind">{workspace.activeArtifact?.kind ?? 'none'}</div>
+      <div data-testid="active-artifact">
+        {workspace.activeArtifact?.kind === 'persisted-turn'
+          ? workspace.activeArtifact.turn.question
+          : workspace.activeArtifact?.kind === 'pending-question'
+            ? workspace.activeArtifact.pendingQuestion.question
+            : workspace.activeArtifact?.kind === 'kickoff'
+              ? `${workspace.activeArtifact.kickoff.mode}:${workspace.activeArtifact.kickoff.phase}`
+              : workspace.activeArtifact?.kind === 'recovery'
+                ? `recovery:${workspace.activeArtifact.recovery.phase}`
                 : 'none'}
       </div>
       <div data-testid="prompt-visible">{String(workspace.promptInput.visible)}</div>
@@ -266,8 +266,8 @@ function ControllerProbe() {
         type="button"
         data-testid="submit-kickoff-brownfield"
         onClick={() => {
-          if (workspace.turnCard?.kind === 'kickoff') {
-            workspace.turnCard.submitKickoff('brownfield');
+          if (workspace.activeArtifact?.kind === 'kickoff') {
+            workspace.activeArtifact.submitKickoff('brownfield');
           }
         }}
       >
@@ -312,8 +312,8 @@ describe('interview controller', () => {
 
     renderController();
 
-    expect((await screen.findByTestId('turn-card-kind')).textContent).toBe('kickoff');
-    expect(screen.getByTestId('turn-card').textContent).toBe('start:scope');
+    expect((await screen.findByTestId('active-artifact-kind')).textContent).toBe('kickoff');
+    expect(screen.getByTestId('active-artifact').textContent).toBe('start:scope');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
   });
 
@@ -327,8 +327,8 @@ describe('interview controller', () => {
 
     renderController();
 
-    expect((await screen.findByTestId('turn-card-kind')).textContent).toBe('recovery');
-    expect(screen.getByTestId('turn-card').textContent).toBe('recovery:scope');
+    expect((await screen.findByTestId('active-artifact-kind')).textContent).toBe('recovery');
+    expect(screen.getByTestId('active-artifact').textContent).toBe('recovery:scope');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
   });
 
@@ -347,7 +347,7 @@ describe('interview controller', () => {
 
     renderController();
 
-    await screen.findByTestId('turn-card-kind');
+    await screen.findByTestId('active-artifact-kind');
     fireEvent.click(screen.getByTestId('submit-kickoff-brownfield'));
 
     await waitFor(() => {
@@ -376,7 +376,7 @@ describe('interview controller', () => {
 
     renderController();
 
-    expect((await screen.findByTestId('turn-card')).textContent).toBe('none');
+    expect((await screen.findByTestId('active-artifact')).textContent).toBe('none');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
 
     await act(async () => {
@@ -388,8 +388,8 @@ describe('interview controller', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('turn-card-kind').textContent).toBe('pending-question');
-      expect(screen.getByTestId('turn-card').textContent).toBe('Which platform should we target next?');
+      expect(screen.getByTestId('active-artifact-kind').textContent).toBe('pending-question');
+      expect(screen.getByTestId('active-artifact').textContent).toBe('Which platform should we target next?');
       expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
       expect(routerInvalidate).not.toHaveBeenCalled();
     });
@@ -405,8 +405,8 @@ describe('interview controller', () => {
     expect((await screen.findByTestId('messages')).textContent).toBe(
       'Build the web app|What should we build first?',
     );
-    expect(screen.getByTestId('turn-card').textContent).toBe('recovery:scope');
-    expect(screen.getByTestId('turn-card-kind').textContent).toBe('recovery');
+    expect(screen.getByTestId('active-artifact').textContent).toBe('recovery:scope');
+    expect(screen.getByTestId('active-artifact-kind').textContent).toBe('recovery');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
     expect(fetchMock).not.toHaveBeenCalled();
   });

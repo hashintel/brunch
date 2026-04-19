@@ -95,7 +95,7 @@ export function getReviewPhaseControlCopy(phase: WorkflowPhase) {
   return null;
 }
 
-export function KickoffTurnCard({
+export function KickoffControlCard({
   phase,
   mode,
   onProceed,
@@ -114,7 +114,7 @@ export function KickoffTurnCard({
 
   return (
     <WorkspaceStateCard
-      testId="kickoff-turn-card"
+      testId="kickoff-control-card"
       eyebrow={mode === 'start' ? 'Phase kickoff' : 'Continue phase'}
       title={
         showsGroundingStrategyChoice
@@ -173,7 +173,7 @@ export function KickoffTurnCard({
   );
 }
 
-export function RecoveryTurnCard({
+export function RecoveryControlCard({
   phase,
   onRecover,
   disabled,
@@ -196,7 +196,7 @@ export function RecoveryTurnCard({
     >
       <button
         type="button"
-        data-testid="recovery-turn-card"
+        data-testid="recovery-control-card"
         onClick={onRecover}
         disabled={disabled}
         className={cn(
@@ -252,7 +252,7 @@ export function PhaseSummaryCard({
   );
 }
 
-export function AcceptedClosureTurnCard({ phase, summary }: { phase: WorkflowPhase; summary: string }) {
+export function AcceptedClosureCard({ phase, summary }: { phase: WorkflowPhase; summary: string }) {
   return (
     <WorkspaceStateCard
       eyebrow="Phase closure confirmed"

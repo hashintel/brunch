@@ -13,10 +13,10 @@ import {
 import { ShellButton } from '@/client/components/app-shell';
 import { ChatScroll } from '@/client/components/chat-scroll';
 import {
-  AcceptedClosureTurnCard,
-  KickoffTurnCard,
+  AcceptedClosureCard,
+  KickoffControlCard,
   PhaseSummaryCard,
-  RecoveryTurnCard,
+  RecoveryControlCard,
   ReviewPhaseBanner,
   TranscriptMetaPlaceholder,
   WorkspaceStateCard,
@@ -157,7 +157,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
     phaseTurns,
     phaseSummary,
     promptInput,
-    turnCard,
+    activeArtifact,
     captureStatusByTurnId,
     showGeneratingState,
   } = useInterviewController(phase);
@@ -168,12 +168,12 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const nextPhase = getNextActivePhase(workflow.phases, phase);
   // TODO: re-enable when auto-present is restored
   const _hasVisibleActiveTurn =
-    turnCard?.kind === 'pending-question' ||
-    (turnCard?.kind === 'persisted-turn' && !turnHasCompletedAnswer(turnCard.turn));
+    activeArtifact?.kind === 'pending-question' ||
+    (activeArtifact?.kind === 'persisted-turn' && !turnHasCompletedAnswer(activeArtifact.turn));
   const renderedPersistedTurnId =
-    turnCard?.kind === 'persisted-turn' &&
-    (!turnHasCompletedAnswer(turnCard.turn) || turnCard.state === 'submitted')
-      ? turnCard.turn.id
+    activeArtifact?.kind === 'persisted-turn' &&
+    (!turnHasCompletedAnswer(activeArtifact.turn) || activeArtifact.state === 'submitted')
+      ? activeArtifact.turn.id
       : null;
   const completedPhaseItems = phaseTurns.reduce<
     Array<
@@ -383,12 +383,12 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                   ) : (
                     <div
                       key={`accepted-closure-${item.acceptedClosure.turnId}`}
-                      data-testid="accepted-closure-turn-card"
+                      data-testid="accepted-closure-card"
                     >
                       {renderPersistedActivity(
                         phaseTurns.find((turn) => turn.id === item.acceptedClosure.turnId),
                       )}
-                      <AcceptedClosureTurnCard
+                      <AcceptedClosureCard
                         phase={item.acceptedClosure.phase}
                         summary={item.acceptedClosure.summary}
                       />
@@ -463,33 +463,36 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
 
           {/* ── Zone 2: Divider between answered and frontier ─────────── */}
           {completedPhaseItems.length > 0 &&
-            (turnCard?.kind === 'persisted-turn' ||
-              turnCard?.kind === 'pending-question' ||
+            (activeArtifact?.kind === 'persisted-turn' ||
+              activeArtifact?.kind === 'pending-question' ||
               showGeneratingState) && <hr className="my-6 border-rule" />}
 
           {/* ── Zone 3: Active frontier ──────────────────────────────── */}
           <div className="mx-auto w-full max-w-2xl">
-            {turnCard?.kind === 'persisted-turn' &&
-              (!turnHasCompletedAnswer(turnCard.turn) || turnCard.state === 'submitted') && (
+            {activeArtifact?.kind === 'persisted-turn' &&
+              (!turnHasCompletedAnswer(activeArtifact.turn) || activeArtifact.state === 'submitted') && (
                 <div className="flex flex-col">
-                  {renderPersistedActivity(turnCard.turn)}
+                  {renderPersistedActivity(activeArtifact.turn)}
                   {(() => {
-                    const reviewSet = getPersistedReviewSet(turnCard.turn) ?? fallbackReviewSet;
+                    const reviewSet = getPersistedReviewSet(activeArtifact.turn) ?? fallbackReviewSet;
 
                     if (reviewSet) {
                       return (
                         <ActiveReviewSetCard
-                          key={`persisted-review-turn-${turnCard.turn.id}`}
-                          question={turnCard.turn.question}
-                          why={turnCard.turn.why}
-                          options={turnCard.turn.options ?? []}
-                          onSubmitResponse={turnCard.submitTurnResponse}
-                          persistedFreeText={getPersistedTurnResponse(turnCard.turn)?.freeText?.trim() ?? ''}
-                          hasPersistedResponse={
-                            turnCard.state === 'submitted' && turnHasCompletedAnswer(turnCard.turn)
+                          key={`persisted-review-turn-${activeArtifact.turn.id}`}
+                          question={activeArtifact.turn.question}
+                          why={activeArtifact.turn.why}
+                          options={activeArtifact.turn.options ?? []}
+                          onSubmitResponse={activeArtifact.submitTurnResponse}
+                          persistedFreeText={
+                            getPersistedTurnResponse(activeArtifact.turn)?.freeText?.trim() ?? ''
                           }
-                          disabled={turnCard.disabled}
-                          state={turnCard.state}
+                          hasPersistedResponse={
+                            activeArtifact.state === 'submitted' &&
+                            turnHasCompletedAnswer(activeArtifact.turn)
+                          }
+                          disabled={activeArtifact.disabled}
+                          state={activeArtifact.state}
                           reviewSet={reviewSet}
                         />
                       );
@@ -497,78 +500,80 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
 
                     return (
                       <ActiveQuestionCard
-                        key={`persisted-turn-${turnCard.turn.id}`}
-                        id={`persisted-turn-${turnCard.turn.id}`}
+                        key={`persisted-turn-${activeArtifact.turn.id}`}
+                        id={`persisted-turn-${activeArtifact.turn.id}`}
                         questionCode={activeQuestionCode}
-                        question={turnCard.turn.question}
-                        why={turnCard.turn.why}
-                        impact={turnCard.turn.impact}
-                        options={turnCard.turn.options ?? []}
-                        onSubmitResponse={turnCard.submitTurnResponse}
-                        persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
-                        persistedFreeText={getPersistedTurnResponse(turnCard.turn)?.freeText?.trim() ?? ''}
-                        hasPersistedResponse={
-                          turnCard.state === 'submitted' && turnHasCompletedAnswer(turnCard.turn)
+                        question={activeArtifact.turn.question}
+                        why={activeArtifact.turn.why}
+                        impact={activeArtifact.turn.impact}
+                        options={activeArtifact.turn.options ?? []}
+                        onSubmitResponse={activeArtifact.submitTurnResponse}
+                        persistedSelectedPositions={getPersistedSelectedPositions(activeArtifact.turn)}
+                        persistedFreeText={
+                          getPersistedTurnResponse(activeArtifact.turn)?.freeText?.trim() ?? ''
                         }
-                        disabled={turnCard.disabled}
-                        state={turnCard.state}
+                        hasPersistedResponse={
+                          activeArtifact.state === 'submitted' && turnHasCompletedAnswer(activeArtifact.turn)
+                        }
+                        disabled={activeArtifact.disabled}
+                        state={activeArtifact.state}
                       />
                     );
                   })()}
                 </div>
               )}
 
-            {turnCard?.kind === 'pending-question' &&
+            {activeArtifact?.kind === 'pending-question' &&
               (fallbackReviewSet ? (
                 <ActiveReviewSetCard
-                  key={`pending-review-turn-${turnCard.pendingQuestion.id}`}
-                  question={turnCard.pendingQuestion.question}
-                  why={turnCard.pendingQuestion.why}
-                  options={turnCard.pendingQuestion.options}
+                  key={`pending-review-turn-${activeArtifact.pendingQuestion.id}`}
+                  question={activeArtifact.pendingQuestion.question}
+                  why={activeArtifact.pendingQuestion.why}
+                  options={activeArtifact.pendingQuestion.options}
                   persistedFreeText=""
                   hasPersistedResponse={false}
-                  disabled={turnCard.disabled}
+                  disabled={activeArtifact.disabled}
                   state="active"
                   reviewSet={fallbackReviewSet}
                 />
               ) : (
                 <ActiveQuestionCard
-                  key={turnCard.pendingQuestion.id}
-                  id={turnCard.pendingQuestion.id}
+                  key={activeArtifact.pendingQuestion.id}
+                  id={activeArtifact.pendingQuestion.id}
                   questionCode={activeQuestionCode}
-                  question={turnCard.pendingQuestion.question}
-                  why={turnCard.pendingQuestion.why}
-                  impact={turnCard.pendingQuestion.impact}
-                  options={turnCard.pendingQuestion.options}
+                  question={activeArtifact.pendingQuestion.question}
+                  why={activeArtifact.pendingQuestion.why}
+                  impact={activeArtifact.pendingQuestion.impact}
+                  options={activeArtifact.pendingQuestion.options}
                   persistedSelectedPositions={[]}
                   persistedFreeText=""
                   hasPersistedResponse={false}
-                  disabled={turnCard.disabled}
+                  disabled={activeArtifact.disabled}
                   state="active"
                 />
               ))}
 
-            {turnCard?.kind === 'kickoff' && !showLockedState && (
-              <KickoffTurnCard
-                phase={turnCard.kickoff.phase}
-                mode={turnCard.kickoff.mode}
-                onProceed={() => turnCard.submitKickoff()}
-                onSelectStrategy={(mode) => turnCard.submitKickoff(mode)}
-                disabled={turnCard.disabled}
+            {activeArtifact?.kind === 'kickoff' && !showLockedState && (
+              <KickoffControlCard
+                phase={activeArtifact.kickoff.phase}
+                mode={activeArtifact.kickoff.mode}
+                onProceed={() => activeArtifact.submitKickoff()}
+                onSelectStrategy={(mode) => activeArtifact.submitKickoff(mode)}
+                disabled={activeArtifact.disabled}
               />
             )}
 
-            {turnCard?.kind === 'recovery' && !showLockedState && (
-              <RecoveryTurnCard
-                phase={turnCard.recovery.phase}
-                onRecover={turnCard.submitRecovery}
-                disabled={turnCard.disabled}
+            {activeArtifact?.kind === 'recovery' && !showLockedState && (
+              <RecoveryControlCard
+                phase={activeArtifact.recovery.phase}
+                onRecover={activeArtifact.submitRecovery}
+                disabled={activeArtifact.disabled}
               />
             )}
 
-            {turnCard?.kind === 'persisted-turn' && turnCard.errorMessage && (
+            {activeArtifact?.kind === 'persisted-turn' && activeArtifact.errorMessage && (
               <p role="alert" className="mt-3 text-sm text-destructive">
-                {turnCard.errorMessage}
+                {activeArtifact.errorMessage}
               </p>
             )}
 

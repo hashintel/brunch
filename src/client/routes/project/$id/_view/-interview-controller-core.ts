@@ -48,12 +48,12 @@ export interface PendingQuestionViewModel {
 
 export type KickoffMode = 'start' | 'continue';
 
-export interface KickoffTurnViewModel {
+export interface KickoffControlViewModel {
   readonly phase: WorkflowPhase;
   readonly mode: KickoffMode;
 }
 
-export interface RecoveryTurnViewModel {
+export interface RecoveryControlViewModel {
   readonly phase: WorkflowPhase;
 }
 
@@ -63,20 +63,20 @@ export interface PhaseSummaryViewModel {
   readonly summary: string;
 }
 
-export type InterviewTurnCardViewModel =
+export type InterviewActiveArtifactViewModel =
   | {
       readonly kind: 'persisted-turn';
       readonly turn: ProjectStateTurn;
       readonly state: 'active' | 'submitted';
     }
   | { readonly kind: 'pending-question'; readonly pendingQuestion: PendingQuestionViewModel }
-  | { readonly kind: 'kickoff'; readonly kickoff: KickoffTurnViewModel }
-  | { readonly kind: 'recovery'; readonly recovery: RecoveryTurnViewModel };
+  | { readonly kind: 'kickoff'; readonly kickoff: KickoffControlViewModel }
+  | { readonly kind: 'recovery'; readonly recovery: RecoveryControlViewModel };
 
 export interface InterviewControllerViewState {
   readonly project: InterviewDurableProjectState['project'];
   readonly workflow: InterviewDurableProjectState['workflow'];
-  readonly turnCard: InterviewTurnCardViewModel | null;
+  readonly activeArtifact: InterviewActiveArtifactViewModel | null;
   readonly phaseSummary: PhaseSummaryViewModel | null;
   readonly showGeneratingState: boolean;
   readonly promptInput: {
@@ -357,7 +357,7 @@ export function createInterviewControllerViewState(
     phaseState.status !== 'closed' &&
     !showPersistedTurn &&
     landing?.kind === 'kickoff';
-  const turnCard: InterviewTurnCardViewModel | null = phaseSummary
+  const activeArtifact: InterviewActiveArtifactViewModel | null = phaseSummary
     ? null
     : pendingQuestion
       ? { kind: 'pending-question', pendingQuestion }
@@ -387,9 +387,9 @@ export function createInterviewControllerViewState(
   return {
     project,
     workflow,
-    turnCard,
+    activeArtifact,
     phaseSummary,
-    showGeneratingState: !phaseSummary && !turnCard && isLoading,
+    showGeneratingState: !phaseSummary && !activeArtifact && isLoading,
     promptInput: {
       visible:
         isLoading || phaseSummary || pendingQuestion || showKickoff || showRecovery
