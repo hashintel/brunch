@@ -3,8 +3,8 @@
 ## Orientation
 - **Containing seam:** interaction-family canonicalization across the routed interview surface and workflow runtime (`src/client/routes/project/$id/_view/*`, `src/server/app.ts`, `src/server/phase-intent-runtime.ts`, `src/server/core.ts`, `src/shared/project-state-turn.ts`).
 - **Containing frontier item:** `memory/PLAN.md` Active #1 — **Interaction-family canonicalization: durable turn cards plus projected control cards**.
-- **Volatile follow-up:** the merged-stream cutover is done, but chat submit plumbing still fabricates transitional kickoff / recovery rows and the dead generic composer seam still lingers in the interview controller/view contract.
-- **Main open risk:** if submit/runtime control flow keeps depending on persisted control rows or a dormant composer contract, the new stream model stays truthful only on read, not on mutation.
+- **Volatile follow-up:** the first three interaction-family cleanup slices are now complete; the remaining work under frontier item #1 is deeper grounding/context-gathering and handoff refinement on the cleaned model.
+- **Main open risk:** future grounding or handoff work could accidentally reintroduce turn-shaped control exceptions after the runtime/control-row cleanup is complete.
 
 ---
 
@@ -69,7 +69,7 @@ The routed interview surface no longer exposes a dormant generic prompt-input co
 
 ## Card 3 — Quarantine legacy control-row support to explicit compatibility helpers
 
-_Status: scoped_
+_Status: done 2026-04-19 · Verified: `npm run verify`_
 
 ### Target Behavior
 Legacy kickoff/recovery turn rows are no longer created by general runtime helpers; any remaining support for seeded legacy control rows lives behind explicit compatibility-only helpers and tests.

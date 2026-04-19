@@ -4,7 +4,6 @@ import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
 import {
-  ensureProjectFrontier,
   extractPrompt,
   finalizeTurn,
   getProjectState,
@@ -24,6 +23,7 @@ import {
   linkKnowledgeItemToTurn,
   type DB,
 } from './db.js';
+import { createLegacyKickoffTurnForTesting } from './test-support/legacy-control-rows.js';
 
 let db: DB;
 
@@ -423,7 +423,7 @@ describe('getProjectState', () => {
 
   it('projects the first scope landing as kickoff with grounding strategy choices once the runtime seeds entry state', () => {
     const project = createProject(db, 'Spec');
-    ensureProjectFrontier(db, project.id);
+    createLegacyKickoffTurnForTesting(db, project.id);
 
     const state = getProjectState(db, project.id);
 

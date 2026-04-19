@@ -1,12 +1,6 @@
-import type { ProjectListItem, ProjectState, ProjectStateTurn, TurnKind } from '@/shared/api-types.js';
+import type { ProjectListItem, ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
 import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { extractTextFromMessage } from '@/shared/chat.js';
-import {
-  groundingStrategyChoices,
-  groundingStrategyKickoffDescription,
-  groundingStrategyKickoffQuestion,
-} from '@/shared/grounding-strategy.js';
-import type { WorkflowPhase } from '@/shared/phase-close.js';
 import { phaseOrder } from '@/shared/phase-routes.js';
 import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
 
@@ -18,7 +12,6 @@ import {
   getCurrentWorkflowState,
   createTurn,
   advanceHead,
-  createOption,
   getCapturedItemsForTurns,
   listProjects,
   createProject,
@@ -74,71 +67,6 @@ export function prepareTurn(
     user_parts: serializeParts(userParts),
   });
   return { project, turn, activePath };
-}
-
-function createFrontierOfferTurn(
-  db: DB,
-  projectId: number,
-  parentTurnId: number | null,
-  phase: WorkflowPhase,
-): Turn {
-  const phaseTurns = getActivePath(db, projectId).filter((turn) => turn.phase === phase);
-  const hasSubstantiveHistory = phaseTurns.some(
-    (turn) =>
-      turn.turn_kind !== 'kickoff' &&
-      (turn.question.trim().length > 0 || getOptionsForTurn(db, turn.id).length > 0),
-  );
-  const turnKind: TurnKind = hasSubstantiveHistory ? 'recovery' : 'kickoff';
-
-  const turn = createTurn(db, projectId, {
-    parent_turn_id: parentTurnId,
-    phase,
-    turn_kind: turnKind,
-    question: '',
-    answer: null,
-    user_parts: null,
-    assistant_parts: null,
-    why: null,
-  });
-
-  if (turnKind === 'kickoff' && phase === 'scope' && !hasSubstantiveHistory) {
-    updateTurn(db, turn.id, {
-      question: groundingStrategyKickoffQuestion,
-      why: groundingStrategyKickoffDescription,
-    });
-    for (const choice of groundingStrategyChoices) {
-      createOption(db, turn.id, {
-        position: choice.position,
-        content: choice.title,
-        is_recommended: choice.isRecommended,
-      });
-    }
-  }
-
-  return turn;
-}
-
-export function ensureProjectFrontier(db: DB, projectId: number): Turn | null {
-  const project = getProject(db, projectId);
-  if (!project) {
-    return null;
-  }
-
-  const workflow = getCurrentWorkflowState(db, projectId);
-  const activePhase = getCurrentPhase(db, projectId);
-  const phaseState = workflow.phases[activePhase];
-  if (phaseState.status === 'closed' || phaseState.proposalPending) {
-    return null;
-  }
-
-  const activeTurn = project.active_turn_id ? getTurn(db, project.active_turn_id) : undefined;
-  if (activeTurn?.phase === activePhase && activeTurn.answer === null) {
-    return activeTurn;
-  }
-
-  const frontierTurn = createFrontierOfferTurn(db, projectId, project.active_turn_id ?? null, activePhase);
-  advanceHead(db, projectId, frontierTurn.id);
-  return frontierTurn;
 }
 
 export function prepareSuccessorTurn(

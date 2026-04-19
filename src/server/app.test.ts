@@ -1198,8 +1198,8 @@ describe('phase outcomes + scope closure', () => {
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.scope).toEqual({
       status: 'in_progress',
-      closeability: true,
-      readiness: 'medium',
+      closeability: false,
+      readiness: 'low',
       closureBasis: null,
       proposalPending: true,
       turnId: 2,
@@ -1267,7 +1267,7 @@ describe('phase outcomes + scope closure', () => {
         turnId: 2,
         summary: 'Goals, terms, context, and constraints are sufficiently captured.',
         closeability: false,
-        readiness: 'medium',
+        readiness: 'low',
         closureBasis: 'interviewer_recommended',
         proposalPending: false,
       }),
@@ -2606,9 +2606,9 @@ describe('POST /api/projects/:id/phase-intent', () => {
 
   it('submits a seeded kickoff row through the same phase-entry intent seam', async () => {
     const { createProject, getActivePath, getProject, getOptionsForTurn } = await import('./db.js');
-    const { ensureProjectFrontier } = await import('./core.js');
+    const { createLegacyKickoffTurnForTesting } = await import('./test-support/legacy-control-rows.js');
     const project = createProject(db, 'Seeded kickoff row');
-    const kickoffTurn = ensureProjectFrontier(db, project.id);
+    const kickoffTurn = createLegacyKickoffTurnForTesting(db, project.id);
 
     expect(kickoffTurn?.turn_kind).toBe('kickoff');
 
@@ -2680,9 +2680,9 @@ describe('POST /api/projects/:id/phase-intent', () => {
 
   it('selects the seeded kickoff option by typed intent instead of exact display copy', async () => {
     const { createProject, getActivePath, getOptionsForTurn } = await import('./db.js');
-    const { ensureProjectFrontier } = await import('./core.js');
+    const { createLegacyKickoffTurnForTesting } = await import('./test-support/legacy-control-rows.js');
     const project = createProject(db, 'Seeded kickoff copy drift');
-    const kickoffTurn = ensureProjectFrontier(db, project.id);
+    const kickoffTurn = createLegacyKickoffTurnForTesting(db, project.id);
 
     expect(kickoffTurn?.turn_kind).toBe('kickoff');
     db.$client

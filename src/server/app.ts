@@ -39,7 +39,6 @@ import { getPhaseIntentDisplayText } from '@/shared/phase-intents.js';
 import { getReviewActionForSelectedPositions } from '@/shared/project-state-turn.js';
 
 import {
-  ensureProjectFrontier,
   extractPrompt,
   finalizeTurn,
   getProjectState,
@@ -553,10 +552,15 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           projectState.project.active_turn_id ?? null,
         );
       } else {
-        ensureProjectFrontier(db, id);
-        const frontierProject = getProjectState(db, id)?.project;
-        const activeTurn = frontierProject?.active_turn_id
-          ? getTurn(db, frontierProject.active_turn_id)
+        const projectState = getProjectState(db, id);
+        if (!projectState) {
+          res.status(404).json({ error: 'Project not found' });
+          return;
+        }
+
+        const currentPhase = getCurrentPhase(db, id);
+        const activeTurn = projectState.project.active_turn_id
+          ? getTurn(db, projectState.project.active_turn_id)
           : undefined;
 
         const activeOutcome = activeTurn ? findPhaseOutcomeForTurn(db, id, activeTurn.id) : undefined;
@@ -569,13 +573,10 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           observedTurnId = activeTurn.id;
           prepared = prepareSuccessorTurn(db, id, activeTurn.phase, activeTurn.id);
         } else {
-          observedTurnId = activeTurn?.id ?? null;
-          prepared = prepareSuccessorTurn(
-            db,
-            id,
-            activeTurn?.phase ?? getCurrentPhase(db, id),
-            frontierProject?.active_turn_id ?? null,
-          );
+          const answeredTurn = prepareTurn(db, id, promptText, persistedUserParts, currentPhase);
+          finalizeTurn(db, id, answeredTurn.turn.id);
+          observedTurnId = answeredTurn.turn.id;
+          prepared = prepareSuccessorTurn(db, id, currentPhase, answeredTurn.turn.id);
         }
       }
     } catch (error) {
