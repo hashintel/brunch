@@ -2553,6 +2553,9 @@ describe('POST /api/projects/:id/phase-intent', () => {
   it('persists brownfield mode from landing-only kickoff state without creating a kickoff row first', async () => {
     const { createProject, getActivePath, getProject } = await import('./db.js');
     const project = createProject(db, 'Landing-only kickoff');
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
 
     expect(getActivePath(db, project.id)).toHaveLength(0);
 
@@ -2595,6 +2598,10 @@ describe('POST /api/projects/:id/phase-intent', () => {
       'scope',
       { mode: 'brownfield', cwd: process.cwd() },
     );
+
+    const activePath = getActivePath(db, project.id);
+    expect(activePath).toHaveLength(1);
+    expect(activePath.every((turn) => turn.turn_kind === 'question')).toBe(true);
   });
 
   it('submits a seeded kickoff row through the same phase-entry intent seam', async () => {
@@ -2621,6 +2628,54 @@ describe('POST /api/projects/:id/phase-intent', () => {
     });
     expect(updatedKickoffTurn.answer).toBe('Feature within existing codebase');
     expect(selectedOption?.content).toBe('Feature within existing codebase');
+  });
+
+  it('submits recovery through chat without fabricating a recovery row', async () => {
+    const { createProject, createTurn, getActivePath } = await import('./db.js');
+    const { finalizeTurn } = await import('./core.js');
+    const project = createProject(db, 'Recovery without control row');
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    const answeredTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What are we building?',
+      answer: 'A chat app',
+    });
+    finalizeTurn(db, project.id, answeredTurn.id);
+
+    await request(app)
+      .post(`/api/projects/${project.id}/phase-intent`)
+      .send({ kind: 'phase-continue', phase: 'scope' })
+      .expect(200, { ok: true });
+
+    await request(app)
+      .post(`/api/projects/${project.id}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-recovery-continue',
+            role: 'user',
+            parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'scope' } }],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.any(Array),
+      'Continue the grounding phase.',
+      'scope',
+      undefined,
+    );
+
+    const activePath = getActivePath(db, project.id);
+    expect(activePath).toHaveLength(2);
+    expect(activePath[0]?.id).toBe(answeredTurn.id);
+    expect(activePath.every((turn) => turn.turn_kind === 'question')).toBe(true);
   });
 
   it('selects the seeded kickoff option by typed intent instead of exact display copy', async () => {

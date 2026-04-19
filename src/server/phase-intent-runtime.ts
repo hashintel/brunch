@@ -1,5 +1,6 @@
 import type {
   ProjectStateTurn,
+  SpecificationLanding,
   SubmitPhaseIntentRequest,
   SubmitPhaseIntentResponse,
   WorkflowPhase,
@@ -89,6 +90,22 @@ function findLatestPhaseTurn(
   return [...turns].reverse().find((turn) => turn.phase === phase) ?? null;
 }
 
+export function getPhaseIntentRuntimeAvailabilityError(
+  request: SubmitPhaseIntentRequest,
+  landing: SpecificationLanding | null | undefined,
+): PhaseIntentRuntimeError | null {
+  if (request.kind === 'phase-entry') {
+    return landing?.kind === 'kickoff' && landing.phase === request.phase
+      ? null
+      : { ok: false, status: 409, error: 'Phase entry is not currently available' };
+  }
+
+  return request.phase === landing?.phase &&
+    (landing.kind === 'recovery' || (landing.kind === 'kickoff' && landing.mode === 'continue'))
+    ? null
+    : { ok: false, status: 409, error: 'Phase continue is not currently available' };
+}
+
 export function submitPhaseIntentWithRuntimeCompatibility({
   db,
   projectId,
@@ -111,11 +128,14 @@ export function submitPhaseIntentWithRuntimeCompatibility({
   const activePhaseTurn = findLatestPhaseTurn(turns, request.phase);
 
   if (request.kind === 'phase-entry') {
-    if (landing?.kind !== 'kickoff' || landing.phase !== request.phase) {
-      return { ok: false, status: 409, error: 'Phase entry is not currently available' };
+    const availabilityError = getPhaseIntentRuntimeAvailabilityError(request, landing);
+    if (availabilityError) {
+      return availabilityError;
     }
 
-    if (request.phase === 'scope' && landing.mode === 'start' && request.mode) {
+    const kickoffLanding = landing?.kind === 'kickoff' ? landing : null;
+
+    if (request.phase === 'scope' && kickoffLanding?.mode === 'start' && request.mode) {
       const activeKickoffTurn =
         activePhaseTurn && isGroundingStrategyKickoffTurn(activePhaseTurn) ? activePhaseTurn : null;
       if (activeKickoffTurn) {
@@ -143,11 +163,9 @@ export function submitPhaseIntentWithRuntimeCompatibility({
     return { ok: true };
   }
 
-  if (
-    request.phase !== landing?.phase ||
-    (landing.kind !== 'recovery' && !(landing.kind === 'kickoff' && landing.mode === 'continue'))
-  ) {
-    return { ok: false, status: 409, error: 'Phase continue is not currently available' };
+  const availabilityError = getPhaseIntentRuntimeAvailabilityError(request, landing);
+  if (availabilityError) {
+    return availabilityError;
   }
 
   return { ok: true };

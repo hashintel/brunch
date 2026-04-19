@@ -77,7 +77,10 @@ import { isExportReady, renderExportMarkdown } from './export.js';
 import { buildReviewSetForPhase, persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { safeDeserializeAssistantParts, safeDeserializeUserParts, serializeParts } from './parts.js';
-import { submitPhaseIntentWithRuntimeCompatibility } from './phase-intent-runtime.js';
+import {
+  getPhaseIntentRuntimeAvailabilityError,
+  submitPhaseIntentWithRuntimeCompatibility,
+} from './phase-intent-runtime.js';
 
 export interface AppOptions {
   readonly dbPath?: string;
@@ -527,6 +530,28 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         confirmedClosureTurnId = proposalTurn.id;
       } else if (forceClosePhase) {
         prepared = prepareTurn(db, id, promptText, persistedUserParts, forceClosePhase);
+      } else if (phaseIntentPart) {
+        const projectState = getProjectState(db, id);
+        if (!projectState) {
+          res.status(404).json({ error: 'Project not found' });
+          return;
+        }
+
+        const availabilityError = getPhaseIntentRuntimeAvailabilityError(
+          phaseIntentPart.data,
+          projectState.landing,
+        );
+        if (availabilityError) {
+          res.status(availabilityError.status).json({ error: availabilityError.error });
+          return;
+        }
+
+        prepared = prepareSuccessorTurn(
+          db,
+          id,
+          phaseIntentPart.data.phase,
+          projectState.project.active_turn_id ?? null,
+        );
       } else {
         ensureProjectFrontier(db, id);
         const frontierProject = getProjectState(db, id)?.project;
