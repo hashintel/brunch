@@ -606,7 +606,8 @@ describe('POST /api/projects/:id/chat', () => {
         expect.objectContaining({ position: 0, content: 'Continue', is_recommended: true }),
       ]),
     );
-    expect(JSON.parse(groundingTurn.assistant_parts ?? '[]')).toEqual(
+    const assistantParts = JSON.parse(groundingTurn.assistant_parts ?? '[]');
+    expect(assistantParts).toEqual(
       expect.arrayContaining([
         {
           type: 'data-grounding-card',
@@ -617,6 +618,9 @@ describe('POST /api/projects/:id/chat', () => {
           },
         },
       ]),
+    );
+    expect(assistantParts).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: 'tool-present_grounding_card' })]),
     );
   });
 
@@ -3182,6 +3186,67 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       },
     ]);
   });
+  it('enforces explicit reviewAction semantics even when review options are reordered', async () => {
+    const projectId = await createTestProject();
+    const seededRequirements = seedRequirementsReady(projectId);
+    const { advanceHead, createOption, createTurn } = await import('./db.js');
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: seededRequirements.designConfirmationTurn.id,
+      question: 'Please review the current requirement set.',
+      why: 'The reordered labels should not change the submitted review action semantics.',
+      impact: 'high',
+      answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-reordered-requirements-review',
+          state: 'output-available',
+          input: {
+            question: 'Please review the current requirement set.',
+            why: 'The reordered labels should not change the submitted review action semantics.',
+            impact: 'high',
+            options: [
+              { content: 'Revise this set', is_recommended: false },
+              { content: 'Ship this set', is_recommended: true },
+            ],
+            reviewActions: [
+              { action: 'request-changes', optionPosition: 0 },
+              { action: 'accept', optionPosition: 1 },
+            ],
+          },
+          output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+      ]),
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Revise this set',
+      is_recommended: false,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Ship this set',
+      is_recommended: true,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [1], reviewAction: 'request-changes' })
+      .expect(400, {
+        error: 'Review turns must submit the explicit reviewAction for the selected option',
+      });
+
+    const response = await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [1], reviewAction: 'accept' })
+      .expect(200);
+
+    expect(response.body).toEqual({ ok: true, advancedToPhase: 'criteria' });
+  });
+
   it('accepting the requirements review materializes only the persisted review-set items onto the active path', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
