@@ -4,7 +4,7 @@
  * Shows closure proposal, accepted closure replay, review phase completion,
  * and workflow-complete terminal variants.
  */
-import { AcceptedClosureCard, PhaseSummaryCard } from '@/client/components/control-cards';
+import { AcceptedClosureCard, PhaseHandoffCard, PhaseSummaryCard } from '@/client/components/control-cards';
 import { ReviewPhaseCompletionCard } from '@/client/components/review-set-card';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import { Separator } from '@/client/components/ui/separator';
@@ -66,6 +66,29 @@ export function PhaseClosureStory() {
               phase="design"
               summary="Design elicitation concluded after 12 interview turns covering architecture, data model, API surface, and integration strategy."
             />
+          </div>
+        </section>
+
+        <Separator className="my-8" />
+
+        {/* ── Non-review phase handoff ─────────────────────────────── */}
+        <section>
+          <h2 className="text-base font-medium text-ink">Non-review phase handoff</h2>
+          <p className="mt-1 text-xs text-hint">PhaseHandoffCard · grounding complete with next-phase CTA</p>
+
+          <div className="mt-6 max-w-2xl">
+            <PhaseHandoffCard
+              phase="scope"
+              nextPhase="design"
+              summary="Goals, terms, context, and constraints are sufficiently captured."
+            >
+              <button
+                type="button"
+                className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+              >
+                Continue to Elicitation
+              </button>
+            </PhaseHandoffCard>
           </div>
         </section>
 

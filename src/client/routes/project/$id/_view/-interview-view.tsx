@@ -7,6 +7,7 @@ import { ChatScroll } from '@/client/components/chat-scroll';
 import {
   AcceptedClosureCard,
   KickoffControlCard,
+  PhaseHandoffCard,
   PhaseSummaryCard,
   RecoveryControlCard,
   TranscriptMetaPlaceholder,
@@ -546,32 +547,14 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                 );
               }
 
-              return (
-                <div
-                  key={`${artifact.kind}-${artifact.artifact.phase}`}
-                  className="flex min-h-[120px] flex-col items-start justify-center gap-3 rounded-xl border border-rule bg-tint px-6 py-5"
-                  data-testid="workspace-state-card"
-                >
-                  <p className="text-sm font-medium text-ink">
-                    {artifact.kind === 'workflow-complete'
-                      ? 'The interview workspace is complete'
-                      : `${getWorkflowPhaseLabel(artifact.artifact.phase)} phase is complete`}
-                  </p>
-                  <p className="text-xs-plus leading-relaxed text-sub">
-                    {artifact.artifact.summary ??
-                      (artifact.kind === 'workflow-complete'
-                        ? 'All phases are closed. Review the export to inspect the current structured spec output.'
-                        : 'This phase has been closed and handed off to the next phase.')}
-                  </p>
-                  {artifact.kind === 'workflow-complete' ? (
-                    <Link
-                      to="/project/$id/export"
-                      params={{ id: String(project.id) }}
-                      className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
-                    >
-                      Open export preview
-                    </Link>
-                  ) : (
+              if (artifact.kind === 'phase-handoff') {
+                return (
+                  <PhaseHandoffCard
+                    key={`${artifact.kind}-${artifact.artifact.phase}`}
+                    phase={artifact.artifact.phase}
+                    nextPhase={artifact.artifact.nextPhase}
+                    summary={artifact.artifact.summary}
+                  >
                     <Link
                       to={
                         `/project/$id/${phaseRouteSegments[artifact.artifact.nextPhase]}` as '/project/$id/grounding'
@@ -581,7 +564,28 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                     >
                       Continue to {getWorkflowPhaseLabel(artifact.artifact.nextPhase)}
                     </Link>
-                  )}
+                  </PhaseHandoffCard>
+                );
+              }
+
+              return (
+                <div
+                  key={`${artifact.kind}-${artifact.artifact.phase}`}
+                  className="flex min-h-[120px] flex-col items-start justify-center gap-3 rounded-xl border border-rule bg-tint px-6 py-5"
+                  data-testid="workspace-state-card"
+                >
+                  <p className="text-sm font-medium text-ink">The interview workspace is complete</p>
+                  <p className="text-xs-plus leading-relaxed text-sub">
+                    {artifact.artifact.summary ??
+                      'All phases are closed. Review the export to inspect the current structured spec output.'}
+                  </p>
+                  <Link
+                    to="/project/$id/export"
+                    params={{ id: String(project.id) }}
+                    className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                  >
+                    Open export preview
+                  </Link>
                 </div>
               );
             })}

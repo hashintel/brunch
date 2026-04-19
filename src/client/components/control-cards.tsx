@@ -261,3 +261,29 @@ export function AcceptedClosureCard({ phase, summary }: { phase: WorkflowPhase; 
     />
   );
 }
+
+export function PhaseHandoffCard({
+  phase,
+  nextPhase,
+  summary,
+  children,
+}: {
+  phase: WorkflowPhase;
+  nextPhase: WorkflowPhase;
+  summary: string | null;
+  children?: React.ReactNode;
+}) {
+  return (
+    <WorkspaceStateCard
+      testId="phase-handoff-card"
+      eyebrow="Phase handoff"
+      title={`${getWorkflowPhaseLabel(phase)} complete — next: ${getWorkflowPhaseLabel(nextPhase)}`}
+      description={
+        summary ??
+        `${getWorkflowPhaseLabel(phase)} is closed. Continue to ${getWorkflowPhaseLabel(nextPhase)} when you are ready.`
+      }
+    >
+      {children}
+    </WorkspaceStateCard>
+  );
+}

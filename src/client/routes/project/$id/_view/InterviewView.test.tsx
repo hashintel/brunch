@@ -1127,11 +1127,18 @@ describe('InterviewView', () => {
     renderWorkspace();
 
     const answeredCard = await screen.findByTestId('answered-turn-card');
-    const handoffCard = await screen.findByTestId('workspace-state-card');
+    const handoffCard = await screen.findByTestId('phase-handoff-card');
 
     expect(answeredCard.textContent).toContain('What should we build first?');
     expect(screen.queryByText('Which architecture should we choose next?')).toBeNull();
-    expect(handoffCard.textContent).toContain('Grounding phase is complete');
+    expect(screen.queryByTestId('workspace-state-card')).toBeNull();
+    expect(handoffCard.textContent).toContain('Grounding complete — next: Elicitation');
+    expect(handoffCard.textContent).toContain(
+      'Goals, terms, context, and constraints are sufficiently captured.',
+    );
+    expect(
+      within(handoffCard).getByRole('link', { name: 'Continue to Elicitation' }).getAttribute('href'),
+    ).toBe('/project/1/elicitation');
     expect(answeredCard.compareDocumentPosition(handoffCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
