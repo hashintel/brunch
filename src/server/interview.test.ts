@@ -260,10 +260,24 @@ describe('brownfield interviewer configuration', () => {
     expect(brownfieldPrompt).toContain('FIRST durable turn');
   });
 
-  it('limits brownfield exploration instructions to the scope phase', () => {
+  it('limits brownfield exploration instructions to the scope phase and makes post-kickoff scope state-aware', () => {
     expect(getInterviewerInstructions('scope', { mode: 'brownfield', cwd: '/tmp/repo' })).toContain(
-      'explore',
+      'Before asking your first scope question',
     );
+    expect(
+      getInterviewerInstructions('scope', {
+        mode: 'brownfield',
+        cwd: '/tmp/repo',
+        brownfieldScopeStage: 'ongoing',
+      }),
+    ).toContain('ongoing brownfield grounding conversation');
+    expect(
+      getInterviewerInstructions('scope', {
+        mode: 'brownfield',
+        cwd: '/tmp/repo',
+        brownfieldScopeStage: 'ongoing',
+      }),
+    ).not.toContain('Before asking your first scope question');
     expect(getInterviewerInstructions('design', { mode: 'brownfield', cwd: '/tmp/repo' })).toBe(
       getSystemPrompt('design'),
     );

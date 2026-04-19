@@ -3,7 +3,7 @@
 ## Orientation
 - **Containing seam:** interaction-family canonicalization across the routed interview surface and workflow runtime (`src/client/routes/project/$id/_view/*`, `src/client/components/*`, `src/server/app.ts`, `src/server/interview.ts`, `src/server/observer.ts`, `src/shared/chat.ts`, `src/shared/project-state-turn.ts`).
 - **Containing frontier item:** `memory/PLAN.md` Active #1 — **Interaction-family canonicalization: durable turn cards plus projected control cards**.
-- **Volatile follow-up:** the first five interaction-family cleanup slices are complete; the remaining work under frontier item #1 now centers on making brownfield context-gathering reusable after the opening grounding brief.
+- **Volatile follow-up:** the six scoped interaction-family cleanup slices in this session are complete; the next frontier now shifts to phase transition and handoff stabilization on the cleaned interaction model.
 - **Main open risk:** grounding/context-gathering work could either reintroduce turn-shaped control exceptions or let provisional repo-analysis content leak into durable observer capture.
 
 ---
@@ -159,7 +159,7 @@ Selecting brownfield grounding causes the first scope-phase interviewer turn to 
 
 ## Card 6 — Brownfield scope context gathering becomes reusable after kickoff
 
-_Status: scoped 2026-04-19 · Depends on Cards 4-5_
+_Status: done 2026-04-19 · Verified: `npm run verify`_
 
 ### Target Behavior
 Brownfield scope turns use exploration-first instructions only for the opening grounding brief, while later scope turns retain reusable read-only context-gathering plus grounding-card emission when the interviewer still lacks enough orientation.

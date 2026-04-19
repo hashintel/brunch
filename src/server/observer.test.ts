@@ -184,7 +184,7 @@ describe('runObserver', () => {
     );
   });
 
-  it('marks brownfield scope turns as kickoff-aware in the observer prompt and context', async () => {
+  it('keeps brownfield project context in observer prompts without treating later scope turns as kickoff-only', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -203,22 +203,20 @@ describe('runObserver', () => {
       phase: 'scope',
       question: 'Which billing workflow should we focus on first?',
       answer: 'The invoice retry path.',
-      why: 'Grounding: The repo already has billing jobs and an invoice retry worker. We need to scope the first feature-area turn inside that seam.',
+      why: 'The existing billing jobs and invoice retry worker make this seam the best next scope boundary.',
     });
 
     await runObserver(db, turn, project.id);
 
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining('brownfield kickoff'),
+        system: expect.not.stringContaining('brownfield kickoff'),
         prompt: expect.stringContaining('Project mode: brownfield'),
       }),
     );
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        prompt: expect.stringContaining(
-          'Grounding: The repo already has billing jobs and an invoice retry worker.',
-        ),
+        prompt: expect.stringContaining('The existing billing jobs and invoice retry worker'),
       }),
     );
   });

@@ -65,6 +65,46 @@ describe('buildInterviewerContext', () => {
     expect(result).toContain('[selected]');
   });
 
+  it('replays grounding cards as provisional history instead of ordinary questions', () => {
+    const turns: TurnWithOptions[] = [
+      {
+        id: 1,
+        project_id: 1,
+        parent_turn_id: null,
+        phase: 'scope',
+        question: '',
+        answer: 'Continue — Focus on the routed workspace seam.',
+        why: null,
+        impact: null,
+        is_resolution: false,
+        user_parts: JSON.stringify([
+          { type: 'text', text: 'Continue — Focus on the routed workspace seam.' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [11], freeText: 'Focus on the routed workspace seam.' },
+          },
+        ]),
+        assistant_parts: JSON.stringify([
+          {
+            type: 'data-grounding-card',
+            data: {
+              summary: 'The repo already uses SQLite-backed local persistence.',
+              detail: 'This is provisional context before the next substantive question.',
+            },
+          },
+        ]),
+        created_at: '2026-01-01',
+        options: [{ id: 11, position: 0, content: 'Continue', is_recommended: true, is_selected: true }],
+      },
+    ];
+
+    const result = buildInterviewerContext(turns, 'next');
+    expect(result).toContain('Grounding card: The repo already uses SQLite-backed local persistence.');
+    expect(result).toContain('Detail: This is provisional context before the next substantive question.');
+    expect(result).toContain('Free-text response: Focus on the routed workspace seam.');
+    expect(result).not.toContain('Question:');
+  });
+
   it('projects selected options and free-text response as structured history', () => {
     const turns: TurnWithOptions[] = [
       {

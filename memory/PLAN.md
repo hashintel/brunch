@@ -4,7 +4,7 @@
 
 # Plan
 
-Full-fidelity frontier. The demo shortcut period is over; the active burden is no longer "make the walkthrough legible" but "make the model truthful again." The codebase still speaks several overlapping product languages at once — legacy scope aliases, mixed knowledge facades, turn-shaped control artifacts, and multiple interaction families — so the frontier still prioritizes semantic and interaction-model recovery first. The distinct review-phase UI slice is now complete enough to retire from the live frontier, and the last legacy knowledge-facade cleanup is now done as well. The merged-stream projector cutover is now complete enough to retire from the active frontier; the next major architecture move is interaction-family canonicalization on top of that cleaned read model.
+Full-fidelity frontier. The demo shortcut period is over; the active burden is no longer "make the walkthrough legible" but "make the model truthful again." The codebase still speaks several overlapping product languages at once — legacy scope aliases, mixed knowledge facades, turn-shaped control artifacts, and multiple interaction families — so the frontier still prioritizes semantic and interaction-model recovery first. The distinct review-phase UI slice is now complete enough to retire from the live frontier, and the last legacy knowledge-facade cleanup is now done as well. The merged-stream projector cutover is now complete enough to retire from the active frontier, and interaction-family canonicalization is now complete enough to retire as well; the next major architecture move is phase transition and handoff stabilization on top of that cleaned interaction model.
 
 ## Active
 
@@ -17,19 +17,9 @@ The current active frontier should now be read not just as product/design cleanu
 - **Card primitives and closed-state affordances (`src/client/components/question-cards.tsx`, `src/client/components/review-set-card.tsx`)** — requirements and criteria now have their own card family, but the larger card shell still conflates substantive turn cards with structural control / completion artifacts. The next active slices must finish that separation while preserving the accepted-set review seam.
 - **Ontology + sidebar/read-model seam (`src/shared/knowledge.ts`, `src/client/components/EntitySidebar.tsx`, `src/server/db.ts`, `src/server/observer.ts`, `src/shared/api-types.ts`)** — the canonical ontology contract and review-authority seam are now aligned on one `knowledge_item` collection contract, and the dead per-type schema tables are gone. This seam is no longer its own active frontier item, but it remains an important dependency surface for interaction cleanup and later naming normalization.
 - **Fixtures, manifests, seeded scenarios, and oracle tests (`src/server/fixtures/manifest.ts`, `src/server/fixtures/scenarios.ts`, `src/server/fixtures/manifests/*.json`, `src/server/fixtures/corpus.ts`, `src/server/fixtures/walkthrough.test.ts`, `src/server/core.test.ts`, `src/server/app.test.ts`, `src/client/routes/project/$id/_view/*test.tsx`)** — kickoff / recovery are now seed- and read-model-level projections rather than canonical rows. The remaining fixture/test burden is to keep asserting on projected controls, phase outcomes, and resumed landing states as interaction cleanup continues.
-- **Naming, routing, and grounding-language seam (`src/shared/phase-routes.ts`, `src/shared/phase-display.ts`, `src/client/routes/project/$id/index.tsx`, `src/server/interview.ts`, `src/server/tools/index.ts`, `src/shared/grounding-strategy.ts`)** — the codebase still mixes `scope`, kickoff-specific brownfield ritual language, and route names that predate the grounding/card-owned model. Active item 1 and especially item 3 must simplify these seams so reusable grounding/context-gathering and later naming normalization do not keep inheriting obsolete product language.
+- **Naming, routing, and grounding-language seam (`src/shared/phase-routes.ts`, `src/shared/phase-display.ts`, `src/client/routes/project/$id/index.tsx`, `src/server/interview.ts`, `src/server/tools/index.ts`, `src/shared/grounding-strategy.ts`)** — the codebase still mixes `scope`, kickoff-specific brownfield ritual language, and route names that predate the grounding/card-owned model. The handoff frontier and later naming normalization must simplify these seams so new workflow surfaces do not keep inheriting obsolete product language.
 
-1. **Interaction-family canonicalization: durable turn cards plus projected control cards** — finalize the workspace stream as the canonical interaction surface for user action, with durable turn cards for substantive elicitation, projected control cards for structural affordances, and no straggling alternative input seams.
-   - Why now / unlocks: once the merged stream projector is honest about artifact types, the older kickoff-as-turn, one-shot brownfield ritual, and global bottom composer fallbacks can be removed without inventing another exception layer. This slice makes the new stream model the only real interaction contract.
-   - Traceability: D89, D91, D95, D99, D110; A51, A54, A56; I24.
-   - What this slice must accomplish:
-     - keep the generic bottom composer retired as a canonical input path; any future freeform input seam must be an explicit debug / admin affordance rather than a dormant default
-     - replace persisted kickoff / recovery-as-turn assumptions with projected control-card seams derived from workflow state
-     - fold the previous kickoff interaction family into the workspace stream so kickoff, grounding cards, question cards, review cards, and handoff controls share one coherent projection model without all becoming the same durable artifact type
-     - retire the one-shot brownfield kickoff ritual in favor of reusable interviewer-invoked context gathering that produces grounding cards (D99)
-     - confirm greenfield and brownfield grounding both enter through the workspace stream surface
-
-2. **Phase transition and handoff stabilization on the cleaned model** — make every phase end in a legible next action, with no empty shells or stranded in-progress states, after review and input semantics stop fighting the projector.
+1. **Phase transition and handoff stabilization on the cleaned model** — make every phase end in a legible next action, with no empty shells or stranded in-progress states, after review and input semantics stop fighting the projector.
    - Why now / unlocks: the remaining handoff bugs are real, but fixing them before the semantic cleanup would just restabilize the wrong model. Once review authority, ontology, and input seams are cleaned, transition work can become a straightforward projection pass instead of another exception layer.
    - Traceability: D94, D100, D101, D104; A54.
    - What this slice must accomplish:
@@ -38,7 +28,9 @@ The current active frontier should now be read not just as product/design cleanu
      - closed phases show explicit handoff / completion artifacts instead of relying on the generic shell to imply what happened
      - force-close and proposed-close confirmations stay legible and do not leave stale active-phase projections behind
 
-3. **Naming normalization: project → specification, scope → grounding, cwd removal** — align internal identifiers, route keys, and schema columns with the product vocabulary settled in D97 / D98.
+## Next
+
+1. **Naming normalization: project → specification, scope → grounding, cwd removal** — align internal identifiers, route keys, and schema columns with the product vocabulary settled in D97 / D98.
    - Why now / unlocks: after the semantic, ontology, and interaction layers are clean, the naming drift is the last pervasive legacy burden. Doing it after the deeper model cleanup avoids rebase pain across the same files while still preventing new surfaces from inheriting the vocabulary split. This is the most invasive slice — it touches schema, routes, and API types — and should be planned as a sequence of safe commits.
    - Traceability: D97, D98; Horizon `project → specification physical DB rename`, Horizon `cwd removal`.
    - What this slice must accomplish:
@@ -48,9 +40,7 @@ The current active frontier should now be read not just as product/design cleanu
      - update routes, loaders, fixtures, tests, and stories to match
      - manual verification after each commit in the sequence to catch silent breakage
 
-## Next
-
-1. **Transcript fidelity stabilization for seeded and resumed states** — make replayed interview history trustworthy enough that the workspace reads like one coherent thread instead of a partial hydration. Whatever remains after interaction-family canonicalization lands here.
+2. **Transcript fidelity stabilization for seeded and resumed states** — make replayed interview history trustworthy enough that the workspace reads like one coherent thread instead of a partial hydration. Whatever remains after interaction-family canonicalization lands here.
    - Traceability: D92, D93, D96; A53, A55.
 
 2. **Interview workflow transition extraction from `app.ts`** — deferred by choice. Picks up after the retirement frontier lands, when the extraction is no longer competing with semantic cleanup for the same files.
@@ -75,6 +65,7 @@ The current active frontier should now be read not just as product/design cleanu
 
 ## Recently Completed
 
+- 2026-04-19 — **Interaction-family canonicalization retired from the active frontier** — the workspace stream now carries projected kickoff/recovery/handoff controls plus durable grounding/question/review turns as one canonical interaction family, and brownfield grounding no longer depends on a one-shot repo-summary question ritual. Verified: `npm run verify`.
 - 2026-04-19 — **Brownfield kickoff now lands on a grounding-card first turn instead of a repo-summary question handoff** — brownfield scope tooling now exposes `present_grounding_card`, the opening brownfield interviewer prompt requires a provisional grounding brief before the first substantive question, and runtime persistence now materializes that first-turn grounding card plus its continue affordance from the streamed tool payload. Verified: `npm run verify`.
 - 2026-04-19 — **Grounding cards now replay as their own workspace-stream turn family** — persisted `data-grounding-card` assistant metadata now round-trips through shared parts helpers, answered and active grounding cards render separately from question/review cards in the routed interview surface, and chat-path observer capture now skips provisional grounding-card responses while still advancing to the successor interviewer turn. Verified: `npm run verify`.
 - 2026-04-19 — **Legacy control-row fabrication is now gone from production runtime helpers** — `src/server/core.ts` no longer exposes `ensureProjectFrontier()`, plain `/api/projects/:id/chat` submits now persist substantive answered turns instead of fabricating kickoff / recovery rows, and narrow seeded legacy kickoff coverage now lives in `src/server/test-support/legacy-control-rows.ts` rather than general runtime plumbing. Verified: `npm run verify`.
@@ -141,6 +132,6 @@ Spawn separate worktrees only after the control worktree is clean, and keep the 
   - Merge-risk notes: medium-high because `src/server/db.ts` is still a hot seam on the active frontier. Only run this lane in parallel if the brief is explicitly constrained to pure extraction and the reviewer is prepared to check carefully for merge gaps against mainline workflow changes.
 
 - **Do not parallelize yet**
-  - Active item 2 and active item 3 remain sequential behind active item 1 per the dependency graph above and because they share the same workflow, interview-view, card, and fixture seams.
-  - Next items 1-3 remain downstream of naming normalization or intentionally deferred until the current semantic cleanup stops competing for the same files.
+  - Active item 1 remains sequential ahead of Next item 1 per the dependency graph above and because the same workflow, interview-view, card, and fixture seams are still in motion.
+  - Next items 1-4 remain downstream of the handoff frontier or intentionally deferred until the current semantic cleanup stops competing for the same files.
   - Horizon items tied to the interview surface itself — Close Phase confirmation modal, grounding-card transcript primitive, brownfield grounding brief, reusable interviewer-invoked context gathering, and the headless interview driver — should wait until the interaction and handoff contracts stop moving.
