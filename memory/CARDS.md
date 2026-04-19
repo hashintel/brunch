@@ -41,7 +41,7 @@ Submitting a projected kickoff or recovery control through `/api/projects/:id/ch
 
 ## Card 2 — Remove the dormant generic bottom composer seam from the interview surface
 
-_Status: scoped_
+_Status: done 2026-04-19 · Verified: `npm run verify`_
 
 ### Target Behavior
 The routed interview surface no longer exposes a dormant generic prompt-input contract; card-owned controls remain the only user-input seam for active interview phases.

@@ -261,7 +261,6 @@ function ControllerProbe() {
                 ? `recovery:${workspace.bottomArtifact.recovery.phase}`
                 : 'none'}
       </div>
-      <div data-testid="prompt-visible">{String(workspace.promptInput.visible)}</div>
       <button
         type="button"
         data-testid="submit-kickoff-brownfield"
@@ -325,7 +324,6 @@ describe('interview controller', () => {
 
     expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('kickoff');
     expect(screen.getByTestId('bottom-artifact').textContent).toBe('start:scope');
-    expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
   });
 
   it('projects a recovery turn card when an open phase has a completed turn but no successor frontier', async () => {
@@ -340,7 +338,6 @@ describe('interview controller', () => {
 
     expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('recovery');
     expect(screen.getByTestId('bottom-artifact').textContent).toBe('recovery:scope');
-    expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
   });
 
   it('submits the grounding strategy kickoff from landing-only state without a seeded kickoff turn', async () => {
@@ -439,7 +436,6 @@ describe('interview controller', () => {
     renderController();
 
     expect((await screen.findByTestId('bottom-artifact')).textContent).toBe('none');
-    expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
 
     await act(async () => {
       useChatHarness.replaceMessages?.([
@@ -452,7 +448,6 @@ describe('interview controller', () => {
     await waitFor(() => {
       expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('pending-question');
       expect(screen.getByTestId('bottom-artifact').textContent).toBe('Which platform should we target next?');
-      expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
       expect(routerInvalidate).not.toHaveBeenCalled();
     });
   });
@@ -469,7 +464,6 @@ describe('interview controller', () => {
     );
     expect(screen.getByTestId('bottom-artifact').textContent).toBe('recovery:scope');
     expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('recovery');
-    expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
     expect(fetchMock).not.toHaveBeenCalled();
   });
 

@@ -349,7 +349,6 @@ describe('workspace controller core', () => {
           summary: 'Goals, terms, context, and constraints are sufficiently captured.',
         },
       },
-      promptInput: { visible: false },
     });
   });
 
@@ -404,13 +403,11 @@ describe('workspace controller core', () => {
       project: recoveryState.project,
       workflow: recoveryState.workflow,
       bottomArtifact: { kind: 'recovery', recovery: { phase: 'scope' } },
-      promptInput: { visible: false },
     });
     expect(createInterviewControllerViewState(recoveryState, 'scope', [], true)).toEqual({
       project: recoveryState.project,
       workflow: recoveryState.workflow,
       bottomArtifact: { kind: 'generating' },
-      promptInput: { visible: false },
     });
   });
 
@@ -465,7 +462,6 @@ describe('workspace controller core', () => {
       project: kickoffState.project,
       workflow: kickoffState.workflow,
       bottomArtifact: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'start' } },
-      promptInput: { visible: false },
     });
   });
 
@@ -531,7 +527,6 @@ describe('workspace controller core', () => {
       project: submittedResponse.project,
       workflow: submittedResponse.workflow,
       bottomArtifact: { kind: 'persisted-turn', turn: submittedResponse.lastTurn!, state: 'submitted' },
-      promptInput: { visible: false },
     });
   });
 
@@ -619,7 +614,6 @@ describe('workspace controller core', () => {
     expect(ephemeralChat.seedMessages).toEqual([]);
     expect(viewState.project).toEqual(emptyProjectState.project);
     expect(viewState.workflow).toEqual(emptyProjectState.workflow);
-    expect(viewState.promptInput.visible).toBe(false);
     expect(viewState.bottomArtifact).toEqual({
       kind: 'pending-question',
       pendingQuestion: {
@@ -797,7 +791,6 @@ describe('workspace controller core', () => {
         summary: 'Goals, terms, context, and constraints are sufficiently captured.',
         isReviewPhase: false,
       },
-      promptInput: { visible: false },
     });
     expect(createInterviewControllerViewState(durableProject, 'design', [], false)).toEqual({
       project: durableProject.project,
@@ -807,7 +800,6 @@ describe('workspace controller core', () => {
         turn: projectState.turns[1]!,
         state: 'active',
       },
-      promptInput: { visible: false },
     });
   });
 });

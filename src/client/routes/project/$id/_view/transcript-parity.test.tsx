@@ -160,7 +160,6 @@ vi.mock('./-interview-controller.js', () => ({
       errorMessage: null,
       submitTurnResponse: vi.fn(),
     },
-    promptInput: { visible: false, disabled: false },
   }),
 }));
 

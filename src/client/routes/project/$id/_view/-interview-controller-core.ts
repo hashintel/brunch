@@ -101,9 +101,6 @@ export interface InterviewControllerViewState {
   readonly project: InterviewDurableProjectState['project'];
   readonly workflow: InterviewDurableProjectState['workflow'];
   readonly bottomArtifact: InterviewBottomArtifactViewModel | null;
-  readonly promptInput: {
-    readonly visible: boolean;
-  };
 }
 
 function hydrateMessages(turns: readonly ProjectStateTurn[]): BrunchUIMessage[] {
@@ -349,9 +346,6 @@ export function createInterviewControllerViewState(
       project,
       workflow,
       bottomArtifact,
-      promptInput: {
-        visible: false,
-      },
     };
   }
 
@@ -361,7 +355,6 @@ export function createInterviewControllerViewState(
       ? (durableProject.turns.find((turn) => turn.id === landing.turnId) ?? null)
       : findPhaseTurn(durableProject, phase);
   const showTurnCard = landing?.kind === 'frontier-turn' && Boolean(phaseTurn?.options?.length);
-  const phaseTurnHasResponse = hasPersistedTurnResponse(phaseTurn ?? undefined);
   const isSubmittedTurn = phaseTurn?.id === submittedTurnId;
   const showSubmittedTurnCard = isSubmittedTurn && Boolean(phaseTurn?.options?.length);
   const pendingQuestion = isLoading || submittedTurnId !== null ? findPendingQuestion(messages) : null;
@@ -413,16 +406,5 @@ export function createInterviewControllerViewState(
     project,
     workflow,
     bottomArtifact,
-    promptInput: {
-      visible:
-        isLoading ||
-        bottomArtifact?.kind === 'phase-summary' ||
-        bottomArtifact?.kind === 'pending-question' ||
-        bottomArtifact?.kind === 'kickoff' ||
-        bottomArtifact?.kind === 'recovery' ||
-        bottomArtifact?.kind === 'generating'
-          ? false
-          : !showTurnCard || (phaseTurnHasResponse && !isSubmittedTurn),
-    },
   };
 }

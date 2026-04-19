@@ -2,14 +2,6 @@ import { Link, useLoaderData } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 
 import { Message, MessageContent, MessageResponse } from '@/client/components/ai-elements/message';
-import {
-  PromptInput,
-  PromptInputBody,
-  PromptInputFooter,
-  PromptInputSubmit,
-  PromptInputTextarea,
-  type PromptInputMessage,
-} from '@/client/components/ai-elements/prompt-input';
 import { ShellButton } from '@/client/components/app-shell';
 import { ChatScroll } from '@/client/components/chat-scroll';
 import {
@@ -147,7 +139,7 @@ function renderMessageParts(
 
 export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const entitySnapshot = useLoaderData({ from: '/project/$id/_view' });
-  const { chat, project, workflow, phaseTurns, promptInput, bottomArtifact, captureStatusByTurnId } =
+  const { chat, project, workflow, phaseTurns, bottomArtifact, captureStatusByTurnId } =
     useInterviewController(phase);
   const phaseState = workflow.phases[phase];
   const autoPresentKeyRef = useRef<string | null>(null);
@@ -170,9 +162,6 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
     phaseState.status === 'unstarted' && currentReachablePhase !== phase && currentReachablePhase !== null;
   // TODO: auto-present is disabled while the phase-closure interaction model is being reworked.
   const autoPresentCommand = null;
-  // TODO: prompt input is disabled while the phase-closure interaction model is being reworked.
-  // The turn-card family owns user input; the generic composer will return when the
-  // center-pane header controls phase start/continue lifecycle.
   const fallbackReviewSet =
     phase === 'requirements'
       ? {
@@ -185,8 +174,6 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             items: entitySnapshot.criteria,
           }
         : undefined;
-  const showPromptInput = false;
-
   // TODO: auto-present is disabled while the phase-closure interaction model is being reworked.
   // The effect was automatically submitting start/continue commands, which causes runaway
   // turn generation. Re-enable once the center-pane header owns phase lifecycle controls.
@@ -200,19 +187,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
     // if (autoPresentKeyRef.current === autoPresentKey) return;
     // autoPresentKeyRef.current = autoPresentKey;
     // chat.submitText(autoPresentCommand);
-  }, [
-    autoPresentCommand,
-    chat.submitText,
-    phase,
-    phaseState.status,
-    phaseState.turnId,
-    phaseTurns.length,
-    project.id,
-  ]);
-
-  const handleSubmit = (message: PromptInputMessage) => {
-    chat.submitText(message.text ?? '');
-  };
+  }, [autoPresentCommand, phase, phaseState.status, phaseState.turnId, phaseTurns.length, project.id]);
 
   const phaseIndex = phaseOrder.indexOf(phase);
   const phaseNumber = phaseIndex + 1;
@@ -622,21 +597,6 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           <div className="h-30 shrink-0" />
         </div>
       </ChatScroll>
-
-      {showPromptInput && (
-        <div className="border-t px-4 py-3">
-          <div className="mx-auto max-w-2xl">
-            <PromptInput onSubmit={handleSubmit}>
-              <PromptInputBody>
-                <PromptInputTextarea placeholder="Type a message..." disabled={promptInput.disabled} />
-              </PromptInputBody>
-              <PromptInputFooter>
-                <PromptInputSubmit status={chat.status} />
-              </PromptInputFooter>
-            </PromptInput>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

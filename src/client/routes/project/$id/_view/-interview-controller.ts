@@ -95,11 +95,6 @@ export type InterviewControllerBottomArtifactState =
       readonly isReviewPhase: boolean;
     };
 
-export interface InterviewControllerPromptInputState {
-  readonly visible: boolean;
-  readonly disabled: boolean;
-}
-
 export interface InterviewController {
   readonly project: InterviewDurableProjectState['project'];
   readonly workflow: InterviewDurableProjectState['workflow'];
@@ -107,7 +102,6 @@ export interface InterviewController {
   readonly captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   readonly chat: InterviewControllerChatState;
   readonly bottomArtifact: InterviewControllerBottomArtifactState | null;
-  readonly promptInput: InterviewControllerPromptInputState;
 }
 
 export function useInterviewController(phase: WorkflowPhase): InterviewController {
@@ -485,9 +479,5 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                         isReviewPhase: viewState.bottomArtifact.isReviewPhase,
                       }
       : null,
-    promptInput: {
-      visible: viewState.promptInput.visible,
-      disabled: isLoading || submitTurnResponseMutation.isPending || submitPhaseIntentMutation.isPending,
-    },
   };
 }
