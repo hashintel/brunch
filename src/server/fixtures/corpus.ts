@@ -1,13 +1,11 @@
-import { structuredQuestionSchema, type BrunchAssistantPart } from '@/shared/chat.js';
 import type { KnowledgeCollectionKey } from '@/shared/knowledge.js';
 import { createKnowledgeCollectionRecord } from '@/shared/knowledge.js';
 
 import type { TurnWithOptions } from '../core.js';
 import { loadActivePathWithOptions } from '../core.js';
-import { createDb, findPhaseOutcomeForTurn, getEntitiesForProject, type DB } from '../db.js';
+import { createDb, getEntitiesForProject, type DB } from '../db.js';
 import { runObserver, type ObserverOutput } from '../observer.js';
-import { safeDeserializeAssistantParts, safeDeserializeUserParts } from '../parts.js';
-import { projectTurnResponse } from '../turn-response.js';
+import { projectRuntimeTurnToManifestTurn } from './durable-manifest-contract.js';
 import {
   loadManifest,
   seedFromManifest,
@@ -95,19 +93,6 @@ type EdgeRow = {
 };
 
 const issueTrackerManifest = loadManifest('issue-tracker');
-
-function getPersistedReviewActions(turn: Pick<TurnWithOptions, 'assistant_parts'>) {
-  const askQuestionPart = safeDeserializeAssistantParts(turn.assistant_parts).find(
-    (part): part is Extract<BrunchAssistantPart, { type: 'tool-ask_question' }> =>
-      part.type === 'tool-ask_question' && 'input' in part,
-  );
-  if (!askQuestionPart) {
-    return undefined;
-  }
-
-  const parsedInput = structuredQuestionSchema.safeParse(askQuestionPart.input);
-  return parsedInput.success ? parsedInput.data.reviewActions : undefined;
-}
 
 export const curatedGoldenCorpus: GoldenCorpus = {
   name: 'Observer Golden Corpus',
@@ -232,59 +217,14 @@ function getEdgesForItemIds(db: DB, itemIds: number[]): EdgeRow[] {
 
 export function captureProjectToManifestScenario(db: DB, projectId: number): ManifestScenario {
   const turns = loadActivePathWithOptions(db, projectId);
-  const turnIndexById = new Map(turns.map((turn, index) => [turn.id, index]));
-
-  const manifestTurns = turns.flatMap((turn) => {
-    if (turn.turn_kind === 'kickoff' || turn.turn_kind === 'recovery') {
-      return [];
-    }
-
-    if (turn.question) {
-      const response = projectTurnResponse(turn);
-      const options = turn.options ?? [];
-
-      return {
-        phase: turn.phase,
-        question: turn.question,
-        answer: turn.answer ?? null,
-        why: turn.why ?? null,
-        impact: turn.impact ?? null,
-        options: options.map((option) => ({
-          content: option.content,
-          is_recommended: option.is_recommended,
-        })),
-        ...(response
-          ? {
-              selectedOptionPositions: options
-                .filter((option) => option.is_selected)
-                .sort((left, right) => left.position - right.position)
-                .map((option) => option.position),
-              freeText: response.freeText ?? null,
-              ...(response.reviewAction ? { reviewAction: response.reviewAction } : {}),
-            }
-          : {}),
-        ...(getPersistedReviewActions(turn) ? { reviewActions: getPersistedReviewActions(turn) } : {}),
-      } satisfies ManifestScenario['turns'][number];
-    }
-
-    const isConfirmation = safeDeserializeUserParts(turn.user_parts).some(
-      (part) => part.type === 'data-confirmation',
-    );
-    const isClosureProposal = Boolean(findPhaseOutcomeForTurn(db, projectId, turn.id));
-
-    if (!isConfirmation && !isClosureProposal) {
-      return [];
-    }
-
-    return {
-      phase: turn.phase,
-      question: '',
-      answer: turn.answer ?? '',
-      ...(isConfirmation ? { isConfirmation: true } : { isProposal: true }),
-    } satisfies ManifestScenario['turns'][number];
+  const authorityTurns = turns.flatMap((turn) => {
+    const manifestTurn = projectRuntimeTurnToManifestTurn({ db, projectId, turn });
+    return manifestTurn ? [{ turnId: turn.id, manifestTurn }] : [];
   });
+  const turnIndexById = new Map(authorityTurns.map(({ turnId }, index) => [turnId, index]));
+  const manifestTurns = authorityTurns.map(({ manifestTurn }) => manifestTurn);
 
-  const activeTurnIds = turns.map((turn) => turn.id);
+  const activeTurnIds = authorityTurns.map(({ turnId }) => turnId);
   const linkRows = getActivePathLinkRows(db, projectId, activeTurnIds);
   const rowsByItemId = new Map<number, LinkRow[]>();
   for (const row of linkRows) {

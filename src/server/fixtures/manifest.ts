@@ -35,6 +35,7 @@ import {
 } from '../db.js';
 import { serializeParts } from '../parts.js';
 import * as schema from '../schema.js';
+import { isProjectedControlTurnKind } from './durable-manifest-contract.js';
 import type { ScenarioFn } from './scenarios.js';
 
 // ---------------------------------------------------------------------------
@@ -233,7 +234,7 @@ function compileManifestScenario(scenario: ManifestScenario): CompiledManifestSc
     if (turn.isProposal && turn.isConfirmation) {
       throw new Error(`Manifest turn ${index} cannot be both a proposal and a confirmation`);
     }
-    if (turn.turnKind && turn.turnKind !== 'question') {
+    if (isProjectedControlTurnKind(turn.turnKind)) {
       throw new Error(
         `Manifest turn ${index} cannot seed control turnKind ${turn.turnKind}; seed durable authority and derive landing instead`,
       );
