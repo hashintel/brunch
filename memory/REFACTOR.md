@@ -27,7 +27,8 @@ The runtime host remains responsible for transitional compatibility with legacy 
    - Landed in `7ac034e` — `refactor: keep project-state reads pure`
 4. [done] Replace the phase-intent message-text bridge with a typed control submission contract that preserves transcript-visible control actions without depending on exact command strings.  
    - Landed in this commit — `refactor: type phase-intent control submissions`
-5. [pending] Fold handoff and workflow-complete artifacts into the ordered workspace-stream projection and add the minimal phase-marker/control-marker artifact support needed so the stream contract is complete.
+5. [done] Fold handoff and workflow-complete artifacts into the ordered workspace-stream projection and add the minimal phase-marker/control-marker artifact support needed so the stream contract is complete.  
+   - Landed in this commit — `refactor: fold terminal artifacts into workspace stream`
 6. [pending] Remove obsolete string-matching control-marker heuristics and transitional adapter branches that became unnecessary once typed control submission and pure reads are in place.
 
 ## Decisions

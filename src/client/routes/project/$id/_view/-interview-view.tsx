@@ -17,7 +17,6 @@ import {
   KickoffControlCard,
   PhaseSummaryCard,
   RecoveryControlCard,
-  ReviewPhaseBanner,
   TranscriptMetaPlaceholder,
   WorkspaceStateCard,
 } from '@/client/components/control-cards';
@@ -48,14 +47,10 @@ import {
 
 import { useInterviewController } from './-interview-controller';
 import { continuePhaseMessages, startPhaseMessages } from './-interview-controller-core.js';
-import { projectWorkspaceStream } from './-workspace-stream-projector.js';
+import { projectWorkspaceStream, type WorkspaceStreamMarker } from './-workspace-stream-projector.js';
 
 function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectStateTurn['phase']) {
   return getForceClosePhaseAction(workflow, phase).available;
-}
-
-function isReviewPhase(phase: WorkflowPhase) {
-  return phase === 'requirements' || phase === 'criteria';
 }
 
 function getReviewPhaseCompletionDescription(
@@ -76,7 +71,7 @@ function getReviewPhaseCompletionDescription(
 
 function getControlMarkerLabel(message: BrunchUIMessage): string | null {
   const phaseIntent = message.parts?.find(
-    (part): part is Extract<(typeof message.parts)[number], { type: 'data-phase-intent' }> =>
+    (part): part is Extract<NonNullable<BrunchUIMessage['parts']>[number], { type: 'data-phase-intent' }> =>
       part.type === 'data-phase-intent',
   );
   if (phaseIntent) {
@@ -99,6 +94,14 @@ function getControlMarkerLabel(message: BrunchUIMessage): string | null {
   }
 
   return null;
+}
+
+function projectLiveControlMarkers(messages: readonly BrunchUIMessage[]): WorkspaceStreamMarker[] {
+  return messages
+    .filter((message) => !/^turn-\d+-/.test(message.id) && message.role === 'user')
+    .map((message) => getControlMarkerLabel(message))
+    .filter((label): label is string => Boolean(label))
+    .map((label) => ({ label }));
 }
 
 function renderActivitySummary(activitySummary: { seconds?: number; tools: string[] } | null) {
@@ -175,27 +178,14 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const _hasVisibleActiveTurn =
     bottomArtifact?.kind === 'pending-question' ||
     (bottomArtifact?.kind === 'persisted-turn' && !turnHasCompletedAnswer(bottomArtifact.turn));
-  const { streamArtifacts, footerArtifact } = projectWorkspaceStream({
+  const controlMarkers = projectLiveControlMarkers(chat.messages);
+  const { streamArtifacts } = projectWorkspaceStream({
+    phase,
     phaseTurns,
     phaseState,
     bottomArtifact,
+    controlMarkers,
   });
-  const historyArtifacts = streamArtifacts.filter(
-    (artifact) =>
-      artifact.kind === 'answered-turn' ||
-      artifact.kind === 'answered-review-turn' ||
-      artifact.kind === 'accepted-closure',
-  );
-  const bottomStreamArtifacts = streamArtifacts.filter(
-    (artifact) =>
-      artifact.kind === 'divider' ||
-      artifact.kind === 'persisted-turn' ||
-      artifact.kind === 'pending-question' ||
-      artifact.kind === 'kickoff' ||
-      artifact.kind === 'recovery' ||
-      artifact.kind === 'phase-summary' ||
-      artifact.kind === 'generating',
-  );
   const showLockedState =
     phaseState.status === 'unstarted' && currentReachablePhase !== phase && currentReachablePhase !== null;
   // TODO: auto-present is disabled while the phase-closure interaction model is being reworked.
@@ -340,118 +330,57 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               </WorkspaceStateCard>
             )}
 
-            {isReviewPhase(phase) && phaseState.status === 'in_progress' && (
-              <ReviewPhaseBanner phase={phase} />
-            )}
-
-            {/* ── Zone 1: Preceding answered turns ──────────────────────── */}
-            {historyArtifacts.length > 0 && (
-              <div className="flex flex-col gap-6">
-                {historyArtifacts.map((artifact) =>
-                  artifact.kind === 'answered-turn' ? (
-                    <div key={`answered-turn-${artifact.turn.id}`} className="flex flex-col">
-                      {renderPersistedActivity(artifact.turn)}
-                      <AnsweredQuestionCard
-                        turn={artifact.turn}
-                        questionCode={artifact.questionCode}
-                        captureStatus={captureStatusByTurnId.get(artifact.turn.id)}
-                      />
-                    </div>
-                  ) : artifact.kind === 'answered-review-turn' ? (
-                    <div key={`answered-review-turn-${artifact.turn.id}`} className="flex flex-col">
-                      {renderPersistedActivity(artifact.turn)}
-                      <AnsweredReviewSetCard turn={artifact.turn} reviewSet={artifact.reviewSet} />
-                    </div>
-                  ) : (
-                    <div
-                      key={`accepted-closure-${artifact.acceptedClosure.turnId}`}
-                      data-testid="accepted-closure-card"
-                    >
-                      {renderPersistedActivity(artifact.turn)}
-                      <AcceptedClosureCard
-                        phase={artifact.acceptedClosure.phase}
-                        summary={artifact.acceptedClosure.summary}
-                      />
-                    </div>
-                  ),
-                )}
-              </div>
-            )}
-
-            {chat.messages.map((message, messageIndex) => {
-              if (/^turn-\d+-/.test(message.id)) {
-                return null;
+            {streamArtifacts.map((artifact) => {
+              if (artifact.kind === 'phase-marker' || artifact.kind === 'control-marker') {
+                return (
+                  <TranscriptMetaPlaceholder
+                    key={`${artifact.kind}-${artifact.marker.label}`}
+                    label={artifact.marker.label}
+                    detail={artifact.marker.detail}
+                    testId={artifact.marker.testId}
+                  />
+                );
               }
 
-              const isLastAssistant =
-                message.role === 'assistant' && messageIndex === chat.messages.length - 1;
-              const suppressPhaseSummary = Boolean(
-                bottomArtifact?.kind === 'phase-summary' && isLastAssistant,
-              );
-
-              if (message.role === 'user') {
-                const marker = getControlMarkerLabel(message);
-
-                if (marker) {
-                  return <TranscriptMetaPlaceholder key={message.id} label={marker} />;
-                }
-
-                return null;
+              if (artifact.kind === 'answered-turn') {
+                return (
+                  <div key={`answered-turn-${artifact.turn.id}`} className="flex flex-col">
+                    {renderPersistedActivity(artifact.turn)}
+                    <AnsweredQuestionCard
+                      turn={artifact.turn}
+                      questionCode={artifact.questionCode}
+                      captureStatus={captureStatusByTurnId.get(artifact.turn.id)}
+                    />
+                  </div>
+                );
               }
 
-              const activitySummary = summarizeAssistantActivity(message.parts);
-              const renderedParts = renderMessageParts(message, isLastAssistant && chat.isStreaming, {
-                suppressPhaseSummary,
-              });
-              const hasRenderedParts = renderedParts?.some((part) => part !== null) ?? false;
-
-              if (!activitySummary && !hasRenderedParts) {
-                return null;
+              if (artifact.kind === 'answered-review-turn') {
+                return (
+                  <div key={`answered-review-turn-${artifact.turn.id}`} className="flex flex-col">
+                    {renderPersistedActivity(artifact.turn)}
+                    <AnsweredReviewSetCard turn={artifact.turn} reviewSet={artifact.reviewSet} />
+                  </div>
+                );
               }
 
-              return (
-                <div key={message.id} className="flex flex-col">
-                  {renderActivitySummary(activitySummary)}
-                  {hasRenderedParts ? (
-                    <Message from={message.role}>
-                      <MessageContent>{renderedParts}</MessageContent>
-                    </Message>
-                  ) : null}
-                </div>
-              );
-            })}
-
-            {bottomArtifact?.kind !== 'phase-summary' &&
-              phaseState.status === 'in_progress' &&
-              canForceClosePhase(workflow, phase) && (
-                <div className="my-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => chat.forcePhaseClosure(phase)}
-                    disabled={chat.isLoading}
-                    className={cn(
-                      'rounded-md border px-3 py-2 text-xs transition-colors',
-                      chat.isLoading
-                        ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-                        : 'border-border bg-background text-foreground hover:bg-muted',
-                    )}
+              if (artifact.kind === 'accepted-closure') {
+                return (
+                  <div
+                    key={`accepted-closure-${artifact.acceptedClosure.turnId}`}
+                    data-testid="accepted-closure-card"
                   >
-                    {getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase })}
-                  </button>
-                </div>
-              )}
-          </div>
+                    {renderPersistedActivity(artifact.turn)}
+                    <AcceptedClosureCard
+                      phase={artifact.acceptedClosure.phase}
+                      summary={artifact.acceptedClosure.summary}
+                    />
+                  </div>
+                );
+              }
 
-          {/* ── Zone 2: Divider between answered and frontier ─────────── */}
-          {bottomStreamArtifacts.some((artifact) => artifact.kind === 'divider') && (
-            <hr className="my-6 border-rule" />
-          )}
-
-          {/* ── Zone 3: Bottom artifact ─────────────────────────────── */}
-          <div className="mx-auto w-full max-w-2xl">
-            {bottomStreamArtifacts.map((artifact) => {
               if (artifact.kind === 'divider') {
-                return null;
+                return <hr key="workspace-stream-divider" className="my-6 border-rule" />;
               }
 
               if (artifact.kind === 'persisted-turn') {
@@ -581,88 +510,144 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                 );
               }
 
-              return <GeneratingTurnPlaceholder key="generating-turn-placeholder" />;
-            })}
-          </div>
+              if (artifact.kind === 'generating') {
+                return <GeneratingTurnPlaceholder key="generating-turn-placeholder" />;
+              }
 
-          {/* Bottom spacer — future home of phase-advance controls */}
-          <div className="h-30 shrink-0" />
-        </div>
-      </ChatScroll>
+              if (artifact.artifact.isReviewPhase) {
+                return (
+                  <ReviewPhaseCompletionCard
+                    key={`${artifact.kind}-${artifact.artifact.phase}`}
+                    testId="review-phase-completion-card"
+                    title={`${getWorkflowPhaseLabel(artifact.artifact.phase)} review is complete`}
+                    description={getReviewPhaseCompletionDescription(
+                      artifact.artifact.phase,
+                      artifact.artifact.summary,
+                      artifact.kind === 'phase-handoff' ? artifact.artifact.nextPhase : null,
+                    )}
+                    action={
+                      artifact.kind === 'workflow-complete' ? (
+                        <Link
+                          to="/project/$id/export"
+                          params={{ id: String(project.id) }}
+                          className="mt-3 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                        >
+                          Open export preview
+                        </Link>
+                      ) : (
+                        <Link
+                          to={
+                            `/project/$id/${phaseRouteSegments[artifact.artifact.nextPhase]}` as '/project/$id/grounding'
+                          }
+                          params={{ id: String(project.id) }}
+                          className="mt-3 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                        >
+                          Continue to {getWorkflowPhaseLabel(artifact.artifact.nextPhase)}
+                        </Link>
+                      )
+                    }
+                  />
+                );
+              }
 
-      {footerArtifact &&
-        (footerArtifact.isReviewPhase ? (
-          <div className="shrink-0 border-t border-rule bg-tint px-6 py-5">
-            <div className="mx-auto w-full max-w-2xl">
-              <ReviewPhaseCompletionCard
-                testId="review-phase-completion-card"
-                title={`${getWorkflowPhaseLabel(footerArtifact.phase)} review is complete`}
-                description={getReviewPhaseCompletionDescription(
-                  footerArtifact.phase,
-                  footerArtifact.summary,
-                  footerArtifact.kind === 'phase-handoff' ? footerArtifact.nextPhase : null,
-                )}
-                action={
-                  footerArtifact.kind === 'workflow-complete' ? (
+              return (
+                <div
+                  key={`${artifact.kind}-${artifact.artifact.phase}`}
+                  className="flex min-h-[120px] flex-col items-start justify-center gap-3 rounded-xl border border-rule bg-tint px-6 py-5"
+                  data-testid="workspace-state-card"
+                >
+                  <p className="text-sm font-medium text-ink">
+                    {artifact.kind === 'workflow-complete'
+                      ? 'The interview workspace is complete'
+                      : `${getWorkflowPhaseLabel(artifact.artifact.phase)} phase is complete`}
+                  </p>
+                  <p className="text-xs-plus leading-relaxed text-sub">
+                    {artifact.artifact.summary ??
+                      (artifact.kind === 'workflow-complete'
+                        ? 'All phases are closed. Review the export to inspect the current structured spec output.'
+                        : 'This phase has been closed and handed off to the next phase.')}
+                  </p>
+                  {artifact.kind === 'workflow-complete' ? (
                     <Link
                       to="/project/$id/export"
                       params={{ id: String(project.id) }}
-                      className="mt-3 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                      className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                     >
                       Open export preview
                     </Link>
                   ) : (
                     <Link
                       to={
-                        `/project/$id/${phaseRouteSegments[footerArtifact.nextPhase]}` as '/project/$id/grounding'
+                        `/project/$id/${phaseRouteSegments[artifact.artifact.nextPhase]}` as '/project/$id/grounding'
                       }
                       params={{ id: String(project.id) }}
-                      className="mt-3 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                      className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                     >
-                      Continue to {getWorkflowPhaseLabel(footerArtifact.nextPhase)}
+                      Continue to {getWorkflowPhaseLabel(artifact.artifact.nextPhase)}
                     </Link>
-                  )
-                }
-              />
-            </div>
+                  )}
+                </div>
+              );
+            })}
+
+            {chat.messages.map((message, messageIndex) => {
+              if (/^turn-\d+-/.test(message.id) || message.role === 'user') {
+                return null;
+              }
+
+              const isLastAssistant =
+                message.role === 'assistant' && messageIndex === chat.messages.length - 1;
+              const suppressPhaseSummary = Boolean(
+                bottomArtifact?.kind === 'phase-summary' && isLastAssistant,
+              );
+
+              const activitySummary = summarizeAssistantActivity(message.parts);
+              const renderedParts = renderMessageParts(message, isLastAssistant && chat.isStreaming, {
+                suppressPhaseSummary,
+              });
+              const hasRenderedParts = renderedParts?.some((part) => part !== null) ?? false;
+
+              if (!activitySummary && !hasRenderedParts) {
+                return null;
+              }
+
+              return (
+                <div key={message.id} className="flex flex-col">
+                  {renderActivitySummary(activitySummary)}
+                  {hasRenderedParts ? (
+                    <Message from={message.role}>
+                      <MessageContent>{renderedParts}</MessageContent>
+                    </Message>
+                  ) : null}
+                </div>
+              );
+            })}
+
+            {bottomArtifact?.kind !== 'phase-summary' &&
+              phaseState.status === 'in_progress' &&
+              canForceClosePhase(workflow, phase) && (
+                <div className="my-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => chat.forcePhaseClosure(phase)}
+                    disabled={chat.isLoading}
+                    className={cn(
+                      'rounded-md border px-3 py-2 text-xs transition-colors',
+                      chat.isLoading
+                        ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+                        : 'border-border bg-background text-foreground hover:bg-muted',
+                    )}
+                  >
+                    {getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase })}
+                  </button>
+                </div>
+              )}
           </div>
-        ) : (
-          <div
-            className="flex min-h-[120px] shrink-0 flex-col items-start justify-center gap-3 border-t border-rule bg-tint px-6 py-5"
-            data-testid="workspace-state-card"
-          >
-            <p className="text-sm font-medium text-ink">
-              {footerArtifact.kind === 'workflow-complete'
-                ? 'The interview workspace is complete'
-                : `${getWorkflowPhaseLabel(footerArtifact.phase)} phase is complete`}
-            </p>
-            <p className="text-xs-plus leading-relaxed text-sub">
-              {footerArtifact.summary ??
-                (footerArtifact.kind === 'workflow-complete'
-                  ? 'All phases are closed. Review the export to inspect the current structured spec output.'
-                  : 'This phase has been closed and handed off to the next phase.')}
-            </p>
-            {footerArtifact.kind === 'workflow-complete' ? (
-              <Link
-                to="/project/$id/export"
-                params={{ id: String(project.id) }}
-                className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
-              >
-                Open export preview
-              </Link>
-            ) : (
-              <Link
-                to={
-                  `/project/$id/${phaseRouteSegments[footerArtifact.nextPhase]}` as '/project/$id/grounding'
-                }
-                params={{ id: String(project.id) }}
-                className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
-              >
-                Continue to {getWorkflowPhaseLabel(footerArtifact.nextPhase)}
-              </Link>
-            )}
-          </div>
-        ))}
+
+          {/* Bottom spacer — future home of phase-advance controls */}
+          <div className="h-30 shrink-0" />
+        </div>
+      </ChatScroll>
 
       {showPromptInput && (
         <div className="border-t px-4 py-3">

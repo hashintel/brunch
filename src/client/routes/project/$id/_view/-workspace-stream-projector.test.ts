@@ -122,12 +122,12 @@ describe('projectWorkspaceStream', () => {
     }
 
     const projection = projectWorkspaceStream({
+      phase: 'scope',
       phaseTurns: [answeredTurn, persistedTurn.turn],
       phaseState: createPhaseState({ turnId: persistedTurn.turn.id }),
       bottomArtifact: persistedTurn,
     });
 
-    expect(projection.footerArtifact).toBeNull();
     expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
       'answered-turn',
       'divider',
@@ -147,6 +147,40 @@ describe('projectWorkspaceStream', () => {
       throw new Error('Expected persisted-turn artifact');
     }
     expect(activeArtifact.questionCode).toBe('Q2');
+  });
+
+  it('projects the review-phase banner as a phase marker', () => {
+    const projection = projectWorkspaceStream({
+      phase: 'requirements',
+      phaseTurns: [],
+      phaseState: createPhaseState(),
+      bottomArtifact: null,
+    });
+
+    expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual(['phase-marker']);
+    const phaseMarker = projection.streamArtifacts[0];
+    expect(phaseMarker?.kind).toBe('phase-marker');
+    if (phaseMarker?.kind !== 'phase-marker') {
+      throw new Error('Expected phase-marker artifact');
+    }
+    expect(phaseMarker.marker.testId).toBe('review-phase-banner');
+  });
+
+  it('projects typed control markers ahead of the active bottom artifact', () => {
+    const projection = projectWorkspaceStream({
+      phase: 'scope',
+      phaseTurns: [createTurn({ id: 1 })],
+      phaseState: createPhaseState(),
+      bottomArtifact: createBottomArtifact('generating'),
+      controlMarkers: [{ label: 'Interview resumed' }],
+    });
+
+    expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'answered-turn',
+      'divider',
+      'control-marker',
+      'generating',
+    ]);
   });
 
   it('projects accepted closures and answered review turns from durable phase history', () => {
@@ -194,6 +228,7 @@ describe('projectWorkspaceStream', () => {
     });
 
     const projection = projectWorkspaceStream({
+      phase: 'requirements',
       phaseTurns: [reviewTurn, closureTurn],
       phaseState: createPhaseState({
         status: 'closed',
@@ -209,7 +244,7 @@ describe('projectWorkspaceStream', () => {
     ]);
   });
 
-  it('keeps closed-phase history ordering stable when handoff and completion artifacts move to the footer', () => {
+  it('keeps closed-phase history ordering stable when handoff and completion artifacts join the ordered stream', () => {
     const answeredTurn = createTurn({ id: 1, phase: 'requirements', question: 'Review requirements' });
     const closureTurn = createTurn({
       id: 2,
@@ -234,6 +269,7 @@ describe('projectWorkspaceStream', () => {
     });
 
     const handoffProjection = projectWorkspaceStream({
+      phase: 'requirements',
       phaseTurns: [answeredTurn, closureTurn],
       phaseState: createPhaseState({
         status: 'closed',
@@ -245,10 +281,12 @@ describe('projectWorkspaceStream', () => {
     expect(handoffProjection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
       'answered-turn',
       'accepted-closure',
+      'divider',
+      'phase-handoff',
     ]);
-    expect(handoffProjection.footerArtifact?.kind).toBe('phase-handoff');
 
     const completionProjection = projectWorkspaceStream({
+      phase: 'requirements',
       phaseTurns: [answeredTurn, closureTurn],
       phaseState: createPhaseState({
         status: 'closed',
@@ -260,7 +298,8 @@ describe('projectWorkspaceStream', () => {
     expect(completionProjection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
       'answered-turn',
       'accepted-closure',
+      'divider',
+      'workflow-complete',
     ]);
-    expect(completionProjection.footerArtifact?.kind).toBe('workflow-complete');
   });
 });

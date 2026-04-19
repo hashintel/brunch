@@ -1,4 +1,4 @@
-import type { ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
+import type { ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import {
   getAcceptedClosureReplay,
   getPersistedReviewAction,
@@ -9,7 +9,21 @@ import {
 
 import type { InterviewControllerBottomArtifactState } from './-interview-controller.js';
 
+export interface WorkspaceStreamMarker {
+  readonly label: string;
+  readonly detail?: string | null;
+  readonly testId?: string;
+}
+
 export type WorkspaceStreamArtifact =
+  | {
+      readonly kind: 'phase-marker';
+      readonly marker: WorkspaceStreamMarker;
+    }
+  | {
+      readonly kind: 'control-marker';
+      readonly marker: WorkspaceStreamMarker;
+    }
   | {
       readonly kind: 'answered-turn';
       readonly turn: ProjectStateTurn;
@@ -53,14 +67,18 @@ export type WorkspaceStreamArtifact =
   | {
       readonly kind: 'generating';
       readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'generating' }>;
+    }
+  | {
+      readonly kind: 'phase-handoff';
+      readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'phase-handoff' }>;
+    }
+  | {
+      readonly kind: 'workflow-complete';
+      readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'workflow-complete' }>;
     };
 
 export interface WorkspaceStreamProjection {
   readonly streamArtifacts: readonly WorkspaceStreamArtifact[];
-  readonly footerArtifact: Extract<
-    InterviewControllerBottomArtifactState,
-    { kind: 'phase-handoff' | 'workflow-complete' }
-  > | null;
 }
 
 function getRenderedPersistedTurnId(
@@ -70,6 +88,29 @@ function getRenderedPersistedTurnId(
     (!turnHasCompletedAnswer(bottomArtifact.turn) || bottomArtifact.state === 'submitted')
     ? bottomArtifact.turn.id
     : null;
+}
+
+function projectPhaseMarkers({
+  phase,
+  phaseState,
+}: {
+  phase: WorkflowPhase;
+  phaseState: ProjectState['workflow']['phases'][ProjectStateTurn['phase']];
+}): WorkspaceStreamArtifact[] {
+  if (phaseState.status !== 'in_progress' || (phase !== 'requirements' && phase !== 'criteria')) {
+    return [];
+  }
+
+  return [
+    {
+      kind: 'phase-marker',
+      marker: {
+        label: `${phase === 'requirements' ? 'Requirements' : 'Acceptance Criteria'} workspace`,
+        detail: 'This phase is staged as a structured review, not a freeform chat transcript.',
+        testId: 'review-phase-banner',
+      },
+    },
+  ];
 }
 
 function projectHistoryArtifacts({
@@ -124,7 +165,7 @@ function projectHistoryArtifacts({
   return historyArtifacts;
 }
 
-function projectActiveArtifact(
+function projectBottomArtifact(
   bottomArtifact: InterviewControllerBottomArtifactState | null,
   answeredTurnCount: number,
 ): WorkspaceStreamArtifact | null {
@@ -164,33 +205,60 @@ function projectActiveArtifact(
         artifact: bottomArtifact,
       };
     case 'phase-handoff':
+      return {
+        kind: 'phase-handoff',
+        artifact: bottomArtifact,
+      };
     case 'workflow-complete':
+      return {
+        kind: 'workflow-complete',
+        artifact: bottomArtifact,
+      };
     case undefined:
       return null;
   }
 }
 
-function shouldInsertDivider(
-  historyArtifacts: readonly WorkspaceStreamArtifact[],
-  activeArtifact: WorkspaceStreamArtifact | null,
-): boolean {
+function projectControlMarkers(markers: readonly WorkspaceStreamMarker[]): WorkspaceStreamArtifact[] {
+  return markers.map((marker) => ({
+    kind: 'control-marker' as const,
+    marker,
+  }));
+}
+
+function shouldInsertDivider({
+  historyArtifacts,
+  controlArtifacts,
+  bottomArtifact,
+}: {
+  historyArtifacts: readonly WorkspaceStreamArtifact[];
+  controlArtifacts: readonly WorkspaceStreamArtifact[];
+  bottomArtifact: WorkspaceStreamArtifact | null;
+}): boolean {
   return (
     historyArtifacts.length > 0 &&
-    (activeArtifact?.kind === 'persisted-turn' ||
-      activeArtifact?.kind === 'pending-question' ||
-      activeArtifact?.kind === 'phase-summary' ||
-      activeArtifact?.kind === 'generating')
+    (controlArtifacts.length > 0 ||
+      bottomArtifact?.kind === 'persisted-turn' ||
+      bottomArtifact?.kind === 'pending-question' ||
+      bottomArtifact?.kind === 'phase-summary' ||
+      bottomArtifact?.kind === 'generating' ||
+      bottomArtifact?.kind === 'phase-handoff' ||
+      bottomArtifact?.kind === 'workflow-complete')
   );
 }
 
 export function projectWorkspaceStream({
+  phase,
   phaseTurns,
   phaseState,
   bottomArtifact,
+  controlMarkers = [],
 }: {
+  phase: WorkflowPhase;
   phaseTurns: readonly ProjectStateTurn[];
   phaseState: ProjectState['workflow']['phases'][ProjectStateTurn['phase']];
   bottomArtifact: InterviewControllerBottomArtifactState | null;
+  controlMarkers?: readonly WorkspaceStreamMarker[];
 }): WorkspaceStreamProjection {
   const renderedPersistedTurnId = getRenderedPersistedTurnId(bottomArtifact);
   const historyArtifacts = projectHistoryArtifacts({
@@ -199,16 +267,20 @@ export function projectWorkspaceStream({
     renderedPersistedTurnId,
   });
   const answeredTurnCount = historyArtifacts.filter((artifact) => artifact.kind === 'answered-turn').length;
-  const activeArtifact = projectActiveArtifact(bottomArtifact, answeredTurnCount);
-  const streamArtifacts = shouldInsertDivider(historyArtifacts, activeArtifact)
-    ? [...historyArtifacts, { kind: 'divider' as const }, ...(activeArtifact ? [activeArtifact] : [])]
-    : [...historyArtifacts, ...(activeArtifact ? [activeArtifact] : [])];
+  const projectedBottomArtifact = projectBottomArtifact(bottomArtifact, answeredTurnCount);
+  const controlArtifacts = projectControlMarkers(controlMarkers);
+  const phaseMarkers = projectPhaseMarkers({ phase, phaseState });
+  const tailArtifacts = projectedBottomArtifact
+    ? [...controlArtifacts, projectedBottomArtifact]
+    : controlArtifacts;
 
   return {
-    streamArtifacts,
-    footerArtifact:
-      bottomArtifact?.kind === 'phase-handoff' || bottomArtifact?.kind === 'workflow-complete'
-        ? bottomArtifact
-        : null,
+    streamArtifacts: shouldInsertDivider({
+      historyArtifacts,
+      controlArtifacts,
+      bottomArtifact: projectedBottomArtifact,
+    })
+      ? [...phaseMarkers, ...historyArtifacts, { kind: 'divider' as const }, ...tailArtifacts]
+      : [...phaseMarkers, ...historyArtifacts, ...tailArtifacts],
   };
 }
