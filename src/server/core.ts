@@ -192,9 +192,6 @@ export function readProjectStateProjection(db: DB, projectId: number): ProjectSt
 
 /** Get project state: project + active path turns enriched with options. */
 export function getProjectState(db: DB, projectId: number): ProjectState | null {
-  const project = getProject(db, projectId);
-  if (!project) return null;
-  ensureProjectFrontier(db, projectId);
   return readProjectStateProjection(db, projectId);
 }
 

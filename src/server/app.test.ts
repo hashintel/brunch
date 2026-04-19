@@ -2492,6 +2492,17 @@ describe('phase outcomes + scope closure', () => {
 });
 
 describe('GET /api/projects/:id', () => {
+  it('projects kickoff from durable workflow state without creating a kickoff row on read', async () => {
+    const { createProject, getActivePath } = await import('./db.js');
+    const project = createProject(db, 'Read-only kickoff projection');
+
+    const res = await request(app).get(`/api/projects/${project.id}`).expect(200);
+
+    expect(res.body.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+    expect(res.body.turns).toEqual([]);
+    expect(getActivePath(db, project.id)).toEqual([]);
+  });
+
   it('returns structured question state after a tool-driven turn', async () => {
     const projectId = await createTestProject();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
@@ -3602,7 +3613,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .filter((option) => option.is_selected)
       .map((option) => option.id);
 
-    expect(projectState.turns).toHaveLength(3);
+    expect(projectState.turns).toHaveLength(2);
     expect(projectState.turns[1].answer).toBe('Web, Desktop — Covers both launch paths');
     expect(JSON.parse(projectState.turns[1].user_parts ?? '[]')).toEqual([
       { type: 'text', text: 'Web, Desktop — Covers both launch paths' },

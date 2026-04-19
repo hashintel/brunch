@@ -4,6 +4,7 @@ import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
 import {
+  ensureProjectFrontier,
   extractPrompt,
   finalizeTurn,
   getProjectState,
@@ -422,6 +423,7 @@ describe('getProjectState', () => {
 
   it('projects the first scope landing as kickoff with grounding strategy choices once the runtime seeds entry state', () => {
     const project = createProject(db, 'Spec');
+    ensureProjectFrontier(db, project.id);
 
     const state = getProjectState(db, project.id);
 
@@ -485,6 +487,6 @@ describe('getProjectState', () => {
         referenceCode: createKnowledgeReferenceCode('decision', 1),
       },
     ]);
-    expect(state?.turns.some((candidate) => candidate.turn_kind === 'recovery')).toBe(true);
+    expect(state?.turns.some((candidate) => candidate.turn_kind === 'recovery')).toBe(false);
   });
 });
