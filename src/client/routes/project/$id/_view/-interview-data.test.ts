@@ -341,13 +341,14 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(proposedScope, 'scope', messages, false)).toEqual({
       project: proposedScope.project,
       workflow: proposedScope.workflow,
-      activeArtifact: null,
-      phaseSummary: {
-        phase: 'scope',
-        turnId: 1,
-        summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+      bottomArtifact: {
+        kind: 'phase-summary',
+        phaseSummary: {
+          phase: 'scope',
+          turnId: 1,
+          summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+        },
       },
-      showGeneratingState: false,
       promptInput: { visible: false },
     });
   });
@@ -402,17 +403,13 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(recoveryState, 'scope', [], false)).toEqual({
       project: recoveryState.project,
       workflow: recoveryState.workflow,
-      activeArtifact: { kind: 'recovery', recovery: { phase: 'scope' } },
-      phaseSummary: null,
-      showGeneratingState: false,
+      bottomArtifact: { kind: 'recovery', recovery: { phase: 'scope' } },
       promptInput: { visible: false },
     });
     expect(createInterviewControllerViewState(recoveryState, 'scope', [], true)).toEqual({
       project: recoveryState.project,
       workflow: recoveryState.workflow,
-      activeArtifact: null,
-      phaseSummary: null,
-      showGeneratingState: true,
+      bottomArtifact: { kind: 'generating' },
       promptInput: { visible: false },
     });
   });
@@ -467,9 +464,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(kickoffState, 'scope', [], false)).toEqual({
       project: kickoffState.project,
       workflow: kickoffState.workflow,
-      activeArtifact: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'start' } },
-      phaseSummary: null,
-      showGeneratingState: false,
+      bottomArtifact: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'start' } },
       promptInput: { visible: false },
     });
   });
@@ -535,9 +530,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(submittedResponse, 'scope', [], true, 1)).toEqual({
       project: submittedResponse.project,
       workflow: submittedResponse.workflow,
-      activeArtifact: { kind: 'persisted-turn', turn: submittedResponse.lastTurn!, state: 'submitted' },
-      phaseSummary: null,
-      showGeneratingState: false,
+      bottomArtifact: { kind: 'persisted-turn', turn: submittedResponse.lastTurn!, state: 'submitted' },
       promptInput: { visible: false },
     });
   });
@@ -627,7 +620,7 @@ describe('workspace controller core', () => {
     expect(viewState.project).toEqual(emptyProjectState.project);
     expect(viewState.workflow).toEqual(emptyProjectState.workflow);
     expect(viewState.promptInput.visible).toBe(false);
-    expect(viewState.activeArtifact).toEqual({
+    expect(viewState.bottomArtifact).toEqual({
       kind: 'pending-question',
       pendingQuestion: {
         id: 'pending-question-assistant:tool-1',
@@ -640,8 +633,6 @@ describe('workspace controller core', () => {
         ],
       },
     });
-    expect(viewState.phaseSummary).toBeNull();
-    expect(viewState.showGeneratingState).toBe(false);
   });
 
   it('interprets accepted interviewer-recommended closure replay from the same durable turn', () => {
@@ -799,21 +790,23 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(durableProject, 'scope', [], false)).toEqual({
       project: durableProject.project,
       workflow: durableProject.workflow,
-      activeArtifact: null,
-      phaseSummary: null,
-      showGeneratingState: false,
-      promptInput: { visible: true },
+      bottomArtifact: {
+        kind: 'phase-handoff',
+        phase: 'scope',
+        nextPhase: 'design',
+        summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+        isReviewPhase: false,
+      },
+      promptInput: { visible: false },
     });
     expect(createInterviewControllerViewState(durableProject, 'design', [], false)).toEqual({
       project: durableProject.project,
       workflow: durableProject.workflow,
-      activeArtifact: {
+      bottomArtifact: {
         kind: 'persisted-turn',
         turn: projectState.turns[1]!,
         state: 'active',
       },
-      phaseSummary: null,
-      showGeneratingState: false,
       promptInput: { visible: false },
     });
   });

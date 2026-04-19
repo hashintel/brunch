@@ -47,7 +47,7 @@ export interface InterviewControllerChatState {
   readonly forcePhaseClosure: (phase: ProjectStateTurn['phase']) => void;
 }
 
-export type InterviewControllerActiveArtifactState =
+export type InterviewControllerBottomArtifactState =
   | {
       readonly kind: 'persisted-turn';
       readonly turn: ProjectStateTurn;
@@ -72,6 +72,28 @@ export type InterviewControllerActiveArtifactState =
       readonly recovery: RecoveryControlViewModel;
       readonly disabled: boolean;
       readonly submitRecovery: () => void;
+    }
+  | {
+      readonly kind: 'phase-summary';
+      readonly phaseSummary: PhaseSummaryViewModel;
+      readonly disabled: boolean;
+      readonly confirmPhaseSummary: () => void;
+    }
+  | {
+      readonly kind: 'generating';
+    }
+  | {
+      readonly kind: 'phase-handoff';
+      readonly phase: WorkflowPhase;
+      readonly nextPhase: WorkflowPhase;
+      readonly summary: string | null;
+      readonly isReviewPhase: boolean;
+    }
+  | {
+      readonly kind: 'workflow-complete';
+      readonly phase: WorkflowPhase;
+      readonly summary: string | null;
+      readonly isReviewPhase: boolean;
     };
 
 export interface InterviewControllerPromptInputState {
@@ -85,9 +107,7 @@ export interface InterviewController {
   readonly phaseTurns: readonly ProjectStateTurn[];
   readonly captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   readonly chat: InterviewControllerChatState;
-  readonly activeArtifact: InterviewControllerActiveArtifactState | null;
-  readonly phaseSummary: PhaseSummaryViewModel | null;
-  readonly showGeneratingState: boolean;
+  readonly bottomArtifact: InterviewControllerBottomArtifactState | null;
   readonly promptInput: InterviewControllerPromptInputState;
 }
 
@@ -182,7 +202,6 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   const submitKickoffResponseMutation = useSubmitKickoffResponseMutation({ projectId });
   const isLoading = status === 'submitted' || status === 'streaming';
 
-  // Phase-filtered messages for display
   const phaseMessages = useMemo(
     () => filterMessagesByPhase(messages, phaseTurnIds),
     [messages, phaseTurnIds],
@@ -199,7 +218,10 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
       return;
     }
 
-    if (viewState.activeArtifact?.kind === 'pending-question' || viewState.phaseSummary) {
+    if (
+      viewState.bottomArtifact?.kind === 'pending-question' ||
+      viewState.bottomArtifact?.kind === 'phase-summary'
+    ) {
       setCaptureStatusByTurnId((current) => {
         if (current.has(submittedTurnId)) {
           return current;
@@ -212,7 +234,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     if (durableProject.workflow.phases[phase].status === 'closed' || phaseTurnId !== submittedTurnId) {
       setSubmittedTurnId(null);
     }
-  }, [submittedTurnId, durableProject.workflow, phase, viewState.phaseSummary, viewState.activeArtifact]);
+  }, [submittedTurnId, durableProject.workflow, phase, viewState.bottomArtifact]);
 
   useEffect(() => {
     setCaptureStatusByTurnId((current) => {
@@ -278,7 +300,6 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     [submitPhaseClosureCommand],
   );
 
-  // Navigate to next phase after close confirmation succeeds
   useEffect(() => {
     if (!pendingCloseNavigation) return;
     if (durableProject.workflow.phases[phase].status !== 'closed') return;
@@ -307,17 +328,17 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
       confirmPhaseClosure,
       forcePhaseClosure,
     },
-    activeArtifact: viewState.activeArtifact
-      ? viewState.activeArtifact.kind === 'persisted-turn'
+    bottomArtifact: viewState.bottomArtifact
+      ? viewState.bottomArtifact.kind === 'persisted-turn'
         ? {
             kind: 'persisted-turn',
-            turn: viewState.activeArtifact.turn,
-            state: viewState.activeArtifact.state,
-            disabled: viewState.activeArtifact.state === 'submitted',
+            turn: viewState.bottomArtifact.turn,
+            state: viewState.bottomArtifact.state,
+            disabled: viewState.bottomArtifact.state === 'submitted',
             errorMessage: submitTurnResponseMutation.errorMessage,
             submitTurnResponse: async (positions: number[], freeText?: string) => {
               const turnId =
-                viewState.activeArtifact?.kind === 'persisted-turn' ? viewState.activeArtifact.turn.id : null;
+                viewState.bottomArtifact?.kind === 'persisted-turn' ? viewState.bottomArtifact.turn.id : null;
               if (turnId === null) {
                 return;
               }
@@ -329,15 +350,15 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
               }
             },
           }
-        : viewState.activeArtifact.kind === 'pending-question'
+        : viewState.bottomArtifact.kind === 'pending-question'
           ? {
               kind: 'pending-question',
-              pendingQuestion: viewState.activeArtifact.pendingQuestion,
+              pendingQuestion: viewState.bottomArtifact.pendingQuestion,
               disabled: true,
             }
-          : viewState.activeArtifact.kind === 'kickoff'
+          : viewState.bottomArtifact.kind === 'kickoff'
             ? (() => {
-                const kickoff = viewState.activeArtifact.kickoff;
+                const kickoff = viewState.bottomArtifact.kickoff;
 
                 return {
                   kind: 'kickoff' as const,
@@ -350,7 +371,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
 
                     if (kickoff.phase === 'scope' && kickoff.mode === 'start' && selectedMode) {
                       const kickoffTurnId =
-                        viewState.activeArtifact?.kind === 'kickoff'
+                        viewState.bottomArtifact?.kind === 'kickoff'
                           ? durableProject.workflow.phases.scope.turnId
                           : null;
                       const selectedPosition = getGroundingStrategyPosition(selectedMode);
@@ -389,25 +410,51 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                   },
                 };
               })()
-            : (() => {
-                const recovery = viewState.activeArtifact.recovery;
+            : viewState.bottomArtifact.kind === 'recovery'
+              ? (() => {
+                  const recovery = viewState.bottomArtifact.recovery;
 
-                return {
-                  kind: 'recovery' as const,
-                  recovery,
-                  disabled: isLoading,
-                  submitRecovery: () => {
-                    if (isLoading) {
-                      return;
-                    }
+                  return {
+                    kind: 'recovery' as const,
+                    recovery,
+                    disabled: isLoading,
+                    submitRecovery: () => {
+                      if (isLoading) {
+                        return;
+                      }
 
-                    submitText(getKickoffMessage(recovery.phase, 'continue'));
-                  },
-                };
-              })()
+                      submitText(getKickoffMessage(recovery.phase, 'continue'));
+                    },
+                  };
+                })()
+              : viewState.bottomArtifact.kind === 'phase-summary'
+                ? (() => {
+                    const phaseSummary = viewState.bottomArtifact.phaseSummary;
+
+                    return {
+                      kind: 'phase-summary' as const,
+                      phaseSummary,
+                      disabled: isLoading,
+                      confirmPhaseSummary: () => confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId),
+                    };
+                  })()
+                : viewState.bottomArtifact.kind === 'generating'
+                  ? { kind: 'generating' as const }
+                  : viewState.bottomArtifact.kind === 'phase-handoff'
+                    ? {
+                        kind: 'phase-handoff' as const,
+                        phase: viewState.bottomArtifact.phase,
+                        nextPhase: viewState.bottomArtifact.nextPhase,
+                        summary: viewState.bottomArtifact.summary,
+                        isReviewPhase: viewState.bottomArtifact.isReviewPhase,
+                      }
+                    : {
+                        kind: 'workflow-complete' as const,
+                        phase: viewState.bottomArtifact.phase,
+                        summary: viewState.bottomArtifact.summary,
+                        isReviewPhase: viewState.bottomArtifact.isReviewPhase,
+                      }
       : null,
-    phaseSummary: viewState.phaseSummary,
-    showGeneratingState: viewState.showGeneratingState,
     promptInput: {
       visible: viewState.promptInput.visible,
       disabled: isLoading || submitTurnResponseMutation.isPending || submitKickoffResponseMutation.isPending,

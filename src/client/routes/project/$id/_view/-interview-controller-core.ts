@@ -11,6 +11,7 @@ import type {
   BrunchUserPart,
   StructuredQuestion,
 } from '@/shared/chat.js';
+import { getNextActivePhase } from '@/shared/phase-routes.js';
 import {
   hasPersistedTurnResponse,
   safeParsePersistedAssistantParts,
@@ -73,12 +74,33 @@ export type InterviewActiveArtifactViewModel =
   | { readonly kind: 'kickoff'; readonly kickoff: KickoffControlViewModel }
   | { readonly kind: 'recovery'; readonly recovery: RecoveryControlViewModel };
 
+export type InterviewBottomArtifactViewModel =
+  | InterviewActiveArtifactViewModel
+  | {
+      readonly kind: 'phase-summary';
+      readonly phaseSummary: PhaseSummaryViewModel;
+    }
+  | {
+      readonly kind: 'generating';
+    }
+  | {
+      readonly kind: 'phase-handoff';
+      readonly phase: WorkflowPhase;
+      readonly nextPhase: WorkflowPhase;
+      readonly summary: string | null;
+      readonly isReviewPhase: boolean;
+    }
+  | {
+      readonly kind: 'workflow-complete';
+      readonly phase: WorkflowPhase;
+      readonly summary: string | null;
+      readonly isReviewPhase: boolean;
+    };
+
 export interface InterviewControllerViewState {
   readonly project: InterviewDurableProjectState['project'];
   readonly workflow: InterviewDurableProjectState['workflow'];
-  readonly activeArtifact: InterviewActiveArtifactViewModel | null;
-  readonly phaseSummary: PhaseSummaryViewModel | null;
-  readonly showGeneratingState: boolean;
+  readonly bottomArtifact: InterviewBottomArtifactViewModel | null;
   readonly promptInput: {
     readonly visible: boolean;
   };
@@ -322,6 +344,35 @@ export function createInterviewControllerViewState(
 ): InterviewControllerViewState {
   const { project, workflow } = durableProject;
   const phaseState = workflow.phases[phase];
+  const nextPhase = getNextActivePhase(workflow.phases, phase);
+  const isReviewPhase = phase === 'requirements' || phase === 'criteria';
+
+  if (phaseState.status === 'closed') {
+    const bottomArtifact: InterviewBottomArtifactViewModel | null = nextPhase
+      ? {
+          kind: 'phase-handoff',
+          phase,
+          nextPhase,
+          summary: phaseState.summary,
+          isReviewPhase,
+        }
+      : {
+          kind: 'workflow-complete',
+          phase,
+          summary: phaseState.summary,
+          isReviewPhase,
+        };
+
+    return {
+      project,
+      workflow,
+      bottomArtifact,
+      promptInput: {
+        visible: false,
+      },
+    };
+  }
+
   const landing = durableProject.landing?.phase === phase ? durableProject.landing : null;
   const phaseTurn =
     landing?.kind === 'frontier-turn'
@@ -344,21 +395,11 @@ export function createInterviewControllerViewState(
     (!isLoading || isSubmittedTurn) &&
     (!turnHasCompletedAnswer(phaseTurn) || isSubmittedTurn);
   const showRecovery =
-    !isLoading &&
-    !phaseSummary &&
-    !pendingQuestion &&
-    phaseState.status !== 'closed' &&
-    !showPersistedTurn &&
-    landing?.kind === 'recovery';
+    !isLoading && !phaseSummary && !pendingQuestion && !showPersistedTurn && landing?.kind === 'recovery';
   const showKickoff =
-    !isLoading &&
-    !phaseSummary &&
-    !pendingQuestion &&
-    phaseState.status !== 'closed' &&
-    !showPersistedTurn &&
-    landing?.kind === 'kickoff';
-  const activeArtifact: InterviewActiveArtifactViewModel | null = phaseSummary
-    ? null
+    !isLoading && !phaseSummary && !pendingQuestion && !showPersistedTurn && landing?.kind === 'kickoff';
+  const bottomArtifact: InterviewBottomArtifactViewModel | null = phaseSummary
+    ? { kind: 'phase-summary', phaseSummary }
     : pendingQuestion
       ? { kind: 'pending-question', pendingQuestion }
       : showPersistedTurn && phaseTurn
@@ -382,17 +423,22 @@ export function createInterviewControllerViewState(
                   mode: landing.mode,
                 },
               }
-            : null;
+            : isLoading
+              ? { kind: 'generating' }
+              : null;
 
   return {
     project,
     workflow,
-    activeArtifact,
-    phaseSummary,
-    showGeneratingState: !phaseSummary && !activeArtifact && isLoading,
+    bottomArtifact,
     promptInput: {
       visible:
-        isLoading || phaseSummary || pendingQuestion || showKickoff || showRecovery
+        isLoading ||
+        bottomArtifact?.kind === 'phase-summary' ||
+        bottomArtifact?.kind === 'pending-question' ||
+        bottomArtifact?.kind === 'kickoff' ||
+        bottomArtifact?.kind === 'recovery' ||
+        bottomArtifact?.kind === 'generating'
           ? false
           : !showTurnCard || (phaseTurnHasResponse && !isSubmittedTurn),
     },
