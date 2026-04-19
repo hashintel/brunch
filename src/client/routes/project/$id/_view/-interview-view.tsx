@@ -1,5 +1,4 @@
 import { Link, useLoaderData } from '@tanstack/react-router';
-import { useEffect, useRef } from 'react';
 
 import { Message, MessageContent, MessageResponse } from '@/client/components/ai-elements/message';
 import { ShellButton } from '@/client/components/app-shell';
@@ -146,14 +145,9 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const { chat, project, workflow, phaseTurns, bottomArtifact, captureStatusByTurnId } =
     useInterviewController(phase);
   const phaseState = workflow.phases[phase];
-  const autoPresentKeyRef = useRef<string | null>(null);
   const currentReachablePhase =
     phaseOrder.find((candidate) => workflow.phases[candidate].status !== 'closed') ?? null;
   const nextPhase = getNextActivePhase(workflow.phases, phase);
-  // TODO: re-enable when auto-present is restored
-  const _hasVisibleActiveTurn =
-    bottomArtifact?.kind === 'pending-question' ||
-    (bottomArtifact?.kind === 'persisted-turn' && !turnHasCompletedAnswer(bottomArtifact.turn));
   const controlMarkers = projectLiveControlMarkers(chat.messages);
   const { streamArtifacts } = projectWorkspaceStream({
     phase,
@@ -164,8 +158,6 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   });
   const showLockedState =
     phaseState.status === 'unstarted' && currentReachablePhase !== phase && currentReachablePhase !== null;
-  // TODO: auto-present is disabled while the phase-closure interaction model is being reworked.
-  const autoPresentCommand = null;
   const fallbackReviewSet =
     phase === 'requirements'
       ? {
@@ -178,21 +170,6 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             items: entitySnapshot.criteria,
           }
         : undefined;
-  // TODO: auto-present is disabled while the phase-closure interaction model is being reworked.
-  // The effect was automatically submitting start/continue commands, which causes runaway
-  // turn generation. Re-enable once the center-pane header owns phase lifecycle controls.
-  useEffect(() => {
-    if (!autoPresentCommand) {
-      autoPresentKeyRef.current = null;
-      return;
-    }
-    // Disabled: do not auto-submit.
-    // const autoPresentKey = `${project.id}:${phase}:${phaseState.status}:${phaseState.turnId ?? 'none'}:${phaseTurns.length}:${autoPresentCommand}`;
-    // if (autoPresentKeyRef.current === autoPresentKey) return;
-    // autoPresentKeyRef.current = autoPresentKey;
-    // chat.submitText(autoPresentCommand);
-  }, [autoPresentCommand, phase, phaseState.status, phaseState.turnId, phaseTurns.length, project.id]);
-
   const phaseIndex = phaseOrder.indexOf(phase);
   const phaseNumber = phaseIndex + 1;
   const phaseTotal = phaseOrder.length;

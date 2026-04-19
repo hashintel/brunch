@@ -320,6 +320,7 @@ export function createInterviewControllerViewState(
   messages: readonly BrunchUIMessage[],
   isLoading: boolean,
   submittedTurnId: number | null = null,
+  isAutoPresentingKickoff = false,
 ): InterviewControllerViewState {
   const { project, workflow } = durableProject;
   const phaseState = workflow.phases[phase];
@@ -372,7 +373,12 @@ export function createInterviewControllerViewState(
   const showRecovery =
     !isLoading && !phaseSummary && !pendingQuestion && !showPersistedTurn && landing?.kind === 'recovery';
   const showKickoff =
-    !isLoading && !phaseSummary && !pendingQuestion && !showPersistedTurn && landing?.kind === 'kickoff';
+    !isLoading &&
+    !isAutoPresentingKickoff &&
+    !phaseSummary &&
+    !pendingQuestion &&
+    !showPersistedTurn &&
+    landing?.kind === 'kickoff';
   const bottomArtifact: InterviewBottomArtifactViewModel | null = phaseSummary
     ? { kind: 'phase-summary', phaseSummary }
     : pendingQuestion
@@ -398,7 +404,7 @@ export function createInterviewControllerViewState(
                   mode: landing.mode,
                 },
               }
-            : isLoading
+            : isLoading || isAutoPresentingKickoff
               ? { kind: 'generating' }
               : null;
 

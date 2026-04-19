@@ -35,6 +35,7 @@ import type {
 } from './-interview-controller-core.js';
 import { useInterviewDataAdapter } from './-interview-data.js';
 import { getProjectScopedChatId } from './-interview-hydration.js';
+import { useSpecificationScopedAutoPhaseEntry } from './-specification-lifecycle.js';
 
 export interface InterviewControllerChatState {
   readonly messages: readonly BrunchUIMessage[];
@@ -204,10 +205,117 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     [messages, phaseTurnIds],
   );
 
+  const submitText = useCallback(
+    (text: string) => {
+      if (!text.trim() || isLoading) {
+        return;
+      }
+
+      void sendMessage({ text });
+    },
+    [isLoading, sendMessage],
+  );
+
+  const submitPhaseClosureCommand = useCallback(
+    (command: DataConfirmation) => {
+      if (isLoading) {
+        return;
+      }
+
+      pendingCloseRef.current = true;
+      void sendMessage({
+        parts: [
+          { type: 'text', text: getPhaseClosureCommandText(command) },
+          {
+            type: 'data-confirmation',
+            data: command,
+          },
+        ],
+      });
+    },
+    [isLoading, sendMessage],
+  );
+
+  const submitTypedPhaseIntent = useCallback(
+    async (intent: PhaseIntentRequest): Promise<boolean> => {
+      if (isLoading) {
+        return false;
+      }
+
+      const result =
+        intent.kind === 'phase-entry'
+          ? await submitPhaseIntentMutation.submitPhaseEntry(
+              intent.phase,
+              intent.mode ? { mode: intent.mode } : undefined,
+            )
+          : await submitPhaseIntentMutation.submitPhaseContinue(intent.phase);
+      if (!result) {
+        return false;
+      }
+
+      await Promise.resolve(
+        sendMessage({
+          parts: [
+            {
+              type: 'data-phase-intent',
+              data: intent,
+            },
+          ],
+        }),
+      );
+      return true;
+    },
+    [isLoading, sendMessage, submitPhaseIntentMutation],
+  );
+
+  const confirmPhaseClosure = useCallback(
+    (closurePhase: ProjectStateTurn['phase'], turnId: number) => {
+      submitPhaseClosureCommand(createConfirmProposedPhaseClosureCommand(closurePhase, turnId));
+    },
+    [submitPhaseClosureCommand],
+  );
+
+  const forcePhaseClosure = useCallback(
+    (closurePhase: ProjectStateTurn['phase']) => {
+      submitPhaseClosureCommand(createForceCloseActivePhaseCommand(closurePhase));
+    },
+    [submitPhaseClosureCommand],
+  );
+
+  useEffect(() => {
+    if (!pendingCloseNavigation) return;
+    if (durableProject.workflow.phases[phase].status !== 'closed') return;
+
+    setPendingCloseNavigation(false);
+    const nextPhase = getNextActivePhase(durableProject.workflow.phases, phase);
+    if (nextPhase) {
+      void router.navigate({
+        to: `/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/grounding',
+        params: { id: String(projectId) },
+      });
+    }
+  }, [pendingCloseNavigation, durableProject.workflow, phase, router, projectId]);
+
+  const isAutoPresentingKickoff = useSpecificationScopedAutoPhaseEntry({
+    projectId,
+    phase,
+    workflow: durableProject.workflow,
+    landing: durableProject.landing,
+    isChatLoading: isLoading,
+    submitPhaseIntent: submitTypedPhaseIntent,
+  });
+
   const viewState = useMemo(
     () =>
-      createInterviewControllerViewState(durableProject, phase, phaseMessages, isLoading, submittedTurnId),
-    [durableProject, isLoading, phase, phaseMessages, submittedTurnId],
+      createInterviewControllerViewState(
+        durableProject,
+        phase,
+        phaseMessages,
+        isLoading,
+        submittedTurnId,
+        isAutoPresentingKickoff,
+      ),
+    [durableProject, isAutoPresentingKickoff, isLoading, phase, phaseMessages, submittedTurnId],
   );
 
   useEffect(() => {
@@ -251,83 +359,6 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
       return next ?? current;
     });
   }, [stablePhaseTurns]);
-
-  const submitText = useCallback(
-    (text: string) => {
-      if (!text.trim() || isLoading) {
-        return;
-      }
-
-      void sendMessage({ text });
-    },
-    [isLoading, sendMessage],
-  );
-
-  const submitPhaseClosureCommand = useCallback(
-    (command: DataConfirmation) => {
-      if (isLoading) {
-        return;
-      }
-
-      pendingCloseRef.current = true;
-      void sendMessage({
-        parts: [
-          { type: 'text', text: getPhaseClosureCommandText(command) },
-          {
-            type: 'data-confirmation',
-            data: command,
-          },
-        ],
-      });
-    },
-    [isLoading, sendMessage],
-  );
-
-  const submitPhaseIntentCommand = useCallback(
-    (intent: PhaseIntentRequest) => {
-      if (isLoading) {
-        return;
-      }
-
-      void sendMessage({
-        parts: [
-          {
-            type: 'data-phase-intent',
-            data: intent,
-          },
-        ],
-      });
-    },
-    [isLoading, sendMessage],
-  );
-
-  const confirmPhaseClosure = useCallback(
-    (closurePhase: ProjectStateTurn['phase'], turnId: number) => {
-      submitPhaseClosureCommand(createConfirmProposedPhaseClosureCommand(closurePhase, turnId));
-    },
-    [submitPhaseClosureCommand],
-  );
-
-  const forcePhaseClosure = useCallback(
-    (closurePhase: ProjectStateTurn['phase']) => {
-      submitPhaseClosureCommand(createForceCloseActivePhaseCommand(closurePhase));
-    },
-    [submitPhaseClosureCommand],
-  );
-
-  useEffect(() => {
-    if (!pendingCloseNavigation) return;
-    if (durableProject.workflow.phases[phase].status !== 'closed') return;
-
-    setPendingCloseNavigation(false);
-    const nextPhase = getNextActivePhase(durableProject.workflow.phases, phase);
-    if (nextPhase) {
-      void router.navigate({
-        to: `/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/grounding',
-        params: { id: String(projectId) },
-      });
-    }
-  }, [pendingCloseNavigation, durableProject.workflow, phase, router, projectId]);
 
   return {
     project: viewState.project,
@@ -393,25 +424,15 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                     }
 
                     if (kickoff.phase === 'scope' && kickoff.mode === 'start' && selectedMode) {
-                      const intent: PhaseIntentRequest = {
+                      void submitTypedPhaseIntent({
                         kind: 'phase-entry',
                         phase: kickoff.phase,
                         mode: selectedMode,
-                      };
-
-                      void submitPhaseIntentMutation
-                        .submitPhaseEntry(kickoff.phase, { mode: selectedMode })
-                        .then((result) => {
-                          if (!result) {
-                            return;
-                          }
-
-                          submitPhaseIntentCommand(intent);
-                        });
+                      });
                       return;
                     }
 
-                    const intent: PhaseIntentRequest =
+                    void submitTypedPhaseIntent(
                       kickoff.mode === 'start'
                         ? {
                             kind: 'phase-entry',
@@ -420,20 +441,8 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                         : {
                             kind: 'phase-continue',
                             phase: kickoff.phase,
-                          };
-
-                    const submitIntent =
-                      kickoff.mode === 'start'
-                        ? submitPhaseIntentMutation.submitPhaseEntry(kickoff.phase)
-                        : submitPhaseIntentMutation.submitPhaseContinue(kickoff.phase);
-
-                    void submitIntent.then((result) => {
-                      if (!result) {
-                        return;
-                      }
-
-                      submitPhaseIntentCommand(intent);
-                    });
+                          },
+                    );
                   },
                 };
               })()
@@ -450,15 +459,9 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                         return;
                       }
 
-                      void submitPhaseIntentMutation.submitPhaseContinue(recovery.phase).then((result) => {
-                        if (!result) {
-                          return;
-                        }
-
-                        submitPhaseIntentCommand({
-                          kind: 'phase-continue',
-                          phase: recovery.phase,
-                        });
+                      void submitTypedPhaseIntent({
+                        kind: 'phase-continue',
+                        phase: recovery.phase,
                       });
                     },
                   };

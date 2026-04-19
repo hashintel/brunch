@@ -11,6 +11,7 @@ import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
 
 import { InterviewView } from './-interview-view.js';
+import { resetSpecificationLifecycleRegistryForTesting } from './-specification-lifecycle.js';
 
 function createPendingQuestionMessage(): BrunchUIMessage {
   return {
@@ -440,6 +441,7 @@ beforeEach(() => {
   routerInvalidate.mockClear();
   fetchMock.mockReset();
   useChatImpl = createUseChatHarness();
+  resetSpecificationLifecycleRegistryForTesting();
   vi.stubGlobal('fetch', fetchMock);
 });
 
@@ -449,64 +451,90 @@ afterEach(() => {
 });
 
 describe('InterviewView', () => {
-  // TODO: re-enable when auto-present is restored after phase-closure rework
-  it.skip('auto-presents the first turn for the current open phase instead of showing a begin button', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        turns: [],
-        workflow: {
-          phases: {
-            scope: {
-              status: 'unstarted',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-            design: {
-              status: 'unstarted',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-            requirements: {
-              status: 'unstarted',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-            criteria: {
-              status: 'unstarted',
-              closeability: false,
-              readiness: 'low',
-              closureBasis: null,
-              proposalPending: false,
-              turnId: null,
-              summary: null,
-            },
-          },
+  it('auto-presents the current reachable kickoff phase through a typed phase-entry intent', async () => {
+    const loaderData = createWorkspaceLoaderData({
+      turns: [],
+      workflow: createWorkflowState({
+        scope: {
+          status: 'closed',
+          closeability: false,
+          readiness: 'high',
+          closureBasis: 'interviewer_recommended',
+          proposalPending: false,
+          turnId: 11,
+          summary: 'Grounding complete.',
         },
+        design: {
+          status: 'closed',
+          closeability: false,
+          readiness: 'high',
+          closureBasis: 'interviewer_recommended',
+          proposalPending: false,
+          turnId: 12,
+          summary: 'Elicitation complete.',
+        },
+        requirements: {
+          status: 'in_progress',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
+        criteria: {
+          status: 'unstarted',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: null,
+          summary: null,
+        },
+      }),
+    });
+    expect(loaderData.projectState.landing).toEqual({
+      kind: 'kickoff',
+      phase: 'requirements',
+      mode: 'start',
+    });
+    setLoaderData(loaderData);
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
       }),
     );
 
-    renderWorkspace();
-
-    expect(await screen.findByTestId('workspace-state-card')).toBeTruthy();
-    expect(screen.getByText('Preparing the next interview turn')).toBeTruthy();
-    expect(screen.queryByRole('button', { name: 'Begin Framing' })).toBeNull();
-    expect(screen.queryByLabelText('Type a message...')).toBeNull();
+    renderWorkspace('requirements');
 
     await waitFor(() => {
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Begin the grounding phase.' });
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/phase-intent',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'phase-entry', phase: 'requirements' }),
+        }),
+      );
     });
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: { kind: 'phase-entry', phase: 'requirements' },
+          },
+        ],
+      });
+    });
+
+    expect(await screen.findByTestId('generating-turn-placeholder')).toBeTruthy();
+    expect(screen.queryByTestId('kickoff-control-card')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Proceed' })).toBeNull();
+    expect(screen.queryByLabelText('Type a message...')).toBeNull();
   });
 
   // TODO: re-enable when auto-present is restored after phase-closure rework
@@ -1568,13 +1596,12 @@ describe('InterviewView', () => {
     expect(screen.queryByTestId('answered-turn-card')).toBeNull();
   });
 
-  it('renders a review-specific kickoff card for requirements', async () => {
+  it('keeps the grounding strategy kickoff card when grounding still requires an explicit strategy choice', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
+        turns: [],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
-          design: { status: 'closed', readiness: 'high' },
-          requirements: {
+          scope: {
             status: 'in_progress',
             closeability: false,
             readiness: 'low',
@@ -1587,35 +1614,14 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace('requirements');
+    renderWorkspace('scope');
 
     const kickoffCard = await screen.findByTestId('kickoff-control-card');
-    expect(kickoffCard.textContent).toContain('Requirements review');
-    expect(kickoffCard.textContent).toContain(
-      'This phase is ready to assemble the current requirement set for review.',
-    );
-    expect(kickoffCard.textContent).not.toContain('review step');
-    expect(kickoffCard.textContent).not.toContain('interview turn');
-
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-
-    fireEvent.click(screen.getByRole('button', { name: 'Proceed' }));
-
-    await waitFor(() => {
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
-        parts: [
-          {
-            type: 'data-phase-intent',
-            data: { kind: 'phase-entry', phase: 'requirements' },
-          },
-        ],
-      });
-    });
+    expect(kickoffCard.textContent).toContain('How should this specification start?');
+    expect(kickoffCard.textContent).toContain('New concept from scratch');
+    expect(kickoffCard.textContent).toContain('Feature within existing codebase');
+    expect(fetchMock).not.toHaveBeenCalled();
+    expect(useChatHarness.sendMessage).not.toHaveBeenCalled();
   });
 
   it('renders a review-specific recovery card for criteria', async () => {

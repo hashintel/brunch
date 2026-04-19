@@ -10,6 +10,7 @@ import type { BrunchUIMessage } from '@/shared/chat.js';
 import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
 
 import { useInterviewController } from './-interview-controller.js';
+import { resetSpecificationLifecycleRegistryForTesting } from './-specification-lifecycle.js';
 
 function createPendingQuestionMessage(): BrunchUIMessage {
   return {
@@ -242,8 +243,8 @@ function messageText(messages: readonly BrunchUIMessage[]) {
     .join('|');
 }
 
-function ControllerProbe() {
-  const workspace = useInterviewController('scope');
+function ControllerProbe({ phase = 'scope' }: { phase?: 'scope' | 'design' | 'requirements' | 'criteria' }) {
+  const workspace = useInterviewController(phase);
 
   return (
     <div>
@@ -287,11 +288,11 @@ function ControllerProbe() {
   );
 }
 
-function renderController() {
+function renderController(phase: 'scope' | 'design' | 'requirements' | 'criteria' = 'scope') {
   const queryClient = createQueryClient();
   const rendered = render(
     <QueryClientProvider client={queryClient}>
-      <ControllerProbe />
+      <ControllerProbe phase={phase} />
     </QueryClientProvider>,
   );
 
@@ -304,6 +305,7 @@ beforeEach(() => {
   fetchMock.mockReset();
   chatTransportOptions.length = 0;
   useChatImpl = createUseChatHarness();
+  resetSpecificationLifecycleRegistryForTesting();
   vi.stubGlobal('fetch', fetchMock);
 });
 
@@ -423,6 +425,129 @@ describe('interview controller', () => {
           },
         ],
       });
+    });
+  });
+
+  it('auto-submits a typed phase-entry for the current reachable kickoff phase', async () => {
+    currentProjectState = createProjectState({ turns: [] });
+    currentProjectState.project.active_turn_id = null;
+    currentProjectState.workflow.phases.scope = {
+      status: 'closed',
+      closeability: false,
+      readiness: 'high',
+      closureBasis: 'interviewer_recommended',
+      proposalPending: false,
+      turnId: 11,
+      summary: 'Grounding complete.',
+    };
+    currentProjectState.workflow.phases.design = {
+      status: 'closed',
+      closeability: false,
+      readiness: 'high',
+      closureBasis: 'interviewer_recommended',
+      proposalPending: false,
+      turnId: 12,
+      summary: 'Elicitation complete.',
+    };
+    currentProjectState.workflow.phases.requirements = {
+      status: 'in_progress',
+      closeability: false,
+      readiness: 'low',
+      closureBasis: null,
+      proposalPending: false,
+      turnId: null,
+      summary: null,
+    };
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderController('requirements');
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/phase-intent',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'phase-entry', phase: 'requirements' }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: { kind: 'phase-entry', phase: 'requirements' },
+          },
+        ],
+      });
+    });
+
+    expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('generating');
+  });
+
+  it('does not duplicate the auto phase-entry submit across rerender and remount', async () => {
+    currentProjectState = createProjectState({ turns: [] });
+    currentProjectState.project.active_turn_id = null;
+    currentProjectState.workflow.phases.scope = {
+      status: 'closed',
+      closeability: false,
+      readiness: 'high',
+      closureBasis: 'interviewer_recommended',
+      proposalPending: false,
+      turnId: 11,
+      summary: 'Grounding complete.',
+    };
+    currentProjectState.workflow.phases.design = {
+      status: 'in_progress',
+      closeability: false,
+      readiness: 'low',
+      closureBasis: null,
+      proposalPending: false,
+      turnId: null,
+      summary: null,
+    };
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+
+    fetchMock.mockResolvedValue(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    const rendered = renderController('design');
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <ControllerProbe phase="design" />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
+    });
+
+    rendered.unmount();
+    renderController('design');
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
     });
   });
 
