@@ -3,10 +3,11 @@ import { useRouter } from '@tanstack/react-router';
 import type {
   ProjectMode,
   ProjectStateTurn,
-  SubmitKickoffResponseRequest,
-  SubmitKickoffResponseResponse,
+  SubmitPhaseIntentRequest,
+  SubmitPhaseIntentResponse,
   SubmitTurnResponseRequest,
   SubmitTurnResponseResponse,
+  WorkflowPhase,
 } from '@/shared/api-types.js';
 import { formatTurnResponseText } from '@/shared/chat.js';
 import {
@@ -23,37 +24,55 @@ export interface SubmitTurnResponseMutationState {
   readonly clearError: () => void;
 }
 
-export interface SubmitKickoffResponseMutationState {
-  readonly submitKickoffResponse: (mode: ProjectMode) => Promise<boolean>;
+export interface SubmitPhaseIntentMutationState {
+  readonly submitPhaseEntry: (
+    phase: WorkflowPhase,
+    options?: { mode?: ProjectMode },
+  ) => Promise<SubmitPhaseIntentResponse | null>;
+  readonly submitPhaseContinue: (phase: WorkflowPhase) => Promise<SubmitPhaseIntentResponse | null>;
   readonly isPending: boolean;
   readonly errorMessage: string | null;
   readonly clearError: () => void;
 }
 
-export function useSubmitKickoffResponseMutation({
+export function useSubmitPhaseIntentMutation({
   projectId,
 }: {
   projectId: number;
-}): SubmitKickoffResponseMutationState {
+}): SubmitPhaseIntentMutationState {
   const router = useRouter();
-  const mutation = useClientMutation((response: SubmitKickoffResponseRequest) =>
-    postJsonMutation<SubmitKickoffResponseResponse, SubmitKickoffResponseRequest>(
-      `/api/projects/${projectId}/kickoff-response`,
-      response,
-      'Failed to save kickoff response',
+  const mutation = useClientMutation((request: SubmitPhaseIntentRequest) =>
+    postJsonMutation<SubmitPhaseIntentResponse, SubmitPhaseIntentRequest>(
+      `/api/projects/${projectId}/phase-intent`,
+      request,
+      'Failed to submit phase intent',
     ),
   );
 
+  const submitIntent = async (
+    request: SubmitPhaseIntentRequest,
+  ): Promise<SubmitPhaseIntentResponse | null> => {
+    try {
+      const response = await mutation.run(request);
+      await router.invalidate();
+      return response;
+    } catch {
+      return null;
+    }
+  };
+
   return {
-    submitKickoffResponse: async (mode: ProjectMode) => {
-      try {
-        await mutation.run({ mode });
-        await router.invalidate();
-        return true;
-      } catch {
-        return false;
-      }
-    },
+    submitPhaseEntry: (phase: WorkflowPhase, options?: { mode?: ProjectMode }) =>
+      submitIntent({
+        kind: 'phase-entry',
+        phase,
+        ...(options?.mode ? { mode: options.mode } : {}),
+      }),
+    submitPhaseContinue: (phase: WorkflowPhase) =>
+      submitIntent({
+        kind: 'phase-continue',
+        phase,
+      }),
     isPending: mutation.isPending,
     errorMessage: mutation.errorMessage,
     clearError: mutation.clearError,

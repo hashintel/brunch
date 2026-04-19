@@ -480,9 +480,9 @@ describe('POST /api/projects/:id/chat', () => {
     expect(getActivePath(db, projectId)).toHaveLength(0);
 
     await request(app)
-      .post(`/api/projects/${projectId}/kickoff-response`)
-      .send({ mode: 'brownfield' })
-      .expect(200, { ok: true });
+      .post(`/api/projects/${projectId}/phase-intent`)
+      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .expect(200, { ok: true, messageText: 'Feature within existing codebase', submittedTurnId: null });
 
     expect(getProject(db, projectId)).toMatchObject({
       mode: 'brownfield',
@@ -2514,7 +2514,7 @@ describe('GET /api/projects/:id', () => {
   });
 });
 
-describe('POST /api/projects/:id/kickoff-response', () => {
+describe('POST /api/projects/:id/phase-intent', () => {
   it('persists brownfield mode from landing-only kickoff state without creating a kickoff row first', async () => {
     const { createProject, getActivePath, getProject } = await import('./db.js');
     const project = createProject(db, 'Landing-only kickoff');
@@ -2522,9 +2522,13 @@ describe('POST /api/projects/:id/kickoff-response', () => {
     expect(getActivePath(db, project.id)).toHaveLength(0);
 
     await request(app)
-      .post(`/api/projects/${project.id}/kickoff-response`)
-      .send({ mode: 'brownfield' })
-      .expect(200, { ok: true });
+      .post(`/api/projects/${project.id}/phase-intent`)
+      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .expect(200, {
+        ok: true,
+        messageText: 'Feature within existing codebase',
+        submittedTurnId: null,
+      });
 
     expect(getProject(db, project.id)).toMatchObject({
       mode: 'brownfield',
@@ -2553,6 +2557,34 @@ describe('POST /api/projects/:id/kickoff-response', () => {
       'scope',
       { mode: 'brownfield', cwd: process.cwd() },
     );
+  });
+
+  it('submits a seeded kickoff row through the same phase-entry intent seam', async () => {
+    const { createProject, getActivePath, getProject, getOptionsForTurn } = await import('./db.js');
+    const { ensureProjectFrontier } = await import('./core.js');
+    const project = createProject(db, 'Seeded kickoff row');
+    const kickoffTurn = ensureProjectFrontier(db, project.id);
+
+    expect(kickoffTurn?.turn_kind).toBe('kickoff');
+
+    await request(app)
+      .post(`/api/projects/${project.id}/phase-intent`)
+      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .expect(200, {
+        ok: true,
+        messageText: 'Feature within existing codebase',
+        submittedTurnId: kickoffTurn?.id,
+      });
+
+    const updatedKickoffTurn = getActivePath(db, project.id)[0]!;
+    const selectedOption = getOptionsForTurn(db, updatedKickoffTurn.id).find((option) => option.is_selected);
+
+    expect(getProject(db, project.id)).toMatchObject({
+      mode: 'brownfield',
+      cwd: process.cwd(),
+    });
+    expect(updatedKickoffTurn.answer).toBe('Feature within existing codebase');
+    expect(selectedOption?.content).toBe('Feature within existing codebase');
   });
 });
 

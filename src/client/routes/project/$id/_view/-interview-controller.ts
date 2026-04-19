@@ -5,13 +5,13 @@ import type { ChatStatus } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
 import {
-  useSubmitKickoffResponseMutation,
+  useSubmitPhaseIntentMutation,
   useSubmitTurnResponseMutation,
 } from '@/client/mutations/interview-mutations';
 import type { ProjectMode, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import { brunchDataPartSchemas } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
-import { getGroundingStrategyPosition, getGroundingStrategyTitle } from '@/shared/grounding-strategy.js';
+import { getGroundingStrategyTitle } from '@/shared/grounding-strategy.js';
 import {
   createConfirmProposedPhaseClosureCommand,
   createForceCloseActivePhaseCommand,
@@ -24,7 +24,6 @@ import {
   buildPhaseTurnIds,
   createInterviewControllerViewState,
   filterMessagesByPhase,
-  getKickoffMessage,
   reconcileStablePhaseTurns,
 } from './-interview-controller-core.js';
 import type {
@@ -199,7 +198,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     turn: durableProject.lastTurn,
     sendMessage,
   });
-  const submitKickoffResponseMutation = useSubmitKickoffResponseMutation({ projectId });
+  const submitPhaseIntentMutation = useSubmitPhaseIntentMutation({ projectId });
   const isLoading = status === 'submitted' || status === 'streaming';
 
   const phaseMessages = useMemo(
@@ -370,43 +369,41 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                     }
 
                     if (kickoff.phase === 'scope' && kickoff.mode === 'start' && selectedMode) {
-                      const kickoffTurnId =
-                        viewState.bottomArtifact?.kind === 'kickoff'
-                          ? durableProject.workflow.phases.scope.turnId
-                          : null;
-                      const selectedPosition = getGroundingStrategyPosition(selectedMode);
-                      if (selectedPosition === null) {
-                        return;
-                      }
-
-                      if (kickoffTurnId !== null) {
-                        setSubmittedTurnId(kickoffTurnId);
-                        void submitTurnResponseMutation
-                          .submitTurnResponse([selectedPosition])
-                          .then((didSubmit) => {
-                            if (!didSubmit) {
-                              setSubmittedTurnId(null);
-                            }
-                          });
-                        return;
-                      }
-
                       const kickoffText = getGroundingStrategyTitle(selectedMode);
                       if (!kickoffText) {
                         return;
                       }
 
-                      void submitKickoffResponseMutation
-                        .submitKickoffResponse(selectedMode)
-                        .then((didSubmit) => {
-                          if (didSubmit) {
-                            submitText(kickoffText);
+                      void submitPhaseIntentMutation
+                        .submitPhaseEntry(kickoff.phase, { mode: selectedMode })
+                        .then((result) => {
+                          if (!result) {
+                            return;
                           }
+
+                          if (result.submittedTurnId) {
+                            setSubmittedTurnId(result.submittedTurnId);
+                          }
+                          submitText(result.messageText);
                         });
                       return;
                     }
 
-                    submitText(getKickoffMessage(kickoff.phase, kickoff.mode));
+                    const submitIntent =
+                      kickoff.mode === 'start'
+                        ? submitPhaseIntentMutation.submitPhaseEntry(kickoff.phase)
+                        : submitPhaseIntentMutation.submitPhaseContinue(kickoff.phase);
+
+                    void submitIntent.then((result) => {
+                      if (!result) {
+                        return;
+                      }
+
+                      if (result.submittedTurnId) {
+                        setSubmittedTurnId(result.submittedTurnId);
+                      }
+                      submitText(result.messageText);
+                    });
                   },
                 };
               })()
@@ -423,7 +420,16 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                         return;
                       }
 
-                      submitText(getKickoffMessage(recovery.phase, 'continue'));
+                      void submitPhaseIntentMutation.submitPhaseContinue(recovery.phase).then((result) => {
+                        if (!result) {
+                          return;
+                        }
+
+                        if (result.submittedTurnId) {
+                          setSubmittedTurnId(result.submittedTurnId);
+                        }
+                        submitText(result.messageText);
+                      });
                     },
                   };
                 })()
@@ -457,7 +463,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
       : null,
     promptInput: {
       visible: viewState.promptInput.visible,
-      disabled: isLoading || submitTurnResponseMutation.isPending || submitKickoffResponseMutation.isPending,
+      disabled: isLoading || submitTurnResponseMutation.isPending || submitPhaseIntentMutation.isPending,
     },
   };
 }

@@ -4,7 +4,7 @@ import type { Express, Request, Response } from 'express';
 
 import {
   createProjectRequestSchema,
-  submitKickoffResponseRequestSchema,
+  submitPhaseIntentRequestSchema,
   submitTurnResponseRequestSchema,
 } from '@/shared/api-types.js';
 import type {
@@ -13,7 +13,7 @@ import type {
   MutationErrorResponse,
   ProjectListItem,
   ProjectState,
-  SubmitKickoffResponseResponse,
+  SubmitPhaseIntentResponse,
   SubmitTurnResponseResponse,
 } from '@/shared/api-types.js';
 import {
@@ -27,6 +27,8 @@ import {
 import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart, ReviewSetData } from '@/shared/chat.js';
 import {
   getGroundingStrategyModeForPosition,
+  getGroundingStrategyPosition,
+  getGroundingStrategyTitle,
   isGroundingStrategyKickoffTurn,
 } from '@/shared/grounding-strategy.js';
 import {
@@ -35,6 +37,7 @@ import {
   getForcedPhaseClosureSummary,
   parsePhaseClosureCommand,
 } from '@/shared/phase-close.js';
+import { getPhaseIntentMessage } from '@/shared/phase-intents.js';
 import {
   deriveSpecificationLanding,
   getReviewActionForSelectedPositions,
@@ -131,6 +134,56 @@ function createNextPhaseKickoff(db: DB, projectId: number, parentTurnId: number)
     return null;
   }
   return frontierTurn.id;
+}
+
+function persistGroundingStrategyKickoffSelection({
+  db,
+  projectId,
+  projectCwd,
+  kickoffTurn,
+  mode,
+}: {
+  db: DB;
+  projectId: number;
+  projectCwd: string;
+  kickoffTurn: Pick<Turn, 'id'>;
+  mode: 'greenfield' | 'brownfield';
+}): { messageText: string; submittedTurnId: number } {
+  const selectedPosition = getGroundingStrategyPosition(mode);
+  const messageText = getGroundingStrategyTitle(mode);
+  if (selectedPosition === null || !messageText) {
+    throw new Error('Invalid grounding strategy selection');
+  }
+
+  const options = getOptionsForTurn(db, kickoffTurn.id);
+  const selectedOption = options.find((option) => option.position === selectedPosition);
+  if (!selectedOption) {
+    throw new Error('Grounding strategy option not found');
+  }
+
+  applyTurnResponseSelections(db, kickoffTurn.id, [selectedPosition]);
+  updateProjectMode(db, projectId, {
+    mode,
+    cwd: mode === 'brownfield' ? projectCwd : null,
+  });
+  updateTurn(db, kickoffTurn.id, {
+    answer: messageText,
+    user_parts: serializeParts([
+      { type: 'text', text: messageText },
+      {
+        type: 'data-turn-response',
+        data: {
+          turnId: kickoffTurn.id,
+          selectedOptionIds: [selectedOption.id],
+        },
+      },
+    ] satisfies BrunchUserPart[]),
+  });
+
+  return {
+    messageText,
+    submittedTurnId: kickoffTurn.id,
+  };
 }
 
 function getPersistedFullSetReviewAction(
@@ -269,7 +322,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     res.json(state satisfies ProjectState);
   });
 
-  app.post('/api/projects/:id/kickoff-response', (req: Request, res: Response) => {
+  app.post('/api/projects/:id/phase-intent', (req: Request, res: Response) => {
     const projectId = Number(req.params.id);
 
     if (Number.isNaN(projectId)) {
@@ -277,9 +330,9 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       return;
     }
 
-    const parsedRequest = submitKickoffResponseRequestSchema.safeParse(req.body);
+    const parsedRequest = submitPhaseIntentRequestSchema.safeParse(req.body);
     if (!parsedRequest.success) {
-      res.status(400).json({ error: 'Invalid kickoff response payload' } satisfies MutationErrorResponse);
+      res.status(400).json({ error: 'Invalid phase intent payload' } satisfies MutationErrorResponse);
       return;
     }
 
@@ -289,21 +342,71 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       return;
     }
 
-    const landing = deriveSpecificationLanding({
-      workflow: getCurrentWorkflowState(db, projectId),
-      turns: loadActivePathWithOptions(db, projectId),
-    });
-    if (landing?.kind !== 'kickoff' || landing.phase !== 'scope' || landing.mode !== 'start') {
-      res.status(409).json({ error: 'Grounding strategy kickoff is not currently available' });
+    const workflow = getCurrentWorkflowState(db, projectId);
+    const turns = loadActivePathWithOptions(db, projectId);
+    const landing = deriveSpecificationLanding({ workflow, turns });
+    const activePhaseTurn =
+      [...turns].reverse().find((turn) => turn.phase === parsedRequest.data.phase) ?? null;
+
+    if (parsedRequest.data.kind === 'phase-entry') {
+      if (landing?.kind !== 'kickoff' || landing.phase !== parsedRequest.data.phase) {
+        res.status(409).json({ error: 'Phase entry is not currently available' });
+        return;
+      }
+
+      if (parsedRequest.data.phase === 'scope' && landing.mode === 'start' && parsedRequest.data.mode) {
+        const activeKickoffTurn =
+          activePhaseTurn && isGroundingStrategyKickoffTurn(activePhaseTurn) ? activePhaseTurn : null;
+        const response = activeKickoffTurn
+          ? persistGroundingStrategyKickoffSelection({
+              db,
+              projectId,
+              projectCwd,
+              kickoffTurn: activeKickoffTurn,
+              mode: parsedRequest.data.mode,
+            })
+          : (() => {
+              const messageText = getGroundingStrategyTitle(parsedRequest.data.mode);
+              if (!messageText) {
+                throw new Error('Invalid grounding strategy selection');
+              }
+              updateProjectMode(db, projectId, {
+                mode: parsedRequest.data.mode,
+                cwd: parsedRequest.data.mode === 'brownfield' ? projectCwd : null,
+              });
+              return {
+                messageText,
+                submittedTurnId: null,
+              };
+            })();
+
+        res.json({ ok: true, ...response } satisfies SubmitPhaseIntentResponse);
+        return;
+      }
+
+      res.json({
+        ok: true,
+        messageText: getPhaseIntentMessage(parsedRequest.data.phase, 'phase-entry'),
+        submittedTurnId:
+          activePhaseTurn && activePhaseTurn.turn_kind === 'kickoff' ? activePhaseTurn.id : null,
+      } satisfies SubmitPhaseIntentResponse);
       return;
     }
 
-    updateProjectMode(db, projectId, {
-      mode: parsedRequest.data.mode,
-      cwd: parsedRequest.data.mode === 'brownfield' ? projectCwd : null,
-    });
+    if (
+      parsedRequest.data.kind !== 'phase-continue' ||
+      parsedRequest.data.phase !== landing?.phase ||
+      (landing.kind !== 'recovery' && !(landing.kind === 'kickoff' && landing.mode === 'continue'))
+    ) {
+      res.status(409).json({ error: 'Phase continue is not currently available' });
+      return;
+    }
 
-    res.json({ ok: true } satisfies SubmitKickoffResponseResponse);
+    res.json({
+      ok: true,
+      messageText: getPhaseIntentMessage(parsedRequest.data.phase, 'phase-continue'),
+      submittedTurnId: null,
+    } satisfies SubmitPhaseIntentResponse);
   });
 
   // Submit a turn response on a turn.

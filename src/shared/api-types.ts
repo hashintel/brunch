@@ -232,20 +232,30 @@ export const submitTurnResponseResponseSchema = z.object({
   workflowCompleted: z.literal(true).optional(),
 });
 
-export const submitKickoffResponseRequestSchema = z.object({
-  mode: projectModeSchema,
-});
+export const submitPhaseIntentRequestSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('phase-entry'),
+    phase: workflowPhaseSchema,
+    mode: projectModeSchema.optional(),
+  }),
+  z.object({
+    kind: z.literal('phase-continue'),
+    phase: workflowPhaseSchema,
+  }),
+]);
 
-export const submitKickoffResponseResponseSchema = z.object({
+export const submitPhaseIntentResponseSchema = z.object({
   ok: z.literal(true),
+  messageText: z.string(),
+  submittedTurnId: z.number().int().positive().nullable().optional(),
 });
 
 export type ProjectMode = z.infer<typeof projectModeSchema>;
 export type Impact = z.infer<typeof impactSchema>;
 export type TurnKind = z.infer<typeof turnKindSchema>;
 export type ReviewAction = z.infer<typeof reviewActionSchema>;
-export type SubmitKickoffResponseRequest = z.infer<typeof submitKickoffResponseRequestSchema>;
-export type SubmitKickoffResponseResponse = z.infer<typeof submitKickoffResponseResponseSchema>;
+export type SubmitPhaseIntentRequest = z.infer<typeof submitPhaseIntentRequestSchema>;
+export type SubmitPhaseIntentResponse = z.infer<typeof submitPhaseIntentResponseSchema>;
 export type EdgeRelation = z.infer<typeof edgeRelationSchema>;
 export type WorkflowPhaseStatus = z.infer<typeof workflowPhaseStatusSchema>;
 export type ReadinessBand = z.infer<typeof readinessBandSchema>;

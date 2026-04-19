@@ -1267,7 +1267,7 @@ describe('InterviewView', () => {
     setLoaderData(loaderData);
 
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ok: true }), {
+      new Response(JSON.stringify({ ok: true, messageText: 'Feature within existing codebase' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -1286,11 +1286,11 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/kickoff-response',
+        '/api/projects/1/phase-intent',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: 'brownfield' }),
+          body: JSON.stringify({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' }),
         }),
       );
     });
@@ -1322,6 +1322,13 @@ describe('InterviewView', () => {
     expect((await screen.findByTestId('recovery-control-card')).textContent).toContain('Continue');
     expect(screen.getByText('Restore the next interview turn')).toBeTruthy();
     expect(screen.queryByLabelText('Type a message...')).toBeNull();
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, messageText: 'Continue the grounding phase.' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
 
     fireEvent.click(screen.getByTestId('recovery-control-card'));
 
@@ -1358,6 +1365,13 @@ describe('InterviewView', () => {
     );
     expect(kickoffCard.textContent).not.toContain('review step');
     expect(kickoffCard.textContent).not.toContain('interview turn');
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, messageText: 'Begin the requirements phase.' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
 
     fireEvent.click(screen.getByRole('button', { name: 'Proceed' }));
 
@@ -1432,6 +1446,13 @@ describe('InterviewView', () => {
       'The current acceptance criteria review frontier is missing. Continue to restore it.',
     );
     expect(recoveryCard.textContent).not.toContain('interview turn');
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, messageText: 'Continue the acceptance criteria phase.' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
 
     fireEvent.click(screen.getByTestId('recovery-control-card'));
 

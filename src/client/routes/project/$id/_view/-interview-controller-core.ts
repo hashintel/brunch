@@ -11,6 +11,7 @@ import type {
   BrunchUserPart,
   StructuredQuestion,
 } from '@/shared/chat.js';
+import { getPhaseIntentMessage, phaseContinueMessages, phaseEntryMessages } from '@/shared/phase-intents.js';
 import { getNextActivePhase } from '@/shared/phase-routes.js';
 import {
   hasPersistedTurnResponse,
@@ -106,22 +107,12 @@ export interface InterviewControllerViewState {
   };
 }
 
-export const startPhaseMessages: Record<WorkflowPhase, string> = {
-  scope: 'Begin the grounding phase.',
-  design: 'Begin the elicitation phase.',
-  requirements: 'Begin the requirements phase.',
-  criteria: 'Begin the acceptance criteria phase.',
-};
+export const startPhaseMessages: Record<WorkflowPhase, string> = phaseEntryMessages;
 
-export const continuePhaseMessages: Record<WorkflowPhase, string> = {
-  scope: 'Continue the grounding phase.',
-  design: 'Continue the elicitation phase.',
-  requirements: 'Continue the requirements phase.',
-  criteria: 'Continue the acceptance criteria phase.',
-};
+export const continuePhaseMessages: Record<WorkflowPhase, string> = phaseContinueMessages;
 
 export function getKickoffMessage(phase: WorkflowPhase, mode: KickoffMode): string {
-  return mode === 'start' ? startPhaseMessages[phase] : continuePhaseMessages[phase];
+  return getPhaseIntentMessage(phase, mode === 'start' ? 'phase-entry' : 'phase-continue');
 }
 
 function hydrateMessages(turns: readonly ProjectStateTurn[]): BrunchUIMessage[] {

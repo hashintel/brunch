@@ -273,6 +273,17 @@ function ControllerProbe() {
       >
         Submit brownfield kickoff
       </button>
+      <button
+        type="button"
+        data-testid="submit-recovery"
+        onClick={() => {
+          if (workspace.bottomArtifact?.kind === 'recovery') {
+            workspace.bottomArtifact.submitRecovery();
+          }
+        }}
+      >
+        Submit recovery
+      </button>
     </div>
   );
 }
@@ -339,7 +350,7 @@ describe('interview controller', () => {
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
     fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ok: true }), {
+      new Response(JSON.stringify({ ok: true, messageText: 'Feature within existing codebase' }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       }),
@@ -352,11 +363,11 @@ describe('interview controller', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/kickoff-response',
+        '/api/projects/1/phase-intent',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ mode: 'brownfield' }),
+          body: JSON.stringify({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' }),
         }),
       );
     });
@@ -364,6 +375,43 @@ describe('interview controller', () => {
     await waitFor(() => {
       expect(routerInvalidate).toHaveBeenCalled();
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Feature within existing codebase' });
+    });
+  });
+
+  it('submits recovery through the phase-continue intent seam', async () => {
+    currentProjectState = createProjectState({
+      options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+    });
+    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.project.active_turn_id = null;
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true, messageText: 'Continue the grounding phase.' }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderController();
+
+    await screen.findByTestId('bottom-artifact-kind');
+    fireEvent.click(screen.getByTestId('submit-recovery'));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/phase-intent',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'scope' }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalled();
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Continue the grounding phase.' });
     });
   });
 
