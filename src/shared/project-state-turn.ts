@@ -7,6 +7,8 @@ import type {
   WorkflowPhase,
 } from './api-types.js';
 import {
+  safeDecodePersistedAssistantParts,
+  safeDecodePersistedUserParts,
   structuredQuestionSchema,
   type ReviewSetData,
   summarizeAssistantActivity,
@@ -18,27 +20,11 @@ import {
 import { workflowPhaseOrder } from './phase-close.js';
 
 export function safeParsePersistedAssistantParts(json: string | null | undefined): BrunchAssistantPart[] {
-  if (!json) {
-    return [];
-  }
-
-  try {
-    return JSON.parse(json) as BrunchAssistantPart[];
-  } catch {
-    return [];
-  }
+  return safeDecodePersistedAssistantParts(json);
 }
 
 export function safeParsePersistedUserParts(json: string | null | undefined): BrunchUserPart[] {
-  if (!json) {
-    return [];
-  }
-
-  try {
-    return JSON.parse(json) as BrunchUserPart[];
-  } catch {
-    return [];
-  }
+  return safeDecodePersistedUserParts(json);
 }
 
 export function getPersistedTurnResponse(

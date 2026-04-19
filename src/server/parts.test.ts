@@ -239,23 +239,24 @@ describe('safe deserialization', () => {
   });
 
   it('drops malformed persisted part shapes without leaking them into projection helpers', () => {
-    expect(
-      safeDecodePersistedAssistantParts(
-        JSON.stringify([
-          { type: 'text', text: 'Legible persisted text' },
-          { type: 'data-review-set', data: { phase: 'requirements' } },
-        ]),
-      ),
-    ).toEqual([{ type: 'text', text: 'Legible persisted text' }]);
+    const malformedAssistantParts = JSON.stringify([
+      { type: 'text', text: 'Legible persisted text' },
+      { type: 'data-review-set', data: { phase: 'requirements' } },
+    ]);
+    const malformedUserParts = JSON.stringify([
+      { type: 'text', text: 'Resume work' },
+      { type: 'data-turn-response', data: { turnId: 1, selectedOptionIds: [] } },
+    ]);
 
-    expect(
-      safeDecodePersistedUserParts(
-        JSON.stringify([
-          { type: 'text', text: 'Resume work' },
-          { type: 'data-turn-response', data: { turnId: 1, selectedOptionIds: [] } },
-        ]),
-      ),
-    ).toEqual([{ type: 'text', text: 'Resume work' }]);
+    expect(safeDecodePersistedAssistantParts(malformedAssistantParts)).toEqual([
+      { type: 'text', text: 'Legible persisted text' },
+    ]);
+    expect(safeDeserializeAssistantParts(malformedAssistantParts)).toEqual([
+      { type: 'text', text: 'Legible persisted text' },
+    ]);
+
+    expect(safeDecodePersistedUserParts(malformedUserParts)).toEqual([{ type: 'text', text: 'Resume work' }]);
+    expect(safeDeserializeUserParts(malformedUserParts)).toEqual([{ type: 'text', text: 'Resume work' }]);
   });
 
   it('returns empty arrays for null persisted JSON', () => {

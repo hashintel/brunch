@@ -12,6 +12,7 @@ import {
   getReviewActionForSelectedPositions,
   safeParsePersistedAssistantParts,
   safeParsePersistedUserParts,
+  turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
 } from './project-state-turn.js';
 
@@ -99,6 +100,30 @@ describe('project-state-turn helpers', () => {
   it('safely parses persisted assistant and user parts', () => {
     expect(safeParsePersistedAssistantParts('not-json')).toEqual([]);
     expect(safeParsePersistedUserParts(null)).toEqual([]);
+  });
+
+  it('drops malformed persisted part payloads before read-model helpers consume them', () => {
+    const malformedTurn = createTurn({
+      answer: null,
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Resume work' },
+        { type: 'data-turn-response', data: { turnId: 1, selectedOptionIds: [] } },
+      ]),
+      assistant_parts: JSON.stringify([
+        { type: 'text', text: 'Please review the requirement set.' },
+        { type: 'data-review-set', data: { phase: 'requirements' } },
+      ]),
+    });
+
+    expect(safeParsePersistedAssistantParts(malformedTurn.assistant_parts)).toEqual([
+      { type: 'text', text: 'Please review the requirement set.' },
+    ]);
+    expect(safeParsePersistedUserParts(malformedTurn.user_parts)).toEqual([
+      { type: 'text', text: 'Resume work' },
+    ]);
+    expect(getPersistedReviewSet(malformedTurn)).toBeNull();
+    expect(getPersistedReviewAction(malformedTurn)).toBeNull();
+    expect(turnHasCompletedAnswer(malformedTurn)).toBe(false);
   });
 
   it('derives truthful open-phase landing from workflow state and active-path turns', () => {
