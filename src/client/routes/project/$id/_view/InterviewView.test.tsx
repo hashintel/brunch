@@ -876,6 +876,65 @@ describe('InterviewView', () => {
     expect(screen.queryByText('Continue the grounding phase.')).toBeNull();
   });
 
+  it('does not infer control markers from plain text once typed phase intents own the seam', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [],
+        workflow: {
+          phases: {
+            scope: {
+              status: 'in_progress',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+          },
+        },
+      }),
+    );
+
+    renderWorkspace();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'u-control', role: 'user', parts: [{ type: 'text', text: 'Continue the grounding phase.' }] },
+      ]);
+    });
+
+    expect(screen.queryByText('Interview resumed')).toBeNull();
+    expect(screen.queryByText('Continue the grounding phase.')).toBeNull();
+  });
+
   it('replays accepted closure from the same durable turn as a resolved closure card', async () => {
     setLoaderData(
       createWorkspaceLoaderData({

@@ -11,7 +11,6 @@ import type {
   BrunchUserPart,
   StructuredQuestion,
 } from '@/shared/chat.js';
-import { getPhaseIntentMessage, phaseContinueMessages, phaseEntryMessages } from '@/shared/phase-intents.js';
 import { getNextActivePhase } from '@/shared/phase-routes.js';
 import {
   hasPersistedTurnResponse,
@@ -105,14 +104,6 @@ export interface InterviewControllerViewState {
   readonly promptInput: {
     readonly visible: boolean;
   };
-}
-
-export const startPhaseMessages: Record<WorkflowPhase, string> = phaseEntryMessages;
-
-export const continuePhaseMessages: Record<WorkflowPhase, string> = phaseContinueMessages;
-
-export function getKickoffMessage(phase: WorkflowPhase, mode: KickoffMode): string {
-  return getPhaseIntentMessage(phase, mode === 'start' ? 'phase-entry' : 'phase-continue');
 }
 
 function hydrateMessages(turns: readonly ProjectStateTurn[]): BrunchUIMessage[] {

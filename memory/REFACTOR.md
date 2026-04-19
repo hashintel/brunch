@@ -29,7 +29,8 @@ The runtime host remains responsible for transitional compatibility with legacy 
    - Landed in this commit — `refactor: type phase-intent control submissions`
 5. [done] Fold handoff and workflow-complete artifacts into the ordered workspace-stream projection and add the minimal phase-marker/control-marker artifact support needed so the stream contract is complete.  
    - Landed in this commit — `refactor: fold terminal artifacts into workspace stream`
-6. [pending] Remove obsolete string-matching control-marker heuristics and transitional adapter branches that became unnecessary once typed control submission and pure reads are in place.
+6. [done] Remove obsolete string-matching control-marker heuristics and transitional adapter branches that became unnecessary once typed control submission and pure reads are in place.  
+   - Landed in this commit — `refactor: retire string-based control marker fallbacks`
 
 ## Decisions
 

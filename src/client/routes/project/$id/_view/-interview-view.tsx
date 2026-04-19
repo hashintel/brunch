@@ -46,7 +46,6 @@ import {
 } from '@/shared/project-state-turn.js';
 
 import { useInterviewController } from './-interview-controller';
-import { continuePhaseMessages, startPhaseMessages } from './-interview-controller-core.js';
 import { projectWorkspaceStream, type WorkspaceStreamMarker } from './-workspace-stream-projector.js';
 
 function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectStateTurn['phase']) {
@@ -74,26 +73,7 @@ function getControlMarkerLabel(message: BrunchUIMessage): string | null {
     (part): part is Extract<NonNullable<BrunchUIMessage['parts']>[number], { type: 'data-phase-intent' }> =>
       part.type === 'data-phase-intent',
   );
-  if (phaseIntent) {
-    return getPhaseIntentMarkerLabel(phaseIntent.data);
-  }
-
-  const textParts = message.parts?.filter((part) => part.type === 'text') ?? [];
-  for (const part of textParts) {
-    if (Object.values(startPhaseMessages).includes(part.text as (typeof startPhaseMessages)[WorkflowPhase])) {
-      return 'Interview started';
-    }
-
-    if (
-      Object.values(continuePhaseMessages).includes(
-        part.text as (typeof continuePhaseMessages)[WorkflowPhase],
-      )
-    ) {
-      return 'Interview resumed';
-    }
-  }
-
-  return null;
+  return phaseIntent ? getPhaseIntentMarkerLabel(phaseIntent.data) : null;
 }
 
 function projectLiveControlMarkers(messages: readonly BrunchUIMessage[]): WorkspaceStreamMarker[] {
@@ -189,12 +169,6 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const showLockedState =
     phaseState.status === 'unstarted' && currentReachablePhase !== phase && currentReachablePhase !== null;
   // TODO: auto-present is disabled while the phase-closure interaction model is being reworked.
-  // Original computation kept as reference:
-  // const autoPresentCommand =
-  //   !showLockedState && phaseState.status !== 'closed' && currentReachablePhase === phase &&
-  //   bottomArtifact?.kind !== 'phase-summary' && !chat.isLoading && !hasVisibleActiveTurn
-  //     ? phaseTurns.length === 0 ? startPhaseMessages[phase] : continuePhaseMessages[phase]
-  //     : null;
   const autoPresentCommand = null;
   // TODO: prompt input is disabled while the phase-closure interaction model is being reworked.
   // The turn-card family owns user input; the generic composer will return when the
