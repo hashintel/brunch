@@ -4,8 +4,6 @@ import type { TurnWithOptions } from '../core.js';
 import { loadActivePathWithOptions } from '../core.js';
 import { advanceHead, createDb, createProject, createTurn, getEntitiesForProject, type DB } from '../db.js';
 import { runObserver, type ObserverOutput } from '../observer.js';
-import { projectRuntimeTurnToManifestTurn } from './durable-manifest-contract.js';
-import { type ManifestEdge, type ManifestKnowledgeItem, type ManifestScenario } from './manifest.js';
 import { seedRequirementsReady, type ScenarioFn } from './scenarios.js';
 
 type ObserverProbePhase = TurnWithOptions['phase'];
@@ -74,22 +72,6 @@ export interface GoldenCorpus {
   description: string;
   entries: Record<string, GoldenCorpusEntry>;
 }
-
-type LinkRow = {
-  itemId: number;
-  kind: ManifestKnowledgeItem['kind'];
-  subtype: string | null;
-  content: string;
-  rationale: string | null;
-  turnId: number;
-  relation: 'captured' | 'reviewed' | 'rejected';
-};
-
-type EdgeRow = {
-  fromItemId: number;
-  toItemId: number;
-  relation: ManifestEdge['relation'];
-};
 
 const seedIssueTrackerScopeProbe: ScenarioFn = (db, projectName = 'Observer scope probe') => {
   const project = createProject(db, projectName);
@@ -182,10 +164,6 @@ export const curatedGoldenCorpus: GoldenCorpus = {
   },
 };
 
-function makePlaceholders(count: number): string {
-  return Array.from({ length: count }, () => '?').join(', ');
-}
-
 function sortObservedItems(items: ObservedKnowledgeItem[]): ObservedKnowledgeItem[] {
   return [...items].sort((left, right) =>
     JSON.stringify([left.content, left.rationale ?? null, left.subtype ?? null]).localeCompare(
@@ -228,127 +206,6 @@ function normalizeObservedTurnCapture(capture: ObservedTurnCapture): ObservedTur
     decisions: sortObservedItems(capture.decisions.map(normalizeObservedItem)),
     assumptions: sortObservedItems(capture.assumptions.map(normalizeObservedItem)),
     dependencies: sortDependencies(capture.dependencies),
-  };
-}
-
-function getActivePathLinkRows(db: DB, projectId: number, activeTurnIds: number[]): LinkRow[] {
-  if (activeTurnIds.length === 0) {
-    return [];
-  }
-
-  const placeholders = makePlaceholders(activeTurnIds.length);
-  return db.$client
-    .prepare(
-      `
-        SELECT
-          ki.id AS itemId,
-          ki.kind AS kind,
-          ki.subtype AS subtype,
-          ki.content AS content,
-          ki.rationale AS rationale,
-          tki.turn_id AS turnId,
-          tki.relation AS relation
-        FROM turn_knowledge_item tki
-        JOIN knowledge_item ki ON ki.id = tki.item_id
-        WHERE
-          ki.project_id = ?
-          AND tki.turn_id IN (${placeholders})
-          AND tki.relation IN ('captured', 'reviewed', 'rejected')
-        ORDER BY ki.id ASC, tki.turn_id ASC
-      `,
-    )
-    .all(projectId, ...activeTurnIds) as LinkRow[];
-}
-
-function getEdgesForItemIds(db: DB, itemIds: number[]): EdgeRow[] {
-  if (itemIds.length === 0) {
-    return [];
-  }
-
-  const placeholders = makePlaceholders(itemIds.length);
-  return db.$client
-    .prepare(
-      `
-        SELECT
-          from_item_id AS fromItemId,
-          to_item_id AS toItemId,
-          relation
-        FROM knowledge_edge
-        WHERE from_item_id IN (${placeholders}) AND to_item_id IN (${placeholders})
-        ORDER BY from_item_id ASC, to_item_id ASC, relation ASC
-      `,
-    )
-    .all(...itemIds, ...itemIds) as EdgeRow[];
-}
-
-export function captureProjectToManifestScenario(db: DB, projectId: number): ManifestScenario {
-  const turns = loadActivePathWithOptions(db, projectId);
-  const authorityTurns = turns.flatMap((turn) => {
-    const manifestTurn = projectRuntimeTurnToManifestTurn({ db, projectId, turn });
-    return manifestTurn ? [{ turnId: turn.id, manifestTurn }] : [];
-  });
-  const turnIndexById = new Map(authorityTurns.map(({ turnId }, index) => [turnId, index]));
-  const manifestTurns = authorityTurns.map(({ manifestTurn }) => manifestTurn);
-
-  const activeTurnIds = authorityTurns.map(({ turnId }) => turnId);
-  const linkRows = getActivePathLinkRows(db, projectId, activeTurnIds);
-  const rowsByItemId = new Map<number, LinkRow[]>();
-  for (const row of linkRows) {
-    const rows = rowsByItemId.get(row.itemId) ?? [];
-    rows.push(row);
-    rowsByItemId.set(row.itemId, rows);
-  }
-
-  const itemIds = [...rowsByItemId.keys()].sort((left, right) => left - right);
-  const itemIndexById = new Map<number, number>();
-  const knowledgeItems = itemIds.map((itemId, index) => {
-    itemIndexById.set(itemId, index);
-    const rows = rowsByItemId.get(itemId) ?? [];
-    const capturedRow = rows.find((row) => row.relation === 'captured');
-    if (!capturedRow) {
-      throw new Error(`Knowledge item ${itemId} is missing captured provenance on the active path`);
-    }
-
-    const reviewRows = rows.filter(
-      (row): row is LinkRow & { relation: 'reviewed' | 'rejected' } =>
-        row.relation === 'reviewed' || row.relation === 'rejected',
-    );
-    const latestReviewRow = reviewRows.at(-1);
-
-    return {
-      kind: capturedRow.kind,
-      content: capturedRow.content,
-      rationale: capturedRow.rationale,
-      capturedAtTurn: turnIndexById.get(capturedRow.turnId)!,
-      ...(latestReviewRow
-        ? {
-            reviewAction: latestReviewRow.relation,
-            reviewedAtTurn: turnIndexById.get(latestReviewRow.turnId)!,
-          }
-        : {}),
-    };
-  });
-
-  const edges = getEdgesForItemIds(db, itemIds)
-    .map((edge) => ({
-      fromItemIndex: itemIndexById.get(edge.fromItemId),
-      toItemIndex: itemIndexById.get(edge.toItemId),
-      relation: edge.relation,
-    }))
-    .filter(
-      (
-        edge,
-      ): edge is {
-        fromItemIndex: number;
-        toItemIndex: number;
-        relation: ManifestEdge['relation'];
-      } => edge.fromItemIndex != null && edge.toItemIndex != null,
-    );
-
-  return {
-    turns: manifestTurns,
-    knowledgeItems,
-    edges,
   };
 }
 
