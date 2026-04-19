@@ -146,25 +146,6 @@ function sliceManifestScenario(scenario: ManifestScenario, turnCount: number): M
   return { turns, knowledgeItems, edges };
 }
 
-function appendFrontierTurn(
-  scenario: ManifestScenario,
-  phase: ManifestScenario['turns'][number]['phase'],
-  turnKind: 'kickoff' | 'recovery',
-): ManifestScenario {
-  return {
-    ...scenario,
-    turns: [
-      ...scenario.turns,
-      {
-        phase,
-        turnKind,
-        question: '',
-        answer: null,
-      },
-    ],
-  };
-}
-
 function createManifestScenarioSeeder(scenario: ManifestScenario, defaultName: string): ScenarioFn {
   return (db, projectName = defaultName) => seedFromManifest(db, scenario, projectName);
 }
@@ -795,31 +776,19 @@ const phaseTransitionScenarios: Record<string, ScenarioFn> = {
     'Issue Tracker (scope closure pending)',
   ),
   'issue-tracker-design-kickoff-ready': createManifestScenarioSeeder(
-    appendFrontierTurn(
-      sliceManifestScenario(issueTrackerManifest.scenarios['scope-closed']!, 7),
-      'design',
-      'kickoff',
-    ),
+    sliceManifestScenario(issueTrackerManifest.scenarios['scope-closed']!, 7),
     'Issue Tracker (design kickoff ready)',
   ),
   'issue-tracker-design-recovery': createManifestScenarioSeeder(
-    appendFrontierTurn(issueTrackerManifest.scenarios['design-active']!, 'design', 'recovery'),
+    issueTrackerManifest.scenarios['design-active']!,
     'Issue Tracker (design recovery)',
   ),
   'issue-tracker-requirements-kickoff-ready': createManifestScenarioSeeder(
-    appendFrontierTurn(
-      sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 11),
-      'requirements',
-      'kickoff',
-    ),
+    sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 11),
     'Issue Tracker (requirements kickoff ready)',
   ),
   'issue-tracker-criteria-kickoff-ready': createManifestScenarioSeeder(
-    appendFrontierTurn(
-      sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 18),
-      'criteria',
-      'kickoff',
-    ),
+    sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 18),
     'Issue Tracker (criteria kickoff ready)',
   ),
   'issue-tracker-requirements-ready': (db, name = 'Issue Tracker (requirements review ready)') => {
