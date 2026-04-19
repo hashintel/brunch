@@ -413,6 +413,18 @@ describe('POST /api/projects', () => {
     expect(res.body.cwd).toBeNull();
   });
 
+  it('leaves kickoff projected until the user explicitly enters the interview', async () => {
+    const createRes = await request(app)
+      .post('/api/projects')
+      .send({ name: 'Projected kickoff' })
+      .expect(201);
+
+    const stateRes = await request(app).get(`/api/projects/${createRes.body.id}`).expect(200);
+    expect(stateRes.body.project.active_turn_id).toBeNull();
+    expect(stateRes.body.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+    expect(stateRes.body.turns).toEqual([]);
+  });
+
   it('creates a brownfield project with mode and server-derived cwd', async () => {
     const res = await request(app)
       .post('/api/projects')
@@ -1273,11 +1285,12 @@ describe('phase outcomes + scope closure', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(3);
-    expect(projectRes.body.turns.at(-2)).toMatchObject({
+    expect(projectRes.body.project.active_turn_id).toBe(scopeProposalTurnId);
+    expect(projectRes.body.landing).toEqual({ kind: 'kickoff', phase: 'design', mode: 'start' });
+    expect(projectRes.body.turns.at(-1)).toMatchObject({
       answer: 'Confirm grounding closure',
     });
-    expect(JSON.parse(projectRes.body.turns.at(-2).user_parts ?? '[]')).toEqual([
+    expect(JSON.parse(projectRes.body.turns.at(-1).user_parts ?? '[]')).toEqual([
       { type: 'text', text: 'Confirm grounding closure' },
       {
         type: 'data-confirmation',
@@ -2336,11 +2349,13 @@ describe('phase outcomes + scope closure', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.turns.at(-2)).toMatchObject({
+    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.landing).toEqual({ kind: 'kickoff', phase: 'requirements', mode: 'start' });
+    expect(projectRes.body.turns.at(-1)).toMatchObject({
       phase: 'design',
       answer: 'Force elicitation closure',
     });
-    expect(JSON.parse(projectRes.body.turns.at(-2).user_parts ?? '[]')).toEqual([
+    expect(JSON.parse(projectRes.body.turns.at(-1).user_parts ?? '[]')).toEqual([
       { type: 'text', text: 'Force elicitation closure' },
       {
         type: 'data-confirmation',
@@ -2929,11 +2944,12 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.project.active_turn_id).toBe(reviewTurn.id);
+    expect(projectRes.body.landing).toEqual({ kind: 'kickoff', phase: 'criteria', mode: 'start' });
     expect(projectRes.body.turns.at(-1)).toEqual(
       expect.objectContaining({
-        phase: 'criteria',
-        answer: null,
+        id: reviewTurn.id,
+        phase: 'requirements',
       }),
     );
 

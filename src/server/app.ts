@@ -122,14 +122,6 @@ function appendObserverResultToTurn(
   });
 }
 
-function createNextPhaseKickoff(db: DB, projectId: number, parentTurnId: number): number | null {
-  const frontierTurn = ensureProjectFrontier(db, projectId);
-  if (!frontierTurn || frontierTurn.id === parentTurnId) {
-    return null;
-  }
-  return frontierTurn.id;
-}
-
 function getPersistedFullSetReviewAction(
   turn: Pick<Turn, 'phase' | 'user_parts'>,
 ): 'accept' | 'request-changes' | null {
@@ -194,7 +186,6 @@ function acceptRequirementsReview(db: DB, projectId: number, turnId: number): Su
     confirmation_turn_id: turnId,
     summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
   });
-  createNextPhaseKickoff(db, projectId, turnId);
 
   return { ok: true, advancedToPhase: 'criteria' };
 }
@@ -576,10 +567,6 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           }
           confirmPhaseOutcome(db, confirmationTarget.id, confirmedClosureTurnId);
           finalizeTurn(db, id, confirmedClosureTurnId);
-          const kickoffTurnId = createNextPhaseKickoff(db, id, confirmedClosureTurnId);
-          if (kickoffTurnId !== null) {
-            finalizeTurn(db, id, kickoffTurnId);
-          }
           writer.write({ type: 'finish', finishReason: 'stop' });
           return;
         }
@@ -597,10 +584,6 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
             summary: getForcedPhaseClosureSummary(forceClosePhase),
           });
           finalizeTurn(db, id, prepared.turn.id);
-          const kickoffTurnId = createNextPhaseKickoff(db, id, prepared.turn.id);
-          if (kickoffTurnId !== null) {
-            finalizeTurn(db, id, kickoffTurnId);
-          }
           writer.write({ type: 'finish', finishReason: 'stop' });
           return;
         }

@@ -215,7 +215,5 @@ export function listProjectStates(db: DB): ProjectListItem[] {
 
 /** Create a new project with the given name and optional mode/cwd. */
 export function createNewProject(db: DB, name: string, options?: CreateProjectOptions): Project {
-  const project = createProject(db, name, options);
-  ensureProjectFrontier(db, project.id);
-  return getProject(db, project.id)!;
+  return createProject(db, name, options);
 }
