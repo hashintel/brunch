@@ -22,6 +22,7 @@ import {
   extractTextFromMessage,
   filterAssistantParts,
   formatTurnResponseText,
+  groundingCardSchema,
   structuredQuestionSchema,
 } from '@/shared/chat.js';
 import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart, ReviewSetData } from '@/shared/chat.js';
@@ -172,6 +173,28 @@ function getPersistedRuntimeReviewMetadata(
       input: parsedInput.data,
     },
     reviewSet: parsedInput.data.reviewSet,
+  };
+}
+
+function getPersistedRuntimeGroundingCardMetadata(
+  message: Pick<BrunchUIMessage, 'parts'>,
+): Extract<BrunchAssistantPart, { type: 'data-grounding-card' }> | null {
+  const groundingCardPart = message.parts.find(
+    (part): part is Extract<BrunchUIMessage['parts'][number], { type: 'tool-present_grounding_card' }> =>
+      part.type === 'tool-present_grounding_card' && 'input' in part,
+  );
+  if (!groundingCardPart) {
+    return null;
+  }
+
+  const parsedInput = groundingCardSchema.safeParse(groundingCardPart.input);
+  if (!parsedInput.success) {
+    return null;
+  }
+
+  return {
+    type: 'data-grounding-card',
+    data: parsedInput.data,
   };
 }
 
@@ -705,6 +728,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           prepared.turn.phase,
           responseMessage,
         );
+        const persistedGroundingCard = getPersistedRuntimeGroundingCardMetadata(responseMessage);
         const synthesizedReviewSet =
           persistedReviewMetadata?.reviewSet ??
           buildReviewSetForPhase(prepared.turn.phase, {
@@ -712,8 +736,11 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
             criteria: getDraftCriterionEntitiesForProject(db, id),
           });
         const persistedAssistantParts = [
-          ...assistantParts.filter((part) => part.type !== 'data-review-set'),
+          ...assistantParts.filter(
+            (part) => part.type !== 'data-review-set' && part.type !== 'data-grounding-card',
+          ),
           ...(persistedReviewMetadata ? [persistedReviewMetadata.reviewQuestionPart] : []),
+          ...(persistedGroundingCard ? [persistedGroundingCard] : []),
           ...(synthesizedReviewSet
             ? [
                 {

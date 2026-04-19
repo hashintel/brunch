@@ -3,7 +3,7 @@
 ## Orientation
 - **Containing seam:** interaction-family canonicalization across the routed interview surface and workflow runtime (`src/client/routes/project/$id/_view/*`, `src/client/components/*`, `src/server/app.ts`, `src/server/interview.ts`, `src/server/observer.ts`, `src/shared/chat.ts`, `src/shared/project-state-turn.ts`).
 - **Containing frontier item:** `memory/PLAN.md` Active #1 — **Interaction-family canonicalization: durable turn cards plus projected control cards**.
-- **Volatile follow-up:** the first four interaction-family cleanup slices are complete; the remaining work under frontier item #1 now centers on brownfield grounding-card generation and reusable context-gathering on the cleaned stream model.
+- **Volatile follow-up:** the first five interaction-family cleanup slices are complete; the remaining work under frontier item #1 now centers on making brownfield context-gathering reusable after the opening grounding brief.
 - **Main open risk:** grounding/context-gathering work could either reintroduce turn-shaped control exceptions or let provisional repo-analysis content leak into durable observer capture.
 
 ---
@@ -128,7 +128,7 @@ A scope-phase turn can persist and replay a provisional grounding card with opti
 
 ## Card 5 — Brownfield kickoff opens with a workspace-analysis grounding card
 
-_Status: scoped 2026-04-19 · Depends on Card 4_
+_Status: done 2026-04-19 · Verified: `npm run verify`_
 
 ### Target Behavior
 Selecting brownfield grounding causes the first scope-phase interviewer turn to use read-only workspace analysis to produce a visible grounding card instead of embedding repo facts inside the first substantive question’s `why` text.

@@ -235,6 +235,45 @@ async function makeStructuredQuestionInterviewer(
   };
 }
 
+async function makeGroundingCardInterviewer(
+  dbArg: DB,
+  turnId: number,
+  groundingCard = {
+    summary: 'The repo already uses SQLite-backed local persistence and a routed interview surface.',
+    detail: 'This is provisional context before the first substantive grounding question.',
+    continueLabel: 'Continue',
+  },
+) {
+  const { createOption } = await import('./db.js');
+
+  createOption(dbArg, turnId, {
+    position: 0,
+    content: groundingCard.continueLabel,
+    is_recommended: true,
+  });
+
+  return {
+    toUIMessageStream: () =>
+      makeUIChunkStream([
+        { type: 'start', messageId: 'msg-grounding-card' },
+        { type: 'tool-input-start', toolCallId: 'tool-grounding-1', toolName: 'present_grounding_card' },
+        {
+          type: 'tool-input-available',
+          toolCallId: 'tool-grounding-1',
+          toolName: 'present_grounding_card',
+          input: groundingCard,
+        },
+        {
+          type: 'tool-output-available',
+          toolCallId: 'tool-grounding-1',
+          toolName: 'present_grounding_card',
+          output: { ok: true, turnId },
+        },
+      ]),
+    finishReason: Promise.resolve('tool-calls'),
+  };
+}
+
 async function makePhaseClosureInterviewer(
   dbArg: DB,
   projectId: number,
@@ -526,6 +565,58 @@ describe('POST /api/projects/:id/chat', () => {
       'Feature within existing codebase',
       'scope',
       { mode: 'brownfield', cwd: process.cwd() },
+    );
+  });
+
+  it('persists a grounding-card first turn after brownfield kickoff instead of a repo-summary question handoff', async () => {
+    const { createProject, getActivePath, getOptionsForTurn } = await import('./db.js');
+    const projectId = createProject(db, 'Brownfield grounding card').id;
+
+    await request(app)
+      .post(`/api/projects/${projectId}/phase-intent`)
+      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .expect(200, { ok: true });
+
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeGroundingCardInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-brownfield-grounding',
+            role: 'user',
+            parts: [
+              {
+                type: 'data-phase-intent',
+                data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    const groundingTurn = getActivePath(db, projectId).at(-1)!;
+    expect(groundingTurn.question).toBe('');
+    expect(getOptionsForTurn(db, groundingTurn.id)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ position: 0, content: 'Continue', is_recommended: true }),
+      ]),
+    );
+    expect(JSON.parse(groundingTurn.assistant_parts ?? '[]')).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'data-grounding-card',
+          data: {
+            summary: 'The repo already uses SQLite-backed local persistence and a routed interview surface.',
+            detail: 'This is provisional context before the first substantive grounding question.',
+            continueLabel: 'Continue',
+          },
+        },
+      ]),
     );
   });
 

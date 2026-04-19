@@ -5,11 +5,15 @@ import { ToolLoopAgent, stepCountIs, tool } from 'ai';
 import type { EntitiesData, ProjectMode } from '@/shared/api-types.js';
 import {
   askQuestionToolOutputSchema,
+  groundingCardSchema,
   phaseClosureProposalSchema,
+  presentGroundingCardToolOutputSchema,
   proposePhaseClosureToolOutputSchema,
   structuredQuestionSchema,
   type AskQuestionToolOutput,
+  type GroundingCardData,
   type PhaseClosureProposal,
+  type PresentGroundingCardToolOutput,
   type ProposePhaseClosureToolOutput,
   type ReviewSetData,
   type StructuredQuestion,
@@ -106,11 +110,14 @@ Spend no more than 5-8 tool calls on exploration before synthesizing.
 
 Once you have a working understanding, begin the structured scope interview grounded in that context — your questions should reflect what you discovered about the codebase.
 
-Your first ask_question call is the durable kickoff handoff. Use it to do two jobs at once:
-1. In the \`why\` field, begin with \`Grounding:\` and give a concise 1-2 sentence summary of the durable repo facts you found that matter for this feature-area conversation. Then explain why this question matters.
-2. Make the first question about the bounded feature area, current behavior, or desired change inside this existing codebase. Do not ask generic whole-product greenfield kickoff questions.
+After that opening exploration, your FIRST durable turn MUST use the present_grounding_card tool — not ask_question.
+- Put the concise user-facing repo brief in the grounding card \`summary\` and optional \`detail\` fields.
+- Keep it provisional and bounded to the likely feature area; do not dump raw file listings.
+- Use \`Continue\` as the continue label unless a different short verb is clearly better.
 
-For every turn after the exploration, you MUST use the ask_question tool to generate your question. Never respond with plain text — always use the tool.
+Only AFTER the user continues from that grounding card should you use ask_question to ask the first substantive scope question about the bounded feature area, current behavior, or desired change inside this existing codebase. Do not ask generic whole-product greenfield kickoff questions.
+
+For every turn after the grounding card handoff, you MUST use the ask_question tool to generate your next substantive question unless you are ready to propose phase closure. Never respond with plain text — always use the tool.
 
 Each question should:
 - Be clear and specific, not vague or open-ended
@@ -143,9 +150,11 @@ export function getInterviewerInstructions(phase: Phase, options?: InterviewerMo
 }
 
 export type AskQuestionTool = Tool<StructuredQuestion, AskQuestionToolOutput>;
+export type PresentGroundingCardTool = Tool<GroundingCardData, PresentGroundingCardToolOutput>;
 export type ProposePhaseClosureTool = Tool<PhaseClosureProposal, ProposePhaseClosureToolOutput>;
 export type BaseInterviewerTools = {
   ask_question: AskQuestionTool;
+  present_grounding_card?: PresentGroundingCardTool;
   propose_phase_closure?: ProposePhaseClosureTool;
 };
 export type InterviewerTools = BaseInterviewerTools & Record<string, Tool<any, any>>;
@@ -215,6 +224,26 @@ export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
   });
 }
 
+export function createPresentGroundingCardTool(db: DB, turnId: number): PresentGroundingCardTool {
+  return tool({
+    description:
+      'Present provisional repo or feature-area context as a grounding card before the next question.',
+    inputSchema: groundingCardSchema,
+    outputSchema: presentGroundingCardToolOutputSchema,
+    execute: async (input) => {
+      createOption(db, turnId, {
+        position: 0,
+        content: input.continueLabel?.trim() || 'Continue',
+        is_recommended: true,
+      });
+      return {
+        ok: true as const,
+        turnId,
+      };
+    },
+  });
+}
+
 export function createProposePhaseClosureTool(
   db: DB,
   turnId: number,
@@ -252,10 +281,15 @@ export function getInterviewerTools(
   const closeability = getCurrentWorkflowState(db, projectId).phases[phase].closeability;
   return {
     ask_question: createAskQuestionTool(db, turnId),
+    ...(isBrownfieldScopeExploration(phase, options)
+      ? {
+          present_grounding_card: createPresentGroundingCardTool(db, turnId),
+          ...createExplorationTools(options.cwd),
+        }
+      : {}),
     ...(canProposePhaseClosure(phase, closeability)
       ? { propose_phase_closure: createProposePhaseClosureTool(db, turnId, phase, projectId) }
       : {}),
-    ...(isBrownfieldScopeExploration(phase, options) ? createExplorationTools(options.cwd) : {}),
   };
 }
 
