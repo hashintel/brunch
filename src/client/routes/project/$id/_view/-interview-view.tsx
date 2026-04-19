@@ -38,18 +38,16 @@ import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/p
 import { getWorkflowPhaseLabel } from '@/shared/phase-display.js';
 import { getNextActivePhase, phaseOrder, phaseRouteSegments } from '@/shared/phase-routes.js';
 import {
-  getAcceptedClosureReplay,
   getPersistedActivitySummary,
-  getPersistedReviewAction,
   getPersistedReviewSet,
   getPersistedSelectedPositions,
   getPersistedTurnResponse,
   turnHasCompletedAnswer,
-  turnIsControlOrClosureArtifact,
 } from '@/shared/project-state-turn.js';
 
 import { useInterviewController } from './-interview-controller';
 import { continuePhaseMessages, startPhaseMessages } from './-interview-controller-core.js';
+import { projectWorkspaceStream } from './-workspace-stream-projector.js';
 
 function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectStateTurn['phase']) {
   return getForceClosePhaseAction(workflow, phase).available;
@@ -161,48 +159,27 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const _hasVisibleActiveTurn =
     bottomArtifact?.kind === 'pending-question' ||
     (bottomArtifact?.kind === 'persisted-turn' && !turnHasCompletedAnswer(bottomArtifact.turn));
-  const renderedPersistedTurnId =
-    bottomArtifact?.kind === 'persisted-turn' &&
-    (!turnHasCompletedAnswer(bottomArtifact.turn) || bottomArtifact.state === 'submitted')
-      ? bottomArtifact.turn.id
-      : null;
-  const completedPhaseItems = phaseTurns.reduce<
-    Array<
-      | { kind: 'answered-turn'; turn: ProjectStateTurn }
-      | {
-          kind: 'accepted-closure';
-          acceptedClosure: NonNullable<ReturnType<typeof getAcceptedClosureReplay>>;
-        }
-      | {
-          kind: 'answered-review-turn';
-          turn: ProjectStateTurn;
-          reviewSet: NonNullable<ReturnType<typeof getPersistedReviewSet>>;
-        }
-    >
-  >((items, turn) => {
-    if (turn.id === renderedPersistedTurnId) {
-      return items;
-    }
-
-    const acceptedClosure = getAcceptedClosureReplay(turn, phaseState);
-    if (acceptedClosure) {
-      items.push({ kind: 'accepted-closure', acceptedClosure });
-      return items;
-    }
-
-    if (turnHasCompletedAnswer(turn) && !turnIsControlOrClosureArtifact(turn)) {
-      const reviewSet = getPersistedReviewSet(turn);
-      if (reviewSet && getPersistedReviewAction(turn)) {
-        items.push({ kind: 'answered-review-turn', turn, reviewSet });
-      } else {
-        items.push({ kind: 'answered-turn', turn });
-      }
-    }
-
-    return items;
-  }, []);
-  const answeredTurnCount = completedPhaseItems.filter((item) => item.kind === 'answered-turn').length;
-  const activeQuestionCode = `Q${answeredTurnCount + 1}`;
+  const { streamArtifacts, footerArtifact } = projectWorkspaceStream({
+    phaseTurns,
+    phaseState,
+    bottomArtifact,
+  });
+  const historyArtifacts = streamArtifacts.filter(
+    (artifact) =>
+      artifact.kind === 'answered-turn' ||
+      artifact.kind === 'answered-review-turn' ||
+      artifact.kind === 'accepted-closure',
+  );
+  const bottomStreamArtifacts = streamArtifacts.filter(
+    (artifact) =>
+      artifact.kind === 'divider' ||
+      artifact.kind === 'persisted-turn' ||
+      artifact.kind === 'pending-question' ||
+      artifact.kind === 'kickoff' ||
+      artifact.kind === 'recovery' ||
+      artifact.kind === 'phase-summary' ||
+      artifact.kind === 'generating',
+  );
   const showLockedState =
     phaseState.status === 'unstarted' && currentReachablePhase !== phase && currentReachablePhase !== null;
   // TODO: auto-present is disabled while the phase-closure interaction model is being reworked.
@@ -352,34 +329,32 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             )}
 
             {/* ── Zone 1: Preceding answered turns ──────────────────────── */}
-            {completedPhaseItems.length > 0 && (
+            {historyArtifacts.length > 0 && (
               <div className="flex flex-col gap-6">
-                {completedPhaseItems.map((item, index) =>
-                  item.kind === 'answered-turn' ? (
-                    <div key={`answered-turn-${item.turn.id}`} className="flex flex-col">
-                      {renderPersistedActivity(item.turn)}
+                {historyArtifacts.map((artifact) =>
+                  artifact.kind === 'answered-turn' ? (
+                    <div key={`answered-turn-${artifact.turn.id}`} className="flex flex-col">
+                      {renderPersistedActivity(artifact.turn)}
                       <AnsweredQuestionCard
-                        turn={item.turn}
-                        questionCode={`Q${index + 1}`}
-                        captureStatus={captureStatusByTurnId.get(item.turn.id)}
+                        turn={artifact.turn}
+                        questionCode={artifact.questionCode}
+                        captureStatus={captureStatusByTurnId.get(artifact.turn.id)}
                       />
                     </div>
-                  ) : item.kind === 'answered-review-turn' ? (
-                    <div key={`answered-review-turn-${item.turn.id}`} className="flex flex-col">
-                      {renderPersistedActivity(item.turn)}
-                      <AnsweredReviewSetCard turn={item.turn} reviewSet={item.reviewSet} />
+                  ) : artifact.kind === 'answered-review-turn' ? (
+                    <div key={`answered-review-turn-${artifact.turn.id}`} className="flex flex-col">
+                      {renderPersistedActivity(artifact.turn)}
+                      <AnsweredReviewSetCard turn={artifact.turn} reviewSet={artifact.reviewSet} />
                     </div>
                   ) : (
                     <div
-                      key={`accepted-closure-${item.acceptedClosure.turnId}`}
+                      key={`accepted-closure-${artifact.acceptedClosure.turnId}`}
                       data-testid="accepted-closure-card"
                     >
-                      {renderPersistedActivity(
-                        phaseTurns.find((turn) => turn.id === item.acceptedClosure.turnId),
-                      )}
+                      {renderPersistedActivity(artifact.turn)}
                       <AcceptedClosureCard
-                        phase={item.acceptedClosure.phase}
-                        summary={item.acceptedClosure.summary}
+                        phase={artifact.acceptedClosure.phase}
+                        summary={artifact.acceptedClosure.summary}
                       />
                     </div>
                   ),
@@ -455,137 +430,146 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           </div>
 
           {/* ── Zone 2: Divider between answered and frontier ─────────── */}
-          {completedPhaseItems.length > 0 &&
-            (bottomArtifact?.kind === 'persisted-turn' ||
-              bottomArtifact?.kind === 'pending-question' ||
-              bottomArtifact?.kind === 'phase-summary' ||
-              bottomArtifact?.kind === 'generating') && <hr className="my-6 border-rule" />}
+          {bottomStreamArtifacts.some((artifact) => artifact.kind === 'divider') && (
+            <hr className="my-6 border-rule" />
+          )}
 
           {/* ── Zone 3: Bottom artifact ─────────────────────────────── */}
           <div className="mx-auto w-full max-w-2xl">
-            {bottomArtifact?.kind === 'persisted-turn' &&
-              (!turnHasCompletedAnswer(bottomArtifact.turn) || bottomArtifact.state === 'submitted') && (
-                <div className="flex flex-col">
-                  {renderPersistedActivity(bottomArtifact.turn)}
-                  {(() => {
-                    const reviewSet = getPersistedReviewSet(bottomArtifact.turn) ?? fallbackReviewSet;
+            {bottomStreamArtifacts.map((artifact) => {
+              if (artifact.kind === 'divider') {
+                return null;
+              }
 
-                    if (reviewSet) {
-                      return (
-                        <ActiveReviewSetCard
-                          key={`persisted-review-turn-${bottomArtifact.turn.id}`}
-                          question={bottomArtifact.turn.question}
-                          why={bottomArtifact.turn.why}
-                          options={bottomArtifact.turn.options ?? []}
-                          onSubmitResponse={bottomArtifact.submitTurnResponse}
-                          persistedFreeText={
-                            getPersistedTurnResponse(bottomArtifact.turn)?.freeText?.trim() ?? ''
-                          }
-                          hasPersistedResponse={
-                            bottomArtifact.state === 'submitted' &&
-                            turnHasCompletedAnswer(bottomArtifact.turn)
-                          }
-                          disabled={bottomArtifact.disabled}
-                          state={bottomArtifact.state}
-                          reviewSet={reviewSet}
-                        />
-                      );
-                    }
+              if (artifact.kind === 'persisted-turn') {
+                const reviewSet = getPersistedReviewSet(artifact.artifact.turn) ?? fallbackReviewSet;
 
-                    return (
-                      <ActiveQuestionCard
-                        key={`persisted-turn-${bottomArtifact.turn.id}`}
-                        id={`persisted-turn-${bottomArtifact.turn.id}`}
-                        questionCode={activeQuestionCode}
-                        question={bottomArtifact.turn.question}
-                        why={bottomArtifact.turn.why}
-                        impact={bottomArtifact.turn.impact}
-                        options={bottomArtifact.turn.options ?? []}
-                        onSubmitResponse={bottomArtifact.submitTurnResponse}
-                        persistedSelectedPositions={getPersistedSelectedPositions(bottomArtifact.turn)}
+                return (
+                  <div key={`persisted-turn-${artifact.artifact.turn.id}`} className="flex flex-col">
+                    {renderPersistedActivity(artifact.artifact.turn)}
+                    {reviewSet ? (
+                      <ActiveReviewSetCard
+                        question={artifact.artifact.turn.question}
+                        why={artifact.artifact.turn.why}
+                        options={artifact.artifact.turn.options ?? []}
+                        onSubmitResponse={artifact.artifact.submitTurnResponse}
                         persistedFreeText={
-                          getPersistedTurnResponse(bottomArtifact.turn)?.freeText?.trim() ?? ''
+                          getPersistedTurnResponse(artifact.artifact.turn)?.freeText?.trim() ?? ''
                         }
                         hasPersistedResponse={
-                          bottomArtifact.state === 'submitted' && turnHasCompletedAnswer(bottomArtifact.turn)
+                          artifact.artifact.state === 'submitted' &&
+                          turnHasCompletedAnswer(artifact.artifact.turn)
                         }
-                        disabled={bottomArtifact.disabled}
-                        state={bottomArtifact.state}
+                        disabled={artifact.artifact.disabled}
+                        state={artifact.artifact.state}
+                        reviewSet={reviewSet}
                       />
-                    );
-                  })()}
-                </div>
-              )}
+                    ) : (
+                      <ActiveQuestionCard
+                        id={`persisted-turn-${artifact.artifact.turn.id}`}
+                        questionCode={artifact.questionCode}
+                        question={artifact.artifact.turn.question}
+                        why={artifact.artifact.turn.why}
+                        impact={artifact.artifact.turn.impact}
+                        options={artifact.artifact.turn.options ?? []}
+                        onSubmitResponse={artifact.artifact.submitTurnResponse}
+                        persistedSelectedPositions={getPersistedSelectedPositions(artifact.artifact.turn)}
+                        persistedFreeText={
+                          getPersistedTurnResponse(artifact.artifact.turn)?.freeText?.trim() ?? ''
+                        }
+                        hasPersistedResponse={
+                          artifact.artifact.state === 'submitted' &&
+                          turnHasCompletedAnswer(artifact.artifact.turn)
+                        }
+                        disabled={artifact.artifact.disabled}
+                        state={artifact.artifact.state}
+                      />
+                    )}
+                    {artifact.artifact.errorMessage ? (
+                      <p role="alert" className="mt-3 text-sm text-destructive">
+                        {artifact.artifact.errorMessage}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              }
 
-            {bottomArtifact?.kind === 'pending-question' &&
-              (fallbackReviewSet ? (
-                <ActiveReviewSetCard
-                  key={`pending-review-turn-${bottomArtifact.pendingQuestion.id}`}
-                  question={bottomArtifact.pendingQuestion.question}
-                  why={bottomArtifact.pendingQuestion.why}
-                  options={bottomArtifact.pendingQuestion.options}
-                  persistedFreeText=""
-                  hasPersistedResponse={false}
-                  disabled={bottomArtifact.disabled}
-                  state="active"
-                  reviewSet={fallbackReviewSet}
-                />
-              ) : (
-                <ActiveQuestionCard
-                  key={bottomArtifact.pendingQuestion.id}
-                  id={bottomArtifact.pendingQuestion.id}
-                  questionCode={activeQuestionCode}
-                  question={bottomArtifact.pendingQuestion.question}
-                  why={bottomArtifact.pendingQuestion.why}
-                  impact={bottomArtifact.pendingQuestion.impact}
-                  options={bottomArtifact.pendingQuestion.options}
-                  persistedSelectedPositions={[]}
-                  persistedFreeText=""
-                  hasPersistedResponse={false}
-                  disabled={bottomArtifact.disabled}
-                  state="active"
-                />
-              ))}
+              if (artifact.kind === 'pending-question') {
+                return fallbackReviewSet ? (
+                  <ActiveReviewSetCard
+                    key={`pending-review-turn-${artifact.artifact.pendingQuestion.id}`}
+                    question={artifact.artifact.pendingQuestion.question}
+                    why={artifact.artifact.pendingQuestion.why}
+                    options={artifact.artifact.pendingQuestion.options}
+                    persistedFreeText=""
+                    hasPersistedResponse={false}
+                    disabled={artifact.artifact.disabled}
+                    state="active"
+                    reviewSet={fallbackReviewSet}
+                  />
+                ) : (
+                  <ActiveQuestionCard
+                    key={artifact.artifact.pendingQuestion.id}
+                    id={artifact.artifact.pendingQuestion.id}
+                    questionCode={artifact.questionCode}
+                    question={artifact.artifact.pendingQuestion.question}
+                    why={artifact.artifact.pendingQuestion.why}
+                    impact={artifact.artifact.pendingQuestion.impact}
+                    options={artifact.artifact.pendingQuestion.options}
+                    persistedSelectedPositions={[]}
+                    persistedFreeText=""
+                    hasPersistedResponse={false}
+                    disabled={artifact.artifact.disabled}
+                    state="active"
+                  />
+                );
+              }
 
-            {bottomArtifact?.kind === 'kickoff' && !showLockedState && (
-              <KickoffControlCard
-                phase={bottomArtifact.kickoff.phase}
-                mode={bottomArtifact.kickoff.mode}
-                onProceed={() => bottomArtifact.submitKickoff()}
-                onSelectStrategy={(mode) => bottomArtifact.submitKickoff(mode)}
-                disabled={bottomArtifact.disabled}
-              />
-            )}
+              if (artifact.kind === 'kickoff') {
+                return !showLockedState ? (
+                  <KickoffControlCard
+                    key={`kickoff-${artifact.artifact.kickoff.phase}-${artifact.artifact.kickoff.mode}`}
+                    phase={artifact.artifact.kickoff.phase}
+                    mode={artifact.artifact.kickoff.mode}
+                    onProceed={() => artifact.artifact.submitKickoff()}
+                    onSelectStrategy={(mode) => artifact.artifact.submitKickoff(mode)}
+                    disabled={artifact.artifact.disabled}
+                  />
+                ) : null;
+              }
 
-            {bottomArtifact?.kind === 'recovery' && !showLockedState && (
-              <RecoveryControlCard
-                phase={bottomArtifact.recovery.phase}
-                onRecover={bottomArtifact.submitRecovery}
-                disabled={bottomArtifact.disabled}
-              />
-            )}
+              if (artifact.kind === 'recovery') {
+                return !showLockedState ? (
+                  <RecoveryControlCard
+                    key={`recovery-${artifact.artifact.recovery.phase}`}
+                    phase={artifact.artifact.recovery.phase}
+                    onRecover={artifact.artifact.submitRecovery}
+                    disabled={artifact.artifact.disabled}
+                  />
+                ) : null;
+              }
 
-            {bottomArtifact?.kind === 'persisted-turn' && bottomArtifact.errorMessage && (
-              <p role="alert" className="mt-3 text-sm text-destructive">
-                {bottomArtifact.errorMessage}
-              </p>
-            )}
+              if (artifact.kind === 'phase-summary') {
+                return (
+                  <div
+                    key={`phase-summary-${artifact.artifact.phaseSummary.turnId}`}
+                    className="flex flex-col"
+                  >
+                    {renderPersistedActivity(
+                      phaseTurns.find((turn) => turn.id === artifact.artifact.phaseSummary.turnId),
+                    )}
+                    <PhaseSummaryCard
+                      phase={artifact.artifact.phaseSummary.phase}
+                      summary={artifact.artifact.phaseSummary.summary}
+                      disabled={artifact.artifact.disabled}
+                      onConfirm={artifact.artifact.confirmPhaseSummary}
+                    />
+                  </div>
+                );
+              }
 
-            {bottomArtifact?.kind === 'phase-summary' && (
-              <div className="flex flex-col">
-                {renderPersistedActivity(
-                  phaseTurns.find((turn) => turn.id === bottomArtifact.phaseSummary.turnId),
-                )}
-                <PhaseSummaryCard
-                  phase={bottomArtifact.phaseSummary.phase}
-                  summary={bottomArtifact.phaseSummary.summary}
-                  disabled={bottomArtifact.disabled}
-                  onConfirm={bottomArtifact.confirmPhaseSummary}
-                />
-              </div>
-            )}
-
-            {bottomArtifact?.kind === 'generating' && <GeneratingTurnPlaceholder />}
+              return <GeneratingTurnPlaceholder key="generating-turn-placeholder" />;
+            })}
           </div>
 
           {/* Bottom spacer — future home of phase-advance controls */}
@@ -593,20 +577,20 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
         </div>
       </ChatScroll>
 
-      {(bottomArtifact?.kind === 'phase-handoff' || bottomArtifact?.kind === 'workflow-complete') &&
-        (bottomArtifact.isReviewPhase ? (
+      {footerArtifact &&
+        (footerArtifact.isReviewPhase ? (
           <div className="shrink-0 border-t border-rule bg-tint px-6 py-5">
             <div className="mx-auto w-full max-w-2xl">
               <ReviewPhaseCompletionCard
                 testId="review-phase-completion-card"
-                title={`${getWorkflowPhaseLabel(bottomArtifact.phase)} review is complete`}
+                title={`${getWorkflowPhaseLabel(footerArtifact.phase)} review is complete`}
                 description={getReviewPhaseCompletionDescription(
-                  bottomArtifact.phase,
-                  bottomArtifact.summary,
-                  bottomArtifact.kind === 'phase-handoff' ? bottomArtifact.nextPhase : null,
+                  footerArtifact.phase,
+                  footerArtifact.summary,
+                  footerArtifact.kind === 'phase-handoff' ? footerArtifact.nextPhase : null,
                 )}
                 action={
-                  bottomArtifact.kind === 'workflow-complete' ? (
+                  footerArtifact.kind === 'workflow-complete' ? (
                     <Link
                       to="/project/$id/export"
                       params={{ id: String(project.id) }}
@@ -617,12 +601,12 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                   ) : (
                     <Link
                       to={
-                        `/project/$id/${phaseRouteSegments[bottomArtifact.nextPhase]}` as '/project/$id/grounding'
+                        `/project/$id/${phaseRouteSegments[footerArtifact.nextPhase]}` as '/project/$id/grounding'
                       }
                       params={{ id: String(project.id) }}
                       className="mt-3 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                     >
-                      Continue to {getWorkflowPhaseLabel(bottomArtifact.nextPhase)}
+                      Continue to {getWorkflowPhaseLabel(footerArtifact.nextPhase)}
                     </Link>
                   )
                 }
@@ -635,17 +619,17 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             data-testid="workspace-state-card"
           >
             <p className="text-sm font-medium text-ink">
-              {bottomArtifact.kind === 'workflow-complete'
+              {footerArtifact.kind === 'workflow-complete'
                 ? 'The interview workspace is complete'
-                : `${getWorkflowPhaseLabel(bottomArtifact.phase)} phase is complete`}
+                : `${getWorkflowPhaseLabel(footerArtifact.phase)} phase is complete`}
             </p>
             <p className="text-xs-plus leading-relaxed text-sub">
-              {bottomArtifact.summary ??
-                (bottomArtifact.kind === 'workflow-complete'
+              {footerArtifact.summary ??
+                (footerArtifact.kind === 'workflow-complete'
                   ? 'All phases are closed. Review the export to inspect the current structured spec output.'
                   : 'This phase has been closed and handed off to the next phase.')}
             </p>
-            {bottomArtifact.kind === 'workflow-complete' ? (
+            {footerArtifact.kind === 'workflow-complete' ? (
               <Link
                 to="/project/$id/export"
                 params={{ id: String(project.id) }}
@@ -656,12 +640,12 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             ) : (
               <Link
                 to={
-                  `/project/$id/${phaseRouteSegments[bottomArtifact.nextPhase]}` as '/project/$id/grounding'
+                  `/project/$id/${phaseRouteSegments[footerArtifact.nextPhase]}` as '/project/$id/grounding'
                 }
                 params={{ id: String(project.id) }}
                 className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
               >
-                Continue to {getWorkflowPhaseLabel(bottomArtifact.nextPhase)}
+                Continue to {getWorkflowPhaseLabel(footerArtifact.nextPhase)}
               </Link>
             )}
           </div>
