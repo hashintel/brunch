@@ -16,7 +16,7 @@ Extract: target behavior / objective, acceptance criteria, and verification appr
 
 Treat the scope card as the next implementation step inside its containing `memory/PLAN.md` frontier item. The frontier item is the plan-level work item; the scope card is just the current execution step inside it. Unless `ln-plan` has already split the frontier into separate items, do **not** infer a new Linear issue or Graphite branch from scope-card granularity; multiple consecutive scope cards may land on the same branch.
 
-If `memory/CARDS.md` exists, treat it as a derivative execution queue, not canonical planning state. Build the next card marked `next` or the first unfinished card in that file, then update its status after verification and commit.
+If `memory/CARDS.md` exists, treat it as a derivative execution queue, not canonical planning state. Start with the next card marked `next` or the first unfinished card in that file. If that card is already satisfied on the current branch, do **not** manufacture a no-op build commit; verify the acceptance criteria, mark the card `done` or `dropped` as appropriate, reconcile the queue, and either continue to the next honest build target or route back to `ln-scope` if no build remains.
 
 Re-enter before red.
 
@@ -40,11 +40,11 @@ When several prepared cards already exist for one settled frontier item, `ln-bui
 Loop shape:
 
 1. take the next ready card
-2. run red → green → refactor
-3. run the verification harness
-4. reconcile canonical state
-5. commit the card-sized change
-6. update `memory/CARDS.md`
+2. decide whether it is still a real build target or is already satisfied / stale on the current branch
+3. if it is real work, run red → green → refactor
+4. run the verification harness
+5. reconcile canonical state and `memory/CARDS.md`
+6. commit only if the card produced a real card-sized change
 7. continue only if no stop condition fires
 
 Stop the serial loop immediately when any of these becomes true:
@@ -62,7 +62,7 @@ Stop the serial loop immediately when any of these becomes true:
 
 Translate acceptance criteria into failing tests when the change benefits from them. For bugfixes or subtle seam changes, prefer one high-leverage regression test. For trivial maintenance or doc-only work, tests may be unnecessary.
 
-Run the relevant checks. Confirm failures are meaningful.
+Run the relevant checks. Confirm failures are meaningful. If the card is already green before any code change, treat that as evidence the queue item is already satisfied or stale — not as permission to create a ceremonial red/green cycle.
 
 ## Green
 
@@ -76,7 +76,7 @@ With tests green, improve names, boundaries, and obvious local structure. Do not
 
 ## Verify and commit
 
-Run the project's verification harness. All checks must pass.
+Run the project's verification harness. All checks must pass. If the card proved already satisfied and no code or canonical-state change was needed, do not create an empty commit.
 
 ## Canonical reconciliation (mandatory)
 

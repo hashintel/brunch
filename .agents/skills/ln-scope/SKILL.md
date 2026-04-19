@@ -43,14 +43,18 @@ Use this queue only when all of these are true:
 - each queued card is still small enough to verify and commit independently
 - no queued card is expected to change requirements, assumptions, decisions, or invariants
 - the next few cards are sequentially obvious enough that pre-scoping them reduces churn rather than hiding uncertainty
+- later queued cards are **not expected to change shape based on the implementation findings of earlier cards**
+
+A short serial queue is for already-legible follow-through, not for guessing ahead. If card B or C depends on what you learn while building card A, stop after scoping card A (or at most the last card whose validity is still implementation-independent).
 
 Queue discipline:
 
 - keep the queue short — usually 2-5 cards
 - keep each card in full or light scope-card format
 - mark status clearly (`next`, `in progress`, `done`, `dropped`)
+- do **not** pre-scope speculative downstream cards just because the work is serial; only queue cards whose scope would still be valid if you paused before building the earlier one
 - overwrite or delete `memory/CARDS.md` when the queue is exhausted or superseded
-- if any queued card trips the promotion checklist or reveals a frontier split, stop the queue and route back through `ln-spec` or `ln-plan` as appropriate
+- if any queued card trips the promotion checklist, reveals a frontier split, or turns out to depend on unknown results from an earlier card, stop the queue and route back through `ln-spec` or `ln-plan` as appropriate
 
 ## Scope-weight decision
 
