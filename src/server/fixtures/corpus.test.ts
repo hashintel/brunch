@@ -20,7 +20,7 @@ vi.mock('ai', async () => {
   };
 });
 
-const { createDb } = await import('../db.js');
+const { advanceHead, createDb, createProject, createTurn } = await import('../db.js');
 const { seedFromManifest } = await import('./manifest.js');
 const {
   buildExpectedObserverOutputForTurn,
@@ -120,6 +120,40 @@ describe('captureProjectToManifestScenario', () => {
     const projectId = seedFromManifest(db, scenario, 'Capture Round Trip');
 
     expect(captureProjectToManifestScenario(db, projectId)).toEqual(scenario);
+  });
+
+  it('drops transitional kickoff and recovery rows when capturing durable manifest authority', () => {
+    const project = createProject(db, 'Capture Without Control Rows');
+    const answeredTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What should this tool optimize for first?',
+      answer: 'Fast onboarding with a clear guided flow',
+    });
+    advanceHead(db, project.id, answeredTurn.id);
+
+    const recoveryTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: answeredTurn.id,
+      turn_kind: 'recovery',
+      question: '',
+      answer: null,
+    });
+    advanceHead(db, project.id, recoveryTurn.id);
+
+    expect(captureProjectToManifestScenario(db, project.id)).toEqual({
+      turns: [
+        {
+          phase: 'scope',
+          question: 'What should this tool optimize for first?',
+          answer: 'Fast onboarding with a clear guided flow',
+          why: null,
+          impact: null,
+          options: [],
+        },
+      ],
+      knowledgeItems: [],
+      edges: [],
+    });
   });
 });
 

@@ -236,12 +236,7 @@ export function captureProjectToManifestScenario(db: DB, projectId: number): Man
 
   const manifestTurns = turns.flatMap((turn) => {
     if (turn.turn_kind === 'kickoff' || turn.turn_kind === 'recovery') {
-      return {
-        phase: turn.phase,
-        turnKind: turn.turn_kind,
-        question: '',
-        answer: null,
-      } satisfies ManifestScenario['turns'][number];
+      return [];
     }
 
     if (turn.question) {
@@ -250,7 +245,6 @@ export function captureProjectToManifestScenario(db: DB, projectId: number): Man
 
       return {
         phase: turn.phase,
-        ...(turn.turn_kind && turn.turn_kind !== 'question' ? { turnKind: turn.turn_kind } : {}),
         question: turn.question,
         answer: turn.answer ?? null,
         why: turn.why ?? null,

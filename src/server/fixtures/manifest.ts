@@ -105,12 +105,6 @@ type CompiledQuestionTurn = {
   responseText?: string;
 };
 
-type CompiledFrontierTurn = {
-  kind: 'frontier';
-  phase: WorkflowPhase;
-  turnKind: Exclude<TurnKind, 'question'>;
-};
-
 type CompiledProposalTurn = {
   kind: 'proposal';
   phase: WorkflowPhase;
@@ -123,11 +117,7 @@ type CompiledConfirmationTurn = {
   proposalIndex: number;
 };
 
-type CompiledManifestTurn =
-  | CompiledQuestionTurn
-  | CompiledFrontierTurn
-  | CompiledProposalTurn
-  | CompiledConfirmationTurn;
+type CompiledManifestTurn = CompiledQuestionTurn | CompiledProposalTurn | CompiledConfirmationTurn;
 
 interface CompiledManifestScenario {
   turns: CompiledManifestTurn[];
@@ -200,26 +190,6 @@ function compileQuestionTurn(turn: ManifestTurn, turnIndex: number): CompiledQue
   };
 }
 
-function compileFrontierTurn(turn: ManifestTurn, turnIndex: number): CompiledFrontierTurn {
-  if (turn.turnKind !== 'kickoff' && turn.turnKind !== 'recovery') {
-    throw new Error(`Manifest frontier turn ${turnIndex} must declare turnKind kickoff or recovery`);
-  }
-
-  if (normalizeOptionalText(turn.question)) {
-    throw new Error(`Manifest frontier turn ${turnIndex} must not include question text`);
-  }
-
-  if (normalizeOptionalText(turn.answer ?? undefined)) {
-    throw new Error(`Manifest frontier turn ${turnIndex} must not include an answer`);
-  }
-
-  return {
-    kind: 'frontier',
-    phase: turn.phase,
-    turnKind: turn.turnKind,
-  };
-}
-
 function compileProposalTurn(turn: ManifestTurn, turnIndex: number): CompiledProposalTurn {
   const summary = normalizeOptionalText(turn.answer);
   if (!summary) {
@@ -263,18 +233,17 @@ function compileManifestScenario(scenario: ManifestScenario): CompiledManifestSc
     if (turn.isProposal && turn.isConfirmation) {
       throw new Error(`Manifest turn ${index} cannot be both a proposal and a confirmation`);
     }
-    if (turn.turnKind && turn.turnKind !== 'question' && (turn.isProposal || turn.isConfirmation)) {
-      throw new Error(`Manifest turn ${index} cannot combine frontier turnKind with proposal/confirmation`);
+    if (turn.turnKind && turn.turnKind !== 'question') {
+      throw new Error(
+        `Manifest turn ${index} cannot seed control turnKind ${turn.turnKind}; seed durable authority and derive landing instead`,
+      );
     }
 
-    const compiledTurn =
-      turn.turnKind && turn.turnKind !== 'question'
-        ? compileFrontierTurn(turn, index)
-        : turn.isConfirmation
-          ? compileConfirmationTurn(turn, index, compiledTurns)
-          : turn.isProposal
-            ? compileProposalTurn(turn, index)
-            : compileQuestionTurn(turn, index);
+    const compiledTurn = turn.isConfirmation
+      ? compileConfirmationTurn(turn, index, compiledTurns)
+      : turn.isProposal
+        ? compileProposalTurn(turn, index)
+        : compileQuestionTurn(turn, index);
     compiledTurns.push(compiledTurn);
   }
 
@@ -464,22 +433,6 @@ function seedCompiledManifestScenario(
       });
       phaseOutcomeIdByProposalTurnIndex.set(i, outcome.id);
 
-      advanceHead(db, projectId, turn.id);
-      prevTurnId = turn.id;
-      continue;
-    }
-
-    if (turnDefinition.kind === 'frontier') {
-      const turn = createTurn(db, projectId, {
-        phase: turnDefinition.phase,
-        parent_turn_id: prevTurnId,
-        turn_kind: turnDefinition.turnKind,
-        question: '',
-        answer: null,
-        user_parts: null,
-        assistant_parts: null,
-      });
-      turnIdMap.set(i, turn.id);
       advanceHead(db, projectId, turn.id);
       prevTurnId = turn.id;
       continue;

@@ -388,7 +388,7 @@ describe('finalizeTurn', () => {
 });
 
 describe('getProjectState', () => {
-  it('seeds the first scope kickoff turn with grounding strategy choices', () => {
+  it('projects the first scope landing as kickoff with grounding strategy choices', () => {
     const project = createProject(db, 'Spec');
 
     const state = getProjectState(db, project.id);
@@ -397,7 +397,6 @@ describe('getProjectState', () => {
     expect(state?.turns).toHaveLength(1);
     expect(state?.turns[0]).toMatchObject({
       phase: 'scope',
-      turn_kind: 'kickoff',
       question: 'How should this specification start?',
       why: 'Choose how to start grounding this specification.',
       answer: null,
@@ -418,7 +417,7 @@ describe('getProjectState', () => {
     });
   });
 
-  it('returns project plus active path turns', () => {
+  it('returns project plus active path turns and projects recovery when the frontier is missing', () => {
     const project = createProject(db, 'Spec');
     const turn = createTurn(db, project.id, {
       phase: 'scope',
@@ -435,7 +434,7 @@ describe('getProjectState', () => {
 
     expect(state?.project.id).toBe(project.id);
     expect(state?.landing).toEqual({ kind: 'recovery', phase: 'scope' });
-    expect(state?.turns).toHaveLength(2);
+    expect(state?.turns.filter((candidate) => candidate.turn_kind === 'question')).toHaveLength(1);
     expect(state?.turns[0].question).toBe('What are we building?');
     expect(state?.turns[0].turn_kind).toBe('question');
     expect(state?.turns[0].captured_items).toEqual([
@@ -454,11 +453,6 @@ describe('getProjectState', () => {
         referenceCode: createKnowledgeReferenceCode('decision', 1),
       },
     ]);
-    expect(state?.turns[1]).toMatchObject({
-      phase: 'scope',
-      turn_kind: 'recovery',
-      question: '',
-      answer: null,
-    });
+    expect(state?.turns.some((candidate) => candidate.turn_kind === 'recovery')).toBe(true);
   });
 });

@@ -23,6 +23,7 @@ function createProjectState({
   userParts = [{ type: 'text', text: answer }] as Array<Record<string, unknown>>,
   options = [],
   workflow,
+  turns,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -36,14 +37,34 @@ function createProjectState({
     is_selected: boolean;
   }>;
   workflow?: ProjectState['workflow'];
+  turns?: ProjectState['turns'];
 } = {}): ProjectState {
+  const resolvedTurns = turns ?? [
+    {
+      id: 1,
+      project_id: projectId,
+      parent_turn_id: null,
+      phase: 'scope',
+      turn_kind: 'question',
+      question: assistantText,
+      why: 'This frames the first iteration.',
+      impact: 'high',
+      answer,
+      is_resolution: false,
+      user_parts: JSON.stringify(userParts),
+      assistant_parts: JSON.stringify(assistantText ? [{ type: 'text', text: assistantText }] : []),
+      created_at: '2026-04-03 10:00:00',
+      options,
+    },
+  ];
+
   const projectState: ProjectState = {
     project: {
       id: projectId,
       name: `Project ${projectId}`,
       mode: 'greenfield',
       cwd: null,
-      active_turn_id: 1,
+      active_turn_id: resolvedTurns.at(-1)?.id ?? null,
       created_at: '2026-04-03 10:00:00',
       updated_at: '2026-04-03 10:00:00',
     },
@@ -87,24 +108,7 @@ function createProjectState({
         },
       },
     },
-    turns: [
-      {
-        id: 1,
-        project_id: projectId,
-        parent_turn_id: null,
-        phase: 'scope',
-        turn_kind: 'question',
-        question: assistantText,
-        why: 'This frames the first iteration.',
-        impact: 'high',
-        answer,
-        is_resolution: false,
-        user_parts: JSON.stringify(userParts),
-        assistant_parts: JSON.stringify(assistantText ? [{ type: 'text', text: assistantText }] : []),
-        created_at: '2026-04-03 10:00:00',
-        options,
-      },
-    ],
+    turns: resolvedTurns,
   };
 
   return {
@@ -349,76 +353,51 @@ describe('workspace controller core', () => {
   });
 
   it('projects recovery turn-card visibility from the derived landing seam', () => {
-    const recoveryState = createInterviewDurableProjectState({
-      project: {
-        id: 1,
-        name: 'Project 1',
-        mode: 'greenfield',
-        cwd: null,
-        active_turn_id: 1,
-        created_at: '2026-04-03 10:00:00',
-        updated_at: '2026-04-03 10:00:00',
-      },
-      workflow: {
-        phases: {
-          scope: {
-            status: 'in_progress',
-            closeability: false,
-            readiness: 'medium',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          design: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          requirements: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          criteria: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
+    const recoveryState = createInterviewDurableProjectState(
+      createProjectState({
+        workflow: {
+          phases: {
+            scope: {
+              status: 'in_progress',
+              closeability: false,
+              readiness: 'medium',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
           },
         },
-      },
-      landing: { kind: 'recovery', phase: 'scope' },
-      turns: [
-        {
-          id: 1,
-          project_id: 1,
-          parent_turn_id: null,
-          phase: 'scope',
-          turn_kind: 'question',
-          question: 'What should we build first?',
-          why: 'This frames the first iteration.',
-          impact: 'high',
-          answer: 'Build the web app',
-          is_resolution: false,
-          user_parts: JSON.stringify([{ type: 'text', text: 'Build the web app' }]),
-          assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
-          created_at: '2026-04-03 10:00:00',
-          options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
-        },
-      ],
-    });
+        options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+      }),
+    );
 
     expect(createInterviewControllerViewState(recoveryState, 'scope', [], false)).toEqual({
       project: recoveryState.project,
@@ -439,59 +418,51 @@ describe('workspace controller core', () => {
   });
 
   it('projects kickoff turn-card visibility from the derived landing seam', () => {
-    const kickoffState = createInterviewDurableProjectState({
-      project: {
-        id: 1,
-        name: 'Project 1',
-        mode: 'greenfield',
-        cwd: null,
-        active_turn_id: null,
-        created_at: '2026-04-03 10:00:00',
-        updated_at: '2026-04-03 10:00:00',
-      },
-      workflow: {
-        phases: {
-          scope: {
-            status: 'in_progress',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          design: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          requirements: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          criteria: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
+    const kickoffState = createInterviewDurableProjectState(
+      createProjectState({
+        workflow: {
+          phases: {
+            scope: {
+              status: 'in_progress',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
           },
         },
-      },
-      landing: { kind: 'kickoff', phase: 'scope', mode: 'start' },
-      turns: [],
-    });
+        turns: [],
+      }),
+    );
 
     expect(createInterviewControllerViewState(kickoffState, 'scope', [], false)).toEqual({
       project: kickoffState.project,

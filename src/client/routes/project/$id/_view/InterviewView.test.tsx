@@ -184,13 +184,34 @@ function createProjectState({
   assistantParts?: Array<Record<string, unknown>>;
   turns?: ProjectState['turns'];
 } = {}): ProjectState {
+  const resolvedTurns = turns ?? [
+    {
+      id: 1,
+      project_id: projectId,
+      parent_turn_id: null,
+      phase: 'scope',
+      turn_kind: 'question',
+      question: assistantText,
+      why: 'This frames the first iteration.',
+      impact: 'high',
+      answer,
+      is_resolution: false,
+      user_parts: JSON.stringify(userParts),
+      assistant_parts: JSON.stringify(
+        assistantParts ?? (assistantText ? [{ type: 'text', text: assistantText }] : []),
+      ),
+      created_at: '2026-04-03 10:00:00',
+      options,
+    },
+  ];
+
   const projectState: ProjectState = {
     project: {
       id: projectId,
       name: `Project ${projectId}`,
       mode: 'greenfield',
       cwd: null,
-      active_turn_id: 1,
+      active_turn_id: resolvedTurns.at(-1)?.id ?? null,
       created_at: '2026-04-03 10:00:00',
       updated_at: '2026-04-03 10:00:00',
     },
@@ -234,26 +255,7 @@ function createProjectState({
         },
       },
     },
-    turns: turns ?? [
-      {
-        id: 1,
-        project_id: projectId,
-        parent_turn_id: null,
-        phase: 'scope',
-        turn_kind: 'question',
-        question: assistantText,
-        why: 'This frames the first iteration.',
-        impact: 'high',
-        answer,
-        is_resolution: false,
-        user_parts: JSON.stringify(userParts),
-        assistant_parts: JSON.stringify(
-          assistantParts ?? (assistantText ? [{ type: 'text', text: assistantText }] : []),
-        ),
-        created_at: '2026-04-03 10:00:00',
-        options,
-      },
-    ],
+    turns: resolvedTurns,
   };
 
   return {
@@ -1246,57 +1248,57 @@ describe('InterviewView', () => {
     ).toBeTruthy();
   });
 
-  it('renders grounding strategy choices in the scope kickoff card and submits the selected strategy', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        assistantText: '',
-        answer: '',
-        turns: [
-          {
-            id: 1,
-            project_id: 1,
-            parent_turn_id: null,
-            phase: 'scope',
-            turn_kind: 'kickoff',
-            question: 'How should this specification start?',
-            why: 'Choose how to start grounding this specification.',
-            impact: null,
-            answer: null,
-            is_resolution: false,
-            user_parts: null,
-            assistant_parts: null,
-            created_at: '2026-04-03 10:00:00',
-            options: [
-              {
-                id: 11,
-                position: 0,
-                content: 'New concept from scratch',
-                is_recommended: true,
-                is_selected: false,
-              },
-              {
-                id: 12,
-                position: 1,
-                content: 'Feature within existing codebase',
-                is_recommended: false,
-                is_selected: false,
-              },
-            ],
-          },
-        ],
-        workflow: createWorkflowState({
-          scope: {
-            status: 'in_progress',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: 1,
-            summary: null,
-          },
-        }),
+  it('renders grounding strategy choices from the projected scope kickoff landing and submits the selected strategy', async () => {
+    const loaderData = createWorkspaceLoaderData({
+      assistantText: '',
+      answer: '',
+      turns: [
+        {
+          id: 1,
+          project_id: 1,
+          parent_turn_id: null,
+          phase: 'scope',
+          turn_kind: 'kickoff',
+          question: 'How should this specification start?',
+          why: 'Choose how to start grounding this specification.',
+          impact: null,
+          answer: null,
+          is_resolution: false,
+          user_parts: null,
+          assistant_parts: null,
+          created_at: '2026-04-03 10:00:00',
+          options: [
+            {
+              id: 11,
+              position: 0,
+              content: 'New concept from scratch',
+              is_recommended: true,
+              is_selected: false,
+            },
+            {
+              id: 12,
+              position: 1,
+              content: 'Feature within existing codebase',
+              is_recommended: false,
+              is_selected: false,
+            },
+          ],
+        },
+      ],
+      workflow: createWorkflowState({
+        scope: {
+          status: 'in_progress',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: 1,
+          summary: null,
+        },
       }),
-    );
+    });
+    expect(loaderData.projectState.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+    setLoaderData(loaderData);
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {

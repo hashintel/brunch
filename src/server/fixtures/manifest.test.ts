@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { formatTurnResponseText } from '@/shared/chat.js';
 
-import { loadActivePathWithOptions } from '../core.js';
+import { getProjectState, loadActivePathWithOptions } from '../core.js';
 import { createDb, type DB } from '../db.js';
 import { deserializeAssistantParts } from '../parts.js';
 import { formatProjectedTurnResponse, projectTurnResponse } from '../turn-response.js';
@@ -165,15 +165,9 @@ describe('seedFromManifest', () => {
     );
   });
 
-  it('persists explicit frontier turn kinds and unanswered question frontiers', () => {
+  it('persists unanswered substantive question frontiers and derives landing from them', () => {
     const scenario: ManifestScenario = {
       turns: [
-        {
-          phase: 'scope',
-          turnKind: 'kickoff',
-          question: '',
-          answer: null,
-        },
         {
           phase: 'scope',
           question: 'Which launch surface should we prioritize?',
@@ -192,11 +186,32 @@ describe('seedFromManifest', () => {
 
     const projectId = seedFromManifest(db, scenario, 'Frontier Seed');
     const turns = loadActivePathWithOptions(db, projectId);
+    const projectState = getProjectState(db, projectId);
 
-    expect(turns[0]).toMatchObject({ turn_kind: 'kickoff', answer: null, question: '' });
-    expect(turns[1]).toMatchObject({ turn_kind: 'question', answer: null });
-    expect(turns[1]?.options).toHaveLength(2);
-    expect(projectTurnResponse(turns[1]!)).toBeNull();
+    expect(turns).toHaveLength(1);
+    expect(turns[0]).toMatchObject({ turn_kind: 'question', answer: null });
+    expect(turns[0]?.options).toHaveLength(2);
+    expect(projectTurnResponse(turns[0]!)).toBeNull();
+    expect(projectState?.landing).toEqual({ kind: 'frontier-turn', phase: 'scope', turnId: turns[0]!.id });
+  });
+
+  it('fails fast when a manifest tries to seed kickoff or recovery as authoritative rows', () => {
+    const scenario: ManifestScenario = {
+      turns: [
+        {
+          phase: 'scope',
+          turnKind: 'kickoff',
+          question: '',
+          answer: null,
+        },
+      ],
+      knowledgeItems: [],
+      edges: [],
+    };
+
+    expect(() => seedFromManifest(db, scenario, 'Legacy Control Seed')).toThrow(
+      /cannot seed control turnKind kickoff/i,
+    );
   });
 
   it('fails fast when a confirmation turn has no matching proposal for its phase', () => {

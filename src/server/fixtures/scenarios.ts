@@ -379,21 +379,11 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
   });
   advanceHead(db, projectId, reviewTurn.id);
 
-  const criteriaKickoffTurn = createTurn(db, projectId, {
-    phase: 'criteria',
-    parent_turn_id: reviewTurn.id,
-    turn_kind: 'kickoff',
-    question: '',
-    answer: null,
-  });
-  advanceHead(db, projectId, criteriaKickoffTurn.id);
-
   return {
     approvedRequirement,
     supportingRequirement,
     reviewTurn,
     requirementsConfirmationTurn: reviewTurn,
-    criteriaKickoffTurn,
   };
 }
 
@@ -444,12 +434,12 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
   );
 
   for (const criterion of [criterionAudit, criterionPermissions, criterionPerformance]) {
-    linkKnowledgeItemToTurn(db, criterion.id, seededCriteria.criteriaKickoffTurn.id, 'captured');
+    linkKnowledgeItemToTurn(db, criterion.id, seededCriteria.requirementsConfirmationTurn.id, 'captured');
   }
 
   const reviewTurn = createTurn(db, projectId, {
     phase: 'criteria',
-    parent_turn_id: seededCriteria.criteriaKickoffTurn.id,
+    parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
     question: 'Please review the current criterion set.',
     why: 'Review the whole criterion set before moving forward.',
     impact: 'high',
@@ -575,7 +565,11 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
 
 export function seedAllPhasesClosed(db: DB, projectId: number) {
   const seededCriteria = seedCriteriaReady(db, projectId);
-  const reviewedCriteria = seedClosedCriteriaReview(db, projectId, seededCriteria.criteriaKickoffTurn.id);
+  const reviewedCriteria = seedClosedCriteriaReview(
+    db,
+    projectId,
+    seededCriteria.requirementsConfirmationTurn.id,
+  );
 
   return { ...seededCriteria, ...reviewedCriteria };
 }
@@ -615,7 +609,7 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
   const reviewedCriteria = seedClosedCriteriaReview(
     db,
     projectId,
-    reviewedRequirements.criteriaKickoffTurn.id,
+    reviewedRequirements.requirementsConfirmationTurn.id,
   );
 
   return {
@@ -690,7 +684,7 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
   const reviewedCriteria = seedClosedCriteriaReview(
     db,
     projectId,
-    reviewedRequirements.criteriaKickoffTurn.id,
+    reviewedRequirements.requirementsConfirmationTurn.id,
   );
 
   return {

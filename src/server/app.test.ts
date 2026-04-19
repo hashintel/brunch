@@ -473,12 +473,15 @@ describe('POST /api/projects/:id/chat', () => {
     expect(turns[1].assistant_parts).not.toBeNull();
   });
 
-  it('passes brownfield kickoff mode options into the interviewer stream after the workspace kickoff selects existing codebase', async () => {
+  it('passes brownfield kickoff mode options into the interviewer stream after the projected kickoff selects existing codebase', async () => {
     const projectId = await createTestProject('Brownfield kickoff');
-    const kickoffTurnId = (await getProjectSnapshot(projectId)).turns.at(-1)?.id;
+    const initialSnapshot = await getProjectSnapshot(projectId);
+    const kickoffSubmitTurnId = initialSnapshot.turns.at(-1)?.id;
+
+    expect(initialSnapshot.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${kickoffTurnId}/response`)
+      .post(`/api/projects/${projectId}/turns/${kickoffSubmitTurnId}/response`)
       .send({ kind: 'select-options', positions: [1] })
       .expect(200);
 
