@@ -5,7 +5,8 @@ import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
+import type { EntitiesData } from '@/shared/api-types.js';
+import type { SpecificationState as ProjectState } from '@/shared/specification.js';
 
 const fetchMock = vi.fn<typeof fetch>();
 

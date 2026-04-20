@@ -10,8 +10,9 @@ import {
 import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
-import type { ProjectStateTurn, WorkflowState } from '@/shared/api-types.js';
+import type { WorkflowState } from '@/shared/api-types.js';
 import { workflowPhaseDescriptors } from '@/shared/phase-descriptors.js';
+import type { SpecificationTurn as ProjectStateTurn } from '@/shared/specification.js';
 
 import { PhaseNavigationSidebar } from '../-phase-navigation-sidebar.js';
 

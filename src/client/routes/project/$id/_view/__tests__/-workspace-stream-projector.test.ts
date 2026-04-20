@@ -1,6 +1,9 @@
 import { describe, expect, it, vi } from 'vitest';
 
-import type { ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
+import type {
+  SpecificationState as ProjectState,
+  SpecificationTurn as ProjectStateTurn,
+} from '@/shared/specification.js';
 
 import type { InterviewControllerBottomArtifactState } from '../-interview-controller.js';
 import { projectWorkspaceStream } from '../-workspace-stream-projector.js';

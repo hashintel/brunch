@@ -1,9 +1,10 @@
 import { Check, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import type { Impact, ProjectStateTurn, ReviewAction } from '@/shared/api-types.js';
+import type { Impact, ReviewAction } from '@/shared/api-types.js';
 import type { GroundingCardData } from '@/shared/chat.js';
 import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/project-state-turn.js';
+import type { SpecificationTurn as ProjectStateTurn } from '@/shared/specification.js';
 
 import { cn } from '../lib/utils';
 import { Button } from './app-shell';

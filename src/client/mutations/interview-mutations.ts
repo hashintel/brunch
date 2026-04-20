@@ -1,8 +1,6 @@
 import { useRouter } from '@tanstack/react-router';
 
 import type {
-  ProjectMode,
-  ProjectStateTurn,
   ReviewAction,
   SubmitPhaseIntentRequest,
   SubmitPhaseIntentResponse,
@@ -15,6 +13,10 @@ import {
   findTurnOptionsByPositions,
   getReviewActionForSelectedPositions,
 } from '@/shared/project-state-turn.js';
+import type {
+  SpecificationMode as ProjectMode,
+  SpecificationTurn as ProjectStateTurn,
+} from '@/shared/specification.js';
 
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 

@@ -1,11 +1,4 @@
-import type {
-  KickoffLandingMode,
-  ProjectState,
-  ProjectStateTurn,
-  ReviewAction,
-  SpecificationLanding,
-  WorkflowPhase,
-} from './api-types.js';
+import type { KickoffLandingMode, ReviewAction, SpecificationLanding, WorkflowPhase } from './api-types.js';
 import {
   safeDecodePersistedAssistantParts,
   safeDecodePersistedUserParts,
@@ -19,6 +12,10 @@ import {
   type DataTurnResponse,
 } from './chat.js';
 import { workflowPhaseOrder } from './phase-close.js';
+import type {
+  SpecificationState as ProjectState,
+  SpecificationTurn as ProjectStateTurn,
+} from './specification.js';
 
 export function safeParsePersistedAssistantParts(json: string | null | undefined): BrunchAssistantPart[] {
   return safeDecodePersistedAssistantParts(json);

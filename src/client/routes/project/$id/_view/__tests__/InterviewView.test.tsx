@@ -5,10 +5,11 @@ import { act, cleanup, fireEvent, render, screen, waitFor, within } from '@testi
 import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { EntitiesData, ProjectState } from '@/shared/api-types.js';
+import type { EntitiesData } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
+import type { SpecificationState as ProjectState } from '@/shared/specification.js';
 
 import { InterviewView } from '../-interview-view.js';
 import { resetSpecificationLifecycleRegistryForTesting } from '../-specification-lifecycle.js';

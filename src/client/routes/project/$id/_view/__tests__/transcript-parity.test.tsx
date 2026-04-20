@@ -3,7 +3,8 @@
 import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
-import type { EntitiesData, ProjectStateTurn, WorkflowState } from '@/shared/api-types.js';
+import type { EntitiesData, WorkflowState } from '@/shared/api-types.js';
+import type { SpecificationTurn as ProjectStateTurn } from '@/shared/specification.js';
 
 import { InterviewView } from '../-interview-view.js';
 

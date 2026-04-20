@@ -1,4 +1,7 @@
-import type { ProjectMode, ProjectStateTurn } from './api-types.js';
+import type {
+  SpecificationMode as ProjectMode,
+  SpecificationTurn as ProjectStateTurn,
+} from './specification.js';
 
 export const groundingStrategyKickoffQuestion = 'How should this specification start?';
 export const groundingStrategyKickoffDescription = 'Choose how to start grounding this specification.';

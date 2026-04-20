@@ -2,7 +2,7 @@ import { ArrowRight, Check } from 'lucide-react';
 
 import { Button } from '@/client/components/app-shell';
 import { cn } from '@/client/lib/utils';
-import type { ProjectMode, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
+import type { WorkflowPhase } from '@/shared/api-types.js';
 import {
   groundingStrategyChoices,
   groundingStrategyKickoffDescription,
@@ -10,6 +10,10 @@ import {
 } from '@/shared/grounding-strategy.js';
 import { getPhaseClosureCommandText } from '@/shared/phase-close.js';
 import { getWorkflowPhaseLabel } from '@/shared/phase-descriptors.js';
+import type {
+  SpecificationMode as ProjectMode,
+  SpecificationTurn as ProjectStateTurn,
+} from '@/shared/specification.js';
 
 function isReviewPhase(phase: WorkflowPhase) {
   return phase === 'requirements' || phase === 'criteria';

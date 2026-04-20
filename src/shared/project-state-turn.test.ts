@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ProjectState, ProjectStateTurn } from './api-types.js';
 import { createKnowledgeReferenceCode } from './knowledge.js';
 import {
   deriveSpecificationLanding,
@@ -17,6 +16,10 @@ import {
   turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
 } from './project-state-turn.js';
+import type {
+  SpecificationState as ProjectState,
+  SpecificationTurn as ProjectStateTurn,
+} from './specification.js';
 
 function createTurn(overrides: Partial<ProjectStateTurn> = {}): ProjectStateTurn {
   return {

@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProjectListItem } from '@/shared/api-types.js';
+import type { SpecificationListItem as ProjectListItem } from '@/shared/specification.js';
 
 import { SpecificationList } from '../-project-list.js';
 

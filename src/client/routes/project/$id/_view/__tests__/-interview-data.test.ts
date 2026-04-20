@@ -1,12 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import type { ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import {
   deriveSpecificationLanding,
   getAcceptedClosureReplay,
   getPersistedSelectedPositions,
 } from '@/shared/project-state-turn.js';
+import type { SpecificationState as ProjectState } from '@/shared/specification.js';
 
 import {
   buildPhaseTurnIds,
