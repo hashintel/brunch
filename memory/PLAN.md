@@ -4,14 +4,15 @@
 
 # Plan
 
-Current frontier remains the naming/ownership cleanup. After that, the near horizon is intentionally ordered around user-visible completion and grounding seams before deeper workflow and router/query cleanup. Revisit/cascade and infrastructure/tooling remain on the true horizon for now.
+Current frontier remains the naming/ownership cleanup. The low-risk compatibility slices inside that frontier have now landed: persisted specification `cwd` is gone, client-owned specification wording is in place across the workspace shell, and shared/client helper vocabulary can speak in terms of grounding without changing persisted phase keys yet. The remaining burden inside this frontier is the higher-risk physical identity work — especially the durable `project` → `specification` rename and any later `scope` → `grounding` persistence/API migration that still proves worth doing. After that, the near horizon is intentionally ordered around user-visible completion and grounding seams before deeper workflow and router/query cleanup. Revisit/cascade and infrastructure/tooling remain on the true horizon for now.
 
 ## Active
 
 1. **Canonical terminology and record-identity normalization** — structural `[status: in-progress]`
-   - Objective: align durable record names, route/display terminology, and workspace ownership with the settled product language by renaming `project` → `specification`, executing the `scope` → `grounding` terminology cleanup where it should become canonical, and removing stored `cwd` from specification records in favor of runtime-derived workspace context.
+   - Objective: finish aligning durable record names, route/display terminology, and workspace ownership with the settled product language by completing the remaining `project` → `specification` identity work, deciding how far the `scope` → `grounding` migration should become physical rather than helper-level, and retiring any temporary compatibility wording still left after the completed low-risk slices.
    - Why now / unlocks: the handoff/transition frontier is retired, so mixed naming is now the main legacy burden shaping every fresh slice. Landing this first prevents the next completion, grounding, and workflow passes from layering on top of ambiguous terminology.
    - Acceptance: schema/API/routes/fixtures/tests/export speak one canonical vocabulary; any temporary alias is explicit and documented; runtime behavior stays truthful through the rename.
+   - Progress so far: persisted specification `cwd` has been removed in favor of runtime workspace context; client-owned workspace surfaces now say specification where appropriate; shared/client route helpers can speak in terms of grounding while persisted workflow keys remain `scope`.
    - Verification: run `npm run fix` after each safe slice; gate with `npm run verify`; manually walk at least one seeded resume/export path after route/name changes.
    - Traceability: D81, D97, D98, D101, D109, D113; I24, I100, I101, I102, I104.
 
