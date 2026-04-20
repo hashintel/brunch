@@ -124,7 +124,7 @@ const CodeBlockBody = memo(
     return (
       <pre
         className={cn(
-          'dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)] m-0 p-4 text-sm',
+          'm-0 p-4 text-sm dark:!bg-[var(--shiki-dark-bg)] dark:!text-[var(--shiki-dark)]',
           className,
         )}
         style={preStyle}
@@ -195,7 +195,7 @@ export const CodeBlockContainer = ({
 export const CodeBlockHeader = ({ children, className, ...props }: HTMLAttributes<HTMLDivElement>) => (
   <div
     className={cn(
-      'flex items-center justify-between border-b bg-muted/80 px-3 py-2 text-muted-foreground text-xs',
+      'flex items-center justify-between border-b bg-muted/80 px-3 py-2 text-xs text-muted-foreground',
       className,
     )}
     {...props}

@@ -1,14 +1,14 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProjectState, WorkflowPhase } from '@/shared/api-types.js';
+import type { WorkflowPhase } from '@/shared/api-types.js';
 import { type StructuredQuestion } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { getPhaseClosureCommandText } from '@/shared/phase-close.js';
+import { getSpecificationRecord, type SpecificationState } from '@/shared/specification.js';
 
 import { buildInterviewerContext } from './context.js';
 import type { DB } from './db.js';
-import { seedFromManifest, type ManifestScenario } from './fixtures/manifest.js';
 import {
   seedActiveDesign as _seedActiveDesign,
   seedAllPhasesClosed as _seedAllPhasesClosed,
@@ -235,6 +235,45 @@ async function makeStructuredQuestionInterviewer(
   };
 }
 
+async function makeGroundingCardInterviewer(
+  dbArg: DB,
+  turnId: number,
+  groundingCard = {
+    summary: 'The repo already uses SQLite-backed local persistence and a routed interview surface.',
+    detail: 'This is provisional context before the first substantive grounding question.',
+    continueLabel: 'Continue',
+  },
+) {
+  const { createOption } = await import('./db.js');
+
+  createOption(dbArg, turnId, {
+    position: 0,
+    content: groundingCard.continueLabel,
+    is_recommended: true,
+  });
+
+  return {
+    toUIMessageStream: () =>
+      makeUIChunkStream([
+        { type: 'start', messageId: 'msg-grounding-card' },
+        { type: 'tool-input-start', toolCallId: 'tool-grounding-1', toolName: 'present_grounding_card' },
+        {
+          type: 'tool-input-available',
+          toolCallId: 'tool-grounding-1',
+          toolName: 'present_grounding_card',
+          input: groundingCard,
+        },
+        {
+          type: 'tool-output-available',
+          toolCallId: 'tool-grounding-1',
+          toolName: 'present_grounding_card',
+          output: { ok: true, turnId },
+        },
+      ]),
+    finishReason: Promise.resolve('tool-calls'),
+  };
+}
+
 async function makePhaseClosureInterviewer(
   dbArg: DB,
   projectId: number,
@@ -298,7 +337,7 @@ async function createTestProject(name = 'Test Project'): Promise<number> {
 
 async function getProjectSnapshot(projectId: number) {
   const res = await request(app).get(`/api/projects/${projectId}`).expect(200);
-  return res.body as ProjectState;
+  return res.body as SpecificationState;
 }
 
 function seedClosedScope(projectId: number) {
@@ -410,7 +449,7 @@ describe('POST /api/projects', () => {
   it('creates a greenfield project by default', async () => {
     const res = await request(app).post('/api/projects').send({ name: 'Greenfield' }).expect(201);
     expect(res.body.mode).toBe('greenfield');
-    expect(res.body.cwd).toBeNull();
+    expect(res.body).not.toHaveProperty('cwd');
   });
 
   it('leaves kickoff projected until the user explicitly enters the interview', async () => {
@@ -420,18 +459,18 @@ describe('POST /api/projects', () => {
       .expect(201);
 
     const stateRes = await request(app).get(`/api/projects/${createRes.body.id}`).expect(200);
-    expect(stateRes.body.project.active_turn_id).toBeNull();
+    expect(stateRes.body.specification.active_turn_id).toBeNull();
     expect(stateRes.body.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
     expect(stateRes.body.turns).toEqual([]);
   });
 
-  it('creates a brownfield project with mode and server-derived cwd', async () => {
+  it('creates a brownfield project with mode but no persisted workspace path', async () => {
     const res = await request(app)
       .post('/api/projects')
       .send({ name: 'Brownfield', mode: 'brownfield' })
       .expect(201);
     expect(res.body.mode).toBe('brownfield');
-    expect(res.body.cwd).toBe(process.cwd());
+    expect(res.body).not.toHaveProperty('cwd');
   });
 
   it('rejects client-supplied cwd data on project creation', async () => {
@@ -441,14 +480,14 @@ describe('POST /api/projects', () => {
       .expect(400);
   });
 
-  it('persists mode in project state', async () => {
+  it('persists mode in project state without exposing a specification cwd field', async () => {
     const createRes = await request(app)
       .post('/api/projects')
       .send({ name: 'BF', mode: 'brownfield' })
       .expect(201);
     const stateRes = await request(app).get(`/api/projects/${createRes.body.id}`).expect(200);
-    expect(stateRes.body.project.mode).toBe('brownfield');
-    expect(stateRes.body.project.cwd).toBe(process.cwd());
+    expect(stateRes.body.specification.mode).toBe('brownfield');
+    expect(stateRes.body.specification).not.toHaveProperty('cwd');
   });
 });
 
@@ -498,7 +537,6 @@ describe('POST /api/projects/:id/chat', () => {
 
     expect(getProject(db, projectId)).toMatchObject({
       mode: 'brownfield',
-      cwd: process.cwd(),
     });
 
     await request(app)
@@ -526,6 +564,62 @@ describe('POST /api/projects/:id/chat', () => {
       'Feature within existing codebase',
       'scope',
       { mode: 'brownfield', cwd: process.cwd() },
+    );
+  });
+
+  it('persists a grounding-card first turn after brownfield kickoff instead of a repo-summary question handoff', async () => {
+    const { createProject, getActivePath, getOptionsForTurn } = await import('./db.js');
+    const projectId = createProject(db, 'Brownfield grounding card').id;
+
+    await request(app)
+      .post(`/api/projects/${projectId}/phase-intent`)
+      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .expect(200, { ok: true });
+
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeGroundingCardInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-brownfield-grounding',
+            role: 'user',
+            parts: [
+              {
+                type: 'data-phase-intent',
+                data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    const groundingTurn = getActivePath(db, projectId).at(-1)!;
+    expect(groundingTurn.question).toBe('');
+    expect(getOptionsForTurn(db, groundingTurn.id)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ position: 0, content: 'Continue', is_recommended: true }),
+      ]),
+    );
+    const assistantParts = JSON.parse(groundingTurn.assistant_parts ?? '[]');
+    expect(assistantParts).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'data-grounding-card',
+          data: {
+            summary: 'The repo already uses SQLite-backed local persistence and a routed interview surface.',
+            detail: 'This is provisional context before the first substantive grounding question.',
+            continueLabel: 'Continue',
+          },
+        },
+      ]),
+    );
+    expect(assistantParts).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: 'tool-present_grounding_card' })]),
     );
   });
 
@@ -981,79 +1075,59 @@ describe('GET /api/projects/:id/entities', () => {
     });
   });
 
-  it('projects manifest-backed relation vocabulary through the entities api', async () => {
-    const scenario: ManifestScenario = {
-      turns: [
-        {
-          phase: 'scope',
-          question: 'What are we building?',
-          answer: 'A lightweight issue tracker.',
-          options: [{ content: 'Issue tracker', is_recommended: true }],
-          selectedOptionPositions: [0],
-        },
-      ],
-      knowledgeItems: [
-        {
-          kind: 'goal',
-          content: 'Track work from creation to completion',
-          capturedAtTurn: 0,
-        },
-        {
-          kind: 'context',
-          content: 'The team currently works from a spreadsheet',
-          capturedAtTurn: 0,
-        },
-        {
-          kind: 'constraint',
-          content: 'Keep the first release simpler than Jira',
-          capturedAtTurn: 0,
-        },
-        {
-          kind: 'term',
-          content: 'ticket',
-          capturedAtTurn: 0,
-        },
-        {
-          kind: 'requirement',
-          content: 'Preserve relation semantics through the shared transport',
-          capturedAtTurn: 0,
-        },
-        {
-          kind: 'criterion',
-          content: 'The routed client receives the same relation kinds persisted in storage',
-          capturedAtTurn: 0,
-        },
-      ],
-      edges: [
-        {
-          fromItemIndex: 3,
-          toItemIndex: 1,
-          relation: 'depends_on',
-        },
-        {
-          fromItemIndex: 2,
-          toItemIndex: 0,
-          relation: 'constrains',
-        },
-        {
-          fromItemIndex: 1,
-          toItemIndex: 0,
-          relation: 'derived_from',
-        },
-        {
-          fromItemIndex: 5,
-          toItemIndex: 4,
-          relation: 'verifies',
-        },
-        {
-          fromItemIndex: 4,
-          toItemIndex: 0,
-          relation: 'refines',
-        },
-      ],
-    };
+  it('projects relation vocabulary through the entities api', async () => {
+    const { advanceHead, createKnowledgeItem, createTurn, linkKnowledgeItemToTurn } = await import('./db.js');
 
-    const projectId = seedFromManifest(db, scenario, 'Manifest relation characterization');
+    const projectId = await createTestProject('Relation characterization');
+    const rootTurn = createTurn(db, projectId, {
+      phase: 'scope',
+      question: 'What are we building?',
+      answer: 'A lightweight issue tracker.',
+    });
+    advanceHead(db, projectId, rootTurn.id);
+
+    const goal = createKnowledgeItem(db, projectId, 'goal', 'Track work from creation to completion');
+    const context = createKnowledgeItem(
+      db,
+      projectId,
+      'context',
+      'The team currently works from a spreadsheet',
+    );
+    const constraint = createKnowledgeItem(
+      db,
+      projectId,
+      'constraint',
+      'Keep the first release simpler than Jira',
+    );
+    const term = createKnowledgeItem(db, projectId, 'term', 'ticket');
+    const requirement = createKnowledgeItem(
+      db,
+      projectId,
+      'requirement',
+      'Preserve relation semantics through the shared transport',
+    );
+    const criterion = createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'The routed client receives the same relation kinds persisted in storage',
+    );
+
+    for (const item of [goal, context, constraint, term, requirement, criterion]) {
+      linkKnowledgeItemToTurn(db, item.id, rootTurn.id);
+    }
+
+    for (const [fromItemId, toItemId, relation] of [
+      [term.id, context.id, 'depends_on'],
+      [constraint.id, goal.id, 'constrains'],
+      [context.id, goal.id, 'derived_from'],
+      [criterion.id, requirement.id, 'verifies'],
+      [requirement.id, goal.id, 'refines'],
+    ] as const) {
+      db.$client
+        .prepare('INSERT INTO knowledge_edge (from_item_id, to_item_id, relation) VALUES (?, ?, ?)')
+        .run(fromItemId, toItemId, relation);
+    }
 
     expect(
       db.$client
@@ -1073,61 +1147,51 @@ describe('GET /api/projects/:id/entities', () => {
       expect.arrayContaining([
         {
           type: 'depends_on',
-          source: { collection: 'knowledge_item', kind: 'term', id: 4 },
-          target: { collection: 'knowledge_item', kind: 'context', id: 2 },
+          source: { collection: 'knowledge_item', kind: 'term', id: term.id },
+          target: { collection: 'knowledge_item', kind: 'context', id: context.id },
         },
         {
           type: 'constrains',
-          source: { collection: 'knowledge_item', kind: 'constraint', id: 3 },
-          target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+          source: { collection: 'knowledge_item', kind: 'constraint', id: constraint.id },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
         },
         {
           type: 'derived_from',
-          source: { collection: 'knowledge_item', kind: 'context', id: 2 },
-          target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+          source: { collection: 'knowledge_item', kind: 'context', id: context.id },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
         },
         {
           type: 'verifies',
-          source: { collection: 'knowledge_item', kind: 'criterion', id: 6 },
-          target: { collection: 'knowledge_item', kind: 'requirement', id: 5 },
+          source: { collection: 'knowledge_item', kind: 'criterion', id: criterion.id },
+          target: { collection: 'knowledge_item', kind: 'requirement', id: requirement.id },
         },
         {
           type: 'refines',
-          source: { collection: 'knowledge_item', kind: 'requirement', id: 5 },
-          target: { collection: 'knowledge_item', kind: 'goal', id: 1 },
+          source: { collection: 'knowledge_item', kind: 'requirement', id: requirement.id },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
         },
       ]),
     );
   });
 
   it('keeps canonical entities on the active path while project-wide inventory stays explicit', async () => {
-    const { getProjectState } = await import('./core.js');
     const { advanceHead, createKnowledgeItem, createTurn, linkKnowledgeItemToTurn } = await import('./db.js');
 
-    const scenario: ManifestScenario = {
-      turns: [
-        {
-          phase: 'scope',
-          question: 'What kind of workflow is this project replacing?',
-          answer: 'A spreadsheet-driven issue tracker process.',
-          options: [{ content: 'Spreadsheet replacement', is_recommended: true }],
-          selectedOptionPositions: [0],
-        },
-      ],
-      knowledgeItems: [
-        {
-          kind: 'goal',
-          content: 'Replace spreadsheet issue tracking with a durable workflow',
-          capturedAtTurn: 0,
-        },
-      ],
-      edges: [],
-    };
+    const projectId = await createTestProject('Branching Project');
+    const rootTurn = createTurn(db, projectId, {
+      phase: 'scope',
+      question: 'What kind of workflow is this project replacing?',
+      answer: 'A spreadsheet-driven issue tracker process.',
+    });
+    advanceHead(db, projectId, rootTurn.id);
 
-    const projectId = seedFromManifest(db, scenario, 'Manifest Branching Project');
-    const projectState = getProjectState(db, projectId);
-    expect(projectState).not.toBeNull();
-    const rootTurn = projectState!.turns[0]!;
+    const goal = createKnowledgeItem(
+      db,
+      projectId,
+      'goal',
+      'Replace spreadsheet issue tracking with a durable workflow',
+    );
+    linkKnowledgeItemToTurn(db, goal.id, rootTurn.id);
 
     const abandonedBranchTurn = createTurn(db, projectId, {
       phase: 'design',
@@ -1198,8 +1262,8 @@ describe('phase outcomes + scope closure', () => {
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.scope).toEqual({
       status: 'in_progress',
-      closeability: true,
-      readiness: 'medium',
+      closeability: false,
+      readiness: 'low',
       closureBasis: null,
       proposalPending: true,
       turnId: 2,
@@ -1267,7 +1331,7 @@ describe('phase outcomes + scope closure', () => {
         turnId: 2,
         summary: 'Goals, terms, context, and constraints are sufficiently captured.',
         closeability: false,
-        readiness: 'medium',
+        readiness: 'low',
         closureBasis: 'interviewer_recommended',
         proposalPending: false,
       }),
@@ -1285,7 +1349,7 @@ describe('phase outcomes + scope closure', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(scopeProposalTurnId);
+    expect(projectRes.body.specification.active_turn_id).toBe(scopeProposalTurnId);
     expect(projectRes.body.landing).toEqual({ kind: 'kickoff', phase: 'design', mode: 'start' });
     expect(projectRes.body.turns.at(-1)).toMatchObject({
       answer: 'Confirm grounding closure',
@@ -1344,6 +1408,7 @@ describe('phase outcomes + scope closure', () => {
       })
       .expect(200);
 
+    const observerCallCount = mockRunObserver.mock.calls.length;
     mockStreamInterviewer.mockImplementation(async () =>
       makeTextInterviewer('Which database tradeoff matters more?'),
     );
@@ -1369,11 +1434,7 @@ describe('phase outcomes + scope closure', () => {
       'design',
       undefined,
     );
-    expect(mockRunObserver).toHaveBeenLastCalledWith(
-      expect.anything(),
-      expect.objectContaining({ phase: 'design' }),
-      projectId,
-    );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount);
   });
 
   it('streams a design phase summary proposal and projects workflow state through the shared phase seam', async () => {
@@ -1444,7 +1505,7 @@ describe('phase outcomes + scope closure', () => {
     expect(events).toContainEqual({
       type: 'data-phase-summary',
       data: {
-        turnId: 4,
+        turnId: 3,
         phase: 'design',
         summary: 'The main architectural commitments are captured well enough to review requirements.',
       },
@@ -1457,7 +1518,7 @@ describe('phase outcomes + scope closure', () => {
       readiness: 'low',
       closureBasis: null,
       proposalPending: true,
-      turnId: 4,
+      turnId: 3,
       summary: 'The main architectural commitments are captured well enough to review requirements.',
     });
     expect(projectRes.body.workflow.phases.requirements).toEqual(
@@ -1474,7 +1535,7 @@ describe('phase outcomes + scope closure', () => {
         {
           type: 'data-phase-summary',
           data: {
-            turnId: 4,
+            turnId: 3,
             phase: 'design',
             summary: 'The main architectural commitments are captured well enough to review requirements.',
           },
@@ -1577,7 +1638,7 @@ describe('phase outcomes + scope closure', () => {
     expect(projectRes.body.workflow.phases.design).toEqual(
       expect.objectContaining({
         status: 'closed',
-        turnId: 4,
+        turnId: 3,
         summary: 'The main architectural commitments are captured well enough to review requirements.',
         closeability: false,
         readiness: 'low',
@@ -1595,6 +1656,7 @@ describe('phase outcomes + scope closure', () => {
       }),
     );
 
+    const observerCallCount = mockRunObserver.mock.calls.length;
     mockStreamInterviewer.mockImplementation(async () =>
       makeTextInterviewer('Which requirement is must-have?'),
     );
@@ -1620,10 +1682,12 @@ describe('phase outcomes + scope closure', () => {
       'requirements',
       undefined,
     );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),
-      expect.objectContaining({ phase: 'requirements' }),
+      expect.objectContaining({ phase: 'design' }),
       projectId,
+      expect.any(String),
     );
   });
 
@@ -1723,7 +1787,7 @@ describe('phase outcomes + scope closure', () => {
     expect(entitiesRes.body.requirements).toEqual([]);
 
     const refreshedProjectState = await getProjectSnapshot(projectId);
-    const frontierTurn = getTurn(db, refreshedProjectState.project.active_turn_id!);
+    const frontierTurn = getTurn(db, getSpecificationRecord(refreshedProjectState).active_turn_id!);
     expect(JSON.parse(frontierTurn?.assistant_parts ?? '[]')).toEqual(
       expect.arrayContaining([
         {
@@ -1903,6 +1967,7 @@ describe('phase outcomes + scope closure', () => {
       }),
     );
 
+    const observerCallCount = mockRunObserver.mock.calls.length;
     mockStreamInterviewer.mockImplementation(async () =>
       makeTextInterviewer('Which acceptance criterion proves export works?'),
     );
@@ -1928,10 +1993,12 @@ describe('phase outcomes + scope closure', () => {
       'criteria',
       undefined,
     );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),
-      expect.objectContaining({ phase: 'criteria' }),
+      expect.objectContaining({ phase: 'requirements' }),
       projectId,
+      expect.any(String),
     );
 
     const refreshedProjectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
@@ -1964,6 +2031,8 @@ describe('phase outcomes + scope closure', () => {
       }),
     );
 
+    const observerCallCount = mockRunObserver.mock.calls.length;
+
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({
@@ -1986,11 +2055,7 @@ describe('phase outcomes + scope closure', () => {
       undefined,
     );
 
-    expect(mockRunObserver).toHaveBeenLastCalledWith(
-      expect.anything(),
-      expect.objectContaining({ phase: 'criteria' }),
-      projectId,
-    );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount);
 
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.criteria).toEqual(
@@ -2331,7 +2396,7 @@ describe('phase outcomes + scope closure', () => {
       expect.objectContaining({
         status: 'closed',
         closeability: false,
-        readiness: 'medium',
+        readiness: 'low',
         closureBasis: 'user_forced',
         proposalPending: false,
       }),
@@ -2349,7 +2414,7 @@ describe('phase outcomes + scope closure', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.specification.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
     expect(projectRes.body.landing).toEqual({ kind: 'kickoff', phase: 'requirements', mode: 'start' });
     expect(projectRes.body.turns.at(-1)).toMatchObject({
       phase: 'design',
@@ -2362,6 +2427,8 @@ describe('phase outcomes + scope closure', () => {
         data: { kind: 'force-close-active-phase', phase: 'design' },
       },
     ]);
+
+    const observerCallCount = mockRunObserver.mock.calls.length;
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -2384,10 +2451,12 @@ describe('phase outcomes + scope closure', () => {
       'requirements',
       undefined,
     );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),
-      expect.objectContaining({ phase: 'requirements' }),
+      expect.objectContaining({ phase: 'design' }),
       projectId,
+      expect.any(String),
     );
   });
 
@@ -2553,6 +2622,9 @@ describe('POST /api/projects/:id/phase-intent', () => {
   it('persists brownfield mode from landing-only kickoff state without creating a kickoff row first', async () => {
     const { createProject, getActivePath, getProject } = await import('./db.js');
     const project = createProject(db, 'Landing-only kickoff');
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
 
     expect(getActivePath(db, project.id)).toHaveLength(0);
 
@@ -2565,7 +2637,6 @@ describe('POST /api/projects/:id/phase-intent', () => {
 
     expect(getProject(db, project.id)).toMatchObject({
       mode: 'brownfield',
-      cwd: process.cwd(),
     });
     expect(getActivePath(db, project.id)).toHaveLength(0);
 
@@ -2595,13 +2666,17 @@ describe('POST /api/projects/:id/phase-intent', () => {
       'scope',
       { mode: 'brownfield', cwd: process.cwd() },
     );
+
+    const activePath = getActivePath(db, project.id);
+    expect(activePath).toHaveLength(1);
+    expect(activePath.every((turn) => turn.turn_kind === 'question')).toBe(true);
   });
 
   it('submits a seeded kickoff row through the same phase-entry intent seam', async () => {
     const { createProject, getActivePath, getProject, getOptionsForTurn } = await import('./db.js');
-    const { ensureProjectFrontier } = await import('./core.js');
+    const { createLegacyKickoffTurnForTesting } = await import('./test-support/legacy-control-rows.js');
     const project = createProject(db, 'Seeded kickoff row');
-    const kickoffTurn = ensureProjectFrontier(db, project.id);
+    const kickoffTurn = createLegacyKickoffTurnForTesting(db, project.id);
 
     expect(kickoffTurn?.turn_kind).toBe('kickoff');
 
@@ -2617,17 +2692,64 @@ describe('POST /api/projects/:id/phase-intent', () => {
 
     expect(getProject(db, project.id)).toMatchObject({
       mode: 'brownfield',
-      cwd: process.cwd(),
     });
     expect(updatedKickoffTurn.answer).toBe('Feature within existing codebase');
     expect(selectedOption?.content).toBe('Feature within existing codebase');
   });
 
+  it('submits recovery through chat without fabricating a recovery row', async () => {
+    const { createProject, createTurn, getActivePath } = await import('./db.js');
+    const { finalizeTurn } = await import('./core.js');
+    const project = createProject(db, 'Recovery without control row');
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    const answeredTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What are we building?',
+      answer: 'A chat app',
+    });
+    finalizeTurn(db, project.id, answeredTurn.id);
+
+    await request(app)
+      .post(`/api/projects/${project.id}/phase-intent`)
+      .send({ kind: 'phase-continue', phase: 'scope' })
+      .expect(200, { ok: true });
+
+    await request(app)
+      .post(`/api/projects/${project.id}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-recovery-continue',
+            role: 'user',
+            parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'scope' } }],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.any(Array),
+      'Continue the grounding phase.',
+      'scope',
+      undefined,
+    );
+
+    const activePath = getActivePath(db, project.id);
+    expect(activePath).toHaveLength(2);
+    expect(activePath[0]?.id).toBe(answeredTurn.id);
+    expect(activePath.every((turn) => turn.turn_kind === 'question')).toBe(true);
+  });
+
   it('selects the seeded kickoff option by typed intent instead of exact display copy', async () => {
     const { createProject, getActivePath, getOptionsForTurn } = await import('./db.js');
-    const { ensureProjectFrontier } = await import('./core.js');
+    const { createLegacyKickoffTurnForTesting } = await import('./test-support/legacy-control-rows.js');
     const project = createProject(db, 'Seeded kickoff copy drift');
-    const kickoffTurn = ensureProjectFrontier(db, project.id);
+    const kickoffTurn = createLegacyKickoffTurnForTesting(db, project.id);
 
     expect(kickoffTurn?.turn_kind).toBe('kickoff');
     db.$client
@@ -2738,6 +2860,117 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         },
       },
     ]);
+  });
+
+  it('reuses an already-answered active turn instead of creating a duplicate answered turn', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const { getActivePath, getTurn, getOptionsForTurn } = await import('./db.js');
+    const turn = getActivePath(db, projectId)[1]!;
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
+      .send({
+        kind: 'select-options',
+        positions: [0, 1],
+        freeText: 'Covers both launch paths',
+      })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u2',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Web, Desktop — Covers both launch paths' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    const turns = getActivePath(db, projectId);
+    expect(turns).toHaveLength(3);
+    expect(turns[1]).toMatchObject({
+      id: turn.id,
+      answer: 'Web, Desktop — Covers both launch paths',
+    });
+    expect(getOptionsForTurn(db, turn.id).filter((option) => option.is_selected)).toHaveLength(2);
+    expect(getTurn(db, turn.id)?.user_parts).toContain('Covers both launch paths');
+    expect(turns[2]).toMatchObject({
+      parent_turn_id: turn.id,
+      answer: null,
+      question: structuredQuestion.question,
+    });
+  });
+
+  it('skips observer capture for answered grounding-card turns while still advancing to the next interviewer turn', async () => {
+    const projectId = await createTestProject();
+    const { advanceHead, createOption, createTurn, getActivePath } = await import('./db.js');
+    const groundingTurn = createTurn(db, projectId, {
+      phase: 'scope',
+      question: '',
+      answer: null,
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-grounding-card',
+          data: {
+            summary: 'The repo already uses SQLite-backed local persistence.',
+            detail: 'This is provisional context before the first substantive question.',
+            continueLabel: 'Continue',
+          },
+        },
+      ]),
+    });
+    createOption(db, groundingTurn.id, {
+      position: 0,
+      content: 'Continue',
+      is_recommended: true,
+    });
+    advanceHead(db, projectId, groundingTurn.id);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${groundingTurn.id}/response`)
+      .send({
+        kind: 'select-options',
+        positions: [0],
+        freeText: 'Focus on the routed interview workspace.',
+      })
+      .expect(200);
+
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-grounding-continue',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Continue — Focus on the routed interview workspace.' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockRunObserver).not.toHaveBeenCalled();
+    expect(getActivePath(db, projectId).at(-1)).toMatchObject({
+      phase: 'scope',
+      question: structuredQuestion.question,
+    });
   });
 
   it('persists interviewer-owned requirement review metadata on runtime review turns and accepts from it', async () => {
@@ -2944,7 +3177,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(reviewTurn.id);
+    expect(projectRes.body.specification.active_turn_id).toBe(reviewTurn.id);
     expect(projectRes.body.landing).toEqual({ kind: 'kickoff', phase: 'criteria', mode: 'start' });
     expect(projectRes.body.turns.at(-1)).toEqual(
       expect.objectContaining({
@@ -2978,6 +3211,67 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       },
     ]);
   });
+  it('enforces explicit reviewAction semantics even when review options are reordered', async () => {
+    const projectId = await createTestProject();
+    const seededRequirements = seedRequirementsReady(projectId);
+    const { advanceHead, createOption, createTurn } = await import('./db.js');
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: seededRequirements.designConfirmationTurn.id,
+      question: 'Please review the current requirement set.',
+      why: 'The reordered labels should not change the submitted review action semantics.',
+      impact: 'high',
+      answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-reordered-requirements-review',
+          state: 'output-available',
+          input: {
+            question: 'Please review the current requirement set.',
+            why: 'The reordered labels should not change the submitted review action semantics.',
+            impact: 'high',
+            options: [
+              { content: 'Revise this set', is_recommended: false },
+              { content: 'Ship this set', is_recommended: true },
+            ],
+            reviewActions: [
+              { action: 'request-changes', optionPosition: 0 },
+              { action: 'accept', optionPosition: 1 },
+            ],
+          },
+          output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+      ]),
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Revise this set',
+      is_recommended: false,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Ship this set',
+      is_recommended: true,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [1], reviewAction: 'request-changes' })
+      .expect(400, {
+        error: 'Review turns must submit the explicit reviewAction for the selected option',
+      });
+
+    const response = await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [1], reviewAction: 'accept' })
+      .expect(200);
+
+    expect(response.body).toEqual({ ok: true, advancedToPhase: 'criteria' });
+  });
+
   it('accepting the requirements review materializes only the persisted review-set items onto the active path', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
@@ -3141,7 +3435,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.specification.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
     expect(projectRes.body.turns.at(-1)).toEqual(
       expect.objectContaining({
         phase: 'requirements',
@@ -3419,7 +3713,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         summary: 'The reviewed criteria set is accepted and the specification is ready for output.',
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(reviewTurn.id);
+    expect(projectRes.body.specification.active_turn_id).toBe(reviewTurn.id);
 
     const entitiesRes = await request(app)
       .get(`/api/projects/${projectId}/entities?mode=project-wide`)
@@ -3589,7 +3883,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.specification.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
     expect(projectRes.body.turns.at(-1)).toEqual(
       expect.objectContaining({
         phase: 'criteria',
@@ -3635,7 +3929,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(200);
 
     const projectStateRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    const projectState = projectStateRes.body as ProjectState;
+    const projectState = projectStateRes.body as SpecificationState;
     const selectedOptionIds = getOptionsForTurn(db, turn.id)
       .filter((option) => option.is_selected)
       .map((option) => option.id);

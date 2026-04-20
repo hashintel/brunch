@@ -7,8 +7,8 @@
 import { ActiveQuestionCard, AnsweredQuestionCard } from '@/client/components/question-cards';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import { Separator } from '@/client/components/ui/separator';
-import type { ProjectStateTurn } from '@/shared/api-types.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+import type { SpecificationTurn as ProjectStateTurn } from '@/shared/specification.js';
 
 // ── Fixture data ─────────────────────────────────────────────────────
 

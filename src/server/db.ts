@@ -115,7 +115,6 @@ export function listProjects(db: DB): Project[] {
 
 export interface CreateProjectOptions {
   mode?: ProjectMode;
-  cwd?: string | null;
 }
 
 export function createProject(db: DB, name: string, options?: CreateProjectOptions): Project {
@@ -124,7 +123,6 @@ export function createProject(db: DB, name: string, options?: CreateProjectOptio
     .values({
       name,
       ...(options?.mode ? { mode: options.mode } : {}),
-      ...(options?.cwd ? { cwd: options.cwd } : {}),
     })
     .returning()
     .get();
@@ -486,14 +484,25 @@ export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowStat
 
   const activePath = getActivePath(db, projectId);
   const activeTurnIds = new Set(activePath.map((turn) => turn.id));
-  const turnCounts = Object.fromEntries(workflowPhaseOrder.map((phase) => [phase, 0])) as Record<
+  const substantiveTurnCounts = Object.fromEntries(workflowPhaseOrder.map((phase) => [phase, 0])) as Record<
+    Phase,
+    number
+  >;
+  const answeredTurnCounts = Object.fromEntries(workflowPhaseOrder.map((phase) => [phase, 0])) as Record<
     Phase,
     number
   >;
   for (const turn of activePath) {
     const isSubstantiveTurn = turn.question.trim().length > 0 || getOptionsForTurn(db, turn.id).length > 0;
-    if (isSubstantiveTurn) {
-      turnCounts[turn.phase] += 1;
+    if (!isSubstantiveTurn) {
+      continue;
+    }
+
+    substantiveTurnCounts[turn.phase] += 1;
+
+    const hasCompletedAnswer = turn.answer !== null && turn.answer.trim().length > 0;
+    if (hasCompletedAnswer) {
+      answeredTurnCounts[turn.phase] += 1;
     }
   }
 
@@ -512,7 +521,7 @@ export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowStat
     const outcome = currentOutcomes.find((entry) => entry.phase === phase);
     const isConfirmed = outcome?.status === 'confirmed';
     const proposalPending = outcome?.status === 'proposed';
-    const hasTurnHistory = turnCounts[phase] > 0;
+    const hasTurnHistory = substantiveTurnCounts[phase] > 0;
 
     workflow.phases[phase] = {
       status: isConfirmed
@@ -521,7 +530,7 @@ export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowStat
           ? 'in_progress'
           : 'unstarted',
       closeability: getPhaseCloseability(db, projectId, phase, isConfirmed, hasTurnHistory),
-      readiness: getReadinessBand(turnCounts[phase]),
+      readiness: getReadinessBand(answeredTurnCounts[phase]),
       closureBasis: getClosureBasisForOutcome(outcome),
       proposalPending,
       turnId: outcome?.proposal_turn_id ?? null,
@@ -571,13 +580,9 @@ export function advanceHead(db: DB, projectId: number, turnId: number): void {
   reconcilePhaseOutcomesForProject(db, projectId);
 }
 
-export function updateProjectMode(
-  db: DB,
-  projectId: number,
-  { mode, cwd }: { mode: ProjectMode; cwd: string | null },
-): void {
+export function updateProjectMode(db: DB, projectId: number, mode: ProjectMode): void {
   db.update(schema.project)
-    .set({ mode, cwd, updated_at: sql`datetime('now')` })
+    .set({ mode, updated_at: sql`datetime('now')` })
     .where(eq(schema.project.id, projectId))
     .run();
 }

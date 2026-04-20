@@ -4,138 +4,145 @@
 
 # Plan
 
-Full-fidelity frontier. The demo shortcut period is over; the active burden is no longer "make the walkthrough legible" but "make the model truthful again." The codebase still speaks several overlapping product languages at once — legacy scope aliases, mixed knowledge facades, turn-shaped control artifacts, and multiple interaction families — so the frontier still prioritizes semantic and interaction-model recovery first. The distinct review-phase UI slice is now complete enough to retire from the live frontier, and the last legacy knowledge-facade cleanup is now done as well. The merged-stream projector cutover is now complete enough to retire from the active frontier; the next major architecture move is interaction-family canonicalization on top of that cleaned read model.
+Current frontier remains the naming/ownership cleanup. The low-risk wording slices have landed: persisted specification `cwd` is gone, client-owned specification wording is in place across the workspace shell, and canonical browser/HTTP entry seams already speak in `/specification/...` and `/api/specifications/...` terms. The remaining burden inside this frontier is the higher-risk physical identity work — make `specification` the only durable record identity, retire `project` aliases/adapters instead of preserving them, and physically rename the first workflow key from `scope` to `grounding`. Because local data is unstable and fixtures are cheap to regenerate, destructive reseed is preferred over migration or legacy-adaptation work.
+
+Three new near-horizon items emerged from a dramaturgical audit of the grounding phase interaction model: a hardening pass for six code bugs/gaps (duplicate answered cards, inflated readiness, term visibility, stale markers, divider width, sidebar sync), a grounding question-format change from option-selection to free-text-first (D115), and phase section headers (D116). All three are unblocked — they don't depend on the naming frontier. After those, the existing near horizon continues around completion/closure surfaces, grounding/context-gathering capability, workflow ownership cleanup, and router/query refinement. Revisit/cascade and infrastructure/tooling remain on the true horizon.
 
 ## Active
 
-### Active Code Alignment Map
-
-The current active frontier should now be read not just as product/design cleanup, but as a concrete realignment program over the live code seams that still embody the older model.
-
-- **Workflow + persistence seam (`src/server/core.ts`, `src/server/app.ts`, `src/server/db.ts`, `src/server/schema.ts`, `src/server/parts.ts`, `src/shared/api-types.ts`, `src/shared/project-state-turn.ts`)** — read-model truth now projects from workflow state plus active-path turns, but the chat runtime still creates transitional kickoff / recovery rows through `ensureProjectFrontier()` when a user explicitly starts or resumes a phase. The next active slices must keep shrinking that compatibility seam until projected controls are the only user-facing interaction contract.
-- **Workspace stream controller + routed interview view (`src/client/routes/project/$id/_view/-interview-controller-core.ts`, `src/client/routes/project/$id/_view/-interview-controller.ts`, `src/client/routes/project/$id/_view/-interview-data.ts`, `src/client/routes/project/$id/_view/-interview-view.tsx`)** — the projector now owns ordered stream artifacts, but the remaining work is to eliminate straggling alternative input seams and keep handoff states legible without backsliding into turn-shaped control exceptions.
-- **Card primitives and closed-state affordances (`src/client/components/question-cards.tsx`, `src/client/components/review-set-card.tsx`)** — requirements and criteria now have their own card family, but the larger card shell still conflates substantive turn cards with structural control / completion artifacts. The next active slices must finish that separation while preserving the accepted-set review seam.
-- **Ontology + sidebar/read-model seam (`src/shared/knowledge.ts`, `src/client/components/EntitySidebar.tsx`, `src/server/db.ts`, `src/server/observer.ts`, `src/shared/api-types.ts`)** — the canonical ontology contract and review-authority seam are now aligned on one `knowledge_item` collection contract, and the dead per-type schema tables are gone. This seam is no longer its own active frontier item, but it remains an important dependency surface for interaction cleanup and later naming normalization.
-- **Fixtures, manifests, seeded scenarios, and oracle tests (`src/server/fixtures/manifest.ts`, `src/server/fixtures/scenarios.ts`, `src/server/fixtures/manifests/*.json`, `src/server/fixtures/corpus.ts`, `src/server/fixtures/walkthrough.test.ts`, `src/server/core.test.ts`, `src/server/app.test.ts`, `src/client/routes/project/$id/_view/*test.tsx`)** — kickoff / recovery are now seed- and read-model-level projections rather than canonical rows. The remaining fixture/test burden is to keep asserting on projected controls, phase outcomes, and resumed landing states as interaction cleanup continues.
-- **Naming, routing, and grounding-language seam (`src/shared/phase-routes.ts`, `src/shared/phase-display.ts`, `src/client/routes/project/$id/index.tsx`, `src/server/interview.ts`, `src/server/tools/index.ts`, `src/shared/grounding-strategy.ts`)** — the codebase still mixes `scope`, kickoff-specific brownfield ritual language, and route names that predate the grounding/card-owned model. Active item 1 and especially item 3 must simplify these seams so reusable grounding/context-gathering and later naming normalization do not keep inheriting obsolete product language.
-
-1. **Interaction-family canonicalization: durable turn cards plus projected control cards** — finalize the workspace stream as the canonical interaction surface for user action, with durable turn cards for substantive elicitation, projected control cards for structural affordances, and no straggling alternative input seams.
-   - Why now / unlocks: once the merged stream projector is honest about artifact types, the older kickoff-as-turn, one-shot brownfield ritual, and global bottom composer fallbacks can be removed without inventing another exception layer. This slice makes the new stream model the only real interaction contract.
-   - Traceability: D89, D91, D95, D99, D110; A51, A54, A56; I24.
-   - What this slice must accomplish:
-     - remove the generic bottom composer as a canonical input path; any remaining uses become explicit debug / admin affordances or are deleted
-     - replace persisted kickoff / recovery-as-turn assumptions with projected control-card seams derived from workflow state
-     - fold the previous kickoff interaction family into the workspace stream so kickoff, grounding cards, question cards, review cards, and handoff controls share one coherent projection model without all becoming the same durable artifact type
-     - retire the one-shot brownfield kickoff ritual in favor of reusable interviewer-invoked context gathering that produces grounding cards (D99)
-     - confirm greenfield and brownfield grounding both enter through the workspace stream surface
-
-2. **Phase transition and handoff stabilization on the cleaned model** — make every phase end in a legible next action, with no empty shells or stranded in-progress states, after review and input semantics stop fighting the projector.
-   - Why now / unlocks: the remaining handoff bugs are real, but fixing them before the semantic cleanup would just restabilize the wrong model. Once review authority, ontology, and input seams are cleaned, transition work can become a straightforward projection pass instead of another exception layer.
-   - Traceability: D94, D100, D101, D104; A54.
-   - What this slice must accomplish:
-     - requirements acceptance advances cleanly into criteria kickoff without dead air
-     - criteria acceptance closes into a visible workflow-complete / export-ready state
-     - closed phases show explicit handoff / completion artifacts instead of relying on the generic shell to imply what happened
-     - force-close and proposed-close confirmations stay legible and do not leave stale active-phase projections behind
-
-3. **Naming normalization: project → specification, scope → grounding, cwd removal** — align internal identifiers, route keys, and schema columns with the product vocabulary settled in D97 / D98.
-   - Why now / unlocks: after the semantic, ontology, and interaction layers are clean, the naming drift is the last pervasive legacy burden. Doing it after the deeper model cleanup avoids rebase pain across the same files while still preventing new surfaces from inheriting the vocabulary split. This is the most invasive slice — it touches schema, routes, and API types — and should be planned as a sequence of safe commits.
-   - Traceability: D97, D98; Horizon `project → specification physical DB rename`, Horizon `cwd removal`.
-   - What this slice must accomplish:
-     - rename `project` record / table / API identifier to `specification` (or the agreed internal name) with an explicit migration path
-     - migrate the internal phase key from `scope` to `grounding`, or commit to keeping `scope` and document it as a permanent internal alias
-     - remove `cwd` from the specification record and derive workspace path implicitly from the runtime context
-     - update routes, loaders, fixtures, tests, and stories to match
-     - manual verification after each commit in the sequence to catch silent breakage
+1. **Canonical terminology and record-identity normalization** — structural `[status: in-progress]`
+   - Objective: finish aligning durable record names, route/display terminology, and workspace ownership with the settled product language by completing the physical `project` → `specification` identity migration, physically renaming the workflow key `scope` → `grounding`, and deleting alias/adaptation seams instead of preserving them.
+   - Why now / unlocks: the handoff/transition frontier is retired, so mixed naming is now the main legacy burden shaping every fresh slice. Landing this first prevents the next completion, grounding, and workflow passes from layering on top of ambiguous terminology.
+   - Acceptance: schema/API/routes/fixtures/tests/export speak one canonical vocabulary; no legacy `project`/`scope` compatibility layer remains on the happy path; runtime behavior stays truthful after destructive reseed and fixture regeneration.
+   - Progress so far: persisted specification `cwd` has been removed in favor of runtime workspace context; client-owned workspace surfaces now say specification where appropriate; specification/workspace helper and module names now replace much of the remaining client runtime `project` wording; canonical browser and HTTP entry seams already flow through `/specification/...` and `/api/specifications/...`; the remaining work is the durable/shared/server identity cutover plus alias deletion.
+   - Verification: run `npm run fix` after each safe slice; gate with `npm run verify`; manually walk at least one freshly reseeded resume/export path after the identity cuts.
+   - Traceability: D81, D97, D98, D100, D101, D109, D111, D113; I24, I100, I101, I102, I104.
 
 ## Next
 
-1. **Transcript fidelity stabilization for seeded and resumed states** — make replayed interview history trustworthy enough that the workspace reads like one coherent thread instead of a partial hydration. Whatever remains after interaction-family canonicalization lands here.
-   - Traceability: D92, D93, D96; A53, A55.
+Near-horizon work is grouped by theme: first a dramaturgical-audit hardening pass, then grounding interaction-model fixes, then completion/closure surfaces, then grounding/context-gathering capability, then workflow ownership cleanup, then router/query refinement.
 
-2. **Interview workflow transition extraction from `app.ts`** — deferred by choice. Picks up after the retirement frontier lands, when the extraction is no longer competing with semantic cleanup for the same files.
+### Dramaturgical audit hardening
 
-3. **Router / query ownership refinement for interview surfaces** — deferred by choice. Replace coarse route-wide invalidation with deliberate loader / query ownership once the cleaned surfaces make the real invalidation boundaries legible.
+1. **Dramaturgical audit bug and gap fixes** — hardening
+   - Objective: fix the six code-level issues surfaced by the dramaturgical audit — duplicate answered cards, inflated readiness, `term` in captured items, generic "Interview started" marker, non-full-width divider, sidebar/card capture sync gap.
+   - Why now / unlocks: these are live bugs visible to users on every fresh specification; the duplicate-card and readiness issues erode transcript and workflow trust. All six are small, independent of the naming frontier, and can land without waiting for terminology to finish.
+   - Acceptance: each commit passes `npm run verify`; manual walkthrough confirms no duplicate cards, correct readiness at phase entry, no `term` badges, no stale marker, full-width divider, and sidebar counts sync with card capture display.
+   - Verification: `npm run verify` plus manual walkthrough on a fresh greenfield specification through grounding Q1→Q2.
+   - Traceability: D22, D94, D95, D110; I24, I48.
+
+### Grounding interaction model
+
+2. **Grounding free-text question format** — bounded feature
+   - Objective: grounding questions use an open free-text format (question + why + response note) instead of the option-selection format used in elicitation, so the grounding phase performs as context-gathering rather than decision-making.
+   - Why now / unlocks: independent of grounding cards and naming work; changes the schema, prompt, and response seams that shape every grounding session. Landing early prevents further grounding work (cards, brownfield briefs) from building on the wrong interaction model.
+   - Acceptance: `structuredQuestionSchema` accepts questions without options; the grounding system prompt produces open exploratory questions; the response schema and UI accept `freeText`-only submissions; elicitation and later phases still require options.
+   - Verification: `npm run verify` plus manual greenfield grounding walkthrough confirming open questions, free-text response, and correct observer capture.
+   - Traceability: D115; A59; R4.
+
+3. **Phase section headers** — bounded feature
+   - Objective: each phase section in the workspace stream opens with a projected header stating the phase purpose and what kinds of knowledge are captured there, so users are oriented at phase entry without needing the kickoff card alone to carry that burden.
+   - Why now / unlocks: independent of grounding cards, naming, and question format. Small projected-artifact addition to the stream projector; can land anytime after the current projector contract is stable.
+   - Acceptance: phase section headers render at the top of each phase section, re-project on hydration, are not persisted as turn rows, and show phase-specific copy (grounding: goals/terms/context/constraints; elicitation: design decisions; requirements: review; criteria: verification).
+   - Verification: `npm run verify` plus manual walkthrough on a multi-phase specification confirming headers appear, survive reload, and don't duplicate.
+   - Traceability: D116; A60; R24.
+
+### Completion / closure surfaces
+
+4. **Output route and markdown export refinement** — first completion-surface follow-on once naming settles.
+   - Why now / unlocks: after canonical terminology lands, export becomes the clearest user-visible completion seam to make truthful and legible.
+   - Acceptance: the output route, preview, and markdown export present accepted review outputs cleanly under the renamed terminology without reopening workflow-complete semantics.
+   - Verification: `npm run verify` plus a manual export walkthrough on a completed seeded specification.
+   - Traceability: D101; I24, I87, I104.
+
+5. **Close Phase confirmation modal** — complete the remaining phase-exit UX after export/output cleanup.
+   - Why now / unlocks: makes closure intent explicit before deeper grounding and workflow work add more state to closeability paths.
+   - Acceptance: in-progress non-review phases show a confirmation modal with readiness/turn-count context and gating that matches closeability rules.
+   - Verification: `npm run verify` plus manual close/reject/confirm walkthroughs on grounding and elicitation phases.
+   - Traceability: D104, D65, D66; I72.
+
+### Grounding / context-gathering capability 
+
+6. **Grounding-card transcript primitive** — establish the visible provisional-context seam.
+   - Why now / unlocks: completion surfaces can land first; then grounding cards become the enabling transcript primitive for analysis-first grounding and later reusable context gathering.
+   - Acceptance: the workspace stream can render grounding cards with optional comment + continue semantics while keeping card content provisional rather than durable knowledge.
+   - Verification: `npm run verify` plus seeded transcript/replay walkthroughs covering continue, reload, and observer non-capture.
+   - Traceability: D83, D89, D91, D99, D112; I24, I54, I101, I104.
+
+7. **Brownfield workspace-analysis grounding brief** — deliver the first analysis-first grounding path on top of grounding cards.
+   - Why now / unlocks: proves the provisional grounding-card seam against real brownfield repos before wider context-gathering generalization.
+   - Acceptance: brownfield grounding can run read-only workspace analysis, show a concise visible grounding brief/card, and hand off into the first substantive grounding question.
+   - Verification: `npm run verify` plus manual brownfield walkthroughs on representative repos.
+   - Traceability: D32, D83, D99; A47, A56; I101.
+
+8. **Reusable interviewer-invoked context gathering beyond opening grounding** — generalize context gathering once the brownfield opening path proves out.
+   - Why now / unlocks: broadens grounding capability without inventing a second artifact model, and only makes sense after grounding cards plus the brownfield brief are stable.
+   - Acceptance: the interviewer can invoke approved context-gathering capabilities during grounding as visible grounding cards beyond the opening move.
+   - Verification: `npm run verify` plus manual mid-grounding context-gathering walkthroughs.
+   - Traceability: D99, D30, D32, D83; I101, I104.
+
+### Workflow ownership cleanup
+
+9. **Workflow ownership extraction** — architectural cleanup after the user-visible completion and grounding seams land.
+   - Why now / unlocks: delayed intentionally until output/grounding surfaces stop moving; then extract projector and `app.ts` workflow ownership while preserving behavior.
+   - Acceptance: workflow projection and transition orchestration become easier to reason about without introducing a second durable workflow model or changing phase semantics.
+   - Verification: `npm run verify` plus focused regression reads on seeded landing/recovery/progression flows.
+   - Traceability: D110, D112, D113; I24, I72, I104.
+
+### Ownership refinement
+
+10. **Continuous workspace / phase-addressable interview surface** — user-facing continuity pass after workflow ownership is clearer.
+   - Why now / unlocks: the hybrid workspace idea should not preempt the current naming frontier or the earlier output / grounding seams, but once workflow projection and lifecycle ownership are clearer it becomes the right seam to separate continuous rendering from routed phase addressability. Landing that distinction first gives router/query cleanup a truer target instead of optimizing around the current per-phase rendering split by accident.
+   - Acceptance: the center pane can render one continuous workspace stream with grounding / design / requirements / criteria sections, the left sidebar can act as truthful section-jump / scroll-spy navigation, and phase deep-linking / gating remain routed and honest without introducing a second durable workflow model.
+   - Verification: `npm run verify` plus manual walkthroughs for deep-link entry, scroll/focus transitions, close-to-next-phase motion, and reload/resume on a partially completed specification.
+   - Traceability: A58; D86, D87, D103, D107, D110, D113, D114; I24, I102.
+
+11. **Router / query ownership refinement for interview surfaces** — final near-horizon cleanup after workflow ownership and workspace continuity are clearer.
+   - Why now / unlocks: should harvest the real invalidation/loader boundaries exposed by the preceding naming, completion, grounding, and workflow passes instead of guessing early.
+   - Acceptance: coarse route-wide invalidation is replaced by clearer loader/query ownership without stale transcript or handoff regressions.
+   - Verification: `npm run verify` plus manual mutation/observer refresh walkthroughs.
+   - Traceability: D87, D113; A20, A50; I24, I54, I102.
 
 ## Horizon
 
-- **Output route and markdown export refinement** — independent parallel lane; refine the conditional route available when all phases are closed, with accepted review outputs projected into markdown export (D101).
-- **Close Phase confirmation modal** — modal UX for the Close Phase button with readiness / turn-count context and closeability gating (D104); review phases may stay on their lighter accept-to-close path.
-- **Workflow projector extraction** — conditional parallel refactor lane; extract `getCurrentWorkflowState()` into a pure projector over a `WorkflowSnapshot` struct without changing semantics on the active projector frontier.
-- **Grounding-card transcript primitive** — add visible provisional grounding cards with optional comment + continue semantics, keeping card content non-durable while allowing user reactions to feed later knowledge capture.
-- **Brownfield workspace-analysis grounding brief** — use read-only workspace analysis to produce the first visible grounding card, then hand off into the first substantive grounding question.
-- **Reusable interviewer-invoked context gathering beyond opening grounding** — defer until opening brownfield brief proves the card / provenance model.
-- **Dashboard / result summaries and completeness metrics** — post-interview surface.
-- **Edit mode + cascade preview** — revisit affordance after interview-surface refinement settles.
-- **Cascade execution + secondary thread lifecycle** — structural follow-on.
-- **Drizzle Kit audit remediation** — recommended independent hardening lane.
-- **Git-friendly file-based persistence representation for diffable specs**.
-- **Headless interview driver for scripted end-to-end probes** — complements the current manual-heavy outer loop once the existing contract, integration, fixture, controller, and build-boundary oracle stack is no longer enough for projector/interaction regressions.
-- **MCP server adapter for core operations**.
+### Completion / reporting follow-ons
+
+- Dashboard / result summaries and completeness metrics.
+
+### Revisit / cascade
+
+- Edit mode + cascade preview.
+- Cascade execution + secondary thread lifecycle.
+
+### Infrastructure / tooling / extensions
+
+- Drizzle Kit audit remediation.
+- Git-friendly file-based persistence representation for diffable specs.
+- Headless interview driver for scripted end-to-end probes.
+- MCP server adapter for core operations.
 
 ## Recently Completed
 
-- 2026-04-19 — **Merged-stream projector cutover retired from the active frontier** — project creation, phase confirmation / force-close, and requirements acceptance no longer pre-seed next-phase kickoff rows; resumed state, phase-entry kickoff, and closed-phase advancement now rely on derived `landing` plus durable workflow outcomes instead of fabricated control rows. Verified: `npm run verify`. Watch: the chat runtime still fabricates kickoff / recovery rows only as transitional submit plumbing when a user explicitly starts or resumes a phase.
-- 2026-04-19 — **Control markers now depend only on typed phase-intent parts, not legacy command-copy heuristics** — the routed interview view no longer infers start / continue markers from plain text, the obsolete controller-core phase-message exports are gone, and the touched workspace-stream / interview-view tests now prove typed `data-phase-intent` is the only live control-marker seam. Verified: `npm run verify`.
-- 2026-04-19 — **Workspace-stream projection now owns review markers, control markers, and terminal handoff/completion artifacts in one ordered list** — `src/client/routes/project/$id/_view/-workspace-stream-projector.ts` now emits phase markers, typed control markers, and terminal handoff / workflow-complete artifacts as first-class ordered stream items, and `src/client/routes/project/$id/_view/-interview-view.tsx` now renders those artifacts inline instead of splitting them across a banner seam and footer seam. Verified: `npm run verify`.
-- 2026-04-19 — **Phase controls now submit through typed transcript parts instead of the message-text bridge** — `src/shared/phase-intents.ts`, `src/shared/chat.ts`, `src/server/app.ts`, and the routed interview controller/view now carry phase-entry / phase-continue intent as a typed `data-phase-intent` contract, render control markers from that typed part, and accept control submissions in `/api/projects/:id/chat` without requiring exact command-copy text. Verified: `npm run verify`.
-- 2026-04-19 — **Specification-state reads now stay projection-only while frontier/control-row fabrication remains explicit runtime plumbing** — `src/server/core.ts` now exposes a pure `readProjectStateProjection()` seam and `getProjectState()` no longer seeds kickoff or recovery rows during reads, while the touched core/app tests now prove empty and recovery landings project from durable workflow state without mutating the active path. Verified: `npm run verify`. Watch: only the chat/runtime submit seam still fabricates transitional kickoff-row compatibility.
-- 2026-04-19 — **Kickoff and recovery controls now submit through shared phase-intent seams instead of branching in the client on control-row presence** — `src/client/mutations/interview-mutations.ts`, `src/client/routes/project/$id/_view/-interview-controller.ts`, and `src/server/app.ts` now route projected kickoff and recovery actions through `phase-entry` / `phase-continue` intent submissions, and the touched controller/view/server tests now prove the same intent seam works for both landing-only kickoff and seeded kickoff-row states. Verified: `npm run verify`. Watch: the server route still owns transitional kickoff-row compatibility directly until the next refactor step hides it behind one runtime adapter.
-- 2026-04-19 — **Workspace stream ordering now projects through one client seam instead of being recomputed inline in the interview view** — `src/client/routes/project/$id/_view/-workspace-stream-projector.ts` now maps durable phase turns, accepted closures, and the current bottom artifact into ordered render artifacts, and `src/client/routes/project/$id/_view/-interview-view.tsx` now renders answered turns, accepted closures, dividers, and active bottom artifacts from that projection rather than reducing phase state inline. Verified: `npm run verify`. Watch: kickoff/recovery submission still branches on legacy control-row presence until the next refactor step hides that runtime detail.
-- 2026-04-19 — **The routed interview seam now uses one discriminated bottom-artifact contract for visible bottom-of-stream state** — `createInterviewControllerViewState()` now projects kickoff, recovery, persisted frontier turn, pending question, phase-summary proposal, generating, phase handoff, and workflow-complete states through one `bottomArtifact` union, and the interview controller/view plus their focused tests now consume that contract instead of recomposing the bottom region from separate `activeArtifact` / `phaseSummary` / `showGeneratingState` booleans. Verified: `npm run verify`.
-- 2026-04-19 — **Projected control artifacts now use control/artifact terminology instead of turn-flavored names** — the interview controller/view seam no longer exposes kickoff, recovery, or accepted-closure affordances under turn-flavored names, and the touched controller/view/story tests now speak in the same vocabulary as the merged-stream model instead of implying projected controls are durable turns. Verified: `npm run verify`.
-- 2026-04-19 — **Projected kickoff strategy selection no longer requires a seeded kickoff turn row** — the routed interview controller now persists landing-only grounding-strategy kickoff through a dedicated project-level kickoff-response mutation, `src/server/app.ts` now accepts that kickoff response from derived landing/workflow state without creating a kickoff row first, and the touched client/server tests now prove brownfield kickoff selection works from projected kickoff state before the chat path reuses any transitional control-turn plumbing. Verified: `npm run verify`. Watch: manual browser reload on kickoff-ready and recovery-ready seeded states is still pending from the earlier projector cutover checks.
-- 2026-04-19 — **Seed-first fixture and oracle surfaces now normalize to derived landings instead of authoritative control rows** — `src/server/fixtures/manifest.ts` now rejects seeded kickoff/recovery control rows, `src/server/fixtures/corpus.ts` drops transitional kickoff/recovery rows when capturing runtime state back into manifests, `src/server/fixtures/scenarios.ts` no longer seeds criteria kickoff as canonical authority, and the touched server/client tests now assert on derived `landing` / projected kickoff-recovery output instead of happy-path `turn_kind` control rows. Verified: `npm run verify`.
-- 2026-04-19 — **Canonical transition fixtures now seed durable authority instead of authoritative control rows** — the walkthrough kickoff/recovery scenarios in `src/server/fixtures/scenarios.ts` no longer append persisted kickoff/recovery frontier rows as the canonical seeded state, and `src/server/fixtures/walkthrough.test.ts` now proves those scenarios reopen from substantive turns + phase outcomes into the expected derived `landing` contract. Verified: `npm run verify`. Watch: do one manual seeded browser reload on a kickoff-ready and recovery-ready walkthrough before widening this seed-first rule across the rest of the fixture catalog.
-- 2026-04-19 — **Open-phase landing now derives from one shared projector seam** — `src/shared/project-state-turn.ts` now derives the truthful active landing (`kickoff`, `frontier-turn`, or `recovery`) from workflow state plus active-path turns, `src/server/core.ts` now hydrates `/api/projects/:id` with that `landing` contract, and the routed interview controller/view now consumes that seam instead of inferring kickoff/recovery from persisted `turn_kind` rows. Verified: `npm run verify`. Watch: do one manual browser reload check on fresh kickoff and answered-turn recovery states before widening into broader projector cleanup.
-- 2026-04-19 — **Legacy knowledge facade cleanup retired as an active frontier item** — decision/assumption entity references now use the canonical `knowledge_item` collection contract, dead legacy per-type schema tables and relationship tables were removed from `src/server/schema.ts`, and `drizzle/0010_retire_legacy_knowledge_tables.sql` now drops the retired tables so runtime boot, seeding, and projection all flow only through `knowledge_item`, `turn_knowledge_item`, and `knowledge_edge`. Done: `npm run verify`.
-- 2026-04-19 — **Retired the legacy `/framing` route compatibility seam** — removed `src/client/routes/project/$id/_view/framing.tsx`, regenerated `src/client/routeTree.gen.ts` without `/project/$id/framing`, and updated file-route / router coverage so canonical grounding is the only live first-phase route. Done: `npm run verify`.
-- 2026-04-18 — **Runtime-generated review turns now persist their own interviewer-owned review metadata** — `src/shared/chat.ts` now allows `ask_question` review turns to carry a full `reviewSet` payload alongside explicit `reviewActions`, `src/server/interview.ts` now instructs and validates requirements / criteria review turns to emit that metadata for the active phase, and `src/server/app.ts` now persists the generated `tool-ask_question` part plus a derived `data-review-set` from that same authoritative review metadata before falling back to synthesized inventory. `src/server/app.test.ts`, `src/server/interview.test.ts`, and `src/shared/project-state-turn.test.ts` now prove the first runtime-generated requirements / criteria review turns round-trip explicit accept/request-changes semantics plus the persisted review set through submit and replay without relying on synthesized fallback inventory on the happy path. Done: `npm run verify`.
+- [2026-04-20] Canonical specification-named browser and HTTP path family landed under the naming frontier — Done: routed workspace/export entry now flows through `/specification/...`, client fetch/mutation seams now target `/api/specifications/...`, and legacy `/project/...` plus `/api/projects/...` entry points survive only as explicit redirect/alias compatibility seams. Verified: `npm run verify` plus manual seeded deep-link/reload/export walkthroughs on `issue-tracker-all-phases-closed` and `issue-tracker-design-recovery`. Watch: the remaining frontier work is now the higher-risk durable DB/storage identity rename.
+- [2026-04-20] Client-owned terminology cleanup slices landed under the naming frontier — Done: client-facing state seams now default to `Specification*` aliases, specification/workspace helper and module names replaced remaining client runtime `project` wording, and exhausted execution-queue artifacts were retired without changing DB identifiers. Verified: `npm run verify`. Watch: the remaining frontier work is now the higher-risk physical identity migration across transport/storage seams.
+- [2026-04-19] Phase transition and handoff stabilization retired from the active frontier — Done: requirements acceptance now advances directly into criteria kickoff, criteria acceptance closes the workflow into export-ready state, and closed phases project explicit handoff/completion artifacts. Verified: `npm run verify`. Watch: none.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
 ## Dependencies
 
 ```text
-merged-stream-projector-cutover-turns-anchored-facts-and-projected-controls
-  └──→ interaction-family-canonicalization-durable-turn-cards-plus-projected-control-cards
-  └──→ phase-transition-and-handoff-stabilization-on-the-cleaned-model
+dramaturgical-audit-bug-and-gap-fixes  (no blockers)
+grounding-free-text-question-format    (no blockers)
+phase-section-headers                  (no blockers)
 
-interaction-family-canonicalization-durable-turn-cards-plus-projected-control-cards
-  └──→ phase-transition-and-handoff-stabilization-on-the-cleaned-model
-  └──→ naming-normalization-project-specification-scope-grounding-cwd-removal
-
-phase-transition-and-handoff-stabilization-on-the-cleaned-model
-  └──→ naming-normalization-project-specification-scope-grounding-cwd-removal
-
-naming-normalization-project-specification-scope-grounding-cwd-removal
-  └──→ transcript-fidelity-stabilization-for-seeded-and-resumed-states (Next)
-  └──→ interview-workflow-transition-extraction-from-app-ts (Next)
+canonical-terminology-and-record-identity-normalization
+  ├──→ output-route-and-markdown-export-refinement
+  ├──→ close-phase-confirmation-modal
+  ├──→ grounding-card-transcript-primitive
+  │     └──→ brownfield-workspace-analysis-grounding-brief
+  │           └──→ reusable-interviewer-invoked-context-gathering
+  └──→ workflow-ownership-extraction
+        └──→ continuous-workspace-phase-addressable-interview-surface
+              └──→ router-query-ownership-refinement
 ```
-
-### Parallelism Opportunities
-
-Spawn separate worktrees only after the control worktree is clean, and keep the mainline focused on active item 1 while these lanes stay inside their file boundaries.
-
-- **Recommended worktree lane — Drizzle Kit audit remediation**
-  - Objective: audit Drizzle Kit config, migration journal integrity, and schema-generation hygiene without widening into product naming migration or projector semantics.
-  - Primary files: `drizzle.config.ts`, `drizzle/*.sql`, `drizzle/meta/*`, `package.json`, and `src/server/schema.ts` only if the audit proves schema/migration drift that must be reconciled.
-  - No-go zones: `src/server/app.ts`, `src/server/core.ts`, `src/shared/project-state-turn.ts`, and `src/client/routes/project/$id/_view/*`; do not bundle `project → specification` or `scope → grounding` renames into this lane.
-  - Merge-risk notes: low if it stays tooling-only; medium if it regenerates or edits migrations that the mainline also needs. Review for migration ordering conflicts and snapshot drift.
-
-- **Recommended worktree lane — Output route and markdown export refinement**
-  - Objective: improve export projection and the dedicated export route without changing workflow-complete semantics or the merged-stream / handoff projector contract.
-  - Primary files: `src/server/export.ts`, `src/server/export.test.ts`, `src/server/app.ts` (export endpoint only), `src/server/app.test.ts` (export assertions only), `src/client/routes/project/$id/export.tsx`, `src/client/routes/project/$id/-export-preview.tsx`, `src/client/routes/project/$id/export-loader.test.ts`, `src/client/routes/project/$id/ExportPreview.test.tsx`, and `src/client/routes/project/$id/-phase-navigation-sidebar.tsx` plus its test if navigation copy changes.
-  - No-go zones: `src/client/routes/project/$id/_view/-interview-view.tsx`, `src/client/routes/project/$id/_view/-workspace-stream-projector.ts`, `src/client/routes/project/$id/_view/-interview-controller*`, and workflow closure rules in `src/server/db.ts`.
-  - Merge-risk notes: medium. The route itself is isolated, but final-phase CTA copy and export-readiness presentation sit near active item 2 handoff work. Check for missing mainline changes in export links and completion-card language before merging.
-
-- **Conditional worktree lane — Workflow projector extraction**
-  - Objective: perform a behavior-preserving refactor that extracts `getCurrentWorkflowState()` into a pure projector over a snapshot struct while leaving workflow semantics unchanged.
-  - Primary files: `src/server/db.ts`, `src/server/db.test.ts`, and, if needed for the extracted contract, a new shared/server-local projector module plus supporting notes in `docs/design/state-machines/README.md`.
-  - No-go zones: do not change workflow status meaning, landing derivation, phase progression, export readiness, or client-facing interview/view behavior; avoid `src/server/app.ts`, `src/server/core.ts`, and `src/client/routes/project/$id/_view/*` unless a tiny mechanical import adjustment is unavoidable.
-  - Merge-risk notes: medium-high because `src/server/db.ts` is still a hot seam on the active frontier. Only run this lane in parallel if the brief is explicitly constrained to pure extraction and the reviewer is prepared to check carefully for merge gaps against mainline workflow changes.
-
-- **Do not parallelize yet**
-  - Active item 2 and active item 3 remain sequential behind active item 1 per the dependency graph above and because they share the same workflow, interview-view, card, and fixture seams.
-  - Next items 1-3 remain downstream of naming normalization or intentionally deferred until the current semantic cleanup stops competing for the same files.
-  - Horizon items tied to the interview surface itself — Close Phase confirmation modal, grounding-card transcript primitive, brownfield grounding brief, reusable interviewer-invoked context gathering, and the headless interview driver — should wait until the interaction and handoff contracts stop moving.

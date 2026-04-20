@@ -1,5 +1,5 @@
 import type {
-  ProjectStateTurn,
+  SpecificationLanding,
   SubmitPhaseIntentRequest,
   SubmitPhaseIntentResponse,
   WorkflowPhase,
@@ -10,7 +10,8 @@ import {
   getGroundingStrategyTitle,
   isGroundingStrategyKickoffTurn,
 } from '@/shared/grounding-strategy.js';
-import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
+import { deriveSpecificationLanding } from '@/shared/specification-state.js';
+import type { SpecificationTurn } from '@/shared/specification.js';
 
 import { loadActivePathWithOptions } from './core.js';
 import {
@@ -38,13 +39,11 @@ export interface PhaseIntentRuntimeError {
 function persistGroundingStrategyKickoffSelection({
   db,
   projectId,
-  projectCwd,
   kickoffTurn,
   mode,
 }: {
   db: DB;
   projectId: number;
-  projectCwd: string;
   kickoffTurn: Pick<Turn, 'id'>;
   mode: 'greenfield' | 'brownfield';
 }): PhaseIntentRuntimeResult {
@@ -61,10 +60,7 @@ function persistGroundingStrategyKickoffSelection({
   }
 
   applyTurnResponseSelections(db, kickoffTurn.id, [selectedPosition]);
-  updateProjectMode(db, projectId, {
-    mode,
-    cwd: mode === 'brownfield' ? projectCwd : null,
-  });
+  updateProjectMode(db, projectId, mode);
   updateTurn(db, kickoffTurn.id, {
     answer: messageText,
     user_parts: serializeParts([
@@ -85,19 +81,33 @@ function persistGroundingStrategyKickoffSelection({
 function findLatestPhaseTurn(
   turns: ReturnType<typeof loadActivePathWithOptions>,
   phase: WorkflowPhase,
-): ProjectStateTurn | null {
+): SpecificationTurn | null {
   return [...turns].reverse().find((turn) => turn.phase === phase) ?? null;
+}
+
+export function getPhaseIntentRuntimeAvailabilityError(
+  request: SubmitPhaseIntentRequest,
+  landing: SpecificationLanding | null | undefined,
+): PhaseIntentRuntimeError | null {
+  if (request.kind === 'phase-entry') {
+    return landing?.kind === 'kickoff' && landing.phase === request.phase
+      ? null
+      : { ok: false, status: 409, error: 'Phase entry is not currently available' };
+  }
+
+  return request.phase === landing?.phase &&
+    (landing.kind === 'recovery' || (landing.kind === 'kickoff' && landing.mode === 'continue'))
+    ? null
+    : { ok: false, status: 409, error: 'Phase continue is not currently available' };
 }
 
 export function submitPhaseIntentWithRuntimeCompatibility({
   db,
   projectId,
-  projectCwd,
   request,
 }: {
   db: DB;
   projectId: number;
-  projectCwd: string;
   request: SubmitPhaseIntentRequest;
 }): SubmitPhaseIntentResponse | PhaseIntentRuntimeError {
   const project = getProject(db, projectId);
@@ -111,18 +121,20 @@ export function submitPhaseIntentWithRuntimeCompatibility({
   const activePhaseTurn = findLatestPhaseTurn(turns, request.phase);
 
   if (request.kind === 'phase-entry') {
-    if (landing?.kind !== 'kickoff' || landing.phase !== request.phase) {
-      return { ok: false, status: 409, error: 'Phase entry is not currently available' };
+    const availabilityError = getPhaseIntentRuntimeAvailabilityError(request, landing);
+    if (availabilityError) {
+      return availabilityError;
     }
 
-    if (request.phase === 'scope' && landing.mode === 'start' && request.mode) {
+    const kickoffLanding = landing?.kind === 'kickoff' ? landing : null;
+
+    if (request.phase === 'scope' && kickoffLanding?.mode === 'start' && request.mode) {
       const activeKickoffTurn =
         activePhaseTurn && isGroundingStrategyKickoffTurn(activePhaseTurn) ? activePhaseTurn : null;
       if (activeKickoffTurn) {
         return persistGroundingStrategyKickoffSelection({
           db,
           projectId,
-          projectCwd,
           kickoffTurn: activeKickoffTurn,
           mode: request.mode,
         });
@@ -133,21 +145,16 @@ export function submitPhaseIntentWithRuntimeCompatibility({
         throw new Error('Invalid grounding strategy selection');
       }
 
-      updateProjectMode(db, projectId, {
-        mode: request.mode,
-        cwd: request.mode === 'brownfield' ? projectCwd : null,
-      });
+      updateProjectMode(db, projectId, request.mode);
       return { ok: true };
     }
 
     return { ok: true };
   }
 
-  if (
-    request.phase !== landing?.phase ||
-    (landing.kind !== 'recovery' && !(landing.kind === 'kickoff' && landing.mode === 'continue'))
-  ) {
-    return { ok: false, status: 409, error: 'Phase continue is not currently available' };
+  const availabilityError = getPhaseIntentRuntimeAvailabilityError(request, landing);
+  if (availabilityError) {
+    return availabilityError;
   }
 
   return { ok: true };

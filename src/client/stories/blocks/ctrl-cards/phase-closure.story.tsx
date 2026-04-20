@@ -4,7 +4,8 @@
  * Shows closure proposal, accepted closure replay, review phase completion,
  * and workflow-complete terminal variants.
  */
-import { AcceptedClosureCard, PhaseSummaryCard } from '@/client/components/control-cards';
+import { Button } from '@/client/components/app-shell';
+import { AcceptedClosureCard, PhaseHandoffCard, PhaseSummaryCard } from '@/client/components/control-cards';
 import { ReviewPhaseCompletionCard } from '@/client/components/review-set-card';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import { Separator } from '@/client/components/ui/separator';
@@ -71,6 +72,26 @@ export function PhaseClosureStory() {
 
         <Separator className="my-8" />
 
+        {/* ── Non-review phase handoff ─────────────────────────────── */}
+        <section>
+          <h2 className="text-base font-medium text-ink">Non-review phase handoff</h2>
+          <p className="mt-1 text-xs text-hint">PhaseHandoffCard · grounding complete with next-phase CTA</p>
+
+          <div className="mt-6 max-w-2xl">
+            <PhaseHandoffCard
+              phase="scope"
+              nextPhase="design"
+              summary="Goals, terms, context, and constraints are sufficiently captured."
+            >
+              <Button variant="outline" size="sm" className="mt-1">
+                Continue to Elicitation
+              </Button>
+            </PhaseHandoffCard>
+          </div>
+        </section>
+
+        <Separator className="my-8" />
+
         {/* ── Review phase completion ───────────────────────────────── */}
         <section>
           <h2 className="text-base font-medium text-ink">Review phase completion</h2>
@@ -78,6 +99,7 @@ export function PhaseClosureStory() {
 
           <div className="mt-6 max-w-2xl">
             <ReviewPhaseCompletionCard
+              eyebrow="Review phase complete"
               title="Requirements phase is complete"
               description="All requirements have been reviewed and finalized. You can proceed to acceptance criteria."
               cta="Continue to acceptance criteria"
@@ -95,6 +117,7 @@ export function PhaseClosureStory() {
 
           <div className="mt-6 max-w-2xl">
             <ReviewPhaseCompletionCard
+              eyebrow="Workflow complete"
               title="Specification workflow is complete"
               description="All phases — scoping, design elicitation, requirements, and acceptance criteria — have been finalized. Your project specification is ready."
             />

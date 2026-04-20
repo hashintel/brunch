@@ -1,11 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router';
-
-import { InterviewView } from './-interview-view.js';
-
-function GroundingView() {
-  return <InterviewView phase="scope" />;
-}
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/project/$id/_view/grounding')({
-  component: GroundingView,
+  loader: ({ params }) => {
+    throw redirect({
+      to: '/specification/$id/grounding',
+      params,
+    });
+  },
 });

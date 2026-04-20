@@ -1,8 +1,7 @@
 import { useRouter } from '@tanstack/react-router';
 
 import type {
-  ProjectMode,
-  ProjectStateTurn,
+  ReviewAction,
   SubmitPhaseIntentRequest,
   SubmitPhaseIntentResponse,
   SubmitTurnResponseRequest,
@@ -13,12 +12,17 @@ import { formatTurnResponseText } from '@/shared/chat.js';
 import {
   findTurnOptionsByPositions,
   getReviewActionForSelectedPositions,
-} from '@/shared/project-state-turn.js';
+} from '@/shared/specification-state.js';
+import type { SpecificationMode, SpecificationTurn } from '@/shared/specification.js';
 
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
 export interface SubmitTurnResponseMutationState {
-  readonly submitTurnResponse: (positions?: number[], freeText?: string) => Promise<boolean>;
+  readonly submitTurnResponse: (
+    positions?: number[],
+    freeText?: string,
+    reviewAction?: ReviewAction,
+  ) => Promise<boolean>;
   readonly isPending: boolean;
   readonly errorMessage: string | null;
   readonly clearError: () => void;
@@ -27,7 +31,7 @@ export interface SubmitTurnResponseMutationState {
 export interface SubmitPhaseIntentMutationState {
   readonly submitPhaseEntry: (
     phase: WorkflowPhase,
-    options?: { mode?: ProjectMode },
+    options?: { mode?: SpecificationMode },
   ) => Promise<SubmitPhaseIntentResponse | null>;
   readonly submitPhaseContinue: (phase: WorkflowPhase) => Promise<SubmitPhaseIntentResponse | null>;
   readonly isPending: boolean;
@@ -43,7 +47,7 @@ export function useSubmitPhaseIntentMutation({
   const router = useRouter();
   const mutation = useClientMutation((request: SubmitPhaseIntentRequest) =>
     postJsonMutation<SubmitPhaseIntentResponse, SubmitPhaseIntentRequest>(
-      `/api/projects/${projectId}/phase-intent`,
+      `/api/specifications/${projectId}/phase-intent`,
       request,
       'Failed to submit phase intent',
     ),
@@ -62,7 +66,7 @@ export function useSubmitPhaseIntentMutation({
   };
 
   return {
-    submitPhaseEntry: (phase: WorkflowPhase, options?: { mode?: ProjectMode }) =>
+    submitPhaseEntry: (phase: WorkflowPhase, options?: { mode?: SpecificationMode }) =>
       submitIntent({
         kind: 'phase-entry',
         phase,
@@ -85,20 +89,24 @@ export function useSubmitTurnResponseMutation({
   sendMessage,
 }: {
   projectId: number;
-  turn: ProjectStateTurn | undefined;
+  turn: SpecificationTurn | undefined;
   sendMessage: (message: { text: string }) => Promise<void> | void;
 }): SubmitTurnResponseMutationState {
   const router = useRouter();
   const mutation = useClientMutation((variables: { turnId: number; response: SubmitTurnResponseRequest }) =>
     postJsonMutation<SubmitTurnResponseResponse, SubmitTurnResponseRequest>(
-      `/api/projects/${projectId}/turns/${variables.turnId}/response`,
+      `/api/specifications/${projectId}/turns/${variables.turnId}/response`,
       variables.response,
       'Failed to save response',
     ),
   );
 
   return {
-    submitTurnResponse: async (positions: number[] = [], freeText?: string) => {
+    submitTurnResponse: async (
+      positions: number[] = [],
+      freeText?: string,
+      reviewActionOverride?: ReviewAction,
+    ) => {
       if (!turn) {
         return false;
       }
@@ -116,7 +124,7 @@ export function useSubmitTurnResponseMutation({
         return false;
       }
 
-      const reviewAction = getReviewActionForSelectedPositions(turn, uniquePositions);
+      const reviewAction = reviewActionOverride ?? getReviewActionForSelectedPositions(turn, uniquePositions);
       const response: SubmitTurnResponseRequest =
         uniquePositions.length > 0
           ? {

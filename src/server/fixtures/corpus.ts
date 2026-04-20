@@ -1,21 +1,12 @@
-import type { KnowledgeCollectionKey } from '@/shared/knowledge.js';
 import { createKnowledgeCollectionRecord } from '@/shared/knowledge.js';
 
 import type { TurnWithOptions } from '../core.js';
 import { loadActivePathWithOptions } from '../core.js';
-import { createDb, getEntitiesForProject, type DB } from '../db.js';
+import { advanceHead, createDb, createProject, createTurn, getEntitiesForProject, type DB } from '../db.js';
 import { runObserver, type ObserverOutput } from '../observer.js';
-import { projectRuntimeTurnToManifestTurn } from './durable-manifest-contract.js';
-import {
-  loadManifest,
-  seedFromManifest,
-  type ManifestEdge,
-  type ManifestKnowledgeItem,
-  type ManifestScenario,
-} from './manifest.js';
+import { seedRequirementsReady, type ScenarioFn } from './scenarios.js';
 
-type ManifestPhase = ManifestScenario['turns'][number]['phase'];
-type ObserverCollectionKey = Exclude<KnowledgeCollectionKey, never>;
+type ObserverProbePhase = TurnWithOptions['phase'];
 type DependencyKind = 'decision' | 'assumption';
 
 export interface ObservedKnowledgeItem {
@@ -54,7 +45,7 @@ export type ObserveTurnFn = (input: ObserveTurnInput) => Promise<ObservedTurnCap
 
 export interface ObserverProbeMismatch {
   turnIndex: number;
-  phase: ManifestPhase;
+  phase: ObserverProbePhase;
   expected: ObservedTurnCapture;
   actual: ObservedTurnCapture;
 }
@@ -64,10 +55,16 @@ export interface ObserverProbeResult {
   mismatches: ObserverProbeMismatch[];
 }
 
+export interface ObserverProbeScenario {
+  phase: ObserverProbePhase;
+  seedProject: ScenarioFn;
+  expectedCapture: ObservedTurnCapture;
+}
+
 export interface GoldenCorpusEntry {
   description: string;
   provenance: string;
-  scenario: ManifestScenario;
+  scenario: ObserverProbeScenario;
 }
 
 export interface GoldenCorpus {
@@ -76,49 +73,96 @@ export interface GoldenCorpus {
   entries: Record<string, GoldenCorpusEntry>;
 }
 
-type LinkRow = {
-  itemId: number;
-  kind: ManifestKnowledgeItem['kind'];
-  subtype: string | null;
-  content: string;
-  rationale: string | null;
-  turnId: number;
-  relation: 'captured' | 'reviewed' | 'rejected';
+const seedIssueTrackerScopeProbe: ScenarioFn = (db, projectName = 'Observer scope probe') => {
+  const project = createProject(db, projectName);
+  const turn = createTurn(db, project.id, {
+    phase: 'scope',
+    question: 'What is the primary goal of this issue tracker?',
+    answer:
+      'Replace our spreadsheet with a simple tracker that keeps ownership visible and records status-change history.',
+  });
+  advanceHead(db, project.id, turn.id);
+  return project.id;
 };
 
-type EdgeRow = {
-  fromItemId: number;
-  toItemId: number;
-  relation: ManifestEdge['relation'];
+const seedIssueTrackerRequirementsProbe: ScenarioFn = (db, projectName = 'Observer requirements probe') => {
+  const project = createProject(db, projectName);
+  const { designConfirmationTurn } = seedRequirementsReady(db, project.id);
+  const turn = createTurn(db, project.id, {
+    phase: 'requirements',
+    parent_turn_id: designConfirmationTurn.id,
+    question: 'Which requirements are still missing from the first release?',
+    answer:
+      'Create tickets with title, description, priority, and assignee, plus preserve a visible audit trail for every status change.',
+  });
+  advanceHead(db, project.id, turn.id);
+  return project.id;
 };
-
-const issueTrackerManifest = loadManifest('issue-tracker');
 
 export const curatedGoldenCorpus: GoldenCorpus = {
   name: 'Observer Golden Corpus',
   description:
-    'Curated hybrid corpus for observer regression probes. Each entry reuses the trusted runtime-shaped manifest seam so captured sessions normalize into the same fixture format used by seeding.',
+    'Curated TypeScript-native observer probes that seed projects directly through fixture builders or direct DB setup.',
   entries: {
     'issue-tracker-scope': {
       description:
-        'Scope-heavy issue-tracker session focused on goal / term / context / constraint discrimination.',
-      provenance:
-        'Bootstrap hybrid entry: normalized into the trusted manifest format so future confirmed-good captures can replace the source without changing the probe seam.',
-      scenario: issueTrackerManifest.scenarios['scope-closed']!,
+        'Issue-tracker grounding probe focused on goal / term / context / constraint discrimination from one answered scope turn.',
+      provenance: 'Direct TypeScript seed setup for the current observer probe seam.',
+      scenario: {
+        phase: 'scope',
+        seedProject: seedIssueTrackerScopeProbe,
+        expectedCapture: {
+          goals: [{ content: 'Replace spreadsheet issue tracking with a durable workflow', rationale: null }],
+          terms: [{ content: 'ticket', rationale: 'Trackable work item with visible ownership and status.' }],
+          contexts: [
+            { content: 'The team currently uses a spreadsheet to manage issue status', rationale: null },
+          ],
+          constraints: [
+            {
+              content: 'Keep the first release simple enough for a small team to adopt quickly',
+              rationale: null,
+            },
+          ],
+          requirements: [],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+          dependencies: [],
+        },
+      },
     },
     'issue-tracker-requirements': {
       description:
-        'Multi-phase issue-tracker session that reaches requirements review and exercises observer handoff across scope, design, and requirements.',
-      provenance:
-        'Bootstrap hybrid entry: normalized into the trusted manifest format so future confirmed-good captures can replace the source without changing the probe seam.',
-      scenario: issueTrackerManifest.scenarios['requirements-ready']!,
+        'Issue-tracker requirements probe that keeps review-mode observer coverage without relying on any legacy scenario-format setup.',
+      provenance: 'Direct TypeScript seed setup for the current observer probe seam.',
+      scenario: {
+        phase: 'requirements',
+        seedProject: seedIssueTrackerRequirementsProbe,
+        expectedCapture: {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [
+            {
+              content:
+                'Create, edit, and close tickets with title, description, priority, and assignee fields',
+              rationale: 'Captures the core ticket workflow the first release must support.',
+            },
+            {
+              content: 'Record every status change with actor identity and timestamp in an audit trail',
+              rationale: 'Preserves the compliance-sensitive audit behavior described in grounding.',
+            },
+          ],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+          dependencies: [],
+        },
+      },
     },
   },
 };
-
-function makePlaceholders(count: number): string {
-  return Array.from({ length: count }, () => '?').join(', ');
-}
 
 function sortObservedItems(items: ObservedKnowledgeItem[]): ObservedKnowledgeItem[] {
   return [...items].sort((left, right) =>
@@ -165,225 +209,8 @@ function normalizeObservedTurnCapture(capture: ObservedTurnCapture): ObservedTur
   };
 }
 
-function getActivePathLinkRows(db: DB, projectId: number, activeTurnIds: number[]): LinkRow[] {
-  if (activeTurnIds.length === 0) {
-    return [];
-  }
-
-  const placeholders = makePlaceholders(activeTurnIds.length);
-  return db.$client
-    .prepare(
-      `
-        SELECT
-          ki.id AS itemId,
-          ki.kind AS kind,
-          ki.subtype AS subtype,
-          ki.content AS content,
-          ki.rationale AS rationale,
-          tki.turn_id AS turnId,
-          tki.relation AS relation
-        FROM turn_knowledge_item tki
-        JOIN knowledge_item ki ON ki.id = tki.item_id
-        WHERE
-          ki.project_id = ?
-          AND tki.turn_id IN (${placeholders})
-          AND tki.relation IN ('captured', 'reviewed', 'rejected')
-        ORDER BY ki.id ASC, tki.turn_id ASC
-      `,
-    )
-    .all(projectId, ...activeTurnIds) as LinkRow[];
-}
-
-function getEdgesForItemIds(db: DB, itemIds: number[]): EdgeRow[] {
-  if (itemIds.length === 0) {
-    return [];
-  }
-
-  const placeholders = makePlaceholders(itemIds.length);
-  return db.$client
-    .prepare(
-      `
-        SELECT
-          from_item_id AS fromItemId,
-          to_item_id AS toItemId,
-          relation
-        FROM knowledge_edge
-        WHERE from_item_id IN (${placeholders}) AND to_item_id IN (${placeholders})
-        ORDER BY from_item_id ASC, to_item_id ASC, relation ASC
-      `,
-    )
-    .all(...itemIds, ...itemIds) as EdgeRow[];
-}
-
-export function captureProjectToManifestScenario(db: DB, projectId: number): ManifestScenario {
-  const turns = loadActivePathWithOptions(db, projectId);
-  const authorityTurns = turns.flatMap((turn) => {
-    const manifestTurn = projectRuntimeTurnToManifestTurn({ db, projectId, turn });
-    return manifestTurn ? [{ turnId: turn.id, manifestTurn }] : [];
-  });
-  const turnIndexById = new Map(authorityTurns.map(({ turnId }, index) => [turnId, index]));
-  const manifestTurns = authorityTurns.map(({ manifestTurn }) => manifestTurn);
-
-  const activeTurnIds = authorityTurns.map(({ turnId }) => turnId);
-  const linkRows = getActivePathLinkRows(db, projectId, activeTurnIds);
-  const rowsByItemId = new Map<number, LinkRow[]>();
-  for (const row of linkRows) {
-    const rows = rowsByItemId.get(row.itemId) ?? [];
-    rows.push(row);
-    rowsByItemId.set(row.itemId, rows);
-  }
-
-  const itemIds = [...rowsByItemId.keys()].sort((left, right) => left - right);
-  const itemIndexById = new Map<number, number>();
-  const knowledgeItems = itemIds.map((itemId, index) => {
-    itemIndexById.set(itemId, index);
-    const rows = rowsByItemId.get(itemId) ?? [];
-    const capturedRow = rows.find((row) => row.relation === 'captured');
-    if (!capturedRow) {
-      throw new Error(`Knowledge item ${itemId} is missing captured provenance on the active path`);
-    }
-
-    const reviewRows = rows.filter(
-      (row): row is LinkRow & { relation: 'reviewed' | 'rejected' } =>
-        row.relation === 'reviewed' || row.relation === 'rejected',
-    );
-    const latestReviewRow = reviewRows.at(-1);
-
-    return {
-      kind: capturedRow.kind,
-      content: capturedRow.content,
-      rationale: capturedRow.rationale,
-      capturedAtTurn: turnIndexById.get(capturedRow.turnId)!,
-      ...(latestReviewRow
-        ? {
-            reviewAction: latestReviewRow.relation,
-            reviewedAtTurn: turnIndexById.get(latestReviewRow.turnId)!,
-          }
-        : {}),
-    };
-  });
-
-  const edges = getEdgesForItemIds(db, itemIds)
-    .map((edge) => ({
-      fromItemIndex: itemIndexById.get(edge.fromItemId),
-      toItemIndex: itemIndexById.get(edge.toItemId),
-      relation: edge.relation,
-    }))
-    .filter(
-      (
-        edge,
-      ): edge is {
-        fromItemIndex: number;
-        toItemIndex: number;
-        relation: ManifestEdge['relation'];
-      } => edge.fromItemIndex != null && edge.toItemIndex != null,
-    );
-
-  return {
-    turns: manifestTurns,
-    knowledgeItems,
-    edges,
-  };
-}
-
-function buildObserverProbePrefixScenario(scenario: ManifestScenario, turnIndex: number): ManifestScenario {
-  const includedTurns = scenario.turns.slice(0, turnIndex + 1);
-  const itemIndexMap = new Map<number, number>();
-
-  const knowledgeItems = scenario.knowledgeItems.flatMap((item, itemIndex) => {
-    if (item.capturedAtTurn >= turnIndex) {
-      return [];
-    }
-
-    const normalizedItem: ManifestKnowledgeItem = {
-      kind: item.kind,
-      content: item.content,
-      rationale: item.rationale ?? null,
-      capturedAtTurn: item.capturedAtTurn,
-      ...(item.reviewAction && item.reviewedAtTurn != null && item.reviewedAtTurn < turnIndex
-        ? {
-            reviewAction: item.reviewAction,
-            reviewedAtTurn: item.reviewedAtTurn,
-          }
-        : {}),
-    };
-    itemIndexMap.set(itemIndex, itemIndexMap.size);
-    return [normalizedItem];
-  });
-
-  const edges = scenario.edges.flatMap((edge) => {
-    const fromItemIndex = itemIndexMap.get(edge.fromItemIndex);
-    const toItemIndex = itemIndexMap.get(edge.toItemIndex);
-    if (fromItemIndex == null || toItemIndex == null) {
-      return [];
-    }
-
-    return [
-      {
-        fromItemIndex,
-        toItemIndex,
-        relation: edge.relation,
-      },
-    ];
-  });
-
-  return {
-    turns: includedTurns,
-    knowledgeItems,
-    edges,
-  };
-}
-
-function getCollectionKeyForKind(kind: ManifestKnowledgeItem['kind']): ObserverCollectionKey {
-  if (kind === 'goal') return 'goals';
-  if (kind === 'term') return 'terms';
-  if (kind === 'context') return 'contexts';
-  if (kind === 'constraint') return 'constraints';
-  if (kind === 'requirement') return 'requirements';
-  if (kind === 'criterion') return 'criteria';
-  if (kind === 'decision') return 'decisions';
-  return 'assumptions';
-}
-
-function buildExpectedTurnCapture(scenario: ManifestScenario, turnIndex: number): ObservedTurnCapture {
-  const capture = createEmptyObservedTurnCapture();
-
-  for (const item of scenario.knowledgeItems) {
-    if (item.capturedAtTurn !== turnIndex) {
-      continue;
-    }
-
-    capture[getCollectionKeyForKind(item.kind)].push({
-      content: item.content,
-      rationale: item.rationale ?? null,
-    });
-  }
-
-  for (const edge of scenario.edges) {
-    const source = scenario.knowledgeItems[edge.fromItemIndex];
-    const target = scenario.knowledgeItems[edge.toItemIndex];
-    if (!source || !target || edge.relation !== 'depends_on') {
-      continue;
-    }
-    if (source.capturedAtTurn !== turnIndex) {
-      continue;
-    }
-    if (
-      (source.kind !== 'decision' && source.kind !== 'assumption') ||
-      (target.kind !== 'decision' && target.kind !== 'assumption')
-    ) {
-      continue;
-    }
-
-    capture.dependencies.push({
-      sourceKind: source.kind,
-      sourceContent: source.content,
-      targetKind: target.kind,
-      targetContent: target.content,
-    });
-  }
-
-  return normalizeObservedTurnCapture(capture);
+function buildExpectedTurnCapture(scenario: ObserverProbeScenario): ObservedTurnCapture {
+  return normalizeObservedTurnCapture(scenario.expectedCapture);
 }
 
 function getAllEntityContentById(db: DB, projectId: number): Map<number, string> {
@@ -418,12 +245,18 @@ function getEntityIdByKindAndContent(
 }
 
 export function buildExpectedObserverOutputForTurn(
-  scenario: ManifestScenario,
+  scenario: ObserverProbeScenario,
   turnIndex: number,
   db: DB,
   projectId: number,
 ): ObserverOutput {
-  const expectedCapture = buildExpectedTurnCapture(scenario, turnIndex);
+  if (turnIndex !== 0) {
+    throw new Error(
+      `Observer probe scenarios currently expose a single probe turn, received index ${turnIndex}`,
+    );
+  }
+
+  const expectedCapture = buildExpectedTurnCapture(scenario);
 
   return {
     goals: expectedCapture.goals.map((item) => ({
@@ -577,47 +410,44 @@ export async function observeTurnWithRunObserver(input: ObserveTurnInput): Promi
 }
 
 export async function probeObserverScenario(
-  scenario: ManifestScenario,
+  scenario: ObserverProbeScenario,
   observeTurn: ObserveTurnFn = observeTurnWithRunObserver,
 ): Promise<ObserverProbeResult> {
-  const questionTurnIndexes = scenario.turns.flatMap((turn, turnIndex) => (turn.question ? [turnIndex] : []));
-  const mismatches: ObserverProbeMismatch[] = [];
+  const probeDb = createDb();
 
-  for (const turnIndex of questionTurnIndexes) {
-    const probeDb = createDb();
-    try {
-      const probeScenario = buildObserverProbePrefixScenario(scenario, turnIndex);
-      const projectId = seedFromManifest(probeDb, probeScenario, `Observer Probe ${turnIndex}`);
-      const turn = loadActivePathWithOptions(probeDb, projectId).at(-1);
-      if (!turn) {
-        throw new Error(`Observer probe for turn ${turnIndex} could not load the active path turn`);
-      }
-
-      const actual = normalizeObservedTurnCapture(
-        await observeTurn({
-          db: probeDb,
-          turn,
-          projectId,
-          turnIndex,
-        }),
-      );
-      const expected = buildExpectedTurnCapture(scenario, turnIndex);
-
-      if (JSON.stringify(actual) !== JSON.stringify(expected)) {
-        mismatches.push({
-          turnIndex,
-          phase: scenario.turns[turnIndex]!.phase,
-          expected,
-          actual,
-        });
-      }
-    } finally {
-      probeDb.$client.close();
+  try {
+    const turnIndex = 0;
+    const projectId = scenario.seedProject(probeDb, `Observer Probe ${scenario.phase}`);
+    const turn = loadActivePathWithOptions(probeDb, projectId).at(-1);
+    if (!turn) {
+      throw new Error(`Observer probe for phase ${scenario.phase} could not load the active path turn`);
     }
-  }
 
-  return {
-    probedTurns: questionTurnIndexes.length,
-    mismatches,
-  };
+    const actual = normalizeObservedTurnCapture(
+      await observeTurn({
+        db: probeDb,
+        turn,
+        projectId,
+        turnIndex,
+      }),
+    );
+    const expected = buildExpectedTurnCapture(scenario);
+
+    return {
+      probedTurns: 1,
+      mismatches:
+        JSON.stringify(actual) === JSON.stringify(expected)
+          ? []
+          : [
+              {
+                turnIndex,
+                phase: scenario.phase,
+                expected,
+                actual,
+              },
+            ],
+    };
+  } finally {
+    probeDb.$client.close();
+  }
 }

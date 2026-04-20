@@ -2,6 +2,7 @@ import { table, h3 } from 'md-pen';
 
 import type { ProjectMode } from '@/shared/api-types.js';
 import { knowledgeKindRegistry } from '@/shared/knowledge.js';
+import { getPersistedGroundingCard } from '@/shared/specification-state.js';
 
 import type { TurnWithOptions } from './core.js';
 import { formatProjectedTurnResponse, projectTurnResponse } from './turn-response.js';
@@ -65,6 +66,21 @@ export function buildInterviewerContext(
   const sections: string[] = [];
   const lines: string[] = [];
   for (const turn of turns) {
+    const groundingCard = getPersistedGroundingCard(turn);
+    if (groundingCard) {
+      lines.push(`Grounding card: ${groundingCard.summary}`);
+      if (groundingCard.detail) {
+        lines.push(`  Detail: ${groundingCard.detail}`);
+      }
+      const projectedGroundingResponse = projectTurnResponse(turn);
+      if (projectedGroundingResponse) {
+        lines.push(formatProjectedTurnResponse(projectedGroundingResponse));
+      } else if (turn.answer) {
+        lines.push(`Grounding response: ${turn.answer}`);
+      }
+      continue;
+    }
+
     if (turn.question) {
       let questionLine = `Question: ${turn.question}`;
       if (turn.why) questionLine += `\n  Why it matters: ${turn.why}`;

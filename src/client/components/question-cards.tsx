@@ -1,12 +1,15 @@
 import { Check, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import type { Impact, ProjectStateTurn } from '@/shared/api-types.js';
-import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/project-state-turn.js';
+import type { Impact, ReviewAction } from '@/shared/api-types.js';
+import type { ActivitySummary, GroundingCardData } from '@/shared/chat.js';
+import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/specification-state.js';
+import type { SpecificationTurn } from '@/shared/specification.js';
 
 import { cn } from '../lib/utils';
-import { ShellButton } from './app-shell';
+import { Button } from './app-shell';
 import { DrawerCard } from './drawer-card';
+import { isVisibleKnowledgeKind } from './knowledge-display';
 import { ReviewSetCard, type ReviewSetCardData } from './review-set-card';
 import { Checkbox } from './ui/checkbox';
 import { Skeleton } from './ui/skeleton';
@@ -38,7 +41,7 @@ export function AnsweredQuestionCard({
   questionCode,
   captureStatus,
 }: {
-  turn: ProjectStateTurn;
+  turn: SpecificationTurn;
   questionCode: string;
   captureStatus?: 'waiting' | 'applying';
 }) {
@@ -56,18 +59,18 @@ export function AnsweredQuestionCard({
         ? 'None'
         : turn.answer?.trim() || '—';
   const responseContext = persistedResponse?.freeText?.trim() || turn.answer?.trim() || null;
-  const capturedItems = turn.captured_items ?? [];
+  const capturedItems = (turn.captured_items ?? []).filter((item) => isVisibleKnowledgeKind(item.kind));
   const displayCaptureStatus: 'done' | 'trailing' =
     captureStatus === 'waiting' || captureStatus === 'applying' ? 'trailing' : 'done';
   const impact = turn.impact ?? 'low';
 
   const header = (
     <div className="flex flex-col gap-1.5">
-      <div className="flex flex-row text-[12px] items-center justify-between gap-2.5">
+      <div className="flex flex-row items-center justify-between gap-2.5 text-[12px]">
         <span className={cn('font-medium', impactColor[impact])}>
           {impact[0]!.toUpperCase() + impact.slice(1)} Impact
         </span>
-        <span className="flex text-[11px] text-[#16a34a] h-5 gap-1 -m-0.5 px-2 shrink-0 items-center justify-center rounded-full bg-[rgba(22,163,106,0.1)]">
+        <span className="-m-0.5 flex h-5 shrink-0 items-center justify-center gap-1 rounded-full bg-[rgba(22,163,106,0.1)] px-2 text-[11px] text-[#16a34a]">
           Answered
           <Check className="size-2.5" />
         </span>
@@ -90,7 +93,7 @@ export function AnsweredQuestionCard({
             <span className="shrink-0 text-rule">|</span>
             <div className="min-w-0 grow">
               <span className="block truncate text-sub">
-                Context: <span className="italic text-sub">"{responseContext}"</span>
+                Context: <span className="text-sub italic">"{responseContext}"</span>
               </span>
             </div>
           </>
@@ -108,7 +111,7 @@ export function AnsweredQuestionCard({
           capturedItems.map((item) => (
             <span
               key={`${item.collection}:${item.id}`}
-              className="inline-flex h-5 items-center rounded bg-wash px-1.5 text-[11px] font-medium leading-none text-sub"
+              className="inline-flex h-5 items-center rounded bg-wash px-1.5 text-[11px] leading-none font-medium text-sub"
             >
               {item.referenceCode ?? `#${item.id}`}
             </span>
@@ -131,7 +134,7 @@ export function AnsweredReviewSetCard({
   turn,
   reviewSet,
 }: {
-  turn: ProjectStateTurn;
+  turn: SpecificationTurn;
   reviewSet: ReviewSetCardData;
 }) {
   const persistedResponse = getPersistedTurnResponse(turn);
@@ -153,9 +156,132 @@ export function AnsweredReviewSetCard({
   );
 }
 
-export function ActiveReviewSetCard({
-  options,
+export function AnsweredGroundingCard({
+  groundingCard,
+  turn,
+}: {
+  groundingCard: GroundingCardData;
+  turn: SpecificationTurn;
+}) {
+  const persistedResponse = getPersistedTurnResponse(turn);
+  const note = persistedResponse?.freeText?.trim() ?? '';
+
+  return (
+    <div data-testid="answered-grounding-card">
+      <DrawerCard
+        locked
+        header={
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium tracking-wide text-[#2070e6] uppercase">Grounding</span>
+            <p className="text-sm-plus font-medium tracking-[-0.015em] text-ink">{groundingCard.summary}</p>
+          </div>
+        }
+        summary={
+          <div className="flex flex-col gap-2 text-xs-plus text-sub">
+            {groundingCard.detail ? <p className="leading-relaxed text-sub">{groundingCard.detail}</p> : null}
+            <div className="flex items-center gap-2 text-xs">
+              <span className="text-sub">Note:</span>
+              <span className={note ? 'text-ink' : 'text-hint'}>{note || 'None'}</span>
+            </div>
+          </div>
+        }
+      />
+    </div>
+  );
+}
+
+export function ActiveGroundingCard({
+  groundingCard,
   onSubmitResponse,
+  persistedFreeText,
+  hasPersistedResponse,
+  disabled,
+  state,
+  continuePosition,
+}: {
+  groundingCard: GroundingCardData;
+  onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
+  persistedFreeText: string;
+  hasPersistedResponse: boolean;
+  disabled: boolean;
+  state: 'active' | 'submitted';
+  continuePosition: number | undefined;
+}) {
+  const [note, setNote] = useState(persistedFreeText);
+  const isSubmitted = state === 'submitted';
+  const isReadOnly = disabled || hasPersistedResponse || isSubmitted || continuePosition === undefined;
+  const continueLabel = groundingCard.continueLabel?.trim() || 'Continue';
+
+  useEffect(() => {
+    if (!hasPersistedResponse) {
+      return;
+    }
+
+    setNote(persistedFreeText);
+  }, [hasPersistedResponse, persistedFreeText]);
+
+  return (
+    <div data-testid="active-grounding-card">
+      <DrawerCard
+        locked
+        defaultExpanded
+        header={
+          <div className="flex flex-col gap-1.5">
+            <span className="text-xs font-medium tracking-wide text-[#2070e6] uppercase">Grounding</span>
+            <p className="text-[17px] leading-[1.4] font-medium tracking-[-0.015em] text-ink">
+              {groundingCard.summary}
+            </p>
+          </div>
+        }
+      >
+        <div className="flex flex-col gap-4">
+          {groundingCard.detail ? (
+            <p className="text-xs-plus leading-relaxed text-sub">{groundingCard.detail}</p>
+          ) : null}
+
+          {isSubmitted ? (
+            <div
+              className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-900/60 dark:bg-amber-950/40 dark:text-amber-100"
+              data-testid="turn-processing-state"
+            >
+              Interviewer is processing this grounding note.
+            </div>
+          ) : null}
+
+          <div className="-mx-4 -mb-4 border-t border-rule bg-white px-4 pt-3">
+            <label className="text-xs text-sub" htmlFor="grounding-card-note">
+              Add an optional note before continuing.
+            </label>
+            <Textarea
+              id="grounding-card-note"
+              aria-label="Grounding card note"
+              value={note}
+              onChange={(event) => setNote(event.target.value)}
+              disabled={isReadOnly}
+              placeholder="Missing context, caveats, or feature-area corrections worth carrying forward…"
+              className="min-h-24 resize-none rounded-none border-0 bg-transparent px-0 pt-2 pb-5 text-sm-plus text-ink placeholder:text-hint focus-visible:ring-0"
+            />
+          </div>
+        </div>
+      </DrawerCard>
+
+      {!isSubmitted ? (
+        <div className="mt-3 flex justify-end">
+          <Button
+            variant="primary"
+            disabled={isReadOnly}
+            onClick={() => onSubmitResponse?.([continuePosition!], note.trim() || undefined)}
+          >
+            {continueLabel}
+          </Button>
+        </div>
+      ) : null}
+    </div>
+  );
+}
+
+export function ActiveReviewSetCard({
+  onSubmitReviewAction,
   persistedFreeText,
   hasPersistedResponse,
   disabled,
@@ -164,8 +290,7 @@ export function ActiveReviewSetCard({
   question,
   why,
 }: {
-  options: readonly TurnCardOption[];
-  onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
+  onSubmitReviewAction?: (reviewAction: ReviewAction, freeText?: string) => void | Promise<void>;
   persistedFreeText: string;
   hasPersistedResponse: boolean;
   disabled: boolean;
@@ -177,8 +302,6 @@ export function ActiveReviewSetCard({
   const [note, setNote] = useState(persistedFreeText);
   const isSubmitted = state === 'submitted';
   const isReadOnly = disabled || hasPersistedResponse || isSubmitted;
-  const acceptReviewPosition = options.find((option) => option.position === 0)?.position;
-  const requestChangesPosition = options.find((option) => option.position === 1)?.position;
 
   useEffect(() => {
     if (!hasPersistedResponse) {
@@ -188,12 +311,12 @@ export function ActiveReviewSetCard({
     setNote(persistedFreeText);
   }, [hasPersistedResponse, persistedFreeText]);
 
-  function submitReviewAction(position: number | undefined) {
-    if (position === undefined || isReadOnly) {
+  function submitReviewAction(reviewAction: ReviewAction) {
+    if (isReadOnly) {
       return;
     }
 
-    void onSubmitResponse?.([position], note.trim() || undefined);
+    void onSubmitReviewAction?.(reviewAction, note.trim() || undefined);
   }
 
   return (
@@ -203,8 +326,8 @@ export function ActiveReviewSetCard({
         description={why ?? question}
         note={note}
         onNoteChange={setNote}
-        onAccept={() => submitReviewAction(acceptReviewPosition)}
-        onRequestChanges={() => submitReviewAction(requestChangesPosition)}
+        onAccept={() => submitReviewAction('accept')}
+        onRequestChanges={() => submitReviewAction('request-changes')}
         disabled={isReadOnly}
         submitted={isSubmitted}
       />
@@ -215,7 +338,7 @@ export function ActiveReviewSetCard({
 // ── Active question card ────────────────────────────────────────────
 
 type TurnCardOption = Pick<
-  NonNullable<ProjectStateTurn['options']>[number],
+  NonNullable<SpecificationTurn['options']>[number],
   'position' | 'content' | 'is_recommended'
 >;
 
@@ -239,7 +362,7 @@ export function ActiveQuestionCard({
   questionCode?: string;
   question: string;
   why: string | null;
-  impact: ProjectStateTurn['impact'];
+  impact: SpecificationTurn['impact'];
   options: readonly TurnCardOption[];
   onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
   onBack?: () => void;
@@ -366,7 +489,7 @@ export function ActiveQuestionCard({
           onChange={(e) => setFreeText(e.target.value)}
           disabled={isReadOnly}
           placeholder="Constraints, trade-offs, motivations, or reasoning worth capturing…"
-          className="min-h-24 resize-none rounded-none border-0 bg-transparent px-0 pb-5 pt-2 text-sm-plus text-ink placeholder:text-hint focus-visible:ring-0"
+          className="min-h-24 resize-none rounded-none border-0 bg-transparent px-0 pt-2 pb-5 text-sm-plus text-ink placeholder:text-hint focus-visible:ring-0"
         />
       </div>
     </>
@@ -380,20 +503,20 @@ export function ActiveQuestionCard({
 
       {!isSubmitted && (
         <div className="mt-3 flex items-center justify-between">
-          <ShellButton variant="ghost" disabled={isReadOnly} onClick={onBack}>
+          <Button variant="ghost" disabled={isReadOnly} onClick={onBack}>
             Back
-          </ShellButton>
+          </Button>
           <div className="flex items-center gap-2">
-            <ShellButton variant="ghost" disabled={isReadOnly} onClick={onSkip}>
+            <Button variant="ghost" disabled={isReadOnly} onClick={onSkip}>
               Skip
-            </ShellButton>
-            <ShellButton
+            </Button>
+            <Button
               variant="primary"
               disabled={isReadOnly || !canSubmit}
               onClick={() => onSubmitResponse?.(selectedPositions, freeText.trim() || undefined)}
             >
               Submit
-            </ShellButton>
+            </Button>
           </div>
         </div>
       )}
@@ -427,7 +550,7 @@ export function QuestionCardSkeleton() {
 
 // ── Generating state container ──────────────────────────────────────
 
-export function GeneratingTurnPlaceholder() {
+export function GeneratingTurnPlaceholder({ liveActivity }: { liveActivity?: ActivitySummary }) {
   const startTimeRef = useRef<number>(Date.now());
   const [seconds, setSeconds] = useState(0);
 
@@ -441,7 +564,7 @@ export function GeneratingTurnPlaceholder() {
 
   return (
     <div className="flex flex-col" data-testid="generating-turn-placeholder">
-      <ActivityPlaceholder seconds={seconds > 0 ? seconds : undefined} />
+      <ActivityPlaceholder seconds={seconds > 0 ? seconds : undefined} tools={liveActivity?.tools} />
       <QuestionCardSkeleton />
     </div>
   );

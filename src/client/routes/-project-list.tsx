@@ -2,8 +2,9 @@ import { Link, getRouteApi, useNavigate } from '@tanstack/react-router';
 import { SignalHigh, SignalLow, SignalMedium } from 'lucide-react';
 import { useState } from 'react';
 
-import { EmptyCard, ShellButton } from '@/client/components/app-shell';
-import { Button } from '@/client/components/ui/button';
+import brunchLogo from '@/client/assets/brunch.png';
+import { Button, EmptyCard } from '@/client/components/app-shell';
+import { Button as ShadcnButton } from '@/client/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -12,26 +13,28 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/client/components/ui/dialog';
-import { useCreateProjectMutation } from '@/client/mutations/project-mutations';
-import type { ProjectListItem, ReadinessBand, WorkflowPhaseStatus } from '@/shared/api-types.js';
-import { workflowPhaseLabels } from '@/shared/phase-display.js';
-import { phaseOrder } from '@/shared/phase-routes.js';
+import { useCreateSpecificationMutation } from '@/client/mutations/specification-mutations';
+import type { ReadinessBand, WorkflowPhaseStatus } from '@/shared/api-types.js';
+import { getCurrentOpenPhase, getWorkflowPhaseLabel, phaseOrder } from '@/shared/phase-descriptors.js';
+import type { SpecificationListItem } from '@/shared/specification.js';
 
-const projectListRouteApi = getRouteApi('/');
+const specificationListRouteApi = getRouteApi('/');
 
-function getCurrentPhaseInfo(summary: ProjectListItem['workflowSummary']): {
+type DialogStep = 'closed' | 'name';
+
+function getCurrentPhaseInfo(summary: SpecificationListItem['workflowSummary']): {
   label: string;
   number: number;
 } {
-  for (let i = 0; i < phaseOrder.length; i++) {
-    if (summary[phaseOrder[i]!] === 'in_progress') {
-      return { label: workflowPhaseLabels[phaseOrder[i]!], number: i + 1 };
-    }
+  const currentPhase = getCurrentOpenPhase(summary);
+  if (currentPhase) {
+    return {
+      label: getWorkflowPhaseLabel(currentPhase),
+      number: phaseOrder.indexOf(currentPhase) + 1,
+    };
   }
-  if (phaseOrder.every((p) => summary[p] === 'closed')) {
-    return { label: 'Complete', number: phaseOrder.length };
-  }
-  return { label: workflowPhaseLabels[phaseOrder[0]!], number: 1 };
+
+  return { label: 'Complete', number: phaseOrder.length };
 }
 
 function PhaseDot({ status }: { status: WorkflowPhaseStatus }) {
@@ -56,40 +59,40 @@ function ReadinessIcon({ readiness }: { readiness: ReadinessBand }) {
   return <Icon className={`size-3.5 ${iconClass}`} />;
 }
 
-type DialogStep = 'closed' | 'name';
-
-export async function fetchProjectListLoaderData(): Promise<ProjectListItem[]> {
-  const response = await fetch('/api/projects');
+export async function fetchSpecificationListLoaderData(): Promise<SpecificationListItem[]> {
+  const response = await fetch('/api/specifications');
   if (!response.ok) {
-    throw new Error('Failed to load projects');
+    throw new Error('Failed to load specifications');
   }
 
-  return response.json() as Promise<ProjectListItem[]>;
+  return response.json() as Promise<SpecificationListItem[]>;
 }
 
-export function ProjectList() {
-  const projects = projectListRouteApi.useLoaderData();
+export function SpecificationList() {
+  const specifications = specificationListRouteApi.useLoaderData();
   const navigate = useNavigate();
-  const createProjectMutation = useCreateProjectMutation();
+  const createSpecificationMutation = useCreateSpecificationMutation();
   const [dialogStep, setDialogStep] = useState<DialogStep>('closed');
-  const [projectName, setProjectName] = useState('');
+  const [specificationName, setSpecificationName] = useState('');
 
-  const navigateToProject = (projectId: number) => {
-    void navigate({ to: '/project/$id', params: { id: String(projectId) } });
+  const navigateToSpecification = (specificationId: number) => {
+    void navigate({ to: '/specification/$id', params: { id: String(specificationId) } });
   };
 
   const handleOpen = () => {
-    setProjectName('');
-    createProjectMutation.clearError();
+    setSpecificationName('');
+    createSpecificationMutation.clearError();
     setDialogStep('name');
   };
 
   const handleNameSubmit = async () => {
-    if (!projectName.trim()) return;
+    if (!specificationName.trim()) return;
     setDialogStep('closed');
     try {
-      const project = await createProjectMutation.createProject({ name: projectName.trim() });
-      navigateToProject(project.id);
+      const specification = await createSpecificationMutation.createSpecification({
+        name: specificationName.trim(),
+      });
+      navigateToSpecification(specification.id);
     } catch {
       setDialogStep('name');
       // The shared mutation hook surfaces the failure state in the UI.
@@ -103,74 +106,84 @@ export function ProjectList() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl p-6">
-        {createProjectMutation.errorMessage && (
+        <div className="mb-6 flex items-center gap-4">
+          <img src={brunchLogo} alt="Brunch logo" className="size-24  object-contain" />
+          <div className="flex flex-col">
+            <h1 className="text-[24px] font-semibold tracking-[-0.015em] text-ink">Brunch</h1>
+            <p className="text-base text-sub">
+              A tool for building software specifications with AI assistance
+            </p>
+          </div>
+        </div>
+
+        {createSpecificationMutation.errorMessage && (
           <p role="alert" className="mb-4 text-sm text-destructive">
-            {createProjectMutation.errorMessage}
+            {createSpecificationMutation.errorMessage}
           </p>
         )}
 
-        {projects.length === 0 ? (
+        {specifications.length === 0 ? (
           <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-rule bg-[#f7f7f7] px-8 py-16 text-center">
             <p className="text-base font-medium tracking-[-0.015em] text-sub">No specifications yet</p>
             <p className="max-w-sm text-sm leading-relaxed text-sub">
               Create your first specification to start the interview process.
             </p>
             <div className="mt-2">
-              <ShellButton
+              <Button
                 variant="primary"
                 onClick={handleOpen}
-                disabled={createProjectMutation.isPending}
+                disabled={createSpecificationMutation.isPending}
                 className="h-10 px-5 text-base"
               >
-                {createProjectMutation.isPending ? 'Creating...' : 'New specification'}
-              </ShellButton>
+                {createSpecificationMutation.isPending ? 'Creating...' : 'New specification'}
+              </Button>
             </div>
           </div>
         ) : (
           <>
             <EmptyCard
-              title="Specification"
-              description="Start the interview to generate your next spec draft."
+              // title="Specification"
+              description="Begin building your next spec draft!"
               className="mb-4"
             >
               <div className="mt-3">
-                <ShellButton
+                <Button
                   variant="primary"
                   onClick={handleOpen}
-                  disabled={createProjectMutation.isPending}
+                  disabled={createSpecificationMutation.isPending}
                 >
-                  {createProjectMutation.isPending ? 'Creating...' : 'New specification'}
-                </ShellButton>
+                  {createSpecificationMutation.isPending ? 'Creating...' : 'New specification'}
+                </Button>
               </div>
             </EmptyCard>
 
             <div className="grid grid-cols-2 gap-3">
-              {projects.map((project) => (
+              {specifications.map((specification) => (
                 <Link
-                  key={project.id}
-                  to="/project/$id"
-                  params={{ id: String(project.id) }}
+                  key={specification.id}
+                  to="/specification/$id"
+                  params={{ id: String(specification.id) }}
                   className="block"
                 >
                   <div className="cursor-pointer overflow-hidden rounded-xl border border-rule bg-white p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-tint">
-                    <div className="text-sm-plus leading-snug font-medium text-ink">{project.name}</div>
+                    <div className="text-sm-plus leading-snug font-medium text-ink">{specification.name}</div>
                     <div className="mt-1.5 flex items-center gap-2">
                       <span className="text-xs text-hint">Phase</span>
                       <span className="text-xs font-medium text-[#2070e6]">
-                        {getCurrentPhaseInfo(project.workflowSummary).number}/{phaseOrder.length} –{' '}
-                        {getCurrentPhaseInfo(project.workflowSummary).label}
+                        {getCurrentPhaseInfo(specification.workflowSummary).number}/{phaseOrder.length} –{' '}
+                        {getCurrentPhaseInfo(specification.workflowSummary).label}
                       </span>
                       <span className="flex items-center gap-1">
                         {phaseOrder.map((phase) => (
-                          <PhaseDot key={phase} status={project.workflowSummary[phase]} />
+                          <PhaseDot key={phase} status={specification.workflowSummary[phase]} />
                         ))}
                       </span>
-                      {project.workflowSummary.currentReadiness ? (
-                        <ReadinessIcon readiness={project.workflowSummary.currentReadiness} />
+                      {specification.workflowSummary.currentReadiness ? (
+                        <ReadinessIcon readiness={specification.workflowSummary.currentReadiness} />
                       ) : null}
                     </div>
                     <div className="mt-1 text-xs text-hint">
-                      Updated: {new Date(project.updated_at).toLocaleDateString()}
+                      Updated: {new Date(specification.updated_at).toLocaleDateString()}
                     </div>
                   </div>
                 </Link>
@@ -189,17 +202,17 @@ export function ProjectList() {
                 </DialogHeader>
                 <input
                   type="text"
-                  value={projectName}
-                  onChange={(event) => setProjectName(event.target.value)}
+                  value={specificationName}
+                  onChange={(event) => setSpecificationName(event.target.value)}
                   onKeyDown={(event) => event.key === 'Enter' && handleNameSubmit()}
                   placeholder="Specification name"
                   autoFocus
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
                 <DialogFooter>
-                  <Button onClick={() => void handleNameSubmit()} disabled={!projectName.trim()}>
+                  <ShadcnButton onClick={() => void handleNameSubmit()} disabled={!specificationName.trim()}>
                     Create specification
-                  </Button>
+                  </ShadcnButton>
                 </DialogFooter>
               </>
             )}

@@ -135,15 +135,8 @@ function buildObserverPhaseBias(phase: Turn['phase']): string {
   return lines.join(' ');
 }
 
-function buildObserverSystemPrompt(
-  phase: Turn['phase'],
-  options?: { projectMode?: 'greenfield' | 'brownfield' },
-): string {
+function buildObserverSystemPrompt(phase: Turn['phase']): string {
   const phaseBias = buildObserverPhaseBias(phase);
-  const brownfieldKickoffBias =
-    phase === 'scope' && options?.projectMode === 'brownfield'
-      ? `This scope turn comes from a brownfield kickoff in an existing codebase. Use repo-grounded cues from the question and why fields as evidence about durable terminology, context, constraints, and the likely feature boundary the user wants to explore. Prefer stable facts about the existing system or requested change over incidental file listings or transient exploration steps.`
-      : '';
   const kindSemantics = knowledgeKindRegistry
     .map((entry, index) => `${index + 1}. **${entry.kind}** — ${knowledgeKindSemanticRoles[entry.kind]}.`)
     .join('\n');
@@ -158,8 +151,6 @@ Your job is to extract typed knowledge items from the Q&A exchange. Canonical ki
 ${kindSemantics}
 
 ${phaseBias}
-
-${brownfieldKickoffBias}
 
 For decisions and assumptions, identify dependency edges to previously extracted entities by their IDs.
 
@@ -179,6 +170,7 @@ export async function runObserver(
   db: DB,
   turn: Turn,
   projectId: number,
+  projectCwd?: string,
 ): Promise<{
   entityIds: ObserverEntityIds;
   draftReviewItems: { requirements: ObserverDraftReviewItem[]; criteria: ObserverDraftReviewItem[] };
@@ -194,7 +186,7 @@ export async function runObserver(
     },
     activePathSummary: '',
     projectMode: project?.mode,
-    projectCwd: project?.cwd,
+    projectCwd,
     entities:
       turn.phase === 'requirements'
         ? {
@@ -212,7 +204,7 @@ export async function runObserver(
   const result = await generateText({
     model: anthropic(process.env.OBSERVER_MODEL || 'claude-haiku-4-5-20251001'),
     maxOutputTokens: 2048,
-    system: buildObserverSystemPrompt(turn.phase, { projectMode: project?.mode }),
+    system: buildObserverSystemPrompt(turn.phase),
     prompt: context,
     output: Output.object({ schema: observerOutputSchema }),
   });

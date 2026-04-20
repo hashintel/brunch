@@ -1,8 +1,9 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { EntitiesData, ReadinessBand, WorkflowState } from '@/shared/api-types.js';
+import { getSpecificationRecord } from '@/shared/specification.js';
 
-import { getProjectState } from './core.js';
+import { getSpecificationState } from './core.js';
 import {
   advanceHead,
   createDb,
@@ -255,7 +256,7 @@ describe('renderExportMarkdown', () => {
     const projectId = createProject(db, 'Forced-Close All Phases Closed').id;
     seedAllPhasesClosedWithForcedDesign(db, projectId);
 
-    const projectState = getProjectState(db, projectId);
+    const projectState = getSpecificationState(db, projectId);
     expect(projectState).not.toBeNull();
     expect(projectState?.workflow.phases.design).toMatchObject({
       status: 'closed',
@@ -263,7 +264,7 @@ describe('renderExportMarkdown', () => {
     });
 
     const markdown = renderExportMarkdown(
-      projectState!.project.name,
+      getSpecificationRecord(projectState!).name,
       getEntitiesForProjectOnActivePath(db, projectId),
       projectState!.workflow,
     );
@@ -277,7 +278,7 @@ describe('renderExportMarkdown', () => {
     const projectId = createProject(db, 'Low-Readiness All Phases Closed').id;
     seedAllPhasesClosedWithLowReadinessScope(db, projectId);
 
-    const projectState = getProjectState(db, projectId);
+    const projectState = getSpecificationState(db, projectId);
     expect(projectState).not.toBeNull();
     expect(projectState?.workflow.phases.scope).toMatchObject({
       status: 'closed',
@@ -286,7 +287,7 @@ describe('renderExportMarkdown', () => {
     });
 
     const markdown = renderExportMarkdown(
-      projectState!.project.name,
+      getSpecificationRecord(projectState!).name,
       getEntitiesForProjectOnActivePath(db, projectId),
       projectState!.workflow,
     );

@@ -3,5 +3,10 @@
   "printWidth": 110,
   "singleQuote": true,
   "sortImports": true,
+  "sortTailwindcss": {
+    "stylesheet": "./src/client/index.css",
+    "functions": ["cn", "clsx", "cva", "tv", "twMerge"],
+    "preserveWhitespace": true
+  },
   "ignorePatterns": ["*.md", "docs/**", "memory/**", "src/client/routeTree.gen.ts"]
 }

@@ -1,9 +1,4 @@
-import type {
-  ProjectState,
-  ProjectStateTurn,
-  SpecificationLanding,
-  WorkflowPhase,
-} from '@/shared/api-types.js';
+import type { SpecificationLanding, WorkflowPhase } from '@/shared/api-types.js';
 import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type {
   AskQuestionUIPart,
@@ -11,20 +6,25 @@ import type {
   BrunchUserPart,
   StructuredQuestion,
 } from '@/shared/chat.js';
-import { getNextActivePhase } from '@/shared/phase-routes.js';
+import { getNextActivePhase } from '@/shared/phase-descriptors.js';
 import {
   hasPersistedTurnResponse,
   safeParsePersistedAssistantParts,
   safeParsePersistedUserParts,
   turnHasCompletedAnswer,
-} from '@/shared/project-state-turn.js';
+} from '@/shared/specification-state.js';
+import {
+  getSpecificationRecord,
+  type SpecificationState,
+  type SpecificationTurn,
+} from '@/shared/specification.js';
 
-export interface InterviewDurableProjectState {
-  readonly project: ProjectState['project'];
-  readonly workflow: ProjectState['workflow'];
-  readonly turns: readonly ProjectStateTurn[];
+export interface InterviewDurableSpecificationState {
+  readonly project: ReturnType<typeof getSpecificationRecord>;
+  readonly workflow: SpecificationState['workflow'];
+  readonly turns: readonly SpecificationTurn[];
   readonly landing: SpecificationLanding | null;
-  readonly lastTurn: ProjectStateTurn | undefined;
+  readonly lastTurn: SpecificationTurn | undefined;
   readonly showTurnCard: boolean;
   readonly lastTurnHasResponse: boolean;
 }
@@ -60,14 +60,14 @@ export interface RecoveryControlViewModel {
 
 export interface PhaseSummaryViewModel {
   readonly turnId: number;
-  readonly phase: ProjectStateTurn['phase'];
+  readonly phase: SpecificationTurn['phase'];
   readonly summary: string;
 }
 
 export type InterviewActiveArtifactViewModel =
   | {
       readonly kind: 'persisted-turn';
-      readonly turn: ProjectStateTurn;
+      readonly turn: SpecificationTurn;
       readonly state: 'active' | 'submitted';
     }
   | { readonly kind: 'pending-question'; readonly pendingQuestion: PendingQuestionViewModel }
@@ -98,15 +98,12 @@ export type InterviewBottomArtifactViewModel =
     };
 
 export interface InterviewControllerViewState {
-  readonly project: InterviewDurableProjectState['project'];
-  readonly workflow: InterviewDurableProjectState['workflow'];
+  readonly project: InterviewDurableSpecificationState['project'];
+  readonly workflow: InterviewDurableSpecificationState['workflow'];
   readonly bottomArtifact: InterviewBottomArtifactViewModel | null;
-  readonly promptInput: {
-    readonly visible: boolean;
-  };
 }
 
-function hydrateMessages(turns: readonly ProjectStateTurn[]): BrunchUIMessage[] {
+function hydrateMessages(turns: readonly SpecificationTurn[]): BrunchUIMessage[] {
   const messages: BrunchUIMessage[] = [];
 
   for (const turn of turns) {
@@ -150,14 +147,18 @@ function hydrateMessages(turns: readonly ProjectStateTurn[]): BrunchUIMessage[] 
   return messages;
 }
 
-export function createInterviewDurableProjectState(projectState: ProjectState): InterviewDurableProjectState {
-  const lastTurn = projectState.turns[projectState.turns.length - 1] as ProjectStateTurn | undefined;
+export function createInterviewDurableSpecificationState(
+  specificationState: SpecificationState,
+): InterviewDurableSpecificationState {
+  const lastTurn = specificationState.turns[specificationState.turns.length - 1] as
+    | SpecificationTurn
+    | undefined;
 
   return {
-    project: projectState.project,
-    workflow: projectState.workflow,
-    turns: projectState.turns,
-    landing: projectState.landing ?? null,
+    project: getSpecificationRecord(specificationState),
+    workflow: specificationState.workflow,
+    turns: specificationState.turns,
+    landing: specificationState.landing ?? null,
     lastTurn,
     showTurnCard: Boolean(lastTurn?.options?.length),
     lastTurnHasResponse: hasPersistedTurnResponse(lastTurn),
@@ -165,7 +166,7 @@ export function createInterviewDurableProjectState(projectState: ProjectState): 
 }
 
 /** Build the set of turn IDs belonging to a given phase. */
-export function buildPhaseTurnIds(turns: readonly ProjectStateTurn[], phase: WorkflowPhase): Set<number> {
+export function buildPhaseTurnIds(turns: readonly SpecificationTurn[], phase: WorkflowPhase): Set<number> {
   return new Set(turns.filter((t) => t.phase === phase).map((t) => t.id));
 }
 
@@ -185,16 +186,18 @@ export function filterMessagesByPhase(
   });
 }
 
-export function createInterviewEphemeralChatState(projectState: ProjectState): InterviewEphemeralChatState {
+export function createInterviewEphemeralChatState(
+  specificationState: SpecificationState,
+): InterviewEphemeralChatState {
   return {
-    seedMessages: hydrateMessages(projectState.turns),
+    seedMessages: hydrateMessages(specificationState.turns),
   };
 }
 
 export function reconcileStablePhaseTurns(
-  stableTurns: readonly ProjectStateTurn[],
-  durableTurns: readonly ProjectStateTurn[],
-): ProjectStateTurn[] {
+  stableTurns: readonly SpecificationTurn[],
+  durableTurns: readonly SpecificationTurn[],
+): SpecificationTurn[] {
   const stableTurnsById = new Map(stableTurns.map((turn) => [turn.id, turn]));
 
   return durableTurns.map((durableTurn) => {
@@ -214,16 +217,16 @@ export function reconcileStablePhaseTurns(
 }
 
 function findPhaseTurn(
-  durableProject: InterviewDurableProjectState,
+  durableSpecification: InterviewDurableSpecificationState,
   phase: WorkflowPhase,
-): ProjectStateTurn | null {
-  const phaseState = durableProject.workflow.phases[phase];
+): SpecificationTurn | null {
+  const phaseState = durableSpecification.workflow.phases[phase];
   if (phaseState.status === 'closed') {
     return null;
   }
 
   if (phaseState.turnId !== null) {
-    const currentPhaseTurn = durableProject.turns.find(
+    const currentPhaseTurn = durableSpecification.turns.find(
       (turn) => turn.id === phaseState.turnId && turn.phase === phase,
     );
     if (currentPhaseTurn) {
@@ -231,8 +234,8 @@ function findPhaseTurn(
     }
   }
 
-  for (let index = durableProject.turns.length - 1; index >= 0; index -= 1) {
-    const turn = durableProject.turns[index];
+  for (let index = durableSpecification.turns.length - 1; index >= 0; index -= 1) {
+    const turn = durableSpecification.turns[index];
     if (turn?.phase === phase) {
       return turn;
     }
@@ -318,13 +321,14 @@ function findPhaseSummary(messages: readonly BrunchUIMessage[]): PhaseSummaryVie
 }
 
 export function createInterviewControllerViewState(
-  durableProject: InterviewDurableProjectState,
+  durableSpecification: InterviewDurableSpecificationState,
   phase: WorkflowPhase,
   messages: readonly BrunchUIMessage[],
   isLoading: boolean,
   submittedTurnId: number | null = null,
+  isAutoSubmittingPhaseIntent = false,
 ): InterviewControllerViewState {
-  const { project, workflow } = durableProject;
+  const { project, workflow } = durableSpecification;
   const phaseState = workflow.phases[phase];
   const nextPhase = getNextActivePhase(workflow.phases, phase);
   const isReviewPhase = phase === 'requirements' || phase === 'criteria';
@@ -349,19 +353,15 @@ export function createInterviewControllerViewState(
       project,
       workflow,
       bottomArtifact,
-      promptInput: {
-        visible: false,
-      },
     };
   }
 
-  const landing = durableProject.landing?.phase === phase ? durableProject.landing : null;
+  const landing = durableSpecification.landing?.phase === phase ? durableSpecification.landing : null;
   const phaseTurn =
     landing?.kind === 'frontier-turn'
-      ? (durableProject.turns.find((turn) => turn.id === landing.turnId) ?? null)
-      : findPhaseTurn(durableProject, phase);
+      ? (durableSpecification.turns.find((turn) => turn.id === landing.turnId) ?? null)
+      : findPhaseTurn(durableSpecification, phase);
   const showTurnCard = landing?.kind === 'frontier-turn' && Boolean(phaseTurn?.options?.length);
-  const phaseTurnHasResponse = hasPersistedTurnResponse(phaseTurn ?? undefined);
   const isSubmittedTurn = phaseTurn?.id === submittedTurnId;
   const showSubmittedTurnCard = isSubmittedTurn && Boolean(phaseTurn?.options?.length);
   const pendingQuestion = isLoading || submittedTurnId !== null ? findPendingQuestion(messages) : null;
@@ -377,9 +377,19 @@ export function createInterviewControllerViewState(
     (!isLoading || isSubmittedTurn) &&
     (!turnHasCompletedAnswer(phaseTurn) || isSubmittedTurn);
   const showRecovery =
-    !isLoading && !phaseSummary && !pendingQuestion && !showPersistedTurn && landing?.kind === 'recovery';
+    !isLoading &&
+    !isAutoSubmittingPhaseIntent &&
+    !phaseSummary &&
+    !pendingQuestion &&
+    !showPersistedTurn &&
+    landing?.kind === 'recovery';
   const showKickoff =
-    !isLoading && !phaseSummary && !pendingQuestion && !showPersistedTurn && landing?.kind === 'kickoff';
+    !isLoading &&
+    !isAutoSubmittingPhaseIntent &&
+    !phaseSummary &&
+    !pendingQuestion &&
+    !showPersistedTurn &&
+    landing?.kind === 'kickoff';
   const bottomArtifact: InterviewBottomArtifactViewModel | null = phaseSummary
     ? { kind: 'phase-summary', phaseSummary }
     : pendingQuestion
@@ -405,7 +415,7 @@ export function createInterviewControllerViewState(
                   mode: landing.mode,
                 },
               }
-            : isLoading
+            : isLoading || isAutoSubmittingPhaseIntent
               ? { kind: 'generating' }
               : null;
 
@@ -413,16 +423,5 @@ export function createInterviewControllerViewState(
     project,
     workflow,
     bottomArtifact,
-    promptInput: {
-      visible:
-        isLoading ||
-        bottomArtifact?.kind === 'phase-summary' ||
-        bottomArtifact?.kind === 'pending-question' ||
-        bottomArtifact?.kind === 'kickoff' ||
-        bottomArtifact?.kind === 'recovery' ||
-        bottomArtifact?.kind === 'generating'
-          ? false
-          : !showTurnCard || (phaseTurnHasResponse && !isSubmittedTurn),
-    },
   };
 }

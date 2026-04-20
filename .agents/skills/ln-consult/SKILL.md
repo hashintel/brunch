@@ -11,7 +11,7 @@ If context is unclear, ask **one** clarifying question — then recommend.
 
 The canonical rule is simple: durable planning state lives only in `memory/SPEC.md` and `memory/PLAN.md`, and new or uncertain work defaults to the canonical flow until a narrow exception is clearly justified.
 
-Do not invent new planning documents, sidecar ledgers, or alternate storage locations without explicit user permission. If a fact matters beyond the current step, reconcile it into `memory/SPEC.md` or `memory/PLAN.md`; if it is temporary transfer state, keep it in `HANDOFF.md` or `memory/REFACTOR.md` only while those derivative files are still live.
+Do not invent new planning documents, sidecar ledgers, or alternate storage locations without explicit user permission. If a fact matters beyond the current step, reconcile it into `memory/SPEC.md` or `memory/PLAN.md`; if it is temporary transfer state, keep it in `HANDOFF.md`; if it is a temporary multi-card execution queue inside one frontier item, keep it in `memory/CARDS.md`; if it is a temporary refactor execution plan, keep it in `memory/REFACTOR.md`. Derivative files stay live only while they still carry unfinished work.
 
 Orient, then classify.
 
@@ -59,6 +59,10 @@ Bounded exception:
 
 `ln-scope → ln-build`
 
+Bounded serial exception:
+
+`ln-scope → ln-build → commit → ln-build ...` inside one already-settled frontier item, optionally with the prepared queue persisted in `memory/CARDS.md`
+
 Direct-build exception:
 
 `ln-build`
@@ -69,6 +73,8 @@ Only recommend the bounded or direct-build exceptions when all of these are true
 - no durable requirement / assumption / decision / invariant change is expected
 - post-build reconciliation can plausibly be a no-op
 
+Only recommend the bounded serial exception when those same conditions hold and the next several commit-sized steps are obvious enough to queue without fresh planning.
+
 ## Routing table
 
 | Situation | Work type | Suggest |
@@ -78,6 +84,7 @@ Only recommend the bounded or direct-build exceptions when all of these are true
 | Spec exists, needs work sequencing | structural | `ln-plan` |
 | Verification strategy is the main uncertainty | structural | `ln-oracles` |
 | Next work item needs precise boundaries | structural or bounded | `ln-scope` |
+| One settled frontier item needs several small verified commits in sequence | bounded, hardening | `ln-scope` then serial `ln-build` loop, optionally via `memory/CARDS.md` |
 | Module interface needs exploration | structural | `ln-design` |
 | Full or light scope card exists, ready to code | bounded, hardening, bugfix | `ln-build` |
 | Technical uncertainty blocks progress | any | `ln-spike` |

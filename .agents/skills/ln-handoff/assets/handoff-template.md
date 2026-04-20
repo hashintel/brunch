@@ -60,6 +60,7 @@
 | ------------------ | ------ | ------------------------- |
 | memory/SPEC.md     | yes/no | current / stale / missing |
 | memory/PLAN.md     | yes/no | current / stale / missing |
+| memory/CARDS.md    | yes/no | current / stale / n/a     |
 | memory/REFACTOR.md | yes/no | current / stale / n/a     |
 
 ## Next steps

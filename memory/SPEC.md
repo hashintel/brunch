@@ -9,7 +9,7 @@
 
 Brunch is an AI-guided spec elicitation tool that turns natural-language goals into structured specifications through a four-phase interview:
 
-- **grounding** *(current internal phase key: `scope`)* — goals, terms, context, constraints
+- **grounding** — goals, terms, context, constraints
 - **design** — commitments and tradeoffs
 - **requirements** — capability review and gap-finding
 - **criteria** — verification coverage
@@ -37,7 +37,7 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 1. `npx brunch` in a project directory with `ANTHROPIC_API_KEY` opens a working app in the browser with state in local `.brunch/`.
 2. Starting a new specification asks only for the specification name before entering the workspace; greenfield / brownfield grounding strategy is then chosen through grounding entry states inside the specification workspace.
 3. Brownfield grounding can use read-only workspace analysis to ground the opening flow and the first substantive question.
-4. Structured responses support turn-appropriate option selections or explicit action submissions, an explicit `none of the above` path where relevant, and one attached response note.
+4. Structured responses support turn-appropriate option selections or explicit action submissions, an explicit `none of the above` path where relevant, and one attached response note. Grounding questions may use a free-text-only format (question + why + response note) without requiring option selections; elicitation and later phases use the option-selection format.
 5. Users can see thinking, tool usage, and streaming progress in real time; if live-only artifacts are shown, replay keeps concise durable activity metadata (at minimum elapsed thinking time plus a coarse tool-use summary / placeholder seam) instead of dropping them completely.
 6. The observer extracts typed knowledge items and graph edges from answered turns.
 7. The accumulated knowledge layer and readiness state stay visible during the interview.
@@ -52,11 +52,12 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 16. Partial-scope elicitation works for a feature or bounded sub-area, not just whole-workspace greenfield specs.
 17. Each phase exposes an explicit kickoff, frontier, recovery, handoff, or completion affordance; the UI must not strand the user with a bare generic composer as the only visible action.
 18. Open interview phases default to a projected kickoff card, the current frontier turn, a visible generation state, or a projected recovery affordance when the frontier is missing, and closed phases terminate in a projected handoff or completion artifact at the bottom of the workspace stream.
-19. The first phase is grounding in product language even while implementation continues to use the internal `scope` phase key until a later terminology pass.
+19. The first phase is grounding in both product language and canonical workflow identifiers.
 20. The interviewer may invoke context-gathering capabilities such as workspace analysis during grounding; their outputs appear as visible grounding cards interleaved with question cards.
 21. Grounding cards are provisional context, complete through optional user comment plus explicit continue, and do not directly create durable knowledge from their own content.
 22. Grounding and elicitation persist only the durable exploration ontology (`goal`, `term`, `context`, `constraint`, `decision`, `assumption`); `non-goal` is represented as a `constraint` subtype, and requirements / criteria become durable only through accepted review outputs.
 23. The knowledge ontology is defined once and projected consistently through schema, shared registries, observer prompts, API types, fixtures, and UI copy so kind semantics do not drift across layers.
+24. Each phase section in the workspace stream opens with a phase section header that states the phase purpose and what kinds of knowledge are captured there, projected from workflow state rather than persisted as a turn.
 
 ## Assumptions
 
@@ -80,6 +81,10 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 | A54 | An open phase can reliably project a kickoff control card, current frontier turn, visible generation state, or projected recovery card on first render without requiring the user to bootstrap the phase by typing into a generic composer. | medium | open | D89, D94, D95, D110 | Manual walkthroughs on kickoff-ready, design-active, review-active, and recovery states. |
 | A55 | Observer capture can trail interviewer completion without eroding trust if the trailing status stays attached to the completed turn card rather than surfacing as a free-floating transcript row. | medium | open | D22, D95 | Manual timing walkthroughs plus runtime observation on seeded turns with known observer work. |
 | A56 | A visible grounding card with concise summary, optional detail, optional user comment, and explicit continue is enough user control for provisional context without turning grounding into a review workflow. | medium | open | D83, D89, D91, D98 | Manual walkthroughs on greenfield and brownfield kickoff variants once grounding cards land. |
+| A57 | A specification-scoped lifecycle seam — whether implemented as a lightweight runtime supervisor, router-integrated service, or chart-backed helper — can own duplicate-safe automatic phase entry / continue, late-event suppression, and route-independent in-flight operation identity without introducing a second durable workflow model or a general runtime-operations ledger. | medium | open | D113 | Prototype the lifecycle seam on auto-present / recovery / force-close edges; if duplicate-submit or restart truth remains ambiguous, revisit whether the seam needs stronger runtime machinery or more durable coordination. |
+| A58 | A continuous sectioned workspace can preserve phase legibility and workflow honesty if section focus stays navigation-only state rather than redefining durable workflow truth, reachability, or the single actionable frontier. | medium | open | D86, D107, D110, D113 | Prototype the continuous workspace against deep-link, scroll-spy, close-to-next-phase, and resume/reload walkthroughs; if focus drift or locked-phase ambiguity remains high, keep the current per-phase rendering boundary. |
+| A59 | Grounding questions work better as open-ended free-text prompts (question + why + response note) than as multiple-choice option selections, because grounding is about surfacing the user's mental model rather than choosing between interviewer-proposed directions. | medium | open | D115 | Manual walkthroughs comparing option-style vs free-text grounding across greenfield and brownfield projects. |
+| A60 | A concise phase section header (purpose + captured knowledge kinds) is sufficient to orient the user at phase entry without requiring a longer onboarding flow or tutorial card. | medium | open | D116 | Manual walkthroughs on fresh specifications; check whether users understand what the phase expects of them. |
 
 ## Decisions
 
@@ -105,28 +110,28 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 81. **Storage is local-first in `.brunch/` inside the workspace directory** — no global state store.
 82. **Grounding strategy is chosen inside the specification workspace** — the root route names / creates a specification, while greenfield vs brownfield grounding strategy belongs to the first in-workspace grounding move rather than the root modal. Depends on: D97. Supersedes: first-screen kickoff routing.
 83. **Grounding cards are provisional context, not durable knowledge** — context-gathering results remain visible orientation artifacts; only user reactions and subsequent conversational turns feed the observer's durable knowledge extraction. Depends on: D32. Supersedes: brownfield kickoff grounding as a prompt-shaped handoff only.
-86. **The client is organized by phase routes and three concentric layout shells** — AppLayout, ProjectLayout, and ViewLayout own the user-facing route structure.
+86. **The client is organized by phase-addressable routing and three concentric layout shells** — AppLayout, ProjectLayout, and ViewLayout own the user-facing route structure. Interview phases remain router-addressable for deep links, gating, and sibling route composition even if the center pane later renders them inside one continuous workspace surface.
 87. **Layout-level data ownership partitions invalidation** — workflow state, knowledge state, and per-phase turns load at different route layers instead of one monolithic refresh boundary.
 88. **Entities default to the active-path read model** — workspace-wide inventory is explicit rather than the default workspace surface.
 89. **Primary grounding/design input is workspace-owned and card-owned** — substantive elicitation in grounding and design proceeds through durable turn cards inside the workspace stream, while structural phase-entry, recovery, and handoff affordances project as control cards in that same stream; the global bottom composer is not the canonical input seam. Grounding cards accept optional comment + continue, while question cards collect substantive answers. Depends on: A51, A56. Supersedes: —.
-90. **Requirements and criteria resolve through synthesized review turns** — the interviewer proposes a full candidate set from prior knowledge, presents stable item reference codes, accepts one review note plus explicit `accept review` / `request changes` submission, and regenerates a revised full-set successor turn when changes are requested. Runtime-generated review turns persist their own interviewer-owned review metadata (`reviewActions` plus the presented `reviewSet`) on the turn so submit, replay, and accepted-review materialization consume one durable review-turn contract instead of relying on synthesized fallback inventory on the happy path. Earlier requirement-like or criterion-like material remains synthesis input rather than durable canonical requirement / criterion state until review acceptance. In V1, accepting a review uses the same durable phase-progression seam: the accepted review output becomes authoritative carry-forward state, the phase closes through the shared closure mechanism, and the next phase opens into its projected entry affordance without a dead state. Depends on: A44, A52. Supersedes: —.
+90. **Requirements and criteria resolve through synthesized review turns** — the interviewer proposes a full candidate set from prior knowledge, presents stable item reference codes, accepts one review note plus explicit `accept review` / `request changes` submission, and regenerates a revised full-set successor turn when changes are requested. Runtime-generated review turns persist their own interviewer-owned review metadata (`reviewActions` plus the presented `reviewSet`) on the turn so submit, replay, and accepted-review materialization consume one durable review-turn contract instead of relying on synthesized fallback inventory on the happy path. Active review affordances resolve button meaning from that persisted `reviewActions` metadata rather than assuming option order, so UI label position does not redefine semantic action. Earlier requirement-like or criterion-like material remains synthesis input rather than durable canonical requirement / criterion state until review acceptance. In V1, accepting a review uses the same durable phase-progression seam: the accepted review output becomes authoritative carry-forward state, the phase closes through the shared closure mechanism, and the next phase opens into its projected entry affordance without a dead state. Depends on: A44, A52. Supersedes: —.
 91. **Grounding uses workspace-owned cards in one interaction family** — grounding strategy choice, grounding briefs, and early interrogation live in the specification workspace rather than root-route modals or a bare chat shell. Grounding can therefore mix projected entry affordances with durable turn cards inside one workspace stream without splitting into separate product surfaces. Depends on: A47, A51, A56. Supersedes: kickoff cards as a separate interaction family.
 92. **Live-only assistant artifacts replay as concise durable activity summaries** — if thinking or tool use is surfaced live, hydration persists minimal turn-owned metadata such as elapsed thinking duration and a coarse tool-use summary / placeholder seam, without persisting hidden reasoning tokens or raw tool results. Depends on: A53. Supersedes: —.
 93. **Replay for elicitation phases is turn-centered, not message-shaped** — completed interview turns collapse into answered-turn records that summarize the offer, the structured user response, and the capture status, while phase markers, projected control cards, and activity cards render as stream elements around those turns rather than as ordinary chat bubbles. Depends on: A51, A53, D110. Supersedes: —.
 94. **Phase progression is frontier-anchored** — every open phase bottoms out in exactly one visible next action: a projected kickoff card, actionable frontier turn, visible generation state, or projected recovery card. Accepting a frontier turn durably creates its successor turn, successor generation avoids closed-without-frontier gaps, and recovery is a structural fallback that appears whenever an open phase lacks a valid frontier rather than another generative turn that must itself be created. Closure proposals remain durable proposal-shaped turns on the active path; accepting one confirms phase closure and opens the next phase into its projected entry state, while rejecting one keeps the phase open and requires a same-phase successor frontier. If a phase is closed, the stream bottoms out in a handoff or completion control. Depends on: A51, A54. Supersedes: —.
 95. **Structural control affordances project from workflow state rather than masquerading as ordinary turns** — kickoff, recovery, and end-of-phase affordances derive from workflow state, phase outcomes, and neighboring turn anchors instead of from incidental copy or mandatory durable turn rows. Any durable implementation seam used to help project them must be treated as transitional and must not redefine their product meaning as authored conversational turns. Depends on: D65, D94, D110. Supersedes: `why`-based kickoff/recovery sentinels and the earlier persisted-turn-kind framing.
 96. **Observer capture may trail interviewer progression if it stays turn-owned** — interviewer completion may unlock the next turn before observer capture finishes, but any trailing observer state remains attached to the just-answered turn card rather than surfacing as a free-floating transcript row; observer-result transport may carry the originating turn identity so late capture can hydrate back into that same card. Depends on: A20, A53, A55. Supersedes: —.
-97. **Workspace and specification are distinct product concepts** — the workspace is the cwd-backed software context containing `.brunch/`; each specification is one elicitation run within that workspace, even while current DB/API internals still use `project` as the record name. Depends on: —. Supersedes: overloaded product use of `project`.
-98. **Grounding is the product term for the first phase while `scope` remains the internal phase key for now** — user-facing language and future interaction design speak in terms of grounding sufficiency, while implementation identifiers may migrate in a later pass. Depends on: D97. Supersedes: scope / framing copy drift.
+97. **Workspace and specification are distinct product concepts** — the workspace is the cwd-backed software context containing `.brunch/`; each specification is one elicitation run within that workspace. Browser routes, HTTP paths, shared transport contracts, and durable DB/storage should all converge on canonical `specification` terms rather than preserving `project` as a long-lived compatibility identity. Depends on: —. Supersedes: overloaded product use of `project`.
+98. **Grounding is the canonical first-phase term and workflow key** — user-facing language, shared contracts, persistence identifiers, and future interaction design should all speak in terms of grounding sufficiency; `scope` is a legacy term to remove rather than preserve on the happy path. Depends on: D97. Supersedes: scope / framing copy drift.
 99. **Interviewer-invoked context gathering is a reusable capability, not a brownfield-only startup ritual** — workspace analysis, future web research, and similar moves may appear as grounding cards whenever the interviewer needs more context for the next move. Depends on: D30, D32, D83. Supersedes: one-shot brownfield kickoff exploration.
 
-100. **Phase labels are canonical product terms independent of internal phase keys** — user-facing labels are: Grounding (`scope`), Elicitation (`design`), Requirements (`requirements`), Acceptance Criteria (`criteria`). The internal enum values remain unchanged. Depends on: D98. Supersedes: previous label mapping (Framing, Elicitation, Requirements Review, Acceptance Review).
+100. **Phase labels and workflow keys are canonical together** — the workflow stages are Grounding (`grounding`), Elicitation (`design`), Requirements (`requirements`), and Acceptance Criteria (`criteria`). Product labels and internal identifiers should no longer drift. Depends on: D98. Supersedes: previous label mapping (Framing, Elicitation, Requirements Review, Acceptance Review).
 
 101. **Output is a conditional route, not a workflow phase** — the output/summary view is available when all four phases are closed; it does not participate in phase state management (no status, readiness, or closeability). It provides markdown export of the completed specification. Depends on: D65.
 
 102. **The top bar is the single home for the app tagline** — "AI-guided spec elicitation" appears only in the top bar header, not duplicated on the project list or elsewhere. Top bar composition: logo + app name + version (build-time from package.json) + separator + tagline + right-aligned cwd. Height: h-10 (40px). Depends on: D10.
 
-103. **Each pane has a sticky header with pane-scoped metadata** — the three-pane layout below the top bar provides per-pane sticky headers: project sidebar header (back link + project name), center pane header (phase position + status + turns + readiness + Close Phase action), knowledge sidebar header (title + item/connection counts). Depends on: D86.
+103. **Each pane has a sticky header with pane-scoped metadata** — the three-pane layout below the top bar provides per-pane sticky headers: project sidebar header (back link + project name), center pane header (currently focused section or current reachable phase position + status + turns + readiness + Close Phase action), knowledge sidebar header (title + item/connection counts). Depends on: D86, D114.
 
 104. **Close Phase is a guarded action gated by closeability** — the Close Phase button appears in the center pane header only when status is in-progress, is enabled based on closeability logic (minimum turns threshold), and triggers a confirmation modal. Closed phases show a status badge instead of the button. Depends on: D65, D66.
 
@@ -134,7 +139,7 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 
 106. **DrawerCard is the shared card primitive for expandable content** — a reusable component with header/summary/children slots that renders as: static card (no content), summary-peeking card (summary only), or toggleable card (summary ↔ children). A `locked` prop disables toggle for controlled-state cards. Depends on: D86.
 
-107. **ChatScroll combines ScrollArea with stick-to-bottom for the center pane** — Radix ScrollArea (custom scrollbar rendering) wired with `useStickToBottom` (auto-scroll to bottom + scroll-down indicator). Used as the center pane scroll container. Depends on: D86.
+107. **ChatScroll combines ScrollArea with stick-to-bottom for the center pane** — Radix ScrollArea (custom scrollbar rendering) wired with `useStickToBottom` (auto-scroll to bottom + scroll-down indicator). Used as the center pane transcript / sectioned-workspace scroll container. Depends on: D86, D114.
 
 108. **Durable exploration ontology is deliberately small and reliability-first** — before review acceptance, the observer only persists `goal`, `term`, `context`, `constraint`, `decision`, and `assumption`; `non-goal` stays a `constraint` subtype, while `feature` / `user story` remain deferred vocabulary rather than canonical durable kinds. `Context` is the descriptive bucket for situational facts and bounded area under discussion, not a fallback for explicit decisions, assumptions, or constraints. Depends on: A40. Supersedes: broader early-phase requirement / criterion capture.
 
@@ -142,7 +147,17 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 
 110. **The workspace stream is a merged read model, not identical to the turn tree** — active-path durable conversational turns remain the only branch-bearing lineage spine; durable non-turn workflow facts such as phase outcomes anchor themselves to turn ids for provenance, ordering, and invalidation; projected control cards, phase markers, and activity cards derive from workflow state plus nearby anchors instead of requiring their own turn rows. Depends on: D65, D89, D93, D94, D96. Supersedes: the implicit equivalence between rendered cards and persisted turns.
 
-111. **The merged-stream cutover is seed-first and migration-light until the data model settles** — during the projector transition, the app should prioritize one truthful read-model contract plus up-to-date seeded scenarios over compatibility for legacy local rows. Durable authority comes from active-path substantive turns, `phaseOutcome`, and workflow state; projected kickoff / recovery / handoff affordances must be derived from those facts rather than preserved as canonical control-turn rows. Transitional kickoff / recovery rows may survive briefly as internal submit plumbing, but new server reads, client renders, fixtures, and happy-path tests must not depend on them as product truth. When a projector seam lands, seeds and manifests should move to that seam promptly, and destructive reseed is preferred over spending time on migration logic for pre-stable local data. Depends on: D95, D110. Supersedes: the implicit bias toward preserving legacy control-row compatibility during the cutover.
+111. **The app is seed-first and migration-light until the data model settles** — prioritize one truthful read-model contract plus up-to-date seeded scenarios over compatibility for legacy local rows. Durable authority comes from active-path substantive turns, `phaseOutcome`, workflow state, and the current canonical record/phase identifiers; projected kickoff / recovery / handoff affordances must be derived from those facts rather than preserved as canonical control-turn rows. Transitional seams may survive briefly as internal submit plumbing, but new server reads, client renders, fixtures, and happy-path tests must not depend on legacy aliases or adaptation layers as product truth. When a naming or persistence cutover lands — including `project` → `specification` and `scope` → `grounding` — destructive reseed is preferred over spending time on migration logic for unstable local data. Depends on: D95, D110. Supersedes: the implicit bias toward preserving legacy control-row compatibility during the cutover.
+
+112. **Turn-artifact persistence is server-owned and interviewer-shaped** — durable review-set, grounding-card, activity-summary, and phase-summary artifacts materialize from interviewer output through one server helper, so the chat-runtime finalize path acts as orchestration glue instead of reconstructing artifact semantics ad hoc. Replay, accepted-review materialization, and seeded walkthroughs therefore consume the same persisted artifact contract the interviewer produced. Depends on: D90, D92, D99, D110. Supersedes: the ownership split where runtime finalization re-derived grounding/review artifacts outside one authoritative persistence seam.
+
+113. **Phase lifecycle side effects are specification-scoped, not route-scoped** — durable workflow truth, landing reconciliation, and routed read-model projection remain authoritative; they do **not** move into a second client-side workflow store. The router continues to own navigation, loader/query subscription, and rendering of the derived read model. A separate specification-scoped lifecycle seam owns only the ephemeral process concerns that routes are poor at holding correctly: one-shot automatic phase entry / continue, in-flight operation identity, duplicate-submit suppression, cancellation, stale-event rejection, and capture-backlog reseeding after hydration. That seam may be implemented as a lightweight runtime supervisor, router-integrated service, or chart-backed helper, but its implementation is intentionally left open; what is decided here is the ownership boundary, not a mandatory framework. Constraints: (1) no second durable workflow model or general runtime-operations ledger by default, (2) no independent client authority over phase status, landing truth, or handoff/completion semantics, (3) no route-local `useEffect` or remount-tied behavior as the trusted owner of lifecycle effects like auto-present, and (4) any lifecycle helper must consume durable truth and emit idempotent, ignorable side effects rather than redefine product state. Depends on: D87, D94, D95, D96, D110, D112. Supersedes: route-local auto-present / continue effects as a trusted lifecycle seam.
+
+115. **Grounding questions use a free-text-first format distinct from elicitation option questions** — the grounding phase asks open, exploratory questions where the user provides context through a response note and optional free-text answer rather than choosing between interviewer-proposed options. The `structuredQuestionSchema` makes `options` optional (or a phase-aware variant omits them), the grounding system prompt asks open context-gathering questions without mandating 2-4 options, and the response schema accepts `freeText`-only submissions. Elicitation and later phases continue to use the existing option-selection format. Depends on: A59, D89. Supersedes: the uniform option-mandatory question format across all phases.
+
+116. **Each phase section opens with a projected phase section header** — a non-turn, non-durable stream artifact that states the phase purpose and what kinds of knowledge are captured there. The header is projected from workflow state and phase metadata (similar to phase markers) and re-projects on hydration. Content is phase-specific: grounding explains goals/terms/context/constraints, elicitation explains design decisions, requirements explains review, criteria explains verification. Depends on: A60, D110. Supersedes: —.
+
+114. **Continuous workspace rendering and phase addressability are separate concerns** — the interview center pane may render one continuous workspace stream segmented into grounding, design, requirements, and criteria sections while the router continues to preserve deep links, gating, and sibling-route composition. A workspace-level controller may own one chat session, per-phase section projection, focus / scroll behavior, and close-to-next-phase motion without turning focus state into a second durable workflow model. Constraints: (1) one chat runtime per specification, not one per rendered phase, (2) future phases may be visible but are not actionable until reachable, (3) focused section state must not redefine durable workflow truth or landing truth, (4) graph view remains a sibling mode of the same layout shell, and (5) legacy phase routes may survive as section-focus aliases during migration. Depends on: A58, D86, D87, D103, D107, D110, D113. Supersedes: the assumption that each phase route must own a distinct rendered transcript surface.
 
 ## Interaction Stream Model
 
@@ -155,6 +170,7 @@ The center column is a **merged stream projection** over multiple artifact famil
 | Projected control cards | no | no | kickoff, recovery, proceed / go-to-frontier affordances | Derived from workflow state plus nearby anchors; they re-project on hydration and may disappear / reappear without needing their own durable row. |
 | Activity cards | mixed | no | visible generation state, persisted activity summary, trailing observer state | Derived from runtime state or replay summaries adjacent to a turn or control boundary; they do not become branch nodes. |
 | Phase markers | no | no | phase start, phase closed | Projected from workflow position and anchored workflow facts such as phase outcomes; they annotate the stream without entering the turn tree. |
+| Phase section headers | no | no | grounding purpose + knowledge kinds | Projected from workflow state and phase metadata at the top of each phase section; re-project on hydration. |
 
 This model is deliberately asymmetric: only conversational turns participate in the linked-list lineage model, while the other artifact families either anchor to that lineage or project from it. A rendered card therefore does not imply a persisted turn row, and a persisted durable record does not need to masquerade as a turn to belong in the stream.
 
@@ -184,32 +200,35 @@ Below the top bar, three vertical panes fill the remaining viewport height. Each
 - "< Back to Workspace" navigation link
 - Read-only project/specification name (set at creation, not editable)
 
-**Body — Phase stepper:**
-A vertical timeline with connecting line (blue for completed segments, gray for future). Strictly sequential — forward-only flow. Each phase item shows:
+**Body — Phase stepper / section navigator:**
+A vertical timeline with connecting line (blue for completed segments, gray for future). It remains strictly sequential for workflow truth, but it may behave as a section-jump / scroll-spy surface inside one continuous workspace transcript. Each phase item shows:
 
 | Phase | Internal key | Label |
 | ----- | ------------ | ----- |
-| 1 | `scope` | Grounding |
+| 1 | `grounding` | Grounding |
 | 2 | `design` | Elicitation |
 | 3 | `requirements` | Requirements |
 | 4 | `criteria` | Acceptance Criteria |
 | 5 | *(route only)* | Output |
 
-Per-phase metadata: status (colored: Closed / In-Progress / Unstarted), readiness band (when in-progress), turn count. Output appears conditionally when all phases are closed.
+Per-phase metadata: status (colored: Closed / In-Progress / Unstarted), readiness band (when in-progress), turn count. Closed phases and the current reachable phase are selectable; future phases may remain visible but locked. Output appears conditionally when all phases are closed.
 
 #### Center Pane — Chat Transcript
 
 **Sticky header:**
-- "Phase N/M – [Phase Name]" — positional progress label
+- "Phase N/M – [Phase Name]" for the currently focused section or current reachable phase — positional progress label
 - Status text (colored)
 - Turn count
 - Readiness band (when in-progress)
 - Close Phase button (right-aligned, in-progress only, gated by closeability, triggers confirmation)
 - Status badge replaces button when phase is closed
 
-**Body (in-progress phase):**
-- Phase markers and prior answered / compacted turn cards above the active bottom artifact
-- Activity cards and visible generation state while the next generative turn is being created
+**Body (chat view):**
+- One continuous workspace scroll surface that may be segmented into phase sections rather than remounted per phase
+- Each phase section opens with a projected phase section header stating the phase purpose and captured knowledge kinds
+- Closed phases replay their phase markers and answered / compacted turn cards as prior sections
+- The current reachable phase owns the only actionable bottom artifact
+- Activity cards and visible generation state stay attached to their section / turn anchors while the next generative turn is being created
 - Active bottom artifact: projected kickoff control card, durable frontier turn card (grounding/question/review/closure proposal), or projected recovery card
 - Artifact-specific controls
 
@@ -283,16 +302,17 @@ Question card titles use arbitrary `text-[17px]` above the scale for emphasis.
 | ---- | --------- | ------------ | ------ |
 | I4   | Vite proxy routing and the runtime backend-port seam stay aligned through one explicit configuration path. | `runtime-config.test.ts` | D81 |
 | I17  | Data Part schema validation remains confined to true LLM / HTTP boundaries rather than mirrored internal seams. | `parts.test.ts` | D24 |
-| I24  | Interview hydration, streaming projection, controller orchestration, mutation transport, phase-filtered rendering, and successor-frontier continuity remain stable through the routed interview surface, including concise durable activity summaries for replay, projected kickoff/recovery/handoff controls, landing-only grounding-strategy kickoff submission, turn-owned submit/interviewer-processing, visible generation states, anchored phase-boundary projection, and trailing observer attachment. | `InterviewView.test.tsx`, `transcript-parity.test.tsx`, `-interview-data.test.ts`, `-interview-controller.test.tsx`, `app.test.ts`, `client-mutation.test.ts` | D30, D86, D87, D92, D94, D95, D110 |
+| I24  | Interview hydration, streaming projection, controller orchestration, mutation transport, phase-scoped rendering, and successor-frontier continuity remain stable through the routed interview surface, including concise durable activity summaries for replay, projected kickoff/recovery/handoff controls, grounding-card replay and continue affordances, landing-only grounding-strategy kickoff submission, turn-owned submit/interviewer-processing, visible generation states, anchored phase-boundary projection, and trailing observer attachment. | `InterviewView.test.tsx`, `-workspace-stream-projector.test.ts`, `transcript-parity.test.tsx`, `-interview-data.test.ts`, `-interview-controller.test.tsx`, `app.test.ts`, `client-mutation.test.ts` | D30, D86, D87, D92, D94, D95, D110 |
 | I44  | Structured turn responses round-trip through persistence, hydration, projection, and UI affordance state without collapsing back to scalar semantics. | `turn-response.test.ts`, `context.test.ts`, `InterviewView.test.tsx` | D57 |
 | I48  | Canonical knowledge kinds persist with provenance and project through typed entity collections, stable per-kind reference codes, turn-linked capture projection, and graph edges without ontology drift. | `db.test.ts`, `core.test.ts`, `knowledge.test.ts`, `EntitySidebar.test.tsx`, `InterviewView.test.tsx`, `GraphView.test.tsx` | D49, D50 |
 | I54  | Phase-aware capture preserves the committed ontology boundary: grounding / elicitation persist only durable exploration knowledge, accepted review outputs materialize durable requirements / criteria, and both seams survive persistence, turn-linked replay hydration, and UI refresh without breaking sync. | `observer.test.ts`, `context.test.ts`, `app.test.ts`, `InterviewView.test.tsx` | D30, D49, D90, D95, D108 |
 | I72  | Explicit phase outcomes project shared workflow status, closeability, readiness, closure basis, and closed-phase boundary markers through one durable seam. | `phase-close.test.ts`, `db.test.ts`, `app.test.ts` | D65, D66, D110 |
-| I87  | Requirements and criteria review ground themselves in their respective inventories, persist interviewer-owned review metadata on the review turn itself, project stable review-set reference codes, accept lightweight full-set review replies, and carry accepted review outputs into downstream workflow without leaving dead frontier states. | `interview.test.ts`, `db.test.ts`, `app.test.ts` | D90, D94 |
+| I87  | Requirements and criteria review ground themselves in their respective inventories, persist interviewer-owned review metadata on the review turn itself, project stable review-set reference codes, submit lightweight full-set review replies by semantic action rather than assumed option order, and carry accepted review outputs into downstream workflow without leaving dead frontier states. | `interview.test.ts`, `db.test.ts`, `app.test.ts`, `InterviewView.test.tsx`, `project-state-turn.test.ts` | D90, D94 |
 | I100 | `.brunch/` workspace resolution, launcher startup, actual bound URL reporting, and same-workspace runtime ownership stay correct in local-first distribution. | `project.test.ts`, `launcher.test.ts`, `cli.test.ts`, `runtime-config.test.ts` | D81 |
-| I101 | Grounding strategy and workspace-backed context gathering persist through schema, API, interviewer configuration, and observer context; grounding cards stay provisional and do not directly mutate durable knowledge. | `db.test.ts`, `interview.test.ts`, `app.test.ts`, `context.test.ts`, `observer.test.ts`, `ProjectList.test.tsx` | D82, D83, D98 |
-| I102 | File-route generation, directory-based nesting, and the three-shell route architecture remain the runtime routing source of truth; graph view stays code-split. | `router.test.tsx`, `file-route-*.test.ts`, `build-boundary.test.ts`, `GraphView.test.tsx` | D86 |
-| I103 | Trusted runtime-shaped fixture scenarios normalize back into the manifest seam, front-load the walkthrough seed catalog, and remain resumable/exportable through one canonical scenario format. | `corpus.test.ts`, `manifest.test.ts`, `walkthrough.test.ts` | D49 |
+| I101 | Grounding strategy and workspace-backed context gathering persist through schema, API, interviewer configuration, and observer context; grounding-card assistant metadata round-trips through persistence/projection, and grounding cards stay provisional rather than directly mutating durable knowledge. | `db.test.ts`, `interview.test.ts`, `app.test.ts`, `context.test.ts`, `observer.test.ts`, `parts.test.ts`, `project-state-turn.test.ts`, `ProjectList.test.tsx` | D82, D83, D98 |
+| I102 | File-route generation, directory-based nesting, the three-shell route architecture, and phase addressability remain the runtime routing source of truth; graph view stays code-split. | `router.test.tsx`, `file-route-*.test.ts`, `build-boundary.test.ts`, `GraphView.test.tsx` | D86 |
+| I103 | Trusted fixture state comes only from TypeScript builders or direct DB setup; walkthrough seeds stay builder-owned, observer probes seed directly without a second fixture format, and seeded scenarios remain resumable/exportable through that one surviving fixture model. | `corpus.test.ts`, `walkthrough.test.ts`, `seed.test.ts` | D49 |
+| I104 | Interviewer-owned turn artifacts materialize through one persistence seam, so runtime review metadata, grounding cards, activity summaries, phase summaries, and seeded brownfield replay all round-trip without route-specific reconstruction drift. | `turn-artifacts.test.ts`, `app.test.ts`, `walkthrough.test.ts` | D90, D92, D99, D112 |
 
 ## Lexicon
 
@@ -301,9 +321,10 @@ Question card titles use arbitrary `text-[17px]` above the scale for emphasis.
 | Term | Definition |
 | ---- | ---------- |
 | **workspace** | The cwd-backed software context whose local `.brunch/` directory stores specifications and runtime state. |
-| **specification** | One elicitation run within a workspace. Current DB/API internals still use `project` as the record name. |
-| **project** *(legacy internal term)* | The current implementation label for a specification record; not the preferred product term. |
+| **specification** | One elicitation run within a workspace. Browser routes, HTTP paths, shared transport contracts, and durable DB/storage should all use canonical `specification` terms. |
+| **project** *(legacy term)* | A deprecated older name for a specification record. Remove it rather than preserving it as a long-term compatibility seam. |
 | **workspace stream** | The merged center-column read model composed from active-path turns, anchored workflow facts, projected control cards, phase markers, and activity cards. |
+| **specification runtime** | The live lifecycle owner for one specification: it reconciles durable truth into the current landing, owns in-flight interviewer / successor / capture orchestration, and rejects stale lifecycle outputs that routes must not treat as their own authority. |
 | **turn** | One persisted authored conversational interaction on the active path, with typed offer/reply parts and parent linkage. Questions, review proposals, and closure proposals use this seam. |
 | **turn kind** *(current internal seam)* | The current persisted implementation field on a turn (`question`, `kickoff`, `recovery`). It may help project control state today, but kickoff / recovery are product-level structural affordances rather than durable authored turn categories. |
 | **turn card** | The user-facing rendering of a durable conversational turn inside the workspace stream. |
@@ -319,19 +340,20 @@ Question card titles use arbitrary `text-[17px]` above the scale for emphasis.
 | **active turn** | The live frontier turn currently awaiting substantive user completion inside the workspace. Structural control cards such as kickoff and recovery are not active turns. |
 | **answered-turn card** | The compact replay form of a completed elicitation turn, summarizing the offer, the structured response, and the turn-owned capture status. |
 | **response note** | The single attached text field on a structured user response; it may explain selections, annotate a review, add missing context, or redirect the interviewer. |
-| **grounding** | The first phase of a specification, aimed at establishing enough orientation to proceed into design. Current internal phase key: `scope`. |
+| **grounding** | The first phase of a specification, aimed at establishing enough orientation to proceed into design. It is both the product term and the canonical workflow key. |
 | **grounding strategy** | The method used to reach grounding sufficiency: elicitation-first (`greenfield`) or analysis-first (`brownfield`). |
 | **grounding brief** | The concise visible summary surfaced on a grounding card after context gathering. |
 | **grounding sufficiency** | The threshold at which the interviewer has enough stable orientation to begin design. |
 | **review set** | A synthesized candidate list used in requirements or criteria review, presented with stable reference codes and resolved through `accept review` or `request changes` plus one review note. |
 | **accepted review set** | The terminal accepted review output for a review phase; this is the authoritative carry-forward set for later review and export seams, and any accepted requirement / criterion items derive their authority from membership in this set. |
 | **phase entry state** | The workspace state shown when a projected kickoff card is the current bottom-of-phase affordance. |
+| **landing reconciliation** | The pure derivation from durable specification snapshot into the one truthful visible bottom artifact for hydration/restart, plus any pending capture backlog the runtime must re-seed. |
 | **phase handoff state** | The workspace state shown when a phase is complete and a projected handoff / completion control card is the current bottom-of-phase affordance. |
 | **control marker** | A transcript-visible workspace event such as interview start, resume, or confirmation that is not rendered as a normal user chat bubble. |
 | **phase marker** | A projected boundary annotation in the workspace stream, such as phase start or phase closed, derived from workflow position or anchored workflow facts. |
 | **turn capture status** | The per-turn state describing what the observer has captured already, is still capturing, or failed to capture from that answered turn. |
 | **active path** | The trusted chain from HEAD to root in the primary conversation. |
-| **phase / mode** | One workflow stage: `scope` *(label: Grounding)*, `design` *(label: Elicitation)*, `requirements` *(label: Requirements)*, or `criteria` *(label: Acceptance Criteria)*. |
+| **phase / mode** | One workflow stage: `grounding` *(label: Grounding)*, `design` *(label: Elicitation)*, `requirements` *(label: Requirements)*, or `criteria` *(label: Acceptance Criteria)*. |
 | **phase outcome** | Durable closure artifact for a phase, including summary and closure basis. |
 | **closure basis** | Whether a confirmed phase close came from interviewer recommendation or explicit user-forced closure. |
 | **closeability** | Deterministic minimum bar for whether the user may close a phase now. |
@@ -350,10 +372,13 @@ Question card titles use arbitrary `text-[17px]` above the scale for emphasis.
 | **DrawerCard** | Shared card primitive with header/summary/children slots that supports static, summary-peeking, and toggleable (minimized ↔ maximized) render modes. A `locked` prop disables toggle for controlled-state cards. |
 | **ChatScroll** | Composite scroll container that wires Radix ScrollArea (custom scrollbar) with `useStickToBottom` (auto-scroll-to-bottom + scroll-down indicator). Used for the center pane transcript. |
 | **phase stepper** | The vertical timeline navigation in the left sidebar showing phases as sequential steps with connecting line, status, readiness, and turn count. |
+| **phase addressability** | The ability to deep-link, gate, and focus interview phases through router state even when the center pane renders one continuous sectioned workspace. |
 | **knowledge group** | A display-level grouping of knowledge kinds for the sidebar, defined by a hard-coded registry that maps kinds to group labels and visibility. |
 | **output view** | The terminal route available when all phases are closed, providing specification summary and markdown export. Not a workflow phase. |
 | **activity card** | A projected runtime or replay artifact adjacent to a turn or phase boundary, such as visible generation state, coarse interviewer activity summary, or trailing observer status. It is not a branch-bearing conversational turn. |
 | **activity placeholder** | The compact replayable presentation of an activity card between turn cards, showing elapsed thinking time and a coarse tool-use summary for the interviewer without exposing hidden reasoning or raw tool payloads. |
+| **phase section header** | A projected, non-durable artifact at the top of each phase section that states the phase purpose and what kinds of knowledge are captured there. Re-projects from workflow state on hydration. |
+| **grounding question** | A free-text-first question format used during grounding that presents the question, a why explanation, and a response note field without requiring option selections. Distinct from the option-selection format used in elicitation. |
 
 ### Boundary terms
 
@@ -395,8 +420,8 @@ Every meaningful code change should pass `npm run fix` in the inner loop and `np
 
 | Dimension | Score | Notes | Change trigger |
 | --------- | ----- | ----- | -------------- |
-| Observability | partial | Persistence, manifests, DB state, and route seams are visible in text, but the most important failures in this wave still present as browser-visible transcript disappearance, waiting-state ambiguity, and layout legibility issues. | Promote instrumentation if manual browser inspection cannot explain refresh or lock behavior confidently. |
-| Reproducibility | partial | Trusted manifest seeding and capture-backed corpus give a strong base, but brownfield kickoff quality still varies by repo shape and live refresh behavior is not yet represented by a canonical replay matrix. | Promote a stronger corpus or replay harness if ad hoc brownfield/manual checks stop being trustworthy. |
+| Observability | partial | Persistence, DB state, TypeScript seed builders, and route seams are visible in text, but the most important failures in this wave still present as browser-visible transcript disappearance, waiting-state ambiguity, and layout legibility issues. | Promote instrumentation if manual browser inspection cannot explain refresh or lock behavior confidently. |
+| Reproducibility | partial | TypeScript scenario builders and direct observer probes give a strong base, but brownfield kickoff quality still varies by repo shape and live refresh behavior is not yet represented by a canonical replay matrix. | Promote a stronger corpus or replay harness if ad hoc brownfield/manual checks stop being trustworthy. |
 | Controllability | partial | The agent can iterate on fixtures, stories, and structural tests autonomously, but the core acceptance signals for this wave remain human judgment calls. | Raise controllability only if manual review becomes the bottleneck or repeated ambiguity blocks progress. |
 
 ### Oracle Strategy by Loop Tier
@@ -437,18 +462,22 @@ Every meaningful code change should pass `npm run fix` in the inner loop and `np
 | ---- | -------- |
 | `db.test.ts` | I48, I72, I101 |
 | `core.test.ts` | I48 |
-| `app.test.ts` | I24, I54, I72, I87 |
+| `app.test.ts` | I24, I54, I72, I87, I101, I104 |
 | `context.test.ts` | I44, I54 |
 | `observer.test.ts` | I48, I54 |
+| `parts.test.ts` | I17, I101 |
+| `project-state-turn.test.ts` | I24, I44, I87, I101 |
 | `EntitySidebar.test.tsx` | I48 |
 | `InterviewView.test.tsx` | I24, I44, I48, I54, I72 |
+| `-workspace-stream-projector.test.ts` | I24 |
 | `transcript-parity.test.tsx` | I24 |
 | `interview.test.ts` | I87, I101 |
+| `turn-artifacts.test.ts` | I104 |
 | `phase-close.test.ts` | I72 |
 | `router.test.tsx` | I102 |
 | `GraphView.test.tsx` | I48, I102 |
 | `project.test.ts` / `launcher.test.ts` / `runtime-config.test.ts` | I4, I100 |
-| `corpus.test.ts` / `manifest.test.ts` / `walkthrough.test.ts` | I103 |
+| `corpus.test.ts` / `walkthrough.test.ts` / `seed.test.ts` | I103 |
 
 ## Acceptance Criteria
 

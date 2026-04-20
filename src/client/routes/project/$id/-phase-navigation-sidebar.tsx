@@ -3,14 +3,15 @@ import { ArrowLeftIcon } from 'lucide-react';
 
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import { cn } from '@/client/lib/utils';
-import type {
-  ProjectStateTurn,
-  WorkflowPhase,
-  WorkflowPhaseState,
-  WorkflowState,
-} from '@/shared/api-types.js';
-import { getWorkflowPhaseLabel } from '@/shared/phase-display.js';
-import { phaseOrder, phaseRouteSegments } from '@/shared/phase-routes.js';
+import type { WorkflowPhase, WorkflowPhaseState, WorkflowState } from '@/shared/api-types.js';
+import {
+  areAllWorkflowPhasesClosed,
+  getCurrentOpenPhase,
+  getPhaseRoutePath,
+  getWorkflowPhaseLabel,
+  phaseOrder,
+} from '@/shared/phase-descriptors.js';
+import type { SpecificationTurn } from '@/shared/specification.js';
 
 function formatStatus(status: WorkflowPhaseState['status']): string {
   switch (status) {
@@ -32,10 +33,10 @@ function formatTurnCount(turnCount: number): string {
 }
 
 function getCurrentReachablePhase(workflow: WorkflowState): WorkflowPhase | null {
-  return phaseOrder.find((phase) => workflow.phases[phase].status !== 'closed') ?? null;
+  return getCurrentOpenPhase(workflow.phases);
 }
 
-function getPhaseTurnCounts(turns: readonly ProjectStateTurn[]): Record<WorkflowPhase, number> {
+function getPhaseTurnCounts(turns: readonly SpecificationTurn[]): Record<WorkflowPhase, number> {
   const turnCounts = {
     scope: 0,
     design: 0,
@@ -51,7 +52,7 @@ function getPhaseTurnCounts(turns: readonly ProjectStateTurn[]): Record<Workflow
 }
 
 function allWorkflowPhasesClosed(workflow: WorkflowState): boolean {
-  return phaseOrder.every((phase) => workflow.phases[phase].status === 'closed');
+  return areAllWorkflowPhasesClosed(workflow.phases);
 }
 
 function TimelineBullet({ status }: { status: WorkflowPhaseState['status'] | 'available' }) {
@@ -101,15 +102,15 @@ function ReadinessMeta({ readiness }: { readiness: WorkflowPhaseState['readiness
 }
 
 export function PhaseNavigationSidebar({
-  projectId,
-  projectName,
+  specificationId,
+  specificationName,
   workflow,
   turns,
 }: {
-  projectId: string;
-  projectName: string;
+  specificationId: string;
+  specificationName: string;
   workflow: WorkflowState;
-  turns: readonly ProjectStateTurn[];
+  turns: readonly SpecificationTurn[];
 }) {
   const currentReachablePhase = getCurrentReachablePhase(workflow);
   const phaseTurnCounts = getPhaseTurnCounts(turns);
@@ -129,8 +130,8 @@ export function PhaseNavigationSidebar({
             <ArrowLeftIcon className="size-3" />
             <span>Back to Workspace</span>
           </Link>
-          <p className="truncate text-base font-medium leading-snug text-ink" title={projectName}>
-            {projectName}
+          <p className="truncate text-base leading-snug font-medium text-ink" title={specificationName}>
+            {specificationName}
           </p>
         </div>
       </div>
@@ -140,7 +141,6 @@ export function PhaseNavigationSidebar({
           <ol className="relative ml-1.5">
             {phaseOrder.map((phase, index) => {
               const state = workflow.phases[phase];
-              const segment = phaseRouteSegments[phase];
               const isReachable =
                 state.status === 'closed' ||
                 currentReachablePhase === phase ||
@@ -160,7 +160,7 @@ export function PhaseNavigationSidebar({
                 <div className="min-w-0">
                   <span
                     className={cn(
-                      'inline-block text-sm font-medium leading-tight',
+                      'inline-block text-sm leading-tight font-medium',
                       state.status === 'unstarted' ? 'text-hint' : 'text-sub',
                       'group-[.is-active]/phase:rounded-md group-[.is-active]/phase:bg-white group-[.is-active]/phase:px-2 group-[.is-active]/phase:py-0.5 group-[.is-active]/phase:text-ink',
                     )}
@@ -184,27 +184,23 @@ export function PhaseNavigationSidebar({
                   aria-disabled={!isReachable ? 'true' : undefined}
                   {...sharedProps}
                 >
-                  {/* Vertical line — runs from bullet to next bullet */}
                   {!isLast && (
                     <span
                       className={cn(
-                        'absolute left-[5px] top-[16px] -bottom-[3px] w-0.5',
+                        'absolute top-[16px] -bottom-[3px] left-[5px] w-0.5',
                         lineActive ? 'bg-[#2070e6]' : 'bg-rule',
                       )}
                     />
                   )}
 
-                  {/* Bullet */}
                   <span className="mt-[4px] flex shrink-0 items-center justify-center">
                     <TimelineBullet status={state.status} />
                   </span>
 
-                  {/* Body */}
                   {isReachable ? (
                     <Link
-                      // @ts-expect-error — dynamic route path from validated phase-route mapping
-                      to={`/project/$id/${segment}`}
-                      params={{ id: projectId }}
+                      to={getPhaseRoutePath(phase) as '/specification/$id/grounding'}
+                      params={{ id: specificationId }}
                       activeProps={{ className: 'is-active' }}
                       className="group/phase block min-w-0 text-left transition-colors"
                     >
@@ -223,14 +219,14 @@ export function PhaseNavigationSidebar({
                   <TimelineBullet status="available" />
                 </span>
                 <Link
-                  to="/project/$id/export"
-                  params={{ id: projectId }}
+                  to="/specification/$id/export"
+                  params={{ id: specificationId }}
                   activeProps={{ className: 'is-active' }}
                   className="group/phase block min-w-0 text-left transition-colors"
                   data-phase="output"
                   data-phase-reachable="true"
                 >
-                  <span className="inline-block text-sm font-medium leading-tight text-sub group-[.is-active]/phase:rounded-md group-[.is-active]/phase:bg-white group-[.is-active]/phase:px-2 group-[.is-active]/phase:py-0.5 group-[.is-active]/phase:text-ink">
+                  <span className="inline-block text-sm leading-tight font-medium text-sub group-[.is-active]/phase:rounded-md group-[.is-active]/phase:bg-white group-[.is-active]/phase:px-2 group-[.is-active]/phase:py-0.5 group-[.is-active]/phase:text-ink">
                     Output
                   </span>
                   <div className="mt-1 flex flex-col gap-0.5 text-xs text-sub">

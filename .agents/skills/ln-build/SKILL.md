@@ -10,11 +10,13 @@ Implement **one** scope card. Beck's red-green-refactor, one cycle, no scope cre
 
 ## Input
 
-A full or light scope card from `ln-scope`, or a trivial direct-fix request: $ARGUMENTS
+A full or light scope card from `ln-scope`, the next ready card in `memory/CARDS.md`, or a trivial direct-fix request: $ARGUMENTS
 
 Extract: target behavior / objective, acceptance criteria, and verification approach.
 
 Treat the scope card as the next implementation step inside its containing `memory/PLAN.md` frontier item. The frontier item is the plan-level work item; the scope card is just the current execution step inside it. Unless `ln-plan` has already split the frontier into separate items, do **not** infer a new Linear issue or Graphite branch from scope-card granularity; multiple consecutive scope cards may land on the same branch.
+
+If `memory/CARDS.md` exists, treat it as a derivative execution queue, not canonical planning state. Start with the next card marked `next` or the first unfinished card in that file. If that card is already satisfied on the current branch, do **not** manufacture a no-op build commit; verify the acceptance criteria, mark the card `done` or `dropped` as appropriate, reconcile the queue, and either continue to the next honest build target or route back to `ln-scope` if no build remains.
 
 Re-enter before red.
 
@@ -29,13 +31,38 @@ Write a 2-4 bullet orientation note naming the containing seam, the frontier ite
 
 If the request is a direct fix and you cannot name the containing seam or whether it is settled, stop and route through `ln-scope` first.
 
-Do not invent new planning docs, scratch histories, or alternate memory locations while building. Durable state reconciles back into `memory/SPEC.md` and `memory/PLAN.md`; temporary support artifacts stay in `HANDOFF.md` or `memory/REFACTOR.md` only while they are still live.
+Do not invent new planning docs, scratch histories, or alternate memory locations while building. Durable state reconciles back into `memory/SPEC.md` and `memory/PLAN.md`; temporary support artifacts stay in `HANDOFF.md`, `memory/CARDS.md`, or `memory/REFACTOR.md` only while they are still live.
+
+## Serial execution mode
+
+When several prepared cards already exist for one settled frontier item, `ln-build` may execute them in sequence instead of routing back through the user after every commit.
+
+Loop shape:
+
+1. take the next ready card
+2. decide whether it is still a real build target or is already satisfied / stale on the current branch
+3. if it is real work, run red → green → refactor
+4. run the verification harness
+5. reconcile canonical state and `memory/CARDS.md`
+6. commit only if the card produced a real card-sized change
+7. continue only if no stop condition fires
+
+Stop the serial loop immediately when any of these becomes true:
+
+- verification fails
+- the active card needs promotion to structural work
+- the containing seam no longer feels settled
+- a manual outer-loop verification step is now required before proceeding
+- `memory/SPEC.md` or `memory/PLAN.md` needs non-trivial revision before the next card
+- the remaining queued cards are no longer obviously valid
+- the user asked to pause or review between cards
+- context is getting fragile enough that handoff is safer than continuing
 
 ## Red
 
 Translate acceptance criteria into failing tests when the change benefits from them. For bugfixes or subtle seam changes, prefer one high-leverage regression test. For trivial maintenance or doc-only work, tests may be unnecessary.
 
-Run the relevant checks. Confirm failures are meaningful.
+Run the relevant checks. Confirm failures are meaningful. If the card is already green before any code change, treat that as evidence the queue item is already satisfied or stale — not as permission to create a ceremonial red/green cycle.
 
 ## Green
 
@@ -49,7 +76,7 @@ With tests green, improve names, boundaries, and obvious local structure. Do not
 
 ## Verify and commit
 
-Run the project's verification harness. All checks must pass.
+Run the project's verification harness. All checks must pass. If the card proved already satisfied and no code or canonical-state change was needed, do not create an empty commit.
 
 ## Canonical reconciliation (mandatory)
 
@@ -111,19 +138,22 @@ If uncertain whether the seam is actually settled, promote — do not silently k
 After reconciliation, garbage-collect exhausted temporary files instead of leaving breadcrumbs or tombstones:
 
 - `HANDOFF.md` — keep only if unfinished volatile transfer state still exists; otherwise delete it
+- `memory/CARDS.md` — keep only while queued scope cards still remain; otherwise delete it
 - `memory/REFACTOR.md` — keep only while unfinished refactor steps still depend on it; otherwise delete it
 - Do not create archive copies, numbered handoffs, or completion-pointer files
 
 ## Routing
 
-After verification and any necessary promotion updates, present these options to the user (use `tool-ask-question`):
+If serial execution mode is active and no stop condition fired, continue to the next queued card instead of routing back to the user yet.
+
+Otherwise, after verification and any necessary promotion updates, present these options to the user (use `tool-ask-question`):
 
 | #   | Label            | Target       | Why |
 | --- | ---------------- | ------------ | --- |
-| 1   | Scope next item  | `ln-scope`   | More frontier work remains |
+| 1   | Scope next item  | `ln-scope`   | More frontier work remains or no prepared queue exists |
 | 2   | Review the code  | `ln-review`  | Assess quality after an implementation burst |
 | 3   | Revise spec      | `ln-spec`    | The build changed durable architecture |
 | 4   | Revise plan      | `ln-plan`    | The frontier or priorities changed |
 | 5   | Back to triage   | `ln-consult` | Direction needs reassessment |
 
-Recommended: **1** if more work remains, **2** after multiple consecutive builds.
+Recommended: **1** if more work remains and there is no active queue, **2** after multiple consecutive builds.

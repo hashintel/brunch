@@ -193,7 +193,7 @@ describe('createProposePhaseClosureTool', () => {
 
 describe('brownfield interviewer configuration', () => {
   it('adds read-only exploration tools during brownfield scope', () => {
-    const project = createProject(db, 'BF', { mode: 'brownfield', cwd: '/tmp/repo' });
+    const project = createProject(db, 'BF', { mode: 'brownfield' });
     const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: '' });
     const tools = getInterviewerTools(db, turn.id, 'scope', project.id, {
       mode: 'brownfield',
@@ -204,11 +204,12 @@ describe('brownfield interviewer configuration', () => {
     expect(toolNames).toContain('grep');
     expect(toolNames).toContain('find_files');
     expect(toolNames).toContain('list_directory');
+    expect(toolNames).toContain('present_grounding_card');
     expect(toolNames).toContain('ask_question');
   });
 
   it('keeps brownfield exploration tools read-only', () => {
-    const project = createProject(db, 'BF', { mode: 'brownfield', cwd: '/tmp/repo' });
+    const project = createProject(db, 'BF', { mode: 'brownfield' });
     const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: '' });
     const tools = getInterviewerTools(db, turn.id, 'scope', project.id, {
       mode: 'brownfield',
@@ -222,7 +223,7 @@ describe('brownfield interviewer configuration', () => {
   });
 
   it('removes brownfield exploration tools after scope', () => {
-    const project = createProject(db, 'BF', { mode: 'brownfield', cwd: '/tmp/repo' });
+    const project = createProject(db, 'BF', { mode: 'brownfield' });
     const turn = createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
     const tools = getInterviewerTools(db, turn.id, 'design', project.id, {
       mode: 'brownfield',
@@ -253,15 +254,30 @@ describe('brownfield interviewer configuration', () => {
     expect(brownfieldPrompt).not.toBe(greenfieldPrompt);
     expect(brownfieldPrompt).toContain('explore');
     expect(brownfieldPrompt).toContain('/tmp/repo');
-    expect(brownfieldPrompt).toContain('Grounding:');
+    expect(brownfieldPrompt).toContain('present_grounding_card');
     expect(brownfieldPrompt).toContain('bounded feature area');
     expect(brownfieldPrompt).toContain('partial');
+    expect(brownfieldPrompt).toContain('FIRST durable turn');
   });
 
-  it('limits brownfield exploration instructions to the scope phase', () => {
+  it('limits brownfield exploration instructions to the scope phase and makes post-kickoff scope state-aware', () => {
     expect(getInterviewerInstructions('scope', { mode: 'brownfield', cwd: '/tmp/repo' })).toContain(
-      'explore',
+      'Before asking your first scope question',
     );
+    expect(
+      getInterviewerInstructions('scope', {
+        mode: 'brownfield',
+        cwd: '/tmp/repo',
+        brownfieldScopeStage: 'ongoing',
+      }),
+    ).toContain('ongoing brownfield grounding conversation');
+    expect(
+      getInterviewerInstructions('scope', {
+        mode: 'brownfield',
+        cwd: '/tmp/repo',
+        brownfieldScopeStage: 'ongoing',
+      }),
+    ).not.toContain('Before asking your first scope question');
     expect(getInterviewerInstructions('design', { mode: 'brownfield', cwd: '/tmp/repo' })).toBe(
       getSystemPrompt('design'),
     );

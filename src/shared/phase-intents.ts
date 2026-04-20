@@ -47,6 +47,6 @@ export function getPhaseIntentDisplayText(intent: PhaseIntentRequest): string {
     : getPhaseIntentMessage(intent.phase, intent.kind);
 }
 
-export function getPhaseIntentMarkerLabel(intent: PhaseIntentRequest): string {
-  return intent.kind === 'phase-entry' ? 'Interview started' : 'Interview resumed';
+export function getPhaseIntentMarkerLabel(intent: PhaseIntentRequest): string | null {
+  return intent.kind === 'phase-entry' ? null : 'Interview resumed';
 }

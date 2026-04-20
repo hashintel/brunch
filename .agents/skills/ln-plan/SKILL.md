@@ -8,7 +8,7 @@ argument-hint: "[feature or project area to plan]"
 
 Plan the **rolling frontier**, not the whole historical timeline.
 
-`memory/PLAN.md` is the canonical record of what's next. `docs/archive/PLAN_HISTORY.md` is the only sanctioned archive for retired plan history. Do not invent sidecar plan docs, milestone ledgers, or alternate memory locations without explicit permission.
+`memory/PLAN.md` is the canonical record of what's next. `docs/archive/PLAN_HISTORY.md` is the only sanctioned archive for retired plan history. `memory/CARDS.md` is the sanctioned derivative queue for multiple prepared scope cards inside one frontier item; it is not canonical planning state. Do not invent other sidecar plan docs, milestone ledgers, or alternate memory locations without explicit permission.
 
 The mature-mode shape is:
 
@@ -19,6 +19,8 @@ The mature-mode shape is:
 - `Dependencies` — active / next blocking relationships only
 
 Archive deeper history to `docs/archive/PLAN_HISTORY.md` instead of keeping it live in `memory/PLAN.md`.
+
+Treat frontier items as branch-sized work, not commit-sized work. If one frontier item will unfold as several consecutive verified commits, keep that execution queue in `memory/CARDS.md` or in session context instead of fragmenting `memory/PLAN.md` into a commit ledger.
 
 ## Input
 
@@ -53,6 +55,8 @@ Create a new item only when it introduces at least one of:
 
 Do not fragment the plan for minor action/status variants or ordinary follow-through inside a settled seam.
 
+Do not split one frontier item into several new PLAN entries just because execution will require several scope cards or commits. Only split when the frontier itself changes shape, ownership, or dependency ordering.
+
 ### Epistemic horizon
 
 If live low-confidence assumptions block downstream work, stop the plan at that boundary. Plan spikes or thinner proving steps, not fantasy certainty.
@@ -66,6 +70,7 @@ If live low-confidence assumptions block downstream work, stop the plan at that 
 5. Add `Why now / unlocks` for `Active` or `Next` items when ordering would otherwise be opaque to a fresh thread.
 6. Keep `Recently Completed` to 2-3 terse items max. Move older history to `docs/archive/PLAN_HISTORY.md`, not to handoff files or ad hoc notes.
 7. Update `Dependencies` to reflect only active / next items.
+8. If several commit-sized execution steps are already obvious inside one frontier item, keep them out of `memory/PLAN.md`; they belong in `memory/CARDS.md` or in the active thread as derivative execution detail.
 
 ## Traceability
 

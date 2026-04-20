@@ -30,6 +30,12 @@ export const reviewSetSchema = z.object({
   items: z.array(reviewSetItemSchema),
 });
 
+export const groundingCardSchema = z.object({
+  summary: z.string().min(1),
+  detail: z.string().min(1).nullable().optional(),
+  continueLabel: z.string().min(1).nullable().optional(),
+});
+
 function validateReviewActionOptionPosition(
   reviewAction: z.infer<typeof reviewActionOptionSchema>,
   field: string,
@@ -98,6 +104,11 @@ export const askQuestionToolOutputSchema = z.object({
   optionCount: z.number(),
 });
 
+export const presentGroundingCardToolOutputSchema = z.object({
+  ok: z.literal(true),
+  turnId: z.number(),
+});
+
 export const observerDraftReviewItemSchema = z.object({
   content: z.string().min(1),
   rationale: z.string().nullable(),
@@ -158,11 +169,13 @@ export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
 export type ReviewAction = z.infer<typeof reviewActionSchema>;
 export type ReviewActionOption = z.infer<typeof reviewActionOptionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
+export type PresentGroundingCardToolOutput = z.infer<typeof presentGroundingCardToolOutputSchema>;
 export type ObserverDraftReviewItem = z.infer<typeof observerDraftReviewItemSchema>;
 export type ObserverReviewDrafts = z.infer<typeof observerReviewDraftsSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
 export type ObserverEntityIds = ObserverResultData['entityIds'];
 export type ReviewSetData = z.infer<typeof reviewSetSchema>;
+export type GroundingCardData = z.infer<typeof groundingCardSchema>;
 export type ActivitySummary = z.infer<typeof activitySummarySchema>;
 export type DataTurnResponse = z.infer<typeof dataTurnResponseSchema>;
 export type { DataConfirmation };
@@ -177,6 +190,7 @@ export type BrunchMessageMetadata = {
 export type BrunchDataParts = {
   'observer-result': ObserverResultData;
   'review-set': ReviewSetData;
+  'grounding-card': GroundingCardData;
   'activity-summary': ActivitySummary;
   'turn-response': DataTurnResponse;
   confirmation: DataConfirmation;
@@ -188,6 +202,10 @@ export type BrunchUITools = {
   ask_question: {
     input: StructuredQuestion;
     output: AskQuestionToolOutput;
+  };
+  present_grounding_card: {
+    input: GroundingCardData;
+    output: PresentGroundingCardToolOutput;
   };
   propose_phase_closure: {
     input: PhaseClosureProposal;
@@ -204,9 +222,11 @@ export type BrunchAssistantPart =
       {
         type:
           | 'tool-ask_question'
+          | 'tool-present_grounding_card'
           | 'tool-propose_phase_closure'
           | 'data-observer-result'
           | 'data-review-set'
+          | 'data-grounding-card'
           | 'data-activity-summary'
           | 'data-phase-summary';
       }
@@ -223,11 +243,13 @@ const persistedAssistantPartSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('step-start') }).loose(),
   z.object({ type: z.literal('text'), text: z.string() }).loose(),
   z.object({ type: z.literal('tool-ask_question'), input: structuredQuestionSchema }).loose(),
+  z.object({ type: z.literal('tool-present_grounding_card'), input: groundingCardSchema }).loose(),
   z
     .object({ type: z.literal('tool-propose_phase_closure'), input: phaseClosureProposalSchema.optional() })
     .loose(),
   z.object({ type: z.literal('data-observer-result'), data: observerResultSchema }).loose(),
   z.object({ type: z.literal('data-review-set'), data: reviewSetSchema }).loose(),
+  z.object({ type: z.literal('data-grounding-card'), data: groundingCardSchema }).loose(),
   z.object({ type: z.literal('data-activity-summary'), data: activitySummarySchema }).loose(),
   z.object({ type: z.literal('data-phase-summary'), data: dataPhaseSummarySchema }).loose(),
 ]);
@@ -281,6 +303,12 @@ export const askQuestionValidationTool = tool({
   outputSchema: askQuestionToolOutputSchema,
 });
 
+export const presentGroundingCardValidationTool = tool({
+  description: 'Present a provisional grounding card before the next substantive interview move.',
+  inputSchema: groundingCardSchema,
+  outputSchema: presentGroundingCardToolOutputSchema,
+});
+
 export const proposePhaseClosureValidationTool = tool({
   description: 'Propose closing the current workflow phase with a concise summary for user confirmation.',
   inputSchema: phaseClosureProposalSchema,
@@ -289,12 +317,14 @@ export const proposePhaseClosureValidationTool = tool({
 
 export const brunchValidationTools = {
   ask_question: askQuestionValidationTool,
+  present_grounding_card: presentGroundingCardValidationTool,
   propose_phase_closure: proposePhaseClosureValidationTool,
 } as const;
 
 export const brunchDataPartSchemas = {
   'observer-result': observerResultSchema,
   'review-set': reviewSetSchema,
+  'grounding-card': groundingCardSchema,
   'activity-summary': activitySummarySchema,
   'turn-response': dataTurnResponseSchema,
   confirmation: dataConfirmationSchema,
@@ -309,6 +339,7 @@ export type PersistedBrunchAssistantPart = Extract<
       | 'text'
       | 'data-observer-result'
       | 'data-review-set'
+      | 'data-grounding-card'
       | 'data-phase-summary'
       | 'data-activity-summary';
   }
@@ -319,6 +350,7 @@ const ASSISTANT_PART_TYPES: ReadonlySet<PersistedBrunchAssistantPart['type']> = 
   'text',
   'data-observer-result',
   'data-review-set',
+  'data-grounding-card',
   'data-phase-summary',
   'data-activity-summary',
 ] as const satisfies PersistedBrunchAssistantPart['type'][]);
@@ -327,6 +359,8 @@ function getToolSummaryLabel(toolName: string): string {
   switch (toolName) {
     case 'ask_question':
       return 'structured question';
+    case 'present_grounding_card':
+      return 'grounding card';
     case 'propose_phase_closure':
       return 'phase closure proposal';
     default:
@@ -335,11 +369,15 @@ function getToolSummaryLabel(toolName: string): string {
 }
 
 /** Tools that fire on every turn and add noise to the activity summary. */
-const FILTERED_ACTIVITY_TOOLS = new Set(['tool-ask_question']);
+const FILTERED_ACTIVITY_TOOLS = new Set(['tool-ask_question', 'tool-present_grounding_card']);
 
 function getActivityToolLabel(part: BrunchUIMessagePart): string | null {
   if (FILTERED_ACTIVITY_TOOLS.has(part.type)) {
     return null;
+  }
+
+  if (part.type === 'tool-present_grounding_card') {
+    return getToolSummaryLabel('present_grounding_card');
   }
 
   if (part.type === 'tool-propose_phase_closure') {

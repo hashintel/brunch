@@ -4,21 +4,28 @@ import { DefaultChatTransport } from 'ai';
 import type { ChatStatus } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { isVisibleKnowledgeKind } from '@/client/components/knowledge-display';
 import {
   useSubmitPhaseIntentMutation,
   useSubmitTurnResponseMutation,
 } from '@/client/mutations/interview-mutations';
-import type { ProjectMode, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
-import { brunchDataPartSchemas } from '@/shared/chat.js';
-import type { BrunchUIMessage } from '@/shared/chat.js';
+import type { EntitiesData, ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
+import { brunchDataPartSchemas, summarizeAssistantActivity } from '@/shared/chat.js';
+import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
+import { knowledgeCollectionKeyByKind } from '@/shared/knowledge.js';
 import {
   createConfirmProposedPhaseClosureCommand,
   createForceCloseActivePhaseCommand,
   getPhaseClosureCommandText,
 } from '@/shared/phase-close.js';
 import type { DataConfirmation } from '@/shared/phase-close.js';
+import { getNextActivePhase, getPhaseRoutePath } from '@/shared/phase-descriptors.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
-import { getNextActivePhase, phaseRouteSegments } from '@/shared/phase-routes.js';
+import {
+  getSpecificationRecord,
+  type SpecificationMode,
+  type SpecificationTurn,
+} from '@/shared/specification.js';
 
 import {
   buildPhaseTurnIds,
@@ -27,14 +34,15 @@ import {
   reconcileStablePhaseTurns,
 } from './-interview-controller-core.js';
 import type {
-  InterviewDurableProjectState,
+  InterviewDurableSpecificationState,
   KickoffControlViewModel,
   PendingQuestionViewModel,
   PhaseSummaryViewModel,
   RecoveryControlViewModel,
 } from './-interview-controller-core.js';
 import { useInterviewDataAdapter } from './-interview-data.js';
-import { getProjectScopedChatId } from './-interview-hydration.js';
+import { getSpecificationScopedChatId } from './-interview-hydration.js';
+import { useSpecificationScopedAutoPhaseIntent } from './-specification-lifecycle.js';
 
 export interface InterviewControllerChatState {
   readonly messages: readonly BrunchUIMessage[];
@@ -42,29 +50,35 @@ export interface InterviewControllerChatState {
   readonly isLoading: boolean;
   readonly isStreaming: boolean;
   readonly submitText: (text: string) => void;
-  readonly confirmPhaseClosure: (phase: ProjectStateTurn['phase'], turnId: number) => void;
-  readonly forcePhaseClosure: (phase: ProjectStateTurn['phase']) => void;
+  readonly confirmPhaseClosure: (phase: SpecificationTurn['phase'], turnId: number) => void;
+  readonly forcePhaseClosure: (phase: SpecificationTurn['phase']) => void;
 }
 
 export type InterviewControllerBottomArtifactState =
   | {
       readonly kind: 'persisted-turn';
-      readonly turn: ProjectStateTurn;
+      readonly turn: SpecificationTurn;
       readonly state: 'active' | 'submitted';
       readonly disabled: boolean;
       readonly errorMessage: string | null;
-      readonly submitTurnResponse: (positions: number[], freeText?: string) => Promise<void>;
+      readonly liveActivity?: ActivitySummary;
+      readonly submitTurnResponse: (
+        positions: number[],
+        freeText?: string,
+        reviewAction?: ReviewAction,
+      ) => Promise<void>;
     }
   | {
       readonly kind: 'pending-question';
       readonly pendingQuestion: PendingQuestionViewModel;
       readonly disabled: true;
+      readonly liveActivity?: ActivitySummary;
     }
   | {
       readonly kind: 'kickoff';
       readonly kickoff: KickoffControlViewModel;
       readonly disabled: boolean;
-      readonly submitKickoff: (mode?: ProjectMode) => void;
+      readonly submitKickoff: (mode?: SpecificationMode) => void;
     }
   | {
       readonly kind: 'recovery';
@@ -80,6 +94,7 @@ export type InterviewControllerBottomArtifactState =
     }
   | {
       readonly kind: 'generating';
+      readonly liveActivity?: ActivitySummary;
     }
   | {
       readonly kind: 'phase-handoff';
@@ -95,51 +110,80 @@ export type InterviewControllerBottomArtifactState =
       readonly isReviewPhase: boolean;
     };
 
-export interface InterviewControllerPromptInputState {
-  readonly visible: boolean;
-  readonly disabled: boolean;
-}
-
 export interface InterviewController {
-  readonly project: InterviewDurableProjectState['project'];
-  readonly workflow: InterviewDurableProjectState['workflow'];
-  readonly phaseTurns: readonly ProjectStateTurn[];
+  readonly project: InterviewDurableSpecificationState['project'];
+  readonly workflow: InterviewDurableSpecificationState['workflow'];
+  readonly phaseTurns: readonly SpecificationTurn[];
   readonly captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   readonly chat: InterviewControllerChatState;
   readonly bottomArtifact: InterviewControllerBottomArtifactState | null;
-  readonly promptInput: InterviewControllerPromptInputState;
 }
 
-export function useInterviewController(phase: WorkflowPhase): InterviewController {
-  const projectState = useLoaderData({ from: '/project/$id' });
+function visibleCapturesAreSynced(
+  turn: Pick<SpecificationTurn, 'captured_items'>,
+  entityState: EntitiesData,
+): boolean {
+  return (turn.captured_items ?? [])
+    .filter((item) => isVisibleKnowledgeKind(item.kind))
+    .every((item) =>
+      entityState[knowledgeCollectionKeyByKind[item.kind]].some((entity) => entity.id === item.id),
+    );
+}
+
+function getLatestAssistantActivity(
+  messages: readonly BrunchUIMessage[],
+  status: ChatStatus,
+): ActivitySummary | undefined {
+  if (status !== 'streaming') {
+    return undefined;
+  }
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message?.role !== 'assistant' || !message.parts) {
+      continue;
+    }
+
+    const activitySummary = summarizeAssistantActivity(message.parts);
+    if (activitySummary) {
+      return activitySummary;
+    }
+  }
+
+  return undefined;
+}
+
+export function useInterviewController(phase: WorkflowPhase, entityState: EntitiesData): InterviewController {
+  const specificationState = useLoaderData({ from: '/specification/$id' });
   const router = useRouter();
-  const projectId = projectState.project.id;
+  const projectId = getSpecificationRecord(specificationState).id;
 
   const invalidateRouter = useCallback(() => router.invalidate(), [router]);
-  const { durableProject, ephemeralChat, handleDataPart } = useInterviewDataAdapter(
-    projectState,
+  const { durableSpecification, ephemeralChat, handleDataPart } = useInterviewDataAdapter(
+    specificationState,
     invalidateRouter,
   );
 
   const phaseTurnIds = useMemo(
-    () => buildPhaseTurnIds(durableProject.turns, phase),
-    [durableProject.turns, phase],
+    () => buildPhaseTurnIds(durableSpecification.turns, phase),
+    [durableSpecification.turns, phase],
   );
 
   const [stablePhaseTurns, setStablePhaseTurns] = useState(() =>
-    durableProject.turns.filter((turn) => turn.phase === phase),
+    durableSpecification.turns.filter((turn) => turn.phase === phase),
   );
   const [submittedTurnId, setSubmittedTurnId] = useState<number | null>(null);
   const [captureStatusByTurnId, setCaptureStatusByTurnId] = useState<Map<number, 'waiting' | 'applying'>>(
     () => new Map(),
   );
+  const [pendingCaptureSyncTurnIds, setPendingCaptureSyncTurnIds] = useState<Set<number>>(() => new Set());
   const [pendingCloseNavigation, setPendingCloseNavigation] = useState(false);
   const pendingCloseRef = useRef(false);
-  const stablePhaseKeyRef = useRef(`${durableProject.project.id}:${phase}`);
+  const stablePhaseKeyRef = useRef(`${durableSpecification.project.id}:${phase}`);
 
   useEffect(() => {
-    const phaseTurns = durableProject.turns.filter((turn) => turn.phase === phase);
-    const stablePhaseKey = `${durableProject.project.id}:${phase}`;
+    const phaseTurns = durableSpecification.turns.filter((turn) => turn.phase === phase);
+    const stablePhaseKey = `${durableSpecification.project.id}:${phase}`;
 
     setStablePhaseTurns((current) =>
       stablePhaseKeyRef.current === stablePhaseKey
@@ -147,15 +191,16 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
         : phaseTurns,
     );
     stablePhaseKeyRef.current = stablePhaseKey;
-  }, [durableProject.project.id, durableProject.turns, phase]);
+  }, [durableSpecification.project.id, durableSpecification.turns, phase]);
 
   useEffect(() => {
     setSubmittedTurnId(null);
     setCaptureStatusByTurnId(new Map());
-  }, [durableProject.project.id, phase]);
+    setPendingCaptureSyncTurnIds(new Set());
+  }, [durableSpecification.project.id, phase]);
 
   const transport = useMemo(
-    () => new DefaultChatTransport({ api: `/api/projects/${projectId}/chat` }),
+    () => new DefaultChatTransport({ api: `/api/specifications/${projectId}/chat` }),
     [projectId],
   );
   const handleChatData = useCallback(
@@ -171,6 +216,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
 
         if (observerTurnId !== null) {
           setCaptureStatusByTurnId((current) => new Map(current).set(observerTurnId, 'applying'));
+          setPendingCaptureSyncTurnIds((current) => new Set(current).add(observerTurnId));
         }
       }
 
@@ -180,7 +226,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   );
 
   const { messages, sendMessage, status } = useChat<BrunchUIMessage>({
-    id: getProjectScopedChatId(durableProject.project.id),
+    id: getSpecificationScopedChatId(durableSpecification.project.id),
     transport,
     messages: [...ephemeralChat.seedMessages],
     dataPartSchemas: brunchDataPartSchemas,
@@ -195,7 +241,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   });
   const submitTurnResponseMutation = useSubmitTurnResponseMutation({
     projectId,
-    turn: durableProject.lastTurn,
+    turn: durableSpecification.lastTurn,
     sendMessage,
   });
   const submitPhaseIntentMutation = useSubmitPhaseIntentMutation({ projectId });
@@ -205,54 +251,10 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     () => filterMessagesByPhase(messages, phaseTurnIds),
     [messages, phaseTurnIds],
   );
-
-  const viewState = useMemo(
-    () =>
-      createInterviewControllerViewState(durableProject, phase, phaseMessages, isLoading, submittedTurnId),
-    [durableProject, isLoading, phase, phaseMessages, submittedTurnId],
+  const liveActivity = useMemo(
+    () => getLatestAssistantActivity(phaseMessages, status),
+    [phaseMessages, status],
   );
-
-  useEffect(() => {
-    if (submittedTurnId === null) {
-      return;
-    }
-
-    if (
-      viewState.bottomArtifact?.kind === 'pending-question' ||
-      viewState.bottomArtifact?.kind === 'phase-summary'
-    ) {
-      setCaptureStatusByTurnId((current) => {
-        if (current.has(submittedTurnId)) {
-          return current;
-        }
-        return new Map(current).set(submittedTurnId, 'waiting');
-      });
-    }
-
-    const phaseTurnId = durableProject.workflow.phases[phase].turnId;
-    if (durableProject.workflow.phases[phase].status === 'closed' || phaseTurnId !== submittedTurnId) {
-      setSubmittedTurnId(null);
-    }
-  }, [submittedTurnId, durableProject.workflow, phase, viewState.bottomArtifact]);
-
-  useEffect(() => {
-    setCaptureStatusByTurnId((current) => {
-      let next: Map<number, 'waiting' | 'applying'> | null = null;
-
-      for (const turn of stablePhaseTurns) {
-        if ((turn.captured_items?.length ?? 0) === 0 || !current.has(turn.id)) {
-          continue;
-        }
-
-        if (next === null) {
-          next = new Map(current);
-        }
-        next.delete(turn.id);
-      }
-
-      return next ?? current;
-    });
-  }, [stablePhaseTurns]);
 
   const submitText = useCallback(
     (text: string) => {
@@ -285,33 +287,47 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     [isLoading, sendMessage],
   );
 
-  const submitPhaseIntentCommand = useCallback(
-    (intent: PhaseIntentRequest) => {
+  const submitTypedPhaseIntent = useCallback(
+    async (intent: PhaseIntentRequest): Promise<boolean> => {
       if (isLoading) {
-        return;
+        return false;
       }
 
-      void sendMessage({
-        parts: [
-          {
-            type: 'data-phase-intent',
-            data: intent,
-          },
-        ],
-      });
+      const result =
+        intent.kind === 'phase-entry'
+          ? await submitPhaseIntentMutation.submitPhaseEntry(
+              intent.phase,
+              intent.mode ? { mode: intent.mode } : undefined,
+            )
+          : await submitPhaseIntentMutation.submitPhaseContinue(intent.phase);
+      if (!result) {
+        return false;
+      }
+
+      await Promise.resolve(
+        sendMessage({
+          parts: [
+            {
+              type: 'data-phase-intent',
+              data: intent,
+            },
+          ],
+        }),
+      );
+      return true;
     },
-    [isLoading, sendMessage],
+    [isLoading, sendMessage, submitPhaseIntentMutation],
   );
 
   const confirmPhaseClosure = useCallback(
-    (closurePhase: ProjectStateTurn['phase'], turnId: number) => {
+    (closurePhase: SpecificationTurn['phase'], turnId: number) => {
       submitPhaseClosureCommand(createConfirmProposedPhaseClosureCommand(closurePhase, turnId));
     },
     [submitPhaseClosureCommand],
   );
 
   const forcePhaseClosure = useCallback(
-    (closurePhase: ProjectStateTurn['phase']) => {
+    (closurePhase: SpecificationTurn['phase']) => {
       submitPhaseClosureCommand(createForceCloseActivePhaseCommand(closurePhase));
     },
     [submitPhaseClosureCommand],
@@ -319,23 +335,101 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
 
   useEffect(() => {
     if (!pendingCloseNavigation) return;
-    if (durableProject.workflow.phases[phase].status !== 'closed') return;
+    if (durableSpecification.workflow.phases[phase].status !== 'closed') return;
 
     setPendingCloseNavigation(false);
-    const nextPhase = getNextActivePhase(durableProject.workflow.phases, phase);
+    const nextPhase = getNextActivePhase(durableSpecification.workflow.phases, phase);
     if (nextPhase) {
       void router.navigate({
-        to: `/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/grounding',
+        to: getPhaseRoutePath(nextPhase) as '/specification/$id/grounding',
         params: { id: String(projectId) },
       });
     }
-  }, [pendingCloseNavigation, durableProject.workflow, phase, router, projectId]);
+  }, [pendingCloseNavigation, durableSpecification.workflow, phase, router, projectId]);
+
+  const isAutoSubmittingPhaseIntent = useSpecificationScopedAutoPhaseIntent({
+    projectId,
+    phase,
+    workflow: durableSpecification.workflow,
+    landing: durableSpecification.landing,
+    isChatLoading: isLoading,
+    submitPhaseIntent: submitTypedPhaseIntent,
+  });
+
+  const viewState = useMemo(
+    () =>
+      createInterviewControllerViewState(
+        durableSpecification,
+        phase,
+        phaseMessages,
+        isLoading,
+        submittedTurnId,
+        isAutoSubmittingPhaseIntent,
+      ),
+    [durableSpecification, isAutoSubmittingPhaseIntent, isLoading, phase, phaseMessages, submittedTurnId],
+  );
+
+  useEffect(() => {
+    if (submittedTurnId === null) {
+      return;
+    }
+
+    if (
+      viewState.bottomArtifact?.kind === 'pending-question' ||
+      viewState.bottomArtifact?.kind === 'phase-summary'
+    ) {
+      setCaptureStatusByTurnId((current) => {
+        if (current.has(submittedTurnId)) {
+          return current;
+        }
+        return new Map(current).set(submittedTurnId, 'waiting');
+      });
+    }
+
+    const phaseTurnId = durableSpecification.workflow.phases[phase].turnId;
+    if (durableSpecification.workflow.phases[phase].status === 'closed' || phaseTurnId !== submittedTurnId) {
+      setSubmittedTurnId(null);
+    }
+  }, [submittedTurnId, durableSpecification.workflow, phase, viewState.bottomArtifact]);
+
+  useEffect(() => {
+    const syncedTurnIds = stablePhaseTurns
+      .filter((turn) => pendingCaptureSyncTurnIds.has(turn.id) && visibleCapturesAreSynced(turn, entityState))
+      .map((turn) => turn.id);
+
+    if (syncedTurnIds.length === 0) {
+      return;
+    }
+
+    setPendingCaptureSyncTurnIds((current) => {
+      const next = new Set(current);
+      for (const turnId of syncedTurnIds) {
+        next.delete(turnId);
+      }
+      return next;
+    });
+    setCaptureStatusByTurnId((current) => {
+      const next = new Map(current);
+      for (const turnId of syncedTurnIds) {
+        next.delete(turnId);
+      }
+      return next;
+    });
+  }, [entityState, pendingCaptureSyncTurnIds, stablePhaseTurns]);
+
+  const effectiveCaptureStatusByTurnId = useMemo(() => {
+    const next = new Map(captureStatusByTurnId);
+    for (const turnId of pendingCaptureSyncTurnIds) {
+      next.set(turnId, 'applying');
+    }
+    return next;
+  }, [captureStatusByTurnId, pendingCaptureSyncTurnIds]);
 
   return {
     project: viewState.project,
     workflow: viewState.workflow,
     phaseTurns: stablePhaseTurns,
-    captureStatusByTurnId,
+    captureStatusByTurnId: effectiveCaptureStatusByTurnId,
     chat: {
       messages: phaseMessages,
       status,
@@ -353,7 +447,12 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
             state: viewState.bottomArtifact.state,
             disabled: viewState.bottomArtifact.state === 'submitted',
             errorMessage: submitTurnResponseMutation.errorMessage,
-            submitTurnResponse: async (positions: number[], freeText?: string) => {
+            liveActivity,
+            submitTurnResponse: async (
+              positions: number[],
+              freeText?: string,
+              reviewAction?: ReviewAction,
+            ) => {
               const turnId =
                 viewState.bottomArtifact?.kind === 'persisted-turn' ? viewState.bottomArtifact.turn.id : null;
               if (turnId === null) {
@@ -361,7 +460,11 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
               }
 
               setSubmittedTurnId(turnId);
-              const didSubmit = await submitTurnResponseMutation.submitTurnResponse(positions, freeText);
+              const didSubmit = await submitTurnResponseMutation.submitTurnResponse(
+                positions,
+                freeText,
+                reviewAction,
+              );
               if (!didSubmit) {
                 setSubmittedTurnId(null);
               }
@@ -372,6 +475,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
               kind: 'pending-question',
               pendingQuestion: viewState.bottomArtifact.pendingQuestion,
               disabled: true,
+              liveActivity,
             }
           : viewState.bottomArtifact.kind === 'kickoff'
             ? (() => {
@@ -381,31 +485,21 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                   kind: 'kickoff' as const,
                   kickoff,
                   disabled: isLoading,
-                  submitKickoff: (selectedMode?: ProjectMode) => {
+                  submitKickoff: (selectedMode?: SpecificationMode) => {
                     if (isLoading) {
                       return;
                     }
 
                     if (kickoff.phase === 'scope' && kickoff.mode === 'start' && selectedMode) {
-                      const intent: PhaseIntentRequest = {
+                      void submitTypedPhaseIntent({
                         kind: 'phase-entry',
                         phase: kickoff.phase,
                         mode: selectedMode,
-                      };
-
-                      void submitPhaseIntentMutation
-                        .submitPhaseEntry(kickoff.phase, { mode: selectedMode })
-                        .then((result) => {
-                          if (!result) {
-                            return;
-                          }
-
-                          submitPhaseIntentCommand(intent);
-                        });
+                      });
                       return;
                     }
 
-                    const intent: PhaseIntentRequest =
+                    void submitTypedPhaseIntent(
                       kickoff.mode === 'start'
                         ? {
                             kind: 'phase-entry',
@@ -414,20 +508,8 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                         : {
                             kind: 'phase-continue',
                             phase: kickoff.phase,
-                          };
-
-                    const submitIntent =
-                      kickoff.mode === 'start'
-                        ? submitPhaseIntentMutation.submitPhaseEntry(kickoff.phase)
-                        : submitPhaseIntentMutation.submitPhaseContinue(kickoff.phase);
-
-                    void submitIntent.then((result) => {
-                      if (!result) {
-                        return;
-                      }
-
-                      submitPhaseIntentCommand(intent);
-                    });
+                          },
+                    );
                   },
                 };
               })()
@@ -444,15 +526,9 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                         return;
                       }
 
-                      void submitPhaseIntentMutation.submitPhaseContinue(recovery.phase).then((result) => {
-                        if (!result) {
-                          return;
-                        }
-
-                        submitPhaseIntentCommand({
-                          kind: 'phase-continue',
-                          phase: recovery.phase,
-                        });
+                      void submitTypedPhaseIntent({
+                        kind: 'phase-continue',
+                        phase: recovery.phase,
                       });
                     },
                   };
@@ -469,7 +545,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                     };
                   })()
                 : viewState.bottomArtifact.kind === 'generating'
-                  ? { kind: 'generating' as const }
+                  ? { kind: 'generating' as const, liveActivity }
                   : viewState.bottomArtifact.kind === 'phase-handoff'
                     ? {
                         kind: 'phase-handoff' as const,
@@ -485,9 +561,5 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                         isReviewPhase: viewState.bottomArtifact.isReviewPhase,
                       }
       : null,
-    promptInput: {
-      visible: viewState.promptInput.visible,
-      disabled: isLoading || submitTurnResponseMutation.isPending || submitPhaseIntentMutation.isPending,
-    },
   };
 }

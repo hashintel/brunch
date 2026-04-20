@@ -2,14 +2,14 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+import { getSpecificationRecord } from '@/shared/specification.js';
 
 import {
-  ensureProjectFrontier,
   extractPrompt,
   finalizeTurn,
-  getProjectState,
+  getSpecificationState,
   prepareTurn,
-  readProjectStateProjection,
+  readSpecificationStateProjection,
 } from './core.js';
 import {
   confirmPhaseOutcome,
@@ -24,6 +24,7 @@ import {
   linkKnowledgeItemToTurn,
   type DB,
 } from './db.js';
+import { createLegacyKickoffTurnForTesting } from './test-support/legacy-control-rows.js';
 
 let db: DB;
 
@@ -395,11 +396,11 @@ describe('finalizeTurn', () => {
   });
 });
 
-describe('getProjectState', () => {
+describe('getSpecificationState', () => {
   it('keeps projection-only reads free of fabricated kickoff or recovery rows', () => {
     const project = createProject(db, 'Spec');
 
-    const kickoffProjection = readProjectStateProjection(db, project.id);
+    const kickoffProjection = readSpecificationStateProjection(db, project.id);
 
     expect(kickoffProjection?.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
     expect(kickoffProjection?.turns).toEqual([]);
@@ -412,7 +413,7 @@ describe('getProjectState', () => {
     });
     finalizeTurn(db, project.id, turn.id);
 
-    const recoveryProjection = readProjectStateProjection(db, project.id);
+    const recoveryProjection = readSpecificationStateProjection(db, project.id);
 
     expect(recoveryProjection?.landing).toEqual({ kind: 'recovery', phase: 'scope' });
     expect(recoveryProjection?.turns.filter((candidate) => candidate.turn_kind === 'question')).toHaveLength(
@@ -423,9 +424,9 @@ describe('getProjectState', () => {
 
   it('projects the first scope landing as kickoff with grounding strategy choices once the runtime seeds entry state', () => {
     const project = createProject(db, 'Spec');
-    ensureProjectFrontier(db, project.id);
+    createLegacyKickoffTurnForTesting(db, project.id);
 
-    const state = getProjectState(db, project.id);
+    const state = getSpecificationState(db, project.id);
 
     expect(state?.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
     expect(state?.turns).toHaveLength(1);
@@ -451,7 +452,7 @@ describe('getProjectState', () => {
     });
   });
 
-  it('returns project plus active path turns and projects recovery when the frontier is missing', () => {
+  it('returns specification plus active path turns and projects recovery when the frontier is missing', () => {
     const project = createProject(db, 'Spec');
     const turn = createTurn(db, project.id, {
       phase: 'scope',
@@ -464,11 +465,12 @@ describe('getProjectState', () => {
     linkKnowledgeItemToTurn(db, decision.id, turn.id);
     finalizeTurn(db, project.id, turn.id);
 
-    const state = getProjectState(db, project.id);
+    const state = getSpecificationState(db, project.id);
 
-    expect(state?.project.id).toBe(project.id);
+    expect(state ? getSpecificationRecord(state).id : null).toBe(project.id);
     expect(state?.landing).toEqual({ kind: 'recovery', phase: 'scope' });
     expect(state?.turns.filter((candidate) => candidate.turn_kind === 'question')).toHaveLength(1);
+    expect(state?.turns[0]?.specification_id ?? state?.turns[0]?.project_id).toBe(project.id);
     expect(state?.turns[0].question).toBe('What are we building?');
     expect(state?.turns[0].turn_kind).toBe('question');
     expect(state?.turns[0].captured_items).toEqual([

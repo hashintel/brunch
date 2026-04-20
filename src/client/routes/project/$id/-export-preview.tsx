@@ -1,13 +1,13 @@
 import { Link, getRouteApi } from '@tanstack/react-router';
 import { ArrowLeftIcon, BookOpenIcon, DownloadIcon } from 'lucide-react';
 
-import { ShellButton } from '@/client/components/app-shell.js';
+import { Button } from '@/client/components/app-shell.js';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 
-const exportPreviewRouteApi = getRouteApi('/project/$id/export');
+const exportPreviewRouteApi = getRouteApi('/specification/$id/export');
 
 export function ExportPreview() {
-  const { id } = exportPreviewRouteApi.useParams();
+  const { id: specificationId } = exportPreviewRouteApi.useParams();
   const data = exportPreviewRouteApi.useLoaderData();
 
   const handleDownload = () => {
@@ -26,8 +26,8 @@ export function ExportPreview() {
       <ScrollArea className="min-h-0 flex-1">
         <div className="mx-auto max-w-3xl px-10 py-8">
           <Link
-            to="/project/$id"
-            params={{ id }}
+            to="/specification/$id"
+            params={{ id: specificationId }}
             className="inline-flex items-center gap-1 text-xs text-hint transition-colors hover:text-ink"
           >
             <ArrowLeftIcon className="size-3" />
@@ -41,8 +41,8 @@ export function ExportPreview() {
                 Export is not available yet. All workflow phases must be closed before exporting.
               </p>
               <Link
-                to="/project/$id"
-                params={{ id }}
+                to="/specification/$id"
+                params={{ id: specificationId }}
                 className="mt-2 inline-flex items-center gap-1 text-sm text-hint transition-colors hover:text-ink"
               >
                 <ArrowLeftIcon className="size-3" />
@@ -54,13 +54,13 @@ export function ExportPreview() {
           {data?.ready && data.markdown && (
             <div className="mt-4">
               <div className="flex items-center gap-3">
-                <ShellButton variant="primary" onClick={handleDownload}>
+                <Button variant="primary" onClick={handleDownload}>
                   <DownloadIcon className="mr-1.5 size-3.5" />
                   Download .md
-                </ShellButton>
+                </Button>
                 <Link
-                  to="/project/$id/grounding"
-                  params={{ id }}
+                  to="/specification/$id/grounding"
+                  params={{ id: specificationId }}
                   className="inline-flex items-center gap-1 text-sm text-hint transition-colors hover:text-ink"
                 >
                   <BookOpenIcon className="size-3.5" />

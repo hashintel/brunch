@@ -9,28 +9,7 @@ import {
 } from '@/shared/knowledge.js';
 
 import { KnowledgeDetailCard, type KnowledgeEdgeData, type KnowledgeItemData } from './knowledge-card';
-
-// ── Hard-coded display grouping registry (D104) ─────────────────────
-//
-// | Group label              | Kinds                     | Visible |
-// | -------------------------| --------------------------| ------- |
-// | Goals & Context          | goal, context, constraint | yes     |
-// | Assumptions & Decisions  | assumption, decision      | yes     |
-// | Requirements             | requirement               | yes     |
-// | Acceptance Criteria      | criterion                 | yes     |
-// | (hidden)                 | term                      | no      |
-
-interface KnowledgeDisplayGroup {
-  label: string;
-  kinds: KnowledgeKind[];
-}
-
-const knowledgeDisplayGroups: KnowledgeDisplayGroup[] = [
-  { label: 'Goals & Context', kinds: ['goal', 'context', 'constraint'] },
-  { label: 'Assumptions & Decisions', kinds: ['assumption', 'decision'] },
-  { label: 'Requirements', kinds: ['requirement'] },
-  { label: 'Acceptance Criteria', kinds: ['criterion'] },
-];
+import { knowledgeDisplayGroups, isVisibleKnowledgeKind } from './knowledge-display';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -89,10 +68,8 @@ function buildOutgoingEdgesForItem(
 // ── Component ───────────────────────────────────────────────────────
 
 export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
-  // Count only visible kinds (exclude term)
-  const visibleKinds = new Set(knowledgeDisplayGroups.flatMap((g) => g.kinds));
   const totalItems = knowledgeKindRegistry
-    .filter((entry) => visibleKinds.has(entry.kind))
+    .filter((entry) => isVisibleKnowledgeKind(entry.kind))
     .reduce((sum, entry) => sum + entityState[entry.collectionKey].length, 0);
   const totalConnections = entityState.relationships.length;
 

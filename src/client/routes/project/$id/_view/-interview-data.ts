@@ -1,30 +1,33 @@
 import { useCallback, useMemo } from 'react';
 
-import type { ProjectState } from '@/shared/api-types.js';
+import { getSpecificationRecord, type SpecificationState } from '@/shared/specification.js';
 
 import {
-  createInterviewDurableProjectState,
+  createInterviewDurableSpecificationState,
   createInterviewEphemeralChatState,
 } from './-interview-controller-core.js';
 import type {
-  InterviewDurableProjectState,
+  InterviewDurableSpecificationState,
   InterviewEphemeralChatState,
 } from './-interview-controller-core.js';
 
 export interface InterviewDataAdapter {
-  readonly durableProject: InterviewDurableProjectState;
+  readonly durableSpecification: InterviewDurableSpecificationState;
   readonly ephemeralChat: InterviewEphemeralChatState;
   readonly handleDataPart: (dataPart: { type: string; data?: unknown }) => void;
 }
 
 export function useInterviewDataAdapter(
-  projectState: ProjectState,
+  specificationState: SpecificationState,
   invalidateRouter: () => Promise<void>,
 ): InterviewDataAdapter {
-  const durableProject = useMemo(() => createInterviewDurableProjectState(projectState), [projectState]);
+  const durableSpecification = useMemo(
+    () => createInterviewDurableSpecificationState(specificationState),
+    [specificationState],
+  );
   const ephemeralChat = useMemo(
-    () => createInterviewEphemeralChatState(projectState),
-    [projectState.project.id],
+    () => createInterviewEphemeralChatState(specificationState),
+    [getSpecificationRecord(specificationState).id],
   );
   const handleDataPart = useCallback(
     (dataPart: { type: string; data?: unknown }) => {
@@ -35,5 +38,5 @@ export function useInterviewDataAdapter(
     [invalidateRouter],
   );
 
-  return { durableProject, ephemeralChat, handleDataPart };
+  return { durableSpecification, ephemeralChat, handleDataPart };
 }

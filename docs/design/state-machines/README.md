@@ -15,6 +15,10 @@ The charts therefore model workflow legality and product-visible state, while a
 small runtime layer owns hydration, cancellation, queue recovery, and stale-event
 suppression.
 
+For a companion clarification of **workflow projection (read path)** vs
+**workflow transition/orchestration (write path)**, see
+`docs/design/WORKFLOW_OWNERSHIP.md`.
+
 ## Why State Machines
 
 The durable model in `SPEC.md` is now much clearer about product meaning: turns

@@ -5,11 +5,15 @@ import { ToolLoopAgent, stepCountIs, tool } from 'ai';
 import type { EntitiesData, ProjectMode } from '@/shared/api-types.js';
 import {
   askQuestionToolOutputSchema,
+  groundingCardSchema,
   phaseClosureProposalSchema,
+  presentGroundingCardToolOutputSchema,
   proposePhaseClosureToolOutputSchema,
   structuredQuestionSchema,
   type AskQuestionToolOutput,
+  type GroundingCardData,
   type PhaseClosureProposal,
+  type PresentGroundingCardToolOutput,
   type ProposePhaseClosureToolOutput,
   type ReviewSetData,
   type StructuredQuestion,
@@ -88,8 +92,40 @@ Do not run one-criterion-at-a-time approval or rejection turns in this slice.
 For every turn, you MUST use the ask_question tool. Never respond with plain text.`,
 };
 
-/** Brownfield scope system prompt. Instructs the agent to explore the codebase before asking its first scope question. */
-export function getBrownfieldScopePrompt(cwd: string): string {
+/** Brownfield scope system prompt. */
+export function getBrownfieldScopePrompt(
+  cwd: string,
+  stage: InterviewerModeOptions['brownfieldScopeStage'] = 'opening',
+): string {
+  const sharedQuestionRules = `Each question should:
+- Be clear and specific, not vague or open-ended
+- Include 2-4 options that represent meaningfully different directions
+- Mark exactly one option as recommended based on what you know so far
+- Include a "why" field explaining why this question matters for the spec
+- Include an impact level (high/medium/low) reflecting how much this decision affects downstream choices
+
+Ask one question at a time. Build on previous answers to go deeper.
+
+When goals, terms, context, and constraints are sufficiently captured for now, use the propose_phase_closure tool instead of asking another question. The summary should concisely explain what is now understood and why scope can close.`;
+
+  if (stage === 'ongoing') {
+    return `You are a spec elicitation interviewer conducting the SCOPE phase for a feature within an existing codebase.
+
+The project directory is: ${cwd}
+
+You are already inside an ongoing brownfield grounding conversation. Continue the structured scope interview from the current feature-area context.
+
+Default to asking the next substantive scope question with ask_question.
+
+You still have read-only workspace tools plus present_grounding_card available. If you do not have enough orientation for the next move, you MAY use a small number of read-only tool calls to gather more context, then use present_grounding_card to surface that provisional brief before the next substantive question.
+
+Do not repeat the opening repo-exploration ritual on every turn, and do not restage the whole codebase unless the current frontier truly requires it.
+
+Never respond with plain text — always use ask_question, present_grounding_card, or propose_phase_closure.
+
+${sharedQuestionRules}`;
+  }
+
   return `You are a spec elicitation interviewer conducting the SCOPE phase for a feature within an existing codebase.
 
 The project directory is: ${cwd}
@@ -104,29 +140,22 @@ Treat your understanding as intentionally partial: the user may only care about 
 
 Spend no more than 5-8 tool calls on exploration before synthesizing.
 
-Once you have a working understanding, begin the structured scope interview grounded in that context — your questions should reflect what you discovered about the codebase.
+After that opening exploration, your FIRST durable turn MUST use the present_grounding_card tool — not ask_question.
+- Put the concise user-facing repo brief in the grounding card \`summary\` and optional \`detail\` fields.
+- Keep it provisional and bounded to the likely feature area; do not dump raw file listings.
+- Use \`Continue\` as the continue label unless a different short verb is clearly better.
 
-Your first ask_question call is the durable kickoff handoff. Use it to do two jobs at once:
-1. In the \`why\` field, begin with \`Grounding:\` and give a concise 1-2 sentence summary of the durable repo facts you found that matter for this feature-area conversation. Then explain why this question matters.
-2. Make the first question about the bounded feature area, current behavior, or desired change inside this existing codebase. Do not ask generic whole-product greenfield kickoff questions.
+Only AFTER the user continues from that grounding card should you use ask_question to ask the first substantive scope question about the bounded feature area, current behavior, or desired change inside this existing codebase. Do not ask generic whole-product greenfield kickoff questions.
 
-For every turn after the exploration, you MUST use the ask_question tool to generate your question. Never respond with plain text — always use the tool.
+For every turn after the grounding card handoff, you MUST use the ask_question tool to generate your next substantive question unless you are ready to propose phase closure. Never respond with plain text — always use the tool.
 
-Each question should:
-- Be clear and specific, not vague or open-ended
-- Include 2-4 options that represent meaningfully different directions
-- Mark exactly one option as recommended based on what you know so far
-- Include a "why" field explaining why this question matters for the spec
-- Include an impact level (high/medium/low) reflecting how much this decision affects downstream choices
-
-Ask one question at a time. Build on previous answers to go deeper.
-
-When goals, terms, context, and constraints are sufficiently captured for now, use the propose_phase_closure tool instead of asking another question. The summary should concisely explain what is now understood and why scope can close.`;
+${sharedQuestionRules}`;
 }
 
 export interface InterviewerModeOptions {
   mode?: ProjectMode;
   cwd?: string;
+  brownfieldScopeStage?: 'opening' | 'ongoing';
 }
 
 function isBrownfieldScopeExploration(
@@ -138,14 +167,16 @@ function isBrownfieldScopeExploration(
 
 export function getInterviewerInstructions(phase: Phase, options?: InterviewerModeOptions): string {
   return isBrownfieldScopeExploration(phase, options)
-    ? getBrownfieldScopePrompt(options.cwd)
+    ? getBrownfieldScopePrompt(options.cwd, options.brownfieldScopeStage)
     : getSystemPrompt(phase);
 }
 
 export type AskQuestionTool = Tool<StructuredQuestion, AskQuestionToolOutput>;
+export type PresentGroundingCardTool = Tool<GroundingCardData, PresentGroundingCardToolOutput>;
 export type ProposePhaseClosureTool = Tool<PhaseClosureProposal, ProposePhaseClosureToolOutput>;
 export type BaseInterviewerTools = {
   ask_question: AskQuestionTool;
+  present_grounding_card?: PresentGroundingCardTool;
   propose_phase_closure?: ProposePhaseClosureTool;
 };
 export type InterviewerTools = BaseInterviewerTools & Record<string, Tool<any, any>>;
@@ -215,6 +246,26 @@ export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
   });
 }
 
+export function createPresentGroundingCardTool(db: DB, turnId: number): PresentGroundingCardTool {
+  return tool({
+    description:
+      'Present provisional repo or feature-area context as a grounding card before the next question.',
+    inputSchema: groundingCardSchema,
+    outputSchema: presentGroundingCardToolOutputSchema,
+    execute: async (input) => {
+      createOption(db, turnId, {
+        position: 0,
+        content: input.continueLabel?.trim() || 'Continue',
+        is_recommended: true,
+      });
+      return {
+        ok: true as const,
+        turnId,
+      };
+    },
+  });
+}
+
 export function createProposePhaseClosureTool(
   db: DB,
   turnId: number,
@@ -252,10 +303,15 @@ export function getInterviewerTools(
   const closeability = getCurrentWorkflowState(db, projectId).phases[phase].closeability;
   return {
     ask_question: createAskQuestionTool(db, turnId),
+    ...(isBrownfieldScopeExploration(phase, options)
+      ? {
+          present_grounding_card: createPresentGroundingCardTool(db, turnId),
+          ...createExplorationTools(options.cwd),
+        }
+      : {}),
     ...(canProposePhaseClosure(phase, closeability)
       ? { propose_phase_closure: createProposePhaseClosureTool(db, turnId, phase, projectId) }
       : {}),
-    ...(isBrownfieldScopeExploration(phase, options) ? createExplorationTools(options.cwd) : {}),
   };
 }
 
@@ -288,6 +344,18 @@ export function createInterviewerAgent(
   });
 }
 
+function getBrownfieldScopeStage(
+  phase: Phase,
+  activePath: TurnWithOptions[],
+  modeOptions?: InterviewerModeOptions,
+): InterviewerModeOptions['brownfieldScopeStage'] | undefined {
+  if (!isBrownfieldScopeExploration(phase, modeOptions)) {
+    return undefined;
+  }
+
+  return activePath.some((turn) => turn.phase === 'scope') ? 'ongoing' : 'opening';
+}
+
 export async function streamInterviewer(
   db: DB,
   turn: Turn,
@@ -296,7 +364,14 @@ export async function streamInterviewer(
   phase: Phase,
   modeOptions?: InterviewerModeOptions,
 ): ReturnType<InterviewerAgent['stream']> {
-  const agent = createInterviewerAgent(db, turn.id, phase, turn.project_id, modeOptions);
+  const effectiveModeOptions =
+    getBrownfieldScopeStage(phase, activePath, modeOptions) && modeOptions
+      ? {
+          ...modeOptions,
+          brownfieldScopeStage: getBrownfieldScopeStage(phase, activePath, modeOptions),
+        }
+      : modeOptions;
+  const agent = createInterviewerAgent(db, turn.id, phase, turn.project_id, effectiveModeOptions);
   const draftRequirements = getDraftRequirementEntitiesForProject(db, turn.project_id);
   const draftCriteria = getDraftCriterionEntitiesForProject(db, turn.project_id);
   const acceptedRequirements = getAcceptedRequirementEntitiesForProject(db, turn.project_id);

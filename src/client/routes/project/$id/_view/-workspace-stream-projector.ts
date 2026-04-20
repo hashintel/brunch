@@ -1,11 +1,13 @@
-import type { ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
+import type { WorkflowPhase } from '@/shared/api-types.js';
 import {
   getAcceptedClosureReplay,
+  getPersistedGroundingCard,
   getPersistedReviewAction,
   getPersistedReviewSet,
   turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
-} from '@/shared/project-state-turn.js';
+} from '@/shared/specification-state.js';
+import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
 import type { InterviewControllerBottomArtifactState } from './-interview-controller.js';
 
@@ -26,17 +28,22 @@ export type WorkspaceStreamArtifact =
     }
   | {
       readonly kind: 'answered-turn';
-      readonly turn: ProjectStateTurn;
+      readonly turn: SpecificationTurn;
       readonly questionCode: string;
     }
   | {
+      readonly kind: 'answered-grounding-card';
+      readonly turn: SpecificationTurn;
+      readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
+    }
+  | {
       readonly kind: 'answered-review-turn';
-      readonly turn: ProjectStateTurn;
+      readonly turn: SpecificationTurn;
       readonly reviewSet: NonNullable<ReturnType<typeof getPersistedReviewSet>>;
     }
   | {
       readonly kind: 'accepted-closure';
-      readonly turn: ProjectStateTurn | undefined;
+      readonly turn: SpecificationTurn | undefined;
       readonly acceptedClosure: NonNullable<ReturnType<typeof getAcceptedClosureReplay>>;
     }
   | {
@@ -46,6 +53,11 @@ export type WorkspaceStreamArtifact =
       readonly kind: 'persisted-turn';
       readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
       readonly questionCode: string;
+    }
+  | {
+      readonly kind: 'persisted-grounding-card';
+      readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
+      readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
     }
   | {
       readonly kind: 'pending-question';
@@ -95,7 +107,7 @@ function projectPhaseMarkers({
   phaseState,
 }: {
   phase: WorkflowPhase;
-  phaseState: ProjectState['workflow']['phases'][ProjectStateTurn['phase']];
+  phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
 }): WorkspaceStreamArtifact[] {
   if (phaseState.status !== 'in_progress' || (phase !== 'requirements' && phase !== 'criteria')) {
     return [];
@@ -118,8 +130,8 @@ function projectHistoryArtifacts({
   phaseState,
   renderedPersistedTurnId,
 }: {
-  phaseTurns: readonly ProjectStateTurn[];
-  phaseState: ProjectState['workflow']['phases'][ProjectStateTurn['phase']];
+  phaseTurns: readonly SpecificationTurn[];
+  phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
   renderedPersistedTurnId: number | null;
 }): WorkspaceStreamArtifact[] {
   const historyArtifacts: WorkspaceStreamArtifact[] = [];
@@ -141,6 +153,16 @@ function projectHistoryArtifacts({
     }
 
     if (!turnHasCompletedAnswer(turn) || turnIsControlOrClosureArtifact(turn)) {
+      continue;
+    }
+
+    const groundingCard = getPersistedGroundingCard(turn);
+    if (groundingCard) {
+      historyArtifacts.push({
+        kind: 'answered-grounding-card',
+        turn,
+        groundingCard,
+      });
       continue;
     }
 
@@ -172,12 +194,22 @@ function projectBottomArtifact(
   const questionCode = `Q${answeredTurnCount + 1}`;
 
   switch (bottomArtifact?.kind) {
-    case 'persisted-turn':
+    case 'persisted-turn': {
+      const groundingCard = getPersistedGroundingCard(bottomArtifact.turn);
+      if (groundingCard) {
+        return {
+          kind: 'persisted-grounding-card',
+          artifact: bottomArtifact,
+          groundingCard,
+        };
+      }
+
       return {
         kind: 'persisted-turn',
         artifact: bottomArtifact,
         questionCode,
       };
+    }
     case 'pending-question':
       return {
         kind: 'pending-question',
@@ -239,6 +271,7 @@ function shouldInsertDivider({
     historyArtifacts.length > 0 &&
     (controlArtifacts.length > 0 ||
       bottomArtifact?.kind === 'persisted-turn' ||
+      bottomArtifact?.kind === 'persisted-grounding-card' ||
       bottomArtifact?.kind === 'pending-question' ||
       bottomArtifact?.kind === 'phase-summary' ||
       bottomArtifact?.kind === 'generating' ||
@@ -247,7 +280,7 @@ function shouldInsertDivider({
   );
 }
 
-export function projectWorkspaceStream({
+export function specificationWorkspaceStream({
   phase,
   phaseTurns,
   phaseState,
@@ -255,8 +288,8 @@ export function projectWorkspaceStream({
   controlMarkers = [],
 }: {
   phase: WorkflowPhase;
-  phaseTurns: readonly ProjectStateTurn[];
-  phaseState: ProjectState['workflow']['phases'][ProjectStateTurn['phase']];
+  phaseTurns: readonly SpecificationTurn[];
+  phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
   bottomArtifact: InterviewControllerBottomArtifactState | null;
   controlMarkers?: readonly WorkspaceStreamMarker[];
 }): WorkspaceStreamProjection {

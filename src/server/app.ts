@@ -1,18 +1,12 @@
 import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessages } from 'ai';
 import express from 'express';
-import type { Express, Request, Response } from 'express';
+import type { Express, Request, RequestHandler, Response } from 'express';
 
-import {
-  createProjectRequestSchema,
-  submitPhaseIntentRequestSchema,
-  submitTurnResponseRequestSchema,
-} from '@/shared/api-types.js';
+import { submitPhaseIntentRequestSchema, submitTurnResponseRequestSchema } from '@/shared/api-types.js';
 import type {
   EntitiesData,
   ExportLoaderData,
   MutationErrorResponse,
-  ProjectListItem,
-  ProjectState,
   SubmitPhaseIntentResponse,
   SubmitTurnResponseResponse,
 } from '@/shared/api-types.js';
@@ -20,11 +14,9 @@ import {
   brunchDataPartSchemas,
   brunchValidationTools,
   extractTextFromMessage,
-  filterAssistantParts,
   formatTurnResponseText,
-  structuredQuestionSchema,
 } from '@/shared/chat.js';
-import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart, ReviewSetData } from '@/shared/chat.js';
+import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import {
   getGroundingStrategyModeForPosition,
   isGroundingStrategyKickoffTurn,
@@ -36,15 +28,23 @@ import {
   parsePhaseClosureCommand,
 } from '@/shared/phase-close.js';
 import { getPhaseIntentDisplayText } from '@/shared/phase-intents.js';
-import { getReviewActionForSelectedPositions } from '@/shared/project-state-turn.js';
+import {
+  getPersistedGroundingCard,
+  getReviewActionForSelectedPositions,
+} from '@/shared/specification-state.js';
+import {
+  createSpecificationRequestSchema,
+  getSpecificationRecord,
+  type SpecificationListItem,
+  type SpecificationState,
+} from '@/shared/specification.js';
 
 import {
-  ensureProjectFrontier,
+  createNewSpecification,
   extractPrompt,
   finalizeTurn,
-  getProjectState,
-  listProjectStates,
-  createNewProject,
+  getSpecificationState,
+  listSpecifications,
   prepareSuccessorTurn,
   prepareTurn,
   resolveTurn,
@@ -77,7 +77,11 @@ import { isExportReady, renderExportMarkdown } from './export.js';
 import { buildReviewSetForPhase, persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { safeDeserializeAssistantParts, safeDeserializeUserParts, serializeParts } from './parts.js';
-import { submitPhaseIntentWithRuntimeCompatibility } from './phase-intent-runtime.js';
+import {
+  getPhaseIntentRuntimeAvailabilityError,
+  submitPhaseIntentWithRuntimeCompatibility,
+} from './phase-intent-runtime.js';
+import { materializeTurnArtifacts } from './turn-artifacts.js';
 
 export interface AppOptions {
   readonly dbPath?: string;
@@ -137,39 +141,6 @@ function getPersistedFullSetReviewAction(
   return responsePart?.data.reviewAction ?? null;
 }
 
-function getPersistedRuntimeReviewMetadata(
-  phase: Turn['phase'],
-  message: Pick<BrunchUIMessage, 'parts'>,
-): {
-  reviewQuestionPart: Extract<BrunchAssistantPart, { type: 'tool-ask_question' }>;
-  reviewSet: ReviewSetData;
-} | null {
-  if (phase !== 'requirements' && phase !== 'criteria') {
-    return null;
-  }
-
-  const reviewQuestionPart = message.parts.find(
-    (part): part is Extract<BrunchAssistantPart, { type: 'tool-ask_question' }> =>
-      part.type === 'tool-ask_question' && 'input' in part,
-  );
-  if (!reviewQuestionPart) {
-    return null;
-  }
-
-  const parsedInput = structuredQuestionSchema.safeParse(reviewQuestionPart.input);
-  if (!parsedInput.success || !parsedInput.data.reviewSet || parsedInput.data.reviewSet.phase !== phase) {
-    return null;
-  }
-
-  return {
-    reviewQuestionPart: {
-      ...reviewQuestionPart,
-      input: parsedInput.data,
-    },
-    reviewSet: parsedInput.data.reviewSet,
-  };
-}
-
 function acceptRequirementsReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
   const materializedRequirementIds = materializeAcceptedRequirementsReviewSet(db, projectId, turnId);
   if (materializedRequirementIds === null) {
@@ -217,19 +188,48 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const app = express();
   app.use(express.json());
 
+  const specificationCollectionPaths = ['/api/specifications', '/api/projects'] as const;
+  const specificationResourcePaths = ['/api/specifications/:id', '/api/projects/:id'] as const;
+  const specificationPhaseIntentPaths = [
+    '/api/specifications/:id/phase-intent',
+    '/api/projects/:id/phase-intent',
+  ] as const;
+  const specificationTurnResponsePaths = [
+    '/api/specifications/:id/turns/:turnId/response',
+    '/api/projects/:id/turns/:turnId/response',
+  ] as const;
+  const specificationEntitiesPaths = [
+    '/api/specifications/:id/entities',
+    '/api/projects/:id/entities',
+  ] as const;
+  const specificationExportPaths = ['/api/specifications/:id/export', '/api/projects/:id/export'] as const;
+  const specificationChatPaths = ['/api/specifications/:id/chat', '/api/projects/:id/chat'] as const;
+
+  const registerGet = (paths: readonly string[], handler: RequestHandler) => {
+    for (const path of paths) {
+      app.get(path, handler);
+    }
+  };
+
+  const registerPost = (paths: readonly string[], handler: RequestHandler) => {
+    for (const path of paths) {
+      app.post(path, handler);
+    }
+  };
+
   // App config (cwd for display in AppLayout)
   app.get('/api/config', (_req: Request, res: Response) => {
     res.json({ cwd: projectCwd });
   });
 
   // List all projects
-  app.get('/api/projects', (_req: Request, res: Response) => {
-    res.json(listProjectStates(db) satisfies ProjectListItem[]);
+  registerGet(specificationCollectionPaths, (_req: Request, res: Response) => {
+    res.json(listSpecifications(db) satisfies SpecificationListItem[]);
   });
 
   // Create a new project
-  app.post('/api/projects', (req: Request, res: Response) => {
-    const parsedRequest = createProjectRequestSchema.safeParse(req.body);
+  registerPost(specificationCollectionPaths, (req: Request, res: Response) => {
+    const parsedRequest = createSpecificationRequestSchema.safeParse(req.body);
     if (!parsedRequest.success) {
       res.status(400).json({ error: 'Invalid project payload' } satisfies MutationErrorResponse);
       return;
@@ -237,27 +237,26 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
     const { name } = parsedRequest.data;
     const mode = parsedRequest.data.mode === 'brownfield' ? ('brownfield' as const) : undefined;
-    const cwd = mode === 'brownfield' ? projectCwd : undefined;
-    const project = createNewProject(db, name, { mode, cwd });
-    res.status(201).json(project);
+    const specification = createNewSpecification(db, name, mode ? { mode } : {});
+    res.status(201).json(specification);
   });
 
   // Get a specific project + active path
-  app.get('/api/projects/:id', (req: Request, res: Response) => {
+  registerGet(specificationResourcePaths, (req: Request, res: Response) => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
       return;
     }
-    const state = getProjectState(db, id);
-    if (!state) {
+    const specificationState = getSpecificationState(db, id);
+    if (!specificationState) {
       res.status(404).json({ error: 'Project not found' } satisfies MutationErrorResponse);
       return;
     }
-    res.json(state satisfies ProjectState);
+    res.json(specificationState satisfies SpecificationState);
   });
 
-  app.post('/api/projects/:id/phase-intent', (req: Request, res: Response) => {
+  registerPost(specificationPhaseIntentPaths, (req: Request, res: Response) => {
     const projectId = Number(req.params.id);
 
     if (Number.isNaN(projectId)) {
@@ -274,7 +273,6 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     const response = submitPhaseIntentWithRuntimeCompatibility({
       db,
       projectId,
-      projectCwd,
       request: parsedRequest.data,
     });
     if (!response.ok) {
@@ -286,7 +284,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   });
 
   // Submit a turn response on a turn.
-  app.post('/api/projects/:id/turns/:turnId/response', (req: Request, res: Response) => {
+  registerPost(specificationTurnResponsePaths, (req: Request, res: Response) => {
     const projectId = Number(req.params.id);
     const turnId = Number(req.params.turnId);
 
@@ -323,10 +321,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       const selectedMode =
         uniquePositions.length === 1 ? getGroundingStrategyModeForPosition(uniquePositions[0]!) : null;
       if (selectedMode) {
-        updateProjectMode(db, projectId, {
-          mode: selectedMode,
-          cwd: selectedMode === 'brownfield' ? projectCwd : null,
-        });
+        updateProjectMode(db, projectId, selectedMode);
       }
     }
 
@@ -390,7 +385,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   });
 
   // Get entities for a project
-  app.get('/api/projects/:id/entities', (req: Request, res: Response) => {
+  registerGet(specificationEntitiesPaths, (req: Request, res: Response) => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
@@ -405,29 +400,33 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   });
 
   // Export spec as markdown
-  app.get('/api/projects/:id/export', (req: Request, res: Response) => {
+  registerGet(specificationExportPaths, (req: Request, res: Response) => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
       return;
     }
-    const projectState = getProjectState(db, id);
-    if (!projectState) {
+    const specificationState = getSpecificationState(db, id);
+    if (!specificationState) {
       res.status(404).json({ error: 'Project not found' } satisfies MutationErrorResponse);
       return;
     }
-    const ready = isExportReady(projectState.workflow);
+    const ready = isExportReady(specificationState.workflow);
     if (!ready) {
       res.json({ ready: false } satisfies ExportLoaderData);
       return;
     }
     const entities = getEntitiesForProjectByMode(db, id, 'active-path');
-    const markdown = renderExportMarkdown(projectState.project.name, entities, projectState.workflow);
+    const markdown = renderExportMarkdown(
+      getSpecificationRecord(specificationState).name,
+      entities,
+      specificationState.workflow,
+    );
     res.json({ ready: true, markdown } satisfies ExportLoaderData);
   });
 
   // Conduct turn for a specific project
-  app.post('/api/projects/:id/chat', async (req: Request, res: Response) => {
+  registerPost(specificationChatPaths, async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       res.status(400).json({ error: 'Invalid project ID' });
@@ -515,6 +514,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     let prepared: ReturnType<typeof prepareTurn> | ReturnType<typeof prepareSuccessorTurn> | null = null;
     let confirmedClosureTurnId: number | null = null;
     let observedTurnId: number | null = null;
+    let skipObserverForCurrentChatTurn = false;
     let interviewerElapsedMs: number | undefined;
     try {
       if (confirmationTarget) {
@@ -527,30 +527,58 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         confirmedClosureTurnId = proposalTurn.id;
       } else if (forceClosePhase) {
         prepared = prepareTurn(db, id, promptText, persistedUserParts, forceClosePhase);
+      } else if (phaseIntentPart) {
+        const specificationState = getSpecificationState(db, id);
+        if (!specificationState) {
+          res.status(404).json({ error: 'Project not found' });
+          return;
+        }
+
+        const availabilityError = getPhaseIntentRuntimeAvailabilityError(
+          phaseIntentPart.data,
+          specificationState.landing,
+        );
+        if (availabilityError) {
+          res.status(availabilityError.status).json({ error: availabilityError.error });
+          return;
+        }
+
+        prepared = prepareSuccessorTurn(
+          db,
+          id,
+          phaseIntentPart.data.phase,
+          getSpecificationRecord(specificationState).active_turn_id ?? null,
+        );
       } else {
-        ensureProjectFrontier(db, id);
-        const frontierProject = getProjectState(db, id)?.project;
-        const activeTurn = frontierProject?.active_turn_id
-          ? getTurn(db, frontierProject.active_turn_id)
-          : undefined;
+        const specificationState = getSpecificationState(db, id);
+        if (!specificationState) {
+          res.status(404).json({ error: 'Project not found' });
+          return;
+        }
+
+        const currentPhase = getCurrentPhase(db, id);
+        const activeTurnId = getSpecificationRecord(specificationState).active_turn_id;
+        const activeTurn = activeTurnId ? getTurn(db, activeTurnId) : undefined;
 
         const activeOutcome = activeTurn ? findPhaseOutcomeForTurn(db, id, activeTurn.id) : undefined;
         if (activeOutcome?.status === 'proposed') {
           supersedePhaseOutcome(db, activeOutcome.id);
         }
 
-        if (activeTurn?.answer === null) {
-          resolveTurn(db, activeTurn.id, promptText, persistedUserParts);
+        if (activeTurn) {
+          skipObserverForCurrentChatTurn = Boolean(getPersistedGroundingCard(activeTurn));
+          const successorPhase = activeTurn.answer === null ? activeTurn.phase : currentPhase;
+          if (activeTurn.answer === null) {
+            resolveTurn(db, activeTurn.id, promptText, persistedUserParts);
+          }
           observedTurnId = activeTurn.id;
-          prepared = prepareSuccessorTurn(db, id, activeTurn.phase, activeTurn.id);
+          finalizeTurn(db, id, activeTurn.id);
+          prepared = prepareSuccessorTurn(db, id, successorPhase, activeTurn.id);
         } else {
-          observedTurnId = activeTurn?.id ?? null;
-          prepared = prepareSuccessorTurn(
-            db,
-            id,
-            activeTurn?.phase ?? getCurrentPhase(db, id),
-            frontierProject?.active_turn_id ?? null,
-          );
+          const answeredTurn = prepareTurn(db, id, promptText, persistedUserParts, currentPhase);
+          finalizeTurn(db, id, answeredTurn.turn.id);
+          observedTurnId = answeredTurn.turn.id;
+          prepared = prepareSuccessorTurn(db, id, currentPhase, answeredTurn.turn.id);
         }
       }
     } catch (error) {
@@ -594,9 +622,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
         const project = prepared.project;
         const modeOptions =
-          project.mode === 'brownfield' && project.cwd
-            ? { mode: 'brownfield' as const, cwd: project.cwd }
-            : undefined;
+          project.mode === 'brownfield' ? { mode: 'brownfield' as const, cwd: projectCwd } : undefined;
 
         const interviewerStartedAt = Date.now();
         const interviewer = await streamInterviewer(
@@ -636,13 +662,15 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           const shouldObserve =
             observedTurn &&
             observedTurn.answer !== null &&
+            !skipObserverForCurrentChatTurn &&
+            !getPersistedGroundingCard(observedTurn) &&
             !persistedUserParts.some((part) => part.type === 'data-confirmation') &&
             !safeDeserializeAssistantParts(observedTurn.assistant_parts).some(
               (part) => part.type === 'data-observer-result',
             );
 
           if (shouldObserve && observedTurn) {
-            const observerResult = await runObserver(db, observedTurn, id);
+            const observerResult = await runObserver(db, observedTurn, id, projectCwd);
             appendObserverResultToTurn(db, observedTurn.id, observerResult);
             writer.write({
               type: 'data-observer-result',
@@ -664,31 +692,16 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
         const assistantText = extractTextFromMessage(responseMessage);
         persistFallbackQuestionText(db, prepared.turn.id, assistantText);
-        const assistantParts = filterAssistantParts(responseMessage.parts, {
-          elapsedMs: interviewerElapsedMs,
+        const synthesizedReviewSet = buildReviewSetForPhase(prepared.turn.phase, {
+          requirements: getDraftRequirementEntitiesForProject(db, id),
+          criteria: getDraftCriterionEntitiesForProject(db, id),
         });
-        const persistedReviewMetadata = getPersistedRuntimeReviewMetadata(
-          prepared.turn.phase,
+        const persistedAssistantParts = materializeTurnArtifacts({
+          phase: prepared.turn.phase,
           responseMessage,
-        );
-        const synthesizedReviewSet =
-          persistedReviewMetadata?.reviewSet ??
-          buildReviewSetForPhase(prepared.turn.phase, {
-            requirements: getDraftRequirementEntitiesForProject(db, id),
-            criteria: getDraftCriterionEntitiesForProject(db, id),
-          });
-        const persistedAssistantParts = [
-          ...assistantParts.filter((part) => part.type !== 'data-review-set'),
-          ...(persistedReviewMetadata ? [persistedReviewMetadata.reviewQuestionPart] : []),
-          ...(synthesizedReviewSet
-            ? [
-                {
-                  type: 'data-review-set' as const,
-                  data: synthesizedReviewSet,
-                },
-              ]
-            : []),
-        ];
+          elapsedMs: interviewerElapsedMs,
+          fallbackReviewSet: synthesizedReviewSet,
+        });
         updateTurn(db, prepared.turn.id, {
           assistant_parts: serializeParts(persistedAssistantParts),
         });

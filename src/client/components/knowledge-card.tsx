@@ -196,7 +196,7 @@ function EdgeRefBadge({
 }) {
   const prefix = kind ? kindPrefix[kind] : '?';
   return (
-    <span className="inline-flex h-5 items-center rounded bg-wash px-1.5 text-[11px] font-medium leading-none text-sub">
+    <span className="inline-flex h-5 items-center rounded bg-wash px-1.5 text-[11px] leading-none font-medium text-sub">
       {referenceCode ?? `${prefix}${id}`}
     </span>
   );

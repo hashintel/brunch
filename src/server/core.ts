@@ -1,14 +1,13 @@
-import type { ProjectListItem, ProjectState, ProjectStateTurn, TurnKind } from '@/shared/api-types.js';
 import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { extractTextFromMessage } from '@/shared/chat.js';
-import {
-  groundingStrategyChoices,
-  groundingStrategyKickoffDescription,
-  groundingStrategyKickoffQuestion,
-} from '@/shared/grounding-strategy.js';
-import type { WorkflowPhase } from '@/shared/phase-close.js';
-import { phaseOrder } from '@/shared/phase-routes.js';
-import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
+import { getCurrentOpenPhase } from '@/shared/phase-descriptors.js';
+import { deriveSpecificationLanding } from '@/shared/specification-state.js';
+import type {
+  Specification,
+  SpecificationListItem,
+  SpecificationState,
+  SpecificationTurn,
+} from '@/shared/specification.js';
 
 import {
   getProject,
@@ -18,7 +17,6 @@ import {
   getCurrentWorkflowState,
   createTurn,
   advanceHead,
-  createOption,
   getCapturedItemsForTurns,
   listProjects,
   createProject,
@@ -39,7 +37,24 @@ export function extractPrompt(messages: BrunchUIMessage[]): string {
 }
 
 /** Turn with optional options for richer history formatting. */
-export type TurnWithOptions = ProjectStateTurn;
+export type TurnWithOptions = SpecificationTurn;
+
+type ActivePathTurn = Turn & {
+  options: ReturnType<typeof getOptionsForTurn>;
+  captured_items: NonNullable<SpecificationTurn['captured_items']>;
+};
+
+function toSpecificationTurn(turn: ActivePathTurn): TurnWithOptions {
+  const { project_id, ...rest } = turn;
+  return {
+    ...rest,
+    specification_id: project_id,
+  };
+}
+
+function toSpecification(project: Project): Specification {
+  return project;
+}
 
 export function loadActivePathWithOptions(db: DB, projectId: number): TurnWithOptions[] {
   const rawActivePath = getActivePath(db, projectId);
@@ -49,11 +64,13 @@ export function loadActivePathWithOptions(db: DB, projectId: number): TurnWithOp
     rawActivePath.map((turn) => turn.id),
   );
 
-  return rawActivePath.map((t) => ({
-    ...t,
-    options: getOptionsForTurn(db, t.id),
-    captured_items: capturedItemsByTurn.get(t.id) ?? [],
-  }));
+  return rawActivePath.map((turn) =>
+    toSpecificationTurn({
+      ...turn,
+      options: getOptionsForTurn(db, turn.id),
+      captured_items: capturedItemsByTurn.get(turn.id) ?? [],
+    }),
+  );
 }
 
 export function prepareTurn(
@@ -74,71 +91,6 @@ export function prepareTurn(
     user_parts: serializeParts(userParts),
   });
   return { project, turn, activePath };
-}
-
-function createFrontierOfferTurn(
-  db: DB,
-  projectId: number,
-  parentTurnId: number | null,
-  phase: WorkflowPhase,
-): Turn {
-  const phaseTurns = getActivePath(db, projectId).filter((turn) => turn.phase === phase);
-  const hasSubstantiveHistory = phaseTurns.some(
-    (turn) =>
-      turn.turn_kind !== 'kickoff' &&
-      (turn.question.trim().length > 0 || getOptionsForTurn(db, turn.id).length > 0),
-  );
-  const turnKind: TurnKind = hasSubstantiveHistory ? 'recovery' : 'kickoff';
-
-  const turn = createTurn(db, projectId, {
-    parent_turn_id: parentTurnId,
-    phase,
-    turn_kind: turnKind,
-    question: '',
-    answer: null,
-    user_parts: null,
-    assistant_parts: null,
-    why: null,
-  });
-
-  if (turnKind === 'kickoff' && phase === 'scope' && !hasSubstantiveHistory) {
-    updateTurn(db, turn.id, {
-      question: groundingStrategyKickoffQuestion,
-      why: groundingStrategyKickoffDescription,
-    });
-    for (const choice of groundingStrategyChoices) {
-      createOption(db, turn.id, {
-        position: choice.position,
-        content: choice.title,
-        is_recommended: choice.isRecommended,
-      });
-    }
-  }
-
-  return turn;
-}
-
-export function ensureProjectFrontier(db: DB, projectId: number): Turn | null {
-  const project = getProject(db, projectId);
-  if (!project) {
-    return null;
-  }
-
-  const workflow = getCurrentWorkflowState(db, projectId);
-  const activePhase = getCurrentPhase(db, projectId);
-  const phaseState = workflow.phases[activePhase];
-  if (phaseState.status === 'closed' || phaseState.proposalPending) {
-    return null;
-  }
-
-  const activeTurn = project.active_turn_id ? getTurn(db, project.active_turn_id) : undefined;
-  if (activeTurn?.phase === activePhase && activeTurn.answer === null) {
-    return activeTurn;
-  }
-
-  const frontierTurn = createFrontierOfferTurn(db, projectId, project.active_turn_id ?? null, activePhase);
-  advanceHead(db, projectId, frontierTurn.id);
-  return frontierTurn;
 }
 
 export function prepareSuccessorTurn(
@@ -177,29 +129,29 @@ export function finalizeTurn(db: DB, projectId: number, turnId: number): void {
   advanceHead(db, projectId, turnId);
 }
 
-export function readProjectStateProjection(db: DB, projectId: number): ProjectState | null {
+export function readSpecificationStateProjection(db: DB, projectId: number): SpecificationState | null {
   const project = getProject(db, projectId);
   if (!project) return null;
   const turns = loadActivePathWithOptions(db, projectId);
   const workflow = getCurrentWorkflowState(db, projectId);
   return {
-    project,
+    specification: toSpecification(project),
     workflow,
     landing: deriveSpecificationLanding({ workflow, turns }),
     turns,
   };
 }
 
-/** Get project state: project + active path turns enriched with options. */
-export function getProjectState(db: DB, projectId: number): ProjectState | null {
-  return readProjectStateProjection(db, projectId);
+/** Get specification state: specification + active path turns enriched with options. */
+export function getSpecificationState(db: DB, projectId: number): SpecificationState | null {
+  return readSpecificationStateProjection(db, projectId);
 }
 
-/** List all projects with compact workflow summary. */
-export function listProjectStates(db: DB): ProjectListItem[] {
+/** List all specifications with compact workflow summary. */
+export function listSpecifications(db: DB): SpecificationListItem[] {
   return listProjects(db).map((project) => {
     const workflow = getCurrentWorkflowState(db, project.id);
-    const currentPhase = phaseOrder.find((p) => workflow.phases[p].status !== 'closed');
+    const currentPhase = getCurrentOpenPhase(workflow.phases);
     return {
       ...project,
       workflowSummary: {
@@ -213,7 +165,7 @@ export function listProjectStates(db: DB): ProjectListItem[] {
   });
 }
 
-/** Create a new project with the given name and optional mode/cwd. */
-export function createNewProject(db: DB, name: string, options?: CreateProjectOptions): Project {
+/** Create a new specification with the given name and optional mode. */
+export function createNewSpecification(db: DB, name: string, options?: CreateProjectOptions): Project {
   return createProject(db, name, options);
 }

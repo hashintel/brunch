@@ -1,11 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router';
-
-import { InterviewView } from './-interview-view.js';
-
-function AcceptanceReviewView() {
-  return <InterviewView phase="criteria" />;
-}
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/project/$id/_view/acceptance-review')({
-  component: AcceptanceReviewView,
+  loader: ({ params }) => {
+    throw redirect({
+      to: '/specification/$id/acceptance-review',
+      params,
+    });
+  },
 });
