@@ -113,19 +113,19 @@ function createDeferredPromise<T>() {
 function defaultFetchHandler(input: RequestInfo | URL): Response {
   const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
-  if (url.match(/\/api\/projects\/\d+\/entities/)) {
+  if (url.match(/\/api\/specifications\/\d+\/entities/)) {
     return jsonResponse(minimalEntitiesData);
   }
-  if (url.match(/\/api\/projects\/\d+\/export/)) {
+  if (url.match(/\/api\/specifications\/\d+\/export/)) {
     return jsonResponse({ ready: false });
   }
-  if (url.match(/\/api\/projects\/\d+$/)) {
+  if (url.match(/\/api\/specifications\/\d+$/)) {
     return jsonResponse(minimalProjectState);
   }
   if (url.endsWith('/api/config')) {
     return jsonResponse({ cwd: '/test/cwd' });
   }
-  if (url.endsWith('/api/projects')) {
+  if (url.endsWith('/api/specifications')) {
     return jsonResponse([]);
   }
 
@@ -165,54 +165,54 @@ describe('generated routeTree', () => {
   });
 
   it('maps the grounding phase URL to the interview workspace screen with sidebar', async () => {
-    await renderRouteAt('/project/42/grounding');
+    await renderRouteAt('/specification/42/grounding');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
     expect(screen.getByTestId('phase-sidebar')).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42/entities?mode=active-path');
+    expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42');
+    expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42/entities?mode=active-path');
   });
 
   it('maps the elicitation phase URL to the interview workspace screen', async () => {
-    await renderRouteAt('/project/42/elicitation');
+    await renderRouteAt('/specification/42/elicitation');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42/entities?mode=active-path');
+    expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42');
+    expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42/entities?mode=active-path');
   });
 
   it('maps the requirements-review phase URL to the interview workspace screen', async () => {
-    await renderRouteAt('/project/42/requirements-review');
+    await renderRouteAt('/specification/42/requirements-review');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
+    expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42');
   });
 
   it('maps the acceptance-review phase URL to the interview workspace screen', async () => {
-    await renderRouteAt('/project/42/acceptance-review');
+    await renderRouteAt('/specification/42/acceptance-review');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
+    expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42');
   });
 
   it('keeps the project layout pending skeleton active while the route loader is unresolved', async () => {
     const deferredFetch = createDeferredPromise<Response>();
     fetchMock.mockImplementation(async (input) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
-      if (url.match(/\/api\/projects\/\d+$/)) {
+      if (url.match(/\/api\/specifications\/\d+$/)) {
         return deferredFetch.promise;
       }
       return defaultFetchHandler(input);
     });
 
-    const history = createMemoryHistory({ initialEntries: ['/project/42/grounding'] });
+    const history = createMemoryHistory({ initialEntries: ['/specification/42/grounding'] });
     const router = createRouter({ routeTree, history, defaultPendingMs: 0 });
 
     render(<RouterProvider router={router} />);
     void router.load();
 
     await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith('/api/projects/42');
+      expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42');
     });
 
     // The interview screen should not be rendered while loading
@@ -226,17 +226,17 @@ describe('generated routeTree', () => {
   });
 
   it('maps the export URL to the export route loader and screen', async () => {
-    await renderRouteAt('/project/42/export');
+    await renderRouteAt('/specification/42/export');
 
     expect(await screen.findByRole('heading', { name: 'Export screen' })).toBeTruthy();
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/42/export');
+    expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42/export');
   });
 
   it('redirects project index to the grounding phase by default', async () => {
-    const { router } = await renderRouteAt('/project/42');
+    const { router } = await renderRouteAt('/specification/42');
 
     await waitFor(() => {
-      expect(router.state.location.pathname).toBe('/project/42/grounding');
+      expect(router.state.location.pathname).toBe('/specification/42/grounding');
     });
   });
 });

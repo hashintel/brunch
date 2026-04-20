@@ -199,7 +199,7 @@ export function PhaseNavigationSidebar({
 
                   {isReachable ? (
                     <Link
-                      to={getPhaseRoutePath(phase) as '/project/$id/grounding'}
+                      to={getPhaseRoutePath(phase) as '/specification/$id/grounding'}
                       params={{ id: specificationId }}
                       activeProps={{ className: 'is-active' }}
                       className="group/phase block min-w-0 text-left transition-colors"
@@ -219,7 +219,7 @@ export function PhaseNavigationSidebar({
                   <TimelineBullet status="available" />
                 </span>
                 <Link
-                  to="/project/$id/export"
+                  to="/specification/$id/export"
                   params={{ id: specificationId }}
                   activeProps={{ className: 'is-active' }}
                   className="group/phase block min-w-0 text-left transition-colors"

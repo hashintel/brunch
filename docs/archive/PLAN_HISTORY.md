@@ -80,6 +80,7 @@ Archived out of `memory/PLAN.md` during `ln-sync` once the live frontier narrowe
 
 Archived out of `memory/PLAN.md` when the phase-transition / handoff frontier retired and the live plan advanced to naming normalization.
 
+- 2026-04-19 — **Legacy fixture side path removed; one TS-native fixture model remains** — walkthroughs, app tests, and observer probes now seed through direct TypeScript builders/helpers only.
 - 2026-04-19 — **Force-close and close-confirmation now read as explicit in-flight control actions** — typed proposal confirmations and design force-close requests now surface control markers in the workspace stream while stale proposal/frontier projection is suppressed during submit.
 - 2026-04-19 — **Closed-phase stream artifacts now read as explicit completion / handoff states** — accepted closure replay now renders through dedicated completion chrome instead of the generic workspace-state shell, and non-review closed-phase handoffs carry explicit handoff framing in the workspace stream.
 - 2026-04-19 — **Public walkthrough seeds now prefer canonical review-turn helpers over stale late-phase scenario slices** — the public `requirements-ready` / `criteria-ready` seeds now resolve through the helper-backed full-set review seams, and the `issue-tracker-*` kickoff-ready later-phase walkthrough fixtures no longer slice stale per-item requirement drafts into public truth. Walkthrough regression coverage now asserts persisted `data-review-set` metadata on the seeded requirements / criteria review turns.

@@ -66,7 +66,7 @@ function createTurns(
 async function renderSidebar(
   workflow: WorkflowState,
   {
-    pathname = '/project/42/grounding',
+    pathname = '/specification/42/grounding',
     specificationName = 'Specification Alpha',
     turns = createTurns(),
   }: {
@@ -182,13 +182,13 @@ describe('PhaseNavigationSidebar', () => {
       criteria: { status: 'unstarted' },
     });
 
-    await renderSidebar(workflow, { pathname: '/project/42/elicitation' });
+    await renderSidebar(workflow, { pathname: '/specification/42/elicitation' });
 
     const nav = screen.getByRole('navigation', { name: 'Phase navigation' });
     const links = nav.querySelectorAll('a');
 
-    expect(links[0].getAttribute('href')).toBe('/project/42/grounding');
-    expect(links[1].getAttribute('href')).toBe('/project/42/elicitation');
+    expect(links[0].getAttribute('href')).toBe('/specification/42/grounding');
+    expect(links[1].getAttribute('href')).toBe('/specification/42/elicitation');
     expect(nav.querySelector('[data-phase="requirements"]')?.getAttribute('aria-disabled')).toBe('true');
     expect(nav.querySelector('[data-phase="criteria"]')?.getAttribute('aria-disabled')).toBe('true');
   });
@@ -214,10 +214,12 @@ describe('PhaseNavigationSidebar', () => {
         requirements: { status: 'closed' },
         criteria: { status: 'closed' },
       }),
-      { pathname: '/project/42/export' },
+      { pathname: '/specification/42/export' },
     );
 
     expect(screen.getByText('Output')).toBeTruthy();
-    expect(screen.getByRole('link', { name: /Output/i }).getAttribute('href')).toBe('/project/42/export');
+    expect(screen.getByRole('link', { name: /Output/i }).getAttribute('href')).toBe(
+      '/specification/42/export',
+    );
   });
 });

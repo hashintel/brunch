@@ -4,7 +4,7 @@
 
 # Plan
 
-Current frontier remains the naming/ownership cleanup. The low-risk compatibility slices inside that frontier have now landed: persisted specification `cwd` is gone, client-owned specification wording is in place across the workspace shell, and shared/client helper vocabulary can speak in terms of grounding without changing persisted phase keys yet. The remaining burden inside this frontier is the higher-risk physical identity work — especially the durable `project` → `specification` rename and any later `scope` → `grounding` persistence/API migration that still proves worth doing. After that, the near horizon is intentionally ordered around user-visible completion and grounding seams before deeper workflow and router/query cleanup. Revisit/cascade and infrastructure/tooling remain on the true horizon for now.
+Current frontier remains the naming/ownership cleanup. The low-risk compatibility slices inside that frontier have now landed: persisted specification `cwd` is gone, client-owned specification wording is in place across the workspace shell, client-facing state seams default to `Specification*` aliases, specification/workspace helper names have replaced the remaining client runtime `project` wording, and the canonical browser/HTTP path family now speaks in `/specification/...` and `/api/specifications/...` terms while legacy `/project/...` and `/api/projects/...` aliases remain explicit compatibility seams. The remaining burden inside this frontier is the higher-risk physical identity work — especially the durable DB/storage `project` → `specification` rename and any later `scope` → `grounding` persistence migration that still proves worth doing. After that, the near horizon is intentionally ordered around user-visible completion and grounding seams before deeper workflow and router/query cleanup. Revisit/cascade and infrastructure/tooling remain on the true horizon for now.
 
 ## Active
 
@@ -12,7 +12,7 @@ Current frontier remains the naming/ownership cleanup. The low-risk compatibilit
    - Objective: finish aligning durable record names, route/display terminology, and workspace ownership with the settled product language by completing the remaining `project` → `specification` identity work, deciding how far the `scope` → `grounding` migration should become physical rather than helper-level, and retiring any temporary compatibility wording still left after the completed low-risk slices.
    - Why now / unlocks: the handoff/transition frontier is retired, so mixed naming is now the main legacy burden shaping every fresh slice. Landing this first prevents the next completion, grounding, and workflow passes from layering on top of ambiguous terminology.
    - Acceptance: schema/API/routes/fixtures/tests/export speak one canonical vocabulary; any temporary alias is explicit and documented; runtime behavior stays truthful through the rename.
-   - Progress so far: persisted specification `cwd` has been removed in favor of runtime workspace context; client-owned workspace surfaces now say specification where appropriate; shared/client route helpers can speak in terms of grounding while persisted workflow keys remain `scope`.
+   - Progress so far: persisted specification `cwd` has been removed in favor of runtime workspace context; client-owned workspace surfaces now say specification where appropriate; client-facing state seams now default to `Specification*` aliases instead of `Project*` compatibility names; specification/workspace helper and module names now replace the remaining client runtime `project` terminology where wire/storage ownership is not involved; shared/client route helpers now generate specification-named phase paths; canonical browser and HTTP entry seams now flow through `/specification/...` and `/api/specifications/...` with explicit legacy aliases for `/project/...` and `/api/projects/...`; persisted workflow keys still remain `scope`. 
    - Verification: run `npm run fix` after each safe slice; gate with `npm run verify`; manually walk at least one seeded resume/export path after route/name changes.
    - Traceability: D81, D97, D98, D101, D109, D113; I24, I100, I101, I102, I104.
 
@@ -34,7 +34,7 @@ Near-horizon work is grouped by theme: first completion/closure surfaces, then g
    - Verification: `npm run verify` plus manual close/reject/confirm walkthroughs on grounding and elicitation phases.
    - Traceability: D104, D65, D66; I72.
 
-### Grounding / context-gathering capability
+### Grounding / context-gathering capability 
 
 3. **Grounding-card transcript primitive** — establish the visible provisional-context seam.
    - Why now / unlocks: completion surfaces can land first; then grounding cards become the enabling transcript primitive for analysis-first grounding and later reusable context gathering.
@@ -64,7 +64,13 @@ Near-horizon work is grouped by theme: first completion/closure surfaces, then g
 
 ### Ownership refinement
 
-7. **Router / query ownership refinement for interview surfaces** — final near-horizon cleanup after workflow ownership is clearer.
+7. **Continuous workspace / phase-addressable interview surface** — user-facing continuity pass after workflow ownership is clearer.
+   - Why now / unlocks: the hybrid workspace idea should not preempt the current naming frontier or the earlier output / grounding seams, but once workflow projection and lifecycle ownership are clearer it becomes the right seam to separate continuous rendering from routed phase addressability. Landing that distinction first gives router/query cleanup a truer target instead of optimizing around the current per-phase rendering split by accident.
+   - Acceptance: the center pane can render one continuous workspace stream with grounding / design / requirements / criteria sections, the left sidebar can act as truthful section-jump / scroll-spy navigation, and phase deep-linking / gating remain routed and honest without introducing a second durable workflow model.
+   - Verification: `npm run verify` plus manual walkthroughs for deep-link entry, scroll/focus transitions, close-to-next-phase motion, and reload/resume on a partially completed specification.
+   - Traceability: A58; D86, D87, D103, D107, D110, D113, D114; I24, I102.
+
+8. **Router / query ownership refinement for interview surfaces** — final near-horizon cleanup after workflow ownership and workspace continuity are clearer.
    - Why now / unlocks: should harvest the real invalidation/loader boundaries exposed by the preceding naming, completion, grounding, and workflow passes instead of guessing early.
    - Acceptance: coarse route-wide invalidation is replaced by clearer loader/query ownership without stale transcript or handoff regressions.
    - Verification: `npm run verify` plus manual mutation/observer refresh walkthroughs.
@@ -90,9 +96,9 @@ Near-horizon work is grouped by theme: first completion/closure surfaces, then g
 
 ## Recently Completed
 
+- [2026-04-20] Canonical specification-named browser and HTTP path family landed under the naming frontier — Done: routed workspace/export entry now flows through `/specification/...`, client fetch/mutation seams now target `/api/specifications/...`, and legacy `/project/...` plus `/api/projects/...` entry points survive only as explicit redirect/alias compatibility seams. Verified: `npm run verify`. Watch: the remaining frontier work is now the higher-risk durable DB/storage identity rename.
+- [2026-04-20] Client-owned terminology cleanup slices landed under the naming frontier — Done: client-facing state seams now default to `Specification*` aliases, specification/workspace helper and module names replaced remaining client runtime `project` wording, and exhausted execution-queue artifacts were retired without changing DB identifiers. Verified: `npm run verify`. Watch: the remaining frontier work is now the higher-risk physical identity migration across transport/storage seams.
 - [2026-04-19] Phase transition and handoff stabilization retired from the active frontier — Done: requirements acceptance now advances directly into criteria kickoff, criteria acceptance closes the workflow into export-ready state, and closed phases project explicit handoff/completion artifacts. Verified: `npm run verify`. Watch: none.
-- [2026-04-19] Legacy fixture side path removed; one TS-native fixture model remains — Done: walkthroughs, app tests, and observer probes now seed through direct TypeScript builders/helpers only. Verified: `npm run verify`. Watch: none.
-- [2026-04-19] Narrow D113 lifecycle proving slices landed for kickoff, recovery, and rejected auto-submit — Done: specification-scoped lifecycle intents now cover current reachable kickoff auto-present, recovery auto-continue, and rejected-submit fallback. Verified: `npm run verify`. Watch: revisit broader lifecycle extraction after the grounding and completion clusters settle.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
@@ -106,5 +112,6 @@ canonical-terminology-and-record-identity-normalization
   │     └──→ brownfield-workspace-analysis-grounding-brief
   │           └──→ reusable-interviewer-invoked-context-gathering
   └──→ workflow-ownership-extraction
-        └──→ router-query-ownership-refinement
+        └──→ continuous-workspace-phase-addressable-interview-surface
+              └──→ router-query-ownership-refinement
 ```

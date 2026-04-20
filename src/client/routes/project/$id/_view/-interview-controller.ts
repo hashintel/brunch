@@ -115,7 +115,7 @@ export interface InterviewController {
 }
 
 export function useInterviewController(phase: WorkflowPhase): InterviewController {
-  const specificationState = useLoaderData({ from: '/project/$id' });
+  const specificationState = useLoaderData({ from: '/specification/$id' });
   const router = useRouter();
   const projectId = getSpecificationRecord(specificationState).id;
 
@@ -159,7 +159,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   }, [durableSpecification.project.id, phase]);
 
   const transport = useMemo(
-    () => new DefaultChatTransport({ api: `/api/projects/${projectId}/chat` }),
+    () => new DefaultChatTransport({ api: `/api/specifications/${projectId}/chat` }),
     [projectId],
   );
   const handleChatData = useCallback(
@@ -295,7 +295,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     const nextPhase = getNextActivePhase(durableSpecification.workflow.phases, phase);
     if (nextPhase) {
       void router.navigate({
-        to: getPhaseRoutePath(nextPhase) as '/project/$id/grounding',
+        to: getPhaseRoutePath(nextPhase) as '/specification/$id/grounding',
         params: { id: String(projectId) },
       });
     }

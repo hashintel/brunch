@@ -10,10 +10,18 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SpecificationIdRouteRouteImport } from './routes/specification/$id/route'
 import { Route as ProjectIdRouteRouteImport } from './routes/project/$id/route'
+import { Route as SpecificationIdIndexRouteImport } from './routes/specification/$id/index'
 import { Route as ProjectIdIndexRouteImport } from './routes/project/$id/index'
+import { Route as SpecificationIdExportRouteImport } from './routes/specification/$id/export'
 import { Route as ProjectIdExportRouteImport } from './routes/project/$id/export'
+import { Route as SpecificationIdViewRouteRouteImport } from './routes/specification/$id/_view/route'
 import { Route as ProjectIdViewRouteRouteImport } from './routes/project/$id/_view/route'
+import { Route as SpecificationIdViewRequirementsReviewRouteImport } from './routes/specification/$id/_view/requirements-review'
+import { Route as SpecificationIdViewGroundingRouteImport } from './routes/specification/$id/_view/grounding'
+import { Route as SpecificationIdViewElicitationRouteImport } from './routes/specification/$id/_view/elicitation'
+import { Route as SpecificationIdViewAcceptanceReviewRouteImport } from './routes/specification/$id/_view/acceptance-review'
 import { Route as ProjectIdViewRequirementsReviewRouteImport } from './routes/project/$id/_view/requirements-review'
 import { Route as ProjectIdViewGroundingRouteImport } from './routes/project/$id/_view/grounding'
 import { Route as ProjectIdViewElicitationRouteImport } from './routes/project/$id/_view/elicitation'
@@ -24,25 +32,69 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const SpecificationIdRouteRoute = SpecificationIdRouteRouteImport.update({
+  id: '/specification/$id',
+  path: '/specification/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectIdRouteRoute = ProjectIdRouteRouteImport.update({
   id: '/project/$id',
   path: '/project/$id',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SpecificationIdIndexRoute = SpecificationIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SpecificationIdRouteRoute,
 } as any)
 const ProjectIdIndexRoute = ProjectIdIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => ProjectIdRouteRoute,
 } as any)
+const SpecificationIdExportRoute = SpecificationIdExportRouteImport.update({
+  id: '/export',
+  path: '/export',
+  getParentRoute: () => SpecificationIdRouteRoute,
+} as any)
 const ProjectIdExportRoute = ProjectIdExportRouteImport.update({
   id: '/export',
   path: '/export',
   getParentRoute: () => ProjectIdRouteRoute,
 } as any)
+const SpecificationIdViewRouteRoute =
+  SpecificationIdViewRouteRouteImport.update({
+    id: '/_view',
+    getParentRoute: () => SpecificationIdRouteRoute,
+  } as any)
 const ProjectIdViewRouteRoute = ProjectIdViewRouteRouteImport.update({
   id: '/_view',
   getParentRoute: () => ProjectIdRouteRoute,
 } as any)
+const SpecificationIdViewRequirementsReviewRoute =
+  SpecificationIdViewRequirementsReviewRouteImport.update({
+    id: '/requirements-review',
+    path: '/requirements-review',
+    getParentRoute: () => SpecificationIdViewRouteRoute,
+  } as any)
+const SpecificationIdViewGroundingRoute =
+  SpecificationIdViewGroundingRouteImport.update({
+    id: '/grounding',
+    path: '/grounding',
+    getParentRoute: () => SpecificationIdViewRouteRoute,
+  } as any)
+const SpecificationIdViewElicitationRoute =
+  SpecificationIdViewElicitationRouteImport.update({
+    id: '/elicitation',
+    path: '/elicitation',
+    getParentRoute: () => SpecificationIdViewRouteRoute,
+  } as any)
+const SpecificationIdViewAcceptanceReviewRoute =
+  SpecificationIdViewAcceptanceReviewRouteImport.update({
+    id: '/acceptance-review',
+    path: '/acceptance-review',
+    getParentRoute: () => SpecificationIdViewRouteRoute,
+  } as any)
 const ProjectIdViewRequirementsReviewRoute =
   ProjectIdViewRequirementsReviewRouteImport.update({
     id: '/requirements-review',
@@ -70,70 +122,113 @@ const ProjectIdViewAcceptanceReviewRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/project/$id': typeof ProjectIdViewRouteRouteWithChildren
+  '/specification/$id': typeof SpecificationIdViewRouteRouteWithChildren
   '/project/$id/export': typeof ProjectIdExportRoute
+  '/specification/$id/export': typeof SpecificationIdExportRoute
   '/project/$id/': typeof ProjectIdIndexRoute
+  '/specification/$id/': typeof SpecificationIdIndexRoute
   '/project/$id/acceptance-review': typeof ProjectIdViewAcceptanceReviewRoute
   '/project/$id/elicitation': typeof ProjectIdViewElicitationRoute
   '/project/$id/grounding': typeof ProjectIdViewGroundingRoute
   '/project/$id/requirements-review': typeof ProjectIdViewRequirementsReviewRoute
+  '/specification/$id/acceptance-review': typeof SpecificationIdViewAcceptanceReviewRoute
+  '/specification/$id/elicitation': typeof SpecificationIdViewElicitationRoute
+  '/specification/$id/grounding': typeof SpecificationIdViewGroundingRoute
+  '/specification/$id/requirements-review': typeof SpecificationIdViewRequirementsReviewRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/project/$id': typeof ProjectIdIndexRoute
+  '/specification/$id': typeof SpecificationIdIndexRoute
   '/project/$id/export': typeof ProjectIdExportRoute
+  '/specification/$id/export': typeof SpecificationIdExportRoute
   '/project/$id/acceptance-review': typeof ProjectIdViewAcceptanceReviewRoute
   '/project/$id/elicitation': typeof ProjectIdViewElicitationRoute
   '/project/$id/grounding': typeof ProjectIdViewGroundingRoute
   '/project/$id/requirements-review': typeof ProjectIdViewRequirementsReviewRoute
+  '/specification/$id/acceptance-review': typeof SpecificationIdViewAcceptanceReviewRoute
+  '/specification/$id/elicitation': typeof SpecificationIdViewElicitationRoute
+  '/specification/$id/grounding': typeof SpecificationIdViewGroundingRoute
+  '/specification/$id/requirements-review': typeof SpecificationIdViewRequirementsReviewRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/project/$id': typeof ProjectIdRouteRouteWithChildren
+  '/specification/$id': typeof SpecificationIdRouteRouteWithChildren
   '/project/$id/_view': typeof ProjectIdViewRouteRouteWithChildren
+  '/specification/$id/_view': typeof SpecificationIdViewRouteRouteWithChildren
   '/project/$id/export': typeof ProjectIdExportRoute
+  '/specification/$id/export': typeof SpecificationIdExportRoute
   '/project/$id/': typeof ProjectIdIndexRoute
+  '/specification/$id/': typeof SpecificationIdIndexRoute
   '/project/$id/_view/acceptance-review': typeof ProjectIdViewAcceptanceReviewRoute
   '/project/$id/_view/elicitation': typeof ProjectIdViewElicitationRoute
   '/project/$id/_view/grounding': typeof ProjectIdViewGroundingRoute
   '/project/$id/_view/requirements-review': typeof ProjectIdViewRequirementsReviewRoute
+  '/specification/$id/_view/acceptance-review': typeof SpecificationIdViewAcceptanceReviewRoute
+  '/specification/$id/_view/elicitation': typeof SpecificationIdViewElicitationRoute
+  '/specification/$id/_view/grounding': typeof SpecificationIdViewGroundingRoute
+  '/specification/$id/_view/requirements-review': typeof SpecificationIdViewRequirementsReviewRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/project/$id'
+    | '/specification/$id'
     | '/project/$id/export'
+    | '/specification/$id/export'
     | '/project/$id/'
+    | '/specification/$id/'
     | '/project/$id/acceptance-review'
     | '/project/$id/elicitation'
     | '/project/$id/grounding'
     | '/project/$id/requirements-review'
+    | '/specification/$id/acceptance-review'
+    | '/specification/$id/elicitation'
+    | '/specification/$id/grounding'
+    | '/specification/$id/requirements-review'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/project/$id'
+    | '/specification/$id'
     | '/project/$id/export'
+    | '/specification/$id/export'
     | '/project/$id/acceptance-review'
     | '/project/$id/elicitation'
     | '/project/$id/grounding'
     | '/project/$id/requirements-review'
+    | '/specification/$id/acceptance-review'
+    | '/specification/$id/elicitation'
+    | '/specification/$id/grounding'
+    | '/specification/$id/requirements-review'
   id:
     | '__root__'
     | '/'
     | '/project/$id'
+    | '/specification/$id'
     | '/project/$id/_view'
+    | '/specification/$id/_view'
     | '/project/$id/export'
+    | '/specification/$id/export'
     | '/project/$id/'
+    | '/specification/$id/'
     | '/project/$id/_view/acceptance-review'
     | '/project/$id/_view/elicitation'
     | '/project/$id/_view/grounding'
     | '/project/$id/_view/requirements-review'
+    | '/specification/$id/_view/acceptance-review'
+    | '/specification/$id/_view/elicitation'
+    | '/specification/$id/_view/grounding'
+    | '/specification/$id/_view/requirements-review'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   ProjectIdRouteRoute: typeof ProjectIdRouteRouteWithChildren
+  SpecificationIdRouteRoute: typeof SpecificationIdRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
@@ -145,12 +240,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/specification/$id': {
+      id: '/specification/$id'
+      path: '/specification/$id'
+      fullPath: '/specification/$id'
+      preLoaderRoute: typeof SpecificationIdRouteRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/project/$id': {
       id: '/project/$id'
       path: '/project/$id'
       fullPath: '/project/$id'
       preLoaderRoute: typeof ProjectIdRouteRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/specification/$id/': {
+      id: '/specification/$id/'
+      path: '/'
+      fullPath: '/specification/$id/'
+      preLoaderRoute: typeof SpecificationIdIndexRouteImport
+      parentRoute: typeof SpecificationIdRouteRoute
     }
     '/project/$id/': {
       id: '/project/$id/'
@@ -159,6 +268,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectIdIndexRouteImport
       parentRoute: typeof ProjectIdRouteRoute
     }
+    '/specification/$id/export': {
+      id: '/specification/$id/export'
+      path: '/export'
+      fullPath: '/specification/$id/export'
+      preLoaderRoute: typeof SpecificationIdExportRouteImport
+      parentRoute: typeof SpecificationIdRouteRoute
+    }
     '/project/$id/export': {
       id: '/project/$id/export'
       path: '/export'
@@ -166,12 +282,47 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectIdExportRouteImport
       parentRoute: typeof ProjectIdRouteRoute
     }
+    '/specification/$id/_view': {
+      id: '/specification/$id/_view'
+      path: ''
+      fullPath: '/specification/$id'
+      preLoaderRoute: typeof SpecificationIdViewRouteRouteImport
+      parentRoute: typeof SpecificationIdRouteRoute
+    }
     '/project/$id/_view': {
       id: '/project/$id/_view'
       path: ''
       fullPath: '/project/$id'
       preLoaderRoute: typeof ProjectIdViewRouteRouteImport
       parentRoute: typeof ProjectIdRouteRoute
+    }
+    '/specification/$id/_view/requirements-review': {
+      id: '/specification/$id/_view/requirements-review'
+      path: '/requirements-review'
+      fullPath: '/specification/$id/requirements-review'
+      preLoaderRoute: typeof SpecificationIdViewRequirementsReviewRouteImport
+      parentRoute: typeof SpecificationIdViewRouteRoute
+    }
+    '/specification/$id/_view/grounding': {
+      id: '/specification/$id/_view/grounding'
+      path: '/grounding'
+      fullPath: '/specification/$id/grounding'
+      preLoaderRoute: typeof SpecificationIdViewGroundingRouteImport
+      parentRoute: typeof SpecificationIdViewRouteRoute
+    }
+    '/specification/$id/_view/elicitation': {
+      id: '/specification/$id/_view/elicitation'
+      path: '/elicitation'
+      fullPath: '/specification/$id/elicitation'
+      preLoaderRoute: typeof SpecificationIdViewElicitationRouteImport
+      parentRoute: typeof SpecificationIdViewRouteRoute
+    }
+    '/specification/$id/_view/acceptance-review': {
+      id: '/specification/$id/_view/acceptance-review'
+      path: '/acceptance-review'
+      fullPath: '/specification/$id/acceptance-review'
+      preLoaderRoute: typeof SpecificationIdViewAcceptanceReviewRouteImport
+      parentRoute: typeof SpecificationIdViewRouteRoute
     }
     '/project/$id/_view/requirements-review': {
       id: '/project/$id/_view/requirements-review'
@@ -237,9 +388,47 @@ const ProjectIdRouteRouteWithChildren = ProjectIdRouteRoute._addFileChildren(
   ProjectIdRouteRouteChildren,
 )
 
+interface SpecificationIdViewRouteRouteChildren {
+  SpecificationIdViewAcceptanceReviewRoute: typeof SpecificationIdViewAcceptanceReviewRoute
+  SpecificationIdViewElicitationRoute: typeof SpecificationIdViewElicitationRoute
+  SpecificationIdViewGroundingRoute: typeof SpecificationIdViewGroundingRoute
+  SpecificationIdViewRequirementsReviewRoute: typeof SpecificationIdViewRequirementsReviewRoute
+}
+
+const SpecificationIdViewRouteRouteChildren: SpecificationIdViewRouteRouteChildren =
+  {
+    SpecificationIdViewAcceptanceReviewRoute:
+      SpecificationIdViewAcceptanceReviewRoute,
+    SpecificationIdViewElicitationRoute: SpecificationIdViewElicitationRoute,
+    SpecificationIdViewGroundingRoute: SpecificationIdViewGroundingRoute,
+    SpecificationIdViewRequirementsReviewRoute:
+      SpecificationIdViewRequirementsReviewRoute,
+  }
+
+const SpecificationIdViewRouteRouteWithChildren =
+  SpecificationIdViewRouteRoute._addFileChildren(
+    SpecificationIdViewRouteRouteChildren,
+  )
+
+interface SpecificationIdRouteRouteChildren {
+  SpecificationIdViewRouteRoute: typeof SpecificationIdViewRouteRouteWithChildren
+  SpecificationIdExportRoute: typeof SpecificationIdExportRoute
+  SpecificationIdIndexRoute: typeof SpecificationIdIndexRoute
+}
+
+const SpecificationIdRouteRouteChildren: SpecificationIdRouteRouteChildren = {
+  SpecificationIdViewRouteRoute: SpecificationIdViewRouteRouteWithChildren,
+  SpecificationIdExportRoute: SpecificationIdExportRoute,
+  SpecificationIdIndexRoute: SpecificationIdIndexRoute,
+}
+
+const SpecificationIdRouteRouteWithChildren =
+  SpecificationIdRouteRoute._addFileChildren(SpecificationIdRouteRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ProjectIdRouteRoute: ProjectIdRouteRouteWithChildren,
+  SpecificationIdRouteRoute: SpecificationIdRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

@@ -312,7 +312,7 @@ function renderWorkspaceTransitionArtifact({
           artifact.kind === 'workflow-complete' ? (
             <WorkspaceArtifactActionLink
               specificationId={specificationId}
-              to="/project/$id/export"
+              to="/specification/$id/export"
               className="mt-3"
             >
               Open export preview

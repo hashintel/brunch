@@ -28,7 +28,7 @@ describe('export route loader', () => {
       ready: true,
       markdown: '# Reviewed Spec',
     });
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/7/export');
+    expect(fetchMock).toHaveBeenCalledWith('/api/specifications/7/export');
   });
 
   it('rejects when the export payload is malformed json', async () => {
@@ -40,6 +40,6 @@ describe('export route loader', () => {
     );
 
     await expect(fetchExportLoaderData('7')).rejects.toThrow();
-    expect(fetchMock).toHaveBeenCalledWith('/api/projects/7/export');
+    expect(fetchMock).toHaveBeenCalledWith('/api/specifications/7/export');
   });
 });

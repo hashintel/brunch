@@ -319,7 +319,7 @@ This is only a rough orientation map, not a binding code inventory.
 ### Transport/UI-shaped logic
 - API endpoints in `src/server/app.ts`
 - route loaders and actions
-- `src/client/routes/project/$id/_view/*`
+- `src/client/routes/specification/$id/_view/*`
 - client refresh/invalidation behavior
 
 ## How to think about them in planning

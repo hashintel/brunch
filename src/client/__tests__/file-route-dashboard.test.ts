@@ -19,9 +19,9 @@ describe('file-route dashboard ownership', () => {
     expect(dashboardRouteSource).toContain('fetchSpecificationListLoaderData');
     expect(dashboardRouteSource).toContain('component: SpecificationList');
 
-    expect(projectListRouteSource).toContain("fetch('/api/projects')");
+    expect(projectListRouteSource).toContain("fetch('/api/specifications')");
     expect(projectListRouteSource).toContain('useCreateSpecificationMutation');
-    expect(projectListRouteSource).toContain("navigate({ to: '/project/$id'");
+    expect(projectListRouteSource).toContain("navigate({ to: '/specification/$id'");
     expect(routeRootSource).toContain('Outlet');
     expect(routeRootSource).toContain('BrunchBrand');
     expect(routeRootSource).toContain('__APP_VERSION__');

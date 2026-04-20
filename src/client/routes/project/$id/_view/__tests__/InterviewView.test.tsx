@@ -106,8 +106,8 @@ vi.mock('@tanstack/react-router', () => ({
     </a>
   ),
   useLoaderData: ({ from }: { from: string }) => {
-    if (from === '/project/$id') return currentProjectState;
-    if (from === '/project/$id/_view') return currentEntityState;
+    if (from === '/specification/$id') return currentProjectState;
+    if (from === '/specification/$id/_view') return currentEntityState;
     throw new Error(`Unexpected useLoaderData from: ${from}`);
   },
   useRouter: () => ({ invalidate: routerInvalidate }),
@@ -511,7 +511,7 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/phase-intent',
+        '/api/specifications/1/phase-intent',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -621,7 +621,7 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/phase-intent',
+        '/api/specifications/1/phase-intent',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -847,7 +847,7 @@ describe('InterviewView', () => {
     renderWorkspace();
 
     const advanceLink = screen.getByRole('link', { name: 'Advance to Elicitation' });
-    expect(advanceLink.getAttribute('href')).toBe('/project/1/elicitation');
+    expect(advanceLink.getAttribute('href')).toBe('/specification/1/elicitation');
     expect(screen.queryByRole('button', { name: 'Close Phase' })).toBeNull();
   });
 
@@ -870,7 +870,7 @@ describe('InterviewView', () => {
     renderWorkspace('criteria');
 
     const exportLinks = screen.getAllByRole('link', { name: 'Open export preview' });
-    expect(exportLinks[0]?.getAttribute('href')).toBe('/project/1/export');
+    expect(exportLinks[0]?.getAttribute('href')).toBe('/specification/1/export');
     expect(screen.queryByRole('button', { name: 'Close Phase' })).toBeNull();
   });
 
@@ -1336,7 +1336,7 @@ describe('InterviewView', () => {
     );
     expect(
       within(handoffCard).getByRole('link', { name: 'Continue to Elicitation' }).getAttribute('href'),
-    ).toBe('/project/1/elicitation');
+    ).toBe('/specification/1/elicitation');
     expect(answeredCard.compareDocumentPosition(handoffCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
@@ -1423,7 +1423,7 @@ describe('InterviewView', () => {
     expect(screen.queryByTestId('workspace-state-card')).toBeNull();
     expect(
       within(handoffCard).getByRole('link', { name: 'Continue to Acceptance Criteria' }).getAttribute('href'),
-    ).toBe('/project/1/acceptance-review');
+    ).toBe('/specification/1/acceptance-review');
     expect(answeredCard.compareDocumentPosition(handoffCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
@@ -1508,7 +1508,7 @@ describe('InterviewView', () => {
     expect(screen.queryByTestId('workspace-state-card')).toBeNull();
     expect(
       within(completionCard).getByRole('link', { name: 'Open export preview' }).getAttribute('href'),
-    ).toBe('/project/1/export');
+    ).toBe('/specification/1/export');
     expect(
       answeredCard.compareDocumentPosition(completionCard) & Node.DOCUMENT_POSITION_FOLLOWING,
     ).toBeTruthy();
@@ -1554,7 +1554,7 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/phase-intent',
+        '/api/specifications/1/phase-intent',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1603,7 +1603,7 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/phase-intent',
+        '/api/specifications/1/phase-intent',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1694,7 +1694,7 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/response',
+        '/api/specifications/1/turns/1/response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -1872,7 +1872,7 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/phase-intent',
+        '/api/specifications/1/phase-intent',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2408,7 +2408,7 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/response',
+        '/api/specifications/1/turns/1/response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2532,7 +2532,7 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/response',
+        '/api/specifications/1/turns/1/response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2650,7 +2650,7 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/response',
+        '/api/specifications/1/turns/1/response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2785,7 +2785,7 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/response',
+        '/api/specifications/1/turns/1/response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -2835,7 +2835,7 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/response',
+        '/api/specifications/1/turns/1/response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -3396,7 +3396,7 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/turns/1/response',
+        '/api/specifications/1/turns/1/response',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },

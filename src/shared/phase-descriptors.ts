@@ -23,7 +23,10 @@ const phaseDescriptorByPhase = Object.fromEntries(
 ) as Record<WorkflowPhase, (typeof workflowPhaseDescriptors)[number]>;
 
 const phaseRoutePaths = Object.fromEntries(
-  workflowPhaseDescriptors.map((descriptor) => [descriptor.phase, `/project/$id/${descriptor.routeSegment}`]),
+  workflowPhaseDescriptors.map((descriptor) => [
+    descriptor.phase,
+    `/specification/$id/${descriptor.routeSegment}`,
+  ]),
 ) as Record<WorkflowPhase, string>;
 
 export function getWorkflowPhaseDescriptor(phase: WorkflowPhase): (typeof workflowPhaseDescriptors)[number] {

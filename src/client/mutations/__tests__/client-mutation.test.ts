@@ -24,7 +24,7 @@ describe('client mutation', () => {
 
     await expect(
       postJsonMutation<{ id: number }, { name: string }>(
-        '/api/projects',
+        '/api/specifications',
         { name: 'New project' },
         'Failed to create project',
       ),
@@ -36,7 +36,7 @@ describe('client mutation', () => {
 
     await expect(
       postJsonMutation<{ id: number }, { name: string }>(
-        '/api/projects',
+        '/api/specifications',
         { name: 'New project' },
         'Failed to create project',
       ),
@@ -53,7 +53,7 @@ describe('client mutation', () => {
 
     await expect(
       postJsonMutation<{ id: number }, { name: string }>(
-        '/api/projects',
+        '/api/specifications',
         { name: 'New project' },
         'Failed to create project',
       ),
@@ -74,7 +74,7 @@ describe('client mutation', () => {
 
     await expect(
       postJsonMutation<{ id: number }, { name: string }>(
-        '/api/projects',
+        '/api/specifications',
         { name: 'New project' },
         'Failed to create project',
       ),
@@ -95,7 +95,7 @@ describe('client mutation', () => {
 
     await expect(
       postJsonMutation<{ id: number }, { name: string }>(
-        '/api/projects',
+        '/api/specifications',
         { name: 'New project' },
         'Failed to create project',
       ),

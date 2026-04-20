@@ -115,7 +115,7 @@ describe('SpecificationList', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects',
+        '/api/specifications',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -127,7 +127,7 @@ describe('SpecificationList', () => {
     expect(screen.queryByText(/How should this specification start\?/i)).toBeNull();
 
     await waitFor(() => {
-      expect(navigateMock).toHaveBeenCalledWith({ to: '/project/$id', params: { id: '7' } });
+      expect(navigateMock).toHaveBeenCalledWith({ to: '/specification/$id', params: { id: '7' } });
     });
   });
 
@@ -152,7 +152,9 @@ describe('SpecificationList', () => {
 
     renderSpecificationList();
 
-    expect(screen.getByRole('link', { name: /Active project/i }).getAttribute('href')).toBe('/project/1');
+    expect(screen.getByRole('link', { name: /Active project/i }).getAttribute('href')).toBe(
+      '/specification/1',
+    );
   });
 
   it('renders current phase indicator and status dots for each project', () => {

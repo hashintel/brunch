@@ -1,6 +1,6 @@
 import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessages } from 'ai';
 import express from 'express';
-import type { Express, Request, Response } from 'express';
+import type { Express, Request, RequestHandler, Response } from 'express';
 
 import { submitPhaseIntentRequestSchema, submitTurnResponseRequestSchema } from '@/shared/api-types.js';
 import type {
@@ -188,18 +188,47 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const app = express();
   app.use(express.json());
 
+  const specificationCollectionPaths = ['/api/specifications', '/api/projects'] as const;
+  const specificationResourcePaths = ['/api/specifications/:id', '/api/projects/:id'] as const;
+  const specificationPhaseIntentPaths = [
+    '/api/specifications/:id/phase-intent',
+    '/api/projects/:id/phase-intent',
+  ] as const;
+  const specificationTurnResponsePaths = [
+    '/api/specifications/:id/turns/:turnId/response',
+    '/api/projects/:id/turns/:turnId/response',
+  ] as const;
+  const specificationEntitiesPaths = [
+    '/api/specifications/:id/entities',
+    '/api/projects/:id/entities',
+  ] as const;
+  const specificationExportPaths = ['/api/specifications/:id/export', '/api/projects/:id/export'] as const;
+  const specificationChatPaths = ['/api/specifications/:id/chat', '/api/projects/:id/chat'] as const;
+
+  const registerGet = (paths: readonly string[], handler: RequestHandler) => {
+    for (const path of paths) {
+      app.get(path, handler);
+    }
+  };
+
+  const registerPost = (paths: readonly string[], handler: RequestHandler) => {
+    for (const path of paths) {
+      app.post(path, handler);
+    }
+  };
+
   // App config (cwd for display in AppLayout)
   app.get('/api/config', (_req: Request, res: Response) => {
     res.json({ cwd: projectCwd });
   });
 
   // List all projects
-  app.get('/api/projects', (_req: Request, res: Response) => {
+  registerGet(specificationCollectionPaths, (_req: Request, res: Response) => {
     res.json(listSpecifications(db) satisfies SpecificationListItem[]);
   });
 
   // Create a new project
-  app.post('/api/projects', (req: Request, res: Response) => {
+  registerPost(specificationCollectionPaths, (req: Request, res: Response) => {
     const parsedRequest = createSpecificationRequestSchema.safeParse(req.body);
     if (!parsedRequest.success) {
       res.status(400).json({ error: 'Invalid project payload' } satisfies MutationErrorResponse);
@@ -213,7 +242,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   });
 
   // Get a specific project + active path
-  app.get('/api/projects/:id', (req: Request, res: Response) => {
+  registerGet(specificationResourcePaths, (req: Request, res: Response) => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
@@ -227,7 +256,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     res.json(specificationState satisfies SpecificationState);
   });
 
-  app.post('/api/projects/:id/phase-intent', (req: Request, res: Response) => {
+  registerPost(specificationPhaseIntentPaths, (req: Request, res: Response) => {
     const projectId = Number(req.params.id);
 
     if (Number.isNaN(projectId)) {
@@ -255,7 +284,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   });
 
   // Submit a turn response on a turn.
-  app.post('/api/projects/:id/turns/:turnId/response', (req: Request, res: Response) => {
+  registerPost(specificationTurnResponsePaths, (req: Request, res: Response) => {
     const projectId = Number(req.params.id);
     const turnId = Number(req.params.turnId);
 
@@ -356,7 +385,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   });
 
   // Get entities for a project
-  app.get('/api/projects/:id/entities', (req: Request, res: Response) => {
+  registerGet(specificationEntitiesPaths, (req: Request, res: Response) => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
@@ -371,7 +400,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   });
 
   // Export spec as markdown
-  app.get('/api/projects/:id/export', (req: Request, res: Response) => {
+  registerGet(specificationExportPaths, (req: Request, res: Response) => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
@@ -397,7 +426,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   });
 
   // Conduct turn for a specific project
-  app.post('/api/projects/:id/chat', async (req: Request, res: Response) => {
+  registerPost(specificationChatPaths, async (req: Request, res: Response) => {
     const id = Number(req.params.id);
     if (Number.isNaN(id)) {
       res.status(400).json({ error: 'Invalid project ID' });

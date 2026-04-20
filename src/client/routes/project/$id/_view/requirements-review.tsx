@@ -1,11 +1,10 @@
-import { createFileRoute } from '@tanstack/react-router';
-
-import { InterviewView } from './-interview-view.js';
-
-function RequirementsReviewView() {
-  return <InterviewView phase="requirements" />;
-}
+import { createFileRoute, redirect } from '@tanstack/react-router';
 
 export const Route = createFileRoute('/project/$id/_view/requirements-review')({
-  component: RequirementsReviewView,
+  loader: ({ params }) => {
+    throw redirect({
+      to: '/specification/$id/requirements-review',
+      params,
+    });
+  },
 });

@@ -33,7 +33,7 @@ describe('workflow phase descriptors', () => {
     });
     expect(getWorkflowPhaseLabel('design')).toBe('Elicitation');
     expect(getPhaseRouteSegment('requirements')).toBe('requirements-review');
-    expect(getPhaseRoutePath('criteria')).toBe('/project/$id/acceptance-review');
+    expect(getPhaseRoutePath('criteria')).toBe('/specification/$id/acceptance-review');
   });
 
   it('round-trips every phase through the canonical route-segment mapping', () => {

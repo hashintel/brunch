@@ -45,7 +45,7 @@ export function WorkspaceArtifactActionLink({
 }) {
   return (
     <Link
-      to={to as '/project/$id/grounding'}
+      to={to as '/specification/$id/grounding'}
       params={{ id: specificationId }}
       className={cn(
         'inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint',
@@ -75,7 +75,7 @@ export function WorkspaceWorkflowCompleteCard({
       </p>
       <WorkspaceArtifactActionLink
         specificationId={specificationId}
-        to="/project/$id/export"
+        to="/specification/$id/export"
         className="mt-1"
       >
         Open export preview

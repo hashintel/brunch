@@ -18,12 +18,14 @@ type BuildManifestChunk = {
 const routeComponentManifestIds = [
   'src/client/routes/index.tsx?tsr-split=component',
   'src/client/routes/project/$id/route.tsx?tsr-split=component',
-  'src/client/routes/project/$id/export.tsx?tsr-split=component',
   'src/client/routes/project/$id/_view/route.tsx?tsr-split=component',
-  'src/client/routes/project/$id/_view/grounding.tsx?tsr-split=component',
-  'src/client/routes/project/$id/_view/elicitation.tsx?tsr-split=component',
-  'src/client/routes/project/$id/_view/requirements-review.tsx?tsr-split=component',
-  'src/client/routes/project/$id/_view/acceptance-review.tsx?tsr-split=component',
+  'src/client/routes/specification/$id/route.tsx?tsr-split=component',
+  'src/client/routes/specification/$id/export.tsx?tsr-split=component',
+  'src/client/routes/specification/$id/_view/route.tsx?tsr-split=component',
+  'src/client/routes/specification/$id/_view/grounding.tsx?tsr-split=component',
+  'src/client/routes/specification/$id/_view/elicitation.tsx?tsr-split=component',
+  'src/client/routes/specification/$id/_view/requirements-review.tsx?tsr-split=component',
+  'src/client/routes/specification/$id/_view/acceptance-review.tsx?tsr-split=component',
 ] as const;
 
 const lazyThirdPartyManifestIds = ['node_modules/agentation/dist/index.mjs'] as const;
@@ -79,7 +81,7 @@ describe('client build boundary', () => {
       return chunk!.file!;
     });
 
-    expect(readableBuild.entryFile).toContain('/project/$id');
+    expect(readableBuild.entryFile).toContain('/specification/$id');
     expect(readableBuild.entryFile).not.toContain('streamdown');
     expect(readableBuild.entryFile).not.toContain('createHighlighter');
     expect(readableBuild.entry.dynamicImports?.slice().sort()).toEqual(
@@ -114,7 +116,7 @@ describe('client build boundary', () => {
 
     // GraphView must be in its own chunk, not inlined into ViewLayout's route chunk
     const viewLayoutChunk =
-      readableBuild.manifest['src/client/routes/project/$id/_view/route.tsx?tsr-split=component'];
+      readableBuild.manifest['src/client/routes/specification/$id/_view/route.tsx?tsr-split=component'];
     expect(viewLayoutChunk?.file).toBeTruthy();
     const viewLayoutChunkSource = readFileSync(join(readableBuild.outDir, viewLayoutChunk!.file!), 'utf8');
     expect(viewLayoutChunkSource, 'GraphView should not be inlined in ViewLayout chunk').not.toContain(

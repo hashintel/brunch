@@ -65,7 +65,7 @@ let useChatHarness: UseChatHarness;
 
 vi.mock('@tanstack/react-router', () => ({
   useLoaderData: ({ from }: { from: string }) => {
-    if (from === '/project/$id') return currentProjectState;
+    if (from === '/specification/$id') return currentProjectState;
     throw new Error(`Unexpected useLoaderData from: ${from}`);
   },
   useRouter: () => ({ invalidate: routerInvalidate }),
@@ -399,7 +399,7 @@ describe('interview controller', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/phase-intent',
+        '/api/specifications/1/phase-intent',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -431,7 +431,7 @@ describe('interview controller', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/phase-intent',
+        '/api/specifications/1/phase-intent',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -475,7 +475,7 @@ describe('interview controller', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/phase-intent',
+        '/api/specifications/1/phase-intent',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -540,7 +540,7 @@ describe('interview controller', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/phase-intent',
+        '/api/specifications/1/phase-intent',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -605,7 +605,7 @@ describe('interview controller', () => {
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/phase-intent',
+        '/api/specifications/1/phase-intent',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -892,7 +892,7 @@ describe('interview controller', () => {
     );
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
-        '/api/projects/1/phase-intent',
+        '/api/specifications/1/phase-intent',
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -955,7 +955,7 @@ describe('interview controller', () => {
     });
 
     await waitFor(() => {
-      expect(chatTransportOptions).toContainEqual({ api: '/api/projects/1/chat' });
+      expect(chatTransportOptions).toContainEqual({ api: '/api/specifications/1/chat' });
       expect(routerInvalidate).toHaveBeenCalled();
     });
   });

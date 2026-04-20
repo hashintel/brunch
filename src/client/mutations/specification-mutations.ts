@@ -14,7 +14,7 @@ export interface CreateSpecificationMutationState {
 export function useCreateSpecificationMutation(): CreateSpecificationMutationState {
   const mutation = useClientMutation((variables: CreateSpecificationRequest) =>
     postJsonMutation<CreateSpecificationResponse, CreateSpecificationRequest>(
-      '/api/projects',
+      '/api/specifications',
       variables,
       'Failed to create specification',
     ),

@@ -83,6 +83,6 @@ function completeRevisit(sessionId: number): RevisitSession
 
 ## Open questions
 
-- How does the secondary thread's chat endpoint differ from the primary? Same `/api/projects/:id/chat` with a `threadId` param, or separate route?
+- How does the secondary thread's chat endpoint differ from the primary? Same `/api/specifications/:id/chat` with a `threadId` param, or separate route?
 - Does `resolveRevisitItem` happen automatically when the observer processes a secondary-thread turn, or does it require explicit user action?
 - What happens if the user closes the browser mid-revisit? The session stays `active` in DB — next launch should resume.

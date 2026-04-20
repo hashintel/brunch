@@ -4,7 +4,7 @@ import { ArrowLeftIcon, BookOpenIcon, DownloadIcon } from 'lucide-react';
 import { Button } from '@/client/components/app-shell.js';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 
-const exportPreviewRouteApi = getRouteApi('/project/$id/export');
+const exportPreviewRouteApi = getRouteApi('/specification/$id/export');
 
 export function ExportPreview() {
   const { id: specificationId } = exportPreviewRouteApi.useParams();
@@ -26,7 +26,7 @@ export function ExportPreview() {
       <ScrollArea className="min-h-0 flex-1">
         <div className="mx-auto max-w-3xl px-10 py-8">
           <Link
-            to="/project/$id"
+            to="/specification/$id"
             params={{ id: specificationId }}
             className="inline-flex items-center gap-1 text-xs text-hint transition-colors hover:text-ink"
           >
@@ -41,7 +41,7 @@ export function ExportPreview() {
                 Export is not available yet. All workflow phases must be closed before exporting.
               </p>
               <Link
-                to="/project/$id"
+                to="/specification/$id"
                 params={{ id: specificationId }}
                 className="mt-2 inline-flex items-center gap-1 text-sm text-hint transition-colors hover:text-ink"
               >
@@ -59,7 +59,7 @@ export function ExportPreview() {
                   Download .md
                 </Button>
                 <Link
-                  to="/project/$id/grounding"
+                  to="/specification/$id/grounding"
                   params={{ id: specificationId }}
                   className="inline-flex items-center gap-1 text-sm text-hint transition-colors hover:text-ink"
                 >

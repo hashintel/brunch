@@ -8,10 +8,10 @@
 
 The current interview workspace behaves like one long four-phase conversation, but the center pane is still entered through four separate phase routes:
 
-- `/project/$id/grounding`
-- `/project/$id/elicitation`
-- `/project/$id/requirements-review`
-- `/project/$id/acceptance-review`
+- `/specification/$id/grounding`
+- `/specification/$id/elicitation`
+- `/specification/$id/requirements-review`
+- `/specification/$id/acceptance-review`
 
 That route split buys deep-linking, gating, and some clean reset boundaries, but it also makes phase handoff feel more page-like than conversation-like.
 

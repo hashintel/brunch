@@ -9,22 +9,22 @@ const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), 
 
 describe('file-route phase route ownership', () => {
   it('specification workspace route defines the specification-state loader inline and renders the sidebar', () => {
-    const projectLayoutSource = readRepoFile('src/client/routes/project/$id/route.tsx');
+    const specificationLayoutSource = readRepoFile('src/client/routes/specification/$id/route.tsx');
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
 
-    expect(projectLayoutSource).toContain("createFileRoute('/project/$id')");
-    expect(projectLayoutSource).toContain('fetchSpecificationWorkspaceLoaderData');
-    expect(projectLayoutSource).toContain('PhaseNavigationSidebar');
-    expect(projectLayoutSource).toContain('Outlet');
+    expect(specificationLayoutSource).toContain("createFileRoute('/specification/$id')");
+    expect(specificationLayoutSource).toContain('fetchSpecificationWorkspaceLoaderData');
+    expect(specificationLayoutSource).toContain('PhaseNavigationSidebar');
+    expect(specificationLayoutSource).toContain('Outlet');
 
-    expect(generatedRouteTreeSource).toContain("'/project/$id'");
-    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/route'");
+    expect(generatedRouteTreeSource).toContain("'/specification/$id'");
+    expect(generatedRouteTreeSource).toContain("from './routes/specification/$id/route'");
   });
 
   it('ViewLayout route defines the entity-data loader inline and branches on view search param', () => {
-    const viewLayoutSource = readRepoFile('src/client/routes/project/$id/_view/route.tsx');
+    const viewLayoutSource = readRepoFile('src/client/routes/specification/$id/_view/route.tsx');
 
-    expect(viewLayoutSource).toContain("createFileRoute('/project/$id/_view')");
+    expect(viewLayoutSource).toContain("createFileRoute('/specification/$id/_view')");
     expect(viewLayoutSource).toContain('fetchViewLayoutLoaderData');
     expect(viewLayoutSource).toContain('Outlet');
 
@@ -38,7 +38,7 @@ describe('file-route phase route ownership', () => {
     const phaseRoutes = ['grounding', 'elicitation', 'requirements-review', 'acceptance-review'];
 
     for (const phase of phaseRoutes) {
-      const source = readRepoFile(`src/client/routes/project/$id/_view/${phase}.tsx`);
+      const source = readRepoFile(`src/client/routes/specification/$id/_view/${phase}.tsx`);
       expect(source, `${phase} route should use createFileRoute`).toContain('createFileRoute');
       expect(source, `${phase} route should render InterviewView`).toContain('InterviewView');
     }

@@ -115,7 +115,7 @@ function renderMessageParts(
 }
 
 export function InterviewView({ phase }: { phase: WorkflowPhase }) {
-  const entitySnapshot = useLoaderData({ from: '/project/$id/_view' });
+  const entitySnapshot = useLoaderData({ from: '/specification/$id/_view' });
   const {
     chat,
     project: specification,
@@ -196,7 +196,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
         </div>
         {showAdvanceAction ? (
           <Link
-            to={getPhaseRoutePath(nextPhase!) as '/project/$id/grounding'}
+            to={getPhaseRoutePath(nextPhase!) as '/specification/$id/grounding'}
             params={{ id: String(specification.id) }}
             className="inline-flex h-8 items-center justify-center rounded-md bg-card px-3.5 text-sm font-medium whitespace-nowrap text-foreground shadow-[var(--shadow-card-ring)] transition-colors"
           >
@@ -204,7 +204,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           </Link>
         ) : showExportAction ? (
           <Link
-            to="/project/$id/export"
+            to="/specification/$id/export"
             params={{ id: String(specification.id) }}
             className="inline-flex h-8 items-center justify-center rounded-md bg-card px-3.5 text-sm font-medium whitespace-nowrap text-foreground shadow-[var(--shadow-card-ring)] transition-colors"
           >
@@ -226,7 +226,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                 description={`Finish or enter ${getWorkflowPhaseLabel(currentReachablePhase)} before opening this phase.`}
               >
                 <Link
-                  to={getPhaseRoutePath(currentReachablePhase) as '/project/$id/grounding'}
+                  to={getPhaseRoutePath(currentReachablePhase) as '/specification/$id/grounding'}
                   params={{ id: String(specification.id) }}
                   className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
                 >

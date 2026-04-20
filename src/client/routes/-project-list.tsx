@@ -59,7 +59,7 @@ function ReadinessIcon({ readiness }: { readiness: ReadinessBand }) {
 }
 
 export async function fetchSpecificationListLoaderData(): Promise<SpecificationListItem[]> {
-  const response = await fetch('/api/projects');
+  const response = await fetch('/api/specifications');
   if (!response.ok) {
     throw new Error('Failed to load specifications');
   }
@@ -75,7 +75,7 @@ export function SpecificationList() {
   const [specificationName, setSpecificationName] = useState('');
 
   const navigateToSpecification = (specificationId: number) => {
-    void navigate({ to: '/project/$id', params: { id: String(specificationId) } });
+    void navigate({ to: '/specification/$id', params: { id: String(specificationId) } });
   };
 
   const handleOpen = () => {
@@ -150,7 +150,7 @@ export function SpecificationList() {
               {specifications.map((specification) => (
                 <Link
                   key={specification.id}
-                  to="/project/$id"
+                  to="/specification/$id"
                   params={{ id: String(specification.id) }}
                   className="block"
                 >

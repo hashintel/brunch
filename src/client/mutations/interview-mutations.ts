@@ -47,7 +47,7 @@ export function useSubmitPhaseIntentMutation({
   const router = useRouter();
   const mutation = useClientMutation((request: SubmitPhaseIntentRequest) =>
     postJsonMutation<SubmitPhaseIntentResponse, SubmitPhaseIntentRequest>(
-      `/api/projects/${projectId}/phase-intent`,
+      `/api/specifications/${projectId}/phase-intent`,
       request,
       'Failed to submit phase intent',
     ),
@@ -95,7 +95,7 @@ export function useSubmitTurnResponseMutation({
   const router = useRouter();
   const mutation = useClientMutation((variables: { turnId: number; response: SubmitTurnResponseRequest }) =>
     postJsonMutation<SubmitTurnResponseResponse, SubmitTurnResponseRequest>(
-      `/api/projects/${projectId}/turns/${variables.turnId}/response`,
+      `/api/specifications/${projectId}/turns/${variables.turnId}/response`,
       variables.response,
       'Failed to save response',
     ),
