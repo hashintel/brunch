@@ -1,4 +1,5 @@
 import type { WorkflowPhase } from './phase-close.js';
+import { groundingWorkflowPhase } from './phase-routes.js';
 
 export const workflowPhaseLabels = {
   scope: 'Grounding',
@@ -6,6 +7,8 @@ export const workflowPhaseLabels = {
   requirements: 'Requirements',
   criteria: 'Acceptance Criteria',
 } satisfies Record<WorkflowPhase, string>;
+
+export const groundingPhaseLabel = workflowPhaseLabels[groundingWorkflowPhase];
 
 export function getWorkflowPhaseLabel(phase: WorkflowPhase): string {
   return workflowPhaseLabels[phase];

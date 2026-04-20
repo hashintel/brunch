@@ -14,7 +14,7 @@ import {
 } from '@/client/components/ui/dialog';
 import { useCreateSpecificationMutation } from '@/client/mutations/project-mutations';
 import type { ProjectListItem, ReadinessBand, WorkflowPhaseStatus } from '@/shared/api-types.js';
-import { workflowPhaseLabels } from '@/shared/phase-display.js';
+import { groundingPhaseLabel, workflowPhaseLabels } from '@/shared/phase-display.js';
 import { phaseOrder } from '@/shared/phase-routes.js';
 
 const specificationListRouteApi = getRouteApi('/');
@@ -35,7 +35,7 @@ function getCurrentPhaseInfo(summary: SpecificationListItem['workflowSummary']):
   if (phaseOrder.every((phase) => summary[phase] === 'closed')) {
     return { label: 'Complete', number: phaseOrder.length };
   }
-  return { label: workflowPhaseLabels[phaseOrder[0]!], number: 1 };
+  return { label: groundingPhaseLabel, number: 1 };
 }
 
 function PhaseDot({ status }: { status: WorkflowPhaseStatus }) {
