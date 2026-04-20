@@ -199,7 +199,7 @@ export function EmptyCard({
   className,
   children,
 }: {
-  title: string;
+  title?: string;
   description: string;
   className?: string;
   children?: React.ReactNode;
@@ -211,7 +211,7 @@ export function EmptyCard({
         className,
       )}
     >
-      <p className="text-sm font-medium text-sub">{title}</p>
+      {title && <p className="text-sm font-medium text-sub">{title}</p>}
       <p className="text-xs leading-relaxed text-hint">{description}</p>
       {children}
     </div>

@@ -2,6 +2,7 @@ import { Link, getRouteApi, useNavigate } from '@tanstack/react-router';
 import { SignalHigh, SignalLow, SignalMedium } from 'lucide-react';
 import { useState } from 'react';
 
+import brunchLogo from '@/client/assets/brunch.png';
 import { Button, EmptyCard } from '@/client/components/app-shell';
 import { Button as ShadcnButton } from '@/client/components/ui/button';
 import {
@@ -105,6 +106,16 @@ export function SpecificationList() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl p-6">
+        <div className="mb-6 flex items-center gap-4">
+          <img src={brunchLogo} alt="Brunch logo" className="size-24  object-contain" />
+          <div className="flex flex-col">
+            <h1 className="text-[24px] font-semibold tracking-[-0.015em] text-ink">Brunch</h1>
+            <p className="text-base text-sub">
+              A tool for building software specifications with AI assistance
+            </p>
+          </div>
+        </div>
+
         {createSpecificationMutation.errorMessage && (
           <p role="alert" className="mb-4 text-sm text-destructive">
             {createSpecificationMutation.errorMessage}
@@ -131,8 +142,8 @@ export function SpecificationList() {
         ) : (
           <>
             <EmptyCard
-              title="Specification"
-              description="Start the interview to generate your next spec draft."
+              // title="Specification"
+              description="Begin building your next spec draft!"
               className="mb-4"
             >
               <div className="mt-3">
