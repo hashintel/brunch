@@ -115,7 +115,6 @@ export function listProjects(db: DB): Project[] {
 
 export interface CreateProjectOptions {
   mode?: ProjectMode;
-  cwd?: string | null;
 }
 
 export function createProject(db: DB, name: string, options?: CreateProjectOptions): Project {
@@ -124,7 +123,6 @@ export function createProject(db: DB, name: string, options?: CreateProjectOptio
     .values({
       name,
       ...(options?.mode ? { mode: options.mode } : {}),
-      ...(options?.cwd ? { cwd: options.cwd } : {}),
     })
     .returning()
     .get();
@@ -571,13 +569,9 @@ export function advanceHead(db: DB, projectId: number, turnId: number): void {
   reconcilePhaseOutcomesForProject(db, projectId);
 }
 
-export function updateProjectMode(
-  db: DB,
-  projectId: number,
-  { mode, cwd }: { mode: ProjectMode; cwd: string | null },
-): void {
+export function updateProjectMode(db: DB, projectId: number, mode: ProjectMode): void {
   db.update(schema.project)
-    .set({ mode, cwd, updated_at: sql`datetime('now')` })
+    .set({ mode, updated_at: sql`datetime('now')` })
     .where(eq(schema.project.id, projectId))
     .run();
 }

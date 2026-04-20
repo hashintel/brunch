@@ -211,7 +211,6 @@ function createProjectState({
       id: projectId,
       name: `Project ${projectId}`,
       mode: 'greenfield',
-      cwd: null,
       active_turn_id: resolvedTurns.at(-1)?.id ?? null,
       created_at: '2026-04-03 10:00:00',
       updated_at: '2026-04-03 10:00:00',

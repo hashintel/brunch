@@ -92,11 +92,11 @@ describe('createDb', () => {
     expect(turnColumns.map((column) => column.name)).toContain('turn_kind');
   });
 
-  it('project table has mode and cwd columns', () => {
+  it('project table has mode but no persisted cwd column', () => {
     const columns = db.$client.prepare("PRAGMA table_info('project')").all() as Array<{ name: string }>;
     const names = columns.map((c) => c.name);
     expect(names).toContain('mode');
-    expect(names).toContain('cwd');
+    expect(names).not.toContain('cwd');
   });
 
   it('creates database file on disk when given a path', () => {
@@ -1265,16 +1265,14 @@ describe('createProject', () => {
     expect(p1.id).not.toBe(p2.id);
   });
 
-  it('defaults to greenfield mode with null cwd', () => {
+  it('defaults to greenfield mode', () => {
     const project = createProject(db, 'Greenfield');
     expect(project.mode).toBe('greenfield');
-    expect(project.cwd).toBeNull();
   });
 
-  it('creates a brownfield project with mode and cwd', () => {
-    const project = createProject(db, 'Brownfield', { mode: 'brownfield', cwd: '/path/to/repo' });
+  it('creates a brownfield project with mode', () => {
+    const project = createProject(db, 'Brownfield', { mode: 'brownfield' });
     expect(project.mode).toBe('brownfield');
-    expect(project.cwd).toBe('/path/to/repo');
   });
 });
 

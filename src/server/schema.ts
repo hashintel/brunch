@@ -9,7 +9,6 @@ export const project = sqliteTable('project', {
   mode: text('mode', { enum: ['greenfield', 'brownfield'] })
     .notNull()
     .default('greenfield'),
-  cwd: text('cwd'),
   active_turn_id: integer(),
   created_at: text()
     .notNull()

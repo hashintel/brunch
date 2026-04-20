@@ -11,7 +11,7 @@ These next slices are sequentially obvious and can be verified independently wit
 
 ---
 
-## Card 1 — Remove persisted workspace path from specification records `[status: next]`
+## Card 1 — Remove persisted workspace path from specification records `[status: done]`
 
 ### Target Behavior
 Brownfield and greenfield specifications continue to work after the specification record stops persisting `cwd` and workspace path is derived only from runtime context.
@@ -40,7 +40,7 @@ Brownfield and greenfield specifications continue to work after the specificatio
 
 ---
 
-## Card 2 — Rename client-owned project wording to specification without transport changes `[status: next after card 1]`
+## Card 2 — Rename client-owned project wording to specification without transport changes `[status: next]`
 
 ### Target Behavior
 The client-owned workspace shell, list, and local module naming refer to a specification rather than a project while current server transport paths and DB identifiers remain unchanged.

@@ -19,7 +19,6 @@ export const projectSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
   mode: projectModeSchema,
-  cwd: z.string().nullable(),
   active_turn_id: z.number().int().positive().nullable(),
   created_at: z.string(),
   updated_at: z.string(),

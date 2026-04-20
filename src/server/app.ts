@@ -208,8 +208,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
     const { name } = parsedRequest.data;
     const mode = parsedRequest.data.mode === 'brownfield' ? ('brownfield' as const) : undefined;
-    const cwd = mode === 'brownfield' ? projectCwd : undefined;
-    const project = createNewProject(db, name, { mode, cwd });
+    const project = createNewProject(db, name, mode ? { mode } : {});
     res.status(201).json(project);
   });
 
@@ -245,7 +244,6 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     const response = submitPhaseIntentWithRuntimeCompatibility({
       db,
       projectId,
-      projectCwd,
       request: parsedRequest.data,
     });
     if (!response.ok) {
@@ -294,10 +292,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       const selectedMode =
         uniquePositions.length === 1 ? getGroundingStrategyModeForPosition(uniquePositions[0]!) : null;
       if (selectedMode) {
-        updateProjectMode(db, projectId, {
-          mode: selectedMode,
-          cwd: selectedMode === 'brownfield' ? projectCwd : null,
-        });
+        updateProjectMode(db, projectId, selectedMode);
       }
     }
 
@@ -592,9 +587,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
         const project = prepared.project;
         const modeOptions =
-          project.mode === 'brownfield' && project.cwd
-            ? { mode: 'brownfield' as const, cwd: project.cwd }
-            : undefined;
+          project.mode === 'brownfield' ? { mode: 'brownfield' as const, cwd: projectCwd } : undefined;
 
         const interviewerStartedAt = Date.now();
         const interviewer = await streamInterviewer(
@@ -642,7 +635,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
             );
 
           if (shouldObserve && observedTurn) {
-            const observerResult = await runObserver(db, observedTurn, id);
+            const observerResult = await runObserver(db, observedTurn, id, projectCwd);
             appendObserverResultToTurn(db, observedTurn.id, observerResult);
             writer.write({
               type: 'data-observer-result',

@@ -141,7 +141,7 @@ export function listProjectStates(db: DB): ProjectListItem[] {
   });
 }
 
-/** Create a new project with the given name and optional mode/cwd. */
+/** Create a new project with the given name and optional mode. */
 export function createNewProject(db: DB, name: string, options?: CreateProjectOptions): Project {
   return createProject(db, name, options);
 }

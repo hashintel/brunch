@@ -66,7 +66,6 @@ function createProjectState(
       id: 1,
       name: 'Project 1',
       mode: 'greenfield',
-      cwd: null,
       active_turn_id: turns.at(-1)?.id ?? null,
       created_at: '2026-04-16 10:00:00',
       updated_at: '2026-04-16 10:00:00',

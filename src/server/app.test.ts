@@ -448,7 +448,7 @@ describe('POST /api/projects', () => {
   it('creates a greenfield project by default', async () => {
     const res = await request(app).post('/api/projects').send({ name: 'Greenfield' }).expect(201);
     expect(res.body.mode).toBe('greenfield');
-    expect(res.body.cwd).toBeNull();
+    expect(res.body).not.toHaveProperty('cwd');
   });
 
   it('leaves kickoff projected until the user explicitly enters the interview', async () => {
@@ -463,13 +463,13 @@ describe('POST /api/projects', () => {
     expect(stateRes.body.turns).toEqual([]);
   });
 
-  it('creates a brownfield project with mode and server-derived cwd', async () => {
+  it('creates a brownfield project with mode but no persisted workspace path', async () => {
     const res = await request(app)
       .post('/api/projects')
       .send({ name: 'Brownfield', mode: 'brownfield' })
       .expect(201);
     expect(res.body.mode).toBe('brownfield');
-    expect(res.body.cwd).toBe(process.cwd());
+    expect(res.body).not.toHaveProperty('cwd');
   });
 
   it('rejects client-supplied cwd data on project creation', async () => {
@@ -479,14 +479,14 @@ describe('POST /api/projects', () => {
       .expect(400);
   });
 
-  it('persists mode in project state', async () => {
+  it('persists mode in project state without exposing a specification cwd field', async () => {
     const createRes = await request(app)
       .post('/api/projects')
       .send({ name: 'BF', mode: 'brownfield' })
       .expect(201);
     const stateRes = await request(app).get(`/api/projects/${createRes.body.id}`).expect(200);
     expect(stateRes.body.project.mode).toBe('brownfield');
-    expect(stateRes.body.project.cwd).toBe(process.cwd());
+    expect(stateRes.body.project).not.toHaveProperty('cwd');
   });
 });
 
@@ -536,7 +536,6 @@ describe('POST /api/projects/:id/chat', () => {
 
     expect(getProject(db, projectId)).toMatchObject({
       mode: 'brownfield',
-      cwd: process.cwd(),
     });
 
     await request(app)
@@ -1437,6 +1436,7 @@ describe('phase outcomes + scope closure', () => {
       expect.anything(),
       expect.objectContaining({ phase: 'design' }),
       projectId,
+      expect.any(String),
     );
   });
 
@@ -1688,6 +1688,7 @@ describe('phase outcomes + scope closure', () => {
       expect.anything(),
       expect.objectContaining({ phase: 'requirements' }),
       projectId,
+      expect.any(String),
     );
   });
 
@@ -1996,6 +1997,7 @@ describe('phase outcomes + scope closure', () => {
       expect.anything(),
       expect.objectContaining({ phase: 'criteria' }),
       projectId,
+      expect.any(String),
     );
 
     const refreshedProjectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
@@ -2054,6 +2056,7 @@ describe('phase outcomes + scope closure', () => {
       expect.anything(),
       expect.objectContaining({ phase: 'criteria' }),
       projectId,
+      expect.any(String),
     );
 
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
@@ -2452,6 +2455,7 @@ describe('phase outcomes + scope closure', () => {
       expect.anything(),
       expect.objectContaining({ phase: 'requirements' }),
       projectId,
+      expect.any(String),
     );
   });
 
@@ -2632,7 +2636,6 @@ describe('POST /api/projects/:id/phase-intent', () => {
 
     expect(getProject(db, project.id)).toMatchObject({
       mode: 'brownfield',
-      cwd: process.cwd(),
     });
     expect(getActivePath(db, project.id)).toHaveLength(0);
 
@@ -2688,7 +2691,6 @@ describe('POST /api/projects/:id/phase-intent', () => {
 
     expect(getProject(db, project.id)).toMatchObject({
       mode: 'brownfield',
-      cwd: process.cwd(),
     });
     expect(updatedKickoffTurn.answer).toBe('Feature within existing codebase');
     expect(selectedOption?.content).toBe('Feature within existing codebase');

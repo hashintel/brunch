@@ -902,7 +902,6 @@ const phaseTransitionScenarios: Record<string, ScenarioFn> = {
   'brownfield-grounding-replay': (db, name = 'Brownfield reusable grounding replay') => {
     const project = createProject(db, name, {
       mode: 'brownfield',
-      cwd: '/tmp/repo',
     });
     seedBrownfieldReusableGroundingReplay(db, project.id);
     return project.id;

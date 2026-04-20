@@ -170,6 +170,7 @@ export async function runObserver(
   db: DB,
   turn: Turn,
   projectId: number,
+  projectCwd?: string,
 ): Promise<{
   entityIds: ObserverEntityIds;
   draftReviewItems: { requirements: ObserverDraftReviewItem[]; criteria: ObserverDraftReviewItem[] };
@@ -185,7 +186,7 @@ export async function runObserver(
     },
     activePathSummary: '',
     projectMode: project?.mode,
-    projectCwd: project?.cwd,
+    projectCwd,
     entities:
       turn.phase === 'requirements'
         ? {

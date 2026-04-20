@@ -14,7 +14,6 @@ const minimalProjectState: ProjectState = {
     id: 42,
     name: 'Test',
     mode: 'greenfield',
-    cwd: null,
     active_turn_id: null,
     created_at: '',
     updated_at: '',

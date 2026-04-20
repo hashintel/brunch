@@ -198,7 +198,7 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createProject(db, 'Spec', { mode: 'brownfield', cwd: '/tmp/repo' });
+    const project = createProject(db, 'Spec', { mode: 'brownfield' });
     const turn = createTurn(db, project.id, {
       phase: 'scope',
       question: 'Which billing workflow should we focus on first?',
@@ -206,7 +206,7 @@ describe('runObserver', () => {
       why: 'The existing billing jobs and invoice retry worker make this seam the best next scope boundary.',
     });
 
-    await runObserver(db, turn, project.id);
+    await runObserver(db, turn, project.id, '/tmp/repo');
 
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({

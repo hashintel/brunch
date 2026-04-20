@@ -39,13 +39,11 @@ export interface PhaseIntentRuntimeError {
 function persistGroundingStrategyKickoffSelection({
   db,
   projectId,
-  projectCwd,
   kickoffTurn,
   mode,
 }: {
   db: DB;
   projectId: number;
-  projectCwd: string;
   kickoffTurn: Pick<Turn, 'id'>;
   mode: 'greenfield' | 'brownfield';
 }): PhaseIntentRuntimeResult {
@@ -62,10 +60,7 @@ function persistGroundingStrategyKickoffSelection({
   }
 
   applyTurnResponseSelections(db, kickoffTurn.id, [selectedPosition]);
-  updateProjectMode(db, projectId, {
-    mode,
-    cwd: mode === 'brownfield' ? projectCwd : null,
-  });
+  updateProjectMode(db, projectId, mode);
   updateTurn(db, kickoffTurn.id, {
     answer: messageText,
     user_parts: serializeParts([
@@ -109,12 +104,10 @@ export function getPhaseIntentRuntimeAvailabilityError(
 export function submitPhaseIntentWithRuntimeCompatibility({
   db,
   projectId,
-  projectCwd,
   request,
 }: {
   db: DB;
   projectId: number;
-  projectCwd: string;
   request: SubmitPhaseIntentRequest;
 }): SubmitPhaseIntentResponse | PhaseIntentRuntimeError {
   const project = getProject(db, projectId);
@@ -142,7 +135,6 @@ export function submitPhaseIntentWithRuntimeCompatibility({
         return persistGroundingStrategyKickoffSelection({
           db,
           projectId,
-          projectCwd,
           kickoffTurn: activeKickoffTurn,
           mode: request.mode,
         });
@@ -153,10 +145,7 @@ export function submitPhaseIntentWithRuntimeCompatibility({
         throw new Error('Invalid grounding strategy selection');
       }
 
-      updateProjectMode(db, projectId, {
-        mode: request.mode,
-        cwd: request.mode === 'brownfield' ? projectCwd : null,
-      });
+      updateProjectMode(db, projectId, request.mode);
       return { ok: true };
     }
 
