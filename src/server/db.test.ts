@@ -217,6 +217,31 @@ describe('turn CRUD', () => {
 });
 
 describe('phase outcome lifecycle', () => {
+  it('counts only answered substantive turns toward readiness', () => {
+    const project = getOrCreateProject(db);
+    const frontierTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What problem are we solving?',
+      answer: null,
+    });
+    createOption(db, frontierTurn.id, { position: 0, content: 'Internal tool' });
+    advanceHead(db, project.id, frontierTurn.id);
+
+    expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
+      status: 'in_progress',
+      readiness: 'low',
+      closeability: true,
+    });
+
+    updateTurn(db, frontierTurn.id, { answer: 'Internal tool' });
+
+    expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
+      status: 'in_progress',
+      readiness: 'medium',
+      closeability: true,
+    });
+  });
+
   it('persists explicit scope outcomes and supersedes them when the active path changes upstream', async () => {
     const project = getOrCreateProject(db);
     const root = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });

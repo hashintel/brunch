@@ -2396,7 +2396,7 @@ describe('phase outcomes + scope closure', () => {
       expect.objectContaining({
         status: 'closed',
         closeability: false,
-        readiness: 'medium',
+        readiness: 'low',
         closureBasis: 'user_forced',
         proposalPending: false,
       }),
