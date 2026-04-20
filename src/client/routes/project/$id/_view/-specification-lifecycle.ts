@@ -1,8 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { SpecificationLanding, WorkflowPhase, WorkflowState } from '@/shared/api-types.js';
+import { getCurrentOpenPhase } from '@/shared/phase-descriptors.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
-import { phaseOrder } from '@/shared/phase-routes.js';
 
 const autoPhaseIntentRegistry = new Map<
   number,
@@ -13,7 +13,7 @@ const autoPhaseIntentRegistry = new Map<
 >();
 
 function getCurrentReachablePhase(workflow: WorkflowState): WorkflowPhase | null {
-  return phaseOrder.find((phase) => workflow.phases[phase].status !== 'closed') ?? null;
+  return getCurrentOpenPhase(workflow.phases);
 }
 
 function getAutoPhaseIntent({

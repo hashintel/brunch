@@ -1,7 +1,7 @@
 import * as z from 'zod/v4';
 
 import type { WorkflowPhaseStatus } from './api-types.js';
-import { getWorkflowPhaseCommandLabel, getWorkflowPhaseLabel } from './phase-display.js';
+import { getWorkflowPhaseCommandLabel, getWorkflowPhaseLabel } from './phase-descriptors.js';
 
 export const workflowPhaseOrder = ['scope', 'design', 'requirements', 'criteria'] as const;
 export const workflowPhaseSchema = z.enum(workflowPhaseOrder);

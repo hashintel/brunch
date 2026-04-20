@@ -1,7 +1,11 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 
 import type { ProjectState } from '@/shared/api-types.js';
-import { getPhaseRoutePath, groundingWorkflowPhase, phaseOrder } from '@/shared/phase-routes.js';
+import {
+  getCurrentOpenPhase,
+  getPhaseRoutePath,
+  groundingWorkflowPhase,
+} from '@/shared/phase-descriptors.js';
 
 export const Route = createFileRoute('/project/$id/')({
   loader: async ({ params }) => {
@@ -11,8 +15,7 @@ export const Route = createFileRoute('/project/$id/')({
     }
     const projectState = (await res.json()) as ProjectState;
     const phases = projectState.workflow.phases;
-    const activePhase =
-      phaseOrder.find((phase) => phases[phase].status !== 'closed') ?? groundingWorkflowPhase;
+    const activePhase = getCurrentOpenPhase(phases) ?? groundingWorkflowPhase;
 
     throw redirect({
       to: getPhaseRoutePath(activePhase),

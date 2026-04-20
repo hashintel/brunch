@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  areAllWorkflowPhasesClosed,
+  getCurrentOpenPhase,
   getNextActivePhase,
   getPhaseRoutePath,
   getPhaseRouteSegment,
@@ -40,29 +42,27 @@ describe('workflow phase descriptors', () => {
     }
   });
 
-  it('finds the next unclosed phase in workflow order', () => {
-    expect(
-      getNextActivePhase(
-        {
-          scope: { status: 'closed' },
-          design: { status: 'in_progress' },
-          requirements: { status: 'unstarted' },
-          criteria: { status: 'unstarted' },
-        },
-        'scope',
-      ),
-    ).toBe('design');
+  it('finds the current and next unclosed phases in workflow order', () => {
+    const workflowSummary = {
+      scope: 'closed',
+      design: 'in_progress',
+      requirements: 'unstarted',
+      criteria: 'unstarted',
+    };
 
-    expect(
-      getNextActivePhase(
-        {
-          scope: { status: 'closed' },
-          design: { status: 'closed' },
-          requirements: { status: 'closed' },
-          criteria: { status: 'closed' },
-        },
-        'criteria',
-      ),
-    ).toBeUndefined();
+    expect(getCurrentOpenPhase(workflowSummary)).toBe('design');
+    expect(getNextActivePhase(workflowSummary, 'scope')).toBe('design');
+    expect(areAllWorkflowPhasesClosed(workflowSummary)).toBe(false);
+
+    const closedWorkflowSummary = {
+      scope: 'closed',
+      design: 'closed',
+      requirements: 'closed',
+      criteria: 'closed',
+    };
+
+    expect(getCurrentOpenPhase(closedWorkflowSummary)).toBeNull();
+    expect(getNextActivePhase(closedWorkflowSummary, 'criteria')).toBeUndefined();
+    expect(areAllWorkflowPhasesClosed(closedWorkflowSummary)).toBe(true);
   });
 });

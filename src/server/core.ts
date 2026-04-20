@@ -1,7 +1,7 @@
 import type { ProjectListItem, ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
 import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { extractTextFromMessage } from '@/shared/chat.js';
-import { phaseOrder } from '@/shared/phase-routes.js';
+import { getCurrentOpenPhase } from '@/shared/phase-descriptors.js';
 import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
 
 import {
@@ -127,7 +127,7 @@ export function getProjectState(db: DB, projectId: number): ProjectState | null 
 export function listProjectStates(db: DB): ProjectListItem[] {
   return listProjects(db).map((project) => {
     const workflow = getCurrentWorkflowState(db, project.id);
-    const currentPhase = phaseOrder.find((p) => workflow.phases[p].status !== 'closed');
+    const currentPhase = getCurrentOpenPhase(workflow.phases);
     return {
       ...project,
       workflowSummary: {

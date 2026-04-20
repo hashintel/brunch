@@ -9,7 +9,7 @@ import {
   groundingStrategyKickoffQuestion,
 } from '@/shared/grounding-strategy.js';
 import { getPhaseClosureCommandText } from '@/shared/phase-close.js';
-import { getWorkflowPhaseLabel } from '@/shared/phase-display.js';
+import { getWorkflowPhaseLabel } from '@/shared/phase-descriptors.js';
 
 function isReviewPhase(phase: WorkflowPhase) {
   return phase === 'requirements' || phase === 'criteria';

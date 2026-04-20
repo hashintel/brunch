@@ -9,8 +9,13 @@ import type {
   WorkflowPhaseState,
   WorkflowState,
 } from '@/shared/api-types.js';
-import { getWorkflowPhaseLabel } from '@/shared/phase-display.js';
-import { phaseOrder, phaseRouteSegments } from '@/shared/phase-routes.js';
+import {
+  areAllWorkflowPhasesClosed,
+  getCurrentOpenPhase,
+  getPhaseRoutePath,
+  getWorkflowPhaseLabel,
+  phaseOrder,
+} from '@/shared/phase-descriptors.js';
 
 function formatStatus(status: WorkflowPhaseState['status']): string {
   switch (status) {
@@ -32,7 +37,7 @@ function formatTurnCount(turnCount: number): string {
 }
 
 function getCurrentReachablePhase(workflow: WorkflowState): WorkflowPhase | null {
-  return phaseOrder.find((phase) => workflow.phases[phase].status !== 'closed') ?? null;
+  return getCurrentOpenPhase(workflow.phases);
 }
 
 function getPhaseTurnCounts(turns: readonly ProjectStateTurn[]): Record<WorkflowPhase, number> {
@@ -51,7 +56,7 @@ function getPhaseTurnCounts(turns: readonly ProjectStateTurn[]): Record<Workflow
 }
 
 function allWorkflowPhasesClosed(workflow: WorkflowState): boolean {
-  return phaseOrder.every((phase) => workflow.phases[phase].status === 'closed');
+  return areAllWorkflowPhasesClosed(workflow.phases);
 }
 
 function TimelineBullet({ status }: { status: WorkflowPhaseState['status'] | 'available' }) {
@@ -140,7 +145,6 @@ export function PhaseNavigationSidebar({
           <ol className="relative ml-1.5">
             {phaseOrder.map((phase, index) => {
               const state = workflow.phases[phase];
-              const segment = phaseRouteSegments[phase];
               const isReachable =
                 state.status === 'closed' ||
                 currentReachablePhase === phase ||
@@ -199,8 +203,7 @@ export function PhaseNavigationSidebar({
 
                   {isReachable ? (
                     <Link
-                      // @ts-expect-error — dynamic route path from validated phase-route mapping
-                      to={`/project/$id/${segment}`}
+                      to={getPhaseRoutePath(phase) as '/project/$id/grounding'}
                       params={{ id: specificationId }}
                       activeProps={{ className: 'is-active' }}
                       className="group/phase block min-w-0 text-left transition-colors"

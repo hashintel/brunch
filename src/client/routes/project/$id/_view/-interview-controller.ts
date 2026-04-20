@@ -17,8 +17,8 @@ import {
   getPhaseClosureCommandText,
 } from '@/shared/phase-close.js';
 import type { DataConfirmation } from '@/shared/phase-close.js';
+import { getNextActivePhase, getPhaseRoutePath } from '@/shared/phase-descriptors.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
-import { getNextActivePhase, phaseRouteSegments } from '@/shared/phase-routes.js';
 
 import {
   buildPhaseTurnIds,
@@ -290,7 +290,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     const nextPhase = getNextActivePhase(durableProject.workflow.phases, phase);
     if (nextPhase) {
       void router.navigate({
-        to: `/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/grounding',
+        to: getPhaseRoutePath(nextPhase) as '/project/$id/grounding',
         params: { id: String(projectId) },
       });
     }

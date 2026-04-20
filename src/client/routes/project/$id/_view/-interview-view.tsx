@@ -28,9 +28,14 @@ import type { ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api
 import { isAskQuestionUIPart, summarizeAssistantActivity } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
-import { getWorkflowPhaseLabel } from '@/shared/phase-display.js';
+import {
+  getCurrentOpenPhase,
+  getNextActivePhase,
+  getPhaseRoutePath,
+  getWorkflowPhaseLabel,
+  phaseOrder,
+} from '@/shared/phase-descriptors.js';
 import { getPhaseIntentMarkerLabel } from '@/shared/phase-intents.js';
-import { getNextActivePhase, phaseOrder, phaseRouteSegments } from '@/shared/phase-routes.js';
 import {
   getPersistedActivitySummary,
   getPersistedReviewSet,
@@ -159,8 +164,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
     captureStatusByTurnId,
   } = useInterviewController(phase);
   const phaseState = workflow.phases[phase];
-  const currentReachablePhase =
-    phaseOrder.find((candidate) => workflow.phases[candidate].status !== 'closed') ?? null;
+  const currentReachablePhase = getCurrentOpenPhase(workflow.phases);
   const nextPhase = getNextActivePhase(workflow.phases, phase);
   const controlMarkers = projectLiveControlMarkers(chat.messages);
   const { streamArtifacts } = projectWorkspaceStream({
@@ -231,7 +235,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
         </div>
         {showAdvanceAction ? (
           <Link
-            to={`/project/$id/${phaseRouteSegments[nextPhase!]}` as '/project/$id/grounding'}
+            to={getPhaseRoutePath(nextPhase!) as '/project/$id/grounding'}
             params={{ id: String(specification.id) }}
             className="inline-flex h-8 items-center justify-center rounded-md bg-card px-3.5 text-sm font-medium whitespace-nowrap text-foreground shadow-[var(--shadow-card-ring)] transition-colors"
           >
@@ -261,7 +265,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                 description={`Finish or enter ${getWorkflowPhaseLabel(currentReachablePhase)} before opening this phase.`}
               >
                 <Link
-                  to={`/project/$id/${phaseRouteSegments[currentReachablePhase]}` as '/project/$id/grounding'}
+                  to={getPhaseRoutePath(currentReachablePhase) as '/project/$id/grounding'}
                   params={{ id: String(specification.id) }}
                   className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
                 >
@@ -523,9 +527,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                         </Link>
                       ) : (
                         <Link
-                          to={
-                            `/project/$id/${phaseRouteSegments[artifact.artifact.nextPhase]}` as '/project/$id/grounding'
-                          }
+                          to={getPhaseRoutePath(artifact.artifact.nextPhase) as '/project/$id/grounding'}
                           params={{ id: String(specification.id) }}
                           className="mt-3 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                         >
@@ -546,9 +548,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                     summary={artifact.artifact.summary}
                   >
                     <Link
-                      to={
-                        `/project/$id/${phaseRouteSegments[artifact.artifact.nextPhase]}` as '/project/$id/grounding'
-                      }
+                      to={getPhaseRoutePath(artifact.artifact.nextPhase) as '/project/$id/grounding'}
                       params={{ id: String(specification.id) }}
                       className="mt-1 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                     >

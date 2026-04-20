@@ -11,7 +11,7 @@ import type {
   BrunchUserPart,
   StructuredQuestion,
 } from '@/shared/chat.js';
-import { getNextActivePhase } from '@/shared/phase-routes.js';
+import { getNextActivePhase } from '@/shared/phase-descriptors.js';
 import {
   hasPersistedTurnResponse,
   safeParsePersistedAssistantParts,

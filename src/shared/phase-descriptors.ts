@@ -6,6 +6,8 @@ export interface WorkflowPhaseDescriptor {
   readonly routeSegment: string;
 }
 
+type WorkflowPhaseStatusSource = string | { readonly status: string };
+
 export const workflowPhaseDescriptors = [
   { phase: 'scope', label: 'Grounding', routeSegment: 'grounding' },
   { phase: 'design', label: 'Elicitation', routeSegment: 'elicitation' },
@@ -59,10 +61,28 @@ export function getPhaseRoutePath(phase: WorkflowPhase): string {
   return phaseRoutePaths[phase];
 }
 
+function getWorkflowPhaseStatus(source: WorkflowPhaseStatusSource): string {
+  return typeof source === 'string' ? source : source.status;
+}
+
+export function getCurrentOpenPhase(
+  phases: Record<WorkflowPhase, WorkflowPhaseStatusSource>,
+): WorkflowPhase | null {
+  return phaseOrder.find((phase) => getWorkflowPhaseStatus(phases[phase]) !== 'closed') ?? null;
+}
+
+export function areAllWorkflowPhasesClosed(
+  phases: Record<WorkflowPhase, WorkflowPhaseStatusSource>,
+): boolean {
+  return getCurrentOpenPhase(phases) === null;
+}
+
 export function getNextActivePhase(
-  phases: Record<WorkflowPhase, { status: string }>,
+  phases: Record<WorkflowPhase, WorkflowPhaseStatusSource>,
   currentPhase: WorkflowPhase,
 ): WorkflowPhase | undefined {
   const currentIndex = phaseOrder.indexOf(currentPhase);
-  return phaseOrder.find((phase, index) => index > currentIndex && phases[phase].status !== 'closed');
+  return phaseOrder.find(
+    (phase, index) => index > currentIndex && getWorkflowPhaseStatus(phases[phase]) !== 'closed',
+  );
 }
