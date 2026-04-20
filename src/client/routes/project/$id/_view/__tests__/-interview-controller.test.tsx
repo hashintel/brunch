@@ -5,6 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
+import type { EntitiesData } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { deriveSpecificationLanding } from '@/shared/specification-state.js';
 import type { SpecificationState as ProjectState } from '@/shared/specification.js';
@@ -52,6 +53,7 @@ type UseChatHarness = {
 };
 
 let currentProjectState: ProjectState;
+let currentEntityState: EntitiesData;
 const routerInvalidate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 const chatTransportOptions: unknown[] = [];
@@ -66,6 +68,7 @@ let useChatHarness: UseChatHarness;
 vi.mock('@tanstack/react-router', () => ({
   useLoaderData: ({ from }: { from: string }) => {
     if (from === '/specification/$id') return currentProjectState;
+    if (from === '/specification/$id/_view') return currentEntityState;
     throw new Error(`Unexpected useLoaderData from: ${from}`);
   },
   useRouter: () => ({ invalidate: routerInvalidate }),
@@ -242,8 +245,23 @@ function messageText(messages: readonly BrunchUIMessage[]) {
     .join('|');
 }
 
+function createEntityState(overrides: Partial<EntitiesData> = {}): EntitiesData {
+  return {
+    goals: [],
+    terms: [],
+    contexts: [],
+    constraints: [],
+    requirements: [],
+    criteria: [],
+    decisions: [],
+    assumptions: [],
+    relationships: [],
+    ...overrides,
+  };
+}
+
 function ControllerProbe({ phase = 'scope' }: { phase?: 'scope' | 'design' | 'requirements' | 'criteria' }) {
-  const workspace = useInterviewController(phase);
+  const workspace = useInterviewController(phase, currentEntityState);
 
   return (
     <div>
@@ -304,6 +322,7 @@ function renderController(phase: 'scope' | 'design' | 'requirements' | 'criteria
 
 beforeEach(() => {
   currentProjectState = createProjectState();
+  currentEntityState = createEntityState();
   routerInvalidate.mockClear();
   fetchMock.mockReset();
   chatTransportOptions.length = 0;

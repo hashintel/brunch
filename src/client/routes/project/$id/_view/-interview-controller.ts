@@ -4,13 +4,15 @@ import { DefaultChatTransport } from 'ai';
 import type { ChatStatus } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
+import { isVisibleKnowledgeKind } from '@/client/components/knowledge-display';
 import {
   useSubmitPhaseIntentMutation,
   useSubmitTurnResponseMutation,
 } from '@/client/mutations/interview-mutations';
-import type { ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
+import type { EntitiesData, ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
 import { brunchDataPartSchemas } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
+import { knowledgeCollectionKeyByKind } from '@/shared/knowledge.js';
 import {
   createConfirmProposedPhaseClosureCommand,
   createForceCloseActivePhaseCommand,
@@ -114,7 +116,18 @@ export interface InterviewController {
   readonly bottomArtifact: InterviewControllerBottomArtifactState | null;
 }
 
-export function useInterviewController(phase: WorkflowPhase): InterviewController {
+function visibleCapturesAreSynced(
+  turn: Pick<SpecificationTurn, 'captured_items'>,
+  entityState: EntitiesData,
+): boolean {
+  return (turn.captured_items ?? [])
+    .filter((item) => isVisibleKnowledgeKind(item.kind))
+    .every((item) =>
+      entityState[knowledgeCollectionKeyByKind[item.kind]].some((entity) => entity.id === item.id),
+    );
+}
+
+export function useInterviewController(phase: WorkflowPhase, entityState: EntitiesData): InterviewController {
   const specificationState = useLoaderData({ from: '/specification/$id' });
   const router = useRouter();
   const projectId = getSpecificationRecord(specificationState).id;
@@ -137,6 +150,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   const [captureStatusByTurnId, setCaptureStatusByTurnId] = useState<Map<number, 'waiting' | 'applying'>>(
     () => new Map(),
   );
+  const [pendingCaptureSyncTurnIds, setPendingCaptureSyncTurnIds] = useState<Set<number>>(() => new Set());
   const [pendingCloseNavigation, setPendingCloseNavigation] = useState(false);
   const pendingCloseRef = useRef(false);
   const stablePhaseKeyRef = useRef(`${durableSpecification.project.id}:${phase}`);
@@ -156,6 +170,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   useEffect(() => {
     setSubmittedTurnId(null);
     setCaptureStatusByTurnId(new Map());
+    setPendingCaptureSyncTurnIds(new Set());
   }, [durableSpecification.project.id, phase]);
 
   const transport = useMemo(
@@ -175,6 +190,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
 
         if (observerTurnId !== null) {
           setCaptureStatusByTurnId((current) => new Map(current).set(observerTurnId, 'applying'));
+          setPendingCaptureSyncTurnIds((current) => new Set(current).add(observerTurnId));
         }
       }
 
@@ -347,29 +363,43 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   }, [submittedTurnId, durableSpecification.workflow, phase, viewState.bottomArtifact]);
 
   useEffect(() => {
-    setCaptureStatusByTurnId((current) => {
-      let next: Map<number, 'waiting' | 'applying'> | null = null;
+    const syncedTurnIds = stablePhaseTurns
+      .filter((turn) => pendingCaptureSyncTurnIds.has(turn.id) && visibleCapturesAreSynced(turn, entityState))
+      .map((turn) => turn.id);
 
-      for (const turn of stablePhaseTurns) {
-        if ((turn.captured_items?.length ?? 0) === 0 || !current.has(turn.id)) {
-          continue;
-        }
+    if (syncedTurnIds.length === 0) {
+      return;
+    }
 
-        if (next === null) {
-          next = new Map(current);
-        }
-        next.delete(turn.id);
+    setPendingCaptureSyncTurnIds((current) => {
+      const next = new Set(current);
+      for (const turnId of syncedTurnIds) {
+        next.delete(turnId);
       }
-
-      return next ?? current;
+      return next;
     });
-  }, [stablePhaseTurns]);
+    setCaptureStatusByTurnId((current) => {
+      const next = new Map(current);
+      for (const turnId of syncedTurnIds) {
+        next.delete(turnId);
+      }
+      return next;
+    });
+  }, [entityState, pendingCaptureSyncTurnIds, stablePhaseTurns]);
+
+  const effectiveCaptureStatusByTurnId = useMemo(() => {
+    const next = new Map(captureStatusByTurnId);
+    for (const turnId of pendingCaptureSyncTurnIds) {
+      next.set(turnId, 'applying');
+    }
+    return next;
+  }, [captureStatusByTurnId, pendingCaptureSyncTurnIds]);
 
   return {
     project: viewState.project,
     workflow: viewState.workflow,
     phaseTurns: stablePhaseTurns,
-    captureStatusByTurnId,
+    captureStatusByTurnId: effectiveCaptureStatusByTurnId,
     chat: {
       messages: phaseMessages,
       status,

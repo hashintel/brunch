@@ -123,7 +123,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
     phaseTurns,
     bottomArtifact,
     captureStatusByTurnId,
-  } = useInterviewController(phase);
+  } = useInterviewController(phase, entitySnapshot);
   const phaseState = workflow.phases[phase];
   const currentReachablePhase = getCurrentOpenPhase(workflow.phases);
   const nextPhase = getNextActivePhase(workflow.phases, phase);
