@@ -1191,6 +1191,24 @@ describe('InterviewView', () => {
     expect(screen.queryByText('Continue the grounding phase.')).toBeNull();
   });
 
+  it('does not render fallback assistant chat bubbles once the projected workspace stream owns the pane body', async () => {
+    setLoaderData(createWorkspaceLoaderData({ turns: [] }));
+
+    renderWorkspace();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        {
+          id: 'assistant-text-only',
+          role: 'assistant',
+          parts: [{ type: 'text', text: 'Unexpected fallback assistant text' }],
+        },
+      ]);
+    });
+
+    expect(screen.queryByText('Unexpected fallback assistant text')).toBeNull();
+  });
+
   it('replays accepted closure from the same durable turn as a resolved closure card', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
@@ -3274,7 +3292,7 @@ describe('InterviewView', () => {
 
     renderWorkspace('design');
 
-    fireEvent.click(await screen.findByRole('button', { name: /force elicitation closure/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Close Phase' }));
 
     await waitFor(() => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
@@ -3372,7 +3390,7 @@ describe('InterviewView', () => {
     renderWorkspace('design');
 
     expect(screen.getByText('Which architecture should we choose next?')).toBeTruthy();
-    fireEvent.click(await screen.findByRole('button', { name: /force elicitation closure/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Close Phase' }));
 
     expect(await screen.findByText('Force elicitation closure', { selector: 'p' })).toBeTruthy();
     expect(screen.getByTestId('generating-turn-placeholder')).toBeTruthy();

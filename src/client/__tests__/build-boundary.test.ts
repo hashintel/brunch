@@ -90,8 +90,10 @@ describe('client build boundary', () => {
     // Phase routes may share chunks (same InterviewWorkspace component), so unique count may be less
     expect(new Set(routeComponentChunkFiles).size).toBeGreaterThanOrEqual(4);
 
-    // streamdown is lazy-loaded for progressive markdown rendering
-    const richRenderingChunk = Object.values(readableBuild.manifest).find((chunk) => {
+    // streamdown must stay out of the entry bundle. It may be emitted as a lazy chunk
+    // when a production surface still reaches rich markdown rendering, or omitted entirely
+    // if no shipped route references that capability anymore.
+    const richRenderingChunks = Object.values(readableBuild.manifest).filter((chunk) => {
       if (!chunk.file || chunk.file === readableBuild.entry.file) {
         return false;
       }
@@ -100,7 +102,7 @@ describe('client build boundary', () => {
       return chunkSource.includes('streamdown');
     });
 
-    expect(richRenderingChunk?.file).toBeTruthy();
+    expect(richRenderingChunks.length).toBeLessThanOrEqual(1);
 
     // shiki must not appear in any chunk — tool JSON uses plain code rendering
     const allChunkSources = Object.values(readableBuild.manifest)

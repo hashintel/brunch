@@ -1,13 +1,11 @@
 import { Link, useLoaderData } from '@tanstack/react-router';
 
-import { Message, MessageContent, MessageResponse } from '@/client/components/ai-elements/message';
 import { Button } from '@/client/components/app-shell';
 import { ChatScroll } from '@/client/components/chat-scroll';
 import { WorkspaceStateCard } from '@/client/components/control-cards';
 import { ActivityPlaceholder } from '@/client/components/question-cards';
 import { cn } from '@/client/lib/utils';
 import type { WorkflowPhase } from '@/shared/api-types.js';
-import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
 import {
@@ -63,40 +61,6 @@ function renderActivitySummary(activitySummary: ActivitySummary | null | undefin
 
 function renderPersistedActivity(turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined) {
   return renderActivitySummary(getPersistedActivitySummary(turn));
-}
-
-function renderMessageParts(message: BrunchUIMessage, isStreaming: boolean) {
-  return message.parts?.map((part, index) => {
-    if (part.type === 'reasoning' || part.type === 'step-start') {
-      return null;
-    }
-    if (isAskQuestionUIPart(part) || part.type === 'tool-propose_phase_closure') {
-      return null;
-    }
-    if (part.type === 'data-observer-result') {
-      return null;
-    }
-    if (part.type === 'data-review-set') {
-      return null;
-    }
-    if (part.type === 'data-activity-summary') {
-      return null;
-    }
-    if (part.type === 'data-phase-summary') {
-      return null;
-    }
-    if (part.type === 'dynamic-tool') {
-      return null;
-    }
-    if (part.type === 'text') {
-      return (
-        <MessageResponse key={index} isAnimating={isStreaming}>
-          {part.text}
-        </MessageResponse>
-      );
-    }
-    return null;
-  });
 }
 
 export function InterviewView({ phase }: { phase: WorkflowPhase }) {
@@ -231,52 +195,6 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             renderPersistedActivity={renderPersistedActivity}
             renderLiveActivity={renderActivitySummary}
           />
-
-          <div className="mx-auto w-full max-w-2xl">
-            {chat.messages.map((message, messageIndex) => {
-              if (/^turn-\d+-/.test(message.id) || message.role === 'user') {
-                return null;
-              }
-
-              const isLastAssistant =
-                message.role === 'assistant' && messageIndex === chat.messages.length - 1;
-              const renderedParts = renderMessageParts(message, isLastAssistant && chat.isStreaming);
-              const hasRenderedParts = renderedParts?.some((part) => part !== null) ?? false;
-
-              if (!hasRenderedParts) {
-                return null;
-              }
-
-              return (
-                <div key={message.id} className="flex flex-col">
-                  <Message from={message.role}>
-                    <MessageContent>{renderedParts}</MessageContent>
-                  </Message>
-                </div>
-              );
-            })}
-
-            {bottomArtifact?.kind !== 'phase-summary' &&
-              phaseState.status === 'in_progress' &&
-              !chat.isLoading &&
-              canForceClosePhase(workflow, phase) && (
-                <div className="my-3 flex justify-end">
-                  <button
-                    type="button"
-                    onClick={() => chat.forcePhaseClosure(phase)}
-                    disabled={chat.isLoading}
-                    className={cn(
-                      'rounded-md border px-3 py-2 text-xs transition-colors',
-                      chat.isLoading
-                        ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-                        : 'border-border bg-background text-foreground hover:bg-muted',
-                    )}
-                  >
-                    {getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase })}
-                  </button>
-                </div>
-              )}
-          </div>
 
           {/* Bottom spacer — future home of phase-advance controls */}
           <div className="h-30 shrink-0" />
