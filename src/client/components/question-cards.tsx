@@ -2,7 +2,7 @@ import { Check, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Impact, ReviewAction } from '@/shared/api-types.js';
-import type { GroundingCardData } from '@/shared/chat.js';
+import type { ActivitySummary, GroundingCardData } from '@/shared/chat.js';
 import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/specification-state.js';
 import type { SpecificationTurn } from '@/shared/specification.js';
 
@@ -550,7 +550,7 @@ export function QuestionCardSkeleton() {
 
 // ── Generating state container ──────────────────────────────────────
 
-export function GeneratingTurnPlaceholder() {
+export function GeneratingTurnPlaceholder({ liveActivity }: { liveActivity?: ActivitySummary }) {
   const startTimeRef = useRef<number>(Date.now());
   const [seconds, setSeconds] = useState(0);
 
@@ -564,7 +564,7 @@ export function GeneratingTurnPlaceholder() {
 
   return (
     <div className="flex flex-col" data-testid="generating-turn-placeholder">
-      <ActivityPlaceholder seconds={seconds > 0 ? seconds : undefined} />
+      <ActivityPlaceholder seconds={seconds > 0 ? seconds : undefined} tools={liveActivity?.tools} />
       <QuestionCardSkeleton />
     </div>
   );

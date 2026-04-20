@@ -2817,6 +2817,52 @@ describe('InterviewView', () => {
     });
   });
 
+  it('renders a single generating activity row while streaming live reasoning and tools', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [],
+        workflow: createWorkflowState({
+          scope: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        }),
+      }),
+    );
+    useChatImpl = createUseChatHarness('streaming');
+
+    renderWorkspace();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        {
+          id: 'assistant-generating',
+          role: 'assistant',
+          parts: [
+            { type: 'reasoning', text: 'Thinking through the next move' },
+            {
+              type: 'dynamic-tool',
+              toolName: 'lookup_workspace_context',
+              toolCallId: 'tool-lookup',
+              state: 'output-available',
+              input: {},
+              output: { ok: true },
+            },
+          ],
+        },
+      ]);
+    });
+
+    expect(await screen.findByTestId('generating-turn-placeholder')).toBeTruthy();
+    expect(screen.getAllByText('Thinking…')).toHaveLength(1);
+    expect(screen.getAllByText('Tools: lookup workspace context')).toHaveLength(1);
+  });
+
   it('renders the turn card from a pending-question tool part before route invalidation', async () => {
     setLoaderData(
       createWorkspaceLoaderData({

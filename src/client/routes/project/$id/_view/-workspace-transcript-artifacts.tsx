@@ -302,12 +302,10 @@ function renderWorkspaceInteractiveArtifact({
       );
     case 'generating':
       return (
-        <WorkspaceArtifactRow
+        <GeneratingTurnPlaceholder
           key="generating-turn-placeholder"
-          activity={renderLiveActivity(artifact.artifact.liveActivity)}
-        >
-          <GeneratingTurnPlaceholder />
-        </WorkspaceArtifactRow>
+          liveActivity={artifact.artifact.liveActivity}
+        />
       );
   }
 }
