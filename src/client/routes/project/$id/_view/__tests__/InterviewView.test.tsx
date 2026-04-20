@@ -1069,6 +1069,69 @@ describe('InterviewView', () => {
     expect(screen.queryByText('Continue the grounding phase.')).toBeNull();
   });
 
+  it('does not render a control marker for phase-entry intents', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [],
+        workflow: {
+          phases: {
+            scope: {
+              status: 'in_progress',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+          },
+        },
+      }),
+    );
+
+    renderWorkspace();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        {
+          id: 'u-control',
+          role: 'user',
+          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-entry', phase: 'scope' } }],
+        },
+      ]);
+    });
+
+    expect(screen.queryByText('Interview started')).toBeNull();
+    expect(screen.queryByText('Begin the grounding phase.')).toBeNull();
+  });
+
   it('does not infer control markers from plain text once typed phase intents own the seam', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
