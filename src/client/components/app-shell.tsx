@@ -51,7 +51,7 @@ function StageRow({
         onClick={() => onClick?.(stage.key)}
         className={cn(
           'flex h-8 w-full items-center gap-1.5 rounded-md text-xs font-medium',
-          isTopLevel ? 'px-2' : 'pl-6 pr-3.5',
+          isTopLevel ? 'px-2' : 'pr-3.5 pl-6',
           stage.status === 'future' ? 'text-sub' : 'text-ink',
         )}
       >
@@ -220,22 +220,26 @@ export function EmptyCard({
 
 // ── Shell button primitives ───────────────────────────────────────────
 
-export function ShellButton({
+export function Button({
   variant = 'ghost',
+  size = 'md',
   className,
   ...props
 }: React.ComponentProps<'button'> & {
   variant?: 'ghost' | 'outline' | 'primary';
+  size?: 'sm' | 'md';
 }) {
   return (
     <button
       type="button"
       className={cn(
-        'inline-flex h-8 items-center justify-center rounded-md px-3.5 text-sm font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-40',
+        'inline-flex items-center justify-center rounded-md font-medium whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-40',
         variant === 'ghost' && 'bg-wash text-sub hover:bg-wash/80',
         variant === 'outline' && 'bg-card text-foreground shadow-[var(--shadow-card-ring)]',
         variant === 'primary' &&
           'bg-gradient-to-b from-[#3484fa] to-[#2070e6] text-white shadow-[0px_0px_0px_1px_#1060d6,inset_0px_1px_1px_0px_rgba(255,255,255,0.2)]',
+        size === 'md' && 'h-8 px-3.5 text-sm',
+        size === 'sm' && 'h-7 px-2.5 text-xs-plus',
         className,
       )}
       {...props}

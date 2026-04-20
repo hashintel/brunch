@@ -2,8 +2,8 @@ import { Link, getRouteApi, useNavigate } from '@tanstack/react-router';
 import { SignalHigh, SignalLow, SignalMedium } from 'lucide-react';
 import { useState } from 'react';
 
-import { EmptyCard, ShellButton } from '@/client/components/app-shell';
-import { Button } from '@/client/components/ui/button';
+import { Button, EmptyCard } from '@/client/components/app-shell';
+import { Button as ShadcnButton } from '@/client/components/ui/button';
 import {
   Dialog,
   DialogContent,
@@ -116,14 +116,14 @@ export function ProjectList() {
               Create your first specification to start the interview process.
             </p>
             <div className="mt-2">
-              <ShellButton
+              <Button
                 variant="primary"
                 onClick={handleOpen}
                 disabled={createProjectMutation.isPending}
                 className="h-10 px-5 text-base"
               >
                 {createProjectMutation.isPending ? 'Creating...' : 'New specification'}
-              </ShellButton>
+              </Button>
             </div>
           </div>
         ) : (
@@ -134,13 +134,9 @@ export function ProjectList() {
               className="mb-4"
             >
               <div className="mt-3">
-                <ShellButton
-                  variant="primary"
-                  onClick={handleOpen}
-                  disabled={createProjectMutation.isPending}
-                >
+                <Button variant="primary" onClick={handleOpen} disabled={createProjectMutation.isPending}>
                   {createProjectMutation.isPending ? 'Creating...' : 'New specification'}
-                </ShellButton>
+                </Button>
               </div>
             </EmptyCard>
 
@@ -197,9 +193,9 @@ export function ProjectList() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
                 <DialogFooter>
-                  <Button onClick={() => void handleNameSubmit()} disabled={!projectName.trim()}>
+                  <ShadcnButton onClick={() => void handleNameSubmit()} disabled={!projectName.trim()}>
                     Create specification
-                  </Button>
+                  </ShadcnButton>
                 </DialogFooter>
               </>
             )}

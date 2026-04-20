@@ -1,7 +1,7 @@
 import { Link, useLoaderData } from '@tanstack/react-router';
 
 import { Message, MessageContent, MessageResponse } from '@/client/components/ai-elements/message';
-import { ShellButton } from '@/client/components/app-shell';
+import { Button } from '@/client/components/app-shell';
 import { ChatScroll } from '@/client/components/chat-scroll';
 import {
   AcceptedClosureCard,
@@ -227,7 +227,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           <Link
             to={`/project/$id/${phaseRouteSegments[nextPhase!]}` as '/project/$id/grounding'}
             params={{ id: String(project.id) }}
-            className="inline-flex h-8 items-center justify-center rounded-md px-3.5 text-sm font-medium whitespace-nowrap transition-colors bg-card text-foreground shadow-[var(--shadow-card-ring)]"
+            className="inline-flex h-8 items-center justify-center rounded-md bg-card px-3.5 text-sm font-medium whitespace-nowrap text-foreground shadow-[var(--shadow-card-ring)] transition-colors"
           >
             Advance to {getWorkflowPhaseLabel(nextPhase!)}
           </Link>
@@ -235,18 +235,14 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           <Link
             to="/project/$id/export"
             params={{ id: String(project.id) }}
-            className="inline-flex h-8 items-center justify-center rounded-md px-3.5 text-sm font-medium whitespace-nowrap transition-colors bg-card text-foreground shadow-[var(--shadow-card-ring)]"
+            className="inline-flex h-8 items-center justify-center rounded-md bg-card px-3.5 text-sm font-medium whitespace-nowrap text-foreground shadow-[var(--shadow-card-ring)] transition-colors"
           >
             Open export preview
           </Link>
         ) : showClosePhaseAction ? (
-          <ShellButton
-            variant="outline"
-            onClick={() => chat.forcePhaseClosure(phase)}
-            disabled={chat.isLoading}
-          >
+          <Button variant="outline" onClick={() => chat.forcePhaseClosure(phase)} disabled={chat.isLoading}>
             Close Phase
-          </ShellButton>
+          </Button>
         ) : null}
       </div>
       <ChatScroll className="min-h-0 flex-1">
@@ -501,6 +497,9 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                   <ReviewPhaseCompletionCard
                     key={`${artifact.kind}-${artifact.artifact.phase}`}
                     testId="review-phase-completion-card"
+                    eyebrow={
+                      artifact.kind === 'workflow-complete' ? 'Workflow complete' : 'Review phase complete'
+                    }
                     title={`${getWorkflowPhaseLabel(artifact.artifact.phase)} review is complete`}
                     description={getReviewPhaseCompletionDescription(
                       artifact.artifact.phase,
@@ -512,7 +511,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                         <Link
                           to="/project/$id/export"
                           params={{ id: String(project.id) }}
-                          className="mt-3 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                          className="mt-3 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                         >
                           Open export preview
                         </Link>
@@ -522,7 +521,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                             `/project/$id/${phaseRouteSegments[artifact.artifact.nextPhase]}` as '/project/$id/grounding'
                           }
                           params={{ id: String(project.id) }}
-                          className="mt-3 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                          className="mt-3 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                         >
                           Continue to {getWorkflowPhaseLabel(artifact.artifact.nextPhase)}
                         </Link>
@@ -545,7 +544,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                         `/project/$id/${phaseRouteSegments[artifact.artifact.nextPhase]}` as '/project/$id/grounding'
                       }
                       params={{ id: String(project.id) }}
-                      className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                      className="mt-1 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                     >
                       Continue to {getWorkflowPhaseLabel(artifact.artifact.nextPhase)}
                     </Link>
@@ -567,7 +566,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                   <Link
                     to="/project/$id/export"
                     params={{ id: String(project.id) }}
-                    className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                    className="mt-1 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                   >
                     Open export preview
                   </Link>

@@ -4,6 +4,7 @@
  * Shows closure proposal, accepted closure replay, review phase completion,
  * and workflow-complete terminal variants.
  */
+import { Button } from '@/client/components/app-shell';
 import { AcceptedClosureCard, PhaseHandoffCard, PhaseSummaryCard } from '@/client/components/control-cards';
 import { ReviewPhaseCompletionCard } from '@/client/components/review-set-card';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
@@ -82,12 +83,9 @@ export function PhaseClosureStory() {
               nextPhase="design"
               summary="Goals, terms, context, and constraints are sufficiently captured."
             >
-              <button
-                type="button"
-                className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
-              >
+              <Button variant="outline" size="sm" className="mt-1">
                 Continue to Elicitation
-              </button>
+              </Button>
             </PhaseHandoffCard>
           </div>
         </section>
@@ -101,6 +99,7 @@ export function PhaseClosureStory() {
 
           <div className="mt-6 max-w-2xl">
             <ReviewPhaseCompletionCard
+              eyebrow="Review phase complete"
               title="Requirements phase is complete"
               description="All requirements have been reviewed and finalized. You can proceed to acceptance criteria."
               cta="Continue to acceptance criteria"
@@ -118,6 +117,7 @@ export function PhaseClosureStory() {
 
           <div className="mt-6 max-w-2xl">
             <ReviewPhaseCompletionCard
+              eyebrow="Workflow complete"
               title="Specification workflow is complete"
               description="All phases — scoping, design elicitation, requirements, and acceptance criteria — have been finalized. Your project specification is ready."
             />

@@ -1,7 +1,8 @@
 import { Check, MessageSquare } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
 
-import { Button } from '@/client/components/ui/button';
+import { Button } from '@/client/components/app-shell';
+import { Button as ShadcnButton } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import { Textarea } from '@/client/components/ui/textarea';
 import { cn } from '@/client/lib/utils';
@@ -151,6 +152,7 @@ function ReviewSetItemRow({
 }
 
 export function ReviewPhaseCompletionCard({
+  eyebrow,
   title,
   description,
   cta,
@@ -158,6 +160,7 @@ export function ReviewPhaseCompletionCard({
   action,
   testId,
 }: {
+  eyebrow: string;
   title: string;
   description: string;
   cta?: string;
@@ -167,23 +170,26 @@ export function ReviewPhaseCompletionCard({
 }) {
   return (
     <div
-      className="overflow-hidden rounded-xl border border-rule bg-wash p-5"
+      className="border-t border-[rgba(22,163,74,0.25)] py-3"
       {...(testId ? { 'data-testid': testId } : {})}
     >
-      <div className="flex items-center gap-2">
-        <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[rgba(22,163,106,0.1)]">
+      <div className="flex items-start gap-3">
+        <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[rgba(22,163,74,0.12)]">
           <Check className="size-3.5 text-[#16a34a]" />
         </div>
-        <p className="text-sm font-medium text-ink">{title}</p>
+        <div className="flex flex-col">
+          <p className="text-xxs text-hint">{eyebrow}</p>
+          <h2 className="mt-0.5 text-sm font-medium text-ink">{title}</h2>
+          <p className="mt-1 text-xs-plus leading-relaxed text-sub">{description}</p>
+          {action ? (
+            <div className="mt-3">{action}</div>
+          ) : onContinue && cta ? (
+            <Button className="mt-3" variant="outline" size="sm" onClick={onContinue}>
+              {cta}
+            </Button>
+          ) : null}
+        </div>
       </div>
-      <p className="mt-2 text-sm leading-relaxed text-sub">{description}</p>
-      {action ? (
-        action
-      ) : onContinue && cta ? (
-        <Button className="mt-3" variant="outline" onClick={onContinue}>
-          {cta}
-        </Button>
-      ) : null}
     </div>
   );
 }
@@ -295,19 +301,19 @@ export function ReviewSetCard({
         <div className="flex items-center justify-end gap-2">
           {hasAnyFeedback ? (
             <>
-              <Button variant="outline" onClick={onAccept} disabled={disabled}>
+              <ShadcnButton variant="outline" onClick={onAccept} disabled={disabled}>
                 <Check data-icon="inline-start" />
                 Accept Review
-              </Button>
-              <Button onClick={onRequestChanges} disabled={disabled}>
+              </ShadcnButton>
+              <ShadcnButton onClick={onRequestChanges} disabled={disabled}>
                 Request Changes
-              </Button>
+              </ShadcnButton>
             </>
           ) : (
-            <Button onClick={onAccept} disabled={disabled}>
+            <ShadcnButton onClick={onAccept} disabled={disabled}>
               <Check data-icon="inline-start" />
               Accept Review
-            </Button>
+            </ShadcnButton>
           )}
         </div>
       )}

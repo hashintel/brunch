@@ -129,7 +129,7 @@ export function PhaseNavigationSidebar({
             <ArrowLeftIcon className="size-3" />
             <span>Back to Workspace</span>
           </Link>
-          <p className="truncate text-base font-medium leading-snug text-ink" title={projectName}>
+          <p className="truncate text-base leading-snug font-medium text-ink" title={projectName}>
             {projectName}
           </p>
         </div>
@@ -160,7 +160,7 @@ export function PhaseNavigationSidebar({
                 <div className="min-w-0">
                   <span
                     className={cn(
-                      'inline-block text-sm font-medium leading-tight',
+                      'inline-block text-sm leading-tight font-medium',
                       state.status === 'unstarted' ? 'text-hint' : 'text-sub',
                       'group-[.is-active]/phase:rounded-md group-[.is-active]/phase:bg-white group-[.is-active]/phase:px-2 group-[.is-active]/phase:py-0.5 group-[.is-active]/phase:text-ink',
                     )}
@@ -188,7 +188,7 @@ export function PhaseNavigationSidebar({
                   {!isLast && (
                     <span
                       className={cn(
-                        'absolute left-[5px] top-[16px] -bottom-[3px] w-0.5',
+                        'absolute top-[16px] -bottom-[3px] left-[5px] w-0.5',
                         lineActive ? 'bg-[#2070e6]' : 'bg-rule',
                       )}
                     />
@@ -230,7 +230,7 @@ export function PhaseNavigationSidebar({
                   data-phase="output"
                   data-phase-reachable="true"
                 >
-                  <span className="inline-block text-sm font-medium leading-tight text-sub group-[.is-active]/phase:rounded-md group-[.is-active]/phase:bg-white group-[.is-active]/phase:px-2 group-[.is-active]/phase:py-0.5 group-[.is-active]/phase:text-ink">
+                  <span className="inline-block text-sm leading-tight font-medium text-sub group-[.is-active]/phase:rounded-md group-[.is-active]/phase:bg-white group-[.is-active]/phase:px-2 group-[.is-active]/phase:py-0.5 group-[.is-active]/phase:text-ink">
                     Output
                   </span>
                   <div className="mt-1 flex flex-col gap-0.5 text-xs text-sub">

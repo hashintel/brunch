@@ -1,7 +1,7 @@
 import { Link, getRouteApi } from '@tanstack/react-router';
 import { ArrowLeftIcon, BookOpenIcon, DownloadIcon } from 'lucide-react';
 
-import { ShellButton } from '@/client/components/app-shell.js';
+import { Button } from '@/client/components/app-shell.js';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 
 const exportPreviewRouteApi = getRouteApi('/project/$id/export');
@@ -54,10 +54,10 @@ export function ExportPreview() {
           {data?.ready && data.markdown && (
             <div className="mt-4">
               <div className="flex items-center gap-3">
-                <ShellButton variant="primary" onClick={handleDownload}>
+                <Button variant="primary" onClick={handleDownload}>
                   <DownloadIcon className="mr-1.5 size-3.5" />
                   Download .md
-                </ShellButton>
+                </Button>
                 <Link
                   to="/project/$id/grounding"
                   params={{ id }}

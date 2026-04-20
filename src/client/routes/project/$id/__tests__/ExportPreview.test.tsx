@@ -38,7 +38,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 vi.mock('@/client/components/app-shell', () => ({
-  ShellButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button type="button" {...props}>
       {children}
     </button>

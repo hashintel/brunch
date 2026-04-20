@@ -34,7 +34,7 @@ const PlainTextRenderer = ({
   onIntentToEnhance,
 }: MarkdownRendererProps & { onIntentToEnhance?: () => void }) => (
   <div
-    className={cn('whitespace-pre-wrap break-words', className)}
+    className={cn('break-words whitespace-pre-wrap', className)}
     data-rendering-mode="plain"
     onFocusCapture={onIntentToEnhance}
     onPointerEnter={onIntentToEnhance}

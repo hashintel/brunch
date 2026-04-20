@@ -1,4 +1,4 @@
-import { EmptyCard, ShellButton } from '@/client/components/app-shell';
+import { EmptyCard, Button } from '@/client/components/app-shell';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import { Separator } from '@/client/components/ui/separator';
 
@@ -28,7 +28,7 @@ export const EmptyStatesStory = () => {
             description="Start the interview to generate your first spec draft."
           >
             <div className="mt-3">
-              <ShellButton variant="primary">Start interview</ShellButton>
+              <Button variant="primary">Start interview</Button>
             </div>
           </EmptyCard>
         </div>
@@ -43,7 +43,7 @@ export const EmptyStatesStory = () => {
             Begin the interview to start building your specification.
           </p>
           <div className="mt-2">
-            <ShellButton variant="primary">Begin interview</ShellButton>
+            <Button variant="primary">Begin interview</Button>
           </div>
         </div>
 

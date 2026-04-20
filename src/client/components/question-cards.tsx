@@ -6,7 +6,7 @@ import type { GroundingCardData } from '@/shared/chat.js';
 import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/project-state-turn.js';
 
 import { cn } from '../lib/utils';
-import { ShellButton } from './app-shell';
+import { Button } from './app-shell';
 import { DrawerCard } from './drawer-card';
 import { ReviewSetCard, type ReviewSetCardData } from './review-set-card';
 import { Checkbox } from './ui/checkbox';
@@ -64,11 +64,11 @@ export function AnsweredQuestionCard({
 
   const header = (
     <div className="flex flex-col gap-1.5">
-      <div className="flex flex-row text-[12px] items-center justify-between gap-2.5">
+      <div className="flex flex-row items-center justify-between gap-2.5 text-[12px]">
         <span className={cn('font-medium', impactColor[impact])}>
           {impact[0]!.toUpperCase() + impact.slice(1)} Impact
         </span>
-        <span className="flex text-[11px] text-[#16a34a] h-5 gap-1 -m-0.5 px-2 shrink-0 items-center justify-center rounded-full bg-[rgba(22,163,106,0.1)]">
+        <span className="-m-0.5 flex h-5 shrink-0 items-center justify-center gap-1 rounded-full bg-[rgba(22,163,106,0.1)] px-2 text-[11px] text-[#16a34a]">
           Answered
           <Check className="size-2.5" />
         </span>
@@ -91,7 +91,7 @@ export function AnsweredQuestionCard({
             <span className="shrink-0 text-rule">|</span>
             <div className="min-w-0 grow">
               <span className="block truncate text-sub">
-                Context: <span className="italic text-sub">"{responseContext}"</span>
+                Context: <span className="text-sub italic">"{responseContext}"</span>
               </span>
             </div>
           </>
@@ -109,7 +109,7 @@ export function AnsweredQuestionCard({
           capturedItems.map((item) => (
             <span
               key={`${item.collection}:${item.id}`}
-              className="inline-flex h-5 items-center rounded bg-wash px-1.5 text-[11px] font-medium leading-none text-sub"
+              className="inline-flex h-5 items-center rounded bg-wash px-1.5 text-[11px] leading-none font-medium text-sub"
             >
               {item.referenceCode ?? `#${item.id}`}
             </span>
@@ -170,7 +170,7 @@ export function AnsweredGroundingCard({
         locked
         header={
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-[#2070e6]">Grounding</span>
+            <span className="text-xs font-medium tracking-wide text-[#2070e6] uppercase">Grounding</span>
             <p className="text-sm-plus font-medium tracking-[-0.015em] text-ink">{groundingCard.summary}</p>
           </div>
         }
@@ -225,7 +225,7 @@ export function ActiveGroundingCard({
         defaultExpanded
         header={
           <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium uppercase tracking-wide text-[#2070e6]">Grounding</span>
+            <span className="text-xs font-medium tracking-wide text-[#2070e6] uppercase">Grounding</span>
             <p className="text-[17px] leading-[1.4] font-medium tracking-[-0.015em] text-ink">
               {groundingCard.summary}
             </p>
@@ -257,7 +257,7 @@ export function ActiveGroundingCard({
               onChange={(event) => setNote(event.target.value)}
               disabled={isReadOnly}
               placeholder="Missing context, caveats, or feature-area corrections worth carrying forward…"
-              className="min-h-24 resize-none rounded-none border-0 bg-transparent px-0 pb-5 pt-2 text-sm-plus text-ink placeholder:text-hint focus-visible:ring-0"
+              className="min-h-24 resize-none rounded-none border-0 bg-transparent px-0 pt-2 pb-5 text-sm-plus text-ink placeholder:text-hint focus-visible:ring-0"
             />
           </div>
         </div>
@@ -265,13 +265,13 @@ export function ActiveGroundingCard({
 
       {!isSubmitted ? (
         <div className="mt-3 flex justify-end">
-          <ShellButton
+          <Button
             variant="primary"
             disabled={isReadOnly}
             onClick={() => onSubmitResponse?.([continuePosition!], note.trim() || undefined)}
           >
             {continueLabel}
-          </ShellButton>
+          </Button>
         </div>
       ) : null}
     </div>
@@ -487,7 +487,7 @@ export function ActiveQuestionCard({
           onChange={(e) => setFreeText(e.target.value)}
           disabled={isReadOnly}
           placeholder="Constraints, trade-offs, motivations, or reasoning worth capturing…"
-          className="min-h-24 resize-none rounded-none border-0 bg-transparent px-0 pb-5 pt-2 text-sm-plus text-ink placeholder:text-hint focus-visible:ring-0"
+          className="min-h-24 resize-none rounded-none border-0 bg-transparent px-0 pt-2 pb-5 text-sm-plus text-ink placeholder:text-hint focus-visible:ring-0"
         />
       </div>
     </>
@@ -501,20 +501,20 @@ export function ActiveQuestionCard({
 
       {!isSubmitted && (
         <div className="mt-3 flex items-center justify-between">
-          <ShellButton variant="ghost" disabled={isReadOnly} onClick={onBack}>
+          <Button variant="ghost" disabled={isReadOnly} onClick={onBack}>
             Back
-          </ShellButton>
+          </Button>
           <div className="flex items-center gap-2">
-            <ShellButton variant="ghost" disabled={isReadOnly} onClick={onSkip}>
+            <Button variant="ghost" disabled={isReadOnly} onClick={onSkip}>
               Skip
-            </ShellButton>
-            <ShellButton
+            </Button>
+            <Button
               variant="primary"
               disabled={isReadOnly || !canSubmit}
               onClick={() => onSubmitResponse?.(selectedPositions, freeText.trim() || undefined)}
             >
               Submit
-            </ShellButton>
+            </Button>
           </div>
         </div>
       )}

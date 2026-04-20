@@ -7,7 +7,7 @@ Stories follow a design-system cascade. Each tier builds on the one below it.
 | Tier | What lives here | Examples |
 |------|----------------|----------|
 | **Tokens** | Named design values — colors, typography scale, shadows | `ink`, `text-sm-plus`, `--shadow-card-ring` |
-| **Primitives** | Single-purpose UI elements with no domain knowledge | `ShellButton`, `TabSwitcher`, `EmptyCard`, `DrawerCard` |
+| **Primitives** | Single-purpose UI elements with no domain knowledge | `Button`, `TabSwitcher`, `EmptyCard`, `DrawerCard` |
 | **Patterns** | Compositions of primitives, still domain-agnostic | Knowledge detail cards, activity placeholders |
 | **Blocks** | Domain-specific stream artifacts projected into the workspace | Turn cards, control cards |
 | **Layouts** | Page-level shells and panel compositions | App shell, spec workspace, transcript column |
@@ -80,12 +80,12 @@ Key canonical sources:
 | `ReviewSetCard`, `ReviewPhaseCompletionCard` | `@/client/components/review-set-card` |
 | `KickoffTurnCard`, `RecoveryTurnCard`, `PhaseSummaryCard`, `AcceptedClosureTurnCard` | `@/client/components/control-cards` |
 | `KnowledgeDetailCard`, `KindBadge`, `CountBadge` | `@/client/components/knowledge-card` |
-| `ShellButton`, `TabSwitcher`, `EmptyCard` | `@/client/components/app-shell` |
+| `Button`, `TabSwitcher`, `EmptyCard` | `@/client/components/app-shell` |
 | `DrawerCard` | `@/client/components/drawer-card` |
 
 ## Button styles
 
-`ShellButton` (from `@/client/components/app-shell`) with variants `ghost`, `outline`, `primary` is the canonical button. Do not use shadcn `Button` from `@/client/components/ui/button` for story-level UI or domain affordances — it carries incorrect styles for this project.
+`Button` (from `@/client/components/app-shell`) with variants `ghost`, `outline`, `primary` and sizes `sm`, `md` is the canonical button. Do not use shadcn `Button` from `@/client/components/ui/button` for story-level UI or domain affordances — it carries incorrect styles for this project.
 
 ## Fixture data
 
