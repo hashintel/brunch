@@ -4,108 +4,106 @@
 
 # Plan
 
-Full-fidelity frontier. The interaction-model cleanup and handoff stabilization pass has now retired from active execution: the workspace stream bottoms out in explicit next actions again, closed phases project legible handoff/completion artifacts, and in-flight close/force-close actions no longer rely on the larger generic shell to imply what is happening. The next live burden is naming normalization — removing the remaining `project` / `scope` / `cwd` drift now that the underlying workflow and transcript model is stable enough that we can rename the truth instead of renaming moving targets.
+Current frontier remains the naming/ownership cleanup. After that, the near horizon is intentionally ordered around user-visible completion and grounding seams before deeper workflow and router/query cleanup. Revisit/cascade and infrastructure/tooling remain on the true horizon for now.
 
 ## Active
 
-### Active Code Alignment Map
-
-The current active frontier is now a terminology-and-ownership realignment over seams that still expose the older product language.
-
-- **Naming, routing, and grounding-language seam (`src/shared/phase-routes.ts`, `src/shared/phase-display.ts`, `src/client/routes/project/$id/index.tsx`, `src/server/interview.ts`, `src/server/tools/index.ts`, `src/shared/grounding-strategy.ts`)** — the codebase still mixes `scope`, kickoff-era brownfield ritual language, and route names that predate the grounding/card-owned model. This is now the primary frontier seam.
-- **Workflow + persistence seam (`src/server/core.ts`, `src/server/app.ts`, `src/server/db.ts`, `src/server/schema.ts`, `src/shared/api-types.ts`, `src/shared/project-state-turn.ts`)** — workflow truth is now stable enough to rename around, but the durable record names and API contracts still expose `project` and related legacy identifiers. Naming work must change these without reintroducing control-row compatibility or a second workflow model.
-- **Routed workspace/read-model seam (`src/client/routes/project/$id/_view/*`, `src/client/components/*`)** — the workspace stream, sidebar, and output affordances now speak the cleaned interaction model, but copy, route segments, and props still inherit the old naming split. This seam should consume naming normalization, not redefine semantics.
-- **Fixtures, walkthrough seeds, and regression oracles (`src/server/fixtures/*`, `src/server/app.test.ts`, `src/client/routes/project/$id/_view/*test.tsx`)** — the remaining burden here is to keep seeded and regression state aligned while identifiers and route names change. Verification must keep naming migration from silently desynchronizing persisted state, routing, and replay.
-
-1. **Naming normalization: project → specification, scope → grounding, cwd removal** — align internal identifiers, route keys, and schema columns with the product vocabulary settled in D97 / D98.
-   - Why now / unlocks: the semantic and handoff frontier is now retired, so naming drift is the last pervasive legacy burden still shaping how fresh work gets described. Doing it now avoids teaching the next frontier item on top of mixed terminology, and it removes a large source of incidental ambiguity before transcript-fidelity and workflow-extraction follow-ons.
-   - Traceability: D97, D98; Horizon `project → specification physical DB rename`, Horizon `cwd removal`.
-   - Boundary with Next items: this item owns naming migration and the smallest compatibility measures needed to keep runtime, routing, fixtures, and export truthful while names change. It does **not** own transcript hydration quality work beyond what the rename touches, and it does **not** own the later router/query invalidation cleanup except where a tiny route fix is inseparable from the rename.
-   - What this item must accomplish:
-     - rename `project` record / table / API identifier to `specification` (or the agreed internal name) with an explicit migration path
-     - migrate the internal phase key from `scope` to `grounding`, or explicitly retain `scope` as a documented permanent alias if migration proves too costly
-     - remove `cwd` from the specification record and derive workspace path implicitly from runtime context
-     - update routes, loaders, fixtures, tests, and stories to match
-     - verify after each safe commit in the sequence so silent breakage does not hide behind broad rename churn
-   - Current planning stance:
-     - handoff and transition cleanup is no longer blocking this item
-     - the naming pass should be planned as a sequence of safe commits, not one sweep
-     - any compatibility alias kept temporarily must be explicit and documented, not left as accidental drift
+1. **Canonical terminology and record-identity normalization** — structural `[status: in-progress]`
+   - Objective: align durable record names, route/display terminology, and workspace ownership with the settled product language by renaming `project` → `specification`, executing the `scope` → `grounding` terminology cleanup where it should become canonical, and removing stored `cwd` from specification records in favor of runtime-derived workspace context.
+   - Why now / unlocks: the handoff/transition frontier is retired, so mixed naming is now the main legacy burden shaping every fresh slice. Landing this first prevents the next completion, grounding, and workflow passes from layering on top of ambiguous terminology.
+   - Acceptance: schema/API/routes/fixtures/tests/export speak one canonical vocabulary; any temporary alias is explicit and documented; runtime behavior stays truthful through the rename.
+   - Verification: run `npm run fix` after each safe slice; gate with `npm run verify`; manually walk at least one seeded resume/export path after route/name changes.
+   - Traceability: D81, D97, D98, D101, D109, D113; I24, I100, I101, I102, I104.
 
 ## Next
 
-1. **Transcript fidelity stabilization for seeded and resumed states** — make replayed interview history trustworthy enough that the workspace reads like one coherent thread instead of a partial hydration. Whatever remains after naming normalization lands here.
-   - Traceability: D92, D93, D96; A53, A55.
+Near-horizon work is grouped by theme: first completion/closure surfaces, then grounding/context-gathering capability, then workflow ownership cleanup, then router/query refinement.
 
-2. **Interview workflow transition extraction from `app.ts`** — deferred by choice. Picks up after naming normalization and transcript-fidelity work stop competing for the same workflow files.
+### Completion / closure surfaces
 
-3. **Router / query ownership refinement for interview surfaces** — deferred by choice. Replace coarse route-wide invalidation with deliberate loader / query ownership once the renamed surfaces make the real invalidation boundaries legible.
-   - Why deferred: this pass should consume notes gathered during naming normalization and transcript-fidelity work instead of running in parallel with them.
-   - What this later slice should harvest from the preceding frontier:
-     - the transition points whose correctness still depends on coarse invalidation
-     - the route / loader / query seams that had to change as enabling work during rename cleanup
-     - places where route-wide refresh is masking unclear ownership rather than expressing it
-     - any repeated pattern in stale handoff state, over-refresh, or mixed workflow/query responsibilities
+1. **Output route and markdown export refinement** — first completion-surface follow-on once naming settles.
+   - Why now / unlocks: after canonical terminology lands, export becomes the clearest user-visible completion seam to make truthful and legible.
+   - Acceptance: the output route, preview, and markdown export present accepted review outputs cleanly under the renamed terminology without reopening workflow-complete semantics.
+   - Verification: `npm run verify` plus a manual export walkthrough on a completed seeded specification.
+   - Traceability: D101; I24, I87, I104.
+
+2. **Close Phase confirmation modal** — complete the remaining phase-exit UX after export/output cleanup.
+   - Why now / unlocks: makes closure intent explicit before deeper grounding and workflow work add more state to closeability paths.
+   - Acceptance: in-progress non-review phases show a confirmation modal with readiness/turn-count context and gating that matches closeability rules.
+   - Verification: `npm run verify` plus manual close/reject/confirm walkthroughs on grounding and elicitation phases.
+   - Traceability: D104, D65, D66; I72.
+
+### Grounding / context-gathering capability
+
+3. **Grounding-card transcript primitive** — establish the visible provisional-context seam.
+   - Why now / unlocks: completion surfaces can land first; then grounding cards become the enabling transcript primitive for analysis-first grounding and later reusable context gathering.
+   - Acceptance: the workspace stream can render grounding cards with optional comment + continue semantics while keeping card content provisional rather than durable knowledge.
+   - Verification: `npm run verify` plus seeded transcript/replay walkthroughs covering continue, reload, and observer non-capture.
+   - Traceability: D83, D89, D91, D99, D112; I24, I54, I101, I104.
+
+4. **Brownfield workspace-analysis grounding brief** — deliver the first analysis-first grounding path on top of grounding cards.
+   - Why now / unlocks: proves the provisional grounding-card seam against real brownfield repos before wider context-gathering generalization.
+   - Acceptance: brownfield grounding can run read-only workspace analysis, show a concise visible grounding brief/card, and hand off into the first substantive grounding question.
+   - Verification: `npm run verify` plus manual brownfield walkthroughs on representative repos.
+   - Traceability: D32, D83, D99; A47, A56; I101.
+
+5. **Reusable interviewer-invoked context gathering beyond opening grounding** — generalize context gathering once the brownfield opening path proves out.
+   - Why now / unlocks: broadens grounding capability without inventing a second artifact model, and only makes sense after grounding cards plus the brownfield brief are stable.
+   - Acceptance: the interviewer can invoke approved context-gathering capabilities during grounding as visible grounding cards beyond the opening move.
+   - Verification: `npm run verify` plus manual mid-grounding context-gathering walkthroughs.
+   - Traceability: D99, D30, D32, D83; I101, I104.
+
+### Workflow ownership cleanup
+
+6. **Workflow ownership extraction** — architectural cleanup after the user-visible completion and grounding seams land.
+   - Why now / unlocks: delayed intentionally until output/grounding surfaces stop moving; then extract projector and `app.ts` workflow ownership while preserving behavior.
+   - Acceptance: workflow projection and transition orchestration become easier to reason about without introducing a second durable workflow model or changing phase semantics.
+   - Verification: `npm run verify` plus focused regression reads on seeded landing/recovery/progression flows.
+   - Traceability: D110, D112, D113; I24, I72, I104.
+
+### Ownership refinement
+
+7. **Router / query ownership refinement for interview surfaces** — final near-horizon cleanup after workflow ownership is clearer.
+   - Why now / unlocks: should harvest the real invalidation/loader boundaries exposed by the preceding naming, completion, grounding, and workflow passes instead of guessing early.
+   - Acceptance: coarse route-wide invalidation is replaced by clearer loader/query ownership without stale transcript or handoff regressions.
+   - Verification: `npm run verify` plus manual mutation/observer refresh walkthroughs.
+   - Traceability: D87, D113; A20, A50; I24, I54, I102.
 
 ## Horizon
 
-- **Output route and markdown export refinement** — independent parallel lane; refine the conditional route available when all phases are closed, with accepted review outputs projected into markdown export (D101).
-- **Close Phase confirmation modal** — modal UX for the Close Phase button with readiness / turn-count context and closeability gating (D104); review phases may stay on their lighter accept-to-close path.
-- **Workflow projector extraction** — conditional parallel refactor lane; extract `getCurrentWorkflowState()` into a pure projector over a `WorkflowSnapshot` struct without changing semantics on the active projector frontier. Note: the broader runtime/state-machine ownership claims in `docs/design/state-machines/README.md` still constrain lifecycle work even though this extraction remains deferred.
-- **Grounding-card transcript primitive** — add visible provisional grounding cards with optional comment + continue semantics, keeping card content non-durable while allowing user reactions to feed later knowledge capture.
-- **Brownfield workspace-analysis grounding brief** — use read-only workspace analysis to produce the first visible grounding card, then hand off into the first substantive grounding question.
-- **Reusable interviewer-invoked context gathering beyond opening grounding** — defer until opening brownfield brief proves the card / provenance model.
-- **Dashboard / result summaries and completeness metrics** — post-interview surface.
-- **Edit mode + cascade preview** — revisit affordance after interview-surface refinement settles.
-- **Cascade execution + secondary thread lifecycle** — structural follow-on.
-- **Drizzle Kit audit remediation** — recommended independent hardening lane.
-- **Git-friendly file-based persistence representation for diffable specs**.
-- **Headless interview driver for scripted end-to-end probes** — complements the current manual-heavy outer loop once the existing contract, integration, fixture, controller, and build-boundary oracle stack is no longer enough for projector/interaction regressions.
-- **MCP server adapter for core operations**.
+### Completion / reporting follow-ons
+
+- Dashboard / result summaries and completeness metrics.
+
+### Revisit / cascade
+
+- Edit mode + cascade preview.
+- Cascade execution + secondary thread lifecycle.
+
+### Infrastructure / tooling / extensions
+
+- Drizzle Kit audit remediation.
+- Git-friendly file-based persistence representation for diffable specs.
+- Headless interview driver for scripted end-to-end probes.
+- MCP server adapter for core operations.
 
 ## Recently Completed
 
-- 2026-04-19 — **Phase transition and handoff stabilization retired from the active frontier** — requirements acceptance now advances directly into criteria kickoff, criteria acceptance closes the workflow into export-ready state, closed phases project explicit handoff/completion artifacts, and in-flight close / force-close actions show explicit control markers instead of relying on stale proposal/frontier UI. Verified: `npm run verify`.
-- 2026-04-19 — **Legacy fixture side path removed; one TS-native fixture model remains** — the public walkthrough catalog now proves direct builder ownership, app and observer tests seed specifications through direct TS setup, the observer corpus probes seed from TS helpers instead of a second scenario format, and the legacy fixture support layer plus fixture artifacts are deleted. Verified: `npm run verify`.
-- 2026-04-19 — **Narrow D113 lifecycle proving slices landed for kickoff, recovery, and rejected auto-submit** — specification-scoped auto phase intents now cover current reachable kickoff auto-present, current reachable recovery auto-continue, and rejected-submit fallback without reintroducing route-local lifecycle authority. Verified: `npm run verify`.
+- [2026-04-19] Phase transition and handoff stabilization retired from the active frontier — Done: requirements acceptance now advances directly into criteria kickoff, criteria acceptance closes the workflow into export-ready state, and closed phases project explicit handoff/completion artifacts. Verified: `npm run verify`. Watch: none.
+- [2026-04-19] Legacy fixture side path removed; one TS-native fixture model remains — Done: walkthroughs, app tests, and observer probes now seed through direct TypeScript builders/helpers only. Verified: `npm run verify`. Watch: none.
+- [2026-04-19] Narrow D113 lifecycle proving slices landed for kickoff, recovery, and rejected auto-submit — Done: specification-scoped lifecycle intents now cover current reachable kickoff auto-present, recovery auto-continue, and rejected-submit fallback. Verified: `npm run verify`. Watch: revisit broader lifecycle extraction after the grounding and completion clusters settle.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
 ## Dependencies
 
 ```text
-interaction-family-canonicalization-durable-turn-cards-plus-projected-control-cards
-  └──→ naming-normalization-project-specification-scope-grounding-cwd-removal
-
-naming-normalization-project-specification-scope-grounding-cwd-removal
-  └──→ transcript-fidelity-stabilization-for-seeded-and-resumed-states (Next)
-  └──→ interview-workflow-transition-extraction-from-app-ts (Next)
-  └──→ router-query-ownership-refinement-for-interview-surfaces (Next)
+canonical-terminology-and-record-identity-normalization
+  ├──→ output-route-and-markdown-export-refinement
+  ├──→ close-phase-confirmation-modal
+  ├──→ grounding-card-transcript-primitive
+  │     └──→ brownfield-workspace-analysis-grounding-brief
+  │           └──→ reusable-interviewer-invoked-context-gathering
+  └──→ workflow-ownership-extraction
+        └──→ router-query-ownership-refinement
 ```
-
-### Parallelism Opportunities
-
-Spawn separate worktrees only after the control worktree is clean, and keep the mainline focused on the active naming-normalization frontier while these lanes stay inside their file boundaries.
-
-- **Recommended worktree lane — Drizzle Kit audit remediation**
-  - Objective: audit Drizzle Kit config, migration journal integrity, and schema-generation hygiene without widening into product naming migration or projector semantics.
-  - Primary files: `drizzle.config.ts`, `drizzle/*.sql`, `drizzle/meta/*`, `package.json`, and `src/server/schema.ts` only if the audit proves schema/migration drift that must be reconciled.
-  - No-go zones: `src/server/app.ts`, `src/server/core.ts`, `src/shared/project-state-turn.ts`, and `src/client/routes/project/$id/_view/*`; do not bundle `project → specification` or `scope → grounding` renames into this lane.
-  - Merge-risk notes: low if it stays tooling-only; medium if it regenerates or edits migrations that the mainline also needs. Review for migration ordering conflicts and snapshot drift.
-
-- **Recommended worktree lane — Output route and markdown export refinement**
-  - Objective: improve export projection and the dedicated export route without changing workflow-complete semantics or the merged-stream/read-model contract.
-  - Primary files: `src/server/export.ts`, `src/server/export.test.ts`, `src/server/app.ts` (export endpoint only), `src/server/app.test.ts` (export assertions only), `src/client/routes/project/$id/export.tsx`, `src/client/routes/project/$id/-export-preview.tsx`, `src/client/routes/project/$id/export-loader.test.ts`, `src/client/routes/project/$id/ExportPreview.test.tsx`, and `src/client/routes/project/$id/-phase-navigation-sidebar.tsx` plus its test if navigation copy changes.
-  - No-go zones: `src/client/routes/project/$id/_view/-interview-view.tsx`, `src/client/routes/project/$id/_view/-workspace-stream-projector.ts`, `src/client/routes/project/$id/_view/-interview-controller*`, and workflow closure rules in `src/server/db.ts`.
-  - Merge-risk notes: medium. The route itself is isolated, but route copy and link targets may overlap with the active naming frontier. Check carefully for missed route-name and copy updates before merging.
-
-- **Conditional worktree lane — Workflow projector extraction**
-  - Objective: perform a behavior-preserving refactor that extracts `getCurrentWorkflowState()` into a pure projector over a snapshot struct while leaving workflow semantics unchanged.
-  - Primary files: `src/server/db.ts`, `src/server/db.test.ts`, and, if needed for the extracted contract, a new shared/server-local projector module plus supporting notes in `docs/design/state-machines/README.md`.
-  - No-go zones: do not change workflow status meaning, landing derivation, phase progression, export readiness, or client-facing interview/view behavior; avoid `src/server/app.ts`, `src/server/core.ts`, and `src/client/routes/project/$id/_view/*` unless a tiny mechanical import adjustment is unavoidable.
-  - Merge-risk notes: medium-high because `src/server/db.ts` and surrounding shared types are hot during naming normalization. Only run this lane in parallel if the brief is explicitly constrained to pure extraction and the reviewer is prepared to check carefully for merge gaps against mainline rename work.
-
-- **Do not parallelize yet**
-  - The active naming-normalization frontier still crosses schema, routes, shared API types, fixtures, and export-adjacent copy; keep that mainline sequential until the canonical terms settle.
-  - Next items remain downstream of the naming pass or intentionally deferred until the current rename and route-key churn stop competing for the same files.
-  - Horizon items tied directly to the interview surface itself — Close Phase confirmation modal, grounding-card transcript primitive, brownfield grounding brief, reusable interviewer-invoked context gathering, and the headless interview driver — should wait until naming drift stops moving the same UI seams.
