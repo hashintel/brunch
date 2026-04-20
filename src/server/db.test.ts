@@ -55,7 +55,7 @@ describe('createDb', () => {
       .all() as Array<{ name: string }>;
     const names = tables.map((t) => t.name);
     const expected = [
-      'project',
+      'specification',
       'turn',
       'option',
       'knowledge_item',
@@ -92,8 +92,8 @@ describe('createDb', () => {
     expect(turnColumns.map((column) => column.name)).toContain('turn_kind');
   });
 
-  it('project table has mode but no persisted cwd column', () => {
-    const columns = db.$client.prepare("PRAGMA table_info('project')").all() as Array<{ name: string }>;
+  it('specification table has mode but no persisted cwd column', () => {
+    const columns = db.$client.prepare("PRAGMA table_info('specification')").all() as Array<{ name: string }>;
     const names = columns.map((c) => c.name);
     expect(names).toContain('mode');
     expect(names).not.toContain('cwd');

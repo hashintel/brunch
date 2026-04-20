@@ -371,10 +371,15 @@ export async function streamInterviewer(
           brownfieldGroundingStage: getBrownfieldGroundingStage(phase, activePath, modeOptions),
         }
       : modeOptions;
-  const agent = createInterviewerAgent(db, turn.id, phase, turn.project_id, effectiveModeOptions);
-  const draftRequirements = getDraftRequirementEntitiesForProject(db, turn.project_id);
-  const draftCriteria = getDraftCriterionEntitiesForProject(db, turn.project_id);
-  const acceptedRequirements = getAcceptedRequirementEntitiesForProject(db, turn.project_id);
+  const specificationId = turn.specification_id ?? turn.project_id;
+  if (!specificationId) {
+    throw new Error(`Turn ${turn.id} is missing specification identity`);
+  }
+
+  const agent = createInterviewerAgent(db, turn.id, phase, specificationId, effectiveModeOptions);
+  const draftRequirements = getDraftRequirementEntitiesForProject(db, specificationId);
+  const draftCriteria = getDraftCriterionEntitiesForProject(db, specificationId);
+  const acceptedRequirements = getAcceptedRequirementEntitiesForProject(db, specificationId);
   const fullPrompt = buildInterviewerContext(activePath, userMessage, {
     phase,
     entities:

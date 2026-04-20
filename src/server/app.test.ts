@@ -704,48 +704,52 @@ describe('POST /api/projects/:id/chat', () => {
 
     const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
     expect(entitiesRes.body.goals).toEqual([
-      {
+      expect.objectContaining({
         id: 1,
         project_id: projectId,
+        specification_id: projectId,
         kind: 'goal',
         subtype: null,
         content: 'Produce a clean implementation brief',
         rationale: 'The interview should end in a trustworthy handoff',
         referenceCode: createKnowledgeReferenceCode('goal', 1),
-      },
+      }),
     ]);
     expect(entitiesRes.body.terms).toEqual([
-      {
+      expect.objectContaining({
         id: 2,
         project_id: projectId,
+        specification_id: projectId,
         kind: 'term',
         subtype: null,
         content: 'implementation brief',
         rationale: 'The turn named the artifact the project is trying to produce',
         referenceCode: createKnowledgeReferenceCode('term', 1),
-      },
+      }),
     ]);
     expect(entitiesRes.body.contexts).toEqual([
-      {
+      expect.objectContaining({
         id: 3,
         project_id: projectId,
+        specification_id: projectId,
         kind: 'context',
         subtype: null,
         content: 'The project starts from a fuzzy brief',
         rationale: 'The user is still establishing the problem context',
         referenceCode: createKnowledgeReferenceCode('context', 1),
-      },
+      }),
     ]);
     expect(entitiesRes.body.constraints).toEqual([
-      {
+      expect.objectContaining({
         id: 4,
         project_id: projectId,
+        specification_id: projectId,
         kind: 'constraint',
         subtype: 'non-goal',
         content: 'Keep setup instant',
         rationale: 'The launcher should stay lightweight',
         referenceCode: createKnowledgeReferenceCode('constraint', 1),
-      },
+      }),
     ]);
   });
 
@@ -849,43 +853,47 @@ describe('POST /api/projects/:id/chat', () => {
 
     const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
     expect(entitiesRes.body.contexts).toEqual([
-      {
+      expect.objectContaining({
         id: createdIds!.context,
         project_id: projectId,
+        specification_id: projectId,
         kind: 'context',
         subtype: null,
         content: 'The first release still targets solo builders',
         rationale: 'The turn clarified the intended audience',
         referenceCode: createKnowledgeReferenceCode('context', 1),
-      },
+      }),
     ]);
     expect(entitiesRes.body.constraints).toEqual([
-      {
+      expect.objectContaining({
         id: createdIds!.constraint,
         project_id: projectId,
+        specification_id: projectId,
         kind: 'constraint',
         subtype: 'non-goal',
         content: 'Do not add a plugin system yet',
         rationale: 'The first release should stay narrow',
         referenceCode: createKnowledgeReferenceCode('constraint', 1),
-      },
+      }),
     ]);
     expect(entitiesRes.body.decisions).toEqual([
-      {
+      expect.objectContaining({
         id: createdIds!.decision,
         project_id: projectId,
+        specification_id: projectId,
         content: 'Start with the web app',
         rationale: 'It is the fastest path to feedback',
         referenceCode: createKnowledgeReferenceCode('decision', 1),
-      },
+      }),
     ]);
     expect(entitiesRes.body.assumptions).toEqual([
-      {
+      expect.objectContaining({
         id: createdIds!.assumption,
         project_id: projectId,
+        specification_id: projectId,
         content: 'Users can work in a browser',
         referenceCode: createKnowledgeReferenceCode('assumption', 1),
-      },
+      }),
     ]);
     expect(entitiesRes.body.relationships).toEqual([
       {
@@ -1337,7 +1345,7 @@ describe('phase outcomes + grounding closure', () => {
       }),
     );
     const phaseOutcomes = db.$client
-      .prepare('SELECT closure_basis FROM phase_outcome WHERE project_id = ? ORDER BY id DESC')
+      .prepare('SELECT closure_basis FROM phase_outcome WHERE specification_id = ? ORDER BY id DESC')
       .all(projectId) as Array<{ closure_basis: string | null }>;
     expect(phaseOutcomes[0]).toEqual({ closure_basis: 'interviewer_recommended' });
     expect(projectRes.body.workflow.phases.design).toEqual(
@@ -2232,7 +2240,7 @@ describe('phase outcomes + grounding closure', () => {
 
     const phaseOutcomes = db.$client
       .prepare(
-        'SELECT phase, closure_basis FROM phase_outcome WHERE project_id = ? AND status = ? ORDER BY id',
+        'SELECT phase, closure_basis FROM phase_outcome WHERE specification_id = ? AND status = ? ORDER BY id',
       )
       .all(projectId, 'confirmed') as Array<{ phase: string; closure_basis: string | null }>;
     expect(phaseOutcomes.map((o) => o.phase)).toEqual(['grounding', 'design', 'requirements', 'criteria']);
@@ -2402,7 +2410,7 @@ describe('phase outcomes + grounding closure', () => {
       }),
     );
     const phaseOutcomes = db.$client
-      .prepare('SELECT closure_basis FROM phase_outcome WHERE project_id = ? ORDER BY id DESC')
+      .prepare('SELECT closure_basis FROM phase_outcome WHERE specification_id = ? ORDER BY id DESC')
       .all(projectId) as Array<{ closure_basis: string | null }>;
     expect(phaseOutcomes[0]).toEqual({ closure_basis: 'user_forced' });
     expect(projectRes.body.workflow.phases.requirements).toEqual(

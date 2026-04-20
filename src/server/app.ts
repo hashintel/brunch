@@ -304,7 +304,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     const freeText = parsedRequest.data.freeText;
 
     const turn = getTurn(db, turnId);
-    if (!turn || turn.project_id !== projectId) {
+    if (!turn || turn.specification_id !== projectId) {
       res.status(404).json({ error: 'Turn not found' } satisfies MutationErrorResponse);
       return;
     }
@@ -519,7 +519,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     try {
       if (confirmationTarget) {
         const proposalTurn = getTurn(db, confirmationTarget.proposal_turn_id);
-        if (!proposalTurn || proposalTurn.project_id !== id) {
+        if (!proposalTurn || proposalTurn.specification_id !== id) {
           res.status(404).json({ error: 'Phase closure proposal not found' });
           return;
         }

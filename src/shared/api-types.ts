@@ -13,12 +13,12 @@ export const impactSchema = z.enum(['high', 'medium', 'low']);
 export const turnKindSchema = z.enum(['question', 'kickoff', 'recovery']);
 export const edgeRelationSchema = z.enum(['depends_on', 'derived_from', 'constrains', 'verifies', 'refines']);
 
-export const projectModeSchema = z.enum(['greenfield', 'brownfield']);
+export const specificationModeSchema = z.enum(['greenfield', 'brownfield']);
 
-export const projectSchema = z.object({
+export const specificationSchema = z.object({
   id: z.number().int().positive(),
   name: z.string(),
-  mode: projectModeSchema,
+  mode: specificationModeSchema,
   active_turn_id: z.number().int().positive().nullable(),
   created_at: z.string(),
   updated_at: z.string(),
@@ -85,7 +85,7 @@ const capturedTurnItemSchema = z.object({
   referenceCode: z.string().optional(),
 });
 
-export const projectStateTurnSchema = z.object({
+const legacyProjectStateTurnInputSchema = z.object({
   id: z.number().int().positive(),
   project_id: z.number().int().positive(),
   parent_turn_id: z.number().int().positive().nullable(),
@@ -103,32 +103,96 @@ export const projectStateTurnSchema = z.object({
   captured_items: z.array(capturedTurnItemSchema).optional(),
 });
 
-export const createProjectRequestSchema = z
+const canonicalSpecificationStateTurnInputSchema = legacyProjectStateTurnInputSchema
+  .omit({ project_id: true })
+  .extend({
+    specification_id: legacyProjectStateTurnInputSchema.shape.project_id,
+  });
+
+export const specificationStateTurnSchema = z
+  .union([canonicalSpecificationStateTurnInputSchema, legacyProjectStateTurnInputSchema])
+  .transform((turn) => {
+    if ('project_id' in turn) {
+      const { project_id, ...rest } = turn;
+      return {
+        ...rest,
+        specification_id: project_id,
+      };
+    }
+
+    return turn;
+  });
+
+export const createSpecificationRequestSchema = z
   .object({
     name: z.string().trim().min(1),
-    mode: projectModeSchema.optional(),
+    mode: specificationModeSchema.optional(),
   })
   .strict();
 
-export const createProjectResponseSchema = projectSchema;
+export const createSpecificationResponseSchema = specificationSchema;
 
-export const projectListItemSchema = projectSchema.extend({
+export const specificationListItemSchema = specificationSchema.extend({
   workflowSummary: workflowSummarySchema,
 });
 
-export const projectListItemsSchema = z.array(projectListItemSchema);
+export const specificationListItemsSchema = z.array(specificationListItemSchema);
 
-export const projectStateSchema = z.object({
-  project: projectSchema,
+const canonicalSpecificationStateInputSchema = z.object({
+  specification: specificationSchema,
   workflow: workflowStateSchema,
   landing: specificationLandingSchema.nullable().optional(),
-  turns: z.array(projectStateTurnSchema),
+  turns: z.array(specificationStateTurnSchema),
 });
 
+const legacyProjectStateInputSchema = z.object({
+  project: specificationSchema,
+  workflow: workflowStateSchema,
+  landing: specificationLandingSchema.nullable().optional(),
+  turns: z.array(specificationStateTurnSchema),
+});
+
+export const specificationStateSchema = z
+  .union([canonicalSpecificationStateInputSchema, legacyProjectStateInputSchema])
+  .transform((state) => {
+    if ('project' in state) {
+      const { project, ...rest } = state;
+      return {
+        ...rest,
+        specification: project,
+      };
+    }
+
+    return state;
+  });
+
 const knowledgeItemKindSchema = z.enum(knowledgeKinds);
-export const knowledgeItemSchema = z.object({
+
+function specificationOwnedSchema<T extends z.ZodRawShape>(shape: T) {
+  const legacy = z.object({
+    project_id: z.number().int().positive(),
+    ...shape,
+  });
+  const canonical = z.object({
+    specification_id: z.number().int().positive(),
+    ...shape,
+  });
+
+  return z.union([canonical, legacy]).transform((entity) => {
+    if ('project_id' in entity) {
+      const { project_id, ...rest } = entity;
+      return {
+        ...rest,
+        specification_id: project_id,
+      };
+    }
+
+    return entity;
+  });
+}
+
+export const knowledgeItemSchema = specificationOwnedSchema({
   id: z.number().int().positive(),
-  project_id: z.number().int().positive(),
   kind: knowledgeItemKindSchema,
   subtype: z.string().nullable(),
   content: z.string(),
@@ -136,9 +200,8 @@ export const knowledgeItemSchema = z.object({
   referenceCode: z.string().optional(),
 });
 
-export const requirementEntitySchema = z.object({
+export const requirementEntitySchema = specificationOwnedSchema({
   id: z.number().int().positive(),
-  project_id: z.number().int().positive(),
   kind: z.literal('requirement'),
   subtype: z.string().nullable(),
   content: z.string(),
@@ -146,9 +209,8 @@ export const requirementEntitySchema = z.object({
   referenceCode: z.string().optional(),
 });
 
-export const criterionEntitySchema = z.object({
+export const criterionEntitySchema = specificationOwnedSchema({
   id: z.number().int().positive(),
-  project_id: z.number().int().positive(),
   kind: z.literal('criterion'),
   subtype: z.string().nullable(),
   content: z.string(),
@@ -156,19 +218,17 @@ export const criterionEntitySchema = z.object({
   referenceCode: z.string().optional(),
 });
 
-export const decisionEntitySchema = knowledgeItemSchema.pick({
-  id: true,
-  project_id: true,
-  content: true,
-  rationale: true,
-  referenceCode: true,
+export const decisionEntitySchema = specificationOwnedSchema({
+  id: z.number().int().positive(),
+  content: z.string(),
+  rationale: z.string().nullable(),
+  referenceCode: z.string().optional(),
 });
 
-export const assumptionEntitySchema = knowledgeItemSchema.pick({
-  id: true,
-  project_id: true,
-  content: true,
-  referenceCode: true,
+export const assumptionEntitySchema = specificationOwnedSchema({
+  id: z.number().int().positive(),
+  content: z.string(),
+  referenceCode: z.string().optional(),
 });
 
 export const entityReferenceSchema = z.object({
@@ -238,7 +298,16 @@ export const submitPhaseIntentResponseSchema = z.object({
   ok: z.literal(true),
 });
 
-export type ProjectMode = z.infer<typeof projectModeSchema>;
+export const projectModeSchema = specificationModeSchema;
+export const projectSchema = specificationSchema;
+export const projectStateTurnSchema = specificationStateTurnSchema;
+export const createProjectRequestSchema = createSpecificationRequestSchema;
+export const createProjectResponseSchema = createSpecificationResponseSchema;
+export const projectListItemSchema = specificationListItemSchema;
+export const projectListItemsSchema = specificationListItemsSchema;
+export const projectStateSchema = specificationStateSchema;
+
+export type SpecificationMode = z.infer<typeof specificationModeSchema>;
 export type Impact = z.infer<typeof impactSchema>;
 export type TurnKind = z.infer<typeof turnKindSchema>;
 export type ReviewAction = z.infer<typeof reviewActionSchema>;
@@ -247,18 +316,18 @@ export type SubmitPhaseIntentResponse = z.infer<typeof submitPhaseIntentResponse
 export type EdgeRelation = z.infer<typeof edgeRelationSchema>;
 export type WorkflowPhaseStatus = z.infer<typeof workflowPhaseStatusSchema>;
 export type ReadinessBand = z.infer<typeof readinessBandSchema>;
-export type Project = z.infer<typeof projectSchema>;
-export type CreateProjectRequest = z.infer<typeof createProjectRequestSchema>;
-export type CreateProjectResponse = z.infer<typeof createProjectResponseSchema>;
+export type Specification = z.infer<typeof specificationSchema>;
+export type CreateSpecificationRequest = z.infer<typeof createSpecificationRequestSchema>;
+export type CreateSpecificationResponse = z.infer<typeof createSpecificationResponseSchema>;
 export type WorkflowSummary = z.infer<typeof workflowSummarySchema>;
 export type WorkflowPhaseState = z.infer<typeof workflowPhaseStateSchema>;
 export type WorkflowState = z.infer<typeof workflowStateSchema>;
 export type KickoffLandingMode = z.infer<typeof kickoffLandingModeSchema>;
 export type SpecificationLanding = z.infer<typeof specificationLandingSchema>;
 export type TurnOption = z.infer<typeof turnOptionSchema>;
-export type ProjectStateTurn = z.infer<typeof projectStateTurnSchema>;
-export type ProjectListItem = z.infer<typeof projectListItemSchema>;
-export type ProjectState = z.infer<typeof projectStateSchema>;
+export type SpecificationStateTurn = z.infer<typeof specificationStateTurnSchema>;
+export type SpecificationListItem = z.infer<typeof specificationListItemSchema>;
+export type SpecificationState = z.infer<typeof specificationStateSchema>;
 export type KnowledgeItem = z.infer<typeof knowledgeItemSchema>;
 export type RequirementEntity = z.infer<typeof requirementEntitySchema>;
 export type CriterionEntity = z.infer<typeof criterionEntitySchema>;
@@ -273,3 +342,11 @@ export type SubmitTurnResponseSelectionRequest = z.infer<typeof submitTurnRespon
 export type SubmitTurnResponseFreeTextRequest = z.infer<typeof submitTurnResponseFreeTextRequestSchema>;
 export type SubmitTurnResponseRequest = z.infer<typeof submitTurnResponseRequestSchema>;
 export type SubmitTurnResponseResponse = z.infer<typeof submitTurnResponseResponseSchema>;
+
+export type ProjectMode = SpecificationMode;
+export type Project = Specification;
+export type CreateProjectRequest = CreateSpecificationRequest;
+export type CreateProjectResponse = CreateSpecificationResponse;
+export type ProjectStateTurn = SpecificationStateTurn;
+export type ProjectListItem = SpecificationListItem;
+export type ProjectState = SpecificationState;

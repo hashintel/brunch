@@ -56,7 +56,7 @@ The canonical first workflow phase key is `grounding` across persistence, shared
 ---
 
 ## Card 2 — Make `specification` the only durable record identity
-**Status:** next  
+**Status:** done  
 **Weight:** full
 
 ### Target Behavior

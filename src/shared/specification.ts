@@ -1,87 +1,46 @@
-import * as z from 'zod/v4';
-
+import type {
+  CreateSpecificationRequest as ApiCreateSpecificationRequest,
+  CreateSpecificationResponse as ApiCreateSpecificationResponse,
+  Specification as ApiSpecification,
+  SpecificationListItem as ApiSpecificationListItem,
+  SpecificationMode as ApiSpecificationMode,
+  SpecificationState as ApiSpecificationState,
+  SpecificationStateTurn as ApiSpecificationStateTurn,
+} from './api-types.js';
 import {
   createProjectRequestSchema,
   createProjectResponseSchema,
+  createSpecificationRequestSchema,
+  createSpecificationResponseSchema,
   projectListItemSchema,
   projectListItemsSchema,
-  projectModeSchema,
-  projectSchema,
-  projectStateSchema,
-  projectStateTurnSchema,
-  type CreateProjectRequest,
-  type CreateProjectResponse,
-  type Project,
-  type ProjectListItem,
-  type ProjectMode,
+  specificationModeSchema,
+  specificationSchema,
+  specificationStateSchema,
+  specificationStateTurnSchema,
 } from './api-types.js';
 
-export const specificationModeSchema = projectModeSchema;
-export const specificationSchema = projectSchema;
-
-const canonicalSpecificationTurnSchema = projectStateTurnSchema.omit({ project_id: true }).extend({
-  specification_id: projectStateTurnSchema.shape.project_id,
-});
-
-export const specificationTurnSchema = z
-  .union([canonicalSpecificationTurnSchema, projectStateTurnSchema])
-  .transform((turn) => {
-    if ('project_id' in turn) {
-      const { project_id, ...rest } = turn;
-      return {
-        ...rest,
-        specification_id: project_id,
-      };
-    }
-
-    return turn;
-  });
-
-const canonicalSpecificationStateInputSchema = projectStateSchema
-  .omit({ project: true, turns: true })
-  .extend({
-    specification: specificationSchema,
-    turns: z.array(specificationTurnSchema),
-  });
-
+export { specificationModeSchema, specificationSchema };
 export const specificationListItemSchema = projectListItemSchema;
 export const specificationListSchema = projectListItemsSchema;
-export const specificationStateSchema = z
-  .union([canonicalSpecificationStateInputSchema, projectStateSchema])
-  .transform((state) => {
-    if ('project' in state) {
-      const { project, turns, ...rest } = state;
-      return {
-        ...rest,
-        specification: project,
-        turns: turns.map((turn) => specificationTurnSchema.parse(turn)),
-      };
-    }
+export const specificationTurnSchema = specificationStateTurnSchema;
+export { specificationStateSchema, specificationStateTurnSchema };
+export { createSpecificationRequestSchema, createSpecificationResponseSchema };
 
-    return {
-      ...state,
-      turns: state.turns.map((turn) => specificationTurnSchema.parse(turn)),
-    };
-  });
-export const createSpecificationRequestSchema = createProjectRequestSchema;
-export const createSpecificationResponseSchema = createProjectResponseSchema;
-
-export type SpecificationMode = ProjectMode;
-export type Specification = Project;
-type CanonicalSpecificationTurn = z.output<typeof specificationTurnSchema>;
-export type SpecificationTurn = Omit<CanonicalSpecificationTurn, 'specification_id'> & {
+export type SpecificationMode = ApiSpecificationMode;
+export type Specification = ApiSpecification;
+export type SpecificationTurn = Omit<ApiSpecificationStateTurn, 'specification_id'> & {
   specification_id?: number;
   project_id?: number;
 };
-export type SpecificationListItem = ProjectListItem;
-type CanonicalSpecificationState = z.output<typeof specificationStateSchema>;
-export type SpecificationState = Omit<CanonicalSpecificationState, 'specification' | 'turns'> & {
+export type SpecificationListItem = ApiSpecificationListItem;
+export type SpecificationState = Omit<ApiSpecificationState, 'specification' | 'turns'> & {
   specification?: Specification;
   project?: Specification;
   turns: SpecificationTurn[];
 };
-export type CreateSpecificationRequest = CreateProjectRequest;
-export type CreateSpecificationResponse = CreateProjectResponse;
+export type CreateSpecificationRequest = ApiCreateSpecificationRequest;
+export type CreateSpecificationResponse = ApiCreateSpecificationResponse;
 
 export function getSpecificationRecord(
   state: SpecificationState | { specification?: Specification; project?: Specification },
@@ -98,3 +57,5 @@ export function getSpecificationRecord(
 
   throw new Error('Specification record is missing');
 }
+
+export { createProjectRequestSchema, createProjectResponseSchema };

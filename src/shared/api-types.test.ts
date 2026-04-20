@@ -46,12 +46,12 @@ describe('api transport contracts', () => {
     });
   });
 
-  it('validates the current project-state payload shape', () => {
+  it('validates the current specification-state payload shape', () => {
     expect(
       projectStateSchema.parse({
-        project: {
+        specification: {
           id: 1,
-          name: 'Project 1',
+          name: 'Specification 1',
           mode: 'greenfield',
           active_turn_id: 4,
           created_at: '2026-04-12 10:00:00',
@@ -66,7 +66,7 @@ describe('api transport contracts', () => {
               closureBasis: 'interviewer_recommended',
               proposalPending: false,
               turnId: 3,
-              summary: 'Scope is sufficiently captured.',
+              summary: 'Grounding is sufficiently captured.',
             },
             design: {
               status: 'in_progress',
@@ -100,7 +100,7 @@ describe('api transport contracts', () => {
         turns: [
           {
             id: 4,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: 3,
             phase: 'design',
             turn_kind: 'question',
@@ -125,13 +125,18 @@ describe('api transport contracts', () => {
         ],
       }),
     ).toMatchObject({
-      project: { id: 1, name: 'Project 1' },
+      specification: { id: 1, name: 'Specification 1' },
       workflow: {
         phases: {
           grounding: { status: 'closed' },
           design: { status: 'in_progress' },
         },
       },
+      turns: [
+        {
+          specification_id: 1,
+        },
+      ],
     });
   });
 
@@ -141,7 +146,7 @@ describe('api transport contracts', () => {
         goals: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             kind: 'goal',
             subtype: null,
             content: 'Ship a useful first version',
@@ -154,7 +159,7 @@ describe('api transport contracts', () => {
         requirements: [
           {
             id: 2,
-            project_id: 1,
+            specification_id: 1,
             kind: 'requirement',
             subtype: null,
             content: 'Resume interviews after reload',
@@ -165,7 +170,7 @@ describe('api transport contracts', () => {
         criteria: [
           {
             id: 3,
-            project_id: 1,
+            specification_id: 1,
             kind: 'criterion',
             subtype: 'acceptance',
             content: 'Reload restores the active path',
@@ -176,7 +181,7 @@ describe('api transport contracts', () => {
         decisions: [
           {
             id: 4,
-            project_id: 1,
+            specification_id: 1,
             content: 'Use SQLite for local storage',
             rationale: 'Zero-config first-run matters',
           },
@@ -184,7 +189,7 @@ describe('api transport contracts', () => {
         assumptions: [
           {
             id: 5,
-            project_id: 1,
+            specification_id: 1,
             content: 'Users can work in a browser',
           },
         ],
@@ -260,7 +265,7 @@ describe('api transport contracts', () => {
       }),
     ).toEqual({
       id: 4,
-      project_id: 1,
+      specification_id: 1,
       content: 'Use SQLite for local storage',
       rationale: 'Zero-config first-run matters',
       referenceCode: createKnowledgeReferenceCode('decision', 1),
@@ -278,7 +283,7 @@ describe('api transport contracts', () => {
       }),
     ).toEqual({
       id: 5,
-      project_id: 1,
+      specification_id: 1,
       content: 'Users can work in a browser',
       referenceCode: createKnowledgeReferenceCode('assumption', 1),
     });
