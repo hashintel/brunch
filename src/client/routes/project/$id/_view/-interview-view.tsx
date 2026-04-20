@@ -7,8 +7,8 @@ import { TranscriptMetaPlaceholder, WorkspaceStateCard } from '@/client/componen
 import { ActivityPlaceholder } from '@/client/components/question-cards';
 import { cn } from '@/client/lib/utils';
 import type { WorkflowPhase } from '@/shared/api-types.js';
-import { isAskQuestionUIPart, summarizeAssistantActivity } from '@/shared/chat.js';
-import type { BrunchUIMessage } from '@/shared/chat.js';
+import { isAskQuestionUIPart } from '@/shared/chat.js';
+import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
 import {
   getCurrentOpenPhase,
@@ -53,7 +53,7 @@ function projectLiveControlMarkers(messages: readonly BrunchUIMessage[]): Worksp
     .map((label) => ({ label }));
 }
 
-function renderActivitySummary(activitySummary: { seconds?: number; tools: string[] } | null) {
+function renderActivitySummary(activitySummary: ActivitySummary | null | undefined) {
   if (!activitySummary) {
     return null;
   }
@@ -244,6 +244,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             captureStatusByTurnId={captureStatusByTurnId}
             showLockedState={showLockedState}
             renderPersistedActivity={renderPersistedActivity}
+            renderLiveActivity={renderActivitySummary}
           />
 
           <div className="mx-auto w-full max-w-2xl">
@@ -258,24 +259,20 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                 bottomArtifact?.kind === 'phase-summary' && isLastAssistant,
               );
 
-              const activitySummary = summarizeAssistantActivity(message.parts);
               const renderedParts = renderMessageParts(message, isLastAssistant && chat.isStreaming, {
                 suppressPhaseSummary,
               });
               const hasRenderedParts = renderedParts?.some((part) => part !== null) ?? false;
 
-              if (!activitySummary && !hasRenderedParts) {
+              if (!hasRenderedParts) {
                 return null;
               }
 
               return (
                 <div key={message.id} className="flex flex-col">
-                  {renderActivitySummary(activitySummary)}
-                  {hasRenderedParts ? (
-                    <Message from={message.role}>
-                      <MessageContent>{renderedParts}</MessageContent>
-                    </Message>
-                  ) : null}
+                  <Message from={message.role}>
+                    <MessageContent>{renderedParts}</MessageContent>
+                  </Message>
                 </div>
               );
             })}

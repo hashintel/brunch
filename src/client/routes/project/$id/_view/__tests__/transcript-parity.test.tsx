@@ -158,19 +158,21 @@ vi.mock('../-interview-controller.js', () => ({
       state: 'active',
       disabled: false,
       errorMessage: null,
+      liveActivity: { seconds: 5, tools: ['phase closure proposal'] },
       submitTurnResponse: vi.fn(),
     },
   }),
 }));
 
 describe('transcript parity activity replay', () => {
-  it('renders persisted activity summaries beside hydrated answered and active turn cards', () => {
+  it('renders persisted history activity and live bottom-artifact activity beside the right cards', () => {
     render(<InterviewView phase="scope" />);
 
     expect(screen.getByText('What should we build first?')).toBeTruthy();
     expect(screen.getByText('Which platform should we target next?')).toBeTruthy();
     expect(screen.getAllByText('Thought for 3s').length).toBe(1);
-    expect(screen.getAllByText('Thought for 2s').length).toBe(1);
-    expect(screen.getAllByText('Tools: structured question').length).toBe(2);
+    expect(screen.getAllByText('Thought for 5s').length).toBe(1);
+    expect(screen.getAllByText('Tools: structured question').length).toBe(1);
+    expect(screen.getAllByText('Tools: phase closure proposal').length).toBe(1);
   });
 });

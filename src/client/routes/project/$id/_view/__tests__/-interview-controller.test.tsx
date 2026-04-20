@@ -13,11 +13,11 @@ import type { SpecificationState as ProjectState } from '@/shared/specification.
 import { useInterviewController } from '../-interview-controller.js';
 import { resetSpecificationLifecycleRegistryForTesting } from '../-specification-lifecycle.js';
 
-function createPendingQuestionMessage(): BrunchUIMessage {
+function createPendingQuestionMessage(overrides?: { parts?: BrunchUIMessage['parts'] }): BrunchUIMessage {
   return {
     id: 'pending-question-assistant',
     role: 'assistant',
-    parts: [
+    parts: overrides?.parts ?? [
       {
         type: 'tool-ask_question',
         toolCallId: 'tool-1',
@@ -268,6 +268,13 @@ function ControllerProbe({ phase = 'scope' }: { phase?: 'scope' | 'design' | 're
       <div data-testid="project-name">{workspace.project.name}</div>
       <div data-testid="messages">{messageText(workspace.chat.messages)}</div>
       <div data-testid="bottom-artifact-kind">{workspace.bottomArtifact?.kind ?? 'none'}</div>
+      <div data-testid="bottom-artifact-live-activity">
+        {workspace.bottomArtifact?.kind === 'persisted-turn' ||
+        workspace.bottomArtifact?.kind === 'pending-question' ||
+        workspace.bottomArtifact?.kind === 'generating'
+          ? JSON.stringify(workspace.bottomArtifact.liveActivity ?? null)
+          : 'null'}
+      </div>
       <div data-testid="bottom-artifact">
         {workspace.bottomArtifact?.kind === 'persisted-turn'
           ? workspace.bottomArtifact.turn.question
@@ -863,6 +870,44 @@ describe('interview controller', () => {
       expect(fetchMock).toHaveBeenCalledTimes(1);
       expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
       expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('kickoff');
+    });
+  });
+
+  it('threads live assistant activity onto the streamed bottom artifact while the next question is generating', async () => {
+    currentProjectState = createProjectState({
+      assistantText: 'Earlier question?',
+      answer: 'Earlier answer',
+    });
+    useChatImpl = createUseChatHarness('streaming');
+
+    renderController();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        createPendingQuestionMessage({
+          parts: [
+            { type: 'reasoning', text: 'Thinking through the next move' },
+            {
+              type: 'dynamic-tool',
+              toolName: 'lookup_workspace_context',
+              toolCallId: 'tool-lookup',
+              state: 'output-available',
+              input: {},
+              output: { ok: true },
+            },
+            ...createPendingQuestionMessage().parts!,
+          ],
+        }),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('pending-question');
+      expect(screen.getByTestId('bottom-artifact-live-activity').textContent).toBe(
+        JSON.stringify({ tools: ['lookup workspace context'] }),
+      );
     });
   });
 

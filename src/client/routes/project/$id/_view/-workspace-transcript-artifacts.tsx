@@ -16,6 +16,7 @@ import {
   GeneratingTurnPlaceholder,
 } from '@/client/components/question-cards';
 import { ReviewPhaseCompletionCard, type ReviewSetCardData } from '@/client/components/review-set-card';
+import type { ActivitySummary } from '@/shared/chat.js';
 import { getPhaseRoutePath, getWorkflowPhaseLabel } from '@/shared/phase-descriptors.js';
 import {
   getPersistedReviewSet,
@@ -133,6 +134,7 @@ function renderWorkspaceInteractiveArtifact({
   showLockedState,
   phaseTurns,
   renderPersistedActivity,
+  renderLiveActivity,
 }: {
   artifact: Extract<
     WorkspaceStreamArtifact,
@@ -148,6 +150,7 @@ function renderWorkspaceInteractiveArtifact({
   showLockedState: boolean;
   phaseTurns: readonly SpecificationTurn[];
   renderPersistedActivity: (turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined) => React.ReactNode;
+  renderLiveActivity: (activitySummary: ActivitySummary | null | undefined) => React.ReactNode;
 }) {
   switch (artifact.kind) {
     case 'persisted-turn': {
@@ -156,7 +159,11 @@ function renderWorkspaceInteractiveArtifact({
       return (
         <WorkspaceArtifactRow
           key={`persisted-turn-${artifact.artifact.turn.id}`}
-          activity={renderPersistedActivity(artifact.artifact.turn)}
+          activity={
+            artifact.artifact.liveActivity
+              ? renderLiveActivity(artifact.artifact.liveActivity)
+              : renderPersistedActivity(artifact.artifact.turn)
+          }
           errorMessage={artifact.artifact.errorMessage}
         >
           {reviewSet ? (
@@ -204,7 +211,11 @@ function renderWorkspaceInteractiveArtifact({
       return (
         <WorkspaceArtifactRow
           key={`persisted-grounding-card-${artifact.artifact.turn.id}`}
-          activity={renderPersistedActivity(artifact.artifact.turn)}
+          activity={
+            artifact.artifact.liveActivity
+              ? renderLiveActivity(artifact.artifact.liveActivity)
+              : renderPersistedActivity(artifact.artifact.turn)
+          }
           errorMessage={artifact.artifact.errorMessage}
         >
           <ActiveGroundingCard
@@ -221,32 +232,37 @@ function renderWorkspaceInteractiveArtifact({
         </WorkspaceArtifactRow>
       );
     case 'pending-question':
-      return fallbackReviewSet ? (
-        <ActiveReviewSetCard
-          key={`pending-review-turn-${artifact.artifact.pendingQuestion.id}`}
-          question={artifact.artifact.pendingQuestion.question}
-          why={artifact.artifact.pendingQuestion.why}
-          persistedFreeText=""
-          hasPersistedResponse={false}
-          disabled={artifact.artifact.disabled}
-          state="active"
-          reviewSet={fallbackReviewSet}
-        />
-      ) : (
-        <ActiveQuestionCard
+      return (
+        <WorkspaceArtifactRow
           key={artifact.artifact.pendingQuestion.id}
-          id={artifact.artifact.pendingQuestion.id}
-          questionCode={artifact.questionCode}
-          question={artifact.artifact.pendingQuestion.question}
-          why={artifact.artifact.pendingQuestion.why}
-          impact={artifact.artifact.pendingQuestion.impact}
-          options={artifact.artifact.pendingQuestion.options}
-          persistedSelectedPositions={[]}
-          persistedFreeText=""
-          hasPersistedResponse={false}
-          disabled={artifact.artifact.disabled}
-          state="active"
-        />
+          activity={renderLiveActivity(artifact.artifact.liveActivity)}
+        >
+          {fallbackReviewSet ? (
+            <ActiveReviewSetCard
+              question={artifact.artifact.pendingQuestion.question}
+              why={artifact.artifact.pendingQuestion.why}
+              persistedFreeText=""
+              hasPersistedResponse={false}
+              disabled={artifact.artifact.disabled}
+              state="active"
+              reviewSet={fallbackReviewSet}
+            />
+          ) : (
+            <ActiveQuestionCard
+              id={artifact.artifact.pendingQuestion.id}
+              questionCode={artifact.questionCode}
+              question={artifact.artifact.pendingQuestion.question}
+              why={artifact.artifact.pendingQuestion.why}
+              impact={artifact.artifact.pendingQuestion.impact}
+              options={artifact.artifact.pendingQuestion.options}
+              persistedSelectedPositions={[]}
+              persistedFreeText=""
+              hasPersistedResponse={false}
+              disabled={artifact.artifact.disabled}
+              state="active"
+            />
+          )}
+        </WorkspaceArtifactRow>
       );
     case 'kickoff':
       return !showLockedState ? (
@@ -285,7 +301,14 @@ function renderWorkspaceInteractiveArtifact({
         </WorkspaceArtifactRow>
       );
     case 'generating':
-      return <GeneratingTurnPlaceholder key="generating-turn-placeholder" />;
+      return (
+        <WorkspaceArtifactRow
+          key="generating-turn-placeholder"
+          activity={renderLiveActivity(artifact.artifact.liveActivity)}
+        >
+          <GeneratingTurnPlaceholder />
+        </WorkspaceArtifactRow>
+      );
   }
 }
 
@@ -367,6 +390,7 @@ export function WorkspaceTranscriptArtifacts({
   captureStatusByTurnId,
   showLockedState,
   renderPersistedActivity,
+  renderLiveActivity,
 }: {
   streamArtifacts: readonly WorkspaceStreamArtifact[];
   specificationId: string;
@@ -375,6 +399,7 @@ export function WorkspaceTranscriptArtifacts({
   captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   showLockedState: boolean;
   renderPersistedActivity: (turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined) => React.ReactNode;
+  renderLiveActivity: (activitySummary: ActivitySummary | null | undefined) => React.ReactNode;
 }) {
   return streamArtifacts.map((artifact, index) => {
     const artifactNode = (() => {
@@ -404,6 +429,7 @@ export function WorkspaceTranscriptArtifacts({
             showLockedState,
             phaseTurns,
             renderPersistedActivity,
+            renderLiveActivity,
           });
         case 'phase-handoff':
         case 'workflow-complete':

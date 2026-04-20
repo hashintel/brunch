@@ -10,8 +10,8 @@ import {
   useSubmitTurnResponseMutation,
 } from '@/client/mutations/interview-mutations';
 import type { EntitiesData, ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
-import { brunchDataPartSchemas } from '@/shared/chat.js';
-import type { BrunchUIMessage } from '@/shared/chat.js';
+import { brunchDataPartSchemas, summarizeAssistantActivity } from '@/shared/chat.js';
+import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
 import { knowledgeCollectionKeyByKind } from '@/shared/knowledge.js';
 import {
   createConfirmProposedPhaseClosureCommand,
@@ -61,6 +61,7 @@ export type InterviewControllerBottomArtifactState =
       readonly state: 'active' | 'submitted';
       readonly disabled: boolean;
       readonly errorMessage: string | null;
+      readonly liveActivity?: ActivitySummary;
       readonly submitTurnResponse: (
         positions: number[],
         freeText?: string,
@@ -71,6 +72,7 @@ export type InterviewControllerBottomArtifactState =
       readonly kind: 'pending-question';
       readonly pendingQuestion: PendingQuestionViewModel;
       readonly disabled: true;
+      readonly liveActivity?: ActivitySummary;
     }
   | {
       readonly kind: 'kickoff';
@@ -92,6 +94,7 @@ export type InterviewControllerBottomArtifactState =
     }
   | {
       readonly kind: 'generating';
+      readonly liveActivity?: ActivitySummary;
     }
   | {
       readonly kind: 'phase-handoff';
@@ -125,6 +128,29 @@ function visibleCapturesAreSynced(
     .every((item) =>
       entityState[knowledgeCollectionKeyByKind[item.kind]].some((entity) => entity.id === item.id),
     );
+}
+
+function getLatestAssistantActivity(
+  messages: readonly BrunchUIMessage[],
+  status: ChatStatus,
+): ActivitySummary | undefined {
+  if (status !== 'streaming') {
+    return undefined;
+  }
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message?.role !== 'assistant' || !message.parts) {
+      continue;
+    }
+
+    const activitySummary = summarizeAssistantActivity(message.parts);
+    if (activitySummary) {
+      return activitySummary;
+    }
+  }
+
+  return undefined;
 }
 
 export function useInterviewController(phase: WorkflowPhase, entityState: EntitiesData): InterviewController {
@@ -224,6 +250,10 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
   const phaseMessages = useMemo(
     () => filterMessagesByPhase(messages, phaseTurnIds),
     [messages, phaseTurnIds],
+  );
+  const liveActivity = useMemo(
+    () => getLatestAssistantActivity(phaseMessages, status),
+    [phaseMessages, status],
   );
 
   const submitText = useCallback(
@@ -417,6 +447,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
             state: viewState.bottomArtifact.state,
             disabled: viewState.bottomArtifact.state === 'submitted',
             errorMessage: submitTurnResponseMutation.errorMessage,
+            liveActivity,
             submitTurnResponse: async (
               positions: number[],
               freeText?: string,
@@ -444,6 +475,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
               kind: 'pending-question',
               pendingQuestion: viewState.bottomArtifact.pendingQuestion,
               disabled: true,
+              liveActivity,
             }
           : viewState.bottomArtifact.kind === 'kickoff'
             ? (() => {
@@ -513,7 +545,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
                     };
                   })()
                 : viewState.bottomArtifact.kind === 'generating'
-                  ? { kind: 'generating' as const }
+                  ? { kind: 'generating' as const, liveActivity }
                   : viewState.bottomArtifact.kind === 'phase-handoff'
                     ? {
                         kind: 'phase-handoff' as const,
