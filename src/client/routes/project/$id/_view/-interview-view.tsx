@@ -44,11 +44,19 @@ function getControlMarkerLabel(message: BrunchUIMessage): string | null {
 }
 
 function projectLiveControlMarkers(messages: readonly BrunchUIMessage[]): WorkspaceStreamMarker[] {
-  return messages
-    .filter((message) => !/^turn-\d+-/.test(message.id) && message.role === 'user')
-    .map((message) => getControlMarkerLabel(message))
-    .filter((label): label is string => Boolean(label))
-    .map((label) => ({ label }));
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (!message || /^turn-\d+-/.test(message.id) || message.role !== 'user') {
+      continue;
+    }
+
+    const label = getControlMarkerLabel(message);
+    if (label) {
+      return [{ label }];
+    }
+  }
+
+  return [];
 }
 
 function renderActivitySummary(activitySummary: ActivitySummary | null | undefined) {

@@ -1132,6 +1132,73 @@ describe('InterviewView', () => {
     expect(screen.queryByText('Begin the grounding phase.')).toBeNull();
   });
 
+  it('collapses repeated typed control intents into the latest projected marker', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [],
+        workflow: {
+          phases: {
+            scope: {
+              status: 'in_progress',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+          },
+        },
+      }),
+    );
+
+    renderWorkspace();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        {
+          id: 'u-control-1',
+          role: 'user',
+          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'scope' } }],
+        },
+        {
+          id: 'u-control-2',
+          role: 'user',
+          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'scope' } }],
+        },
+      ]);
+    });
+
+    expect(screen.getAllByText('Interview resumed')).toHaveLength(1);
+  });
+
   it('does not infer control markers from plain text once typed phase intents own the seam', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
