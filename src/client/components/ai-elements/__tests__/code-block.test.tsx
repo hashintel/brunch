@@ -56,7 +56,7 @@ describe('CodeBlockContent', () => {
         }),
     );
 
-    const { CodeBlockContent } = await import('./code-block.js');
+    const { CodeBlockContent } = await import('../code-block.js');
 
     const { container } = render(<CodeBlockContent code={'const answer = 42'} language={'typescript'} />);
 
@@ -104,7 +104,7 @@ describe('CodeBlockContent', () => {
         }),
     );
 
-    const { CodeBlockContent } = await import('./code-block.js');
+    const { CodeBlockContent } = await import('../code-block.js');
 
     const { rerender } = render(<CodeBlockContent code={'const first = 1'} language={'typescript'} />);
     expect(screen.getByText('const first = 1')).toBeTruthy();
@@ -137,7 +137,7 @@ describe('CodeBlockContent', () => {
   });
 
   it('preloads the rich highlighter when the user signals intent on the container', async () => {
-    const { CodeBlockContainer } = await import('./code-block.js');
+    const { CodeBlockContainer } = await import('../code-block.js');
 
     const { container } = render(
       <CodeBlockContainer language="typescript">
@@ -159,7 +159,7 @@ describe('CodeBlockContent', () => {
     const writeTextMock = vi.fn(async () => {});
     vi.stubGlobal('navigator', { clipboard: { writeText: writeTextMock } });
 
-    const { CodeBlock, CodeBlockCopyButton } = await import('./code-block.js');
+    const { CodeBlock, CodeBlockCopyButton } = await import('../code-block.js');
 
     const { container, unmount } = render(
       <CodeBlock code={'const answer = 42'} language={'typescript'}>

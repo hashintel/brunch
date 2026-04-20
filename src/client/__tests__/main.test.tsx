@@ -30,7 +30,7 @@ vi.mock('@tanstack/react-router', () => ({
   RouterProvider: RouterProviderMock,
 }));
 
-vi.mock('./routeTree.gen.js', () => ({
+vi.mock('../routeTree.gen.js', () => ({
   routeTree,
 }));
 
@@ -49,7 +49,7 @@ beforeEach(() => {
 
 describe('main entrypoint', () => {
   it('boots the app with a router built from the generated route tree', async () => {
-    await import('./main.js');
+    await import('../main.js');
 
     expect(createRootMock).toHaveBeenCalledWith(document.getElementById('root'));
     expect(QueryClientMock).toHaveBeenCalledWith({

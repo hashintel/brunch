@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { ClientMutationError, postJsonMutation } from './client-mutation.js';
+import { ClientMutationError, postJsonMutation } from '../client-mutation.js';
 
 const fetchMock = vi.fn<typeof fetch>();
 

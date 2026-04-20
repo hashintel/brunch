@@ -74,24 +74,24 @@ const minimalEntitiesData: EntitiesData = {
   relationships: [],
 };
 
-vi.mock('./routes/-project-list.js', () => ({
+vi.mock('../routes/-project-list.js', () => ({
   ProjectList: () => <h1>Projects screen</h1>,
   fetchProjectListLoaderData: vi.fn(async () => []),
 }));
 
-vi.mock('./routes/project/$id/_view/-interview-controller', () => ({
+vi.mock('../routes/project/$id/_view/-interview-controller', () => ({
   useInterviewController: () => ({ __brand: 'interview-controller' }),
 }));
 
-vi.mock('./routes/project/$id/_view/-interview-view.js', () => ({
+vi.mock('../routes/project/$id/_view/-interview-view.js', () => ({
   InterviewView: () => <h1>Interview screen</h1>,
 }));
 
-vi.mock('./routes/project/$id/-export-preview.js', () => ({
+vi.mock('../routes/project/$id/-export-preview.js', () => ({
   ExportPreview: () => <h1>Export screen</h1>,
 }));
 
-import { routeTree } from './routeTree.gen.js';
+import { routeTree } from '../routeTree.gen.js';
 
 function jsonResponse(data: unknown) {
   return new Response(JSON.stringify(data), {

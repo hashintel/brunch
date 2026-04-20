@@ -14,7 +14,7 @@ import {
   createInterviewDurableProjectState,
   createInterviewEphemeralChatState,
   filterMessagesByPhase,
-} from './-interview-controller-core.js';
+} from '../-interview-controller-core.js';
 
 function createProjectState({
   projectId = 1,

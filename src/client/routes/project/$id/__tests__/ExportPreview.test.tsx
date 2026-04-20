@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ExportLoaderData } from '@/shared/api-types.js';
 
-import { ExportPreview } from './-export-preview.js';
+import { ExportPreview } from '../-export-preview.js';
 
 let currentLoaderData: ExportLoaderData;
 

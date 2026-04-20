@@ -2,7 +2,7 @@
 
 import { describe, expect, it } from 'vitest';
 
-import { defaultDevServerPort, getViteCacheDir, resolveDevServerPort } from '../../vite.config';
+import { defaultDevServerPort, getViteCacheDir, resolveDevServerPort } from '../../../vite.config';
 
 describe('vite dev server hardening', () => {
   it('falls back to the default frontend port when no port flag is provided', () => {

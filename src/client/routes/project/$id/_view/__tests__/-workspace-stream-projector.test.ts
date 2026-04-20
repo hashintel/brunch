@@ -2,8 +2,8 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
 
-import type { InterviewControllerBottomArtifactState } from './-interview-controller.js';
-import { projectWorkspaceStream } from './-workspace-stream-projector.js';
+import type { InterviewControllerBottomArtifactState } from '../-interview-controller.js';
+import { projectWorkspaceStream } from '../-workspace-stream-projector.js';
 
 function createPhaseState(
   overrides: Partial<ProjectState['workflow']['phases']['scope']> = {},

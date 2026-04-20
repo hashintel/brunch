@@ -3,7 +3,7 @@
 import { act, renderHook, waitFor } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { createStore, useStore, useStoreState } from './use-simple-store';
+import { createStore, useStore, useStoreState } from '../use-simple-store';
 
 describe('useStoreState', () => {
   it('reflects external store updates and exposes the live getter/setter pair', async () => {

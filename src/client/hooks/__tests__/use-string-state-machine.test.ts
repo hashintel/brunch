@@ -3,7 +3,7 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 
-import { useStringStateMachine } from './use-string-state-machine';
+import { useStringStateMachine } from '../use-string-state-machine';
 
 describe('useStringStateMachine', () => {
   const trafficMachine = {

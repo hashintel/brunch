@@ -3,7 +3,7 @@
 import { renderHook, act } from '@testing-library/react';
 import { describe, it, expect } from 'vitest';
 
-import { useRecordState } from './use-record-state';
+import { useRecordState } from '../use-record-state';
 
 describe('useRecordState', () => {
   it('initializes with the provided record and merges object patches', () => {

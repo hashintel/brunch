@@ -6,7 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import type { EntitiesData } from '@/shared/api-types.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
-import { EntitySidebar } from './EntitySidebar.js';
+import { EntitySidebar } from '../EntitySidebar.js';
 
 afterEach(() => {
   cleanup();

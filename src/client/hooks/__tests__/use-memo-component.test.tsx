@@ -3,7 +3,7 @@
 import { render, renderHook, screen } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
-import { useMemoComponent } from './use-memo-component';
+import { useMemoComponent } from '../use-memo-component';
 
 describe('useMemoComponent', () => {
   it('returns a stable memoized component that skips rerenders when props are unchanged', () => {

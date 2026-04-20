@@ -5,7 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import type { EntitiesData, ProjectStateTurn, WorkflowState } from '@/shared/api-types.js';
 
-import { InterviewView } from './-interview-view.js';
+import { InterviewView } from '../-interview-view.js';
 
 function createTurn({
   id,
@@ -129,7 +129,7 @@ vi.mock('@tanstack/react-router', () => ({
   useLoaderData: () => testState.emptyEntities,
 }));
 
-vi.mock('./-interview-controller.js', () => ({
+vi.mock('../-interview-controller.js', () => ({
   useInterviewController: () => ({
     project: {
       id: 1,

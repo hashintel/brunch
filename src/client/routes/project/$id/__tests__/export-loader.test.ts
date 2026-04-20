@@ -2,7 +2,7 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { fetchExportLoaderData } from './export.js';
+import { fetchExportLoaderData } from '../export.js';
 
 const fetchMock = vi.fn<typeof fetch>();
 

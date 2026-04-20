@@ -9,8 +9,8 @@ import type { ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
 
-import { useInterviewController } from './-interview-controller.js';
-import { resetSpecificationLifecycleRegistryForTesting } from './-specification-lifecycle.js';
+import { useInterviewController } from '../-interview-controller.js';
+import { resetSpecificationLifecycleRegistryForTesting } from '../-specification-lifecycle.js';
 
 function createPendingQuestionMessage(): BrunchUIMessage {
   return {

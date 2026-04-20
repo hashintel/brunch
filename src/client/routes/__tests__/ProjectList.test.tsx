@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectListItem } from '@/shared/api-types.js';
 
-import { ProjectList } from './-project-list.js';
+import { ProjectList } from '../-project-list.js';
 
 let currentProjects: ProjectListItem[];
 const navigateMock = vi.fn();

@@ -17,7 +17,7 @@ import {
   MessageBranchSelector,
   MessageBranchPrevious,
   MessageToolbar,
-} from './message.js';
+} from '../message.js';
 
 function renderBranchFixture(children: React.ReactNode) {
   return render(

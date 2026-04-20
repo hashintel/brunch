@@ -13,7 +13,7 @@ vi.mock('streamdown', () => ({
 
 describe('MarkdownRenderer', () => {
   it('keeps plain text on the immediate rendering path', async () => {
-    const { MarkdownRenderer, needsRichMarkdownRendering } = await import('./markdown-rendering.js');
+    const { MarkdownRenderer, needsRichMarkdownRendering } = await import('../markdown-rendering.js');
 
     expect(needsRichMarkdownRendering('Just a plain answer.')).toBe(false);
 
@@ -27,7 +27,7 @@ describe('MarkdownRenderer', () => {
   });
 
   it('renders fenced code as plain text first, then upgrades to rich rendering', async () => {
-    const { MarkdownRenderer, needsRichMarkdownRendering } = await import('./markdown-rendering.js');
+    const { MarkdownRenderer, needsRichMarkdownRendering } = await import('../markdown-rendering.js');
     const content = '```typescript\nconst answer = 42\n```';
 
     expect(needsRichMarkdownRendering(content)).toBe(true);
@@ -43,7 +43,7 @@ describe('MarkdownRenderer', () => {
   });
 
   it('keeps rich markdown on the plain first-paint path while the message is animating', async () => {
-    const { MarkdownRenderer } = await import('./markdown-rendering.js');
+    const { MarkdownRenderer } = await import('../markdown-rendering.js');
     const content = '```typescript\nconst answer = 42\n```';
     const consoleError = vi.spyOn(console, 'error').mockImplementation(() => {});
 

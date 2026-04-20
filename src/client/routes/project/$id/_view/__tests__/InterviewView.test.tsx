@@ -10,8 +10,8 @@ import type { BrunchUIMessage } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
 
-import { InterviewView } from './-interview-view.js';
-import { resetSpecificationLifecycleRegistryForTesting } from './-specification-lifecycle.js';
+import { InterviewView } from '../-interview-view.js';
+import { resetSpecificationLifecycleRegistryForTesting } from '../-specification-lifecycle.js';
 
 function createPendingQuestionMessage(): BrunchUIMessage {
   return {

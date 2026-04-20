@@ -5,7 +5,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { EntitiesData } from '@/shared/api-types.js';
 
-import { GraphView } from './-graph-view.js';
+import { GraphView } from '../-graph-view.js';
 
 afterEach(() => {
   cleanup();
