@@ -18,28 +18,13 @@ export const workflowPhaseDescriptors = [
 export const groundingWorkflowPhase = workflowPhaseDescriptors[0].phase;
 export const phaseOrder = workflowPhaseDescriptors.map((descriptor) => descriptor.phase) as WorkflowPhase[];
 
-export const phaseDescriptorByPhase = Object.fromEntries(
+const phaseDescriptorByPhase = Object.fromEntries(
   workflowPhaseDescriptors.map((descriptor) => [descriptor.phase, descriptor]),
 ) as Record<WorkflowPhase, (typeof workflowPhaseDescriptors)[number]>;
 
-export const workflowPhaseLabels = Object.fromEntries(
-  workflowPhaseDescriptors.map((descriptor) => [descriptor.phase, descriptor.label]),
-) as Record<WorkflowPhase, string>;
-
-export const phaseRouteSegments = Object.fromEntries(
-  workflowPhaseDescriptors.map((descriptor) => [descriptor.phase, descriptor.routeSegment]),
-) as Record<WorkflowPhase, string>;
-
-export const phaseRoutePaths = Object.fromEntries(
+const phaseRoutePaths = Object.fromEntries(
   workflowPhaseDescriptors.map((descriptor) => [descriptor.phase, `/project/$id/${descriptor.routeSegment}`]),
 ) as Record<WorkflowPhase, string>;
-
-export const routeSegmentToPhase = Object.fromEntries(
-  workflowPhaseDescriptors.map((descriptor) => [descriptor.routeSegment, descriptor.phase]),
-) as Record<string, WorkflowPhase>;
-
-export const groundingPhaseLabel = workflowPhaseLabels[groundingWorkflowPhase];
-export const groundingRouteSegment = phaseRouteSegments[groundingWorkflowPhase];
 
 export function getWorkflowPhaseDescriptor(phase: WorkflowPhase): (typeof workflowPhaseDescriptors)[number] {
   return phaseDescriptorByPhase[phase];

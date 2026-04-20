@@ -4,7 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
-import { getProjectState } from '../core.js';
+import { getSpecificationState } from '../core.js';
 import { createDb, getActivePath, getEntitiesForProjectOnActivePath } from '../db.js';
 import { renderExportMarkdown } from '../export.js';
 import {
@@ -14,7 +14,7 @@ import {
   type WalkthroughScenarioMatrixEntry,
 } from './scenarios.js';
 
-function summarizeWorkflow(projectState: NonNullable<ReturnType<typeof getProjectState>>) {
+function summarizeWorkflow(projectState: NonNullable<ReturnType<typeof getSpecificationState>>) {
   return {
     scope: projectState.workflow.phases.scope.status,
     design: projectState.workflow.phases.design.status,
@@ -92,7 +92,7 @@ describe('walkthroughScenarioMatrix', () => {
   for (const entry of walkthroughScenarioMatrix) {
     it(`keeps ${entry.scenarioName} resumable after seeding`, async () => {
       await withReopenedWalkthroughScenario(entry, ({ db, projectId }) => {
-        const projectState = getProjectState(db, projectId);
+        const projectState = getSpecificationState(db, projectId);
 
         expect(projectState).not.toBeNull();
         expect(summarizeWorkflow(projectState!)).toEqual(entry.expectedWorkflowSummary);
@@ -112,17 +112,17 @@ describe('walkthroughScenarioMatrix', () => {
 
   it('materializes the transition-frontier fixtures with the expected derived landings', async () => {
     await withReopenedSeededScenario('issue-tracker-design-kickoff-ready', ({ db, projectId }) => {
-      const projectState = getProjectState(db, projectId);
+      const projectState = getSpecificationState(db, projectId);
       expect(projectState?.landing).toEqual({ kind: 'kickoff', phase: 'design', mode: 'start' });
     });
 
     await withReopenedSeededScenario('issue-tracker-design-recovery', ({ db, projectId }) => {
-      const projectState = getProjectState(db, projectId);
+      const projectState = getSpecificationState(db, projectId);
       expect(projectState?.landing).toEqual({ kind: 'recovery', phase: 'design' });
     });
 
     await withReopenedSeededScenario('issue-tracker-criteria-kickoff-ready', ({ db, projectId }) => {
-      const projectState = getProjectState(db, projectId);
+      const projectState = getSpecificationState(db, projectId);
       const requirementsTurns = projectState?.turns.filter((turn) => turn.phase === 'requirements') ?? [];
       const requirementsTurn = requirementsTurns[0] ?? null;
 
@@ -134,7 +134,7 @@ describe('walkthroughScenarioMatrix', () => {
     });
 
     await withReopenedSeededScenario('issue-tracker-requirements-ready', ({ db, projectId }) => {
-      const projectState = getProjectState(db, projectId);
+      const projectState = getSpecificationState(db, projectId);
       const requirementsTurns = projectState?.turns.filter((turn) => turn.phase === 'requirements') ?? [];
       const requirementsTurn = requirementsTurns[0] ?? null;
 
@@ -148,7 +148,7 @@ describe('walkthroughScenarioMatrix', () => {
     });
 
     await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
-      const projectState = getProjectState(db, projectId);
+      const projectState = getSpecificationState(db, projectId);
       const criteriaTurns = projectState?.turns.filter((turn) => turn.phase === 'criteria') ?? [];
       const criteriaTurn = criteriaTurns[0] ?? null;
 
@@ -164,7 +164,7 @@ describe('walkthroughScenarioMatrix', () => {
 
   it('round-trips the export-ready walkthrough scenario through seed, reopen, and markdown export', async () => {
     await withReopenedSeededScenario('issue-tracker-all-phases-closed', ({ db, projectId }) => {
-      const projectState = getProjectState(db, projectId);
+      const projectState = getSpecificationState(db, projectId);
 
       expect(projectState).not.toBeNull();
       const markdown = renderExportMarkdown(
@@ -188,7 +188,7 @@ describe('walkthroughScenarioMatrix', () => {
 
   it('reopens the named brownfield grounding walkthrough with answered and active grounding cards around a substantive turn', async () => {
     await withReopenedSeededScenario('brownfield-grounding-replay', ({ db, projectId }) => {
-      const projectState = getProjectState(db, projectId);
+      const projectState = getSpecificationState(db, projectId);
 
       expect(projectState?.project.mode).toBe('brownfield');
       expect(projectState?.turns).toHaveLength(3);

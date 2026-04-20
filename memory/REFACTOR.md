@@ -23,7 +23,7 @@ The target state is:
 5. [done — `7c64211` `refactor: adopt specification boundary at app edges`] Rename client and server orchestration surfaces to consume the specification boundary so feature code no longer performs ad hoc project-to-specification translation.
 6. [done — `8d31402` `refactor: extract workspace artifact view primitives`] Extract shared workspace-artifact rendering primitives from the current transcript view so control cards, review cards, and handoff/completion artifacts stop depending on one monolithic render switch.
 7. [done] Split the workspace transcript renderer into smaller artifact-focused units that consume the descriptor and specification seams, leaving behavior unchanged but lowering change surface for future slices.
-8. [next] Remove compatibility cruft made unnecessary by the new seams and tighten tests around the surviving public terminology.
+8. [done] Remove compatibility cruft made unnecessary by the new seams and tighten tests around the surviving public terminology.
 
 ## Decisions
 

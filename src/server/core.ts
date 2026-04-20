@@ -145,8 +145,3 @@ export function listSpecifications(db: DB): SpecificationListItem[] {
 export function createNewSpecification(db: DB, name: string, options?: CreateProjectOptions): Project {
   return createProject(db, name, options);
 }
-
-export const readProjectStateProjection = readSpecificationStateProjection;
-export const getProjectState = getSpecificationState;
-export const listProjectStates = listSpecifications;
-export const createNewProject = createNewSpecification;

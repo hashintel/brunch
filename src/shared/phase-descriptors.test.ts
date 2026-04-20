@@ -8,19 +8,19 @@ import {
   getPhaseRouteSegment,
   getWorkflowPhaseDescriptor,
   getWorkflowPhaseLabel,
-  groundingPhaseLabel,
-  groundingRouteSegment,
   groundingWorkflowPhase,
   phaseOrder,
-  routeSegmentToPhase,
   workflowPhaseDescriptors,
 } from './phase-descriptors.js';
 
 describe('workflow phase descriptors', () => {
   it('keeps grounding as the canonical first-phase descriptor', () => {
     expect(groundingWorkflowPhase).toBe('scope');
-    expect(groundingPhaseLabel).toBe('Grounding');
-    expect(groundingRouteSegment).toBe('grounding');
+    expect(getWorkflowPhaseDescriptor(groundingWorkflowPhase)).toEqual({
+      phase: 'scope',
+      label: 'Grounding',
+      routeSegment: 'grounding',
+    });
     expect(phaseOrder[0]).toBe(groundingWorkflowPhase);
   });
 
@@ -38,7 +38,10 @@ describe('workflow phase descriptors', () => {
 
   it('round-trips every phase through the canonical route-segment mapping', () => {
     for (const phase of phaseOrder) {
-      expect(routeSegmentToPhase[getPhaseRouteSegment(phase)]).toBe(phase);
+      expect(
+        workflowPhaseDescriptors.find((descriptor) => descriptor.routeSegment === getPhaseRouteSegment(phase))
+          ?.phase,
+      ).toBe(phase);
     }
   });
 

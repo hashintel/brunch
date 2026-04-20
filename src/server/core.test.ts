@@ -6,9 +6,9 @@ import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import {
   extractPrompt,
   finalizeTurn,
-  getProjectState,
+  getSpecificationState,
   prepareTurn,
-  readProjectStateProjection,
+  readSpecificationStateProjection,
 } from './core.js';
 import {
   confirmPhaseOutcome,
@@ -395,11 +395,11 @@ describe('finalizeTurn', () => {
   });
 });
 
-describe('getProjectState', () => {
+describe('getSpecificationState', () => {
   it('keeps projection-only reads free of fabricated kickoff or recovery rows', () => {
     const project = createProject(db, 'Spec');
 
-    const kickoffProjection = readProjectStateProjection(db, project.id);
+    const kickoffProjection = readSpecificationStateProjection(db, project.id);
 
     expect(kickoffProjection?.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
     expect(kickoffProjection?.turns).toEqual([]);
@@ -412,7 +412,7 @@ describe('getProjectState', () => {
     });
     finalizeTurn(db, project.id, turn.id);
 
-    const recoveryProjection = readProjectStateProjection(db, project.id);
+    const recoveryProjection = readSpecificationStateProjection(db, project.id);
 
     expect(recoveryProjection?.landing).toEqual({ kind: 'recovery', phase: 'scope' });
     expect(recoveryProjection?.turns.filter((candidate) => candidate.turn_kind === 'question')).toHaveLength(
@@ -425,7 +425,7 @@ describe('getProjectState', () => {
     const project = createProject(db, 'Spec');
     createLegacyKickoffTurnForTesting(db, project.id);
 
-    const state = getProjectState(db, project.id);
+    const state = getSpecificationState(db, project.id);
 
     expect(state?.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
     expect(state?.turns).toHaveLength(1);
@@ -464,7 +464,7 @@ describe('getProjectState', () => {
     linkKnowledgeItemToTurn(db, decision.id, turn.id);
     finalizeTurn(db, project.id, turn.id);
 
-    const state = getProjectState(db, project.id);
+    const state = getSpecificationState(db, project.id);
 
     expect(state?.project.id).toBe(project.id);
     expect(state?.landing).toEqual({ kind: 'recovery', phase: 'scope' });

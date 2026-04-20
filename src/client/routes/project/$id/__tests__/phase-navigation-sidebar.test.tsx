@@ -11,7 +11,7 @@ import { act, cleanup, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { ProjectStateTurn, WorkflowState } from '@/shared/api-types.js';
-import { workflowPhaseLabels } from '@/shared/phase-display.js';
+import { workflowPhaseDescriptors } from '@/shared/phase-descriptors.js';
 
 import { PhaseNavigationSidebar } from '../-phase-navigation-sidebar.js';
 
@@ -112,7 +112,7 @@ describe('PhaseNavigationSidebar', () => {
     expect(screen.getByRole('link', { name: /Back to Workspace/i })).toBeTruthy();
     expect(screen.getByText('Specification Alpha')).toBeTruthy();
 
-    for (const label of Object.values(workflowPhaseLabels)) {
+    for (const { label } of workflowPhaseDescriptors) {
       expect(screen.getByText(label)).toBeTruthy();
     }
   });
