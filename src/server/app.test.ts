@@ -1408,6 +1408,7 @@ describe('phase outcomes + scope closure', () => {
       })
       .expect(200);
 
+    const observerCallCount = mockRunObserver.mock.calls.length;
     mockStreamInterviewer.mockImplementation(async () =>
       makeTextInterviewer('Which database tradeoff matters more?'),
     );
@@ -1433,12 +1434,7 @@ describe('phase outcomes + scope closure', () => {
       'design',
       undefined,
     );
-    expect(mockRunObserver).toHaveBeenLastCalledWith(
-      expect.anything(),
-      expect.objectContaining({ phase: 'design' }),
-      projectId,
-      expect.any(String),
-    );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount);
   });
 
   it('streams a design phase summary proposal and projects workflow state through the shared phase seam', async () => {
@@ -1509,7 +1505,7 @@ describe('phase outcomes + scope closure', () => {
     expect(events).toContainEqual({
       type: 'data-phase-summary',
       data: {
-        turnId: 4,
+        turnId: 3,
         phase: 'design',
         summary: 'The main architectural commitments are captured well enough to review requirements.',
       },
@@ -1522,7 +1518,7 @@ describe('phase outcomes + scope closure', () => {
       readiness: 'low',
       closureBasis: null,
       proposalPending: true,
-      turnId: 4,
+      turnId: 3,
       summary: 'The main architectural commitments are captured well enough to review requirements.',
     });
     expect(projectRes.body.workflow.phases.requirements).toEqual(
@@ -1539,7 +1535,7 @@ describe('phase outcomes + scope closure', () => {
         {
           type: 'data-phase-summary',
           data: {
-            turnId: 4,
+            turnId: 3,
             phase: 'design',
             summary: 'The main architectural commitments are captured well enough to review requirements.',
           },
@@ -1642,7 +1638,7 @@ describe('phase outcomes + scope closure', () => {
     expect(projectRes.body.workflow.phases.design).toEqual(
       expect.objectContaining({
         status: 'closed',
-        turnId: 4,
+        turnId: 3,
         summary: 'The main architectural commitments are captured well enough to review requirements.',
         closeability: false,
         readiness: 'low',
@@ -1660,6 +1656,7 @@ describe('phase outcomes + scope closure', () => {
       }),
     );
 
+    const observerCallCount = mockRunObserver.mock.calls.length;
     mockStreamInterviewer.mockImplementation(async () =>
       makeTextInterviewer('Which requirement is must-have?'),
     );
@@ -1685,9 +1682,10 @@ describe('phase outcomes + scope closure', () => {
       'requirements',
       undefined,
     );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),
-      expect.objectContaining({ phase: 'requirements' }),
+      expect.objectContaining({ phase: 'design' }),
       projectId,
       expect.any(String),
     );
@@ -1969,6 +1967,7 @@ describe('phase outcomes + scope closure', () => {
       }),
     );
 
+    const observerCallCount = mockRunObserver.mock.calls.length;
     mockStreamInterviewer.mockImplementation(async () =>
       makeTextInterviewer('Which acceptance criterion proves export works?'),
     );
@@ -1994,9 +1993,10 @@ describe('phase outcomes + scope closure', () => {
       'criteria',
       undefined,
     );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),
-      expect.objectContaining({ phase: 'criteria' }),
+      expect.objectContaining({ phase: 'requirements' }),
       projectId,
       expect.any(String),
     );
@@ -2031,6 +2031,8 @@ describe('phase outcomes + scope closure', () => {
       }),
     );
 
+    const observerCallCount = mockRunObserver.mock.calls.length;
+
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({
@@ -2053,12 +2055,7 @@ describe('phase outcomes + scope closure', () => {
       undefined,
     );
 
-    expect(mockRunObserver).toHaveBeenLastCalledWith(
-      expect.anything(),
-      expect.objectContaining({ phase: 'criteria' }),
-      projectId,
-      expect.any(String),
-    );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount);
 
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.criteria).toEqual(
@@ -2431,6 +2428,8 @@ describe('phase outcomes + scope closure', () => {
       },
     ]);
 
+    const observerCallCount = mockRunObserver.mock.calls.length;
+
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({
@@ -2452,9 +2451,10 @@ describe('phase outcomes + scope closure', () => {
       'requirements',
       undefined,
     );
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),
-      expect.objectContaining({ phase: 'requirements' }),
+      expect.objectContaining({ phase: 'design' }),
       projectId,
       expect.any(String),
     );
@@ -2860,6 +2860,59 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         },
       },
     ]);
+  });
+
+  it('reuses an already-answered active turn instead of creating a duplicate answered turn', async () => {
+    const projectId = await createTestProject();
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const { getActivePath, getTurn, getOptionsForTurn } = await import('./db.js');
+    const turn = getActivePath(db, projectId)[1]!;
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
+      .send({
+        kind: 'select-options',
+        positions: [0, 1],
+        freeText: 'Covers both launch paths',
+      })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u2',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Web, Desktop — Covers both launch paths' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    const turns = getActivePath(db, projectId);
+    expect(turns).toHaveLength(3);
+    expect(turns[1]).toMatchObject({
+      id: turn.id,
+      answer: 'Web, Desktop — Covers both launch paths',
+    });
+    expect(getOptionsForTurn(db, turn.id).filter((option) => option.is_selected)).toHaveLength(2);
+    expect(getTurn(db, turn.id)?.user_parts).toContain('Covers both launch paths');
+    expect(turns[2]).toMatchObject({
+      parent_turn_id: turn.id,
+      answer: null,
+      question: structuredQuestion.question,
+    });
   });
 
   it('skips observer capture for answered grounding-card turns while still advancing to the next interviewer turn', async () => {

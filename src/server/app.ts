@@ -565,13 +565,16 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           supersedePhaseOutcome(db, activeOutcome.id);
         }
 
-        if (activeTurn?.answer === null) {
+        if (activeTurn) {
           skipObserverForCurrentChatTurn = Boolean(getPersistedGroundingCard(activeTurn));
-          resolveTurn(db, activeTurn.id, promptText, persistedUserParts);
+          const successorPhase = activeTurn.answer === null ? activeTurn.phase : currentPhase;
+          if (activeTurn.answer === null) {
+            resolveTurn(db, activeTurn.id, promptText, persistedUserParts);
+          }
           observedTurnId = activeTurn.id;
-          prepared = prepareSuccessorTurn(db, id, activeTurn.phase, activeTurn.id);
+          finalizeTurn(db, id, activeTurn.id);
+          prepared = prepareSuccessorTurn(db, id, successorPhase, activeTurn.id);
         } else {
-          skipObserverForCurrentChatTurn = Boolean(activeTurn && getPersistedGroundingCard(activeTurn));
           const answeredTurn = prepareTurn(db, id, promptText, persistedUserParts, currentPhase);
           finalizeTurn(db, id, answeredTurn.turn.id);
           observedTurnId = answeredTurn.turn.id;
