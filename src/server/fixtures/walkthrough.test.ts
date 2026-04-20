@@ -4,6 +4,8 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { getSpecificationRecord } from '@/shared/specification.js';
+
 import { getSpecificationState } from '../core.js';
 import { createDb, getActivePath, getEntitiesForProjectOnActivePath } from '../db.js';
 import { renderExportMarkdown } from '../export.js';
@@ -168,7 +170,7 @@ describe('walkthroughScenarioMatrix', () => {
 
       expect(projectState).not.toBeNull();
       const markdown = renderExportMarkdown(
-        projectState!.project.name,
+        getSpecificationRecord(projectState!).name,
         getEntitiesForProjectOnActivePath(db, projectId),
         projectState!.workflow,
       );
@@ -190,7 +192,7 @@ describe('walkthroughScenarioMatrix', () => {
     await withReopenedSeededScenario('brownfield-grounding-replay', ({ db, projectId }) => {
       const projectState = getSpecificationState(db, projectId);
 
-      expect(projectState?.project.mode).toBe('brownfield');
+      expect(projectState ? getSpecificationRecord(projectState).mode : null).toBe('brownfield');
       expect(projectState?.turns).toHaveLength(3);
       expect(projectState?.landing).toEqual({
         kind: 'frontier-turn',

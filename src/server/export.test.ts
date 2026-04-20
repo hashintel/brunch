@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from 'vitest';
 
 import type { EntitiesData, ReadinessBand, WorkflowState } from '@/shared/api-types.js';
+import { getSpecificationRecord } from '@/shared/specification.js';
 
 import { getSpecificationState } from './core.js';
 import {
@@ -263,7 +264,7 @@ describe('renderExportMarkdown', () => {
     });
 
     const markdown = renderExportMarkdown(
-      projectState!.project.name,
+      getSpecificationRecord(projectState!).name,
       getEntitiesForProjectOnActivePath(db, projectId),
       projectState!.workflow,
     );
@@ -286,7 +287,7 @@ describe('renderExportMarkdown', () => {
     });
 
     const markdown = renderExportMarkdown(
-      projectState!.project.name,
+      getSpecificationRecord(projectState!).name,
       getEntitiesForProjectOnActivePath(db, projectId),
       projectState!.workflow,
     );

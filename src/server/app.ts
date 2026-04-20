@@ -34,6 +34,7 @@ import {
 } from '@/shared/specification-state.js';
 import {
   createSpecificationRequestSchema,
+  getSpecificationRecord,
   type SpecificationListItem,
   type SpecificationState,
 } from '@/shared/specification.js';
@@ -388,7 +389,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     }
     const entities = getEntitiesForProjectByMode(db, id, 'active-path');
     const markdown = renderExportMarkdown(
-      specificationState.project.name,
+      getSpecificationRecord(specificationState).name,
       entities,
       specificationState.workflow,
     );
@@ -517,7 +518,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           db,
           id,
           phaseIntentPart.data.phase,
-          specificationState.project.active_turn_id ?? null,
+          getSpecificationRecord(specificationState).active_turn_id ?? null,
         );
       } else {
         const specificationState = getSpecificationState(db, id);
@@ -527,9 +528,8 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
 
         const currentPhase = getCurrentPhase(db, id);
-        const activeTurn = specificationState.project.active_turn_id
-          ? getTurn(db, specificationState.project.active_turn_id)
-          : undefined;
+        const activeTurnId = getSpecificationRecord(specificationState).active_turn_id;
+        const activeTurn = activeTurnId ? getTurn(db, activeTurnId) : undefined;
 
         const activeOutcome = activeTurn ? findPhaseOutcomeForTurn(db, id, activeTurn.id) : undefined;
         if (activeOutcome?.status === 'proposed') {

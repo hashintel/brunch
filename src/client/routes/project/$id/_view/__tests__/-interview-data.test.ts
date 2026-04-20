@@ -151,7 +151,7 @@ describe('workspace controller core', () => {
       answer: 'Build the web app',
     });
     const refreshedProjectState = createProjectState({
-      projectId: initialProjectState.project.id,
+      projectId: initialProjectState.project!.id,
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
     });
@@ -774,7 +774,7 @@ describe('workspace controller core', () => {
         options: [{ id: 21, position: 0, content: 'Monolith', is_recommended: true, is_selected: false }],
       },
     ];
-    projectState.project.active_turn_id = 2;
+    projectState.project!.active_turn_id = 2;
     projectState.landing = deriveSpecificationLanding(projectState);
 
     const durableSpecification = createInterviewDurableSpecificationState(projectState);

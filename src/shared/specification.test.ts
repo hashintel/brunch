@@ -4,7 +4,6 @@ import {
   createProjectRequestSchema,
   createProjectResponseSchema,
   projectListItemSchema,
-  projectStateSchema,
 } from './api-types.js';
 import {
   createSpecificationRequestSchema,
@@ -12,17 +11,17 @@ import {
   specificationListItemSchema,
   specificationSchema,
   specificationStateSchema,
+  specificationTurnSchema,
 } from './specification.js';
 
 describe('specification boundary aliases', () => {
-  it('keeps specification-facing schemas as aliases of the legacy project contracts', () => {
+  it('keeps create/list schemas aligned with the legacy project contracts where no project-shaped fields leak', () => {
     expect(createSpecificationRequestSchema).toBe(createProjectRequestSchema);
     expect(createSpecificationResponseSchema).toBe(createProjectResponseSchema);
     expect(specificationListItemSchema).toBe(projectListItemSchema);
-    expect(specificationStateSchema).toBe(projectStateSchema);
   });
 
-  it('parses existing project-shaped transport payloads through the specification boundary', () => {
+  it('normalizes existing project-shaped state payloads into canonical specification-shaped output', () => {
     expect(
       specificationSchema.parse({
         id: 1,
@@ -106,8 +105,37 @@ describe('specification boundary aliases', () => {
         ],
       }),
     ).toMatchObject({
-      project: { name: 'Specification Alpha' },
+      specification: { name: 'Specification Alpha' },
       workflow: { phases: { design: { status: 'in_progress' } } },
+      turns: [
+        {
+          specification_id: 1,
+          parent_turn_id: 2,
+          phase: 'design',
+        },
+      ],
+    });
+  });
+
+  it('accepts canonical specification-shaped turn payloads directly', () => {
+    expect(
+      specificationTurnSchema.parse({
+        id: 3,
+        specification_id: 1,
+        parent_turn_id: 2,
+        phase: 'design',
+        question: 'What architecture should we choose?',
+        why: 'This determines implementation shape.',
+        impact: 'high',
+        answer: null,
+        is_resolution: false,
+        user_parts: null,
+        assistant_parts: null,
+        created_at: '2026-04-20 10:05:00',
+      }),
+    ).toMatchObject({
+      specification_id: 1,
+      phase: 'design',
     });
   });
 });

@@ -19,7 +19,11 @@ import {
 import type { DataConfirmation } from '@/shared/phase-close.js';
 import { getNextActivePhase, getPhaseRoutePath } from '@/shared/phase-descriptors.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
-import type { SpecificationMode, SpecificationTurn } from '@/shared/specification.js';
+import {
+  getSpecificationRecord,
+  type SpecificationMode,
+  type SpecificationTurn,
+} from '@/shared/specification.js';
 
 import {
   buildPhaseTurnIds,
@@ -113,7 +117,7 @@ export interface InterviewController {
 export function useInterviewController(phase: WorkflowPhase): InterviewController {
   const specificationState = useLoaderData({ from: '/project/$id' });
   const router = useRouter();
-  const projectId = specificationState.project.id;
+  const projectId = getSpecificationRecord(specificationState).id;
 
   const invalidateRouter = useCallback(() => router.invalidate(), [router]);
   const { durableSpecification, ephemeralChat, handleDataPart } = useInterviewDataAdapter(

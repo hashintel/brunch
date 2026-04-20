@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import type { SpecificationState } from '@/shared/specification.js';
+import { getSpecificationRecord, type SpecificationState } from '@/shared/specification.js';
 
 import {
   createInterviewDurableSpecificationState,
@@ -27,7 +27,7 @@ export function useInterviewDataAdapter(
   );
   const ephemeralChat = useMemo(
     () => createInterviewEphemeralChatState(specificationState),
-    [specificationState.project.id],
+    [getSpecificationRecord(specificationState).id],
   );
   const handleDataPart = useCallback(
     (dataPart: { type: string; data?: unknown }) => {

@@ -13,10 +13,14 @@ import {
   safeParsePersistedUserParts,
   turnHasCompletedAnswer,
 } from '@/shared/specification-state.js';
-import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
+import {
+  getSpecificationRecord,
+  type SpecificationState,
+  type SpecificationTurn,
+} from '@/shared/specification.js';
 
 export interface InterviewDurableSpecificationState {
-  readonly project: SpecificationState['project'];
+  readonly project: ReturnType<typeof getSpecificationRecord>;
   readonly workflow: SpecificationState['workflow'];
   readonly turns: readonly SpecificationTurn[];
   readonly landing: SpecificationLanding | null;
@@ -151,7 +155,7 @@ export function createInterviewDurableSpecificationState(
     | undefined;
 
   return {
-    project: specificationState.project,
+    project: getSpecificationRecord(specificationState),
     workflow: specificationState.workflow,
     turns: specificationState.turns,
     landing: specificationState.landing ?? null,

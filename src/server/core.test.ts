@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+import { getSpecificationRecord } from '@/shared/specification.js';
 
 import {
   extractPrompt,
@@ -451,7 +452,7 @@ describe('getSpecificationState', () => {
     });
   });
 
-  it('returns project plus active path turns and projects recovery when the frontier is missing', () => {
+  it('returns specification plus active path turns and projects recovery when the frontier is missing', () => {
     const project = createProject(db, 'Spec');
     const turn = createTurn(db, project.id, {
       phase: 'scope',
@@ -466,9 +467,10 @@ describe('getSpecificationState', () => {
 
     const state = getSpecificationState(db, project.id);
 
-    expect(state?.project.id).toBe(project.id);
+    expect(state ? getSpecificationRecord(state).id : null).toBe(project.id);
     expect(state?.landing).toEqual({ kind: 'recovery', phase: 'scope' });
     expect(state?.turns.filter((candidate) => candidate.turn_kind === 'question')).toHaveLength(1);
+    expect(state?.turns[0]?.specification_id ?? state?.turns[0]?.project_id).toBe(project.id);
     expect(state?.turns[0].question).toBe('What are we building?');
     expect(state?.turns[0].turn_kind).toBe('question');
     expect(state?.turns[0].captured_items).toEqual([

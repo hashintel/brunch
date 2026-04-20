@@ -1,7 +1,7 @@
 import { Outlet, createFileRoute, useLoaderData, useParams } from '@tanstack/react-router';
 
 import { Skeleton } from '@/client/components/ui/skeleton';
-import type { SpecificationState } from '@/shared/specification.js';
+import { getSpecificationRecord, type SpecificationState } from '@/shared/specification.js';
 
 import { PhaseNavigationSidebar } from './-phase-navigation-sidebar.js';
 
@@ -43,7 +43,7 @@ export const Route = createFileRoute('/project/$id')({
       <div className="flex h-full">
         <PhaseNavigationSidebar
           specificationId={specificationId}
-          specificationName={specificationState.project.name}
+          specificationName={getSpecificationRecord(specificationState).name}
           workflow={specificationState.workflow}
           turns={specificationState.turns}
         />

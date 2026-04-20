@@ -1,5 +1,4 @@
 import type {
-  ProjectStateTurn,
   SpecificationLanding,
   SubmitPhaseIntentRequest,
   SubmitPhaseIntentResponse,
@@ -12,6 +11,7 @@ import {
   isGroundingStrategyKickoffTurn,
 } from '@/shared/grounding-strategy.js';
 import { deriveSpecificationLanding } from '@/shared/specification-state.js';
+import type { SpecificationTurn } from '@/shared/specification.js';
 
 import { loadActivePathWithOptions } from './core.js';
 import {
@@ -81,7 +81,7 @@ function persistGroundingStrategyKickoffSelection({
 function findLatestPhaseTurn(
   turns: ReturnType<typeof loadActivePathWithOptions>,
   phase: WorkflowPhase,
-): ProjectStateTurn | null {
+): SpecificationTurn | null {
   return [...turns].reverse().find((turn) => turn.phase === phase) ?? null;
 }
 

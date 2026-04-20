@@ -320,7 +320,7 @@ afterEach(() => {
 describe('interview controller', () => {
   it('projects a kickoff turn card when an open phase has no active frontier turn yet', async () => {
     currentProjectState = createProjectState({ assistantText: '', answer: '' });
-    currentProjectState.project.active_turn_id = null;
+    currentProjectState.project!.active_turn_id = null;
     currentProjectState.workflow.phases.scope.turnId = null;
     currentProjectState.turns = [];
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
@@ -385,7 +385,7 @@ describe('interview controller', () => {
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
     currentProjectState.workflow.phases.scope.turnId = null;
-    currentProjectState.project.active_turn_id = null;
+    currentProjectState.project!.active_turn_id = null;
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
     fetchMock.mockResolvedValueOnce(
@@ -414,7 +414,7 @@ describe('interview controller', () => {
   it('submits the grounding strategy kickoff from landing-only state without a seeded kickoff turn', async () => {
     currentProjectState = createProjectState({ assistantText: '', answer: '', turns: [] });
     currentProjectState.workflow.phases.scope.turnId = null;
-    currentProjectState.project.active_turn_id = null;
+    currentProjectState.project!.active_turn_id = null;
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
     fetchMock.mockResolvedValueOnce(
@@ -458,7 +458,7 @@ describe('interview controller', () => {
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
     currentProjectState.workflow.phases.scope.turnId = null;
-    currentProjectState.project.active_turn_id = null;
+    currentProjectState.project!.active_turn_id = null;
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
     fetchMock.mockResolvedValueOnce(
@@ -499,7 +499,7 @@ describe('interview controller', () => {
 
   it('auto-submits a typed phase-entry for the current reachable kickoff phase', async () => {
     currentProjectState = createProjectState({ turns: [] });
-    currentProjectState.project.active_turn_id = null;
+    currentProjectState.project!.active_turn_id = null;
     currentProjectState.workflow.phases.scope = {
       status: 'closed',
       closeability: false,
@@ -567,7 +567,7 @@ describe('interview controller', () => {
     currentProjectState = createProjectState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.project.active_turn_id = null;
+    currentProjectState.project!.active_turn_id = null;
     currentProjectState.workflow.phases.scope = {
       status: 'closed',
       closeability: false,
@@ -630,7 +630,7 @@ describe('interview controller', () => {
 
   it('does not duplicate the auto phase-entry submit across rerender and remount', async () => {
     currentProjectState = createProjectState({ turns: [] });
-    currentProjectState.project.active_turn_id = null;
+    currentProjectState.project!.active_turn_id = null;
     currentProjectState.workflow.phases.scope = {
       status: 'closed',
       closeability: false,
@@ -689,7 +689,7 @@ describe('interview controller', () => {
     currentProjectState = createProjectState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.project.active_turn_id = null;
+    currentProjectState.project!.active_turn_id = null;
     currentProjectState.workflow.phases.scope = {
       status: 'closed',
       closeability: false,
@@ -754,7 +754,7 @@ describe('interview controller', () => {
     currentProjectState = createProjectState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.project.active_turn_id = null;
+    currentProjectState.project!.active_turn_id = null;
     currentProjectState.workflow.phases.scope.turnId = null;
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
@@ -784,7 +784,7 @@ describe('interview controller', () => {
 
   it('falls back to the projected kickoff card when auto phase-entry submit rejects', async () => {
     currentProjectState = createProjectState({ turns: [] });
-    currentProjectState.project.active_turn_id = null;
+    currentProjectState.project!.active_turn_id = null;
     currentProjectState.workflow.phases.scope = {
       status: 'closed',
       closeability: false,

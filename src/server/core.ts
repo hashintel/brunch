@@ -2,7 +2,12 @@ import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { extractTextFromMessage } from '@/shared/chat.js';
 import { getCurrentOpenPhase } from '@/shared/phase-descriptors.js';
 import { deriveSpecificationLanding } from '@/shared/specification-state.js';
-import type { SpecificationListItem, SpecificationState, SpecificationTurn } from '@/shared/specification.js';
+import type {
+  Specification,
+  SpecificationListItem,
+  SpecificationState,
+  SpecificationTurn,
+} from '@/shared/specification.js';
 
 import {
   getProject,
@@ -34,6 +39,23 @@ export function extractPrompt(messages: BrunchUIMessage[]): string {
 /** Turn with optional options for richer history formatting. */
 export type TurnWithOptions = SpecificationTurn;
 
+type ActivePathTurn = Turn & {
+  options: ReturnType<typeof getOptionsForTurn>;
+  captured_items: NonNullable<SpecificationTurn['captured_items']>;
+};
+
+function toSpecificationTurn(turn: ActivePathTurn): TurnWithOptions {
+  const { project_id, ...rest } = turn;
+  return {
+    ...rest,
+    specification_id: project_id,
+  };
+}
+
+function toSpecification(project: Project): Specification {
+  return project;
+}
+
 export function loadActivePathWithOptions(db: DB, projectId: number): TurnWithOptions[] {
   const rawActivePath = getActivePath(db, projectId);
   const capturedItemsByTurn = getCapturedItemsForTurns(
@@ -42,11 +64,13 @@ export function loadActivePathWithOptions(db: DB, projectId: number): TurnWithOp
     rawActivePath.map((turn) => turn.id),
   );
 
-  return rawActivePath.map((t) => ({
-    ...t,
-    options: getOptionsForTurn(db, t.id),
-    captured_items: capturedItemsByTurn.get(t.id) ?? [],
-  }));
+  return rawActivePath.map((turn) =>
+    toSpecificationTurn({
+      ...turn,
+      options: getOptionsForTurn(db, turn.id),
+      captured_items: capturedItemsByTurn.get(turn.id) ?? [],
+    }),
+  );
 }
 
 export function prepareTurn(
@@ -111,7 +135,7 @@ export function readSpecificationStateProjection(db: DB, projectId: number): Spe
   const turns = loadActivePathWithOptions(db, projectId);
   const workflow = getCurrentWorkflowState(db, projectId);
   return {
-    project,
+    specification: toSpecification(project),
     workflow,
     landing: deriveSpecificationLanding({ workflow, turns }),
     turns,

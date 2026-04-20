@@ -1,10 +1,11 @@
 import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { ProjectState, WorkflowPhase } from '@/shared/api-types.js';
+import type { WorkflowPhase } from '@/shared/api-types.js';
 import { type StructuredQuestion } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { getPhaseClosureCommandText } from '@/shared/phase-close.js';
+import { getSpecificationRecord, type SpecificationState } from '@/shared/specification.js';
 
 import { buildInterviewerContext } from './context.js';
 import type { DB } from './db.js';
@@ -336,7 +337,7 @@ async function createTestProject(name = 'Test Project'): Promise<number> {
 
 async function getProjectSnapshot(projectId: number) {
   const res = await request(app).get(`/api/projects/${projectId}`).expect(200);
-  return res.body as ProjectState;
+  return res.body as SpecificationState;
 }
 
 function seedClosedScope(projectId: number) {
@@ -458,7 +459,7 @@ describe('POST /api/projects', () => {
       .expect(201);
 
     const stateRes = await request(app).get(`/api/projects/${createRes.body.id}`).expect(200);
-    expect(stateRes.body.project.active_turn_id).toBeNull();
+    expect(stateRes.body.specification.active_turn_id).toBeNull();
     expect(stateRes.body.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
     expect(stateRes.body.turns).toEqual([]);
   });
@@ -485,8 +486,8 @@ describe('POST /api/projects', () => {
       .send({ name: 'BF', mode: 'brownfield' })
       .expect(201);
     const stateRes = await request(app).get(`/api/projects/${createRes.body.id}`).expect(200);
-    expect(stateRes.body.project.mode).toBe('brownfield');
-    expect(stateRes.body.project).not.toHaveProperty('cwd');
+    expect(stateRes.body.specification.mode).toBe('brownfield');
+    expect(stateRes.body.specification).not.toHaveProperty('cwd');
   });
 });
 
@@ -1348,7 +1349,7 @@ describe('phase outcomes + scope closure', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(scopeProposalTurnId);
+    expect(projectRes.body.specification.active_turn_id).toBe(scopeProposalTurnId);
     expect(projectRes.body.landing).toEqual({ kind: 'kickoff', phase: 'design', mode: 'start' });
     expect(projectRes.body.turns.at(-1)).toMatchObject({
       answer: 'Confirm grounding closure',
@@ -1788,7 +1789,7 @@ describe('phase outcomes + scope closure', () => {
     expect(entitiesRes.body.requirements).toEqual([]);
 
     const refreshedProjectState = await getProjectSnapshot(projectId);
-    const frontierTurn = getTurn(db, refreshedProjectState.project.active_turn_id!);
+    const frontierTurn = getTurn(db, getSpecificationRecord(refreshedProjectState).active_turn_id!);
     expect(JSON.parse(frontierTurn?.assistant_parts ?? '[]')).toEqual(
       expect.arrayContaining([
         {
@@ -2416,7 +2417,7 @@ describe('phase outcomes + scope closure', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.specification.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
     expect(projectRes.body.landing).toEqual({ kind: 'kickoff', phase: 'requirements', mode: 'start' });
     expect(projectRes.body.turns.at(-1)).toMatchObject({
       phase: 'design',
@@ -3123,7 +3124,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(reviewTurn.id);
+    expect(projectRes.body.specification.active_turn_id).toBe(reviewTurn.id);
     expect(projectRes.body.landing).toEqual({ kind: 'kickoff', phase: 'criteria', mode: 'start' });
     expect(projectRes.body.turns.at(-1)).toEqual(
       expect.objectContaining({
@@ -3381,7 +3382,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.specification.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
     expect(projectRes.body.turns.at(-1)).toEqual(
       expect.objectContaining({
         phase: 'requirements',
@@ -3659,7 +3660,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         summary: 'The reviewed criteria set is accepted and the specification is ready for output.',
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(reviewTurn.id);
+    expect(projectRes.body.specification.active_turn_id).toBe(reviewTurn.id);
 
     const entitiesRes = await request(app)
       .get(`/api/projects/${projectId}/entities?mode=project-wide`)
@@ -3829,7 +3830,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.specification.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
     expect(projectRes.body.turns.at(-1)).toEqual(
       expect.objectContaining({
         phase: 'criteria',
@@ -3875,7 +3876,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(200);
 
     const projectStateRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    const projectState = projectStateRes.body as ProjectState;
+    const projectState = projectStateRes.body as SpecificationState;
     const selectedOptionIds = getOptionsForTurn(db, turn.id)
       .filter((option) => option.is_selected)
       .map((option) => option.id);
