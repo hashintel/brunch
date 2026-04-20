@@ -3,7 +3,7 @@ import { Link, useLoaderData } from '@tanstack/react-router';
 import { Message, MessageContent, MessageResponse } from '@/client/components/ai-elements/message';
 import { Button } from '@/client/components/app-shell';
 import { ChatScroll } from '@/client/components/chat-scroll';
-import { TranscriptMetaPlaceholder, WorkspaceStateCard } from '@/client/components/control-cards';
+import { WorkspaceStateCard } from '@/client/components/control-cards';
 import { ActivityPlaceholder } from '@/client/components/question-cards';
 import { cn } from '@/client/lib/utils';
 import type { WorkflowPhase } from '@/shared/api-types.js';
@@ -65,11 +65,7 @@ function renderPersistedActivity(turn: Pick<SpecificationTurn, 'assistant_parts'
   return renderActivitySummary(getPersistedActivitySummary(turn));
 }
 
-function renderMessageParts(
-  message: BrunchUIMessage,
-  isStreaming: boolean,
-  options?: { suppressStructuredQuestion?: boolean; suppressPhaseSummary?: boolean },
-) {
+function renderMessageParts(message: BrunchUIMessage, isStreaming: boolean) {
   return message.parts?.map((part, index) => {
     if (part.type === 'reasoning' || part.type === 'step-start') {
       return null;
@@ -87,18 +83,7 @@ function renderMessageParts(
       return null;
     }
     if (part.type === 'data-phase-summary') {
-      if (options?.suppressPhaseSummary) {
-        return null;
-      }
-
-      return (
-        <TranscriptMetaPlaceholder
-          key={index}
-          testId="phase-summary-placeholder"
-          label="Phase closure summary"
-          detail={part.data.summary}
-        />
-      );
+      return null;
     }
     if (part.type === 'dynamic-tool') {
       return null;
@@ -255,13 +240,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
 
               const isLastAssistant =
                 message.role === 'assistant' && messageIndex === chat.messages.length - 1;
-              const suppressPhaseSummary = Boolean(
-                bottomArtifact?.kind === 'phase-summary' && isLastAssistant,
-              );
-
-              const renderedParts = renderMessageParts(message, isLastAssistant && chat.isStreaming, {
-                suppressPhaseSummary,
-              });
+              const renderedParts = renderMessageParts(message, isLastAssistant && chat.isStreaming);
               const hasRenderedParts = renderedParts?.some((part) => part !== null) ?? false;
 
               if (!hasRenderedParts) {

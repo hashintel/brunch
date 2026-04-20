@@ -2980,6 +2980,7 @@ describe('InterviewView', () => {
     renderWorkspace();
 
     expect(screen.getByText('Grounding closure proposal')).toBeTruthy();
+    expect(screen.queryByTestId('phase-summary-placeholder')).toBeNull();
     fireEvent.click(await screen.findByRole('button', { name: /confirm grounding closure/i }));
 
     await waitFor(() => {
