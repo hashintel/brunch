@@ -3,10 +3,15 @@ import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import type { EdgeRelation, Impact, ReviewAction, TurnKind } from '@/shared/api-types.js';
-import { formatTurnResponseText, type BrunchAssistantPart, type BrunchUserPart } from '@/shared/chat.js';
+import {
+  formatTurnResponseText,
+  type BrunchAssistantPart,
+  type BrunchUserPart,
+  type ReviewActionOption,
+} from '@/shared/chat.js';
 import {
   createKnowledgeCollectionRecord,
-  knowledgeKindRegistry,
+  knowledgeCollectionKeyByKind,
   type KnowledgeKind,
 } from '@/shared/knowledge.js';
 import {
@@ -30,6 +35,7 @@ import {
 } from '../db.js';
 import { serializeParts } from '../parts.js';
 import * as schema from '../schema.js';
+import { isProjectedControlTurnKind } from './durable-manifest-contract.js';
 import type { ScenarioFn } from './scenarios.js';
 
 // ---------------------------------------------------------------------------
@@ -52,6 +58,7 @@ export interface ManifestTurn {
   selectedOptionPositions?: number[];
   freeText?: string | null;
   reviewAction?: ReviewAction;
+  reviewActions?: ReviewActionOption[];
   isProposal?: boolean;
   isConfirmation?: boolean;
 }
@@ -95,13 +102,8 @@ type CompiledQuestionTurn = {
   selectedOptionPositions: number[];
   freeText?: string;
   reviewAction?: ReviewAction;
+  reviewActions?: ReviewActionOption[];
   responseText?: string;
-};
-
-type CompiledFrontierTurn = {
-  kind: 'frontier';
-  phase: WorkflowPhase;
-  turnKind: Exclude<TurnKind, 'question'>;
 };
 
 type CompiledProposalTurn = {
@@ -116,21 +118,13 @@ type CompiledConfirmationTurn = {
   proposalIndex: number;
 };
 
-type CompiledManifestTurn =
-  | CompiledQuestionTurn
-  | CompiledFrontierTurn
-  | CompiledProposalTurn
-  | CompiledConfirmationTurn;
+type CompiledManifestTurn = CompiledQuestionTurn | CompiledProposalTurn | CompiledConfirmationTurn;
 
 interface CompiledManifestScenario {
   turns: CompiledManifestTurn[];
   knowledgeItems: ManifestKnowledgeItem[];
   edges: ManifestEdge[];
 }
-
-const knowledgeCollectionKeyByKind = new Map(
-  knowledgeKindRegistry.map((entry) => [entry.kind, entry.collectionKey] as const),
-);
 
 function normalizeOptionalText(value: string | null | undefined): string | undefined {
   const normalized = value?.trim();
@@ -192,27 +186,8 @@ function compileQuestionTurn(turn: ManifestTurn, turnIndex: number): CompiledQue
     selectedOptionPositions,
     ...(freeText ? { freeText } : {}),
     ...(turn.reviewAction ? { reviewAction: turn.reviewAction } : {}),
+    ...(turn.reviewActions ? { reviewActions: turn.reviewActions } : {}),
     ...(responseText ? { responseText } : {}),
-  };
-}
-
-function compileFrontierTurn(turn: ManifestTurn, turnIndex: number): CompiledFrontierTurn {
-  if (turn.turnKind !== 'kickoff' && turn.turnKind !== 'recovery') {
-    throw new Error(`Manifest frontier turn ${turnIndex} must declare turnKind kickoff or recovery`);
-  }
-
-  if (normalizeOptionalText(turn.question)) {
-    throw new Error(`Manifest frontier turn ${turnIndex} must not include question text`);
-  }
-
-  if (normalizeOptionalText(turn.answer ?? undefined)) {
-    throw new Error(`Manifest frontier turn ${turnIndex} must not include an answer`);
-  }
-
-  return {
-    kind: 'frontier',
-    phase: turn.phase,
-    turnKind: turn.turnKind,
   };
 }
 
@@ -259,18 +234,17 @@ function compileManifestScenario(scenario: ManifestScenario): CompiledManifestSc
     if (turn.isProposal && turn.isConfirmation) {
       throw new Error(`Manifest turn ${index} cannot be both a proposal and a confirmation`);
     }
-    if (turn.turnKind && turn.turnKind !== 'question' && (turn.isProposal || turn.isConfirmation)) {
-      throw new Error(`Manifest turn ${index} cannot combine frontier turnKind with proposal/confirmation`);
+    if (isProjectedControlTurnKind(turn.turnKind)) {
+      throw new Error(
+        `Manifest turn ${index} cannot seed control turnKind ${turn.turnKind}; seed durable authority and derive landing instead`,
+      );
     }
 
-    const compiledTurn =
-      turn.turnKind && turn.turnKind !== 'question'
-        ? compileFrontierTurn(turn, index)
-        : turn.isConfirmation
-          ? compileConfirmationTurn(turn, index, compiledTurns)
-          : turn.isProposal
-            ? compileProposalTurn(turn, index)
-            : compileQuestionTurn(turn, index);
+    const compiledTurn = turn.isConfirmation
+      ? compileConfirmationTurn(turn, index, compiledTurns)
+      : turn.isProposal
+        ? compileProposalTurn(turn, index)
+        : compileQuestionTurn(turn, index);
     compiledTurns.push(compiledTurn);
   }
 
@@ -328,6 +302,7 @@ function buildQuestionAssistantParts(
         why: turn.why,
         impact: turn.impact,
         options: turn.options,
+        ...(turn.reviewActions ? { reviewActions: turn.reviewActions } : {}),
       },
       output: {
         ok: true,
@@ -397,6 +372,7 @@ function seedCompiledManifestScenario(
   // Track manifest turn index → actual turn ID
   const turnIdMap = new Map<number, number>();
   const phaseOutcomeIdByProposalTurnIndex = new Map<number, number>();
+  const confirmationTurnIdByPhase = new Map<WorkflowPhase, number>();
   const observerEntityIdsByTurn = new Map<number, ObserverEntityIds>();
   let prevTurnId: number | null = null;
 
@@ -434,6 +410,7 @@ function seedCompiledManifestScenario(
       });
       turnIdMap.set(i, turn.id);
       confirmPhaseOutcome(db, phaseOutcomeId, turn.id);
+      confirmationTurnIdByPhase.set(turnDefinition.phase, turn.id);
 
       advanceHead(db, projectId, turn.id);
       prevTurnId = turn.id;
@@ -457,22 +434,6 @@ function seedCompiledManifestScenario(
       });
       phaseOutcomeIdByProposalTurnIndex.set(i, outcome.id);
 
-      advanceHead(db, projectId, turn.id);
-      prevTurnId = turn.id;
-      continue;
-    }
-
-    if (turnDefinition.kind === 'frontier') {
-      const turn = createTurn(db, projectId, {
-        phase: turnDefinition.phase,
-        parent_turn_id: prevTurnId,
-        turn_kind: turnDefinition.turnKind,
-        question: '',
-        answer: null,
-        user_parts: null,
-        assistant_parts: null,
-      });
-      turnIdMap.set(i, turn.id);
       advanceHead(db, projectId, turn.id);
       prevTurnId = turn.id;
       continue;
@@ -546,7 +507,7 @@ function seedCompiledManifestScenario(
     linkKnowledgeItemToTurn(db, item.id, captureTurnId, 'captured');
 
     const observerEntityIds = getObserverEntityIdsForTurn(observerEntityIdsByTurn, mi.capturedAtTurn);
-    const collectionKey = knowledgeCollectionKeyByKind.get(mi.kind);
+    const collectionKey = knowledgeCollectionKeyByKind[mi.kind];
     if (!collectionKey) {
       throw new Error(`Unsupported knowledge kind "${mi.kind}" in manifest item ${k}`);
     }
@@ -560,6 +521,19 @@ function seedCompiledManifestScenario(
         );
       }
       linkKnowledgeItemToTurn(db, item.id, reviewTurnId, mi.reviewAction);
+
+      // Legacy manifest scenarios still record per-item review outcomes before the
+      // final phase confirmation. Mirror accepted requirements/criteria onto the
+      // confirmation turn so active-path projections can derive the surviving set
+      // from the same confirmed-phase seam used at runtime.
+      const confirmationPhase =
+        mi.kind === 'requirement' ? 'requirements' : mi.kind === 'criterion' ? 'criteria' : null;
+      if (mi.reviewAction === 'reviewed' && confirmationPhase) {
+        const confirmationTurnId = confirmationTurnIdByPhase.get(confirmationPhase);
+        if (confirmationTurnId != null) {
+          linkKnowledgeItemToTurn(db, item.id, confirmationTurnId, 'reviewed');
+        }
+      }
     }
   }
 

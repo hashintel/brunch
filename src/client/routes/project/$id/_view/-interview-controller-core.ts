@@ -1,4 +1,9 @@
-import type { ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
+import type {
+  ProjectState,
+  ProjectStateTurn,
+  SpecificationLanding,
+  WorkflowPhase,
+} from '@/shared/api-types.js';
 import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type {
   AskQuestionUIPart,
@@ -6,18 +11,19 @@ import type {
   BrunchUserPart,
   StructuredQuestion,
 } from '@/shared/chat.js';
+import { getNextActivePhase } from '@/shared/phase-routes.js';
 import {
   hasPersistedTurnResponse,
   safeParsePersistedAssistantParts,
   safeParsePersistedUserParts,
   turnHasCompletedAnswer,
-  turnIsControlOrClosureArtifact,
 } from '@/shared/project-state-turn.js';
 
 export interface InterviewDurableProjectState {
   readonly project: ProjectState['project'];
   readonly workflow: ProjectState['workflow'];
   readonly turns: readonly ProjectStateTurn[];
+  readonly landing: SpecificationLanding | null;
   readonly lastTurn: ProjectStateTurn | undefined;
   readonly showTurnCard: boolean;
   readonly lastTurnHasResponse: boolean;
@@ -43,12 +49,12 @@ export interface PendingQuestionViewModel {
 
 export type KickoffMode = 'start' | 'continue';
 
-export interface KickoffTurnViewModel {
+export interface KickoffControlViewModel {
   readonly phase: WorkflowPhase;
   readonly mode: KickoffMode;
 }
 
-export interface RecoveryTurnViewModel {
+export interface RecoveryControlViewModel {
   readonly phase: WorkflowPhase;
 }
 
@@ -58,53 +64,46 @@ export interface PhaseSummaryViewModel {
   readonly summary: string;
 }
 
-export type InterviewTurnCardViewModel =
+export type InterviewActiveArtifactViewModel =
   | {
       readonly kind: 'persisted-turn';
       readonly turn: ProjectStateTurn;
       readonly state: 'active' | 'submitted';
     }
   | { readonly kind: 'pending-question'; readonly pendingQuestion: PendingQuestionViewModel }
-  | { readonly kind: 'kickoff'; readonly kickoff: KickoffTurnViewModel }
-  | { readonly kind: 'recovery'; readonly recovery: RecoveryTurnViewModel };
+  | { readonly kind: 'kickoff'; readonly kickoff: KickoffControlViewModel }
+  | { readonly kind: 'recovery'; readonly recovery: RecoveryControlViewModel };
+
+export type InterviewBottomArtifactViewModel =
+  | InterviewActiveArtifactViewModel
+  | {
+      readonly kind: 'phase-summary';
+      readonly phaseSummary: PhaseSummaryViewModel;
+    }
+  | {
+      readonly kind: 'generating';
+    }
+  | {
+      readonly kind: 'phase-handoff';
+      readonly phase: WorkflowPhase;
+      readonly nextPhase: WorkflowPhase;
+      readonly summary: string | null;
+      readonly isReviewPhase: boolean;
+    }
+  | {
+      readonly kind: 'workflow-complete';
+      readonly phase: WorkflowPhase;
+      readonly summary: string | null;
+      readonly isReviewPhase: boolean;
+    };
 
 export interface InterviewControllerViewState {
   readonly project: InterviewDurableProjectState['project'];
   readonly workflow: InterviewDurableProjectState['workflow'];
-  readonly turnCard: InterviewTurnCardViewModel | null;
-  readonly phaseSummary: PhaseSummaryViewModel | null;
-  readonly showGeneratingState: boolean;
+  readonly bottomArtifact: InterviewBottomArtifactViewModel | null;
   readonly promptInput: {
     readonly visible: boolean;
   };
-}
-
-export const startPhaseMessages: Record<WorkflowPhase, string> = {
-  scope: 'Begin the grounding phase.',
-  design: 'Begin the elicitation phase.',
-  requirements: 'Begin the requirements phase.',
-  criteria: 'Begin the acceptance criteria phase.',
-};
-
-export const continuePhaseMessages: Record<WorkflowPhase, string> = {
-  scope: 'Continue the grounding phase.',
-  design: 'Continue the elicitation phase.',
-  requirements: 'Continue the requirements phase.',
-  criteria: 'Continue the acceptance criteria phase.',
-};
-
-export function getKickoffMode(turns: readonly ProjectStateTurn[], phase: WorkflowPhase): KickoffMode {
-  return turns.some((turn) => turn.phase === phase && turn.turn_kind !== 'kickoff') ? 'continue' : 'start';
-}
-
-export function getKickoffMessage(phase: WorkflowPhase, mode: KickoffMode): string {
-  return mode === 'start' ? startPhaseMessages[phase] : continuePhaseMessages[phase];
-}
-
-function hasCompletedSubstantivePhaseTurn(turns: readonly ProjectStateTurn[], phase: WorkflowPhase): boolean {
-  return turns.some(
-    (turn) => turn.phase === phase && turnHasCompletedAnswer(turn) && !turnIsControlOrClosureArtifact(turn),
-  );
 }
 
 function hydrateMessages(turns: readonly ProjectStateTurn[]): BrunchUIMessage[] {
@@ -158,6 +157,7 @@ export function createInterviewDurableProjectState(projectState: ProjectState): 
     project: projectState.project,
     workflow: projectState.workflow,
     turns: projectState.turns,
+    landing: projectState.landing ?? null,
     lastTurn,
     showTurnCard: Boolean(lastTurn?.options?.length),
     lastTurnHasResponse: hasPersistedTurnResponse(lastTurn),
@@ -326,12 +326,44 @@ export function createInterviewControllerViewState(
 ): InterviewControllerViewState {
   const { project, workflow } = durableProject;
   const phaseState = workflow.phases[phase];
-  const phaseTurn = findPhaseTurn(durableProject, phase);
-  const frontierKind = phaseTurn?.turn_kind;
-  const showTurnCard =
-    frontierKind !== 'kickoff' && frontierKind !== 'recovery' && Boolean(phaseTurn?.options?.length);
+  const nextPhase = getNextActivePhase(workflow.phases, phase);
+  const isReviewPhase = phase === 'requirements' || phase === 'criteria';
+
+  if (phaseState.status === 'closed') {
+    const bottomArtifact: InterviewBottomArtifactViewModel | null = nextPhase
+      ? {
+          kind: 'phase-handoff',
+          phase,
+          nextPhase,
+          summary: phaseState.summary,
+          isReviewPhase,
+        }
+      : {
+          kind: 'workflow-complete',
+          phase,
+          summary: phaseState.summary,
+          isReviewPhase,
+        };
+
+    return {
+      project,
+      workflow,
+      bottomArtifact,
+      promptInput: {
+        visible: false,
+      },
+    };
+  }
+
+  const landing = durableProject.landing?.phase === phase ? durableProject.landing : null;
+  const phaseTurn =
+    landing?.kind === 'frontier-turn'
+      ? (durableProject.turns.find((turn) => turn.id === landing.turnId) ?? null)
+      : findPhaseTurn(durableProject, phase);
+  const showTurnCard = landing?.kind === 'frontier-turn' && Boolean(phaseTurn?.options?.length);
   const phaseTurnHasResponse = hasPersistedTurnResponse(phaseTurn ?? undefined);
   const isSubmittedTurn = phaseTurn?.id === submittedTurnId;
+  const showSubmittedTurnCard = isSubmittedTurn && Boolean(phaseTurn?.options?.length);
   const pendingQuestion = isLoading || submittedTurnId !== null ? findPendingQuestion(messages) : null;
   const latestPhaseSummary = findPhaseSummary(messages);
   const phaseSummary =
@@ -339,34 +371,17 @@ export function createInterviewControllerViewState(
     (isLoading || submittedTurnId !== null || workflow.phases[latestPhaseSummary.phase].proposalPending)
       ? latestPhaseSummary
       : null;
-  const missingFrontier = phaseTurn === null || turnHasCompletedAnswer(phaseTurn);
   const showPersistedTurn =
-    showTurnCard &&
+    (landing?.kind === 'frontier-turn' ? showTurnCard : showSubmittedTurnCard) &&
     phaseTurn !== null &&
     (!isLoading || isSubmittedTurn) &&
     (!turnHasCompletedAnswer(phaseTurn) || isSubmittedTurn);
   const showRecovery =
-    !isLoading &&
-    !phaseSummary &&
-    !pendingQuestion &&
-    phaseState.status !== 'closed' &&
-    !showPersistedTurn &&
-    (frontierKind === 'recovery' ||
-      ((frontierKind === undefined || frontierKind === 'question') &&
-        missingFrontier &&
-        hasCompletedSubstantivePhaseTurn(durableProject.turns, phase)));
+    !isLoading && !phaseSummary && !pendingQuestion && !showPersistedTurn && landing?.kind === 'recovery';
   const showKickoff =
-    !isLoading &&
-    !phaseSummary &&
-    !pendingQuestion &&
-    phaseState.status !== 'closed' &&
-    !showPersistedTurn &&
-    (frontierKind === 'kickoff' ||
-      ((frontierKind === undefined || frontierKind === 'question') &&
-        missingFrontier &&
-        !hasCompletedSubstantivePhaseTurn(durableProject.turns, phase)));
-  const turnCard: InterviewTurnCardViewModel | null = phaseSummary
-    ? null
+    !isLoading && !phaseSummary && !pendingQuestion && !showPersistedTurn && landing?.kind === 'kickoff';
+  const bottomArtifact: InterviewBottomArtifactViewModel | null = phaseSummary
+    ? { kind: 'phase-summary', phaseSummary }
     : pendingQuestion
       ? { kind: 'pending-question', pendingQuestion }
       : showPersistedTurn && phaseTurn
@@ -387,20 +402,25 @@ export function createInterviewControllerViewState(
                 kind: 'kickoff',
                 kickoff: {
                   phase,
-                  mode: getKickoffMode(durableProject.turns, phase),
+                  mode: landing.mode,
                 },
               }
-            : null;
+            : isLoading
+              ? { kind: 'generating' }
+              : null;
 
   return {
     project,
     workflow,
-    turnCard,
-    phaseSummary,
-    showGeneratingState: !phaseSummary && !turnCard && isLoading,
+    bottomArtifact,
     promptInput: {
       visible:
-        isLoading || phaseSummary || pendingQuestion || showKickoff || showRecovery
+        isLoading ||
+        bottomArtifact?.kind === 'phase-summary' ||
+        bottomArtifact?.kind === 'pending-question' ||
+        bottomArtifact?.kind === 'kickoff' ||
+        bottomArtifact?.kind === 'recovery' ||
+        bottomArtifact?.kind === 'generating'
           ? false
           : !showTurnCard || (phaseTurnHasResponse && !isSubmittedTurn),
     },

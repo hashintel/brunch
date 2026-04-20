@@ -20,7 +20,8 @@ vi.mock('ai', async () => {
   };
 });
 
-const { createDb } = await import('../db.js');
+const { advanceHead, createDb, createKnowledgeItem, createProject, createTurn, linkKnowledgeItemToTurn } =
+  await import('../db.js');
 const { seedFromManifest } = await import('./manifest.js');
 const {
   buildExpectedObserverOutputForTurn,
@@ -120,6 +121,59 @@ describe('captureProjectToManifestScenario', () => {
     const projectId = seedFromManifest(db, scenario, 'Capture Round Trip');
 
     expect(captureProjectToManifestScenario(db, projectId)).toEqual(scenario);
+  });
+
+  it('drops transitional kickoff and recovery rows when capturing durable manifest authority', () => {
+    const project = createProject(db, 'Capture Without Control Rows');
+    const kickoffTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      turn_kind: 'kickoff',
+      question: 'How should this specification start?',
+      answer: 'Feature within existing codebase',
+    });
+    advanceHead(db, project.id, kickoffTurn.id);
+
+    const answeredTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: kickoffTurn.id,
+      question: 'What should this tool optimize for first?',
+      answer: 'Fast onboarding with a clear guided flow',
+    });
+    advanceHead(db, project.id, answeredTurn.id);
+
+    const goal = createKnowledgeItem(db, project.id, 'goal', 'Keep onboarding fast');
+    linkKnowledgeItemToTurn(db, goal.id, answeredTurn.id, 'captured');
+
+    const recoveryTurn = createTurn(db, project.id, {
+      phase: 'scope',
+      parent_turn_id: answeredTurn.id,
+      turn_kind: 'recovery',
+      question: '',
+      answer: null,
+    });
+    advanceHead(db, project.id, recoveryTurn.id);
+
+    expect(captureProjectToManifestScenario(db, project.id)).toEqual({
+      turns: [
+        {
+          phase: 'scope',
+          question: 'What should this tool optimize for first?',
+          answer: 'Fast onboarding with a clear guided flow',
+          why: null,
+          impact: null,
+          options: [],
+        },
+      ],
+      knowledgeItems: [
+        {
+          kind: 'goal',
+          content: 'Keep onboarding fast',
+          rationale: null,
+          capturedAtTurn: 0,
+        },
+      ],
+      edges: [],
+    });
   });
 });
 

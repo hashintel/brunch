@@ -1,7 +1,9 @@
 import * as z from 'zod/v4';
 
 import { reviewActionSchema } from './chat.js';
+import { knowledgeEntityCollections, knowledgeKinds } from './knowledge.js';
 import { phaseClosureBasisSchema, workflowPhaseSchema, type WorkflowPhase } from './phase-close.js';
+import { phaseIntentRequestSchema } from './phase-intents.js';
 
 export type { WorkflowPhase };
 
@@ -50,6 +52,24 @@ export const workflowStateSchema = z.object({
   }),
 });
 
+export const kickoffLandingModeSchema = z.enum(['start', 'continue']);
+export const specificationLandingSchema = z.discriminatedUnion('kind', [
+  z.object({
+    kind: z.literal('kickoff'),
+    phase: workflowPhaseSchema,
+    mode: kickoffLandingModeSchema,
+  }),
+  z.object({
+    kind: z.literal('frontier-turn'),
+    phase: workflowPhaseSchema,
+    turnId: z.number().int().positive(),
+  }),
+  z.object({
+    kind: z.literal('recovery'),
+    phase: workflowPhaseSchema,
+  }),
+]);
+
 export const turnOptionSchema = z.object({
   id: z.number().int().positive(),
   position: z.number().int().min(0),
@@ -59,17 +79,8 @@ export const turnOptionSchema = z.object({
 });
 
 const capturedTurnItemSchema = z.object({
-  collection: z.enum(['knowledge_item', 'decision', 'assumption']),
-  kind: z.enum([
-    'goal',
-    'term',
-    'context',
-    'constraint',
-    'requirement',
-    'criterion',
-    'decision',
-    'assumption',
-  ]),
+  collection: z.enum(knowledgeEntityCollections),
+  kind: z.enum(knowledgeKinds),
   id: z.number().int().positive(),
   content: z.string(),
   referenceCode: z.string().optional(),
@@ -111,21 +122,11 @@ export const projectListItemsSchema = z.array(projectListItemSchema);
 export const projectStateSchema = z.object({
   project: projectSchema,
   workflow: workflowStateSchema,
+  landing: specificationLandingSchema.nullable().optional(),
   turns: z.array(projectStateTurnSchema),
 });
 
-const knowledgeItemKindSchema = z.enum([
-  'goal',
-  'term',
-  'context',
-  'constraint',
-  'requirement',
-  'criterion',
-  'decision',
-  'assumption',
-]);
-export const reviewStatusSchema = z.enum(['approved', 'rejected', 'pending']);
-
+const knowledgeItemKindSchema = z.enum(knowledgeKinds);
 export const knowledgeItemSchema = z.object({
   id: z.number().int().positive(),
   project_id: z.number().int().positive(),
@@ -143,7 +144,6 @@ export const requirementEntitySchema = z.object({
   subtype: z.string().nullable(),
   content: z.string(),
   rationale: z.string().nullable(),
-  reviewStatus: reviewStatusSchema.optional(),
   referenceCode: z.string().optional(),
 });
 
@@ -154,37 +154,27 @@ export const criterionEntitySchema = z.object({
   subtype: z.string().nullable(),
   content: z.string(),
   rationale: z.string().nullable(),
-  reviewStatus: reviewStatusSchema.optional(),
   referenceCode: z.string().optional(),
 });
 
-export const decisionEntitySchema = z.object({
-  id: z.number().int().positive(),
-  project_id: z.number().int().positive(),
-  content: z.string(),
-  rationale: z.string().nullable(),
-  referenceCode: z.string().optional(),
+export const decisionEntitySchema = knowledgeItemSchema.pick({
+  id: true,
+  project_id: true,
+  content: true,
+  rationale: true,
+  referenceCode: true,
 });
 
-export const assumptionEntitySchema = z.object({
-  id: z.number().int().positive(),
-  project_id: z.number().int().positive(),
-  content: z.string(),
-  referenceCode: z.string().optional(),
+export const assumptionEntitySchema = knowledgeItemSchema.pick({
+  id: true,
+  project_id: true,
+  content: true,
+  referenceCode: true,
 });
 
 export const entityReferenceSchema = z.object({
-  collection: z.enum(['knowledge_item', 'decision', 'assumption']),
-  kind: z.enum([
-    'goal',
-    'term',
-    'context',
-    'constraint',
-    'requirement',
-    'criterion',
-    'decision',
-    'assumption',
-  ]),
+  collection: z.enum(knowledgeEntityCollections),
+  kind: z.enum(knowledgeKinds),
   id: z.number().int().positive(),
 });
 
@@ -243,11 +233,18 @@ export const submitTurnResponseResponseSchema = z.object({
   workflowCompleted: z.literal(true).optional(),
 });
 
+export const submitPhaseIntentRequestSchema = phaseIntentRequestSchema;
+
+export const submitPhaseIntentResponseSchema = z.object({
+  ok: z.literal(true),
+});
+
 export type ProjectMode = z.infer<typeof projectModeSchema>;
 export type Impact = z.infer<typeof impactSchema>;
 export type TurnKind = z.infer<typeof turnKindSchema>;
 export type ReviewAction = z.infer<typeof reviewActionSchema>;
-export type ReviewStatus = z.infer<typeof reviewStatusSchema>;
+export type SubmitPhaseIntentRequest = z.infer<typeof submitPhaseIntentRequestSchema>;
+export type SubmitPhaseIntentResponse = z.infer<typeof submitPhaseIntentResponseSchema>;
 export type EdgeRelation = z.infer<typeof edgeRelationSchema>;
 export type WorkflowPhaseStatus = z.infer<typeof workflowPhaseStatusSchema>;
 export type ReadinessBand = z.infer<typeof readinessBandSchema>;
@@ -257,6 +254,8 @@ export type CreateProjectResponse = z.infer<typeof createProjectResponseSchema>;
 export type WorkflowSummary = z.infer<typeof workflowSummarySchema>;
 export type WorkflowPhaseState = z.infer<typeof workflowPhaseStateSchema>;
 export type WorkflowState = z.infer<typeof workflowStateSchema>;
+export type KickoffLandingMode = z.infer<typeof kickoffLandingModeSchema>;
+export type SpecificationLanding = z.infer<typeof specificationLandingSchema>;
 export type TurnOption = z.infer<typeof turnOptionSchema>;
 export type ProjectStateTurn = z.infer<typeof projectStateTurnSchema>;
 export type ProjectListItem = z.infer<typeof projectListItemSchema>;

@@ -80,44 +80,6 @@ export const phaseOutcome = sqliteTable('phase_outcome', {
 
 // --- Knowledge extraction tables ---
 
-export const decision = sqliteTable('decision', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  project_id: integer()
-    .notNull()
-    .references(() => project.id),
-  content: text().notNull(),
-  rationale: text(),
-});
-
-export const assumption = sqliteTable('assumption', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  project_id: integer()
-    .notNull()
-    .references(() => project.id),
-  content: text().notNull(),
-});
-
-export const requirement = sqliteTable('requirement', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  project_id: integer()
-    .notNull()
-    .references(() => project.id),
-  content: text().notNull(),
-  reviewed_at: text(),
-});
-
-export const criterion = sqliteTable('criterion', {
-  id: integer().primaryKey({ autoIncrement: true }),
-  project_id: integer()
-    .notNull()
-    .references(() => project.id),
-  requirement_id: integer()
-    .notNull()
-    .references(() => requirement.id),
-  content: text().notNull(),
-  reviewed_at: text(),
-});
-
 export const knowledgeItem = sqliteTable('knowledge_item', {
   id: integer().primaryKey({ autoIncrement: true }),
   project_id: integer()
@@ -133,32 +95,6 @@ export const knowledgeItem = sqliteTable('knowledge_item', {
 });
 
 // --- Join tables (provenance + dependency DAGs) ---
-
-export const turnDecision = sqliteTable(
-  'turn_decision',
-  {
-    turn_id: integer()
-      .notNull()
-      .references(() => turn.id),
-    decision_id: integer()
-      .notNull()
-      .references(() => decision.id),
-  },
-  (table) => [primaryKey({ columns: [table.turn_id, table.decision_id] })],
-);
-
-export const turnAssumption = sqliteTable(
-  'turn_assumption',
-  {
-    turn_id: integer()
-      .notNull()
-      .references(() => turn.id),
-    assumption_id: integer()
-      .notNull()
-      .references(() => assumption.id),
-  },
-  (table) => [primaryKey({ columns: [table.turn_id, table.assumption_id] })],
-);
 
 export const turnKnowledgeItem = sqliteTable(
   'turn_knowledge_item',
@@ -188,56 +124,4 @@ export const knowledgeEdge = sqliteTable(
     relation: text({ enum: ['depends_on', 'derived_from', 'constrains', 'verifies', 'refines'] }).notNull(),
   },
   (table) => [primaryKey({ columns: [table.from_item_id, table.to_item_id, table.relation] })],
-);
-
-export const decisionParentDecision = sqliteTable(
-  'decision_parent_decision',
-  {
-    decision_id: integer()
-      .notNull()
-      .references(() => decision.id),
-    parent_decision_id: integer()
-      .notNull()
-      .references(() => decision.id),
-  },
-  (table) => [primaryKey({ columns: [table.decision_id, table.parent_decision_id] })],
-);
-
-export const decisionParentAssumption = sqliteTable(
-  'decision_parent_assumption',
-  {
-    decision_id: integer()
-      .notNull()
-      .references(() => decision.id),
-    parent_assumption_id: integer()
-      .notNull()
-      .references(() => assumption.id),
-  },
-  (table) => [primaryKey({ columns: [table.decision_id, table.parent_assumption_id] })],
-);
-
-export const assumptionParentAssumption = sqliteTable(
-  'assumption_parent_assumption',
-  {
-    assumption_id: integer()
-      .notNull()
-      .references(() => assumption.id),
-    parent_assumption_id: integer()
-      .notNull()
-      .references(() => assumption.id),
-  },
-  (table) => [primaryKey({ columns: [table.assumption_id, table.parent_assumption_id] })],
-);
-
-export const requirementDecision = sqliteTable(
-  'requirement_decision',
-  {
-    requirement_id: integer()
-      .notNull()
-      .references(() => requirement.id),
-    decision_id: integer()
-      .notNull()
-      .references(() => decision.id),
-  },
-  (table) => [primaryKey({ columns: [table.requirement_id, table.decision_id] })],
 );

@@ -2,7 +2,11 @@ import { describe, expect, it } from 'vitest';
 
 import type { ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
-import { getAcceptedClosureReplay, getPersistedSelectedPositions } from '@/shared/project-state-turn.js';
+import {
+  deriveSpecificationLanding,
+  getAcceptedClosureReplay,
+  getPersistedSelectedPositions,
+} from '@/shared/project-state-turn.js';
 
 import {
   buildPhaseTurnIds,
@@ -19,6 +23,7 @@ function createProjectState({
   userParts = [{ type: 'text', text: answer }] as Array<Record<string, unknown>>,
   options = [],
   workflow,
+  turns,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -32,14 +37,34 @@ function createProjectState({
     is_selected: boolean;
   }>;
   workflow?: ProjectState['workflow'];
+  turns?: ProjectState['turns'];
 } = {}): ProjectState {
-  return {
+  const resolvedTurns = turns ?? [
+    {
+      id: 1,
+      project_id: projectId,
+      parent_turn_id: null,
+      phase: 'scope',
+      turn_kind: 'question',
+      question: assistantText,
+      why: 'This frames the first iteration.',
+      impact: 'high',
+      answer,
+      is_resolution: false,
+      user_parts: JSON.stringify(userParts),
+      assistant_parts: JSON.stringify(assistantText ? [{ type: 'text', text: assistantText }] : []),
+      created_at: '2026-04-03 10:00:00',
+      options,
+    },
+  ];
+
+  const projectState: ProjectState = {
     project: {
       id: projectId,
       name: `Project ${projectId}`,
       mode: 'greenfield',
       cwd: null,
-      active_turn_id: 1,
+      active_turn_id: resolvedTurns.at(-1)?.id ?? null,
       created_at: '2026-04-03 10:00:00',
       updated_at: '2026-04-03 10:00:00',
     },
@@ -83,24 +108,12 @@ function createProjectState({
         },
       },
     },
-    turns: [
-      {
-        id: 1,
-        project_id: projectId,
-        parent_turn_id: null,
-        phase: 'scope',
-        turn_kind: 'question',
-        question: assistantText,
-        why: 'This frames the first iteration.',
-        impact: 'high',
-        answer,
-        is_resolution: false,
-        user_parts: JSON.stringify(userParts),
-        assistant_parts: JSON.stringify(assistantText ? [{ type: 'text', text: assistantText }] : []),
-        created_at: '2026-04-03 10:00:00',
-        options,
-      },
-    ],
+    turns: resolvedTurns,
+  };
+
+  return {
+    ...projectState,
+    landing: deriveSpecificationLanding(projectState),
   };
 }
 
@@ -328,199 +341,130 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(proposedScope, 'scope', messages, false)).toEqual({
       project: proposedScope.project,
       workflow: proposedScope.workflow,
-      turnCard: null,
-      phaseSummary: {
-        phase: 'scope',
-        turnId: 1,
-        summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+      bottomArtifact: {
+        kind: 'phase-summary',
+        phaseSummary: {
+          phase: 'scope',
+          turnId: 1,
+          summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+        },
       },
-      showGeneratingState: false,
       promptInput: { visible: false },
     });
   });
 
-  it('projects recovery turn-card visibility from the persisted frontier turn kind', () => {
-    const recoveryState = createInterviewDurableProjectState({
-      project: {
-        id: 1,
-        name: 'Project 1',
-        mode: 'greenfield',
-        cwd: null,
-        active_turn_id: 2,
-        created_at: '2026-04-03 10:00:00',
-        updated_at: '2026-04-03 10:00:00',
-      },
-      workflow: {
-        phases: {
-          scope: {
-            status: 'in_progress',
-            closeability: false,
-            readiness: 'medium',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: 2,
-            summary: null,
-          },
-          design: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          requirements: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          criteria: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
+  it('projects recovery turn-card visibility from the derived landing seam', () => {
+    const recoveryState = createInterviewDurableProjectState(
+      createProjectState({
+        workflow: {
+          phases: {
+            scope: {
+              status: 'in_progress',
+              closeability: false,
+              readiness: 'medium',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
           },
         },
-      },
-      turns: [
-        {
-          id: 1,
-          project_id: 1,
-          parent_turn_id: null,
-          phase: 'scope',
-          turn_kind: 'question',
-          question: 'What should we build first?',
-          why: 'This frames the first iteration.',
-          impact: 'high',
-          answer: 'Build the web app',
-          is_resolution: false,
-          user_parts: JSON.stringify([{ type: 'text', text: 'Build the web app' }]),
-          assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
-          created_at: '2026-04-03 10:00:00',
-          options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
-        },
-        {
-          id: 2,
-          project_id: 1,
-          parent_turn_id: 1,
-          phase: 'scope',
-          turn_kind: 'recovery',
-          question: '',
-          why: null,
-          impact: null,
-          answer: null,
-          is_resolution: false,
-          user_parts: null,
-          assistant_parts: null,
-          created_at: '2026-04-03 10:01:00',
-          options: [],
-        },
-      ],
-    });
+        options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+      }),
+    );
 
     expect(createInterviewControllerViewState(recoveryState, 'scope', [], false)).toEqual({
       project: recoveryState.project,
       workflow: recoveryState.workflow,
-      turnCard: { kind: 'recovery', recovery: { phase: 'scope' } },
-      phaseSummary: null,
-      showGeneratingState: false,
+      bottomArtifact: { kind: 'recovery', recovery: { phase: 'scope' } },
       promptInput: { visible: false },
     });
     expect(createInterviewControllerViewState(recoveryState, 'scope', [], true)).toEqual({
       project: recoveryState.project,
       workflow: recoveryState.workflow,
-      turnCard: null,
-      phaseSummary: null,
-      showGeneratingState: true,
+      bottomArtifact: { kind: 'generating' },
       promptInput: { visible: false },
     });
   });
 
-  it('projects kickoff turn-card visibility from the persisted frontier turn kind', () => {
-    const kickoffState = createInterviewDurableProjectState({
-      project: {
-        id: 1,
-        name: 'Project 1',
-        mode: 'greenfield',
-        cwd: null,
-        active_turn_id: 1,
-        created_at: '2026-04-03 10:00:00',
-        updated_at: '2026-04-03 10:00:00',
-      },
-      workflow: {
-        phases: {
-          scope: {
-            status: 'in_progress',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: 1,
-            summary: null,
-          },
-          design: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          requirements: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-          criteria: {
-            status: 'unstarted',
-            closeability: false,
-            readiness: 'low',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
+  it('projects kickoff turn-card visibility from the derived landing seam', () => {
+    const kickoffState = createInterviewDurableProjectState(
+      createProjectState({
+        workflow: {
+          phases: {
+            scope: {
+              status: 'in_progress',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            design: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            requirements: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
+            criteria: {
+              status: 'unstarted',
+              closeability: false,
+              readiness: 'low',
+              closureBasis: null,
+              proposalPending: false,
+              turnId: null,
+              summary: null,
+            },
           },
         },
-      },
-      turns: [
-        {
-          id: 1,
-          project_id: 1,
-          parent_turn_id: null,
-          phase: 'scope',
-          turn_kind: 'kickoff',
-          question: '',
-          why: null,
-          impact: null,
-          answer: null,
-          is_resolution: false,
-          user_parts: null,
-          assistant_parts: null,
-          created_at: '2026-04-03 10:00:00',
-          options: [],
-        },
-      ],
-    });
+        turns: [],
+      }),
+    );
 
     expect(createInterviewControllerViewState(kickoffState, 'scope', [], false)).toEqual({
       project: kickoffState.project,
       workflow: kickoffState.workflow,
-      turnCard: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'start' } },
-      phaseSummary: null,
-      showGeneratingState: false,
+      bottomArtifact: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'start' } },
       promptInput: { visible: false },
     });
   });
@@ -586,9 +530,7 @@ describe('workspace controller core', () => {
     expect(createInterviewControllerViewState(submittedResponse, 'scope', [], true, 1)).toEqual({
       project: submittedResponse.project,
       workflow: submittedResponse.workflow,
-      turnCard: { kind: 'persisted-turn', turn: submittedResponse.lastTurn!, state: 'submitted' },
-      phaseSummary: null,
-      showGeneratingState: false,
+      bottomArtifact: { kind: 'persisted-turn', turn: submittedResponse.lastTurn!, state: 'submitted' },
       promptInput: { visible: false },
     });
   });
@@ -678,7 +620,7 @@ describe('workspace controller core', () => {
     expect(viewState.project).toEqual(emptyProjectState.project);
     expect(viewState.workflow).toEqual(emptyProjectState.workflow);
     expect(viewState.promptInput.visible).toBe(false);
-    expect(viewState.turnCard).toEqual({
+    expect(viewState.bottomArtifact).toEqual({
       kind: 'pending-question',
       pendingQuestion: {
         id: 'pending-question-assistant:tool-1',
@@ -691,8 +633,6 @@ describe('workspace controller core', () => {
         ],
       },
     });
-    expect(viewState.phaseSummary).toBeNull();
-    expect(viewState.showGeneratingState).toBe(false);
   });
 
   it('interprets accepted interviewer-recommended closure replay from the same durable turn', () => {
@@ -843,27 +783,30 @@ describe('workspace controller core', () => {
       },
     ];
     projectState.project.active_turn_id = 2;
+    projectState.landing = deriveSpecificationLanding(projectState);
 
     const durableProject = createInterviewDurableProjectState(projectState);
 
     expect(createInterviewControllerViewState(durableProject, 'scope', [], false)).toEqual({
       project: durableProject.project,
       workflow: durableProject.workflow,
-      turnCard: null,
-      phaseSummary: null,
-      showGeneratingState: false,
-      promptInput: { visible: true },
+      bottomArtifact: {
+        kind: 'phase-handoff',
+        phase: 'scope',
+        nextPhase: 'design',
+        summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+        isReviewPhase: false,
+      },
+      promptInput: { visible: false },
     });
     expect(createInterviewControllerViewState(durableProject, 'design', [], false)).toEqual({
       project: durableProject.project,
       workflow: durableProject.workflow,
-      turnCard: {
+      bottomArtifact: {
         kind: 'persisted-turn',
         turn: projectState.turns[1]!,
         state: 'active',
       },
-      phaseSummary: null,
-      showGeneratingState: false,
       promptInput: { visible: false },
     });
   });

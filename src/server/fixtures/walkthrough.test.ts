@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { getProjectState } from '../core.js';
-import { createDb, getEntitiesForProjectOnActivePath } from '../db.js';
+import { createDb, getActivePath, getEntitiesForProjectOnActivePath } from '../db.js';
 import { renderExportMarkdown } from '../export.js';
 import { captureProjectToManifestScenario } from './corpus.js';
 import { loadManifest, seedFromManifest } from './manifest.js';
@@ -92,25 +92,41 @@ describe('walkthroughScenarioMatrix', () => {
     });
   }
 
-  it('materializes the transition-frontier fixtures with the expected terminal turn kinds', async () => {
+  it('seeds kickoff-ready and recovery-ready fixtures from durable authority without legacy control rows', async () => {
+    await withReopenedSeededScenario('issue-tracker-design-kickoff-ready', ({ db, projectId }) => {
+      expect(getActivePath(db, projectId).at(-1)).toMatchObject({ phase: 'scope', turn_kind: 'question' });
+    });
+
+    await withReopenedSeededScenario('issue-tracker-design-recovery', ({ db, projectId }) => {
+      expect(getActivePath(db, projectId).at(-1)).toMatchObject({ phase: 'design', turn_kind: 'question' });
+    });
+  });
+
+  it('materializes the transition-frontier fixtures with the expected derived landings', async () => {
     await withReopenedSeededScenario('issue-tracker-design-kickoff-ready', ({ db, projectId }) => {
       const projectState = getProjectState(db, projectId);
-      expect(projectState?.turns.at(-1)).toMatchObject({ phase: 'design', turn_kind: 'kickoff' });
+      expect(projectState?.landing).toEqual({ kind: 'kickoff', phase: 'design', mode: 'start' });
     });
 
     await withReopenedSeededScenario('issue-tracker-design-recovery', ({ db, projectId }) => {
       const projectState = getProjectState(db, projectId);
-      expect(projectState?.turns.at(-1)).toMatchObject({ phase: 'design', turn_kind: 'recovery' });
+      expect(projectState?.landing).toEqual({ kind: 'recovery', phase: 'design' });
     });
 
     await withReopenedSeededScenario('issue-tracker-requirements-ready', ({ db, projectId }) => {
       const projectState = getProjectState(db, projectId);
-      expect(projectState?.turns.at(-1)).toMatchObject({ phase: 'requirements', turn_kind: 'question' });
+      expect(projectState?.landing).toMatchObject({ kind: 'frontier-turn', phase: 'requirements' });
+      expect(projectState?.landing?.kind === 'frontier-turn' ? projectState.landing.turnId : null).toBeTypeOf(
+        'number',
+      );
     });
 
     await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
       const projectState = getProjectState(db, projectId);
-      expect(projectState?.turns.at(-1)).toMatchObject({ phase: 'criteria', turn_kind: 'question' });
+      expect(projectState?.landing).toMatchObject({ kind: 'frontier-turn', phase: 'criteria' });
+      expect(projectState?.landing?.kind === 'frontier-turn' ? projectState.landing.turnId : null).toBeTypeOf(
+        'number',
+      );
     });
   });
 

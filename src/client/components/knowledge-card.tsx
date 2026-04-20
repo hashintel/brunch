@@ -3,22 +3,16 @@ import { ChevronDown, Link as LinkIcon } from 'lucide-react';
 import { DrawerCard } from '@/client/components/drawer-card';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import { cn } from '@/client/lib/utils';
-import type { EdgeRelation, ReviewStatus } from '@/shared/api-types.js';
-import type { KnowledgeKind } from '@/shared/knowledge.js';
-import { knowledgeKindRegistry } from '@/shared/knowledge.js';
+import type { EdgeRelation } from '@/shared/api-types.js';
+import {
+  knowledgeKindReferencePrefixes,
+  knowledgeKindRegistry,
+  type KnowledgeKind,
+} from '@/shared/knowledge.js';
 
 // ── ID prefix for each kind ───────────────────────────────────────────
 
-const kindPrefix: Record<KnowledgeKind, string> = {
-  goal: 'G',
-  term: 'T',
-  context: 'CTX',
-  constraint: 'NG', // stand-in for non-goal until type is added
-  assumption: 'A',
-  decision: 'D',
-  requirement: 'R',
-  criterion: 'CR',
-};
+const kindPrefix = knowledgeKindReferencePrefixes;
 
 export function itemLabel(kind: KnowledgeKind, id: number) {
   return `${kindPrefix[kind]}${id}`;
@@ -50,21 +44,6 @@ export function KindBadge({ kind }: { kind: KnowledgeKind }) {
   );
 }
 
-export function ReviewBadge({ state }: { state: ReviewStatus }) {
-  return (
-    <span
-      className={cn(
-        'inline-flex h-4 items-center rounded px-1 font-mono text-[9px] leading-none font-medium',
-        state === 'approved' && 'bg-[rgba(22,163,106,0.08)] text-[#16a34a]',
-        state === 'rejected' && 'bg-[rgba(225,70,64,0.08)] text-[#e14640]',
-        state === 'pending' && 'bg-wash text-hint',
-      )}
-    >
-      {state === 'approved' ? 'Approved' : state === 'rejected' ? 'Rejected' : 'Pending'}
-    </span>
-  );
-}
-
 export function CountBadge({ count }: { count: number }) {
   return (
     <span className="inline-flex h-5 items-center rounded-md bg-wash px-1.5 font-mono text-xxs font-medium text-sub">
@@ -81,7 +60,6 @@ export interface KnowledgeItemData {
   content: string;
   rationale?: string;
   subtype?: string;
-  reviewStatus?: ReviewStatus;
   referenceCode?: string;
 }
 
@@ -123,7 +101,6 @@ export function KnowledgeRow({
         <span className="text-sm font-medium text-hint">{displayReference(item)}</span>
         <span className="text-sm text-ink">{item.content}</span>
       </div>
-      {item.reviewStatus && <ReviewBadge state={item.reviewStatus} />}
     </div>
   );
 }
@@ -142,7 +119,6 @@ export function KnowledgeGroupCard({
   const meta = knowledgeKindRegistry.find((e) => e.kind === kind);
   if (!meta) return null;
 
-  const confirmed = items.filter((i) => i.reviewStatus === 'approved').length;
   const total = items.length;
 
   if (total === 0) return null;
@@ -157,22 +133,6 @@ export function KnowledgeGroupCard({
             <KindBadge kind={kind} />
             <span className="text-base font-medium text-ink">{meta.label}</span>
             <CountBadge count={total} />
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-xs text-hint">
-              <span className="text-sub">
-                {confirmed} / {total}
-              </span>{' '}
-              confirmed
-            </span>
-            <div className="flex h-1 w-40 items-center rounded-full bg-[rgba(32,112,230,0.06)]">
-              <div
-                className="h-1 rounded-full bg-[#2070e6]"
-                style={{
-                  width: `${total > 0 ? (confirmed / total) * 100 : 0}%`,
-                }}
-              />
-            </div>
           </div>
         </div>
 
@@ -257,7 +217,6 @@ export function KnowledgeDetailCard({
         <span className="shrink-0 text-xs font-medium text-hint">{displayReference(item)}</span>
         <p className="text-xs-plus text-ink">{item.content}</p>
       </div>
-      {item.reviewStatus ? <ReviewBadge state={item.reviewStatus} /> : null}
     </div>
   );
 

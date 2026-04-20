@@ -1,10 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  assumptionEntitySchema,
   createProjectRequestSchema,
   criterionEntitySchema,
+  decisionEntitySchema,
   entitiesDataSchema,
+  entityReferenceSchema,
   exportLoaderDataSchema,
+  knowledgeItemSchema,
   mutationErrorResponseSchema,
   projectListItemSchema,
   projectStateSchema,
@@ -12,6 +16,7 @@ import {
   submitTurnResponseRequestSchema,
   submitTurnResponseResponseSchema,
 } from './api-types.js';
+import { createKnowledgeReferenceCode, knowledgeEntityCollections, knowledgeKinds } from './knowledge.js';
 
 describe('api transport contracts', () => {
   it('validates the current project-list payload shape', () => {
@@ -188,15 +193,133 @@ describe('api transport contracts', () => {
         relationships: [
           {
             type: 'depends_on',
-            source: { collection: 'decision', kind: 'decision', id: 4 },
-            target: { collection: 'assumption', kind: 'assumption', id: 5 },
+            source: { collection: 'knowledge_item', kind: 'decision', id: 4 },
+            target: { collection: 'knowledge_item', kind: 'assumption', id: 5 },
           },
         ],
       }),
     ).toMatchObject({
-      requirements: [{ reviewStatus: 'approved' }],
-      criteria: [{ reviewStatus: 'pending' }],
+      requirements: [
+        {
+          kind: 'requirement',
+          content: 'Resume interviews after reload',
+        },
+      ],
+      criteria: [
+        {
+          kind: 'criterion',
+          content: 'Reload restores the active path',
+        },
+      ],
     });
+
+    const parsed = entitiesDataSchema.parse({
+      goals: [],
+      terms: [],
+      contexts: [],
+      constraints: [],
+      requirements: [
+        {
+          id: 2,
+          project_id: 1,
+          kind: 'requirement',
+          subtype: null,
+          content: 'Resume interviews after reload',
+          rationale: 'Users leave mid-flow',
+          reviewStatus: 'approved',
+        },
+      ],
+      criteria: [
+        {
+          id: 3,
+          project_id: 1,
+          kind: 'criterion',
+          subtype: 'acceptance',
+          content: 'Reload restores the active path',
+          rationale: 'This proves persistence works',
+          reviewStatus: 'pending',
+        },
+      ],
+      decisions: [],
+      assumptions: [],
+      relationships: [],
+    });
+
+    expect(parsed.requirements[0]).not.toHaveProperty('reviewStatus');
+    expect(parsed.criteria[0]).not.toHaveProperty('reviewStatus');
+  });
+
+  it('derives decision and assumption transport schemas from the canonical knowledge-item contract', () => {
+    expect(
+      decisionEntitySchema.parse({
+        id: 4,
+        project_id: 1,
+        kind: 'decision',
+        subtype: null,
+        content: 'Use SQLite for local storage',
+        rationale: 'Zero-config first-run matters',
+        referenceCode: createKnowledgeReferenceCode('decision', 1),
+      }),
+    ).toEqual({
+      id: 4,
+      project_id: 1,
+      content: 'Use SQLite for local storage',
+      rationale: 'Zero-config first-run matters',
+      referenceCode: createKnowledgeReferenceCode('decision', 1),
+    });
+
+    expect(
+      assumptionEntitySchema.parse({
+        id: 5,
+        project_id: 1,
+        kind: 'assumption',
+        subtype: null,
+        content: 'Users can work in a browser',
+        rationale: null,
+        referenceCode: createKnowledgeReferenceCode('assumption', 1),
+      }),
+    ).toEqual({
+      id: 5,
+      project_id: 1,
+      content: 'Users can work in a browser',
+      referenceCode: createKnowledgeReferenceCode('assumption', 1),
+    });
+  });
+
+  it('accepts the canonical knowledge kinds and entity collections from the shared ontology contract', () => {
+    for (const kind of knowledgeKinds) {
+      expect(
+        knowledgeItemSchema.parse({
+          id: 1,
+          project_id: 1,
+          kind,
+          subtype: null,
+          content: `Example ${kind}`,
+          rationale: null,
+        }),
+      ).toMatchObject({ kind });
+    }
+
+    for (const collection of knowledgeEntityCollections) {
+      expect(
+        entityReferenceSchema.parse({
+          collection,
+          kind: 'goal',
+          id: 1,
+        }),
+      ).toMatchObject({ collection });
+    }
+
+    expect(() =>
+      knowledgeItemSchema.parse({
+        id: 1,
+        project_id: 1,
+        kind: 'framing',
+        subtype: null,
+        content: 'Legacy kind should fail',
+        rationale: null,
+      }),
+    ).toThrow();
   });
 
   it('accepts the full persisted edge relation vocabulary in entity payloads', () => {
@@ -285,6 +408,30 @@ describe('api transport contracts', () => {
         ],
       }),
     ).toBeTruthy();
+
+    const parsed = entitiesDataSchema.parse({
+      goals: [],
+      terms: [],
+      contexts: [],
+      constraints: [],
+      requirements: [],
+      criteria: [
+        {
+          id: 5,
+          project_id: 1,
+          kind: 'criterion',
+          subtype: null,
+          content: 'Export reflects the trusted graph state',
+          rationale: null,
+          reviewStatus: 'pending',
+        },
+      ],
+      decisions: [],
+      assumptions: [],
+      relationships: [],
+    });
+
+    expect(parsed.criteria[0]).not.toHaveProperty('reviewStatus');
   });
 
   it('validates the current export and mutation payload shapes', () => {

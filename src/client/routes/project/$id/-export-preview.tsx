@@ -59,7 +59,7 @@ export function ExportPreview() {
                   Download .md
                 </ShellButton>
                 <Link
-                  to="/project/$id/framing"
+                  to="/project/$id/grounding"
                   params={{ id }}
                   className="inline-flex items-center gap-1 text-sm text-hint transition-colors hover:text-ink"
                 >

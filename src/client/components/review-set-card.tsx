@@ -1,5 +1,5 @@
 import { Check, MessageSquare } from 'lucide-react';
-import { useMemo, useState } from 'react';
+import { type ReactNode, useMemo, useState } from 'react';
 
 import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
@@ -29,7 +29,7 @@ function getReviewSetItemKey(item: ReviewSetCardItem): string {
   return item.referenceCode ?? item.content;
 }
 
-function StatsBar({ total, grounding, commented }: { total: number; grounding: number; commented: number }) {
+function StatsBar({ total, grounding, commented }: { total: number; grounding: number; commented?: number }) {
   return (
     <div className="flex items-center gap-6">
       <div className="flex flex-col">
@@ -40,12 +40,14 @@ function StatsBar({ total, grounding, commented }: { total: number; grounding: n
         <span className="text-lg font-medium text-ink">{grounding}</span>
         <span className="text-xs text-hint">Grounding</span>
       </div>
-      <div className="flex flex-col">
-        <span className={cn('text-lg font-medium', commented > 0 ? 'text-[#d97706]' : 'text-ink')}>
-          {commented}
-        </span>
-        <span className="text-xs text-hint">Commented</span>
-      </div>
+      {commented !== undefined ? (
+        <div className="flex flex-col">
+          <span className={cn('text-lg font-medium', commented > 0 ? 'text-[#d97706]' : 'text-ink')}>
+            {commented}
+          </span>
+          <span className="text-xs text-hint">Commented</span>
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -55,14 +57,16 @@ function ReviewSetItemRow({
   comment,
   onCommentChange,
   disabled,
+  showItemComments,
 }: {
   item: ReviewSetCardItem;
   comment: string;
   onCommentChange: (comment: string) => void;
   disabled: boolean;
+  showItemComments: boolean;
 }) {
-  const hasComment = comment.trim().length > 0;
   const grounding = item.grounding ?? [];
+  const hasComment = comment.trim().length > 0;
   const itemLabel = item.referenceCode ?? item.content;
 
   return (
@@ -108,36 +112,40 @@ function ReviewSetItemRow({
             </span>
           ) : null}
 
-          <CollapsibleTrigger asChild>
-            <button
-              type="button"
-              className="flex size-7 items-center justify-center rounded-md hover:bg-wash"
-              aria-label={`Comment on ${itemLabel}`}
-              disabled={disabled}
-            >
-              <MessageSquare
-                className={cn('size-4', hasComment ? 'fill-[#d97706]/15 text-[#d97706]' : 'text-hint')}
-              />
-            </button>
-          </CollapsibleTrigger>
+          {showItemComments ? (
+            <CollapsibleTrigger asChild>
+              <button
+                type="button"
+                className="flex size-7 items-center justify-center rounded-md hover:bg-wash"
+                aria-label={`Comment on ${itemLabel}`}
+                disabled={disabled}
+              >
+                <MessageSquare
+                  className={cn('size-4', hasComment ? 'fill-[#d97706]/15 text-[#d97706]' : 'text-hint')}
+                />
+              </button>
+            </CollapsibleTrigger>
+          ) : null}
         </div>
       </div>
 
-      <CollapsibleContent>
-        <div className="border-b border-rule bg-tint px-4 pt-3">
-          <label className="text-xs text-sub" htmlFor={`review-set-comment-${itemLabel}`}>
-            Comment
-          </label>
-          <Textarea
-            id={`review-set-comment-${itemLabel}`}
-            value={comment}
-            onChange={(event) => onCommentChange(event.target.value)}
-            placeholder="Add a revision note for this item…"
-            disabled={disabled}
-            className="min-h-16 resize-none rounded-none border-0 bg-transparent px-0 pt-2 pb-3 text-sm text-ink placeholder:text-hint focus-visible:ring-0"
-          />
-        </div>
-      </CollapsibleContent>
+      {showItemComments ? (
+        <CollapsibleContent>
+          <div className="border-b border-rule bg-tint px-4 pt-3">
+            <label className="text-xs text-sub" htmlFor={`review-set-comment-${itemLabel}`}>
+              Comment
+            </label>
+            <Textarea
+              id={`review-set-comment-${itemLabel}`}
+              value={comment}
+              onChange={(event) => onCommentChange(event.target.value)}
+              placeholder="Add a revision note for this item…"
+              disabled={disabled}
+              className="min-h-16 resize-none rounded-none border-0 bg-transparent px-0 pt-2 pb-3 text-sm text-ink placeholder:text-hint focus-visible:ring-0"
+            />
+          </div>
+        </CollapsibleContent>
+      ) : null}
     </Collapsible>
   );
 }
@@ -147,14 +155,21 @@ export function ReviewPhaseCompletionCard({
   description,
   cta,
   onContinue,
+  action,
+  testId,
 }: {
   title: string;
   description: string;
-  cta: string;
+  cta?: string;
   onContinue?: () => void;
+  action?: ReactNode;
+  testId?: string;
 }) {
   return (
-    <div className="overflow-hidden rounded-xl border border-rule bg-wash p-5">
+    <div
+      className="overflow-hidden rounded-xl border border-rule bg-wash p-5"
+      {...(testId ? { 'data-testid': testId } : {})}
+    >
       <div className="flex items-center gap-2">
         <div className="flex size-6 shrink-0 items-center justify-center rounded-full bg-[rgba(22,163,106,0.1)]">
           <Check className="size-3.5 text-[#16a34a]" />
@@ -162,7 +177,9 @@ export function ReviewPhaseCompletionCard({
         <p className="text-sm font-medium text-ink">{title}</p>
       </div>
       <p className="mt-2 text-sm leading-relaxed text-sub">{description}</p>
-      {onContinue ? (
+      {action ? (
+        action
+      ) : onContinue && cta ? (
         <Button className="mt-3" variant="outline" onClick={onContinue}>
           {cta}
         </Button>
@@ -182,6 +199,7 @@ export function ReviewSetCard({
   submitted,
   initialComments,
   resolvedAction,
+  showItemComments = false,
 }: {
   reviewSet: ReviewSetCardData;
   description: string;
@@ -193,6 +211,7 @@ export function ReviewSetCard({
   submitted: boolean;
   initialComments?: Record<string, string>;
   resolvedAction?: ReviewAction | null;
+  showItemComments?: boolean;
 }) {
   const [commentsByItem, setCommentsByItem] = useState<Record<string, string>>(initialComments ?? {});
   const totalGrounding = useMemo(
@@ -211,7 +230,11 @@ export function ReviewSetCard({
         <h3 className="text-base font-medium text-ink">{reviewSet.title}</h3>
         <p className="mt-1.5 text-sm leading-relaxed text-sub">{description}</p>
         <div className="mt-4">
-          <StatsBar total={reviewSet.items.length} grounding={totalGrounding} commented={commentedCount} />
+          <StatsBar
+            total={reviewSet.items.length}
+            grounding={totalGrounding}
+            commented={showItemComments ? commentedCount : undefined}
+          />
         </div>
       </div>
 
@@ -231,6 +254,7 @@ export function ReviewSetCard({
                 }))
               }
               disabled={disabled}
+              showItemComments={showItemComments}
             />
           );
         })}

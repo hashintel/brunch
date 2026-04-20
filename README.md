@@ -2,7 +2,19 @@
 
 Brunch is an AI-guided spec elicitation tool that turns natural-language project goals into structured specifications through a multi-phase interview. An interviewer agent asks structured questions — each with options, a recommendation, and strategic grounding — while a separate observer agent extracts decisions and assumptions, building a dependency graph.
 
+The current architecture is organized around a turn-centered workspace stream: durable conversational turns provide the branch-bearing lineage spine, while kickoff / recovery / handoff affordances, phase markers, and activity states are increasingly being treated as projected stream elements rather than ordinary durable turns.
+
 Built as a trial project at HASH. The stack is **React 19 + Vite** (frontend), **Express.js** (backend), **SQLite via Drizzle ORM** (database), and **Vercel AI SDK + Anthropic Claude** (AI).
+
+## Canonical docs
+
+If you are orienting to the current system shape, start here:
+
+- `memory/SPEC.md` — canonical product and architecture truth: requirements, decisions, invariants, and verification stance
+- `memory/PLAN.md` — the live frontier, including the active code-alignment map and the next action seams
+- `docs/design/state-machines/README.md` — the current runtime/state-machine design authority for hydration, workflow legality, projected controls, and runtime ownership
+
+Older `docs/design/*` files are design explorations unless they explicitly say otherwise; use the three docs above as the source of truth when they disagree.
 
 ## Quick start
 
@@ -76,7 +88,7 @@ npm run seed issue-tracker-scope-closed ./tmp/test.db
 
 | Scenario | State | Items | Edges |
 |---|---|---|---|
-| `issue-tracker-kickoff-ready` | Empty kickoff workspace | 0 | 0 |
+| `issue-tracker-kickoff-ready` | Empty workspace with projected grounding entry control | 0 | 0 |
 | `issue-tracker-scope-closed` | Scope closed (5 turns + proposal/confirm) | 12 (goals, terms, contexts, constraints) | 3 |
 | `issue-tracker-design-active` | + 2 design turns | 18 (+ decisions, assumptions) | 7 |
 | `issue-tracker-requirements-ready` | Requirements closed; criteria handoff is next | 23 (+ 5 requirements, mixed review) | 10 |
@@ -96,31 +108,32 @@ For manual walkthroughs, prefer the `issue-tracker-*` scenarios above. The unpre
 ```
 src/
 ├── client/
-│   ├── routes/
-│   │   ├── InterviewWorkspace.tsx  # Main interview UI
-│   │   ├── ProjectList.tsx         # Project dashboard
-│   │   ├── ExportPreview.tsx       # (placeholder)
-│   │   └── ComponentDebug.tsx      # Dev: component states
+│   ├── routes/                     # TanStack file routes + routed workspace shells
 │   ├── components/
-│   │   ├── ai-elements/            # Chat UI components (AI Elements)
-│   │   └── EntitySidebar.tsx       # Decisions + assumptions sidebar
-│   ├── router.tsx                  # TanStack Router (code-based)
-│   └── main.tsx                    # React + QueryClient + Router
+│   │   ├── ai-elements/            # Chat UI primitives
+│   │   ├── question-cards.tsx      # Active turn-card family
+│   │   ├── review-set-card.tsx     # Review-specific cards + completion states
+│   │   └── EntitySidebar.tsx       # Knowledge sidebar projection
+│   ├── router.tsx                  # TanStack Router
+│   └── main.tsx                    # React + QueryClient + Router bootstrap
 │
 ├── server/
 │   ├── app.ts          # Express routes + AI SDK stream composition
-│   ├── core.ts         # Turn preparation, project state, prompt extraction
-│   ├── interview.ts    # ToolLoopAgent interviewer + ask_question tool
-│   ├── observer.ts     # generateObject observer + entity persistence
-│   ├── context.ts      # Typed context builders (interviewer, observer)
-│   ├── db.ts           # SQLite via Drizzle + better-sqlite3
-│   ├── schema.ts       # Drizzle schema (turns, options, decisions, assumptions, ...)
+│   ├── core.ts         # Frontier preparation, project state loading, active-path helpers
+│   ├── interview.ts    # ToolLoopAgent interviewer + prompting/tool config
+│   ├── observer.ts     # generateObject observer + knowledge persistence
+│   ├── context.ts      # Typed context builders
+│   ├── db.ts           # SQLite via Drizzle + workflow/knowledge projections
+│   ├── schema.ts       # Drizzle schema
+│   ├── fixtures/       # Manifest/scenario seeds and corpus capture
 │   ├── parts.ts        # Zod-validated parts serialization/deserialization
-│   └── tools/          # Core filesystem tools (read, write, edit, bash, grep, find, ls)
+│   └── tools/          # Read-only/workspace tools and mutation helpers
 │
 └── shared/
-    ├── chat.ts         # BrunchUIMessage types, Zod schemas, tool definitions
-    └── api-types.ts    # API response types derived from server functions
+    ├── chat.ts         # BrunchUIMessage types, data-part schemas, tool contracts
+    ├── api-types.ts    # API response types
+    ├── phase-close.ts  # Workflow phase + closure logic
+    └── project-state-turn.ts # Helpers over persisted turn state and replay artifacts
 ```
 
 ### Data flow
@@ -138,13 +151,16 @@ src/
 - **Two-agent pattern**: Interviewer asks structured questions. Observer extracts typed knowledge items after each turn. Different models, different prompts, independent testability.
 - **Typed message contract**: `BrunchUIMessage` (AI SDK `UIMessage` with custom generics) spans server validation, persistence, streaming, and client hydration.
 - **Parts-based persistence**: `assistant_parts` and `user_parts` JSON columns store the full UI state per turn. Scalar fields (`question`, `why`, `impact`) retained for queryability.
+- **Merged workspace stream**: the rendered center column is broader than the turn tree. Durable turns remain the lineage spine; phase outcomes, projected controls, phase markers, and activity states are assembled around them.
 - **Zod everywhere**: Tool input/output schemas, data part schemas, parts deserialization, API payload validation.
 
 ## Current state
 
-**Working**: Full four-phase interview (scope → design → requirements → criteria), phase-aware observer extraction across all 8 canonical knowledge kinds, explicit phase outcomes with closure provenance, requirements and criteria review with approve/reject state, knowledge workspace, markdown export, project dashboard with workflow state, fixture scenarios with rich seeded content, local-first `.brunch/` storage, and greenfield/brownfield project kickoff with scope-grounded brownfield exploration.
+**Working**: Full four-phase interview (scope → design → requirements → criteria), phase-aware observer extraction across the canonical knowledge ontology, explicit phase outcomes with closure provenance, accepted-set review authority for requirements/criteria, knowledge workspace/sidebar, markdown export, project dashboard with workflow state, fixture scenarios with rich seeded content, local-first `.brunch/` storage, and greenfield/brownfield grounding flows.
 
-**Not yet built**: Knowledge-graph revisit / edit-mode cascade flow (phase 8 stretch). See `memory/PLAN.md` for the full roadmap.
+**Active architectural cleanup**: the codebase is still in the middle of replacing kickoff/recovery-as-turn assumptions with projected control cards and a merged stream projector. See `memory/PLAN.md` for the active code-alignment map and current next action.
+
+**Not yet built**: Knowledge-graph revisit / edit-mode cascade flow. See `memory/PLAN.md` for the live frontier.
 
 ## Tests
 
@@ -158,6 +174,7 @@ npm test
 
 - `memory/SPEC.md` — What and why (requirements, assumptions, decisions, invariants, verification)
 - `memory/PLAN.md` — What's next (phases, slices, spikes, dependencies)
+- `docs/design/state-machines/README.md` — runtime/state-machine design authority for the current workflow seam
 - `AGENTS.md` — Agent/AI coding instructions (symlinked as `CLAUDE.md`)
 
 ## Technical note

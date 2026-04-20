@@ -65,7 +65,7 @@ function createTurns(
 async function renderSidebar(
   workflow: WorkflowState,
   {
-    pathname = '/project/42/framing',
+    pathname = '/project/42/grounding',
     projectName = 'Specification Alpha',
     turns = createTurns(),
   }: {
@@ -181,7 +181,7 @@ describe('PhaseNavigationSidebar', () => {
     const nav = screen.getByRole('navigation', { name: 'Phase navigation' });
     const links = nav.querySelectorAll('a');
 
-    expect(links[0].getAttribute('href')).toBe('/project/42/framing');
+    expect(links[0].getAttribute('href')).toBe('/project/42/grounding');
     expect(links[1].getAttribute('href')).toBe('/project/42/elicitation');
     expect(nav.querySelector('[data-phase="requirements"]')?.getAttribute('aria-disabled')).toBe('true');
     expect(nav.querySelector('[data-phase="criteria"]')?.getAttribute('aria-disabled')).toBe('true');

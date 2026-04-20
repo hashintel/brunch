@@ -2,6 +2,7 @@
 
 > Design exploration from 2026-04-12. Referenced by SPEC.md D80, D84.
 > Status: **approved direction** — C-flavored hybrid (state machine projected from DB).
+> Canonicality: this is a future-facing module design note, not the live frontier authority. For what is true now and what should happen next, prefer `memory/SPEC.md` and `memory/PLAN.md`.
 
 ## Shape
 

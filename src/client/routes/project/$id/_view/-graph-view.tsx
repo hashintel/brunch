@@ -1,7 +1,7 @@
 import { useState } from 'react';
 
 import { Badge } from '@/client/components/ui/badge';
-import type { EntitiesData, EntityRelationship, ReviewStatus } from '@/shared/api-types.js';
+import type { EntitiesData, EntityRelationship } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeCollectionKey } from '@/shared/knowledge.js';
 
 type EntityItem = {
@@ -9,7 +9,6 @@ type EntityItem = {
   content: string;
   subtype?: string | null;
   rationale?: string | null;
-  reviewStatus?: ReviewStatus;
   collection: EntityRelationship['source']['collection'];
   kind: string;
 };
@@ -25,7 +24,6 @@ function collectAllItems(entityState: EntitiesData): EntityItem[] {
         content: item.content,
         subtype: 'subtype' in item ? item.subtype : null,
         rationale: 'rationale' in item ? item.rationale : null,
-        reviewStatus: 'reviewStatus' in item ? (item.reviewStatus as ReviewStatus) : undefined,
         collection: entry.entityCollection,
         kind: entry.kind,
       });
@@ -77,24 +75,6 @@ function EntityCard({
       <p className="text-sm">{item.content}</p>
       {item.subtype && <p className="mt-1 text-xs text-muted-foreground">{item.subtype}</p>}
       {item.rationale && <p className="mt-1 text-xs text-muted-foreground">{item.rationale}</p>}
-      {item.reviewStatus && (
-        <Badge
-          variant={
-            item.reviewStatus === 'approved'
-              ? 'default'
-              : item.reviewStatus === 'rejected'
-                ? 'destructive'
-                : 'secondary'
-          }
-          className="mt-1"
-        >
-          {item.reviewStatus === 'approved'
-            ? 'Approved'
-            : item.reviewStatus === 'rejected'
-              ? 'Rejected'
-              : 'Pending'}
-        </Badge>
-      )}
       {relationships.length > 0 && (
         <div className="mt-2">
           {relationships.map((rel, i) => (
@@ -184,8 +164,6 @@ export function GraphView({ entityState }: { entityState: EntitiesData }) {
                         content: item.content,
                         subtype: 'subtype' in item ? item.subtype : null,
                         rationale: 'rationale' in item ? item.rationale : null,
-                        reviewStatus:
-                          'reviewStatus' in item ? (item.reviewStatus as ReviewStatus) : undefined,
                         collection: entry.entityCollection,
                         kind: entry.kind,
                       };

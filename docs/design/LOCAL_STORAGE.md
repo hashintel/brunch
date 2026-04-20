@@ -2,6 +2,7 @@
 
 > Design exploration from 2026-04-12. Referenced by SPEC.md D81.
 > Status: **approved direction** — BrunchProject struct with shallow walk-up.
+> Canonicality: this is a focused design note for the storage-resolution seam, not the overall architecture source of truth. For current product/runtime direction, prefer `memory/SPEC.md`, `memory/PLAN.md`, and `docs/design/state-machines/README.md`.
 
 ## Shape
 

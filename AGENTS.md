@@ -9,12 +9,14 @@ This project uses symlinks for tool compatibility. Do not duplicate or overwrite
 
 ## workflow
 
-Slices and spikes in `memory/PLAN.md` are the unit of work. When starting one:
+Plan-level frontier items in `memory/PLAN.md` are the unit of tracker/branch work. Here, a **frontier item** means one named work item in the plan (for example, an item in `Active`, `Next`, or `Horizon`) — not a scope card or an implementation sub-slice discovered later.
+
+When starting a new frontier item:
 
 1. Create a Linear issue under FE-531 — use `/cli-linear`
 2. Create a Graphite stacked branch — use `/cli-graphite` (read `docs/praxis/graphite-workflow.md` first)
 
-One branch per slice/spike. Stacked branches mirror slice dependencies in PLAN.md. Graphite manages the stack; Linear tracks the issue.
+One branch per frontier item. `ln-scope` may thin that frontier item into smaller scope cards or sub-slices for implementation, but those do **not** get their own Linear issues or branches by default. Keep sub-slices on the same issue + branch unless `ln-plan` explicitly revises `memory/PLAN.md` into separate frontier items that should stack independently. Stacked branches mirror frontier-item dependencies in PLAN.md, not intra-item sub-slice sequencing. Graphite manages the stack; Linear tracks the plan-level work item.
 
 ### naming conventions
 

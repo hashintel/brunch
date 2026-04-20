@@ -8,6 +8,7 @@ import {
 } from '@/shared/grounding-strategy.js';
 import type { WorkflowPhase } from '@/shared/phase-close.js';
 import { phaseOrder } from '@/shared/phase-routes.js';
+import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
 
 import {
   getProject,
@@ -176,14 +177,22 @@ export function finalizeTurn(db: DB, projectId: number, turnId: number): void {
   advanceHead(db, projectId, turnId);
 }
 
-/** Get project state: project + active path turns enriched with options. */
-export function getProjectState(db: DB, projectId: number): ProjectState | null {
+export function readProjectStateProjection(db: DB, projectId: number): ProjectState | null {
   const project = getProject(db, projectId);
   if (!project) return null;
-  ensureProjectFrontier(db, projectId);
   const turns = loadActivePathWithOptions(db, projectId);
   const workflow = getCurrentWorkflowState(db, projectId);
-  return { project: getProject(db, projectId)!, workflow, turns };
+  return {
+    project,
+    workflow,
+    landing: deriveSpecificationLanding({ workflow, turns }),
+    turns,
+  };
+}
+
+/** Get project state: project + active path turns enriched with options. */
+export function getProjectState(db: DB, projectId: number): ProjectState | null {
+  return readProjectStateProjection(db, projectId);
 }
 
 /** List all projects with compact workflow summary. */
@@ -206,7 +215,5 @@ export function listProjectStates(db: DB): ProjectListItem[] {
 
 /** Create a new project with the given name and optional mode/cwd. */
 export function createNewProject(db: DB, name: string, options?: CreateProjectOptions): Project {
-  const project = createProject(db, name, options);
-  ensureProjectFrontier(db, project.id);
-  return getProject(db, project.id)!;
+  return createProject(db, name, options);
 }

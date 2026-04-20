@@ -53,12 +53,12 @@ describe('generated route runtime ownership', () => {
   it('uses directory-based nesting with pathless _view layout route', () => {
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
 
-    // Directory-based route imports
+    // Directory-based canonical phase route imports
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/route'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/index'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/export'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/route'");
-    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/framing'");
+    expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/grounding'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/elicitation'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/requirements-review'");
     expect(generatedRouteTreeSource).toContain("from './routes/project/$id/_view/acceptance-review'");
@@ -66,11 +66,19 @@ describe('generated route runtime ownership', () => {
     // Route IDs confirm nesting hierarchy
     expect(generatedRouteTreeSource).toContain("id: '/project/$id'");
     expect(generatedRouteTreeSource).toContain("id: '/_view'");
-    expect(generatedRouteTreeSource).toContain("id: '/framing'");
+    expect(generatedRouteTreeSource).toContain("id: '/grounding'");
 
     // No old flat-file route imports remain
     expect(generatedRouteTreeSource).not.toContain("from './routes/project.$id'");
     expect(generatedRouteTreeSource).not.toContain("from './routes/project_.$id");
+  });
+
+  it('does not keep the retired framing compatibility route in the generated tree', () => {
+    const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
+
+    expect(generatedRouteTreeSource).not.toContain("from './routes/project/$id/_view/framing'");
+    expect(generatedRouteTreeSource).not.toContain("id: '/framing'");
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/framing.tsx'))).toBe(false);
   });
 
   it('keeps directory-based route files and colocated support files in place', () => {
@@ -78,8 +86,8 @@ describe('generated route runtime ownership', () => {
     expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/route.tsx'))).toBe(true);
     expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/route.tsx'))).toBe(true);
 
-    // Phase routes
-    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/framing.tsx'))).toBe(true);
+    // Canonical phase routes
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/grounding.tsx'))).toBe(true);
     expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/elicitation.tsx'))).toBe(true);
     expect(
       existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/requirements-review.tsx')),

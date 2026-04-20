@@ -4,32 +4,34 @@ import { DefaultChatTransport } from 'ai';
 import type { ChatStatus } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { useSubmitTurnResponseMutation } from '@/client/mutations/interview-mutations';
+import {
+  useSubmitPhaseIntentMutation,
+  useSubmitTurnResponseMutation,
+} from '@/client/mutations/interview-mutations';
 import type { ProjectMode, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import { brunchDataPartSchemas } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
-import { getGroundingStrategyPosition } from '@/shared/grounding-strategy.js';
 import {
   createConfirmProposedPhaseClosureCommand,
   createForceCloseActivePhaseCommand,
   getPhaseClosureCommandText,
 } from '@/shared/phase-close.js';
 import type { DataConfirmation } from '@/shared/phase-close.js';
+import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
 import { getNextActivePhase, phaseRouteSegments } from '@/shared/phase-routes.js';
 
 import {
   buildPhaseTurnIds,
   createInterviewControllerViewState,
   filterMessagesByPhase,
-  getKickoffMessage,
   reconcileStablePhaseTurns,
 } from './-interview-controller-core.js';
 import type {
   InterviewDurableProjectState,
-  KickoffTurnViewModel,
+  KickoffControlViewModel,
   PendingQuestionViewModel,
   PhaseSummaryViewModel,
-  RecoveryTurnViewModel,
+  RecoveryControlViewModel,
 } from './-interview-controller-core.js';
 import { useInterviewDataAdapter } from './-interview-data.js';
 import { getProjectScopedChatId } from './-interview-hydration.js';
@@ -44,7 +46,7 @@ export interface InterviewControllerChatState {
   readonly forcePhaseClosure: (phase: ProjectStateTurn['phase']) => void;
 }
 
-export type InterviewControllerTurnCardState =
+export type InterviewControllerBottomArtifactState =
   | {
       readonly kind: 'persisted-turn';
       readonly turn: ProjectStateTurn;
@@ -60,15 +62,37 @@ export type InterviewControllerTurnCardState =
     }
   | {
       readonly kind: 'kickoff';
-      readonly kickoff: KickoffTurnViewModel;
+      readonly kickoff: KickoffControlViewModel;
       readonly disabled: boolean;
       readonly submitKickoff: (mode?: ProjectMode) => void;
     }
   | {
       readonly kind: 'recovery';
-      readonly recovery: RecoveryTurnViewModel;
+      readonly recovery: RecoveryControlViewModel;
       readonly disabled: boolean;
       readonly submitRecovery: () => void;
+    }
+  | {
+      readonly kind: 'phase-summary';
+      readonly phaseSummary: PhaseSummaryViewModel;
+      readonly disabled: boolean;
+      readonly confirmPhaseSummary: () => void;
+    }
+  | {
+      readonly kind: 'generating';
+    }
+  | {
+      readonly kind: 'phase-handoff';
+      readonly phase: WorkflowPhase;
+      readonly nextPhase: WorkflowPhase;
+      readonly summary: string | null;
+      readonly isReviewPhase: boolean;
+    }
+  | {
+      readonly kind: 'workflow-complete';
+      readonly phase: WorkflowPhase;
+      readonly summary: string | null;
+      readonly isReviewPhase: boolean;
     };
 
 export interface InterviewControllerPromptInputState {
@@ -82,9 +106,7 @@ export interface InterviewController {
   readonly phaseTurns: readonly ProjectStateTurn[];
   readonly captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   readonly chat: InterviewControllerChatState;
-  readonly turnCard: InterviewControllerTurnCardState | null;
-  readonly phaseSummary: PhaseSummaryViewModel | null;
-  readonly showGeneratingState: boolean;
+  readonly bottomArtifact: InterviewControllerBottomArtifactState | null;
   readonly promptInput: InterviewControllerPromptInputState;
 }
 
@@ -176,9 +198,9 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     turn: durableProject.lastTurn,
     sendMessage,
   });
+  const submitPhaseIntentMutation = useSubmitPhaseIntentMutation({ projectId });
   const isLoading = status === 'submitted' || status === 'streaming';
 
-  // Phase-filtered messages for display
   const phaseMessages = useMemo(
     () => filterMessagesByPhase(messages, phaseTurnIds),
     [messages, phaseTurnIds],
@@ -195,7 +217,10 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
       return;
     }
 
-    if (viewState.turnCard?.kind === 'pending-question' || viewState.phaseSummary) {
+    if (
+      viewState.bottomArtifact?.kind === 'pending-question' ||
+      viewState.bottomArtifact?.kind === 'phase-summary'
+    ) {
       setCaptureStatusByTurnId((current) => {
         if (current.has(submittedTurnId)) {
           return current;
@@ -208,7 +233,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     if (durableProject.workflow.phases[phase].status === 'closed' || phaseTurnId !== submittedTurnId) {
       setSubmittedTurnId(null);
     }
-  }, [submittedTurnId, durableProject.workflow, phase, viewState.phaseSummary, viewState.turnCard]);
+  }, [submittedTurnId, durableProject.workflow, phase, viewState.bottomArtifact]);
 
   useEffect(() => {
     setCaptureStatusByTurnId((current) => {
@@ -260,6 +285,24 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     [isLoading, sendMessage],
   );
 
+  const submitPhaseIntentCommand = useCallback(
+    (intent: PhaseIntentRequest) => {
+      if (isLoading) {
+        return;
+      }
+
+      void sendMessage({
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: intent,
+          },
+        ],
+      });
+    },
+    [isLoading, sendMessage],
+  );
+
   const confirmPhaseClosure = useCallback(
     (closurePhase: ProjectStateTurn['phase'], turnId: number) => {
       submitPhaseClosureCommand(createConfirmProposedPhaseClosureCommand(closurePhase, turnId));
@@ -274,7 +317,6 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     [submitPhaseClosureCommand],
   );
 
-  // Navigate to next phase after close confirmation succeeds
   useEffect(() => {
     if (!pendingCloseNavigation) return;
     if (durableProject.workflow.phases[phase].status !== 'closed') return;
@@ -283,7 +325,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     const nextPhase = getNextActivePhase(durableProject.workflow.phases, phase);
     if (nextPhase) {
       void router.navigate({
-        to: `/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing',
+        to: `/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/grounding',
         params: { id: String(projectId) },
       });
     }
@@ -303,17 +345,17 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
       confirmPhaseClosure,
       forcePhaseClosure,
     },
-    turnCard: viewState.turnCard
-      ? viewState.turnCard.kind === 'persisted-turn'
+    bottomArtifact: viewState.bottomArtifact
+      ? viewState.bottomArtifact.kind === 'persisted-turn'
         ? {
             kind: 'persisted-turn',
-            turn: viewState.turnCard.turn,
-            state: viewState.turnCard.state,
-            disabled: viewState.turnCard.state === 'submitted',
+            turn: viewState.bottomArtifact.turn,
+            state: viewState.bottomArtifact.state,
+            disabled: viewState.bottomArtifact.state === 'submitted',
             errorMessage: submitTurnResponseMutation.errorMessage,
             submitTurnResponse: async (positions: number[], freeText?: string) => {
               const turnId =
-                viewState.turnCard?.kind === 'persisted-turn' ? viewState.turnCard.turn.id : null;
+                viewState.bottomArtifact?.kind === 'persisted-turn' ? viewState.bottomArtifact.turn.id : null;
               if (turnId === null) {
                 return;
               }
@@ -325,15 +367,15 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
               }
             },
           }
-        : viewState.turnCard.kind === 'pending-question'
+        : viewState.bottomArtifact.kind === 'pending-question'
           ? {
               kind: 'pending-question',
-              pendingQuestion: viewState.turnCard.pendingQuestion,
+              pendingQuestion: viewState.bottomArtifact.pendingQuestion,
               disabled: true,
             }
-          : viewState.turnCard.kind === 'kickoff'
+          : viewState.bottomArtifact.kind === 'kickoff'
             ? (() => {
-                const kickoff = viewState.turnCard.kickoff;
+                const kickoff = viewState.bottomArtifact.kickoff;
 
                 return {
                   kind: 'kickoff' as const,
@@ -345,52 +387,107 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                     }
 
                     if (kickoff.phase === 'scope' && kickoff.mode === 'start' && selectedMode) {
-                      const kickoffTurnId =
-                        viewState.turnCard?.kind === 'kickoff'
-                          ? durableProject.workflow.phases.scope.turnId
-                          : null;
-                      const selectedPosition = getGroundingStrategyPosition(selectedMode);
-                      if (kickoffTurnId === null || selectedPosition === null) {
-                        return;
-                      }
+                      const intent: PhaseIntentRequest = {
+                        kind: 'phase-entry',
+                        phase: kickoff.phase,
+                        mode: selectedMode,
+                      };
 
-                      setSubmittedTurnId(kickoffTurnId);
-                      void submitTurnResponseMutation
-                        .submitTurnResponse([selectedPosition])
-                        .then((didSubmit) => {
-                          if (!didSubmit) {
-                            setSubmittedTurnId(null);
+                      void submitPhaseIntentMutation
+                        .submitPhaseEntry(kickoff.phase, { mode: selectedMode })
+                        .then((result) => {
+                          if (!result) {
+                            return;
                           }
+
+                          submitPhaseIntentCommand(intent);
                         });
                       return;
                     }
 
-                    submitText(getKickoffMessage(kickoff.phase, kickoff.mode));
+                    const intent: PhaseIntentRequest =
+                      kickoff.mode === 'start'
+                        ? {
+                            kind: 'phase-entry',
+                            phase: kickoff.phase,
+                          }
+                        : {
+                            kind: 'phase-continue',
+                            phase: kickoff.phase,
+                          };
+
+                    const submitIntent =
+                      kickoff.mode === 'start'
+                        ? submitPhaseIntentMutation.submitPhaseEntry(kickoff.phase)
+                        : submitPhaseIntentMutation.submitPhaseContinue(kickoff.phase);
+
+                    void submitIntent.then((result) => {
+                      if (!result) {
+                        return;
+                      }
+
+                      submitPhaseIntentCommand(intent);
+                    });
                   },
                 };
               })()
-            : (() => {
-                const recovery = viewState.turnCard.recovery;
+            : viewState.bottomArtifact.kind === 'recovery'
+              ? (() => {
+                  const recovery = viewState.bottomArtifact.recovery;
 
-                return {
-                  kind: 'recovery' as const,
-                  recovery,
-                  disabled: isLoading,
-                  submitRecovery: () => {
-                    if (isLoading) {
-                      return;
-                    }
+                  return {
+                    kind: 'recovery' as const,
+                    recovery,
+                    disabled: isLoading,
+                    submitRecovery: () => {
+                      if (isLoading) {
+                        return;
+                      }
 
-                    submitText(getKickoffMessage(recovery.phase, 'continue'));
-                  },
-                };
-              })()
+                      void submitPhaseIntentMutation.submitPhaseContinue(recovery.phase).then((result) => {
+                        if (!result) {
+                          return;
+                        }
+
+                        submitPhaseIntentCommand({
+                          kind: 'phase-continue',
+                          phase: recovery.phase,
+                        });
+                      });
+                    },
+                  };
+                })()
+              : viewState.bottomArtifact.kind === 'phase-summary'
+                ? (() => {
+                    const phaseSummary = viewState.bottomArtifact.phaseSummary;
+
+                    return {
+                      kind: 'phase-summary' as const,
+                      phaseSummary,
+                      disabled: isLoading,
+                      confirmPhaseSummary: () => confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId),
+                    };
+                  })()
+                : viewState.bottomArtifact.kind === 'generating'
+                  ? { kind: 'generating' as const }
+                  : viewState.bottomArtifact.kind === 'phase-handoff'
+                    ? {
+                        kind: 'phase-handoff' as const,
+                        phase: viewState.bottomArtifact.phase,
+                        nextPhase: viewState.bottomArtifact.nextPhase,
+                        summary: viewState.bottomArtifact.summary,
+                        isReviewPhase: viewState.bottomArtifact.isReviewPhase,
+                      }
+                    : {
+                        kind: 'workflow-complete' as const,
+                        phase: viewState.bottomArtifact.phase,
+                        summary: viewState.bottomArtifact.summary,
+                        isReviewPhase: viewState.bottomArtifact.isReviewPhase,
+                      }
       : null,
-    phaseSummary: viewState.phaseSummary,
-    showGeneratingState: viewState.showGeneratingState,
     promptInput: {
       visible: viewState.promptInput.visible,
-      disabled: isLoading || submitTurnResponseMutation.isPending,
+      disabled: isLoading || submitTurnResponseMutation.isPending || submitPhaseIntentMutation.isPending,
     },
   };
 }

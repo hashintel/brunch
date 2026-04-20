@@ -2,7 +2,7 @@ import type { WorkflowPhase } from './api-types.js';
 
 /** Maps server workflow phases to client route segments. See SPEC.md D86. */
 export const phaseRouteSegments: Record<WorkflowPhase, string> = {
-  scope: 'framing',
+  scope: 'grounding',
   design: 'elicitation',
   requirements: 'requirements-review',
   criteria: 'acceptance-review',

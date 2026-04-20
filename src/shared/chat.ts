@@ -3,94 +3,12 @@ import * as z from 'zod/v4';
 
 import { createKnowledgeCollectionRecord } from './knowledge.js';
 import { dataConfirmationSchema, workflowPhaseSchema, type DataConfirmation } from './phase-close.js';
-
-export const requirementApprovalReviewSchema = z.object({
-  kind: z.literal('requirement-approval'),
-  requirementId: z.number().int().positive(),
-  approveOptionPosition: z.number().int().min(0),
-});
-
-export const requirementRejectionReviewSchema = z.object({
-  kind: z.literal('requirement-rejection'),
-  requirementId: z.number().int().positive(),
-  rejectOptionPosition: z.number().int().min(0),
-});
-
-export const requirementReviewSchema = z.union([
-  requirementApprovalReviewSchema,
-  requirementRejectionReviewSchema,
-]);
-
-export const criterionApprovalReviewSchema = z.object({
-  kind: z.literal('criterion-approval'),
-  criterionId: z.number().int().positive(),
-  approveOptionPosition: z.number().int().min(0),
-});
-
-export const criterionRejectionReviewSchema = z.object({
-  kind: z.literal('criterion-rejection'),
-  criterionId: z.number().int().positive(),
-  rejectOptionPosition: z.number().int().min(0),
-});
-
-export const criterionReviewSchema = z.union([criterionApprovalReviewSchema, criterionRejectionReviewSchema]);
+import { phaseIntentRequestSchema, type PhaseIntentRequest } from './phase-intents.js';
 
 export const reviewActionSchema = z.enum(['accept', 'request-changes']);
-
-function validateReviewOptionPosition(
-  review: { approveOptionPosition: number } | { rejectOptionPosition: number },
-  field: string,
-  optionCount: number,
-  ctx: z.RefinementCtx,
-): void {
-  const isApproval = 'approveOptionPosition' in review;
-  const position = isApproval ? review.approveOptionPosition : review.rejectOptionPosition;
-  const positionField = isApproval ? 'approveOptionPosition' : 'rejectOptionPosition';
-
-  if (position >= optionCount) {
-    ctx.addIssue({
-      code: 'custom',
-      message: `${field}.${positionField} must reference an existing option`,
-      path: [field, positionField],
-    });
-  }
-}
-
-export const structuredQuestionSchema = z
-  .object({
-    question: z.string().min(1),
-    why: z.string().min(1),
-    impact: z.enum(['high', 'medium', 'low']),
-    options: z
-      .array(
-        z.object({
-          content: z.string().min(1),
-          is_recommended: z.boolean(),
-        }),
-      )
-      .min(2),
-    requirementReview: requirementReviewSchema.optional(),
-    criterionReview: criterionReviewSchema.optional(),
-  })
-  .strict()
-  .superRefine((value, ctx) => {
-    if (value.requirementReview) {
-      validateReviewOptionPosition(value.requirementReview, 'requirementReview', value.options.length, ctx);
-    }
-    if (value.criterionReview) {
-      validateReviewOptionPosition(value.criterionReview, 'criterionReview', value.options.length, ctx);
-    }
-  });
-
-export const askQuestionToolOutputSchema = z.object({
-  ok: z.literal(true),
-  turnId: z.number(),
-  optionCount: z.number(),
-});
-
-export const observerResultSchema = z.object({
-  turnId: z.number().int().positive().optional(),
-  entityIds: z.object(createKnowledgeCollectionRecord(() => z.array(z.number()))),
+export const reviewActionOptionSchema = z.object({
+  action: reviewActionSchema,
+  optionPosition: z.number().int().min(0),
 });
 
 export const reviewSetGroundingRefSchema = z.object({
@@ -110,6 +28,90 @@ export const reviewSetSchema = z.object({
   phase: workflowPhaseSchema,
   title: z.string().min(1),
   items: z.array(reviewSetItemSchema),
+});
+
+function validateReviewActionOptionPosition(
+  reviewAction: z.infer<typeof reviewActionOptionSchema>,
+  field: string,
+  optionCount: number,
+  ctx: z.RefinementCtx,
+): void {
+  if (reviewAction.optionPosition >= optionCount) {
+    ctx.addIssue({
+      code: 'custom',
+      message: `${field}.optionPosition must reference an existing option`,
+      path: [field, 'optionPosition'],
+    });
+  }
+}
+
+export const structuredQuestionSchema = z
+  .object({
+    question: z.string().min(1),
+    why: z.string().min(1),
+    impact: z.enum(['high', 'medium', 'low']),
+    options: z
+      .array(
+        z.object({
+          content: z.string().min(1),
+          is_recommended: z.boolean(),
+        }),
+      )
+      .min(2),
+    reviewActions: z.array(reviewActionOptionSchema).optional(),
+    reviewSet: reviewSetSchema.optional(),
+  })
+  .strict()
+  .superRefine((value, ctx) => {
+    if (value.reviewActions) {
+      const seenActions = new Set<string>();
+      const seenPositions = new Set<number>();
+
+      for (let index = 0; index < value.reviewActions.length; index++) {
+        const reviewAction = value.reviewActions[index]!;
+        validateReviewActionOptionPosition(reviewAction, `reviewActions.${index}`, value.options.length, ctx);
+
+        if (seenActions.has(reviewAction.action)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'reviewActions must not repeat the same action',
+            path: ['reviewActions', index, 'action'],
+          });
+        }
+        if (seenPositions.has(reviewAction.optionPosition)) {
+          ctx.addIssue({
+            code: 'custom',
+            message: 'reviewActions must not repeat the same optionPosition',
+            path: ['reviewActions', index, 'optionPosition'],
+          });
+        }
+
+        seenActions.add(reviewAction.action);
+        seenPositions.add(reviewAction.optionPosition);
+      }
+    }
+  });
+
+export const askQuestionToolOutputSchema = z.object({
+  ok: z.literal(true),
+  turnId: z.number(),
+  optionCount: z.number(),
+});
+
+export const observerDraftReviewItemSchema = z.object({
+  content: z.string().min(1),
+  rationale: z.string().nullable(),
+});
+
+export const observerReviewDraftsSchema = z.object({
+  requirements: z.array(observerDraftReviewItemSchema),
+  criteria: z.array(observerDraftReviewItemSchema),
+});
+
+export const observerResultSchema = z.object({
+  turnId: z.number().int().positive().optional(),
+  entityIds: z.object(createKnowledgeCollectionRecord(() => z.array(z.number()))),
+  draftReviewItems: observerReviewDraftsSchema.optional(),
 });
 
 export const activitySummarySchema = z.object({
@@ -152,15 +154,12 @@ export const proposePhaseClosureToolOutputSchema = z.object({
 });
 
 export { dataConfirmationSchema };
-export type RequirementApprovalReview = z.infer<typeof requirementApprovalReviewSchema>;
-export type RequirementRejectionReview = z.infer<typeof requirementRejectionReviewSchema>;
-export type RequirementReview = z.infer<typeof requirementReviewSchema>;
-export type CriterionApprovalReview = z.infer<typeof criterionApprovalReviewSchema>;
-export type CriterionRejectionReview = z.infer<typeof criterionRejectionReviewSchema>;
-export type CriterionReview = z.infer<typeof criterionReviewSchema>;
 export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
 export type ReviewAction = z.infer<typeof reviewActionSchema>;
+export type ReviewActionOption = z.infer<typeof reviewActionOptionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
+export type ObserverDraftReviewItem = z.infer<typeof observerDraftReviewItemSchema>;
+export type ObserverReviewDrafts = z.infer<typeof observerReviewDraftsSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
 export type ObserverEntityIds = ObserverResultData['entityIds'];
 export type ReviewSetData = z.infer<typeof reviewSetSchema>;
@@ -181,6 +180,7 @@ export type BrunchDataParts = {
   'activity-summary': ActivitySummary;
   'turn-response': DataTurnResponse;
   confirmation: DataConfirmation;
+  'phase-intent': PhaseIntentRequest;
   'phase-summary': DataPhaseSummary;
 };
 
@@ -213,10 +213,66 @@ export type BrunchAssistantPart =
     >;
 export type BrunchUserPart = Extract<
   BrunchUIMessagePart,
-  { type: 'text' | 'data-turn-response' | 'data-confirmation' }
+  { type: 'text' | 'data-turn-response' | 'data-confirmation' | 'data-phase-intent' }
 >;
 export type AskQuestionUIPart = Extract<BrunchUIMessagePart, { type: 'tool-ask_question' }>;
 export type ObserverResultUIPart = Extract<BrunchUIMessagePart, { type: 'data-observer-result' }>;
+
+const persistedAssistantPartSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('reasoning'), text: z.string() }).loose(),
+  z.object({ type: z.literal('step-start') }).loose(),
+  z.object({ type: z.literal('text'), text: z.string() }).loose(),
+  z.object({ type: z.literal('tool-ask_question'), input: structuredQuestionSchema }).loose(),
+  z
+    .object({ type: z.literal('tool-propose_phase_closure'), input: phaseClosureProposalSchema.optional() })
+    .loose(),
+  z.object({ type: z.literal('data-observer-result'), data: observerResultSchema }).loose(),
+  z.object({ type: z.literal('data-review-set'), data: reviewSetSchema }).loose(),
+  z.object({ type: z.literal('data-activity-summary'), data: activitySummarySchema }).loose(),
+  z.object({ type: z.literal('data-phase-summary'), data: dataPhaseSummarySchema }).loose(),
+]);
+
+const persistedUserPartSchema = z.discriminatedUnion('type', [
+  z.object({ type: z.literal('text'), text: z.string() }).loose(),
+  z.object({ type: z.literal('data-turn-response'), data: dataTurnResponseSchema }).loose(),
+  z.object({ type: z.literal('data-confirmation'), data: dataConfirmationSchema }).loose(),
+  z.object({ type: z.literal('data-phase-intent'), data: phaseIntentRequestSchema }).loose(),
+]);
+
+function safeDecodePersistedParts<PART>(
+  json: string | null | undefined,
+  partSchema: z.ZodType<PART>,
+): PART[] {
+  if (!json) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(json);
+    if (!Array.isArray(parsed)) {
+      return [];
+    }
+
+    const decodedParts: PART[] = [];
+    for (const part of parsed) {
+      const decoded = partSchema.safeParse(part);
+      if (decoded.success) {
+        decodedParts.push(decoded.data);
+      }
+    }
+    return decodedParts;
+  } catch {
+    return [];
+  }
+}
+
+export function safeDecodePersistedAssistantParts(json: string | null | undefined): BrunchAssistantPart[] {
+  return safeDecodePersistedParts(json, persistedAssistantPartSchema as z.ZodType<BrunchAssistantPart>);
+}
+
+export function safeDecodePersistedUserParts(json: string | null | undefined): BrunchUserPart[] {
+  return safeDecodePersistedParts(json, persistedUserPartSchema as z.ZodType<BrunchUserPart>);
+}
 
 export const askQuestionValidationTool = tool({
   description:
@@ -242,6 +298,7 @@ export const brunchDataPartSchemas = {
   'activity-summary': activitySummarySchema,
   'turn-response': dataTurnResponseSchema,
   confirmation: dataConfirmationSchema,
+  'phase-intent': phaseIntentRequestSchema,
   'phase-summary': dataPhaseSummarySchema,
 } as const;
 

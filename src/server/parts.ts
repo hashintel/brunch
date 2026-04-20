@@ -1,4 +1,9 @@
-import type { BrunchAssistantPart, BrunchUserPart } from '@/shared/chat.js';
+import {
+  safeDecodePersistedAssistantParts,
+  safeDecodePersistedUserParts,
+  type BrunchAssistantPart,
+  type BrunchUserPart,
+} from '@/shared/chat.js';
 
 export type AssistantPart = BrunchAssistantPart;
 export type UserPart = BrunchUserPart;
@@ -23,19 +28,9 @@ export function deserializeUserParts(json: string): UserPart[] {
 
 /** Safe deserialization — returns empty array for malformed or null input. */
 export function safeDeserializeAssistantParts(json: string | null | undefined): AssistantPart[] {
-  if (!json) return [];
-  try {
-    return JSON.parse(json) as AssistantPart[];
-  } catch {
-    return [];
-  }
+  return safeDecodePersistedAssistantParts(json);
 }
 
 export function safeDeserializeUserParts(json: string | null | undefined): UserPart[] {
-  if (!json) return [];
-  try {
-    return JSON.parse(json) as UserPart[];
-  } catch {
-    return [];
-  }
+  return safeDecodePersistedUserParts(json);
 }

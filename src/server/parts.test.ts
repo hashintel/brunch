@@ -3,9 +3,12 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import {
   dataConfirmationSchema,
   dataTurnResponseSchema,
+  safeDecodePersistedAssistantParts,
+  safeDecodePersistedUserParts,
   type BrunchAssistantPart,
   type BrunchUserPart,
 } from '@/shared/chat.js';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
 import { createDb, type DB } from './db.js';
 import {
@@ -115,10 +118,10 @@ describe('assistant part round-trip', () => {
           title: 'Requirements',
           items: [
             {
-              referenceCode: 'R1',
+              referenceCode: createKnowledgeReferenceCode('requirement', 1),
               content: 'Resume the interview from persisted local state',
               rationale: 'Core local-first promise.',
-              grounding: [{ code: 'GOAL1' }],
+              grounding: [{ code: createKnowledgeReferenceCode('goal', 1) }],
             },
           ],
         },
@@ -129,7 +132,7 @@ describe('assistant part round-trip', () => {
     expect(deserializeAssistantParts(json)).toEqual(parts);
   });
 
-  it('round-trips mixed observer-result ids through persisted assistant parts', () => {
+  it('round-trips mixed observer-result ids and draft review inputs through persisted assistant parts', () => {
     const parts: BrunchAssistantPart[] = [
       { type: 'text', text: 'Captured observer delta.', state: 'done' },
       {
@@ -144,6 +147,15 @@ describe('assistant part round-trip', () => {
             criteria: [],
             decisions: [9],
             assumptions: [10],
+          },
+          draftReviewItems: {
+            requirements: [
+              {
+                content: 'Export the reviewed spec as markdown',
+                rationale: null,
+              },
+            ],
+            criteria: [],
           },
         },
       },
@@ -224,6 +236,27 @@ describe('safe deserialization', () => {
   it('returns empty arrays for malformed persisted JSON', () => {
     expect(safeDeserializeAssistantParts('not-json')).toEqual([]);
     expect(safeDeserializeUserParts('not-json')).toEqual([]);
+  });
+
+  it('drops malformed persisted part shapes without leaking them into projection helpers', () => {
+    const malformedAssistantParts = JSON.stringify([
+      { type: 'text', text: 'Legible persisted text' },
+      { type: 'data-review-set', data: { phase: 'requirements' } },
+    ]);
+    const malformedUserParts = JSON.stringify([
+      { type: 'text', text: 'Resume work' },
+      { type: 'data-turn-response', data: { turnId: 1, selectedOptionIds: [] } },
+    ]);
+
+    expect(safeDecodePersistedAssistantParts(malformedAssistantParts)).toEqual([
+      { type: 'text', text: 'Legible persisted text' },
+    ]);
+    expect(safeDeserializeAssistantParts(malformedAssistantParts)).toEqual([
+      { type: 'text', text: 'Legible persisted text' },
+    ]);
+
+    expect(safeDecodePersistedUserParts(malformedUserParts)).toEqual([{ type: 'text', text: 'Resume work' }]);
+    expect(safeDeserializeUserParts(malformedUserParts)).toEqual([{ type: 'text', text: 'Resume work' }]);
   });
 
   it('returns empty arrays for null persisted JSON', () => {

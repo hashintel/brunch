@@ -5,6 +5,8 @@ import { join } from 'path';
 
 import { describe, it, expect, beforeEach, afterEach } from 'vitest';
 
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+
 import {
   createDb,
   getOrCreateProject,
@@ -22,12 +24,14 @@ import {
   linkDecisionToTurn,
   linkAssumptionToTurn,
   linkKnowledgeItemToTurn,
+  createConfirmedPhaseOutcome,
   addDecisionParentDecision,
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
   getEntitiesForProjectByMode,
   getEntitiesForProject,
   getEntitiesForProjectOnActivePath,
+  getCapturedItemsForTurns,
   getScopeBundleForProject,
   listPhaseOutcomesForProject,
   getCurrentWorkflowState,
@@ -45,7 +49,7 @@ afterEach(() => {
 });
 
 describe('createDb', () => {
-  it('creates all schema tables, including the generic knowledge edge seam', () => {
+  it('creates only the canonical schema tables, including the generic knowledge edge seam', () => {
     const tables = db.$client
       .prepare("SELECT name FROM sqlite_master WHERE type='table' ORDER BY name")
       .all() as Array<{ name: string }>;
@@ -54,23 +58,29 @@ describe('createDb', () => {
       'project',
       'turn',
       'option',
-      'decision',
-      'assumption',
-      'requirement',
-      'criterion',
       'knowledge_item',
       'knowledge_edge',
-      'turn_decision',
-      'turn_assumption',
       'turn_knowledge_item',
-      'decision_parent_decision',
-      'decision_parent_assumption',
-      'assumption_parent_assumption',
-      'requirement_decision',
       'phase_outcome',
     ];
     for (const table of expected) {
       expect(names).toContain(table);
+    }
+
+    const retired = [
+      'decision',
+      'assumption',
+      'requirement',
+      'criterion',
+      'turn_decision',
+      'turn_assumption',
+      'decision_parent_decision',
+      'decision_parent_assumption',
+      'assumption_parent_assumption',
+      'requirement_decision',
+    ];
+    for (const table of retired) {
+      expect(names).not.toContain(table);
     }
 
     const phaseOutcomeColumns = db.$client.prepare("PRAGMA table_info('phase_outcome')").all() as Array<{
@@ -482,7 +492,7 @@ describe('phase outcome lifecycle', () => {
     });
   });
 
-  it('makes requirements closeable only when every requirement has explicit non-pending review state', async () => {
+  it('keeps requirements non-closeable until an accepted review closes the phase', async () => {
     const project = getOrCreateProject(db);
 
     const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
@@ -574,12 +584,12 @@ describe('phase outcome lifecycle', () => {
 
     expect(getCurrentWorkflowState(db, project.id).phases.requirements).toMatchObject({
       status: 'in_progress',
-      closeability: true,
+      closeability: false,
       proposalPending: false,
     });
   });
 
-  it('projects criterion review status as approved, rejected, or pending from the latest active-path action', async () => {
+  it('projects criteria without per-item review status on the project-wide read model', async () => {
     const project = getOrCreateProject(db);
 
     const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
@@ -689,14 +699,17 @@ describe('phase outcome lifecycle', () => {
     const entities = getEntitiesForProject(db, project.id);
     expect(entities.criteria).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: approvedCriterion.id, reviewStatus: 'approved' }),
-        expect.objectContaining({ id: rejectedCriterion.id, reviewStatus: 'rejected' }),
-        expect.objectContaining({ id: pendingCriterion.id, reviewStatus: 'pending' }),
+        expect.objectContaining({ id: approvedCriterion.id, content: approvedCriterion.content }),
+        expect.objectContaining({ id: rejectedCriterion.id, content: rejectedCriterion.content }),
+        expect.objectContaining({ id: pendingCriterion.id, content: pendingCriterion.content }),
       ]),
     );
+    for (const criterion of entities.criteria) {
+      expect(criterion).not.toHaveProperty('reviewStatus');
+    }
   });
 
-  it('makes criteria closeable only when every criterion has explicit non-pending review state', async () => {
+  it('keeps criteria non-closeable until an accepted review closes the phase', async () => {
     const project = getOrCreateProject(db);
 
     const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
@@ -813,9 +826,88 @@ describe('phase outcome lifecycle', () => {
 
     expect(getCurrentWorkflowState(db, project.id).phases.criteria).toMatchObject({
       status: 'in_progress',
-      closeability: true,
+      closeability: false,
       proposalPending: false,
     });
+  });
+
+  it('projects only the accepted requirements on the active path after requirements review closes', () => {
+    const project = getOrCreateProject(db);
+
+    const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    advanceHead(db, project.id, scopeTurn.id);
+
+    const scopeOutcome = createConfirmedPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'scope',
+      proposal_turn_id: scopeTurn.id,
+      confirmation_turn_id: scopeTurn.id,
+      summary: 'Scope captured.',
+    });
+    expect(scopeOutcome.phase).toBe('scope');
+
+    const designTurn = createTurn(db, project.id, {
+      phase: 'design',
+      parent_turn_id: scopeTurn.id,
+      question: 'Tradeoff?',
+      answer: 'Keep it small',
+    });
+    advanceHead(db, project.id, designTurn.id);
+
+    const designOutcome = createConfirmedPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'design',
+      proposal_turn_id: designTurn.id,
+      confirmation_turn_id: designTurn.id,
+      summary: 'Design captured.',
+    });
+    expect(designOutcome.phase).toBe('design');
+
+    const acceptedRequirement = createKnowledgeItem(
+      db,
+      project.id,
+      'requirement',
+      'Export the reviewed spec',
+    );
+    const staleRequirement = createKnowledgeItem(
+      db,
+      project.id,
+      'requirement',
+      'Support exporting the spec as a PDF',
+    );
+    linkKnowledgeItemToTurn(db, acceptedRequirement.id, designTurn.id, 'captured');
+    linkKnowledgeItemToTurn(db, staleRequirement.id, designTurn.id, 'captured');
+
+    const reviewTurn = createTurn(db, project.id, {
+      phase: 'requirements',
+      parent_turn_id: designTurn.id,
+      question: 'Please review the current requirement set.',
+      answer: 'Accept review',
+    });
+    linkKnowledgeItemToTurn(db, acceptedRequirement.id, reviewTurn.id, 'reviewed');
+    advanceHead(db, project.id, reviewTurn.id);
+
+    createConfirmedPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'requirements',
+      proposal_turn_id: reviewTurn.id,
+      confirmation_turn_id: reviewTurn.id,
+      summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
+    });
+
+    const criteriaKickoffTurn = createTurn(db, project.id, {
+      phase: 'criteria',
+      parent_turn_id: reviewTurn.id,
+      turn_kind: 'kickoff',
+      question: '',
+      answer: null,
+    });
+    advanceHead(db, project.id, criteriaKickoffTurn.id);
+
+    const entities = getEntitiesForProjectOnActivePath(db, project.id);
+    expect(entities.requirements).toEqual([
+      expect.objectContaining({ id: acceptedRequirement.id, content: 'Export the reviewed spec' }),
+    ]);
   });
 
   it('confirms a proposed requirements outcome, clears the pending proposal, and keeps criteria active', async () => {
@@ -904,7 +996,7 @@ describe('phase outcome lifecycle', () => {
 
     expect(getCurrentWorkflowState(db, project.id).phases.requirements).toMatchObject({
       status: 'in_progress',
-      closeability: true,
+      closeability: false,
       proposalPending: true,
       turnId: requirementsProposalTurn.id,
       summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
@@ -1286,7 +1378,11 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
       content: string;
     };
     expect(stored).toEqual({ kind: 'decision', content: 'Use SQLite for persistence' });
-    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM decision').get()).toEqual({ count: 0 });
+    expect(
+      db.$client
+        .prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'decision'")
+        .get(),
+    ).toEqual({ count: 0 });
   });
 
   it('creates an assumption as a generic knowledge item with project linkage', () => {
@@ -1301,7 +1397,11 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
       content: string;
     };
     expect(stored).toEqual({ kind: 'assumption', content: 'SQLite handles concurrent writes' });
-    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM assumption').get()).toEqual({ count: 0 });
+    expect(
+      db.$client
+        .prepare("SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'assumption'")
+        .get(),
+    ).toEqual({ count: 0 });
   });
 
   it('links a decision to a turn through generic provenance', () => {
@@ -1317,7 +1417,13 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
         .prepare('SELECT relation FROM turn_knowledge_item WHERE turn_id = ? AND item_id = ?')
         .get(turn.id, d.id),
     ).toEqual({ relation: 'captured' });
-    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM turn_decision').get()).toEqual({ count: 0 });
+    expect(
+      db.$client
+        .prepare(
+          "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'turn_decision'",
+        )
+        .get(),
+    ).toEqual({ count: 0 });
   });
 
   it('links an assumption to a turn through generic provenance', () => {
@@ -1333,7 +1439,49 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
         .prepare('SELECT relation FROM turn_knowledge_item WHERE turn_id = ? AND item_id = ?')
         .get(turn.id, a.id),
     ).toEqual({ relation: 'captured' });
-    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM turn_assumption').get()).toEqual({ count: 0 });
+    expect(
+      db.$client
+        .prepare(
+          "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'turn_assumption'",
+        )
+        .get(),
+    ).toEqual({ count: 0 });
+  });
+
+  it('projects captured items for replay through one collection-driven seam', () => {
+    const project = createProject(db, 'Test');
+    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const goal = createKnowledgeItem(db, project.id, 'goal', 'Ship a trustworthy spec handoff');
+    const decision = createDecision(db, project.id, 'Start with the web app', 'Fastest path to feedback');
+    const assumption = createAssumption(db, project.id, 'Users can work in a browser');
+
+    linkKnowledgeItemToTurn(db, goal.id, turn.id);
+    linkDecisionToTurn(db, decision.id, turn.id);
+    linkAssumptionToTurn(db, assumption.id, turn.id);
+
+    expect(getCapturedItemsForTurns(db, project.id, [turn.id]).get(turn.id)).toEqual([
+      {
+        collection: 'knowledge_item',
+        kind: 'goal',
+        id: goal.id,
+        content: 'Ship a trustworthy spec handoff',
+        referenceCode: createKnowledgeReferenceCode('goal', 1),
+      },
+      {
+        collection: 'knowledge_item',
+        kind: 'decision',
+        id: decision.id,
+        content: 'Start with the web app',
+        referenceCode: createKnowledgeReferenceCode('decision', 1),
+      },
+      {
+        collection: 'knowledge_item',
+        kind: 'assumption',
+        id: assumption.id,
+        content: 'Users can work in a browser',
+        referenceCode: createKnowledgeReferenceCode('assumption', 1),
+      },
+    ]);
   });
 
   it('persists canonical scope kinds plus later generic knowledge kinds with project linkage, metadata, and turn provenance', () => {
@@ -1444,7 +1592,7 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     ]);
   });
 
-  it('projects the latest explicit requirement review state from active-path review links', () => {
+  it('projects requirements without per-item review status from active-path review links', () => {
     const project = createProject(db, 'Test');
     const rejectedRequirement = createKnowledgeItem(
       db,
@@ -1477,10 +1625,13 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     const entities = getEntitiesForProject(db, project.id);
     expect(entities.requirements).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: rejectedRequirement.id, reviewStatus: 'rejected' }),
-        expect.objectContaining({ id: pendingRequirement.id, reviewStatus: 'pending' }),
+        expect.objectContaining({ id: rejectedRequirement.id, content: rejectedRequirement.content }),
+        expect.objectContaining({ id: pendingRequirement.id, content: pendingRequirement.content }),
       ]),
     );
+    for (const requirement of entities.requirements) {
+      expect(requirement).not.toHaveProperty('reviewStatus');
+    }
     expect(getCurrentWorkflowState(db, project.id).phases.requirements).toMatchObject({
       status: 'in_progress',
       closeability: false,
@@ -1496,9 +1647,13 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     const entities = getEntitiesForProject(db, project.id);
     expect(entities.decisions).toHaveLength(2);
     expect(db.$client.prepare('SELECT COUNT(*) AS count FROM knowledge_edge').get()).toEqual({ count: 1 });
-    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM decision_parent_decision').get()).toEqual({
-      count: 0,
-    });
+    expect(
+      db.$client
+        .prepare(
+          "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'decision_parent_decision'",
+        )
+        .get(),
+    ).toEqual({ count: 0 });
   });
 
   it('projects generic parent links through one typed relationship read model', () => {
@@ -1517,18 +1672,18 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     expect(entities.relationships).toEqual([
       {
         type: 'depends_on',
-        source: { collection: 'decision', kind: 'decision', id: dependentDecision.id },
-        target: { collection: 'decision', kind: 'decision', id: parentDecision.id },
+        source: { collection: 'knowledge_item', kind: 'decision', id: dependentDecision.id },
+        target: { collection: 'knowledge_item', kind: 'decision', id: parentDecision.id },
       },
       {
         type: 'depends_on',
-        source: { collection: 'decision', kind: 'decision', id: dependentDecision.id },
-        target: { collection: 'assumption', kind: 'assumption', id: parentAssumption.id },
+        source: { collection: 'knowledge_item', kind: 'decision', id: dependentDecision.id },
+        target: { collection: 'knowledge_item', kind: 'assumption', id: parentAssumption.id },
       },
       {
         type: 'depends_on',
-        source: { collection: 'assumption', kind: 'assumption', id: dependentAssumption.id },
-        target: { collection: 'assumption', kind: 'assumption', id: parentAssumption.id },
+        source: { collection: 'knowledge_item', kind: 'assumption', id: dependentAssumption.id },
+        target: { collection: 'knowledge_item', kind: 'assumption', id: parentAssumption.id },
       },
     ]);
   });
@@ -1568,12 +1723,21 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
 
     expect(getEntitiesForProjectByMode(db, project.id, 'project-wide').decisions).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ content: 'Use SQLite for persistence', referenceCode: 'D1' }),
-        expect.objectContaining({ content: 'Use Postgres for persistence', referenceCode: 'D2' }),
+        expect.objectContaining({
+          content: 'Use SQLite for persistence',
+          referenceCode: createKnowledgeReferenceCode('decision', 1),
+        }),
+        expect.objectContaining({
+          content: 'Use Postgres for persistence',
+          referenceCode: createKnowledgeReferenceCode('decision', 2),
+        }),
       ]),
     );
     expect(getEntitiesForProjectByMode(db, project.id, 'active-path').decisions).toEqual([
-      expect.objectContaining({ content: 'Use Postgres for persistence', referenceCode: 'D2' }),
+      expect.objectContaining({
+        content: 'Use Postgres for persistence',
+        referenceCode: createKnowledgeReferenceCode('decision', 2),
+      }),
     ]);
   });
 
@@ -1645,9 +1809,13 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     const entities = getEntitiesForProject(db, project.id);
     expect(entities.assumptions).toHaveLength(2);
     expect(db.$client.prepare('SELECT COUNT(*) AS count FROM knowledge_edge').get()).toEqual({ count: 1 });
-    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM assumption_parent_assumption').get()).toEqual({
-      count: 0,
-    });
+    expect(
+      db.$client
+        .prepare(
+          "SELECT COUNT(*) AS count FROM sqlite_master WHERE type = 'table' AND name = 'assumption_parent_assumption'",
+        )
+        .get(),
+    ).toEqual({ count: 0 });
   });
 
   it('projects a canonical scope bundle without consulting legacy commitment storage', () => {

@@ -1,12 +1,13 @@
 // @vitest-environment happy-dom
 
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectState } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
+import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
 
 import { useInterviewController } from './-interview-controller.js';
 
@@ -90,6 +91,7 @@ function createProjectState({
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
   options = [],
+  turns,
 }: {
   projectId?: number;
   assistantText?: string;
@@ -101,14 +103,34 @@ function createProjectState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
+  turns?: ProjectState['turns'];
 } = {}): ProjectState {
-  return {
+  const resolvedTurns = turns ?? [
+    {
+      id: 1,
+      project_id: projectId,
+      parent_turn_id: null,
+      phase: 'scope',
+      turn_kind: 'question',
+      question: assistantText,
+      why: 'This frames the first iteration.',
+      impact: 'high',
+      answer,
+      is_resolution: false,
+      user_parts: JSON.stringify([{ type: 'text', text: answer }]),
+      assistant_parts: JSON.stringify([{ type: 'text', text: assistantText }]),
+      created_at: '2026-04-03 10:00:00',
+      options,
+    },
+  ];
+
+  const projectState: ProjectState = {
     project: {
       id: projectId,
       name: `Project ${projectId}`,
       mode: 'greenfield',
       cwd: null,
-      active_turn_id: 1,
+      active_turn_id: resolvedTurns.at(-1)?.id ?? null,
       created_at: '2026-04-03 10:00:00',
       updated_at: '2026-04-03 10:00:00',
     },
@@ -152,24 +174,12 @@ function createProjectState({
         },
       },
     },
-    turns: [
-      {
-        id: 1,
-        project_id: projectId,
-        parent_turn_id: null,
-        phase: 'scope',
-        turn_kind: 'question',
-        question: assistantText,
-        why: 'This frames the first iteration.',
-        impact: 'high',
-        answer,
-        is_resolution: false,
-        user_parts: JSON.stringify([{ type: 'text', text: answer }]),
-        assistant_parts: JSON.stringify([{ type: 'text', text: assistantText }]),
-        created_at: '2026-04-03 10:00:00',
-        options,
-      },
-    ],
+    turns: resolvedTurns,
+  };
+
+  return {
+    ...projectState,
+    landing: deriveSpecificationLanding(projectState),
   };
 }
 
@@ -239,19 +249,41 @@ function ControllerProbe() {
     <div>
       <div data-testid="project-name">{workspace.project.name}</div>
       <div data-testid="messages">{messageText(workspace.chat.messages)}</div>
-      <div data-testid="turn-card-kind">{workspace.turnCard?.kind ?? 'none'}</div>
-      <div data-testid="turn-card">
-        {workspace.turnCard?.kind === 'persisted-turn'
-          ? workspace.turnCard.turn.question
-          : workspace.turnCard?.kind === 'pending-question'
-            ? workspace.turnCard.pendingQuestion.question
-            : workspace.turnCard?.kind === 'kickoff'
-              ? `${workspace.turnCard.kickoff.mode}:${workspace.turnCard.kickoff.phase}`
-              : workspace.turnCard?.kind === 'recovery'
-                ? `recovery:${workspace.turnCard.recovery.phase}`
+      <div data-testid="bottom-artifact-kind">{workspace.bottomArtifact?.kind ?? 'none'}</div>
+      <div data-testid="bottom-artifact">
+        {workspace.bottomArtifact?.kind === 'persisted-turn'
+          ? workspace.bottomArtifact.turn.question
+          : workspace.bottomArtifact?.kind === 'pending-question'
+            ? workspace.bottomArtifact.pendingQuestion.question
+            : workspace.bottomArtifact?.kind === 'kickoff'
+              ? `${workspace.bottomArtifact.kickoff.mode}:${workspace.bottomArtifact.kickoff.phase}`
+              : workspace.bottomArtifact?.kind === 'recovery'
+                ? `recovery:${workspace.bottomArtifact.recovery.phase}`
                 : 'none'}
       </div>
       <div data-testid="prompt-visible">{String(workspace.promptInput.visible)}</div>
+      <button
+        type="button"
+        data-testid="submit-kickoff-brownfield"
+        onClick={() => {
+          if (workspace.bottomArtifact?.kind === 'kickoff') {
+            workspace.bottomArtifact.submitKickoff('brownfield');
+          }
+        }}
+      >
+        Submit brownfield kickoff
+      </button>
+      <button
+        type="button"
+        data-testid="submit-recovery"
+        onClick={() => {
+          if (workspace.bottomArtifact?.kind === 'recovery') {
+            workspace.bottomArtifact.submitRecovery();
+          }
+        }}
+      >
+        Submit recovery
+      </button>
     </div>
   );
 }
@@ -287,11 +319,12 @@ describe('interview controller', () => {
     currentProjectState.project.active_turn_id = null;
     currentProjectState.workflow.phases.scope.turnId = null;
     currentProjectState.turns = [];
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
     renderController();
 
-    expect((await screen.findByTestId('turn-card-kind')).textContent).toBe('kickoff');
-    expect(screen.getByTestId('turn-card').textContent).toBe('start:scope');
+    expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('kickoff');
+    expect(screen.getByTestId('bottom-artifact').textContent).toBe('start:scope');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
   });
 
@@ -301,12 +334,99 @@ describe('interview controller', () => {
     });
     currentProjectState.workflow.phases.scope.turnId = null;
     currentProjectState.project.active_turn_id = null;
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
     renderController();
 
-    expect((await screen.findByTestId('turn-card-kind')).textContent).toBe('recovery');
-    expect(screen.getByTestId('turn-card').textContent).toBe('recovery:scope');
+    expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('recovery');
+    expect(screen.getByTestId('bottom-artifact').textContent).toBe('recovery:scope');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
+  });
+
+  it('submits the grounding strategy kickoff from landing-only state without a seeded kickoff turn', async () => {
+    currentProjectState = createProjectState({ assistantText: '', answer: '', turns: [] });
+    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.project.active_turn_id = null;
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderController();
+
+    await screen.findByTestId('bottom-artifact-kind');
+    fireEvent.click(screen.getByTestId('submit-kickoff-brownfield'));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/phase-intent',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalled();
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+          },
+        ],
+      });
+    });
+  });
+
+  it('submits recovery through the phase-continue intent seam', async () => {
+    currentProjectState = createProjectState({
+      options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+    });
+    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.project.active_turn_id = null;
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderController();
+
+    await screen.findByTestId('bottom-artifact-kind');
+    fireEvent.click(screen.getByTestId('submit-recovery'));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/phase-intent',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'scope' }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(routerInvalidate).toHaveBeenCalled();
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          {
+            type: 'data-phase-intent',
+            data: { kind: 'phase-continue', phase: 'scope' },
+          },
+        ],
+      });
+    });
   });
 
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
@@ -318,7 +438,7 @@ describe('interview controller', () => {
 
     renderController();
 
-    expect((await screen.findByTestId('turn-card')).textContent).toBe('none');
+    expect((await screen.findByTestId('bottom-artifact')).textContent).toBe('none');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
 
     await act(async () => {
@@ -330,8 +450,8 @@ describe('interview controller', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('turn-card-kind').textContent).toBe('pending-question');
-      expect(screen.getByTestId('turn-card').textContent).toBe('Which platform should we target next?');
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('pending-question');
+      expect(screen.getByTestId('bottom-artifact').textContent).toBe('Which platform should we target next?');
       expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
       expect(routerInvalidate).not.toHaveBeenCalled();
     });
@@ -347,8 +467,8 @@ describe('interview controller', () => {
     expect((await screen.findByTestId('messages')).textContent).toBe(
       'Build the web app|What should we build first?',
     );
-    expect(screen.getByTestId('turn-card').textContent).toBe('recovery:scope');
-    expect(screen.getByTestId('turn-card-kind').textContent).toBe('recovery');
+    expect(screen.getByTestId('bottom-artifact').textContent).toBe('recovery:scope');
+    expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('recovery');
     expect(screen.getByTestId('prompt-visible').textContent).toBe('false');
     expect(fetchMock).not.toHaveBeenCalled();
   });

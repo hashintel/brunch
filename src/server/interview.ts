@@ -2,7 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import type { Tool } from '@ai-sdk/provider-utils';
 import { ToolLoopAgent, stepCountIs, tool } from 'ai';
 
-import type { ProjectMode } from '@/shared/api-types.js';
+import type { EntitiesData, ProjectMode } from '@/shared/api-types.js';
 import {
   askQuestionToolOutputSchema,
   phaseClosureProposalSchema,
@@ -11,6 +11,7 @@ import {
   type AskQuestionToolOutput,
   type PhaseClosureProposal,
   type ProposePhaseClosureToolOutput,
+  type ReviewSetData,
   type StructuredQuestion,
 } from '@/shared/chat.js';
 
@@ -18,10 +19,12 @@ import { buildInterviewerContext } from './context.js';
 import type { TurnWithOptions } from './core.js';
 import {
   createOption,
+  getAcceptedRequirementEntitiesForProject,
+  getDraftCriterionEntitiesForProject,
+  getDraftRequirementEntitiesForProject,
   createPhaseOutcome,
   updateTurn,
   getTurn,
-  getEntitiesForProject,
   getCurrentWorkflowState,
   type DB,
   type Turn,
@@ -63,18 +66,22 @@ When the main architectural commitments are sufficiently captured for now, use t
 Your job is to review the accumulated requirements as one full-set review turn, check for gaps, suggest additions, and confirm completeness. Ground each review turn in the current requirement inventory provided in context, including stable requirement reference codes when they are available.
 
 Use the ask_question tool to present the current requirement set for review with exactly two options: \`Accept review\` and \`Request changes\`. The user's single selected option is the review action, and any attached note is the review note describing corrections, omissions, or confirming why the set is acceptable.
+Include a \`reviewActions\` field mapping those two option positions to \`accept\` and \`request-changes\` so the action semantics live in the tool payload instead of UI inference.
+Also include a \`reviewSet\` field that mirrors the exact requirement set under review, including the current phase, title, and item metadata (reference codes and rationales when available), so the review turn persists its own authoritative review inventory.
 
 Do not run one-requirement-at-a-time approval or rejection turns in this slice.
 
-When every current requirement has explicit review coverage and the set appears complete for now, use the \`propose_phase_closure\` tool instead of another question. The summary should explain why requirements can close and criteria review can begin.
+Accepting the review is the phase-closing action for requirements. Do not create a separate phase-closure proposal turn for this phase.
 
-For every turn, you MUST use the ask_question tool or the propose_phase_closure tool. Never respond with plain text.`,
+For every turn, you MUST use the ask_question tool. Never respond with plain text.`,
 
   criteria: `You are a spec elicitation interviewer conducting the CRITERIA REVIEW phase.
 
-Your job is to review the accumulated acceptance criteria as one full-set review turn, check for gaps, suggest additions, and confirm completeness. Ground each review turn in the current criterion inventory and approved requirements provided in context, including stable criterion reference codes when they are available.
+Your job is to review the accumulated acceptance criteria as one full-set review turn, check for gaps, suggest additions, and confirm completeness. Ground each review turn in the current criterion inventory and accepted requirements provided in context, including stable criterion reference codes when they are available.
 
 Use the ask_question tool to present the current criterion set for review with exactly two options: \`Accept review\` and \`Request changes\`. The user's single selected option is the review action, and any attached note is the review note describing corrections, omissions, or confirming why the set is acceptable.
+Include a \`reviewActions\` field mapping those two option positions to \`accept\` and \`request-changes\` so the action semantics live in the tool payload instead of UI inference.
+Also include a \`reviewSet\` field that mirrors the exact criterion set under review, including the current phase, title, and item metadata (reference codes and rationales when available), so the review turn persists its own authoritative review inventory.
 
 Do not run one-criterion-at-a-time approval or rejection turns in this slice.
 
@@ -150,7 +157,8 @@ export function getSystemPrompt(phase: Phase): string {
 }
 
 export function canProposePhaseClosure(phase: Phase, closeability = false): boolean {
-  return phase === 'scope' || phase === 'design' || (phase === 'requirements' && closeability);
+  void closeability;
+  return phase === 'scope' || phase === 'design';
 }
 
 /**
@@ -178,6 +186,25 @@ export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
     inputSchema: structuredQuestionSchema,
     outputSchema: askQuestionToolOutputSchema,
     execute: async (input) => {
+      const turn = getTurn(db, turnId);
+      if (turn && (turn.phase === 'requirements' || turn.phase === 'criteria')) {
+        const reviewActions = input.reviewActions ?? [];
+        const hasAccept = reviewActions.some((reviewAction) => reviewAction.action === 'accept');
+        const hasRequestChanges = reviewActions.some(
+          (reviewAction) => reviewAction.action === 'request-changes',
+        );
+        if (reviewActions.length !== 2 || !hasAccept || !hasRequestChanges) {
+          throw new Error(
+            'Requirements and criteria review turns must declare explicit reviewActions for accept and request-changes',
+          );
+        }
+        if (!input.reviewSet || input.reviewSet.phase !== turn.phase) {
+          throw new Error(
+            'Requirements and criteria review turns must declare reviewSet metadata for the active phase',
+          );
+        }
+      }
+
       persistStructuredQuestion(db, turnId, input);
       return {
         ok: true as const,
@@ -270,26 +297,26 @@ export async function streamInterviewer(
   modeOptions?: InterviewerModeOptions,
 ): ReturnType<InterviewerAgent['stream']> {
   const agent = createInterviewerAgent(db, turn.id, phase, turn.project_id, modeOptions);
-  const entities = getEntitiesForProject(db, turn.project_id);
+  const draftRequirements = getDraftRequirementEntitiesForProject(db, turn.project_id);
+  const draftCriteria = getDraftCriterionEntitiesForProject(db, turn.project_id);
+  const acceptedRequirements = getAcceptedRequirementEntitiesForProject(db, turn.project_id);
   const fullPrompt = buildInterviewerContext(activePath, userMessage, {
     phase,
     entities:
       phase === 'requirements'
         ? {
-            requirements: entities.requirements.map((requirement) => ({
+            requirements: draftRequirements.map((requirement) => ({
               id: requirement.id,
               content: requirement.content,
             })),
           }
         : phase === 'criteria'
           ? {
-              approvedRequirements: entities.requirements
-                .filter((requirement) => requirement.reviewStatus === 'approved')
-                .map((requirement) => ({
-                  id: requirement.id,
-                  content: requirement.content,
-                })),
-              criteria: entities.criteria.map((criterion) => ({
+              approvedRequirements: acceptedRequirements.map((requirement) => ({
+                id: requirement.id,
+                content: requirement.content,
+              })),
+              criteria: draftCriteria.map((criterion) => ({
                 id: criterion.id,
                 content: criterion.content,
               })),
@@ -299,6 +326,37 @@ export async function streamInterviewer(
   return agent.stream({
     prompt: fullPrompt,
   });
+}
+
+export function buildReviewSetForPhase(
+  phase: Phase,
+  entities: Pick<EntitiesData, 'requirements' | 'criteria'>,
+): ReviewSetData | null {
+  if (phase === 'requirements') {
+    return {
+      phase,
+      title: 'Requirements',
+      items: entities.requirements.map((requirement) => ({
+        content: requirement.content,
+        ...(requirement.referenceCode ? { referenceCode: requirement.referenceCode } : {}),
+        ...(requirement.rationale ? { rationale: requirement.rationale } : {}),
+      })),
+    };
+  }
+
+  if (phase === 'criteria') {
+    return {
+      phase,
+      title: 'Acceptance Criteria',
+      items: entities.criteria.map((criterion) => ({
+        content: criterion.content,
+        ...(criterion.referenceCode ? { referenceCode: criterion.referenceCode } : {}),
+        ...(criterion.rationale ? { rationale: criterion.rationale } : {}),
+      })),
+    };
+  }
+
+  return null;
 }
 
 export function persistFallbackQuestionText(db: DB, turnId: number, assistantText: string): void {

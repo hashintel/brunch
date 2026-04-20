@@ -2,13 +2,18 @@ import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessage
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 
-import { createProjectRequestSchema, submitTurnResponseRequestSchema } from '@/shared/api-types.js';
+import {
+  createProjectRequestSchema,
+  submitPhaseIntentRequestSchema,
+  submitTurnResponseRequestSchema,
+} from '@/shared/api-types.js';
 import type {
   EntitiesData,
   ExportLoaderData,
   MutationErrorResponse,
   ProjectListItem,
   ProjectState,
+  SubmitPhaseIntentResponse,
   SubmitTurnResponseResponse,
 } from '@/shared/api-types.js';
 import {
@@ -17,8 +22,9 @@ import {
   extractTextFromMessage,
   filterAssistantParts,
   formatTurnResponseText,
+  structuredQuestionSchema,
 } from '@/shared/chat.js';
-import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
+import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart, ReviewSetData } from '@/shared/chat.js';
 import {
   getGroundingStrategyModeForPosition,
   isGroundingStrategyKickoffTurn,
@@ -29,6 +35,8 @@ import {
   getForcedPhaseClosureSummary,
   parsePhaseClosureCommand,
 } from '@/shared/phase-close.js';
+import { getPhaseIntentDisplayText } from '@/shared/phase-intents.js';
+import { getReviewActionForSelectedPositions } from '@/shared/project-state-turn.js';
 
 import {
   ensureProjectFrontier,
@@ -50,22 +58,26 @@ import {
   findProposedPhaseOutcomeByTurn,
   getCurrentPhase,
   getCurrentWorkflowState,
+  getDraftCriterionEntitiesForProject,
+  getDraftRequirementEntitiesForProject,
   getTurn,
   getOptionsForTurn,
   linkKnowledgeItemToTurn,
+  materializeAcceptedCriteriaReviewSet,
+  materializeAcceptedRequirementsReviewSet,
   updateProjectMode,
   updateTurn,
   getEntitiesForProjectByMode,
-  recordReviewFromTurnResponse,
   supersedePhaseOutcome,
   type DB,
   type EntityProjectionMode,
   type Turn,
 } from './db.js';
 import { isExportReady, renderExportMarkdown } from './export.js';
-import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
+import { buildReviewSetForPhase, persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { safeDeserializeAssistantParts, safeDeserializeUserParts, serializeParts } from './parts.js';
+import { submitPhaseIntentWithRuntimeCompatibility } from './phase-intent-runtime.js';
 
 export interface AppOptions {
   readonly dbPath?: string;
@@ -88,7 +100,7 @@ function parseEntityProjectionMode(rawMode: unknown): EntityProjectionMode | nul
 function appendObserverResultToTurn(
   db: DB,
   turnId: number,
-  entityIds: Awaited<ReturnType<typeof runObserver>>,
+  observerResult: Awaited<ReturnType<typeof runObserver>>,
 ): void {
   const turn = getTurn(db, turnId);
   if (!turn) {
@@ -102,20 +114,12 @@ function appendObserverResultToTurn(
     type: 'data-observer-result',
     data: {
       turnId,
-      entityIds,
+      ...observerResult,
     },
   });
   updateTurn(db, turnId, {
     assistant_parts: serializeParts(assistantParts),
   });
-}
-
-function createNextPhaseKickoff(db: DB, projectId: number, parentTurnId: number): number | null {
-  const frontierTurn = ensureProjectFrontier(db, projectId);
-  if (!frontierTurn || frontierTurn.id === parentTurnId) {
-    return null;
-  }
-  return frontierTurn.id;
 }
 
 function getPersistedFullSetReviewAction(
@@ -133,10 +137,46 @@ function getPersistedFullSetReviewAction(
   return responsePart?.data.reviewAction ?? null;
 }
 
+function getPersistedRuntimeReviewMetadata(
+  phase: Turn['phase'],
+  message: Pick<BrunchUIMessage, 'parts'>,
+): {
+  reviewQuestionPart: Extract<BrunchAssistantPart, { type: 'tool-ask_question' }>;
+  reviewSet: ReviewSetData;
+} | null {
+  if (phase !== 'requirements' && phase !== 'criteria') {
+    return null;
+  }
+
+  const reviewQuestionPart = message.parts.find(
+    (part): part is Extract<BrunchAssistantPart, { type: 'tool-ask_question' }> =>
+      part.type === 'tool-ask_question' && 'input' in part,
+  );
+  if (!reviewQuestionPart) {
+    return null;
+  }
+
+  const parsedInput = structuredQuestionSchema.safeParse(reviewQuestionPart.input);
+  if (!parsedInput.success || !parsedInput.data.reviewSet || parsedInput.data.reviewSet.phase !== phase) {
+    return null;
+  }
+
+  return {
+    reviewQuestionPart: {
+      ...reviewQuestionPart,
+      input: parsedInput.data,
+    },
+    reviewSet: parsedInput.data.reviewSet,
+  };
+}
+
 function acceptRequirementsReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
-  const requirements = getEntitiesForProjectByMode(db, projectId, 'project-wide').requirements;
-  for (const requirement of requirements) {
-    linkKnowledgeItemToTurn(db, requirement.id, turnId, 'reviewed');
+  const materializedRequirementIds = materializeAcceptedRequirementsReviewSet(db, projectId, turnId);
+  if (materializedRequirementIds === null) {
+    const requirements = getEntitiesForProjectByMode(db, projectId, 'project-wide').requirements;
+    for (const requirement of requirements) {
+      linkKnowledgeItemToTurn(db, requirement.id, turnId, 'reviewed');
+    }
   }
 
   createConfirmedPhaseOutcome(db, {
@@ -146,15 +186,17 @@ function acceptRequirementsReview(db: DB, projectId: number, turnId: number): Su
     confirmation_turn_id: turnId,
     summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
   });
-  createNextPhaseKickoff(db, projectId, turnId);
 
   return { ok: true, advancedToPhase: 'criteria' };
 }
 
 function acceptCriteriaReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
-  const criteria = getEntitiesForProjectByMode(db, projectId, 'project-wide').criteria;
-  for (const criterion of criteria) {
-    linkKnowledgeItemToTurn(db, criterion.id, turnId, 'reviewed');
+  const materializedCriterionIds = materializeAcceptedCriteriaReviewSet(db, projectId, turnId);
+  if (materializedCriterionIds === null) {
+    const criteria = getEntitiesForProjectByMode(db, projectId, 'project-wide').criteria;
+    for (const criterion of criteria) {
+      linkKnowledgeItemToTurn(db, criterion.id, turnId, 'reviewed');
+    }
   }
 
   createConfirmedPhaseOutcome(db, {
@@ -215,6 +257,34 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     res.json(state satisfies ProjectState);
   });
 
+  app.post('/api/projects/:id/phase-intent', (req: Request, res: Response) => {
+    const projectId = Number(req.params.id);
+
+    if (Number.isNaN(projectId)) {
+      res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
+      return;
+    }
+
+    const parsedRequest = submitPhaseIntentRequestSchema.safeParse(req.body);
+    if (!parsedRequest.success) {
+      res.status(400).json({ error: 'Invalid phase intent payload' } satisfies MutationErrorResponse);
+      return;
+    }
+
+    const response = submitPhaseIntentWithRuntimeCompatibility({
+      db,
+      projectId,
+      projectCwd,
+      request: parsedRequest.data,
+    });
+    if (!response.ok) {
+      res.status(response.status).json({ error: response.error } satisfies MutationErrorResponse);
+      return;
+    }
+
+    res.json(response satisfies SubmitPhaseIntentResponse);
+  });
+
   // Submit a turn response on a turn.
   app.post('/api/projects/:id/turns/:turnId/response', (req: Request, res: Response) => {
     const projectId = Number(req.params.id);
@@ -248,8 +318,6 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       return;
     }
     applyTurnResponseSelections(db, turnId, uniquePositions);
-    recordReviewFromTurnResponse(db, turn, uniquePositions, 'requirementReview', 'requirement');
-    recordReviewFromTurnResponse(db, turn, uniquePositions, 'criterionReview', 'criterion');
 
     if (isGroundingStrategyKickoffTurn(turn)) {
       const selectedMode =
@@ -271,6 +339,22 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
     const reviewAction =
       parsedRequest.data.kind === 'select-options' ? parsedRequest.data.reviewAction : null;
+    const expectedReviewAction =
+      parsedRequest.data.kind === 'select-options'
+        ? getReviewActionForSelectedPositions(turn, uniquePositions)
+        : null;
+
+    if (expectedReviewAction && reviewAction !== expectedReviewAction) {
+      res
+        .status(400)
+        .json({ error: 'Review turns must submit the explicit reviewAction for the selected option' });
+      return;
+    }
+
+    if (!expectedReviewAction && reviewAction) {
+      res.status(400).json({ error: 'reviewAction is only valid for review turns' });
+      return;
+    }
 
     const dataPart = {
       type: 'data-turn-response',
@@ -278,7 +362,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         turnId,
         selectedOptionIds,
         ...(freeText ? { freeText } : {}),
-        ...(reviewAction ? { reviewAction } : {}),
+        ...(expectedReviewAction ? { reviewAction: expectedReviewAction } : {}),
       },
     } as const satisfies Extract<BrunchUserPart, { type: 'data-turn-response' }>;
 
@@ -369,16 +453,29 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       lastUserMessage?.role === 'user' && lastUserMessage.parts.length > 0
         ? lastUserMessage.parts.filter(
             (part): part is BrunchUserPart =>
-              part.type === 'text' || part.type === 'data-turn-response' || part.type === 'data-confirmation',
+              part.type === 'text' ||
+              part.type === 'data-turn-response' ||
+              part.type === 'data-confirmation' ||
+              part.type === 'data-phase-intent',
           )
         : [{ type: 'text', text: prompt }];
     const confirmationPart = userParts.find(
       (part): part is Extract<BrunchUserPart, { type: 'data-confirmation' }> =>
         part.type === 'data-confirmation',
     );
+    const phaseIntentPart = userParts.find(
+      (part): part is Extract<BrunchUserPart, { type: 'data-phase-intent' }> =>
+        part.type === 'data-phase-intent',
+    );
     const phaseClosureCommand = confirmationPart ? parsePhaseClosureCommand(confirmationPart.data) : null;
+    const phaseIntentPrompt = phaseIntentPart ? getPhaseIntentDisplayText(phaseIntentPart.data) : '';
+    const promptText = prompt.trim() || phaseIntentPrompt;
+    const persistedUserParts =
+      phaseIntentPart && !userParts.some((part) => part.type === 'text')
+        ? ([{ type: 'text', text: phaseIntentPrompt }, ...userParts] satisfies BrunchUserPart[])
+        : userParts;
 
-    if (!prompt.trim() && !confirmationPart) {
+    if (!promptText && !confirmationPart && !phaseIntentPart) {
       res.status(400).json({ error: 'message content is required' });
       return;
     }
@@ -426,10 +523,10 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           res.status(404).json({ error: 'Phase closure proposal not found' });
           return;
         }
-        resolveTurn(db, proposalTurn.id, prompt, userParts);
+        resolveTurn(db, proposalTurn.id, promptText, persistedUserParts);
         confirmedClosureTurnId = proposalTurn.id;
       } else if (forceClosePhase) {
-        prepared = prepareTurn(db, id, prompt, userParts, forceClosePhase);
+        prepared = prepareTurn(db, id, promptText, persistedUserParts, forceClosePhase);
       } else {
         ensureProjectFrontier(db, id);
         const frontierProject = getProjectState(db, id)?.project;
@@ -443,7 +540,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
 
         if (activeTurn?.answer === null) {
-          resolveTurn(db, activeTurn.id, prompt, userParts);
+          resolveTurn(db, activeTurn.id, promptText, persistedUserParts);
           observedTurnId = activeTurn.id;
           prepared = prepareSuccessorTurn(db, id, activeTurn.phase, activeTurn.id);
         } else {
@@ -470,10 +567,6 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           }
           confirmPhaseOutcome(db, confirmationTarget.id, confirmedClosureTurnId);
           finalizeTurn(db, id, confirmedClosureTurnId);
-          const kickoffTurnId = createNextPhaseKickoff(db, id, confirmedClosureTurnId);
-          if (kickoffTurnId !== null) {
-            finalizeTurn(db, id, kickoffTurnId);
-          }
           writer.write({ type: 'finish', finishReason: 'stop' });
           return;
         }
@@ -491,10 +584,6 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
             summary: getForcedPhaseClosureSummary(forceClosePhase),
           });
           finalizeTurn(db, id, prepared.turn.id);
-          const kickoffTurnId = createNextPhaseKickoff(db, id, prepared.turn.id);
-          if (kickoffTurnId !== null) {
-            finalizeTurn(db, id, kickoffTurnId);
-          }
           writer.write({ type: 'finish', finishReason: 'stop' });
           return;
         }
@@ -514,7 +603,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           db,
           prepared.turn,
           prepared.activePath,
-          prompt,
+          promptText,
           prepared.turn.phase,
           modeOptions,
         );
@@ -547,19 +636,19 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           const shouldObserve =
             observedTurn &&
             observedTurn.answer !== null &&
-            !userParts.some((part) => part.type === 'data-confirmation') &&
+            !persistedUserParts.some((part) => part.type === 'data-confirmation') &&
             !safeDeserializeAssistantParts(observedTurn.assistant_parts).some(
               (part) => part.type === 'data-observer-result',
             );
 
           if (shouldObserve && observedTurn) {
-            const entityIds = await runObserver(db, observedTurn, id);
-            appendObserverResultToTurn(db, observedTurn.id, entityIds);
+            const observerResult = await runObserver(db, observedTurn, id);
+            appendObserverResultToTurn(db, observedTurn.id, observerResult);
             writer.write({
               type: 'data-observer-result',
               data: {
                 turnId: observedTurn.id,
-                entityIds,
+                ...observerResult,
               },
             });
           }
@@ -578,8 +667,30 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         const assistantParts = filterAssistantParts(responseMessage.parts, {
           elapsedMs: interviewerElapsedMs,
         });
+        const persistedReviewMetadata = getPersistedRuntimeReviewMetadata(
+          prepared.turn.phase,
+          responseMessage,
+        );
+        const synthesizedReviewSet =
+          persistedReviewMetadata?.reviewSet ??
+          buildReviewSetForPhase(prepared.turn.phase, {
+            requirements: getDraftRequirementEntitiesForProject(db, id),
+            criteria: getDraftCriterionEntitiesForProject(db, id),
+          });
+        const persistedAssistantParts = [
+          ...assistantParts.filter((part) => part.type !== 'data-review-set'),
+          ...(persistedReviewMetadata ? [persistedReviewMetadata.reviewQuestionPart] : []),
+          ...(synthesizedReviewSet
+            ? [
+                {
+                  type: 'data-review-set' as const,
+                  data: synthesizedReviewSet,
+                },
+              ]
+            : []),
+        ];
         updateTurn(db, prepared.turn.id, {
-          assistant_parts: serializeParts(assistantParts),
+          assistant_parts: serializeParts(persistedAssistantParts),
         });
       },
       onError: (error) => (error instanceof Error ? error.message : 'Unknown error'),

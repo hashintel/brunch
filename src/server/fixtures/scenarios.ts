@@ -1,3 +1,5 @@
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+
 import {
   advanceHead,
   applyTurnResponseSelections,
@@ -20,11 +22,13 @@ function createReviewSetAssistantParts({
   phase,
   title,
   prompt,
+  why,
   items,
 }: {
   phase: 'requirements' | 'criteria';
   title: string;
   prompt: string;
+  why: string;
   items: Array<{
     referenceCode: string;
     content: string;
@@ -35,6 +39,30 @@ function createReviewSetAssistantParts({
   }>;
 }): string {
   return serializeParts([
+    {
+      type: 'tool-ask_question',
+      toolCallId: `fixture-${phase}-review`,
+      state: 'output-available',
+      input: {
+        question: prompt,
+        why,
+        impact: 'high',
+        options: [
+          { content: 'Accept review', is_recommended: true },
+          { content: 'Request changes', is_recommended: false },
+        ],
+        reviewActions: [
+          { action: 'accept', optionPosition: 0 },
+          { action: 'request-changes', optionPosition: 1 },
+        ],
+        reviewSet: {
+          phase,
+          title,
+          items,
+        },
+      },
+      output: { ok: true, turnId: 0, optionCount: 2 },
+    },
     { type: 'text', text: prompt },
     {
       type: 'data-review-set',
@@ -72,6 +100,7 @@ function createAcceptedReviewUserParts(turnId: number, selectedOptionIds: number
 }
 
 const issueTrackerManifest = loadManifest('issue-tracker');
+const code = createKnowledgeReferenceCode;
 
 function sliceManifestScenario(scenario: ManifestScenario, turnCount: number): ManifestScenario {
   const turns = scenario.turns.slice(0, turnCount);
@@ -115,25 +144,6 @@ function sliceManifestScenario(scenario: ManifestScenario, turnCount: number): M
   });
 
   return { turns, knowledgeItems, edges };
-}
-
-function appendFrontierTurn(
-  scenario: ManifestScenario,
-  phase: ManifestScenario['turns'][number]['phase'],
-  turnKind: 'kickoff' | 'recovery',
-): ManifestScenario {
-  return {
-    ...scenario,
-    turns: [
-      ...scenario.turns,
-      {
-        phase,
-        turnKind,
-        question: '',
-        answer: null,
-      },
-    ],
-  };
 }
 
 function createManifestScenarioSeeder(scenario: ManifestScenario, defaultName: string): ScenarioFn {
@@ -258,24 +268,25 @@ export function seedRequirementsReviewReady(db: DB, projectId: number) {
       phase: 'requirements',
       title: 'Requirements',
       prompt: 'Please review the current requirement set.',
+      why: 'Review the whole requirement set before moving forward.',
       items: [
         {
-          referenceCode: 'R1',
+          referenceCode: code('requirement', 1),
           content: requirementCrud.content,
           rationale: 'Captures the core ticket lifecycle the tool must support from day one.',
-          grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }, { code: 'D1' }],
+          grounding: [{ code: code('goal', 1) }, { code: code('context', 1) }, { code: code('decision', 1) }],
         },
         {
-          referenceCode: 'R2',
+          referenceCode: code('requirement', 2),
           content: requirementAudit.content,
           rationale: 'Protects accountability and traceability for regulated workflows.',
-          grounding: [{ code: 'CTX2' }, { code: 'CST1' }],
+          grounding: [{ code: code('context', 2) }, { code: code('constraint', 1) }],
         },
         {
-          referenceCode: 'R3',
+          referenceCode: code('requirement', 3),
           content: requirementPermissions.content,
           rationale: 'Ensures each role sees only the operations appropriate to its responsibility.',
-          grounding: [{ code: 'GOAL2' }, { code: 'CST2' }],
+          grounding: [{ code: code('goal', 2) }, { code: code('constraint', 2) }],
           isRevised: true,
         },
       ],
@@ -326,18 +337,19 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
       phase: 'requirements',
       title: 'Requirements',
       prompt: 'Please review the current requirement set.',
+      why: 'Review the whole requirement set before moving forward.',
       items: [
         {
-          referenceCode: 'R1',
+          referenceCode: code('requirement', 1),
           content: approvedRequirement.content,
           rationale: 'Keeps resume behavior explicit in the accepted requirement set.',
-          grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+          grounding: [{ code: code('goal', 1) }, { code: code('context', 1) }],
         },
         {
-          referenceCode: 'R2',
+          referenceCode: code('requirement', 2),
           content: supportingRequirement.content,
           rationale: 'Preserves the local-first persistence seam as a first-order concern.',
-          grounding: [{ code: 'D1' }, { code: 'A1' }],
+          grounding: [{ code: code('decision', 1) }, { code: code('assumption', 1) }],
         },
       ],
     }),
@@ -367,21 +379,11 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
   });
   advanceHead(db, projectId, reviewTurn.id);
 
-  const criteriaKickoffTurn = createTurn(db, projectId, {
-    phase: 'criteria',
-    parent_turn_id: reviewTurn.id,
-    turn_kind: 'kickoff',
-    question: '',
-    answer: null,
-  });
-  advanceHead(db, projectId, criteriaKickoffTurn.id);
-
   return {
     approvedRequirement,
     supportingRequirement,
     reviewTurn,
     requirementsConfirmationTurn: reviewTurn,
-    criteriaKickoffTurn,
   };
 }
 
@@ -432,12 +434,12 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
   );
 
   for (const criterion of [criterionAudit, criterionPermissions, criterionPerformance]) {
-    linkKnowledgeItemToTurn(db, criterion.id, seededCriteria.criteriaKickoffTurn.id, 'captured');
+    linkKnowledgeItemToTurn(db, criterion.id, seededCriteria.requirementsConfirmationTurn.id, 'captured');
   }
 
   const reviewTurn = createTurn(db, projectId, {
     phase: 'criteria',
-    parent_turn_id: seededCriteria.criteriaKickoffTurn.id,
+    parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
     question: 'Please review the current criterion set.',
     why: 'Review the whole criterion set before moving forward.',
     impact: 'high',
@@ -446,25 +448,26 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
       phase: 'criteria',
       title: 'Acceptance Criteria',
       prompt: 'Please review the current criterion set.',
+      why: 'Review the whole criterion set before moving forward.',
       items: [
         {
-          referenceCode: 'CRIT1',
+          referenceCode: code('criterion', 1),
           content: criterionAudit.content,
           rationale: 'Makes the audit requirement observable in a seeded acceptance check.',
-          grounding: [{ code: 'R1' }, { code: 'CTX2' }],
+          grounding: [{ code: code('requirement', 1) }, { code: code('context', 2) }],
         },
         {
-          referenceCode: 'CRIT2',
+          referenceCode: code('criterion', 2),
           content: criterionPermissions.content,
           rationale: 'Verifies role-based visibility through a concrete denial path.',
-          grounding: [{ code: 'R1' }, { code: 'CST2' }],
+          grounding: [{ code: code('requirement', 1) }, { code: code('constraint', 2) }],
           isUserCreated: true,
         },
         {
-          referenceCode: 'CRIT3',
+          referenceCode: code('criterion', 3),
           content: criterionPerformance.content,
           rationale: 'Pins the seeded demo to a legible performance target.',
-          grounding: [{ code: 'R1' }, { code: 'A1' }],
+          grounding: [{ code: code('requirement', 1) }, { code: code('assumption', 1) }],
           isRevised: true,
         },
       ],
@@ -510,18 +513,19 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
       phase: 'criteria',
       title: 'Acceptance Criteria',
       prompt: 'Please review the current criterion set.',
+      why: 'Review the whole criterion set before moving forward.',
       items: [
         {
-          referenceCode: 'CRIT1',
+          referenceCode: code('criterion', 1),
           content: criterion.content,
           rationale: 'Provides a concise seeded acceptance check for the resume path.',
-          grounding: [{ code: 'R1' }],
+          grounding: [{ code: code('requirement', 1) }],
         },
         {
-          referenceCode: 'CRIT2',
+          referenceCode: code('criterion', 2),
           content: supportingCriterion.content,
           rationale: 'Shows the user-visible reload behavior that proves persistence worked.',
-          grounding: [{ code: 'R1' }, { code: 'CTX1' }],
+          grounding: [{ code: code('requirement', 1) }, { code: code('context', 1) }],
         },
       ],
     }),
@@ -561,7 +565,11 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
 
 export function seedAllPhasesClosed(db: DB, projectId: number) {
   const seededCriteria = seedCriteriaReady(db, projectId);
-  const reviewedCriteria = seedClosedCriteriaReview(db, projectId, seededCriteria.criteriaKickoffTurn.id);
+  const reviewedCriteria = seedClosedCriteriaReview(
+    db,
+    projectId,
+    seededCriteria.requirementsConfirmationTurn.id,
+  );
 
   return { ...seededCriteria, ...reviewedCriteria };
 }
@@ -601,7 +609,7 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
   const reviewedCriteria = seedClosedCriteriaReview(
     db,
     projectId,
-    reviewedRequirements.criteriaKickoffTurn.id,
+    reviewedRequirements.requirementsConfirmationTurn.id,
   );
 
   return {
@@ -676,7 +684,7 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
   const reviewedCriteria = seedClosedCriteriaReview(
     db,
     projectId,
-    reviewedRequirements.criteriaKickoffTurn.id,
+    reviewedRequirements.requirementsConfirmationTurn.id,
   );
 
   return {
@@ -762,31 +770,19 @@ const phaseTransitionScenarios: Record<string, ScenarioFn> = {
     'Issue Tracker (scope closure pending)',
   ),
   'issue-tracker-design-kickoff-ready': createManifestScenarioSeeder(
-    appendFrontierTurn(
-      sliceManifestScenario(issueTrackerManifest.scenarios['scope-closed']!, 7),
-      'design',
-      'kickoff',
-    ),
+    sliceManifestScenario(issueTrackerManifest.scenarios['scope-closed']!, 7),
     'Issue Tracker (design kickoff ready)',
   ),
   'issue-tracker-design-recovery': createManifestScenarioSeeder(
-    appendFrontierTurn(issueTrackerManifest.scenarios['design-active']!, 'design', 'recovery'),
+    issueTrackerManifest.scenarios['design-active']!,
     'Issue Tracker (design recovery)',
   ),
   'issue-tracker-requirements-kickoff-ready': createManifestScenarioSeeder(
-    appendFrontierTurn(
-      sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 11),
-      'requirements',
-      'kickoff',
-    ),
+    sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 11),
     'Issue Tracker (requirements kickoff ready)',
   ),
   'issue-tracker-criteria-kickoff-ready': createManifestScenarioSeeder(
-    appendFrontierTurn(
-      sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 18),
-      'criteria',
-      'kickoff',
-    ),
+    sliceManifestScenario(issueTrackerManifest.scenarios['requirements-ready']!, 18),
     'Issue Tracker (criteria kickoff ready)',
   ),
   'issue-tracker-requirements-ready': (db, name = 'Issue Tracker (requirements review ready)') => {

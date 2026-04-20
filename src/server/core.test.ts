@@ -1,8 +1,16 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 
-import { extractPrompt, finalizeTurn, getProjectState, prepareTurn } from './core.js';
+import {
+  ensureProjectFrontier,
+  extractPrompt,
+  finalizeTurn,
+  getProjectState,
+  prepareTurn,
+  readProjectStateProjection,
+} from './core.js';
 import {
   confirmPhaseOutcome,
   createDb,
@@ -10,6 +18,7 @@ import {
   createPhaseOutcome,
   createProject,
   createTurn,
+  getActivePath,
   getProject,
   getTurn,
   linkKnowledgeItemToTurn,
@@ -387,15 +396,41 @@ describe('finalizeTurn', () => {
 });
 
 describe('getProjectState', () => {
-  it('seeds the first scope kickoff turn with grounding strategy choices', () => {
+  it('keeps projection-only reads free of fabricated kickoff or recovery rows', () => {
     const project = createProject(db, 'Spec');
+
+    const kickoffProjection = readProjectStateProjection(db, project.id);
+
+    expect(kickoffProjection?.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+    expect(kickoffProjection?.turns).toEqual([]);
+    expect(getActivePath(db, project.id)).toEqual([]);
+
+    const turn = createTurn(db, project.id, {
+      phase: 'scope',
+      question: 'What are we building?',
+      answer: 'A chat app',
+    });
+    finalizeTurn(db, project.id, turn.id);
+
+    const recoveryProjection = readProjectStateProjection(db, project.id);
+
+    expect(recoveryProjection?.landing).toEqual({ kind: 'recovery', phase: 'scope' });
+    expect(recoveryProjection?.turns.filter((candidate) => candidate.turn_kind === 'question')).toHaveLength(
+      1,
+    );
+    expect(recoveryProjection?.turns.some((candidate) => candidate.turn_kind === 'recovery')).toBe(false);
+  });
+
+  it('projects the first scope landing as kickoff with grounding strategy choices once the runtime seeds entry state', () => {
+    const project = createProject(db, 'Spec');
+    ensureProjectFrontier(db, project.id);
 
     const state = getProjectState(db, project.id);
 
+    expect(state?.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
     expect(state?.turns).toHaveLength(1);
     expect(state?.turns[0]).toMatchObject({
       phase: 'scope',
-      turn_kind: 'kickoff',
       question: 'How should this specification start?',
       why: 'Choose how to start grounding this specification.',
       answer: null,
@@ -416,7 +451,7 @@ describe('getProjectState', () => {
     });
   });
 
-  it('returns project plus active path turns', () => {
+  it('returns project plus active path turns and projects recovery when the frontier is missing', () => {
     const project = createProject(db, 'Spec');
     const turn = createTurn(db, project.id, {
       phase: 'scope',
@@ -432,7 +467,8 @@ describe('getProjectState', () => {
     const state = getProjectState(db, project.id);
 
     expect(state?.project.id).toBe(project.id);
-    expect(state?.turns).toHaveLength(2);
+    expect(state?.landing).toEqual({ kind: 'recovery', phase: 'scope' });
+    expect(state?.turns.filter((candidate) => candidate.turn_kind === 'question')).toHaveLength(1);
     expect(state?.turns[0].question).toBe('What are we building?');
     expect(state?.turns[0].turn_kind).toBe('question');
     expect(state?.turns[0].captured_items).toEqual([
@@ -441,21 +477,16 @@ describe('getProjectState', () => {
         kind: 'context',
         id: context.id,
         content: 'The app starts from a fresh repo',
-        referenceCode: 'CTX1',
+        referenceCode: createKnowledgeReferenceCode('context', 1),
       },
       {
-        collection: 'decision',
+        collection: 'knowledge_item',
         kind: 'decision',
         id: decision.id,
         content: 'Start with the web app',
-        referenceCode: 'D1',
+        referenceCode: createKnowledgeReferenceCode('decision', 1),
       },
     ]);
-    expect(state?.turns[1]).toMatchObject({
-      phase: 'scope',
-      turn_kind: 'recovery',
-      question: '',
-      answer: null,
-    });
+    expect(state?.turns.some((candidate) => candidate.turn_kind === 'recovery')).toBe(false);
   });
 });

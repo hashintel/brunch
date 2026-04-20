@@ -84,7 +84,7 @@ describe('ExportPreview', () => {
     );
     expect(screen.getByRole('button', { name: /Download .md/ })).toBeTruthy();
     expect(screen.getByRole('link', { name: /Review specification knowledge/ }).getAttribute('href')).toBe(
-      '/project/7/framing',
+      '/project/7/grounding',
     );
     expect(
       screen.getByText(

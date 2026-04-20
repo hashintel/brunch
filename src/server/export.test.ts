@@ -81,19 +81,9 @@ describe('renderExportMarkdown', () => {
           subtype: null,
           content: 'Export spec',
           rationale: null,
-          reviewStatus: 'approved',
-        },
-        {
-          id: 2,
-          project_id: 1,
-          kind: 'requirement',
-          subtype: null,
-          content: 'PDF export',
-          rationale: null,
-          reviewStatus: 'rejected',
         },
       ],
-      decisions: [{ id: 3, project_id: 1, content: 'Use SQLite', rationale: 'Zero config' }],
+      decisions: [{ id: 2, project_id: 1, content: 'Use SQLite', rationale: 'Zero config' }],
     };
     const workflow = createAllClosedWorkflow({
       design: createClosedPhase({ basis: 'user_forced', readiness: 'low' }),
@@ -126,7 +116,6 @@ describe('renderExportMarkdown', () => {
           subtype: null,
           content: 'Resume from SQLite',
           rationale: null,
-          reviewStatus: 'approved',
         },
       ],
       decisions: [{ id: 3, project_id: 1, content: 'Use SQLite', rationale: 'Zero config' }],
@@ -167,7 +156,7 @@ describe('renderExportMarkdown', () => {
     expect(md).toContain('user-forced');
   });
 
-  it('renders only approved reviewed items in the export body', () => {
+  it('renders only the accepted requirement and criterion items present in the export projection', () => {
     const entities: EntitiesData = {
       ...emptyEntities,
       requirements: [
@@ -178,45 +167,16 @@ describe('renderExportMarkdown', () => {
           subtype: null,
           content: 'Export spec',
           rationale: null,
-          reviewStatus: 'approved',
-        },
-        {
-          id: 2,
-          project_id: 1,
-          kind: 'requirement',
-          subtype: null,
-          content: 'PDF export',
-          rationale: null,
-          reviewStatus: 'rejected',
-        },
-        {
-          id: 3,
-          project_id: 1,
-          kind: 'requirement',
-          subtype: null,
-          content: 'CSV export',
-          rationale: null,
-          reviewStatus: 'pending',
         },
       ],
       criteria: [
         {
-          id: 4,
+          id: 2,
           project_id: 1,
           kind: 'criterion',
           subtype: null,
           content: 'Reload shows the active interview state',
           rationale: null,
-          reviewStatus: 'approved',
-        },
-        {
-          id: 5,
-          project_id: 1,
-          kind: 'criterion',
-          subtype: null,
-          content: 'PDF download works offline',
-          rationale: null,
-          reviewStatus: 'rejected',
         },
       ],
     };
@@ -225,9 +185,6 @@ describe('renderExportMarkdown', () => {
 
     expect(md).toContain('Export spec');
     expect(md).toContain('Reload shows the active interview state');
-    expect(md).not.toContain('PDF export');
-    expect(md).not.toContain('CSV export');
-    expect(md).not.toContain('PDF download works offline');
     expect(md).not.toMatch(/\bapproved\b/i);
     expect(md).not.toMatch(/\brejected\b/i);
   });
@@ -307,7 +264,7 @@ describe('renderExportMarkdown', () => {
 
     const markdown = renderExportMarkdown(
       projectState!.project.name,
-      getEntitiesForProject(db, projectId),
+      getEntitiesForProjectOnActivePath(db, projectId),
       projectState!.workflow,
     );
     expect(markdown).toContain('__design__ was closed via user-forced closure');
@@ -330,7 +287,7 @@ describe('renderExportMarkdown', () => {
 
     const markdown = renderExportMarkdown(
       projectState!.project.name,
-      getEntitiesForProject(db, projectId),
+      getEntitiesForProjectOnActivePath(db, projectId),
       projectState!.workflow,
     );
     expect(markdown).toContain('__scope__ was closed with low readiness');

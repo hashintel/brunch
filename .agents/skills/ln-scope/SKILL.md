@@ -23,11 +23,15 @@ If `memory/SPEC.md` exists, use its lexicon and respect its live invariants.
 
 If `memory/PLAN.md` exists, check whether the named work is already in `Active`, `Next`, or `Horizon`.
 
+Treat the containing `memory/PLAN.md` frontier item as the Linear-issue / branch boundary. Here, a frontier item means the plan-level work item itself, not the scope card you are about to write. Your scope card may narrow that frontier item into the next buildable sub-slice, but scope-card granularity alone does **not** imply a new issue or branch. Only route to `ln-plan` for new plan items when the frontier itself must be split or reordered.
+
 If this is a fresh thread or an unfamiliar area, also read `HANDOFF.md` if present. Read `docs/archive/PLAN_HISTORY.md` only if the frontier rationale or touched area is still unclear.
 
 Write a 2-4 bullet orientation note naming the containing seam, the relevant frontier item, volatile handoff state, and the main open risk.
 
 Do not create new planning documents or scratch scope files without explicit permission. The canonical planning state remains `memory/SPEC.md` and `memory/PLAN.md`; the scope card is the session artifact that decides whether those documents need to change.
+
+If scoping reveals that one frontier item needs multiple sequential sub-slices, keep them nested under that same frontier item unless the plan-level frontier must change. Do not silently turn sub-slices into separate tracker / branch work items.
 
 ## Scope-weight decision
 

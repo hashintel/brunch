@@ -1,6 +1,6 @@
 // @vitest-environment node
 
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
@@ -34,14 +34,18 @@ describe('file-route phase route ownership', () => {
     expect(viewLayoutSource).toMatch(/import\(.+graph-view/);
   });
 
-  it('keeps phase routes thin — each renders InterviewView via colocated support file', () => {
-    const phaseRoutes = ['framing', 'elicitation', 'requirements-review', 'acceptance-review'];
+  it('keeps phase routes thin — canonical phase screens render InterviewView via colocated support files', () => {
+    const phaseRoutes = ['grounding', 'elicitation', 'requirements-review', 'acceptance-review'];
 
     for (const phase of phaseRoutes) {
       const source = readRepoFile(`src/client/routes/project/$id/_view/${phase}.tsx`);
       expect(source, `${phase} route should use createFileRoute`).toContain('createFileRoute');
       expect(source, `${phase} route should render InterviewView`).toContain('InterviewView');
     }
+  });
+
+  it('retires the legacy framing route file', () => {
+    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/framing.tsx'))).toBe(false);
   });
 
   it('keeps the routed interview surface wired through ChatScroll', () => {

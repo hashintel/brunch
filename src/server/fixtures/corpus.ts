@@ -3,10 +3,9 @@ import { createKnowledgeCollectionRecord } from '@/shared/knowledge.js';
 
 import type { TurnWithOptions } from '../core.js';
 import { loadActivePathWithOptions } from '../core.js';
-import { createDb, findPhaseOutcomeForTurn, getEntitiesForProject, type DB } from '../db.js';
+import { createDb, getEntitiesForProject, type DB } from '../db.js';
 import { runObserver, type ObserverOutput } from '../observer.js';
-import { safeDeserializeUserParts } from '../parts.js';
-import { projectTurnResponse } from '../turn-response.js';
+import { projectRuntimeTurnToManifestTurn } from './durable-manifest-contract.js';
 import {
   loadManifest,
   seedFromManifest,
@@ -218,64 +217,14 @@ function getEdgesForItemIds(db: DB, itemIds: number[]): EdgeRow[] {
 
 export function captureProjectToManifestScenario(db: DB, projectId: number): ManifestScenario {
   const turns = loadActivePathWithOptions(db, projectId);
-  const turnIndexById = new Map(turns.map((turn, index) => [turn.id, index]));
-
-  const manifestTurns = turns.flatMap((turn) => {
-    if (turn.turn_kind === 'kickoff' || turn.turn_kind === 'recovery') {
-      return {
-        phase: turn.phase,
-        turnKind: turn.turn_kind,
-        question: '',
-        answer: null,
-      } satisfies ManifestScenario['turns'][number];
-    }
-
-    if (turn.question) {
-      const response = projectTurnResponse(turn);
-      const options = turn.options ?? [];
-
-      return {
-        phase: turn.phase,
-        ...(turn.turn_kind && turn.turn_kind !== 'question' ? { turnKind: turn.turn_kind } : {}),
-        question: turn.question,
-        answer: turn.answer ?? null,
-        why: turn.why ?? null,
-        impact: turn.impact ?? null,
-        options: options.map((option) => ({
-          content: option.content,
-          is_recommended: option.is_recommended,
-        })),
-        ...(response
-          ? {
-              selectedOptionPositions: options
-                .filter((option) => option.is_selected)
-                .sort((left, right) => left.position - right.position)
-                .map((option) => option.position),
-              freeText: response.freeText ?? null,
-              ...(response.reviewAction ? { reviewAction: response.reviewAction } : {}),
-            }
-          : {}),
-      } satisfies ManifestScenario['turns'][number];
-    }
-
-    const isConfirmation = safeDeserializeUserParts(turn.user_parts).some(
-      (part) => part.type === 'data-confirmation',
-    );
-    const isClosureProposal = Boolean(findPhaseOutcomeForTurn(db, projectId, turn.id));
-
-    if (!isConfirmation && !isClosureProposal) {
-      return [];
-    }
-
-    return {
-      phase: turn.phase,
-      question: '',
-      answer: turn.answer ?? '',
-      ...(isConfirmation ? { isConfirmation: true } : { isProposal: true }),
-    } satisfies ManifestScenario['turns'][number];
+  const authorityTurns = turns.flatMap((turn) => {
+    const manifestTurn = projectRuntimeTurnToManifestTurn({ db, projectId, turn });
+    return manifestTurn ? [{ turnId: turn.id, manifestTurn }] : [];
   });
+  const turnIndexById = new Map(authorityTurns.map(({ turnId }, index) => [turnId, index]));
+  const manifestTurns = authorityTurns.map(({ manifestTurn }) => manifestTurn);
 
-  const activeTurnIds = turns.map((turn) => turn.id);
+  const activeTurnIds = authorityTurns.map(({ turnId }) => turnId);
   const linkRows = getActivePathLinkRows(db, projectId, activeTurnIds);
   const rowsByItemId = new Map<number, LinkRow[]>();
   for (const row of linkRows) {
@@ -544,14 +493,14 @@ function collectObservedTurnCapture(
 ): ObservedTurnCapture {
   const entities = getEntitiesForProject(db, projectId);
   const createdIdSet = new Set<number>([
-    ...createdIds.goals,
-    ...createdIds.terms,
-    ...createdIds.contexts,
-    ...createdIds.constraints,
-    ...createdIds.requirements,
-    ...createdIds.criteria,
-    ...createdIds.decisions,
-    ...createdIds.assumptions,
+    ...createdIds.entityIds.goals,
+    ...createdIds.entityIds.terms,
+    ...createdIds.entityIds.contexts,
+    ...createdIds.entityIds.constraints,
+    ...createdIds.entityIds.requirements,
+    ...createdIds.entityIds.criteria,
+    ...createdIds.entityIds.decisions,
+    ...createdIds.entityIds.assumptions,
   ]);
   const contentById = getAllEntityContentById(db, projectId);
 
@@ -572,12 +521,24 @@ function collectObservedTurnCapture(
       rationale: item.rationale ?? null,
       subtype: item.subtype ?? null,
     }));
-  capture.requirements = entities.requirements
-    .filter((item) => createdIdSet.has(item.id))
-    .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
-  capture.criteria = entities.criteria
-    .filter((item) => createdIdSet.has(item.id))
-    .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
+  capture.requirements =
+    createdIds.draftReviewItems.requirements.length > 0
+      ? createdIds.draftReviewItems.requirements.map((item) => ({
+          content: item.content,
+          rationale: item.rationale ?? null,
+        }))
+      : entities.requirements
+          .filter((item) => createdIdSet.has(item.id))
+          .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
+  capture.criteria =
+    createdIds.draftReviewItems.criteria.length > 0
+      ? createdIds.draftReviewItems.criteria.map((item) => ({
+          content: item.content,
+          rationale: item.rationale ?? null,
+        }))
+      : entities.criteria
+          .filter((item) => createdIdSet.has(item.id))
+          .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
   capture.decisions = entities.decisions
     .filter((item) => createdIdSet.has(item.id))
     .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));

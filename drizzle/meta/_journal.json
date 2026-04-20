@@ -71,6 +71,13 @@
       "when": 1776000000000,
       "tag": "0009_turn_kind",
       "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "7",
+      "when": 1776100000000,
+      "tag": "0010_retire_legacy_knowledge_tables",
+      "breakpoints": true
     }
   ]
 }

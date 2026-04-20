@@ -59,7 +59,6 @@ function populatedEntities(): EntitiesData {
         subtype: null,
         content: 'Export spec as markdown',
         rationale: null,
-        reviewStatus: 'approved',
       },
     ],
     criteria: [],
@@ -75,8 +74,8 @@ function populatedEntities(): EntitiesData {
     relationships: [
       {
         type: 'depends_on',
-        source: { collection: 'decision', kind: 'decision', id: 5 },
-        target: { collection: 'assumption', kind: 'assumption', id: 6 },
+        source: { collection: 'knowledge_item', kind: 'decision', id: 5 },
+        target: { collection: 'knowledge_item', kind: 'assumption', id: 6 },
       },
       {
         type: 'derived_from',
@@ -149,11 +148,11 @@ describe('GraphView', () => {
     expect(screen.getByText('Ship a working MVP')).toBeTruthy();
   });
 
-  it('shows review status badges on requirements and criteria', () => {
+  it('keeps requirement cards free of legacy review-status badges', () => {
     render(<GraphView entityState={populatedEntities()} />);
 
     const requirementCard = screen.getByText('Export spec as markdown').closest('[data-entity-card]')!;
     expect(requirementCard).toBeTruthy();
-    expect(within(requirementCard as HTMLElement).getByText('Approved')).toBeTruthy();
+    expect(within(requirementCard as HTMLElement).queryByText('Approved')).toBeNull();
   });
 });

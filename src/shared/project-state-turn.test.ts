@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
 import type { ProjectState, ProjectStateTurn } from './api-types.js';
+import { createKnowledgeReferenceCode } from './knowledge.js';
 import {
+  deriveSpecificationLanding,
   findTurnOptionsByPositions,
   getAcceptedClosureReplay,
   getPersistedActivitySummary,
@@ -10,6 +12,7 @@ import {
   getReviewActionForSelectedPositions,
   safeParsePersistedAssistantParts,
   safeParsePersistedUserParts,
+  turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
 } from './project-state-turn.js';
 
@@ -51,10 +54,116 @@ function createPhaseState(
   };
 }
 
+function createProjectState(
+  overrides: Partial<ProjectState> = {},
+  phaseOverrides: Partial<ProjectState['workflow']['phases']['scope']> = {},
+  turns: ProjectState['turns'] = [createTurn()],
+): ProjectState {
+  return {
+    project: {
+      id: 1,
+      name: 'Project 1',
+      mode: 'greenfield',
+      cwd: null,
+      active_turn_id: turns.at(-1)?.id ?? null,
+      created_at: '2026-04-16 10:00:00',
+      updated_at: '2026-04-16 10:00:00',
+    },
+    workflow: {
+      phases: {
+        scope: {
+          status: 'in_progress',
+          closeability: false,
+          readiness: 'low',
+          closureBasis: null,
+          proposalPending: false,
+          turnId: turns.at(-1)?.phase === 'scope' ? (turns.at(-1)?.id ?? null) : null,
+          summary: null,
+          ...phaseOverrides,
+        },
+        design: createPhaseState({ status: 'unstarted', closureBasis: null, summary: null, turnId: null }),
+        requirements: createPhaseState({
+          status: 'unstarted',
+          closureBasis: null,
+          summary: null,
+          turnId: null,
+        }),
+        criteria: createPhaseState({ status: 'unstarted', closureBasis: null, summary: null, turnId: null }),
+      },
+    },
+    turns,
+    ...overrides,
+  };
+}
+
 describe('project-state-turn helpers', () => {
   it('safely parses persisted assistant and user parts', () => {
     expect(safeParsePersistedAssistantParts('not-json')).toEqual([]);
     expect(safeParsePersistedUserParts(null)).toEqual([]);
+  });
+
+  it('drops malformed persisted part payloads before read-model helpers consume them', () => {
+    const malformedTurn = createTurn({
+      answer: null,
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Resume work' },
+        { type: 'data-turn-response', data: { turnId: 1, selectedOptionIds: [] } },
+      ]),
+      assistant_parts: JSON.stringify([
+        { type: 'text', text: 'Please review the requirement set.' },
+        { type: 'data-review-set', data: { phase: 'requirements' } },
+      ]),
+    });
+
+    expect(safeParsePersistedAssistantParts(malformedTurn.assistant_parts)).toEqual([
+      { type: 'text', text: 'Please review the requirement set.' },
+    ]);
+    expect(safeParsePersistedUserParts(malformedTurn.user_parts)).toEqual([
+      { type: 'text', text: 'Resume work' },
+    ]);
+    expect(getPersistedReviewSet(malformedTurn)).toBeNull();
+    expect(getPersistedReviewAction(malformedTurn)).toBeNull();
+    expect(turnHasCompletedAnswer(malformedTurn)).toBe(false);
+  });
+
+  it('derives truthful open-phase landing from workflow state and active-path turns', () => {
+    expect(
+      deriveSpecificationLanding(
+        createProjectState({}, { turnId: null }, [
+          createTurn({
+            id: 1,
+            answer: 'Build the web app',
+            options: [],
+          }),
+        ]),
+      ),
+    ).toEqual({ kind: 'recovery', phase: 'scope' });
+
+    expect(
+      deriveSpecificationLanding(
+        createProjectState({}, { turnId: 2 }, [
+          createTurn({
+            id: 1,
+            answer: 'Build the web app',
+            options: [],
+          }),
+          createTurn({
+            id: 2,
+            parent_turn_id: 1,
+            answer: null,
+            options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
+          }),
+        ]),
+      ),
+    ).toEqual({ kind: 'frontier-turn', phase: 'scope', turnId: 2 });
+
+    expect(
+      deriveSpecificationLanding(
+        createProjectState({}, { turnId: null }, [
+          createTurn({ id: 1, turn_kind: 'kickoff', answer: null, options: [], question: '' }),
+        ]),
+      ),
+    ).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
   });
 
   it('classifies kickoff, recovery, confirmation, and closure-summary turns as control artifacts', () => {
@@ -173,7 +282,38 @@ describe('project-state-turn helpers', () => {
 
   it('reads and derives explicit review actions for full-set review turns', () => {
     const reviewTurn = createTurn({
-      phase: 'requirements',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-review',
+          state: 'output-available',
+          input: {
+            question: 'Please review the requirement set.',
+            why: 'Review keeps the set truthful before closing the phase.',
+            impact: 'high',
+            options: [
+              { content: 'Accept review', is_recommended: true },
+              { content: 'Request changes', is_recommended: false },
+            ],
+            reviewActions: [
+              { action: 'accept', optionPosition: 0 },
+              { action: 'request-changes', optionPosition: 1 },
+            ],
+            reviewSet: {
+              phase: 'requirements',
+              title: 'Requirements',
+              items: [
+                {
+                  referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                  content: 'Resume the interview from persisted local state',
+                  rationale: 'Core local-first promise.',
+                },
+              ],
+            },
+          },
+          output: { ok: true, turnId: 1, optionCount: 2 },
+        },
+      ]),
       user_parts: JSON.stringify([
         { type: 'text', text: 'Ship this set' },
         {
@@ -186,7 +326,7 @@ describe('project-state-turn helpers', () => {
     expect(getPersistedReviewAction(reviewTurn)).toBe('accept');
     expect(getReviewActionForSelectedPositions(reviewTurn, [0])).toBe('accept');
     expect(getReviewActionForSelectedPositions(reviewTurn, [1])).toBe('request-changes');
-    expect(getReviewActionForSelectedPositions(createTurn({ phase: 'scope' }), [0])).toBeNull();
+    expect(getReviewActionForSelectedPositions(createTurn(), [0])).toBeNull();
   });
 
   it('reads persisted turn-owned review-set artifacts from assistant parts', () => {
@@ -201,10 +341,13 @@ describe('project-state-turn helpers', () => {
             title: 'Requirements',
             items: [
               {
-                referenceCode: 'R1',
+                referenceCode: createKnowledgeReferenceCode('requirement', 1),
                 content: 'Resume the interview from persisted local state',
                 rationale: 'Core local-first promise.',
-                grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+                grounding: [
+                  { code: createKnowledgeReferenceCode('goal', 1) },
+                  { code: createKnowledgeReferenceCode('context', 1) },
+                ],
               },
             ],
           },
@@ -217,10 +360,13 @@ describe('project-state-turn helpers', () => {
       title: 'Requirements',
       items: [
         {
-          referenceCode: 'R1',
+          referenceCode: createKnowledgeReferenceCode('requirement', 1),
           content: 'Resume the interview from persisted local state',
           rationale: 'Core local-first promise.',
-          grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+          grounding: [
+            { code: createKnowledgeReferenceCode('goal', 1) },
+            { code: createKnowledgeReferenceCode('context', 1) },
+          ],
         },
       ],
     });

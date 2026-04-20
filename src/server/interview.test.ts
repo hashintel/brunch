@@ -4,6 +4,7 @@ import { structuredQuestionSchema, type StructuredQuestion } from '@/shared/chat
 
 import { createDb, createProject, createTurn, getOptionsForTurn, getTurn, type DB } from './db.js';
 import {
+  buildReviewSetForPhase,
   canProposePhaseClosure,
   getBrownfieldScopePrompt,
   getInterviewerInstructions,
@@ -53,19 +54,48 @@ describe('structuredQuestionSchema', () => {
     expect(() =>
       structuredQuestionSchema.parse({
         question: 'Should we approve this requirement?',
-        why: 'Requirement review should use the explicit requirementReview payload.',
+        why: 'Review turns should carry explicit review action metadata in the tool payload.',
         impact: 'high',
         options: [
           { content: 'Approve', is_recommended: true },
           { content: 'Reject', is_recommended: false },
         ],
-        review: {
+        requirementReview: {
           kind: 'requirement-approval',
           requirementId: 42,
           approveOptionPosition: 0,
         },
       }),
     ).toThrow();
+  });
+
+  it('accepts explicit reviewActions metadata and interviewer-owned reviewSet payloads for full-set review turns', () => {
+    const validReviewTurn: StructuredQuestion = {
+      question: 'Please review the current requirement set.',
+      why: 'We need an explicit accept/request-changes seam before closing the phase.',
+      impact: 'high',
+      options: [
+        { content: 'Accept review', is_recommended: true },
+        { content: 'Request changes', is_recommended: false },
+      ],
+      reviewActions: [
+        { action: 'accept', optionPosition: 0 },
+        { action: 'request-changes', optionPosition: 1 },
+      ],
+      reviewSet: {
+        phase: 'requirements',
+        title: 'Requirements',
+        items: [
+          {
+            referenceCode: 'R1',
+            content: 'Resume the interview from SQLite after restart',
+            rationale: 'Lets users continue after a restart.',
+          },
+        ],
+      },
+    };
+
+    expect(structuredQuestionSchema.parse(validReviewTurn)).toEqual(validReviewTurn);
   });
 });
 
@@ -87,25 +117,28 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('requirements')).toContain('current requirement inventory');
     expect(getSystemPrompt('requirements')).toContain('Accept review');
     expect(getSystemPrompt('requirements')).toContain('Request changes');
+    expect(getSystemPrompt('requirements')).toContain('reviewSet');
     expect(getSystemPrompt('requirements')).not.toContain('requirementReview');
-    expect(getSystemPrompt('requirements')).toContain('propose_phase_closure');
+    expect(getSystemPrompt('requirements')).not.toContain('propose_phase_closure');
+    expect(getSystemPrompt('requirements')).toContain('phase-closing action');
   });
 
   it('grounds the criteria prompt in a full-set review turn', () => {
     expect(getSystemPrompt('criteria')).toContain('current criterion inventory');
-    expect(getSystemPrompt('criteria')).toContain('approved requirements');
+    expect(getSystemPrompt('criteria')).toContain('accepted requirements');
     expect(getSystemPrompt('criteria')).toContain('Accept review');
     expect(getSystemPrompt('criteria')).toContain('Request changes');
+    expect(getSystemPrompt('criteria')).toContain('reviewSet');
     expect(getSystemPrompt('criteria')).not.toContain('criterionReview');
   });
 });
 
 describe('canProposePhaseClosure', () => {
-  it('enables closure proposals for scope and design, and for requirements only once closeable', () => {
+  it('enables closure proposals only for scope and design', () => {
     expect(canProposePhaseClosure('scope')).toBe(true);
     expect(canProposePhaseClosure('design')).toBe(true);
     expect(canProposePhaseClosure('requirements', false)).toBe(false);
-    expect(canProposePhaseClosure('requirements', true)).toBe(true);
+    expect(canProposePhaseClosure('requirements', true)).toBe(false);
     expect(canProposePhaseClosure('criteria')).toBe(false);
   });
 });
@@ -235,6 +268,69 @@ describe('brownfield interviewer configuration', () => {
     expect(getInterviewerInstructions('requirements', { mode: 'brownfield', cwd: '/tmp/repo' })).toBe(
       getSystemPrompt('requirements'),
     );
+  });
+});
+
+describe('buildReviewSetForPhase', () => {
+  it('builds persisted review-set payloads for requirements and criteria from the current review inventory', () => {
+    expect(
+      buildReviewSetForPhase('requirements', {
+        requirements: [
+          {
+            id: 1,
+            project_id: 1,
+            kind: 'requirement',
+            subtype: null,
+            content: 'Resume the interview from SQLite after restart',
+            rationale: 'Lets users continue after a restart.',
+            referenceCode: 'R1',
+          },
+        ],
+        criteria: [],
+      }),
+    ).toEqual({
+      phase: 'requirements',
+      title: 'Requirements',
+      items: [
+        {
+          content: 'Resume the interview from SQLite after restart',
+          rationale: 'Lets users continue after a restart.',
+          referenceCode: 'R1',
+        },
+      ],
+    });
+
+    expect(
+      buildReviewSetForPhase('criteria', {
+        requirements: [],
+        criteria: [
+          {
+            id: 2,
+            project_id: 1,
+            kind: 'criterion',
+            subtype: null,
+            content: 'Restarting restores the active path',
+            rationale: 'Proves the persisted branch resumes cleanly.',
+            referenceCode: 'AC1',
+          },
+        ],
+      }),
+    ).toEqual({
+      phase: 'criteria',
+      title: 'Acceptance Criteria',
+      items: [
+        {
+          content: 'Restarting restores the active path',
+          rationale: 'Proves the persisted branch resumes cleanly.',
+          referenceCode: 'AC1',
+        },
+      ],
+    });
+  });
+
+  it('returns null outside the review phases', () => {
+    expect(buildReviewSetForPhase('scope', { requirements: [], criteria: [] })).toBeNull();
+    expect(buildReviewSetForPhase('design', { requirements: [], criteria: [] })).toBeNull();
   });
 });
 

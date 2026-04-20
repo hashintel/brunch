@@ -21,15 +21,23 @@ import type {
   ReadinessBand,
   TurnKind,
   RequirementEntity as SharedRequirementEntity,
-  ReviewStatus,
   WorkflowPhaseState as SharedWorkflowPhaseState,
   WorkflowPhaseStatus,
   WorkflowState as SharedWorkflowState,
 } from '@/shared/api-types.js';
-import { isAskQuestionUIPart, structuredQuestionSchema, type StructuredQuestion } from '@/shared/chat.js';
+import {
+  observerResultSchema,
+  reviewSetSchema,
+  type BrunchAssistantPart,
+  type ObserverDraftReviewItem,
+  type ObserverResultData,
+  type ReviewSetData,
+} from '@/shared/chat.js';
 import {
   createKnowledgeReferenceCode,
   genericKnowledgeKindRegistry,
+  knowledgeEntityCollectionByKind,
+  knowledgeKindRegistry,
   type GenericKnowledgeCollectionKey,
   type GenericKnowledgeKind,
   type KnowledgeEntityCollection,
@@ -52,7 +60,7 @@ export type PhaseOutcome = InferSelectModel<typeof schema.phaseOutcome>;
 export type Phase = Turn['phase'];
 export type Impact = NonNullable<Turn['impact']>;
 export type PhaseOutcomeStatus = PhaseOutcome['status'];
-export type { WorkflowPhaseStatus, ReadinessBand, ReviewStatus };
+export type { WorkflowPhaseStatus, ReadinessBand };
 export type ClosureBasis = PhaseClosureBasis | null;
 
 export type WorkflowPhaseState = SharedWorkflowPhaseState;
@@ -386,16 +394,62 @@ function getClosureBasisForOutcome(outcome: PhaseOutcome | undefined): ClosureBa
   return outcome.closure_basis ?? null;
 }
 
-function hasRequirementsReviewCoverage(db: DB, projectId: number): boolean {
-  const requirements = getRequirementEntitiesForProject(db, projectId);
-  return (
-    requirements.length > 0 && requirements.every((requirement) => requirement.reviewStatus !== 'pending')
+function findConfirmedPhaseOutcomeOnActivePath(
+  db: DB,
+  projectId: number,
+  phase: Phase,
+): PhaseOutcome | undefined {
+  const activeTurnIds = new Set(getActivePath(db, projectId).map((turn) => turn.id));
+  if (activeTurnIds.size === 0) {
+    return undefined;
+  }
+
+  return listPhaseOutcomesForProject(db, projectId).find(
+    (outcome) =>
+      outcome.phase === phase &&
+      outcome.status === 'confirmed' &&
+      activeTurnIds.has(outcome.proposal_turn_id),
   );
 }
 
+function getAcceptedKnowledgeItemIdsForPhase(
+  db: DB,
+  projectId: number,
+  phase: 'requirements' | 'criteria',
+  kind: 'requirement' | 'criterion',
+): Set<number> {
+  const confirmationTurnId = findConfirmedPhaseOutcomeOnActivePath(
+    db,
+    projectId,
+    phase,
+  )?.confirmation_turn_id;
+  if (!confirmationTurnId) {
+    return new Set();
+  }
+
+  const rows = db
+    .select({ itemId: schema.turnKnowledgeItem.item_id })
+    .from(schema.turnKnowledgeItem)
+    .innerJoin(schema.knowledgeItem, eq(schema.knowledgeItem.id, schema.turnKnowledgeItem.item_id))
+    .where(
+      and(
+        eq(schema.knowledgeItem.project_id, projectId),
+        eq(schema.knowledgeItem.kind, kind),
+        eq(schema.turnKnowledgeItem.turn_id, confirmationTurnId),
+        eq(schema.turnKnowledgeItem.relation, 'reviewed'),
+      ),
+    )
+    .all() as Array<{ itemId: number }>;
+
+  return new Set(rows.map((row) => row.itemId));
+}
+
+function hasRequirementsReviewCoverage(db: DB, projectId: number): boolean {
+  return getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'requirements', 'requirement').size > 0;
+}
+
 function hasCriteriaReviewCoverage(db: DB, projectId: number): boolean {
-  const criteria = getCriterionEntitiesForProject(db, projectId);
-  return criteria.length > 0 && criteria.every((criterion) => criterion.reviewStatus !== 'pending');
+  return getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'criteria', 'criterion').size > 0;
 }
 
 function getPhaseCloseability(
@@ -540,25 +594,35 @@ export type EntityReference = SharedEntityReference;
 export type EntityRelationship = SharedEntityRelationship;
 export type RequirementEntity = SharedRequirementEntity & { kind_ordinal: number };
 export type CriterionEntity = SharedCriterionEntity & { kind_ordinal: number };
+type GenericKnowledgeEntity<K extends GenericKnowledgeKind> = K extends 'requirement'
+  ? RequirementEntity
+  : K extends 'criterion'
+    ? CriterionEntity
+    : KnowledgeItem & { kind: K };
+type ProjectedKnowledgeEntity<K extends 'decision' | 'assumption'> = K extends 'decision'
+  ? Decision & { kind_ordinal: number }
+  : Assumption & { kind_ordinal: number };
 export type EntitiesForProject = EntitiesData;
 
-function toDecision(item: KnowledgeItem): Decision & { kind_ordinal: number } {
-  return {
+function projectKnowledgeItemEntity<K extends 'decision' | 'assumption'>(
+  item: KnowledgeItem,
+  kind: K,
+): ProjectedKnowledgeEntity<K> {
+  const base = {
     id: item.id,
     project_id: item.project_id,
     content: item.content,
-    rationale: item.rationale,
     kind_ordinal: item.kind_ordinal,
   };
-}
 
-function toAssumption(item: KnowledgeItem): Assumption & { kind_ordinal: number } {
-  return {
-    id: item.id,
-    project_id: item.project_id,
-    content: item.content,
-    kind_ordinal: item.kind_ordinal,
-  };
+  if (kind === 'decision') {
+    return {
+      ...base,
+      rationale: item.rationale,
+    } as ProjectedKnowledgeEntity<K>;
+  }
+
+  return base as ProjectedKnowledgeEntity<K>;
 }
 
 export function createDecision(
@@ -567,7 +631,7 @@ export function createDecision(
   content: string,
   rationale?: string | null,
 ): Decision {
-  return toDecision(
+  return projectKnowledgeItemEntity(
     db
       .insert(schema.knowledgeItem)
       .values({
@@ -580,11 +644,12 @@ export function createDecision(
       })
       .returning()
       .get() as KnowledgeItem,
+    'decision',
   );
 }
 
 export function createAssumption(db: DB, projectId: number, content: string): Assumption {
-  return toAssumption(
+  return projectKnowledgeItemEntity(
     db
       .insert(schema.knowledgeItem)
       .values({
@@ -597,6 +662,7 @@ export function createAssumption(db: DB, projectId: number, content: string): As
       })
       .returning()
       .get() as KnowledgeItem,
+    'assumption',
   );
 }
 
@@ -678,16 +744,6 @@ function getKnowledgeItemsForProjectByKind(
     .all() as KnowledgeItem[];
 }
 
-function getEntityCollectionForKind(kind: KnowledgeKind): EntityCollection {
-  if (kind === 'decision') {
-    return 'decision';
-  }
-  if (kind === 'assumption') {
-    return 'assumption';
-  }
-  return 'knowledge_item';
-}
-
 function withReferenceCodes<T extends { id: number; kind: SharedKnowledgeKind; kind_ordinal: number }>(
   items: readonly T[],
 ): Array<T & { referenceCode: string }> {
@@ -700,119 +756,216 @@ function withReferenceCodes<T extends { id: number; kind: SharedKnowledgeKind; k
     }));
 }
 
-function getReviewStatusesOnActivePath(
+function getGenericKnowledgeEntitiesForProjectByKind<K extends GenericKnowledgeKind>(
+  db: DB,
+  projectId: number,
+  kind: K,
+): Array<GenericKnowledgeEntity<K>> {
+  return getKnowledgeItemsForProjectByKind(db, projectId, kind).map((item) => ({
+    ...item,
+    kind,
+  })) as Array<GenericKnowledgeEntity<K>>;
+}
+
+function getPersistedObserverResultForTurn(
+  turn: Pick<Turn, 'assistant_parts'> | undefined,
+): ObserverResultData | null {
+  const persistedObserverResult = safeDeserializeAssistantParts(turn?.assistant_parts).find(
+    (part): part is Extract<BrunchAssistantPart, { type: 'data-observer-result' }> =>
+      part.type === 'data-observer-result',
+  );
+  if (!persistedObserverResult) {
+    return null;
+  }
+
+  const parsedObserverResult = observerResultSchema.safeParse(persistedObserverResult.data);
+  return parsedObserverResult.success ? parsedObserverResult.data : null;
+}
+
+function getPersistedReviewSetForTurn(turn: Pick<Turn, 'assistant_parts'> | undefined): ReviewSetData | null {
+  const persistedReviewSet = safeDeserializeAssistantParts(turn?.assistant_parts).find(
+    (part): part is Extract<BrunchAssistantPart, { type: 'data-review-set' }> =>
+      part.type === 'data-review-set',
+  );
+  if (!persistedReviewSet) {
+    return null;
+  }
+
+  const parsedReviewSet = reviewSetSchema.safeParse(persistedReviewSet.data);
+  return parsedReviewSet.success ? parsedReviewSet.data : null;
+}
+
+function findExistingKnowledgeItemForReviewSetItem(
   db: DB,
   projectId: number,
   kind: 'requirement' | 'criterion',
-): Map<number, ReviewStatus> {
-  const activePath = getActivePath(db, projectId);
-  if (activePath.length === 0) {
-    return new Map();
-  }
-
-  const activeTurnIds = activePath.map((turn) => turn.id);
-  const turnOrder = new Map(activePath.map((turn, index) => [turn.id, index]));
-  const reviewRows = db
-    .select({
-      itemId: schema.turnKnowledgeItem.item_id,
-      turnId: schema.turnKnowledgeItem.turn_id,
-      relation: schema.turnKnowledgeItem.relation,
-    })
-    .from(schema.turnKnowledgeItem)
-    .innerJoin(schema.knowledgeItem, eq(schema.knowledgeItem.id, schema.turnKnowledgeItem.item_id))
+  content: string,
+): KnowledgeItem | undefined {
+  return db
+    .select()
+    .from(schema.knowledgeItem)
     .where(
       and(
         eq(schema.knowledgeItem.project_id, projectId),
         eq(schema.knowledgeItem.kind, kind),
-        inArray(schema.turnKnowledgeItem.relation, ['reviewed', 'rejected']),
-        inArray(schema.turnKnowledgeItem.turn_id, activeTurnIds),
+        eq(schema.knowledgeItem.content, content),
       ),
     )
-    .all() as Array<{ itemId: number; turnId: number; relation: 'reviewed' | 'rejected' }>;
-
-  reviewRows.sort((left, right) => (turnOrder.get(left.turnId) ?? 0) - (turnOrder.get(right.turnId) ?? 0));
-
-  const statuses = new Map<number, ReviewStatus>();
-  for (const row of reviewRows) {
-    statuses.set(row.itemId, row.relation === 'reviewed' ? 'approved' : 'rejected');
-  }
-
-  return statuses;
+    .orderBy(schema.knowledgeItem.id)
+    .get() as KnowledgeItem | undefined;
 }
 
-function getRequirementEntitiesForProject(db: DB, projectId: number): RequirementEntity[] {
-  const reviewStatuses = getReviewStatusesOnActivePath(db, projectId, 'requirement');
-  return getKnowledgeItemsForProjectByKind(db, projectId, 'requirement').map((item) => ({
-    ...item,
-    kind: 'requirement',
-    reviewStatus: reviewStatuses.get(item.id) ?? 'pending',
-  }));
-}
-
-function getCriterionEntitiesForProject(db: DB, projectId: number): CriterionEntity[] {
-  const reviewStatuses = getReviewStatusesOnActivePath(db, projectId, 'criterion');
-  return getKnowledgeItemsForProjectByKind(db, projectId, 'criterion').map((item) => ({
-    ...item,
-    kind: 'criterion',
-    reviewStatus: reviewStatuses.get(item.id) ?? 'pending',
-  }));
-}
-
-function getReviewFromTurn<F extends 'requirementReview' | 'criterionReview'>(
-  turn: Pick<Turn, 'assistant_parts'>,
-  field: F,
-): NonNullable<StructuredQuestion[F]> | null {
-  for (const part of safeDeserializeAssistantParts(turn.assistant_parts)) {
-    if (!isAskQuestionUIPart(part) || !('input' in part)) {
-      continue;
-    }
-
-    const parsedInput = structuredQuestionSchema.safeParse(part.input);
-    if (!parsedInput.success || !parsedInput.data[field]) {
-      continue;
-    }
-
-    return parsedInput.data[field];
-  }
-
-  return null;
-}
-
-export function recordReviewFromTurnResponse(
+function materializeAcceptedReviewSetItems(
   db: DB,
-  turn: Turn,
-  selectedPositions: number[],
-  field: 'requirementReview' | 'criterionReview',
+  projectId: number,
+  turnId: number,
+  phase: 'requirements' | 'criteria',
+): number[] | null {
+  const reviewTurn = getTurn(db, turnId);
+  const reviewSet = getPersistedReviewSetForTurn(reviewTurn);
+  if (!reviewSet || reviewSet.phase !== phase) {
+    return null;
+  }
+
+  const kind = phase === 'requirements' ? 'requirement' : 'criterion';
+  const itemIds: number[] = [];
+
+  for (const item of reviewSet.items) {
+    const existingItem = findExistingKnowledgeItemForReviewSetItem(db, projectId, kind, item.content);
+    const materializedItem =
+      existingItem ??
+      createKnowledgeItem(db, projectId, kind, item.content, {
+        rationale: item.rationale ?? null,
+      });
+    linkKnowledgeItemToTurn(db, materializedItem.id, turnId, 'reviewed');
+    itemIds.push(materializedItem.id);
+  }
+
+  return itemIds;
+}
+
+function getDraftReviewItemsForProject(
+  db: DB,
+  projectId: number,
   kind: 'requirement' | 'criterion',
-): void {
-  const review = getReviewFromTurn(turn, field);
-  if (!review) {
-    return;
+): ObserverDraftReviewItem[] {
+  const seenContents = new Set<string>();
+  const draftItems: ObserverDraftReviewItem[] = [];
+
+  for (const turn of getActivePath(db, projectId)) {
+    const observerResult = getPersistedObserverResultForTurn(turn);
+    const items =
+      kind === 'requirement'
+        ? observerResult?.draftReviewItems?.requirements
+        : observerResult?.draftReviewItems?.criteria;
+
+    for (const item of items ?? []) {
+      const normalizedContent = item.content.trim();
+      if (!normalizedContent || seenContents.has(normalizedContent)) {
+        continue;
+      }
+
+      seenContents.add(normalizedContent);
+      draftItems.push({
+        content: item.content,
+        rationale: item.rationale ?? null,
+      });
+    }
   }
 
-  const selectedReviewOptionPosition =
-    'approveOptionPosition' in review ? review.approveOptionPosition : review.rejectOptionPosition;
-  if (!selectedPositions.includes(selectedReviewOptionPosition)) {
-    return;
+  return draftItems;
+}
+
+function createDraftReviewEntities(
+  projectId: number,
+  kind: 'requirement',
+  draftItems: ObserverDraftReviewItem[],
+): SharedRequirementEntity[];
+function createDraftReviewEntities(
+  projectId: number,
+  kind: 'criterion',
+  draftItems: ObserverDraftReviewItem[],
+): SharedCriterionEntity[];
+function createDraftReviewEntities(
+  projectId: number,
+  kind: 'requirement' | 'criterion',
+  draftItems: ObserverDraftReviewItem[],
+): Array<SharedRequirementEntity | SharedCriterionEntity> {
+  if (kind === 'requirement') {
+    return draftItems.map((item, index) => ({
+      id: index + 1,
+      project_id: projectId,
+      kind: 'requirement',
+      subtype: null,
+      content: item.content,
+      rationale: item.rationale ?? null,
+      referenceCode: createKnowledgeReferenceCode('requirement', index + 1),
+    }));
   }
 
-  const entityId =
-    kind === 'requirement'
-      ? (review as { requirementId: number }).requirementId
-      : (review as { criterionId: number }).criterionId;
-  const entity = db.select().from(schema.knowledgeItem).where(eq(schema.knowledgeItem.id, entityId)).get() as
-    | KnowledgeItem
-    | undefined;
-  if (!entity || entity.project_id !== turn.project_id || entity.kind !== kind) {
-    return;
-  }
+  return draftItems.map((item, index) => ({
+    id: index + 1,
+    project_id: projectId,
+    kind: 'criterion',
+    subtype: null,
+    content: item.content,
+    rationale: item.rationale ?? null,
+    referenceCode: createKnowledgeReferenceCode('criterion', index + 1),
+  }));
+}
 
-  linkKnowledgeItemToTurn(
-    db,
-    entity.id,
-    turn.id,
-    'approveOptionPosition' in review ? 'reviewed' : 'rejected',
+export function getDraftRequirementEntitiesForProject(db: DB, projectId: number): SharedRequirementEntity[] {
+  return createDraftReviewEntities(
+    projectId,
+    'requirement',
+    getDraftReviewItemsForProject(db, projectId, 'requirement'),
   );
+}
+
+export function getDraftCriterionEntitiesForProject(db: DB, projectId: number): SharedCriterionEntity[] {
+  return createDraftReviewEntities(
+    projectId,
+    'criterion',
+    getDraftReviewItemsForProject(db, projectId, 'criterion'),
+  );
+}
+
+export function getAcceptedRequirementEntitiesForProject(db: DB, projectId: number): RequirementEntity[] {
+  const acceptedIds = getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'requirements', 'requirement');
+  if (acceptedIds.size === 0) {
+    return [];
+  }
+
+  return getGenericKnowledgeEntitiesForProjectByKind(db, projectId, 'requirement').filter((item) =>
+    acceptedIds.has(item.id),
+  );
+}
+
+export function getAcceptedCriterionEntitiesForProject(db: DB, projectId: number): CriterionEntity[] {
+  const acceptedIds = getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'criteria', 'criterion');
+  if (acceptedIds.size === 0) {
+    return [];
+  }
+
+  return getGenericKnowledgeEntitiesForProjectByKind(db, projectId, 'criterion').filter((item) =>
+    acceptedIds.has(item.id),
+  );
+}
+
+export function materializeAcceptedRequirementsReviewSet(
+  db: DB,
+  projectId: number,
+  turnId: number,
+): number[] | null {
+  return materializeAcceptedReviewSetItems(db, projectId, turnId, 'requirements');
+}
+
+export function materializeAcceptedCriteriaReviewSet(
+  db: DB,
+  projectId: number,
+  turnId: number,
+): number[] | null {
+  return materializeAcceptedReviewSetItems(db, projectId, turnId, 'criteria');
 }
 
 export function getScopeBundleForProject(db: DB, projectId: number) {
@@ -851,18 +1004,14 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
   const genericKnowledgeCollections = Object.fromEntries(
     genericKnowledgeKindRegistry.map((entry) => [
       entry.collectionKey,
-      withReferenceCodes(
-        entry.kind === 'requirement'
-          ? getRequirementEntitiesForProject(db, projectId)
-          : entry.kind === 'criterion'
-            ? getCriterionEntitiesForProject(db, projectId)
-            : getKnowledgeItemsForProjectByKind(db, projectId, entry.kind),
-      ).map(({ kind_ordinal: _, ...item }) => item),
+      withReferenceCodes(getGenericKnowledgeEntitiesForProjectByKind(db, projectId, entry.kind)).map(
+        ({ kind_ordinal: _, ...item }) => item,
+      ),
     ]),
   ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
   const decisions = withReferenceCodes(
     getKnowledgeItemsForProjectByKind(db, projectId, 'decision')
-      .map(toDecision)
+      .map((item) => projectKnowledgeItemEntity(item, 'decision'))
       .map((decision) => ({
         ...decision,
         kind: 'decision' as const,
@@ -870,7 +1019,7 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
   ).map(({ kind: _, kind_ordinal: __, ...decision }) => decision);
   const assumptions = withReferenceCodes(
     getKnowledgeItemsForProjectByKind(db, projectId, 'assumption')
-      .map(toAssumption)
+      .map((item) => projectKnowledgeItemEntity(item, 'assumption'))
       .map((assumption) => ({
         ...assumption,
         kind: 'assumption' as const,
@@ -909,12 +1058,12 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
     relationships: relationships.map((relationship) => ({
       type: relationship.type,
       source: {
-        collection: getEntityCollectionForKind(relationship.source_kind),
+        collection: knowledgeEntityCollectionByKind[relationship.source_kind],
         kind: relationship.source_kind,
         id: relationship.source_id,
       },
       target: {
-        collection: getEntityCollectionForKind(relationship.target_kind),
+        collection: knowledgeEntityCollectionByKind[relationship.target_kind],
         kind: relationship.target_kind,
         id: relationship.target_id,
       },
@@ -922,22 +1071,65 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
   };
 }
 
+function filterGenericKnowledgeCollectionsToActivePath(
+  entities: EntitiesForProject,
+  activeItemIds: ReadonlySet<number>,
+  options?: {
+    acceptedRequirementIds?: ReadonlySet<number>;
+    acceptedCriterionIds?: ReadonlySet<number>;
+  },
+): Pick<EntitiesForProject, GenericKnowledgeCollectionKey> {
+  return Object.fromEntries(
+    genericKnowledgeKindRegistry.map((entry) => {
+      const acceptedIds =
+        entry.kind === 'requirement'
+          ? options?.acceptedRequirementIds
+          : entry.kind === 'criterion'
+            ? options?.acceptedCriterionIds
+            : undefined;
+      const visibleItems =
+        acceptedIds && acceptedIds.size > 0
+          ? entities[entry.collectionKey].filter((item) => acceptedIds.has(item.id))
+          : entities[entry.collectionKey].filter((item) => activeItemIds.has(item.id));
+      return [entry.collectionKey, visibleItems];
+    }),
+  ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
+}
+
 function filterEntitiesToActivePath(
   entities: EntitiesForProject,
   activeItemIds: ReadonlySet<number>,
+  options?: {
+    acceptedRequirementIds?: ReadonlySet<number>;
+    acceptedCriterionIds?: ReadonlySet<number>;
+  },
 ): EntitiesForProject {
+  const genericKnowledgeCollections = filterGenericKnowledgeCollectionsToActivePath(
+    entities,
+    activeItemIds,
+    options,
+  );
+  const decisions = entities.decisions.filter((item) => activeItemIds.has(item.id));
+  const assumptions = entities.assumptions.filter((item) => activeItemIds.has(item.id));
+
+  const visibleIdsByCollection = {
+    knowledge_item: new Set([
+      ...genericKnowledgeKindRegistry.flatMap((entry) =>
+        genericKnowledgeCollections[entry.collectionKey].map((item) => item.id),
+      ),
+      ...decisions.map((item) => item.id),
+      ...assumptions.map((item) => item.id),
+    ]),
+  } satisfies Record<EntityRelationship['source']['collection'], Set<number>>;
+
   return {
-    goals: entities.goals.filter((item) => activeItemIds.has(item.id)),
-    terms: entities.terms.filter((item) => activeItemIds.has(item.id)),
-    contexts: entities.contexts.filter((item) => activeItemIds.has(item.id)),
-    constraints: entities.constraints.filter((item) => activeItemIds.has(item.id)),
-    requirements: entities.requirements.filter((item) => activeItemIds.has(item.id)),
-    criteria: entities.criteria.filter((item) => activeItemIds.has(item.id)),
-    decisions: entities.decisions.filter((item) => activeItemIds.has(item.id)),
-    assumptions: entities.assumptions.filter((item) => activeItemIds.has(item.id)),
+    ...genericKnowledgeCollections,
+    decisions,
+    assumptions,
     relationships: entities.relationships.filter(
       (relationship) =>
-        activeItemIds.has(relationship.source.id) && activeItemIds.has(relationship.target.id),
+        visibleIdsByCollection[relationship.source.collection].has(relationship.source.id) &&
+        visibleIdsByCollection[relationship.target.collection].has(relationship.target.id),
     ),
   };
 }
@@ -955,6 +1147,15 @@ export function getEntitiesForProjectByMode(
   return filterEntitiesToActivePath(
     projectWideEntities,
     getKnowledgeItemIdsLinkedToActivePath(db, projectId),
+    {
+      acceptedRequirementIds: getAcceptedKnowledgeItemIdsForPhase(
+        db,
+        projectId,
+        'requirements',
+        'requirement',
+      ),
+      acceptedCriterionIds: getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'criteria', 'criterion'),
+    },
   );
 }
 
@@ -978,35 +1179,24 @@ export function getCapturedItemsForTurns(
 
   const projectWideEntities = getEntitiesForProject(db, projectId);
   const itemsById = new Map<number, NonNullable<ProjectStateTurn['captured_items']>[number]>();
-  const addItems = (
-    items: ReadonlyArray<{ id: number; content: string; kind: SharedKnowledgeKind; referenceCode?: string }>,
-    collection: NonNullable<ProjectStateTurn['captured_items']>[number]['collection'],
-  ) => {
+
+  for (const entry of knowledgeKindRegistry) {
+    const items = projectWideEntities[entry.collectionKey] as ReadonlyArray<{
+      id: number;
+      content: string;
+      referenceCode?: string;
+      kind?: SharedKnowledgeKind;
+    }>;
     for (const item of items) {
       itemsById.set(item.id, {
-        collection,
-        kind: item.kind,
+        collection: entry.entityCollection,
+        kind: item.kind ?? entry.kind,
         id: item.id,
         content: item.content,
         referenceCode: item.referenceCode,
       });
     }
-  };
-
-  addItems(projectWideEntities.goals, 'knowledge_item');
-  addItems(projectWideEntities.terms, 'knowledge_item');
-  addItems(projectWideEntities.contexts, 'knowledge_item');
-  addItems(projectWideEntities.constraints, 'knowledge_item');
-  addItems(projectWideEntities.requirements, 'knowledge_item');
-  addItems(projectWideEntities.criteria, 'knowledge_item');
-  addItems(
-    projectWideEntities.decisions.map((item) => ({ ...item, kind: 'decision' as const })),
-    'decision',
-  );
-  addItems(
-    projectWideEntities.assumptions.map((item) => ({ ...item, kind: 'assumption' as const })),
-    'assumption',
-  );
+  }
 
   const rows = db
     .select({

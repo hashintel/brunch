@@ -2,6 +2,8 @@ import request from 'supertest';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectState, WorkflowPhase } from '@/shared/api-types.js';
+import { type StructuredQuestion } from '@/shared/chat.js';
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { getPhaseClosureCommandText } from '@/shared/phase-close.js';
 
 import { buildInterviewerContext } from './context.js';
@@ -37,15 +39,135 @@ const { createApp } = await import('./app.js');
 let app: ReturnType<typeof createApp>['app'];
 let db: DB;
 
-const structuredQuestion = {
+function createMockObserverResult(overrides?: {
+  entityIds?: Partial<
+    Record<
+      | 'goals'
+      | 'terms'
+      | 'contexts'
+      | 'constraints'
+      | 'requirements'
+      | 'criteria'
+      | 'decisions'
+      | 'assumptions',
+      number[]
+    >
+  >;
+  draftReviewItems?: {
+    requirements?: Array<{ content: string; rationale: string | null }>;
+    criteria?: Array<{ content: string; rationale: string | null }>;
+  };
+}) {
+  return {
+    entityIds: {
+      goals: [],
+      terms: [],
+      contexts: [],
+      constraints: [],
+      requirements: [],
+      criteria: [],
+      decisions: [],
+      assumptions: [],
+      ...overrides?.entityIds,
+    },
+    draftReviewItems: {
+      requirements: overrides?.draftReviewItems?.requirements ?? [],
+      criteria: overrides?.draftReviewItems?.criteria ?? [],
+    },
+  };
+}
+
+const structuredQuestion: StructuredQuestion = {
   question: 'What platform should we support first?',
   why: 'Platform choice determines the first UI and deployment constraints.',
-  impact: 'high' as const,
+  impact: 'high',
   options: [
     { content: 'Web', is_recommended: true },
     { content: 'Desktop', is_recommended: false },
   ],
 };
+
+function createRuntimeReviewQuestion({
+  phase,
+  title,
+  question,
+  why,
+  items,
+}: {
+  phase: 'requirements' | 'criteria';
+  title: string;
+  question: string;
+  why: string;
+  items: Array<{ content: string; rationale?: string | null; referenceCode?: string }>;
+}): StructuredQuestion {
+  return {
+    question,
+    why,
+    impact: 'high',
+    options: [
+      { content: 'Accept review', is_recommended: true },
+      { content: 'Request changes', is_recommended: false },
+    ],
+    reviewActions: [
+      { action: 'accept', optionPosition: 0 },
+      { action: 'request-changes', optionPosition: 1 },
+    ],
+    reviewSet: {
+      phase,
+      title,
+      items,
+    },
+  };
+}
+
+function createReviewSetAssistantParts({
+  phase,
+  title,
+  question,
+  why,
+  items,
+}: {
+  phase: 'requirements' | 'criteria';
+  title: string;
+  question: string;
+  why: string;
+  items: Array<{ content: string; rationale?: string | null; referenceCode?: string }>;
+}) {
+  return JSON.stringify([
+    {
+      type: 'tool-ask_question',
+      toolCallId: `tool-${phase}-review`,
+      state: 'output-available',
+      input: {
+        question,
+        why,
+        impact: 'high',
+        options: [
+          { content: 'Accept review', is_recommended: true },
+          { content: 'Request changes', is_recommended: false },
+        ],
+        reviewActions: [
+          { action: 'accept', optionPosition: 0 },
+          { action: 'request-changes', optionPosition: 1 },
+        ],
+        reviewSet: {
+          phase,
+          title,
+          items,
+        },
+      },
+      output: { ok: true, turnId: 0, optionCount: 2 },
+    },
+    {
+      type: 'data-review-set',
+      data: {
+        phase,
+        title,
+        items,
+      },
+    },
+  ]);
+}
 
 function makeUIChunkStream(chunks: Array<Record<string, unknown>>) {
   return new ReadableStream({
@@ -71,16 +193,20 @@ function makeTextInterviewer(text = 'Hi') {
   };
 }
 
-async function makeStructuredQuestionInterviewer(dbArg: DB, turnId: number) {
+async function makeStructuredQuestionInterviewer(
+  dbArg: DB,
+  turnId: number,
+  input: StructuredQuestion = structuredQuestion,
+) {
   const { updateTurn, createOption } = await import('./db.js');
 
   updateTurn(dbArg, turnId, {
-    question: structuredQuestion.question,
-    why: structuredQuestion.why,
-    impact: structuredQuestion.impact,
+    question: input.question,
+    why: input.why,
+    impact: input.impact,
   });
 
-  structuredQuestion.options.forEach((option, index) => {
+  input.options.forEach((option, index) => {
     createOption(dbArg, turnId, {
       position: index,
       content: option.content,
@@ -97,12 +223,12 @@ async function makeStructuredQuestionInterviewer(dbArg: DB, turnId: number) {
           type: 'tool-input-available',
           toolCallId: 'tool-1',
           toolName: 'ask_question',
-          input: structuredQuestion,
+          input,
         },
         {
           type: 'tool-output-available',
           toolCallId: 'tool-1',
-          output: { ok: true, turnId, optionCount: structuredQuestion.options.length },
+          output: { ok: true, turnId, optionCount: input.options.length },
         },
       ]),
     finishReason: Promise.resolve('tool-calls'),
@@ -199,16 +325,7 @@ beforeEach(() => {
   mockStreamInterviewer.mockReset();
   mockRunObserver.mockReset();
   mockStreamInterviewer.mockImplementation(async () => makeTextInterviewer('Hi'));
-  mockRunObserver.mockResolvedValue({
-    goals: [],
-    terms: [],
-    contexts: [],
-    constraints: [],
-    requirements: [],
-    criteria: [],
-    decisions: [],
-    assumptions: [],
-  });
+  mockRunObserver.mockResolvedValue(createMockObserverResult());
 
   const result = createApp();
   app = result.app;
@@ -296,6 +413,18 @@ describe('POST /api/projects', () => {
     expect(res.body.cwd).toBeNull();
   });
 
+  it('leaves kickoff projected until the user explicitly enters the interview', async () => {
+    const createRes = await request(app)
+      .post('/api/projects')
+      .send({ name: 'Projected kickoff' })
+      .expect(201);
+
+    const stateRes = await request(app).get(`/api/projects/${createRes.body.id}`).expect(200);
+    expect(stateRes.body.project.active_turn_id).toBeNull();
+    expect(stateRes.body.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+    expect(stateRes.body.turns).toEqual([]);
+  });
+
   it('creates a brownfield project with mode and server-derived cwd', async () => {
     const res = await request(app)
       .post('/api/projects')
@@ -356,24 +485,36 @@ describe('POST /api/projects/:id/chat', () => {
     expect(turns[1].assistant_parts).not.toBeNull();
   });
 
-  it('passes brownfield kickoff mode options into the interviewer stream after the workspace kickoff selects existing codebase', async () => {
-    const projectId = await createTestProject('Brownfield kickoff');
-    const kickoffTurnId = (await getProjectSnapshot(projectId)).turns.at(-1)?.id;
+  it('passes brownfield kickoff mode options into the interviewer stream after the projected kickoff selects existing codebase', async () => {
+    const { createProject, getActivePath, getProject } = await import('./db.js');
+    const projectId = createProject(db, 'Brownfield kickoff').id;
+
+    expect(getActivePath(db, projectId)).toHaveLength(0);
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${kickoffTurnId}/response`)
-      .send({ kind: 'select-options', positions: [1] })
-      .expect(200);
+      .post(`/api/projects/${projectId}/phase-intent`)
+      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .expect(200, { ok: true });
 
-    const updatedSnapshot = await getProjectSnapshot(projectId);
-    expect(updatedSnapshot.project.mode).toBe('brownfield');
-    expect(updatedSnapshot.project.cwd).toBe(process.cwd());
+    expect(getProject(db, projectId)).toMatchObject({
+      mode: 'brownfield',
+      cwd: process.cwd(),
+    });
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
       .send({
         messages: [
-          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'Feature within existing codebase' }] },
+          {
+            id: 'u1',
+            role: 'user',
+            parts: [
+              {
+                type: 'data-phase-intent',
+                data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+              },
+            ],
+          },
         ],
       })
       .expect(200);
@@ -426,16 +567,14 @@ describe('POST /api/projects/:id/chat', () => {
       for (const itemId of [goal.id, term.id, context.id, constraint.id]) {
         linkKnowledgeItemToTurn(dbArg as DB, itemId, (turnArg as { id: number }).id);
       }
-      return {
-        goals: [goal.id],
-        terms: [term.id],
-        contexts: [context.id],
-        constraints: [constraint.id],
-        requirements: [],
-        criteria: [],
-        decisions: [],
-        assumptions: [],
-      };
+      return createMockObserverResult({
+        entityIds: {
+          goals: [goal.id],
+          terms: [term.id],
+          contexts: [context.id],
+          constraints: [constraint.id],
+        },
+      });
     });
 
     const res = await request(app)
@@ -462,6 +601,10 @@ describe('POST /api/projects/:id/chat', () => {
           decisions: [],
           assumptions: [],
         },
+        draftReviewItems: {
+          requirements: [],
+          criteria: [],
+        },
       },
     });
 
@@ -474,7 +617,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'Produce a clean implementation brief',
         rationale: 'The interview should end in a trustworthy handoff',
-        referenceCode: 'GOAL1',
+        referenceCode: createKnowledgeReferenceCode('goal', 1),
       },
     ]);
     expect(entitiesRes.body.terms).toEqual([
@@ -485,7 +628,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'implementation brief',
         rationale: 'The turn named the artifact the project is trying to produce',
-        referenceCode: 'TERM1',
+        referenceCode: createKnowledgeReferenceCode('term', 1),
       },
     ]);
     expect(entitiesRes.body.contexts).toEqual([
@@ -496,7 +639,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'The project starts from a fuzzy brief',
         rationale: 'The user is still establishing the problem context',
-        referenceCode: 'CTX1',
+        referenceCode: createKnowledgeReferenceCode('context', 1),
       },
     ]);
     expect(entitiesRes.body.constraints).toEqual([
@@ -507,7 +650,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: 'non-goal',
         content: 'Keep setup instant',
         rationale: 'The launcher should stay lightweight',
-        referenceCode: 'CST1',
+        referenceCode: createKnowledgeReferenceCode('constraint', 1),
       },
     ]);
   });
@@ -531,7 +674,7 @@ describe('POST /api/projects/:id/chat', () => {
         linkDecisionToTurn,
         linkAssumptionToTurn,
       } = await import('./db.js');
-      const framing = createKnowledgeItem(
+      const contextItem = createKnowledgeItem(
         dbArg as DB,
         projectIdArg as number,
         'context',
@@ -558,26 +701,24 @@ describe('POST /api/projects/:id/chat', () => {
         'It is the fastest path to feedback',
       );
       addDecisionParentAssumption(dbArg as DB, decision.id, assumption.id);
-      linkKnowledgeItemToTurn(dbArg as DB, framing.id, (turnArg as { id: number }).id);
+      linkKnowledgeItemToTurn(dbArg as DB, contextItem.id, (turnArg as { id: number }).id);
       linkKnowledgeItemToTurn(dbArg as DB, constraint.id, (turnArg as { id: number }).id);
       linkAssumptionToTurn(dbArg as DB, assumption.id, (turnArg as { id: number }).id);
       linkDecisionToTurn(dbArg as DB, decision.id, (turnArg as { id: number }).id);
       createdIds = {
-        context: framing.id,
+        context: contextItem.id,
         constraint: constraint.id,
         assumption: assumption.id,
         decision: decision.id,
       };
-      return {
-        goals: [],
-        terms: [],
-        contexts: [framing.id],
-        constraints: [constraint.id],
-        requirements: [],
-        criteria: [],
-        decisions: [decision.id],
-        assumptions: [assumption.id],
-      };
+      return createMockObserverResult({
+        entityIds: {
+          contexts: [contextItem.id],
+          constraints: [constraint.id],
+          decisions: [decision.id],
+          assumptions: [assumption.id],
+        },
+      });
     });
 
     const res = await request(app)
@@ -605,6 +746,10 @@ describe('POST /api/projects/:id/chat', () => {
           decisions: [createdIds!.decision],
           assumptions: [createdIds!.assumption],
         },
+        draftReviewItems: {
+          requirements: [],
+          criteria: [],
+        },
       },
     });
 
@@ -617,7 +762,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: null,
         content: 'The first release still targets solo builders',
         rationale: 'The turn clarified the intended audience',
-        referenceCode: 'CTX1',
+        referenceCode: createKnowledgeReferenceCode('context', 1),
       },
     ]);
     expect(entitiesRes.body.constraints).toEqual([
@@ -628,7 +773,7 @@ describe('POST /api/projects/:id/chat', () => {
         subtype: 'non-goal',
         content: 'Do not add a plugin system yet',
         rationale: 'The first release should stay narrow',
-        referenceCode: 'CST1',
+        referenceCode: createKnowledgeReferenceCode('constraint', 1),
       },
     ]);
     expect(entitiesRes.body.decisions).toEqual([
@@ -637,7 +782,7 @@ describe('POST /api/projects/:id/chat', () => {
         project_id: projectId,
         content: 'Start with the web app',
         rationale: 'It is the fastest path to feedback',
-        referenceCode: 'D1',
+        referenceCode: createKnowledgeReferenceCode('decision', 1),
       },
     ]);
     expect(entitiesRes.body.assumptions).toEqual([
@@ -645,111 +790,32 @@ describe('POST /api/projects/:id/chat', () => {
         id: createdIds!.assumption,
         project_id: projectId,
         content: 'Users can work in a browser',
-        referenceCode: 'A1',
+        referenceCode: createKnowledgeReferenceCode('assumption', 1),
       },
     ]);
     expect(entitiesRes.body.relationships).toEqual([
       {
         type: 'depends_on',
-        source: { collection: 'decision', kind: 'decision', id: createdIds!.decision },
-        target: { collection: 'assumption', kind: 'assumption', id: createdIds!.assumption },
+        source: { collection: 'knowledge_item', kind: 'decision', id: createdIds!.decision },
+        target: { collection: 'knowledge_item', kind: 'assumption', id: createdIds!.assumption },
       },
     ]);
   });
 
-  it('emits widened observer results and persists requirements-mode requirement items through the entities API', async () => {
+  it('emits draft requirement observer results while leaving durable entities empty before review acceptance', async () => {
     const projectId = await createTestProject();
-    mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
-      const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
-      const requirement = createKnowledgeItem(
-        dbArg as DB,
-        projectIdArg as number,
-        'requirement',
-        'Resume the interview from SQLite after restart',
-        {
-          rationale: 'Users will come back to finish the workflow',
+    mockRunObserver.mockImplementation(async () =>
+      createMockObserverResult({
+        draftReviewItems: {
+          requirements: [
+            {
+              content: 'Resume the interview from SQLite after restart',
+              rationale: 'Users will come back to finish the workflow',
+            },
+          ],
         },
-      );
-      linkKnowledgeItemToTurn(dbArg as DB, requirement.id, (turnArg as { id: number }).id);
-      return {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [requirement.id],
-        criteria: [],
-        decisions: [],
-        assumptions: [],
-      };
-    });
-
-    const res = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
-      .send({
-        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
-      })
-      .expect(200);
-
-    const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
-    const observerEvent = events.find((event) => event.type === 'data-observer-result');
-
-    expect(observerEvent).toEqual({
-      type: 'data-observer-result',
-      data: {
-        turnId: 1,
-        entityIds: {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [1],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-        },
-      },
-    });
-
-    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
-    expect(entitiesRes.body.requirements).toEqual([
-      {
-        id: 1,
-        project_id: projectId,
-        kind: 'requirement',
-        subtype: null,
-        content: 'Resume the interview from SQLite after restart',
-        rationale: 'Users will come back to finish the workflow',
-        reviewStatus: 'pending',
-        referenceCode: 'R1',
-      },
-    ]);
-  });
-
-  it('emits widened observer results and persists criteria-mode criterion items through the entities API', async () => {
-    const projectId = await createTestProject();
-    mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
-      const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
-      const criterion = createKnowledgeItem(
-        dbArg as DB,
-        projectIdArg as number,
-        'criterion',
-        'Resuming restores the active path without data loss',
-        {
-          rationale: 'This proves persistence worked for the branch the user was on',
-        },
-      );
-      linkKnowledgeItemToTurn(dbArg as DB, criterion.id, (turnArg as { id: number }).id);
-      return {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [criterion.id],
-        decisions: [],
-        assumptions: [],
-      } as never;
-    });
+      }),
+    );
 
     const res = await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -771,26 +837,79 @@ describe('POST /api/projects/:id/chat', () => {
           contexts: [],
           constraints: [],
           requirements: [],
-          criteria: [1],
+          criteria: [],
           decisions: [],
           assumptions: [],
+        },
+        draftReviewItems: {
+          requirements: [
+            {
+              content: 'Resume the interview from SQLite after restart',
+              rationale: 'Users will come back to finish the workflow',
+            },
+          ],
+          criteria: [],
         },
       },
     });
 
     const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
-    expect(entitiesRes.body.criteria).toEqual([
-      {
-        id: 1,
-        project_id: projectId,
-        kind: 'criterion',
-        subtype: null,
-        content: 'Resuming restores the active path without data loss',
-        rationale: 'This proves persistence worked for the branch the user was on',
-        reviewStatus: 'pending',
-        referenceCode: 'CRIT1',
+    expect(entitiesRes.body.requirements).toEqual([]);
+  });
+
+  it('emits draft criterion observer results while leaving durable entities empty before review acceptance', async () => {
+    const projectId = await createTestProject();
+    mockRunObserver.mockImplementation(async () =>
+      createMockObserverResult({
+        draftReviewItems: {
+          criteria: [
+            {
+              content: 'Resuming restores the active path without data loss',
+              rationale: 'This proves persistence worked for the branch the user was on',
+            },
+          ],
+        },
+      }),
+    );
+
+    const res = await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    const events = parseSSELines(collectSSE(res)).filter((event) => event !== '[DONE]');
+    const observerEvent = events.find((event) => event.type === 'data-observer-result');
+
+    expect(observerEvent).toEqual({
+      type: 'data-observer-result',
+      data: {
+        turnId: 1,
+        entityIds: {
+          goals: [],
+          terms: [],
+          contexts: [],
+          constraints: [],
+          requirements: [],
+          criteria: [],
+          decisions: [],
+          assumptions: [],
+        },
+        draftReviewItems: {
+          requirements: [],
+          criteria: [
+            {
+              content: 'Resuming restores the active path without data loss',
+              rationale: 'This proves persistence worked for the branch the user was on',
+            },
+          ],
+        },
       },
-    ]);
+    });
+
+    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.criteria).toEqual([]);
   });
 });
 
@@ -855,8 +974,8 @@ describe('GET /api/projects/:id/entities', () => {
       relationships: [
         {
           type: 'depends_on',
-          source: { collection: 'decision', kind: 'decision', id: decision.id },
-          target: { collection: 'assumption', kind: 'assumption', id: assumption.id },
+          source: { collection: 'knowledge_item', kind: 'decision', id: decision.id },
+          target: { collection: 'knowledge_item', kind: 'assumption', id: assumption.id },
         },
       ],
     });
@@ -1166,11 +1285,12 @@ describe('phase outcomes + scope closure', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(3);
-    expect(projectRes.body.turns.at(-2)).toMatchObject({
+    expect(projectRes.body.project.active_turn_id).toBe(scopeProposalTurnId);
+    expect(projectRes.body.landing).toEqual({ kind: 'kickoff', phase: 'design', mode: 'start' });
+    expect(projectRes.body.turns.at(-1)).toMatchObject({
       answer: 'Confirm grounding closure',
     });
-    expect(JSON.parse(projectRes.body.turns.at(-2).user_parts ?? '[]')).toEqual([
+    expect(JSON.parse(projectRes.body.turns.at(-1).user_parts ?? '[]')).toEqual([
       { type: 'text', text: 'Confirm grounding closure' },
       {
         type: 'data-confirmation',
@@ -1510,9 +1630,7 @@ describe('phase outcomes + scope closure', () => {
   it('persists a missing requirement through the requirements-review response loop and keeps requirements not yet closeable', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
-    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
-
-    createKnowledgeItem(db, projectId, 'requirement', 'Resume the interview from SQLite after restart');
+    const { advanceHead, createOption, createTurn, getTurn } = await import('./db.js');
 
     const reviewTurn = createTurn(db, projectId, {
       phase: 'requirements',
@@ -1551,41 +1669,25 @@ describe('phase outcomes + scope closure', () => {
     mockStreamInterviewer.mockImplementation(async () =>
       makeTextInterviewer('Thanks, what else is missing?'),
     );
-    mockRunObserver.mockImplementation(async (dbArg, turnArg, observedProjectId) => {
-      const { createKnowledgeItem } = await import('./db.js');
+    mockRunObserver.mockImplementation(async (_dbArg, turnArg, observedProjectId) => {
       const turn = turnArg as { phase: string; answer: string | null };
       expect(turn.phase).toBe('requirements');
       expect(observedProjectId).toBe(projectId);
 
       if (!turn.answer?.includes('Export the reviewed spec as markdown')) {
-        return {
-          goals: [],
-          terms: [],
-          contexts: [],
-          constraints: [],
-          requirements: [],
-          criteria: [],
-          decisions: [],
-          assumptions: [],
-        };
+        return createMockObserverResult();
       }
 
-      const requirement = createKnowledgeItem(
-        dbArg as DB,
-        observedProjectId as number,
-        'requirement',
-        'Export the reviewed spec as markdown',
-      );
-      return {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [requirement.id],
-        criteria: [],
-        decisions: [],
-        assumptions: [],
-      };
+      return createMockObserverResult({
+        draftReviewItems: {
+          requirements: [
+            {
+              content: 'Export the reviewed spec as markdown',
+              rationale: null,
+            },
+          ],
+        },
+      });
     });
 
     await request(app)
@@ -1618,10 +1720,25 @@ describe('phase outcomes + scope closure', () => {
     const entitiesRes = await request(app)
       .get(`/api/projects/${projectId}/entities?mode=project-wide`)
       .expect(200);
-    expect(entitiesRes.body.requirements).toEqual(
+    expect(entitiesRes.body.requirements).toEqual([]);
+
+    const refreshedProjectState = await getProjectSnapshot(projectId);
+    const frontierTurn = getTurn(db, refreshedProjectState.project.active_turn_id!);
+    expect(JSON.parse(frontierTurn?.assistant_parts ?? '[]')).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ content: 'Resume the interview from SQLite after restart' }),
-        expect.objectContaining({ content: 'Export the reviewed spec as markdown' }),
+        {
+          type: 'data-review-set',
+          data: {
+            phase: 'requirements',
+            title: 'Requirements',
+            items: [
+              {
+                content: 'Export the reviewed spec as markdown',
+                referenceCode: createKnowledgeReferenceCode('requirement', 1),
+              },
+            ],
+          },
+        },
       ]),
     );
   });
@@ -1688,7 +1805,7 @@ describe('phase outcomes + scope closure', () => {
     expect(projectRes.body.workflow.phases.requirements).toEqual(
       expect.objectContaining({
         status: 'in_progress',
-        closeability: true,
+        closeability: false,
         proposalPending: true,
         turnId: requirementsProposalTurnId,
         summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
@@ -1827,32 +1944,25 @@ describe('phase outcomes + scope closure', () => {
     expect(refreshedProjectRes.body.turns.at(-1).phase).toBe('criteria');
   });
 
-  it('grounds the first criteria turn in approved requirements and round-trips a criterion through observer persistence', async () => {
+  it('grounds the first criteria turn in approved requirements while keeping criteria draft-only before acceptance', async () => {
     const projectId = await createTestProject();
     seedCriteriaReady(projectId);
 
     mockStreamInterviewer.mockImplementation(async () =>
       makeTextInterviewer('What would prove the resume flow is complete?'),
     );
-    mockRunObserver.mockImplementation(async (dbArg, turnArg, observedProjectId) => {
-      const { createKnowledgeItem } = await import('./db.js');
-      const criterion = createKnowledgeItem(
-        dbArg as DB,
-        observedProjectId as number,
-        'criterion',
-        'Closing and reopening the browser restores the active path',
-      );
-      return {
-        goals: [],
-        terms: [],
-        contexts: [],
-        constraints: [],
-        requirements: [],
-        criteria: [criterion.id],
-        decisions: [],
-        assumptions: [],
-      };
-    });
+    mockRunObserver.mockImplementation(async () =>
+      createMockObserverResult({
+        draftReviewItems: {
+          criteria: [
+            {
+              content: 'Closing and reopening the browser restores the active path',
+              rationale: null,
+            },
+          ],
+        },
+      }),
+    );
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -1893,13 +2003,7 @@ describe('phase outcomes + scope closure', () => {
     const entitiesRes = await request(app)
       .get(`/api/projects/${projectId}/entities?mode=project-wide`)
       .expect(200);
-    expect(entitiesRes.body.criteria).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          content: 'Closing and reopening the browser restores the active path',
-        }),
-      ]),
-    );
+    expect(entitiesRes.body.criteria).toEqual([]);
   });
 
   it('emits a criteria phase-summary proposal once every criterion is explicitly reviewed', async () => {
@@ -1969,7 +2073,7 @@ describe('phase outcomes + scope closure', () => {
     expect(projectRes.body.workflow.phases.criteria).toEqual(
       expect.objectContaining({
         status: 'in_progress',
-        closeability: true,
+        closeability: false,
         proposalPending: true,
         turnId: criteriaProposalTurnId,
         summary: 'All criteria have been explicitly reviewed and the criteria set is ready to close.',
@@ -2245,11 +2349,13 @@ describe('phase outcomes + scope closure', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.turns.at(-2)).toMatchObject({
+    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.landing).toEqual({ kind: 'kickoff', phase: 'requirements', mode: 'start' });
+    expect(projectRes.body.turns.at(-1)).toMatchObject({
       phase: 'design',
       answer: 'Force elicitation closure',
     });
-    expect(JSON.parse(projectRes.body.turns.at(-2).user_parts ?? '[]')).toEqual([
+    expect(JSON.parse(projectRes.body.turns.at(-1).user_parts ?? '[]')).toEqual([
       { type: 'text', text: 'Force elicitation closure' },
       {
         type: 'data-confirmation',
@@ -2410,6 +2516,17 @@ describe('phase outcomes + scope closure', () => {
 });
 
 describe('GET /api/projects/:id', () => {
+  it('projects kickoff from durable workflow state without creating a kickoff row on read', async () => {
+    const { createProject, getActivePath } = await import('./db.js');
+    const project = createProject(db, 'Read-only kickoff projection');
+
+    const res = await request(app).get(`/api/projects/${project.id}`).expect(200);
+
+    expect(res.body.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+    expect(res.body.turns).toEqual([]);
+    expect(getActivePath(db, project.id)).toEqual([]);
+  });
+
   it('returns structured question state after a tool-driven turn', async () => {
     const projectId = await createTestProject();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
@@ -2429,6 +2546,111 @@ describe('GET /api/projects/:id', () => {
     expect(res.body.turns[1].question).toBe(structuredQuestion.question);
     expect(res.body.turns[1].options).toHaveLength(2);
     expect(res.body.turns[1].options[0].content).toBe('Web');
+  });
+});
+
+describe('POST /api/projects/:id/phase-intent', () => {
+  it('persists brownfield mode from landing-only kickoff state without creating a kickoff row first', async () => {
+    const { createProject, getActivePath, getProject } = await import('./db.js');
+    const project = createProject(db, 'Landing-only kickoff');
+
+    expect(getActivePath(db, project.id)).toHaveLength(0);
+
+    await request(app)
+      .post(`/api/projects/${project.id}/phase-intent`)
+      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .expect(200, {
+        ok: true,
+      });
+
+    expect(getProject(db, project.id)).toMatchObject({
+      mode: 'brownfield',
+      cwd: process.cwd(),
+    });
+    expect(getActivePath(db, project.id)).toHaveLength(0);
+
+    await request(app)
+      .post(`/api/projects/${project.id}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-kickoff-brownfield',
+            role: 'user',
+            parts: [
+              {
+                type: 'data-phase-intent',
+                data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+              },
+            ],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.any(Array),
+      'Feature within existing codebase',
+      'scope',
+      { mode: 'brownfield', cwd: process.cwd() },
+    );
+  });
+
+  it('submits a seeded kickoff row through the same phase-entry intent seam', async () => {
+    const { createProject, getActivePath, getProject, getOptionsForTurn } = await import('./db.js');
+    const { ensureProjectFrontier } = await import('./core.js');
+    const project = createProject(db, 'Seeded kickoff row');
+    const kickoffTurn = ensureProjectFrontier(db, project.id);
+
+    expect(kickoffTurn?.turn_kind).toBe('kickoff');
+
+    await request(app)
+      .post(`/api/projects/${project.id}/phase-intent`)
+      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .expect(200, {
+        ok: true,
+      });
+
+    const updatedKickoffTurn = getActivePath(db, project.id)[0]!;
+    const selectedOption = getOptionsForTurn(db, updatedKickoffTurn.id).find((option) => option.is_selected);
+
+    expect(getProject(db, project.id)).toMatchObject({
+      mode: 'brownfield',
+      cwd: process.cwd(),
+    });
+    expect(updatedKickoffTurn.answer).toBe('Feature within existing codebase');
+    expect(selectedOption?.content).toBe('Feature within existing codebase');
+  });
+
+  it('selects the seeded kickoff option by typed intent instead of exact display copy', async () => {
+    const { createProject, getActivePath, getOptionsForTurn } = await import('./db.js');
+    const { ensureProjectFrontier } = await import('./core.js');
+    const project = createProject(db, 'Seeded kickoff copy drift');
+    const kickoffTurn = ensureProjectFrontier(db, project.id);
+
+    expect(kickoffTurn?.turn_kind).toBe('kickoff');
+    db.$client
+      .prepare('update option set content = ? where turn_id = ? and position = ?')
+      .run('Legacy brownfield kickoff label', kickoffTurn?.id, 1);
+
+    await request(app)
+      .post(`/api/projects/${project.id}/phase-intent`)
+      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .expect(200, {
+        ok: true,
+      });
+
+    const updatedKickoffTurn = getActivePath(db, project.id)[0]!;
+    const brownfieldOption = getOptionsForTurn(db, updatedKickoffTurn.id).find(
+      (option) => option.position === 1,
+    );
+
+    expect(updatedKickoffTurn.answer).toBe('Feature within existing codebase');
+    expect(brownfieldOption).toMatchObject({
+      content: 'Legacy brownfield kickoff label',
+      is_selected: true,
+    });
   });
 });
 
@@ -2518,6 +2740,128 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     ]);
   });
 
+  it('persists interviewer-owned requirement review metadata on runtime review turns and accepts from it', async () => {
+    const projectId = await createTestProject();
+    seedRequirementsReady(projectId);
+    const { updateTurn } = await import('./db.js');
+
+    const runtimeRequirementReview = createRuntimeReviewQuestion({
+      phase: 'requirements',
+      title: 'Requirements',
+      question: 'Please review the current requirement set.',
+      why: 'The first review turn should carry its own durable review metadata.',
+      items: [
+        {
+          content: 'Export the reviewed specification as markdown',
+          rationale: 'Keeps the accepted review output portable for sharing.',
+          referenceCode: createKnowledgeReferenceCode('requirement', 1),
+        },
+        {
+          content: 'Resume the interview from persisted local state',
+          rationale: 'Lets users continue after a restart.',
+          referenceCode: createKnowledgeReferenceCode('requirement', 2),
+        },
+      ],
+    });
+
+    const requirementSeedState = await getProjectSnapshot(projectId);
+    const requirementSeedTurnId = requirementSeedState.turns.at(-1)?.id;
+    updateTurn(db, requirementSeedTurnId!, {
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-observer-result',
+          data: {
+            turnId: requirementSeedTurnId,
+            entityIds: {
+              goals: [],
+              terms: [],
+              contexts: [],
+              constraints: [],
+              requirements: [],
+              criteria: [],
+              decisions: [],
+              assumptions: [],
+            },
+            draftReviewItems: {
+              requirements: [
+                {
+                  content: 'Fallback requirement inventory should not become the persisted review set',
+                  rationale: 'This proves the runtime turn no longer depends on synthesized inventory.',
+                },
+              ],
+              criteria: [],
+            },
+          },
+        },
+      ]),
+    });
+
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id, runtimeRequirementReview),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-runtime-requirements',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Review the current requirement set' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const reviewTurn = projectRes.body.turns.find(
+      (turn: { phase: string; question: string }) =>
+        turn.phase === 'requirements' && turn.question === runtimeRequirementReview.question,
+    );
+    expect(reviewTurn).toBeDefined();
+    const assistantParts = JSON.parse(reviewTurn.assistant_parts ?? '[]');
+    expect(assistantParts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'tool-ask_question',
+          input: expect.objectContaining({
+            reviewActions: runtimeRequirementReview.reviewActions,
+            reviewSet: runtimeRequirementReview.reviewSet,
+          }),
+        }),
+        {
+          type: 'data-review-set',
+          data: runtimeRequirementReview.reviewSet,
+        },
+      ]),
+    );
+    expect(JSON.stringify(assistantParts)).not.toContain(
+      'Fallback requirement inventory should not become the persisted review set',
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
+      .expect(200, { ok: true, advancedToPhase: 'criteria' });
+
+    const entitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(entitiesRes.body.requirements).toEqual(
+      expect.arrayContaining(
+        runtimeRequirementReview.reviewSet!.items.map((item) =>
+          expect.objectContaining({ content: item.content }),
+        ),
+      ),
+    );
+    expect(
+      entitiesRes.body.requirements.some(
+        (requirement: { content: string }) =>
+          requirement.content === 'Fallback requirement inventory should not become the persisted review set',
+      ),
+    ).toBe(false);
+  });
+
   it('accepting the requirements full-set review uses explicit reviewAction instead of option copy', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
@@ -2543,6 +2887,27 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       why: 'Review the whole requirement set before moving forward.',
       impact: 'high',
       answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-requirements-review',
+          state: 'output-available',
+          input: {
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            options: [
+              { content: 'Ship this set', is_recommended: true },
+              { content: 'Revise this set', is_recommended: false },
+            ],
+            reviewActions: [
+              { action: 'accept', optionPosition: 0 },
+              { action: 'request-changes', optionPosition: 1 },
+            ],
+          },
+          output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+      ]),
     });
     createOption(db, reviewTurn.id, {
       position: 0,
@@ -2579,11 +2944,12 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         proposalPending: false,
       }),
     );
-    expect(projectRes.body.project.active_turn_id).toBe(projectRes.body.turns.at(-1).id);
+    expect(projectRes.body.project.active_turn_id).toBe(reviewTurn.id);
+    expect(projectRes.body.landing).toEqual({ kind: 'kickoff', phase: 'criteria', mode: 'start' });
     expect(projectRes.body.turns.at(-1)).toEqual(
       expect.objectContaining({
-        phase: 'criteria',
-        answer: null,
+        id: reviewTurn.id,
+        phase: 'requirements',
       }),
     );
 
@@ -2592,10 +2958,13 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(200);
     expect(entitiesRes.body.requirements).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: requirementOne.id, reviewStatus: 'approved' }),
-        expect.objectContaining({ id: requirementTwo.id, reviewStatus: 'approved' }),
+        expect.objectContaining({ id: requirementOne.id }),
+        expect.objectContaining({ id: requirementTwo.id }),
       ]),
     );
+    for (const requirement of entitiesRes.body.requirements) {
+      expect(requirement).not.toHaveProperty('reviewStatus');
+    }
 
     expect(JSON.parse(getTurn(db, reviewTurn.id)?.user_parts ?? '[]')).toEqual([
       { type: 'text', text: 'Ship this set' },
@@ -2609,6 +2978,91 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       },
     ]);
   });
+  it('accepting the requirements review materializes only the persisted review-set items onto the active path', async () => {
+    const projectId = await createTestProject();
+    const seededRequirements = seedRequirementsReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
+
+    const acceptedExistingRequirement = createKnowledgeItem(
+      db,
+      projectId,
+      'requirement',
+      'Export the reviewed specification as markdown',
+      {
+        rationale: 'Keeps the accepted review output portable for sharing.',
+      },
+    );
+    createKnowledgeItem(db, projectId, 'requirement', 'Support exporting the spec as a PDF');
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: seededRequirements.designConfirmationTurn.id,
+      question: 'Please review the current requirement set.',
+      why: 'Review the whole requirement set before moving forward.',
+      impact: 'high',
+      answer: '',
+      assistant_parts: createReviewSetAssistantParts({
+        phase: 'requirements',
+        title: 'Requirements',
+        question: 'Please review the current requirement set.',
+        why: 'Review the whole requirement set before moving forward.',
+        items: [
+          {
+            referenceCode: createKnowledgeReferenceCode('requirement', 1),
+            content: 'Export the reviewed specification as markdown',
+            rationale: 'Keeps the accepted review output portable for sharing.',
+          },
+          {
+            referenceCode: createKnowledgeReferenceCode('requirement', 2),
+            content: 'Resume the interview from persisted local state',
+            rationale: 'Users should be able to continue after a restart.',
+          },
+        ],
+      }),
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
+      .expect(200);
+
+    const activePathEntitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(activePathEntitiesRes.body.requirements).toEqual([
+      expect.objectContaining({ id: acceptedExistingRequirement.id }),
+      expect.objectContaining({ content: 'Resume the interview from persisted local state' }),
+    ]);
+
+    const projectWideEntitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(
+      projectWideEntitiesRes.body.requirements.filter(
+        (requirement: { content: string }) =>
+          requirement.content === 'Export the reviewed specification as markdown',
+      ),
+    ).toHaveLength(1);
+    expect(
+      projectWideEntitiesRes.body.requirements.map((requirement: { content: string }) => requirement.content),
+    ).toEqual(
+      expect.arrayContaining([
+        'Export the reviewed specification as markdown',
+        'Resume the interview from persisted local state',
+        'Support exporting the spec as a PDF',
+      ]),
+    );
+  });
+
   it('requesting changes on the requirements full-set review keeps requirements open and does not advance to criteria', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
@@ -2628,6 +3082,27 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       why: 'Review the whole requirement set before moving forward.',
       impact: 'high',
       answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-requirements-review',
+          state: 'output-available',
+          input: {
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            options: [
+              { content: 'Ship this set', is_recommended: true },
+              { content: 'Revise this set', is_recommended: false },
+            ],
+            reviewActions: [
+              { action: 'accept', optionPosition: 0 },
+              { action: 'request-changes', optionPosition: 1 },
+            ],
+          },
+          output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+      ]),
     });
     createOption(db, reviewTurn.id, {
       position: 0,
@@ -2677,138 +3152,30 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .get(`/api/projects/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(entitiesRes.body.requirements).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: requirement.id, reviewStatus: 'pending' })]),
+      expect.arrayContaining([expect.objectContaining({ id: requirement.id })]),
     );
+    for (const candidateRequirement of entitiesRes.body.requirements) {
+      expect(candidateRequirement).not.toHaveProperty('reviewStatus');
+    }
   });
 
-  it('persists explicit approved review state for a targeted requirement through the response seam', async () => {
+  it('rejects requirements review submissions that omit the explicit reviewAction', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
-    const { advanceHead, createKnowledgeItem, createOption, createTurn, updateTurn } =
-      await import('./db.js');
+    const { advanceHead, createOption, createTurn, updateTurn } = await import('./db.js');
 
-    const approvedRequirement = createKnowledgeItem(db, projectId, 'requirement', 'Export the reviewed spec');
-    const pendingRequirement = createKnowledgeItem(
-      db,
-      projectId,
-      'requirement',
-      'Resume the interview from SQLite after restart',
-    );
     const reviewInput = {
-      question: `Should we approve requirement [${approvedRequirement.id}] Export the reviewed spec?`,
-      why: 'Requirements review should record explicit approval state one item at a time.',
+      question: 'Please review the current requirement set.',
+      why: 'Review turns must persist explicit accept/request-changes semantics.',
       impact: 'high' as const,
       options: [
-        { content: 'Approve this requirement', is_recommended: true },
-        { content: 'This requirement needs correction', is_recommended: false },
+        { content: 'Accept review', is_recommended: true },
+        { content: 'Request changes', is_recommended: false },
       ],
-      requirementReview: {
-        kind: 'requirement-approval' as const,
-        requirementId: approvedRequirement.id,
-        approveOptionPosition: 0,
-      },
-    };
-
-    const reviewTurn = createTurn(db, projectId, {
-      phase: 'requirements',
-      parent_turn_id: seededRequirements.designConfirmationTurn.id,
-      question: reviewInput.question,
-      why: reviewInput.why,
-      impact: reviewInput.impact,
-      answer: '',
-    });
-    createOption(db, reviewTurn.id, {
-      position: 0,
-      content: 'Approve this requirement',
-      is_recommended: true,
-    });
-    createOption(db, reviewTurn.id, {
-      position: 1,
-      content: 'This requirement needs correction',
-      is_recommended: false,
-    });
-    updateTurn(db, reviewTurn.id, {
-      assistant_parts: JSON.stringify([
-        {
-          type: 'tool-ask_question',
-          toolCallId: 'tool-review',
-          state: 'output-available',
-          input: reviewInput,
-          output: { ok: true, turnId: reviewTurn.id, optionCount: reviewInput.options.length },
-        },
-      ]),
-    });
-    advanceHead(db, projectId, reviewTurn.id);
-
-    await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ kind: 'select-options', positions: [0] })
-      .expect(200);
-
-    const reviewedRows = db.$client
-      .prepare(
-        `SELECT item_id, turn_id, relation FROM turn_knowledge_item WHERE relation = 'reviewed' ORDER BY item_id`,
-      )
-      .all() as Array<{ item_id: number; turn_id: number; relation: string }>;
-    expect(reviewedRows).toEqual([
-      {
-        item_id: approvedRequirement.id,
-        turn_id: reviewTurn.id,
-        relation: 'reviewed',
-      },
-    ]);
-
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    expect(projectRes.body.workflow.phases.requirements).toEqual(
-      expect.objectContaining({
-        status: 'in_progress',
-        closeability: false,
-        proposalPending: false,
-      }),
-    );
-
-    const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
-      .expect(200);
-    expect(entitiesRes.body.requirements).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: approvedRequirement.id, reviewStatus: 'approved' }),
-        expect.objectContaining({ id: pendingRequirement.id, reviewStatus: 'pending' }),
-      ]),
-    );
-  });
-
-  it('persists explicit rejected review state for a targeted requirement through the response seam', async () => {
-    const projectId = await createTestProject();
-    const seededRequirements = seedRequirementsReady(projectId);
-    const { advanceHead, createKnowledgeItem, createOption, createTurn, updateTurn } =
-      await import('./db.js');
-
-    const rejectedRequirement = createKnowledgeItem(
-      db,
-      projectId,
-      'requirement',
-      'Support exporting the spec as a PDF',
-    );
-    const pendingRequirement = createKnowledgeItem(
-      db,
-      projectId,
-      'requirement',
-      'Resume the interview from SQLite after restart',
-    );
-    const reviewInput = {
-      question: `Should we reject requirement [${rejectedRequirement.id}] Support exporting the spec as a PDF?`,
-      why: 'Requirements review should record explicit rejection state one item at a time.',
-      impact: 'high' as const,
-      options: [
-        { content: 'Reject this requirement', is_recommended: true },
-        { content: 'Keep this requirement for now', is_recommended: false },
+      reviewActions: [
+        { action: 'accept' as const, optionPosition: 0 },
+        { action: 'request-changes' as const, optionPosition: 1 },
       ],
-      requirementReview: {
-        kind: 'requirement-rejection' as const,
-        requirementId: rejectedRequirement.id,
-        rejectOptionPosition: 0,
-      },
     };
 
     const reviewTurn = createTurn(db, projectId, {
@@ -2845,39 +3212,129 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     await request(app)
       .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
       .send({ kind: 'select-options', positions: [0] })
+      .expect(400);
+  });
+
+  it('persists interviewer-owned criteria review metadata on runtime review turns and accepts from it', async () => {
+    const projectId = await createTestProject();
+    seedCriteriaReady(projectId);
+    const { updateTurn } = await import('./db.js');
+
+    const runtimeCriteriaReview = createRuntimeReviewQuestion({
+      phase: 'criteria',
+      title: 'Acceptance Criteria',
+      question: 'Please review the current criterion set.',
+      why: 'The first criteria review turn should carry its own durable review metadata.',
+      items: [
+        {
+          content: 'Restarting restores the active path',
+          rationale: 'Proves the persisted branch resumes cleanly.',
+          referenceCode: createKnowledgeReferenceCode('criterion', 1),
+        },
+        {
+          content: 'Markdown export includes accepted requirements only',
+          rationale: 'Checks the final handoff stays scoped to accepted output.',
+          referenceCode: createKnowledgeReferenceCode('criterion', 2),
+        },
+      ],
+    });
+
+    const criterionSeedState = await getProjectSnapshot(projectId);
+    const criterionSeedTurnId = criterionSeedState.turns.at(-1)?.id;
+    updateTurn(db, criterionSeedTurnId!, {
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-observer-result',
+          data: {
+            turnId: criterionSeedTurnId,
+            entityIds: {
+              goals: [],
+              terms: [],
+              contexts: [],
+              constraints: [],
+              requirements: [],
+              criteria: [],
+              decisions: [],
+              assumptions: [],
+            },
+            draftReviewItems: {
+              requirements: [],
+              criteria: [
+                {
+                  content: 'Fallback criteria inventory should not become the persisted review set',
+                  rationale: 'This proves the runtime turn no longer depends on synthesized inventory.',
+                },
+              ],
+            },
+          },
+        },
+      ]),
+    });
+
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id, runtimeCriteriaReview),
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-runtime-criteria',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Review the current criterion set' }],
+          },
+        ],
+      })
       .expect(200);
 
-    const rejectedRows = db.$client
-      .prepare(
-        `SELECT item_id, turn_id, relation FROM turn_knowledge_item WHERE relation = 'rejected' ORDER BY item_id`,
-      )
-      .all() as Array<{ item_id: number; turn_id: number; relation: string }>;
-    expect(rejectedRows).toEqual([
-      {
-        item_id: rejectedRequirement.id,
-        turn_id: reviewTurn.id,
-        relation: 'rejected',
-      },
-    ]);
-
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    expect(projectRes.body.workflow.phases.requirements).toEqual(
-      expect.objectContaining({
-        status: 'in_progress',
-        closeability: false,
-        proposalPending: false,
-      }),
+    const reviewTurn = projectRes.body.turns.find(
+      (turn: { phase: string; question: string }) =>
+        turn.phase === 'criteria' && turn.question === runtimeCriteriaReview.question,
     );
+    expect(reviewTurn).toBeDefined();
+    const assistantParts = JSON.parse(reviewTurn.assistant_parts ?? '[]');
+    expect(assistantParts).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'tool-ask_question',
+          input: expect.objectContaining({
+            reviewActions: runtimeCriteriaReview.reviewActions,
+            reviewSet: runtimeCriteriaReview.reviewSet,
+          }),
+        }),
+        {
+          type: 'data-review-set',
+          data: runtimeCriteriaReview.reviewSet,
+        },
+      ]),
+    );
+    expect(JSON.stringify(assistantParts)).not.toContain(
+      'Fallback criteria inventory should not become the persisted review set',
+    );
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
+      .expect(200, { ok: true, workflowCompleted: true });
 
     const entitiesRes = await request(app)
       .get(`/api/projects/${projectId}/entities?mode=project-wide`)
       .expect(200);
-    expect(entitiesRes.body.requirements).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: rejectedRequirement.id, reviewStatus: 'rejected' }),
-        expect.objectContaining({ id: pendingRequirement.id, reviewStatus: 'pending' }),
-      ]),
+    expect(entitiesRes.body.criteria).toEqual(
+      expect.arrayContaining(
+        runtimeCriteriaReview.reviewSet!.items.map((item) =>
+          expect.objectContaining({ content: item.content }),
+        ),
+      ),
     );
+    expect(
+      entitiesRes.body.criteria.some(
+        (criterion: { content: string }) =>
+          criterion.content === 'Fallback criteria inventory should not become the persisted review set',
+      ),
+    ).toBe(false);
   });
 
   it('accepting the criteria full-set review uses explicit reviewAction instead of option copy', async () => {
@@ -2905,6 +3362,27 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       why: 'Review the whole criterion set before moving forward.',
       impact: 'high',
       answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-criteria-review',
+          state: 'output-available',
+          input: {
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            options: [
+              { content: 'Ship this set', is_recommended: true },
+              { content: 'Revise this set', is_recommended: false },
+            ],
+            reviewActions: [
+              { action: 'accept', optionPosition: 0 },
+              { action: 'request-changes', optionPosition: 1 },
+            ],
+          },
+          output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+      ]),
     });
     createOption(db, reviewTurn.id, {
       position: 0,
@@ -2948,13 +3426,100 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(200);
     expect(entitiesRes.body.criteria).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ id: criterionOne.id, reviewStatus: 'approved' }),
-        expect.objectContaining({ id: criterionTwo.id, reviewStatus: 'approved' }),
+        expect.objectContaining({ id: criterionOne.id }),
+        expect.objectContaining({ id: criterionTwo.id }),
       ]),
     );
+    for (const criterion of entitiesRes.body.criteria) {
+      expect(criterion).not.toHaveProperty('reviewStatus');
+    }
 
     const exportRes = await request(app).get(`/api/projects/${projectId}/export`).expect(200);
     expect(exportRes.body.ready).toBe(true);
+  });
+
+  it('accepting the criteria review materializes only the persisted review-set items onto the active path', async () => {
+    const projectId = await createTestProject();
+    const seededCriteria = seedCriteriaReady(projectId);
+    const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
+
+    const acceptedExistingCriterion = createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'Restarting restores the active path',
+      {
+        rationale: 'Proves the persisted branch resumes cleanly.',
+      },
+    );
+    createKnowledgeItem(db, projectId, 'criterion', 'PDF export renders the reviewed requirements');
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'criteria',
+      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
+      question: 'Please review the current criterion set.',
+      why: 'Review the whole criterion set before moving forward.',
+      impact: 'high',
+      answer: '',
+      assistant_parts: createReviewSetAssistantParts({
+        phase: 'criteria',
+        title: 'Acceptance Criteria',
+        question: 'Please review the current criterion set.',
+        why: 'Review the whole criterion set before moving forward.',
+        items: [
+          {
+            referenceCode: createKnowledgeReferenceCode('criterion', 1),
+            content: 'Restarting restores the active path',
+            rationale: 'Proves the persisted branch resumes cleanly.',
+          },
+          {
+            referenceCode: createKnowledgeReferenceCode('criterion', 2),
+            content: 'Markdown export includes accepted requirements only',
+            rationale: 'Checks the final handoff stays scoped to accepted output.',
+          },
+        ],
+      }),
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    await request(app)
+      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
+      .expect(200);
+
+    const activePathEntitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    expect(activePathEntitiesRes.body.criteria).toEqual([
+      expect.objectContaining({ id: acceptedExistingCriterion.id }),
+      expect.objectContaining({ content: 'Markdown export includes accepted requirements only' }),
+    ]);
+
+    const projectWideEntitiesRes = await request(app)
+      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .expect(200);
+    expect(
+      projectWideEntitiesRes.body.criteria.filter(
+        (criterion: { content: string }) => criterion.content === 'Restarting restores the active path',
+      ),
+    ).toHaveLength(1);
+    expect(
+      projectWideEntitiesRes.body.criteria.map((criterion: { content: string }) => criterion.content),
+    ).toEqual(
+      expect.arrayContaining([
+        'Restarting restores the active path',
+        'Markdown export includes accepted requirements only',
+        'PDF export renders the reviewed requirements',
+      ]),
+    );
   });
 
   it('requesting changes on the criteria full-set review keeps criteria open and does not advance to output semantics', async () => {
@@ -2971,6 +3536,27 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       why: 'Review the whole criterion set before moving forward.',
       impact: 'high',
       answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-criteria-review',
+          state: 'output-available',
+          input: {
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            options: [
+              { content: 'Ship this set', is_recommended: true },
+              { content: 'Revise this set', is_recommended: false },
+            ],
+            reviewActions: [
+              { action: 'accept', optionPosition: 0 },
+              { action: 'request-changes', optionPosition: 1 },
+            ],
+          },
+          output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+      ]),
     });
     createOption(db, reviewTurn.id, {
       position: 0,
@@ -3014,203 +3600,11 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .get(`/api/projects/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(entitiesRes.body.criteria).toEqual(
-      expect.arrayContaining([expect.objectContaining({ id: criterion.id, reviewStatus: 'pending' })]),
+      expect.arrayContaining([expect.objectContaining({ id: criterion.id })]),
     );
-  });
-
-  it('persists explicit approved review state for a targeted criterion through the response seam', async () => {
-    const projectId = await createTestProject();
-    const seededCriteria = seedCriteriaReady(projectId);
-    const { advanceHead, createKnowledgeItem, createOption, createTurn, updateTurn } =
-      await import('./db.js');
-
-    const approvedCriterion = createKnowledgeItem(
-      db,
-      projectId,
-      'criterion',
-      'Markdown preview renders the reviewed requirements',
-    );
-    const pendingCriterion = createKnowledgeItem(
-      db,
-      projectId,
-      'criterion',
-      'Restarting the browser resumes the active path',
-    );
-    const reviewInput = {
-      question: `Should we approve criterion [${approvedCriterion.id}] Markdown preview renders the reviewed requirements?`,
-      why: 'Criteria review should record explicit approval state one item at a time.',
-      impact: 'high' as const,
-      options: [
-        { content: 'Approve this criterion', is_recommended: true },
-        { content: 'This criterion needs correction', is_recommended: false },
-      ],
-      criterionReview: {
-        kind: 'criterion-approval' as const,
-        criterionId: approvedCriterion.id,
-        approveOptionPosition: 0,
-      },
-    };
-
-    const reviewTurn = createTurn(db, projectId, {
-      phase: 'criteria',
-      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
-      question: reviewInput.question,
-      why: reviewInput.why,
-      impact: reviewInput.impact,
-      answer: '',
-    });
-    createOption(db, reviewTurn.id, {
-      position: 0,
-      content: 'Approve this criterion',
-      is_recommended: true,
-    });
-    createOption(db, reviewTurn.id, {
-      position: 1,
-      content: 'This criterion needs correction',
-      is_recommended: false,
-    });
-    updateTurn(db, reviewTurn.id, {
-      assistant_parts: JSON.stringify([
-        {
-          type: 'tool-ask_question',
-          toolCallId: 'tool-criterion-review',
-          state: 'output-available',
-          input: reviewInput,
-          output: { ok: true, turnId: reviewTurn.id, optionCount: reviewInput.options.length },
-        },
-      ]),
-    });
-    advanceHead(db, projectId, reviewTurn.id);
-
-    await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ kind: 'select-options', positions: [0] })
-      .expect(200);
-
-    const reviewedRows = db.$client
-      .prepare(
-        `SELECT item_id, turn_id, relation FROM turn_knowledge_item WHERE item_id = ? AND relation = 'reviewed'`,
-      )
-      .all(approvedCriterion.id) as Array<{ item_id: number; turn_id: number; relation: string }>;
-    expect(reviewedRows).toEqual([
-      {
-        item_id: approvedCriterion.id,
-        turn_id: reviewTurn.id,
-        relation: 'reviewed',
-      },
-    ]);
-
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    expect(projectRes.body.workflow.phases.criteria).toEqual(
-      expect.objectContaining({
-        status: 'in_progress',
-        closeability: false,
-        proposalPending: false,
-      }),
-    );
-
-    const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
-      .expect(200);
-    expect(entitiesRes.body.criteria).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: approvedCriterion.id, reviewStatus: 'approved' }),
-        expect.objectContaining({ id: pendingCriterion.id, reviewStatus: 'pending' }),
-      ]),
-    );
-  });
-
-  it('persists explicit rejected review state for a targeted criterion through the response seam', async () => {
-    const projectId = await createTestProject();
-    const seededCriteria = seedCriteriaReady(projectId);
-    const { advanceHead, createKnowledgeItem, createOption, createTurn, updateTurn } =
-      await import('./db.js');
-
-    const rejectedCriterion = createKnowledgeItem(
-      db,
-      projectId,
-      'criterion',
-      'PDF export renders the reviewed requirements',
-    );
-    const pendingCriterion = createKnowledgeItem(
-      db,
-      projectId,
-      'criterion',
-      'Restarting the browser resumes the active path',
-    );
-    const reviewInput = {
-      question: `Should we reject criterion [${rejectedCriterion.id}] PDF export renders the reviewed requirements?`,
-      why: 'Criteria review should record explicit rejection state one item at a time.',
-      impact: 'high' as const,
-      options: [
-        { content: 'Reject this criterion', is_recommended: true },
-        { content: 'Keep this criterion for now', is_recommended: false },
-      ],
-      criterionReview: {
-        kind: 'criterion-rejection' as const,
-        criterionId: rejectedCriterion.id,
-        rejectOptionPosition: 0,
-      },
-    };
-
-    const reviewTurn = createTurn(db, projectId, {
-      phase: 'criteria',
-      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
-      question: reviewInput.question,
-      why: reviewInput.why,
-      impact: reviewInput.impact,
-      answer: '',
-    });
-    createOption(db, reviewTurn.id, {
-      position: 0,
-      content: 'Reject this criterion',
-      is_recommended: true,
-    });
-    createOption(db, reviewTurn.id, {
-      position: 1,
-      content: 'Keep this criterion for now',
-      is_recommended: false,
-    });
-    updateTurn(db, reviewTurn.id, {
-      assistant_parts: JSON.stringify([
-        {
-          type: 'tool-ask_question',
-          toolCallId: 'tool-criterion-review-reject',
-          state: 'output-available',
-          input: reviewInput,
-          output: { ok: true, turnId: reviewTurn.id, optionCount: reviewInput.options.length },
-        },
-      ]),
-    });
-    advanceHead(db, projectId, reviewTurn.id);
-
-    await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
-      .send({ kind: 'select-options', positions: [0] })
-      .expect(200);
-
-    const rejectedRows = db.$client
-      .prepare(
-        `SELECT item_id, turn_id, relation FROM turn_knowledge_item WHERE item_id = ? AND relation = 'rejected'`,
-      )
-      .all(rejectedCriterion.id) as Array<{ item_id: number; turn_id: number; relation: string }>;
-    expect(rejectedRows).toEqual([
-      {
-        item_id: rejectedCriterion.id,
-        turn_id: reviewTurn.id,
-        relation: 'rejected',
-      },
-    ]);
-
-    const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
-      .expect(200);
-    expect(entitiesRes.body.criteria).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({ id: rejectedCriterion.id, reviewStatus: 'rejected' }),
-        expect.objectContaining({ id: pendingCriterion.id, reviewStatus: 'pending' }),
-      ]),
-    );
+    for (const candidateCriterion of entitiesRes.body.criteria) {
+      expect(candidateCriterion).not.toHaveProperty('reviewStatus');
+    }
   });
 
   it('round-trips structured turn responses through project reload, transcript hydration, and interviewer history', async () => {
@@ -3246,7 +3640,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .filter((option) => option.is_selected)
       .map((option) => option.id);
 
-    expect(projectState.turns).toHaveLength(3);
+    expect(projectState.turns).toHaveLength(2);
     expect(projectState.turns[1].answer).toBe('Web, Desktop — Covers both launch paths');
     expect(JSON.parse(projectState.turns[1].user_parts ?? '[]')).toEqual([
       { type: 'text', text: 'Web, Desktop — Covers both launch paths' },
@@ -3285,6 +3679,10 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
                 decisions: [],
                 assumptions: [],
               },
+              draftReviewItems: {
+                requirements: [],
+                criteria: [],
+              },
             },
           },
         ],
@@ -3321,6 +3719,10 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
                 criteria: [],
                 decisions: [],
                 assumptions: [],
+              },
+              draftReviewItems: {
+                requirements: [],
+                criteria: [],
               },
             },
           },

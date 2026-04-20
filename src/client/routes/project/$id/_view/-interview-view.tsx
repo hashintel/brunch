@@ -13,258 +13,75 @@ import {
 import { ShellButton } from '@/client/components/app-shell';
 import { ChatScroll } from '@/client/components/chat-scroll';
 import {
+  AcceptedClosureCard,
+  KickoffControlCard,
+  PhaseSummaryCard,
+  RecoveryControlCard,
+  TranscriptMetaPlaceholder,
+  WorkspaceStateCard,
+} from '@/client/components/control-cards';
+import {
+  ActiveReviewSetCard,
   ActiveQuestionCard,
   ActivityPlaceholder,
   AnsweredQuestionCard,
   AnsweredReviewSetCard,
   GeneratingTurnPlaceholder,
 } from '@/client/components/question-cards';
+import { ReviewPhaseCompletionCard } from '@/client/components/review-set-card';
 import { cn } from '@/client/lib/utils';
-import type { ProjectMode, ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
+import type { ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
 import { isAskQuestionUIPart, summarizeAssistantActivity } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
-import {
-  groundingStrategyChoices,
-  groundingStrategyKickoffDescription,
-  groundingStrategyKickoffQuestion,
-} from '@/shared/grounding-strategy.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
 import { getWorkflowPhaseLabel } from '@/shared/phase-display.js';
+import { getPhaseIntentMarkerLabel } from '@/shared/phase-intents.js';
 import { getNextActivePhase, phaseOrder, phaseRouteSegments } from '@/shared/phase-routes.js';
 import {
-  getAcceptedClosureReplay,
   getPersistedActivitySummary,
-  getPersistedReviewAction,
   getPersistedReviewSet,
   getPersistedSelectedPositions,
   getPersistedTurnResponse,
   turnHasCompletedAnswer,
-  turnIsControlOrClosureArtifact,
 } from '@/shared/project-state-turn.js';
 
 import { useInterviewController } from './-interview-controller';
-import { continuePhaseMessages, startPhaseMessages } from './-interview-controller-core.js';
+import { projectWorkspaceStream, type WorkspaceStreamMarker } from './-workspace-stream-projector.js';
 
 function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectStateTurn['phase']) {
   return getForceClosePhaseAction(workflow, phase).available;
 }
 
-function isReviewPhase(phase: WorkflowPhase) {
-  return phase === 'requirements' || phase === 'criteria';
-}
-
-function TranscriptMetaPlaceholder({
-  label,
-  detail,
-  testId,
-}: {
-  label: string;
-  detail?: string | null;
-  testId?: string;
-}) {
-  return (
-    <div
-      data-testid={testId}
-      className="my-2 rounded-lg border border-dashed border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
-    >
-      <p className="font-medium text-foreground/80">{label}</p>
-      {detail ? <p className="mt-1 leading-relaxed">{detail}</p> : null}
-    </div>
-  );
-}
-
-function WorkspaceStateCard({
-  eyebrow,
-  title,
-  description,
-  children,
-  testId,
-}: {
-  eyebrow: string;
-  title: string;
-  description: string;
-  children?: React.ReactNode;
-  testId?: string;
-}) {
-  return (
-    <div
-      className="my-3 rounded-xl border bg-card p-4 shadow-sm"
-      {...(testId ? { 'data-testid': testId } : { 'data-testid': 'workspace-state-card' })}
-    >
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{eyebrow}</p>
-      <h2 className="mt-1 text-base font-semibold text-foreground">{title}</h2>
-      <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{description}</p>
-      {children ? <div className="mt-4 flex flex-wrap items-center gap-2">{children}</div> : null}
-    </div>
-  );
-}
-
-function ReviewPhaseBanner({ phase }: { phase: WorkflowPhase }) {
-  return (
-    <TranscriptMetaPlaceholder
-      testId="review-phase-banner"
-      label={`${getWorkflowPhaseLabel(phase)} workspace`}
-      detail="This phase is staged as a structured review, not a freeform chat transcript."
-    />
-  );
-}
-
-function KickoffTurnCard({
-  phase,
-  mode,
-  onProceed,
-  onSelectStrategy,
-  disabled,
-}: {
-  phase: WorkflowPhase;
-  mode: 'start' | 'continue';
-  onProceed: () => void;
-  onSelectStrategy?: (mode: ProjectMode) => void;
-  disabled: boolean;
-}) {
-  const phaseLabel = getWorkflowPhaseLabel(phase);
-  const showsGroundingStrategyChoice = phase === 'scope' && mode === 'start' && Boolean(onSelectStrategy);
-
-  return (
-    <WorkspaceStateCard
-      testId="kickoff-turn-card"
-      eyebrow={mode === 'start' ? 'Phase kickoff' : 'Continue phase'}
-      title={showsGroundingStrategyChoice ? groundingStrategyKickoffQuestion : `${phaseLabel} phase`}
-      description={
-        showsGroundingStrategyChoice
-          ? groundingStrategyKickoffDescription
-          : mode === 'start'
-            ? `This phase is ready to begin. Proceed to generate the first ${isReviewPhase(phase) ? 'review step' : 'interview turn'}.`
-            : `This phase is open but has no current frontier turn. Proceed to generate the next ${isReviewPhase(phase) ? 'review step' : 'interview turn'}.`
-      }
-    >
-      {showsGroundingStrategyChoice ? (
-        <div className="flex w-full flex-col gap-3">
-          {groundingStrategyChoices.map((choice) => (
-            <button
-              key={choice.mode}
-              type="button"
-              data-testid={`kickoff-strategy-option-${choice.mode}`}
-              onClick={() => onSelectStrategy?.(choice.mode)}
-              disabled={disabled}
-              className={cn(
-                'rounded-lg border border-input p-4 text-left transition-colors',
-                disabled
-                  ? 'cursor-not-allowed bg-muted text-muted-foreground'
-                  : 'bg-background hover:bg-muted/50',
-              )}
-            >
-              <div className="font-medium">{choice.title}</div>
-              <div className="mt-1 text-sm text-muted-foreground">{choice.description}</div>
-            </button>
-          ))}
-        </div>
-      ) : (
-        <button
-          type="button"
-          onClick={onProceed}
-          disabled={disabled}
-          className={cn(
-            'rounded-md border px-3 py-2 text-sm transition-colors',
-            disabled
-              ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-              : 'border-border bg-background hover:bg-muted',
-          )}
-        >
-          Proceed
-        </button>
-      )}
-    </WorkspaceStateCard>
-  );
-}
-
-function RecoveryTurnCard({
-  phase,
-  onRecover,
-  disabled,
-}: {
-  phase: WorkflowPhase;
-  onRecover: () => void;
-  disabled: boolean;
-}) {
-  return (
-    <WorkspaceStateCard
-      eyebrow="Recovery needed"
-      title={`Restore the next ${isReviewPhase(phase) ? 'review step' : 'interview turn'}`}
-      description={`The last ${getWorkflowPhaseLabel(phase).toLowerCase()} turn is complete, but the next frontier is missing. Continue to recover it.`}
-    >
-      <button
-        type="button"
-        data-testid="recovery-turn-card"
-        onClick={onRecover}
-        disabled={disabled}
-        className={cn(
-          'rounded-md border px-3 py-2 text-sm transition-colors',
-          disabled
-            ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-            : 'border-border bg-background hover:bg-muted',
-        )}
-      >
-        Continue
-      </button>
-    </WorkspaceStateCard>
-  );
-}
-
-function PhaseSummaryCard({
-  phase,
-  summary,
-  onConfirm,
-  disabled,
-}: {
-  phase: ProjectStateTurn['phase'];
-  summary: string;
-  onConfirm: () => void;
-  disabled: boolean;
-}) {
-  return (
-    <div className="my-3 rounded-lg border bg-card p-4">
-      <div className="mb-2 text-[15px] font-semibold">{getWorkflowPhaseLabel(phase)} closure proposal</div>
-      <p className="text-sm text-muted-foreground">{summary}</p>
-      <div className="mt-3 flex justify-end">
-        <button
-          type="button"
-          onClick={onConfirm}
-          disabled={disabled}
-          className={cn(
-            'rounded-md border px-3 py-2 text-sm transition-colors',
-            disabled
-              ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-              : 'border-border bg-background hover:bg-muted',
-          )}
-        >
-          {getPhaseClosureCommandText({ kind: 'confirm-proposed-phase-closure', phase })}
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function getControlMarkerLabel(text: string): string | null {
-  if (Object.values(startPhaseMessages).includes(text as (typeof startPhaseMessages)[WorkflowPhase])) {
-    return 'Interview started';
+function getReviewPhaseCompletionDescription(
+  phase: WorkflowPhase,
+  summary: string | null,
+  nextPhase: WorkflowPhase | null,
+) {
+  if (summary) {
+    return summary;
   }
 
-  if (Object.values(continuePhaseMessages).includes(text as (typeof continuePhaseMessages)[WorkflowPhase])) {
-    return 'Interview resumed';
+  if (phase === 'requirements' && nextPhase) {
+    return `The reviewed requirement set is accepted and ready for ${getWorkflowPhaseLabel(nextPhase).toLowerCase()}.`;
   }
 
-  return null;
+  return 'The accepted criteria set is ready for export.';
 }
 
-function AcceptedClosureTurnCard({ phase, summary }: { phase: WorkflowPhase; summary: string }) {
-  return (
-    <WorkspaceStateCard
-      eyebrow="Phase closure confirmed"
-      title={`${getWorkflowPhaseLabel(phase)} closure confirmed`}
-      description={summary}
-    />
+function getControlMarkerLabel(message: BrunchUIMessage): string | null {
+  const phaseIntent = message.parts?.find(
+    (part): part is Extract<NonNullable<BrunchUIMessage['parts']>[number], { type: 'data-phase-intent' }> =>
+      part.type === 'data-phase-intent',
   );
+  return phaseIntent ? getPhaseIntentMarkerLabel(phaseIntent.data) : null;
+}
+
+function projectLiveControlMarkers(messages: readonly BrunchUIMessage[]): WorkspaceStreamMarker[] {
+  return messages
+    .filter((message) => !/^turn-\d+-/.test(message.id) && message.role === 'user')
+    .map((message) => getControlMarkerLabel(message))
+    .filter((label): label is string => Boolean(label))
+    .map((label) => ({ label }));
 }
 
 function renderActivitySummary(activitySummary: { seconds?: number; tools: string[] } | null) {
@@ -330,17 +147,8 @@ function renderMessageParts(
 
 export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const entitySnapshot = useLoaderData({ from: '/project/$id/_view' });
-  const {
-    chat,
-    project,
-    workflow,
-    phaseTurns,
-    phaseSummary,
-    promptInput,
-    turnCard,
-    captureStatusByTurnId,
-    showGeneratingState,
-  } = useInterviewController(phase);
+  const { chat, project, workflow, phaseTurns, promptInput, bottomArtifact, captureStatusByTurnId } =
+    useInterviewController(phase);
   const phaseState = workflow.phases[phase];
   const autoPresentKeyRef = useRef<string | null>(null);
   const currentReachablePhase =
@@ -348,61 +156,19 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const nextPhase = getNextActivePhase(workflow.phases, phase);
   // TODO: re-enable when auto-present is restored
   const _hasVisibleActiveTurn =
-    turnCard?.kind === 'pending-question' ||
-    (turnCard?.kind === 'persisted-turn' && !turnHasCompletedAnswer(turnCard.turn));
-  const renderedPersistedTurnId =
-    turnCard?.kind === 'persisted-turn' &&
-    (!turnHasCompletedAnswer(turnCard.turn) || turnCard.state === 'submitted')
-      ? turnCard.turn.id
-      : null;
-  const completedPhaseItems = phaseTurns.reduce<
-    Array<
-      | { kind: 'answered-turn'; turn: ProjectStateTurn }
-      | {
-          kind: 'accepted-closure';
-          acceptedClosure: NonNullable<ReturnType<typeof getAcceptedClosureReplay>>;
-        }
-      | {
-          kind: 'answered-review-turn';
-          turn: ProjectStateTurn;
-          reviewSet: NonNullable<ReturnType<typeof getPersistedReviewSet>>;
-        }
-    >
-  >((items, turn) => {
-    if (turn.id === renderedPersistedTurnId) {
-      return items;
-    }
-
-    const acceptedClosure = getAcceptedClosureReplay(turn, phaseState);
-    if (acceptedClosure) {
-      items.push({ kind: 'accepted-closure', acceptedClosure });
-      return items;
-    }
-
-    if (turnHasCompletedAnswer(turn) && !turnIsControlOrClosureArtifact(turn)) {
-      const reviewSet = getPersistedReviewSet(turn);
-      if (reviewSet && getPersistedReviewAction(turn)) {
-        items.push({ kind: 'answered-review-turn', turn, reviewSet });
-      } else {
-        items.push({ kind: 'answered-turn', turn });
-      }
-    }
-
-    return items;
-  }, []);
-  const answeredTurnCount = completedPhaseItems.filter((item) => item.kind === 'answered-turn').length;
-  const activeQuestionCode = `Q${answeredTurnCount + 1}`;
+    bottomArtifact?.kind === 'pending-question' ||
+    (bottomArtifact?.kind === 'persisted-turn' && !turnHasCompletedAnswer(bottomArtifact.turn));
+  const controlMarkers = projectLiveControlMarkers(chat.messages);
+  const { streamArtifacts } = projectWorkspaceStream({
+    phase,
+    phaseTurns,
+    phaseState,
+    bottomArtifact,
+    controlMarkers,
+  });
   const showLockedState =
     phaseState.status === 'unstarted' && currentReachablePhase !== phase && currentReachablePhase !== null;
-  const showClosedState = phaseState.status === 'closed';
-  const showCompletionState = showClosedState && !nextPhase;
   // TODO: auto-present is disabled while the phase-closure interaction model is being reworked.
-  // Original computation kept as reference:
-  // const autoPresentCommand =
-  //   !showLockedState && !showClosedState && currentReachablePhase === phase &&
-  //   !phaseSummary && !chat.isLoading && !hasVisibleActiveTurn
-  //     ? phaseTurns.length === 0 ? startPhaseMessages[phase] : continuePhaseMessages[phase]
-  //     : null;
   const autoPresentCommand = null;
   // TODO: prompt input is disabled while the phase-closure interaction model is being reworked.
   // The turn-card family owns user input; the generic composer will return when the
@@ -451,7 +217,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const phaseIndex = phaseOrder.indexOf(phase);
   const phaseNumber = phaseIndex + 1;
   const phaseTotal = phaseOrder.length;
-  const showClosePhaseAction = phaseState.status === 'in_progress' && phaseState.closeability;
+  const showClosePhaseAction = canForceClosePhase(workflow, phase);
   const showAdvanceAction = phaseState.status === 'closed' && Boolean(nextPhase);
   const showExportAction = phaseState.status === 'closed' && !nextPhase;
 
@@ -495,7 +261,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
         </div>
         {showAdvanceAction ? (
           <Link
-            to={`/project/$id/${phaseRouteSegments[nextPhase!]}` as '/project/$id/framing'}
+            to={`/project/$id/${phaseRouteSegments[nextPhase!]}` as '/project/$id/grounding'}
             params={{ id: String(project.id) }}
             className="inline-flex h-8 items-center justify-center rounded-md px-3.5 text-sm font-medium whitespace-nowrap transition-colors bg-card text-foreground shadow-[var(--shadow-card-ring)]"
           >
@@ -529,7 +295,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                 description={`Finish or enter ${getWorkflowPhaseLabel(currentReachablePhase)} before opening this phase.`}
               >
                 <Link
-                  to={`/project/$id/${phaseRouteSegments[currentReachablePhase]}` as '/project/$id/framing'}
+                  to={`/project/$id/${phaseRouteSegments[currentReachablePhase]}` as '/project/$id/grounding'}
                   params={{ id: String(project.id) }}
                   className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
                 >
@@ -538,67 +304,276 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               </WorkspaceStateCard>
             )}
 
-            {isReviewPhase(phase) && phaseState.status === 'in_progress' && (
-              <ReviewPhaseBanner phase={phase} />
-            )}
+            {streamArtifacts.map((artifact) => {
+              if (artifact.kind === 'phase-marker' || artifact.kind === 'control-marker') {
+                return (
+                  <TranscriptMetaPlaceholder
+                    key={`${artifact.kind}-${artifact.marker.label}`}
+                    label={artifact.marker.label}
+                    detail={artifact.marker.detail}
+                    testId={artifact.marker.testId}
+                  />
+                );
+              }
 
-            {/* ── Zone 1: Preceding answered turns ──────────────────────── */}
-            {completedPhaseItems.length > 0 && (
-              <div className="flex flex-col gap-6">
-                {completedPhaseItems.map((item, index) =>
-                  item.kind === 'answered-turn' ? (
-                    <div key={`answered-turn-${item.turn.id}`} className="flex flex-col">
-                      {renderPersistedActivity(item.turn)}
-                      <AnsweredQuestionCard
-                        turn={item.turn}
-                        questionCode={`Q${index + 1}`}
-                        captureStatus={captureStatusByTurnId.get(item.turn.id)}
+              if (artifact.kind === 'answered-turn') {
+                return (
+                  <div key={`answered-turn-${artifact.turn.id}`} className="flex flex-col">
+                    {renderPersistedActivity(artifact.turn)}
+                    <AnsweredQuestionCard
+                      turn={artifact.turn}
+                      questionCode={artifact.questionCode}
+                      captureStatus={captureStatusByTurnId.get(artifact.turn.id)}
+                    />
+                  </div>
+                );
+              }
+
+              if (artifact.kind === 'answered-review-turn') {
+                return (
+                  <div key={`answered-review-turn-${artifact.turn.id}`} className="flex flex-col">
+                    {renderPersistedActivity(artifact.turn)}
+                    <AnsweredReviewSetCard turn={artifact.turn} reviewSet={artifact.reviewSet} />
+                  </div>
+                );
+              }
+
+              if (artifact.kind === 'accepted-closure') {
+                return (
+                  <div
+                    key={`accepted-closure-${artifact.acceptedClosure.turnId}`}
+                    data-testid="accepted-closure-card"
+                  >
+                    {renderPersistedActivity(artifact.turn)}
+                    <AcceptedClosureCard
+                      phase={artifact.acceptedClosure.phase}
+                      summary={artifact.acceptedClosure.summary}
+                    />
+                  </div>
+                );
+              }
+
+              if (artifact.kind === 'divider') {
+                return <hr key="workspace-stream-divider" className="my-6 border-rule" />;
+              }
+
+              if (artifact.kind === 'persisted-turn') {
+                const reviewSet = getPersistedReviewSet(artifact.artifact.turn) ?? fallbackReviewSet;
+
+                return (
+                  <div key={`persisted-turn-${artifact.artifact.turn.id}`} className="flex flex-col">
+                    {renderPersistedActivity(artifact.artifact.turn)}
+                    {reviewSet ? (
+                      <ActiveReviewSetCard
+                        question={artifact.artifact.turn.question}
+                        why={artifact.artifact.turn.why}
+                        options={artifact.artifact.turn.options ?? []}
+                        onSubmitResponse={artifact.artifact.submitTurnResponse}
+                        persistedFreeText={
+                          getPersistedTurnResponse(artifact.artifact.turn)?.freeText?.trim() ?? ''
+                        }
+                        hasPersistedResponse={
+                          artifact.artifact.state === 'submitted' &&
+                          turnHasCompletedAnswer(artifact.artifact.turn)
+                        }
+                        disabled={artifact.artifact.disabled}
+                        state={artifact.artifact.state}
+                        reviewSet={reviewSet}
                       />
-                    </div>
-                  ) : item.kind === 'answered-review-turn' ? (
-                    <div key={`answered-review-turn-${item.turn.id}`} className="flex flex-col">
-                      {renderPersistedActivity(item.turn)}
-                      <AnsweredReviewSetCard turn={item.turn} reviewSet={item.reviewSet} />
-                    </div>
-                  ) : (
-                    <div
-                      key={`accepted-closure-${item.acceptedClosure.turnId}`}
-                      data-testid="accepted-closure-turn-card"
+                    ) : (
+                      <ActiveQuestionCard
+                        id={`persisted-turn-${artifact.artifact.turn.id}`}
+                        questionCode={artifact.questionCode}
+                        question={artifact.artifact.turn.question}
+                        why={artifact.artifact.turn.why}
+                        impact={artifact.artifact.turn.impact}
+                        options={artifact.artifact.turn.options ?? []}
+                        onSubmitResponse={artifact.artifact.submitTurnResponse}
+                        persistedSelectedPositions={getPersistedSelectedPositions(artifact.artifact.turn)}
+                        persistedFreeText={
+                          getPersistedTurnResponse(artifact.artifact.turn)?.freeText?.trim() ?? ''
+                        }
+                        hasPersistedResponse={
+                          artifact.artifact.state === 'submitted' &&
+                          turnHasCompletedAnswer(artifact.artifact.turn)
+                        }
+                        disabled={artifact.artifact.disabled}
+                        state={artifact.artifact.state}
+                      />
+                    )}
+                    {artifact.artifact.errorMessage ? (
+                      <p role="alert" className="mt-3 text-sm text-destructive">
+                        {artifact.artifact.errorMessage}
+                      </p>
+                    ) : null}
+                  </div>
+                );
+              }
+
+              if (artifact.kind === 'pending-question') {
+                return fallbackReviewSet ? (
+                  <ActiveReviewSetCard
+                    key={`pending-review-turn-${artifact.artifact.pendingQuestion.id}`}
+                    question={artifact.artifact.pendingQuestion.question}
+                    why={artifact.artifact.pendingQuestion.why}
+                    options={artifact.artifact.pendingQuestion.options}
+                    persistedFreeText=""
+                    hasPersistedResponse={false}
+                    disabled={artifact.artifact.disabled}
+                    state="active"
+                    reviewSet={fallbackReviewSet}
+                  />
+                ) : (
+                  <ActiveQuestionCard
+                    key={artifact.artifact.pendingQuestion.id}
+                    id={artifact.artifact.pendingQuestion.id}
+                    questionCode={artifact.questionCode}
+                    question={artifact.artifact.pendingQuestion.question}
+                    why={artifact.artifact.pendingQuestion.why}
+                    impact={artifact.artifact.pendingQuestion.impact}
+                    options={artifact.artifact.pendingQuestion.options}
+                    persistedSelectedPositions={[]}
+                    persistedFreeText=""
+                    hasPersistedResponse={false}
+                    disabled={artifact.artifact.disabled}
+                    state="active"
+                  />
+                );
+              }
+
+              if (artifact.kind === 'kickoff') {
+                return !showLockedState ? (
+                  <KickoffControlCard
+                    key={`kickoff-${artifact.artifact.kickoff.phase}-${artifact.artifact.kickoff.mode}`}
+                    phase={artifact.artifact.kickoff.phase}
+                    mode={artifact.artifact.kickoff.mode}
+                    onProceed={() => artifact.artifact.submitKickoff()}
+                    onSelectStrategy={(mode) => artifact.artifact.submitKickoff(mode)}
+                    disabled={artifact.artifact.disabled}
+                  />
+                ) : null;
+              }
+
+              if (artifact.kind === 'recovery') {
+                return !showLockedState ? (
+                  <RecoveryControlCard
+                    key={`recovery-${artifact.artifact.recovery.phase}`}
+                    phase={artifact.artifact.recovery.phase}
+                    onRecover={artifact.artifact.submitRecovery}
+                    disabled={artifact.artifact.disabled}
+                  />
+                ) : null;
+              }
+
+              if (artifact.kind === 'phase-summary') {
+                return (
+                  <div
+                    key={`phase-summary-${artifact.artifact.phaseSummary.turnId}`}
+                    className="flex flex-col"
+                  >
+                    {renderPersistedActivity(
+                      phaseTurns.find((turn) => turn.id === artifact.artifact.phaseSummary.turnId),
+                    )}
+                    <PhaseSummaryCard
+                      phase={artifact.artifact.phaseSummary.phase}
+                      summary={artifact.artifact.phaseSummary.summary}
+                      disabled={artifact.artifact.disabled}
+                      onConfirm={artifact.artifact.confirmPhaseSummary}
+                    />
+                  </div>
+                );
+              }
+
+              if (artifact.kind === 'generating') {
+                return <GeneratingTurnPlaceholder key="generating-turn-placeholder" />;
+              }
+
+              if (artifact.artifact.isReviewPhase) {
+                return (
+                  <ReviewPhaseCompletionCard
+                    key={`${artifact.kind}-${artifact.artifact.phase}`}
+                    testId="review-phase-completion-card"
+                    title={`${getWorkflowPhaseLabel(artifact.artifact.phase)} review is complete`}
+                    description={getReviewPhaseCompletionDescription(
+                      artifact.artifact.phase,
+                      artifact.artifact.summary,
+                      artifact.kind === 'phase-handoff' ? artifact.artifact.nextPhase : null,
+                    )}
+                    action={
+                      artifact.kind === 'workflow-complete' ? (
+                        <Link
+                          to="/project/$id/export"
+                          params={{ id: String(project.id) }}
+                          className="mt-3 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                        >
+                          Open export preview
+                        </Link>
+                      ) : (
+                        <Link
+                          to={
+                            `/project/$id/${phaseRouteSegments[artifact.artifact.nextPhase]}` as '/project/$id/grounding'
+                          }
+                          params={{ id: String(project.id) }}
+                          className="mt-3 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                        >
+                          Continue to {getWorkflowPhaseLabel(artifact.artifact.nextPhase)}
+                        </Link>
+                      )
+                    }
+                  />
+                );
+              }
+
+              return (
+                <div
+                  key={`${artifact.kind}-${artifact.artifact.phase}`}
+                  className="flex min-h-[120px] flex-col items-start justify-center gap-3 rounded-xl border border-rule bg-tint px-6 py-5"
+                  data-testid="workspace-state-card"
+                >
+                  <p className="text-sm font-medium text-ink">
+                    {artifact.kind === 'workflow-complete'
+                      ? 'The interview workspace is complete'
+                      : `${getWorkflowPhaseLabel(artifact.artifact.phase)} phase is complete`}
+                  </p>
+                  <p className="text-xs-plus leading-relaxed text-sub">
+                    {artifact.artifact.summary ??
+                      (artifact.kind === 'workflow-complete'
+                        ? 'All phases are closed. Review the export to inspect the current structured spec output.'
+                        : 'This phase has been closed and handed off to the next phase.')}
+                  </p>
+                  {artifact.kind === 'workflow-complete' ? (
+                    <Link
+                      to="/project/$id/export"
+                      params={{ id: String(project.id) }}
+                      className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                     >
-                      {renderPersistedActivity(
-                        phaseTurns.find((turn) => turn.id === item.acceptedClosure.turnId),
-                      )}
-                      <AcceptedClosureTurnCard
-                        phase={item.acceptedClosure.phase}
-                        summary={item.acceptedClosure.summary}
-                      />
-                    </div>
-                  ),
-                )}
-              </div>
-            )}
+                      Open export preview
+                    </Link>
+                  ) : (
+                    <Link
+                      to={
+                        `/project/$id/${phaseRouteSegments[artifact.artifact.nextPhase]}` as '/project/$id/grounding'
+                      }
+                      params={{ id: String(project.id) }}
+                      className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                    >
+                      Continue to {getWorkflowPhaseLabel(artifact.artifact.nextPhase)}
+                    </Link>
+                  )}
+                </div>
+              );
+            })}
 
             {chat.messages.map((message, messageIndex) => {
-              if (/^turn-\d+-/.test(message.id)) {
+              if (/^turn-\d+-/.test(message.id) || message.role === 'user') {
                 return null;
               }
 
               const isLastAssistant =
                 message.role === 'assistant' && messageIndex === chat.messages.length - 1;
-              const suppressPhaseSummary = Boolean(phaseSummary && isLastAssistant);
-
-              if (message.role === 'user') {
-                const textParts = message.parts?.filter((part) => part.type === 'text') ?? [];
-                const marker = textParts
-                  .map((part) => getControlMarkerLabel(part.text))
-                  .find((label): label is string => Boolean(label));
-
-                if (marker) {
-                  return <TranscriptMetaPlaceholder key={message.id} label={marker} />;
-                }
-
-                return null;
-              }
+              const suppressPhaseSummary = Boolean(
+                bottomArtifact?.kind === 'phase-summary' && isLastAssistant,
+              );
 
               const activitySummary = summarizeAssistantActivity(message.parts);
               const renderedParts = renderMessageParts(message, isLastAssistant && chat.isStreaming, {
@@ -622,155 +597,31 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               );
             })}
 
-            {!phaseSummary && phaseState.status === 'in_progress' && canForceClosePhase(workflow, phase) && (
-              <div className="my-3 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => chat.forcePhaseClosure(phase)}
-                  disabled={chat.isLoading}
-                  className={cn(
-                    'rounded-md border px-3 py-2 text-xs transition-colors',
-                    chat.isLoading
-                      ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
-                      : 'border-border bg-background text-foreground hover:bg-muted',
-                  )}
-                >
-                  {getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase })}
-                </button>
-              </div>
-            )}
-          </div>
-
-          {/* ── Zone 2: Divider between answered and frontier ─────────── */}
-          {completedPhaseItems.length > 0 &&
-            (turnCard?.kind === 'persisted-turn' ||
-              turnCard?.kind === 'pending-question' ||
-              showGeneratingState) && <hr className="my-6 border-rule" />}
-
-          {/* ── Zone 3: Active frontier ──────────────────────────────── */}
-          <div className="mx-auto w-full max-w-2xl">
-            {turnCard?.kind === 'persisted-turn' &&
-              (!turnHasCompletedAnswer(turnCard.turn) || turnCard.state === 'submitted') && (
-                <div className="flex flex-col">
-                  {renderPersistedActivity(turnCard.turn)}
-                  <ActiveQuestionCard
-                    key={`persisted-turn-${turnCard.turn.id}`}
-                    id={`persisted-turn-${turnCard.turn.id}`}
-                    questionCode={activeQuestionCode}
-                    question={turnCard.turn.question}
-                    why={turnCard.turn.why}
-                    impact={turnCard.turn.impact}
-                    options={turnCard.turn.options ?? []}
-                    onSubmitResponse={turnCard.submitTurnResponse}
-                    persistedSelectedPositions={getPersistedSelectedPositions(turnCard.turn)}
-                    persistedFreeText={getPersistedTurnResponse(turnCard.turn)?.freeText?.trim() ?? ''}
-                    hasPersistedResponse={
-                      turnCard.state === 'submitted' && turnHasCompletedAnswer(turnCard.turn)
-                    }
-                    disabled={turnCard.disabled}
-                    state={turnCard.state}
-                    reviewSet={getPersistedReviewSet(turnCard.turn) ?? fallbackReviewSet}
-                  />
+            {bottomArtifact?.kind !== 'phase-summary' &&
+              phaseState.status === 'in_progress' &&
+              canForceClosePhase(workflow, phase) && (
+                <div className="my-3 flex justify-end">
+                  <button
+                    type="button"
+                    onClick={() => chat.forcePhaseClosure(phase)}
+                    disabled={chat.isLoading}
+                    className={cn(
+                      'rounded-md border px-3 py-2 text-xs transition-colors',
+                      chat.isLoading
+                        ? 'cursor-not-allowed border-border bg-muted text-muted-foreground'
+                        : 'border-border bg-background text-foreground hover:bg-muted',
+                    )}
+                  >
+                    {getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase })}
+                  </button>
                 </div>
               )}
-
-            {turnCard?.kind === 'pending-question' && (
-              <ActiveQuestionCard
-                key={turnCard.pendingQuestion.id}
-                id={turnCard.pendingQuestion.id}
-                questionCode={activeQuestionCode}
-                question={turnCard.pendingQuestion.question}
-                why={turnCard.pendingQuestion.why}
-                impact={turnCard.pendingQuestion.impact}
-                options={turnCard.pendingQuestion.options}
-                persistedSelectedPositions={[]}
-                persistedFreeText=""
-                hasPersistedResponse={false}
-                disabled={turnCard.disabled}
-                state="active"
-                reviewSet={fallbackReviewSet}
-              />
-            )}
-
-            {turnCard?.kind === 'kickoff' && !showLockedState && (
-              <KickoffTurnCard
-                phase={turnCard.kickoff.phase}
-                mode={turnCard.kickoff.mode}
-                onProceed={() => turnCard.submitKickoff()}
-                onSelectStrategy={(mode) => turnCard.submitKickoff(mode)}
-                disabled={turnCard.disabled}
-              />
-            )}
-
-            {turnCard?.kind === 'recovery' && !showLockedState && (
-              <RecoveryTurnCard
-                phase={turnCard.recovery.phase}
-                onRecover={turnCard.submitRecovery}
-                disabled={turnCard.disabled}
-              />
-            )}
-
-            {turnCard?.kind === 'persisted-turn' && turnCard.errorMessage && (
-              <p role="alert" className="mt-3 text-sm text-destructive">
-                {turnCard.errorMessage}
-              </p>
-            )}
-
-            {phaseSummary && (
-              <div className="flex flex-col">
-                {renderPersistedActivity(phaseTurns.find((turn) => turn.id === phaseSummary.turnId))}
-                <PhaseSummaryCard
-                  phase={phaseSummary.phase}
-                  summary={phaseSummary.summary}
-                  disabled={chat.isLoading}
-                  onConfirm={() => chat.confirmPhaseClosure(phaseSummary.phase, phaseSummary.turnId)}
-                />
-              </div>
-            )}
-
-            {showGeneratingState && <GeneratingTurnPlaceholder />}
           </div>
 
           {/* Bottom spacer — future home of phase-advance controls */}
           <div className="h-30 shrink-0" />
         </div>
       </ChatScroll>
-
-      {showClosedState && (
-        <div
-          className="flex min-h-[120px] shrink-0 flex-col items-start justify-center gap-3 border-t border-rule bg-tint px-6 py-5"
-          data-testid="workspace-state-card"
-        >
-          <p className="text-sm font-medium text-ink">
-            {showCompletionState
-              ? 'The interview workspace is complete'
-              : `${getWorkflowPhaseLabel(phase)} phase is complete`}
-          </p>
-          <p className="text-xs-plus leading-relaxed text-sub">
-            {phaseState.summary ??
-              (showCompletionState
-                ? 'All phases are closed. Review the export to inspect the current structured spec output.'
-                : 'This phase has been closed and handed off to the next phase.')}
-          </p>
-          {showCompletionState ? (
-            <Link
-              to="/project/$id/export"
-              params={{ id: String(project.id) }}
-              className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
-            >
-              Open export preview
-            </Link>
-          ) : nextPhase ? (
-            <Link
-              to={`/project/$id/${phaseRouteSegments[nextPhase]}` as '/project/$id/framing'}
-              params={{ id: String(project.id) }}
-              className="mt-1 inline-flex h-8 items-center rounded-lg border border-rule bg-white px-3 text-sm font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
-            >
-              Continue to {getWorkflowPhaseLabel(nextPhase)}
-            </Link>
-          ) : null}
-        </div>
-      )}
 
       {showPromptInput && (
         <div className="border-t px-4 py-3">
