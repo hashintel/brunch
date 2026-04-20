@@ -47,6 +47,11 @@ import {
 import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
 import { useInterviewController } from './-interview-controller';
+import {
+  WorkspaceArtifactActionLink,
+  WorkspaceArtifactRow,
+  WorkspaceWorkflowCompleteCard,
+} from './-workspace-artifact-primitives.js';
 import { projectWorkspaceStream, type WorkspaceStreamMarker } from './-workspace-stream-projector.js';
 
 function canForceClosePhase(workflow: SpecificationState['workflow'], phase: SpecificationTurn['phase']) {
@@ -289,47 +294,53 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
 
               if (artifact.kind === 'answered-turn') {
                 return (
-                  <div key={`answered-turn-${artifact.turn.id}`} className="flex flex-col">
-                    {renderPersistedActivity(artifact.turn)}
+                  <WorkspaceArtifactRow
+                    key={`answered-turn-${artifact.turn.id}`}
+                    activity={renderPersistedActivity(artifact.turn)}
+                  >
                     <AnsweredQuestionCard
                       turn={artifact.turn}
                       questionCode={artifact.questionCode}
                       captureStatus={captureStatusByTurnId.get(artifact.turn.id)}
                     />
-                  </div>
+                  </WorkspaceArtifactRow>
                 );
               }
 
               if (artifact.kind === 'answered-grounding-card') {
                 return (
-                  <div key={`answered-grounding-card-${artifact.turn.id}`} className="flex flex-col">
-                    {renderPersistedActivity(artifact.turn)}
+                  <WorkspaceArtifactRow
+                    key={`answered-grounding-card-${artifact.turn.id}`}
+                    activity={renderPersistedActivity(artifact.turn)}
+                  >
                     <AnsweredGroundingCard groundingCard={artifact.groundingCard} turn={artifact.turn} />
-                  </div>
+                  </WorkspaceArtifactRow>
                 );
               }
 
               if (artifact.kind === 'answered-review-turn') {
                 return (
-                  <div key={`answered-review-turn-${artifact.turn.id}`} className="flex flex-col">
-                    {renderPersistedActivity(artifact.turn)}
+                  <WorkspaceArtifactRow
+                    key={`answered-review-turn-${artifact.turn.id}`}
+                    activity={renderPersistedActivity(artifact.turn)}
+                  >
                     <AnsweredReviewSetCard turn={artifact.turn} reviewSet={artifact.reviewSet} />
-                  </div>
+                  </WorkspaceArtifactRow>
                 );
               }
 
               if (artifact.kind === 'accepted-closure') {
                 return (
-                  <div
+                  <WorkspaceArtifactRow
                     key={`accepted-closure-${artifact.acceptedClosure.turnId}`}
-                    data-testid="accepted-closure-card"
+                    activity={renderPersistedActivity(artifact.turn)}
+                    testId="accepted-closure-card"
                   >
-                    {renderPersistedActivity(artifact.turn)}
                     <AcceptedClosureCard
                       phase={artifact.acceptedClosure.phase}
                       summary={artifact.acceptedClosure.summary}
                     />
-                  </div>
+                  </WorkspaceArtifactRow>
                 );
               }
 
@@ -341,8 +352,11 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                 const reviewSet = getPersistedReviewSet(artifact.artifact.turn) ?? fallbackReviewSet;
 
                 return (
-                  <div key={`persisted-turn-${artifact.artifact.turn.id}`} className="flex flex-col">
-                    {renderPersistedActivity(artifact.artifact.turn)}
+                  <WorkspaceArtifactRow
+                    key={`persisted-turn-${artifact.artifact.turn.id}`}
+                    activity={renderPersistedActivity(artifact.artifact.turn)}
+                    errorMessage={artifact.artifact.errorMessage}
+                  >
                     {reviewSet ? (
                       <ActiveReviewSetCard
                         question={artifact.artifact.turn.question}
@@ -387,22 +401,17 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                         state={artifact.artifact.state}
                       />
                     )}
-                    {artifact.artifact.errorMessage ? (
-                      <p role="alert" className="mt-3 text-sm text-destructive">
-                        {artifact.artifact.errorMessage}
-                      </p>
-                    ) : null}
-                  </div>
+                  </WorkspaceArtifactRow>
                 );
               }
 
               if (artifact.kind === 'persisted-grounding-card') {
                 return (
-                  <div
+                  <WorkspaceArtifactRow
                     key={`persisted-grounding-card-${artifact.artifact.turn.id}`}
-                    className="flex flex-col"
+                    activity={renderPersistedActivity(artifact.artifact.turn)}
+                    errorMessage={artifact.artifact.errorMessage}
                   >
-                    {renderPersistedActivity(artifact.artifact.turn)}
                     <ActiveGroundingCard
                       groundingCard={artifact.groundingCard}
                       onSubmitResponse={artifact.artifact.submitTurnResponse}
@@ -417,12 +426,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                       state={artifact.artifact.state}
                       continuePosition={artifact.artifact.turn.options?.[0]?.position}
                     />
-                    {artifact.artifact.errorMessage ? (
-                      <p role="alert" className="mt-3 text-sm text-destructive">
-                        {artifact.artifact.errorMessage}
-                      </p>
-                    ) : null}
-                  </div>
+                  </WorkspaceArtifactRow>
                 );
               }
 
@@ -482,20 +486,19 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
 
               if (artifact.kind === 'phase-summary') {
                 return (
-                  <div
+                  <WorkspaceArtifactRow
                     key={`phase-summary-${artifact.artifact.phaseSummary.turnId}`}
-                    className="flex flex-col"
-                  >
-                    {renderPersistedActivity(
+                    activity={renderPersistedActivity(
                       phaseTurns.find((turn) => turn.id === artifact.artifact.phaseSummary.turnId),
                     )}
+                  >
                     <PhaseSummaryCard
                       phase={artifact.artifact.phaseSummary.phase}
                       summary={artifact.artifact.phaseSummary.summary}
                       disabled={artifact.artifact.disabled}
                       onConfirm={artifact.artifact.confirmPhaseSummary}
                     />
-                  </div>
+                  </WorkspaceArtifactRow>
                 );
               }
 
@@ -519,21 +522,21 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                     )}
                     action={
                       artifact.kind === 'workflow-complete' ? (
-                        <Link
+                        <WorkspaceArtifactActionLink
+                          specificationId={String(specification.id)}
                           to="/project/$id/export"
-                          params={{ id: String(specification.id) }}
-                          className="mt-3 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                          className="mt-3"
                         >
                           Open export preview
-                        </Link>
+                        </WorkspaceArtifactActionLink>
                       ) : (
-                        <Link
-                          to={getPhaseRoutePath(artifact.artifact.nextPhase) as '/project/$id/grounding'}
-                          params={{ id: String(specification.id) }}
-                          className="mt-3 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                        <WorkspaceArtifactActionLink
+                          specificationId={String(specification.id)}
+                          to={getPhaseRoutePath(artifact.artifact.nextPhase)}
+                          className="mt-3"
                         >
                           Continue to {getWorkflowPhaseLabel(artifact.artifact.nextPhase)}
-                        </Link>
+                        </WorkspaceArtifactActionLink>
                       )
                     }
                   />
@@ -548,36 +551,23 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                     nextPhase={artifact.artifact.nextPhase}
                     summary={artifact.artifact.summary}
                   >
-                    <Link
-                      to={getPhaseRoutePath(artifact.artifact.nextPhase) as '/project/$id/grounding'}
-                      params={{ id: String(specification.id) }}
-                      className="mt-1 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
+                    <WorkspaceArtifactActionLink
+                      specificationId={String(specification.id)}
+                      to={getPhaseRoutePath(artifact.artifact.nextPhase)}
+                      className="mt-1"
                     >
                       Continue to {getWorkflowPhaseLabel(artifact.artifact.nextPhase)}
-                    </Link>
+                    </WorkspaceArtifactActionLink>
                   </PhaseHandoffCard>
                 );
               }
 
               return (
-                <div
+                <WorkspaceWorkflowCompleteCard
                   key={`${artifact.kind}-${artifact.artifact.phase}`}
-                  className="flex min-h-[120px] flex-col items-start justify-center gap-3 rounded-xl border border-rule bg-tint px-6 py-5"
-                  data-testid="workspace-state-card"
-                >
-                  <p className="text-sm font-medium text-ink">The interview workspace is complete</p>
-                  <p className="text-xs-plus leading-relaxed text-sub">
-                    {artifact.artifact.summary ??
-                      'All phases are closed. Review the export to inspect the current structured spec output.'}
-                  </p>
-                  <Link
-                    to="/project/$id/export"
-                    params={{ id: String(specification.id) }}
-                    className="mt-1 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
-                  >
-                    Open export preview
-                  </Link>
-                </div>
+                  specificationId={String(specification.id)}
+                  summary={artifact.artifact.summary}
+                />
               );
             })}
 
