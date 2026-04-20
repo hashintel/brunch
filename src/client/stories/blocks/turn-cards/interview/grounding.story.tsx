@@ -11,7 +11,7 @@ import {
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import { Separator } from '@/client/components/ui/separator';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
-import type { SpecificationTurn as ProjectStateTurn } from '@/shared/specification.js';
+import type { SpecificationTurn as SpecificationStateTurn } from '@/shared/specification.js';
 
 // ── Fixture data ─────────────────────────────────────────────────────
 
@@ -32,9 +32,9 @@ const groundingOptions = [
   { position: 3, content: 'Extend an existing product with a major new capability', is_recommended: false },
 ];
 
-const answeredGroundingTurn: ProjectStateTurn = {
+const answeredGroundingTurn: SpecificationStateTurn = {
   id: 1,
-  project_id: 1,
+  specification_id: 1,
   parent_turn_id: null,
   phase: 'grounding',
   question: 'What is the primary purpose of this project?',

@@ -1,6 +1,6 @@
 import { table, h3 } from 'md-pen';
 
-import type { ProjectMode } from '@/shared/api-types.js';
+import type { SpecificationMode } from '@/shared/api-types.js';
 import { knowledgeKindRegistry } from '@/shared/knowledge.js';
 import { getPersistedGroundingCard } from '@/shared/specification-state.js';
 
@@ -140,7 +140,7 @@ export function buildInterviewerContext(
 export interface ObserverContextInput {
   turn: TurnWithOptions;
   activePathSummary: string;
-  projectMode?: ProjectMode;
+  projectMode?: SpecificationMode;
   projectCwd?: string | null;
   entities: {
     goals: Array<{ id: number; content: string }>;

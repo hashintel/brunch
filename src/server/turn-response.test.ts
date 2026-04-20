@@ -7,7 +7,7 @@ describe('projectTurnResponse', () => {
   it('reads selected options and free-text from the structured turn-response part', () => {
     const turn: TurnWithOptions = {
       id: 1,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: null,
       phase: 'grounding',
       question: 'Which platform should we target?',
@@ -46,7 +46,7 @@ describe('projectTurnResponse', () => {
   it('returns null when the structured turn-response part is missing even if options are selected', () => {
     const turn: TurnWithOptions = {
       id: 1,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: null,
       phase: 'grounding',
       question: 'Which platform should we target?',
@@ -69,7 +69,7 @@ describe('projectTurnResponse', () => {
   it('returns null for plain scalar answers with no structured response seam', () => {
     const turn: TurnWithOptions = {
       id: 1,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: null,
       phase: 'grounding',
       question: 'What is the project about?',

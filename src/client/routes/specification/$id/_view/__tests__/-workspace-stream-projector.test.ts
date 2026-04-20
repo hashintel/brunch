@@ -1,16 +1,16 @@
 import { describe, expect, it, vi } from 'vitest';
 
 import type {
-  SpecificationState as ProjectState,
-  SpecificationTurn as ProjectStateTurn,
+  SpecificationState,
+  SpecificationTurn as SpecificationStateTurn,
 } from '@/shared/specification.js';
 
 import type { InterviewControllerBottomArtifactState } from '../-interview-controller.js';
 import { specificationWorkspaceStream } from '../-workspace-stream-projector.js';
 
 function createPhaseState(
-  overrides: Partial<ProjectState['workflow']['phases']['grounding']> = {},
-): ProjectState['workflow']['phases']['grounding'] {
+  overrides: Partial<SpecificationState['workflow']['phases']['grounding']> = {},
+): SpecificationState['workflow']['phases']['grounding'] {
   return {
     status: 'in_progress',
     closeability: false,
@@ -23,7 +23,9 @@ function createPhaseState(
   };
 }
 
-function createTurn(overrides: Partial<ProjectStateTurn> & Pick<ProjectStateTurn, 'id'>): ProjectStateTurn {
+function createTurn(
+  overrides: Partial<SpecificationStateTurn> & Pick<SpecificationStateTurn, 'id'>,
+): SpecificationStateTurn {
   const { id, ...rest } = overrides;
 
   return {
@@ -182,7 +184,7 @@ describe('specificationWorkspaceStream', () => {
           {
             type: 'data-grounding-card',
             data: {
-              summary: 'The feature area lives under src/client/routes/project.',
+              summary: 'The feature area lives under src/client/routes/specification.',
               detail: 'Continue to move into the first substantive question.',
             },
           },

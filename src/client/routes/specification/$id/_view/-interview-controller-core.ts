@@ -20,7 +20,7 @@ import {
 } from '@/shared/specification.js';
 
 export interface InterviewDurableSpecificationState {
-  readonly project: ReturnType<typeof getSpecificationRecord>;
+  readonly specification: ReturnType<typeof getSpecificationRecord>;
   readonly workflow: SpecificationState['workflow'];
   readonly turns: readonly SpecificationTurn[];
   readonly landing: SpecificationLanding | null;
@@ -98,7 +98,7 @@ export type InterviewBottomArtifactViewModel =
     };
 
 export interface InterviewControllerViewState {
-  readonly project: InterviewDurableSpecificationState['project'];
+  readonly specification: InterviewDurableSpecificationState['specification'];
   readonly workflow: InterviewDurableSpecificationState['workflow'];
   readonly bottomArtifact: InterviewBottomArtifactViewModel | null;
 }
@@ -155,7 +155,7 @@ export function createInterviewDurableSpecificationState(
     | undefined;
 
   return {
-    project: getSpecificationRecord(specificationState),
+    specification: getSpecificationRecord(specificationState),
     workflow: specificationState.workflow,
     turns: specificationState.turns,
     landing: specificationState.landing ?? null,
@@ -328,7 +328,7 @@ export function createInterviewControllerViewState(
   submittedTurnId: number | null = null,
   isAutoSubmittingPhaseIntent = false,
 ): InterviewControllerViewState {
-  const { project, workflow } = durableSpecification;
+  const { specification, workflow } = durableSpecification;
   const phaseState = workflow.phases[phase];
   const nextPhase = getNextActivePhase(workflow.phases, phase);
   const isReviewPhase = phase === 'requirements' || phase === 'criteria';
@@ -350,7 +350,7 @@ export function createInterviewControllerViewState(
         };
 
     return {
-      project,
+      specification,
       workflow,
       bottomArtifact,
     };
@@ -420,7 +420,7 @@ export function createInterviewControllerViewState(
               : null;
 
   return {
-    project,
+    specification,
     workflow,
     bottomArtifact,
   };

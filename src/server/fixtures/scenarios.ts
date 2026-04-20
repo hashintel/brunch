@@ -9,7 +9,7 @@ import {
   createOption,
   createPhaseOutcome,
   createConfirmedPhaseOutcome,
-  createProject,
+  createSpecification,
   createTurn,
   getOptionsForTurn,
   linkKnowledgeItemToTurn,
@@ -862,37 +862,37 @@ function createWorkflowSummary(
 
 export const scenarios: Record<string, ScenarioFn> = {
   'grounding-closed': (db, name = 'Grounding Closed') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedClosedGrounding(db, project.id);
     return project.id;
   },
   'design-active': (db, name = 'Design Active') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedActiveDesign(db, project.id);
     return project.id;
   },
   'requirements-ready': (db, name = 'Requirements Ready') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedRequirementsReviewReady(db, project.id);
     return project.id;
   },
   'criteria-ready': (db, name = 'Criteria Ready') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedCriteriaReviewReady(db, project.id);
     return project.id;
   },
   'all-phases-closed': (db, name = 'All Phases Closed') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedAllPhasesClosed(db, project.id);
     return project.id;
   },
   'forced-close-all-phases-closed': (db, name = 'Forced-Close All Phases Closed') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedAllPhasesClosedWithForcedDesign(db, project.id);
     return project.id;
   },
   'low-readiness-all-phases-closed': (db, name = 'Low-Readiness All Phases Closed') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedAllPhasesClosedWithLowReadinessGrounding(db, project.id);
     return project.id;
   },
@@ -900,53 +900,53 @@ export const scenarios: Record<string, ScenarioFn> = {
 
 const phaseTransitionScenarios: Record<string, ScenarioFn> = {
   'brownfield-grounding-replay': (db, name = 'Brownfield reusable grounding replay') => {
-    const project = createProject(db, name, {
+    const project = createSpecification(db, name, {
       mode: 'brownfield',
     });
     seedBrownfieldReusableGroundingReplay(db, project.id);
     return project.id;
   },
   'issue-tracker-kickoff-ready': (db, name = 'Issue Tracker (kickoff ready)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     return project.id;
   },
   'issue-tracker-grounding-closure-pending': (db, name = 'Issue Tracker (grounding closure pending)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedGroundingClosurePending(db, project.id);
     return project.id;
   },
   'issue-tracker-design-kickoff-ready': (db, name = 'Issue Tracker (design kickoff ready)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedClosedGrounding(db, project.id);
     return project.id;
   },
   'issue-tracker-design-recovery': (db, name = 'Issue Tracker (design recovery)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedActiveDesign(db, project.id);
     return project.id;
   },
   'issue-tracker-requirements-kickoff-ready': (db, name = 'Issue Tracker (requirements kickoff ready)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedRequirementsReady(db, project.id);
     return project.id;
   },
   'issue-tracker-criteria-kickoff-ready': (db, name = 'Issue Tracker (criteria kickoff ready)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedCriteriaReady(db, project.id);
     return project.id;
   },
   'issue-tracker-requirements-ready': (db, name = 'Issue Tracker (requirements review ready)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedRequirementsReviewReady(db, project.id);
     return project.id;
   },
   'issue-tracker-criteria-ready': (db, name = 'Issue Tracker (criteria review ready)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedCriteriaReviewReady(db, project.id);
     return project.id;
   },
   'issue-tracker-all-phases-closed': (db, name = 'Issue Tracker (all phases closed)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedIssueTrackerAllPhasesClosed(db, project.id);
     return project.id;
   },

@@ -4,10 +4,18 @@ import {
   groundingStrategyKickoffQuestion,
 } from '@/shared/grounding-strategy.js';
 
-import { advanceHead, createOption, createTurn, getProject, updateTurn, type DB, type Turn } from '../db.js';
+import {
+  advanceHead,
+  createOption,
+  createTurn,
+  getSpecification,
+  updateTurn,
+  type DB,
+  type Turn,
+} from '../db.js';
 
 export function createLegacyKickoffTurnForTesting(db: DB, projectId: number): Turn | null {
-  const project = getProject(db, projectId);
+  const project = getSpecification(db, projectId);
   if (!project) {
     return null;
   }

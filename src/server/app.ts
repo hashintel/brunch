@@ -58,16 +58,16 @@ import {
   findProposedPhaseOutcomeByTurn,
   getCurrentPhase,
   getCurrentWorkflowState,
-  getDraftCriterionEntitiesForProject,
-  getDraftRequirementEntitiesForProject,
+  getDraftCriterionEntitiesForSpecification,
+  getDraftRequirementEntitiesForSpecification,
   getTurn,
   getOptionsForTurn,
   linkKnowledgeItemToTurn,
   materializeAcceptedCriteriaReviewSet,
   materializeAcceptedRequirementsReviewSet,
-  updateProjectMode,
+  updateSpecificationMode,
   updateTurn,
-  getEntitiesForProjectByMode,
+  getEntitiesForSpecificationByMode,
   supersedePhaseOutcome,
   type DB,
   type EntityProjectionMode,
@@ -144,7 +144,7 @@ function getPersistedFullSetReviewAction(
 function acceptRequirementsReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
   const materializedRequirementIds = materializeAcceptedRequirementsReviewSet(db, projectId, turnId);
   if (materializedRequirementIds === null) {
-    const requirements = getEntitiesForProjectByMode(db, projectId, 'project-wide').requirements;
+    const requirements = getEntitiesForSpecificationByMode(db, projectId, 'project-wide').requirements;
     for (const requirement of requirements) {
       linkKnowledgeItemToTurn(db, requirement.id, turnId, 'reviewed');
     }
@@ -164,7 +164,7 @@ function acceptRequirementsReview(db: DB, projectId: number, turnId: number): Su
 function acceptCriteriaReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
   const materializedCriterionIds = materializeAcceptedCriteriaReviewSet(db, projectId, turnId);
   if (materializedCriterionIds === null) {
-    const criteria = getEntitiesForProjectByMode(db, projectId, 'project-wide').criteria;
+    const criteria = getEntitiesForSpecificationByMode(db, projectId, 'project-wide').criteria;
     for (const criterion of criteria) {
       linkKnowledgeItemToTurn(db, criterion.id, turnId, 'reviewed');
     }
@@ -188,22 +188,13 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const app = express();
   app.use(express.json());
 
-  const specificationCollectionPaths = ['/api/specifications', '/api/projects'] as const;
-  const specificationResourcePaths = ['/api/specifications/:id', '/api/projects/:id'] as const;
-  const specificationPhaseIntentPaths = [
-    '/api/specifications/:id/phase-intent',
-    '/api/projects/:id/phase-intent',
-  ] as const;
-  const specificationTurnResponsePaths = [
-    '/api/specifications/:id/turns/:turnId/response',
-    '/api/projects/:id/turns/:turnId/response',
-  ] as const;
-  const specificationEntitiesPaths = [
-    '/api/specifications/:id/entities',
-    '/api/projects/:id/entities',
-  ] as const;
-  const specificationExportPaths = ['/api/specifications/:id/export', '/api/projects/:id/export'] as const;
-  const specificationChatPaths = ['/api/specifications/:id/chat', '/api/projects/:id/chat'] as const;
+  const specificationCollectionPaths = ['/api/specifications'] as const;
+  const specificationResourcePaths = ['/api/specifications/:id'] as const;
+  const specificationPhaseIntentPaths = ['/api/specifications/:id/phase-intent'] as const;
+  const specificationTurnResponsePaths = ['/api/specifications/:id/turns/:turnId/response'] as const;
+  const specificationEntitiesPaths = ['/api/specifications/:id/entities'] as const;
+  const specificationExportPaths = ['/api/specifications/:id/export'] as const;
+  const specificationChatPaths = ['/api/specifications/:id/chat'] as const;
 
   const registerGet = (paths: readonly string[], handler: RequestHandler) => {
     for (const path of paths) {
@@ -321,7 +312,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       const selectedMode =
         uniquePositions.length === 1 ? getGroundingStrategyModeForPosition(uniquePositions[0]!) : null;
       if (selectedMode) {
-        updateProjectMode(db, projectId, selectedMode);
+        updateSpecificationMode(db, projectId, selectedMode);
       }
     }
 
@@ -396,7 +387,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       res.status(400).json({ error: 'Invalid entity projection mode' } satisfies MutationErrorResponse);
       return;
     }
-    res.json(getEntitiesForProjectByMode(db, id, mode) satisfies EntitiesData);
+    res.json(getEntitiesForSpecificationByMode(db, id, mode) satisfies EntitiesData);
   });
 
   // Export spec as markdown
@@ -416,7 +407,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       res.json({ ready: false } satisfies ExportLoaderData);
       return;
     }
-    const entities = getEntitiesForProjectByMode(db, id, 'active-path');
+    const entities = getEntitiesForSpecificationByMode(db, id, 'active-path');
     const markdown = renderExportMarkdown(
       getSpecificationRecord(specificationState).name,
       entities,
@@ -620,9 +611,9 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           throw new Error('Expected prepared interviewer turn');
         }
 
-        const project = prepared.project;
+        const specification = prepared.specification;
         const modeOptions =
-          project.mode === 'brownfield' ? { mode: 'brownfield' as const, cwd: projectCwd } : undefined;
+          specification.mode === 'brownfield' ? { mode: 'brownfield' as const, cwd: projectCwd } : undefined;
 
         const interviewerStartedAt = Date.now();
         const interviewer = await streamInterviewer(
@@ -693,8 +684,8 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         const assistantText = extractTextFromMessage(responseMessage);
         persistFallbackQuestionText(db, prepared.turn.id, assistantText);
         const synthesizedReviewSet = buildReviewSetForPhase(prepared.turn.phase, {
-          requirements: getDraftRequirementEntitiesForProject(db, id),
-          criteria: getDraftCriterionEntitiesForProject(db, id),
+          requirements: getDraftRequirementEntitiesForSpecification(db, id),
+          criteria: getDraftCriterionEntitiesForSpecification(db, id),
         });
         const persistedAssistantParts = materializeTurnArtifacts({
           phase: prepared.turn.phase,

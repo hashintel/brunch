@@ -15,7 +15,7 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
         phase: 'grounding',
         question: 'What is the project about?',
@@ -39,7 +39,7 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
         phase: 'grounding',
         question: 'What is the primary goal?',
@@ -69,7 +69,7 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
         phase: 'grounding',
         question: '',
@@ -109,7 +109,7 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
         phase: 'grounding',
         question: 'Which platform should we target?',
@@ -145,7 +145,7 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
         phase: 'grounding',
         question: 'Which platform should we target?',
@@ -181,7 +181,7 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
         phase: 'grounding',
         question: 'Which platform should we target?',
@@ -217,7 +217,7 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
         phase: 'grounding',
         question: 'Q1',
@@ -231,7 +231,7 @@ describe('buildInterviewerContext', () => {
       },
       {
         id: 2,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: 1,
         phase: 'grounding',
         question: 'Q2',
@@ -257,7 +257,7 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 10,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: 9,
         phase: 'criteria',
         question: 'What would prove the resume flow is complete?',
@@ -298,7 +298,7 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 7,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: 6,
         phase: 'requirements',
         question: 'Which requirements are still missing?',
@@ -335,7 +335,7 @@ describe('observer-context-projection', () => {
   it('includes current turn question and answer', () => {
     const turn: Turn = {
       id: 5,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 4,
       phase: 'grounding',
       turn_kind: 'question',
@@ -371,7 +371,7 @@ describe('observer-context-projection', () => {
   it('includes brownfield project context when kickoff is grounded in an existing repo', () => {
     const turn: Turn = {
       id: 5,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 4,
       phase: 'grounding',
       turn_kind: 'question',
@@ -410,7 +410,7 @@ describe('observer-context-projection', () => {
   it('includes existing entity graph', () => {
     const turn: Turn = {
       id: 5,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 4,
       phase: 'grounding',
       turn_kind: 'question',
@@ -449,7 +449,7 @@ describe('observer-context-projection', () => {
   it('omits full conversational history padding', () => {
     const turn: Turn = {
       id: 5,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 4,
       phase: 'grounding',
       turn_kind: 'question',
@@ -485,7 +485,7 @@ describe('observer-context-projection', () => {
   it('projects structured turn responses in observer context through the shared response seam', () => {
     const turn: TurnWithOptions = {
       id: 5,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 4,
       phase: 'requirements',
       turn_kind: 'question',
@@ -537,7 +537,7 @@ describe('observer-context-projection', () => {
   it('renders entity tables with md-pen (not hand-rolled strings)', () => {
     const turn: Turn = {
       id: 5,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 4,
       phase: 'grounding',
       turn_kind: 'question',
@@ -584,7 +584,7 @@ describe('observer-context-projection', () => {
   it('includes existing criteria alongside other generic entity sections for later-mode extraction', () => {
     const turn: Turn = {
       id: 6,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 5,
       phase: 'criteria',
       turn_kind: 'question',

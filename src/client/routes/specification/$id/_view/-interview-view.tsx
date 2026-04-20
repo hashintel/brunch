@@ -73,14 +73,8 @@ function renderPersistedActivity(turn: Pick<SpecificationTurn, 'assistant_parts'
 
 export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const entitySnapshot = useLoaderData({ from: '/specification/$id/_view' });
-  const {
-    chat,
-    project: specification,
-    workflow,
-    phaseTurns,
-    bottomArtifact,
-    captureStatusByTurnId,
-  } = useInterviewController(phase, entitySnapshot);
+  const { chat, specification, workflow, phaseTurns, bottomArtifact, captureStatusByTurnId } =
+    useInterviewController(phase, entitySnapshot);
   const phaseState = workflow.phases[phase];
   const currentReachablePhase = getCurrentOpenPhase(workflow.phases);
   const nextPhase = getNextActivePhase(workflow.phases, phase);

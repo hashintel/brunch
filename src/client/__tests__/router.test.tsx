@@ -6,12 +6,12 @@ import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EntitiesData } from '@/shared/api-types.js';
-import type { SpecificationState as ProjectState } from '@/shared/specification.js';
+import type { SpecificationState } from '@/shared/specification.js';
 
 const fetchMock = vi.fn<typeof fetch>();
 
-const minimalProjectState: ProjectState = {
-  project: {
+const minimalSpecificationState: SpecificationState = {
+  specification: {
     id: 42,
     name: 'Test',
     mode: 'greenfield',
@@ -120,7 +120,7 @@ function defaultFetchHandler(input: RequestInfo | URL): Response {
     return jsonResponse({ ready: false });
   }
   if (url.match(/\/api\/specifications\/\d+$/)) {
-    return jsonResponse(minimalProjectState);
+    return jsonResponse(minimalSpecificationState);
   }
   if (url.endsWith('/api/config')) {
     return jsonResponse({ cwd: '/test/cwd' });
@@ -219,7 +219,7 @@ describe('generated routeTree', () => {
     expect(screen.queryByRole('heading', { name: 'Interview screen' })).toBeNull();
 
     await act(async () => {
-      deferredFetch.resolve(jsonResponse(minimalProjectState));
+      deferredFetch.resolve(jsonResponse(minimalSpecificationState));
     });
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();

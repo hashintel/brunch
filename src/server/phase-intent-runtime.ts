@@ -18,8 +18,8 @@ import {
   applyTurnResponseSelections,
   getCurrentWorkflowState,
   getOptionsForTurn,
-  getProject,
-  updateProjectMode,
+  getSpecification,
+  updateSpecificationMode,
   updateTurn,
   type DB,
   type Turn,
@@ -60,7 +60,7 @@ function persistGroundingStrategyKickoffSelection({
   }
 
   applyTurnResponseSelections(db, kickoffTurn.id, [selectedPosition]);
-  updateProjectMode(db, projectId, mode);
+  updateSpecificationMode(db, projectId, mode);
   updateTurn(db, kickoffTurn.id, {
     answer: messageText,
     user_parts: serializeParts([
@@ -110,7 +110,7 @@ export function submitPhaseIntentWithRuntimeCompatibility({
   projectId: number;
   request: SubmitPhaseIntentRequest;
 }): SubmitPhaseIntentResponse | PhaseIntentRuntimeError {
-  const project = getProject(db, projectId);
+  const project = getSpecification(db, projectId);
   if (!project) {
     return { ok: false, status: 404, error: 'Project not found' };
   }
@@ -145,7 +145,7 @@ export function submitPhaseIntentWithRuntimeCompatibility({
         throw new Error('Invalid grounding strategy selection');
       }
 
-      updateProjectMode(db, projectId, request.mode);
+      updateSpecificationMode(db, projectId, request.mode);
       return { ok: true };
     }
 

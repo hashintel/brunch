@@ -37,7 +37,7 @@ describe('launcher integration', () => {
     const project = resolveBrunchProject(cwd);
     const { app } = createApp(project.dbPath);
 
-    const res = await request(app).get('/api/projects').expect(200);
+    const res = await request(app).get('/api/specifications').expect(200);
     expect(Array.isArray(res.body)).toBe(true);
   });
 
@@ -71,7 +71,7 @@ describe('launcher integration', () => {
     process.chdir(unrelatedCwd);
 
     const { app } = createApp(project.dbPath);
-    await request(app).get('/api/projects').expect(200);
+    await request(app).get('/api/specifications').expect(200);
   });
 
   it('binds an actual available port and serves the app from the bound URL', async () => {
@@ -80,7 +80,7 @@ describe('launcher integration', () => {
 
     expect(runtime.port).toBeGreaterThan(0);
 
-    const response = await fetch(`${runtime.url}/api/projects`);
+    const response = await fetch(`${runtime.url}/api/specifications`);
     expect(response.ok).toBe(true);
     expect(await response.json()).toEqual([]);
   });

@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { EntitiesData, WorkflowState } from '@/shared/api-types.js';
-import type { SpecificationTurn as ProjectStateTurn } from '@/shared/specification.js';
+import type { SpecificationTurn as SpecificationStateTurn } from '@/shared/specification.js';
 
 import { InterviewView } from '../-interview-view.js';
 
@@ -19,8 +19,8 @@ function createTurn({
   question: string;
   answer: string | null;
   assistantParts: Array<Record<string, unknown>>;
-  options?: NonNullable<ProjectStateTurn['options']>;
-}): ProjectStateTurn {
+  options?: NonNullable<SpecificationStateTurn['options']>;
+}): SpecificationStateTurn {
   return {
     id,
     specification_id: 1,
@@ -132,7 +132,7 @@ vi.mock('@tanstack/react-router', () => ({
 
 vi.mock('../-interview-controller.js', () => ({
   useInterviewController: () => ({
-    project: {
+    specification: {
       id: 1,
       name: 'Project 1',
       mode: 'greenfield',

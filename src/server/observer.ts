@@ -23,11 +23,11 @@ import {
   addDecisionParentDecision,
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
-  getDraftCriterionEntitiesForProject,
-  getDraftRequirementEntitiesForProject,
-  getEntitiesForProject,
+  getDraftCriterionEntitiesForSpecification,
+  getDraftRequirementEntitiesForSpecification,
+  getEntitiesForSpecification,
   getOptionsForTurn,
-  getProject,
+  getSpecification,
   type DB,
   type Turn,
 } from './db.js';
@@ -175,10 +175,10 @@ export async function runObserver(
   entityIds: ObserverEntityIds;
   draftReviewItems: { requirements: ObserverDraftReviewItem[]; criteria: ObserverDraftReviewItem[] };
 }> {
-  const entities = getEntitiesForProject(db, projectId);
-  const draftRequirements = getDraftRequirementEntitiesForProject(db, projectId);
-  const draftCriteria = getDraftCriterionEntitiesForProject(db, projectId);
-  const project = getProject(db, projectId);
+  const entities = getEntitiesForSpecification(db, projectId);
+  const draftRequirements = getDraftRequirementEntitiesForSpecification(db, projectId);
+  const draftCriteria = getDraftCriterionEntitiesForSpecification(db, projectId);
+  const project = getSpecification(db, projectId);
   const context = buildObserverContext({
     turn: {
       ...turn,

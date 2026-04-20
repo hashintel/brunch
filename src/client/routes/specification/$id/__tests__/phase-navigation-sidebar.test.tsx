@@ -12,7 +12,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { WorkflowState } from '@/shared/api-types.js';
 import { workflowPhaseDescriptors } from '@/shared/phase-descriptors.js';
-import type { SpecificationTurn as ProjectStateTurn } from '@/shared/specification.js';
+import type { SpecificationTurn as SpecificationStateTurn } from '@/shared/specification.js';
 
 import { PhaseNavigationSidebar } from '../-phase-navigation-sidebar.js';
 
@@ -40,7 +40,7 @@ function createWorkflowState(
 
 function createTurns(
   turnCounts?: Partial<Record<keyof WorkflowState['phases'], number>>,
-): ProjectStateTurn[] {
+): SpecificationStateTurn[] {
   const phases: Array<keyof WorkflowState['phases']> = ['grounding', 'design', 'requirements', 'criteria'];
   let nextTurnId = 1;
 
@@ -72,7 +72,7 @@ async function renderSidebar(
   }: {
     pathname?: string;
     specificationName?: string;
-    turns?: ProjectStateTurn[];
+    turns?: SpecificationStateTurn[];
   } = {},
 ) {
   const rootRoute = createRootRoute();

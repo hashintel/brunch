@@ -4,11 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { SpecificationListItem as ProjectListItem } from '@/shared/specification.js';
+import type { SpecificationListItem } from '@/shared/specification.js';
 
 import { SpecificationList } from '../-project-list.js';
 
-let currentProjects: ProjectListItem[];
+let currentProjects: SpecificationListItem[];
 const navigateMock = vi.fn();
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -147,7 +147,7 @@ describe('SpecificationList', () => {
           criteria: 'unstarted',
           currentReadiness: 'medium',
         },
-      } satisfies ProjectListItem,
+      } satisfies SpecificationListItem,
     ];
 
     renderSpecificationList();
@@ -173,7 +173,7 @@ describe('SpecificationList', () => {
           criteria: 'unstarted',
           currentReadiness: 'medium',
         },
-      } satisfies ProjectListItem,
+      } satisfies SpecificationListItem,
     ];
 
     renderSpecificationList();

@@ -2,7 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import type { Tool } from '@ai-sdk/provider-utils';
 import { ToolLoopAgent, stepCountIs, tool } from 'ai';
 
-import type { EntitiesData, ProjectMode } from '@/shared/api-types.js';
+import type { EntitiesData, SpecificationMode } from '@/shared/api-types.js';
 import {
   askQuestionToolOutputSchema,
   groundingCardSchema,
@@ -23,9 +23,9 @@ import { buildInterviewerContext } from './context.js';
 import type { TurnWithOptions } from './core.js';
 import {
   createOption,
-  getAcceptedRequirementEntitiesForProject,
-  getDraftCriterionEntitiesForProject,
-  getDraftRequirementEntitiesForProject,
+  getAcceptedRequirementEntitiesForSpecification,
+  getDraftCriterionEntitiesForSpecification,
+  getDraftRequirementEntitiesForSpecification,
   createPhaseOutcome,
   updateTurn,
   getTurn,
@@ -153,7 +153,7 @@ ${sharedQuestionRules}`;
 }
 
 export interface InterviewerModeOptions {
-  mode?: ProjectMode;
+  mode?: SpecificationMode;
   cwd?: string;
   brownfieldGroundingStage?: 'opening' | 'ongoing';
 }
@@ -371,15 +371,15 @@ export async function streamInterviewer(
           brownfieldGroundingStage: getBrownfieldGroundingStage(phase, activePath, modeOptions),
         }
       : modeOptions;
-  const specificationId = turn.specification_id ?? turn.project_id;
+  const specificationId = turn.specification_id;
   if (!specificationId) {
     throw new Error(`Turn ${turn.id} is missing specification identity`);
   }
 
   const agent = createInterviewerAgent(db, turn.id, phase, specificationId, effectiveModeOptions);
-  const draftRequirements = getDraftRequirementEntitiesForProject(db, specificationId);
-  const draftCriteria = getDraftCriterionEntitiesForProject(db, specificationId);
-  const acceptedRequirements = getAcceptedRequirementEntitiesForProject(db, specificationId);
+  const draftRequirements = getDraftRequirementEntitiesForSpecification(db, specificationId);
+  const draftCriteria = getDraftCriterionEntitiesForSpecification(db, specificationId);
+  const acceptedRequirements = getAcceptedRequirementEntitiesForSpecification(db, specificationId);
   const fullPrompt = buildInterviewerContext(activePath, userMessage, {
     phase,
     entities:

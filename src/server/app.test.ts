@@ -331,12 +331,12 @@ function parseSSELines(body: string): Array<Record<string, unknown> | '[DONE]'> 
 }
 
 async function createTestProject(name = 'Test Project'): Promise<number> {
-  const res = await request(app).post('/api/projects').send({ name });
+  const res = await request(app).post('/api/specifications').send({ name });
   return res.body.id;
 }
 
-async function getProjectSnapshot(projectId: number) {
-  const res = await request(app).get(`/api/projects/${projectId}`).expect(200);
+async function getSpecificationSnapshot(projectId: number) {
+  const res = await request(app).get(`/api/specifications/${projectId}`).expect(200);
   return res.body as SpecificationState;
 }
 
@@ -375,15 +375,15 @@ afterEach(() => {
   db.$client.close();
 });
 
-describe('GET /api/projects', () => {
+describe('GET /api/specifications', () => {
   it('returns an empty array when no projects exist', async () => {
-    const res = await request(app).get('/api/projects').expect(200);
+    const res = await request(app).get('/api/specifications').expect(200);
     expect(res.body).toEqual([]);
   });
 
   it('returns workflow summary with grounding in-progress for a new project', async () => {
     await createTestProject('Fresh project');
-    const res = await request(app).get('/api/projects').expect(200);
+    const res = await request(app).get('/api/specifications').expect(200);
     expect(res.body).toHaveLength(1);
     expect(res.body[0]).toMatchObject({
       name: 'Fresh project',
@@ -399,7 +399,7 @@ describe('GET /api/projects', () => {
   it('returns workflow summary reflecting closed grounding and in-progress design', async () => {
     const projectId = await createTestProject('Active project');
     seedActiveDesign(projectId);
-    const res = await request(app).get('/api/projects').expect(200);
+    const res = await request(app).get('/api/specifications').expect(200);
     expect(res.body[0]).toMatchObject({
       workflowSummary: {
         grounding: 'closed',
@@ -413,7 +413,7 @@ describe('GET /api/projects', () => {
   it('returns workflow summary with all phases closed for a completed project', async () => {
     const projectId = await createTestProject('Done project');
     seedAllPhasesClosed(projectId);
-    const res = await request(app).get('/api/projects').expect(200);
+    const res = await request(app).get('/api/specifications').expect(200);
     expect(res.body[0]).toMatchObject({
       workflowSummary: {
         grounding: 'closed',
@@ -425,18 +425,18 @@ describe('GET /api/projects', () => {
   });
 });
 
-describe('GET /api/projects/:id/export', () => {
+describe('GET /api/specifications/:id/export', () => {
   it('returns not ready when not all phases are closed', async () => {
     const projectId = await createTestProject('In Progress');
     seedRequirementsReady(projectId);
-    const res = await request(app).get(`/api/projects/${projectId}/export`).expect(200);
+    const res = await request(app).get(`/api/specifications/${projectId}/export`).expect(200);
     expect(res.body).toEqual({ ready: false });
   });
 
   it('returns ready with markdown when all phases are closed', async () => {
     const projectId = await createTestProject('Done');
     seedAllPhasesClosed(projectId);
-    const res = await request(app).get(`/api/projects/${projectId}/export`).expect(200);
+    const res = await request(app).get(`/api/specifications/${projectId}/export`).expect(200);
     expect(res.body.ready).toBe(true);
     expect(res.body.markdown).toContain('# Done');
     expect(res.body.markdown).toContain('Resume the interview from SQLite after restart');
@@ -445,20 +445,20 @@ describe('GET /api/projects/:id/export', () => {
   });
 });
 
-describe('POST /api/projects', () => {
+describe('POST /api/specifications', () => {
   it('creates a greenfield project by default', async () => {
-    const res = await request(app).post('/api/projects').send({ name: 'Greenfield' }).expect(201);
+    const res = await request(app).post('/api/specifications').send({ name: 'Greenfield' }).expect(201);
     expect(res.body.mode).toBe('greenfield');
     expect(res.body).not.toHaveProperty('cwd');
   });
 
   it('leaves kickoff projected until the user explicitly enters the interview', async () => {
     const createRes = await request(app)
-      .post('/api/projects')
+      .post('/api/specifications')
       .send({ name: 'Projected kickoff' })
       .expect(201);
 
-    const stateRes = await request(app).get(`/api/projects/${createRes.body.id}`).expect(200);
+    const stateRes = await request(app).get(`/api/specifications/${createRes.body.id}`).expect(200);
     expect(stateRes.body.specification.active_turn_id).toBeNull();
     expect(stateRes.body.landing).toEqual({ kind: 'kickoff', phase: 'grounding', mode: 'start' });
     expect(stateRes.body.turns).toEqual([]);
@@ -466,7 +466,7 @@ describe('POST /api/projects', () => {
 
   it('creates a brownfield project with mode but no persisted workspace path', async () => {
     const res = await request(app)
-      .post('/api/projects')
+      .post('/api/specifications')
       .send({ name: 'Brownfield', mode: 'brownfield' })
       .expect(201);
     expect(res.body.mode).toBe('brownfield');
@@ -475,28 +475,28 @@ describe('POST /api/projects', () => {
 
   it('rejects client-supplied cwd data on project creation', async () => {
     await request(app)
-      .post('/api/projects')
+      .post('/api/specifications')
       .send({ name: 'Brownfield', mode: 'brownfield', cwd: '/tmp/repo' })
       .expect(400);
   });
 
   it('persists mode in project state without exposing a specification cwd field', async () => {
     const createRes = await request(app)
-      .post('/api/projects')
+      .post('/api/specifications')
       .send({ name: 'BF', mode: 'brownfield' })
       .expect(201);
-    const stateRes = await request(app).get(`/api/projects/${createRes.body.id}`).expect(200);
+    const stateRes = await request(app).get(`/api/specifications/${createRes.body.id}`).expect(200);
     expect(stateRes.body.specification.mode).toBe('brownfield');
     expect(stateRes.body.specification).not.toHaveProperty('cwd');
   });
 });
 
-describe('POST /api/projects/:id/chat', () => {
+describe('POST /api/specifications/:id/chat', () => {
   it('requires typed UI messages', async () => {
     const projectId = await createTestProject();
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({ messages: [{ role: 'user', content: 'hello' }] })
       .expect(400);
   });
@@ -505,7 +505,7 @@ describe('POST /api/projects/:id/chat', () => {
     const projectId = await createTestProject();
 
     const res = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
       })
@@ -525,22 +525,22 @@ describe('POST /api/projects/:id/chat', () => {
   });
 
   it('passes brownfield kickoff mode options into the interviewer stream after the projected kickoff selects existing codebase', async () => {
-    const { createProject, getActivePath, getProject } = await import('./db.js');
-    const projectId = createProject(db, 'Brownfield kickoff').id;
+    const { createSpecification, getActivePath, getSpecification } = await import('./db.js');
+    const projectId = createSpecification(db, 'Brownfield kickoff').id;
 
     expect(getActivePath(db, projectId)).toHaveLength(0);
 
     await request(app)
-      .post(`/api/projects/${projectId}/phase-intent`)
+      .post(`/api/specifications/${projectId}/phase-intent`)
       .send({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' })
       .expect(200, { ok: true });
 
-    expect(getProject(db, projectId)).toMatchObject({
+    expect(getSpecification(db, projectId)).toMatchObject({
       mode: 'brownfield',
     });
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -568,11 +568,11 @@ describe('POST /api/projects/:id/chat', () => {
   });
 
   it('persists a grounding-card first turn after brownfield kickoff instead of a repo-summary question handoff', async () => {
-    const { createProject, getActivePath, getOptionsForTurn } = await import('./db.js');
-    const projectId = createProject(db, 'Brownfield grounding card').id;
+    const { createSpecification, getActivePath, getOptionsForTurn } = await import('./db.js');
+    const projectId = createSpecification(db, 'Brownfield grounding card').id;
 
     await request(app)
-      .post(`/api/projects/${projectId}/phase-intent`)
+      .post(`/api/specifications/${projectId}/phase-intent`)
       .send({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' })
       .expect(200, { ok: true });
 
@@ -581,7 +581,7 @@ describe('POST /api/projects/:id/chat', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -672,7 +672,7 @@ describe('POST /api/projects/:id/chat', () => {
     });
 
     const res = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
       })
@@ -702,11 +702,10 @@ describe('POST /api/projects/:id/chat', () => {
       },
     });
 
-    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const entitiesRes = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
     expect(entitiesRes.body.goals).toEqual([
       expect.objectContaining({
         id: 1,
-        project_id: projectId,
         specification_id: projectId,
         kind: 'goal',
         subtype: null,
@@ -718,7 +717,6 @@ describe('POST /api/projects/:id/chat', () => {
     expect(entitiesRes.body.terms).toEqual([
       expect.objectContaining({
         id: 2,
-        project_id: projectId,
         specification_id: projectId,
         kind: 'term',
         subtype: null,
@@ -730,7 +728,6 @@ describe('POST /api/projects/:id/chat', () => {
     expect(entitiesRes.body.contexts).toEqual([
       expect.objectContaining({
         id: 3,
-        project_id: projectId,
         specification_id: projectId,
         kind: 'context',
         subtype: null,
@@ -742,7 +739,6 @@ describe('POST /api/projects/:id/chat', () => {
     expect(entitiesRes.body.constraints).toEqual([
       expect.objectContaining({
         id: 4,
-        project_id: projectId,
         specification_id: projectId,
         kind: 'constraint',
         subtype: 'non-goal',
@@ -820,7 +816,7 @@ describe('POST /api/projects/:id/chat', () => {
     });
 
     const res = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
       })
@@ -851,11 +847,10 @@ describe('POST /api/projects/:id/chat', () => {
       },
     });
 
-    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const entitiesRes = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
     expect(entitiesRes.body.contexts).toEqual([
       expect.objectContaining({
         id: createdIds!.context,
-        project_id: projectId,
         specification_id: projectId,
         kind: 'context',
         subtype: null,
@@ -867,7 +862,6 @@ describe('POST /api/projects/:id/chat', () => {
     expect(entitiesRes.body.constraints).toEqual([
       expect.objectContaining({
         id: createdIds!.constraint,
-        project_id: projectId,
         specification_id: projectId,
         kind: 'constraint',
         subtype: 'non-goal',
@@ -879,7 +873,6 @@ describe('POST /api/projects/:id/chat', () => {
     expect(entitiesRes.body.decisions).toEqual([
       expect.objectContaining({
         id: createdIds!.decision,
-        project_id: projectId,
         specification_id: projectId,
         content: 'Start with the web app',
         rationale: 'It is the fastest path to feedback',
@@ -889,7 +882,6 @@ describe('POST /api/projects/:id/chat', () => {
     expect(entitiesRes.body.assumptions).toEqual([
       expect.objectContaining({
         id: createdIds!.assumption,
-        project_id: projectId,
         specification_id: projectId,
         content: 'Users can work in a browser',
         referenceCode: createKnowledgeReferenceCode('assumption', 1),
@@ -920,7 +912,7 @@ describe('POST /api/projects/:id/chat', () => {
     );
 
     const res = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
       })
@@ -955,7 +947,7 @@ describe('POST /api/projects/:id/chat', () => {
       },
     });
 
-    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const entitiesRes = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
     expect(entitiesRes.body.requirements).toEqual([]);
   });
 
@@ -975,7 +967,7 @@ describe('POST /api/projects/:id/chat', () => {
     );
 
     const res = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
       })
@@ -1010,12 +1002,12 @@ describe('POST /api/projects/:id/chat', () => {
       },
     });
 
-    const entitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const entitiesRes = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
     expect(entitiesRes.body.criteria).toEqual([]);
   });
 });
 
-describe('GET /api/projects/:id/entities', () => {
+describe('GET /api/specifications/:id/entities', () => {
   it('returns canonical generic knowledge kinds alongside decisions, assumptions, and relationships', async () => {
     const projectId = await createTestProject();
     const { createDecision, createAssumption, createKnowledgeItem, addDecisionParentAssumption } =
@@ -1037,7 +1029,9 @@ describe('GET /api/projects/:id/entities', () => {
     const assumption = createAssumption(db, projectId, 'Users arrive with a concrete goal');
     addDecisionParentAssumption(db, decision.id, assumption.id);
 
-    const res = await request(app).get(`/api/projects/${projectId}/entities?mode=project-wide`).expect(200);
+    const res = await request(app)
+      .get(`/api/specifications/${projectId}/entities?mode=project-wide`)
+      .expect(200);
 
     expect(res.body).toMatchObject({
       goals: [],
@@ -1149,7 +1143,7 @@ describe('GET /api/projects/:id/entities', () => {
       { relation: 'verifies' },
     ]);
 
-    const res = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const res = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
 
     expect(res.body.relationships).toEqual(
       expect.arrayContaining([
@@ -1224,13 +1218,13 @@ describe('GET /api/projects/:id/entities', () => {
     linkKnowledgeItemToTurn(db, abandonedDecision.id, abandonedBranchTurn.id);
     linkKnowledgeItemToTurn(db, activeDecision.id, activeBranchTurn.id);
 
-    const canonicalRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const canonicalRes = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
     expect(canonicalRes.body.decisions).toEqual([
       expect.objectContaining({ content: 'Use Postgres for persistence' }),
     ]);
 
     const projectWideRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .get(`/api/specifications/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(projectWideRes.body.decisions).toEqual(
       expect.arrayContaining([
@@ -1249,7 +1243,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     const chatRes = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
@@ -1267,7 +1261,7 @@ describe('phase outcomes + grounding closure', () => {
       },
     });
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.grounding).toEqual({
       status: 'in_progress',
       closeability: false,
@@ -1298,7 +1292,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
@@ -1306,11 +1300,11 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const scopeProposalState = await getProjectSnapshot(projectId);
+    const scopeProposalState = await getSpecificationSnapshot(projectId);
     const scopeProposalTurnId = scopeProposalState.workflow.phases.grounding.turnId;
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -1332,7 +1326,7 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.grounding).toEqual(
       expect.objectContaining({
         status: 'closed',
@@ -1382,7 +1376,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
@@ -1390,11 +1384,11 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const scopeProposalState = await getProjectSnapshot(projectId);
+    const scopeProposalState = await getSpecificationSnapshot(projectId);
     const scopeProposalTurnId = scopeProposalState.workflow.phases.grounding.turnId;
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -1422,7 +1416,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -1452,7 +1446,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
@@ -1460,11 +1454,11 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const scopeProposalState = await getProjectSnapshot(projectId);
+    const scopeProposalState = await getSpecificationSnapshot(projectId);
     const scopeProposalTurnId = scopeProposalState.workflow.phases.grounding.turnId;
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -1497,7 +1491,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     const chatRes = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -1519,7 +1513,7 @@ describe('phase outcomes + grounding closure', () => {
       },
     });
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.design).toEqual({
       status: 'in_progress',
       closeability: false,
@@ -1559,7 +1553,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
@@ -1567,11 +1561,11 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const scopeProposalState = await getProjectSnapshot(projectId);
+    const scopeProposalState = await getSpecificationSnapshot(projectId);
     const scopeProposalTurnId = scopeProposalState.workflow.phases.grounding.turnId;
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -1604,7 +1598,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -1616,11 +1610,11 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const designProposalState = await getProjectSnapshot(projectId);
+    const designProposalState = await getSpecificationSnapshot(projectId);
     const designProposalTurnId = designProposalState.workflow.phases.design.turnId;
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -1642,7 +1636,7 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.design).toEqual(
       expect.objectContaining({
         status: 'closed',
@@ -1670,7 +1664,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -1730,7 +1724,7 @@ describe('phase outcomes + grounding closure', () => {
     advanceHead(db, projectId, reviewTurn.id);
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
       .send({
         kind: 'select-options',
         positions: [2],
@@ -1763,7 +1757,7 @@ describe('phase outcomes + grounding closure', () => {
     });
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -1780,7 +1774,7 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.requirements).toEqual(
       expect.objectContaining({
         status: 'in_progress',
@@ -1790,12 +1784,12 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .get(`/api/specifications/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(entitiesRes.body.requirements).toEqual([]);
 
-    const refreshedProjectState = await getProjectSnapshot(projectId);
-    const frontierTurn = getTurn(db, getSpecificationRecord(refreshedProjectState).active_turn_id!);
+    const refreshedSpecificationState = await getSpecificationSnapshot(projectId);
+    const frontierTurn = getTurn(db, getSpecificationRecord(refreshedSpecificationState).active_turn_id!);
     expect(JSON.parse(frontierTurn?.assistant_parts ?? '[]')).toEqual(
       expect.arrayContaining([
         {
@@ -1849,7 +1843,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     const chatRes = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -1861,7 +1855,7 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     const requirementsProposalTurnId = projectRes.body.workflow.phases.requirements.turnId;
 
     const events = parseSSELines(collectSSE(chatRes)).filter((event) => event !== '[DONE]');
@@ -1931,7 +1925,7 @@ describe('phase outcomes + grounding closure', () => {
     });
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -1953,7 +1947,7 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.requirements).toEqual(
       expect.objectContaining({
         status: 'closed',
@@ -1981,7 +1975,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -2009,7 +2003,7 @@ describe('phase outcomes + grounding closure', () => {
       expect.any(String),
     );
 
-    const refreshedProjectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const refreshedProjectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(refreshedProjectRes.body.workflow.phases.requirements).toEqual(
       expect.objectContaining({
         status: 'closed',
@@ -2042,7 +2036,7 @@ describe('phase outcomes + grounding closure', () => {
     const observerCallCount = mockRunObserver.mock.calls.length;
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -2065,7 +2059,7 @@ describe('phase outcomes + grounding closure', () => {
 
     expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount);
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.criteria).toEqual(
       expect.objectContaining({
         status: 'in_progress',
@@ -2074,7 +2068,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .get(`/api/specifications/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(entitiesRes.body.criteria).toEqual([]);
   });
@@ -2118,7 +2112,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     const chatRes = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -2130,7 +2124,7 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     const criteriaProposalTurnId = projectRes.body.workflow.phases.criteria.turnId;
 
     const events = parseSSELines(collectSSE(chatRes)).filter((event) => event !== '[DONE]');
@@ -2199,7 +2193,7 @@ describe('phase outcomes + grounding closure', () => {
     });
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -2221,7 +2215,7 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.criteria).toEqual(
       expect.objectContaining({
         status: 'closed',
@@ -2288,7 +2282,7 @@ describe('phase outcomes + grounding closure', () => {
     });
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -2310,7 +2304,7 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     const allClosed = (['grounding', 'design', 'requirements', 'criteria'] as const).every(
       (phase) => projectRes.body.workflow.phases[phase].status === 'closed',
     );
@@ -2329,7 +2323,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
@@ -2337,11 +2331,11 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const scopeProposalState = await getProjectSnapshot(projectId);
+    const scopeProposalState = await getSpecificationSnapshot(projectId);
     const scopeProposalTurnId = scopeProposalState.workflow.phases.grounding.turnId;
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -2368,7 +2362,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -2381,7 +2375,7 @@ describe('phase outcomes + grounding closure', () => {
       .expect(200);
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -2399,7 +2393,7 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.design).toEqual(
       expect.objectContaining({
         status: 'closed',
@@ -2439,7 +2433,7 @@ describe('phase outcomes + grounding closure', () => {
     const observerCallCount = mockRunObserver.mock.calls.length;
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -2524,7 +2518,7 @@ describe('phase outcomes + grounding closure', () => {
     await seed(projectId);
 
     const response = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -2552,7 +2546,7 @@ describe('phase outcomes + grounding closure', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
@@ -2560,13 +2554,13 @@ describe('phase outcomes + grounding closure', () => {
       })
       .expect(200);
 
-    const { listPhaseOutcomesForProject } = await import('./db.js');
-    const outcomes = listPhaseOutcomesForProject(db, projectId);
+    const { listPhaseOutcomesForSpecification } = await import('./db.js');
+    const outcomes = listPhaseOutcomesForSpecification(db, projectId);
     expect(outcomes).toHaveLength(1);
     expect(outcomes[0].phase).toBe('grounding');
 
     const response = await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -2592,12 +2586,12 @@ describe('phase outcomes + grounding closure', () => {
   });
 });
 
-describe('GET /api/projects/:id', () => {
+describe('GET /api/specifications/:id', () => {
   it('projects kickoff from durable workflow state without creating a kickoff row on read', async () => {
-    const { createProject, getActivePath } = await import('./db.js');
-    const project = createProject(db, 'Read-only kickoff projection');
+    const { createSpecification, getActivePath } = await import('./db.js');
+    const project = createSpecification(db, 'Read-only kickoff projection');
 
-    const res = await request(app).get(`/api/projects/${project.id}`).expect(200);
+    const res = await request(app).get(`/api/specifications/${project.id}`).expect(200);
 
     expect(res.body.landing).toEqual({ kind: 'kickoff', phase: 'grounding', mode: 'start' });
     expect(res.body.turns).toEqual([]);
@@ -2611,13 +2605,13 @@ describe('GET /api/projects/:id', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
       })
       .expect(200);
 
-    const res = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const res = await request(app).get(`/api/specifications/${projectId}`).expect(200);
 
     expect(res.body.turns).toHaveLength(2);
     expect(res.body.turns[1].question).toBe(structuredQuestion.question);
@@ -2626,10 +2620,10 @@ describe('GET /api/projects/:id', () => {
   });
 });
 
-describe('POST /api/projects/:id/phase-intent', () => {
+describe('POST /api/specifications/:id/phase-intent', () => {
   it('persists brownfield mode from landing-only kickoff state without creating a kickoff row first', async () => {
-    const { createProject, getActivePath, getProject } = await import('./db.js');
-    const project = createProject(db, 'Landing-only kickoff');
+    const { createSpecification, getActivePath, getSpecification } = await import('./db.js');
+    const project = createSpecification(db, 'Landing-only kickoff');
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
     );
@@ -2637,19 +2631,19 @@ describe('POST /api/projects/:id/phase-intent', () => {
     expect(getActivePath(db, project.id)).toHaveLength(0);
 
     await request(app)
-      .post(`/api/projects/${project.id}/phase-intent`)
+      .post(`/api/specifications/${project.id}/phase-intent`)
       .send({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' })
       .expect(200, {
         ok: true,
       });
 
-    expect(getProject(db, project.id)).toMatchObject({
+    expect(getSpecification(db, project.id)).toMatchObject({
       mode: 'brownfield',
     });
     expect(getActivePath(db, project.id)).toHaveLength(0);
 
     await request(app)
-      .post(`/api/projects/${project.id}/chat`)
+      .post(`/api/specifications/${project.id}/chat`)
       .send({
         messages: [
           {
@@ -2681,15 +2675,16 @@ describe('POST /api/projects/:id/phase-intent', () => {
   });
 
   it('submits a seeded kickoff row through the same phase-entry intent seam', async () => {
-    const { createProject, getActivePath, getProject, getOptionsForTurn } = await import('./db.js');
+    const { createSpecification, getActivePath, getSpecification, getOptionsForTurn } =
+      await import('./db.js');
     const { createLegacyKickoffTurnForTesting } = await import('./test-support/legacy-control-rows.js');
-    const project = createProject(db, 'Seeded kickoff row');
+    const project = createSpecification(db, 'Seeded kickoff row');
     const kickoffTurn = createLegacyKickoffTurnForTesting(db, project.id);
 
     expect(kickoffTurn?.turn_kind).toBe('kickoff');
 
     await request(app)
-      .post(`/api/projects/${project.id}/phase-intent`)
+      .post(`/api/specifications/${project.id}/phase-intent`)
       .send({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' })
       .expect(200, {
         ok: true,
@@ -2698,7 +2693,7 @@ describe('POST /api/projects/:id/phase-intent', () => {
     const updatedKickoffTurn = getActivePath(db, project.id)[0]!;
     const selectedOption = getOptionsForTurn(db, updatedKickoffTurn.id).find((option) => option.is_selected);
 
-    expect(getProject(db, project.id)).toMatchObject({
+    expect(getSpecification(db, project.id)).toMatchObject({
       mode: 'brownfield',
     });
     expect(updatedKickoffTurn.answer).toBe('Feature within existing codebase');
@@ -2706,9 +2701,9 @@ describe('POST /api/projects/:id/phase-intent', () => {
   });
 
   it('submits recovery through chat without fabricating a recovery row', async () => {
-    const { createProject, createTurn, getActivePath } = await import('./db.js');
+    const { createSpecification, createTurn, getActivePath } = await import('./db.js');
     const { finalizeTurn } = await import('./core.js');
-    const project = createProject(db, 'Recovery without control row');
+    const project = createSpecification(db, 'Recovery without control row');
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
     );
@@ -2721,12 +2716,12 @@ describe('POST /api/projects/:id/phase-intent', () => {
     finalizeTurn(db, project.id, answeredTurn.id);
 
     await request(app)
-      .post(`/api/projects/${project.id}/phase-intent`)
+      .post(`/api/specifications/${project.id}/phase-intent`)
       .send({ kind: 'phase-continue', phase: 'grounding' })
       .expect(200, { ok: true });
 
     await request(app)
-      .post(`/api/projects/${project.id}/chat`)
+      .post(`/api/specifications/${project.id}/chat`)
       .send({
         messages: [
           {
@@ -2754,9 +2749,9 @@ describe('POST /api/projects/:id/phase-intent', () => {
   });
 
   it('selects the seeded kickoff option by typed intent instead of exact display copy', async () => {
-    const { createProject, getActivePath, getOptionsForTurn } = await import('./db.js');
+    const { createSpecification, getActivePath, getOptionsForTurn } = await import('./db.js');
     const { createLegacyKickoffTurnForTesting } = await import('./test-support/legacy-control-rows.js');
-    const project = createProject(db, 'Seeded kickoff copy drift');
+    const project = createSpecification(db, 'Seeded kickoff copy drift');
     const kickoffTurn = createLegacyKickoffTurnForTesting(db, project.id);
 
     expect(kickoffTurn?.turn_kind).toBe('kickoff');
@@ -2765,7 +2760,7 @@ describe('POST /api/projects/:id/phase-intent', () => {
       .run('Legacy brownfield kickoff label', kickoffTurn?.id, 1);
 
     await request(app)
-      .post(`/api/projects/${project.id}/phase-intent`)
+      .post(`/api/specifications/${project.id}/phase-intent`)
       .send({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' })
       .expect(200, {
         ok: true,
@@ -2784,7 +2779,7 @@ describe('POST /api/projects/:id/phase-intent', () => {
   });
 });
 
-describe('POST /api/projects/:id/turns/:turnId/response', () => {
+describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   it('persists the selected option and free-text turn response into answer and user parts', async () => {
     const projectId = await createTestProject();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
@@ -2792,7 +2787,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
       })
@@ -2802,7 +2797,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     const turn = getActivePath(db, projectId)[1]!;
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${turn.id}/response`)
       .send({
         kind: 'select-options',
         positions: [1],
@@ -2834,7 +2829,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
       })
@@ -2844,7 +2839,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     const turn = getActivePath(db, projectId)[1]!;
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${turn.id}/response`)
       .send({
         kind: 'select-options',
         positions: [0, 1],
@@ -2877,7 +2872,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
       })
@@ -2887,7 +2882,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     const turn = getActivePath(db, projectId)[1]!;
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${turn.id}/response`)
       .send({
         kind: 'select-options',
         positions: [0, 1],
@@ -2896,7 +2891,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       .expect(200);
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -2949,7 +2944,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     advanceHead(db, projectId, groundingTurn.id);
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${groundingTurn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${groundingTurn.id}/response`)
       .send({
         kind: 'select-options',
         positions: [0],
@@ -2962,7 +2957,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -3005,7 +3000,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       ],
     });
 
-    const requirementSeedState = await getProjectSnapshot(projectId);
+    const requirementSeedState = await getSpecificationSnapshot(projectId);
     const requirementSeedTurnId = requirementSeedState.turns.at(-1)?.id;
     updateTurn(db, requirementSeedTurnId!, {
       assistant_parts: JSON.stringify([
@@ -3042,7 +3037,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -3054,7 +3049,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       })
       .expect(200);
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     const reviewTurn = projectRes.body.turns.find(
       (turn: { phase: string; question: string }) =>
         turn.phase === 'requirements' && turn.question === runtimeRequirementReview.question,
@@ -3081,12 +3076,12 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
       .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
       .expect(200, { ok: true, advancedToPhase: 'criteria' });
 
     const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .get(`/api/specifications/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(entitiesRes.body.requirements).toEqual(
       expect.arrayContaining(
@@ -3163,13 +3158,13 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     advanceHead(db, projectId, reviewTurn.id);
 
     const response = await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
       .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
       .expect(200);
 
     expect(response.body).toEqual({ ok: true, advancedToPhase: 'criteria' });
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.requirements).toEqual(
       expect.objectContaining({
         status: 'closed',
@@ -3195,7 +3190,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .get(`/api/specifications/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(entitiesRes.body.requirements).toEqual(
       expect.arrayContaining([
@@ -3266,14 +3261,14 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     advanceHead(db, projectId, reviewTurn.id);
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
       .send({ kind: 'select-options', positions: [1], reviewAction: 'request-changes' })
       .expect(400, {
         error: 'Review turns must submit the explicit reviewAction for the selected option',
       });
 
     const response = await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
       .send({ kind: 'select-options', positions: [1], reviewAction: 'accept' })
       .expect(200);
 
@@ -3335,18 +3330,20 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     advanceHead(db, projectId, reviewTurn.id);
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
       .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
       .expect(200);
 
-    const activePathEntitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const activePathEntitiesRes = await request(app)
+      .get(`/api/specifications/${projectId}/entities`)
+      .expect(200);
     expect(activePathEntitiesRes.body.requirements).toEqual([
       expect.objectContaining({ id: acceptedExistingRequirement.id }),
       expect.objectContaining({ content: 'Resume the interview from persisted local state' }),
     ]);
 
     const projectWideEntitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .get(`/api/specifications/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(
       projectWideEntitiesRes.body.requirements.filter(
@@ -3419,7 +3416,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     advanceHead(db, projectId, reviewTurn.id);
 
     const response = await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
       .send({
         kind: 'select-options',
         positions: [1],
@@ -3430,7 +3427,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     expect(response.body).toEqual({ ok: true });
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.requirements).toEqual(
       expect.objectContaining({
         status: 'in_progress',
@@ -3451,7 +3448,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .get(`/api/specifications/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(entitiesRes.body.requirements).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: requirement.id })]),
@@ -3512,7 +3509,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     advanceHead(db, projectId, reviewTurn.id);
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
       .send({ kind: 'select-options', positions: [0] })
       .expect(400);
   });
@@ -3541,7 +3538,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       ],
     });
 
-    const criterionSeedState = await getProjectSnapshot(projectId);
+    const criterionSeedState = await getSpecificationSnapshot(projectId);
     const criterionSeedTurnId = criterionSeedState.turns.at(-1)?.id;
     updateTurn(db, criterionSeedTurnId!, {
       assistant_parts: JSON.stringify([
@@ -3578,7 +3575,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
           {
@@ -3590,7 +3587,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       })
       .expect(200);
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     const reviewTurn = projectRes.body.turns.find(
       (turn: { phase: string; question: string }) =>
         turn.phase === 'criteria' && turn.question === runtimeCriteriaReview.question,
@@ -3617,12 +3614,12 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
       .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
       .expect(200, { ok: true, workflowCompleted: true });
 
     const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .get(`/api/specifications/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(entitiesRes.body.criteria).toEqual(
       expect.arrayContaining(
@@ -3699,13 +3696,13 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     advanceHead(db, projectId, reviewTurn.id);
 
     const response = await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
       .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
       .expect(200);
 
     expect(response.body).toEqual({ ok: true, workflowCompleted: true });
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     for (const phase of ['grounding', 'design', 'requirements', 'criteria'] as const) {
       expect(projectRes.body.workflow.phases[phase]).toEqual(
         expect.objectContaining({
@@ -3724,7 +3721,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     expect(projectRes.body.specification.active_turn_id).toBe(reviewTurn.id);
 
     const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .get(`/api/specifications/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(entitiesRes.body.criteria).toEqual(
       expect.arrayContaining([
@@ -3736,7 +3733,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       expect(criterion).not.toHaveProperty('reviewStatus');
     }
 
-    const exportRes = await request(app).get(`/api/projects/${projectId}/export`).expect(200);
+    const exportRes = await request(app).get(`/api/specifications/${projectId}/export`).expect(200);
     expect(exportRes.body.ready).toBe(true);
   });
 
@@ -3795,18 +3792,20 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     advanceHead(db, projectId, reviewTurn.id);
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
       .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
       .expect(200);
 
-    const activePathEntitiesRes = await request(app).get(`/api/projects/${projectId}/entities`).expect(200);
+    const activePathEntitiesRes = await request(app)
+      .get(`/api/specifications/${projectId}/entities`)
+      .expect(200);
     expect(activePathEntitiesRes.body.criteria).toEqual([
       expect.objectContaining({ id: acceptedExistingCriterion.id }),
       expect.objectContaining({ content: 'Markdown export includes accepted requirements only' }),
     ]);
 
     const projectWideEntitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .get(`/api/specifications/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(
       projectWideEntitiesRes.body.criteria.filter(
@@ -3873,7 +3872,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     advanceHead(db, projectId, reviewTurn.id);
 
     const response = await request(app)
-      .post(`/api/projects/${projectId}/turns/${reviewTurn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
       .send({
         kind: 'select-options',
         positions: [1],
@@ -3884,7 +3883,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     expect(response.body).toEqual({ ok: true });
 
-    const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.criteria).toEqual(
       expect.objectContaining({
         status: 'in_progress',
@@ -3899,7 +3898,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     const entitiesRes = await request(app)
-      .get(`/api/projects/${projectId}/entities?mode=project-wide`)
+      .get(`/api/specifications/${projectId}/entities?mode=project-wide`)
       .expect(200);
     expect(entitiesRes.body.criteria).toEqual(
       expect.arrayContaining([expect.objectContaining({ id: criterion.id })]),
@@ -3916,7 +3915,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
       })
@@ -3928,7 +3927,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     const turn = getActivePath(db, projectId)[1]!;
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${turn.id}/response`)
       .send({
         kind: 'select-options',
         positions: [0, 1],
@@ -3936,7 +3935,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
       })
       .expect(200);
 
-    const projectStateRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
+    const projectStateRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     const projectState = projectStateRes.body as SpecificationState;
     const selectedOptionIds = getOptionsForTurn(db, turn.id)
       .filter((option) => option.is_selected)
@@ -4047,7 +4046,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
       })
@@ -4057,7 +4056,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     const turn = getActivePath(db, projectId)[1]!;
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${turn.id}/response`)
       .send({ kind: 'free-text', freeText: 'None of these fit our use case' })
       .expect(200);
 
@@ -4081,7 +4080,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     );
 
     await request(app)
-      .post(`/api/projects/${projectId}/chat`)
+      .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
       })
@@ -4091,7 +4090,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     const turn = getActivePath(db, projectId)[1]!;
 
     await request(app)
-      .post(`/api/projects/${projectId}/turns/${turn.id}/response`)
+      .post(`/api/specifications/${projectId}/turns/${turn.id}/response`)
       .send({ kind: 'free-text', freeText: '   ' })
       .expect(400);
   });

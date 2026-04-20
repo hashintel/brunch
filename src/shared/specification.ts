@@ -8,54 +8,34 @@ import type {
   SpecificationStateTurn as ApiSpecificationStateTurn,
 } from './api-types.js';
 import {
-  createProjectRequestSchema,
-  createProjectResponseSchema,
   createSpecificationRequestSchema,
   createSpecificationResponseSchema,
-  projectListItemSchema,
-  projectListItemsSchema,
+  specificationListItemSchema,
+  specificationListItemsSchema,
   specificationModeSchema,
   specificationSchema,
   specificationStateSchema,
   specificationStateTurnSchema,
 } from './api-types.js';
 
-export { specificationModeSchema, specificationSchema };
-export const specificationListItemSchema = projectListItemSchema;
-export const specificationListSchema = projectListItemsSchema;
+export {
+  specificationModeSchema,
+  specificationSchema,
+  specificationStateSchema,
+  specificationStateTurnSchema,
+};
+export { createSpecificationRequestSchema, createSpecificationResponseSchema, specificationListItemSchema };
+export const specificationListSchema = specificationListItemsSchema;
 export const specificationTurnSchema = specificationStateTurnSchema;
-export { specificationStateSchema, specificationStateTurnSchema };
-export { createSpecificationRequestSchema, createSpecificationResponseSchema };
 
 export type SpecificationMode = ApiSpecificationMode;
 export type Specification = ApiSpecification;
-export type SpecificationTurn = Omit<ApiSpecificationStateTurn, 'specification_id'> & {
-  specification_id?: number;
-  project_id?: number;
-};
+export type SpecificationTurn = ApiSpecificationStateTurn;
 export type SpecificationListItem = ApiSpecificationListItem;
-export type SpecificationState = Omit<ApiSpecificationState, 'specification' | 'turns'> & {
-  specification?: Specification;
-  project?: Specification;
-  turns: SpecificationTurn[];
-};
+export type SpecificationState = ApiSpecificationState;
 export type CreateSpecificationRequest = ApiCreateSpecificationRequest;
 export type CreateSpecificationResponse = ApiCreateSpecificationResponse;
 
-export function getSpecificationRecord(
-  state: SpecificationState | { specification?: Specification; project?: Specification },
-): Specification {
-  const specification = 'specification' in state ? state.specification : undefined;
-  const project = 'project' in state ? state.project : undefined;
-
-  if (specification) {
-    return specification;
-  }
-  if (project) {
-    return project;
-  }
-
-  throw new Error('Specification record is missing');
+export function getSpecificationRecord(state: Pick<SpecificationState, 'specification'>): Specification {
+  return state.specification;
 }
-
-export { createProjectRequestSchema, createProjectResponseSchema };

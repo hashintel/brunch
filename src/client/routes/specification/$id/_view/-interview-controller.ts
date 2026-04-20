@@ -111,7 +111,7 @@ export type InterviewControllerBottomArtifactState =
     };
 
 export interface InterviewController {
-  readonly project: InterviewDurableSpecificationState['project'];
+  readonly specification: InterviewDurableSpecificationState['specification'];
   readonly workflow: InterviewDurableSpecificationState['workflow'];
   readonly phaseTurns: readonly SpecificationTurn[];
   readonly captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
@@ -179,11 +179,11 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
   const [pendingCaptureSyncTurnIds, setPendingCaptureSyncTurnIds] = useState<Set<number>>(() => new Set());
   const [pendingCloseNavigation, setPendingCloseNavigation] = useState(false);
   const pendingCloseRef = useRef(false);
-  const stablePhaseKeyRef = useRef(`${durableSpecification.project.id}:${phase}`);
+  const stablePhaseKeyRef = useRef(`${durableSpecification.specification.id}:${phase}`);
 
   useEffect(() => {
     const phaseTurns = durableSpecification.turns.filter((turn) => turn.phase === phase);
-    const stablePhaseKey = `${durableSpecification.project.id}:${phase}`;
+    const stablePhaseKey = `${durableSpecification.specification.id}:${phase}`;
 
     setStablePhaseTurns((current) =>
       stablePhaseKeyRef.current === stablePhaseKey
@@ -191,13 +191,13 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
         : phaseTurns,
     );
     stablePhaseKeyRef.current = stablePhaseKey;
-  }, [durableSpecification.project.id, durableSpecification.turns, phase]);
+  }, [durableSpecification.specification.id, durableSpecification.turns, phase]);
 
   useEffect(() => {
     setSubmittedTurnId(null);
     setCaptureStatusByTurnId(new Map());
     setPendingCaptureSyncTurnIds(new Set());
-  }, [durableSpecification.project.id, phase]);
+  }, [durableSpecification.specification.id, phase]);
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: `/api/specifications/${projectId}/chat` }),
@@ -226,7 +226,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
   );
 
   const { messages, sendMessage, status } = useChat<BrunchUIMessage>({
-    id: getSpecificationScopedChatId(durableSpecification.project.id),
+    id: getSpecificationScopedChatId(durableSpecification.specification.id),
     transport,
     messages: [...ephemeralChat.seedMessages],
     dataPartSchemas: brunchDataPartSchemas,
@@ -426,7 +426,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
   }, [captureStatusByTurnId, pendingCaptureSyncTurnIds]);
 
   return {
-    project: viewState.project,
+    specification: viewState.specification,
     workflow: viewState.workflow,
     phaseTurns: stablePhaseTurns,
     captureStatusByTurnId: effectiveCaptureStatusByTurnId,

@@ -9,7 +9,7 @@ import type { EntitiesData } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { deriveSpecificationLanding } from '@/shared/specification-state.js';
-import type { SpecificationState as ProjectState } from '@/shared/specification.js';
+import type { SpecificationState } from '@/shared/specification.js';
 
 import { InterviewView } from '../-interview-view.js';
 import { resetSpecificationLifecycleRegistryForTesting } from '../-specification-lifecycle.js';
@@ -82,7 +82,7 @@ type UseChatHarness = {
   onFinish?: UseChatOptions['onFinish'];
 };
 
-let currentProjectState: ProjectState;
+let currentSpecificationState: SpecificationState;
 let currentEntityState: EntitiesData;
 const routerInvalidate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
@@ -106,7 +106,7 @@ vi.mock('@tanstack/react-router', () => ({
     </a>
   ),
   useLoaderData: ({ from }: { from: string }) => {
-    if (from === '/specification/$id') return currentProjectState;
+    if (from === '/specification/$id') return currentSpecificationState;
     if (from === '/specification/$id/_view') return currentEntityState;
     throw new Error(`Unexpected useLoaderData from: ${from}`);
   },
@@ -182,10 +182,10 @@ function createSpecificationState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
-  workflow?: ProjectState['workflow'];
+  workflow?: SpecificationState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
-  turns?: ProjectState['turns'];
-} = {}): ProjectState {
+  turns?: SpecificationState['turns'];
+} = {}): SpecificationState {
   const resolvedTurns = turns ?? [
     {
       id: 1,
@@ -207,8 +207,8 @@ function createSpecificationState({
     },
   ];
 
-  const projectState: ProjectState = {
-    project: {
+  const projectState: SpecificationState = {
+    specification: {
       id: projectId,
       name: `Project ${projectId}`,
       mode: 'greenfield',
@@ -267,9 +267,12 @@ function createSpecificationState({
 
 function createWorkflowState(
   overrides?: Partial<
-    Record<keyof ProjectState['workflow']['phases'], Partial<ProjectState['workflow']['phases']['grounding']>>
+    Record<
+      keyof SpecificationState['workflow']['phases'],
+      Partial<SpecificationState['workflow']['phases']['grounding']>
+    >
   >,
-): ProjectState['workflow'] {
+): SpecificationState['workflow'] {
   const defaultPhase = {
     status: 'unstarted' as const,
     closeability: false,
@@ -327,11 +330,11 @@ function createWorkspaceLoaderData({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
-  workflow?: ProjectState['workflow'];
+  workflow?: SpecificationState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
-  turns?: ProjectState['turns'];
+  turns?: SpecificationState['turns'];
   entityState?: EntitiesData;
-} = {}): { projectState: ProjectState; entityState: EntitiesData } {
+} = {}): { projectState: SpecificationState; entityState: EntitiesData } {
   return {
     projectState: createSpecificationState({
       projectId,
@@ -347,8 +350,8 @@ function createWorkspaceLoaderData({
   };
 }
 
-function setLoaderData(data: { projectState: ProjectState; entityState: EntitiesData }) {
-  currentProjectState = data.projectState;
+function setLoaderData(data: { projectState: SpecificationState; entityState: EntitiesData }) {
+  currentSpecificationState = data.projectState;
   currentEntityState = data.entityState;
 }
 

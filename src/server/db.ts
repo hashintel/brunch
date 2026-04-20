@@ -56,8 +56,7 @@ export type DB = ReturnType<typeof drizzle<typeof schema>>;
 export type Specification = InferSelectModel<typeof schema.specification>;
 type PersistedTurn = InferSelectModel<typeof schema.turn>;
 export type Turn = Omit<PersistedTurn, 'specification_id'> & {
-  specification_id?: number;
-  project_id?: number;
+  specification_id: number;
 };
 export type Option = InferSelectModel<typeof schema.option>;
 export type PhaseOutcome = InferSelectModel<typeof schema.phaseOutcome>;
@@ -621,14 +620,13 @@ export function updateSpecificationMode(db: DB, specificationId: number, mode: S
 
 type PersistedKnowledgeItem = InferSelectModel<typeof schema.knowledgeItem>;
 export type KnowledgeItem = Omit<PersistedKnowledgeItem, 'specification_id'> & {
-  specification_id?: number;
-  project_id?: number;
+  specification_id: number;
 };
 export type KnowledgeKind = Extract<KnowledgeItem['kind'], SharedKnowledgeKind>;
 export type EntityCollection = KnowledgeEntityCollection;
 
-export type Decision = SharedDecision & { project_id?: number };
-export type Assumption = SharedAssumption & { project_id?: number };
+export type Decision = SharedDecision & { specification_id: number };
+export type Assumption = SharedAssumption & { specification_id: number };
 export type EntityReference = SharedEntityReference;
 export type EntityRelationship = SharedEntityRelationship;
 export type RequirementEntity = SharedRequirementEntity & { kind_ordinal: number };
@@ -650,7 +648,6 @@ function projectKnowledgeItemEntity<K extends 'decision' | 'assumption'>(
   const base = {
     id: item.id,
     specification_id: item.specification_id,
-    project_id: item.specification_id,
     content: item.content,
     kind_ordinal: item.kind_ordinal,
   };
@@ -805,7 +802,7 @@ function getGenericKnowledgeEntitiesForSpecificationByKind<K extends GenericKnow
 ): Array<GenericKnowledgeEntity<K>> {
   return getKnowledgeItemsForSpecificationByKind(db, specificationId, kind).map((item) => ({
     ...item,
-    project_id: item.specification_id,
+    specification_id: item.specification_id,
     kind,
   })) as unknown as Array<GenericKnowledgeEntity<K>>;
 }
@@ -1290,22 +1287,3 @@ export function getCapturedItemsForTurns(
 
   return capturedItemsByTurn;
 }
-
-// Deprecated compatibility aliases. Card 3 removes these after callers move.
-export type Project = Specification;
-export type CreateProjectOptions = CreateSpecificationOptions;
-export type EntitiesForProject = EntitiesForSpecification;
-export const getOrCreateProject = getOrCreateSpecification;
-export const listProjects = listSpecifications;
-export const createProject = createSpecification;
-export const getProject = getSpecification;
-export const listPhaseOutcomesForProject = listPhaseOutcomesForSpecification;
-export const updateProjectMode = updateSpecificationMode;
-export const getDraftRequirementEntitiesForProject = getDraftRequirementEntitiesForSpecification;
-export const getDraftCriterionEntitiesForProject = getDraftCriterionEntitiesForSpecification;
-export const getAcceptedRequirementEntitiesForProject = getAcceptedRequirementEntitiesForSpecification;
-export const getAcceptedCriterionEntitiesForProject = getAcceptedCriterionEntitiesForSpecification;
-export const getGroundingBundleForProject = getGroundingBundleForSpecification;
-export const getEntitiesForProjectByMode = getEntitiesForSpecificationByMode;
-export const getEntitiesForProject = getEntitiesForSpecification;
-export const getEntitiesForProjectOnActivePath = getEntitiesForSpecificationOnActivePath;

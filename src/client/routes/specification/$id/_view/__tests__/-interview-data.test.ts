@@ -6,7 +6,7 @@ import {
   getAcceptedClosureReplay,
   getPersistedSelectedPositions,
 } from '@/shared/specification-state.js';
-import type { SpecificationState as ProjectState } from '@/shared/specification.js';
+import type { SpecificationState } from '@/shared/specification.js';
 
 import {
   buildPhaseTurnIds,
@@ -36,9 +36,9 @@ function createSpecificationState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
-  workflow?: ProjectState['workflow'];
-  turns?: ProjectState['turns'];
-} = {}): ProjectState {
+  workflow?: SpecificationState['workflow'];
+  turns?: SpecificationState['turns'];
+} = {}): SpecificationState {
   const resolvedTurns = turns ?? [
     {
       id: 1,
@@ -58,8 +58,8 @@ function createSpecificationState({
     },
   ];
 
-  const projectState: ProjectState = {
-    project: {
+  const projectState: SpecificationState = {
+    specification: {
       id: projectId,
       name: `Project ${projectId}`,
       mode: 'greenfield',
@@ -125,7 +125,7 @@ describe('workspace controller core', () => {
     const durableSpecification = createInterviewDurableSpecificationState(projectState);
     const ephemeralChat = createInterviewEphemeralChatState(projectState);
 
-    expect(durableSpecification.project).toEqual(projectState.project);
+    expect(durableSpecification.specification).toEqual(projectState.specification);
     expect(durableSpecification.turns).toEqual(projectState.turns);
     expect(durableSpecification.lastTurn?.id).toBe(1);
     expect(durableSpecification.showTurnCard).toBe(true);
@@ -146,18 +146,18 @@ describe('workspace controller core', () => {
   });
 
   it('derives fresh seed messages from persisted turns without owning hydration timing', () => {
-    const initialProjectState = createSpecificationState({
+    const initialSpecificationState = createSpecificationState({
       assistantText: 'What should we build first?',
       answer: 'Build the web app',
     });
-    const refreshedProjectState = createSpecificationState({
-      projectId: initialProjectState.project!.id,
+    const refreshedSpecificationState = createSpecificationState({
+      projectId: initialSpecificationState.specification!.id,
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
     });
 
-    const initialChat = createInterviewEphemeralChatState(initialProjectState);
-    const refreshedChat = createInterviewEphemeralChatState(refreshedProjectState);
+    const initialChat = createInterviewEphemeralChatState(initialSpecificationState);
+    const refreshedChat = createInterviewEphemeralChatState(refreshedSpecificationState);
 
     expect(refreshedChat.seedMessages).not.toEqual(initialChat.seedMessages);
   });
@@ -338,7 +338,7 @@ describe('workspace controller core', () => {
     ];
 
     expect(createInterviewControllerViewState(proposedScope, 'grounding', messages, false)).toEqual({
-      project: proposedScope.project,
+      specification: proposedScope.specification,
       workflow: proposedScope.workflow,
       bottomArtifact: {
         kind: 'phase-summary',
@@ -399,12 +399,12 @@ describe('workspace controller core', () => {
     );
 
     expect(createInterviewControllerViewState(recoveryState, 'grounding', [], false)).toEqual({
-      project: recoveryState.project,
+      specification: recoveryState.specification,
       workflow: recoveryState.workflow,
       bottomArtifact: { kind: 'recovery', recovery: { phase: 'grounding' } },
     });
     expect(createInterviewControllerViewState(recoveryState, 'grounding', [], true)).toEqual({
-      project: recoveryState.project,
+      specification: recoveryState.specification,
       workflow: recoveryState.workflow,
       bottomArtifact: { kind: 'generating' },
     });
@@ -458,7 +458,7 @@ describe('workspace controller core', () => {
     );
 
     expect(createInterviewControllerViewState(kickoffState, 'grounding', [], false)).toEqual({
-      project: kickoffState.project,
+      specification: kickoffState.specification,
       workflow: kickoffState.workflow,
       bottomArtifact: { kind: 'kickoff', kickoff: { phase: 'grounding', mode: 'start' } },
     });
@@ -523,15 +523,15 @@ describe('workspace controller core', () => {
     );
 
     expect(createInterviewControllerViewState(submittedResponse, 'grounding', [], true, 1)).toEqual({
-      project: submittedResponse.project,
+      specification: submittedResponse.specification,
       workflow: submittedResponse.workflow,
       bottomArtifact: { kind: 'persisted-turn', turn: submittedResponse.lastTurn!, state: 'submitted' },
     });
   });
 
   it('projects a pending question before any durable turn exists', () => {
-    const emptyProjectState: ProjectState = {
-      project: {
+    const emptySpecificationState: SpecificationState = {
+      specification: {
         id: 1,
         name: 'Project 1',
         mode: 'greenfield',
@@ -605,8 +605,8 @@ describe('workspace controller core', () => {
       },
     ];
 
-    const durableSpecification = createInterviewDurableSpecificationState(emptyProjectState);
-    const ephemeralChat = createInterviewEphemeralChatState(emptyProjectState);
+    const durableSpecification = createInterviewDurableSpecificationState(emptySpecificationState);
+    const ephemeralChat = createInterviewEphemeralChatState(emptySpecificationState);
     const viewState = createInterviewControllerViewState(
       durableSpecification,
       'grounding',
@@ -615,8 +615,8 @@ describe('workspace controller core', () => {
     );
 
     expect(ephemeralChat.seedMessages).toEqual([]);
-    expect(viewState.project).toEqual(emptyProjectState.project);
-    expect(viewState.workflow).toEqual(emptyProjectState.workflow);
+    expect(viewState.specification).toEqual(emptySpecificationState.specification);
+    expect(viewState.workflow).toEqual(emptySpecificationState.workflow);
     expect(viewState.bottomArtifact).toEqual({
       kind: 'pending-question',
       pendingQuestion: {
@@ -779,13 +779,13 @@ describe('workspace controller core', () => {
         options: [{ id: 21, position: 0, content: 'Monolith', is_recommended: true, is_selected: false }],
       },
     ];
-    projectState.project!.active_turn_id = 2;
+    projectState.specification!.active_turn_id = 2;
     projectState.landing = deriveSpecificationLanding(projectState);
 
     const durableSpecification = createInterviewDurableSpecificationState(projectState);
 
     expect(createInterviewControllerViewState(durableSpecification, 'grounding', [], false)).toEqual({
-      project: durableSpecification.project,
+      specification: durableSpecification.specification,
       workflow: durableSpecification.workflow,
       bottomArtifact: {
         kind: 'phase-handoff',
@@ -796,7 +796,7 @@ describe('workspace controller core', () => {
       },
     });
     expect(createInterviewControllerViewState(durableSpecification, 'design', [], false)).toEqual({
-      project: durableSpecification.project,
+      specification: durableSpecification.specification,
       workflow: durableSpecification.workflow,
       bottomArtifact: {
         kind: 'persisted-turn',

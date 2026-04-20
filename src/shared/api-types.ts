@@ -85,9 +85,9 @@ const capturedTurnItemSchema = z.object({
   referenceCode: z.string().optional(),
 });
 
-const legacyProjectStateTurnInputSchema = z.object({
+export const specificationStateTurnSchema = z.object({
   id: z.number().int().positive(),
-  project_id: z.number().int().positive(),
+  specification_id: z.number().int().positive(),
   parent_turn_id: z.number().int().positive().nullable(),
   phase: workflowPhaseSchema,
   turn_kind: turnKindSchema.optional(),
@@ -102,26 +102,6 @@ const legacyProjectStateTurnInputSchema = z.object({
   options: z.array(turnOptionSchema).optional(),
   captured_items: z.array(capturedTurnItemSchema).optional(),
 });
-
-const canonicalSpecificationStateTurnInputSchema = legacyProjectStateTurnInputSchema
-  .omit({ project_id: true })
-  .extend({
-    specification_id: legacyProjectStateTurnInputSchema.shape.project_id,
-  });
-
-export const specificationStateTurnSchema = z
-  .union([canonicalSpecificationStateTurnInputSchema, legacyProjectStateTurnInputSchema])
-  .transform((turn) => {
-    if ('project_id' in turn) {
-      const { project_id, ...rest } = turn;
-      return {
-        ...rest,
-        specification_id: project_id,
-      };
-    }
-
-    return turn;
-  });
 
 export const createSpecificationRequestSchema = z
   .object({
@@ -138,56 +118,19 @@ export const specificationListItemSchema = specificationSchema.extend({
 
 export const specificationListItemsSchema = z.array(specificationListItemSchema);
 
-const canonicalSpecificationStateInputSchema = z.object({
+export const specificationStateSchema = z.object({
   specification: specificationSchema,
   workflow: workflowStateSchema,
   landing: specificationLandingSchema.nullable().optional(),
   turns: z.array(specificationStateTurnSchema),
 });
 
-const legacyProjectStateInputSchema = z.object({
-  project: specificationSchema,
-  workflow: workflowStateSchema,
-  landing: specificationLandingSchema.nullable().optional(),
-  turns: z.array(specificationStateTurnSchema),
-});
-
-export const specificationStateSchema = z
-  .union([canonicalSpecificationStateInputSchema, legacyProjectStateInputSchema])
-  .transform((state) => {
-    if ('project' in state) {
-      const { project, ...rest } = state;
-      return {
-        ...rest,
-        specification: project,
-      };
-    }
-
-    return state;
-  });
-
 const knowledgeItemKindSchema = z.enum(knowledgeKinds);
 
 function specificationOwnedSchema<T extends z.ZodRawShape>(shape: T) {
-  const legacy = z.object({
-    project_id: z.number().int().positive(),
-    ...shape,
-  });
-  const canonical = z.object({
+  return z.object({
     specification_id: z.number().int().positive(),
     ...shape,
-  });
-
-  return z.union([canonical, legacy]).transform((entity) => {
-    if ('project_id' in entity) {
-      const { project_id, ...rest } = entity;
-      return {
-        ...rest,
-        specification_id: project_id,
-      };
-    }
-
-    return entity;
   });
 }
 
@@ -298,15 +241,6 @@ export const submitPhaseIntentResponseSchema = z.object({
   ok: z.literal(true),
 });
 
-export const projectModeSchema = specificationModeSchema;
-export const projectSchema = specificationSchema;
-export const projectStateTurnSchema = specificationStateTurnSchema;
-export const createProjectRequestSchema = createSpecificationRequestSchema;
-export const createProjectResponseSchema = createSpecificationResponseSchema;
-export const projectListItemSchema = specificationListItemSchema;
-export const projectListItemsSchema = specificationListItemsSchema;
-export const projectStateSchema = specificationStateSchema;
-
 export type SpecificationMode = z.infer<typeof specificationModeSchema>;
 export type Impact = z.infer<typeof impactSchema>;
 export type TurnKind = z.infer<typeof turnKindSchema>;
@@ -342,11 +276,3 @@ export type SubmitTurnResponseSelectionRequest = z.infer<typeof submitTurnRespon
 export type SubmitTurnResponseFreeTextRequest = z.infer<typeof submitTurnResponseFreeTextRequestSchema>;
 export type SubmitTurnResponseRequest = z.infer<typeof submitTurnResponseRequestSchema>;
 export type SubmitTurnResponseResponse = z.infer<typeof submitTurnResponseResponseSchema>;
-
-export type ProjectMode = SpecificationMode;
-export type Project = Specification;
-export type CreateProjectRequest = CreateSpecificationRequest;
-export type CreateProjectResponse = CreateSpecificationResponse;
-export type ProjectStateTurn = SpecificationStateTurn;
-export type ProjectListItem = SpecificationListItem;
-export type ProjectState = SpecificationState;

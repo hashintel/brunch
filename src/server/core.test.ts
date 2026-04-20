@@ -16,10 +16,10 @@ import {
   createDb,
   createKnowledgeItem,
   createPhaseOutcome,
-  createProject,
+  createSpecification,
   createTurn,
   getActivePath,
-  getProject,
+  getSpecification,
   getTurn,
   linkKnowledgeItemToTurn,
   type DB,
@@ -72,7 +72,7 @@ describe('extractPrompt', () => {
 
 describe('prepareTurn', () => {
   it('persists a new turn with answer and user parts', () => {
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     const userParts: BrunchUserPart[] = [
       { type: 'text', text: 'Use SQLite' },
       {
@@ -83,7 +83,7 @@ describe('prepareTurn', () => {
 
     const prepared = prepareTurn(db, project.id, 'Use SQLite', userParts);
 
-    expect(prepared.project.id).toBe(project.id);
+    expect(prepared.specification.id).toBe(project.id);
     expect(prepared.activePath).toEqual([]);
 
     const persistedTurn = getTurn(db, prepared.turn.id);
@@ -92,7 +92,7 @@ describe('prepareTurn', () => {
   });
 
   it('returns the prior active path for context building', () => {
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     const parent = createTurn(db, project.id, {
       phase: 'grounding',
       question: 'What platform?',
@@ -107,7 +107,7 @@ describe('prepareTurn', () => {
   });
 
   it('selects design as the next turn phase after grounding is confirmed closed', () => {
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     const scopeTurn = createTurn(db, project.id, {
       phase: 'grounding',
       question: 'What platform?',
@@ -147,7 +147,7 @@ describe('prepareTurn', () => {
   });
 
   it('selects requirements as the next turn phase after design is confirmed closed', () => {
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
 
     const scopeTurn = createTurn(db, project.id, {
       phase: 'grounding',
@@ -212,7 +212,7 @@ describe('prepareTurn', () => {
   });
 
   it('selects criteria as the next turn phase after requirements is confirmed closed', () => {
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
 
     const scopeTurn = createTurn(db, project.id, {
       phase: 'grounding',
@@ -309,7 +309,7 @@ describe('prepareTurn', () => {
   });
 
   it('selects requirements as the next turn phase after design is force-closed by the user', () => {
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
 
     const scopeTurn = createTurn(db, project.id, {
       phase: 'grounding',
@@ -383,7 +383,7 @@ describe('prepareTurn', () => {
 
 describe('finalizeTurn', () => {
   it('advances the project head to the completed turn', () => {
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     const turn = createTurn(db, project.id, {
       phase: 'grounding',
       question: '',
@@ -392,13 +392,13 @@ describe('finalizeTurn', () => {
 
     finalizeTurn(db, project.id, turn.id);
 
-    expect(getProject(db, project.id)?.active_turn_id).toBe(turn.id);
+    expect(getSpecification(db, project.id)?.active_turn_id).toBe(turn.id);
   });
 });
 
 describe('getSpecificationState', () => {
   it('keeps projection-only reads free of fabricated kickoff or recovery rows', () => {
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
 
     const kickoffProjection = readSpecificationStateProjection(db, project.id);
 
@@ -423,7 +423,7 @@ describe('getSpecificationState', () => {
   });
 
   it('projects the first grounding landing as kickoff with grounding strategy choices once the runtime seeds entry state', () => {
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     createLegacyKickoffTurnForTesting(db, project.id);
 
     const state = getSpecificationState(db, project.id);
@@ -453,7 +453,7 @@ describe('getSpecificationState', () => {
   });
 
   it('returns specification plus active path turns and projects recovery when the frontier is missing', () => {
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     const turn = createTurn(db, project.id, {
       phase: 'grounding',
       question: 'What are we building?',
@@ -470,7 +470,7 @@ describe('getSpecificationState', () => {
     expect(state ? getSpecificationRecord(state).id : null).toBe(project.id);
     expect(state?.landing).toEqual({ kind: 'recovery', phase: 'grounding' });
     expect(state?.turns.filter((candidate) => candidate.turn_kind === 'question')).toHaveLength(1);
-    expect(state?.turns[0]?.specification_id ?? state?.turns[0]?.project_id).toBe(project.id);
+    expect(state?.turns[0]?.specification_id ?? state?.turns[0]?.specification_id).toBe(project.id);
     expect(state?.turns[0].question).toBe('What are we building?');
     expect(state?.turns[0].turn_kind).toBe('question');
     expect(state?.turns[0].captured_items).toEqual([

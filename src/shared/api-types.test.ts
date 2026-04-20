@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import {
   assumptionEntitySchema,
-  createProjectRequestSchema,
+  createSpecificationRequestSchema,
   criterionEntitySchema,
   decisionEntitySchema,
   entitiesDataSchema,
@@ -10,8 +10,8 @@ import {
   exportLoaderDataSchema,
   knowledgeItemSchema,
   mutationErrorResponseSchema,
-  projectListItemSchema,
-  projectStateSchema,
+  specificationListItemSchema,
+  specificationStateSchema,
   requirementEntitySchema,
   submitTurnResponseRequestSchema,
   submitTurnResponseResponseSchema,
@@ -21,7 +21,7 @@ import { createKnowledgeReferenceCode, knowledgeEntityCollections, knowledgeKind
 describe('api transport contracts', () => {
   it('validates the current project-list payload shape', () => {
     expect(
-      projectListItemSchema.parse({
+      specificationListItemSchema.parse({
         id: 1,
         name: 'Project 1',
         mode: 'greenfield',
@@ -48,7 +48,7 @@ describe('api transport contracts', () => {
 
   it('validates the current specification-state payload shape', () => {
     expect(
-      projectStateSchema.parse({
+      specificationStateSchema.parse({
         specification: {
           id: 1,
           name: 'Specification 1',
@@ -224,7 +224,7 @@ describe('api transport contracts', () => {
       requirements: [
         {
           id: 2,
-          project_id: 1,
+          specification_id: 1,
           kind: 'requirement',
           subtype: null,
           content: 'Resume interviews after reload',
@@ -235,7 +235,7 @@ describe('api transport contracts', () => {
       criteria: [
         {
           id: 3,
-          project_id: 1,
+          specification_id: 1,
           kind: 'criterion',
           subtype: 'acceptance',
           content: 'Reload restores the active path',
@@ -256,7 +256,7 @@ describe('api transport contracts', () => {
     expect(
       decisionEntitySchema.parse({
         id: 4,
-        project_id: 1,
+        specification_id: 1,
         kind: 'decision',
         subtype: null,
         content: 'Use SQLite for local storage',
@@ -274,7 +274,7 @@ describe('api transport contracts', () => {
     expect(
       assumptionEntitySchema.parse({
         id: 5,
-        project_id: 1,
+        specification_id: 1,
         kind: 'assumption',
         subtype: null,
         content: 'Users can work in a browser',
@@ -294,7 +294,7 @@ describe('api transport contracts', () => {
       expect(
         knowledgeItemSchema.parse({
           id: 1,
-          project_id: 1,
+          specification_id: 1,
           kind,
           subtype: null,
           content: `Example ${kind}`,
@@ -316,7 +316,7 @@ describe('api transport contracts', () => {
     expect(() =>
       knowledgeItemSchema.parse({
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         kind: 'framing',
         subtype: null,
         content: 'Legacy kind should fail',
@@ -331,7 +331,7 @@ describe('api transport contracts', () => {
         goals: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             kind: 'goal',
             subtype: null,
             content: 'Ship a useful first version',
@@ -341,7 +341,7 @@ describe('api transport contracts', () => {
         terms: [
           {
             id: 2,
-            project_id: 1,
+            specification_id: 1,
             kind: 'term',
             subtype: null,
             content: 'ticket',
@@ -351,7 +351,7 @@ describe('api transport contracts', () => {
         contexts: [
           {
             id: 3,
-            project_id: 1,
+            specification_id: 1,
             kind: 'context',
             subtype: null,
             content: 'The team currently works from a spreadsheet',
@@ -361,7 +361,7 @@ describe('api transport contracts', () => {
         constraints: [
           {
             id: 4,
-            project_id: 1,
+            specification_id: 1,
             kind: 'constraint',
             subtype: null,
             content: 'Keep the first release simpler than Jira',
@@ -372,7 +372,7 @@ describe('api transport contracts', () => {
         criteria: [
           {
             id: 5,
-            project_id: 1,
+            specification_id: 1,
             kind: 'criterion',
             subtype: null,
             content: 'Export reflects the trusted graph state',
@@ -421,7 +421,7 @@ describe('api transport contracts', () => {
       criteria: [
         {
           id: 5,
-          project_id: 1,
+          specification_id: 1,
           kind: 'criterion',
           subtype: null,
           content: 'Export reflects the trusted graph state',
@@ -462,7 +462,7 @@ describe('api transport contracts', () => {
     expect(() =>
       requirementEntitySchema.parse({
         id: 2,
-        project_id: 1,
+        specification_id: 1,
         kind: 'goal',
         subtype: null,
         content: 'This should not be a requirement',
@@ -473,7 +473,7 @@ describe('api transport contracts', () => {
     expect(() =>
       criterionEntitySchema.parse({
         id: 3,
-        project_id: 1,
+        specification_id: 1,
         kind: 'constraint',
         subtype: null,
         content: 'This should not be a criterion',
@@ -483,12 +483,12 @@ describe('api transport contracts', () => {
   });
 
   it('keeps create-project transport limited to client-authorable fields', () => {
-    expect(createProjectRequestSchema.parse({ name: 'Brunch', mode: 'brownfield' })).toEqual({
+    expect(createSpecificationRequestSchema.parse({ name: 'Brunch', mode: 'brownfield' })).toEqual({
       name: 'Brunch',
       mode: 'brownfield',
     });
     expect(() =>
-      createProjectRequestSchema.parse({ name: 'Brunch', mode: 'brownfield', cwd: '/tmp/repo' }),
+      createSpecificationRequestSchema.parse({ name: 'Brunch', mode: 'brownfield', cwd: '/tmp/repo' }),
     ).toThrow();
   });
 

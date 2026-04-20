@@ -2,7 +2,14 @@ import { createKnowledgeCollectionRecord } from '@/shared/knowledge.js';
 
 import type { TurnWithOptions } from '../core.js';
 import { loadActivePathWithOptions } from '../core.js';
-import { advanceHead, createDb, createProject, createTurn, getEntitiesForProject, type DB } from '../db.js';
+import {
+  advanceHead,
+  createDb,
+  createSpecification,
+  createTurn,
+  getEntitiesForSpecification,
+  type DB,
+} from '../db.js';
 import { runObserver, type ObserverOutput } from '../observer.js';
 import { seedRequirementsReady, type ScenarioFn } from './scenarios.js';
 
@@ -74,7 +81,7 @@ export interface GoldenCorpus {
 }
 
 const seedIssueTrackerGroundingProbe: ScenarioFn = (db, projectName = 'Observer grounding probe') => {
-  const project = createProject(db, projectName);
+  const project = createSpecification(db, projectName);
   const turn = createTurn(db, project.id, {
     phase: 'grounding',
     question: 'What is the primary goal of this issue tracker?',
@@ -86,7 +93,7 @@ const seedIssueTrackerGroundingProbe: ScenarioFn = (db, projectName = 'Observer 
 };
 
 const seedIssueTrackerRequirementsProbe: ScenarioFn = (db, projectName = 'Observer requirements probe') => {
-  const project = createProject(db, projectName);
+  const project = createSpecification(db, projectName);
   const { designConfirmationTurn } = seedRequirementsReady(db, project.id);
   const turn = createTurn(db, project.id, {
     phase: 'requirements',
@@ -214,7 +221,7 @@ function buildExpectedTurnCapture(scenario: ObserverProbeScenario): ObservedTurn
 }
 
 function getAllEntityContentById(db: DB, projectId: number): Map<number, string> {
-  const entities = getEntitiesForProject(db, projectId);
+  const entities = getEntitiesForSpecification(db, projectId);
   const contentById = new Map<number, string>();
 
   for (const item of entities.goals) contentById.set(item.id, item.content);
@@ -235,7 +242,7 @@ function getEntityIdByKindAndContent(
   kind: DependencyKind,
   content: string,
 ): number {
-  const entities = getEntitiesForProject(db, projectId);
+  const entities = getEntitiesForSpecification(db, projectId);
   const collection = kind === 'decision' ? entities.decisions : entities.assumptions;
   const match = collection.find((item) => item.content === content);
   if (!match) {
@@ -324,7 +331,7 @@ function collectObservedTurnCapture(
   projectId: number,
   createdIds: Awaited<ReturnType<typeof runObserver>>,
 ): ObservedTurnCapture {
-  const entities = getEntitiesForProject(db, projectId);
+  const entities = getEntitiesForSpecification(db, projectId);
   const createdIdSet = new Set<number>([
     ...createdIds.entityIds.goals,
     ...createdIds.entityIds.terms,

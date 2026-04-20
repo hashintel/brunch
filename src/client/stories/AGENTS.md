@@ -91,5 +91,5 @@ Key canonical sources:
 
 - Use `createKnowledgeReferenceCode` from `@/shared/knowledge.js` for reference codes.
 - Fixture data should be realistic and domain-appropriate (specification elicitation tool).
-- For `ProjectStateTurn` fixtures, include `user_parts` with the `data-turn-response` format for persisted responses.
+- For `SpecificationStateTurn` fixtures, include `user_parts` with the `data-turn-response` format for persisted responses.
 - Wire `onClick` handlers to `console.log` in non-interactive contexts.

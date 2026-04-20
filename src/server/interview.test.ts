@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 
 import { structuredQuestionSchema, type StructuredQuestion } from '@/shared/chat.js';
 
-import { createDb, createProject, createTurn, getOptionsForTurn, getTurn, type DB } from './db.js';
+import { createDb, createSpecification, createTurn, getOptionsForTurn, getTurn, type DB } from './db.js';
 import {
   buildReviewSetForPhase,
   canProposePhaseClosure,
@@ -145,7 +145,7 @@ describe('canProposePhaseClosure', () => {
 
 describe('persistStructuredQuestion', () => {
   it('stores question metadata and options on the turn', () => {
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: 'hello' });
 
     persistStructuredQuestion(db, turn.id, {
@@ -173,9 +173,9 @@ describe('persistStructuredQuestion', () => {
 describe('createProposePhaseClosureTool', () => {
   it('persists the server-known phase, not the LLM-provided input phase', async () => {
     const { createProposePhaseClosureTool } = await import('./interview.js');
-    const { listPhaseOutcomesForProject } = await import('./db.js');
+    const { listPhaseOutcomesForSpecification } = await import('./db.js');
 
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     const turn = createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
 
     const tool = createProposePhaseClosureTool(db, turn.id, 'design', project.id);
@@ -185,7 +185,7 @@ describe('createProposePhaseClosureTool', () => {
       { toolCallId: 'tc-1', messages: [], abortSignal: new AbortController().signal },
     );
 
-    const outcomes = listPhaseOutcomesForProject(db, project.id);
+    const outcomes = listPhaseOutcomesForSpecification(db, project.id);
     expect(outcomes).toHaveLength(1);
     expect(outcomes[0].phase).toBe('design');
   });
@@ -193,7 +193,7 @@ describe('createProposePhaseClosureTool', () => {
 
 describe('brownfield interviewer configuration', () => {
   it('adds read-only exploration tools during brownfield grounding', () => {
-    const project = createProject(db, 'BF', { mode: 'brownfield' });
+    const project = createSpecification(db, 'BF', { mode: 'brownfield' });
     const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
     const tools = getInterviewerTools(db, turn.id, 'grounding', project.id, {
       mode: 'brownfield',
@@ -209,7 +209,7 @@ describe('brownfield interviewer configuration', () => {
   });
 
   it('keeps brownfield exploration tools read-only', () => {
-    const project = createProject(db, 'BF', { mode: 'brownfield' });
+    const project = createSpecification(db, 'BF', { mode: 'brownfield' });
     const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
     const tools = getInterviewerTools(db, turn.id, 'grounding', project.id, {
       mode: 'brownfield',
@@ -223,7 +223,7 @@ describe('brownfield interviewer configuration', () => {
   });
 
   it('removes brownfield exploration tools after grounding', () => {
-    const project = createProject(db, 'BF', { mode: 'brownfield' });
+    const project = createSpecification(db, 'BF', { mode: 'brownfield' });
     const turn = createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
     const tools = getInterviewerTools(db, turn.id, 'design', project.id, {
       mode: 'brownfield',
@@ -239,7 +239,7 @@ describe('brownfield interviewer configuration', () => {
   });
 
   it('excludes core tools when mode is greenfield', () => {
-    const project = createProject(db, 'GF');
+    const project = createSpecification(db, 'GF');
     const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
     const tools = getInterviewerTools(db, turn.id, 'grounding', project.id);
     const toolNames = Object.keys(tools);
@@ -294,7 +294,7 @@ describe('buildReviewSetForPhase', () => {
         requirements: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             kind: 'requirement',
             subtype: null,
             content: 'Resume the interview from SQLite after restart',
@@ -322,7 +322,7 @@ describe('buildReviewSetForPhase', () => {
         criteria: [
           {
             id: 2,
-            project_id: 1,
+            specification_id: 1,
             kind: 'criterion',
             subtype: null,
             content: 'Restarting restores the active path',
@@ -352,7 +352,7 @@ describe('buildReviewSetForPhase', () => {
 
 describe('persistFallbackQuestionText', () => {
   it('fills the question only when the turn does not already have one', () => {
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: 'hello' });
 
     persistFallbackQuestionText(db, turn.id, 'Fallback question');

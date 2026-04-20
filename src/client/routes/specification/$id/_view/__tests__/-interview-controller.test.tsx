@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EntitiesData } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { deriveSpecificationLanding } from '@/shared/specification-state.js';
-import type { SpecificationState as ProjectState } from '@/shared/specification.js';
+import type { SpecificationState } from '@/shared/specification.js';
 
 import { useInterviewController } from '../-interview-controller.js';
 import { resetSpecificationLifecycleRegistryForTesting } from '../-specification-lifecycle.js';
@@ -52,7 +52,7 @@ type UseChatHarness = {
   onFinish?: UseChatOptions['onFinish'];
 };
 
-let currentProjectState: ProjectState;
+let currentSpecificationState: SpecificationState;
 let currentEntityState: EntitiesData;
 const routerInvalidate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
@@ -67,7 +67,7 @@ let useChatHarness: UseChatHarness;
 
 vi.mock('@tanstack/react-router', () => ({
   useLoaderData: ({ from }: { from: string }) => {
-    if (from === '/specification/$id') return currentProjectState;
+    if (from === '/specification/$id') return currentSpecificationState;
     if (from === '/specification/$id/_view') return currentEntityState;
     throw new Error(`Unexpected useLoaderData from: ${from}`);
   },
@@ -107,8 +107,8 @@ function createSpecificationState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
-  turns?: ProjectState['turns'];
-} = {}): ProjectState {
+  turns?: SpecificationState['turns'];
+} = {}): SpecificationState {
   const resolvedTurns = turns ?? [
     {
       id: 1,
@@ -128,8 +128,8 @@ function createSpecificationState({
     },
   ];
 
-  const projectState: ProjectState = {
-    project: {
+  const projectState: SpecificationState = {
+    specification: {
       id: projectId,
       name: `Project ${projectId}`,
       mode: 'greenfield',
@@ -269,7 +269,7 @@ function ControllerProbe({
 
   return (
     <div>
-      <div data-testid="project-name">{workspace.project.name}</div>
+      <div data-testid="project-name">{workspace.specification.name}</div>
       <div data-testid="messages">{messageText(workspace.chat.messages)}</div>
       <div data-testid="bottom-artifact-kind">{workspace.bottomArtifact?.kind ?? 'none'}</div>
       <div data-testid="bottom-artifact-live-activity">
@@ -332,7 +332,7 @@ function renderController(phase: 'grounding' | 'design' | 'requirements' | 'crit
 }
 
 beforeEach(() => {
-  currentProjectState = createSpecificationState();
+  currentSpecificationState = createSpecificationState();
   currentEntityState = createEntityState();
   routerInvalidate.mockClear();
   fetchMock.mockReset();
@@ -349,11 +349,11 @@ afterEach(() => {
 
 describe('interview controller', () => {
   it('projects a kickoff turn card when an open phase has no active frontier turn yet', async () => {
-    currentProjectState = createSpecificationState({ assistantText: '', answer: '' });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.grounding.turnId = null;
-    currentProjectState.turns = [];
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState = createSpecificationState({ assistantText: '', answer: '' });
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding.turnId = null;
+    currentSpecificationState.turns = [];
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     renderController();
 
@@ -362,8 +362,8 @@ describe('interview controller', () => {
   });
 
   it('projects a workspace handoff when the current phase is closed and a later phase remains open', async () => {
-    currentProjectState = createSpecificationState();
-    currentProjectState.workflow.phases.grounding = {
+    currentSpecificationState = createSpecificationState();
+    currentSpecificationState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -372,8 +372,8 @@ describe('interview controller', () => {
       turnId: 1,
       summary: 'Grounding is complete.',
     };
-    currentProjectState.workflow.phases.design.status = 'in_progress';
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.workflow.phases.design.status = 'in_progress';
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     renderController();
 
@@ -384,14 +384,14 @@ describe('interview controller', () => {
   });
 
   it('projects workflow completion when the final review phase is closed', async () => {
-    currentProjectState = createSpecificationState();
-    currentProjectState.workflow.phases.grounding.status = 'closed';
-    currentProjectState.workflow.phases.grounding.readiness = 'high';
-    currentProjectState.workflow.phases.design.status = 'closed';
-    currentProjectState.workflow.phases.design.readiness = 'high';
-    currentProjectState.workflow.phases.requirements.status = 'closed';
-    currentProjectState.workflow.phases.requirements.readiness = 'high';
-    currentProjectState.workflow.phases.criteria = {
+    currentSpecificationState = createSpecificationState();
+    currentSpecificationState.workflow.phases.grounding.status = 'closed';
+    currentSpecificationState.workflow.phases.grounding.readiness = 'high';
+    currentSpecificationState.workflow.phases.design.status = 'closed';
+    currentSpecificationState.workflow.phases.design.readiness = 'high';
+    currentSpecificationState.workflow.phases.requirements.status = 'closed';
+    currentSpecificationState.workflow.phases.requirements.readiness = 'high';
+    currentSpecificationState.workflow.phases.criteria = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -400,7 +400,7 @@ describe('interview controller', () => {
       turnId: 1,
       summary: 'Acceptance criteria are complete.',
     };
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     renderController('criteria');
 
@@ -411,12 +411,12 @@ describe('interview controller', () => {
   });
 
   it('auto-continues grounding recovery when an open phase has a completed turn but no successor frontier', async () => {
-    currentProjectState = createSpecificationState({
+    currentSpecificationState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.workflow.phases.grounding.turnId = null;
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.workflow.phases.grounding.turnId = null;
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -442,10 +442,10 @@ describe('interview controller', () => {
   });
 
   it('submits the grounding strategy kickoff from landing-only state without a seeded kickoff turn', async () => {
-    currentProjectState = createSpecificationState({ assistantText: '', answer: '', turns: [] });
-    currentProjectState.workflow.phases.grounding.turnId = null;
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState = createSpecificationState({ assistantText: '', answer: '', turns: [] });
+    currentSpecificationState.workflow.phases.grounding.turnId = null;
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -484,12 +484,12 @@ describe('interview controller', () => {
   });
 
   it('submits recovery through the phase-continue intent seam', async () => {
-    currentProjectState = createSpecificationState({
+    currentSpecificationState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.workflow.phases.grounding.turnId = null;
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.workflow.phases.grounding.turnId = null;
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -528,9 +528,9 @@ describe('interview controller', () => {
   });
 
   it('auto-submits a typed phase-entry for the current reachable kickoff phase', async () => {
-    currentProjectState = createSpecificationState({ turns: [] });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.grounding = {
+    currentSpecificationState = createSpecificationState({ turns: [] });
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -539,7 +539,7 @@ describe('interview controller', () => {
       turnId: 11,
       summary: 'Grounding complete.',
     };
-    currentProjectState.workflow.phases.design = {
+    currentSpecificationState.workflow.phases.design = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -548,7 +548,7 @@ describe('interview controller', () => {
       turnId: 12,
       summary: 'Elicitation complete.',
     };
-    currentProjectState.workflow.phases.requirements = {
+    currentSpecificationState.workflow.phases.requirements = {
       status: 'in_progress',
       closeability: false,
       readiness: 'low',
@@ -557,7 +557,7 @@ describe('interview controller', () => {
       turnId: null,
       summary: null,
     };
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -594,11 +594,11 @@ describe('interview controller', () => {
   });
 
   it('auto-submits a typed phase-continue for the current reachable recovery phase', async () => {
-    currentProjectState = createSpecificationState({
+    currentSpecificationState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.grounding = {
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -607,7 +607,7 @@ describe('interview controller', () => {
       turnId: 11,
       summary: 'Grounding complete.',
     };
-    currentProjectState.workflow.phases.design = {
+    currentSpecificationState.workflow.phases.design = {
       status: 'in_progress',
       closeability: false,
       readiness: 'medium',
@@ -616,13 +616,13 @@ describe('interview controller', () => {
       turnId: null,
       summary: null,
     };
-    currentProjectState.turns = [
+    currentSpecificationState.turns = [
       {
-        ...currentProjectState.turns[0]!,
+        ...currentSpecificationState.turns[0]!,
         phase: 'design',
       },
     ];
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -659,9 +659,9 @@ describe('interview controller', () => {
   });
 
   it('does not duplicate the auto phase-entry submit across rerender and remount', async () => {
-    currentProjectState = createSpecificationState({ turns: [] });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.grounding = {
+    currentSpecificationState = createSpecificationState({ turns: [] });
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -670,7 +670,7 @@ describe('interview controller', () => {
       turnId: 11,
       summary: 'Grounding complete.',
     };
-    currentProjectState.workflow.phases.design = {
+    currentSpecificationState.workflow.phases.design = {
       status: 'in_progress',
       closeability: false,
       readiness: 'low',
@@ -679,7 +679,7 @@ describe('interview controller', () => {
       turnId: null,
       summary: null,
     };
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
@@ -716,11 +716,11 @@ describe('interview controller', () => {
   });
 
   it('does not duplicate the auto phase-continue submit across rerender and remount', async () => {
-    currentProjectState = createSpecificationState({
+    currentSpecificationState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.grounding = {
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -729,7 +729,7 @@ describe('interview controller', () => {
       turnId: 11,
       summary: 'Grounding complete.',
     };
-    currentProjectState.workflow.phases.design = {
+    currentSpecificationState.workflow.phases.design = {
       status: 'in_progress',
       closeability: false,
       readiness: 'medium',
@@ -738,13 +738,13 @@ describe('interview controller', () => {
       turnId: null,
       summary: null,
     };
-    currentProjectState.turns = [
+    currentSpecificationState.turns = [
       {
-        ...currentProjectState.turns[0]!,
+        ...currentSpecificationState.turns[0]!,
         phase: 'design',
       },
     ];
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
@@ -781,12 +781,12 @@ describe('interview controller', () => {
   });
 
   it('suppresses repeated auto phase-continue retries after a failed submit until landing changes', async () => {
-    currentProjectState = createSpecificationState({
+    currentSpecificationState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.grounding.turnId = null;
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding.turnId = null;
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockRejectedValueOnce(new Error('network down'));
 
@@ -813,9 +813,9 @@ describe('interview controller', () => {
   });
 
   it('falls back to the projected kickoff card when auto phase-entry submit rejects', async () => {
-    currentProjectState = createSpecificationState({ turns: [] });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.grounding = {
+    currentSpecificationState = createSpecificationState({ turns: [] });
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -824,7 +824,7 @@ describe('interview controller', () => {
       turnId: 11,
       summary: 'Grounding complete.',
     };
-    currentProjectState.workflow.phases.design = {
+    currentSpecificationState.workflow.phases.design = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -833,7 +833,7 @@ describe('interview controller', () => {
       turnId: 12,
       summary: 'Elicitation complete.',
     };
-    currentProjectState.workflow.phases.requirements = {
+    currentSpecificationState.workflow.phases.requirements = {
       status: 'in_progress',
       closeability: false,
       readiness: 'low',
@@ -842,7 +842,7 @@ describe('interview controller', () => {
       turnId: null,
       summary: null,
     };
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -878,7 +878,7 @@ describe('interview controller', () => {
   });
 
   it('threads live assistant activity onto the streamed bottom artifact while the next question is generating', async () => {
-    currentProjectState = createSpecificationState({
+    currentSpecificationState = createSpecificationState({
       assistantText: 'Earlier question?',
       answer: 'Earlier answer',
     });
@@ -916,7 +916,7 @@ describe('interview controller', () => {
   });
 
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
-    currentProjectState = createSpecificationState({
+    currentSpecificationState = createSpecificationState({
       assistantText: 'Earlier question?',
       answer: 'Earlier answer',
     });
@@ -942,7 +942,7 @@ describe('interview controller', () => {
   });
 
   it('seeds chat state from loader data while auto-continuing the current reachable recovery phase', async () => {
-    currentProjectState = createSpecificationState({
+    currentSpecificationState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
 
@@ -978,7 +978,7 @@ describe('interview controller', () => {
       'Build the web app|What should we build first?',
     );
 
-    currentProjectState = createSpecificationState({
+    currentSpecificationState = createSpecificationState({
       projectId: 2,
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
@@ -1035,7 +1035,7 @@ describe('interview controller', () => {
       'Build the web app|What should we build first?',
     );
 
-    currentProjectState = createSpecificationState({
+    currentSpecificationState = createSpecificationState({
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
     });

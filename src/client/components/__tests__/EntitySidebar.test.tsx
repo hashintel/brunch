@@ -35,7 +35,7 @@ describe('EntitySidebar', () => {
           requirements: [
             {
               id: 3,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Export the reviewed spec',
@@ -44,7 +44,7 @@ describe('EntitySidebar', () => {
             },
             {
               id: 4,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Support exporting the spec as a PDF',
@@ -53,7 +53,7 @@ describe('EntitySidebar', () => {
             },
             {
               id: 5,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Resume the interview from SQLite after restart',
@@ -83,7 +83,7 @@ describe('EntitySidebar', () => {
           goals: [
             {
               id: 1,
-              project_id: 1,
+              specification_id: 1,
               kind: 'goal',
               subtype: null,
               content: 'Ship a faithful active-path export',
@@ -94,7 +94,7 @@ describe('EntitySidebar', () => {
           terms: [
             {
               id: 2,
-              project_id: 1,
+              specification_id: 1,
               kind: 'term',
               subtype: null,
               content: 'Invisible term',
@@ -105,7 +105,7 @@ describe('EntitySidebar', () => {
           contexts: [
             {
               id: 3,
-              project_id: 1,
+              specification_id: 1,
               kind: 'context',
               subtype: null,
               content: 'Current flow is chat-first',
@@ -116,7 +116,7 @@ describe('EntitySidebar', () => {
           requirements: [
             {
               id: 4,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Export must be markdown',
@@ -127,7 +127,7 @@ describe('EntitySidebar', () => {
           criteria: [
             {
               id: 5,
-              project_id: 1,
+              specification_id: 1,
               kind: 'criterion',
               subtype: null,
               content: 'Export reflects approved items only',
@@ -138,7 +138,7 @@ describe('EntitySidebar', () => {
           decisions: [
             {
               id: 6,
-              project_id: 1,
+              specification_id: 1,
               content: 'Use the active-path entity projection for routed state',
               rationale: 'Keeps routed state aligned with export',
               referenceCode: createKnowledgeReferenceCode('decision', 1),
@@ -147,7 +147,7 @@ describe('EntitySidebar', () => {
           assumptions: [
             {
               id: 7,
-              project_id: 1,
+              specification_id: 1,
               content: 'Users only trust the current branch state',
               referenceCode: createKnowledgeReferenceCode('assumption', 1),
             },
@@ -179,7 +179,7 @@ describe('EntitySidebar', () => {
           goals: [
             {
               id: 1,
-              project_id: 1,
+              specification_id: 1,
               kind: 'goal',
               subtype: null,
               content: 'Ship something useful',
@@ -190,7 +190,7 @@ describe('EntitySidebar', () => {
           contexts: [
             {
               id: 2,
-              project_id: 1,
+              specification_id: 1,
               kind: 'context',
               subtype: null,
               content: 'Users already work in docs',
@@ -201,7 +201,7 @@ describe('EntitySidebar', () => {
           constraints: [
             {
               id: 3,
-              project_id: 1,
+              specification_id: 1,
               kind: 'constraint',
               subtype: null,
               content: 'Keep first run local-first',
@@ -226,7 +226,7 @@ describe('EntitySidebar', () => {
           goals: [
             {
               id: 1,
-              project_id: 1,
+              specification_id: 1,
               kind: 'goal',
               subtype: null,
               content: 'Ship a useful first version',
@@ -237,7 +237,7 @@ describe('EntitySidebar', () => {
           contexts: [
             {
               id: 2,
-              project_id: 1,
+              specification_id: 1,
               kind: 'context',
               subtype: null,
               content: 'The team currently works from a spreadsheet',
@@ -269,7 +269,7 @@ describe('EntitySidebar', () => {
           goals: [
             {
               id: 1,
-              project_id: 1,
+              specification_id: 1,
               kind: 'goal',
               subtype: null,
               content: 'Ship a useful first version',

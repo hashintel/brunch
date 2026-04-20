@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 import { getSpecificationRecord } from '@/shared/specification.js';
 
 import { getSpecificationState } from '../core.js';
-import { createDb, getActivePath, getEntitiesForProjectOnActivePath } from '../db.js';
+import { createDb, getActivePath, getEntitiesForSpecificationOnActivePath } from '../db.js';
 import { renderExportMarkdown } from '../export.js';
 import {
   publicScenarios,
@@ -174,7 +174,7 @@ describe('walkthroughScenarioMatrix', () => {
       expect(projectState).not.toBeNull();
       const markdown = renderExportMarkdown(
         getSpecificationRecord(projectState!).name,
-        getEntitiesForProjectOnActivePath(db, projectId),
+        getEntitiesForSpecificationOnActivePath(db, projectId),
         projectState!.workflow,
       );
 

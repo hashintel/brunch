@@ -45,10 +45,7 @@ type ActivePathTurn = Turn & {
 };
 
 function toSpecificationTurn(turn: ActivePathTurn): TurnWithOptions {
-  return {
-    ...turn,
-    project_id: turn.specification_id,
-  };
+  return turn;
 }
 
 function toSpecification(specification: PersistedSpecification): Specification {
@@ -89,7 +86,7 @@ export function prepareTurn(
     answer: userMessage,
     user_parts: serializeParts(userParts),
   });
-  return { project: specification, turn, activePath };
+  return { specification, turn, activePath };
 }
 
 export function prepareSuccessorTurn(
@@ -109,7 +106,7 @@ export function prepareSuccessorTurn(
     user_parts: null,
     assistant_parts: null,
   });
-  return { project: specification, turn, activePath };
+  return { specification, turn, activePath };
 }
 
 export function resolveTurn(db: DB, turnId: number, userMessage: string, userParts: BrunchUserPart[]): Turn {

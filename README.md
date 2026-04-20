@@ -52,7 +52,7 @@ Open http://localhost:5173.
 
 ## Fixture scenarios
 
-Seed the dev database with pre-built project states for testing and development:
+Seed the dev database with pre-built specification states for testing and development:
 
 ```bash
 # List available scenarios
@@ -119,7 +119,7 @@ src/
 │
 ├── server/
 │   ├── app.ts          # Express routes + AI SDK stream composition
-│   ├── core.ts         # Frontier preparation, project state loading, active-path helpers
+│   ├── core.ts         # Frontier preparation, specification state loading, active-path helpers
 │   ├── interview.ts    # ToolLoopAgent interviewer + prompting/tool config
 │   ├── observer.ts     # generateObject observer + knowledge persistence
 │   ├── context.ts      # Typed context builders
@@ -133,17 +133,17 @@ src/
     ├── chat.ts         # BrunchUIMessage types, data-part schemas, tool contracts
     ├── api-types.ts    # API response types
     ├── phase-close.ts  # Workflow phase + closure logic
-    └── project-state-turn.ts # Helpers over persisted turn state and replay artifacts
+    └── specification-state.ts # Helpers over persisted turn state and replay artifacts
 ```
 
 ### Data flow
 
-1. User input → `useChat` (AI SDK React) → `DefaultChatTransport` → POST `/api/projects/:id/chat`
+1. User input → `useChat` (AI SDK React) → `DefaultChatTransport` → POST `/api/specifications/:id/chat`
 2. Express validates incoming `BrunchUIMessage[]` via `validateUIMessages`
 3. `prepareTurn()` creates a turn in the turn tree, builds interviewer context
 4. `ToolLoopAgent` streams response → `toUIMessageStream()` → `pipeUIMessageStreamToResponse()`
 5. On stream finish: observer runs (`generateObject`), entities persisted, `data-observer-result` part emitted in-band
-6. Client `useChat` accumulates parts; `onData` invalidates entity query; `onFinish` refreshes project state
+6. Client `useChat` accumulates parts; `onData` invalidates entity query; `onFinish` refreshes specification state
 
 ### Key patterns
 

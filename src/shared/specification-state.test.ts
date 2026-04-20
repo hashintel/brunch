@@ -16,15 +16,12 @@ import {
   turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
 } from './specification-state.js';
-import type {
-  SpecificationState as ProjectState,
-  SpecificationTurn as ProjectStateTurn,
-} from './specification.js';
+import type { SpecificationState, SpecificationTurn as SpecificationStateTurn } from './specification.js';
 
-function createTurn(overrides: Partial<ProjectStateTurn> = {}): ProjectStateTurn {
+function createTurn(overrides: Partial<SpecificationStateTurn> = {}): SpecificationStateTurn {
   return {
     id: 1,
-    project_id: 1,
+    specification_id: 1,
     parent_turn_id: null,
     phase: 'grounding',
     turn_kind: 'question',
@@ -45,8 +42,8 @@ function createTurn(overrides: Partial<ProjectStateTurn> = {}): ProjectStateTurn
 }
 
 function createPhaseState(
-  overrides: Partial<ProjectState['workflow']['phases']['grounding']> = {},
-): ProjectState['workflow']['phases']['grounding'] {
+  overrides: Partial<SpecificationState['workflow']['phases']['grounding']> = {},
+): SpecificationState['workflow']['phases']['grounding'] {
   return {
     status: 'closed',
     closeability: false,
@@ -59,13 +56,13 @@ function createPhaseState(
   };
 }
 
-function createProjectState(
-  overrides: Partial<ProjectState> = {},
-  phaseOverrides: Partial<ProjectState['workflow']['phases']['grounding']> = {},
-  turns: ProjectState['turns'] = [createTurn()],
-): ProjectState {
+function createSpecificationState(
+  overrides: Partial<SpecificationState> = {},
+  phaseOverrides: Partial<SpecificationState['workflow']['phases']['grounding']> = {},
+  turns: SpecificationState['turns'] = [createTurn()],
+): SpecificationState {
   return {
-    project: {
+    specification: {
       id: 1,
       name: 'Project 1',
       mode: 'greenfield',
@@ -133,7 +130,7 @@ describe('specification-state helpers', () => {
   it('derives truthful open-phase landing from workflow state and active-path turns', () => {
     expect(
       deriveSpecificationLanding(
-        createProjectState({}, { turnId: null }, [
+        createSpecificationState({}, { turnId: null }, [
           createTurn({
             id: 1,
             answer: 'Build the web app',
@@ -145,7 +142,7 @@ describe('specification-state helpers', () => {
 
     expect(
       deriveSpecificationLanding(
-        createProjectState({}, { turnId: 2 }, [
+        createSpecificationState({}, { turnId: 2 }, [
           createTurn({
             id: 1,
             answer: 'Build the web app',
@@ -163,7 +160,7 @@ describe('specification-state helpers', () => {
 
     expect(
       deriveSpecificationLanding(
-        createProjectState({}, { turnId: null }, [
+        createSpecificationState({}, { turnId: null }, [
           createTurn({ id: 1, turn_kind: 'kickoff', answer: null, options: [], question: '' }),
         ]),
       ),
