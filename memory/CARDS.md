@@ -96,11 +96,15 @@ The canonical durable record identity is `specification` across schema, DB helpe
 ---
 
 ## Card 3 — Delete project/specification aliases, wrappers, and legacy entry paths
-**Status:** next  
+**Status:** in-progress  
 **Weight:** full
 
 ### Target Behavior
 No project/specification aliasing or adaptation layer remains in routes, API entry points, shared wrappers, or tests; the app exposes only canonical specification seams.
+
+### Progress note
+- Done on this branch: the real client route implementation now lives under `src/client/routes/specification/$id`, the old `src/client/routes/project/$id` files have been removed, and canonical specification route modules/tests no longer import back into `project/$id` support files.
+- Remaining in this card: remove non-route alias/adaptation seams in API/shared wrappers/tests so `/project/...` deletion is matched by canonical ownership everywhere else.
 
 ### Boundary Crossings
 ```text

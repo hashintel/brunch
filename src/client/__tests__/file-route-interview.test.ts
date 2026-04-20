@@ -45,11 +45,13 @@ describe('file-route phase route ownership', () => {
   });
 
   it('retires the legacy framing route file', () => {
-    expect(existsSync(join(process.cwd(), 'src/client/routes/project/$id/_view/framing.tsx'))).toBe(false);
+    expect(existsSync(join(process.cwd(), 'src/client/routes/specification/$id/_view/framing.tsx'))).toBe(
+      false,
+    );
   });
 
   it('keeps the routed interview surface wired through ChatScroll', () => {
-    const interviewViewSource = readRepoFile('src/client/routes/project/$id/_view/-interview-view.tsx');
+    const interviewViewSource = readRepoFile('src/client/routes/specification/$id/_view/-interview-view.tsx');
 
     expect(interviewViewSource).toContain('import { ChatScroll }');
     expect(interviewViewSource).toContain('<ChatScroll');

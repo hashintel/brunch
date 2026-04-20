@@ -23,7 +23,7 @@ function createTurn({
 }): ProjectStateTurn {
   return {
     id,
-    project_id: 1,
+    specification_id: 1,
     parent_turn_id: id === 1 ? null : id - 1,
     phase: 'grounding',
     turn_kind: 'question',

@@ -28,7 +28,7 @@ function createTurn(overrides: Partial<ProjectStateTurn> & Pick<ProjectStateTurn
 
   return {
     id,
-    project_id: 1,
+    specification_id: 1,
     parent_turn_id: null,
     phase: 'grounding',
     turn_kind: 'question',

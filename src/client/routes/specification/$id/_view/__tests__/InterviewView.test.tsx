@@ -161,7 +161,7 @@ vi.mock('@/client/components/ai-elements/tool', () => ({
   ToolOutput: () => null,
 }));
 
-function createProjectState({
+function createSpecificationState({
   projectId = 1,
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
@@ -189,7 +189,7 @@ function createProjectState({
   const resolvedTurns = turns ?? [
     {
       id: 1,
-      project_id: projectId,
+      specification_id: projectId,
       parent_turn_id: null,
       phase: 'grounding',
       turn_kind: 'question',
@@ -333,7 +333,7 @@ function createWorkspaceLoaderData({
   entityState?: EntitiesData;
 } = {}): { projectState: ProjectState; entityState: EntitiesData } {
   return {
-    projectState: createProjectState({
+    projectState: createSpecificationState({
       projectId,
       assistantText,
       answer,
@@ -581,7 +581,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'design',
             turn_kind: 'question',
@@ -672,7 +672,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'design',
             turn_kind: 'question',
@@ -787,7 +787,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             turn_kind: 'question',
@@ -880,7 +880,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'grounding',
             question: 'What should we build first?',
@@ -938,7 +938,7 @@ describe('InterviewView', () => {
           },
           {
             id: 2,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: 1,
             phase: 'grounding',
             question: 'Which platform should we target now?',
@@ -1282,7 +1282,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'grounding',
             question: 'What should we build first?',
@@ -1297,7 +1297,7 @@ describe('InterviewView', () => {
           },
           {
             id: 2,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: 1,
             phase: 'grounding',
             question: 'Closure proposal',
@@ -1395,7 +1395,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'grounding',
             question: 'What should we build first?',
@@ -1410,7 +1410,7 @@ describe('InterviewView', () => {
           },
           {
             id: 2,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: 1,
             phase: 'design',
             question: 'Which architecture should we choose next?',
@@ -1494,7 +1494,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             question: 'Please review the current requirement set.',
@@ -1547,7 +1547,7 @@ describe('InterviewView', () => {
           requirements: [
             {
               id: 31,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Export the reviewed specification as markdown',
@@ -1581,7 +1581,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'criteria',
             question: 'Please review the current criterion set.',
@@ -1634,7 +1634,7 @@ describe('InterviewView', () => {
           criteria: [
             {
               id: 41,
-              project_id: 1,
+              specification_id: 1,
               kind: 'criterion',
               subtype: null,
               content: 'Restarting restores the active path',
@@ -1793,7 +1793,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'grounding',
             turn_kind: 'question',
@@ -1879,7 +1879,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'grounding',
             turn_kind: 'question',
@@ -1971,7 +1971,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'grounding',
             turn_kind: 'question',
@@ -1987,7 +1987,7 @@ describe('InterviewView', () => {
           },
           {
             id: 2,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: 1,
             phase: 'criteria',
             turn_kind: 'question',
@@ -2080,7 +2080,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             question: 'Please review the current requirement set.',
@@ -2127,7 +2127,7 @@ describe('InterviewView', () => {
           requirements: [
             {
               id: 31,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Export the reviewed specification as markdown',
@@ -2136,7 +2136,7 @@ describe('InterviewView', () => {
             },
             {
               id: 32,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Resume the interview from persisted local state',
@@ -2211,7 +2211,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'criteria',
             question: 'Please review the current criterion set.',
@@ -2258,7 +2258,7 @@ describe('InterviewView', () => {
           criteria: [
             {
               id: 41,
-              project_id: 1,
+              specification_id: 1,
               kind: 'criterion',
               subtype: null,
               content: 'Restarting restores the active path',
@@ -2267,7 +2267,7 @@ describe('InterviewView', () => {
             },
             {
               id: 42,
-              project_id: 1,
+              specification_id: 1,
               kind: 'criterion',
               subtype: null,
               content: 'Markdown export includes accepted requirements only',
@@ -2317,7 +2317,7 @@ describe('InterviewView', () => {
           requirements: [
             {
               id: 31,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Export the reviewed specification as markdown',
@@ -2365,7 +2365,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             question: 'Please review the current requirement set.',
@@ -2504,7 +2504,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             question: 'Please review the current requirement set.',
@@ -2546,7 +2546,7 @@ describe('InterviewView', () => {
           requirements: [
             {
               id: 31,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Export the reviewed specification as markdown',
@@ -2633,7 +2633,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             question: 'Please review the current requirement set.',
@@ -2675,7 +2675,7 @@ describe('InterviewView', () => {
           requirements: [
             {
               id: 31,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Export the reviewed specification as markdown',
@@ -2756,7 +2756,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'criteria',
             question: 'Please review the current criterion set.',
@@ -2798,7 +2798,7 @@ describe('InterviewView', () => {
           criteria: [
             {
               id: 41,
-              project_id: 1,
+              specification_id: 1,
               kind: 'criterion',
               subtype: null,
               content: 'Restarting restores the active path',
@@ -3243,7 +3243,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             turn_kind: 'question',
@@ -3317,7 +3317,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'criteria',
             turn_kind: 'question',
@@ -3451,7 +3451,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'design',
             question: 'Which architecture should we choose next?',
@@ -3817,7 +3817,7 @@ describe('InterviewView', () => {
           turns: [
             {
               id: 1,
-              project_id: 1,
+              specification_id: 1,
               parent_turn_id: null,
               phase: 'grounding',
               question: 'What should we build first?',
@@ -3978,7 +3978,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'grounding',
             turn_kind: 'question',

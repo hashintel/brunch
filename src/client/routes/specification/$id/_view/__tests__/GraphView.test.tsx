@@ -28,12 +28,19 @@ function emptyEntities(): EntitiesData {
 function populatedEntities(): EntitiesData {
   return {
     goals: [
-      { id: 1, project_id: 1, kind: 'goal', subtype: null, content: 'Ship a working MVP', rationale: null },
+      {
+        id: 1,
+        specification_id: 1,
+        kind: 'goal',
+        subtype: null,
+        content: 'Ship a working MVP',
+        rationale: null,
+      },
     ],
     terms: [
       {
         id: 2,
-        project_id: 1,
+        specification_id: 1,
         kind: 'term',
         subtype: null,
         content: 'MVP means minimum viable product',
@@ -44,7 +51,7 @@ function populatedEntities(): EntitiesData {
     constraints: [
       {
         id: 3,
-        project_id: 1,
+        specification_id: 1,
         kind: 'constraint',
         subtype: null,
         content: 'Must run on SQLite',
@@ -54,7 +61,7 @@ function populatedEntities(): EntitiesData {
     requirements: [
       {
         id: 4,
-        project_id: 1,
+        specification_id: 1,
         kind: 'requirement',
         subtype: null,
         content: 'Export spec as markdown',
@@ -65,12 +72,12 @@ function populatedEntities(): EntitiesData {
     decisions: [
       {
         id: 5,
-        project_id: 1,
+        specification_id: 1,
         content: 'Use React for the frontend',
         rationale: 'Team familiarity',
       },
     ],
-    assumptions: [{ id: 6, project_id: 1, content: 'Users have API keys' }],
+    assumptions: [{ id: 6, specification_id: 1, content: 'Users have API keys' }],
     relationships: [
       {
         type: 'depends_on',

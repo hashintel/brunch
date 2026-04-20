@@ -48,7 +48,7 @@ function createTurns(
     const turnCount = turnCounts?.[phase] ?? 0;
     return Array.from({ length: turnCount }, (_, index) => ({
       id: nextTurnId++,
-      project_id: 42,
+      specification_id: 42,
       parent_turn_id: index === 0 ? null : nextTurnId - 2,
       phase,
       question: `${phase} question ${index + 1}`,

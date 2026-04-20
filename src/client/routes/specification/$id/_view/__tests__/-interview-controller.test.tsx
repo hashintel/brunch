@@ -90,7 +90,7 @@ vi.mock('ai', async () => {
   };
 });
 
-function createProjectState({
+function createSpecificationState({
   projectId = 1,
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
@@ -112,7 +112,7 @@ function createProjectState({
   const resolvedTurns = turns ?? [
     {
       id: 1,
-      project_id: projectId,
+      specification_id: projectId,
       parent_turn_id: null,
       phase: 'grounding',
       turn_kind: 'question',
@@ -332,7 +332,7 @@ function renderController(phase: 'grounding' | 'design' | 'requirements' | 'crit
 }
 
 beforeEach(() => {
-  currentProjectState = createProjectState();
+  currentProjectState = createSpecificationState();
   currentEntityState = createEntityState();
   routerInvalidate.mockClear();
   fetchMock.mockReset();
@@ -349,7 +349,7 @@ afterEach(() => {
 
 describe('interview controller', () => {
   it('projects a kickoff turn card when an open phase has no active frontier turn yet', async () => {
-    currentProjectState = createProjectState({ assistantText: '', answer: '' });
+    currentProjectState = createSpecificationState({ assistantText: '', answer: '' });
     currentProjectState.project!.active_turn_id = null;
     currentProjectState.workflow.phases.grounding.turnId = null;
     currentProjectState.turns = [];
@@ -362,7 +362,7 @@ describe('interview controller', () => {
   });
 
   it('projects a workspace handoff when the current phase is closed and a later phase remains open', async () => {
-    currentProjectState = createProjectState();
+    currentProjectState = createSpecificationState();
     currentProjectState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
@@ -384,7 +384,7 @@ describe('interview controller', () => {
   });
 
   it('projects workflow completion when the final review phase is closed', async () => {
-    currentProjectState = createProjectState();
+    currentProjectState = createSpecificationState();
     currentProjectState.workflow.phases.grounding.status = 'closed';
     currentProjectState.workflow.phases.grounding.readiness = 'high';
     currentProjectState.workflow.phases.design.status = 'closed';
@@ -411,7 +411,7 @@ describe('interview controller', () => {
   });
 
   it('auto-continues grounding recovery when an open phase has a completed turn but no successor frontier', async () => {
-    currentProjectState = createProjectState({
+    currentProjectState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
     currentProjectState.workflow.phases.grounding.turnId = null;
@@ -442,7 +442,7 @@ describe('interview controller', () => {
   });
 
   it('submits the grounding strategy kickoff from landing-only state without a seeded kickoff turn', async () => {
-    currentProjectState = createProjectState({ assistantText: '', answer: '', turns: [] });
+    currentProjectState = createSpecificationState({ assistantText: '', answer: '', turns: [] });
     currentProjectState.workflow.phases.grounding.turnId = null;
     currentProjectState.project!.active_turn_id = null;
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
@@ -484,7 +484,7 @@ describe('interview controller', () => {
   });
 
   it('submits recovery through the phase-continue intent seam', async () => {
-    currentProjectState = createProjectState({
+    currentProjectState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
     currentProjectState.workflow.phases.grounding.turnId = null;
@@ -528,7 +528,7 @@ describe('interview controller', () => {
   });
 
   it('auto-submits a typed phase-entry for the current reachable kickoff phase', async () => {
-    currentProjectState = createProjectState({ turns: [] });
+    currentProjectState = createSpecificationState({ turns: [] });
     currentProjectState.project!.active_turn_id = null;
     currentProjectState.workflow.phases.grounding = {
       status: 'closed',
@@ -594,7 +594,7 @@ describe('interview controller', () => {
   });
 
   it('auto-submits a typed phase-continue for the current reachable recovery phase', async () => {
-    currentProjectState = createProjectState({
+    currentProjectState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
     currentProjectState.project!.active_turn_id = null;
@@ -659,7 +659,7 @@ describe('interview controller', () => {
   });
 
   it('does not duplicate the auto phase-entry submit across rerender and remount', async () => {
-    currentProjectState = createProjectState({ turns: [] });
+    currentProjectState = createSpecificationState({ turns: [] });
     currentProjectState.project!.active_turn_id = null;
     currentProjectState.workflow.phases.grounding = {
       status: 'closed',
@@ -716,7 +716,7 @@ describe('interview controller', () => {
   });
 
   it('does not duplicate the auto phase-continue submit across rerender and remount', async () => {
-    currentProjectState = createProjectState({
+    currentProjectState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
     currentProjectState.project!.active_turn_id = null;
@@ -781,7 +781,7 @@ describe('interview controller', () => {
   });
 
   it('suppresses repeated auto phase-continue retries after a failed submit until landing changes', async () => {
-    currentProjectState = createProjectState({
+    currentProjectState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
     currentProjectState.project!.active_turn_id = null;
@@ -813,7 +813,7 @@ describe('interview controller', () => {
   });
 
   it('falls back to the projected kickoff card when auto phase-entry submit rejects', async () => {
-    currentProjectState = createProjectState({ turns: [] });
+    currentProjectState = createSpecificationState({ turns: [] });
     currentProjectState.project!.active_turn_id = null;
     currentProjectState.workflow.phases.grounding = {
       status: 'closed',
@@ -878,7 +878,7 @@ describe('interview controller', () => {
   });
 
   it('threads live assistant activity onto the streamed bottom artifact while the next question is generating', async () => {
-    currentProjectState = createProjectState({
+    currentProjectState = createSpecificationState({
       assistantText: 'Earlier question?',
       answer: 'Earlier answer',
     });
@@ -916,7 +916,7 @@ describe('interview controller', () => {
   });
 
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
-    currentProjectState = createProjectState({
+    currentProjectState = createSpecificationState({
       assistantText: 'Earlier question?',
       answer: 'Earlier answer',
     });
@@ -942,7 +942,7 @@ describe('interview controller', () => {
   });
 
   it('seeds chat state from loader data while auto-continuing the current reachable recovery phase', async () => {
-    currentProjectState = createProjectState({
+    currentProjectState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
 
@@ -978,7 +978,7 @@ describe('interview controller', () => {
       'Build the web app|What should we build first?',
     );
 
-    currentProjectState = createProjectState({
+    currentProjectState = createSpecificationState({
       projectId: 2,
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
@@ -1035,7 +1035,7 @@ describe('interview controller', () => {
       'Build the web app|What should we build first?',
     );
 
-    currentProjectState = createProjectState({
+    currentProjectState = createSpecificationState({
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
     });

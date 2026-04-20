@@ -3924,7 +3924,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     const { getActivePath, getOptionsForTurn } = await import('./db.js');
     const { createInterviewEphemeralChatState } =
-      await import('../client/routes/project/$id/_view/-interview-controller-core.js');
+      await import('../client/routes/specification/$id/_view/-interview-controller-core.js');
     const turn = getActivePath(db, projectId)[1]!;
 
     await request(app)

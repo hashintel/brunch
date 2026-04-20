@@ -79,15 +79,15 @@ vi.mock('../routes/-project-list.js', () => ({
   fetchSpecificationListLoaderData: vi.fn(async () => []),
 }));
 
-vi.mock('../routes/project/$id/_view/-interview-controller', () => ({
+vi.mock('../routes/specification/$id/_view/-interview-controller', () => ({
   useInterviewController: () => ({ __brand: 'interview-controller' }),
 }));
 
-vi.mock('../routes/project/$id/_view/-interview-view.js', () => ({
+vi.mock('../routes/specification/$id/_view/-interview-view.js', () => ({
   InterviewView: () => <h1>Interview screen</h1>,
 }));
 
-vi.mock('../routes/project/$id/-export-preview.js', () => ({
+vi.mock('../routes/specification/$id/-export-preview.js', () => ({
   ExportPreview: () => <h1>Export screen</h1>,
 }));
 

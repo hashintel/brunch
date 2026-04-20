@@ -6,9 +6,7 @@ import { EntitySidebar } from '@/client/components/EntitySidebar';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/client/components/ui/resizable';
 import type { EntitiesData } from '@/shared/api-types.js';
 
-const LazyGraphView = lazy(() =>
-  import('../../../project/$id/_view/-graph-view.js').then((m) => ({ default: m.GraphView })),
-);
+const LazyGraphView = lazy(() => import('./-graph-view.js').then((m) => ({ default: m.GraphView })));
 
 const viewSearchSchema = z.object({
   view: z.enum(['chat', 'graph']).optional().default('chat'),

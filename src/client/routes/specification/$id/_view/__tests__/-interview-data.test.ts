@@ -16,7 +16,7 @@ import {
   filterMessagesByPhase,
 } from '../-interview-controller-core.js';
 
-function createProjectState({
+function createSpecificationState({
   projectId = 1,
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
@@ -42,7 +42,7 @@ function createProjectState({
   const resolvedTurns = turns ?? [
     {
       id: 1,
-      project_id: projectId,
+      specification_id: projectId,
       parent_turn_id: null,
       phase: 'grounding',
       turn_kind: 'question',
@@ -118,7 +118,7 @@ function createProjectState({
 
 describe('workspace controller core', () => {
   it('separates durable project state from ephemeral chat seed state', () => {
-    const projectState = createProjectState({
+    const projectState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
 
@@ -146,11 +146,11 @@ describe('workspace controller core', () => {
   });
 
   it('derives fresh seed messages from persisted turns without owning hydration timing', () => {
-    const initialProjectState = createProjectState({
+    const initialProjectState = createSpecificationState({
       assistantText: 'What should we build first?',
       answer: 'Build the web app',
     });
-    const refreshedProjectState = createProjectState({
+    const refreshedProjectState = createSpecificationState({
       projectId: initialProjectState.project!.id,
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
@@ -163,7 +163,7 @@ describe('workspace controller core', () => {
   });
 
   it('hydrates persisted activity summaries alongside observer state on assistant replay messages', () => {
-    const projectState = createProjectState();
+    const projectState = createSpecificationState();
     projectState.turns[0] = {
       ...projectState.turns[0]!,
       assistant_parts: JSON.stringify([
@@ -226,7 +226,7 @@ describe('workspace controller core', () => {
   });
 
   it('builds phase turn ID sets from persisted turns', () => {
-    const projectState = createProjectState();
+    const projectState = createSpecificationState();
     const scopeIds = buildPhaseTurnIds(projectState.turns, 'grounding');
     const designIds = buildPhaseTurnIds(projectState.turns, 'design');
 
@@ -254,7 +254,7 @@ describe('workspace controller core', () => {
   });
 
   it('derives persisted selected positions from structured turn responses instead of option flags', () => {
-    const selectedResponseTurn = createProjectState({
+    const selectedResponseTurn = createSpecificationState({
       answer: 'Desktop — Best fit for launch',
       userParts: [
         { type: 'text', text: 'Desktop — Best fit for launch' },
@@ -274,7 +274,7 @@ describe('workspace controller core', () => {
 
   it('projects a pending phase-summary confirmation card from persisted workflow state and assistant parts', () => {
     const proposedScope = createInterviewDurableSpecificationState(
-      createProjectState({
+      createSpecificationState({
         assistantText: '',
         answer: 'We have enough grounding context',
         userParts: [{ type: 'text', text: 'We have enough grounding context' }],
@@ -353,7 +353,7 @@ describe('workspace controller core', () => {
 
   it('projects recovery turn-card visibility from the derived landing seam', () => {
     const recoveryState = createInterviewDurableSpecificationState(
-      createProjectState({
+      createSpecificationState({
         workflow: {
           phases: {
             grounding: {
@@ -412,7 +412,7 @@ describe('workspace controller core', () => {
 
   it('projects kickoff turn-card visibility from the derived landing seam', () => {
     const kickoffState = createInterviewDurableSpecificationState(
-      createProjectState({
+      createSpecificationState({
         workflow: {
           phases: {
             grounding: {
@@ -466,7 +466,7 @@ describe('workspace controller core', () => {
 
   it('keeps a submitted turn card mounted until interviewer completion reveals the next step', () => {
     const submittedResponse = createInterviewDurableSpecificationState(
-      createProjectState({
+      createSpecificationState({
         answer: 'Desktop — Best fit for launch',
         userParts: [
           { type: 'text', text: 'Desktop — Best fit for launch' },
@@ -633,7 +633,7 @@ describe('workspace controller core', () => {
   });
 
   it('interprets accepted interviewer-recommended closure replay from the same durable turn', () => {
-    const projectState = createProjectState({
+    const projectState = createSpecificationState({
       workflow: {
         phases: {
           grounding: {
@@ -679,7 +679,7 @@ describe('workspace controller core', () => {
       projectState.turns[0],
       {
         id: 2,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: 1,
         phase: 'grounding',
         question: '',
@@ -717,7 +717,7 @@ describe('workspace controller core', () => {
   });
 
   it('keeps turn-card projection scoped to the current phase', () => {
-    const projectState = createProjectState({
+    const projectState = createSpecificationState({
       workflow: {
         phases: {
           grounding: {
@@ -763,7 +763,7 @@ describe('workspace controller core', () => {
       projectState.turns[0],
       {
         id: 2,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: 1,
         phase: 'design',
         question: 'Which architecture should we choose next?',

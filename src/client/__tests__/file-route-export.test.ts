@@ -10,7 +10,7 @@ const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), 
 describe('file-route export ownership', () => {
   it('keeps the canonical export file route thin with an inline loader while the generated tree owns the route entry', () => {
     const exportRouteSource = readRepoFile('src/client/routes/specification/$id/export.tsx');
-    const exportPreviewSource = readRepoFile('src/client/routes/project/$id/-export-preview.tsx');
+    const exportPreviewSource = readRepoFile('src/client/routes/specification/$id/-export-preview.tsx');
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
 
     expect(exportRouteSource).toContain("createFileRoute('/specification/$id/export')");
