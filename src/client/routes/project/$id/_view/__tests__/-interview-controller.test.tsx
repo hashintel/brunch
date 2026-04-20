@@ -259,7 +259,11 @@ function ControllerProbe({ phase = 'scope' }: { phase?: 'scope' | 'design' | 're
               ? `${workspace.bottomArtifact.kickoff.mode}:${workspace.bottomArtifact.kickoff.phase}`
               : workspace.bottomArtifact?.kind === 'recovery'
                 ? `recovery:${workspace.bottomArtifact.recovery.phase}`
-                : 'none'}
+                : workspace.bottomArtifact?.kind === 'phase-handoff'
+                  ? `${workspace.bottomArtifact.phase}->${workspace.bottomArtifact.nextPhase}:${workspace.bottomArtifact.isReviewPhase ? 'review' : 'workspace'}:${workspace.bottomArtifact.summary ?? 'no-summary'}`
+                  : workspace.bottomArtifact?.kind === 'workflow-complete'
+                    ? `${workspace.bottomArtifact.phase}:${workspace.bottomArtifact.isReviewPhase ? 'review' : 'workspace'}:${workspace.bottomArtifact.summary ?? 'no-summary'}`
+                    : 'none'}
       </div>
       <button
         type="button"
@@ -325,6 +329,55 @@ describe('interview controller', () => {
 
     expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('kickoff');
     expect(screen.getByTestId('bottom-artifact').textContent).toBe('start:scope');
+  });
+
+  it('projects a workspace handoff when the current phase is closed and a later phase remains open', async () => {
+    currentProjectState = createProjectState();
+    currentProjectState.workflow.phases.scope = {
+      status: 'closed',
+      closeability: false,
+      readiness: 'high',
+      closureBasis: 'interviewer_recommended',
+      proposalPending: false,
+      turnId: 1,
+      summary: 'Grounding is complete.',
+    };
+    currentProjectState.workflow.phases.design.status = 'in_progress';
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+
+    renderController();
+
+    expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('phase-handoff');
+    expect(screen.getByTestId('bottom-artifact').textContent).toBe(
+      'scope->design:workspace:Grounding is complete.',
+    );
+  });
+
+  it('projects workflow completion when the final review phase is closed', async () => {
+    currentProjectState = createProjectState();
+    currentProjectState.workflow.phases.scope.status = 'closed';
+    currentProjectState.workflow.phases.scope.readiness = 'high';
+    currentProjectState.workflow.phases.design.status = 'closed';
+    currentProjectState.workflow.phases.design.readiness = 'high';
+    currentProjectState.workflow.phases.requirements.status = 'closed';
+    currentProjectState.workflow.phases.requirements.readiness = 'high';
+    currentProjectState.workflow.phases.criteria = {
+      status: 'closed',
+      closeability: false,
+      readiness: 'high',
+      closureBasis: 'interviewer_recommended',
+      proposalPending: false,
+      turnId: 1,
+      summary: 'Acceptance criteria are complete.',
+    };
+    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+
+    renderController('criteria');
+
+    expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('workflow-complete');
+    expect(screen.getByTestId('bottom-artifact').textContent).toBe(
+      'criteria:review:Acceptance criteria are complete.',
+    );
   });
 
   it('auto-continues scope recovery when an open phase has a completed turn but no successor frontier', async () => {

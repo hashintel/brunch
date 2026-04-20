@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+  getNextActivePhase,
   getPhaseRoutePath,
   getPhaseRouteSegment,
   groundingRouteSegment,
   groundingWorkflowPhase,
   phaseOrder,
   phaseRouteSegments,
+  routeSegmentToPhase,
 } from './phase-routes.js';
 
 describe('phase route helpers', () => {
@@ -21,5 +23,37 @@ describe('phase route helpers', () => {
     expect(getPhaseRoutePath(groundingWorkflowPhase)).toBe('/project/$id/grounding');
     expect(getPhaseRoutePath('design')).toBe('/project/$id/elicitation');
     expect(phaseRouteSegments.criteria).toBe('acceptance-review');
+  });
+
+  it('round-trips every phase through the canonical route-segment mapping', () => {
+    for (const phase of phaseOrder) {
+      expect(routeSegmentToPhase[getPhaseRouteSegment(phase)]).toBe(phase);
+    }
+  });
+
+  it('finds the next unclosed phase in workflow order', () => {
+    expect(
+      getNextActivePhase(
+        {
+          scope: { status: 'closed' },
+          design: { status: 'in_progress' },
+          requirements: { status: 'unstarted' },
+          criteria: { status: 'unstarted' },
+        },
+        'scope',
+      ),
+    ).toBe('design');
+
+    expect(
+      getNextActivePhase(
+        {
+          scope: { status: 'closed' },
+          design: { status: 'closed' },
+          requirements: { status: 'closed' },
+          criteria: { status: 'closed' },
+        },
+        'criteria',
+      ),
+    ).toBeUndefined();
   });
 });
