@@ -28,14 +28,14 @@ import {
   reconcileStablePhaseTurns,
 } from './-interview-controller-core.js';
 import type {
-  InterviewDurableProjectState,
+  InterviewDurableSpecificationState,
   KickoffControlViewModel,
   PendingQuestionViewModel,
   PhaseSummaryViewModel,
   RecoveryControlViewModel,
 } from './-interview-controller-core.js';
 import { useInterviewDataAdapter } from './-interview-data.js';
-import { getProjectScopedChatId } from './-interview-hydration.js';
+import { getSpecificationScopedChatId } from './-interview-hydration.js';
 import { useSpecificationScopedAutoPhaseIntent } from './-specification-lifecycle.js';
 
 export interface InterviewControllerChatState {
@@ -102,8 +102,8 @@ export type InterviewControllerBottomArtifactState =
     };
 
 export interface InterviewController {
-  readonly project: InterviewDurableProjectState['project'];
-  readonly workflow: InterviewDurableProjectState['workflow'];
+  readonly project: InterviewDurableSpecificationState['project'];
+  readonly workflow: InterviewDurableSpecificationState['workflow'];
   readonly phaseTurns: readonly SpecificationTurn[];
   readonly captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   readonly chat: InterviewControllerChatState;
@@ -111,23 +111,23 @@ export interface InterviewController {
 }
 
 export function useInterviewController(phase: WorkflowPhase): InterviewController {
-  const projectState = useLoaderData({ from: '/project/$id' });
+  const specificationState = useLoaderData({ from: '/project/$id' });
   const router = useRouter();
-  const projectId = projectState.project.id;
+  const projectId = specificationState.project.id;
 
   const invalidateRouter = useCallback(() => router.invalidate(), [router]);
-  const { durableProject, ephemeralChat, handleDataPart } = useInterviewDataAdapter(
-    projectState,
+  const { durableSpecification, ephemeralChat, handleDataPart } = useInterviewDataAdapter(
+    specificationState,
     invalidateRouter,
   );
 
   const phaseTurnIds = useMemo(
-    () => buildPhaseTurnIds(durableProject.turns, phase),
-    [durableProject.turns, phase],
+    () => buildPhaseTurnIds(durableSpecification.turns, phase),
+    [durableSpecification.turns, phase],
   );
 
   const [stablePhaseTurns, setStablePhaseTurns] = useState(() =>
-    durableProject.turns.filter((turn) => turn.phase === phase),
+    durableSpecification.turns.filter((turn) => turn.phase === phase),
   );
   const [submittedTurnId, setSubmittedTurnId] = useState<number | null>(null);
   const [captureStatusByTurnId, setCaptureStatusByTurnId] = useState<Map<number, 'waiting' | 'applying'>>(
@@ -135,11 +135,11 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   );
   const [pendingCloseNavigation, setPendingCloseNavigation] = useState(false);
   const pendingCloseRef = useRef(false);
-  const stablePhaseKeyRef = useRef(`${durableProject.project.id}:${phase}`);
+  const stablePhaseKeyRef = useRef(`${durableSpecification.project.id}:${phase}`);
 
   useEffect(() => {
-    const phaseTurns = durableProject.turns.filter((turn) => turn.phase === phase);
-    const stablePhaseKey = `${durableProject.project.id}:${phase}`;
+    const phaseTurns = durableSpecification.turns.filter((turn) => turn.phase === phase);
+    const stablePhaseKey = `${durableSpecification.project.id}:${phase}`;
 
     setStablePhaseTurns((current) =>
       stablePhaseKeyRef.current === stablePhaseKey
@@ -147,12 +147,12 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
         : phaseTurns,
     );
     stablePhaseKeyRef.current = stablePhaseKey;
-  }, [durableProject.project.id, durableProject.turns, phase]);
+  }, [durableSpecification.project.id, durableSpecification.turns, phase]);
 
   useEffect(() => {
     setSubmittedTurnId(null);
     setCaptureStatusByTurnId(new Map());
-  }, [durableProject.project.id, phase]);
+  }, [durableSpecification.project.id, phase]);
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: `/api/projects/${projectId}/chat` }),
@@ -180,7 +180,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   );
 
   const { messages, sendMessage, status } = useChat<BrunchUIMessage>({
-    id: getProjectScopedChatId(durableProject.project.id),
+    id: getSpecificationScopedChatId(durableSpecification.project.id),
     transport,
     messages: [...ephemeralChat.seedMessages],
     dataPartSchemas: brunchDataPartSchemas,
@@ -195,7 +195,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   });
   const submitTurnResponseMutation = useSubmitTurnResponseMutation({
     projectId,
-    turn: durableProject.lastTurn,
+    turn: durableSpecification.lastTurn,
     sendMessage,
   });
   const submitPhaseIntentMutation = useSubmitPhaseIntentMutation({ projectId });
@@ -285,23 +285,23 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
 
   useEffect(() => {
     if (!pendingCloseNavigation) return;
-    if (durableProject.workflow.phases[phase].status !== 'closed') return;
+    if (durableSpecification.workflow.phases[phase].status !== 'closed') return;
 
     setPendingCloseNavigation(false);
-    const nextPhase = getNextActivePhase(durableProject.workflow.phases, phase);
+    const nextPhase = getNextActivePhase(durableSpecification.workflow.phases, phase);
     if (nextPhase) {
       void router.navigate({
         to: getPhaseRoutePath(nextPhase) as '/project/$id/grounding',
         params: { id: String(projectId) },
       });
     }
-  }, [pendingCloseNavigation, durableProject.workflow, phase, router, projectId]);
+  }, [pendingCloseNavigation, durableSpecification.workflow, phase, router, projectId]);
 
   const isAutoSubmittingPhaseIntent = useSpecificationScopedAutoPhaseIntent({
     projectId,
     phase,
-    workflow: durableProject.workflow,
-    landing: durableProject.landing,
+    workflow: durableSpecification.workflow,
+    landing: durableSpecification.landing,
     isChatLoading: isLoading,
     submitPhaseIntent: submitTypedPhaseIntent,
   });
@@ -309,14 +309,14 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   const viewState = useMemo(
     () =>
       createInterviewControllerViewState(
-        durableProject,
+        durableSpecification,
         phase,
         phaseMessages,
         isLoading,
         submittedTurnId,
         isAutoSubmittingPhaseIntent,
       ),
-    [durableProject, isAutoSubmittingPhaseIntent, isLoading, phase, phaseMessages, submittedTurnId],
+    [durableSpecification, isAutoSubmittingPhaseIntent, isLoading, phase, phaseMessages, submittedTurnId],
   );
 
   useEffect(() => {
@@ -336,11 +336,11 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
       });
     }
 
-    const phaseTurnId = durableProject.workflow.phases[phase].turnId;
-    if (durableProject.workflow.phases[phase].status === 'closed' || phaseTurnId !== submittedTurnId) {
+    const phaseTurnId = durableSpecification.workflow.phases[phase].turnId;
+    if (durableSpecification.workflow.phases[phase].status === 'closed' || phaseTurnId !== submittedTurnId) {
       setSubmittedTurnId(null);
     }
-  }, [submittedTurnId, durableProject.workflow, phase, viewState.bottomArtifact]);
+  }, [submittedTurnId, durableSpecification.workflow, phase, viewState.bottomArtifact]);
 
   useEffect(() => {
     setCaptureStatusByTurnId((current) => {

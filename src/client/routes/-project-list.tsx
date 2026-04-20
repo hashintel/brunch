@@ -12,7 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/client/components/ui/dialog';
-import { useCreateSpecificationMutation } from '@/client/mutations/project-mutations';
+import { useCreateSpecificationMutation } from '@/client/mutations/specification-mutations';
 import type { ReadinessBand, WorkflowPhaseStatus } from '@/shared/api-types.js';
 import { getCurrentOpenPhase, getWorkflowPhaseLabel, phaseOrder } from '@/shared/phase-descriptors.js';
 import type { SpecificationListItem } from '@/shared/specification.js';

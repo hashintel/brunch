@@ -5,13 +5,13 @@ import {
   deriveSpecificationLanding,
   getAcceptedClosureReplay,
   getPersistedSelectedPositions,
-} from '@/shared/project-state-turn.js';
+} from '@/shared/specification-state.js';
 import type { SpecificationState as ProjectState } from '@/shared/specification.js';
 
 import {
   buildPhaseTurnIds,
   createInterviewControllerViewState,
-  createInterviewDurableProjectState,
+  createInterviewDurableSpecificationState,
   createInterviewEphemeralChatState,
   filterMessagesByPhase,
 } from '../-interview-controller-core.js';
@@ -122,14 +122,14 @@ describe('workspace controller core', () => {
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
 
-    const durableProject = createInterviewDurableProjectState(projectState);
+    const durableSpecification = createInterviewDurableSpecificationState(projectState);
     const ephemeralChat = createInterviewEphemeralChatState(projectState);
 
-    expect(durableProject.project).toEqual(projectState.project);
-    expect(durableProject.turns).toEqual(projectState.turns);
-    expect(durableProject.lastTurn?.id).toBe(1);
-    expect(durableProject.showTurnCard).toBe(true);
-    expect(durableProject.lastTurnHasResponse).toBe(false);
+    expect(durableSpecification.project).toEqual(projectState.project);
+    expect(durableSpecification.turns).toEqual(projectState.turns);
+    expect(durableSpecification.lastTurn?.id).toBe(1);
+    expect(durableSpecification.showTurnCard).toBe(true);
+    expect(durableSpecification.lastTurnHasResponse).toBe(false);
 
     expect(ephemeralChat.seedMessages).toEqual([
       {
@@ -273,7 +273,7 @@ describe('workspace controller core', () => {
   });
 
   it('projects a pending phase-summary confirmation card from persisted workflow state and assistant parts', () => {
-    const proposedScope = createInterviewDurableProjectState(
+    const proposedScope = createInterviewDurableSpecificationState(
       createProjectState({
         assistantText: '',
         answer: 'We have enough scope context',
@@ -352,7 +352,7 @@ describe('workspace controller core', () => {
   });
 
   it('projects recovery turn-card visibility from the derived landing seam', () => {
-    const recoveryState = createInterviewDurableProjectState(
+    const recoveryState = createInterviewDurableSpecificationState(
       createProjectState({
         workflow: {
           phases: {
@@ -411,7 +411,7 @@ describe('workspace controller core', () => {
   });
 
   it('projects kickoff turn-card visibility from the derived landing seam', () => {
-    const kickoffState = createInterviewDurableProjectState(
+    const kickoffState = createInterviewDurableSpecificationState(
       createProjectState({
         workflow: {
           phases: {
@@ -465,7 +465,7 @@ describe('workspace controller core', () => {
   });
 
   it('keeps a submitted turn card mounted until interviewer completion reveals the next step', () => {
-    const submittedResponse = createInterviewDurableProjectState(
+    const submittedResponse = createInterviewDurableSpecificationState(
       createProjectState({
         answer: 'Desktop — Best fit for launch',
         userParts: [
@@ -605,9 +605,9 @@ describe('workspace controller core', () => {
       },
     ];
 
-    const durableProject = createInterviewDurableProjectState(emptyProjectState);
+    const durableSpecification = createInterviewDurableSpecificationState(emptyProjectState);
     const ephemeralChat = createInterviewEphemeralChatState(emptyProjectState);
-    const viewState = createInterviewControllerViewState(durableProject, 'scope', liveMessages, true);
+    const viewState = createInterviewControllerViewState(durableSpecification, 'scope', liveMessages, true);
 
     expect(ephemeralChat.seedMessages).toEqual([]);
     expect(viewState.project).toEqual(emptyProjectState.project);
@@ -777,11 +777,11 @@ describe('workspace controller core', () => {
     projectState.project.active_turn_id = 2;
     projectState.landing = deriveSpecificationLanding(projectState);
 
-    const durableProject = createInterviewDurableProjectState(projectState);
+    const durableSpecification = createInterviewDurableSpecificationState(projectState);
 
-    expect(createInterviewControllerViewState(durableProject, 'scope', [], false)).toEqual({
-      project: durableProject.project,
-      workflow: durableProject.workflow,
+    expect(createInterviewControllerViewState(durableSpecification, 'scope', [], false)).toEqual({
+      project: durableSpecification.project,
+      workflow: durableSpecification.workflow,
       bottomArtifact: {
         kind: 'phase-handoff',
         phase: 'scope',
@@ -790,9 +790,9 @@ describe('workspace controller core', () => {
         isReviewPhase: false,
       },
     });
-    expect(createInterviewControllerViewState(durableProject, 'design', [], false)).toEqual({
-      project: durableProject.project,
-      workflow: durableProject.workflow,
+    expect(createInterviewControllerViewState(durableSpecification, 'design', [], false)).toEqual({
+      project: durableSpecification.project,
+      workflow: durableSpecification.workflow,
       bottomArtifact: {
         kind: 'persisted-turn',
         turn: projectState.turns[1]!,

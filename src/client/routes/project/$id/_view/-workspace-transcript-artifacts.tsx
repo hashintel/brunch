@@ -23,7 +23,7 @@ import {
   getPersistedTurnResponse,
   getReviewPositionForAction,
   turnHasCompletedAnswer,
-} from '@/shared/project-state-turn.js';
+} from '@/shared/specification-state.js';
 import type { SpecificationTurn } from '@/shared/specification.js';
 
 import {

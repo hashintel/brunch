@@ -2,7 +2,7 @@ import { table, h3 } from 'md-pen';
 
 import type { ProjectMode } from '@/shared/api-types.js';
 import { knowledgeKindRegistry } from '@/shared/knowledge.js';
-import { getPersistedGroundingCard } from '@/shared/project-state-turn.js';
+import { getPersistedGroundingCard } from '@/shared/specification-state.js';
 
 import type { TurnWithOptions } from './core.js';
 import { formatProjectedTurnResponse, projectTurnResponse } from './turn-response.js';

@@ -12,11 +12,8 @@ import { formatTurnResponseText } from '@/shared/chat.js';
 import {
   findTurnOptionsByPositions,
   getReviewActionForSelectedPositions,
-} from '@/shared/project-state-turn.js';
-import type {
-  SpecificationMode as ProjectMode,
-  SpecificationTurn as ProjectStateTurn,
-} from '@/shared/specification.js';
+} from '@/shared/specification-state.js';
+import type { SpecificationMode, SpecificationTurn } from '@/shared/specification.js';
 
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
@@ -34,7 +31,7 @@ export interface SubmitTurnResponseMutationState {
 export interface SubmitPhaseIntentMutationState {
   readonly submitPhaseEntry: (
     phase: WorkflowPhase,
-    options?: { mode?: ProjectMode },
+    options?: { mode?: SpecificationMode },
   ) => Promise<SubmitPhaseIntentResponse | null>;
   readonly submitPhaseContinue: (phase: WorkflowPhase) => Promise<SubmitPhaseIntentResponse | null>;
   readonly isPending: boolean;
@@ -69,7 +66,7 @@ export function useSubmitPhaseIntentMutation({
   };
 
   return {
-    submitPhaseEntry: (phase: WorkflowPhase, options?: { mode?: ProjectMode }) =>
+    submitPhaseEntry: (phase: WorkflowPhase, options?: { mode?: SpecificationMode }) =>
       submitIntent({
         kind: 'phase-entry',
         phase,
@@ -92,7 +89,7 @@ export function useSubmitTurnResponseMutation({
   sendMessage,
 }: {
   projectId: number;
-  turn: ProjectStateTurn | undefined;
+  turn: SpecificationTurn | undefined;
   sendMessage: (message: { text: string }) => Promise<void> | void;
 }): SubmitTurnResponseMutationState {
   const router = useRouter();

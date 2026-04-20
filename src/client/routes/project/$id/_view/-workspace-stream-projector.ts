@@ -6,7 +6,7 @@ import {
   getPersistedReviewSet,
   turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
-} from '@/shared/project-state-turn.js';
+} from '@/shared/specification-state.js';
 import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
 import type { InterviewControllerBottomArtifactState } from './-interview-controller.js';
@@ -280,7 +280,7 @@ function shouldInsertDivider({
   );
 }
 
-export function projectWorkspaceStream({
+export function specificationWorkspaceStream({
   phase,
   phaseTurns,
   phaseState,

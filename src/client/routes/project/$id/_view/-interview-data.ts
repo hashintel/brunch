@@ -3,16 +3,16 @@ import { useCallback, useMemo } from 'react';
 import type { SpecificationState } from '@/shared/specification.js';
 
 import {
-  createInterviewDurableProjectState,
+  createInterviewDurableSpecificationState,
   createInterviewEphemeralChatState,
 } from './-interview-controller-core.js';
 import type {
-  InterviewDurableProjectState,
+  InterviewDurableSpecificationState,
   InterviewEphemeralChatState,
 } from './-interview-controller-core.js';
 
 export interface InterviewDataAdapter {
-  readonly durableProject: InterviewDurableProjectState;
+  readonly durableSpecification: InterviewDurableSpecificationState;
   readonly ephemeralChat: InterviewEphemeralChatState;
   readonly handleDataPart: (dataPart: { type: string; data?: unknown }) => void;
 }
@@ -21,8 +21,8 @@ export function useInterviewDataAdapter(
   specificationState: SpecificationState,
   invalidateRouter: () => Promise<void>,
 ): InterviewDataAdapter {
-  const durableProject = useMemo(
-    () => createInterviewDurableProjectState(specificationState),
+  const durableSpecification = useMemo(
+    () => createInterviewDurableSpecificationState(specificationState),
     [specificationState],
   );
   const ephemeralChat = useMemo(
@@ -38,5 +38,5 @@ export function useInterviewDataAdapter(
     [invalidateRouter],
   );
 
-  return { durableProject, ephemeralChat, handleDataPart };
+  return { durableSpecification, ephemeralChat, handleDataPart };
 }

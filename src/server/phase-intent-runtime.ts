@@ -11,7 +11,7 @@ import {
   getGroundingStrategyTitle,
   isGroundingStrategyKickoffTurn,
 } from '@/shared/grounding-strategy.js';
-import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
+import { deriveSpecificationLanding } from '@/shared/specification-state.js';
 
 import { loadActivePathWithOptions } from './core.js';
 import {

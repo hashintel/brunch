@@ -3,8 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { Impact, ReviewAction } from '@/shared/api-types.js';
 import type { GroundingCardData } from '@/shared/chat.js';
-import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/project-state-turn.js';
-import type { SpecificationTurn as ProjectStateTurn } from '@/shared/specification.js';
+import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/specification-state.js';
+import type { SpecificationTurn } from '@/shared/specification.js';
 
 import { cn } from '../lib/utils';
 import { Button } from './app-shell';
@@ -40,7 +40,7 @@ export function AnsweredQuestionCard({
   questionCode,
   captureStatus,
 }: {
-  turn: ProjectStateTurn;
+  turn: SpecificationTurn;
   questionCode: string;
   captureStatus?: 'waiting' | 'applying';
 }) {
@@ -133,7 +133,7 @@ export function AnsweredReviewSetCard({
   turn,
   reviewSet,
 }: {
-  turn: ProjectStateTurn;
+  turn: SpecificationTurn;
   reviewSet: ReviewSetCardData;
 }) {
   const persistedResponse = getPersistedTurnResponse(turn);
@@ -160,7 +160,7 @@ export function AnsweredGroundingCard({
   turn,
 }: {
   groundingCard: GroundingCardData;
-  turn: ProjectStateTurn;
+  turn: SpecificationTurn;
 }) {
   const persistedResponse = getPersistedTurnResponse(turn);
   const note = persistedResponse?.freeText?.trim() ?? '';
@@ -337,7 +337,7 @@ export function ActiveReviewSetCard({
 // ── Active question card ────────────────────────────────────────────
 
 type TurnCardOption = Pick<
-  NonNullable<ProjectStateTurn['options']>[number],
+  NonNullable<SpecificationTurn['options']>[number],
   'position' | 'content' | 'is_recommended'
 >;
 
@@ -361,7 +361,7 @@ export function ActiveQuestionCard({
   questionCode?: string;
   question: string;
   why: string | null;
-  impact: ProjectStateTurn['impact'];
+  impact: SpecificationTurn['impact'];
   options: readonly TurnCardOption[];
   onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
   onBack?: () => void;

@@ -18,11 +18,11 @@ import {
   phaseOrder,
 } from '@/shared/phase-descriptors.js';
 import { getPhaseIntentMarkerLabel } from '@/shared/phase-intents.js';
-import { getPersistedActivitySummary } from '@/shared/project-state-turn.js';
+import { getPersistedActivitySummary } from '@/shared/specification-state.js';
 import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
 import { useInterviewController } from './-interview-controller';
-import { projectWorkspaceStream, type WorkspaceStreamMarker } from './-workspace-stream-projector.js';
+import { specificationWorkspaceStream, type WorkspaceStreamMarker } from './-workspace-stream-projector.js';
 import { WorkspaceTranscriptArtifacts } from './-workspace-transcript-artifacts.js';
 
 function canForceClosePhase(workflow: SpecificationState['workflow'], phase: SpecificationTurn['phase']) {
@@ -128,7 +128,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const currentReachablePhase = getCurrentOpenPhase(workflow.phases);
   const nextPhase = getNextActivePhase(workflow.phases, phase);
   const controlMarkers = projectLiveControlMarkers(chat.messages);
-  const { streamArtifacts } = projectWorkspaceStream({
+  const { streamArtifacts } = specificationWorkspaceStream({
     phase,
     phaseTurns,
     phaseState,

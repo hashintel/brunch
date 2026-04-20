@@ -10,10 +10,7 @@ import {
 } from '@/shared/grounding-strategy.js';
 import { getPhaseClosureCommandText } from '@/shared/phase-close.js';
 import { getWorkflowPhaseLabel } from '@/shared/phase-descriptors.js';
-import type {
-  SpecificationMode as ProjectMode,
-  SpecificationTurn as ProjectStateTurn,
-} from '@/shared/specification.js';
+import type { SpecificationMode, SpecificationTurn } from '@/shared/specification.js';
 
 function isReviewPhase(phase: WorkflowPhase) {
   return phase === 'requirements' || phase === 'criteria';
@@ -161,7 +158,7 @@ export function KickoffControlCard({
   phase: WorkflowPhase;
   mode: 'start' | 'continue';
   onProceed: () => void;
-  onSelectStrategy?: (mode: ProjectMode) => void;
+  onSelectStrategy?: (mode: SpecificationMode) => void;
   disabled: boolean;
 }) {
   const phaseLabel = getWorkflowPhaseLabel(phase);
@@ -257,7 +254,7 @@ export function PhaseSummaryCard({
   onConfirm,
   disabled,
 }: {
-  phase: ProjectStateTurn['phase'];
+  phase: SpecificationTurn['phase'];
   summary: string;
   onConfirm: () => void;
   disabled: boolean;

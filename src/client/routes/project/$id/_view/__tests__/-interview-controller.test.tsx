@@ -6,7 +6,7 @@ import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { BrunchUIMessage } from '@/shared/chat.js';
-import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
+import { deriveSpecificationLanding } from '@/shared/specification-state.js';
 import type { SpecificationState as ProjectState } from '@/shared/specification.js';
 
 import { useInterviewController } from '../-interview-controller.js';

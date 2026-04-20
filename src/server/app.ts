@@ -31,7 +31,7 @@ import { getPhaseIntentDisplayText } from '@/shared/phase-intents.js';
 import {
   getPersistedGroundingCard,
   getReviewActionForSelectedPositions,
-} from '@/shared/project-state-turn.js';
+} from '@/shared/specification-state.js';
 import {
   createSpecificationRequestSchema,
   type SpecificationListItem,

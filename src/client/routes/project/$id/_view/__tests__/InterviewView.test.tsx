@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EntitiesData } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
-import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
+import { deriveSpecificationLanding } from '@/shared/specification-state.js';
 import type { SpecificationState as ProjectState } from '@/shared/specification.js';
 
 import { InterviewView } from '../-interview-view.js';

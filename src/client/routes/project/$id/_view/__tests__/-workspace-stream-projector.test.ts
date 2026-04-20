@@ -6,7 +6,7 @@ import type {
 } from '@/shared/specification.js';
 
 import type { InterviewControllerBottomArtifactState } from '../-interview-controller.js';
-import { projectWorkspaceStream } from '../-workspace-stream-projector.js';
+import { specificationWorkspaceStream } from '../-workspace-stream-projector.js';
 
 function createPhaseState(
   overrides: Partial<ProjectState['workflow']['phases']['scope']> = {},
@@ -116,7 +116,7 @@ function createBottomArtifact(
   }
 }
 
-describe('projectWorkspaceStream', () => {
+describe('specificationWorkspaceStream', () => {
   it('projects answered turns, a divider, and the active persisted turn with the next question code', () => {
     const answeredTurn = createTurn({ id: 1, question: 'Answered question' });
     const persistedTurn = createBottomArtifact('persisted-turn');
@@ -124,7 +124,7 @@ describe('projectWorkspaceStream', () => {
       throw new Error('Expected persisted-turn bottom artifact');
     }
 
-    const projection = projectWorkspaceStream({
+    const projection = specificationWorkspaceStream({
       phase: 'scope',
       phaseTurns: [answeredTurn, persistedTurn.turn],
       phaseState: createPhaseState({ turnId: persistedTurn.turn.id }),
@@ -191,7 +191,7 @@ describe('projectWorkspaceStream', () => {
       }),
     } satisfies Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
 
-    const projection = projectWorkspaceStream({
+    const projection = specificationWorkspaceStream({
       phase: 'scope',
       phaseTurns: [answeredGroundingTurn, persistedTurn.turn],
       phaseState: createPhaseState({ turnId: persistedTurn.turn.id }),
@@ -206,7 +206,7 @@ describe('projectWorkspaceStream', () => {
   });
 
   it('projects the review-phase banner as a phase marker', () => {
-    const projection = projectWorkspaceStream({
+    const projection = specificationWorkspaceStream({
       phase: 'requirements',
       phaseTurns: [],
       phaseState: createPhaseState(),
@@ -223,7 +223,7 @@ describe('projectWorkspaceStream', () => {
   });
 
   it('projects typed control markers ahead of the active bottom artifact', () => {
-    const projection = projectWorkspaceStream({
+    const projection = specificationWorkspaceStream({
       phase: 'scope',
       phaseTurns: [createTurn({ id: 1 })],
       phaseState: createPhaseState(),
@@ -283,7 +283,7 @@ describe('projectWorkspaceStream', () => {
       ]),
     });
 
-    const projection = projectWorkspaceStream({
+    const projection = specificationWorkspaceStream({
       phase: 'requirements',
       phaseTurns: [reviewTurn, closureTurn],
       phaseState: createPhaseState({
@@ -324,7 +324,7 @@ describe('projectWorkspaceStream', () => {
       ]),
     });
 
-    const handoffProjection = projectWorkspaceStream({
+    const handoffProjection = specificationWorkspaceStream({
       phase: 'requirements',
       phaseTurns: [answeredTurn, closureTurn],
       phaseState: createPhaseState({
@@ -341,7 +341,7 @@ describe('projectWorkspaceStream', () => {
       'phase-handoff',
     ]);
 
-    const completionProjection = projectWorkspaceStream({
+    const completionProjection = specificationWorkspaceStream({
       phase: 'requirements',
       phaseTurns: [answeredTurn, closureTurn],
       phaseState: createPhaseState({

@@ -1,3 +1,3 @@
-export function getProjectScopedChatId(projectId: number): string {
-  return `project-${projectId}`;
+export function getSpecificationScopedChatId(specificationId: number): string {
+  return `specification-${specificationId}`;
 }

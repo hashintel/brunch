@@ -12,10 +12,7 @@ import {
   type DataTurnResponse,
 } from './chat.js';
 import { workflowPhaseOrder } from './phase-close.js';
-import type {
-  SpecificationState as ProjectState,
-  SpecificationTurn as ProjectStateTurn,
-} from './specification.js';
+import type { SpecificationState, SpecificationTurn } from './specification.js';
 
 export function safeParsePersistedAssistantParts(json: string | null | undefined): BrunchAssistantPart[] {
   return safeDecodePersistedAssistantParts(json);
@@ -26,7 +23,7 @@ export function safeParsePersistedUserParts(json: string | null | undefined): Br
 }
 
 export function getPersistedTurnResponse(
-  turn: Pick<ProjectStateTurn, 'user_parts'> | undefined,
+  turn: Pick<SpecificationTurn, 'user_parts'> | undefined,
 ): DataTurnResponse | null {
   return (
     safeParsePersistedUserParts(turn?.user_parts).find(
@@ -37,13 +34,13 @@ export function getPersistedTurnResponse(
 }
 
 export function getPersistedReviewAction(
-  turn: Pick<ProjectStateTurn, 'user_parts'> | undefined,
+  turn: Pick<SpecificationTurn, 'user_parts'> | undefined,
 ): ReviewAction | null {
   return getPersistedTurnResponse(turn)?.reviewAction ?? null;
 }
 
 export function getPersistedReviewSet(
-  turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined,
+  turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined,
 ): ReviewSetData | null {
   return (
     safeParsePersistedAssistantParts(turn?.assistant_parts).find(
@@ -54,7 +51,7 @@ export function getPersistedReviewSet(
 }
 
 export function getPersistedGroundingCard(
-  turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined,
+  turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined,
 ): GroundingCardData | null {
   return (
     safeParsePersistedAssistantParts(turn?.assistant_parts).find(
@@ -64,18 +61,18 @@ export function getPersistedGroundingCard(
   );
 }
 
-export function hasPersistedTurnResponse(turn: Pick<ProjectStateTurn, 'user_parts'> | undefined): boolean {
+export function hasPersistedTurnResponse(turn: Pick<SpecificationTurn, 'user_parts'> | undefined): boolean {
   return getPersistedTurnResponse(turn) !== null;
 }
 
 export function turnHasCompletedAnswer(
-  turn: Pick<ProjectStateTurn, 'answer' | 'user_parts'> | undefined,
+  turn: Pick<SpecificationTurn, 'answer' | 'user_parts'> | undefined,
 ): boolean {
   return Boolean(getPersistedTurnResponse(turn) || turn?.answer?.trim());
 }
 
 export function getPersistedSelectedPositions(
-  turn: Pick<ProjectStateTurn, 'user_parts' | 'options'> | undefined,
+  turn: Pick<SpecificationTurn, 'user_parts' | 'options'> | undefined,
 ): number[] {
   const persistedResponse = getPersistedTurnResponse(turn);
   if (!persistedResponse) {
@@ -89,21 +86,21 @@ export function getPersistedSelectedPositions(
 }
 
 export function findTurnOptionByPosition(
-  turn: ProjectStateTurn | undefined,
+  turn: SpecificationTurn | undefined,
   position: number,
-): NonNullable<ProjectStateTurn['options']>[number] | undefined {
+): NonNullable<SpecificationTurn['options']>[number] | undefined {
   return turn?.options?.find((option) => option.position === position);
 }
 
 export function findTurnOptionsByPositions(
-  turn: ProjectStateTurn | undefined,
+  turn: SpecificationTurn | undefined,
   positions: number[],
-): NonNullable<ProjectStateTurn['options']> {
+): NonNullable<SpecificationTurn['options']> {
   const uniquePositions = [...new Set(positions)];
   return turn?.options?.filter((option) => uniquePositions.includes(option.position)) ?? [];
 }
 
-function getPersistedStructuredQuestion(turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined) {
+function getPersistedStructuredQuestion(turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined) {
   const askQuestionPart = safeParsePersistedAssistantParts(turn?.assistant_parts).find(
     (part): part is Extract<BrunchAssistantPart, { type: 'tool-ask_question' }> =>
       part.type === 'tool-ask_question' && 'input' in part,
@@ -117,7 +114,7 @@ function getPersistedStructuredQuestion(turn: Pick<ProjectStateTurn, 'assistant_
 }
 
 export function getReviewPositionForAction(
-  turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined,
+  turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined,
   action: ReviewAction,
 ): number | null {
   const structuredQuestion = getPersistedStructuredQuestion(turn);
@@ -129,7 +126,7 @@ export function getReviewPositionForAction(
 }
 
 export function getReviewActionForSelectedPositions(
-  turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined,
+  turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined,
   positions: number[],
 ): ReviewAction | null {
   if (positions.length !== 1) {
@@ -146,7 +143,7 @@ export function getReviewActionForSelectedPositions(
 }
 
 export function turnIsControlOrClosureArtifact(
-  turn: Pick<ProjectStateTurn, 'assistant_parts' | 'is_resolution' | 'turn_kind' | 'user_parts'>,
+  turn: Pick<SpecificationTurn, 'assistant_parts' | 'is_resolution' | 'turn_kind' | 'user_parts'>,
 ): boolean {
   if (turn.turn_kind === 'kickoff' || turn.turn_kind === 'recovery' || turn.is_resolution) {
     return true;
@@ -164,14 +161,14 @@ export function turnIsControlOrClosureArtifact(
 }
 
 function getKickoffLandingMode(
-  turns: readonly Pick<ProjectStateTurn, 'phase' | 'turn_kind'>[],
+  turns: readonly Pick<SpecificationTurn, 'phase' | 'turn_kind'>[],
   phase: WorkflowPhase,
 ): KickoffLandingMode {
   return turns.some((turn) => turn.phase === phase && turn.turn_kind !== 'kickoff') ? 'continue' : 'start';
 }
 
 export function deriveSpecificationLanding(
-  snapshot: Pick<ProjectState, 'workflow' | 'turns'>,
+  snapshot: Pick<SpecificationState, 'workflow' | 'turns'>,
 ): SpecificationLanding | null {
   const phase = workflowPhaseOrder.find(
     (candidatePhase) => snapshot.workflow.phases[candidatePhase].status !== 'closed',
@@ -215,7 +212,7 @@ export function deriveSpecificationLanding(
 }
 
 export function getPersistedActivitySummary(
-  turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined,
+  turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined,
 ): ActivitySummary | null {
   const assistantParts = safeParsePersistedAssistantParts(turn?.assistant_parts);
   const persistedSummary = assistantParts.find(
@@ -226,7 +223,7 @@ export function getPersistedActivitySummary(
   return persistedSummary?.data ?? summarizeAssistantActivity(assistantParts);
 }
 
-export function getPersistedClosureSummary(turn: Pick<ProjectStateTurn, 'assistant_parts'>): string | null {
+export function getPersistedClosureSummary(turn: Pick<SpecificationTurn, 'assistant_parts'>): string | null {
   const persistedSummary = safeParsePersistedAssistantParts(turn.assistant_parts).find(
     (part): part is Extract<BrunchAssistantPart, { type: 'data-phase-summary' }> =>
       part.type === 'data-phase-summary',
@@ -236,9 +233,12 @@ export function getPersistedClosureSummary(turn: Pick<ProjectStateTurn, 'assista
 }
 
 export function getAcceptedClosureReplay(
-  turn: Pick<ProjectStateTurn, 'id' | 'phase' | 'assistant_parts' | 'user_parts'>,
-  phaseState: Pick<ProjectState['workflow']['phases'][WorkflowPhase], 'status' | 'closureBasis' | 'summary'>,
-): { turnId: number; phase: ProjectStateTurn['phase']; summary: string } | null {
+  turn: Pick<SpecificationTurn, 'id' | 'phase' | 'assistant_parts' | 'user_parts'>,
+  phaseState: Pick<
+    SpecificationState['workflow']['phases'][WorkflowPhase],
+    'status' | 'closureBasis' | 'summary'
+  >,
+): { turnId: number; phase: SpecificationTurn['phase']; summary: string } | null {
   if (phaseState.status !== 'closed' || phaseState.closureBasis !== 'interviewer_recommended') {
     return null;
   }

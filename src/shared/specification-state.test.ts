@@ -15,7 +15,7 @@ import {
   safeParsePersistedUserParts,
   turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
-} from './project-state-turn.js';
+} from './specification-state.js';
 import type {
   SpecificationState as ProjectState,
   SpecificationTurn as ProjectStateTurn,
@@ -100,7 +100,7 @@ function createProjectState(
   };
 }
 
-describe('project-state-turn helpers', () => {
+describe('specification-state helpers', () => {
   it('safely parses persisted assistant and user parts', () => {
     expect(safeParsePersistedAssistantParts('not-json')).toEqual([]);
     expect(safeParsePersistedUserParts(null)).toEqual([]);

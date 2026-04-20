@@ -1,7 +1,7 @@
 import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { extractTextFromMessage } from '@/shared/chat.js';
 import { getCurrentOpenPhase } from '@/shared/phase-descriptors.js';
-import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
+import { deriveSpecificationLanding } from '@/shared/specification-state.js';
 import type { SpecificationListItem, SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
 import {

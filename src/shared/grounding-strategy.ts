@@ -1,7 +1,4 @@
-import type {
-  SpecificationMode as ProjectMode,
-  SpecificationTurn as ProjectStateTurn,
-} from './specification.js';
+import type { SpecificationMode, SpecificationTurn } from './specification.js';
 
 export const groundingStrategyKickoffQuestion = 'How should this specification start?';
 export const groundingStrategyKickoffDescription = 'Choose how to start grounding this specification.';
@@ -23,14 +20,14 @@ export const groundingStrategyChoices = [
   },
 ] as const satisfies readonly {
   position: number;
-  mode: ProjectMode;
+  mode: SpecificationMode;
   title: string;
   description: string;
   isRecommended: boolean;
 }[];
 
 export function isGroundingStrategyKickoffTurn(
-  turn: Pick<ProjectStateTurn, 'phase' | 'turn_kind' | 'question'> | undefined,
+  turn: Pick<SpecificationTurn, 'phase' | 'turn_kind' | 'question'> | undefined,
 ): boolean {
   return (
     turn?.phase === 'scope' &&
@@ -39,14 +36,14 @@ export function isGroundingStrategyKickoffTurn(
   );
 }
 
-export function getGroundingStrategyModeForPosition(position: number): ProjectMode | null {
+export function getGroundingStrategyModeForPosition(position: number): SpecificationMode | null {
   return groundingStrategyChoices.find((choice) => choice.position === position)?.mode ?? null;
 }
 
-export function getGroundingStrategyPosition(mode: ProjectMode): number | null {
+export function getGroundingStrategyPosition(mode: SpecificationMode): number | null {
   return groundingStrategyChoices.find((choice) => choice.mode === mode)?.position ?? null;
 }
 
-export function getGroundingStrategyTitle(mode: ProjectMode): string | null {
+export function getGroundingStrategyTitle(mode: SpecificationMode): string | null {
   return groundingStrategyChoices.find((choice) => choice.mode === mode)?.title ?? null;
 }

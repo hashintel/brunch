@@ -12,10 +12,10 @@ import {
   safeParsePersistedAssistantParts,
   safeParsePersistedUserParts,
   turnHasCompletedAnswer,
-} from '@/shared/project-state-turn.js';
+} from '@/shared/specification-state.js';
 import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
-export interface InterviewDurableProjectState {
+export interface InterviewDurableSpecificationState {
   readonly project: SpecificationState['project'];
   readonly workflow: SpecificationState['workflow'];
   readonly turns: readonly SpecificationTurn[];
@@ -94,8 +94,8 @@ export type InterviewBottomArtifactViewModel =
     };
 
 export interface InterviewControllerViewState {
-  readonly project: InterviewDurableProjectState['project'];
-  readonly workflow: InterviewDurableProjectState['workflow'];
+  readonly project: InterviewDurableSpecificationState['project'];
+  readonly workflow: InterviewDurableSpecificationState['workflow'];
   readonly bottomArtifact: InterviewBottomArtifactViewModel | null;
 }
 
@@ -143,9 +143,9 @@ function hydrateMessages(turns: readonly SpecificationTurn[]): BrunchUIMessage[]
   return messages;
 }
 
-export function createInterviewDurableProjectState(
+export function createInterviewDurableSpecificationState(
   specificationState: SpecificationState,
-): InterviewDurableProjectState {
+): InterviewDurableSpecificationState {
   const lastTurn = specificationState.turns[specificationState.turns.length - 1] as
     | SpecificationTurn
     | undefined;
@@ -213,16 +213,16 @@ export function reconcileStablePhaseTurns(
 }
 
 function findPhaseTurn(
-  durableProject: InterviewDurableProjectState,
+  durableSpecification: InterviewDurableSpecificationState,
   phase: WorkflowPhase,
 ): SpecificationTurn | null {
-  const phaseState = durableProject.workflow.phases[phase];
+  const phaseState = durableSpecification.workflow.phases[phase];
   if (phaseState.status === 'closed') {
     return null;
   }
 
   if (phaseState.turnId !== null) {
-    const currentPhaseTurn = durableProject.turns.find(
+    const currentPhaseTurn = durableSpecification.turns.find(
       (turn) => turn.id === phaseState.turnId && turn.phase === phase,
     );
     if (currentPhaseTurn) {
@@ -230,8 +230,8 @@ function findPhaseTurn(
     }
   }
 
-  for (let index = durableProject.turns.length - 1; index >= 0; index -= 1) {
-    const turn = durableProject.turns[index];
+  for (let index = durableSpecification.turns.length - 1; index >= 0; index -= 1) {
+    const turn = durableSpecification.turns[index];
     if (turn?.phase === phase) {
       return turn;
     }
@@ -317,14 +317,14 @@ function findPhaseSummary(messages: readonly BrunchUIMessage[]): PhaseSummaryVie
 }
 
 export function createInterviewControllerViewState(
-  durableProject: InterviewDurableProjectState,
+  durableSpecification: InterviewDurableSpecificationState,
   phase: WorkflowPhase,
   messages: readonly BrunchUIMessage[],
   isLoading: boolean,
   submittedTurnId: number | null = null,
   isAutoSubmittingPhaseIntent = false,
 ): InterviewControllerViewState {
-  const { project, workflow } = durableProject;
+  const { project, workflow } = durableSpecification;
   const phaseState = workflow.phases[phase];
   const nextPhase = getNextActivePhase(workflow.phases, phase);
   const isReviewPhase = phase === 'requirements' || phase === 'criteria';
@@ -352,11 +352,11 @@ export function createInterviewControllerViewState(
     };
   }
 
-  const landing = durableProject.landing?.phase === phase ? durableProject.landing : null;
+  const landing = durableSpecification.landing?.phase === phase ? durableSpecification.landing : null;
   const phaseTurn =
     landing?.kind === 'frontier-turn'
-      ? (durableProject.turns.find((turn) => turn.id === landing.turnId) ?? null)
-      : findPhaseTurn(durableProject, phase);
+      ? (durableSpecification.turns.find((turn) => turn.id === landing.turnId) ?? null)
+      : findPhaseTurn(durableSpecification, phase);
   const showTurnCard = landing?.kind === 'frontier-turn' && Boolean(phaseTurn?.options?.length);
   const isSubmittedTurn = phaseTurn?.id === submittedTurnId;
   const showSubmittedTurnCard = isSubmittedTurn && Boolean(phaseTurn?.options?.length);
