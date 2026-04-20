@@ -9,6 +9,7 @@ import type { SpecificationTurn } from '@/shared/specification.js';
 import { cn } from '../lib/utils';
 import { Button } from './app-shell';
 import { DrawerCard } from './drawer-card';
+import { isVisibleKnowledgeKind } from './knowledge-display';
 import { ReviewSetCard, type ReviewSetCardData } from './review-set-card';
 import { Checkbox } from './ui/checkbox';
 import { Skeleton } from './ui/skeleton';
@@ -58,7 +59,7 @@ export function AnsweredQuestionCard({
         ? 'None'
         : turn.answer?.trim() || '—';
   const responseContext = persistedResponse?.freeText?.trim() || turn.answer?.trim() || null;
-  const capturedItems = turn.captured_items ?? [];
+  const capturedItems = (turn.captured_items ?? []).filter((item) => isVisibleKnowledgeKind(item.kind));
   const displayCaptureStatus: 'done' | 'trailing' =
     captureStatus === 'waiting' || captureStatus === 'applying' ? 'trailing' : 'done';
   const impact = turn.impact ?? 'low';

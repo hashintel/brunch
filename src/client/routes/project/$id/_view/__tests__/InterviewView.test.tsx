@@ -3749,6 +3749,57 @@ describe('InterviewView', () => {
     expect(answeredCard.textContent).toContain('Best fit for launch');
   });
 
+  it('hides term captures from the compact answered card', async () => {
+    const visibleCaptureCode = createKnowledgeReferenceCode('goal', 1);
+    const hiddenCaptureCode = createKnowledgeReferenceCode('term', 1);
+
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'scope',
+            turn_kind: 'question',
+            question: 'What should we build first?',
+            why: 'This frames the first iteration.',
+            impact: 'high',
+            answer: 'Build the web app',
+            is_resolution: false,
+            user_parts: JSON.stringify([{ type: 'text', text: 'Build the web app' }]),
+            assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
+            created_at: '2026-04-03 10:00:00',
+            options: [],
+            captured_items: [
+              {
+                collection: 'knowledge_item',
+                kind: 'goal',
+                id: 1,
+                content: 'Ship the web app first',
+                referenceCode: visibleCaptureCode,
+              },
+              {
+                collection: 'knowledge_item',
+                kind: 'term',
+                id: 2,
+                content: 'Invisible term',
+                referenceCode: hiddenCaptureCode,
+              },
+            ],
+          },
+        ],
+      }),
+    );
+
+    renderWorkspace();
+
+    const answeredCard = await screen.findByTestId('answered-turn-card');
+
+    expect(answeredCard.textContent).toContain(visibleCaptureCode);
+    expect(answeredCard.textContent).not.toContain(hiddenCaptureCode);
+  });
+
   it('renders a compact answered card for a persisted free-text-only response', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
