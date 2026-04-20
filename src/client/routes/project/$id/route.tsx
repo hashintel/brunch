@@ -1,7 +1,7 @@
 import { Outlet, createFileRoute, useLoaderData, useParams } from '@tanstack/react-router';
 
 import { Skeleton } from '@/client/components/ui/skeleton';
-import type { ProjectState } from '@/shared/api-types.js';
+import type { SpecificationState } from '@/shared/specification.js';
 
 import { PhaseNavigationSidebar } from './-phase-navigation-sidebar.js';
 
@@ -25,12 +25,12 @@ function SpecificationWorkspaceSkeleton() {
   );
 }
 
-async function fetchSpecificationWorkspaceLoaderData(specificationId: string): Promise<ProjectState> {
+async function fetchSpecificationWorkspaceLoaderData(specificationId: string): Promise<SpecificationState> {
   const response = await fetch(`/api/projects/${specificationId}`);
   if (!response.ok) {
     throw new Error('Failed to load specification');
   }
-  return (await response.json()) as ProjectState;
+  return (await response.json()) as SpecificationState;
 }
 
 export const Route = createFileRoute('/project/$id')({

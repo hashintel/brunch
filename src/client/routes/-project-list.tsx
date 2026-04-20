@@ -13,12 +13,11 @@ import {
   DialogTitle,
 } from '@/client/components/ui/dialog';
 import { useCreateSpecificationMutation } from '@/client/mutations/project-mutations';
-import type { ProjectListItem, ReadinessBand, WorkflowPhaseStatus } from '@/shared/api-types.js';
+import type { ReadinessBand, WorkflowPhaseStatus } from '@/shared/api-types.js';
 import { getCurrentOpenPhase, getWorkflowPhaseLabel, phaseOrder } from '@/shared/phase-descriptors.js';
+import type { SpecificationListItem } from '@/shared/specification.js';
 
 const specificationListRouteApi = getRouteApi('/');
-
-type SpecificationListItem = ProjectListItem;
 
 type DialogStep = 'closed' | 'name';
 

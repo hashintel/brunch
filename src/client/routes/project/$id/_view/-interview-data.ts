@@ -1,6 +1,6 @@
 import { useCallback, useMemo } from 'react';
 
-import type { ProjectState } from '@/shared/api-types.js';
+import type { SpecificationState } from '@/shared/specification.js';
 
 import {
   createInterviewDurableProjectState,
@@ -18,13 +18,16 @@ export interface InterviewDataAdapter {
 }
 
 export function useInterviewDataAdapter(
-  projectState: ProjectState,
+  specificationState: SpecificationState,
   invalidateRouter: () => Promise<void>,
 ): InterviewDataAdapter {
-  const durableProject = useMemo(() => createInterviewDurableProjectState(projectState), [projectState]);
+  const durableProject = useMemo(
+    () => createInterviewDurableProjectState(specificationState),
+    [specificationState],
+  );
   const ephemeralChat = useMemo(
-    () => createInterviewEphemeralChatState(projectState),
-    [projectState.project.id],
+    () => createInterviewEphemeralChatState(specificationState),
+    [specificationState.project.id],
   );
   const handleDataPart = useCallback(
     (dataPart: { type: string; data?: unknown }) => {

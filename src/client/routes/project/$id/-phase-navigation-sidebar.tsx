@@ -3,12 +3,7 @@ import { ArrowLeftIcon } from 'lucide-react';
 
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import { cn } from '@/client/lib/utils';
-import type {
-  ProjectStateTurn,
-  WorkflowPhase,
-  WorkflowPhaseState,
-  WorkflowState,
-} from '@/shared/api-types.js';
+import type { WorkflowPhase, WorkflowPhaseState, WorkflowState } from '@/shared/api-types.js';
 import {
   areAllWorkflowPhasesClosed,
   getCurrentOpenPhase,
@@ -16,6 +11,7 @@ import {
   getWorkflowPhaseLabel,
   phaseOrder,
 } from '@/shared/phase-descriptors.js';
+import type { SpecificationTurn } from '@/shared/specification.js';
 
 function formatStatus(status: WorkflowPhaseState['status']): string {
   switch (status) {
@@ -40,7 +36,7 @@ function getCurrentReachablePhase(workflow: WorkflowState): WorkflowPhase | null
   return getCurrentOpenPhase(workflow.phases);
 }
 
-function getPhaseTurnCounts(turns: readonly ProjectStateTurn[]): Record<WorkflowPhase, number> {
+function getPhaseTurnCounts(turns: readonly SpecificationTurn[]): Record<WorkflowPhase, number> {
   const turnCounts = {
     scope: 0,
     design: 0,
@@ -114,7 +110,7 @@ export function PhaseNavigationSidebar({
   specificationId: string;
   specificationName: string;
   workflow: WorkflowState;
-  turns: readonly ProjectStateTurn[];
+  turns: readonly SpecificationTurn[];
 }) {
   const currentReachablePhase = getCurrentReachablePhase(workflow);
   const phaseTurnCounts = getPhaseTurnCounts(turns);

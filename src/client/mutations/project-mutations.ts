@@ -1,19 +1,19 @@
-import type { CreateProjectRequest, CreateProjectResponse } from '@/shared/api-types.js';
+import type { CreateSpecificationRequest, CreateSpecificationResponse } from '@/shared/specification.js';
 
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
-type CreateSpecificationInput = CreateProjectRequest;
+type CreateSpecificationInput = CreateSpecificationRequest;
 
 export interface CreateSpecificationMutationState {
-  readonly createSpecification: (input: CreateSpecificationInput) => Promise<CreateProjectResponse>;
+  readonly createSpecification: (input: CreateSpecificationInput) => Promise<CreateSpecificationResponse>;
   readonly isPending: boolean;
   readonly errorMessage: string | null;
   readonly clearError: () => void;
 }
 
 export function useCreateSpecificationMutation(): CreateSpecificationMutationState {
-  const mutation = useClientMutation((variables: CreateProjectRequest) =>
-    postJsonMutation<CreateProjectResponse, CreateProjectRequest>(
+  const mutation = useClientMutation((variables: CreateSpecificationRequest) =>
+    postJsonMutation<CreateSpecificationResponse, CreateSpecificationRequest>(
       '/api/projects',
       variables,
       'Failed to create specification',

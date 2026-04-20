@@ -1,4 +1,4 @@
-import type { ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
+import type { WorkflowPhase } from '@/shared/api-types.js';
 import {
   getAcceptedClosureReplay,
   getPersistedGroundingCard,
@@ -7,6 +7,7 @@ import {
   turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
 } from '@/shared/project-state-turn.js';
+import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
 import type { InterviewControllerBottomArtifactState } from './-interview-controller.js';
 
@@ -27,22 +28,22 @@ export type WorkspaceStreamArtifact =
     }
   | {
       readonly kind: 'answered-turn';
-      readonly turn: ProjectStateTurn;
+      readonly turn: SpecificationTurn;
       readonly questionCode: string;
     }
   | {
       readonly kind: 'answered-grounding-card';
-      readonly turn: ProjectStateTurn;
+      readonly turn: SpecificationTurn;
       readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
     }
   | {
       readonly kind: 'answered-review-turn';
-      readonly turn: ProjectStateTurn;
+      readonly turn: SpecificationTurn;
       readonly reviewSet: NonNullable<ReturnType<typeof getPersistedReviewSet>>;
     }
   | {
       readonly kind: 'accepted-closure';
-      readonly turn: ProjectStateTurn | undefined;
+      readonly turn: SpecificationTurn | undefined;
       readonly acceptedClosure: NonNullable<ReturnType<typeof getAcceptedClosureReplay>>;
     }
   | {
@@ -106,7 +107,7 @@ function projectPhaseMarkers({
   phaseState,
 }: {
   phase: WorkflowPhase;
-  phaseState: ProjectState['workflow']['phases'][ProjectStateTurn['phase']];
+  phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
 }): WorkspaceStreamArtifact[] {
   if (phaseState.status !== 'in_progress' || (phase !== 'requirements' && phase !== 'criteria')) {
     return [];
@@ -129,8 +130,8 @@ function projectHistoryArtifacts({
   phaseState,
   renderedPersistedTurnId,
 }: {
-  phaseTurns: readonly ProjectStateTurn[];
-  phaseState: ProjectState['workflow']['phases'][ProjectStateTurn['phase']];
+  phaseTurns: readonly SpecificationTurn[];
+  phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
   renderedPersistedTurnId: number | null;
 }): WorkspaceStreamArtifact[] {
   const historyArtifacts: WorkspaceStreamArtifact[] = [];
@@ -287,8 +288,8 @@ export function projectWorkspaceStream({
   controlMarkers = [],
 }: {
   phase: WorkflowPhase;
-  phaseTurns: readonly ProjectStateTurn[];
-  phaseState: ProjectState['workflow']['phases'][ProjectStateTurn['phase']];
+  phaseTurns: readonly SpecificationTurn[];
+  phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
   bottomArtifact: InterviewControllerBottomArtifactState | null;
   controlMarkers?: readonly WorkspaceStreamMarker[];
 }): WorkspaceStreamProjection {

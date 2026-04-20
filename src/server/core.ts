@@ -1,8 +1,8 @@
-import type { ProjectListItem, ProjectState, ProjectStateTurn } from '@/shared/api-types.js';
 import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { extractTextFromMessage } from '@/shared/chat.js';
 import { getCurrentOpenPhase } from '@/shared/phase-descriptors.js';
 import { deriveSpecificationLanding } from '@/shared/project-state-turn.js';
+import type { SpecificationListItem, SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
 import {
   getProject,
@@ -32,7 +32,7 @@ export function extractPrompt(messages: BrunchUIMessage[]): string {
 }
 
 /** Turn with optional options for richer history formatting. */
-export type TurnWithOptions = ProjectStateTurn;
+export type TurnWithOptions = SpecificationTurn;
 
 export function loadActivePathWithOptions(db: DB, projectId: number): TurnWithOptions[] {
   const rawActivePath = getActivePath(db, projectId);
@@ -105,7 +105,7 @@ export function finalizeTurn(db: DB, projectId: number, turnId: number): void {
   advanceHead(db, projectId, turnId);
 }
 
-export function readProjectStateProjection(db: DB, projectId: number): ProjectState | null {
+export function readSpecificationStateProjection(db: DB, projectId: number): SpecificationState | null {
   const project = getProject(db, projectId);
   if (!project) return null;
   const turns = loadActivePathWithOptions(db, projectId);
@@ -118,13 +118,13 @@ export function readProjectStateProjection(db: DB, projectId: number): ProjectSt
   };
 }
 
-/** Get project state: project + active path turns enriched with options. */
-export function getProjectState(db: DB, projectId: number): ProjectState | null {
-  return readProjectStateProjection(db, projectId);
+/** Get specification state: specification + active path turns enriched with options. */
+export function getSpecificationState(db: DB, projectId: number): SpecificationState | null {
+  return readSpecificationStateProjection(db, projectId);
 }
 
-/** List all projects with compact workflow summary. */
-export function listProjectStates(db: DB): ProjectListItem[] {
+/** List all specifications with compact workflow summary. */
+export function listSpecifications(db: DB): SpecificationListItem[] {
   return listProjects(db).map((project) => {
     const workflow = getCurrentWorkflowState(db, project.id);
     const currentPhase = getCurrentOpenPhase(workflow.phases);
@@ -141,7 +141,12 @@ export function listProjectStates(db: DB): ProjectListItem[] {
   });
 }
 
-/** Create a new project with the given name and optional mode. */
-export function createNewProject(db: DB, name: string, options?: CreateProjectOptions): Project {
+/** Create a new specification with the given name and optional mode. */
+export function createNewSpecification(db: DB, name: string, options?: CreateProjectOptions): Project {
   return createProject(db, name, options);
 }
+
+export const readProjectStateProjection = readSpecificationStateProjection;
+export const getProjectState = getSpecificationState;
+export const listProjectStates = listSpecifications;
+export const createNewProject = createNewSpecification;

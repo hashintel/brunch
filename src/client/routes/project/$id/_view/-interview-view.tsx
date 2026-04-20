@@ -24,7 +24,7 @@ import {
 } from '@/client/components/question-cards';
 import { ReviewPhaseCompletionCard } from '@/client/components/review-set-card';
 import { cn } from '@/client/lib/utils';
-import type { ProjectState, ProjectStateTurn, WorkflowPhase } from '@/shared/api-types.js';
+import type { WorkflowPhase } from '@/shared/api-types.js';
 import { isAskQuestionUIPart, summarizeAssistantActivity } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
@@ -44,11 +44,12 @@ import {
   getReviewPositionForAction,
   turnHasCompletedAnswer,
 } from '@/shared/project-state-turn.js';
+import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
 import { useInterviewController } from './-interview-controller';
 import { projectWorkspaceStream, type WorkspaceStreamMarker } from './-workspace-stream-projector.js';
 
-function canForceClosePhase(workflow: ProjectState['workflow'], phase: ProjectStateTurn['phase']) {
+function canForceClosePhase(workflow: SpecificationState['workflow'], phase: SpecificationTurn['phase']) {
   return getForceClosePhaseAction(workflow, phase).available;
 }
 
@@ -100,7 +101,7 @@ function renderActivitySummary(activitySummary: { seconds?: number; tools: strin
   return <ActivityPlaceholder seconds={activitySummary.seconds} tools={activitySummary.tools} />;
 }
 
-function renderPersistedActivity(turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined) {
+function renderPersistedActivity(turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined) {
   return renderActivitySummary(getPersistedActivitySummary(turn));
 }
 

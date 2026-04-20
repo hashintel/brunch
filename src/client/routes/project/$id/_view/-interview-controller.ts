@@ -8,7 +8,7 @@ import {
   useSubmitPhaseIntentMutation,
   useSubmitTurnResponseMutation,
 } from '@/client/mutations/interview-mutations';
-import type { ProjectMode, ProjectStateTurn, ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
+import type { ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
 import { brunchDataPartSchemas } from '@/shared/chat.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import {
@@ -19,6 +19,7 @@ import {
 import type { DataConfirmation } from '@/shared/phase-close.js';
 import { getNextActivePhase, getPhaseRoutePath } from '@/shared/phase-descriptors.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
+import type { SpecificationMode, SpecificationTurn } from '@/shared/specification.js';
 
 import {
   buildPhaseTurnIds,
@@ -43,14 +44,14 @@ export interface InterviewControllerChatState {
   readonly isLoading: boolean;
   readonly isStreaming: boolean;
   readonly submitText: (text: string) => void;
-  readonly confirmPhaseClosure: (phase: ProjectStateTurn['phase'], turnId: number) => void;
-  readonly forcePhaseClosure: (phase: ProjectStateTurn['phase']) => void;
+  readonly confirmPhaseClosure: (phase: SpecificationTurn['phase'], turnId: number) => void;
+  readonly forcePhaseClosure: (phase: SpecificationTurn['phase']) => void;
 }
 
 export type InterviewControllerBottomArtifactState =
   | {
       readonly kind: 'persisted-turn';
-      readonly turn: ProjectStateTurn;
+      readonly turn: SpecificationTurn;
       readonly state: 'active' | 'submitted';
       readonly disabled: boolean;
       readonly errorMessage: string | null;
@@ -69,7 +70,7 @@ export type InterviewControllerBottomArtifactState =
       readonly kind: 'kickoff';
       readonly kickoff: KickoffControlViewModel;
       readonly disabled: boolean;
-      readonly submitKickoff: (mode?: ProjectMode) => void;
+      readonly submitKickoff: (mode?: SpecificationMode) => void;
     }
   | {
       readonly kind: 'recovery';
@@ -103,7 +104,7 @@ export type InterviewControllerBottomArtifactState =
 export interface InterviewController {
   readonly project: InterviewDurableProjectState['project'];
   readonly workflow: InterviewDurableProjectState['workflow'];
-  readonly phaseTurns: readonly ProjectStateTurn[];
+  readonly phaseTurns: readonly SpecificationTurn[];
   readonly captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   readonly chat: InterviewControllerChatState;
   readonly bottomArtifact: InterviewControllerBottomArtifactState | null;
@@ -269,14 +270,14 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   );
 
   const confirmPhaseClosure = useCallback(
-    (closurePhase: ProjectStateTurn['phase'], turnId: number) => {
+    (closurePhase: SpecificationTurn['phase'], turnId: number) => {
       submitPhaseClosureCommand(createConfirmProposedPhaseClosureCommand(closurePhase, turnId));
     },
     [submitPhaseClosureCommand],
   );
 
   const forcePhaseClosure = useCallback(
-    (closurePhase: ProjectStateTurn['phase']) => {
+    (closurePhase: SpecificationTurn['phase']) => {
       submitPhaseClosureCommand(createForceCloseActivePhaseCommand(closurePhase));
     },
     [submitPhaseClosureCommand],
@@ -418,7 +419,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                   kind: 'kickoff' as const,
                   kickoff,
                   disabled: isLoading,
-                  submitKickoff: (selectedMode?: ProjectMode) => {
+                  submitKickoff: (selectedMode?: SpecificationMode) => {
                     if (isLoading) {
                       return;
                     }

@@ -2,17 +2,11 @@ import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessage
 import express from 'express';
 import type { Express, Request, Response } from 'express';
 
-import {
-  createProjectRequestSchema,
-  submitPhaseIntentRequestSchema,
-  submitTurnResponseRequestSchema,
-} from '@/shared/api-types.js';
+import { submitPhaseIntentRequestSchema, submitTurnResponseRequestSchema } from '@/shared/api-types.js';
 import type {
   EntitiesData,
   ExportLoaderData,
   MutationErrorResponse,
-  ProjectListItem,
-  ProjectState,
   SubmitPhaseIntentResponse,
   SubmitTurnResponseResponse,
 } from '@/shared/api-types.js';
@@ -38,13 +32,18 @@ import {
   getPersistedGroundingCard,
   getReviewActionForSelectedPositions,
 } from '@/shared/project-state-turn.js';
+import {
+  createSpecificationRequestSchema,
+  type SpecificationListItem,
+  type SpecificationState,
+} from '@/shared/specification.js';
 
 import {
+  createNewSpecification,
   extractPrompt,
   finalizeTurn,
-  getProjectState,
-  listProjectStates,
-  createNewProject,
+  getSpecificationState,
+  listSpecifications,
   prepareSuccessorTurn,
   prepareTurn,
   resolveTurn,
@@ -195,12 +194,12 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
   // List all projects
   app.get('/api/projects', (_req: Request, res: Response) => {
-    res.json(listProjectStates(db) satisfies ProjectListItem[]);
+    res.json(listSpecifications(db) satisfies SpecificationListItem[]);
   });
 
   // Create a new project
   app.post('/api/projects', (req: Request, res: Response) => {
-    const parsedRequest = createProjectRequestSchema.safeParse(req.body);
+    const parsedRequest = createSpecificationRequestSchema.safeParse(req.body);
     if (!parsedRequest.success) {
       res.status(400).json({ error: 'Invalid project payload' } satisfies MutationErrorResponse);
       return;
@@ -208,8 +207,8 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
     const { name } = parsedRequest.data;
     const mode = parsedRequest.data.mode === 'brownfield' ? ('brownfield' as const) : undefined;
-    const project = createNewProject(db, name, mode ? { mode } : {});
-    res.status(201).json(project);
+    const specification = createNewSpecification(db, name, mode ? { mode } : {});
+    res.status(201).json(specification);
   });
 
   // Get a specific project + active path
@@ -219,12 +218,12 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
       return;
     }
-    const state = getProjectState(db, id);
-    if (!state) {
+    const specificationState = getSpecificationState(db, id);
+    if (!specificationState) {
       res.status(404).json({ error: 'Project not found' } satisfies MutationErrorResponse);
       return;
     }
-    res.json(state satisfies ProjectState);
+    res.json(specificationState satisfies SpecificationState);
   });
 
   app.post('/api/projects/:id/phase-intent', (req: Request, res: Response) => {
@@ -377,18 +376,22 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       res.status(400).json({ error: 'Invalid project ID' } satisfies MutationErrorResponse);
       return;
     }
-    const projectState = getProjectState(db, id);
-    if (!projectState) {
+    const specificationState = getSpecificationState(db, id);
+    if (!specificationState) {
       res.status(404).json({ error: 'Project not found' } satisfies MutationErrorResponse);
       return;
     }
-    const ready = isExportReady(projectState.workflow);
+    const ready = isExportReady(specificationState.workflow);
     if (!ready) {
       res.json({ ready: false } satisfies ExportLoaderData);
       return;
     }
     const entities = getEntitiesForProjectByMode(db, id, 'active-path');
-    const markdown = renderExportMarkdown(projectState.project.name, entities, projectState.workflow);
+    const markdown = renderExportMarkdown(
+      specificationState.project.name,
+      entities,
+      specificationState.workflow,
+    );
     res.json({ ready: true, markdown } satisfies ExportLoaderData);
   });
 
@@ -495,15 +498,15 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       } else if (forceClosePhase) {
         prepared = prepareTurn(db, id, promptText, persistedUserParts, forceClosePhase);
       } else if (phaseIntentPart) {
-        const projectState = getProjectState(db, id);
-        if (!projectState) {
+        const specificationState = getSpecificationState(db, id);
+        if (!specificationState) {
           res.status(404).json({ error: 'Project not found' });
           return;
         }
 
         const availabilityError = getPhaseIntentRuntimeAvailabilityError(
           phaseIntentPart.data,
-          projectState.landing,
+          specificationState.landing,
         );
         if (availabilityError) {
           res.status(availabilityError.status).json({ error: availabilityError.error });
@@ -514,18 +517,18 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           db,
           id,
           phaseIntentPart.data.phase,
-          projectState.project.active_turn_id ?? null,
+          specificationState.project.active_turn_id ?? null,
         );
       } else {
-        const projectState = getProjectState(db, id);
-        if (!projectState) {
+        const specificationState = getSpecificationState(db, id);
+        if (!specificationState) {
           res.status(404).json({ error: 'Project not found' });
           return;
         }
 
         const currentPhase = getCurrentPhase(db, id);
-        const activeTurn = projectState.project.active_turn_id
-          ? getTurn(db, projectState.project.active_turn_id)
+        const activeTurn = specificationState.project.active_turn_id
+          ? getTurn(db, specificationState.project.active_turn_id)
           : undefined;
 
         const activeOutcome = activeTurn ? findPhaseOutcomeForTurn(db, id, activeTurn.id) : undefined;
