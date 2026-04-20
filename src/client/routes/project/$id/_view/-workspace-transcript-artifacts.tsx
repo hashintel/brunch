@@ -376,37 +376,49 @@ export function WorkspaceTranscriptArtifacts({
   showLockedState: boolean;
   renderPersistedActivity: (turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined) => React.ReactNode;
 }) {
-  return streamArtifacts.map((artifact) => {
-    switch (artifact.kind) {
-      case 'phase-marker':
-      case 'control-marker':
-      case 'answered-turn':
-      case 'answered-grounding-card':
-      case 'answered-review-turn':
-      case 'accepted-closure':
-      case 'divider':
-        return renderWorkspaceHistoryArtifact({
-          artifact,
-          captureStatusByTurnId,
-          renderPersistedActivity,
-        });
-      case 'persisted-turn':
-      case 'persisted-grounding-card':
-      case 'pending-question':
-      case 'kickoff':
-      case 'recovery':
-      case 'phase-summary':
-      case 'generating':
-        return renderWorkspaceInteractiveArtifact({
-          artifact,
-          fallbackReviewSet,
-          showLockedState,
-          phaseTurns,
-          renderPersistedActivity,
-        });
-      case 'phase-handoff':
-      case 'workflow-complete':
-        return renderWorkspaceTransitionArtifact({ artifact, specificationId });
+  return streamArtifacts.map((artifact, index) => {
+    const artifactNode = (() => {
+      switch (artifact.kind) {
+        case 'phase-marker':
+        case 'control-marker':
+        case 'answered-turn':
+        case 'answered-grounding-card':
+        case 'answered-review-turn':
+        case 'accepted-closure':
+        case 'divider':
+          return renderWorkspaceHistoryArtifact({
+            artifact,
+            captureStatusByTurnId,
+            renderPersistedActivity,
+          });
+        case 'persisted-turn':
+        case 'persisted-grounding-card':
+        case 'pending-question':
+        case 'kickoff':
+        case 'recovery':
+        case 'phase-summary':
+        case 'generating':
+          return renderWorkspaceInteractiveArtifact({
+            artifact,
+            fallbackReviewSet,
+            showLockedState,
+            phaseTurns,
+            renderPersistedActivity,
+          });
+        case 'phase-handoff':
+        case 'workflow-complete':
+          return renderWorkspaceTransitionArtifact({ artifact, specificationId });
+      }
+    })();
+
+    if (artifact.kind === 'divider') {
+      return <div key={`${artifact.kind}-${index}`}>{artifactNode}</div>;
     }
+
+    return (
+      <div key={`${artifact.kind}-${index}`} className="mx-auto w-full max-w-2xl">
+        {artifactNode}
+      </div>
+    );
   });
 }

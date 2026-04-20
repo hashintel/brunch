@@ -218,8 +218,8 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
       </div>
       <ChatScroll className="min-h-0 flex-1">
         <div className="flex flex-col px-4 pt-3">
-          <div className="mx-auto w-full max-w-2xl">
-            {showLockedState && currentReachablePhase && (
+          {showLockedState && currentReachablePhase && (
+            <div className="mx-auto w-full max-w-2xl">
               <WorkspaceStateCard
                 eyebrow="Locked phase"
                 title={`${getWorkflowPhaseLabel(phase)} phase is not available yet`}
@@ -233,18 +233,20 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                   Go to {getWorkflowPhaseLabel(currentReachablePhase)}
                 </Link>
               </WorkspaceStateCard>
-            )}
+            </div>
+          )}
 
-            <WorkspaceTranscriptArtifacts
-              streamArtifacts={streamArtifacts}
-              specificationId={String(specification.id)}
-              fallbackReviewSet={fallbackReviewSet}
-              phaseTurns={phaseTurns}
-              captureStatusByTurnId={captureStatusByTurnId}
-              showLockedState={showLockedState}
-              renderPersistedActivity={renderPersistedActivity}
-            />
+          <WorkspaceTranscriptArtifacts
+            streamArtifacts={streamArtifacts}
+            specificationId={String(specification.id)}
+            fallbackReviewSet={fallbackReviewSet}
+            phaseTurns={phaseTurns}
+            captureStatusByTurnId={captureStatusByTurnId}
+            showLockedState={showLockedState}
+            renderPersistedActivity={renderPersistedActivity}
+          />
 
+          <div className="mx-auto w-full max-w-2xl">
             {chat.messages.map((message, messageIndex) => {
               if (/^turn-\d+-/.test(message.id) || message.role === 'user') {
                 return null;
