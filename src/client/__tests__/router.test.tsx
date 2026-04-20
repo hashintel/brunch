@@ -74,8 +74,8 @@ const minimalEntitiesData: EntitiesData = {
 };
 
 vi.mock('../routes/-project-list.js', () => ({
-  ProjectList: () => <h1>Projects screen</h1>,
-  fetchProjectListLoaderData: vi.fn(async () => []),
+  SpecificationList: () => <h1>Specifications screen</h1>,
+  fetchSpecificationListLoaderData: vi.fn(async () => []),
 }));
 
 vi.mock('../routes/project/$id/_view/-interview-controller', () => ({
@@ -157,10 +157,10 @@ afterEach(() => {
 });
 
 describe('generated routeTree', () => {
-  it('maps the dashboard URL to the project list screen', async () => {
+  it('maps the dashboard URL to the specification list screen', async () => {
     await renderRouteAt('/');
 
-    expect(await screen.findByRole('heading', { name: 'Projects screen' })).toBeTruthy();
+    expect(await screen.findByRole('heading', { name: 'Specifications screen' })).toBeTruthy();
   });
 
   it('maps the grounding phase URL to the interview workspace screen with sidebar', async () => {

@@ -2,26 +2,27 @@ import type { CreateProjectRequest, CreateProjectResponse } from '@/shared/api-t
 
 import { postJsonMutation, useClientMutation } from './client-mutation.js';
 
-type CreateProjectInput = CreateProjectRequest;
+type CreateSpecificationInput = CreateProjectRequest;
 
-export interface CreateProjectMutationState {
-  readonly createProject: (input: CreateProjectInput) => Promise<CreateProjectResponse>;
+export interface CreateSpecificationMutationState {
+  readonly createSpecification: (input: CreateSpecificationInput) => Promise<CreateProjectResponse>;
   readonly isPending: boolean;
   readonly errorMessage: string | null;
   readonly clearError: () => void;
 }
 
-export function useCreateProjectMutation(): CreateProjectMutationState {
+export function useCreateSpecificationMutation(): CreateSpecificationMutationState {
   const mutation = useClientMutation((variables: CreateProjectRequest) =>
     postJsonMutation<CreateProjectResponse, CreateProjectRequest>(
       '/api/projects',
       variables,
-      'Failed to create project',
+      'Failed to create specification',
     ),
   );
 
   return {
-    createProject: ({ name, mode }: CreateProjectInput) => mutation.run({ name, ...(mode ? { mode } : {}) }),
+    createSpecification: ({ name, mode }: CreateSpecificationInput) =>
+      mutation.run({ name, ...(mode ? { mode } : {}) }),
     isPending: mutation.isPending,
     errorMessage: mutation.errorMessage,
     clearError: mutation.clearError,

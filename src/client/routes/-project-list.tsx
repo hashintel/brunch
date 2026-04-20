@@ -12,14 +12,18 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/client/components/ui/dialog';
-import { useCreateProjectMutation } from '@/client/mutations/project-mutations';
+import { useCreateSpecificationMutation } from '@/client/mutations/project-mutations';
 import type { ProjectListItem, ReadinessBand, WorkflowPhaseStatus } from '@/shared/api-types.js';
 import { workflowPhaseLabels } from '@/shared/phase-display.js';
 import { phaseOrder } from '@/shared/phase-routes.js';
 
-const projectListRouteApi = getRouteApi('/');
+const specificationListRouteApi = getRouteApi('/');
 
-function getCurrentPhaseInfo(summary: ProjectListItem['workflowSummary']): {
+type SpecificationListItem = ProjectListItem;
+
+type DialogStep = 'closed' | 'name';
+
+function getCurrentPhaseInfo(summary: SpecificationListItem['workflowSummary']): {
   label: string;
   number: number;
 } {
@@ -28,7 +32,7 @@ function getCurrentPhaseInfo(summary: ProjectListItem['workflowSummary']): {
       return { label: workflowPhaseLabels[phaseOrder[i]!], number: i + 1 };
     }
   }
-  if (phaseOrder.every((p) => summary[p] === 'closed')) {
+  if (phaseOrder.every((phase) => summary[phase] === 'closed')) {
     return { label: 'Complete', number: phaseOrder.length };
   }
   return { label: workflowPhaseLabels[phaseOrder[0]!], number: 1 };
@@ -56,40 +60,40 @@ function ReadinessIcon({ readiness }: { readiness: ReadinessBand }) {
   return <Icon className={`size-3.5 ${iconClass}`} />;
 }
 
-type DialogStep = 'closed' | 'name';
-
-export async function fetchProjectListLoaderData(): Promise<ProjectListItem[]> {
+export async function fetchSpecificationListLoaderData(): Promise<SpecificationListItem[]> {
   const response = await fetch('/api/projects');
   if (!response.ok) {
-    throw new Error('Failed to load projects');
+    throw new Error('Failed to load specifications');
   }
 
-  return response.json() as Promise<ProjectListItem[]>;
+  return response.json() as Promise<SpecificationListItem[]>;
 }
 
-export function ProjectList() {
-  const projects = projectListRouteApi.useLoaderData();
+export function SpecificationList() {
+  const specifications = specificationListRouteApi.useLoaderData();
   const navigate = useNavigate();
-  const createProjectMutation = useCreateProjectMutation();
+  const createSpecificationMutation = useCreateSpecificationMutation();
   const [dialogStep, setDialogStep] = useState<DialogStep>('closed');
-  const [projectName, setProjectName] = useState('');
+  const [specificationName, setSpecificationName] = useState('');
 
-  const navigateToProject = (projectId: number) => {
-    void navigate({ to: '/project/$id', params: { id: String(projectId) } });
+  const navigateToSpecification = (specificationId: number) => {
+    void navigate({ to: '/project/$id', params: { id: String(specificationId) } });
   };
 
   const handleOpen = () => {
-    setProjectName('');
-    createProjectMutation.clearError();
+    setSpecificationName('');
+    createSpecificationMutation.clearError();
     setDialogStep('name');
   };
 
   const handleNameSubmit = async () => {
-    if (!projectName.trim()) return;
+    if (!specificationName.trim()) return;
     setDialogStep('closed');
     try {
-      const project = await createProjectMutation.createProject({ name: projectName.trim() });
-      navigateToProject(project.id);
+      const specification = await createSpecificationMutation.createSpecification({
+        name: specificationName.trim(),
+      });
+      navigateToSpecification(specification.id);
     } catch {
       setDialogStep('name');
       // The shared mutation hook surfaces the failure state in the UI.
@@ -103,13 +107,13 @@ export function ProjectList() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl p-6">
-        {createProjectMutation.errorMessage && (
+        {createSpecificationMutation.errorMessage && (
           <p role="alert" className="mb-4 text-sm text-destructive">
-            {createProjectMutation.errorMessage}
+            {createSpecificationMutation.errorMessage}
           </p>
         )}
 
-        {projects.length === 0 ? (
+        {specifications.length === 0 ? (
           <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-rule bg-[#f7f7f7] px-8 py-16 text-center">
             <p className="text-base font-medium tracking-[-0.015em] text-sub">No specifications yet</p>
             <p className="max-w-sm text-sm leading-relaxed text-sub">
@@ -119,10 +123,10 @@ export function ProjectList() {
               <Button
                 variant="primary"
                 onClick={handleOpen}
-                disabled={createProjectMutation.isPending}
+                disabled={createSpecificationMutation.isPending}
                 className="h-10 px-5 text-base"
               >
-                {createProjectMutation.isPending ? 'Creating...' : 'New specification'}
+                {createSpecificationMutation.isPending ? 'Creating...' : 'New specification'}
               </Button>
             </div>
           </div>
@@ -134,39 +138,43 @@ export function ProjectList() {
               className="mb-4"
             >
               <div className="mt-3">
-                <Button variant="primary" onClick={handleOpen} disabled={createProjectMutation.isPending}>
-                  {createProjectMutation.isPending ? 'Creating...' : 'New specification'}
+                <Button
+                  variant="primary"
+                  onClick={handleOpen}
+                  disabled={createSpecificationMutation.isPending}
+                >
+                  {createSpecificationMutation.isPending ? 'Creating...' : 'New specification'}
                 </Button>
               </div>
             </EmptyCard>
 
             <div className="grid grid-cols-2 gap-3">
-              {projects.map((project) => (
+              {specifications.map((specification) => (
                 <Link
-                  key={project.id}
+                  key={specification.id}
                   to="/project/$id"
-                  params={{ id: String(project.id) }}
+                  params={{ id: String(specification.id) }}
                   className="block"
                 >
                   <div className="cursor-pointer overflow-hidden rounded-xl border border-rule bg-white p-4 shadow-[var(--shadow-card)] transition-colors hover:bg-tint">
-                    <div className="text-sm-plus leading-snug font-medium text-ink">{project.name}</div>
+                    <div className="text-sm-plus leading-snug font-medium text-ink">{specification.name}</div>
                     <div className="mt-1.5 flex items-center gap-2">
                       <span className="text-xs text-hint">Phase</span>
                       <span className="text-xs font-medium text-[#2070e6]">
-                        {getCurrentPhaseInfo(project.workflowSummary).number}/{phaseOrder.length} –{' '}
-                        {getCurrentPhaseInfo(project.workflowSummary).label}
+                        {getCurrentPhaseInfo(specification.workflowSummary).number}/{phaseOrder.length} –{' '}
+                        {getCurrentPhaseInfo(specification.workflowSummary).label}
                       </span>
                       <span className="flex items-center gap-1">
                         {phaseOrder.map((phase) => (
-                          <PhaseDot key={phase} status={project.workflowSummary[phase]} />
+                          <PhaseDot key={phase} status={specification.workflowSummary[phase]} />
                         ))}
                       </span>
-                      {project.workflowSummary.currentReadiness ? (
-                        <ReadinessIcon readiness={project.workflowSummary.currentReadiness} />
+                      {specification.workflowSummary.currentReadiness ? (
+                        <ReadinessIcon readiness={specification.workflowSummary.currentReadiness} />
                       ) : null}
                     </div>
                     <div className="mt-1 text-xs text-hint">
-                      Updated: {new Date(project.updated_at).toLocaleDateString()}
+                      Updated: {new Date(specification.updated_at).toLocaleDateString()}
                     </div>
                   </div>
                 </Link>
@@ -185,15 +193,15 @@ export function ProjectList() {
                 </DialogHeader>
                 <input
                   type="text"
-                  value={projectName}
-                  onChange={(event) => setProjectName(event.target.value)}
+                  value={specificationName}
+                  onChange={(event) => setSpecificationName(event.target.value)}
                   onKeyDown={(event) => event.key === 'Enter' && handleNameSubmit()}
                   placeholder="Specification name"
                   autoFocus
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
                 <DialogFooter>
-                  <ShadcnButton onClick={() => void handleNameSubmit()} disabled={!projectName.trim()}>
+                  <ShadcnButton onClick={() => void handleNameSubmit()} disabled={!specificationName.trim()}>
                     Create specification
                   </ShadcnButton>
                 </DialogFooter>

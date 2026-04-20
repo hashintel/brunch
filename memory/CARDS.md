@@ -40,7 +40,7 @@ Brownfield and greenfield specifications continue to work after the specificatio
 
 ---
 
-## Card 2 — Rename client-owned project wording to specification without transport changes `[status: next]`
+## Card 2 — Rename client-owned project wording to specification without transport changes `[status: done]`
 
 ### Target Behavior
 The client-owned workspace shell, list, and local module naming refer to a specification rather than a project while current server transport paths and DB identifiers remain unchanged.
@@ -69,7 +69,7 @@ The client-owned workspace shell, list, and local module naming refer to a speci
 
 ---
 
-## Card 3 — Introduce canonical grounding vocabulary at the helper seam without changing persisted phase keys `[status: next after card 2]`
+## Card 3 — Introduce canonical grounding vocabulary at the helper seam without changing persisted phase keys `[status: next]`
 
 ### Target Behavior
 Shared and client workflow helpers expose `grounding` as the canonical first-phase vocabulary while persisted workflow keys remain `scope` for now.

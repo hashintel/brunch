@@ -8,12 +8,12 @@ import { describe, expect, it } from 'vitest';
 const readRepoFile = (relativePath: string) => readFileSync(join(process.cwd(), relativePath), 'utf8');
 
 describe('file-route phase route ownership', () => {
-  it('ProjectLayout route defines the project-state loader inline and renders the sidebar', () => {
+  it('specification workspace route defines the specification-state loader inline and renders the sidebar', () => {
     const projectLayoutSource = readRepoFile('src/client/routes/project/$id/route.tsx');
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
 
     expect(projectLayoutSource).toContain("createFileRoute('/project/$id')");
-    expect(projectLayoutSource).toContain('fetchProjectLayoutLoaderData');
+    expect(projectLayoutSource).toContain('fetchSpecificationWorkspaceLoaderData');
     expect(projectLayoutSource).toContain('PhaseNavigationSidebar');
     expect(projectLayoutSource).toContain('Outlet');
 

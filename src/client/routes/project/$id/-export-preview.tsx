@@ -7,7 +7,7 @@ import { ScrollArea } from '@/client/components/ui/scroll-area';
 const exportPreviewRouteApi = getRouteApi('/project/$id/export');
 
 export function ExportPreview() {
-  const { id } = exportPreviewRouteApi.useParams();
+  const { id: specificationId } = exportPreviewRouteApi.useParams();
   const data = exportPreviewRouteApi.useLoaderData();
 
   const handleDownload = () => {
@@ -27,7 +27,7 @@ export function ExportPreview() {
         <div className="mx-auto max-w-3xl px-10 py-8">
           <Link
             to="/project/$id"
-            params={{ id }}
+            params={{ id: specificationId }}
             className="inline-flex items-center gap-1 text-xs text-hint transition-colors hover:text-ink"
           >
             <ArrowLeftIcon className="size-3" />
@@ -42,7 +42,7 @@ export function ExportPreview() {
               </p>
               <Link
                 to="/project/$id"
-                params={{ id }}
+                params={{ id: specificationId }}
                 className="mt-2 inline-flex items-center gap-1 text-sm text-hint transition-colors hover:text-ink"
               >
                 <ArrowLeftIcon className="size-3" />
@@ -60,7 +60,7 @@ export function ExportPreview() {
                 </Button>
                 <Link
                   to="/project/$id/grounding"
-                  params={{ id }}
+                  params={{ id: specificationId }}
                   className="inline-flex items-center gap-1 text-sm text-hint transition-colors hover:text-ink"
                 >
                   <BookOpenIcon className="size-3.5" />

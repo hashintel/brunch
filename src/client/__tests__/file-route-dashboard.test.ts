@@ -16,11 +16,11 @@ describe('file-route dashboard ownership', () => {
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
 
     expect(dashboardRouteSource).toContain("createFileRoute('/')");
-    expect(dashboardRouteSource).toContain('fetchProjectListLoaderData');
-    expect(dashboardRouteSource).toContain('component: ProjectList');
+    expect(dashboardRouteSource).toContain('fetchSpecificationListLoaderData');
+    expect(dashboardRouteSource).toContain('component: SpecificationList');
 
     expect(projectListRouteSource).toContain("fetch('/api/projects')");
-    expect(projectListRouteSource).toContain('useCreateProjectMutation');
+    expect(projectListRouteSource).toContain('useCreateSpecificationMutation');
     expect(projectListRouteSource).toContain("navigate({ to: '/project/$id'");
     expect(routeRootSource).toContain('Outlet');
     expect(routeRootSource).toContain('BrunchBrand');

@@ -5,7 +5,7 @@ import type { ProjectState } from '@/shared/api-types.js';
 
 import { PhaseNavigationSidebar } from './-phase-navigation-sidebar.js';
 
-function ProjectLayoutSkeleton() {
+function SpecificationWorkspaceSkeleton() {
   return (
     <div className="flex flex-1 flex-col overflow-hidden">
       <div className="mx-auto flex w-full max-w-2xl flex-1 flex-col gap-4 px-10 py-14">
@@ -25,27 +25,27 @@ function ProjectLayoutSkeleton() {
   );
 }
 
-async function fetchProjectLayoutLoaderData(projectId: string): Promise<ProjectState> {
-  const response = await fetch(`/api/projects/${projectId}`);
+async function fetchSpecificationWorkspaceLoaderData(specificationId: string): Promise<ProjectState> {
+  const response = await fetch(`/api/projects/${specificationId}`);
   if (!response.ok) {
-    throw new Error('Failed to load project');
+    throw new Error('Failed to load specification');
   }
   return (await response.json()) as ProjectState;
 }
 
 export const Route = createFileRoute('/project/$id')({
-  loader: ({ params }) => fetchProjectLayoutLoaderData(params.id),
-  pendingComponent: ProjectLayoutSkeleton,
-  component: function ProjectLayout() {
-    const projectState = useLoaderData({ from: '/project/$id' });
-    const { id } = useParams({ from: '/project/$id' });
+  loader: ({ params }) => fetchSpecificationWorkspaceLoaderData(params.id),
+  pendingComponent: SpecificationWorkspaceSkeleton,
+  component: function SpecificationWorkspaceLayout() {
+    const specificationState = useLoaderData({ from: '/project/$id' });
+    const { id: specificationId } = useParams({ from: '/project/$id' });
     return (
       <div className="flex h-full">
         <PhaseNavigationSidebar
-          projectId={id}
-          projectName={projectState.project.name}
-          workflow={projectState.workflow}
-          turns={projectState.turns}
+          specificationId={specificationId}
+          specificationName={specificationState.project.name}
+          workflow={specificationState.workflow}
+          turns={specificationState.turns}
         />
         <div className="flex-1 overflow-hidden">
           <Outlet />

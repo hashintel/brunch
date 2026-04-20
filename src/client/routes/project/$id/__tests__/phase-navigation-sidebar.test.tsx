@@ -66,11 +66,11 @@ async function renderSidebar(
   workflow: WorkflowState,
   {
     pathname = '/project/42/grounding',
-    projectName = 'Specification Alpha',
+    specificationName = 'Specification Alpha',
     turns = createTurns(),
   }: {
     pathname?: string;
-    projectName?: string;
+    specificationName?: string;
     turns?: ProjectStateTurn[];
   } = {},
 ) {
@@ -79,7 +79,12 @@ async function renderSidebar(
     getParentRoute: () => rootRoute,
     path: '$',
     component: () => (
-      <PhaseNavigationSidebar projectId="42" projectName={projectName} workflow={workflow} turns={turns} />
+      <PhaseNavigationSidebar
+        specificationId="42"
+        specificationName={specificationName}
+        workflow={workflow}
+        turns={turns}
+      />
     ),
   });
   rootRoute.addChildren([catchAll]);

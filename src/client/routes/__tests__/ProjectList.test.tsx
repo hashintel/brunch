@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { ProjectListItem } from '@/shared/api-types.js';
 
-import { ProjectList } from '../-project-list.js';
+import { SpecificationList } from '../-project-list.js';
 
 let currentProjects: ProjectListItem[];
 const navigateMock = vi.fn();
@@ -63,10 +63,10 @@ function createQueryClient() {
   });
 }
 
-function renderProjectList() {
+function renderSpecificationList() {
   return render(
     <QueryClientProvider client={createQueryClient()}>
-      <ProjectList />
+      <SpecificationList />
     </QueryClientProvider>,
   );
 }
@@ -83,7 +83,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-describe('ProjectList', () => {
+describe('SpecificationList', () => {
   it('creates a specification after name-only entry and navigates to its workspace', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
@@ -102,7 +102,7 @@ describe('ProjectList', () => {
       ),
     );
 
-    renderProjectList();
+    renderSpecificationList();
     fireEvent.click(screen.getByRole('button', { name: 'New specification' }));
 
     await waitFor(() => {
@@ -150,7 +150,7 @@ describe('ProjectList', () => {
       } satisfies ProjectListItem,
     ];
 
-    renderProjectList();
+    renderSpecificationList();
 
     expect(screen.getByRole('link', { name: /Active project/i }).getAttribute('href')).toBe('/project/1');
   });
@@ -174,13 +174,13 @@ describe('ProjectList', () => {
       } satisfies ProjectListItem,
     ];
 
-    renderProjectList();
+    renderSpecificationList();
     expect(screen.getByText('Phase')).toBeDefined();
     expect(screen.getByText(/2\/4 – Elicitation/)).toBeDefined();
   });
 
   it('does not present a root-level grounding strategy step during creation', async () => {
-    renderProjectList();
+    renderSpecificationList();
     fireEvent.click(screen.getByRole('button', { name: 'New specification' }));
 
     await waitFor(() => {
@@ -200,7 +200,7 @@ describe('ProjectList', () => {
       }),
     );
 
-    renderProjectList();
+    renderSpecificationList();
     fireEvent.click(screen.getByRole('button', { name: 'New specification' }));
 
     // Enter specification name and submit

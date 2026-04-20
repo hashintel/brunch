@@ -101,13 +101,13 @@ function ReadinessMeta({ readiness }: { readiness: WorkflowPhaseState['readiness
 }
 
 export function PhaseNavigationSidebar({
-  projectId,
-  projectName,
+  specificationId,
+  specificationName,
   workflow,
   turns,
 }: {
-  projectId: string;
-  projectName: string;
+  specificationId: string;
+  specificationName: string;
   workflow: WorkflowState;
   turns: readonly ProjectStateTurn[];
 }) {
@@ -129,8 +129,8 @@ export function PhaseNavigationSidebar({
             <ArrowLeftIcon className="size-3" />
             <span>Back to Workspace</span>
           </Link>
-          <p className="truncate text-base leading-snug font-medium text-ink" title={projectName}>
-            {projectName}
+          <p className="truncate text-base leading-snug font-medium text-ink" title={specificationName}>
+            {specificationName}
           </p>
         </div>
       </div>
@@ -184,7 +184,6 @@ export function PhaseNavigationSidebar({
                   aria-disabled={!isReachable ? 'true' : undefined}
                   {...sharedProps}
                 >
-                  {/* Vertical line — runs from bullet to next bullet */}
                   {!isLast && (
                     <span
                       className={cn(
@@ -194,17 +193,15 @@ export function PhaseNavigationSidebar({
                     />
                   )}
 
-                  {/* Bullet */}
                   <span className="mt-[4px] flex shrink-0 items-center justify-center">
                     <TimelineBullet status={state.status} />
                   </span>
 
-                  {/* Body */}
                   {isReachable ? (
                     <Link
                       // @ts-expect-error — dynamic route path from validated phase-route mapping
                       to={`/project/$id/${segment}`}
-                      params={{ id: projectId }}
+                      params={{ id: specificationId }}
                       activeProps={{ className: 'is-active' }}
                       className="group/phase block min-w-0 text-left transition-colors"
                     >
@@ -224,7 +221,7 @@ export function PhaseNavigationSidebar({
                 </span>
                 <Link
                   to="/project/$id/export"
-                  params={{ id: projectId }}
+                  params={{ id: specificationId }}
                   activeProps={{ className: 'is-active' }}
                   className="group/phase block min-w-0 text-left transition-colors"
                   data-phase="output"

@@ -150,8 +150,14 @@ function renderMessageParts(
 
 export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const entitySnapshot = useLoaderData({ from: '/project/$id/_view' });
-  const { chat, project, workflow, phaseTurns, bottomArtifact, captureStatusByTurnId } =
-    useInterviewController(phase);
+  const {
+    chat,
+    project: specification,
+    workflow,
+    phaseTurns,
+    bottomArtifact,
+    captureStatusByTurnId,
+  } = useInterviewController(phase);
   const phaseState = workflow.phases[phase];
   const currentReachablePhase =
     phaseOrder.find((candidate) => workflow.phases[candidate].status !== 'closed') ?? null;
@@ -226,7 +232,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
         {showAdvanceAction ? (
           <Link
             to={`/project/$id/${phaseRouteSegments[nextPhase!]}` as '/project/$id/grounding'}
-            params={{ id: String(project.id) }}
+            params={{ id: String(specification.id) }}
             className="inline-flex h-8 items-center justify-center rounded-md bg-card px-3.5 text-sm font-medium whitespace-nowrap text-foreground shadow-[var(--shadow-card-ring)] transition-colors"
           >
             Advance to {getWorkflowPhaseLabel(nextPhase!)}
@@ -234,7 +240,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
         ) : showExportAction ? (
           <Link
             to="/project/$id/export"
-            params={{ id: String(project.id) }}
+            params={{ id: String(specification.id) }}
             className="inline-flex h-8 items-center justify-center rounded-md bg-card px-3.5 text-sm font-medium whitespace-nowrap text-foreground shadow-[var(--shadow-card-ring)] transition-colors"
           >
             Open export preview
@@ -256,7 +262,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               >
                 <Link
                   to={`/project/$id/${phaseRouteSegments[currentReachablePhase]}` as '/project/$id/grounding'}
-                  params={{ id: String(project.id) }}
+                  params={{ id: String(specification.id) }}
                   className="rounded-md border border-border bg-background px-3 py-2 text-sm transition-colors hover:bg-muted"
                 >
                   Go to {getWorkflowPhaseLabel(currentReachablePhase)}
@@ -510,7 +516,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                       artifact.kind === 'workflow-complete' ? (
                         <Link
                           to="/project/$id/export"
-                          params={{ id: String(project.id) }}
+                          params={{ id: String(specification.id) }}
                           className="mt-3 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                         >
                           Open export preview
@@ -520,7 +526,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                           to={
                             `/project/$id/${phaseRouteSegments[artifact.artifact.nextPhase]}` as '/project/$id/grounding'
                           }
-                          params={{ id: String(project.id) }}
+                          params={{ id: String(specification.id) }}
                           className="mt-3 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                         >
                           Continue to {getWorkflowPhaseLabel(artifact.artifact.nextPhase)}
@@ -543,7 +549,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                       to={
                         `/project/$id/${phaseRouteSegments[artifact.artifact.nextPhase]}` as '/project/$id/grounding'
                       }
-                      params={{ id: String(project.id) }}
+                      params={{ id: String(specification.id) }}
                       className="mt-1 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                     >
                       Continue to {getWorkflowPhaseLabel(artifact.artifact.nextPhase)}
@@ -565,7 +571,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
                   </p>
                   <Link
                     to="/project/$id/export"
-                    params={{ id: String(project.id) }}
+                    params={{ id: String(specification.id) }}
                     className="mt-1 inline-flex h-7 items-center rounded-md border border-rule bg-white px-2.5 text-xs-plus font-medium text-ink shadow-[var(--shadow-card-ring)] transition-colors hover:bg-tint"
                   >
                     Open export preview
