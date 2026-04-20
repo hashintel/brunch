@@ -12,7 +12,7 @@ import type { DB } from './db.js';
 import {
   seedActiveDesign as _seedActiveDesign,
   seedAllPhasesClosed as _seedAllPhasesClosed,
-  seedClosedScope as _seedClosedScope,
+  seedClosedGrounding as _seedClosedGrounding,
   seedCriteriaReady as _seedCriteriaReady,
   seedRequirementsReady as _seedRequirementsReady,
 } from './fixtures/scenarios.js';
@@ -278,7 +278,7 @@ async function makePhaseClosureInterviewer(
   dbArg: DB,
   projectId: number,
   turnId: number,
-  phase: WorkflowPhase = 'scope',
+  phase: WorkflowPhase = 'grounding',
   summary = 'Goals, terms, context, and constraints are sufficiently captured.',
 ) {
   const { createPhaseOutcome } = await import('./db.js');
@@ -340,8 +340,8 @@ async function getProjectSnapshot(projectId: number) {
   return res.body as SpecificationState;
 }
 
-function seedClosedScope(projectId: number) {
-  return _seedClosedScope(db, projectId);
+function seedClosedGrounding(projectId: number) {
+  return _seedClosedGrounding(db, projectId);
 }
 
 function seedActiveDesign(projectId: number) {
@@ -381,14 +381,14 @@ describe('GET /api/projects', () => {
     expect(res.body).toEqual([]);
   });
 
-  it('returns workflow summary with scope in-progress for a new project', async () => {
+  it('returns workflow summary with grounding in-progress for a new project', async () => {
     await createTestProject('Fresh project');
     const res = await request(app).get('/api/projects').expect(200);
     expect(res.body).toHaveLength(1);
     expect(res.body[0]).toMatchObject({
       name: 'Fresh project',
       workflowSummary: {
-        scope: 'in_progress',
+        grounding: 'in_progress',
         design: 'unstarted',
         requirements: 'unstarted',
         criteria: 'unstarted',
@@ -396,13 +396,13 @@ describe('GET /api/projects', () => {
     });
   });
 
-  it('returns workflow summary reflecting closed scope and in-progress design', async () => {
+  it('returns workflow summary reflecting closed grounding and in-progress design', async () => {
     const projectId = await createTestProject('Active project');
     seedActiveDesign(projectId);
     const res = await request(app).get('/api/projects').expect(200);
     expect(res.body[0]).toMatchObject({
       workflowSummary: {
-        scope: 'closed',
+        grounding: 'closed',
         design: 'in_progress',
         requirements: 'unstarted',
         criteria: 'unstarted',
@@ -416,7 +416,7 @@ describe('GET /api/projects', () => {
     const res = await request(app).get('/api/projects').expect(200);
     expect(res.body[0]).toMatchObject({
       workflowSummary: {
-        scope: 'closed',
+        grounding: 'closed',
         design: 'closed',
         requirements: 'closed',
         criteria: 'closed',
@@ -460,7 +460,7 @@ describe('POST /api/projects', () => {
 
     const stateRes = await request(app).get(`/api/projects/${createRes.body.id}`).expect(200);
     expect(stateRes.body.specification.active_turn_id).toBeNull();
-    expect(stateRes.body.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+    expect(stateRes.body.landing).toEqual({ kind: 'kickoff', phase: 'grounding', mode: 'start' });
     expect(stateRes.body.turns).toEqual([]);
   });
 
@@ -532,7 +532,7 @@ describe('POST /api/projects/:id/chat', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/phase-intent`)
-      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .send({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' })
       .expect(200, { ok: true });
 
     expect(getProject(db, projectId)).toMatchObject({
@@ -549,7 +549,7 @@ describe('POST /api/projects/:id/chat', () => {
             parts: [
               {
                 type: 'data-phase-intent',
-                data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+                data: { kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' },
               },
             ],
           },
@@ -562,7 +562,7 @@ describe('POST /api/projects/:id/chat', () => {
       expect.anything(),
       expect.any(Array),
       'Feature within existing codebase',
-      'scope',
+      'grounding',
       { mode: 'brownfield', cwd: process.cwd() },
     );
   });
@@ -573,7 +573,7 @@ describe('POST /api/projects/:id/chat', () => {
 
     await request(app)
       .post(`/api/projects/${projectId}/phase-intent`)
-      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .send({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' })
       .expect(200, { ok: true });
 
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
@@ -590,7 +590,7 @@ describe('POST /api/projects/:id/chat', () => {
             parts: [
               {
                 type: 'data-phase-intent',
-                data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+                data: { kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' },
               },
             ],
           },
@@ -623,7 +623,7 @@ describe('POST /api/projects/:id/chat', () => {
     );
   });
 
-  it('emits canonical scope-kind observer results and persists them through the entities API', async () => {
+  it('emits canonical grounding-kind observer results and persists them through the entities API', async () => {
     const projectId = await createTestProject();
     mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
       const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
@@ -1080,7 +1080,7 @@ describe('GET /api/projects/:id/entities', () => {
 
     const projectId = await createTestProject('Relation characterization');
     const rootTurn = createTurn(db, projectId, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'What are we building?',
       answer: 'A lightweight issue tracker.',
     });
@@ -1179,7 +1179,7 @@ describe('GET /api/projects/:id/entities', () => {
 
     const projectId = await createTestProject('Branching Project');
     const rootTurn = createTurn(db, projectId, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'What kind of workflow is this project replacing?',
       answer: 'A spreadsheet-driven issue tracker process.',
     });
@@ -1233,8 +1233,8 @@ describe('GET /api/projects/:id/entities', () => {
   });
 });
 
-describe('phase outcomes + scope closure', () => {
-  it('streams a scope phase summary proposal and projects workflow state from an explicit phase outcome', async () => {
+describe('phase outcomes + grounding closure', () => {
+  it('streams a grounding phase summary proposal and projects workflow state from an explicit phase outcome', async () => {
     const projectId = await createTestProject();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
@@ -1244,7 +1244,7 @@ describe('phase outcomes + scope closure', () => {
       .post(`/api/projects/${projectId}/chat`)
       .send({
         messages: [
-          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
         ],
       })
       .expect(200);
@@ -1254,13 +1254,13 @@ describe('phase outcomes + scope closure', () => {
       type: 'data-phase-summary',
       data: {
         turnId: 2,
-        phase: 'scope',
+        phase: 'grounding',
         summary: 'Goals, terms, context, and constraints are sufficiently captured.',
       },
     });
 
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    expect(projectRes.body.workflow.phases.scope).toEqual({
+    expect(projectRes.body.workflow.phases.grounding).toEqual({
       status: 'in_progress',
       closeability: false,
       readiness: 'low',
@@ -1275,7 +1275,7 @@ describe('phase outcomes + scope closure', () => {
           type: 'data-phase-summary',
           data: {
             turnId: 2,
-            phase: 'scope',
+            phase: 'grounding',
             summary: 'Goals, terms, context, and constraints are sufficiently captured.',
           },
         },
@@ -1283,7 +1283,7 @@ describe('phase outcomes + scope closure', () => {
     );
   });
 
-  it('confirms a proposed scope phase outcome through /chat and persists confirmed workflow state', async () => {
+  it('confirms a proposed grounding phase outcome through /chat and persists confirmed workflow state', async () => {
     const projectId = await createTestProject();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
@@ -1293,13 +1293,13 @@ describe('phase outcomes + scope closure', () => {
       .post(`/api/projects/${projectId}/chat`)
       .send({
         messages: [
-          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
         ],
       })
       .expect(200);
 
     const scopeProposalState = await getProjectSnapshot(projectId);
-    const scopeProposalTurnId = scopeProposalState.workflow.phases.scope.turnId;
+    const scopeProposalTurnId = scopeProposalState.workflow.phases.grounding.turnId;
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -1315,7 +1315,7 @@ describe('phase outcomes + scope closure', () => {
                 data: {
                   kind: 'confirm-proposed-phase-closure',
                   proposalTurnId: scopeProposalTurnId,
-                  phase: 'scope',
+                  phase: 'grounding',
                 },
               },
             ],
@@ -1325,7 +1325,7 @@ describe('phase outcomes + scope closure', () => {
       .expect(200);
 
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    expect(projectRes.body.workflow.phases.scope).toEqual(
+    expect(projectRes.body.workflow.phases.grounding).toEqual(
       expect.objectContaining({
         status: 'closed',
         turnId: 2,
@@ -1361,13 +1361,13 @@ describe('phase outcomes + scope closure', () => {
         data: {
           kind: 'confirm-proposed-phase-closure',
           proposalTurnId: scopeProposalTurnId,
-          phase: 'scope',
+          phase: 'grounding',
         },
       },
     ]);
   });
 
-  it('enters design mode on the next chat turn after scope closure and runs the observer in design phase', async () => {
+  it('enters design mode on the next chat turn after grounding closure and runs the observer in design phase', async () => {
     const projectId = await createTestProject();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
@@ -1377,13 +1377,13 @@ describe('phase outcomes + scope closure', () => {
       .post(`/api/projects/${projectId}/chat`)
       .send({
         messages: [
-          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
         ],
       })
       .expect(200);
 
     const scopeProposalState = await getProjectSnapshot(projectId);
-    const scopeProposalTurnId = scopeProposalState.workflow.phases.scope.turnId;
+    const scopeProposalTurnId = scopeProposalState.workflow.phases.grounding.turnId;
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -1399,7 +1399,7 @@ describe('phase outcomes + scope closure', () => {
                 data: {
                   kind: 'confirm-proposed-phase-closure',
                   proposalTurnId: scopeProposalTurnId,
-                  phase: 'scope',
+                  phase: 'grounding',
                 },
               },
             ],
@@ -1447,13 +1447,13 @@ describe('phase outcomes + scope closure', () => {
       .post(`/api/projects/${projectId}/chat`)
       .send({
         messages: [
-          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
         ],
       })
       .expect(200);
 
     const scopeProposalState = await getProjectSnapshot(projectId);
-    const scopeProposalTurnId = scopeProposalState.workflow.phases.scope.turnId;
+    const scopeProposalTurnId = scopeProposalState.workflow.phases.grounding.turnId;
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -1469,7 +1469,7 @@ describe('phase outcomes + scope closure', () => {
                 data: {
                   kind: 'confirm-proposed-phase-closure',
                   proposalTurnId: scopeProposalTurnId,
-                  phase: 'scope',
+                  phase: 'grounding',
                 },
               },
             ],
@@ -1554,13 +1554,13 @@ describe('phase outcomes + scope closure', () => {
       .post(`/api/projects/${projectId}/chat`)
       .send({
         messages: [
-          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
         ],
       })
       .expect(200);
 
     const scopeProposalState = await getProjectSnapshot(projectId);
-    const scopeProposalTurnId = scopeProposalState.workflow.phases.scope.turnId;
+    const scopeProposalTurnId = scopeProposalState.workflow.phases.grounding.turnId;
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -1576,7 +1576,7 @@ describe('phase outcomes + scope closure', () => {
                 data: {
                   kind: 'confirm-proposed-phase-closure',
                   proposalTurnId: scopeProposalTurnId,
-                  phase: 'scope',
+                  phase: 'grounding',
                 },
               },
             ],
@@ -2226,7 +2226,7 @@ describe('phase outcomes + scope closure', () => {
       }),
     );
 
-    for (const phase of ['scope', 'design', 'requirements', 'criteria'] as const) {
+    for (const phase of ['grounding', 'design', 'requirements', 'criteria'] as const) {
       expect(projectRes.body.workflow.phases[phase].status).toBe('closed');
     }
 
@@ -2235,7 +2235,7 @@ describe('phase outcomes + scope closure', () => {
         'SELECT phase, closure_basis FROM phase_outcome WHERE project_id = ? AND status = ? ORDER BY id',
       )
       .all(projectId, 'confirmed') as Array<{ phase: string; closure_basis: string | null }>;
-    expect(phaseOutcomes.map((o) => o.phase)).toEqual(['scope', 'design', 'requirements', 'criteria']);
+    expect(phaseOutcomes.map((o) => o.phase)).toEqual(['grounding', 'design', 'requirements', 'criteria']);
     expect(phaseOutcomes.at(-1)).toEqual({
       phase: 'criteria',
       closure_basis: 'interviewer_recommended',
@@ -2303,12 +2303,12 @@ describe('phase outcomes + scope closure', () => {
       .expect(200);
 
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    const allClosed = (['scope', 'design', 'requirements', 'criteria'] as const).every(
+    const allClosed = (['grounding', 'design', 'requirements', 'criteria'] as const).every(
       (phase) => projectRes.body.workflow.phases[phase].status === 'closed',
     );
     expect(allClosed).toBe(true);
 
-    const activePhases = (['scope', 'design', 'requirements', 'criteria'] as const).filter(
+    const activePhases = (['grounding', 'design', 'requirements', 'criteria'] as const).filter(
       (phase) => projectRes.body.workflow.phases[phase].status === 'in_progress',
     );
     expect(activePhases).toEqual([]);
@@ -2324,13 +2324,13 @@ describe('phase outcomes + scope closure', () => {
       .post(`/api/projects/${projectId}/chat`)
       .send({
         messages: [
-          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
         ],
       })
       .expect(200);
 
     const scopeProposalState = await getProjectSnapshot(projectId);
-    const scopeProposalTurnId = scopeProposalState.workflow.phases.scope.turnId;
+    const scopeProposalTurnId = scopeProposalState.workflow.phases.grounding.turnId;
 
     await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -2346,7 +2346,7 @@ describe('phase outcomes + scope closure', () => {
                 data: {
                   kind: 'confirm-proposed-phase-closure',
                   proposalTurnId: scopeProposalTurnId,
-                  phase: 'scope',
+                  phase: 'grounding',
                 },
               },
             ],
@@ -2466,13 +2466,13 @@ describe('phase outcomes + scope closure', () => {
       seed: async (projectId: number) => {
         const { advanceHead, createTurn } = await import('./db.js');
         const scopeTurn = createTurn(db, projectId, {
-          phase: 'scope',
+          phase: 'grounding',
           question: 'What platform?',
           answer: 'Web',
         });
         advanceHead(db, projectId, scopeTurn.id);
       },
-      phase: 'scope',
+      phase: 'grounding',
       expectedError: 'Only design supports force-close in this slice',
     },
     {
@@ -2486,7 +2486,7 @@ describe('phase outcomes + scope closure', () => {
     {
       name: 'design that is not closeable yet',
       seed: async (projectId: number) => {
-        seedClosedScope(projectId);
+        seedClosedGrounding(projectId);
       },
       phase: 'design',
       expectedError: 'Phase is not closeable yet',
@@ -2547,7 +2547,7 @@ describe('phase outcomes + scope closure', () => {
       .post(`/api/projects/${projectId}/chat`)
       .send({
         messages: [
-          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough scope context' }] },
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'We have enough grounding context' }] },
         ],
       })
       .expect(200);
@@ -2555,7 +2555,7 @@ describe('phase outcomes + scope closure', () => {
     const { listPhaseOutcomesForProject } = await import('./db.js');
     const outcomes = listPhaseOutcomesForProject(db, projectId);
     expect(outcomes).toHaveLength(1);
-    expect(outcomes[0].phase).toBe('scope');
+    expect(outcomes[0].phase).toBe('grounding');
 
     const response = await request(app)
       .post(`/api/projects/${projectId}/chat`)
@@ -2591,7 +2591,7 @@ describe('GET /api/projects/:id', () => {
 
     const res = await request(app).get(`/api/projects/${project.id}`).expect(200);
 
-    expect(res.body.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+    expect(res.body.landing).toEqual({ kind: 'kickoff', phase: 'grounding', mode: 'start' });
     expect(res.body.turns).toEqual([]);
     expect(getActivePath(db, project.id)).toEqual([]);
   });
@@ -2630,7 +2630,7 @@ describe('POST /api/projects/:id/phase-intent', () => {
 
     await request(app)
       .post(`/api/projects/${project.id}/phase-intent`)
-      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .send({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' })
       .expect(200, {
         ok: true,
       });
@@ -2650,7 +2650,7 @@ describe('POST /api/projects/:id/phase-intent', () => {
             parts: [
               {
                 type: 'data-phase-intent',
-                data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+                data: { kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' },
               },
             ],
           },
@@ -2663,7 +2663,7 @@ describe('POST /api/projects/:id/phase-intent', () => {
       expect.anything(),
       expect.any(Array),
       'Feature within existing codebase',
-      'scope',
+      'grounding',
       { mode: 'brownfield', cwd: process.cwd() },
     );
 
@@ -2682,7 +2682,7 @@ describe('POST /api/projects/:id/phase-intent', () => {
 
     await request(app)
       .post(`/api/projects/${project.id}/phase-intent`)
-      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .send({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' })
       .expect(200, {
         ok: true,
       });
@@ -2706,7 +2706,7 @@ describe('POST /api/projects/:id/phase-intent', () => {
     );
 
     const answeredTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'What are we building?',
       answer: 'A chat app',
     });
@@ -2714,7 +2714,7 @@ describe('POST /api/projects/:id/phase-intent', () => {
 
     await request(app)
       .post(`/api/projects/${project.id}/phase-intent`)
-      .send({ kind: 'phase-continue', phase: 'scope' })
+      .send({ kind: 'phase-continue', phase: 'grounding' })
       .expect(200, { ok: true });
 
     await request(app)
@@ -2724,7 +2724,7 @@ describe('POST /api/projects/:id/phase-intent', () => {
           {
             id: 'u-recovery-continue',
             role: 'user',
-            parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'scope' } }],
+            parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'grounding' } }],
           },
         ],
       })
@@ -2735,7 +2735,7 @@ describe('POST /api/projects/:id/phase-intent', () => {
       expect.anything(),
       expect.any(Array),
       'Continue the grounding phase.',
-      'scope',
+      'grounding',
       undefined,
     );
 
@@ -2758,7 +2758,7 @@ describe('POST /api/projects/:id/phase-intent', () => {
 
     await request(app)
       .post(`/api/projects/${project.id}/phase-intent`)
-      .send({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' })
+      .send({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' })
       .expect(200, {
         ok: true,
       });
@@ -2919,7 +2919,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     const projectId = await createTestProject();
     const { advanceHead, createOption, createTurn, getActivePath } = await import('./db.js');
     const groundingTurn = createTurn(db, projectId, {
-      phase: 'scope',
+      phase: 'grounding',
       question: '',
       answer: null,
       assistant_parts: JSON.stringify([
@@ -2968,7 +2968,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
 
     expect(mockRunObserver).not.toHaveBeenCalled();
     expect(getActivePath(db, projectId).at(-1)).toMatchObject({
-      phase: 'scope',
+      phase: 'grounding',
       question: structuredQuestion.question,
     });
   });
@@ -3698,7 +3698,7 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
     expect(response.body).toEqual({ ok: true, workflowCompleted: true });
 
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
-    for (const phase of ['scope', 'design', 'requirements', 'criteria'] as const) {
+    for (const phase of ['grounding', 'design', 'requirements', 'criteria'] as const) {
       expect(projectRes.body.workflow.phases[phase]).toEqual(
         expect.objectContaining({
           status: 'closed',

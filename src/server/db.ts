@@ -223,7 +223,7 @@ export function getActivePath(db: DB, projectId: number): Turn[] {
 }
 
 const workflowPhaseOrder = [
-  'scope',
+  'grounding',
   'design',
   'requirements',
   'criteria',
@@ -475,7 +475,7 @@ function getPhaseCloseability(
 export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowState {
   const workflow: WorkflowState = {
     phases: {
-      scope: createEmptyWorkflowPhaseState(),
+      grounding: createEmptyWorkflowPhaseState(),
       design: createEmptyWorkflowPhaseState(),
       requirements: createEmptyWorkflowPhaseState(),
       criteria: createEmptyWorkflowPhaseState(),
@@ -973,7 +973,7 @@ export function materializeAcceptedCriteriaReviewSet(
   return materializeAcceptedReviewSetItems(db, projectId, turnId, 'criteria');
 }
 
-export function getScopeBundleForProject(db: DB, projectId: number) {
+export function getGroundingBundleForProject(db: DB, projectId: number) {
   return {
     goals: getKnowledgeItemsForProjectByKind(db, projectId, 'goal'),
     terms: getKnowledgeItemsForProjectByKind(db, projectId, 'term'),

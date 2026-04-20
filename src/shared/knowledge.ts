@@ -156,7 +156,7 @@ export const knowledgeKindSemanticRoles = {
   assumption: 'supporting belief that could later prove false',
 } as const satisfies { [K in KnowledgeKind]: string };
 
-export type ObserverPhase = 'scope' | 'design' | 'requirements' | 'criteria';
+export type ObserverPhase = 'grounding' | 'design' | 'requirements' | 'criteria';
 
 export interface ObserverPhaseOntologyPolicy {
   focusKinds: readonly KnowledgeKind[];
@@ -175,7 +175,7 @@ export interface KnowledgeKindDurabilityPolicy {
 }
 
 export const observerPhaseOntologyPolicies = {
-  scope: {
+  grounding: {
     focusKinds: ['goal', 'term', 'context', 'constraint'],
     allowedKinds: ['goal', 'term', 'context', 'constraint', 'decision', 'assumption'],
     correctionKinds: [],

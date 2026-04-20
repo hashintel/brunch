@@ -48,7 +48,7 @@ describe('specification boundary aliases', () => {
         },
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'closed',
               closeability: true,
               readiness: 'high',

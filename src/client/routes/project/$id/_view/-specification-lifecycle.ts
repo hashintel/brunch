@@ -37,7 +37,7 @@ function getAutoPhaseIntent({
     };
   }
 
-  if (landing.kind !== 'kickoff' || landing.mode !== 'start' || phase === 'scope') {
+  if (landing.kind !== 'kickoff' || landing.mode !== 'start' || phase === 'grounding') {
     return null;
   }
 

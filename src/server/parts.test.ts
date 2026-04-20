@@ -62,7 +62,7 @@ describe('LLM-boundary data schemas', () => {
   });
 
   it('validates explicit recommended-close data-confirmation payloads', () => {
-    const value = { kind: 'confirm-proposed-phase-closure', proposalTurnId: 5, phase: 'scope' };
+    const value = { kind: 'confirm-proposed-phase-closure', proposalTurnId: 5, phase: 'grounding' };
     expect(dataConfirmationSchema.parse(value)).toEqual(value);
   });
 
@@ -208,7 +208,7 @@ describe('user part round-trip', () => {
       },
       {
         type: 'data-confirmation',
-        data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 4, phase: 'scope' },
+        data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 4, phase: 'grounding' },
       },
     ];
 

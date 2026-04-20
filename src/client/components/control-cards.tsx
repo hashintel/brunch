@@ -162,7 +162,7 @@ export function KickoffControlCard({
   disabled: boolean;
 }) {
   const phaseLabel = getWorkflowPhaseLabel(phase);
-  const showsGroundingStrategyChoice = phase === 'scope' && mode === 'start' && Boolean(onSelectStrategy);
+  const showsGroundingStrategyChoice = phase === 'grounding' && mode === 'start' && Boolean(onSelectStrategy);
   const reviewCopy = getReviewPhaseControlCopy(phase);
 
   return (

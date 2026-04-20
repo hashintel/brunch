@@ -490,7 +490,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
                       return;
                     }
 
-                    if (kickoff.phase === 'scope' && kickoff.mode === 'start' && selectedMode) {
+                    if (kickoff.phase === 'grounding' && kickoff.mode === 'start' && selectedMode) {
                       void submitTypedPhaseIntent({
                         kind: 'phase-entry',
                         phase: kickoff.phase,

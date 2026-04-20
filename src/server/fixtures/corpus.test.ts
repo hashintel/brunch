@@ -58,7 +58,7 @@ describe('probeObserverScenario', () => {
   });
 
   it('reports mismatches when an observer probe diverges from the curated corpus', async () => {
-    const entry = curatedGoldenCorpus.entries['issue-tracker-scope'];
+    const entry = curatedGoldenCorpus.entries['issue-tracker-grounding'];
     const result = await probeObserverScenario(entry.scenario, async () => ({
       goals: [],
       terms: [],
@@ -76,7 +76,7 @@ describe('probeObserverScenario', () => {
       expect.arrayContaining([
         expect.objectContaining({
           turnIndex: 0,
-          phase: 'scope',
+          phase: 'grounding',
         }),
       ]),
     );

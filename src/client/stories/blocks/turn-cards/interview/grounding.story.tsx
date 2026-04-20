@@ -36,7 +36,7 @@ const answeredGroundingTurn: ProjectStateTurn = {
   id: 1,
   project_id: 1,
   parent_turn_id: null,
-  phase: 'scope',
+  phase: 'grounding',
   question: 'What is the primary purpose of this project?',
   why: 'Understanding the core motivation helps scope all downstream decisions — architecture, constraints, and success criteria flow from this answer.',
   impact: 'high',

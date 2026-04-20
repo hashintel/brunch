@@ -73,10 +73,10 @@ export interface GoldenCorpus {
   entries: Record<string, GoldenCorpusEntry>;
 }
 
-const seedIssueTrackerScopeProbe: ScenarioFn = (db, projectName = 'Observer scope probe') => {
+const seedIssueTrackerGroundingProbe: ScenarioFn = (db, projectName = 'Observer grounding probe') => {
   const project = createProject(db, projectName);
   const turn = createTurn(db, project.id, {
-    phase: 'scope',
+    phase: 'grounding',
     question: 'What is the primary goal of this issue tracker?',
     answer:
       'Replace our spreadsheet with a simple tracker that keeps ownership visible and records status-change history.',
@@ -104,13 +104,13 @@ export const curatedGoldenCorpus: GoldenCorpus = {
   description:
     'Curated TypeScript-native observer probes that seed projects directly through fixture builders or direct DB setup.',
   entries: {
-    'issue-tracker-scope': {
+    'issue-tracker-grounding': {
       description:
-        'Issue-tracker grounding probe focused on goal / term / context / constraint discrimination from one answered scope turn.',
+        'Issue-tracker grounding probe focused on goal / term / context / constraint discrimination from one answered grounding turn.',
       provenance: 'Direct TypeScript seed setup for the current observer probe seam.',
       scenario: {
-        phase: 'scope',
-        seedProject: seedIssueTrackerScopeProbe,
+        phase: 'grounding',
+        seedProject: seedIssueTrackerGroundingProbe,
         expectedCapture: {
           goals: [{ content: 'Replace spreadsheet issue tracking with a durable workflow', rationale: null }],
           terms: [{ content: 'ticket', rationale: 'Trackable work item with visible ownership and status.' }],

@@ -21,7 +21,7 @@ const minimalProjectState: ProjectState = {
   },
   workflow: {
     phases: {
-      scope: {
+      grounding: {
         status: 'unstarted',
         closeability: false,
         readiness: 'low',

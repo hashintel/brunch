@@ -67,7 +67,7 @@ rm -f .brunch/brunch.db .brunch/brunch.db-shm .brunch/brunch.db-wal
 npm run seed issue-tracker-all-phases-closed
 
 # Seed into a specific alternate file instead
-npm run seed issue-tracker-scope-closed ./tmp/test.db
+npm run seed issue-tracker-grounding-closed ./tmp/test.db
 ```
 
 `npm run dev` uses the same project-local default database unless you override it with `BRUNCH_DB`. For the full repeatable manual-testing workflow, use [docs/praxis/manual-testing.md](docs/praxis/manual-testing.md).
@@ -76,20 +76,20 @@ npm run seed issue-tracker-scope-closed ./tmp/test.db
 
 | Scenario | State |
 |---|---|
-| `scope-closed` | Scope phase closed, design not started |
+| `grounding-closed` | Grounding phase closed, design not started |
 | `design-active` | Scope closed, one design turn |
 | `requirements-ready` | Scope + design closed, requirements reviewed |
 | `criteria-ready` | + requirements closed, criteria reviewed |
 | `all-phases-closed` | All four phases closed |
 | `forced-close-all-phases-closed` | All four phases closed, with design closed via user-forced closure |
-| `low-readiness-all-phases-closed` | All four phases closed, with a synthetic low-readiness scope closure for export-caveat testing |
+| `low-readiness-all-phases-closed` | All four phases closed, with a synthetic low-readiness grounding closure for export-caveat testing |
 
 **Walkthrough scenarios** — rich manifest-backed fixtures with realistic interview content, structured parts, knowledge items, and cross-kind edges (domain: tiny issue tracker):
 
 | Scenario | State | Items | Edges |
 |---|---|---|---|
 | `issue-tracker-kickoff-ready` | Empty workspace with projected grounding entry control | 0 | 0 |
-| `issue-tracker-scope-closed` | Scope closed (5 turns + proposal/confirm) | 12 (goals, terms, contexts, constraints) | 3 |
+| `issue-tracker-grounding-closed` | Scope closed (5 turns + proposal/confirm) | 12 (goals, terms, contexts, constraints) | 3 |
 | `issue-tracker-design-active` | + 2 design turns | 18 (+ decisions, assumptions) | 7 |
 | `issue-tracker-requirements-ready` | Requirements closed; criteria handoff is next | 23 (+ 5 requirements, mixed review) | 10 |
 | `issue-tracker-criteria-ready` | Criteria review in progress; export still gated | 27 (+ 4 criteria, mixed review) | 14 |
@@ -156,7 +156,7 @@ src/
 
 ## Current state
 
-**Working**: Full four-phase interview (scope → design → requirements → criteria), phase-aware observer extraction across the canonical knowledge ontology, explicit phase outcomes with closure provenance, accepted-set review authority for requirements/criteria, knowledge workspace/sidebar, markdown export, project dashboard with workflow state, fixture scenarios with rich seeded content, local-first `.brunch/` storage, and greenfield/brownfield grounding flows.
+**Working**: Full four-phase interview (grounding → design → requirements → criteria), phase-aware observer extraction across the canonical knowledge ontology, explicit phase outcomes with closure provenance, accepted-set review authority for requirements/criteria, knowledge workspace/sidebar, markdown export, project dashboard with workflow state, fixture scenarios with rich seeded content, local-first `.brunch/` storage, and greenfield/brownfield grounding flows.
 
 **Active architectural cleanup**: the codebase is still in the middle of replacing kickoff/recovery-as-turn assumptions with projected control cards and a merged stream projector. See `memory/PLAN.md` for the active code-alignment map and current next action.
 

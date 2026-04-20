@@ -35,12 +35,12 @@ describe('runSeedCli', () => {
     expect(io.error).toHaveBeenCalledTimes(2);
     const listOutput = io.error.mock.calls.map(([line]) => String(line)).join('\n');
     expect(listOutput).toContain('issue-tracker-kickoff-ready');
-    expect(listOutput).toContain('issue-tracker-scope-closure-pending');
+    expect(listOutput).toContain('issue-tracker-grounding-closure-pending');
     expect(listOutput).toContain('issue-tracker-design-recovery');
     expect(listOutput).toContain('issue-tracker-criteria-kickoff-ready');
     expect(listOutput).toContain('forced-close-all-phases-closed');
     expect(listOutput).toContain('low-readiness-all-phases-closed');
-    expect(listOutput).not.toContain('issue-tracker-scope-closed');
+    expect(listOutput).not.toContain('issue-tracker-grounding-closed');
     expect(listOutput).not.toContain('issue-tracker-design-active');
   });
 

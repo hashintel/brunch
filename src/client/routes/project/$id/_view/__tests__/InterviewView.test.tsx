@@ -191,7 +191,7 @@ function createProjectState({
       id: 1,
       project_id: projectId,
       parent_turn_id: null,
-      phase: 'scope',
+      phase: 'grounding',
       turn_kind: 'question',
       question: assistantText,
       why: 'This frames the first iteration.',
@@ -218,7 +218,7 @@ function createProjectState({
     },
     workflow: workflow ?? {
       phases: {
-        scope: {
+        grounding: {
           status: 'in_progress',
           closeability: false,
           readiness: 'low',
@@ -267,7 +267,7 @@ function createProjectState({
 
 function createWorkflowState(
   overrides?: Partial<
-    Record<keyof ProjectState['workflow']['phases'], Partial<ProjectState['workflow']['phases']['scope']>>
+    Record<keyof ProjectState['workflow']['phases'], Partial<ProjectState['workflow']['phases']['grounding']>>
   >,
 ): ProjectState['workflow'] {
   const defaultPhase = {
@@ -282,7 +282,7 @@ function createWorkflowState(
 
   return {
     phases: {
-      scope: { ...defaultPhase, ...overrides?.scope },
+      grounding: { ...defaultPhase, ...overrides?.grounding },
       design: { ...defaultPhase, ...overrides?.design },
       requirements: { ...defaultPhase, ...overrides?.requirements },
       criteria: { ...defaultPhase, ...overrides?.criteria },
@@ -422,7 +422,7 @@ function createQueryClient() {
   });
 }
 
-function renderWorkspace(phase: 'scope' | 'design' | 'requirements' | 'criteria' = 'scope') {
+function renderWorkspace(phase: 'grounding' | 'design' | 'requirements' | 'criteria' = 'grounding') {
   const queryClient = createQueryClient();
   const rendered = render(
     <QueryClientProvider client={queryClient}>
@@ -455,7 +455,7 @@ describe('InterviewView', () => {
     const loaderData = createWorkspaceLoaderData({
       turns: [],
       workflow: createWorkflowState({
-        scope: {
+        grounding: {
           status: 'closed',
           closeability: false,
           readiness: 'high',
@@ -541,7 +541,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'closed',
             closeability: false,
             readiness: 'high',
@@ -650,7 +650,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'closed',
             closeability: false,
             readiness: 'high',
@@ -753,7 +753,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: { status: 'in_progress', turnId: 1 },
+          grounding: { status: 'in_progress', turnId: 1 },
         }),
       }),
     );
@@ -768,7 +768,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 1 },
         }),
       }),
@@ -813,7 +813,7 @@ describe('InterviewView', () => {
           },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: {
             status: 'in_progress',
@@ -838,7 +838,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high', summary: 'Grounding complete.' },
+          grounding: { status: 'closed', readiness: 'high', summary: 'Grounding complete.' },
           design: { status: 'unstarted' },
         }),
       }),
@@ -855,7 +855,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: { status: 'closed', readiness: 'high' },
           criteria: {
@@ -882,7 +882,7 @@ describe('InterviewView', () => {
             id: 1,
             project_id: 1,
             parent_turn_id: null,
-            phase: 'scope',
+            phase: 'grounding',
             question: 'What should we build first?',
             why: 'This frames the first iteration.',
             impact: 'high',
@@ -940,7 +940,7 @@ describe('InterviewView', () => {
             id: 2,
             project_id: 1,
             parent_turn_id: 1,
-            phase: 'scope',
+            phase: 'grounding',
             question: 'Which platform should we target now?',
             why: 'Platform shapes the next build.',
             impact: 'medium',
@@ -954,7 +954,7 @@ describe('InterviewView', () => {
         ],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'low',
@@ -1012,7 +1012,7 @@ describe('InterviewView', () => {
         turns: [],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'low',
@@ -1060,7 +1060,7 @@ describe('InterviewView', () => {
         {
           id: 'u-control',
           role: 'user',
-          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'scope' } }],
+          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'grounding' } }],
         },
       ]);
     });
@@ -1075,7 +1075,7 @@ describe('InterviewView', () => {
         turns: [],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'low',
@@ -1123,7 +1123,7 @@ describe('InterviewView', () => {
         {
           id: 'u-control',
           role: 'user',
-          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-entry', phase: 'scope' } }],
+          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-entry', phase: 'grounding' } }],
         },
       ]);
     });
@@ -1138,7 +1138,7 @@ describe('InterviewView', () => {
         turns: [],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'low',
@@ -1186,12 +1186,12 @@ describe('InterviewView', () => {
         {
           id: 'u-control-1',
           role: 'user',
-          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'scope' } }],
+          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'grounding' } }],
         },
         {
           id: 'u-control-2',
           role: 'user',
-          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'scope' } }],
+          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'grounding' } }],
         },
       ]);
     });
@@ -1205,7 +1205,7 @@ describe('InterviewView', () => {
         turns: [],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'low',
@@ -1284,7 +1284,7 @@ describe('InterviewView', () => {
             id: 1,
             project_id: 1,
             parent_turn_id: null,
-            phase: 'scope',
+            phase: 'grounding',
             question: 'What should we build first?',
             why: 'This frames the first iteration.',
             impact: 'high',
@@ -1299,7 +1299,7 @@ describe('InterviewView', () => {
             id: 2,
             project_id: 1,
             parent_turn_id: 1,
-            phase: 'scope',
+            phase: 'grounding',
             question: 'Closure proposal',
             why: null,
             impact: null,
@@ -1309,7 +1309,7 @@ describe('InterviewView', () => {
               { type: 'text', text: 'Confirm grounding closure' },
               {
                 type: 'data-confirmation',
-                data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 2, phase: 'scope' },
+                data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 2, phase: 'grounding' },
               },
             ]),
             assistant_parts: JSON.stringify([
@@ -1317,7 +1317,7 @@ describe('InterviewView', () => {
                 type: 'data-phase-summary',
                 data: {
                   turnId: 2,
-                  phase: 'scope',
+                  phase: 'grounding',
                   summary: 'Goals, terms, context, and constraints are sufficiently captured.',
                 },
               },
@@ -1328,7 +1328,7 @@ describe('InterviewView', () => {
         ],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'closed',
               closeability: false,
               readiness: 'high',
@@ -1397,7 +1397,7 @@ describe('InterviewView', () => {
             id: 1,
             project_id: 1,
             parent_turn_id: null,
-            phase: 'scope',
+            phase: 'grounding',
             question: 'What should we build first?',
             why: 'This frames the first iteration.',
             impact: 'high',
@@ -1428,7 +1428,7 @@ describe('InterviewView', () => {
         ],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'closed',
               closeability: false,
               readiness: 'high',
@@ -1532,7 +1532,7 @@ describe('InterviewView', () => {
           },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: {
             status: 'closed',
@@ -1619,7 +1619,7 @@ describe('InterviewView', () => {
           },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: { status: 'closed', readiness: 'high' },
           criteria: {
@@ -1662,13 +1662,13 @@ describe('InterviewView', () => {
     ).toBeTruthy();
   });
 
-  it('renders grounding strategy choices from the projected scope kickoff landing and submits the selected strategy', async () => {
+  it('renders grounding strategy choices from the projected grounding kickoff landing and submits the selected strategy', async () => {
     const loaderData = createWorkspaceLoaderData({
       assistantText: '',
       answer: '',
       turns: [],
       workflow: createWorkflowState({
-        scope: {
+        grounding: {
           status: 'in_progress',
           closeability: false,
           readiness: 'low',
@@ -1679,7 +1679,7 @@ describe('InterviewView', () => {
         },
       }),
     });
-    expect(loaderData.projectState.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+    expect(loaderData.projectState.landing).toEqual({ kind: 'kickoff', phase: 'grounding', mode: 'start' });
     setLoaderData(loaderData);
 
     fetchMock.mockResolvedValueOnce(
@@ -1706,7 +1706,7 @@ describe('InterviewView', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' }),
+          body: JSON.stringify({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' }),
         }),
       );
     });
@@ -1716,18 +1716,18 @@ describe('InterviewView', () => {
         parts: [
           {
             type: 'data-phase-intent',
-            data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+            data: { kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' },
           },
         ],
       });
     });
   });
 
-  it('auto-continues scope recovery when an open phase has a completed turn but no successor frontier', async () => {
+  it('auto-continues grounding recovery when an open phase has a completed turn but no successor frontier', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'in_progress',
             closeability: false,
             readiness: 'medium',
@@ -1755,7 +1755,7 @@ describe('InterviewView', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'phase-continue', phase: 'scope' }),
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'grounding' }),
         }),
       );
     });
@@ -1765,7 +1765,7 @@ describe('InterviewView', () => {
         parts: [
           {
             type: 'data-phase-intent',
-            data: { kind: 'phase-continue', phase: 'scope' },
+            data: { kind: 'phase-continue', phase: 'grounding' },
           },
         ],
       });
@@ -1780,7 +1780,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'in_progress',
             closeability: false,
             readiness: 'medium',
@@ -1795,7 +1795,7 @@ describe('InterviewView', () => {
             id: 1,
             project_id: 1,
             parent_turn_id: null,
-            phase: 'scope',
+            phase: 'grounding',
             turn_kind: 'question',
             question: '',
             why: null,
@@ -1866,7 +1866,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'in_progress',
             closeability: false,
             readiness: 'medium',
@@ -1881,7 +1881,7 @@ describe('InterviewView', () => {
             id: 1,
             project_id: 1,
             parent_turn_id: null,
-            phase: 'scope',
+            phase: 'grounding',
             turn_kind: 'question',
             question: '',
             why: null,
@@ -1928,7 +1928,7 @@ describe('InterviewView', () => {
       createWorkspaceLoaderData({
         turns: [],
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'in_progress',
             closeability: false,
             readiness: 'low',
@@ -1941,7 +1941,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace('scope');
+    renderWorkspace('grounding');
 
     const kickoffCard = await screen.findByTestId('kickoff-control-card');
     expect(kickoffCard.textContent).toContain('How should this specification start?');
@@ -1955,7 +1955,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: { status: 'closed', readiness: 'high' },
           criteria: {
@@ -1973,7 +1973,7 @@ describe('InterviewView', () => {
             id: 1,
             project_id: 1,
             parent_turn_id: null,
-            phase: 'scope',
+            phase: 'grounding',
             turn_kind: 'question',
             question: 'What should we build first?',
             why: 'This frames the first iteration.',
@@ -2055,7 +2055,12 @@ describe('InterviewView', () => {
           { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
           design: {
             status: 'closed',
             readiness: 'high',
@@ -2175,7 +2180,12 @@ describe('InterviewView', () => {
           { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
           design: {
             status: 'closed',
             readiness: 'high',
@@ -2409,7 +2419,7 @@ describe('InterviewView', () => {
           },
         ],
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'closed',
             closeability: false,
             readiness: 'high',
@@ -2469,7 +2479,12 @@ describe('InterviewView', () => {
           { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
           design: {
             status: 'closed',
             readiness: 'high',
@@ -2586,7 +2601,12 @@ describe('InterviewView', () => {
           { id: 12, position: 1, content: 'Accept review', is_recommended: true, is_selected: false },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
           design: {
             status: 'closed',
             readiness: 'high',
@@ -2705,7 +2725,12 @@ describe('InterviewView', () => {
           { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
           design: {
             status: 'closed',
             readiness: 'high',
@@ -2822,7 +2847,7 @@ describe('InterviewView', () => {
       createWorkspaceLoaderData({
         turns: [],
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'in_progress',
             closeability: false,
             readiness: 'low',
@@ -2912,7 +2937,7 @@ describe('InterviewView', () => {
     );
     rendered.rerender(
       <QueryClientProvider client={rendered.queryClient}>
-        <InterviewView phase="scope" />
+        <InterviewView phase="grounding" />
       </QueryClientProvider>,
     );
 
@@ -2937,7 +2962,7 @@ describe('InterviewView', () => {
     );
     rendered.rerender(
       <QueryClientProvider client={rendered.queryClient}>
-        <InterviewView phase="scope" />
+        <InterviewView phase="grounding" />
       </QueryClientProvider>,
     );
 
@@ -3050,14 +3075,14 @@ describe('InterviewView', () => {
     });
   });
 
-  it('submits scope-closure confirmations through chat with typed confirmation parts', async () => {
+  it('submits grounding-closure confirmations through chat with typed confirmation parts', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         assistantText: '',
-        answer: 'We have enough scope context',
+        answer: 'We have enough grounding context',
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: true,
               readiness: 'medium',
@@ -3100,7 +3125,7 @@ describe('InterviewView', () => {
             type: 'data-phase-summary',
             data: {
               turnId: 1,
-              phase: 'scope',
+              phase: 'grounding',
               summary: 'Goals, terms, context, and constraints are sufficiently captured.',
             },
           },
@@ -3120,7 +3145,7 @@ describe('InterviewView', () => {
           { type: 'text', text: 'Confirm grounding closure' },
           {
             type: 'data-confirmation',
-            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
+            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'grounding' },
           },
         ],
       });
@@ -3131,10 +3156,10 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         assistantText: '',
-        answer: 'We have enough scope context',
+        answer: 'We have enough grounding context',
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: true,
               readiness: 'medium',
@@ -3177,7 +3202,7 @@ describe('InterviewView', () => {
             type: 'data-phase-summary',
             data: {
               turnId: 1,
-              phase: 'scope',
+              phase: 'grounding',
               summary: 'Goals, terms, context, and constraints are sufficiently captured.',
             },
           },
@@ -3192,7 +3217,7 @@ describe('InterviewView', () => {
           parts: [
             {
               type: 'data-confirmation',
-              data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
+              data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'grounding' },
             },
           ],
         },
@@ -3244,7 +3269,7 @@ describe('InterviewView', () => {
           },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: {
             status: 'in_progress',
@@ -3318,7 +3343,7 @@ describe('InterviewView', () => {
           },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: { status: 'closed', readiness: 'high' },
           criteria: {
@@ -3362,7 +3387,7 @@ describe('InterviewView', () => {
       createWorkspaceLoaderData({
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'closed',
               closeability: false,
               readiness: 'high',
@@ -3444,7 +3469,7 @@ describe('InterviewView', () => {
         ],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'closed',
               closeability: false,
               readiness: 'high',
@@ -3515,7 +3540,7 @@ describe('InterviewView', () => {
       createWorkspaceLoaderData({
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'closed',
               closeability: false,
               readiness: 'high',
@@ -3794,7 +3819,7 @@ describe('InterviewView', () => {
               id: 1,
               project_id: 1,
               parent_turn_id: null,
-              phase: 'scope',
+              phase: 'grounding',
               question: 'What should we build first?',
               why: 'This frames the first iteration.',
               impact: 'high',
@@ -3955,7 +3980,7 @@ describe('InterviewView', () => {
             id: 1,
             project_id: 1,
             parent_turn_id: null,
-            phase: 'scope',
+            phase: 'grounding',
             turn_kind: 'question',
             question: 'What should we build first?',
             why: 'This frames the first iteration.',

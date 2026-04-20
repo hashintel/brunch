@@ -141,7 +141,7 @@ describe('SpecificationList', () => {
         created_at: '2026-04-10 09:00:00',
         updated_at: '2026-04-10 09:30:00',
         workflowSummary: {
-          scope: 'closed',
+          grounding: 'closed',
           design: 'in_progress',
           requirements: 'unstarted',
           criteria: 'unstarted',
@@ -167,7 +167,7 @@ describe('SpecificationList', () => {
         created_at: '2026-04-10 09:00:00',
         updated_at: '2026-04-10 09:30:00',
         workflowSummary: {
-          scope: 'closed',
+          grounding: 'closed',
           design: 'in_progress',
           requirements: 'unstarted',
           criteria: 'unstarted',

@@ -20,7 +20,7 @@ function createWorkflow(
 ): WorkflowPhaseActionProjection {
   return {
     phases: {
-      scope: { status: 'unstarted', closeability: false, proposalPending: false, ...overrides.scope },
+      grounding: { status: 'unstarted', closeability: false, proposalPending: false, ...overrides.grounding },
       design: { status: 'unstarted', closeability: false, proposalPending: false, ...overrides.design },
       requirements: {
         status: 'unstarted',
@@ -62,10 +62,10 @@ describe('phase-close commands', () => {
   });
 
   it('builds confirm-proposal command payloads that validate through the discriminated command schema', () => {
-    expect(dataConfirmationSchema.parse(createConfirmProposedPhaseClosureCommand('scope', 7))).toEqual({
+    expect(dataConfirmationSchema.parse(createConfirmProposedPhaseClosureCommand('grounding', 7))).toEqual({
       kind: 'confirm-proposed-phase-closure',
       proposalTurnId: 7,
-      phase: 'scope',
+      phase: 'grounding',
     });
   });
 
@@ -77,7 +77,7 @@ describe('phase-close commands', () => {
   });
 
   it('derives close-action message text from the shared command model', () => {
-    expect(getPhaseClosureCommandText({ kind: 'confirm-proposed-phase-closure', phase: 'scope' })).toBe(
+    expect(getPhaseClosureCommandText({ kind: 'confirm-proposed-phase-closure', phase: 'grounding' })).toBe(
       'Confirm grounding closure',
     );
     expect(getPhaseClosureCommandText({ kind: 'force-close-active-phase', phase: 'design' })).toBe(
@@ -91,7 +91,7 @@ describe('force-close phase action projection', () => {
     expect(
       getForceClosePhaseAction(
         createWorkflow({
-          scope: { status: 'closed' },
+          grounding: { status: 'closed' },
           design: { status: 'in_progress', closeability: true },
         }),
         'design',
@@ -108,13 +108,13 @@ describe('force-close phase action projection', () => {
     expect(
       getForceClosePhaseAction(
         createWorkflow({
-          scope: { status: 'in_progress', closeability: true },
+          grounding: { status: 'in_progress', closeability: true },
         }),
-        'scope',
+        'grounding',
       ),
     ).toEqual({
       kind: 'force-close-active-phase',
-      phase: 'scope',
+      phase: 'grounding',
       available: false,
       reason: 'unsupported_phase',
     });
@@ -124,7 +124,7 @@ describe('force-close phase action projection', () => {
     expect(
       getForceClosePhaseAction(
         createWorkflow({
-          scope: { status: 'closed' },
+          grounding: { status: 'closed' },
           design: { status: 'closed' },
           requirements: { status: 'in_progress' },
         }),
@@ -142,7 +142,7 @@ describe('force-close phase action projection', () => {
     expect(
       getForceClosePhaseAction(
         createWorkflow({
-          scope: { status: 'closed' },
+          grounding: { status: 'closed' },
           design: { status: 'in_progress', closeability: false },
         }),
         'design',
@@ -159,7 +159,7 @@ describe('force-close phase action projection', () => {
     expect(
       getForceClosePhaseAction(
         createWorkflow({
-          scope: { status: 'closed' },
+          grounding: { status: 'closed' },
           design: { status: 'in_progress', closeability: true, proposalPending: true },
         }),
         'design',
@@ -176,7 +176,7 @@ describe('force-close phase action projection', () => {
     expect(
       getForceCloseActionErrorMessage({
         kind: 'force-close-active-phase',
-        phase: 'scope',
+        phase: 'grounding',
         available: false,
         reason: 'unsupported_phase',
       }),

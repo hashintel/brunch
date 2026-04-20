@@ -24,7 +24,7 @@ export const turn = sqliteTable('turn', {
     .notNull()
     .references(() => project.id),
   parent_turn_id: integer().references((): any => turn.id),
-  phase: text({ enum: ['scope', 'design', 'requirements', 'criteria'] }).notNull(),
+  phase: text({ enum: ['grounding', 'design', 'requirements', 'criteria'] }).notNull(),
   turn_kind: text({ enum: ['question', 'kickoff', 'recovery'] })
     .notNull()
     .default('question'),
@@ -60,7 +60,7 @@ export const phaseOutcome = sqliteTable('phase_outcome', {
   project_id: integer()
     .notNull()
     .references(() => project.id),
-  phase: text({ enum: ['scope', 'design', 'requirements', 'criteria'] }).notNull(),
+  phase: text({ enum: ['grounding', 'design', 'requirements', 'criteria'] }).notNull(),
   proposal_turn_id: integer()
     .notNull()
     .references(() => turn.id),

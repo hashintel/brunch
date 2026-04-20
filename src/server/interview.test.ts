@@ -6,7 +6,7 @@ import { createDb, createProject, createTurn, getOptionsForTurn, getTurn, type D
 import {
   buildReviewSetForPhase,
   canProposePhaseClosure,
-  getBrownfieldScopePrompt,
+  getBrownfieldGroundingPrompt,
   getInterviewerInstructions,
   getInterviewerTools,
   getSystemPrompt,
@@ -101,12 +101,12 @@ describe('structuredQuestionSchema', () => {
 
 describe('getSystemPrompt', () => {
   it('returns distinct prompts for different phases', () => {
-    expect(getSystemPrompt('scope')).not.toBe(getSystemPrompt('design'));
+    expect(getSystemPrompt('grounding')).not.toBe(getSystemPrompt('design'));
   });
 
-  it('keeps the scope prompt specific to structured questioning', () => {
-    expect(getSystemPrompt('scope')).toContain('ask_question');
-    expect(getSystemPrompt('scope')).toContain('structured questions');
+  it('keeps the grounding prompt specific to structured questioning', () => {
+    expect(getSystemPrompt('grounding')).toContain('ask_question');
+    expect(getSystemPrompt('grounding')).toContain('structured questions');
   });
 
   it('teaches the design prompt to propose closure when enough design direction is captured', () => {
@@ -134,8 +134,8 @@ describe('getSystemPrompt', () => {
 });
 
 describe('canProposePhaseClosure', () => {
-  it('enables closure proposals only for scope and design', () => {
-    expect(canProposePhaseClosure('scope')).toBe(true);
+  it('enables closure proposals only for grounding and design', () => {
+    expect(canProposePhaseClosure('grounding')).toBe(true);
     expect(canProposePhaseClosure('design')).toBe(true);
     expect(canProposePhaseClosure('requirements', false)).toBe(false);
     expect(canProposePhaseClosure('requirements', true)).toBe(false);
@@ -146,7 +146,7 @@ describe('canProposePhaseClosure', () => {
 describe('persistStructuredQuestion', () => {
   it('stores question metadata and options on the turn', () => {
     const project = createProject(db, 'Spec');
-    const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: 'hello' });
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: 'hello' });
 
     persistStructuredQuestion(db, turn.id, {
       question: 'What platform should we support first?',
@@ -181,7 +181,7 @@ describe('createProposePhaseClosureTool', () => {
     const tool = createProposePhaseClosureTool(db, turn.id, 'design', project.id);
     expect(tool.execute).toBeDefined();
     await tool.execute!(
-      { phase: 'scope', summary: 'LLM hallucinated wrong phase' },
+      { phase: 'grounding', summary: 'LLM hallucinated wrong phase' },
       { toolCallId: 'tc-1', messages: [], abortSignal: new AbortController().signal },
     );
 
@@ -192,10 +192,10 @@ describe('createProposePhaseClosureTool', () => {
 });
 
 describe('brownfield interviewer configuration', () => {
-  it('adds read-only exploration tools during brownfield scope', () => {
+  it('adds read-only exploration tools during brownfield grounding', () => {
     const project = createProject(db, 'BF', { mode: 'brownfield' });
-    const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: '' });
-    const tools = getInterviewerTools(db, turn.id, 'scope', project.id, {
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
+    const tools = getInterviewerTools(db, turn.id, 'grounding', project.id, {
       mode: 'brownfield',
       cwd: '/tmp/repo',
     });
@@ -210,8 +210,8 @@ describe('brownfield interviewer configuration', () => {
 
   it('keeps brownfield exploration tools read-only', () => {
     const project = createProject(db, 'BF', { mode: 'brownfield' });
-    const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: '' });
-    const tools = getInterviewerTools(db, turn.id, 'scope', project.id, {
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
+    const tools = getInterviewerTools(db, turn.id, 'grounding', project.id, {
       mode: 'brownfield',
       cwd: '/tmp/repo',
     });
@@ -222,7 +222,7 @@ describe('brownfield interviewer configuration', () => {
     expect(toolNames).not.toContain('bash');
   });
 
-  it('removes brownfield exploration tools after scope', () => {
+  it('removes brownfield exploration tools after grounding', () => {
     const project = createProject(db, 'BF', { mode: 'brownfield' });
     const turn = createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
     const tools = getInterviewerTools(db, turn.id, 'design', project.id, {
@@ -240,17 +240,17 @@ describe('brownfield interviewer configuration', () => {
 
   it('excludes core tools when mode is greenfield', () => {
     const project = createProject(db, 'GF');
-    const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: '' });
-    const tools = getInterviewerTools(db, turn.id, 'scope', project.id);
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
+    const tools = getInterviewerTools(db, turn.id, 'grounding', project.id);
     const toolNames = Object.keys(tools);
     expect(toolNames).not.toContain('read_file');
     expect(toolNames).not.toContain('grep');
     expect(toolNames).toContain('ask_question');
   });
 
-  it('uses a distinct brownfield system prompt for scope phase', () => {
-    const brownfieldPrompt = getBrownfieldScopePrompt('/tmp/repo');
-    const greenfieldPrompt = getSystemPrompt('scope');
+  it('uses a distinct brownfield system prompt for grounding phase', () => {
+    const brownfieldPrompt = getBrownfieldGroundingPrompt('/tmp/repo');
+    const greenfieldPrompt = getSystemPrompt('grounding');
     expect(brownfieldPrompt).not.toBe(greenfieldPrompt);
     expect(brownfieldPrompt).toContain('explore');
     expect(brownfieldPrompt).toContain('/tmp/repo');
@@ -260,24 +260,24 @@ describe('brownfield interviewer configuration', () => {
     expect(brownfieldPrompt).toContain('FIRST durable turn');
   });
 
-  it('limits brownfield exploration instructions to the scope phase and makes post-kickoff scope state-aware', () => {
-    expect(getInterviewerInstructions('scope', { mode: 'brownfield', cwd: '/tmp/repo' })).toContain(
-      'Before asking your first scope question',
+  it('limits brownfield exploration instructions to the grounding phase and makes post-kickoff grounding state-aware', () => {
+    expect(getInterviewerInstructions('grounding', { mode: 'brownfield', cwd: '/tmp/repo' })).toContain(
+      'Before asking your first grounding question',
     );
     expect(
-      getInterviewerInstructions('scope', {
+      getInterviewerInstructions('grounding', {
         mode: 'brownfield',
         cwd: '/tmp/repo',
-        brownfieldScopeStage: 'ongoing',
+        brownfieldGroundingStage: 'ongoing',
       }),
     ).toContain('ongoing brownfield grounding conversation');
     expect(
-      getInterviewerInstructions('scope', {
+      getInterviewerInstructions('grounding', {
         mode: 'brownfield',
         cwd: '/tmp/repo',
-        brownfieldScopeStage: 'ongoing',
+        brownfieldGroundingStage: 'ongoing',
       }),
-    ).not.toContain('Before asking your first scope question');
+    ).not.toContain('Before asking your first grounding question');
     expect(getInterviewerInstructions('design', { mode: 'brownfield', cwd: '/tmp/repo' })).toBe(
       getSystemPrompt('design'),
     );
@@ -345,7 +345,7 @@ describe('buildReviewSetForPhase', () => {
   });
 
   it('returns null outside the review phases', () => {
-    expect(buildReviewSetForPhase('scope', { requirements: [], criteria: [] })).toBeNull();
+    expect(buildReviewSetForPhase('grounding', { requirements: [], criteria: [] })).toBeNull();
     expect(buildReviewSetForPhase('design', { requirements: [], criteria: [] })).toBeNull();
   });
 });
@@ -353,7 +353,7 @@ describe('buildReviewSetForPhase', () => {
 describe('persistFallbackQuestionText', () => {
   it('fills the question only when the turn does not already have one', () => {
     const project = createProject(db, 'Spec');
-    const turn = createTurn(db, project.id, { phase: 'scope', question: '', answer: 'hello' });
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: 'hello' });
 
     persistFallbackQuestionText(db, turn.id, 'Fallback question');
     expect(getTurn(db, turn.id)?.question).toBe('Fallback question');

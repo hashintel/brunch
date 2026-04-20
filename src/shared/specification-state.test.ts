@@ -26,7 +26,7 @@ function createTurn(overrides: Partial<ProjectStateTurn> = {}): ProjectStateTurn
     id: 1,
     project_id: 1,
     parent_turn_id: null,
-    phase: 'scope',
+    phase: 'grounding',
     turn_kind: 'question',
     question: 'What should we build first?',
     why: 'This frames the first iteration.',
@@ -45,8 +45,8 @@ function createTurn(overrides: Partial<ProjectStateTurn> = {}): ProjectStateTurn
 }
 
 function createPhaseState(
-  overrides: Partial<ProjectState['workflow']['phases']['scope']> = {},
-): ProjectState['workflow']['phases']['scope'] {
+  overrides: Partial<ProjectState['workflow']['phases']['grounding']> = {},
+): ProjectState['workflow']['phases']['grounding'] {
   return {
     status: 'closed',
     closeability: false,
@@ -61,7 +61,7 @@ function createPhaseState(
 
 function createProjectState(
   overrides: Partial<ProjectState> = {},
-  phaseOverrides: Partial<ProjectState['workflow']['phases']['scope']> = {},
+  phaseOverrides: Partial<ProjectState['workflow']['phases']['grounding']> = {},
   turns: ProjectState['turns'] = [createTurn()],
 ): ProjectState {
   return {
@@ -75,13 +75,13 @@ function createProjectState(
     },
     workflow: {
       phases: {
-        scope: {
+        grounding: {
           status: 'in_progress',
           closeability: false,
           readiness: 'low',
           closureBasis: null,
           proposalPending: false,
-          turnId: turns.at(-1)?.phase === 'scope' ? (turns.at(-1)?.id ?? null) : null,
+          turnId: turns.at(-1)?.phase === 'grounding' ? (turns.at(-1)?.id ?? null) : null,
           summary: null,
           ...phaseOverrides,
         },
@@ -141,7 +141,7 @@ describe('specification-state helpers', () => {
           }),
         ]),
       ),
-    ).toEqual({ kind: 'recovery', phase: 'scope' });
+    ).toEqual({ kind: 'recovery', phase: 'grounding' });
 
     expect(
       deriveSpecificationLanding(
@@ -159,7 +159,7 @@ describe('specification-state helpers', () => {
           }),
         ]),
       ),
-    ).toEqual({ kind: 'frontier-turn', phase: 'scope', turnId: 2 });
+    ).toEqual({ kind: 'frontier-turn', phase: 'grounding', turnId: 2 });
 
     expect(
       deriveSpecificationLanding(
@@ -167,7 +167,7 @@ describe('specification-state helpers', () => {
           createTurn({ id: 1, turn_kind: 'kickoff', answer: null, options: [], question: '' }),
         ]),
       ),
-    ).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+    ).toEqual({ kind: 'kickoff', phase: 'grounding', mode: 'start' });
   });
 
   it('classifies kickoff, recovery, confirmation, and closure-summary turns as control artifacts', () => {
@@ -180,7 +180,7 @@ describe('specification-state helpers', () => {
             { type: 'text', text: 'Confirm grounding closure' },
             {
               type: 'data-confirmation',
-              data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
+              data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'grounding' },
             },
           ]),
         }),
@@ -194,7 +194,7 @@ describe('specification-state helpers', () => {
               type: 'data-phase-summary',
               data: {
                 turnId: 1,
-                phase: 'scope',
+                phase: 'grounding',
                 summary: 'Goals, terms, context, and constraints are sufficiently captured.',
               },
             },
@@ -251,7 +251,7 @@ describe('specification-state helpers', () => {
         { type: 'text', text: 'Confirm grounding closure' },
         {
           type: 'data-confirmation',
-          data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
+          data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'grounding' },
         },
       ]),
       assistant_parts: JSON.stringify([
@@ -259,7 +259,7 @@ describe('specification-state helpers', () => {
           type: 'data-phase-summary',
           data: {
             turnId: 1,
-            phase: 'scope',
+            phase: 'grounding',
             summary: 'Goals, terms, context, and constraints are sufficiently captured.',
           },
         },
@@ -268,7 +268,7 @@ describe('specification-state helpers', () => {
 
     expect(getAcceptedClosureReplay(turn, createPhaseState())).toEqual({
       turnId: 1,
-      phase: 'scope',
+      phase: 'grounding',
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
   });

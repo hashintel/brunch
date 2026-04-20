@@ -155,7 +155,7 @@ export function listSpecifications(db: DB): SpecificationListItem[] {
     return {
       ...project,
       workflowSummary: {
-        scope: workflow.phases.scope.status,
+        grounding: workflow.phases.grounding.status,
         design: workflow.phases.design.status,
         requirements: workflow.phases.requirements.status,
         criteria: workflow.phases.criteria.status,

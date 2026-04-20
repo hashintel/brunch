@@ -27,7 +27,7 @@ export function createCoreTools(cwd: string) {
   };
 }
 
-/** Create the read-only exploration tools available during brownfield scope discovery. */
+/** Create the read-only exploration tools available during brownfield grounding discovery. */
 export function createExplorationTools(cwd: string) {
   return {
     read_file: createReadTool(cwd),

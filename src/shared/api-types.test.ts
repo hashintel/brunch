@@ -29,7 +29,7 @@ describe('api transport contracts', () => {
         created_at: '2026-04-12 10:00:00',
         updated_at: '2026-04-12 10:00:00',
         workflowSummary: {
-          scope: 'closed',
+          grounding: 'closed',
           design: 'in_progress',
           requirements: 'unstarted',
           criteria: 'unstarted',
@@ -40,7 +40,7 @@ describe('api transport contracts', () => {
       id: 1,
       name: 'Project 1',
       workflowSummary: {
-        scope: 'closed',
+        grounding: 'closed',
         design: 'in_progress',
       },
     });
@@ -59,7 +59,7 @@ describe('api transport contracts', () => {
         },
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'closed',
               closeability: true,
               readiness: 'high',
@@ -128,7 +128,7 @@ describe('api transport contracts', () => {
       project: { id: 1, name: 'Project 1' },
       workflow: {
         phases: {
-          scope: { status: 'closed' },
+          grounding: { status: 'closed' },
           design: { status: 'in_progress' },
         },
       },

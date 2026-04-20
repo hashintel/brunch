@@ -64,7 +64,7 @@ npm run dev
 Start with these:
 
 - `issue-tracker-kickoff-ready` — blank grounding-entry workspace with the projected kickoff control visible
-- `issue-tracker-scope-closure-pending` — scope closure summary waiting for confirmation
+- `issue-tracker-grounding-closure-pending` — grounding closure summary waiting for confirmation
 - `issue-tracker-design-kickoff-ready` — design handoff with the projected entry control visible
 - `issue-tracker-design-recovery` — exceptional projected recovery control after a missing successor turn
 - `issue-tracker-requirements-ready` — requirements full-set review frontier
@@ -91,8 +91,8 @@ This keeps golden fixtures runtime-shaped without hand-authoring JSON or redoing
 Prefer the richer `issue-tracker-*` fixtures for manual walkthroughs. They now cover the main phase-transition states explicitly instead of relying on ambiguous mid-stream snapshots.
 
 - `issue-tracker-kickoff-ready` — empty grounding-entry workspace and resume from a seeded blank project
-- `issue-tracker-scope-closure-pending` — closure proposal visible and awaiting explicit confirmation
-- `issue-tracker-design-kickoff-ready` — first post-scope handoff with the projected entry control visible
+- `issue-tracker-grounding-closure-pending` — closure proposal visible and awaiting explicit confirmation
+- `issue-tracker-design-kickoff-ready` — first post-grounding handoff with the projected entry control visible
 - `issue-tracker-design-recovery` — exceptional projected recovery control when design lost its successor frontier
 - `issue-tracker-requirements-kickoff-ready` — requirements handoff immediately after design closure
 - `issue-tracker-requirements-ready` — requirements full-set review frontier
@@ -100,7 +100,7 @@ Prefer the richer `issue-tracker-*` fixtures for manual walkthroughs. They now c
 - `issue-tracker-criteria-ready` — criteria full-set review frontier
 - `issue-tracker-all-phases-closed` — export-ready completed project
 - `forced-close-all-phases-closed` — synthetic caveat fixture for user-forced design closure
-- `low-readiness-all-phases-closed` — synthetic caveat fixture for low-readiness scope closure
+- `low-readiness-all-phases-closed` — synthetic caveat fixture for low-readiness grounding closure
 
 ## What to check
 

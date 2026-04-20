@@ -128,7 +128,7 @@ export function submitPhaseIntentWithRuntimeCompatibility({
 
     const kickoffLanding = landing?.kind === 'kickoff' ? landing : null;
 
-    if (request.phase === 'scope' && kickoffLanding?.mode === 'start' && request.mode) {
+    if (request.phase === 'grounding' && kickoffLanding?.mode === 'start' && request.mode) {
       const activeKickoffTurn =
         activePhaseTurn && isGroundingStrategyKickoffTurn(activePhaseTurn) ? activePhaseTurn : null;
       if (activeKickoffTurn) {

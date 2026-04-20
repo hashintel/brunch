@@ -25,7 +25,7 @@ export const projectSchema = z.object({
 });
 
 export const workflowSummarySchema = z.object({
-  scope: workflowPhaseStatusSchema,
+  grounding: workflowPhaseStatusSchema,
   design: workflowPhaseStatusSchema,
   requirements: workflowPhaseStatusSchema,
   criteria: workflowPhaseStatusSchema,
@@ -44,7 +44,7 @@ export const workflowPhaseStateSchema = z.object({
 
 export const workflowStateSchema = z.object({
   phases: z.object({
-    scope: workflowPhaseStateSchema,
+    grounding: workflowPhaseStateSchema,
     design: workflowPhaseStateSchema,
     requirements: workflowPhaseStateSchema,
     criteria: workflowPhaseStateSchema,

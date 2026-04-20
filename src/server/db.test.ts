@@ -32,7 +32,7 @@ import {
   getEntitiesForProject,
   getEntitiesForProjectOnActivePath,
   getCapturedItemsForTurns,
-  getScopeBundleForProject,
+  getGroundingBundleForProject,
   listPhaseOutcomesForProject,
   getCurrentWorkflowState,
   type DB,
@@ -140,13 +140,13 @@ describe('turn CRUD', () => {
   it('creates a root turn with no parent', () => {
     const project = getOrCreateProject(db);
     const turn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'What is the project about?',
       answer: 'A chat app',
     });
     expect(turn.id).toBeDefined();
     expect(turn.parent_turn_id).toBeNull();
-    expect(turn.phase).toBe('scope');
+    expect(turn.phase).toBe('grounding');
     expect(turn.question).toBe('What is the project about?');
     expect(turn.answer).toBe('A chat app');
     expect(turn.turn_kind).toBe('question');
@@ -155,15 +155,15 @@ describe('turn CRUD', () => {
 
   it('creates child turns with parent chain', () => {
     const project = getOrCreateProject(db);
-    const t1 = createTurn(db, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+    const t1 = createTurn(db, project.id, { phase: 'grounding', question: 'Q1', answer: 'A1' });
     const t2 = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'Q2',
       answer: 'A2',
       parent_turn_id: t1.id,
     });
     const t3 = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'Q3',
       answer: 'A3',
       parent_turn_id: t2.id,
@@ -174,7 +174,7 @@ describe('turn CRUD', () => {
 
   it('creates options for a turn', () => {
     const project = getOrCreateProject(db);
-    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Pick one' });
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: 'Pick one' });
     const opt1 = createOption(db, turn.id, {
       position: 0,
       content: 'Option A',
@@ -188,14 +188,14 @@ describe('turn CRUD', () => {
 
   it('enforces unique (turn_id, position) on options', () => {
     const project = getOrCreateProject(db);
-    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Pick one' });
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: 'Pick one' });
     createOption(db, turn.id, { position: 0, content: 'Option A' });
     expect(() => createOption(db, turn.id, { position: 0, content: 'Duplicate' })).toThrow();
   });
 
   it('updates turn answer and question', () => {
     const project = getOrCreateProject(db);
-    const turn = createTurn(db, project.id, { phase: 'scope', question: '' });
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: '' });
     updateTurn(db, turn.id, { question: 'Updated Q', answer: 'User said this' });
     const updated = db.$client.prepare('SELECT * FROM turn WHERE id = ?').get(turn.id) as any;
     expect(updated.question).toBe('Updated Q');
@@ -205,7 +205,7 @@ describe('turn CRUD', () => {
   it('partial update only changes specified fields', () => {
     const project = getOrCreateProject(db);
     const turn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'Original Q',
       answer: 'Original A',
     });
@@ -220,14 +220,14 @@ describe('phase outcome lifecycle', () => {
   it('counts only answered substantive turns toward readiness', () => {
     const project = getOrCreateProject(db);
     const frontierTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'What problem are we solving?',
       answer: null,
     });
     createOption(db, frontierTurn.id, { position: 0, content: 'Internal tool' });
     advanceHead(db, project.id, frontierTurn.id);
 
-    expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
+    expect(getCurrentWorkflowState(db, project.id).phases.grounding).toMatchObject({
       status: 'in_progress',
       readiness: 'low',
       closeability: true,
@@ -235,20 +235,20 @@ describe('phase outcome lifecycle', () => {
 
     updateTurn(db, frontierTurn.id, { answer: 'Internal tool' });
 
-    expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
+    expect(getCurrentWorkflowState(db, project.id).phases.grounding).toMatchObject({
       status: 'in_progress',
       readiness: 'medium',
       closeability: true,
     });
   });
 
-  it('persists explicit scope outcomes and supersedes them when the active path changes upstream', async () => {
+  it('persists explicit grounding outcomes and supersedes them when the active path changes upstream', async () => {
     const project = getOrCreateProject(db);
-    const root = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    const root = createTurn(db, project.id, { phase: 'grounding', question: 'Goal?', answer: 'Spec tool' });
     const closureTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: '',
-      answer: 'We have enough scope context',
+      answer: 'We have enough grounding context',
       parent_turn_id: root.id,
     });
     advanceHead(db, project.id, closureTurn.id);
@@ -258,12 +258,12 @@ describe('phase outcome lifecycle', () => {
 
     const proposed = createPhaseOutcome(db, {
       projectId: project.id,
-      phase: 'scope',
+      phase: 'grounding',
       proposal_turn_id: closureTurn.id,
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
 
-    expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
+    expect(getCurrentWorkflowState(db, project.id).phases.grounding).toMatchObject({
       status: 'in_progress',
       proposalPending: true,
       summary: proposed.summary,
@@ -274,7 +274,7 @@ describe('phase outcome lifecycle', () => {
     });
 
     const confirmationTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: '',
       answer: 'Confirm grounding closure',
       parent_turn_id: closureTurn.id,
@@ -283,7 +283,7 @@ describe('phase outcome lifecycle', () => {
     advanceHead(db, project.id, confirmationTurn.id);
 
     const confirmedWorkflow = getCurrentWorkflowState(db, project.id);
-    expect(confirmedWorkflow.phases.scope).toMatchObject({
+    expect(confirmedWorkflow.phases.grounding).toMatchObject({
       status: 'closed',
       proposalPending: false,
       summary: proposed.summary,
@@ -305,14 +305,14 @@ describe('phase outcome lifecycle', () => {
     });
 
     const alternateTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'What should we revisit?',
       answer: 'Target audience',
       parent_turn_id: root.id,
     });
     advanceHead(db, project.id, alternateTurn.id);
 
-    expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
+    expect(getCurrentWorkflowState(db, project.id).phases.grounding).toMatchObject({
       status: 'in_progress',
       proposalPending: false,
       summary: null,
@@ -329,13 +329,17 @@ describe('phase outcome lifecycle', () => {
   it('projects a user-forced design close from the confirmation turn and advances requirements', async () => {
     const project = getOrCreateProject(db);
 
-    const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Goal?',
+      answer: 'Spec tool',
+    });
     advanceHead(db, project.id, scopeTurn.id);
 
     const scopeProposalTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: '',
-      answer: 'We have enough scope context',
+      answer: 'We have enough grounding context',
       parent_turn_id: scopeTurn.id,
     });
     advanceHead(db, project.id, scopeProposalTurn.id);
@@ -344,13 +348,13 @@ describe('phase outcome lifecycle', () => {
 
     const scopeOutcome = createPhaseOutcome(db, {
       projectId: project.id,
-      phase: 'scope',
+      phase: 'grounding',
       proposal_turn_id: scopeProposalTurn.id,
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
 
     const scopeConfirmationTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: '',
       answer: 'Confirm grounding closure',
       parent_turn_id: scopeProposalTurn.id,
@@ -361,7 +365,7 @@ describe('phase outcome lifecycle', () => {
           data: {
             kind: 'confirm-proposed-phase-closure',
             proposalTurnId: scopeProposalTurn.id,
-            phase: 'scope',
+            phase: 'grounding',
           },
         },
       ]),
@@ -426,13 +430,17 @@ describe('phase outcome lifecycle', () => {
   it('keeps requirements in progress and not yet closeable after the first requirements review interaction', async () => {
     const project = getOrCreateProject(db);
 
-    const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Goal?',
+      answer: 'Spec tool',
+    });
     advanceHead(db, project.id, scopeTurn.id);
 
     const scopeProposalTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: '',
-      answer: 'We have enough scope context',
+      answer: 'We have enough grounding context',
       parent_turn_id: scopeTurn.id,
     });
     advanceHead(db, project.id, scopeProposalTurn.id);
@@ -441,13 +449,13 @@ describe('phase outcome lifecycle', () => {
 
     const scopeOutcome = createPhaseOutcome(db, {
       projectId: project.id,
-      phase: 'scope',
+      phase: 'grounding',
       proposal_turn_id: scopeProposalTurn.id,
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
 
     const scopeConfirmationTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: '',
       answer: 'Confirm grounding closure',
       parent_turn_id: scopeProposalTurn.id,
@@ -458,7 +466,7 @@ describe('phase outcome lifecycle', () => {
           data: {
             kind: 'confirm-proposed-phase-closure',
             proposalTurnId: scopeProposalTurn.id,
-            phase: 'scope',
+            phase: 'grounding',
           },
         },
       ]),
@@ -520,19 +528,23 @@ describe('phase outcome lifecycle', () => {
   it('keeps requirements non-closeable until an accepted review closes the phase', async () => {
     const project = getOrCreateProject(db);
 
-    const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Goal?',
+      answer: 'Spec tool',
+    });
     advanceHead(db, project.id, scopeTurn.id);
 
     const { createPhaseOutcome, confirmPhaseOutcome } = await import('./db.js');
 
     const scopeOutcome = createPhaseOutcome(db, {
       projectId: project.id,
-      phase: 'scope',
+      phase: 'grounding',
       proposal_turn_id: scopeTurn.id,
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
     const scopeConfirmationTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       parent_turn_id: scopeTurn.id,
       question: '',
       answer: 'Confirm grounding closure',
@@ -617,19 +629,23 @@ describe('phase outcome lifecycle', () => {
   it('projects criteria without per-item review status on the project-wide read model', async () => {
     const project = getOrCreateProject(db);
 
-    const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Goal?',
+      answer: 'Spec tool',
+    });
     advanceHead(db, project.id, scopeTurn.id);
 
     const { createPhaseOutcome, confirmPhaseOutcome } = await import('./db.js');
 
     const scopeOutcome = createPhaseOutcome(db, {
       projectId: project.id,
-      phase: 'scope',
+      phase: 'grounding',
       proposal_turn_id: scopeTurn.id,
       summary: 'Scope captured.',
     });
     const scopeConfirmationTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       parent_turn_id: scopeTurn.id,
       question: '',
       answer: 'Confirm grounding closure',
@@ -737,19 +753,23 @@ describe('phase outcome lifecycle', () => {
   it('keeps criteria non-closeable until an accepted review closes the phase', async () => {
     const project = getOrCreateProject(db);
 
-    const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Goal?',
+      answer: 'Spec tool',
+    });
     advanceHead(db, project.id, scopeTurn.id);
 
     const { createPhaseOutcome, confirmPhaseOutcome } = await import('./db.js');
 
     const scopeOutcome = createPhaseOutcome(db, {
       projectId: project.id,
-      phase: 'scope',
+      phase: 'grounding',
       proposal_turn_id: scopeTurn.id,
       summary: 'Scope captured.',
     });
     const scopeConfirmationTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       parent_turn_id: scopeTurn.id,
       question: '',
       answer: 'Confirm grounding closure',
@@ -859,17 +879,21 @@ describe('phase outcome lifecycle', () => {
   it('projects only the accepted requirements on the active path after requirements review closes', () => {
     const project = getOrCreateProject(db);
 
-    const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Goal?',
+      answer: 'Spec tool',
+    });
     advanceHead(db, project.id, scopeTurn.id);
 
     const scopeOutcome = createConfirmedPhaseOutcome(db, {
       projectId: project.id,
-      phase: 'scope',
+      phase: 'grounding',
       proposal_turn_id: scopeTurn.id,
       confirmation_turn_id: scopeTurn.id,
       summary: 'Scope captured.',
     });
-    expect(scopeOutcome.phase).toBe('scope');
+    expect(scopeOutcome.phase).toBe('grounding');
 
     const designTurn = createTurn(db, project.id, {
       phase: 'design',
@@ -938,19 +962,23 @@ describe('phase outcome lifecycle', () => {
   it('confirms a proposed requirements outcome, clears the pending proposal, and keeps criteria active', async () => {
     const project = getOrCreateProject(db);
 
-    const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Goal?',
+      answer: 'Spec tool',
+    });
     advanceHead(db, project.id, scopeTurn.id);
 
     const { createPhaseOutcome, confirmPhaseOutcome } = await import('./db.js');
 
     const scopeOutcome = createPhaseOutcome(db, {
       projectId: project.id,
-      phase: 'scope',
+      phase: 'grounding',
       proposal_turn_id: scopeTurn.id,
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
     const scopeConfirmationTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       parent_turn_id: scopeTurn.id,
       question: '',
       answer: 'Confirm grounding closure',
@@ -1100,13 +1128,17 @@ describe('phase outcome lifecycle', () => {
   it('projects no closure basis when a confirmed phase outcome lacks durable closure provenance', async () => {
     const project = getOrCreateProject(db);
 
-    const scopeTurn = createTurn(db, project.id, { phase: 'scope', question: 'Goal?', answer: 'Spec tool' });
+    const scopeTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Goal?',
+      answer: 'Spec tool',
+    });
     advanceHead(db, project.id, scopeTurn.id);
 
     const scopeProposalTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: '',
-      answer: 'We have enough scope context',
+      answer: 'We have enough grounding context',
       parent_turn_id: scopeTurn.id,
     });
     advanceHead(db, project.id, scopeProposalTurn.id);
@@ -1115,13 +1147,13 @@ describe('phase outcome lifecycle', () => {
 
     const scopeOutcome = createPhaseOutcome(db, {
       projectId: project.id,
-      phase: 'scope',
+      phase: 'grounding',
       proposal_turn_id: scopeProposalTurn.id,
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
 
     const scopeConfirmationTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: '',
       answer: 'Confirm grounding closure',
       parent_turn_id: scopeProposalTurn.id,
@@ -1132,7 +1164,7 @@ describe('phase outcome lifecycle', () => {
           data: {
             kind: 'confirm-proposed-phase-closure',
             proposalTurnId: scopeProposalTurn.id,
-            phase: 'scope',
+            phase: 'grounding',
           },
         },
       ]),
@@ -1142,7 +1174,7 @@ describe('phase outcome lifecycle', () => {
 
     db.$client.prepare('UPDATE phase_outcome SET closure_basis = NULL WHERE id = ?').run(scopeOutcome.id);
 
-    expect(getCurrentWorkflowState(db, project.id).phases.scope).toMatchObject({
+    expect(getCurrentWorkflowState(db, project.id).phases.grounding).toMatchObject({
       closureBasis: null,
     });
   });
@@ -1157,15 +1189,15 @@ describe('active path resolution', () => {
 
   it('resolves linear chain from root to HEAD', () => {
     const project = getOrCreateProject(db);
-    const t1 = createTurn(db, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+    const t1 = createTurn(db, project.id, { phase: 'grounding', question: 'Q1', answer: 'A1' });
     const t2 = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'Q2',
       answer: 'A2',
       parent_turn_id: t1.id,
     });
     const t3 = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'Q3',
       answer: 'A3',
       parent_turn_id: t2.id,
@@ -1179,15 +1211,15 @@ describe('active path resolution', () => {
 
   it('resolves correct branch after fork', () => {
     const project = getOrCreateProject(db);
-    const t1 = createTurn(db, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+    const t1 = createTurn(db, project.id, { phase: 'grounding', question: 'Q1', answer: 'A1' });
     const t2a = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'Q2a',
       answer: 'A2a',
       parent_turn_id: t1.id,
     });
     const t2b = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'Q2b',
       answer: 'A2b',
       parent_turn_id: t1.id,
@@ -1206,7 +1238,7 @@ describe('active path resolution', () => {
 
   it('handles single-turn tree (root = HEAD)', () => {
     const project = getOrCreateProject(db);
-    const t1 = createTurn(db, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+    const t1 = createTurn(db, project.id, { phase: 'grounding', question: 'Q1', answer: 'A1' });
     advanceHead(db, project.id, t1.id);
     const path = getActivePath(db, project.id);
     expect(path).toHaveLength(1);
@@ -1215,15 +1247,15 @@ describe('active path resolution', () => {
 
   it('resolves deep fork correctly', () => {
     const project = getOrCreateProject(db);
-    const t1 = createTurn(db, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+    const t1 = createTurn(db, project.id, { phase: 'grounding', question: 'Q1', answer: 'A1' });
     const t2 = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'Q2',
       answer: 'A2',
       parent_turn_id: t1.id,
     });
     const _t3 = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'Q3',
       answer: 'A3',
       parent_turn_id: t2.id,
@@ -1252,7 +1284,7 @@ describe('active path resolution', () => {
 describe('advanceHead', () => {
   it('updates project active_turn_id', () => {
     const project = getOrCreateProject(db);
-    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q1' });
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: 'Q1' });
     advanceHead(db, project.id, turn.id);
     const updated = getOrCreateProject(db);
     expect(updated.active_turn_id).toBe(turn.id);
@@ -1322,7 +1354,7 @@ describe('DB lifecycle — parts persistence', () => {
 
     const db1 = createDb(dbPath);
     const project = getOrCreateProject(db1);
-    const turn = createTurn(db1, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+    const turn = createTurn(db1, project.id, { phase: 'grounding', question: 'Q1', answer: 'A1' });
     const parts = JSON.stringify([
       { type: 'reasoning', text: 'thinking' },
       { type: 'text', text: 'answer' },
@@ -1355,9 +1387,9 @@ describe('DB lifecycle — turn tree persistence', () => {
     // Create and populate
     const db1 = createDb(dbPath);
     const project = getOrCreateProject(db1);
-    const t1 = createTurn(db1, project.id, { phase: 'scope', question: 'Q1', answer: 'A1' });
+    const t1 = createTurn(db1, project.id, { phase: 'grounding', question: 'Q1', answer: 'A1' });
     const t2 = createTurn(db1, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'Q2',
       answer: 'A2',
       parent_turn_id: t1.id,
@@ -1429,7 +1461,7 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
 
   it('links a decision to a turn through generic provenance', () => {
     const project = createProject(db, 'Test');
-    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: 'Q', answer: 'A' });
     const d = createDecision(db, project.id, 'Use React');
     linkDecisionToTurn(db, d.id, turn.id);
     const entities = getEntitiesForProject(db, project.id);
@@ -1451,7 +1483,7 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
 
   it('links an assumption to a turn through generic provenance', () => {
     const project = createProject(db, 'Test');
-    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: 'Q', answer: 'A' });
     const a = createAssumption(db, project.id, 'Users have API keys');
     linkAssumptionToTurn(db, a.id, turn.id);
     const entities = getEntitiesForProject(db, project.id);
@@ -1473,7 +1505,7 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
 
   it('projects captured items for replay through one collection-driven seam', () => {
     const project = createProject(db, 'Test');
-    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: 'Q', answer: 'A' });
     const goal = createKnowledgeItem(db, project.id, 'goal', 'Ship a trustworthy spec handoff');
     const decision = createDecision(db, project.id, 'Start with the web app', 'Fastest path to feedback');
     const assumption = createAssumption(db, project.id, 'Users can work in a browser');
@@ -1507,9 +1539,9 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     ]);
   });
 
-  it('persists canonical scope kinds plus later generic knowledge kinds with project linkage, metadata, and turn provenance', () => {
+  it('persists canonical grounding kinds plus later generic knowledge kinds with project linkage, metadata, and turn provenance', () => {
     const project = createProject(db, 'Test');
-    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: 'Q', answer: 'A' });
     const goal = createKnowledgeItem(
       db,
       project.id,
@@ -1714,7 +1746,7 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
   it('keeps derived reference codes stable across project-wide and active-path entity projections', () => {
     const project = createProject(db, 'Test');
     const rootTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'What storage options are on the table?',
       answer: 'SQLite and Postgres are both possible.',
     });
@@ -1841,7 +1873,7 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     ).toEqual({ count: 0 });
   });
 
-  it('projects a canonical scope bundle without consulting legacy commitment storage', () => {
+  it('projects a canonical grounding bundle without consulting legacy commitment storage', () => {
     const project = createProject(db, 'Test');
     createKnowledgeItem(db, project.id, 'goal', 'Ship a trustworthy spec handoff');
     createKnowledgeItem(db, project.id, 'term', 'implementation brief');
@@ -1850,7 +1882,7 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
     createDecision(db, project.id, 'Start with the web app');
     createAssumption(db, project.id, 'Users can work in a browser');
 
-    expect(getScopeBundleForProject(db, project.id)).toMatchObject({
+    expect(getGroundingBundleForProject(db, project.id)).toMatchObject({
       goals: [expect.objectContaining({ kind: 'goal', content: 'Ship a trustworthy spec handoff' })],
       terms: [expect.objectContaining({ kind: 'term', content: 'implementation brief' })],
       contexts: [expect.objectContaining({ kind: 'context', content: 'The first users are solo builders' })],

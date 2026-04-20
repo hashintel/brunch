@@ -119,7 +119,7 @@ export function StageSidebar({
 export type Phase = WorkflowPhase;
 export type PhaseStatus = WorkflowPhaseStatus;
 
-const phaseOrder: Phase[] = ['scope', 'design', 'requirements', 'criteria'];
+const phaseOrder: Phase[] = ['grounding', 'design', 'requirements', 'criteria'];
 
 function PhasePill({
   index,

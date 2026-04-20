@@ -25,7 +25,7 @@ function createTurn({
     id,
     project_id: 1,
     parent_turn_id: id === 1 ? null : id - 1,
-    phase: 'scope',
+    phase: 'grounding',
     turn_kind: 'question',
     question,
     why: 'This frames the next move.',
@@ -41,9 +41,9 @@ function createTurn({
 }
 
 const testState = vi.hoisted(() => {
-  const scopeWorkflow: WorkflowState = {
+  const groundingWorkflow: WorkflowState = {
     phases: {
-      scope: {
+      grounding: {
         status: 'in_progress',
         closeability: false,
         readiness: 'medium',
@@ -122,7 +122,7 @@ const testState = vi.hoisted(() => {
     ],
   });
 
-  return { activeTurn, answeredTurn, emptyEntities, scopeWorkflow };
+  return { activeTurn, answeredTurn, emptyEntities, groundingWorkflow };
 });
 
 vi.mock('@tanstack/react-router', () => ({
@@ -140,7 +140,7 @@ vi.mock('../-interview-controller.js', () => ({
       created_at: '2026-04-16 10:00:00',
       updated_at: '2026-04-16 10:00:00',
     },
-    workflow: testState.scopeWorkflow,
+    workflow: testState.groundingWorkflow,
     phaseTurns: [testState.answeredTurn, testState.activeTurn],
     captureStatusByTurnId: new Map(),
     chat: {
@@ -166,7 +166,7 @@ vi.mock('../-interview-controller.js', () => ({
 
 describe('transcript parity activity replay', () => {
   it('renders persisted history activity and live bottom-artifact activity beside the right cards', () => {
-    render(<InterviewView phase="scope" />);
+    render(<InterviewView phase="grounding" />);
 
     expect(screen.getByText('What should we build first?')).toBeTruthy();
     expect(screen.getByText('Which platform should we target next?')).toBeTruthy();

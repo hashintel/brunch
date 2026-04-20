@@ -17,7 +17,7 @@ import {
 import { buildReviewedExportProjection, renderExportMarkdown } from './export.js';
 import {
   seedAllPhasesClosedWithForcedDesign,
-  seedAllPhasesClosedWithLowReadinessScope,
+  seedAllPhasesClosedWithLowReadinessGrounding,
 } from './fixtures/scenarios.js';
 
 function createClosedPhase({
@@ -41,7 +41,7 @@ function createClosedPhase({
 function createAllClosedWorkflow(overrides?: Partial<Record<string, unknown>>): WorkflowState {
   return {
     phases: {
-      scope: createClosedPhase(),
+      grounding: createClosedPhase(),
       design: createClosedPhase(),
       requirements: createClosedPhase(),
       criteria: createClosedPhase(),
@@ -206,7 +206,7 @@ describe('renderExportMarkdown', () => {
     openDbs.push(db);
     const project = createProject(db, 'Branching Project');
     const rootTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'What database?',
       answer: 'We are still deciding.',
     });
@@ -276,11 +276,11 @@ describe('renderExportMarkdown', () => {
     const db = createDb();
     openDbs.push(db);
     const projectId = createProject(db, 'Low-Readiness All Phases Closed').id;
-    seedAllPhasesClosedWithLowReadinessScope(db, projectId);
+    seedAllPhasesClosedWithLowReadinessGrounding(db, projectId);
 
     const projectState = getSpecificationState(db, projectId);
     expect(projectState).not.toBeNull();
-    expect(projectState?.workflow.phases.scope).toMatchObject({
+    expect(projectState?.workflow.phases.grounding).toMatchObject({
       status: 'closed',
       readiness: 'low',
       closureBasis: 'interviewer_recommended',
@@ -291,7 +291,7 @@ describe('renderExportMarkdown', () => {
       getEntitiesForProjectOnActivePath(db, projectId),
       projectState!.workflow,
     );
-    expect(markdown).toContain('__scope__ was closed with low readiness');
+    expect(markdown).toContain('__grounding__ was closed with low readiness');
     expect(markdown).not.toContain('Support exporting the spec as a PDF');
   });
 });

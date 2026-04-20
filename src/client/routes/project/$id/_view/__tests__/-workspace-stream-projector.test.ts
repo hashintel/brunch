@@ -9,8 +9,8 @@ import type { InterviewControllerBottomArtifactState } from '../-interview-contr
 import { specificationWorkspaceStream } from '../-workspace-stream-projector.js';
 
 function createPhaseState(
-  overrides: Partial<ProjectState['workflow']['phases']['scope']> = {},
-): ProjectState['workflow']['phases']['scope'] {
+  overrides: Partial<ProjectState['workflow']['phases']['grounding']> = {},
+): ProjectState['workflow']['phases']['grounding'] {
   return {
     status: 'in_progress',
     closeability: false,
@@ -30,7 +30,7 @@ function createTurn(overrides: Partial<ProjectStateTurn> & Pick<ProjectStateTurn
     id,
     project_id: 1,
     parent_turn_id: null,
-    phase: 'scope',
+    phase: 'grounding',
     turn_kind: 'question',
     question: 'Question',
     why: 'Why',
@@ -78,21 +78,21 @@ function createBottomArtifact(
     case 'kickoff':
       return {
         kind,
-        kickoff: { phase: 'scope', mode: 'start' },
+        kickoff: { phase: 'grounding', mode: 'start' },
         disabled: false,
         submitKickoff: vi.fn(),
       };
     case 'recovery':
       return {
         kind,
-        recovery: { phase: 'scope' },
+        recovery: { phase: 'grounding' },
         disabled: false,
         submitRecovery: vi.fn(),
       };
     case 'phase-summary':
       return {
         kind,
-        phaseSummary: { turnId: 1, phase: 'scope', summary: 'Ready to close' },
+        phaseSummary: { turnId: 1, phase: 'grounding', summary: 'Ready to close' },
         disabled: false,
         confirmPhaseSummary: vi.fn(),
       };
@@ -101,7 +101,7 @@ function createBottomArtifact(
     case 'phase-handoff':
       return {
         kind,
-        phase: 'scope',
+        phase: 'grounding',
         nextPhase: 'design',
         summary: 'Done',
         isReviewPhase: false,
@@ -125,7 +125,7 @@ describe('specificationWorkspaceStream', () => {
     }
 
     const projection = specificationWorkspaceStream({
-      phase: 'scope',
+      phase: 'grounding',
       phaseTurns: [answeredTurn, persistedTurn.turn],
       phaseState: createPhaseState({ turnId: persistedTurn.turn.id }),
       bottomArtifact: persistedTurn,
@@ -192,7 +192,7 @@ describe('specificationWorkspaceStream', () => {
     } satisfies Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
 
     const projection = specificationWorkspaceStream({
-      phase: 'scope',
+      phase: 'grounding',
       phaseTurns: [answeredGroundingTurn, persistedTurn.turn],
       phaseState: createPhaseState({ turnId: persistedTurn.turn.id }),
       bottomArtifact: persistedTurn,
@@ -224,7 +224,7 @@ describe('specificationWorkspaceStream', () => {
 
   it('projects typed control markers ahead of the active bottom artifact', () => {
     const projection = specificationWorkspaceStream({
-      phase: 'scope',
+      phase: 'grounding',
       phaseTurns: [createTurn({ id: 1 })],
       phaseState: createPhaseState(),
       bottomArtifact: createBottomArtifact('generating'),

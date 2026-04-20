@@ -173,7 +173,9 @@ describe('fixture helpers', () => {
     ]);
 
     expect(
-      deserializeUserParts(serializeFixturePhaseConfirmationUserParts({ phase: 'scope', proposalTurnId: 9 })),
+      deserializeUserParts(
+        serializeFixturePhaseConfirmationUserParts({ phase: 'grounding', proposalTurnId: 9 }),
+      ),
     ).toEqual([
       { type: 'text', text: 'Confirm grounding closure' },
       {
@@ -181,7 +183,7 @@ describe('fixture helpers', () => {
         data: {
           kind: 'confirm-proposed-phase-closure',
           proposalTurnId: 9,
-          phase: 'scope',
+          phase: 'grounding',
         },
       },
     ]);

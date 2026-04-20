@@ -44,7 +44,7 @@ function createProjectState({
       id: 1,
       project_id: projectId,
       parent_turn_id: null,
-      phase: 'scope',
+      phase: 'grounding',
       turn_kind: 'question',
       question: assistantText,
       why: 'This frames the first iteration.',
@@ -69,7 +69,7 @@ function createProjectState({
     },
     workflow: workflow ?? {
       phases: {
-        scope: {
+        grounding: {
           status: 'unstarted',
           closeability: false,
           readiness: 'low',
@@ -227,7 +227,7 @@ describe('workspace controller core', () => {
 
   it('builds phase turn ID sets from persisted turns', () => {
     const projectState = createProjectState();
-    const scopeIds = buildPhaseTurnIds(projectState.turns, 'scope');
+    const scopeIds = buildPhaseTurnIds(projectState.turns, 'grounding');
     const designIds = buildPhaseTurnIds(projectState.turns, 'design');
 
     expect(scopeIds).toEqual(new Set([1]));
@@ -276,11 +276,11 @@ describe('workspace controller core', () => {
     const proposedScope = createInterviewDurableSpecificationState(
       createProjectState({
         assistantText: '',
-        answer: 'We have enough scope context',
-        userParts: [{ type: 'text', text: 'We have enough scope context' }],
+        answer: 'We have enough grounding context',
+        userParts: [{ type: 'text', text: 'We have enough grounding context' }],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: true,
               readiness: 'high',
@@ -329,7 +329,7 @@ describe('workspace controller core', () => {
             type: 'data-phase-summary',
             data: {
               turnId: 1,
-              phase: 'scope',
+              phase: 'grounding',
               summary: 'Goals, terms, context, and constraints are sufficiently captured.',
             },
           },
@@ -337,13 +337,13 @@ describe('workspace controller core', () => {
       },
     ];
 
-    expect(createInterviewControllerViewState(proposedScope, 'scope', messages, false)).toEqual({
+    expect(createInterviewControllerViewState(proposedScope, 'grounding', messages, false)).toEqual({
       project: proposedScope.project,
       workflow: proposedScope.workflow,
       bottomArtifact: {
         kind: 'phase-summary',
         phaseSummary: {
-          phase: 'scope',
+          phase: 'grounding',
           turnId: 1,
           summary: 'Goals, terms, context, and constraints are sufficiently captured.',
         },
@@ -356,7 +356,7 @@ describe('workspace controller core', () => {
       createProjectState({
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'medium',
@@ -398,12 +398,12 @@ describe('workspace controller core', () => {
       }),
     );
 
-    expect(createInterviewControllerViewState(recoveryState, 'scope', [], false)).toEqual({
+    expect(createInterviewControllerViewState(recoveryState, 'grounding', [], false)).toEqual({
       project: recoveryState.project,
       workflow: recoveryState.workflow,
-      bottomArtifact: { kind: 'recovery', recovery: { phase: 'scope' } },
+      bottomArtifact: { kind: 'recovery', recovery: { phase: 'grounding' } },
     });
-    expect(createInterviewControllerViewState(recoveryState, 'scope', [], true)).toEqual({
+    expect(createInterviewControllerViewState(recoveryState, 'grounding', [], true)).toEqual({
       project: recoveryState.project,
       workflow: recoveryState.workflow,
       bottomArtifact: { kind: 'generating' },
@@ -415,7 +415,7 @@ describe('workspace controller core', () => {
       createProjectState({
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'low',
@@ -457,10 +457,10 @@ describe('workspace controller core', () => {
       }),
     );
 
-    expect(createInterviewControllerViewState(kickoffState, 'scope', [], false)).toEqual({
+    expect(createInterviewControllerViewState(kickoffState, 'grounding', [], false)).toEqual({
       project: kickoffState.project,
       workflow: kickoffState.workflow,
-      bottomArtifact: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'start' } },
+      bottomArtifact: { kind: 'kickoff', kickoff: { phase: 'grounding', mode: 'start' } },
     });
   });
 
@@ -481,7 +481,7 @@ describe('workspace controller core', () => {
         ],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'medium',
@@ -522,7 +522,7 @@ describe('workspace controller core', () => {
       }),
     );
 
-    expect(createInterviewControllerViewState(submittedResponse, 'scope', [], true, 1)).toEqual({
+    expect(createInterviewControllerViewState(submittedResponse, 'grounding', [], true, 1)).toEqual({
       project: submittedResponse.project,
       workflow: submittedResponse.workflow,
       bottomArtifact: { kind: 'persisted-turn', turn: submittedResponse.lastTurn!, state: 'submitted' },
@@ -541,7 +541,7 @@ describe('workspace controller core', () => {
       },
       workflow: {
         phases: {
-          scope: {
+          grounding: {
             status: 'unstarted',
             closeability: false,
             readiness: 'low',
@@ -607,7 +607,12 @@ describe('workspace controller core', () => {
 
     const durableSpecification = createInterviewDurableSpecificationState(emptyProjectState);
     const ephemeralChat = createInterviewEphemeralChatState(emptyProjectState);
-    const viewState = createInterviewControllerViewState(durableSpecification, 'scope', liveMessages, true);
+    const viewState = createInterviewControllerViewState(
+      durableSpecification,
+      'grounding',
+      liveMessages,
+      true,
+    );
 
     expect(ephemeralChat.seedMessages).toEqual([]);
     expect(viewState.project).toEqual(emptyProjectState.project);
@@ -631,7 +636,7 @@ describe('workspace controller core', () => {
     const projectState = createProjectState({
       workflow: {
         phases: {
-          scope: {
+          grounding: {
             status: 'closed',
             closeability: false,
             readiness: 'high',
@@ -676,7 +681,7 @@ describe('workspace controller core', () => {
         id: 2,
         project_id: 1,
         parent_turn_id: 1,
-        phase: 'scope',
+        phase: 'grounding',
         question: '',
         why: null,
         impact: null,
@@ -686,7 +691,7 @@ describe('workspace controller core', () => {
           { type: 'text', text: 'Confirm grounding closure' },
           {
             type: 'data-confirmation',
-            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 2, phase: 'scope' },
+            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 2, phase: 'grounding' },
           },
         ]),
         assistant_parts: JSON.stringify([
@@ -694,7 +699,7 @@ describe('workspace controller core', () => {
             type: 'data-phase-summary',
             data: {
               turnId: 2,
-              phase: 'scope',
+              phase: 'grounding',
               summary: 'Goals, terms, context, and constraints are sufficiently captured.',
             },
           },
@@ -704,9 +709,9 @@ describe('workspace controller core', () => {
       },
     ];
 
-    expect(getAcceptedClosureReplay(projectState.turns[1]!, projectState.workflow.phases.scope)).toEqual({
+    expect(getAcceptedClosureReplay(projectState.turns[1]!, projectState.workflow.phases.grounding)).toEqual({
       turnId: 2,
-      phase: 'scope',
+      phase: 'grounding',
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
   });
@@ -715,7 +720,7 @@ describe('workspace controller core', () => {
     const projectState = createProjectState({
       workflow: {
         phases: {
-          scope: {
+          grounding: {
             status: 'closed',
             closeability: false,
             readiness: 'high',
@@ -779,12 +784,12 @@ describe('workspace controller core', () => {
 
     const durableSpecification = createInterviewDurableSpecificationState(projectState);
 
-    expect(createInterviewControllerViewState(durableSpecification, 'scope', [], false)).toEqual({
+    expect(createInterviewControllerViewState(durableSpecification, 'grounding', [], false)).toEqual({
       project: durableSpecification.project,
       workflow: durableSpecification.workflow,
       bottomArtifact: {
         kind: 'phase-handoff',
-        phase: 'scope',
+        phase: 'grounding',
         nextPhase: 'design',
         summary: 'Goals, terms, context, and constraints are sufficiently captured.',
         isReviewPhase: false,

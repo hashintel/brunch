@@ -114,7 +114,7 @@ function createProjectState({
       id: 1,
       project_id: projectId,
       parent_turn_id: null,
-      phase: 'scope',
+      phase: 'grounding',
       turn_kind: 'question',
       question: assistantText,
       why: 'This frames the first iteration.',
@@ -139,7 +139,7 @@ function createProjectState({
     },
     workflow: {
       phases: {
-        scope: {
+        grounding: {
           status: 'in_progress',
           closeability: false,
           readiness: 'low',
@@ -260,7 +260,11 @@ function createEntityState(overrides: Partial<EntitiesData> = {}): EntitiesData 
   };
 }
 
-function ControllerProbe({ phase = 'scope' }: { phase?: 'scope' | 'design' | 'requirements' | 'criteria' }) {
+function ControllerProbe({
+  phase = 'grounding',
+}: {
+  phase?: 'grounding' | 'design' | 'requirements' | 'criteria';
+}) {
   const workspace = useInterviewController(phase, currentEntityState);
 
   return (
@@ -316,7 +320,7 @@ function ControllerProbe({ phase = 'scope' }: { phase?: 'scope' | 'design' | 're
   );
 }
 
-function renderController(phase: 'scope' | 'design' | 'requirements' | 'criteria' = 'scope') {
+function renderController(phase: 'grounding' | 'design' | 'requirements' | 'criteria' = 'grounding') {
   const queryClient = createQueryClient();
   const rendered = render(
     <QueryClientProvider client={queryClient}>
@@ -347,19 +351,19 @@ describe('interview controller', () => {
   it('projects a kickoff turn card when an open phase has no active frontier turn yet', async () => {
     currentProjectState = createProjectState({ assistantText: '', answer: '' });
     currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.workflow.phases.grounding.turnId = null;
     currentProjectState.turns = [];
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
     renderController();
 
     expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('kickoff');
-    expect(screen.getByTestId('bottom-artifact').textContent).toBe('start:scope');
+    expect(screen.getByTestId('bottom-artifact').textContent).toBe('start:grounding');
   });
 
   it('projects a workspace handoff when the current phase is closed and a later phase remains open', async () => {
     currentProjectState = createProjectState();
-    currentProjectState.workflow.phases.scope = {
+    currentProjectState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -375,14 +379,14 @@ describe('interview controller', () => {
 
     expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('phase-handoff');
     expect(screen.getByTestId('bottom-artifact').textContent).toBe(
-      'scope->design:workspace:Grounding is complete.',
+      'grounding->design:workspace:Grounding is complete.',
     );
   });
 
   it('projects workflow completion when the final review phase is closed', async () => {
     currentProjectState = createProjectState();
-    currentProjectState.workflow.phases.scope.status = 'closed';
-    currentProjectState.workflow.phases.scope.readiness = 'high';
+    currentProjectState.workflow.phases.grounding.status = 'closed';
+    currentProjectState.workflow.phases.grounding.readiness = 'high';
     currentProjectState.workflow.phases.design.status = 'closed';
     currentProjectState.workflow.phases.design.readiness = 'high';
     currentProjectState.workflow.phases.requirements.status = 'closed';
@@ -406,11 +410,11 @@ describe('interview controller', () => {
     );
   });
 
-  it('auto-continues scope recovery when an open phase has a completed turn but no successor frontier', async () => {
+  it('auto-continues grounding recovery when an open phase has a completed turn but no successor frontier', async () => {
     currentProjectState = createProjectState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.workflow.phases.grounding.turnId = null;
     currentProjectState.project!.active_turn_id = null;
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
@@ -429,7 +433,7 @@ describe('interview controller', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'phase-continue', phase: 'scope' }),
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'grounding' }),
         }),
       );
     });
@@ -439,7 +443,7 @@ describe('interview controller', () => {
 
   it('submits the grounding strategy kickoff from landing-only state without a seeded kickoff turn', async () => {
     currentProjectState = createProjectState({ assistantText: '', answer: '', turns: [] });
-    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.workflow.phases.grounding.turnId = null;
     currentProjectState.project!.active_turn_id = null;
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
@@ -461,7 +465,7 @@ describe('interview controller', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' }),
+          body: JSON.stringify({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' }),
         }),
       );
     });
@@ -472,7 +476,7 @@ describe('interview controller', () => {
         parts: [
           {
             type: 'data-phase-intent',
-            data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+            data: { kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' },
           },
         ],
       });
@@ -483,7 +487,7 @@ describe('interview controller', () => {
     currentProjectState = createProjectState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.workflow.phases.grounding.turnId = null;
     currentProjectState.project!.active_turn_id = null;
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
@@ -505,7 +509,7 @@ describe('interview controller', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'phase-continue', phase: 'scope' }),
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'grounding' }),
         }),
       );
     });
@@ -516,7 +520,7 @@ describe('interview controller', () => {
         parts: [
           {
             type: 'data-phase-intent',
-            data: { kind: 'phase-continue', phase: 'scope' },
+            data: { kind: 'phase-continue', phase: 'grounding' },
           },
         ],
       });
@@ -526,7 +530,7 @@ describe('interview controller', () => {
   it('auto-submits a typed phase-entry for the current reachable kickoff phase', async () => {
     currentProjectState = createProjectState({ turns: [] });
     currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope = {
+    currentProjectState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -594,7 +598,7 @@ describe('interview controller', () => {
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
     currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope = {
+    currentProjectState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -657,7 +661,7 @@ describe('interview controller', () => {
   it('does not duplicate the auto phase-entry submit across rerender and remount', async () => {
     currentProjectState = createProjectState({ turns: [] });
     currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope = {
+    currentProjectState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -716,7 +720,7 @@ describe('interview controller', () => {
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
     currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope = {
+    currentProjectState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -781,7 +785,7 @@ describe('interview controller', () => {
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
     currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope.turnId = null;
+    currentProjectState.workflow.phases.grounding.turnId = null;
     currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
 
     fetchMock.mockRejectedValueOnce(new Error('network down'));
@@ -811,7 +815,7 @@ describe('interview controller', () => {
   it('falls back to the projected kickoff card when auto phase-entry submit rejects', async () => {
     currentProjectState = createProjectState({ turns: [] });
     currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope = {
+    currentProjectState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -960,7 +964,7 @@ describe('interview controller', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'phase-continue', phase: 'scope' }),
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'grounding' }),
         }),
       );
     });

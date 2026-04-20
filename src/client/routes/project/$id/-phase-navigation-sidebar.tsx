@@ -38,7 +38,7 @@ function getCurrentReachablePhase(workflow: WorkflowState): WorkflowPhase | null
 
 function getPhaseTurnCounts(turns: readonly SpecificationTurn[]): Record<WorkflowPhase, number> {
   const turnCounts = {
-    scope: 0,
+    grounding: 0,
     design: 0,
     requirements: 0,
     criteria: 0,

@@ -18,7 +18,7 @@ import {
 
 function summarizeWorkflow(projectState: NonNullable<ReturnType<typeof getSpecificationState>>) {
   return {
-    scope: projectState.workflow.phases.scope.status,
+    grounding: projectState.workflow.phases.grounding.status,
     design: projectState.workflow.phases.design.status,
     requirements: projectState.workflow.phases.requirements.status,
     criteria: projectState.workflow.phases.criteria.status,
@@ -104,7 +104,10 @@ describe('walkthroughScenarioMatrix', () => {
 
   it('seeds kickoff-ready and recovery-ready fixtures from durable authority without legacy control rows', async () => {
     await withReopenedSeededScenario('issue-tracker-design-kickoff-ready', ({ db, projectId }) => {
-      expect(getActivePath(db, projectId).at(-1)).toMatchObject({ phase: 'scope', turn_kind: 'question' });
+      expect(getActivePath(db, projectId).at(-1)).toMatchObject({
+        phase: 'grounding',
+        turn_kind: 'question',
+      });
     });
 
     await withReopenedSeededScenario('issue-tracker-design-recovery', ({ db, projectId }) => {
@@ -196,7 +199,7 @@ describe('walkthroughScenarioMatrix', () => {
       expect(projectState?.turns).toHaveLength(3);
       expect(projectState?.landing).toEqual({
         kind: 'frontier-turn',
-        phase: 'scope',
+        phase: 'grounding',
         turnId: projectState!.turns[2]!.id,
       });
       expect(projectState?.turns.map((turn) => turn.question)).toEqual([

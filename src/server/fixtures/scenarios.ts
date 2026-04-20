@@ -30,83 +30,83 @@ import {
 
 const code = createKnowledgeReferenceCode;
 
-export function seedClosedScope(db: DB, projectId: number) {
-  const scopeTurn = createTurn(db, projectId, {
-    phase: 'scope',
+export function seedClosedGrounding(db: DB, projectId: number) {
+  const groundingTurn = createTurn(db, projectId, {
+    phase: 'grounding',
     question: 'What platform?',
     answer: 'Web',
   });
-  advanceHead(db, projectId, scopeTurn.id);
+  advanceHead(db, projectId, groundingTurn.id);
 
-  const scopeProposalTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    parent_turn_id: scopeTurn.id,
+  const groundingProposalTurn = createTurn(db, projectId, {
+    phase: 'grounding',
+    parent_turn_id: groundingTurn.id,
     question: '',
-    answer: 'We have enough scope context',
+    answer: 'We have enough grounding context',
   });
-  advanceHead(db, projectId, scopeProposalTurn.id);
+  advanceHead(db, projectId, groundingProposalTurn.id);
 
-  const scopeOutcome = createPhaseOutcome(db, {
+  const groundingOutcome = createPhaseOutcome(db, {
     projectId,
-    phase: 'scope',
-    proposal_turn_id: scopeProposalTurn.id,
+    phase: 'grounding',
+    proposal_turn_id: groundingProposalTurn.id,
     summary: 'Goals, terms, context, and constraints are sufficiently captured.',
   });
 
-  const scopeConfirmationTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    parent_turn_id: scopeProposalTurn.id,
+  const groundingConfirmationTurn = createTurn(db, projectId, {
+    phase: 'grounding',
+    parent_turn_id: groundingProposalTurn.id,
     question: '',
     answer: 'Confirm grounding closure',
     user_parts: serializeFixturePhaseConfirmationUserParts({
-      phase: 'scope',
-      proposalTurnId: scopeProposalTurn.id,
+      phase: 'grounding',
+      proposalTurnId: groundingProposalTurn.id,
     }),
   });
-  confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
-  advanceHead(db, projectId, scopeConfirmationTurn.id);
+  confirmPhaseOutcome(db, groundingOutcome.id, groundingConfirmationTurn.id);
+  advanceHead(db, projectId, groundingConfirmationTurn.id);
 
-  return { scopeTurn, scopeProposalTurn, scopeConfirmationTurn };
+  return { groundingTurn, groundingProposalTurn, groundingConfirmationTurn };
 }
 
-export function seedScopeClosurePending(db: DB, projectId: number) {
-  const scopeTurn = createTurn(db, projectId, {
-    phase: 'scope',
+export function seedGroundingClosurePending(db: DB, projectId: number) {
+  const groundingTurn = createTurn(db, projectId, {
+    phase: 'grounding',
     question: 'What platform?',
     answer: 'Web',
   });
-  advanceHead(db, projectId, scopeTurn.id);
+  advanceHead(db, projectId, groundingTurn.id);
 
-  const scopeProposalTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    parent_turn_id: scopeTurn.id,
+  const groundingProposalTurn = createTurn(db, projectId, {
+    phase: 'grounding',
+    parent_turn_id: groundingTurn.id,
     question: '',
-    answer: 'We have enough scope context',
+    answer: 'We have enough grounding context',
   });
-  advanceHead(db, projectId, scopeProposalTurn.id);
+  advanceHead(db, projectId, groundingProposalTurn.id);
 
   createPhaseOutcome(db, {
     projectId,
-    phase: 'scope',
-    proposal_turn_id: scopeProposalTurn.id,
+    phase: 'grounding',
+    proposal_turn_id: groundingProposalTurn.id,
     summary: 'Goals, terms, context, and constraints are sufficiently captured.',
   });
 
-  return { scopeTurn, scopeProposalTurn };
+  return { groundingTurn, groundingProposalTurn };
 }
 
 export function seedActiveDesign(db: DB, projectId: number) {
-  const seededScope = seedClosedScope(db, projectId);
+  const seededGrounding = seedClosedGrounding(db, projectId);
 
   const designTurn = createTurn(db, projectId, {
     phase: 'design',
-    parent_turn_id: seededScope.scopeConfirmationTurn.id,
+    parent_turn_id: seededGrounding.groundingConfirmationTurn.id,
     question: 'Which tradeoff matters most?',
     answer: 'Keep the repository seam small',
   });
   advanceHead(db, projectId, designTurn.id);
 
-  return { ...seededScope, designTurn };
+  return { ...seededGrounding, designTurn };
 }
 
 export function seedRequirementsReady(db: DB, projectId: number) {
@@ -505,11 +505,11 @@ export function seedAllPhasesClosed(db: DB, projectId: number) {
 }
 
 export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
-  const seededScope = seedClosedScope(db, projectId);
+  const seededGrounding = seedClosedGrounding(db, projectId);
 
   const designTurn = createTurn(db, projectId, {
     phase: 'design',
-    parent_turn_id: seededScope.scopeConfirmationTurn.id,
+    parent_turn_id: seededGrounding.groundingConfirmationTurn.id,
     question: 'Which tradeoff matters most?',
     answer: 'Keep the repository seam small',
   });
@@ -543,7 +543,7 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
   );
 
   return {
-    ...seededScope,
+    ...seededGrounding,
     designTurn,
     designForceCloseTurn,
     ...reviewedRequirements,
@@ -551,7 +551,7 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
   };
 }
 
-export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: number) {
+export function seedAllPhasesClosedWithLowReadinessGrounding(db: DB, projectId: number) {
   const designTurn = createTurn(db, projectId, {
     phase: 'design',
     question: 'Which tradeoff matters most?',
@@ -559,30 +559,30 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
   });
   advanceHead(db, projectId, designTurn.id);
 
-  const scopeClosureTurn = createTurn(db, projectId, {
+  const groundingClosureTurn = createTurn(db, projectId, {
     phase: 'design',
     parent_turn_id: designTurn.id,
     question: '',
     answer: 'Confirm grounding closure',
     user_parts: serializeFixturePhaseConfirmationUserParts({
-      phase: 'scope',
+      phase: 'grounding',
       proposalTurnId: designTurn.id,
     }),
   });
-  advanceHead(db, projectId, scopeClosureTurn.id);
+  advanceHead(db, projectId, groundingClosureTurn.id);
 
   createConfirmedPhaseOutcome(db, {
     projectId,
-    phase: 'scope',
-    proposal_turn_id: scopeClosureTurn.id,
-    confirmation_turn_id: scopeClosureTurn.id,
+    phase: 'grounding',
+    proposal_turn_id: groundingClosureTurn.id,
+    confirmation_turn_id: groundingClosureTurn.id,
     summary:
-      'Scope was closed from a minimal downstream checkpoint to exercise low-readiness export caveats.',
+      'Grounding was closed from a minimal downstream checkpoint to exercise low-readiness export caveats.',
   });
 
   const designProposalTurn = createTurn(db, projectId, {
     phase: 'design',
-    parent_turn_id: scopeClosureTurn.id,
+    parent_turn_id: groundingClosureTurn.id,
     question: '',
     answer: 'The main architectural commitments are captured well enough to review requirements.',
   });
@@ -617,7 +617,7 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
 
   return {
     designTurn,
-    scopeClosureTurn,
+    groundingClosureTurn,
     designProposalTurn,
     designConfirmationTurn,
     ...reviewedRequirements,
@@ -773,7 +773,7 @@ export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
 
 export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number) {
   const firstGroundingTurn = createTurn(db, projectId, {
-    phase: 'scope',
+    phase: 'grounding',
     question: '',
     answer: 'Continue — Focus on the routed workspace stream seam.',
     assistant_parts: serializeFixtureGroundingCardAssistantParts({
@@ -801,7 +801,7 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
   advanceHead(db, projectId, firstGroundingTurn.id);
 
   const substantiveTurn = createTurn(db, projectId, {
-    phase: 'scope',
+    phase: 'grounding',
     parent_turn_id: firstGroundingTurn.id,
     question: 'Which seam needs another grounding pass before we keep going?',
     answer: 'The chat-runtime finalization path and replay seam.',
@@ -812,7 +812,7 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
   advanceHead(db, projectId, substantiveTurn.id);
 
   const laterGroundingTurn = createTurn(db, projectId, {
-    phase: 'scope',
+    phase: 'grounding',
     parent_turn_id: substantiveTurn.id,
     question: '',
     answer: null,
@@ -839,7 +839,7 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
 export type ScenarioFn = (db: DB, projectName?: string) => number;
 
 type WalkthroughWorkflowSummary = Record<
-  'scope' | 'design' | 'requirements' | 'criteria',
+  'grounding' | 'design' | 'requirements' | 'criteria',
   WorkflowPhaseStatus
 >;
 
@@ -852,18 +852,18 @@ export interface WalkthroughScenarioMatrixEntry {
 }
 
 function createWorkflowSummary(
-  scope: WorkflowPhaseStatus,
+  grounding: WorkflowPhaseStatus,
   design: WorkflowPhaseStatus,
   requirements: WorkflowPhaseStatus,
   criteria: WorkflowPhaseStatus,
 ): WalkthroughWorkflowSummary {
-  return { scope, design, requirements, criteria };
+  return { grounding, design, requirements, criteria };
 }
 
 export const scenarios: Record<string, ScenarioFn> = {
-  'scope-closed': (db, name = 'Scope Closed') => {
+  'grounding-closed': (db, name = 'Grounding Closed') => {
     const project = createProject(db, name);
-    seedClosedScope(db, project.id);
+    seedClosedGrounding(db, project.id);
     return project.id;
   },
   'design-active': (db, name = 'Design Active') => {
@@ -893,7 +893,7 @@ export const scenarios: Record<string, ScenarioFn> = {
   },
   'low-readiness-all-phases-closed': (db, name = 'Low-Readiness All Phases Closed') => {
     const project = createProject(db, name);
-    seedAllPhasesClosedWithLowReadinessScope(db, project.id);
+    seedAllPhasesClosedWithLowReadinessGrounding(db, project.id);
     return project.id;
   },
 };
@@ -910,14 +910,14 @@ const phaseTransitionScenarios: Record<string, ScenarioFn> = {
     const project = createProject(db, name);
     return project.id;
   },
-  'issue-tracker-scope-closure-pending': (db, name = 'Issue Tracker (scope closure pending)') => {
+  'issue-tracker-grounding-closure-pending': (db, name = 'Issue Tracker (grounding closure pending)') => {
     const project = createProject(db, name);
-    seedScopeClosurePending(db, project.id);
+    seedGroundingClosurePending(db, project.id);
     return project.id;
   },
   'issue-tracker-design-kickoff-ready': (db, name = 'Issue Tracker (design kickoff ready)') => {
     const project = createProject(db, name);
-    seedClosedScope(db, project.id);
+    seedClosedGrounding(db, project.id);
     return project.id;
   },
   'issue-tracker-design-recovery': (db, name = 'Issue Tracker (design recovery)') => {
@@ -969,9 +969,9 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
     expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
   },
   {
-    scenarioName: 'issue-tracker-scope-closure-pending',
-    seedScenario: phaseTransitionScenarios['issue-tracker-scope-closure-pending']!,
-    label: 'Scope closure pending',
+    scenarioName: 'issue-tracker-grounding-closure-pending',
+    seedScenario: phaseTransitionScenarios['issue-tracker-grounding-closure-pending']!,
+    label: 'Grounding closure pending',
     inspectionFocus: 'Closure proposal summary is visible and waiting for explicit confirmation.',
     expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
   },
@@ -979,7 +979,8 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
     scenarioName: 'issue-tracker-design-kickoff-ready',
     seedScenario: phaseTransitionScenarios['issue-tracker-design-kickoff-ready']!,
     label: 'Design kickoff ready',
-    inspectionFocus: 'Scope handoff has landed and the next phase opens with an explicit kickoff frontier.',
+    inspectionFocus:
+      'Grounding handoff has landed and the next phase opens with an explicit kickoff frontier.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'in_progress', 'unstarted', 'unstarted'),
   },
   {
@@ -1038,7 +1039,7 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
     scenarioName: 'low-readiness-all-phases-closed',
     seedScenario: scenarios['low-readiness-all-phases-closed']!,
     label: 'Low-readiness export caveat',
-    inspectionFocus: 'Manual inspection of export caveats when scope closed with low readiness.',
+    inspectionFocus: 'Manual inspection of export caveats when grounding closed with low readiness.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'closed'),
   },
 ] as const;

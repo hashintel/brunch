@@ -30,7 +30,7 @@ export function isGroundingStrategyKickoffTurn(
   turn: Pick<SpecificationTurn, 'phase' | 'turn_kind' | 'question'> | undefined,
 ): boolean {
   return (
-    turn?.phase === 'scope' &&
+    turn?.phase === 'grounding' &&
     turn.turn_kind === 'kickoff' &&
     turn.question === groundingStrategyKickoffQuestion
   );

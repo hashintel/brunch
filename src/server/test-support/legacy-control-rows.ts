@@ -14,7 +14,7 @@ export function createLegacyKickoffTurnForTesting(db: DB, projectId: number): Tu
 
   const kickoffTurn = createTurn(db, projectId, {
     parent_turn_id: project.active_turn_id ?? null,
-    phase: 'scope',
+    phase: 'grounding',
     turn_kind: 'kickoff',
     question: '',
     answer: null,

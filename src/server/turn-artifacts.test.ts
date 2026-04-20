@@ -166,7 +166,7 @@ describe('turn-artifacts', () => {
     }
 
     const artifacts = materializeTurnArtifacts({
-      phase: 'scope',
+      phase: 'grounding',
       responseMessage: {
         parts: [
           {

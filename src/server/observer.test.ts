@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 describe('runObserver', () => {
-  it('persists canonical scope kinds and constraints with turn provenance and returns their ids', async () => {
+  it('persists canonical grounding kinds and constraints with turn provenance and returns their ids', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [
@@ -78,7 +78,7 @@ describe('runObserver', () => {
     });
 
     const project = createProject(db, 'Spec');
-    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: 'Q', answer: 'A' });
 
     const observerResult = await runObserver(db, turn, project.id);
     const { entityIds, draftReviewItems } = observerResult;
@@ -141,7 +141,7 @@ describe('runObserver', () => {
     ]);
   });
 
-  it('calls generateText with a scope-biased goal/term/context/constraint prompt and existing generic context', async () => {
+  it('calls generateText with a grounding-biased goal/term/context/constraint prompt and existing generic context', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -163,7 +163,7 @@ describe('runObserver', () => {
       rationale: 'Onboarding should stay instant',
     });
     const turn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'What should we avoid?',
       answer: 'We should avoid any heavyweight setup flow.',
     });
@@ -184,7 +184,7 @@ describe('runObserver', () => {
     );
   });
 
-  it('keeps brownfield project context in observer prompts without treating later scope turns as kickoff-only', async () => {
+  it('keeps brownfield project context in observer prompts without treating later grounding turns as kickoff-only', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -200,10 +200,10 @@ describe('runObserver', () => {
 
     const project = createProject(db, 'Spec', { mode: 'brownfield' });
     const turn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'Which billing workflow should we focus on first?',
       answer: 'The invoice retry path.',
-      why: 'The existing billing jobs and invoice retry worker make this seam the best next scope boundary.',
+      why: 'The existing billing jobs and invoice retry worker make this seam the best next grounding boundary.',
     });
 
     await runObserver(db, turn, project.id, '/tmp/repo');
@@ -221,7 +221,7 @@ describe('runObserver', () => {
     );
   });
 
-  it('persists design-mode decisions and assumptions through the generic seam while allowing scope-kind/constraint spillover', async () => {
+  it('persists design-mode decisions and assumptions through the generic seam while allowing grounding-kind/constraint spillover', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -345,7 +345,7 @@ describe('runObserver', () => {
     );
   });
 
-  it('calls generateText with a design-biased prompt that prioritizes decisions/assumptions and allows scope-kind/constraint spillover', async () => {
+  it('calls generateText with a design-biased prompt that prioritizes decisions/assumptions and allows grounding-kind/constraint spillover', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -383,7 +383,7 @@ describe('runObserver', () => {
     );
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining('scope understanding'),
+        system: expect.stringContaining('grounding understanding'),
       }),
     );
   });

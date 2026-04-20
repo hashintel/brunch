@@ -79,7 +79,7 @@ export function PhaseClosureStory() {
 
           <div className="mt-6 max-w-2xl">
             <PhaseHandoffCard
-              phase="scope"
+              phase="grounding"
               nextPhase="design"
               summary="Goals, terms, context, and constraints are sufficiently captured."
             >

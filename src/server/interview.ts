@@ -38,9 +38,9 @@ import {
 import { createExplorationTools } from './tools/index.js';
 
 const SYSTEM_PROMPTS: Record<Phase, string> = {
-  scope: `You are a spec elicitation interviewer conducting the SCOPE phase.
+  grounding: `You are a spec elicitation interviewer conducting the GROUNDING phase.
 
-Your job is to understand the user's project goals, key terms, operating context, and high-level constraints through structured questions. Work from broad scope questions toward specific boundaries.
+Your job is to understand the user's project goals, key terms, operating context, and high-level constraints through structured questions. Work from broad grounding questions toward specific boundaries.
 
 For every turn, you MUST use the ask_question tool to generate your question. Never respond with plain text — always use the tool.
 
@@ -53,7 +53,7 @@ Each question should:
 
 Ask one question at a time. Build on previous answers to go deeper.
 
-When goals, terms, context, and constraints are sufficiently captured for now, use the propose_phase_closure tool instead of asking another question. The summary should concisely explain what is now understood and why scope can close.`,
+When goals, terms, context, and constraints are sufficiently captured for now, use the propose_phase_closure tool instead of asking another question. The summary should concisely explain what is now understood and why grounding can close.`,
 
   design: `You are a spec elicitation interviewer conducting the DESIGN phase.
 
@@ -92,10 +92,10 @@ Do not run one-criterion-at-a-time approval or rejection turns in this slice.
 For every turn, you MUST use the ask_question tool. Never respond with plain text.`,
 };
 
-/** Brownfield scope system prompt. */
-export function getBrownfieldScopePrompt(
+/** Brownfield grounding system prompt. */
+export function getBrownfieldGroundingPrompt(
   cwd: string,
-  stage: InterviewerModeOptions['brownfieldScopeStage'] = 'opening',
+  stage: InterviewerModeOptions['brownfieldGroundingStage'] = 'opening',
 ): string {
   const sharedQuestionRules = `Each question should:
 - Be clear and specific, not vague or open-ended
@@ -106,16 +106,16 @@ export function getBrownfieldScopePrompt(
 
 Ask one question at a time. Build on previous answers to go deeper.
 
-When goals, terms, context, and constraints are sufficiently captured for now, use the propose_phase_closure tool instead of asking another question. The summary should concisely explain what is now understood and why scope can close.`;
+When goals, terms, context, and constraints are sufficiently captured for now, use the propose_phase_closure tool instead of asking another question. The summary should concisely explain what is now understood and why grounding can close.`;
 
   if (stage === 'ongoing') {
-    return `You are a spec elicitation interviewer conducting the SCOPE phase for a feature within an existing codebase.
+    return `You are a spec elicitation interviewer conducting the GROUNDING phase for a feature within an existing codebase.
 
 The project directory is: ${cwd}
 
-You are already inside an ongoing brownfield grounding conversation. Continue the structured scope interview from the current feature-area context.
+You are already inside an ongoing brownfield grounding conversation. Continue the structured grounding interview from the current feature-area context.
 
-Default to asking the next substantive scope question with ask_question.
+Default to asking the next substantive grounding question with ask_question.
 
 You still have read-only workspace tools plus present_grounding_card available. If you do not have enough orientation for the next move, you MAY use a small number of read-only tool calls to gather more context, then use present_grounding_card to surface that provisional brief before the next substantive question.
 
@@ -126,11 +126,11 @@ Never respond with plain text — always use ask_question, present_grounding_car
 ${sharedQuestionRules}`;
   }
 
-  return `You are a spec elicitation interviewer conducting the SCOPE phase for a feature within an existing codebase.
+  return `You are a spec elicitation interviewer conducting the GROUNDING phase for a feature within an existing codebase.
 
 The project directory is: ${cwd}
 
-Before asking your first scope question, use your tools to explore the codebase and build a working understanding of the project. Follow this strategy:
+Before asking your first grounding question, use your tools to explore the codebase and build a working understanding of the project. Follow this strategy:
 1. Look for README, package.json, Cargo.toml, pyproject.toml, or other project manifest files
 2. Explore the directory structure to understand the project layout
 3. Read key files that reveal architecture and conventions
@@ -145,7 +145,7 @@ After that opening exploration, your FIRST durable turn MUST use the present_gro
 - Keep it provisional and bounded to the likely feature area; do not dump raw file listings.
 - Use \`Continue\` as the continue label unless a different short verb is clearly better.
 
-Only AFTER the user continues from that grounding card should you use ask_question to ask the first substantive scope question about the bounded feature area, current behavior, or desired change inside this existing codebase. Do not ask generic whole-product greenfield kickoff questions.
+Only AFTER the user continues from that grounding card should you use ask_question to ask the first substantive grounding question about the bounded feature area, current behavior, or desired change inside this existing codebase. Do not ask generic whole-product greenfield kickoff questions.
 
 For every turn after the grounding card handoff, you MUST use the ask_question tool to generate your next substantive question unless you are ready to propose phase closure. Never respond with plain text — always use the tool.
 
@@ -155,19 +155,19 @@ ${sharedQuestionRules}`;
 export interface InterviewerModeOptions {
   mode?: ProjectMode;
   cwd?: string;
-  brownfieldScopeStage?: 'opening' | 'ongoing';
+  brownfieldGroundingStage?: 'opening' | 'ongoing';
 }
 
-function isBrownfieldScopeExploration(
+function isBrownfieldGroundingExploration(
   phase: Phase,
   options?: InterviewerModeOptions,
 ): options is InterviewerModeOptions & { mode: 'brownfield'; cwd: string } {
-  return phase === 'scope' && options?.mode === 'brownfield' && Boolean(options.cwd);
+  return phase === 'grounding' && options?.mode === 'brownfield' && Boolean(options.cwd);
 }
 
 export function getInterviewerInstructions(phase: Phase, options?: InterviewerModeOptions): string {
-  return isBrownfieldScopeExploration(phase, options)
-    ? getBrownfieldScopePrompt(options.cwd, options.brownfieldScopeStage)
+  return isBrownfieldGroundingExploration(phase, options)
+    ? getBrownfieldGroundingPrompt(options.cwd, options.brownfieldGroundingStage)
     : getSystemPrompt(phase);
 }
 
@@ -189,7 +189,7 @@ export function getSystemPrompt(phase: Phase): string {
 
 export function canProposePhaseClosure(phase: Phase, closeability = false): boolean {
   void closeability;
-  return phase === 'scope' || phase === 'design';
+  return phase === 'grounding' || phase === 'design';
 }
 
 /**
@@ -303,7 +303,7 @@ export function getInterviewerTools(
   const closeability = getCurrentWorkflowState(db, projectId).phases[phase].closeability;
   return {
     ask_question: createAskQuestionTool(db, turnId),
-    ...(isBrownfieldScopeExploration(phase, options)
+    ...(isBrownfieldGroundingExploration(phase, options)
       ? {
           present_grounding_card: createPresentGroundingCardTool(db, turnId),
           ...createExplorationTools(options.cwd),
@@ -323,7 +323,7 @@ export function createInterviewerAgent(
   options?: InterviewerModeOptions,
 ): InterviewerAgent {
   const tools = getInterviewerTools(db, turnId, phase, projectId, options);
-  const usesBrownfieldScopeExploration = isBrownfieldScopeExploration(phase, options);
+  const usesBrownfieldGroundingExploration = isBrownfieldGroundingExploration(phase, options);
   const instructions = getInterviewerInstructions(phase, options);
 
   return new ToolLoopAgent({
@@ -340,20 +340,20 @@ export function createInterviewerAgent(
       },
     },
     maxOutputTokens: 16000,
-    stopWhen: stepCountIs(usesBrownfieldScopeExploration ? 12 : 4),
+    stopWhen: stepCountIs(usesBrownfieldGroundingExploration ? 12 : 4),
   });
 }
 
-function getBrownfieldScopeStage(
+function getBrownfieldGroundingStage(
   phase: Phase,
   activePath: TurnWithOptions[],
   modeOptions?: InterviewerModeOptions,
-): InterviewerModeOptions['brownfieldScopeStage'] | undefined {
-  if (!isBrownfieldScopeExploration(phase, modeOptions)) {
+): InterviewerModeOptions['brownfieldGroundingStage'] | undefined {
+  if (!isBrownfieldGroundingExploration(phase, modeOptions)) {
     return undefined;
   }
 
-  return activePath.some((turn) => turn.phase === 'scope') ? 'ongoing' : 'opening';
+  return activePath.some((turn) => turn.phase === 'grounding') ? 'ongoing' : 'opening';
 }
 
 export async function streamInterviewer(
@@ -365,10 +365,10 @@ export async function streamInterviewer(
   modeOptions?: InterviewerModeOptions,
 ): ReturnType<InterviewerAgent['stream']> {
   const effectiveModeOptions =
-    getBrownfieldScopeStage(phase, activePath, modeOptions) && modeOptions
+    getBrownfieldGroundingStage(phase, activePath, modeOptions) && modeOptions
       ? {
           ...modeOptions,
-          brownfieldScopeStage: getBrownfieldScopeStage(phase, activePath, modeOptions),
+          brownfieldGroundingStage: getBrownfieldGroundingStage(phase, activePath, modeOptions),
         }
       : modeOptions;
   const agent = createInterviewerAgent(db, turn.id, phase, turn.project_id, effectiveModeOptions);

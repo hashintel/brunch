@@ -106,7 +106,7 @@ function buildObserverPhaseBias(phase: Turn['phase']): string {
 
   if (correctionKindList.length > 0) {
     lines.push(
-      `Still allow ${formatKindList(correctionKindList)} corrections when the turn clearly revises scope understanding.`,
+      `Still allow ${formatKindList(correctionKindList)} corrections when the turn clearly revises grounding understanding.`,
     );
   }
 
