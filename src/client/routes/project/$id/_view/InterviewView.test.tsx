@@ -718,7 +718,6 @@ describe('InterviewView', () => {
     expect(answeredCards[0].textContent).toContain('What should we build first?');
     expect(answeredCards[0].textContent).toContain('Build the web app');
     expect(answeredCards[0].textContent).toContain('GOAL1');
-    expect(answeredCards[0].textContent).toContain('Ship the web app first');
   });
 
   it('renders continue/start control actions as control markers instead of user chat bubbles', async () => {
@@ -982,12 +981,44 @@ describe('InterviewView', () => {
     expect(answeredCard.compareDocumentPosition(handoffCard) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
-  it('renders a kickoff turn card when an open phase has no active frontier turn', async () => {
+  it('renders grounding strategy choices in the scope kickoff card and submits the selected strategy', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         assistantText: '',
         answer: '',
-        turns: [],
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'scope',
+            turn_kind: 'kickoff',
+            question: 'How should this specification start?',
+            why: 'Choose how to start grounding this specification.',
+            impact: null,
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: null,
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              {
+                id: 11,
+                position: 0,
+                content: 'New concept from scratch',
+                is_recommended: true,
+                is_selected: false,
+              },
+              {
+                id: 12,
+                position: 1,
+                content: 'Feature within existing codebase',
+                is_recommended: false,
+                is_selected: false,
+              },
+            ],
+          },
+        ],
         workflow: createWorkflowState({
           scope: {
             status: 'in_progress',
@@ -995,23 +1026,47 @@ describe('InterviewView', () => {
             readiness: 'low',
             closureBasis: null,
             proposalPending: false,
-            turnId: null,
+            turnId: 1,
             summary: null,
           },
         }),
       }),
     );
 
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
     renderWorkspace();
 
-    expect((await screen.findByTestId('kickoff-turn-card')).textContent).toContain('Proceed');
-    expect(screen.getByText('Grounding phase')).toBeTruthy();
+    expect((await screen.findByTestId('kickoff-turn-card')).textContent).toContain(
+      'How should this specification start?',
+    );
+    expect(screen.getByText('New concept from scratch')).toBeTruthy();
+    expect(screen.getByText('Feature within existing codebase')).toBeTruthy();
     expect(screen.queryByLabelText('Type a message...')).toBeNull();
 
-    fireEvent.click(screen.getByTestId('kickoff-turn-card'));
+    fireEvent.click(screen.getByTestId('kickoff-strategy-option-brownfield'));
 
     await waitFor(() => {
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Begin the grounding phase.' });
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/projects/1/turns/1/response',
+        expect.objectContaining({
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            kind: 'select-options',
+            positions: [1],
+          }),
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({ text: 'Feature within existing codebase' });
     });
   });
 
@@ -1080,6 +1135,27 @@ describe('InterviewView', () => {
             user_parts: null,
             assistant_parts: JSON.stringify([
               { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      referenceCode: 'R1',
+                      content: 'Export the reviewed specification as markdown',
+                      rationale: 'Keeps the accepted review output portable for sharing.',
+                      grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+                    },
+                    {
+                      referenceCode: 'R2',
+                      content: 'Resume the interview from persisted local state',
+                      rationale: 'Maintains the local-first continuity promise after reload.',
+                      grounding: [{ code: 'GOAL2' }],
+                    },
+                  ],
+                },
+              },
             ]),
             created_at: '2026-04-03 10:00:00',
             options: [
@@ -1117,15 +1193,16 @@ describe('InterviewView', () => {
 
     renderWorkspace('requirements');
 
-    expect(await screen.findByText('Current requirement set')).toBeTruthy();
-    expect(screen.getByText('REQ1')).toBeTruthy();
+    expect(await screen.findByText('Requirements')).toBeTruthy();
+    expect(screen.getByText('R1')).toBeTruthy();
     expect(screen.getByText('Export the reviewed specification as markdown')).toBeTruthy();
-    expect(screen.getByText('REQ2')).toBeTruthy();
+    expect(screen.getByText('Keeps the accepted review output portable for sharing.')).toBeTruthy();
+    expect(screen.getByText('GOAL1')).toBeTruthy();
+    expect(screen.getByText('R2')).toBeTruthy();
     expect(screen.getByText('Resume the interview from persisted local state')).toBeTruthy();
+    expect(screen.getByLabelText('Comment on R1')).toBeTruthy();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /accept review/i })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /request changes/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Submit review' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
   });
 
   it('renders criterion reference codes and review actions on the criteria full-set review turn', async () => {
@@ -1163,6 +1240,27 @@ describe('InterviewView', () => {
             user_parts: null,
             assistant_parts: JSON.stringify([
               { type: 'text', text: 'Please review the current criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      referenceCode: 'CRIT1',
+                      content: 'Restarting restores the active path',
+                      rationale: 'Shows the local persistence seam survives reloads.',
+                      grounding: [{ code: 'R1' }],
+                    },
+                    {
+                      referenceCode: 'CRIT2',
+                      content: 'Markdown export includes accepted requirements only',
+                      rationale: 'Prevents draft review content from leaking into export.',
+                      grounding: [{ code: 'R2' }, { code: 'D1' }],
+                    },
+                  ],
+                },
+              },
             ]),
             created_at: '2026-04-03 10:00:00',
             options: [
@@ -1200,15 +1298,120 @@ describe('InterviewView', () => {
 
     renderWorkspace('criteria');
 
-    expect(await screen.findByText('Current criterion set')).toBeTruthy();
+    expect(await screen.findByText('Acceptance Criteria')).toBeTruthy();
     expect(screen.getByText('CRIT1')).toBeTruthy();
     expect(screen.getByText('Restarting restores the active path')).toBeTruthy();
+    expect(screen.getByText('Shows the local persistence seam survives reloads.')).toBeTruthy();
     expect(screen.getByText('CRIT2')).toBeTruthy();
     expect(screen.getByText('Markdown export includes accepted requirements only')).toBeTruthy();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /accept review/i })).toBeTruthy();
-    expect(screen.getByRole('radio', { name: /request changes/i })).toBeTruthy();
-    expect(screen.getByRole('button', { name: 'Submit review' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
+  });
+
+  it('replays a closed review turn with the dedicated review-set card instead of the generic answered card', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [
+          {
+            id: 1,
+            project_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: 'Accept review',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Accept review' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 1,
+                  selectedOptionIds: [11],
+                  reviewAction: 'accept',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      referenceCode: 'R1',
+                      content: 'Export the reviewed specification as markdown',
+                      rationale: 'Keeps the accepted review output portable for sharing.',
+                      grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+                    },
+                    {
+                      referenceCode: 'R2',
+                      content: 'Resume the interview from persisted local state',
+                      rationale: 'Maintains the local-first continuity promise after reload.',
+                      grounding: [{ code: 'GOAL2' }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: true },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+        workflow: createWorkflowState({
+          scope: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 99,
+            summary: 'Grounding closed.',
+          },
+          design: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 98,
+            summary: 'Design closed.',
+          },
+          requirements: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'user_forced',
+            proposalPending: false,
+            turnId: 1,
+            summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
+          },
+          criteria: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'user_forced',
+            proposalPending: false,
+            turnId: 97,
+            summary: 'Criteria closed.',
+          },
+        }),
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    expect(await screen.findByTestId('answered-review-set-card')).toBeTruthy();
+    expect(screen.queryByTestId('answered-turn-card')).toBeNull();
+    expect(screen.getByText('Requirements')).toBeTruthy();
+    expect(screen.getByText('R1')).toBeTruthy();
+    expect(screen.getByText('Review accepted.')).toBeTruthy();
   });
 
   it('does not forward the accepted requirements review text into chat when the server already advanced to criteria', async () => {
@@ -1280,8 +1483,7 @@ describe('InterviewView', () => {
 
     renderWorkspace('requirements');
 
-    fireEvent.click(await screen.findByRole('radio', { name: /accept review/i }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Submit review' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept Review' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1373,8 +1575,7 @@ describe('InterviewView', () => {
 
     renderWorkspace('criteria');
 
-    fireEvent.click(await screen.findByRole('radio', { name: /accept review/i }));
-    fireEvent.click(await screen.findByRole('button', { name: 'Submit review' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Accept Review' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1411,7 +1612,7 @@ describe('InterviewView', () => {
     expect((await screen.findByTestId('answered-turn-card')).textContent).toContain('Earlier question?');
     expect(screen.queryByText('Which platform should we target next?')).toBeNull();
     expect(screen.queryByLabelText('Type a message...')).toBeNull();
-    expect(screen.getByText('Preparing the next interview turn')).toBeTruthy();
+    expect(screen.getByTestId('generating-turn-placeholder')).toBeTruthy();
 
     await act(async () => {
       useChatHarness.replaceMessages?.([
@@ -1509,7 +1710,7 @@ describe('InterviewView', () => {
     });
 
     fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1559,7 +1760,7 @@ describe('InterviewView', () => {
     fireEvent.change(await screen.findByLabelText('Additional response context'), {
       target: { value: 'Covers both launch paths' },
     });
-    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1794,11 +1995,12 @@ describe('InterviewView', () => {
 
     renderWorkspace();
 
+    fireEvent.click(await screen.findByRole('checkbox', { name: /none of the above/i }));
     fireEvent.change(await screen.findByLabelText('Additional response context'), {
       target: { value: 'None of these fit our use case' },
     });
 
-    fireEvent.click(await screen.findByRole('button', { name: /submit free-text response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -1867,7 +2069,7 @@ describe('InterviewView', () => {
       target: { value: 'Best fit for our launch' },
     });
     fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('turn-processing-state').textContent).toContain(
@@ -1879,10 +2081,10 @@ describe('InterviewView', () => {
     const desktopOption = screen.getByRole('checkbox', { name: /desktop/i }) as HTMLInputElement;
 
     expect(screen.getByText('What should we build first?')).toBeTruthy();
-    expect(screen.queryByText('Preparing the next interview turn')).toBeNull();
+    expect(screen.queryByTestId('generating-turn-placeholder')).toBeNull();
     expect(responseContext.value).toBe('Best fit for our launch');
     expect(responseContext.disabled).toBe(true);
-    expect(desktopOption.checked).toBe(true);
+    expect(desktopOption.getAttribute('data-state')).toBe('checked');
     expect(desktopOption.disabled).toBe(true);
   });
 
@@ -1933,7 +2135,7 @@ describe('InterviewView', () => {
       target: { value: 'Best fit for our launch' },
     });
     fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('turn-processing-state')).toBeTruthy();
@@ -1958,13 +2160,13 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('answered-turn-card').textContent).toContain('What should we build first?');
-      expect(screen.getByTestId('answered-turn-card').textContent).toContain('Desktop');
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain('Choices:');
       expect(screen.getByRole('checkbox', { name: /web/i })).toBeTruthy();
       expect(screen.getByRole('checkbox', { name: /desktop/i })).toBeTruthy();
     });
 
     expect(screen.queryByTestId('turn-processing-state')).toBeNull();
-    expect(screen.queryByText('Preparing the next interview turn')).toBeNull();
+    expect(screen.queryByTestId('generating-turn-placeholder')).toBeNull();
   });
 
   it('keeps trailing observer status attached to the collapsed answered turn and upgrades in place when capture arrives', async () => {
@@ -2073,7 +2275,7 @@ describe('InterviewView', () => {
       target: { value: 'Best fit for our launch' },
     });
     fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     await waitFor(() => {
       expect(screen.getByTestId('turn-processing-state')).toBeTruthy();
@@ -2097,9 +2299,7 @@ describe('InterviewView', () => {
     });
 
     await waitFor(() => {
-      expect(screen.getByTestId('answered-turn-card').textContent).toContain(
-        'Capturing knowledge from this answer…',
-      );
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain('Still thinking…');
       expect(screen.getByRole('checkbox', { name: /web/i })).toBeTruthy();
     });
     expect(screen.queryByTestId('observer-result-placeholder')).toBeNull();
@@ -2125,10 +2325,6 @@ describe('InterviewView', () => {
 
     await waitFor(() => {
       expect(screen.getByTestId('answered-turn-card').textContent).toContain('CTX1');
-      expect(screen.getByTestId('answered-turn-card').textContent).toContain(
-        'The launch still targets desktop first',
-      );
-      expect(screen.queryByText('Applying captured knowledge to this answer…')).toBeNull();
     });
   });
 
@@ -2154,7 +2350,8 @@ describe('InterviewView', () => {
 
     const answeredCard = await screen.findByTestId('answered-turn-card');
 
-    expect(answeredCard.textContent).toContain('Desktop');
+    expect(answeredCard.textContent).toContain('Choices:');
+    expect(answeredCard.textContent).toContain('2');
     expect(answeredCard.textContent).toContain('Best fit for launch');
   });
 
@@ -2180,7 +2377,8 @@ describe('InterviewView', () => {
 
     const answeredCard = await screen.findByTestId('answered-turn-card');
 
-    expect(answeredCard.textContent).toContain('None of the above');
+    expect(answeredCard.textContent).toContain('Choices:');
+    expect(answeredCard.textContent).toContain('None');
     expect(answeredCard.textContent).toContain('None of these fit our use case');
     expect(screen.queryByLabelText('Additional response context')).toBeNull();
     expect(screen.queryByRole('checkbox', { name: /web/i })).toBeNull();
@@ -2208,7 +2406,7 @@ describe('InterviewView', () => {
     renderWorkspace();
 
     fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
-    fireEvent.click(await screen.findByRole('button', { name: /submit selected response/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
 
     expect((await screen.findByRole('alert')).textContent).toContain('Selection could not be saved');
     expect(routerInvalidate).not.toHaveBeenCalled();

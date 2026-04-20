@@ -20,6 +20,10 @@ import {
 } from '@/shared/chat.js';
 import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import {
+  getGroundingStrategyModeForPosition,
+  isGroundingStrategyKickoffTurn,
+} from '@/shared/grounding-strategy.js';
+import {
   getForceCloseActionErrorMessage,
   getForceClosePhaseAction,
   getForcedPhaseClosureSummary,
@@ -49,6 +53,7 @@ import {
   getTurn,
   getOptionsForTurn,
   linkKnowledgeItemToTurn,
+  updateProjectMode,
   updateTurn,
   getEntitiesForProjectByMode,
   recordReviewFromTurnResponse,
@@ -246,6 +251,17 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     recordReviewFromTurnResponse(db, turn, uniquePositions, 'requirementReview', 'requirement');
     recordReviewFromTurnResponse(db, turn, uniquePositions, 'criterionReview', 'criterion');
 
+    if (isGroundingStrategyKickoffTurn(turn)) {
+      const selectedMode =
+        uniquePositions.length === 1 ? getGroundingStrategyModeForPosition(uniquePositions[0]!) : null;
+      if (selectedMode) {
+        updateProjectMode(db, projectId, {
+          mode: selectedMode,
+          cwd: selectedMode === 'brownfield' ? projectCwd : null,
+        });
+      }
+    }
+
     const selectedOptionIds = selectedOptions.map((option) => option.id);
     const selectedOptionContents = selectedOptions.map((option) => option.content);
     const responseText = formatTurnResponseText({
@@ -402,6 +418,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     let prepared: ReturnType<typeof prepareTurn> | ReturnType<typeof prepareSuccessorTurn> | null = null;
     let confirmedClosureTurnId: number | null = null;
     let observedTurnId: number | null = null;
+    let interviewerElapsedMs: number | undefined;
     try {
       if (confirmationTarget) {
         const proposalTurn = getTurn(db, confirmationTarget.proposal_turn_id);
@@ -492,6 +509,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
             ? { mode: 'brownfield' as const, cwd: project.cwd }
             : undefined;
 
+        const interviewerStartedAt = Date.now();
         const interviewer = await streamInterviewer(
           db,
           prepared.turn,
@@ -509,6 +527,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         );
 
         const finishReason = await interviewer.finishReason;
+        interviewerElapsedMs = Date.now() - interviewerStartedAt;
         finalizeTurn(db, id, prepared.turn.id);
 
         const phaseOutcome = findPhaseOutcomeForTurn(db, id, prepared.turn.id);
@@ -556,7 +575,9 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
         const assistantText = extractTextFromMessage(responseMessage);
         persistFallbackQuestionText(db, prepared.turn.id, assistantText);
-        const assistantParts = filterAssistantParts(responseMessage.parts);
+        const assistantParts = filterAssistantParts(responseMessage.parts, {
+          elapsedMs: interviewerElapsedMs,
+        });
         updateTurn(db, prepared.turn.id, {
           assistant_parts: serializeParts(assistantParts),
         });

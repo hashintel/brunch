@@ -13,7 +13,7 @@ import {
   DialogTitle,
 } from '@/client/components/ui/dialog';
 import { useCreateProjectMutation } from '@/client/mutations/project-mutations';
-import type { ProjectListItem, ProjectMode, ReadinessBand, WorkflowPhaseStatus } from '@/shared/api-types.js';
+import type { ProjectListItem, ReadinessBand, WorkflowPhaseStatus } from '@/shared/api-types.js';
 import { workflowPhaseLabels } from '@/shared/phase-display.js';
 import { phaseOrder } from '@/shared/phase-routes.js';
 
@@ -56,7 +56,7 @@ function ReadinessIcon({ readiness }: { readiness: ReadinessBand }) {
   return <Icon className={`size-3.5 ${iconClass}`} />;
 }
 
-type DialogStep = 'closed' | 'name' | 'mode';
+type DialogStep = 'closed' | 'name';
 
 export async function fetchProjectListLoaderData(): Promise<ProjectListItem[]> {
   const response = await fetch('/api/projects');
@@ -84,17 +84,14 @@ export function ProjectList() {
     setDialogStep('name');
   };
 
-  const handleNameSubmit = () => {
+  const handleNameSubmit = async () => {
     if (!projectName.trim()) return;
-    setDialogStep('mode');
-  };
-
-  const handleModeSelect = async (mode: ProjectMode) => {
     setDialogStep('closed');
     try {
-      const project = await createProjectMutation.createProject({ name: projectName.trim(), mode });
+      const project = await createProjectMutation.createProject({ name: projectName.trim() });
       navigateToProject(project.id);
     } catch {
+      setDialogStep('name');
       // The shared mutation hook surfaces the failure state in the UI.
     }
   };
@@ -200,40 +197,10 @@ export function ProjectList() {
                   className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm"
                 />
                 <DialogFooter>
-                  <Button onClick={handleNameSubmit} disabled={!projectName.trim()}>
-                    Next
+                  <Button onClick={() => void handleNameSubmit()} disabled={!projectName.trim()}>
+                    Create specification
                   </Button>
                 </DialogFooter>
-              </>
-            )}
-            {dialogStep === 'mode' && (
-              <>
-                <DialogHeader>
-                  <DialogTitle>How should this specification start?</DialogTitle>
-                  <DialogDescription>Choose how to start grounding this specification.</DialogDescription>
-                </DialogHeader>
-                <div className="flex flex-col gap-3">
-                  <button
-                    type="button"
-                    onClick={() => handleModeSelect('greenfield')}
-                    className="rounded-lg border border-input p-4 text-left transition-colors hover:bg-muted/50"
-                  >
-                    <div className="font-medium">New concept from scratch</div>
-                    <div className="mt-1 text-sm text-muted-foreground">
-                      Start with a blank slate and define everything fresh
-                    </div>
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => handleModeSelect('brownfield')}
-                    className="rounded-lg border border-input p-4 text-left transition-colors hover:bg-muted/50"
-                  >
-                    <div className="font-medium">Feature within existing codebase</div>
-                    <div className="mt-1 text-sm text-muted-foreground">
-                      The agent will explore your code before the first interview question
-                    </div>
-                  </button>
-                </div>
               </>
             )}
           </DialogContent>

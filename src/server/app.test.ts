@@ -356,16 +356,25 @@ describe('POST /api/projects/:id/chat', () => {
     expect(turns[1].assistant_parts).not.toBeNull();
   });
 
-  it('passes brownfield kickoff mode options into the interviewer stream', async () => {
-    const createRes = await request(app)
-      .post('/api/projects')
-      .send({ name: 'Brownfield kickoff', mode: 'brownfield' })
-      .expect(201);
+  it('passes brownfield kickoff mode options into the interviewer stream after the workspace kickoff selects existing codebase', async () => {
+    const projectId = await createTestProject('Brownfield kickoff');
+    const kickoffTurnId = (await getProjectSnapshot(projectId)).turns.at(-1)?.id;
 
     await request(app)
-      .post(`/api/projects/${createRes.body.id}/chat`)
+      .post(`/api/projects/${projectId}/turns/${kickoffTurnId}/response`)
+      .send({ kind: 'select-options', positions: [1] })
+      .expect(200);
+
+    const updatedSnapshot = await getProjectSnapshot(projectId);
+    expect(updatedSnapshot.project.mode).toBe('brownfield');
+    expect(updatedSnapshot.project.cwd).toBe(process.cwd());
+
+    await request(app)
+      .post(`/api/projects/${projectId}/chat`)
       .send({
-        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+        messages: [
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'Feature within existing codebase' }] },
+        ],
       })
       .expect(200);
 
@@ -373,7 +382,7 @@ describe('POST /api/projects/:id/chat', () => {
       expect.anything(),
       expect.anything(),
       expect.any(Array),
-      'hello',
+      'Feature within existing codebase',
       'scope',
       { mode: 'brownfield', cwd: process.cwd() },
     );
@@ -1070,8 +1079,8 @@ describe('phase outcomes + scope closure', () => {
     const projectRes = await request(app).get(`/api/projects/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.scope).toEqual({
       status: 'in_progress',
-      closeability: false,
-      readiness: 'low',
+      closeability: true,
+      readiness: 'medium',
       closureBasis: null,
       proposalPending: true,
       turnId: 2,
@@ -1139,7 +1148,7 @@ describe('phase outcomes + scope closure', () => {
         turnId: 2,
         summary: 'Goals, terms, context, and constraints are sufficiently captured.',
         closeability: false,
-        readiness: 'low',
+        readiness: 'medium',
         closureBasis: 'interviewer_recommended',
         proposalPending: false,
       }),
@@ -3299,13 +3308,6 @@ describe('POST /api/projects/:id/turns/:turnId/response', () => {
         id: `turn-${turn.id}-assistant`,
         role: 'assistant',
         parts: [
-          {
-            type: 'tool-ask_question',
-            toolCallId: 'tool-1',
-            state: 'output-available',
-            input: structuredQuestion,
-            output: { ok: true, turnId: turn.id, optionCount: structuredQuestion.options.length },
-          },
           {
             type: 'data-observer-result',
             data: {

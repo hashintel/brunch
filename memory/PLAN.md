@@ -4,49 +4,101 @@
 
 # Plan
 
+Full-fidelity frontier. The demo shortcut period is over; the active burden is no longer "make the walkthrough legible" but "make the model truthful again." The codebase still speaks several overlapping product languages at once — status-filtered review pools, legacy scope/framing aliases, mixed knowledge facades, and multiple input families — so the frontier now prioritizes semantic and interaction-model recovery first. Demo-visible stabilization remains important, but only after the underlying seams stop lying.
+
 ## Active
 
-1. **Specification-first creation and workspace terminology adoption** — root creation asks only for the specification name, and touched product surfaces start distinguishing workspace vs specification while internal `project` identifiers remain unchanged.
-   - Why now / unlocks: this establishes D82, D96, and D97 at the entry seam so grounding strategy can move into the workspace honestly instead of mutating a premature root-modal choice.
-
-2. **Interview workflow transition extraction from `app.ts`** — move phase-confirmation, review accept-to-close, successor-frontier creation, and observer-scheduling policy into a smaller deep module with a narrow command/result seam, leaving `app.ts` as transport composition.
-   - Why now / unlocks: the frontier/review/closure model is now rich enough that every new interaction family risks deepening the `app.ts` monolith. Extracting the workflow seam now makes grounding-card and kickoff-follow-on work cheaper, safer, and easier to test in isolation.
+1. **Accepted-set authority cleanup and legacy review semantics retirement** — replace the status-filtered entity-pool model with one authoritative accepted review output per phase, and delete the leftover item-by-item review semantics and presentation-derived control inference.
+   - Why now / unlocks: this is the most heavily leaked legacy seam — `reviewStatus`, targeted per-item review turns, early durable requirement / criterion capture, `reviewAction` derived from option ordering, `why`-text control inference, and generic turn-family placeholders all coexist with the cleaned full-set review contract. Retiring them together removes the single largest source of exception logic in the interview surface.
+   - Traceability: Requirements 11, 12, 22; D57, D90, D93, D95, D108; A52; I87.
    - What this slice must accomplish:
-     - separate HTTP/SSE transport concerns from workflow policy so `app.ts` stops owning phase-progression semantics directly
-     - unify the transition rules for the four advancement paths: ordinary answered frontier turns, full-set review accept-to-close, proposed phase-closure confirmation, and force-close
-     - preserve the frontier invariant explicitly: open phases bottom out in one actionable frontier or visible generation state, successor turns appear without dead gaps, and next-phase kickoff creation stays coupled to confirmed closure
-     - centralize observer scheduling and attachment policy so late observer results remain turn-owned and future interaction families do not each invent their own observer timing rules
-     - give upcoming grounding work (workspace-owned strategy choice, grounding cards, brownfield analysis brief) one place to add new interaction semantics instead of growing route-handler branches
-     - make workflow behavior testable as a deep module with focused command/result cases instead of forcing every transition change through `app.test.ts` and full stream orchestration
+     - remove `reviewStatus` as a first-class concept for requirement / criterion entities and stop projecting approved / rejected / pending badges into the sidebar and review surfaces
+     - remove the targeted `requirementReview` / `criterionReview` turn semantics and the one-item-at-a-time approval flow from shared schemas, server behavior, fixtures, and tests
+     - stop treating review-phase observer output as canonical requirements / criteria merely because it was inferred during an intermediate review turn
+     - stop durably capturing `requirement` / `criterion` items during grounding and elicitation; earlier requirement-like / criterion-like material remains synthesis input rather than canonical carry-forward state
+     - define one accepted-set authority seam per review phase: `accept review` promotes the current synthesized set into the surviving requirement / criterion collection, while `request changes` keeps the phase open without creating canonical carry-forward state
+     - replace downstream dependencies on `reviewStatus` with accepted-set projections for closeability, criteria generation context, and export filtering
+     - encode review-action semantics directly on review tool payloads instead of deriving them from option ordering or presentation copy
+     - retire any remaining `why`-text-based kickoff / recovery inference so frontier projection reads only persisted turn kinds (D95)
+     - remove generic turn-family placeholder fallbacks left over from the previous projection model
+   - Manual verification: after the slice, wipe `.brunch/brunch.db`, reseed the walkthrough scenarios, and confirm `issue-tracker-requirements-ready`, `issue-tracker-criteria-ready`, and `issue-tracker-all-phases-closed` render cleanly with no `reviewStatus`-derived badges or per-item affordances.
+
+2. **Distinct review-phase UI rebuilt on accepted-set authority** — rebuild requirements and criteria as review-specific surfaces after the authority cleanup, even if the old UI breaks in the meantime.
+   - Why now / unlocks: once the old semantics are gone, the UI should fail loudly instead of masking mismatches. Rebuilding on top of the cleaned contract yields a much simpler and more honest review surface.
+   - Traceability: D90, D93; A52; I87.
+   - What this slice must accomplish:
+     - make the active requirements / criteria frontier read as a synthesized set review, not a generic interview question card
+     - show the current candidate set, stable reference codes, and the lightweight review action seam (`accept review` / `request changes` + one note) without per-item approval affordances
+     - make live and hydrated turns render through the same review-specific card family
+     - remove remaining presentation assumptions that requirements / criteria are just another branch of the ordinary Q&A surface
+
+3. **Framing kind retirement and canonical scope-kind normalization** — finish the migration away from `framing` as a scope kind and normalize writes into the canonical `goal` / `term` / `context` / `constraint` set.
+   - Why now / unlocks: `framing` is still persisted, projected, and referenced in routes (`_view/framing.tsx`), shared schemas, fixtures, stories, and UI cards. Every new interaction family has to branch around it. Retiring it unblocks both the knowledge facade cleanup and the later naming normalization.
+   - Traceability: D49, D68; A40; I48.
+   - What this slice must accomplish:
+     - remove `framing` from the canonical scope-kind enum and from observer output contracts
+     - migrate existing persisted `framing` rows into the appropriate canonical kind (likely `context` or `goal` depending on provenance)
+     - remove the `_view/framing.tsx` route surface and any framing-specific card / sidebar affordances
+     - update fixtures, scenarios, tests, and stories to stop producing or asserting on `framing`
+
+4. **Legacy knowledge facade cleanup** — drop the dead schema tables and collapse the remaining legacy types into the kind-discriminated `KnowledgeItem` model.
+   - Why now / unlocks: D61 flagged the mixed legacy / generic knowledge storage as transitional; with `framing` retired, the target single-model shape is reachable. Finishing the facade cleanup removes a source of drift between persistence, the shared kind registry, the observer prompt, API types, fixtures, and the sidebar grouping that currently all describe the ontology slightly differently.
+   - Traceability: Requirements 22, 23; D49, D50, D61, D105, D108, D109; I48, I54.
+   - What this slice must accomplish:
+     - drop dead schema tables left over from the pre-generic knowledge model
+     - collapse legacy per-type entity collections into generic `KnowledgeItem` reads behind the existing typed projections
+     - establish one canonical ontology contract for durable exploration knowledge (`goal`, `term`, `context`, `constraint`, `decision`, `assumption`), accepted-review requirements / criteria, and the `constraint` subtype `non-goal`
+     - drive shared registries, observer prompt language, API types, fixtures, stories, and sidebar copy from that canonical ontology contract so kind language does not drift by layer
+     - defer `feature` / `user story` as top-level durable kinds until the graph seam has explicit semantics that justify them
+     - keep `EntitySidebar` grouping (D105) and stable per-kind reference codes (D49) working across the collapse
+     - make Drizzle migrations explicit about the drop so the reseed path stays trustworthy
+
+5. **Interaction-family canonicalization: turn cards are the only input seam** — finalize workspace-owned turn cards as the canonical input surface and retire the straggling alternatives.
+   - Why now / unlocks: D89 / D91 / D99 declared turn cards canonical, but remnants of the older kickoff-as-separate-family, one-shot brownfield ritual, and global bottom composer still exist as fallbacks. Retiring them lets grounding, design, and review share one visible input contract without disambiguation logic.
+   - Traceability: D89, D91, D99; A51, A54, A56; I24.
+   - What this slice must accomplish:
+     - remove the generic bottom composer as a canonical input path; any remaining uses become explicit debug / admin affordances or are deleted
+     - fold the previous kickoff interaction family into the turn-card family so kickoff, grounding cards, question cards, and review cards share one projection
+     - retire the one-shot brownfield kickoff ritual in favor of reusable interviewer-invoked context gathering that produces grounding cards (D99)
+     - confirm greenfield and brownfield grounding both enter through the workspace turn-card surface
+
+6. **Phase transition and handoff stabilization on the cleaned model** — make every phase end in a legible next action, with no empty shells or stranded in-progress states, after review and input semantics stop fighting the projector.
+   - Why now / unlocks: the remaining handoff bugs are real, but fixing them before the semantic cleanup would just restabilize the wrong model. Once review authority, ontology, and input seams are cleaned, transition work can become a straightforward projection pass instead of another exception layer.
+   - Traceability: D94, D100, D101, D104; A54.
+   - What this slice must accomplish:
+     - requirements acceptance advances cleanly into criteria kickoff without dead air
+     - criteria acceptance closes into a visible workflow-complete / export-ready state
+     - closed phases show explicit handoff / completion artifacts instead of relying on the generic shell to imply what happened
+     - force-close and proposed-close confirmations stay legible and do not leave stale active-phase projections behind
+
+7. **Naming normalization: project → specification, scope → grounding, cwd removal** — align internal identifiers, route keys, and schema columns with the product vocabulary settled in D97 / D98.
+   - Why now / unlocks: after the semantic, ontology, and interaction layers are clean, the naming drift is the last pervasive legacy burden. Doing it after the deeper model cleanup avoids rebase pain across the same files while still preventing new surfaces from inheriting the vocabulary split. This is the most invasive slice — it touches schema, routes, and API types — and should be planned as a sequence of safe commits.
+   - Traceability: D97, D98; Horizon `project → specification physical DB rename`, Horizon `cwd removal`.
+   - What this slice must accomplish:
+     - rename `project` record / table / API identifier to `specification` (or the agreed internal name) with an explicit migration path
+     - migrate the internal phase key from `scope` to `grounding`, or commit to keeping `scope` and document it as a permanent internal alias
+     - remove `cwd` from the specification record and derive workspace path implicitly from the runtime context
+     - update routes, loaders, fixtures, tests, and stories to match
+     - manual verification after each commit in the sequence to catch silent breakage
 
 ## Next
 
-1. **Grounding strategy selection inside the workspace kickoff flow** — the first grounding move chooses elicitation-first vs analysis-first from the workspace-owned kickoff/frontier seam instead of in the root modal.
-   - Why now / unlocks: once creation is specification-first and kickoff turns are real, grounding can own its opening move inside one interaction family.
+1. **Transcript fidelity stabilization for seeded and resumed states** — make replayed interview history trustworthy enough that the workspace reads like one coherent thread instead of a partial hydration. Likely partially absorbed by slice 5; whatever remains after canonicalization lands here.
+   - Traceability: D92, D93, D96; A53, A55.
 
-2. **Grounding-card transcript primitive** — add visible provisional grounding cards with optional comment + continue semantics, keeping card content non-durable while allowing user reactions to feed later knowledge capture.
-   - Why now / unlocks: this is the next distinct turn-card family after kickoff/question/review and is required for brownfield grounding briefs and reusable context gathering.
+2. **Interview workflow transition extraction from `app.ts`** — deferred by choice. Picks up after the retirement frontier lands, when the extraction is no longer competing with semantic cleanup for the same files.
 
-3. **Brownfield workspace-analysis grounding brief** — use read-only workspace analysis to produce the first visible grounding card, then hand off into the first substantive grounding question.
-   - Why now / unlocks: this lands analysis-first grounding on top of the revised kickoff/card/provenance model without yet solving the full reusable context-gathering loop.
-
-4. **Router/query ownership refinement for interview surfaces** — replace coarse route-wide invalidation with deliberate loader/query ownership after the revised frontier lifecycle settles.
-   - Why now / unlocks: refresh pain should be judged against the new kickoff/generation/recovery model before investing in narrower ownership seams.
-
-5. **Rich replay treatment for kickoff, review, observer progress, and grounding-card detail** — once the turn lifecycle and grounding-card primitives stabilize, make replay components visually match their live counterparts more closely.
-   - Why now / unlocks: transcript trust depends on carrying fixed kickoff turns, review outcomes, and provisional grounding artifacts legibly through hydration.
+3. **Router / query ownership refinement for interview surfaces** — deferred by choice. Replace coarse route-wide invalidation with deliberate loader / query ownership once the cleaned surfaces make the real invalidation boundaries legible.
 
 ## Horizon
 
-- **Interaction-semantics hardening bundle** — retire remaining incidental UI coupling in a small follow-on bundle: encode full-set review semantics directly on review options/tool payloads instead of deriving `reviewAction` from option ordering, and clean up any remaining control-marker or transcript affordances that still infer semantics from presentation copy.
-- **Output route and markdown export refinement** — conditional route available when all phases are closed, with accepted review outputs projected into markdown export (D100).
-- **Close Phase confirmation modal** — modal UX for the Close Phase button with readiness/turn-count context and closeability gating (D103); review phases may stay on their lighter accept-to-close path.
+- **Output route and markdown export refinement** — conditional route available when all phases are closed, with accepted review outputs projected into markdown export (D101).
+- **Close Phase confirmation modal** — modal UX for the Close Phase button with readiness / turn-count context and closeability gating (D104); review phases may stay on their lighter accept-to-close path.
 - **Workflow projector extraction** — refactor `getCurrentWorkflowState()` into a pure projector over a `WorkflowSnapshot` struct. Independent lane.
-- **Remove `cwd` from spec record, make workspace implicit** — Depends on: specification-first creation.
-- **Legacy knowledge facade cleanup** — drop dead schema tables, collapse legacy types into kind-discriminated `KnowledgeItem`.
-- **Project → specification physical DB rename** — Depends on: legacy knowledge cleanup, specification-first creation.
-- **Reusable interviewer-invoked context gathering beyond opening grounding** — defer until opening brownfield brief proves the card/provenance model.
-- **Dashboard/result summaries and completeness metrics** — post-interview surface.
+- **Grounding-card transcript primitive** — add visible provisional grounding cards with optional comment + continue semantics, keeping card content non-durable while allowing user reactions to feed later knowledge capture.
+- **Brownfield workspace-analysis grounding brief** — use read-only workspace analysis to produce the first visible grounding card, then hand off into the first substantive grounding question.
+- **Reusable interviewer-invoked context gathering beyond opening grounding** — defer until opening brownfield brief proves the card / provenance model.
+- **Dashboard / result summaries and completeness metrics** — post-interview surface.
 - **Edit mode + cascade preview** — revisit affordance after interview-surface refinement settles.
 - **Cascade execution + secondary thread lifecycle** — structural follow-on.
 - **Drizzle Kit audit remediation** — independent hardening lane.
@@ -56,26 +108,36 @@
 
 ## Recently Completed
 
-- 2026-04-16 — **Frontier lifecycle skeleton across open phases** — the open-phase seam now bottoms out in fixed kickoff turns, visible generation states, same-turn review accept-to-close progression, and exceptional recovery turns, closing the no-dead-state frontier tracked under D94.
-- 2026-04-16 — **Persist explicit full-set review actions through response + fixture seams** — requirements/criteria review submissions now carry explicit persisted `reviewAction` semantics, server acceptance no longer depends on option copy, client review submissions include the action in transport, and manifest/corpus/synthetic fixture seams round-trip the full-set review action without modeling per-item review turns as the user interaction.
-- 2026-04-16 — **Persist frontier turn kinds for kickoff and recovery** — open-phase frontier turns now carry explicit persisted `turn_kind` semantics (`question` / `kickoff` / `recovery`), and controller/view projection no longer depends on `why` sentinels to classify kickoff vs recovery cards.
+- 2026-04-16 — **Transcript parity for existing turn families** — persisted assistant-side replay now stores concise activity summaries instead of raw reasoning / tool parts, hydrated answered / frontier cards reuse the same activity-placeholder family as live transcript updates, and route invalidation no longer needs generic placeholder fallbacks for existing turn families. Done: `npm run verify`. Watch: manual reload / invalidation walkthrough still outstanding.
+- 2026-04-16 — **DrawerCard-based question card family and generating-turn placeholder** — ordinary interview turns now render through dedicated question-card components: compact answered cards, expanded active cards, inline activity placeholders, and a skeleton-backed generating-turn placeholder, replacing the older generic turn-card treatment for question-turn replay and in-flight generation.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
 ## Dependencies
 
 ```text
-specification-first-creation-and-workspace-terminology-adoption
-  └──→ grounding-strategy-selection-inside-the-workspace-kickoff-flow
+accepted-set-authority-cleanup-and-legacy-review-semantics-retirement
+  ├──→ distinct-review-phase-ui-rebuilt-on-accepted-set-authority
+  └──→ phase-transition-and-handoff-stabilization-on-the-cleaned-model
 
-interview-workflow-transition-extraction-from-app-ts
-  ├──→ grounding-strategy-selection-inside-the-workspace-kickoff-flow
-  └──→ grounding-card-transcript-primitive
+distinct-review-phase-ui-rebuilt-on-accepted-set-authority
+  └──→ phase-transition-and-handoff-stabilization-on-the-cleaned-model
 
-grounding-strategy-selection-inside-the-workspace-kickoff-flow
-  └──→ brownfield-workspace-analysis-grounding-brief
+framing-kind-retirement-and-canonical-scope-kind-normalization
+  └──→ legacy-knowledge-facade-cleanup
 
-grounding-card-transcript-primitive
-  ├──→ brownfield-workspace-analysis-grounding-brief
-  └──→ rich-replay-treatment-for-kickoff-review-observer-progress-and-grounding-card-detail
+legacy-knowledge-facade-cleanup
+  └──→ interaction-family-canonicalization-turn-cards-as-only-input-seam
+  └──→ naming-normalization-project-specification-scope-grounding-cwd-removal
+
+interaction-family-canonicalization-turn-cards-as-only-input-seam
+  └──→ phase-transition-and-handoff-stabilization-on-the-cleaned-model
+  └──→ naming-normalization-project-specification-scope-grounding-cwd-removal
+
+phase-transition-and-handoff-stabilization-on-the-cleaned-model
+  └──→ naming-normalization-project-specification-scope-grounding-cwd-removal
+
+naming-normalization-project-specification-scope-grounding-cwd-removal
+  └──→ transcript-fidelity-stabilization-for-seeded-and-resumed-states (Next)
+  └──→ interview-workflow-transition-extraction-from-app-ts (Next)
 ```

@@ -1,6 +1,11 @@
 import type { ProjectListItem, ProjectState, ProjectStateTurn, TurnKind } from '@/shared/api-types.js';
 import type { BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { extractTextFromMessage } from '@/shared/chat.js';
+import {
+  groundingStrategyChoices,
+  groundingStrategyKickoffDescription,
+  groundingStrategyKickoffQuestion,
+} from '@/shared/grounding-strategy.js';
 import type { WorkflowPhase } from '@/shared/phase-close.js';
 import { phaseOrder } from '@/shared/phase-routes.js';
 
@@ -12,6 +17,7 @@ import {
   getCurrentWorkflowState,
   createTurn,
   advanceHead,
+  createOption,
   getCapturedItemsForTurns,
   listProjects,
   createProject,
@@ -83,7 +89,7 @@ function createFrontierOfferTurn(
   );
   const turnKind: TurnKind = hasSubstantiveHistory ? 'recovery' : 'kickoff';
 
-  return createTurn(db, projectId, {
+  const turn = createTurn(db, projectId, {
     parent_turn_id: parentTurnId,
     phase,
     turn_kind: turnKind,
@@ -93,6 +99,22 @@ function createFrontierOfferTurn(
     assistant_parts: null,
     why: null,
   });
+
+  if (turnKind === 'kickoff' && phase === 'scope' && !hasSubstantiveHistory) {
+    updateTurn(db, turn.id, {
+      question: groundingStrategyKickoffQuestion,
+      why: groundingStrategyKickoffDescription,
+    });
+    for (const choice of groundingStrategyChoices) {
+      createOption(db, turn.id, {
+        position: choice.position,
+        content: choice.title,
+        is_recommended: choice.isRecommended,
+      });
+    }
+  }
+
+  return turn;
 }
 
 export function ensureProjectFrontier(db: DB, projectId: number): Turn | null {

@@ -4,7 +4,9 @@ import type { ProjectState, ProjectStateTurn } from './api-types.js';
 import {
   findTurnOptionsByPositions,
   getAcceptedClosureReplay,
+  getPersistedActivitySummary,
   getPersistedReviewAction,
+  getPersistedReviewSet,
   getReviewActionForSelectedPositions,
   safeParsePersistedAssistantParts,
   safeParsePersistedUserParts,
@@ -120,6 +122,46 @@ describe('project-state-turn helpers', () => {
     });
   });
 
+  it('reads persisted activity summaries and falls back to older raw tool parts', () => {
+    expect(
+      getPersistedActivitySummary(
+        createTurn({
+          assistant_parts: JSON.stringify([
+            {
+              type: 'data-activity-summary',
+              data: { seconds: 3, tools: ['structured question'] },
+            },
+          ]),
+        }),
+      ),
+    ).toEqual({ seconds: 3, tools: ['structured question'] });
+
+    expect(
+      getPersistedActivitySummary(
+        createTurn({
+          assistant_parts: JSON.stringify([
+            { type: 'reasoning', text: 'Thinking…', state: 'done' },
+            {
+              type: 'tool-ask_question',
+              toolCallId: 'tool-1',
+              state: 'output-available',
+              input: {
+                question: 'What should we build first?',
+                why: 'This frames the first iteration.',
+                impact: 'high',
+                options: [
+                  { content: 'Web', is_recommended: true },
+                  { content: 'Desktop', is_recommended: false },
+                ],
+              },
+              output: { ok: true, turnId: 1, optionCount: 2 },
+            },
+          ]),
+        }),
+      ),
+    ).toEqual({ tools: [] });
+  });
+
   it('finds selected options by unique positions without route-private helpers', () => {
     const turn = createTurn();
 
@@ -145,5 +187,42 @@ describe('project-state-turn helpers', () => {
     expect(getReviewActionForSelectedPositions(reviewTurn, [0])).toBe('accept');
     expect(getReviewActionForSelectedPositions(reviewTurn, [1])).toBe('request-changes');
     expect(getReviewActionForSelectedPositions(createTurn({ phase: 'scope' }), [0])).toBeNull();
+  });
+
+  it('reads persisted turn-owned review-set artifacts from assistant parts', () => {
+    const reviewTurn = createTurn({
+      phase: 'requirements',
+      assistant_parts: JSON.stringify([
+        { type: 'text', text: 'Please review the synthesized requirement set.' },
+        {
+          type: 'data-review-set',
+          data: {
+            phase: 'requirements',
+            title: 'Requirements',
+            items: [
+              {
+                referenceCode: 'R1',
+                content: 'Resume the interview from persisted local state',
+                rationale: 'Core local-first promise.',
+                grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+              },
+            ],
+          },
+        },
+      ]),
+    });
+
+    expect(getPersistedReviewSet(reviewTurn)).toEqual({
+      phase: 'requirements',
+      title: 'Requirements',
+      items: [
+        {
+          referenceCode: 'R1',
+          content: 'Resume the interview from persisted local state',
+          rationale: 'Core local-first promise.',
+          grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+        },
+      ],
+    });
   });
 });

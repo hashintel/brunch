@@ -13,7 +13,39 @@ import {
   type DB,
   type WorkflowPhaseStatus,
 } from '../db.js';
+import { serializeParts } from '../parts.js';
 import { loadManifest, loadManifestScenarios, seedFromManifest, type ManifestScenario } from './manifest.js';
+
+function createReviewSetAssistantParts({
+  phase,
+  title,
+  prompt,
+  items,
+}: {
+  phase: 'requirements' | 'criteria';
+  title: string;
+  prompt: string;
+  items: Array<{
+    referenceCode: string;
+    content: string;
+    rationale?: string;
+    grounding?: Array<{ code: string }>;
+    isUserCreated?: boolean;
+    isRevised?: boolean;
+  }>;
+}): string {
+  return serializeParts([
+    { type: 'text', text: prompt },
+    {
+      type: 'data-review-set',
+      data: {
+        phase,
+        title,
+        items,
+      },
+    },
+  ]);
+}
 
 function createConfirmationParts(text: string, data: object): string {
   return JSON.stringify([
@@ -222,6 +254,32 @@ export function seedRequirementsReviewReady(db: DB, projectId: number) {
     why: 'Review the whole requirement set before moving forward.',
     impact: 'high',
     answer: null,
+    assistant_parts: createReviewSetAssistantParts({
+      phase: 'requirements',
+      title: 'Requirements',
+      prompt: 'Please review the current requirement set.',
+      items: [
+        {
+          referenceCode: 'R1',
+          content: requirementCrud.content,
+          rationale: 'Captures the core ticket lifecycle the tool must support from day one.',
+          grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }, { code: 'D1' }],
+        },
+        {
+          referenceCode: 'R2',
+          content: requirementAudit.content,
+          rationale: 'Protects accountability and traceability for regulated workflows.',
+          grounding: [{ code: 'CTX2' }, { code: 'CST1' }],
+        },
+        {
+          referenceCode: 'R3',
+          content: requirementPermissions.content,
+          rationale: 'Ensures each role sees only the operations appropriate to its responsibility.',
+          grounding: [{ code: 'GOAL2' }, { code: 'CST2' }],
+          isRevised: true,
+        },
+      ],
+    }),
   });
   createOption(db, reviewTurn.id, {
     position: 0,
@@ -264,6 +322,25 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
     why: 'Review the whole requirement set before moving forward.',
     impact: 'high',
     answer: 'Accept review',
+    assistant_parts: createReviewSetAssistantParts({
+      phase: 'requirements',
+      title: 'Requirements',
+      prompt: 'Please review the current requirement set.',
+      items: [
+        {
+          referenceCode: 'R1',
+          content: approvedRequirement.content,
+          rationale: 'Keeps resume behavior explicit in the accepted requirement set.',
+          grounding: [{ code: 'GOAL1' }, { code: 'CTX1' }],
+        },
+        {
+          referenceCode: 'R2',
+          content: supportingRequirement.content,
+          rationale: 'Preserves the local-first persistence seam as a first-order concern.',
+          grounding: [{ code: 'D1' }, { code: 'A1' }],
+        },
+      ],
+    }),
   });
   const acceptOption = createOption(db, reviewTurn.id, {
     position: 0,
@@ -365,6 +442,33 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
     why: 'Review the whole criterion set before moving forward.',
     impact: 'high',
     answer: null,
+    assistant_parts: createReviewSetAssistantParts({
+      phase: 'criteria',
+      title: 'Acceptance Criteria',
+      prompt: 'Please review the current criterion set.',
+      items: [
+        {
+          referenceCode: 'CRIT1',
+          content: criterionAudit.content,
+          rationale: 'Makes the audit requirement observable in a seeded acceptance check.',
+          grounding: [{ code: 'R1' }, { code: 'CTX2' }],
+        },
+        {
+          referenceCode: 'CRIT2',
+          content: criterionPermissions.content,
+          rationale: 'Verifies role-based visibility through a concrete denial path.',
+          grounding: [{ code: 'R1' }, { code: 'CST2' }],
+          isUserCreated: true,
+        },
+        {
+          referenceCode: 'CRIT3',
+          content: criterionPerformance.content,
+          rationale: 'Pins the seeded demo to a legible performance target.',
+          grounding: [{ code: 'R1' }, { code: 'A1' }],
+          isRevised: true,
+        },
+      ],
+    }),
   });
   createOption(db, reviewTurn.id, {
     position: 0,
@@ -402,6 +506,25 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
     why: 'Review the whole criterion set before moving forward.',
     impact: 'high',
     answer: 'Accept review',
+    assistant_parts: createReviewSetAssistantParts({
+      phase: 'criteria',
+      title: 'Acceptance Criteria',
+      prompt: 'Please review the current criterion set.',
+      items: [
+        {
+          referenceCode: 'CRIT1',
+          content: criterion.content,
+          rationale: 'Provides a concise seeded acceptance check for the resume path.',
+          grounding: [{ code: 'R1' }],
+        },
+        {
+          referenceCode: 'CRIT2',
+          content: supportingCriterion.content,
+          rationale: 'Shows the user-visible reload behavior that proves persistence worked.',
+          grounding: [{ code: 'R1' }, { code: 'CTX1' }],
+        },
+      ],
+    }),
   });
   const acceptOption = createOption(db, criterionReviewTurn.id, {
     position: 0,

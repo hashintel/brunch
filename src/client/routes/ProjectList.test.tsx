@@ -84,7 +84,7 @@ afterEach(() => {
 });
 
 describe('ProjectList', () => {
-  it('creates a greenfield specification and navigates to its workspace', async () => {
+  it('creates a specification after name-only entry and navigates to its workspace', async () => {
     fetchMock.mockResolvedValueOnce(
       new Response(
         JSON.stringify({
@@ -106,20 +106,13 @@ describe('ProjectList', () => {
     renderProjectList();
     fireEvent.click(screen.getByRole('button', { name: 'New specification' }));
 
-    // Enter specification name
     await waitFor(() => {
       expect(screen.getByPlaceholderText('Specification name')).toBeDefined();
     });
     fireEvent.change(screen.getByPlaceholderText('Specification name'), {
       target: { value: 'New specification' },
     });
-    fireEvent.click(screen.getByText('Next'));
-
-    // Select greenfield mode
-    await waitFor(() => {
-      expect(screen.getByText(/from scratch/i)).toBeDefined();
-    });
-    fireEvent.click(screen.getByText(/from scratch/i));
+    fireEvent.click(screen.getByText('Create specification'));
 
     await waitFor(() => {
       expect(fetchMock).toHaveBeenCalledWith(
@@ -127,9 +120,12 @@ describe('ProjectList', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ name: 'New specification' }),
         }),
       );
     });
+
+    expect(screen.queryByText(/How should this specification start\?/i)).toBeNull();
 
     await waitFor(() => {
       expect(navigateMock).toHaveBeenCalledWith({ to: '/project/$id', params: { id: '7' } });
@@ -186,50 +182,17 @@ describe('ProjectList', () => {
     expect(screen.getByText(/2\/4 – Elicitation/)).toBeDefined();
   });
 
-  it('sends mode when creating a brownfield specification', async () => {
-    fetchMock.mockResolvedValueOnce(
-      new Response(
-        JSON.stringify({
-          id: 8,
-          name: 'New specification',
-          mode: 'brownfield',
-          cwd: '/server/path',
-          active_turn_id: null,
-          created_at: '2026-04-12 10:00:00',
-          updated_at: '2026-04-12 10:00:00',
-        }),
-        {
-          status: 201,
-          headers: { 'Content-Type': 'application/json' },
-        },
-      ),
-    );
-
+  it('does not present a root-level grounding strategy step during creation', async () => {
     renderProjectList();
     fireEvent.click(screen.getByRole('button', { name: 'New specification' }));
 
-    // Enter specification name and proceed to mode step
     await waitFor(() => {
       expect(screen.getByPlaceholderText('Specification name')).toBeDefined();
     });
-    fireEvent.change(screen.getByPlaceholderText('Specification name'), {
-      target: { value: 'New specification' },
-    });
-    fireEvent.click(screen.getByText('Next'));
 
-    // Select brownfield mode
-    await waitFor(() => {
-      expect(screen.getByText(/existing codebase/i)).toBeDefined();
-    });
-    fireEvent.click(screen.getByText(/existing codebase/i));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalled();
-      const call = fetchMock.mock.calls[0];
-      const body = JSON.parse(call[1]?.body as string);
-      expect(body).toEqual({ name: 'New specification', mode: 'brownfield' });
-      expect(body.cwd).toBeUndefined();
-    });
+    expect(screen.queryByText(/How should this specification start\?/i)).toBeNull();
+    expect(screen.queryByText(/New concept from scratch/i)).toBeNull();
+    expect(screen.queryByText(/Feature within existing codebase/i)).toBeNull();
   });
 
   it('shows a visible error when specification creation fails', async () => {
@@ -243,20 +206,14 @@ describe('ProjectList', () => {
     renderProjectList();
     fireEvent.click(screen.getByRole('button', { name: 'New specification' }));
 
-    // Enter specification name and proceed
+    // Enter specification name and submit
     await waitFor(() => {
       expect(screen.getByPlaceholderText('Specification name')).toBeDefined();
     });
     fireEvent.change(screen.getByPlaceholderText('Specification name'), {
       target: { value: 'Bad specification' },
     });
-    fireEvent.click(screen.getByText('Next'));
-
-    // Select greenfield to trigger fetch
-    await waitFor(() => {
-      expect(screen.getByText(/from scratch/i)).toBeDefined();
-    });
-    fireEvent.click(screen.getByText(/from scratch/i));
+    fireEvent.click(screen.getByText('Create specification'));
 
     expect((await screen.findByRole('alert')).textContent).toContain('Specification name already exists');
     expect(navigateMock).not.toHaveBeenCalled();

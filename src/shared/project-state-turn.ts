@@ -1,5 +1,12 @@
 import type { ProjectState, ProjectStateTurn, ReviewAction, WorkflowPhase } from './api-types.js';
-import type { BrunchAssistantPart, BrunchUserPart, DataTurnResponse } from './chat.js';
+import {
+  type ReviewSetData,
+  summarizeAssistantActivity,
+  type ActivitySummary,
+  type BrunchAssistantPart,
+  type BrunchUserPart,
+  type DataTurnResponse,
+} from './chat.js';
 
 export function safeParsePersistedAssistantParts(json: string | null | undefined): BrunchAssistantPart[] {
   if (!json) {
@@ -40,6 +47,17 @@ export function getPersistedReviewAction(
   turn: Pick<ProjectStateTurn, 'user_parts'> | undefined,
 ): ReviewAction | null {
   return getPersistedTurnResponse(turn)?.reviewAction ?? null;
+}
+
+export function getPersistedReviewSet(
+  turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined,
+): ReviewSetData | null {
+  return (
+    safeParsePersistedAssistantParts(turn?.assistant_parts).find(
+      (part): part is Extract<BrunchAssistantPart, { type: 'data-review-set' }> =>
+        part.type === 'data-review-set',
+    )?.data ?? null
+  );
 }
 
 export function hasPersistedTurnResponse(turn: Pick<ProjectStateTurn, 'user_parts'> | undefined): boolean {
@@ -116,6 +134,18 @@ export function turnIsControlOrClosureArtifact(
   return assistantParts.some(
     (part) => part.type === 'tool-propose_phase_closure' || part.type === 'data-phase-summary',
   );
+}
+
+export function getPersistedActivitySummary(
+  turn: Pick<ProjectStateTurn, 'assistant_parts'> | undefined,
+): ActivitySummary | null {
+  const assistantParts = safeParsePersistedAssistantParts(turn?.assistant_parts);
+  const persistedSummary = assistantParts.find(
+    (part): part is Extract<BrunchAssistantPart, { type: 'data-activity-summary' }> =>
+      part.type === 'data-activity-summary',
+  );
+
+  return persistedSummary?.data ?? summarizeAssistantActivity(assistantParts);
 }
 
 export function getPersistedClosureSummary(turn: Pick<ProjectStateTurn, 'assistant_parts'>): string | null {

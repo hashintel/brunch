@@ -37,11 +37,17 @@ vi.mock('@tanstack/react-router', () => ({
   }),
 }));
 
-vi.mock('@/client/components/ui/button', () => ({
-  Button: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
+vi.mock('@/client/components/app-shell', () => ({
+  ShellButton: ({ children, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement>) => (
     <button type="button" {...props}>
       {children}
     </button>
+  ),
+}));
+
+vi.mock('@/client/components/ui/scroll-area', () => ({
+  ScrollArea: ({ children, className }: { children: React.ReactNode; className?: string }) => (
+    <div className={className}>{children}</div>
   ),
 }));
 
@@ -60,7 +66,7 @@ describe('ExportPreview', () => {
     expect(
       screen.getByText('Export is not available yet. All workflow phases must be closed before exporting.'),
     ).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Return to specification →' }).getAttribute('href')).toBe(
+    expect(screen.getByRole('link', { name: /Return to specification/ }).getAttribute('href')).toBe(
       '/project/7',
     );
   });
@@ -73,11 +79,11 @@ describe('ExportPreview', () => {
 
     render(<ExportPreview />);
 
-    expect(screen.getByRole('link', { name: '← Back to specification' }).getAttribute('href')).toBe(
+    expect(screen.getByRole('link', { name: /Back to specification/ }).getAttribute('href')).toBe(
       '/project/7',
     );
-    expect(screen.getByRole('button', { name: 'Download .md' })).toBeTruthy();
-    expect(screen.getByRole('link', { name: 'Review specification knowledge →' }).getAttribute('href')).toBe(
+    expect(screen.getByRole('button', { name: /Download .md/ })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Review specification knowledge/ }).getAttribute('href')).toBe(
       '/project/7/framing',
     );
     expect(

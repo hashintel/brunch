@@ -56,7 +56,7 @@ function AnsweredQuestionCard({ data }: { data: AnsweredTurnData }) {
         </span>
         <button
           type="button"
-          className="flex text-[#16a34a] h-5 gap-1 -m-0.5 px-2 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[rgba(22,163,106,0.1)]"
+          className="flex text-[11px] text-[#16a34a] h-5 gap-1 -m-0.5 px-2 shrink-0 cursor-pointer items-center justify-center rounded-full bg-[rgba(22,163,106,0.1)]"
         >
           Answered
           <Check className="size-2.5" />
@@ -190,14 +190,14 @@ function ActiveQuestionCard({
             <label
               key={opt.id}
               className={cn(
-                'flex h-6 cursor-pointer items-center gap-2 rounded-lg text-left text-xs-plus',
+                'flex min-h-6 cursor-pointer items-start gap-2 rounded-lg py-1 text-left text-xs-plus',
                 isNone && 'opacity-40',
               )}
             >
               <Checkbox
                 checked={isSelected}
                 onCheckedChange={() => toggleOption(opt.id)}
-                className="data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
+                className="mt-px shrink-0 data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
               />
               <span className={isSelected ? 'text-ink' : 'text-sub'}>{opt.content}</span>
               {opt.isRecommended && <span className="text-xxs font-medium text-[#2070e6]">Recommended</span>}
@@ -207,11 +207,11 @@ function ActiveQuestionCard({
 
         <div className="my-1 border-t border-rule" />
 
-        <label className="flex h-6 cursor-pointer items-center gap-2 rounded-lg text-left text-xs-plus">
+        <label className="flex min-h-6 cursor-pointer items-start gap-2 rounded-lg py-1 text-left text-xs-plus">
           <Checkbox
             checked={isNone}
             onCheckedChange={toggleNone}
-            className="data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
+            className="mt-px shrink-0 data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
           />
           <span className={cn('text-sub', isNone && 'text-ink')}>None of the above / I'm not sure</span>
         </label>

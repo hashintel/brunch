@@ -56,17 +56,17 @@ function allWorkflowPhasesClosed(workflow: WorkflowState): boolean {
 
 function TimelineBullet({ status }: { status: WorkflowPhaseState['status'] | 'available' }) {
   if (status === 'closed' || status === 'available') {
-    return <span className="relative z-[1] size-3.5 shrink-0 rounded-full bg-[#2070e6]" />;
+    return <span className="relative z-[1] size-3 shrink-0 rounded-full bg-[#2070e6]" />;
   }
 
   if (status === 'in_progress') {
     return (
-      <span className="relative z-[1] size-3.5 shrink-0 rounded-full border-[1.5px] border-[#2070e6] bg-background" />
+      <span className="relative z-[1] size-3 shrink-0 rounded-full border-[1.5px] border-[#2070e6] bg-background" />
     );
   }
 
   return (
-    <span className="relative z-[1] size-3.5 shrink-0 rounded-full border-[1.5px] border-dashed border-[rgba(32,32,32,0.3)] bg-background" />
+    <span className="relative z-[1] size-3 shrink-0 rounded-full border-[1.5px] border-dashed border-[rgba(32,32,32,0.3)] bg-background" />
   );
 }
 
@@ -158,14 +158,15 @@ export function PhaseNavigationSidebar({
 
               const body = (
                 <div className="min-w-0">
-                  <div
+                  <span
                     className={cn(
-                      'text-base font-medium leading-tight',
-                      state.status === 'unstarted' ? 'text-sub' : 'text-ink',
+                      'inline-block text-sm font-medium leading-tight',
+                      state.status === 'unstarted' ? 'text-hint' : 'text-sub',
+                      'group-[.is-active]/phase:rounded-md group-[.is-active]/phase:bg-white group-[.is-active]/phase:px-2 group-[.is-active]/phase:py-0.5 group-[.is-active]/phase:text-ink',
                     )}
                   >
                     {getWorkflowPhaseLabel(phase)}
-                  </div>
+                  </span>
                   <div className="mt-1 flex flex-col gap-0.5 text-xs text-sub">
                     <div className="flex items-center gap-1.5">
                       <StatusMeta status={state.status} />
@@ -187,14 +188,14 @@ export function PhaseNavigationSidebar({
                   {!isLast && (
                     <span
                       className={cn(
-                        'absolute left-[6px] top-[17px] -bottom-[3px] w-0.5',
+                        'absolute left-[5px] top-[16px] -bottom-[3px] w-0.5',
                         lineActive ? 'bg-[#2070e6]' : 'bg-rule',
                       )}
                     />
                   )}
 
                   {/* Bullet */}
-                  <span className="mt-[3px] flex shrink-0 items-center justify-center">
+                  <span className="mt-[4px] flex shrink-0 items-center justify-center">
                     <TimelineBullet status={state.status} />
                   </span>
 
@@ -204,7 +205,8 @@ export function PhaseNavigationSidebar({
                       // @ts-expect-error — dynamic route path from validated phase-route mapping
                       to={`/project/$id/${segment}`}
                       params={{ id: projectId }}
-                      className="block text-left transition-colors"
+                      activeProps={{ className: 'is-active' }}
+                      className="group/phase block min-w-0 text-left transition-colors"
                     >
                       {body}
                     </Link>
@@ -217,17 +219,20 @@ export function PhaseNavigationSidebar({
 
             {outputAvailable ? (
               <li className="relative flex items-start gap-3">
-                <span className="mt-[3px] flex shrink-0 items-center justify-center">
+                <span className="mt-[4px] flex shrink-0 items-center justify-center">
                   <TimelineBullet status="available" />
                 </span>
                 <Link
                   to="/project/$id/export"
                   params={{ id: projectId }}
-                  className="block text-left transition-colors"
+                  activeProps={{ className: 'is-active' }}
+                  className="group/phase block min-w-0 text-left transition-colors"
                   data-phase="output"
                   data-phase-reachable="true"
                 >
-                  <div className="text-base font-medium leading-tight text-ink">Output</div>
+                  <span className="inline-block text-sm font-medium leading-tight text-sub group-[.is-active]/phase:rounded-md group-[.is-active]/phase:bg-white group-[.is-active]/phase:px-2 group-[.is-active]/phase:py-0.5 group-[.is-active]/phase:text-ink">
+                    Output
+                  </span>
                   <div className="mt-1 flex flex-col gap-0.5 text-xs text-sub">
                     <span className="font-medium text-[#2070e6]">Available</span>
                     <span>Markdown export</span>

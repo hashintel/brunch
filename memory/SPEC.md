@@ -35,7 +35,7 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 2. Starting a new specification asks only for the specification name before entering the workspace; greenfield / brownfield grounding strategy is then chosen through grounding entry states inside the specification workspace.
 3. Brownfield grounding can use read-only workspace analysis to ground the opening flow and the first substantive question.
 4. Structured responses support turn-appropriate option selections or explicit action submissions, an explicit `none of the above` path where relevant, and one attached response note.
-5. Users can see thinking, tool usage, and streaming progress in real time; if live-only artifacts are shown, replay keeps durable inert placeholders instead of dropping them completely.
+5. Users can see thinking, tool usage, and streaming progress in real time; if live-only artifacts are shown, replay keeps concise durable activity metadata (at minimum elapsed thinking time plus a coarse tool-use summary / placeholder seam) instead of dropping them completely.
 6. The observer extracts typed knowledge items and graph edges from answered turns.
 7. The accumulated knowledge layer and readiness state stay visible during the interview.
 8. Each workflow mode has deterministic closeability plus a separate readiness signal.
@@ -52,6 +52,8 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 19. The first phase is grounding in product language even while implementation continues to use the internal `scope` phase key until a later terminology pass.
 20. The interviewer may invoke context-gathering capabilities such as workspace analysis during grounding; their outputs appear as visible grounding cards interleaved with question cards.
 21. Grounding cards are provisional context, complete through optional user comment plus explicit continue, and do not directly create durable knowledge from their own content.
+22. Grounding and elicitation persist only the durable exploration ontology (`goal`, `term`, `context`, `constraint`, `decision`, `assumption`); `non-goal` is represented as a `constraint` subtype, and requirements / criteria become durable only through accepted review outputs.
+23. The knowledge ontology is defined once and projected consistently through schema, shared registries, observer prompts, API types, fixtures, and UI copy so kind semantics do not drift across layers.
 
 ## Assumptions
 
@@ -63,7 +65,7 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 | A15 | The LLM can offer useful coarse readiness and closure recommendations, but closure authority must remain explainable and user-legible rather than model-owned. | medium | open | D65, D66 | Manual comparison of model recommendations vs user judgment across varied projects. |
 | A20 | Observer results can continue to ride the existing chat stream without unacceptable perceived latency. | high | open | D22 | Measure real observer latency; fall back to a dedicated sync channel if needed. |
 | A28 | `ToolLoopAgent` remains sufficient for longer multi-phase interviews without a handwritten loop. | high | open | D30 | Watch long-session manual runs and future probe harnesses. |
-| A40 | The canonical scope kinds (`goal`, `term`, `context`) can be discriminated well enough for first-pass review flows if low-confidence cases stay reviewable. | medium | open | D49, D68, D86 | Validate with curated fixtures plus manual review walkthroughs. |
+| A40 | The durable exploration ontology (`goal`, `term`, `context`, `constraint`, `decision`, `assumption`), with `non-goal` as a `constraint` subtype, can be discriminated well enough for observer extraction if low-confidence cases stay in broader buckets instead of forcing finer distinctions. | medium | open | D49, D50, D68, D108 | Validate with curated fixtures plus manual review walkthroughs focused on kind confusion boundaries. |
 | A44 | The existing structured response seam is sufficient to support fixed kickoff turns, lightweight review submissions (`accept review` / `request changes` plus one review note), and successor-turn creation without introducing a second persistence model. | medium | open | D57, D90, D94 | Validate while prototyping kickoff, review, and successor-frontier flows. |
 | A47 | Read-only workspace analysis plus a concise visible grounding brief are enough to ground meaningful brownfield opening turns without separate document-ingestion UX. | medium | open | D32, D82, D83, D91, D98 | Manual brownfield walkthroughs across varied repositories. |
 | A48 | Knowledge-graph edges are sufficient to drive accurate cascade preview for revisit work. | medium | open | D50, D80 | Structural cascade tests plus manual judgment about scope. |
@@ -71,7 +73,7 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 | A50 | Layout-level `router.invalidate()` remains fast enough for sidebar refresh after observer updates. | medium | open | D22, D87 | Manual latency checks during live interviews. |
 | A51 | Grounding plus design remain legible if the primary input surface is the workspace-owned turn card family rather than a persistent global composer. | medium | open | D89, D91, D97 | Manual walkthroughs on grounding, design, and resumed states plus story review of entry / handoff patterns. |
 | A52 | Lightweight full-set review with stable item codes plus one review note is sufficient for requirements and criteria without inline editing or repeated interviewer micro-turns. | medium | open | D90 | Manual review walkthroughs on seeded requirement and criteria scenarios. |
-| A53 | Contentless durable placeholders are sufficient to preserve transcript trust for live thinking/tool artifacts without persisting hidden reasoning or raw tool results. | medium | open | D92 | Manual replay/reload walkthroughs on streamed turns once transcript placeholders land. |
+| A53 | Concise durable activity summaries are sufficient to preserve transcript trust for live thinking/tool artifacts without persisting hidden reasoning or raw tool results. | medium | open | D92 | Manual replay/reload walkthroughs on streamed turns once transcript activity summaries land. |
 | A54 | An open phase can reliably project a kickoff turn, current frontier turn, visible generation state, or exceptional recovery turn on first render without requiring the user to bootstrap the phase by typing into a generic composer. | medium | open | D89, D94 | Manual walkthroughs on kickoff-ready, design-active, review-active, and recovery states. |
 | A55 | Observer capture can trail interviewer completion without eroding trust if the trailing status stays attached to the completed turn card rather than surfacing as a free-floating transcript row. | medium | open | D22, D95 | Manual timing walkthroughs plus runtime observation on seeded turns with known observer work. |
 | A56 | A visible grounding card with concise summary, optional detail, optional user comment, and explicit continue is enough user control for provisional context without turning grounding into a review workflow. | medium | open | D83, D89, D91, D98 | Manual walkthroughs on greenfield and brownfield kickoff variants once grounding cards land. |
@@ -104,9 +106,9 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 87. **Layout-level data ownership partitions invalidation** — workflow state, knowledge state, and per-phase turns load at different route layers instead of one monolithic refresh boundary.
 88. **Entities default to the active-path read model** — workspace-wide inventory is explicit rather than the default workspace surface.
 89. **Primary grounding/design input is workspace-owned and turn-owned** — grounding and design proceed through turn cards inside the workspace; grounding cards accept optional comment + continue, question cards collect substantive answers, and the global bottom composer is not the canonical input seam. Depends on: A51, A56. Supersedes: —.
-90. **Requirements and criteria resolve through synthesized review turns** — the interviewer proposes a full candidate set from prior knowledge, presents stable item reference codes, accepts one review note plus explicit `accept review` / `request changes` submission, and regenerates a revised full-set successor turn when changes are requested. In V1, accepting a review uses the same durable phase-progression seam: the accepted review output becomes authoritative carry-forward state, the phase closes through the shared closure mechanism, and the next phase kickoff turn is created without a dead state. Depends on: A44, A52. Supersedes: —.
+90. **Requirements and criteria resolve through synthesized review turns** — the interviewer proposes a full candidate set from prior knowledge, presents stable item reference codes, accepts one review note plus explicit `accept review` / `request changes` submission, and regenerates a revised full-set successor turn when changes are requested. Earlier requirement-like or criterion-like material remains synthesis input rather than durable canonical requirement / criterion state until review acceptance. In V1, accepting a review uses the same durable phase-progression seam: the accepted review output becomes authoritative carry-forward state, the phase closes through the shared closure mechanism, and the next phase kickoff turn is created without a dead state. Depends on: A44, A52. Supersedes: —.
 91. **Grounding uses workspace-owned turn cards in one interaction family** — grounding strategy choice, grounding briefs, and early interrogation live in the specification workspace rather than root-route modals or a bare chat shell. Depends on: A47, A51, A56. Supersedes: kickoff cards as a separate interaction family.
-92. **Live-only assistant artifacts replay as contentless placeholders** — if thinking or tool use is surfaced live, hydration persists an inert marker that the artifact occurred without persisting hidden reasoning tokens or raw tool results. Depends on: A53. Supersedes: —.
+92. **Live-only assistant artifacts replay as concise durable activity summaries** — if thinking or tool use is surfaced live, hydration persists minimal turn-owned metadata such as elapsed thinking duration and a coarse tool-use summary / placeholder seam, without persisting hidden reasoning tokens or raw tool results. Depends on: A53. Supersedes: —.
 93. **Replay for elicitation phases is turn-shaped, not message-shaped** — completed interview turns collapse into answered-turn records that summarize the offer, the structured user response, and the capture status, while kickoff, review, control, and closure events render in their own interaction family rather than as ordinary chat bubbles. Depends on: A51, A53. Supersedes: —.
 94. **Phase progression is frontier-anchored** — every open phase bottoms out in exactly one actionable frontier turn or a visible generation state; fixed kickoff turns seed newly opened phases, accepting a frontier turn durably creates its successor turn, successor generation avoids closed-without-frontier gaps, and recovery turns exist only to repair broken frontier state. Closure turns are durable proposal-shaped turns on the active path; accepting a closure turn resolves that same turn as confirmed closure and immediately creates the next phase kickoff turn, while rejecting one keeps the phase open and requires a same-phase successor frontier. If a phase is closed, the transcript bottoms out in a handoff or completion artifact. Depends on: A51, A54. Supersedes: —.
 95. **Frontier control semantics persist on the turn** — kickoff, recovery, and ordinary frontier questions carry an explicit persisted turn kind so controller and view projection do not infer control state from `why` text or bootstrap copy. Depends on: D94. Supersedes: `why`-based kickoff/recovery sentinels.
@@ -130,6 +132,10 @@ Brunch operates inside a **workspace**: the cwd-backed software context whose lo
 106. **DrawerCard is the shared card primitive for expandable content** — a reusable component with header/summary/children slots that renders as: static card (no content), summary-peeking card (summary only), or toggleable card (summary ↔ children). A `locked` prop disables toggle for controlled-state cards. Depends on: D86.
 
 107. **ChatScroll combines ScrollArea with stick-to-bottom for the center pane** — Radix ScrollArea (custom scrollbar rendering) wired with `useStickToBottom` (auto-scroll to bottom + scroll-down indicator). Used as the center pane scroll container. Depends on: D86.
+
+108. **Durable exploration ontology is deliberately small and reliability-first** — before review acceptance, the observer only persists `goal`, `term`, `context`, `constraint`, `decision`, and `assumption`; `non-goal` stays a `constraint` subtype, while `feature` / `user story` remain deferred vocabulary rather than canonical durable kinds. `Context` is the descriptive bucket for situational facts and bounded area under discussion, not a fallback for explicit decisions, assumptions, or constraints. Depends on: A40. Supersedes: broader early-phase requirement / criterion capture.
+
+109. **Ontology language is canonical and shared across layers** — schema enums, shared kind registries, observer prompts, API types, fixtures, stories, and UI copy must all describe the same durable knowledge ontology and the same accepted-review semantics so the model does not drift by file or layer. Depends on: D49, D90, D105, D108. Supersedes: ad hoc per-layer ontology wording.
 
 ## Layout Architecture
 
@@ -201,7 +207,7 @@ Scroll container: ChatScroll (ScrollArea + useStickToBottom).
 
 | Group label | Kinds | Visible |
 | ----------- | ----- | ------- |
-| Goals & Context | goal, context, constraint | yes |
+| Goals & Context | goal, context, constraint (including `non-goal` subtype) | yes |
 | Assumptions & Decisions | assumption, decision | yes |
 | Requirements | requirement | yes |
 | Acceptance Criteria | criterion | yes |
@@ -254,10 +260,10 @@ Question card titles use arbitrary `text-[17px]` above the scale for emphasis.
 | ---- | --------- | ------------ | ------ |
 | I4   | Vite proxy routing and the runtime backend-port seam stay aligned through one explicit configuration path. | `runtime-config.test.ts` | D81 |
 | I17  | Data Part schema validation remains confined to true LLM / HTTP boundaries rather than mirrored internal seams. | `parts.test.ts` | D24 |
-| I24  | Interview hydration, streaming projection, controller orchestration, mutation transport, phase-filtered rendering, and successor-frontier continuity remain stable through the routed interview surface, including persisted frontier turn kinds for kickoff/recovery, turn-owned submit/interviewer-processing, visible generation states, and trailing observer attachment. | `InterviewView.test.tsx`, `-interview-data.test.ts`, `-interview-controller.test.tsx`, `client-mutation.test.ts` | D30, D86, D87, D94, D95 |
+| I24  | Interview hydration, streaming projection, controller orchestration, mutation transport, phase-filtered rendering, and successor-frontier continuity remain stable through the routed interview surface, including concise durable activity summaries for replay, persisted frontier turn kinds for kickoff/recovery, turn-owned submit/interviewer-processing, visible generation states, and trailing observer attachment. | `InterviewView.test.tsx`, `transcript-parity.test.tsx`, `-interview-data.test.ts`, `-interview-controller.test.tsx`, `app.test.ts`, `client-mutation.test.ts` | D30, D86, D87, D92, D94, D95 |
 | I44  | Structured turn responses round-trip through persistence, hydration, projection, and UI affordance state without collapsing back to scalar semantics. | `turn-response.test.ts`, `context.test.ts`, `InterviewView.test.tsx` | D57 |
 | I48  | Canonical knowledge kinds persist with provenance and project through typed entity collections, stable per-kind reference codes, turn-linked capture projection, and graph edges without ontology drift. | `db.test.ts`, `core.test.ts`, `knowledge.test.ts`, `EntitySidebar.test.tsx`, `InterviewView.test.tsx`, `GraphView.test.tsx` | D49, D50 |
-| I54  | Phase-aware observer extraction widens to all canonical knowledge kinds and survives persistence, turn-linked replay hydration, and UI refresh without breaking sync. | `observer.test.ts`, `context.test.ts`, `app.test.ts`, `InterviewView.test.tsx` | D30, D49, D95 |
+| I54  | Phase-aware capture preserves the committed ontology boundary: grounding / elicitation persist only durable exploration knowledge, accepted review outputs materialize durable requirements / criteria, and both seams survive persistence, turn-linked replay hydration, and UI refresh without breaking sync. | `observer.test.ts`, `context.test.ts`, `app.test.ts`, `InterviewView.test.tsx` | D30, D49, D90, D95, D108 |
 | I72  | Explicit phase outcomes project shared workflow status, closeability, readiness, and closure basis through one durable seam. | `phase-close.test.ts`, `db.test.ts`, `app.test.ts` | D65, D66 |
 | I87  | Requirements and criteria review ground themselves in their respective inventories, project stable review-set reference codes, accept lightweight full-set review replies, and carry accepted review outputs into downstream workflow without leaving dead frontier states. | `interview.test.ts`, `db.test.ts`, `app.test.ts` | D90, D94 |
 | I100 | `.brunch/` workspace resolution, launcher startup, actual bound URL reporting, and same-workspace runtime ownership stay correct in local-first distribution. | `project.test.ts`, `launcher.test.ts`, `cli.test.ts`, `runtime-config.test.ts` | D81 |
@@ -292,7 +298,7 @@ Question card titles use arbitrary `text-[17px]` above the scale for emphasis.
 | **grounding brief** | The concise visible summary surfaced on a grounding card after context gathering. |
 | **grounding sufficiency** | The threshold at which the interviewer has enough stable orientation to begin design. |
 | **review set** | A synthesized candidate list used in requirements or criteria review, presented with stable reference codes and resolved through `accept review` or `request changes` plus one review note. |
-| **accepted review set** | The terminal accepted review output for a review phase; this is the authoritative carry-forward set for later review and export seams. |
+| **accepted review set** | The terminal accepted review output for a review phase; this is the authoritative carry-forward set for later review and export seams, and any accepted requirement / criterion items derive their authority from membership in this set. |
 | **phase entry state** | The workspace state shown when a phase kickoff turn is the current frontier. |
 | **phase handoff state** | The workspace state shown when a phase is complete and the next phase is available. |
 | **control marker** | A transcript-visible workspace event such as interview start, resume, or confirmation that is not rendered as a normal user chat bubble. |
@@ -304,7 +310,13 @@ Question card titles use arbitrary `text-[17px]` above the scale for emphasis.
 | **closeability** | Deterministic minimum bar for whether the user may close a phase now. |
 | **readiness band** | Coarse descriptive signal (`low`, `medium`, `high`) separate from closeability. |
 | **review action** | The explicit submit path on a review turn: `accept review` or `request changes`; the action gives any attached review note its meaning. |
-| **knowledge item** | Typed semantic record such as `goal`, `term`, `context`, `constraint`, `assumption`, `decision`, `requirement`, or `criterion`. |
+| **exploration knowledge** | Durable knowledge captured during grounding or elicitation: `goal`, `term`, `context`, `constraint`, `decision`, and `assumption`. |
+| **context** | Descriptive situational truth, actors, workflows, repo facts, or bounded area under discussion that would remain true even if the specification paused tomorrow. |
+| **constraint** | A durable boundary on acceptable scope or solution space. |
+| **non-goal** | A `constraint` subtype expressing an explicit exclusion from the current specification scope. |
+| **decision** | A durable explicit commitment the user or specification has made about the approach. |
+| **assumption** | A durable material belief supporting a direction or decision that could later prove false. |
+| **knowledge item** | Typed semantic record in the durable ontology. Before review acceptance this means exploration knowledge; durable `requirement` / `criterion` items arise only from accepted review outputs. |
 | **knowledge graph** | Typed relationships among knowledge items, including `depends_on`, `derived_from`, `constrains`, `verifies`, and `refines`. |
 | **secondary thread** | Modal revisit conversation anchored to a primary-path turn and used to resolve cascade implications. |
 | **needs-revisit** | Flag meaning an item is affected by upstream invalidation and must be explicitly resolved before the specification is whole again. |
@@ -313,7 +325,7 @@ Question card titles use arbitrary `text-[17px]` above the scale for emphasis.
 | **phase stepper** | The vertical timeline navigation in the left sidebar showing phases as sequential steps with connecting line, status, readiness, and turn count. |
 | **knowledge group** | A display-level grouping of knowledge kinds for the sidebar, defined by a hard-coded registry that maps kinds to group labels and visibility. |
 | **output view** | The terminal route available when all phases are closed, providing specification summary and markdown export. Not a workflow phase. |
-| **activity placeholder** | A compact transcript element between turn cards showing elapsed thinking time and tools used by the interviewer. |
+| **activity placeholder** | A compact replayable transcript element between turn cards showing elapsed thinking time and a coarse tool-use summary for the interviewer without exposing hidden reasoning or raw tool payloads. |
 
 ### Boundary terms
 
@@ -397,11 +409,12 @@ Every meaningful code change should pass `npm run fix` in the inner loop and `np
 | ---- | -------- |
 | `db.test.ts` | I48, I72, I101 |
 | `core.test.ts` | I48 |
-| `app.test.ts` | I54, I72, I87 |
+| `app.test.ts` | I24, I54, I72, I87 |
 | `context.test.ts` | I44, I54 |
 | `observer.test.ts` | I48, I54 |
 | `EntitySidebar.test.tsx` | I48 |
 | `InterviewView.test.tsx` | I24, I44, I48, I54, I72 |
+| `transcript-parity.test.tsx` | I24 |
 | `interview.test.ts` | I87, I101 |
 | `phase-close.test.ts` | I72 |
 | `router.test.tsx` | I102 |
@@ -422,6 +435,8 @@ Every meaningful code change should pass `npm run fix` in the inner loop and `np
 9. Resume works from persisted state.
 10. The verification gate passes.
 11. Grounding/design use workspace-owned turn cards, requirements/criteria use full-set review turns, and non-active phases expose kickoff / handoff / completion affordances instead of a bare generic composer.
-12. Hydrated transcripts preserve interviewer-side structure plus stable contentless placeholders for any live-only artifacts that were shown during streaming.
+12. Hydrated transcripts preserve interviewer-side structure plus stable durable activity summaries for any live-only artifacts that were shown during streaming, including elapsed thinking time and a coarse tool-use summary / placeholder seam.
 13. Open phases bottom-load the current frontier turn, a visible generation state, or an exceptional recovery turn; completed elicitation turns replay as answered-turn records, and closed phases bottom-load a handoff or completion artifact.
 14. Grounding cards surface visible provisional context, allow optional user comment plus continue, and do not directly create durable knowledge from their own content.
+15. Grounding and elicitation persist only the durable exploration ontology, with `non-goal` represented as a `constraint` subtype rather than a separate top-level kind.
+16. Observer prompt, shared kind registry, schema / API types, fixtures, and UI copy describe the same ontology and accepted-review semantics without per-layer language drift.
