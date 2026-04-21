@@ -1,71 +1,99 @@
 ## Problem Statement
 
-The recent interaction-model work is functionally rich but structurally expensive to change. Interview orchestration is split across route loaders, mutation-triggered global invalidation, chat/SSE handlers, and large controller switchboards, so unrelated concerns still move together. Review-turn semantics also lose identity as they travel through the system: the UI thinks in reference codes and item text, submission payloads degrade to item indexes, and revision/change summaries fall back to text matching. The review architecture is also carrying stale overlap: interviewer-owned review sets are the real proposal seam, but observer-owned draft requirement / criterion items still linger as a competing intermediate path even though accepted review is now the sole authority for durable requirements and criteria. Fixture and walkthrough seeding have drifted too: some seeded scenarios still materialize durable requirement / criterion knowledge items before accepted review, and seeded assistant transcripts omit persisted activity summaries, so manual walkthroughs do not faithfully reflect current product truth. That makes future query-ownership work, review regeneration, naming cleanup, and outer-loop verification harder than they should be.
+This document no longer tracks the original wave sequence literally. Recent commits already landed a substantial portion of the intended ownership cleanup, including review-turn improvements and an initial runtime/query-management pass. A focused review of the last four commits showed that the new query-ownership work is only partially aligned with the intended design in `memory/PLAN.md` and `docs/query-domain-design.md`.
 
-## Solution
+The main mismatch is structural: observer updates now target an entities query instead of `router.invalidate()`, but the entities query is still subscribed from components that render the center-pane transcript, so the chat surface remains coupled to entity refresh. The `core` and `turns` query domains are also only split at the cache-key layer while still reading from the same monolithic `/api/specifications/:id` payload, which creates a fake ownership boundary and leaves room for stale or incoherent snapshots. The index redirect route still bypasses query ownership with its own raw fetch path, and the current tests do not yet prove the ownership boundary that the plan intended.
 
-Create a clearer ownership model for the interview surface before adding more behavior. The target state is:
-- one stable review-item identity carried from synthesized review set through UI, submission, regeneration context, and revision diffing
-- one deterministic review-authority path: interviewer-owned full-set proposal, user accept/request-changes, server-owned materialization from the accepted set, and no observer-owned review-item proposal seam
-- acceptance comments, if retained, are non-authoritative annotations; any semantic change to the accepted set must go through request-changes and a regenerated interviewer-owned successor set
-- one client-side specification-runtime seam that owns interview process concerns separately from read-model fetching
-- independently invalidable client data domains so observer updates refresh knowledge state without tearing down transcript state
-- fixture generation and walkthrough seeding that reflect current product truth, including review-authoritative requirements / criteria and persisted activity-summary replay
-- lexicon-aligned naming where workspace/specification terms are canonical and deprecated names are removed rather than preserved behind aliases or adapters
+There are also a smaller set of remaining interaction-model concerns from the earlier refactor brief that should now be treated as residual truth checks rather than as the primary plan: confirm there is no lingering observer-owned review-item proposal seam, confirm fixture and walkthrough seeds obey accepted-review authority, and confirm persisted activity-summary replay still matches current product truth after the runtime remediation.
 
-## Execution Waves
+## Baseline Already Landed
 
-### Wave 1 — Truth and safety rails
+These items are no longer the active plan unless remediation work uncovers a regression:
 
-1. Add characterization tests for review-item identity, review regeneration context, fixture truth, persisted activity-summary replay, review-phase authority boundaries, and observer-update refresh boundaries so the refactor has a safety net.
-2. Remove observer-owned draft requirement / criterion proposal seams so review phases no longer maintain a shadow proposal path beside interviewer-owned review sets.
-3. Regenerate the fixture helpers, observer corpus fixtures, and walkthrough seeds so pre-review scenarios stop materializing durable requirement / criterion entities, review phases stop pretending observer-owned draft proposals are canonical, and seeded transcripts persist activity summaries the same way runtime turns do.
+- Review per-item commenting, regeneration context plumbing, versioned revision cards, and compact superseded-review replay landed and are already tracked in `memory/PLAN.md` as recently completed work.
+- Review diffing extraction landed (`src/shared/review-diffing.ts`) and should be treated as the current baseline, not a future refactor step.
+- The specification-runtime lifecycle seam was extracted into `src/client/routes/specification/$id/_view/-specification-lifecycle.ts`; the remaining question is whether its data ownership is wired correctly, not whether a runtime seam should exist at all.
+- Query-client scaffolding, specification data hooks, and targeted invalidation were introduced; the remaining work is remediation and consolidation, not a greenfield query-domain build.
+- The earlier naming/ownership cleanup frontier is retired in `memory/PLAN.md`; any remaining naming drift found during remediation should be fixed opportunistically, not treated as its own wave.
 
-### Wave 2 — Naming and review-item identity
+## Live Goal
 
-4. Rename newly touched user-facing and developer-facing seams from deprecated project wording to specification/workspace wording, deleting deprecated names instead of preserving aliases or adapters.
-5. Introduce a canonical review-item identity model and thread it through synthesized review sets, client rendering state, submitted review feedback, and successor-turn context building.
-6. Replace index-based review feedback plumbing with stable review-item identity plumbing while preserving the existing accept/request-changes behavior.
+Finish the ownership refactor from the codebase we actually have now.
 
-### Wave 3 — Acceptance semantics and review diffing
+The target state is:
 
-7. Tighten acceptance semantics so accepted review sets materialize deterministically from the structured accepted set, while any acceptance comments remain non-authoritative annotations rather than hidden semantic modifiers.
-8. Extract review-turn comparison and revision-summary logic behind one dedicated module so review diffing no longer depends on content-text fallback spread across helpers.
+- one authoritative read-model ownership path for specification workflow state, landing state, and turns
+- independently invalidable entity refresh that does not rerender or destabilize the center-pane transcript
+- one query/runtime seam whose behavior matches the intent in `memory/PLAN.md:25-30`
+- one route-loader/index-entry path that primes or reads the same owned data domains instead of bypassing them
+- one verification story that proves observer updates and user mutations refresh only their owned surfaces
+- one residual truth pass over review authority, fixtures, walkthrough seeds, and persisted activity-summary replay so older interaction-model goals are either explicitly closed or explicitly re-scoped
 
-### Wave 4 — Runtime and data ownership
+## Execution Fronts
 
-9. Extract a specification-runtime seam on the client that owns in-flight interview lifecycle concerns, capture-status bookkeeping, and navigation side effects independently from view rendering.
-10. Split specification data reads into explicit domains for workflow/specification core, transcript turns, and knowledge entities, but keep them behaviorally equivalent to current loads.
-11. Retarget mutations and SSE observer handling to invalidate only their owned domains, with observer results refreshing knowledge state without reloading the transcript domain.
+### Front 1 - Query ownership remediation
 
-### Wave 5 — Final deletion and outer-loop validation
+1. Replace the current fake `core`/`turns` split over the shared `/api/specifications/:id` payload with one authoritative interim ownership model.
+2. Default remediation strategy: use one specification bundle query for workflow + landing + turns, and keep entities as the separately invalidable domain. Only introduce true split endpoints if that becomes necessary after the bundle path is clean.
+3. Remove or collapse transitional invalidation helpers that imply `core` and `turns` are independently safe when they are still backed by the same server payload.
+4. Keep the specification-runtime seam, but make it consume the corrected ownership boundary rather than rebuilding a synthetic specification state from fake-separated caches.
 
-12. Remove the obsolete route-wide invalidation, compatibility glue, deprecated code names, and legacy adaptation branches once the new runtime and query-domain seams fully own the flow.
-13. Re-run manual walkthrough seeds against the refreshed fixtures and record outer-loop findings before further interaction-model work lands.
+### Front 2 - Transcript/entity boundary repair
+
+1. Move entity-query subscription out of any component that also owns or renders the center-pane transcript subtree.
+2. Ensure observer-result invalidation refreshes entity-owned surfaces only: entity sidebar, graph view, and any entity-only consumers.
+3. Ensure the transcript path keeps its current chat/runtime state, message continuity, and scroll stability when entities refresh.
+4. Treat the desired result as stricter than "no `useChat.setMessages()` call": the transcript surface itself should stay outside the entity refresh ownership path.
+
+### Front 3 - Loader and entry-path consolidation
+
+1. Remove the raw `/specification/$id/` redirect fetch as an independent source of truth.
+2. Make route loaders, redirect decisions, and cache priming all flow through the same owned specification data path.
+3. Prefer loader/query priming that matches the design intent in `docs/query-domain-design.md` instead of singleton cache writes that bypass the active route/query ownership model.
+4. Delete any now-obsolete transitional fetch/prime logic once one path is clearly authoritative.
+
+### Front 4 - Ownership oracles and verification repair
+
+1. Add route/query ownership integration tests that prove observer updates do not refetch or remount the transcript-owned bundle path.
+2. Add tests that prove turn responses and phase-intent mutations refresh the specification-owned bundle path while preserving chat continuity.
+3. Add an entry-path test that proves direct `/specification/$id/` navigation uses one authoritative owned fetch/prime path.
+4. Treat the existing mocked-invalidator assertions as insufficient by themselves; keep them only as inner-loop unit checks under stronger integration oracles.
+
+### Front 5 - Residual interaction-model truth pass
+
+1. Audit for any remaining observer-owned draft requirement / criterion proposal seam. If none remains, explicitly retire that concern from this refactor.
+2. Audit fixture helpers, corpus fixtures, and walkthrough seeds against current accepted-review authority. Keep only actual drift as live work.
+3. Audit persisted activity-summary replay against the current runtime ownership path so hydration/replay truth is not accidentally regressed during remediation.
+4. If the audit is clean, close this front with notes instead of inventing cleanup work.
+
+### Front 6 - Cleanup and outer-loop validation
+
+1. Delete transitional query-domain code that only existed to bridge the naive first pass.
+2. Re-run walkthrough scenarios that are most sensitive to ownership and replay boundaries: `brownfield-grounding-replay`, `issue-tracker-requirements-ready`, `issue-tracker-criteria-ready`, and `issue-tracker-all-phases-closed`.
+3. Record whether the remediation fully satisfies the `Track A - Query ownership` intent in `memory/PLAN.md`; if it does, retire that frontier item and shrink this document again.
 
 ## Decisions
 
-- The refactor centers on interaction-surface ownership, not on changing product behavior or redesigning the workspace UI.
-- Stable review-item identity becomes the canonical handle for per-item feedback, regeneration context, and revision diffing.
-- Interviewer-owned review sets are the only proposal seam for requirements and criteria. The observer does not propose review items during review phases and does not participate in accepted-review materialization.
-- Accepted review transfers authority directly from the structured accepted set into durable requirement / criterion state. Acceptance comments are annotations, not semantic modifiers. Any semantic change must go through request-changes and interviewer regeneration.
-- Walkthrough fixtures are part of the trusted read model: seeded scenarios must obey the same review-authority rules and persisted activity-summary rules as runtime-generated data.
-- Query-domain ownership is treated as the structural end state for client data refresh, with a dedicated runtime seam handling ephemeral process state.
-- We are still in a seed-first, migration-light phase. Do not spend time on legacy data migrations, alias layers, adaptive readers, or deprecated-name compatibility shims; prefer destructive reseed and direct deletion of obsolete seams.
-- Lexicon cleanup follows the canonical terminology in the spec: workspace and specification are product terms, and deprecated names should be removed rather than preserved behind adapters.
+- The original wave plan is superseded by the code that already landed. Do not continue implementing the old sequence mechanically.
+- The recent runtime/query commits are treated as a provisional baseline, not as the final ownership design.
+- Until the server truly exposes separate endpoints, specification workflow state, landing state, and turns should be treated as one authoritative bundle-owned seam.
+- Entities remain the only separately invalidable client data domain in the near term.
+- An entity query is not considered independently owned if a component subscribing to it also renders the center-pane transcript subtree.
+- Keep the specification-runtime lifecycle seam, but simplify its inputs once the read-model ownership boundary is corrected.
+- Residual interaction-model cleanup should be evidence-driven. If a previously suspected seam is already gone, close it instead of preserving it as ceremonial plan work.
+- Do not widen this refactor into continuous workspace, layout redesign, revisit/cascade work, or new product features.
 
 ## Testing Decisions
 
-- Good tests here prove behavior at the semantic boundary: review feedback survives regeneration, revision summaries remain stable under reordering/text edits, observer updates do not force transcript refresh, phase progression still behaves the same, fixture-generated walkthroughs obey review-authority rules, accepted-review persistence is deterministic from the structured accepted set, and seeded transcripts replay persisted activity summaries.
-- The main coverage should sit at shared review-state helpers, fixture serialization/builders, observer corpus fixtures, server-side context/review synthesis, accepted-review materialization, client controller/runtime behavior, and route-level refresh ownership.
-- Manual walkthroughs should be re-run after fixture regeneration, especially for `brownfield-grounding-replay`, `issue-tracker-requirements-ready`, `issue-tracker-criteria-ready`, and `issue-tracker-all-phases-closed`.
-- Existing prior art already covers grounded cards, review revisions, controller rendering, export, app-level chat flows, and observer probes; extend that coverage with characterization tests rather than rewriting the harness.
+- The key oracle comes from `memory/SPEC.md`: observer updates and user mutations must refresh only their owned surfaces.
+- The primary automated proof must sit above mocked hook boundaries, at the route/query integration level.
+- Manual walkthroughs remain important for scroll stability, transcript continuity, and hydration/replay legibility after remediation.
+- Existing unit tests around lifecycle state, controller behavior, and review diffing remain valuable, but they are not sufficient evidence that query ownership is correct.
 
 ## Out of Scope
 
-- New product features beyond the current review and interview interaction model.
-- Introducing an "accept with semantic edits" path; semantic changes remain a request-changes flow.
-- Continuous workspace rendering or other layout-architecture changes unrelated to runtime/query ownership.
-- Revisit / cascade thread work.
-- Export content redesign beyond what falls out mechanically from stable naming and review identity.
-- Legacy data migrations, aliasing, deprecated-name adapters, or permissive handling of old review/draft seams.
+- Continuous workspace / phase-addressable interview surface work.
+- New review features beyond preserving current semantics.
+- Revisiting accepted-review UX beyond truth-preserving cleanup.
+- Server endpoint proliferation unless the bundle-remediation path proves insufficient.
+- Legacy compatibility shims, alias layers, or migration work for unstable local data.
