@@ -19,7 +19,7 @@ Key insight from dependency analysis: grounding free-text (D115), hint-guided pr
    - Verification: `npm run verify` plus manual greenfield grounding walkthrough confirming open questions, free-text response, hint-guided question quality, and correct observer capture.
    - Traceability: D115, D120; A59, A63; Requirements 4, 27.
 
-2. **Homepage workspace binding** — bounded feature `[status: not-started]`
+2. **Homepage workspace binding** — bounded feature `[status: done]`
    - Objective: the root route surfaces workspace (CWD) identity so the user understands that listed specifications and the "new specification" affordance are scoped to the current project directory.
    - Why now / unlocks: trivially small, independent, and immediately improves orientation. No dependencies.
    - Acceptance: the homepage shows workspace path context, the spec list is framed as "Specifications in this workspace", and the empty state reinforces workspace scoping.
@@ -114,6 +114,7 @@ Key insight from dependency analysis: grounding free-text (D115), hint-guided pr
 
 ## Recently Completed
 
+- [2026-04-21] Homepage workspace binding — Done: homepage heading shows workspace name + full path, populated list framed with "Specifications in this workspace", empty state references workspace name. Verified: `npm run verify`. Watch: visual check on populated and empty homepage states.
 - [2026-04-20] Alias deletion retired the naming frontier — Done: removed the remaining `/api/projects/...` compatibility entry points and deleted shared/server `project` alias seams from the happy path. Verified: `npm run verify`. Watch: freshly reseeded manual resume/export walkthrough still matters after the destructive cut.
 - [2026-04-20] Specification routes moved to canonical ownership — Done: routed workspace/export entry now flows through `/specification/...`, and client fetch/mutation seams now target `/api/specifications/...` on the happy path. Verified: `npm run verify`. Watch: none.
 
