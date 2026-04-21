@@ -111,4 +111,11 @@ Archived out of `memory/PLAN.md` when the active frontier moved from the mostly-
 - 2026-04-20 — **Client-owned terminology cleanup slices landed under the naming frontier** — client-facing state seams defaulted to `Specification*` aliases, specification/workspace helper and module names replaced the remaining client runtime `project` wording, and exhausted execution-queue artifacts were retired without changing DB identifiers.
 - 2026-04-19 — **Phase transition and handoff stabilization retired from the active frontier** — requirements acceptance now advances directly into criteria kickoff, criteria acceptance closes the workflow into export-ready state, and closed phases project explicit handoff/completion artifacts.
 
+## 2026-04-21 Sync archive
+
+- 2026-04-21 — **Grounding free-text question format with hint-guided prompts** — grounding questions use open free-text format; hint-guided priority-ordered topic list replaces unconstrained prompt; schema, prompt, response, and observer seams all aligned. Traceability: D115, D120; A59, A63; Requirements 4, 27.
+- 2026-04-21 — **Homepage workspace binding** — root route surfaces workspace (CWD) identity with workspace name + path. Traceability: D122; Requirement 26.
+- 2026-04-20 — **Alias deletion retired the naming frontier** — removed remaining `/api/projects/...` compatibility entry points and deleted shared/server `project` alias seams.
+- 2026-04-20 — **Specification routes moved to canonical ownership** — routed workspace/export entry through `/specification/...` and client seams through `/api/specifications/...`.
+
 Use `memory/PLAN.md` for the live frontier only.
