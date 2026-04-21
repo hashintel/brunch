@@ -39,7 +39,18 @@ describe('structuredQuestionSchema', () => {
     expect(structuredQuestionSchema.parse(valid)).toEqual(valid);
   });
 
-  it('rejects a question with fewer than two options', () => {
+  it('accepts a grounding question with no options', () => {
+    const freeTextQuestion = {
+      question: 'What is the main problem you are trying to solve?',
+      why: 'Understanding the core problem grounds all downstream decisions.',
+      impact: 'high' as const,
+      options: [],
+    };
+
+    expect(structuredQuestionSchema.parse(freeTextQuestion)).toEqual(freeTextQuestion);
+  });
+
+  it('rejects a question with exactly one option (ambiguous — neither free-text nor multi-option)', () => {
     expect(() =>
       structuredQuestionSchema.parse({
         question: 'What?',
@@ -140,6 +151,45 @@ describe('canProposePhaseClosure', () => {
     expect(canProposePhaseClosure('requirements', false)).toBe(false);
     expect(canProposePhaseClosure('requirements', true)).toBe(false);
     expect(canProposePhaseClosure('criteria')).toBe(false);
+  });
+});
+
+describe('createAskQuestionTool phase-aware options enforcement', () => {
+  it('allows zero options for grounding turns', async () => {
+    const project = createSpecification(db, 'Spec');
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
+    const askTool = getInterviewerTools(db, turn.id, 'grounding', project.id).ask_question;
+
+    const result = await askTool.execute!(
+      {
+        question: 'What problem are you solving?',
+        why: 'Core problem grounds everything.',
+        impact: 'high',
+        options: [],
+      },
+      { toolCallId: 'tc-1', messages: [], abortSignal: new AbortController().signal },
+    );
+
+    expect(result).toEqual({ ok: true, turnId: turn.id, optionCount: 0 });
+    expect(getOptionsForTurn(db, turn.id)).toHaveLength(0);
+  });
+
+  it('rejects zero options for design turns', async () => {
+    const project = createSpecification(db, 'Spec');
+    const turn = createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
+    const askTool = getInterviewerTools(db, turn.id, 'design', project.id).ask_question;
+
+    await expect(
+      askTool.execute!(
+        {
+          question: 'Which architecture?',
+          why: 'Architecture shapes everything.',
+          impact: 'high',
+          options: [],
+        },
+        { toolCallId: 'tc-2', messages: [], abortSignal: new AbortController().signal },
+      ),
+    ).rejects.toThrow(/options/i);
   });
 });
 

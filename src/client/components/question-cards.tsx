@@ -52,8 +52,10 @@ export function AnsweredQuestionCard({
           .filter((opt) => persistedResponse.selectedOptionIds.includes(opt.id))
           .map((opt) => opt.position + 1)
       : [];
-  const chosenSummary =
-    selectedPositions.length > 0
+  const isFreeTextOnly = !turn.options || turn.options.length === 0;
+  const chosenSummary = isFreeTextOnly
+    ? null
+    : selectedPositions.length > 0
       ? selectedPositions.join(', ')
       : persistedResponse?.freeText
         ? 'None'
@@ -86,16 +88,26 @@ export function AnsweredQuestionCard({
   const summary = (
     <div className="flex flex-col gap-0">
       <div className="flex items-center gap-2.5 text-xs">
-        <span className="text-sub">Choices:</span>
-        <span className="text-ink">{chosenSummary}</span>
-        {responseContext && (
+        {isFreeTextOnly ? (
+          <div className="min-w-0 grow">
+            <span className="block truncate text-sub">
+              Response: <span className="text-sub italic">"{responseContext ?? '—'}"</span>
+            </span>
+          </div>
+        ) : (
           <>
-            <span className="shrink-0 text-rule">|</span>
-            <div className="min-w-0 grow">
-              <span className="block truncate text-sub">
-                Context: <span className="text-sub italic">"{responseContext}"</span>
-              </span>
-            </div>
+            <span className="text-sub">Choices:</span>
+            <span className="text-ink">{chosenSummary}</span>
+            {responseContext && (
+              <>
+                <span className="shrink-0 text-rule">|</span>
+                <div className="min-w-0 grow">
+                  <span className="block truncate text-sub">
+                    Context: <span className="text-sub italic">"{responseContext}"</span>
+                  </span>
+                </div>
+              </>
+            )}
           </>
         )}
       </div>
@@ -376,9 +388,10 @@ export function ActiveQuestionCard({
   const [selectedPositions, setSelectedPositions] = useState<number[]>(persistedSelectedPositions);
   const [freeText, setFreeText] = useState(persistedFreeText);
   const [noneOfTheAbove, setNoneOfTheAbove] = useState(false);
+  const isFreeTextOnly = options.length === 0;
   const hasSelection = selectedPositions.length > 0;
   const hasFreeText = freeText.trim().length > 0;
-  const canSubmit = hasSelection || (noneOfTheAbove && hasFreeText);
+  const canSubmit = isFreeTextOnly ? hasFreeText : hasSelection || (noneOfTheAbove && hasFreeText);
   const isSubmitted = state === 'submitted';
   const isReadOnly = disabled || hasPersistedResponse || isSubmitted;
   const displayImpact = impact ?? 'low';
@@ -428,46 +441,50 @@ export function ActiveQuestionCard({
     <>
       {why && <p className="text-xs leading-relaxed text-sub">{why}</p>}
 
-      <div className="flex flex-col gap-0.5">
-        {options.map((opt) => {
-          const isSelected = selectedPositions.includes(opt.position);
-          return (
-            <label
-              key={opt.position}
-              className={cn(
-                'flex min-h-6 cursor-pointer items-start gap-2 rounded-lg py-1 text-left text-xs-plus',
-                noneOfTheAbove && 'opacity-40',
-                isReadOnly && 'cursor-not-allowed opacity-60',
-              )}
-            >
+      {!isFreeTextOnly && (
+        <div className="flex flex-col gap-0.5">
+          {options.map((opt) => {
+            const isSelected = selectedPositions.includes(opt.position);
+            return (
+              <label
+                key={opt.position}
+                className={cn(
+                  'flex min-h-6 cursor-pointer items-start gap-2 rounded-lg py-1 text-left text-xs-plus',
+                  noneOfTheAbove && 'opacity-40',
+                  isReadOnly && 'cursor-not-allowed opacity-60',
+                )}
+              >
+                <Checkbox
+                  checked={isSelected}
+                  onCheckedChange={() => toggleSelection(opt.position)}
+                  disabled={isReadOnly}
+                  aria-label={opt.content}
+                  className="mt-px shrink-0 data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
+                />
+                <span className={isSelected ? 'text-ink' : 'text-sub'}>{opt.content}</span>
+                {opt.is_recommended && (
+                  <span className="text-xxs font-medium text-[#2070e6]">Recommended</span>
+                )}
+              </label>
+            );
+          })}
+
+          <>
+            <div className="my-1 border-t border-rule" />
+            <label className="flex min-h-6 cursor-pointer items-start gap-2 rounded-lg py-1 text-left text-xs-plus">
               <Checkbox
-                checked={isSelected}
-                onCheckedChange={() => toggleSelection(opt.position)}
+                checked={noneOfTheAbove}
+                onCheckedChange={toggleNone}
                 disabled={isReadOnly}
-                aria-label={opt.content}
                 className="mt-px shrink-0 data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
               />
-              <span className={isSelected ? 'text-ink' : 'text-sub'}>{opt.content}</span>
-              {opt.is_recommended && <span className="text-xxs font-medium text-[#2070e6]">Recommended</span>}
+              <span className={cn('text-sub', noneOfTheAbove && 'text-ink')}>
+                None of the above / I'm not sure
+              </span>
             </label>
-          );
-        })}
-
-        <>
-          <div className="my-1 border-t border-rule" />
-          <label className="flex min-h-6 cursor-pointer items-start gap-2 rounded-lg py-1 text-left text-xs-plus">
-            <Checkbox
-              checked={noneOfTheAbove}
-              onCheckedChange={toggleNone}
-              disabled={isReadOnly}
-              className="mt-px shrink-0 data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
-            />
-            <span className={cn('text-sub', noneOfTheAbove && 'text-ink')}>
-              None of the above / I'm not sure
-            </span>
-          </label>
-        </>
-      </div>
+          </>
+        </div>
+      )}
 
       {isSubmitted ? (
         <div
@@ -480,15 +497,19 @@ export function ActiveQuestionCard({
 
       <div className="-mx-4 -mb-4 border-t border-rule bg-white px-4 pt-3">
         <label className="text-xs text-sub" htmlFor={`turn-response-${id}`}>
-          Please provide additional context for your answer.
+          {isFreeTextOnly ? 'Your response' : 'Please provide additional context for your answer.'}
         </label>
         <Textarea
           id={`turn-response-${id}`}
-          aria-label="Additional response context"
+          aria-label={isFreeTextOnly ? 'Your response' : 'Additional response context'}
           value={freeText}
           onChange={(e) => setFreeText(e.target.value)}
           disabled={isReadOnly}
-          placeholder="Constraints, trade-offs, motivations, or reasoning worth capturing…"
+          placeholder={
+            isFreeTextOnly
+              ? 'Share your thinking — goals, context, constraints, or anything relevant…'
+              : 'Constraints, trade-offs, motivations, or reasoning worth capturing…'
+          }
           className="min-h-24 resize-none rounded-none border-0 bg-transparent px-0 pt-2 pb-5 text-sm-plus text-ink placeholder:text-hint focus-visible:ring-0"
         />
       </div>

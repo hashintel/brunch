@@ -218,6 +218,9 @@ export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
     outputSchema: askQuestionToolOutputSchema,
     execute: async (input) => {
       const turn = getTurn(db, turnId);
+      if (turn && turn.phase !== 'grounding' && input.options.length < 2) {
+        throw new Error('Non-grounding phases require at least 2 options per question');
+      }
       if (turn && (turn.phase === 'requirements' || turn.phase === 'criteria')) {
         const reviewActions = input.reviewActions ?? [];
         const hasAccept = reviewActions.some((reviewAction) => reviewAction.action === 'accept');

@@ -63,7 +63,17 @@ export const structuredQuestionSchema = z
           is_recommended: z.boolean(),
         }),
       )
-      .min(2),
+      .check((ctx) => {
+        if (ctx.value.length === 1) {
+          ctx.issues.push({
+            code: 'too_small',
+            minimum: 2,
+            input: ctx.value,
+            origin: 'array',
+            inclusive: true,
+          });
+        }
+      }),
     reviewActions: z.array(reviewActionOptionSchema).optional(),
     reviewSet: reviewSetSchema.optional(),
   })
