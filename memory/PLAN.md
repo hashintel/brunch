@@ -46,8 +46,7 @@ Key insight from dependency analysis: grounding free-text (D115), hint-guided pr
 
 ### Track A — Interaction model (continued)
 
-1. **Multi-part turn rendering seam** — structural prerequisite for both turn-internal grounding cards and review revision cards.
-   - Why now / unlocks: grounding cards (D117) and revision cards (D119) both need one turn to render a stack of assistant-part cards with one response submission. Building one shared seam prevents two one-off special cases. Currently `renderWorkspaceInteractiveArtifact()` renders either a grounding card OR a question card OR a review set, but not stacked.
+1. ~~**Multi-part turn rendering seam**~~ `[done]` — structural prerequisite for both turn-internal grounding cards and review revision cards.
    - Traceability: A61; D117, D119; Requirements 4, 25.
 
 2. **Turn-internal grounding cards** — grounding cards render within the same turn as their paired question card.
@@ -114,6 +113,7 @@ Key insight from dependency analysis: grounding free-text (D115), hint-guided pr
 
 ## Recently Completed
 
+- [2026-04-21] Multi-part turn rendering seam — Done: `answered-grounding-question` and `persisted-grounding-question` artifact kinds in workspace stream projector; stacked rendering in transcript artifacts; question numbering includes stacked turns. Verified: `npm run verify` (490 tests). Watch: manual brownfield walkthrough to confirm stacked grounding-card + question renders live and on replay.
 - [2026-04-21] Homepage workspace binding — Done: homepage heading shows workspace name + full path, populated list framed with "Specifications in this workspace", empty state references workspace name. Verified: `npm run verify`. Watch: visual check on populated and empty homepage states.
 - [2026-04-20] Alias deletion retired the naming frontier — Done: removed the remaining `/api/projects/...` compatibility entry points and deleted shared/server `project` alias seams from the happy path. Verified: `npm run verify`. Watch: freshly reseeded manual resume/export walkthrough still matters after the destructive cut.
 - [2026-04-20] Specification routes moved to canonical ownership — Done: routed workspace/export entry now flows through `/specification/...`, and client fetch/mutation seams now target `/api/specifications/...` on the happy path. Verified: `npm run verify`. Watch: none.
@@ -124,15 +124,15 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 
 ```text
 TRACK A — Interaction model (product priority)
-grounding-free-text-with-hint-guided-prompts  (active; no blockers)
-  └──→ multi-part-turn-rendering-seam
+grounding-free-text-with-hint-guided-prompts  ✅ done
+  └──→ multi-part-turn-rendering-seam  ✅ done
         ├──→ turn-internal-grounding-cards
         │     └──→ brownfield-workspace-analysis-grounding-brief
         │           └──→ reusable-context-gathering
         └──→ review-per-item-commenting-and-regeneration
 
-phase-section-headers  (after grounding-free-text; no other blockers)
-homepage-workspace-binding  (active; no blockers; independent)
+phase-section-headers  (after grounding-free-text ✅; no other blockers)
+homepage-workspace-binding  ✅ done
 
 granular-query-domain-design  (no blockers)
   └──→ granular-query-domain-implementation  (after interaction-model seams settle)
