@@ -4,86 +4,97 @@
 
 # Plan
 
-The naming/ownership cleanup is now retired. The break-and-fix cutover is complete: canonical browser and HTTP entry seams use `/specification/...` and `/api/specifications/...`, durable/shared/server identity uses `specification` / `specification_id`, the first workflow key is physically `grounding`, and `src/` no longer carries `project` alias/adaptation seams on the happy path. Because local data is unstable and fixtures are cheap to regenerate, destructive reseed remains the intended recovery path; a freshly reseeded manual resume/export walkthrough is still the outer-loop watch after the destructive cut.
+The naming/ownership cleanup is retired. The plan now runs two parallel tracks: **interaction model** (product-priority) and **architecture/layout** (structural). The interaction-model track is prioritized because it reshapes the user-facing grounding, review, and data-freshness experience without depending on the continuous workspace migration. The architecture track proceeds independently around completion surfaces and cumulative workspace ownership.
 
-Active work now turns to user-visible completion and cumulative-workspace ownership. Start by making output/export and close-phase semantics truthful, then extract workflow ownership before the continuous workspace pass. The grounding interaction-model slices (grounding free-text questions, phase section headers, and later context-gathering capability) remain near horizon, but now follow the continuity pass so they target the stabilized center-pane shape rather than the current routed split. Most of the dramaturgical audit hardening landed during the just-closed slices, so any remaining proof or polish stays incidental rather than owning the frontier. Revisit/cascade and infrastructure/tooling remain on the true horizon.
+Key insight from dependency analysis: grounding free-text (D115), hint-guided prompts (D120), turn-internal grounding cards (D117), review per-item commenting (D118/D119), and query domain design (D121) do NOT depend on continuous workspace — they touch schema, prompts, turn data model, and card rendering, not center-pane layout. The only real shared structural prerequisite for multi-artifact turns (grounding card + question, revision card + review set) is a multi-part turn rendering seam, not the continuous workspace.
 
 ## Active
 
-1. **Output route and markdown export refinement** — bounded feature `[status: not-started]`
-   - Objective: make the output route, preview, and markdown export truthful and legible under the canonical specification terminology without reopening workflow-complete semantics.
-   - Why now / unlocks: export is the clearest user-visible completion seam after the naming cutover. Landing it first gives the following close-phase and workspace-continuity work a truthful completion target.
-   - Acceptance: the output route, preview, and markdown export present accepted review outputs cleanly under the renamed terminology and remain available only when all interview phases are closed.
+### Track A — Interaction model (product priority)
+
+1. **Grounding free-text question format with hint-guided prompts** — bounded feature `[status: done]`
+   - Objective: grounding questions use an open free-text format (question + why + response note) instead of option selection, and the grounding system prompt uses a hint-guided priority-ordered topic list with example question shapes instead of generating questions from scratch.
+   - Why now / unlocks: this is the highest-impact product change — it reshapes every grounding session. Schema, prompt, and response seams are independent of center-pane layout.
+   - Acceptance: `structuredQuestionSchema` accepts grounding questions without required options (phase-aware variant or discriminated response mode, not weakening the global schema); the grounding system prompt produces open exploratory questions from a topic list; the response schema and UI accept `freeText`-only submissions; elicitation and later phases still require options; observer captures from grounding turns correctly.
+   - Verification: `npm run verify` plus manual greenfield grounding walkthrough confirming open questions, free-text response, hint-guided question quality, and correct observer capture.
+   - Traceability: D115, D120; A59, A63; Requirements 4, 27.
+
+2. **Homepage workspace binding** — bounded feature `[status: not-started]`
+   - Objective: the root route surfaces workspace (CWD) identity so the user understands that listed specifications and the "new specification" affordance are scoped to the current project directory.
+   - Why now / unlocks: trivially small, independent, and immediately improves orientation. No dependencies.
+   - Acceptance: the homepage shows workspace path context, the spec list is framed as "Specifications in this workspace", and the empty state reinforces workspace scoping.
+   - Verification: `npm run verify` plus visual check on the homepage.
+   - Traceability: D122; Requirement 26.
+
+### Track B — Architecture / completion surfaces
+
+3. **Output route and markdown export refinement** — bounded feature `[status: not-started]`
+   - Objective: make the output route, preview, and markdown export truthful and legible under the canonical specification terminology.
+   - Why now / unlocks: export is the clearest user-visible completion seam after the naming cutover.
+   - Acceptance: the output route, preview, and markdown export present accepted review outputs cleanly and remain available only when all interview phases are closed.
    - Verification: `npm run verify` plus a manual export walkthrough on a completed seeded specification.
    - Traceability: D101; I24, I87, I104.
 
-2. **Close Phase confirmation modal** — bounded feature `[status: not-started]`
+4. **Close Phase confirmation modal** — bounded feature `[status: not-started]`
    - Objective: complete the remaining phase-exit UX by showing a confirmation modal with readiness/turn-count context before closing in-progress non-review phases.
-   - Why now / unlocks: makes closure intent explicit before workflow extraction and cumulative workspace rendering start depending on closeability semantics.
+   - Why now / unlocks: makes closure intent explicit before workflow extraction.
    - Acceptance: in-progress non-review phases show a confirmation modal with readiness/turn-count context and gating that matches closeability rules.
    - Verification: `npm run verify` plus manual close/reject/confirm walkthroughs on grounding and elicitation phases.
    - Traceability: D104, D65, D66; I72.
 
-3. **Workflow ownership extraction** — structural `[status: not-started]`
-   - Objective: extract projector and `app.ts` workflow ownership so lifecycle orchestration and stream projection are easier to reason about without introducing a second durable workflow model.
-   - Why now / unlocks: once export and close-phase semantics are truthful, this is the right architectural cleanup before the continuous workspace pass.
-   - Acceptance: workflow projection and transition orchestration become easier to reason about without changing phase semantics or adding a second durable workflow model.
-   - Verification: `npm run verify` plus focused regression reads on seeded landing/recovery/progression flows.
-   - Traceability: D110, D112, D113; I24, I72, I104.
-
 ## Next
 
-Near-horizon work is now ordered around cumulative workspace ownership first, then grounding interaction-model follow-ons, then deeper grounding/context-gathering capability.
+### Track A — Interaction model (continued)
 
-### Ownership refinement
+1. **Multi-part turn rendering seam** — structural prerequisite for both turn-internal grounding cards and review revision cards.
+   - Why now / unlocks: grounding cards (D117) and revision cards (D119) both need one turn to render a stack of assistant-part cards with one response submission. Building one shared seam prevents two one-off special cases. Currently `renderWorkspaceInteractiveArtifact()` renders either a grounding card OR a question card OR a review set, but not stacked.
+   - Traceability: A61; D117, D119; Requirements 4, 25.
 
-1. **Continuous workspace / phase-addressable interview surface** — user-facing continuity pass after workflow ownership is clearer.
-   - Why now / unlocks: once workflow projection and lifecycle ownership are clearer, separate cumulative rendering from routed phase addressability so later grounding and router/query work target the right center-pane seam.
-   - Acceptance: the center pane renders one cumulative workspace stream where realized grounding / design / requirements / criteria sections remain visible as record, the current reachable section owns the only actionable frontier, future sections do not render until reachable, the left sidebar acts as truthful section-jump navigation for realized sections, and direct future-phase deep links redirect to the current reachable phase without introducing a second durable workflow model.
-   - Verification: `npm run verify` plus manual walkthroughs for deep-link redirects, scroll/focus transitions, close-to-next-phase motion, and reload/resume on a partially completed specification.
-   - Traceability: A58; D86, D87, D103, D107, D110, D113, D114; I24, I102.
+2. **Turn-internal grounding cards** — grounding cards render within the same turn as their paired question card.
+   - Why now / unlocks: once the multi-part turn seam and free-text format are in place, grounding cards become the enabling primitive for analysis-first grounding. The observer captures one validated unit (grounding context + question + user response).
+   - Traceability: D83, D89, D91, D99, D112, D117; A56, A61; Requirements 20, 21, 28; I24, I54, I101, I104.
 
-2. **Router / query ownership refinement for interview surfaces** — final near-horizon cleanup after workflow ownership and workspace continuity are clearer.
-   - Why now / unlocks: should harvest the real invalidation/loader boundaries exposed by the preceding completion and workspace-ownership passes instead of guessing early.
-   - Acceptance: coarse route-wide invalidation is replaced by clearer loader/query ownership without stale transcript or handoff regressions.
-   - Verification: `npm run verify` plus manual mutation/observer refresh walkthroughs.
-   - Traceability: D87, D113; A20, A50; I24, I54, I102.
-
-### Grounding interaction-model follow-ons
-
-3. **Grounding free-text question format** — switch grounding from option selection to open response.
-   - Why now / unlocks: once the cumulative workspace shape is settled, this can safely reshape grounding's schema, prompt, and response seams without targeting the wrong center-pane contract.
-   - Acceptance: `structuredQuestionSchema` accepts grounding questions without required options; the grounding system prompt produces open exploratory questions; the response schema and UI accept `freeText`-only submissions; elicitation and later phases still require options.
-   - Verification: `npm run verify` plus manual greenfield grounding walkthrough confirming open questions, free-text response, and correct observer capture.
-   - Traceability: D115; A59; Requirement 4.
+3. **Review per-item commenting and regeneration** — add per-item comment toggles, structured change-request payload, iterative regeneration, and revision cards.
+   - Why now / unlocks: once the multi-part turn seam exists, revision cards can stack above review sets using the same pattern as grounding cards above questions. Independent of grounding work.
+   - Traceability: D90, D118, D119; A61, A62; Requirements 11, 12, 25.
 
 4. **Phase section headers** — orient each realized phase section without persisting extra turns.
-   - Why now / unlocks: fits more naturally once the center pane is cumulative and phase sections are explicit rendered regions rather than per-route remounts.
-   - Acceptance: each realized phase section in the workspace stream opens with a projected header stating the phase purpose and captured knowledge kinds; the header re-projects on hydration and is not persisted as a turn row.
-   - Verification: `npm run verify` plus manual walkthrough on a multi-phase specification confirming headers appear, survive reload, and do not duplicate.
+   - Why now / unlocks: small projected-artifact addition. Can land any time after free-text grounding settles.
    - Traceability: D116; A60; Requirement 24.
 
-### Grounding / context-gathering capability
+5. **Brownfield workspace-analysis grounding brief** — first analysis-first grounding path using turn-internal grounding cards.
+   - Why now / unlocks: proves the turn-internal grounding-card seam against real brownfield repos.
+   - Traceability: D32, D83, D99, D117, D120; A47, A56; I101.
 
-5. **Grounding-card transcript primitive** — establish the visible provisional-context seam.
-   - Why now / unlocks: once the cumulative workspace and revised grounding question format are in place, grounding cards become the enabling transcript primitive for analysis-first grounding and later reusable context gathering.
-   - Acceptance: the workspace stream can render grounding cards with optional comment + continue semantics while keeping card content provisional rather than durable knowledge.
-   - Verification: `npm run verify` plus seeded transcript/replay walkthroughs covering continue, reload, observer non-capture, and cumulative-workspace replay.
-   - Traceability: D83, D89, D91, D99, D112; I24, I54, I101, I104.
+6. **Reusable interviewer-invoked context gathering** — generalize context gathering beyond opening grounding.
+   - Why now / unlocks: broadens grounding capability without inventing a second artifact model.
+   - Traceability: D99, D30, D32, D83, D117; I101, I104.
 
-6. **Brownfield workspace-analysis grounding brief** — deliver the first analysis-first grounding path on top of grounding cards.
-   - Why now / unlocks: proves the provisional grounding-card seam against real brownfield repos once the cumulative workspace surface is stable enough to replay that opening brief truthfully.
-   - Acceptance: brownfield grounding can run read-only workspace analysis, show a concise visible grounding brief/card, and hand off into the first substantive grounding question.
-   - Verification: `npm run verify` plus manual brownfield walkthroughs on representative repos.
-   - Traceability: D32, D83, D99; A47, A56; I101.
+### Track A — Query ownership
 
-7. **Reusable interviewer-invoked context gathering beyond opening grounding** — generalize context gathering once the brownfield opening path proves out.
-   - Why now / unlocks: broadens grounding capability without inventing a second artifact model, and only makes sense after grounding cards plus the brownfield brief are stable inside the cumulative workspace surface.
-   - Acceptance: the interviewer can invoke approved context-gathering capabilities during grounding as visible grounding cards beyond the opening move.
-   - Verification: `npm run verify` plus manual mid-grounding context-gathering walkthroughs.
-   - Traceability: D99, D30, D32, D83; I101, I104.
+7. **Granular query domain design** — design the TanStack Query decomposition (query hook count, shapes, invalidation targets).
+   - Why now / unlocks: can proceed now since the current pain (scroll jank from `router.invalidate()`) is already visible. Design pass before implementation prevents churn.
+   - Traceability: D121; A64.
+
+8. **Granular query domain implementation** — migrate from coarse `router.invalidate()` to independently invalidable query domains.
+   - Why now / unlocks: implements the designed decomposition. Best sequenced after interaction-model seams settle to avoid query-key churn.
+   - Traceability: D87, D121; A20, A50, A64; I24, I54, I102.
+
+### Track B — Architecture / layout (continued)
+
+9. **Workflow ownership extraction** — extract projector and `app.ts` workflow ownership.
+    - Why now / unlocks: architectural cleanup prerequisite for continuous workspace. Does not gate interaction-model work.
+    - Traceability: D110, D112, D113; I24, I72, I104.
+
+10. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with phase section navigation.
+    - Why now / unlocks: depends on workflow extraction. Once in place, phase section headers fit more naturally.
+    - Traceability: A58; D86, D87, D103, D107, D110, D113, D114; I24, I102.
 
 ## Horizon
+
+### Engagement / polish
+
+- Thinking token streaming in a lines-limited vertical scrolling sub-area for the interview view.
 
 ### Completion / reporting follow-ons
 
@@ -105,24 +116,29 @@ Near-horizon work is now ordered around cumulative workspace ownership first, th
 
 - [2026-04-20] Alias deletion retired the naming frontier — Done: removed the remaining `/api/projects/...` compatibility entry points and deleted shared/server `project` alias seams from the happy path. Verified: `npm run verify`. Watch: freshly reseeded manual resume/export walkthrough still matters after the destructive cut.
 - [2026-04-20] Specification routes moved to canonical ownership — Done: routed workspace/export entry now flows through `/specification/...`, and client fetch/mutation seams now target `/api/specifications/...` on the happy path. Verified: `npm run verify`. Watch: none.
-- [2026-04-20] Durable `specification` record identity landed — Done: schema/migration ownership, DB helpers, shared transport contracts, and state/entity payloads now treat `specification` / `specification_id` as the canonical durable identity. Verified: `npm run verify`. Watch: none.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
 ## Dependencies
 
 ```text
-output-route-and-markdown-export-refinement
-  ├──→ close-phase-confirmation-modal
-  └──→ workflow-ownership-extraction
-        └──→ continuous-workspace-phase-addressable-interview-surface
-              └──→ router-query-ownership-refinement
+TRACK A — Interaction model (product priority)
+grounding-free-text-with-hint-guided-prompts  (active; no blockers)
+  └──→ multi-part-turn-rendering-seam
+        ├──→ turn-internal-grounding-cards
+        │     └──→ brownfield-workspace-analysis-grounding-brief
+        │           └──→ reusable-context-gathering
+        └──→ review-per-item-commenting-and-regeneration
 
-grounding-free-text-question-format
-  └──→ grounding-card-transcript-primitive
-        └──→ brownfield-workspace-analysis-grounding-brief
-              └──→ reusable-interviewer-invoked-context-gathering
+phase-section-headers  (after grounding-free-text; no other blockers)
+homepage-workspace-binding  (active; no blockers; independent)
 
-continuous-workspace-phase-addressable-interview-surface
-  └──→ phase-section-headers
+granular-query-domain-design  (no blockers)
+  └──→ granular-query-domain-implementation  (after interaction-model seams settle)
+
+TRACK B — Architecture / layout
+output-route-and-markdown-export-refinement  (active; no blockers)
+  └──→ close-phase-confirmation-modal
+        └──→ workflow-ownership-extraction
+              └──→ continuous-workspace-phase-addressable-interview-surface
 ```
