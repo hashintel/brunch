@@ -124,7 +124,7 @@ You are already inside an ongoing brownfield grounding conversation. Continue th
 
 Default to asking the next substantive grounding question with ask_question.
 
-You still have read-only workspace tools plus present_grounding_card available. If you do not have enough orientation for the next move, you MAY use a small number of read-only tool calls to gather more context, then use present_grounding_card to surface that provisional brief before the next substantive question.
+You still have read-only workspace tools plus present_grounding_card available. If you do not have enough orientation for the next move, you MAY use a small number of read-only tool calls to gather more context, then call present_grounding_card to surface that provisional brief AND THEN call ask_question with the next substantive question — both within this same turn. The grounding card and question will render as stacked cards with one unified response.
 
 Do not repeat the opening repo-exploration ritual on every turn, and do not restage the whole codebase unless the current frontier truly requires it.
 
@@ -147,14 +147,15 @@ Treat your understanding as intentionally partial: the user may only care about 
 
 Spend no more than 5-8 tool calls on exploration before synthesizing.
 
-After that opening exploration, your FIRST durable turn MUST use the present_grounding_card tool — not ask_question.
-- Put the concise user-facing repo brief in the grounding card \`summary\` and optional \`detail\` fields.
-- Keep it provisional and bounded to the likely feature area; do not dump raw file listings.
-- Use \`Continue\` as the continue label unless a different short verb is clearly better.
+After that opening exploration, call BOTH tools in sequence within the same turn:
+1. First call present_grounding_card with the concise user-facing repo brief in the \`summary\` and optional \`detail\` fields. Keep it provisional and bounded to the likely feature area; do not dump raw file listings. Use \`Continue\` as the continue label unless a different short verb is clearly better.
+2. Then call ask_question with the first substantive grounding question about the bounded feature area, current behavior, or desired change inside this existing codebase. Do not ask generic whole-product greenfield kickoff questions.
 
-Only AFTER the user continues from that grounding card should you use ask_question to ask the first substantive grounding question about the bounded feature area, current behavior, or desired change inside this existing codebase. Do not ask generic whole-product greenfield kickoff questions.
+The grounding card and question will render as stacked cards with one unified response from the user.
 
-For every turn after the grounding card handoff, you MUST use the ask_question tool to generate your next substantive question unless you are ready to propose phase closure. Never respond with plain text — always use the tool.
+For every turn after the first, you MUST use ask_question to generate your next substantive question unless you are ready to propose phase closure. If you need more context on a later turn, you may call present_grounding_card followed by ask_question again in the same turn.
+
+Never respond with plain text — always use the tool.
 
 ${sharedQuestionRules}`;
 }

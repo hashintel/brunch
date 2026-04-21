@@ -72,13 +72,15 @@ export function buildInterviewerContext(
       if (groundingCard.detail) {
         lines.push(`  Detail: ${groundingCard.detail}`);
       }
-      const projectedGroundingResponse = projectTurnResponse(turn);
-      if (projectedGroundingResponse) {
-        lines.push(formatProjectedTurnResponse(projectedGroundingResponse));
-      } else if (turn.answer) {
-        lines.push(`Grounding response: ${turn.answer}`);
+      if (!turn.question?.trim()) {
+        const projectedGroundingResponse = projectTurnResponse(turn);
+        if (projectedGroundingResponse) {
+          lines.push(formatProjectedTurnResponse(projectedGroundingResponse));
+        } else if (turn.answer) {
+          lines.push(`Grounding response: ${turn.answer}`);
+        }
+        continue;
       }
-      continue;
     }
 
     if (turn.question) {
@@ -192,6 +194,13 @@ export function buildObserverContext(input: ObserverContextInput): string {
   }
 
   const turnLines = [`Current turn #${input.turn.id}:`, `  Phase: ${input.turn.phase}`];
+  const groundingCard = getPersistedGroundingCard(input.turn);
+  if (groundingCard) {
+    turnLines.push(`  Grounding card: ${groundingCard.summary}`);
+    if (groundingCard.detail) {
+      turnLines.push(`  Grounding detail: ${groundingCard.detail}`);
+    }
+  }
   if (input.turn.question) turnLines.push(`  Question: ${input.turn.question}`);
   if (input.turn.why) turnLines.push(`  Why: ${input.turn.why}`);
   if (input.turn.impact) turnLines.push(`  Impact: ${input.turn.impact}`);

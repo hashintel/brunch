@@ -557,7 +557,8 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
 
         if (activeTurn) {
-          skipObserverForCurrentChatTurn = Boolean(getPersistedGroundingCard(activeTurn));
+          skipObserverForCurrentChatTurn =
+            Boolean(getPersistedGroundingCard(activeTurn)) && !activeTurn.question?.trim();
           const successorPhase = activeTurn.answer === null ? activeTurn.phase : currentPhase;
           if (activeTurn.answer === null) {
             resolveTurn(db, activeTurn.id, promptText, persistedUserParts);
@@ -654,7 +655,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
             observedTurn &&
             observedTurn.answer !== null &&
             !skipObserverForCurrentChatTurn &&
-            !getPersistedGroundingCard(observedTurn) &&
+            !(getPersistedGroundingCard(observedTurn) && !observedTurn.question?.trim()) &&
             !persistedUserParts.some((part) => part.type === 'data-confirmation') &&
             !safeDeserializeAssistantParts(observedTurn.assistant_parts).some(
               (part) => part.type === 'data-observer-result',

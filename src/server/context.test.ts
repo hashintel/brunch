@@ -213,6 +213,46 @@ describe('buildInterviewerContext', () => {
     expect(result).not.toContain('Answer: Web, Desktop — Covers both launch paths');
   });
 
+  it('renders both grounding card and question for stacked turns in history', () => {
+    const turns: TurnWithOptions[] = [
+      {
+        id: 1,
+        specification_id: 1,
+        parent_turn_id: null,
+        phase: 'grounding',
+        question: 'What is the primary user persona?',
+        answer: 'Developers building AI tools',
+        why: 'Understanding users grounds the design.',
+        impact: 'high',
+        is_resolution: false,
+        user_parts: JSON.stringify([
+          { type: 'text', text: 'Developers building AI tools' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [], freeText: 'Developers building AI tools' },
+          },
+        ]),
+        assistant_parts: JSON.stringify([
+          {
+            type: 'data-grounding-card',
+            data: {
+              summary: 'The repo uses a React frontend with SQLite storage.',
+              detail: 'Provisional context from workspace analysis.',
+            },
+          },
+        ]),
+        created_at: '2026-01-01',
+      },
+    ];
+
+    const result = buildInterviewerContext(turns, 'next');
+    expect(result).toContain('Grounding card: The repo uses a React frontend with SQLite storage.');
+    expect(result).toContain('Detail: Provisional context from workspace analysis.');
+    expect(result).toContain('Question: What is the primary user persona?');
+    expect(result).toContain('Why it matters: Understanding users grounds the design.');
+    expect(result).toContain('Free-text response: Developers building AI tools');
+  });
+
   it('handles multi-turn history', () => {
     const turns: TurnWithOptions[] = [
       {
@@ -405,6 +445,58 @@ describe('observer-context-projection', () => {
     expect(result).toContain('Project mode: brownfield');
     expect(result).toContain('Project directory: /tmp/repo');
     expect(result).toContain('Grounding: The repo has a dedicated auth module and callback route.');
+  });
+
+  it('includes grounding card content in observer context for stacked turns', () => {
+    const turn: TurnWithOptions = {
+      id: 5,
+      specification_id: 1,
+      parent_turn_id: 4,
+      phase: 'grounding',
+      turn_kind: 'question',
+      question: 'What is the primary user persona?',
+      answer: 'Developers building AI tools',
+      why: 'Understanding users grounds the design.',
+      impact: 'high',
+      is_resolution: false,
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Developers building AI tools' },
+        {
+          type: 'data-turn-response',
+          data: { turnId: 5, selectedOptionIds: [], freeText: 'Developers building AI tools' },
+        },
+      ]),
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-grounding-card',
+          data: {
+            summary: 'The repo uses a React frontend with SQLite storage.',
+            detail: 'Provisional context from workspace analysis.',
+          },
+        },
+      ]),
+      created_at: '2026-01-01',
+    };
+
+    const result = buildObserverContext({
+      turn,
+      activePathSummary: '',
+      entities: {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      },
+    });
+
+    expect(result).toContain('Grounding card: The repo uses a React frontend with SQLite storage.');
+    expect(result).toContain('Grounding detail: Provisional context from workspace analysis.');
+    expect(result).toContain('Question: What is the primary user persona?');
+    expect(result).toContain('Free-text response: Developers building AI tools');
   });
 
   it('includes existing entity graph', () => {

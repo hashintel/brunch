@@ -313,7 +313,7 @@ describe('brownfield interviewer configuration', () => {
     expect(brownfieldPrompt).toContain('present_grounding_card');
     expect(brownfieldPrompt).toContain('bounded feature area');
     expect(brownfieldPrompt).toContain('partial');
-    expect(brownfieldPrompt).toContain('FIRST durable turn');
+    expect(brownfieldPrompt).toContain('call BOTH tools in sequence');
     expect(brownfieldPrompt).not.toContain('Include 2-4 options');
     expect(brownfieldPrompt).not.toContain('Mark exactly one option as recommended');
     expect(brownfieldPrompt).toContain('free-text');
