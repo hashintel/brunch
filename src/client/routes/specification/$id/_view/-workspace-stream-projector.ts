@@ -52,6 +52,7 @@ export type WorkspaceStreamArtifact =
       readonly kind: 'answered-review-turn';
       readonly turn: SpecificationTurn;
       readonly reviewSet: NonNullable<ReturnType<typeof getPersistedReviewSet>>;
+      readonly revisionNumber: number;
     }
   | {
       readonly kind: 'accepted-closure';
@@ -195,6 +196,7 @@ function projectHistoryArtifacts({
 }): WorkspaceStreamArtifact[] {
   const historyArtifacts: WorkspaceStreamArtifact[] = [];
   let answeredTurnCount = 0;
+  let reviewTurnCount = 0;
 
   for (const turn of phaseTurns) {
     if (turn.id === renderedPersistedTurnId) {
@@ -237,10 +239,12 @@ function projectHistoryArtifacts({
 
     const reviewSet = getPersistedReviewSet(turn);
     if (reviewSet && getPersistedReviewAction(turn)) {
+      reviewTurnCount += 1;
       historyArtifacts.push({
         kind: 'answered-review-turn',
         turn,
         reviewSet,
+        revisionNumber: reviewTurnCount,
       });
       continue;
     }

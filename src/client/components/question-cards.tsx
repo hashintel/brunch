@@ -145,9 +145,11 @@ export function AnsweredQuestionCard({
 export function AnsweredReviewSetCard({
   turn,
   reviewSet,
+  revisionNumber,
 }: {
   turn: SpecificationTurn;
   reviewSet: ReviewSetCardData;
+  revisionNumber?: number;
 }) {
   const persistedResponse = getPersistedTurnResponse(turn);
 
@@ -163,6 +165,7 @@ export function AnsweredReviewSetCard({
         disabled
         submitted={false}
         resolvedAction={getPersistedReviewAction(turn)}
+        revisionNumber={revisionNumber}
       />
     </div>
   );
@@ -301,6 +304,7 @@ export function ActiveReviewSetCard({
   reviewSet,
   question,
   why,
+  revisionNumber,
 }: {
   onSubmitReviewAction?: (
     reviewAction: ReviewAction,
@@ -314,6 +318,7 @@ export function ActiveReviewSetCard({
   reviewSet: ReviewSetCardData;
   question: string;
   why: string | null;
+  revisionNumber?: number;
 }) {
   const [note, setNote] = useState(persistedFreeText);
   const isSubmitted = state === 'submitted';
@@ -354,6 +359,7 @@ export function ActiveReviewSetCard({
         disabled={isReadOnly}
         submitted={isSubmitted}
         showItemComments
+        revisionNumber={revisionNumber}
       />
     </div>
   );

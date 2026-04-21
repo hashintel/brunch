@@ -23,6 +23,7 @@ import {
   getPersistedSelectedPositions,
   getPersistedTurnResponse,
   getReviewPositionForAction,
+  getReviewRevisionNumber,
   turnHasCompletedAnswer,
 } from '@/shared/specification-state.js';
 import type { SpecificationTurn } from '@/shared/specification.js';
@@ -132,7 +133,11 @@ function renderWorkspaceHistoryArtifact({
           key={`answered-review-turn-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
         >
-          <AnsweredReviewSetCard turn={artifact.turn} reviewSet={artifact.reviewSet} />
+          <AnsweredReviewSetCard
+            turn={artifact.turn}
+            reviewSet={artifact.reviewSet}
+            revisionNumber={artifact.revisionNumber}
+          />
         </WorkspaceArtifactRow>
       );
     case 'accepted-closure':
@@ -211,6 +216,7 @@ function renderWorkspaceInteractiveArtifact({
               disabled={artifact.artifact.disabled}
               state={artifact.artifact.state}
               reviewSet={reviewSet}
+              revisionNumber={getReviewRevisionNumber(artifact.artifact.turn, phaseTurns)}
             />
           ) : (
             <ActiveQuestionCard
@@ -302,6 +308,11 @@ function renderWorkspaceInteractiveArtifact({
               disabled={artifact.artifact.disabled}
               state="active"
               reviewSet={fallbackReviewSet}
+              revisionNumber={
+                phaseTurns.filter(
+                  (t) => getPersistedReviewSet(t) && getPersistedTurnResponse(t)?.reviewAction,
+                ).length + 1
+              }
             />
           ) : (
             <ActiveQuestionCard

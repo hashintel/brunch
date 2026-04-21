@@ -147,3 +147,112 @@ Each review set item has an inline comment toggle; when expanded, the user can t
 ### Traceability
 
 D90, D118, D119; A61, A62; Requirements 11, 12, 25.
+
+---
+
+## Card 5: Version badge on active and answered review sets [status: next]
+
+### Objective
+
+Active review set cards and answered review set cards display a version badge (v1, v2, …) derived from the count of review turns in the same phase that precede the current turn in the turn lineage.
+
+### Acceptance Criteria
+
+```
+✓ version-count-logic — a pure function computes the 1-based revision number for a review turn from the count of preceding review turns in the same phase
+✓ active-review-shows-badge — ActiveReviewSetCard renders the version badge (e.g. "v1", "v2") when the revision number is available
+✓ answered-review-shows-badge — AnsweredReviewSetCard renders the version badge
+✓ first-review-is-v1 — the first review turn in a phase renders as "v1"
+✓ npm-run-verify — all existing tests pass and the build succeeds
+```
+
+### Verification Approach
+
+```
+- Inner: npm run verify
+```
+
+### Traceability
+
+D90, D118, D119; A61, A62; Requirements 11, 12, 25.
+
+---
+
+## Card 6: Revision card — data part, projector artifact, and renderer [status: next]
+
+This card adds the revision card that stacks above a review set in a successor review turn after `request-changes`, paralleling the grounding card above question pattern.
+
+### Target Behavior
+
+When the interviewer regenerates after `request-changes`, the successor review turn carries a `data-revision-card` assistant part with a changelog summary, and the projector emits composite artifact kinds (`persisted-revision-review` and `answered-revision-review`) that the renderer displays as a revision card stacked above the review set card.
+
+### Boundary Crossings
+
+```
+→ Schema (src/shared/chat.ts) — new revisionCardSchema, BrunchDataParts entry, BrunchAssistantPart variant, persisted-part codec entry
+→ Interviewer prompt (src/server/interview.ts) — instruct requirements/criteria prompts to emit a revision card via a data part when regenerating after request-changes
+→ Turn artifacts (src/server/turn-artifacts.ts) — materializeTurnArtifacts includes the revision card data part
+→ Specification state (src/shared/specification-state.ts) — getPersistedRevisionCard helper
+→ Stream projector (workspace-stream-projector.ts) — new artifact kinds: answered-revision-review, persisted-revision-review
+→ Renderer (workspace-transcript-artifacts.tsx) — render revision card above review set in stacked layout
+→ Revision card component (src/client/components/question-cards.tsx or new) — AnsweredRevisionCard and ActiveRevisionCard UI components
+```
+
+### Risks and Assumptions
+
+```
+- RISK: Emitting revision cards as data parts requires the model to include them when regenerating → MITIGATION: Can emit revision card server-side in materializeTurnArtifacts by diffing predecessor and successor review sets, rather than depending on LLM output.
+- ASSUMPTION: The multi-part turn rendering seam (proven for grounding card + question) generalizes to revision card + review set without structural changes. → VALIDATE: Same projector pattern; test with the new artifact kinds.
+```
+
+### Acceptance Criteria
+
+```
+✓ revision-card-schema — revisionCardSchema defines summary (string) and revisionNumber (number); BrunchDataParts includes 'revision-card' entry
+✓ persisted-revision-card — getPersistedRevisionCard extracts the revision card from assistant_parts
+✓ projector-revision-review-answered — projector emits answered-revision-review for answered review turns that carry a revision card
+✓ projector-revision-review-persisted — projector emits persisted-revision-review for the active/submitted review turn when it carries a revision card
+✓ renderer-stacks-revision-above-review — revision card renders above the review set card for both answered and active/persisted variants
+✓ revision-card-component — AnsweredRevisionCard shows changelog summary and version badge
+✓ npm-run-verify — all existing tests pass and the build succeeds
+```
+
+### Verification Approach
+
+```
+- Inner: npm run verify (unit tests + type check + build)
+- Middle: projector unit tests for new artifact kinds
+```
+
+### Traceability
+
+D90, D118, D119; A61, A62; Requirements 11, 12, 25.
+
+---
+
+## Card 7: Prior revision collapsing — superseded review turns [status: next]
+
+### Objective
+
+Answered review turns that are superseded by a successor revision in the same phase collapse to a compact summary in the workspace stream rather than rendering the full review set, so only the current revision renders live.
+
+### Acceptance Criteria
+
+```
+✓ superseded-detection — a review turn is superseded when a later review turn exists in the same phase with a completed answer
+✓ collapsed-rendering — superseded answered review turns render as a compact summary (action taken + version badge) instead of the full AnsweredReviewSetCard
+✓ current-revision-renders-full — the most recent (non-superseded) answered review turn still renders the full review set
+✓ single-review-not-collapsed — a phase with only one review turn (v1, accepted) does not collapse
+✓ npm-run-verify — all existing tests pass and the build succeeds
+```
+
+### Verification Approach
+
+```
+- Inner: npm run verify
+- Middle: projector unit tests for superseded detection
+```
+
+### Traceability
+
+D90, D118, D119; A61, A62; Requirements 11, 12, 25.

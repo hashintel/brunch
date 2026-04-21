@@ -211,6 +211,29 @@ export function deriveSpecificationLanding(
   };
 }
 
+/**
+ * Compute the 1-based revision number for a review turn within a phase.
+ * Counts how many review turns (turns with a persisted review set and action)
+ * precede this turn in the phase, plus one.
+ */
+export function getReviewRevisionNumber(
+  turn: Pick<SpecificationTurn, 'id'>,
+  phaseTurns: readonly Pick<SpecificationTurn, 'id' | 'assistant_parts' | 'user_parts'>[],
+): number {
+  let count = 0;
+  for (const phaseTurn of phaseTurns) {
+    if (phaseTurn.id === turn.id) {
+      return count + 1;
+    }
+
+    if (getPersistedReviewSet(phaseTurn) && getPersistedReviewAction(phaseTurn)) {
+      count += 1;
+    }
+  }
+
+  return count + 1;
+}
+
 export function getPersistedActivitySummary(
   turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined,
 ): ActivitySummary | null {

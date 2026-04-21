@@ -206,6 +206,7 @@ export function ReviewSetCard({
   initialComments,
   resolvedAction,
   showItemComments = false,
+  revisionNumber,
 }: {
   reviewSet: ReviewSetCardData;
   description: string;
@@ -218,6 +219,7 @@ export function ReviewSetCard({
   initialComments?: Record<string, string>;
   resolvedAction?: ReviewAction | null;
   showItemComments?: boolean;
+  revisionNumber?: number;
 }) {
   const [commentsByItem, setCommentsByItem] = useState<Record<string, string>>(initialComments ?? {});
   const totalGrounding = useMemo(
@@ -233,7 +235,14 @@ export function ReviewSetCard({
   return (
     <div className="flex flex-col gap-4" data-testid="review-set-card">
       <div className="overflow-hidden rounded-xl border border-rule bg-white p-5">
-        <h3 className="text-base font-medium text-ink">{reviewSet.title}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-base font-medium text-ink">{reviewSet.title}</h3>
+          {revisionNumber !== undefined ? (
+            <span className="inline-flex h-5 items-center rounded-md bg-wash px-1.5 text-[11px] font-medium text-sub">
+              v{revisionNumber}
+            </span>
+          ) : null}
+        </div>
         <p className="mt-1.5 text-sm leading-relaxed text-sub">{description}</p>
         <div className="mt-4">
           <StatsBar
