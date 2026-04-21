@@ -231,7 +231,7 @@ export function PhaseNavigationSidebar({
                   </span>
                   <div className="mt-1 flex flex-col gap-0.5 text-xs text-sub">
                     <span className="font-medium text-[#2070e6]">Available</span>
-                    <span>Markdown export</span>
+                    <span>Completed specification</span>
                   </div>
                 </Link>
               </li>

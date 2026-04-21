@@ -40,7 +40,7 @@ Queue note: Card 1 and Card 2 are implementation-independent and can land in eit
 
 **Verification**: Inner: `npm run verify`. Middle: manual markdown export walkthrough on a completed seeded specification.
 
-## Card 3: Output preview becomes the readable completion surface `[status: next]`
+## Card 3: Output preview becomes the readable completion surface `[status: done]`
 
 **Objective**: The output route presents the finished specification legibly under canonical specification terminology instead of as a generic export preview.
 

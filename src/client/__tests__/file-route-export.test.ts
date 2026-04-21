@@ -17,7 +17,8 @@ describe('file-route export ownership', () => {
     expect(exportRouteSource).toContain('fetchExportLoaderData');
     expect(exportRouteSource).toContain('ExportPreview');
 
-    expect(exportPreviewSource).toContain('to="/specification/$id/grounding"');
+    expect(exportPreviewSource).toContain("to: '/specification/$id/grounding'");
+    expect(exportPreviewSource).toContain('to={workspaceLink.to}');
 
     expect(generatedRouteTreeSource).toContain("'/specification/$id/export'");
     expect(generatedRouteTreeSource).toContain("from './routes/specification/$id/export'");
