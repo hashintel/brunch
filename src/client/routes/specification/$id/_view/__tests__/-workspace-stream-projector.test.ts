@@ -134,19 +134,20 @@ describe('specificationWorkspaceStream', () => {
     });
 
     expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'phase-section-header',
       'answered-turn',
       'divider',
       'persisted-turn',
     ]);
 
-    const answeredArtifact = projection.streamArtifacts[0];
+    const answeredArtifact = projection.streamArtifacts[1];
     expect(answeredArtifact.kind).toBe('answered-turn');
     if (answeredArtifact.kind !== 'answered-turn') {
       throw new Error('Expected answered-turn artifact');
     }
     expect(answeredArtifact.questionCode).toBe('Q1');
 
-    const activeArtifact = projection.streamArtifacts[2];
+    const activeArtifact = projection.streamArtifacts[3];
     expect(activeArtifact.kind).toBe('persisted-turn');
     if (activeArtifact.kind !== 'persisted-turn') {
       throw new Error('Expected persisted-turn artifact');
@@ -201,10 +202,219 @@ describe('specificationWorkspaceStream', () => {
     });
 
     expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'phase-section-header',
       'answered-grounding-card',
       'divider',
       'persisted-grounding-card',
     ]);
+  });
+
+  it('projects a stacked grounding-question artifact for an answered turn with both grounding card and question parts', () => {
+    const stackedTurn = createTurn({
+      id: 1,
+      question: 'What is the primary user persona?',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-grounding-card',
+          data: {
+            summary: 'The repo uses a React frontend with SQLite storage.',
+            detail: 'Provisional context from workspace analysis.',
+          },
+        },
+        {
+          type: 'tool-ask_question',
+          input: {
+            question: 'What is the primary user persona?',
+            why: 'Understanding users grounds the design.',
+            impact: 'high',
+            options: [],
+          },
+        },
+      ]),
+    });
+    const followUpTurn = createTurn({ id: 2, question: 'Follow-up question' });
+
+    const projection = specificationWorkspaceStream({
+      phase: 'grounding',
+      phaseTurns: [stackedTurn, followUpTurn],
+      phaseState: createPhaseState(),
+      bottomArtifact: null,
+    });
+
+    expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'phase-section-header',
+      'answered-grounding-question',
+      'answered-turn',
+    ]);
+
+    const stackedArtifact = projection.streamArtifacts[1];
+    if (stackedArtifact.kind !== 'answered-grounding-question') {
+      throw new Error('Expected answered-grounding-question artifact');
+    }
+    expect(stackedArtifact.groundingCard).toBeTruthy();
+    expect(stackedArtifact.questionCode).toBe('Q1');
+
+    const followUpArtifact = projection.streamArtifacts[2];
+    if (followUpArtifact.kind !== 'answered-turn') {
+      throw new Error('Expected answered-turn artifact');
+    }
+    expect(followUpArtifact.questionCode).toBe('Q2');
+  });
+
+  it('projects a stacked grounding-question bottom artifact for an active turn with both parts', () => {
+    const basePersistedTurn = createBottomArtifact('persisted-turn');
+    if (basePersistedTurn.kind !== 'persisted-turn') {
+      throw new Error('Expected persisted-turn bottom artifact');
+    }
+    const persistedTurn = {
+      ...basePersistedTurn,
+      turn: createTurn({
+        id: 2,
+        answer: null,
+        question: 'What is the primary goal?',
+        user_parts: null,
+        assistant_parts: JSON.stringify([
+          {
+            type: 'data-grounding-card',
+            data: {
+              summary: 'Found package.json with React and Vite.',
+              detail: 'Provisional workspace context.',
+            },
+          },
+          {
+            type: 'tool-ask_question',
+            input: {
+              question: 'What is the primary goal?',
+              why: 'Goals ground everything.',
+              impact: 'high',
+              options: [],
+            },
+          },
+        ]),
+      }),
+    } satisfies Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
+
+    const projection = specificationWorkspaceStream({
+      phase: 'grounding',
+      phaseTurns: [persistedTurn.turn],
+      phaseState: createPhaseState({ turnId: persistedTurn.turn.id }),
+      bottomArtifact: persistedTurn,
+    });
+
+    expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'phase-section-header',
+      'persisted-grounding-question',
+    ]);
+
+    const stackedArtifact = projection.streamArtifacts[1];
+    if (stackedArtifact.kind !== 'persisted-grounding-question') {
+      throw new Error('Expected persisted-grounding-question artifact');
+    }
+    expect(stackedArtifact.groundingCard).toBeTruthy();
+    expect(stackedArtifact.questionCode).toBe('Q1');
+  });
+
+  it('still projects standalone grounding card for turns with only a grounding card and no question', () => {
+    const groundingOnlyTurn = createTurn({
+      id: 1,
+      question: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-grounding-card',
+          data: {
+            summary: 'Standalone grounding context.',
+            detail: 'No paired question.',
+          },
+        },
+      ]),
+      options: [{ id: 10, position: 0, content: 'Continue', is_recommended: true, is_selected: true }],
+    });
+
+    const projection = specificationWorkspaceStream({
+      phase: 'grounding',
+      phaseTurns: [groundingOnlyTurn],
+      phaseState: createPhaseState(),
+      bottomArtifact: null,
+    });
+
+    expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'phase-section-header',
+      'answered-grounding-card',
+    ]);
+  });
+
+  it('projects a phase-section-header for each realized phase with phase-specific copy', () => {
+    const phases = ['grounding', 'design', 'requirements', 'criteria'] as const;
+    const expectedPurpose: Record<string, string> = {
+      grounding: 'Establish shared orientation before design begins.',
+      design: 'Surface commitments and tradeoffs that shape the solution.',
+      requirements: 'Review a synthesized requirement set for completeness and accuracy.',
+      criteria: 'Review verification coverage against accepted requirements.',
+    };
+    const expectedKnowledgeKinds: Record<string, string> = {
+      grounding: 'Goals, terms, context, and constraints.',
+      design: 'Design decisions and assumptions.',
+      requirements: 'Requirement review.',
+      criteria: 'Verification coverage review.',
+    };
+
+    for (const phase of phases) {
+      const projection = specificationWorkspaceStream({
+        phase,
+        phaseTurns: [],
+        phaseState: createPhaseState({ status: 'in_progress' }),
+        bottomArtifact: null,
+      });
+
+      const header = projection.streamArtifacts.find((a) => a.kind === 'phase-section-header');
+      expect(header).toBeDefined();
+      if (header?.kind !== 'phase-section-header') {
+        throw new Error('Expected phase-section-header artifact');
+      }
+      expect(header.phase).toBe(phase);
+      expect(header.purpose).toBe(expectedPurpose[phase]);
+      expect(header.knowledgeKinds).toBe(expectedKnowledgeKinds[phase]);
+    }
+  });
+
+  it('projects a phase-section-header for closed phases', () => {
+    const projection = specificationWorkspaceStream({
+      phase: 'grounding',
+      phaseTurns: [],
+      phaseState: createPhaseState({ status: 'closed', closureBasis: 'interviewer_recommended' }),
+      bottomArtifact: null,
+    });
+
+    const header = projection.streamArtifacts.find((a) => a.kind === 'phase-section-header');
+    expect(header).toBeDefined();
+    expect(header?.kind).toBe('phase-section-header');
+  });
+
+  it('does not project a phase-section-header for unstarted phases', () => {
+    const projection = specificationWorkspaceStream({
+      phase: 'design',
+      phaseTurns: [],
+      phaseState: createPhaseState({ status: 'unstarted' }),
+      bottomArtifact: null,
+    });
+
+    const header = projection.streamArtifacts.find((a) => a.kind === 'phase-section-header');
+    expect(header).toBeUndefined();
+  });
+
+  it('places phase-section-header before phase markers and history artifacts', () => {
+    const answeredTurn = createTurn({ id: 1, phase: 'requirements', question: 'Review requirements' });
+    const projection = specificationWorkspaceStream({
+      phase: 'requirements',
+      phaseTurns: [answeredTurn],
+      phaseState: createPhaseState({ status: 'in_progress' }),
+      bottomArtifact: null,
+    });
+
+    const kinds = projection.streamArtifacts.map((a) => a.kind);
+    expect(kinds[0]).toBe('phase-section-header');
+    expect(kinds[1]).toBe('phase-marker');
+    expect(kinds[2]).toBe('answered-turn');
   });
 
   it('projects the review-phase banner as a phase marker', () => {
@@ -215,8 +425,11 @@ describe('specificationWorkspaceStream', () => {
       bottomArtifact: null,
     });
 
-    expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual(['phase-marker']);
-    const phaseMarker = projection.streamArtifacts[0];
+    expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'phase-section-header',
+      'phase-marker',
+    ]);
+    const phaseMarker = projection.streamArtifacts[1];
     expect(phaseMarker?.kind).toBe('phase-marker');
     if (phaseMarker?.kind !== 'phase-marker') {
       throw new Error('Expected phase-marker artifact');
@@ -234,6 +447,7 @@ describe('specificationWorkspaceStream', () => {
     });
 
     expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'phase-section-header',
       'answered-turn',
       'divider',
       'control-marker',
@@ -297,6 +511,7 @@ describe('specificationWorkspaceStream', () => {
     });
 
     expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'phase-section-header',
       'answered-review-turn',
       'accepted-closure',
     ]);
@@ -337,6 +552,7 @@ describe('specificationWorkspaceStream', () => {
       bottomArtifact: createBottomArtifact('phase-handoff'),
     });
     expect(handoffProjection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'phase-section-header',
       'answered-turn',
       'accepted-closure',
       'divider',
@@ -354,6 +570,7 @@ describe('specificationWorkspaceStream', () => {
       bottomArtifact: createBottomArtifact('workflow-complete'),
     });
     expect(completionProjection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'phase-section-header',
       'answered-turn',
       'accepted-closure',
       'divider',

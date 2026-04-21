@@ -19,6 +19,12 @@ export interface WorkspaceStreamMarker {
 
 export type WorkspaceStreamArtifact =
   | {
+      readonly kind: 'phase-section-header';
+      readonly phase: WorkflowPhase;
+      readonly purpose: string;
+      readonly knowledgeKinds: string;
+    }
+  | {
       readonly kind: 'phase-marker';
       readonly marker: WorkspaceStreamMarker;
     }
@@ -35,6 +41,12 @@ export type WorkspaceStreamArtifact =
       readonly kind: 'answered-grounding-card';
       readonly turn: SpecificationTurn;
       readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
+    }
+  | {
+      readonly kind: 'answered-grounding-question';
+      readonly turn: SpecificationTurn;
+      readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
+      readonly questionCode: string;
     }
   | {
       readonly kind: 'answered-review-turn';
@@ -58,6 +70,12 @@ export type WorkspaceStreamArtifact =
       readonly kind: 'persisted-grounding-card';
       readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
       readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
+    }
+  | {
+      readonly kind: 'persisted-grounding-question';
+      readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
+      readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
+      readonly questionCode: string;
     }
   | {
       readonly kind: 'pending-question';
@@ -100,6 +118,47 @@ function getRenderedPersistedTurnId(
     (!turnHasCompletedAnswer(bottomArtifact.turn) || bottomArtifact.state === 'submitted')
     ? bottomArtifact.turn.id
     : null;
+}
+
+const phaseSectionHeaderCopy: Record<WorkflowPhase, { purpose: string; knowledgeKinds: string }> = {
+  grounding: {
+    purpose: 'Establish shared orientation before design begins.',
+    knowledgeKinds: 'Goals, terms, context, and constraints.',
+  },
+  design: {
+    purpose: 'Surface commitments and tradeoffs that shape the solution.',
+    knowledgeKinds: 'Design decisions and assumptions.',
+  },
+  requirements: {
+    purpose: 'Review a synthesized requirement set for completeness and accuracy.',
+    knowledgeKinds: 'Requirement review.',
+  },
+  criteria: {
+    purpose: 'Review verification coverage against accepted requirements.',
+    knowledgeKinds: 'Verification coverage review.',
+  },
+};
+
+function projectPhaseSectionHeader({
+  phase,
+  phaseState,
+}: {
+  phase: WorkflowPhase;
+  phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
+}): WorkspaceStreamArtifact[] {
+  if (phaseState.status === 'unstarted') {
+    return [];
+  }
+
+  const copy = phaseSectionHeaderCopy[phase];
+  return [
+    {
+      kind: 'phase-section-header',
+      phase,
+      purpose: copy.purpose,
+      knowledgeKinds: copy.knowledgeKinds,
+    },
+  ];
 }
 
 function projectPhaseMarkers({
@@ -157,6 +216,16 @@ function projectHistoryArtifacts({
     }
 
     const groundingCard = getPersistedGroundingCard(turn);
+    if (groundingCard && turn.question?.trim()) {
+      answeredTurnCount += 1;
+      historyArtifacts.push({
+        kind: 'answered-grounding-question',
+        turn,
+        groundingCard,
+        questionCode: `Q${answeredTurnCount}`,
+      });
+      continue;
+    }
     if (groundingCard) {
       historyArtifacts.push({
         kind: 'answered-grounding-card',
@@ -196,6 +265,14 @@ function projectBottomArtifact(
   switch (bottomArtifact?.kind) {
     case 'persisted-turn': {
       const groundingCard = getPersistedGroundingCard(bottomArtifact.turn);
+      if (groundingCard && bottomArtifact.turn.question?.trim()) {
+        return {
+          kind: 'persisted-grounding-question',
+          artifact: bottomArtifact,
+          groundingCard,
+          questionCode,
+        };
+      }
       if (groundingCard) {
         return {
           kind: 'persisted-grounding-card',
@@ -272,6 +349,7 @@ function shouldInsertDivider({
     (controlArtifacts.length > 0 ||
       bottomArtifact?.kind === 'persisted-turn' ||
       bottomArtifact?.kind === 'persisted-grounding-card' ||
+      bottomArtifact?.kind === 'persisted-grounding-question' ||
       bottomArtifact?.kind === 'pending-question' ||
       bottomArtifact?.kind === 'phase-summary' ||
       bottomArtifact?.kind === 'generating' ||
@@ -302,6 +380,7 @@ export function specificationWorkspaceStream({
   const answeredTurnCount = historyArtifacts.filter((artifact) => artifact.kind === 'answered-turn').length;
   const projectedBottomArtifact = projectBottomArtifact(bottomArtifact, answeredTurnCount);
   const controlArtifacts = projectControlMarkers(controlMarkers);
+  const phaseSectionHeaders = projectPhaseSectionHeader({ phase, phaseState });
   const phaseMarkers = projectPhaseMarkers({ phase, phaseState });
   const tailArtifacts = projectedBottomArtifact
     ? [...controlArtifacts, projectedBottomArtifact]
@@ -313,7 +392,13 @@ export function specificationWorkspaceStream({
       controlArtifacts,
       bottomArtifact: projectedBottomArtifact,
     })
-      ? [...phaseMarkers, ...historyArtifacts, { kind: 'divider' as const }, ...tailArtifacts]
-      : [...phaseMarkers, ...historyArtifacts, ...tailArtifacts],
+      ? [
+          ...phaseSectionHeaders,
+          ...phaseMarkers,
+          ...historyArtifacts,
+          { kind: 'divider' as const },
+          ...tailArtifacts,
+        ]
+      : [...phaseSectionHeaders, ...phaseMarkers, ...historyArtifacts, ...tailArtifacts],
   };
 }

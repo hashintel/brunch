@@ -57,10 +57,12 @@ function renderWorkspaceHistoryArtifact({
 }: {
   artifact: Extract<
     WorkspaceStreamArtifact,
+    | { kind: 'phase-section-header' }
     | { kind: 'phase-marker' }
     | { kind: 'control-marker' }
     | { kind: 'answered-turn' }
     | { kind: 'answered-grounding-card' }
+    | { kind: 'answered-grounding-question' }
     | { kind: 'answered-review-turn' }
     | { kind: 'accepted-closure' }
     | { kind: 'divider' }
@@ -69,6 +71,15 @@ function renderWorkspaceHistoryArtifact({
   renderPersistedActivity: (turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined) => React.ReactNode;
 }) {
   switch (artifact.kind) {
+    case 'phase-section-header':
+      return (
+        <TranscriptMetaPlaceholder
+          key={`phase-section-header-${artifact.phase}`}
+          label={artifact.purpose}
+          detail={artifact.knowledgeKinds}
+          testId={`phase-section-header-${artifact.phase}`}
+        />
+      );
     case 'phase-marker':
     case 'control-marker':
       return (
@@ -99,6 +110,20 @@ function renderWorkspaceHistoryArtifact({
           activity={renderPersistedActivity(artifact.turn)}
         >
           <AnsweredGroundingCard groundingCard={artifact.groundingCard} turn={artifact.turn} />
+        </WorkspaceArtifactRow>
+      );
+    case 'answered-grounding-question':
+      return (
+        <WorkspaceArtifactRow
+          key={`answered-grounding-question-${artifact.turn.id}`}
+          activity={renderPersistedActivity(artifact.turn)}
+        >
+          <AnsweredGroundingCard groundingCard={artifact.groundingCard} turn={artifact.turn} />
+          <AnsweredQuestionCard
+            turn={artifact.turn}
+            questionCode={artifact.questionCode}
+            captureStatus={captureStatusByTurnId.get(artifact.turn.id)}
+          />
         </WorkspaceArtifactRow>
       );
     case 'answered-review-turn':
@@ -140,6 +165,7 @@ function renderWorkspaceInteractiveArtifact({
     WorkspaceStreamArtifact,
     | { kind: 'persisted-turn' }
     | { kind: 'persisted-grounding-card' }
+    | { kind: 'persisted-grounding-question' }
     | { kind: 'pending-question' }
     | { kind: 'kickoff' }
     | { kind: 'recovery' }
@@ -228,6 +254,36 @@ function renderWorkspaceInteractiveArtifact({
             disabled={artifact.artifact.disabled}
             state={artifact.artifact.state}
             continuePosition={artifact.artifact.turn.options?.[0]?.position}
+          />
+        </WorkspaceArtifactRow>
+      );
+    case 'persisted-grounding-question':
+      return (
+        <WorkspaceArtifactRow
+          key={`persisted-grounding-question-${artifact.artifact.turn.id}`}
+          activity={
+            artifact.artifact.liveActivity
+              ? renderLiveActivity(artifact.artifact.liveActivity)
+              : renderPersistedActivity(artifact.artifact.turn)
+          }
+          errorMessage={artifact.artifact.errorMessage}
+        >
+          <AnsweredGroundingCard groundingCard={artifact.groundingCard} turn={artifact.artifact.turn} />
+          <ActiveQuestionCard
+            id={`persisted-grounding-question-${artifact.artifact.turn.id}`}
+            questionCode={artifact.questionCode}
+            question={artifact.artifact.turn.question}
+            why={artifact.artifact.turn.why}
+            impact={artifact.artifact.turn.impact}
+            options={artifact.artifact.turn.options ?? []}
+            onSubmitResponse={artifact.artifact.submitTurnResponse}
+            persistedSelectedPositions={getPersistedSelectedPositions(artifact.artifact.turn)}
+            persistedFreeText={getPersistedTurnResponse(artifact.artifact.turn)?.freeText?.trim() ?? ''}
+            hasPersistedResponse={
+              artifact.artifact.state === 'submitted' && turnHasCompletedAnswer(artifact.artifact.turn)
+            }
+            disabled={artifact.artifact.disabled}
+            state={artifact.artifact.state}
           />
         </WorkspaceArtifactRow>
       );
@@ -402,10 +458,12 @@ export function WorkspaceTranscriptArtifacts({
   return streamArtifacts.map((artifact, index) => {
     const artifactNode = (() => {
       switch (artifact.kind) {
+        case 'phase-section-header':
         case 'phase-marker':
         case 'control-marker':
         case 'answered-turn':
         case 'answered-grounding-card':
+        case 'answered-grounding-question':
         case 'answered-review-turn':
         case 'accepted-closure':
         case 'divider':
@@ -416,6 +474,7 @@ export function WorkspaceTranscriptArtifacts({
           });
         case 'persisted-turn':
         case 'persisted-grounding-card':
+        case 'persisted-grounding-question':
         case 'pending-question':
         case 'kickoff':
         case 'recovery':
