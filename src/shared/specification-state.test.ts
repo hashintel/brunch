@@ -343,6 +343,7 @@ describe('specification-state helpers', () => {
               title: 'Requirements',
               items: [
                 {
+                  reviewItemId: 'requirements:1',
                   referenceCode: createKnowledgeReferenceCode('requirement', 1),
                   content: 'Resume the interview from persisted local state',
                   rationale: 'Core local-first promise.',
@@ -383,6 +384,7 @@ describe('specification-state helpers', () => {
             title: 'Requirements',
             items: [
               {
+                reviewItemId: 'requirements:1',
                 referenceCode: createKnowledgeReferenceCode('requirement', 1),
                 content: 'Resume the interview from persisted local state',
                 rationale: 'Core local-first promise.',
@@ -402,6 +404,7 @@ describe('specification-state helpers', () => {
       title: 'Requirements',
       items: [
         {
+          reviewItemId: 'requirements:1',
           referenceCode: createKnowledgeReferenceCode('requirement', 1),
           content: 'Resume the interview from persisted local state',
           rationale: 'Core local-first promise.',

@@ -275,13 +275,28 @@ describe('buildInterviewerContext', () => {
               reviewAction: 'request-changes',
               freeText: 'Global note',
               itemComments: [
-                { itemIndex: 0, comment: 'Rewrite to focus on auth flow' },
-                { itemIndex: 3, comment: 'Merge with R2' },
+                { reviewItemId: 'requirements:1', comment: 'Rewrite to focus on auth flow' },
+                { reviewItemId: 'requirements:4', comment: 'Merge with R2' },
               ],
             },
           },
         ]),
-        assistant_parts: null,
+        assistant_parts: JSON.stringify([
+          {
+            type: 'data-review-set',
+            data: {
+              phase: 'requirements',
+              title: 'Requirements',
+              items: [
+                {
+                  reviewItemId: 'requirements:1',
+                  referenceCode: 'R1',
+                  content: 'Track auth state',
+                },
+              ],
+            },
+          },
+        ]),
         created_at: '2026-01-01',
         options: [
           { id: 1, position: 0, content: 'Accept review', is_recommended: false, is_selected: false },
@@ -291,9 +306,11 @@ describe('buildInterviewerContext', () => {
     ];
 
     const result = buildInterviewerContext(turns, 'next');
+    expect(result).toContain('Review set: Requirements');
+    expect(result).toContain('- [requirements:1] R1: Track auth state');
     expect(result).toContain('Per-item comments:');
-    expect(result).toContain('Item 0: Rewrite to focus on auth flow');
-    expect(result).toContain('Item 3: Merge with R2');
+    expect(result).toContain('Item requirements:1: Rewrite to focus on auth flow');
+    expect(result).toContain('Item requirements:4: Merge with R2');
     expect(result).toContain('Review action: request-changes');
   });
 
@@ -411,6 +428,90 @@ describe('buildInterviewerContext', () => {
     expect(result).toContain('- [6] Export the reviewed spec as markdown');
     expect(result).toContain('User: Review the next gap');
   });
+
+  it('keeps review regeneration context grounded in both the current inventory and prior request-changes feedback', () => {
+    const turns: TurnWithOptions[] = [
+      {
+        id: 8,
+        specification_id: 1,
+        parent_turn_id: 7,
+        phase: 'requirements',
+        question: 'Please review the current requirement set.',
+        answer: 'Request changes',
+        why: 'Requirements review',
+        impact: 'high',
+        is_resolution: false,
+        user_parts: JSON.stringify([
+          { type: 'text', text: 'Request changes' },
+          {
+            type: 'data-turn-response',
+            data: {
+              turnId: 8,
+              selectedOptionIds: [2],
+              reviewAction: 'request-changes',
+              freeText: 'Add a clearer export requirement.',
+              itemComments: [
+                {
+                  reviewItemId: 'requirements:5',
+                  comment: 'Be explicit about restart recovery.',
+                },
+                { reviewItemId: 'requirements:6', comment: 'Split export from sharing.' },
+              ],
+            },
+          },
+        ]),
+        assistant_parts: JSON.stringify([
+          {
+            type: 'data-review-set',
+            data: {
+              phase: 'requirements',
+              title: 'Requirements',
+              items: [
+                {
+                  reviewItemId: 'requirements:5',
+                  referenceCode: 'R1',
+                  content: 'Resume the interview from SQLite after restart',
+                },
+                {
+                  reviewItemId: 'requirements:6',
+                  referenceCode: 'R2',
+                  content: 'Export the reviewed spec as markdown',
+                },
+              ],
+            },
+          },
+        ]),
+        created_at: '2026-01-04',
+        options: [
+          { id: 1, position: 0, content: 'Accept review', is_recommended: false, is_selected: false },
+          { id: 2, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+        ],
+      },
+    ];
+
+    const result = buildInterviewerContext(turns, 'Regenerate the requirement set', {
+      phase: 'requirements',
+      entities: {
+        requirements: [
+          { id: 5, content: 'Resume the interview from SQLite after restart' },
+          { id: 6, content: 'Export the reviewed spec as markdown' },
+        ],
+      },
+    });
+
+    expect(result).toContain('Current requirements under review:');
+    expect(result).toContain('- [5] Resume the interview from SQLite after restart');
+    expect(result).toContain('- [6] Export the reviewed spec as markdown');
+    expect(result).toContain('Review set: Requirements');
+    expect(result).toContain('- [requirements:5] R1: Resume the interview from SQLite after restart');
+    expect(result).toContain('- [requirements:6] R2: Export the reviewed spec as markdown');
+    expect(result).toContain('Review action: request-changes');
+    expect(result).toContain('Per-item comments:');
+    expect(result).toContain('Item requirements:5: Be explicit about restart recovery.');
+    expect(result).toContain('Item requirements:6: Split export from sharing.');
+    expect(result).toContain('Free-text response: Add a clearer export requirement.');
+    expect(result).toContain('User: Regenerate the requirement set');
+  });
 });
 
 // --- Observer context projection ---
@@ -472,8 +573,8 @@ describe('observer-context-projection', () => {
     const result = buildObserverContext({
       turn,
       activePathSummary: '',
-      projectMode: 'brownfield',
-      projectCwd: '/tmp/repo',
+      specificationMode: 'brownfield',
+      workspaceDirectory: '/tmp/repo',
       entities: {
         goals: [],
         terms: [],
@@ -486,8 +587,8 @@ describe('observer-context-projection', () => {
       },
     });
 
-    expect(result).toContain('Project mode: brownfield');
-    expect(result).toContain('Project directory: /tmp/repo');
+    expect(result).toContain('Specification mode: brownfield');
+    expect(result).toContain('Workspace directory: /tmp/repo');
     expect(result).toContain('Grounding: The repo has a dedicated auth module and callback route.');
   });
 

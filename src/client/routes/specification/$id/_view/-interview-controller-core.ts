@@ -4,10 +4,12 @@ import type {
   AskQuestionUIPart,
   BrunchUIMessage,
   BrunchUserPart,
+  ReviewSetData,
   StructuredQuestion,
 } from '@/shared/chat.js';
 import { getNextActivePhase } from '@/shared/phase-descriptors.js';
 import {
+  getPersistedGroundingCard,
   hasPersistedTurnResponse,
   safeParsePersistedAssistantParts,
   safeParsePersistedUserParts,
@@ -45,6 +47,7 @@ export interface PendingQuestionViewModel {
   readonly why: string;
   readonly impact: StructuredQuestion['impact'];
   readonly options: readonly PendingQuestionOption[];
+  readonly reviewSet?: ReviewSetData;
 }
 
 export type KickoffMode = 'start' | 'continue';
@@ -160,7 +163,7 @@ export function createInterviewDurableSpecificationState(
     turns: specificationState.turns,
     landing: specificationState.landing ?? null,
     lastTurn,
-    showTurnCard: Boolean(lastTurn?.options?.length),
+    showTurnCard: turnHasRenderableCard(lastTurn),
     lastTurnHasResponse: hasPersistedTurnResponse(lastTurn),
   };
 }
@@ -287,6 +290,7 @@ function findPendingQuestion(messages: readonly BrunchUIMessage[]): PendingQuest
           content: option.content,
           is_recommended: option.is_recommended,
         })),
+        ...(input.reviewSet ? { reviewSet: input.reviewSet } : {}),
       };
     }
 
@@ -294,6 +298,14 @@ function findPendingQuestion(messages: readonly BrunchUIMessage[]): PendingQuest
   }
 
   return null;
+}
+
+function turnHasRenderableCard(
+  turn: Pick<SpecificationTurn, 'question' | 'options' | 'assistant_parts'> | null | undefined,
+): boolean {
+  return Boolean(
+    turn?.question?.trim() || turn?.options?.length || (turn && getPersistedGroundingCard(turn)),
+  );
 }
 
 function findPhaseSummary(messages: readonly BrunchUIMessage[]): PhaseSummaryViewModel | null {
@@ -361,9 +373,9 @@ export function createInterviewControllerViewState(
     landing?.kind === 'frontier-turn'
       ? (durableSpecification.turns.find((turn) => turn.id === landing.turnId) ?? null)
       : findPhaseTurn(durableSpecification, phase);
-  const showTurnCard = landing?.kind === 'frontier-turn' && Boolean(phaseTurn?.options?.length);
+  const showTurnCard = landing?.kind === 'frontier-turn' && turnHasRenderableCard(phaseTurn);
   const isSubmittedTurn = phaseTurn?.id === submittedTurnId;
-  const showSubmittedTurnCard = isSubmittedTurn && Boolean(phaseTurn?.options?.length);
+  const showSubmittedTurnCard = isSubmittedTurn && turnHasRenderableCard(phaseTurn);
   const pendingQuestion = isLoading || submittedTurnId !== null ? findPendingQuestion(messages) : null;
   const latestPhaseSummary = findPhaseSummary(messages);
   const phaseSummary =

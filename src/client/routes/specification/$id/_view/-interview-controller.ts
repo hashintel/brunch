@@ -66,7 +66,7 @@ export type InterviewControllerBottomArtifactState =
         positions: number[],
         freeText?: string,
         reviewAction?: ReviewAction,
-        itemComments?: Array<{ itemIndex: number; comment: string }>,
+        itemComments?: Array<{ reviewItemId: string; comment: string }>,
       ) => Promise<void>;
     }
   | {
@@ -79,12 +79,14 @@ export type InterviewControllerBottomArtifactState =
       readonly kind: 'kickoff';
       readonly kickoff: KickoffControlViewModel;
       readonly disabled: boolean;
+      readonly errorMessage: string | null;
       readonly submitKickoff: (mode?: SpecificationMode) => void;
     }
   | {
       readonly kind: 'recovery';
       readonly recovery: RecoveryControlViewModel;
       readonly disabled: boolean;
+      readonly errorMessage: string | null;
       readonly submitRecovery: () => void;
     }
   | {
@@ -157,7 +159,7 @@ function getLatestAssistantActivity(
 export function useInterviewController(phase: WorkflowPhase, entityState: EntitiesData): InterviewController {
   const specificationState = useLoaderData({ from: '/specification/$id' });
   const router = useRouter();
-  const projectId = getSpecificationRecord(specificationState).id;
+  const specificationId = getSpecificationRecord(specificationState).id;
 
   const invalidateRouter = useCallback(() => router.invalidate(), [router]);
   const { durableSpecification, ephemeralChat, handleDataPart } = useInterviewDataAdapter(
@@ -201,8 +203,8 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
   }, [durableSpecification.specification.id, phase]);
 
   const transport = useMemo(
-    () => new DefaultChatTransport({ api: `/api/specifications/${projectId}/chat` }),
-    [projectId],
+    () => new DefaultChatTransport({ api: `/api/specifications/${specificationId}/chat` }),
+    [specificationId],
   );
   const handleChatData = useCallback(
     (dataPart: { type: string; data?: unknown }) => {
@@ -226,7 +228,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
     [handleDataPart, submittedTurnId],
   );
 
-  const { messages, sendMessage, status } = useChat<BrunchUIMessage>({
+  const { messages, sendMessage, status, error } = useChat<BrunchUIMessage>({
     id: getSpecificationScopedChatId(durableSpecification.specification.id),
     transport,
     messages: [...ephemeralChat.seedMessages],
@@ -241,11 +243,12 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
     },
   });
   const submitTurnResponseMutation = useSubmitTurnResponseMutation({
-    projectId,
+    specificationId,
     turn: durableSpecification.lastTurn,
     sendMessage,
   });
-  const submitPhaseIntentMutation = useSubmitPhaseIntentMutation({ projectId });
+  const submitPhaseIntentMutation = useSubmitPhaseIntentMutation({ specificationId });
+  const controlErrorMessage = submitPhaseIntentMutation.errorMessage ?? error?.message ?? null;
   const isLoading = status === 'submitted' || status === 'streaming';
 
   const phaseMessages = useMemo(
@@ -343,17 +346,17 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
     if (nextPhase) {
       void router.navigate({
         to: getPhaseRoutePath(nextPhase) as '/specification/$id/grounding',
-        params: { id: String(projectId) },
+        params: { id: String(specificationId) },
       });
     }
-  }, [pendingCloseNavigation, durableSpecification.workflow, phase, router, projectId]);
+  }, [pendingCloseNavigation, durableSpecification.workflow, phase, router, specificationId]);
 
   const isAutoSubmittingPhaseIntent = useSpecificationScopedAutoPhaseIntent({
-    projectId,
+    projectId: specificationId,
     phase,
     workflow: durableSpecification.workflow,
     landing: durableSpecification.landing,
-    isChatLoading: isLoading,
+    chatStatus: status,
     submitPhaseIntent: submitTypedPhaseIntent,
   });
 
@@ -453,7 +456,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
               positions: number[],
               freeText?: string,
               reviewAction?: ReviewAction,
-              itemComments?: Array<{ itemIndex: number; comment: string }>,
+              itemComments?: Array<{ reviewItemId: string; comment: string }>,
             ) => {
               const turnId =
                 viewState.bottomArtifact?.kind === 'persisted-turn' ? viewState.bottomArtifact.turn.id : null;
@@ -462,6 +465,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
               }
 
               setSubmittedTurnId(turnId);
+              setCaptureStatusByTurnId((current) => new Map(current).set(turnId, 'waiting'));
               const didSubmit = await submitTurnResponseMutation.submitTurnResponse(
                 positions,
                 freeText,
@@ -470,6 +474,11 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
               );
               if (!didSubmit) {
                 setSubmittedTurnId(null);
+                setCaptureStatusByTurnId((current) => {
+                  const next = new Map(current);
+                  next.delete(turnId);
+                  return next;
+                });
               }
             },
           }
@@ -488,6 +497,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
                   kind: 'kickoff' as const,
                   kickoff,
                   disabled: isLoading,
+                  errorMessage: controlErrorMessage,
                   submitKickoff: (selectedMode?: SpecificationMode) => {
                     if (isLoading) {
                       return;
@@ -524,6 +534,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
                     kind: 'recovery' as const,
                     recovery,
                     disabled: isLoading,
+                    errorMessage: controlErrorMessage,
                     submitRecovery: () => {
                       if (isLoading) {
                         return;

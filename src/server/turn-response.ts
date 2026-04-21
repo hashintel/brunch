@@ -57,8 +57,8 @@ export function formatProjectedTurnResponse(response: ProjectedTurnResponse): st
   }
   if (response.itemComments?.length) {
     lines.push('  Per-item comments:');
-    for (const { itemIndex, comment } of response.itemComments) {
-      lines.push(`    Item ${itemIndex}: ${comment}`);
+    for (const { reviewItemId, comment } of response.itemComments) {
+      lines.push(`    Item ${reviewItemId}: ${comment}`);
     }
   }
   return lines.join('\n');

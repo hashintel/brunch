@@ -1,3 +1,4 @@
+import type { ChatStatus } from 'ai';
 import { useEffect, useMemo, useRef, useState } from 'react';
 
 import type { SpecificationLanding, WorkflowPhase, WorkflowState } from '@/shared/api-types.js';
@@ -72,14 +73,14 @@ export function useSpecificationScopedAutoPhaseIntent({
   phase,
   workflow,
   landing,
-  isChatLoading,
+  chatStatus,
   submitPhaseIntent,
 }: {
   projectId: number;
   phase: WorkflowPhase;
   workflow: WorkflowState;
   landing: SpecificationLanding | null;
-  isChatLoading: boolean;
+  chatStatus: ChatStatus;
   submitPhaseIntent: (intent: PhaseIntentRequest) => Promise<boolean>;
 }): boolean {
   const autoIntent = useMemo(
@@ -112,13 +113,19 @@ export function useSpecificationScopedAutoPhaseIntent({
       return;
     }
 
+    if (chatStatus === 'error') {
+      markAutoPhaseIntentFailed(projectId, autoKey);
+      setIsAutoSubmitting(false);
+      return;
+    }
+
     const registryEntry = autoPhaseIntentRegistry.get(projectId);
     if (registryEntry?.key === autoKey) {
       setIsAutoSubmitting(registryEntry.status === 'pending');
       return;
     }
 
-    if (isChatLoading) {
+    if (chatStatus === 'submitted' || chatStatus === 'streaming') {
       return;
     }
 
@@ -145,7 +152,7 @@ export function useSpecificationScopedAutoPhaseIntent({
           setIsAutoSubmitting(false);
         }
       });
-  }, [autoIntent, autoKey, isChatLoading, phase, projectId, submitPhaseIntent, workflow]);
+  }, [autoIntent, autoKey, chatStatus, phase, projectId, submitPhaseIntent, workflow]);
 
   return isAutoSubmitting;
 }

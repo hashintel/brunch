@@ -1,13 +1,12 @@
 import type { WorkflowPhase } from '@/shared/api-types.js';
+import { computeReviewSetChangeSummary, type ReviewSetChangeSummary } from '@/shared/review-diffing.js';
 import {
-  computeReviewSetChangeSummary,
   getAcceptedClosureReplay,
   getPersistedGroundingCard,
   getPersistedReviewAction,
   getPersistedReviewSet,
   turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
-  type ReviewSetChangeSummary,
 } from '@/shared/specification-state.js';
 import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 

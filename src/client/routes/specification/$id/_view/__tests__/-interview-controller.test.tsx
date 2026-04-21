@@ -42,6 +42,7 @@ type UseChatOptions = {
   messages: BrunchUIMessage[];
   onData?: (dataPart: { type: string; data?: unknown }) => void;
   onFinish?: () => void;
+  onError?: (error: Error) => void;
 };
 
 type UseChatHarness = {
@@ -50,6 +51,7 @@ type UseChatHarness = {
   replaceMessages?: (messages: BrunchUIMessage[]) => void;
   onData?: UseChatOptions['onData'];
   onFinish?: UseChatOptions['onFinish'];
+  onError?: UseChatOptions['onError'];
 };
 
 let currentSpecificationState: SpecificationState;
@@ -61,7 +63,8 @@ let useChatImpl: (options: UseChatOptions) => {
   messages: BrunchUIMessage[];
   sendMessage: (message: { text?: string; parts?: Array<Record<string, unknown>> }) => Promise<void> | void;
   setMessages: (messages: BrunchUIMessage[]) => void;
-  status: 'ready' | 'submitted' | 'streaming';
+  status: 'ready' | 'submitted' | 'streaming' | 'error';
+  error?: Error;
 };
 let useChatHarness: UseChatHarness;
 
@@ -91,13 +94,13 @@ vi.mock('ai', async () => {
 });
 
 function createSpecificationState({
-  projectId = 1,
+  specificationId = 1,
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
   options = [],
   turns,
 }: {
-  projectId?: number;
+  specificationId?: number;
   assistantText?: string;
   answer?: string;
   options?: Array<{
@@ -112,7 +115,7 @@ function createSpecificationState({
   const resolvedTurns = turns ?? [
     {
       id: 1,
-      specification_id: projectId,
+      specification_id: specificationId,
       parent_turn_id: null,
       phase: 'grounding',
       turn_kind: 'question',
@@ -128,10 +131,10 @@ function createSpecificationState({
     },
   ];
 
-  const projectState: SpecificationState = {
+  const specificationState: SpecificationState = {
     specification: {
-      id: projectId,
-      name: `Project ${projectId}`,
+      id: specificationId,
+      name: `Specification ${specificationId}`,
       mode: 'greenfield',
       active_turn_id: resolvedTurns.at(-1)?.id ?? null,
       created_at: '2026-04-03 10:00:00',
@@ -181,12 +184,12 @@ function createSpecificationState({
   };
 
   return {
-    ...projectState,
-    landing: deriveSpecificationLanding(projectState),
+    ...specificationState,
+    landing: deriveSpecificationLanding(specificationState),
   };
 }
 
-function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'ready') {
+function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' | 'error' = 'ready') {
   const sendMessage = vi.fn(async () => {});
   const setMessagesSpy = vi.fn();
 
@@ -215,6 +218,7 @@ function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'rea
 
     useChatHarness.onData = options.onData;
     useChatHarness.onFinish = options.onFinish;
+    useChatHarness.onError = options.onError;
     useChatHarness.replaceMessages = stableSetMessages;
 
     return {
@@ -222,6 +226,7 @@ function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'rea
       sendMessage,
       setMessages: stableSetMessages,
       status,
+      error: undefined,
     };
   };
 }
@@ -979,7 +984,7 @@ describe('interview controller', () => {
     );
 
     currentSpecificationState = createSpecificationState({
-      projectId: 2,
+      specificationId: 2,
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
     });
@@ -991,7 +996,7 @@ describe('interview controller', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('project-name').textContent).toBe('Project 2');
+      expect(screen.getByTestId('project-name').textContent).toBe('Specification 2');
       expect(screen.getByTestId('messages').textContent).toBe(
         'Ship the desktop app|Which platform should we target now?',
       );
@@ -999,7 +1004,7 @@ describe('interview controller', () => {
     expect(useChatHarness.setMessages).not.toHaveBeenCalled();
   });
 
-  it('invalidates the router when the chat stream emits an observer result', async () => {
+  it('invalidates loader state on observer updates without resetting the live transcript', async () => {
     renderController();
 
     await screen.findByTestId('messages');
@@ -1026,6 +1031,8 @@ describe('interview controller', () => {
       expect(chatTransportOptions).toContainEqual({ api: '/api/specifications/1/chat' });
       expect(routerInvalidate).toHaveBeenCalled();
     });
+    expect(screen.getByTestId('messages').textContent).toBe('Build the web app|What should we build first?');
+    expect(useChatHarness.setMessages).not.toHaveBeenCalled();
   });
 
   it('keeps the live transcript stable on same-project refresh', async () => {

@@ -15,6 +15,7 @@ const code = createKnowledgeReferenceCode;
 
 const requirementItems: ReviewSetCardItem[] = [
   {
+    reviewItemId: 'requirements:1',
     referenceCode: code('requirement', 1),
     content:
       'The system shall provide a structured intake form that captures project name, stakeholder contacts, and initial scope description',
@@ -22,6 +23,7 @@ const requirementItems: ReviewSetCardItem[] = [
     grounding: [{ code: code('goal', 1) }, { code: code('context', 1) }, { code: code('decision', 1) }],
   },
   {
+    reviewItemId: 'requirements:2',
     referenceCode: code('requirement', 2),
     content:
       'All submitted intake requests shall be validated against a completeness checklist before entering the processing queue',
@@ -29,6 +31,7 @@ const requirementItems: ReviewSetCardItem[] = [
     grounding: [{ code: code('goal', 1) }, { code: code('constraint', 2) }],
   },
   {
+    reviewItemId: 'requirements:3',
     referenceCode: code('requirement', 3),
     content:
       'The platform shall consolidate data from the three internal dashboards into a unified real-time view',
@@ -36,6 +39,7 @@ const requirementItems: ReviewSetCardItem[] = [
     grounding: [{ code: code('goal', 2) }, { code: code('context', 1) }, { code: code('assumption', 1) }],
   },
   {
+    reviewItemId: 'requirements:4',
     referenceCode: code('requirement', 4),
     content:
       'Users shall be able to configure notification preferences per project with digest frequency controls',
@@ -43,6 +47,7 @@ const requirementItems: ReviewSetCardItem[] = [
     grounding: [{ code: code('decision', 3) }, { code: code('constraint', 5) }],
   },
   {
+    reviewItemId: 'requirements:5',
     referenceCode: code('requirement', 5),
     content:
       'The system shall support role-based access control with at least three permission tiers: viewer, editor, and administrator',
@@ -56,6 +61,7 @@ const requirementItems: ReviewSetCardItem[] = [
     ],
   },
   {
+    reviewItemId: 'requirements:6',
     referenceCode: code('requirement', 6),
     content:
       'Audit logs shall record all state transitions for intake requests with timestamps and acting user identity',
@@ -64,6 +70,7 @@ const requirementItems: ReviewSetCardItem[] = [
     isRevised: true,
   },
   {
+    reviewItemId: 'requirements:7',
     referenceCode: code('requirement', 7),
     content: 'API integration with the legacy CRM system for bidirectional contact synchronization',
     rationale:

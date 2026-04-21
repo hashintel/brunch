@@ -22,7 +22,7 @@ export interface SubmitTurnResponseMutationState {
     positions?: number[],
     freeText?: string,
     reviewAction?: ReviewAction,
-    itemComments?: Array<{ itemIndex: number; comment: string }>,
+    itemComments?: Array<{ reviewItemId: string; comment: string }>,
   ) => Promise<boolean>;
   readonly isPending: boolean;
   readonly errorMessage: string | null;
@@ -41,14 +41,14 @@ export interface SubmitPhaseIntentMutationState {
 }
 
 export function useSubmitPhaseIntentMutation({
-  projectId,
+  specificationId,
 }: {
-  projectId: number;
+  specificationId: number;
 }): SubmitPhaseIntentMutationState {
   const router = useRouter();
   const mutation = useClientMutation((request: SubmitPhaseIntentRequest) =>
     postJsonMutation<SubmitPhaseIntentResponse, SubmitPhaseIntentRequest>(
-      `/api/specifications/${projectId}/phase-intent`,
+      `/api/specifications/${specificationId}/phase-intent`,
       request,
       'Failed to submit phase intent',
     ),
@@ -85,18 +85,18 @@ export function useSubmitPhaseIntentMutation({
 }
 
 export function useSubmitTurnResponseMutation({
-  projectId,
+  specificationId,
   turn,
   sendMessage,
 }: {
-  projectId: number;
+  specificationId: number;
   turn: SpecificationTurn | undefined;
   sendMessage: (message: { text: string }) => Promise<void> | void;
 }): SubmitTurnResponseMutationState {
   const router = useRouter();
   const mutation = useClientMutation((variables: { turnId: number; response: SubmitTurnResponseRequest }) =>
     postJsonMutation<SubmitTurnResponseResponse, SubmitTurnResponseRequest>(
-      `/api/specifications/${projectId}/turns/${variables.turnId}/response`,
+      `/api/specifications/${specificationId}/turns/${variables.turnId}/response`,
       variables.response,
       'Failed to save response',
     ),
@@ -107,7 +107,7 @@ export function useSubmitTurnResponseMutation({
       positions: number[] = [],
       freeText?: string,
       reviewActionOverride?: ReviewAction,
-      itemComments?: Array<{ itemIndex: number; comment: string }>,
+      itemComments?: Array<{ reviewItemId: string; comment: string }>,
     ) => {
       if (!turn) {
         return false;

@@ -22,6 +22,15 @@ export function createEmptyFixtureObserverEntityIds(): ObserverResultData['entit
   return createKnowledgeCollectionRecord(() => [] as number[]);
 }
 
+function createFixtureActivitySummaryPart(
+  tools: string[],
+): Extract<BrunchAssistantPart, { type: 'data-activity-summary' }> {
+  return {
+    type: 'data-activity-summary',
+    data: { tools },
+  };
+}
+
 export function createFixtureReviewQuestionInput({
   phase,
   title,
@@ -67,6 +76,7 @@ export function serializeFixtureQuestionAssistantParts({
   entityIds?: ObserverResultData['entityIds'];
 }): string {
   return serializeParts([
+    createFixtureActivitySummaryPart(['structured question']),
     {
       type: 'tool-ask_question',
       toolCallId,
@@ -106,6 +116,7 @@ export function serializeFixturePhaseProposalAssistantParts({
   entityIds?: ObserverResultData['entityIds'];
 }): string {
   return serializeParts([
+    createFixtureActivitySummaryPart(['phase closure proposal']),
     {
       type: 'tool-propose_phase_closure',
       toolCallId: `fixture-turn-${turnId}-propose-phase-closure`,
@@ -137,6 +148,7 @@ export function serializeFixturePhaseProposalAssistantParts({
 
 export function serializeFixtureGroundingCardAssistantParts(data: GroundingCardData): string {
   return serializeParts([
+    createFixtureActivitySummaryPart(['grounding card']),
     {
       type: 'data-grounding-card',
       data,

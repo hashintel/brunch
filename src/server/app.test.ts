@@ -53,10 +53,6 @@ function createMockObserverResult(overrides?: {
       number[]
     >
   >;
-  draftReviewItems?: {
-    requirements?: Array<{ content: string; rationale: string | null }>;
-    criteria?: Array<{ content: string; rationale: string | null }>;
-  };
 }) {
   return {
     entityIds: {
@@ -69,10 +65,6 @@ function createMockObserverResult(overrides?: {
       decisions: [],
       assumptions: [],
       ...overrides?.entityIds,
-    },
-    draftReviewItems: {
-      requirements: overrides?.draftReviewItems?.requirements ?? [],
-      criteria: overrides?.draftReviewItems?.criteria ?? [],
     },
   };
 }
@@ -98,7 +90,7 @@ function createRuntimeReviewQuestion({
   title: string;
   question: string;
   why: string;
-  items: Array<{ content: string; rationale?: string | null; referenceCode?: string }>;
+  items: Array<{ reviewItemId: string; content: string; rationale?: string | null; referenceCode?: string }>;
 }): StructuredQuestion {
   return {
     question,
@@ -131,7 +123,7 @@ function createReviewSetAssistantParts({
   title: string;
   question: string;
   why: string;
-  items: Array<{ content: string; rationale?: string | null; referenceCode?: string }>;
+  items: Array<{ reviewItemId: string; content: string; rationale?: string | null; referenceCode?: string }>;
 }) {
   return JSON.stringify([
     {
@@ -695,12 +687,23 @@ describe('POST /api/specifications/:id/chat', () => {
           decisions: [],
           assumptions: [],
         },
-        draftReviewItems: {
-          requirements: [],
-          criteria: [],
-        },
       },
     });
+
+    const { getActivePath } = await import('./db.js');
+    const turns = getActivePath(db, projectId);
+    expect(turns).toHaveLength(2);
+    expect(JSON.parse(turns[0]!.assistant_parts ?? '[]')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'data-observer-result',
+          data: expect.objectContaining({ turnId: turns[0]!.id }),
+        }),
+      ]),
+    );
+    expect(JSON.parse(turns[1]!.assistant_parts ?? '[]')).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: 'data-observer-result' })]),
+    );
 
     const entitiesRes = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
     expect(entitiesRes.body.goals).toEqual([
@@ -747,6 +750,76 @@ describe('POST /api/specifications/:id/chat', () => {
         referenceCode: createKnowledgeReferenceCode('constraint', 1),
       }),
     ]);
+  });
+
+  it('still observes the current turn when stale observer data belongs to a different turn', async () => {
+    const projectId = await createTestProject();
+    const { advanceHead, createTurn, getTurn } = await import('./db.js');
+    const activeTurn = createTurn(db, projectId, {
+      phase: 'grounding',
+      question: 'Which interface matters most?',
+      answer: null,
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-observer-result',
+          data: {
+            turnId: 999,
+            entityIds: {
+              goals: [],
+              terms: [],
+              contexts: [],
+              constraints: [],
+              requirements: [],
+              criteria: [],
+              decisions: [],
+              assumptions: [],
+            },
+          },
+        },
+      ]),
+    });
+    advanceHead(db, projectId, activeTurn.id);
+
+    await request(app)
+      .post(`/api/specifications/${projectId}/turns/${activeTurn.id}/response`)
+      .send({
+        kind: 'free-text',
+        freeText: 'Terminal UI first',
+      })
+      .expect(200);
+
+    mockRunObserver.mockResolvedValue(createMockObserverResult());
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
+    );
+
+    await request(app)
+      .post(`/api/specifications/${projectId}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-follow-up',
+            role: 'user',
+            parts: [{ type: 'text', text: 'Terminal UI first' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockRunObserver).toHaveBeenCalledWith(
+      db,
+      expect.objectContaining({ id: activeTurn.id }),
+      projectId,
+      expect.any(String),
+    );
+    expect(JSON.parse(getTurn(db, activeTurn.id)?.assistant_parts ?? '[]')).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          type: 'data-observer-result',
+          data: expect.objectContaining({ turnId: activeTurn.id }),
+        }),
+      ]),
+    );
   });
 
   it('emits mixed observer results and persists generic design entities through the entities API', async () => {
@@ -840,10 +913,6 @@ describe('POST /api/specifications/:id/chat', () => {
           decisions: [createdIds!.decision],
           assumptions: [createdIds!.assumption],
         },
-        draftReviewItems: {
-          requirements: [],
-          criteria: [],
-        },
       },
     });
 
@@ -896,20 +965,9 @@ describe('POST /api/specifications/:id/chat', () => {
     ]);
   });
 
-  it('emits draft requirement observer results while leaving durable entities empty before review acceptance', async () => {
+  it('keeps requirements empty before review acceptance even when the review-phase observer runs', async () => {
     const projectId = await createTestProject();
-    mockRunObserver.mockImplementation(async () =>
-      createMockObserverResult({
-        draftReviewItems: {
-          requirements: [
-            {
-              content: 'Resume the interview from SQLite after restart',
-              rationale: 'Users will come back to finish the workflow',
-            },
-          ],
-        },
-      }),
-    );
+    mockRunObserver.mockImplementation(async () => createMockObserverResult());
 
     const res = await request(app)
       .post(`/api/specifications/${projectId}/chat`)
@@ -934,15 +992,6 @@ describe('POST /api/specifications/:id/chat', () => {
           criteria: [],
           decisions: [],
           assumptions: [],
-        },
-        draftReviewItems: {
-          requirements: [
-            {
-              content: 'Resume the interview from SQLite after restart',
-              rationale: 'Users will come back to finish the workflow',
-            },
-          ],
-          criteria: [],
         },
       },
     });
@@ -951,20 +1000,9 @@ describe('POST /api/specifications/:id/chat', () => {
     expect(entitiesRes.body.requirements).toEqual([]);
   });
 
-  it('emits draft criterion observer results while leaving durable entities empty before review acceptance', async () => {
+  it('keeps criteria empty before review acceptance even when the review-phase observer runs', async () => {
     const projectId = await createTestProject();
-    mockRunObserver.mockImplementation(async () =>
-      createMockObserverResult({
-        draftReviewItems: {
-          criteria: [
-            {
-              content: 'Resuming restores the active path without data loss',
-              rationale: 'This proves persistence worked for the branch the user was on',
-            },
-          ],
-        },
-      }),
-    );
+    mockRunObserver.mockImplementation(async () => createMockObserverResult());
 
     const res = await request(app)
       .post(`/api/specifications/${projectId}/chat`)
@@ -989,15 +1027,6 @@ describe('POST /api/specifications/:id/chat', () => {
           criteria: [],
           decisions: [],
           assumptions: [],
-        },
-        draftReviewItems: {
-          requirements: [],
-          criteria: [
-            {
-              content: 'Resuming restores the active path without data loss',
-              rationale: 'This proves persistence worked for the branch the user was on',
-            },
-          ],
         },
       },
     });
@@ -1436,7 +1465,13 @@ describe('phase outcomes + grounding closure', () => {
       'design',
       undefined,
     );
-    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount);
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
+    expect(mockRunObserver).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'grounding' }),
+      projectId,
+      expect.any(String),
+    );
   });
 
   it('streams a design phase summary proposal and projects workflow state through the shared phase seam', async () => {
@@ -1693,7 +1728,7 @@ describe('phase outcomes + grounding closure', () => {
     );
   });
 
-  it('persists a missing requirement through the requirements-review response loop and keeps requirements not yet closeable', async () => {
+  it('does not synthesize a replacement requirement review set through the response loop and keeps requirements not yet closeable', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createOption, createTurn, getTurn } = await import('./db.js');
@@ -1744,16 +1779,7 @@ describe('phase outcomes + grounding closure', () => {
         return createMockObserverResult();
       }
 
-      return createMockObserverResult({
-        draftReviewItems: {
-          requirements: [
-            {
-              content: 'Export the reviewed spec as markdown',
-              rationale: null,
-            },
-          ],
-        },
-      });
+      return createMockObserverResult();
     });
 
     await request(app)
@@ -1790,21 +1816,11 @@ describe('phase outcomes + grounding closure', () => {
 
     const refreshedSpecificationState = await getSpecificationSnapshot(projectId);
     const frontierTurn = getTurn(db, getSpecificationRecord(refreshedSpecificationState).active_turn_id!);
-    expect(JSON.parse(frontierTurn?.assistant_parts ?? '[]')).toEqual(
+    expect(JSON.parse(frontierTurn?.assistant_parts ?? '[]')).not.toEqual(
       expect.arrayContaining([
-        {
+        expect.objectContaining({
           type: 'data-review-set',
-          data: {
-            phase: 'requirements',
-            title: 'Requirements',
-            items: [
-              {
-                content: 'Export the reviewed spec as markdown',
-                referenceCode: createKnowledgeReferenceCode('requirement', 1),
-              },
-            ],
-          },
-        },
+        }),
       ]),
     );
   });
@@ -2020,18 +2036,7 @@ describe('phase outcomes + grounding closure', () => {
     mockStreamInterviewer.mockImplementation(async () =>
       makeTextInterviewer('What would prove the resume flow is complete?'),
     );
-    mockRunObserver.mockImplementation(async () =>
-      createMockObserverResult({
-        draftReviewItems: {
-          criteria: [
-            {
-              content: 'Closing and reopening the browser restores the active path',
-              rationale: null,
-            },
-          ],
-        },
-      }),
-    );
+    mockRunObserver.mockImplementation(async () => createMockObserverResult());
 
     const observerCallCount = mockRunObserver.mock.calls.length;
 
@@ -2057,7 +2062,13 @@ describe('phase outcomes + grounding closure', () => {
       undefined,
     );
 
-    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount);
+    expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
+    expect(mockRunObserver).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.objectContaining({ phase: 'requirements' }),
+      projectId,
+      expect.any(String),
+    );
 
     const projectRes = await request(app).get(`/api/specifications/${projectId}`).expect(200);
     expect(projectRes.body.workflow.phases.criteria).toEqual(
@@ -2982,11 +2993,13 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
       why: 'The first review turn should carry its own durable review metadata.',
       items: [
         {
+          reviewItemId: 'requirements:1',
           content: 'Export the reviewed specification as markdown',
           rationale: 'Keeps the accepted review output portable for sharing.',
           referenceCode: createKnowledgeReferenceCode('requirement', 1),
         },
         {
+          reviewItemId: 'requirements:2',
           content: 'Resume the interview from persisted local state',
           rationale: 'Lets users continue after a restart.',
           referenceCode: createKnowledgeReferenceCode('requirement', 2),
@@ -3011,15 +3024,6 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
               criteria: [],
               decisions: [],
               assumptions: [],
-            },
-            draftReviewItems: {
-              requirements: [
-                {
-                  content: 'Fallback requirement inventory should not become the persisted review set',
-                  rationale: 'This proves the runtime turn no longer depends on synthesized inventory.',
-                },
-              ],
-              criteria: [],
             },
           },
         },
@@ -3110,6 +3114,11 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
       'Resume the interview from persisted local state',
     );
 
+    const reviewItems = [
+      { reviewItemId: 'requirements:1', content: 'Export the reviewed specification as markdown' },
+      { reviewItemId: 'requirements:2', content: 'Resume the interview from persisted local state' },
+    ];
+
     const reviewTurn = createTurn(db, projectId, {
       phase: 'requirements',
       parent_turn_id: seededRequirements.designConfirmationTurn.id,
@@ -3134,8 +3143,13 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
               { action: 'accept', optionPosition: 0 },
               { action: 'request-changes', optionPosition: 1 },
             ],
+            reviewSet: { phase: 'requirements', title: 'Requirements', items: reviewItems },
           },
           output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+        {
+          type: 'data-review-set',
+          data: { phase: 'requirements', title: 'Requirements', items: reviewItems },
         },
       ]),
     });
@@ -3213,6 +3227,8 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
     const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createOption, createTurn } = await import('./db.js');
 
+    const reviewItems = [{ reviewItemId: 'requirements:1', content: 'A requirement to accept' }];
+
     const reviewTurn = createTurn(db, projectId, {
       phase: 'requirements',
       parent_turn_id: seededRequirements.designConfirmationTurn.id,
@@ -3237,8 +3253,13 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
               { action: 'request-changes', optionPosition: 0 },
               { action: 'accept', optionPosition: 1 },
             ],
+            reviewSet: { phase: 'requirements', title: 'Requirements', items: reviewItems },
           },
           output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+        {
+          type: 'data-review-set',
+          data: { phase: 'requirements', title: 'Requirements', items: reviewItems },
         },
       ]),
     });
@@ -3299,11 +3320,13 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
         why: 'Review the whole requirement set before moving forward.',
         items: [
           {
+            reviewItemId: 'requirements:1',
             referenceCode: createKnowledgeReferenceCode('requirement', 1),
             content: 'Export the reviewed specification as markdown',
             rationale: 'Keeps the accepted review output portable for sharing.',
           },
           {
+            reviewItemId: 'requirements:2',
             referenceCode: createKnowledgeReferenceCode('requirement', 2),
             content: 'Resume the interview from persisted local state',
             rationale: 'Users should be able to continue after a restart.',
@@ -3520,11 +3543,13 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
       why: 'The first criteria review turn should carry its own durable review metadata.',
       items: [
         {
+          reviewItemId: 'criteria:1',
           content: 'Restarting restores the active path',
           rationale: 'Proves the persisted branch resumes cleanly.',
           referenceCode: createKnowledgeReferenceCode('criterion', 1),
         },
         {
+          reviewItemId: 'criteria:2',
           content: 'Markdown export includes accepted requirements only',
           rationale: 'Checks the final handoff stays scoped to accepted output.',
           referenceCode: createKnowledgeReferenceCode('criterion', 2),
@@ -3549,15 +3574,6 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
               criteria: [],
               decisions: [],
               assumptions: [],
-            },
-            draftReviewItems: {
-              requirements: [],
-              criteria: [
-                {
-                  content: 'Fallback criteria inventory should not become the persisted review set',
-                  rationale: 'This proves the runtime turn no longer depends on synthesized inventory.',
-                },
-              ],
             },
           },
         },
@@ -3648,6 +3664,11 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
       'Markdown export includes accepted requirements only',
     );
 
+    const reviewItems = [
+      { reviewItemId: 'criteria:1', content: 'Restarting restores the active path' },
+      { reviewItemId: 'criteria:2', content: 'Markdown export includes accepted requirements only' },
+    ];
+
     const reviewTurn = createTurn(db, projectId, {
       phase: 'criteria',
       parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
@@ -3672,8 +3693,13 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
               { action: 'accept', optionPosition: 0 },
               { action: 'request-changes', optionPosition: 1 },
             ],
+            reviewSet: { phase: 'criteria', title: 'Acceptance Criteria', items: reviewItems },
           },
           output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+        {
+          type: 'data-review-set',
+          data: { phase: 'criteria', title: 'Acceptance Criteria', items: reviewItems },
         },
       ]),
     });
@@ -3761,11 +3787,13 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
         why: 'Review the whole criterion set before moving forward.',
         items: [
           {
+            reviewItemId: 'criteria:1',
             referenceCode: createKnowledgeReferenceCode('criterion', 1),
             content: 'Restarting restores the active path',
             rationale: 'Proves the persisted branch resumes cleanly.',
           },
           {
+            reviewItemId: 'criteria:2',
             referenceCode: createKnowledgeReferenceCode('criterion', 2),
             content: 'Markdown export includes accepted requirements only',
             rationale: 'Checks the final handoff stays scoped to accepted output.',
@@ -3974,10 +4002,6 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
                 decisions: [],
                 assumptions: [],
               },
-              draftReviewItems: {
-                requirements: [],
-                criteria: [],
-              },
             },
           },
         ],
@@ -4000,28 +4024,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
       {
         id: `turn-${turn.id}-assistant`,
         role: 'assistant',
-        parts: [
-          {
-            type: 'data-observer-result',
-            data: {
-              turnId: 1,
-              entityIds: {
-                goals: [],
-                terms: [],
-                contexts: [],
-                constraints: [],
-                requirements: [],
-                criteria: [],
-                decisions: [],
-                assumptions: [],
-              },
-              draftReviewItems: {
-                requirements: [],
-                criteria: [],
-              },
-            },
-          },
-        ],
+        parts: [{ type: 'text', text: 'What platform should we support first?' }],
       },
     ]);
 
@@ -4065,6 +4068,134 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
         data: { turnId: turn.id, selectedOptionIds: [], freeText: 'None of these fit our use case' },
       },
     ]);
+  });
+
+  it('acceptance with itemComments and freeText produces identical materialized entities as acceptance without comments', async () => {
+    const projectId = await createTestProject();
+    const seededRequirements = seedRequirementsReady(projectId);
+    const { advanceHead, createOption, createTurn } = await import('./db.js');
+
+    const reviewItems = [
+      {
+        reviewItemId: 'requirements:1',
+        referenceCode: createKnowledgeReferenceCode('requirement', 1),
+        content: 'Export the reviewed specification as markdown',
+        rationale: 'Keeps the accepted review output portable for sharing.',
+      },
+      {
+        reviewItemId: 'requirements:2',
+        referenceCode: createKnowledgeReferenceCode('requirement', 2),
+        content: 'Resume the interview from persisted local state',
+        rationale: 'Users should be able to continue after a restart.',
+      },
+    ];
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: seededRequirements.designConfirmationTurn.id,
+      question: 'Please review the current requirement set.',
+      why: 'Review the whole requirement set before moving forward.',
+      impact: 'high',
+      answer: '',
+      assistant_parts: createReviewSetAssistantParts({
+        phase: 'requirements',
+        title: 'Requirements',
+        question: 'Please review the current requirement set.',
+        why: 'Review the whole requirement set before moving forward.',
+        items: reviewItems,
+      }),
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    await request(app)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({
+        kind: 'select-options',
+        positions: [0],
+        reviewAction: 'accept',
+        freeText: 'Looks great overall, minor wording suggestions below.',
+        itemComments: [
+          { reviewItemId: 'requirements:1', comment: 'Consider rewording to mention format options.' },
+        ],
+      })
+      .expect(200, { ok: true, advancedToPhase: 'criteria' });
+
+    const entitiesRes = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
+
+    expect(entitiesRes.body.requirements).toEqual([
+      expect.objectContaining({ content: 'Export the reviewed specification as markdown' }),
+      expect.objectContaining({ content: 'Resume the interview from persisted local state' }),
+    ]);
+    expect(entitiesRes.body.requirements).toHaveLength(2);
+
+    for (const requirement of entitiesRes.body.requirements) {
+      expect(requirement.content).not.toContain('rewording');
+      expect(requirement.content).not.toContain('format options');
+    }
+  });
+
+  it('acceptance fails deterministically when the persisted review set is missing', async () => {
+    const projectId = await createTestProject();
+    const seededRequirements = seedRequirementsReady(projectId);
+    const { advanceHead, createOption, createTurn } = await import('./db.js');
+
+    const reviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: seededRequirements.designConfirmationTurn.id,
+      question: 'Please review the current requirement set.',
+      why: 'Review the whole requirement set before moving forward.',
+      impact: 'high',
+      answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'tool-ask_question',
+          toolCallId: 'tool-requirements-review',
+          state: 'output-available',
+          input: {
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            options: [
+              { content: 'Accept review', is_recommended: true },
+              { content: 'Request changes', is_recommended: false },
+            ],
+            reviewActions: [
+              { action: 'accept', optionPosition: 0 },
+              { action: 'request-changes', optionPosition: 1 },
+            ],
+          },
+          output: { ok: true, turnId: 0, optionCount: 2 },
+        },
+      ]),
+    });
+    createOption(db, reviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    createOption(db, reviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, reviewTurn.id);
+
+    const response = await request(app)
+      .post(`/api/specifications/${projectId}/turns/${reviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
+      .expect(500);
+
+    expect(response.body.error).toContain('review set');
   });
 
   it('rejects a free-text-only turn response when no free text is provided', async () => {

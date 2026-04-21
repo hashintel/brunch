@@ -15,7 +15,10 @@ export const reviewSetGroundingRefSchema = z.object({
   code: z.string().min(1),
 });
 
+export const reviewItemIdentitySchema = z.string().min(1);
+
 export const reviewSetItemSchema = z.object({
+  reviewItemId: reviewItemIdentitySchema,
   content: z.string().min(1),
   referenceCode: z.string().min(1).optional(),
   rationale: z.string().min(1).nullable().optional(),
@@ -24,11 +27,27 @@ export const reviewSetItemSchema = z.object({
   isRevised: z.boolean().optional(),
 });
 
-export const reviewSetSchema = z.object({
-  phase: workflowPhaseSchema,
-  title: z.string().min(1),
-  items: z.array(reviewSetItemSchema),
-});
+export const reviewSetSchema = z
+  .object({
+    phase: workflowPhaseSchema,
+    title: z.string().min(1),
+    items: z.array(reviewSetItemSchema),
+  })
+  .superRefine((value, ctx) => {
+    const seenReviewItemIds = new Set<string>();
+
+    for (let index = 0; index < value.items.length; index += 1) {
+      const reviewItemId = value.items[index]!.reviewItemId;
+      if (seenReviewItemIds.has(reviewItemId)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'reviewSet items must not repeat the same reviewItemId',
+          path: ['items', index, 'reviewItemId'],
+        });
+      }
+      seenReviewItemIds.add(reviewItemId);
+    }
+  });
 
 export const groundingCardSchema = z.object({
   summary: z.string().min(1),
@@ -119,20 +138,9 @@ export const presentGroundingCardToolOutputSchema = z.object({
   turnId: z.number(),
 });
 
-export const observerDraftReviewItemSchema = z.object({
-  content: z.string().min(1),
-  rationale: z.string().nullable(),
-});
-
-export const observerReviewDraftsSchema = z.object({
-  requirements: z.array(observerDraftReviewItemSchema),
-  criteria: z.array(observerDraftReviewItemSchema),
-});
-
 export const observerResultSchema = z.object({
   turnId: z.number().int().positive().optional(),
   entityIds: z.object(createKnowledgeCollectionRecord(() => z.array(z.number()))),
-  draftReviewItems: observerReviewDraftsSchema.optional(),
 });
 
 export const activitySummarySchema = z.object({
@@ -141,7 +149,7 @@ export const activitySummarySchema = z.object({
 });
 
 export const reviewItemCommentSchema = z.object({
-  itemIndex: z.number().int().min(0),
+  reviewItemId: reviewItemIdentitySchema,
   comment: z.string().trim().min(1),
 });
 
@@ -186,8 +194,6 @@ export type ReviewAction = z.infer<typeof reviewActionSchema>;
 export type ReviewActionOption = z.infer<typeof reviewActionOptionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
 export type PresentGroundingCardToolOutput = z.infer<typeof presentGroundingCardToolOutputSchema>;
-export type ObserverDraftReviewItem = z.infer<typeof observerDraftReviewItemSchema>;
-export type ObserverReviewDrafts = z.infer<typeof observerReviewDraftsSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
 export type ObserverEntityIds = ObserverResultData['entityIds'];
 export type ReviewSetData = z.infer<typeof reviewSetSchema>;

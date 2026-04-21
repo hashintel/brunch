@@ -1,8 +1,10 @@
 import { table, h3 } from 'md-pen';
 
 import type { SpecificationMode } from '@/shared/api-types.js';
+import type { ReviewSetData } from '@/shared/chat.js';
 import { knowledgeKindRegistry } from '@/shared/knowledge.js';
-import { getPersistedGroundingCard } from '@/shared/specification-state.js';
+import { getReviewItemIdentity } from '@/shared/review-diffing.js';
+import { getPersistedGroundingCard, getPersistedReviewSet } from '@/shared/specification-state.js';
 
 import type { TurnWithOptions } from './core.js';
 import { formatProjectedTurnResponse, projectTurnResponse } from './turn-response.js';
@@ -52,6 +54,18 @@ function formatCriterionReviewInventory(
     .join('\n')}`;
 }
 
+function formatReviewSetInventory(reviewSet: ReviewSetData): string {
+  const lines = [`Review set: ${reviewSet.title}`];
+
+  for (const item of reviewSet.items) {
+    const identity = getReviewItemIdentity(item);
+    const label = item.referenceCode ? `[${identity}] ${item.referenceCode}` : `[${identity}]`;
+    lines.push(`  - ${label}: ${item.content}`);
+  }
+
+  return lines.join('\n');
+}
+
 /**
  * Build interviewer context from active-path turns.
  * Drop-in replacement for formatHistory() — same output, typed interface.
@@ -67,6 +81,7 @@ export function buildInterviewerContext(
   const lines: string[] = [];
   for (const turn of turns) {
     const groundingCard = getPersistedGroundingCard(turn);
+    const reviewSet = getPersistedReviewSet(turn);
     if (groundingCard) {
       lines.push(`Grounding card: ${groundingCard.summary}`);
       if (groundingCard.detail) {
@@ -98,6 +113,9 @@ export function buildInterviewerContext(
         questionLine += `\n  Options:\n${optionList}`;
       }
       lines.push(questionLine);
+    }
+    if (reviewSet) {
+      lines.push(formatReviewSetInventory(reviewSet));
     }
     const projectedResponse = projectTurnResponse(turn);
     if (projectedResponse) {
@@ -142,8 +160,8 @@ export function buildInterviewerContext(
 export interface ObserverContextInput {
   turn: TurnWithOptions;
   activePathSummary: string;
-  projectMode?: SpecificationMode;
-  projectCwd?: string | null;
+  specificationMode?: SpecificationMode;
+  workspaceDirectory?: string | null;
   entities: {
     goals: Array<{ id: number; content: string }>;
     terms: Array<{ id: number; content: string }>;
@@ -165,12 +183,12 @@ export interface ObserverContextInput {
 export function buildObserverContext(input: ObserverContextInput): string {
   const sections: string[] = [];
 
-  if (input.projectMode === 'brownfield') {
-    const projectContextLines = ['Project mode: brownfield'];
-    if (input.projectCwd) {
-      projectContextLines.push(`Project directory: ${input.projectCwd}`);
+  if (input.specificationMode === 'brownfield') {
+    const specificationContextLines = ['Specification mode: brownfield'];
+    if (input.workspaceDirectory) {
+      specificationContextLines.push(`Workspace directory: ${input.workspaceDirectory}`);
     }
-    sections.push(projectContextLines.join('\n'));
+    sections.push(specificationContextLines.join('\n'));
   }
 
   for (const entry of knowledgeKindRegistry) {

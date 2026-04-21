@@ -25,14 +25,7 @@ import type {
   WorkflowPhaseStatus,
   WorkflowState as SharedWorkflowState,
 } from '@/shared/api-types.js';
-import {
-  observerResultSchema,
-  reviewSetSchema,
-  type BrunchAssistantPart,
-  type ObserverDraftReviewItem,
-  type ObserverResultData,
-  type ReviewSetData,
-} from '@/shared/chat.js';
+import { reviewSetSchema, type BrunchAssistantPart, type ReviewSetData } from '@/shared/chat.js';
 import {
   createKnowledgeReferenceCode,
   genericKnowledgeKindRegistry,
@@ -807,21 +800,6 @@ function getGenericKnowledgeEntitiesForSpecificationByKind<K extends GenericKnow
   })) as unknown as Array<GenericKnowledgeEntity<K>>;
 }
 
-function getPersistedObserverResultForTurn(
-  turn: Pick<Turn, 'assistant_parts'> | undefined,
-): ObserverResultData | null {
-  const persistedObserverResult = safeDeserializeAssistantParts(turn?.assistant_parts).find(
-    (part): part is Extract<BrunchAssistantPart, { type: 'data-observer-result' }> =>
-      part.type === 'data-observer-result',
-  );
-  if (!persistedObserverResult) {
-    return null;
-  }
-
-  const parsedObserverResult = observerResultSchema.safeParse(persistedObserverResult.data);
-  return parsedObserverResult.success ? parsedObserverResult.data : null;
-}
-
 function getPersistedReviewSetForTurn(turn: Pick<Turn, 'assistant_parts'> | undefined): ReviewSetData | null {
   const persistedReviewSet = safeDeserializeAssistantParts(turn?.assistant_parts).find(
     (part): part is Extract<BrunchAssistantPart, { type: 'data-review-set' }> =>
@@ -860,11 +838,13 @@ function materializeAcceptedReviewSetItems(
   specificationId: number,
   turnId: number,
   phase: 'requirements' | 'criteria',
-): number[] | null {
+): number[] {
   const reviewTurn = getTurn(db, turnId);
   const reviewSet = getPersistedReviewSetForTurn(reviewTurn);
   if (!reviewSet || reviewSet.phase !== phase) {
-    return null;
+    throw new Error(
+      `Cannot materialize accepted ${phase} review: persisted review set is missing or mismatched on turn ${turnId}`,
+    );
   }
 
   const kind = phase === 'requirements' ? 'requirement' : 'criterion';
@@ -882,98 +862,6 @@ function materializeAcceptedReviewSetItems(
   }
 
   return itemIds;
-}
-
-function getDraftReviewItemsForSpecification(
-  db: DB,
-  specificationId: number,
-  kind: 'requirement' | 'criterion',
-): ObserverDraftReviewItem[] {
-  const seenContents = new Set<string>();
-  const draftItems: ObserverDraftReviewItem[] = [];
-
-  for (const turn of getActivePath(db, specificationId)) {
-    const observerResult = getPersistedObserverResultForTurn(turn);
-    const items =
-      kind === 'requirement'
-        ? observerResult?.draftReviewItems?.requirements
-        : observerResult?.draftReviewItems?.criteria;
-
-    for (const item of items ?? []) {
-      const normalizedContent = item.content.trim();
-      if (!normalizedContent || seenContents.has(normalizedContent)) {
-        continue;
-      }
-
-      seenContents.add(normalizedContent);
-      draftItems.push({
-        content: item.content,
-        rationale: item.rationale ?? null,
-      });
-    }
-  }
-
-  return draftItems;
-}
-
-function createDraftReviewEntities(
-  specificationId: number,
-  kind: 'requirement',
-  draftItems: ObserverDraftReviewItem[],
-): SharedRequirementEntity[];
-function createDraftReviewEntities(
-  specificationId: number,
-  kind: 'criterion',
-  draftItems: ObserverDraftReviewItem[],
-): SharedCriterionEntity[];
-function createDraftReviewEntities(
-  specificationId: number,
-  kind: 'requirement' | 'criterion',
-  draftItems: ObserverDraftReviewItem[],
-): Array<SharedRequirementEntity | SharedCriterionEntity> {
-  if (kind === 'requirement') {
-    return draftItems.map((item, index) => ({
-      id: index + 1,
-      specification_id: specificationId,
-      kind: 'requirement',
-      subtype: null,
-      content: item.content,
-      rationale: item.rationale ?? null,
-      referenceCode: createKnowledgeReferenceCode('requirement', index + 1),
-    }));
-  }
-
-  return draftItems.map((item, index) => ({
-    id: index + 1,
-    specification_id: specificationId,
-    kind: 'criterion',
-    subtype: null,
-    content: item.content,
-    rationale: item.rationale ?? null,
-    referenceCode: createKnowledgeReferenceCode('criterion', index + 1),
-  }));
-}
-
-export function getDraftRequirementEntitiesForSpecification(
-  db: DB,
-  specificationId: number,
-): SharedRequirementEntity[] {
-  return createDraftReviewEntities(
-    specificationId,
-    'requirement',
-    getDraftReviewItemsForSpecification(db, specificationId, 'requirement'),
-  );
-}
-
-export function getDraftCriterionEntitiesForSpecification(
-  db: DB,
-  specificationId: number,
-): SharedCriterionEntity[] {
-  return createDraftReviewEntities(
-    specificationId,
-    'criterion',
-    getDraftReviewItemsForSpecification(db, specificationId, 'criterion'),
-  );
 }
 
 export function getAcceptedRequirementEntitiesForSpecification(
@@ -1008,7 +896,7 @@ export function materializeAcceptedRequirementsReviewSet(
   db: DB,
   specificationId: number,
   turnId: number,
-): number[] | null {
+): number[] {
   return materializeAcceptedReviewSetItems(db, specificationId, turnId, 'requirements');
 }
 
@@ -1016,7 +904,7 @@ export function materializeAcceptedCriteriaReviewSet(
   db: DB,
   specificationId: number,
   turnId: number,
-): number[] | null {
+): number[] {
   return materializeAcceptedReviewSetItems(db, specificationId, turnId, 'criteria');
 }
 

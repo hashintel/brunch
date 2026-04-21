@@ -1,4 +1,6 @@
+import { existsSync } from 'node:fs';
 import type { Server } from 'node:http';
+import { join } from 'node:path';
 
 import type { Express } from 'express';
 
@@ -9,6 +11,15 @@ const DEFAULT_BACKEND_PORT = 3000;
 function normalizeConfiguredValue(value: string | undefined): string | null {
   const normalizedValue = value?.trim();
   return normalizedValue ? normalizedValue : null;
+}
+
+export function loadLocalEnvFile(cwd: string): void {
+  const envFilePath = join(cwd, '.env');
+  if (!existsSync(envFilePath)) {
+    return;
+  }
+
+  process.loadEnvFile(envFilePath);
 }
 
 function parsePort(value: string, source: 'BRUNCH_PORT' | 'PORT'): number {

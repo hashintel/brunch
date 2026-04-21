@@ -68,8 +68,8 @@ describe('LLM-boundary data schemas', () => {
       reviewAction: 'request-changes' as const,
       freeText: 'Some global feedback',
       itemComments: [
-        { itemIndex: 0, comment: 'Rewrite to focus on auth flow' },
-        { itemIndex: 3, comment: 'Merge with R2' },
+        { reviewItemId: 'requirements:1', comment: 'Rewrite to focus on auth flow' },
+        { reviewItemId: 'requirements:4', comment: 'Merge with R2' },
       ],
     };
     expect(dataTurnResponseSchema.parse(value)).toEqual(value);
@@ -86,21 +86,21 @@ describe('LLM-boundary data schemas', () => {
       dataTurnResponseSchema.parse({
         turnId: 1,
         selectedOptionIds: [2],
-        itemComments: [{ itemIndex: -1, comment: 'bad' }],
+        itemComments: [{ comment: 'bad' }],
       }),
     ).toThrow();
     expect(() =>
       dataTurnResponseSchema.parse({
         turnId: 1,
         selectedOptionIds: [2],
-        itemComments: [{ itemIndex: 0, comment: '' }],
+        itemComments: [{ reviewItemId: 'requirements:1', comment: '' }],
       }),
     ).toThrow();
     expect(() =>
       dataTurnResponseSchema.parse({
         turnId: 1,
         selectedOptionIds: [2],
-        itemComments: [{ itemIndex: 0 }],
+        itemComments: [{ reviewItemId: 'requirements:1' }],
       }),
     ).toThrow();
   });
@@ -162,6 +162,7 @@ describe('assistant part round-trip', () => {
           title: 'Requirements',
           items: [
             {
+              reviewItemId: 'requirements:1',
               referenceCode: createKnowledgeReferenceCode('requirement', 1),
               content: 'Resume the interview from persisted local state',
               rationale: 'Core local-first promise.',
@@ -176,39 +177,6 @@ describe('assistant part round-trip', () => {
           summary: 'The repo already uses SQLite-backed local persistence and a routed three-pane app shell.',
           detail: 'This grounding brief is provisional context for the next interview move.',
           continueLabel: 'Continue',
-        },
-      },
-    ];
-
-    const json = serializeParts(parts);
-    expect(deserializeAssistantParts(json)).toEqual(parts);
-  });
-
-  it('round-trips mixed observer-result ids and draft review inputs through persisted assistant parts', () => {
-    const parts: BrunchAssistantPart[] = [
-      { type: 'text', text: 'Captured observer delta.', state: 'done' },
-      {
-        type: 'data-observer-result',
-        data: {
-          entityIds: {
-            goals: [],
-            terms: [],
-            contexts: [7],
-            constraints: [8],
-            requirements: [11],
-            criteria: [],
-            decisions: [9],
-            assumptions: [10],
-          },
-          draftReviewItems: {
-            requirements: [
-              {
-                content: 'Export the reviewed spec as markdown',
-                rationale: null,
-              },
-            ],
-            criteria: [],
-          },
         },
       },
     ];

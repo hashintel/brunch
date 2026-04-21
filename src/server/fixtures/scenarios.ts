@@ -137,29 +137,12 @@ export function seedRequirementsReady(db: DB, projectId: number) {
 
 export function seedRequirementsReviewReady(db: DB, projectId: number) {
   const seededRequirements = seedRequirementsReady(db, projectId);
-
-  const requirementCrud = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    'Create, edit, and close tickets with required fields: title, description, priority, and assignee',
-  );
-  const requirementAudit = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    'Every status change records the actor identity and ISO 8601 timestamp in the audit log',
-  );
-  const requirementPermissions = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    'Role-based visibility: admins see all tickets and settings, developers see assigned and unassigned tickets, viewers have read-only access',
-  );
-
-  for (const requirement of [requirementCrud, requirementAudit, requirementPermissions]) {
-    linkKnowledgeItemToTurn(db, requirement.id, seededRequirements.designConfirmationTurn.id, 'captured');
-  }
+  const requirementCrudContent =
+    'Create, edit, and close tickets with required fields: title, description, priority, and assignee';
+  const requirementAuditContent =
+    'Every status change records the actor identity and ISO 8601 timestamp in the audit log';
+  const requirementPermissionsContent =
+    'Role-based visibility: admins see all tickets and settings, developers see assigned and unassigned tickets, viewers have read-only access';
 
   const reviewTurn = createTurn(db, projectId, {
     phase: 'requirements',
@@ -178,8 +161,9 @@ export function seedRequirementsReviewReady(db: DB, projectId: number) {
         why: 'Review the whole requirement set before moving forward.',
         items: [
           {
+            reviewItemId: 'requirements:1',
             referenceCode: code('requirement', 1),
-            content: requirementCrud.content,
+            content: requirementCrudContent,
             rationale: 'Captures the core ticket lifecycle the tool must support from day one.',
             grounding: [
               { code: code('goal', 1) },
@@ -188,14 +172,16 @@ export function seedRequirementsReviewReady(db: DB, projectId: number) {
             ],
           },
           {
+            reviewItemId: 'requirements:2',
             referenceCode: code('requirement', 2),
-            content: requirementAudit.content,
+            content: requirementAuditContent,
             rationale: 'Protects accountability and traceability for regulated workflows.',
             grounding: [{ code: code('context', 2) }, { code: code('constraint', 1) }],
           },
           {
+            reviewItemId: 'requirements:3',
             referenceCode: code('requirement', 3),
-            content: requirementPermissions.content,
+            content: requirementPermissionsContent,
             rationale: 'Ensures each role sees only the operations appropriate to its responsibility.',
             grounding: [{ code: code('goal', 2) }, { code: code('constraint', 2) }],
             isRevised: true,
@@ -218,9 +204,9 @@ export function seedRequirementsReviewReady(db: DB, projectId: number) {
   return {
     ...seededRequirements,
     reviewTurn,
-    requirementCrud,
-    requirementAudit,
-    requirementPermissions,
+    requirementCrudContent,
+    requirementAuditContent,
+    requirementPermissionsContent,
   };
 }
 
@@ -255,12 +241,14 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
         why: 'Review the whole requirement set before moving forward.',
         items: [
           {
+            reviewItemId: 'requirements:1',
             referenceCode: code('requirement', 1),
             content: approvedRequirement.content,
             rationale: 'Keeps resume behavior explicit in the accepted requirement set.',
             grounding: [{ code: code('goal', 1) }, { code: code('context', 1) }],
           },
           {
+            reviewItemId: 'requirements:2',
             referenceCode: code('requirement', 2),
             content: supportingRequirement.content,
             rationale: 'Preserves the local-first persistence seam as a first-order concern.',
@@ -333,28 +321,12 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
     'reviewed',
   );
 
-  const criterionAudit = createKnowledgeItem(
-    db,
-    projectId,
-    'criterion',
-    'Changing a ticket status creates an audit log entry with actor, previous status, new status, and timestamp',
-  );
-  const criterionPermissions = createKnowledgeItem(
-    db,
-    projectId,
-    'criterion',
-    'A viewer cannot edit a ticket and receives a clear authorization failure without mutating data',
-  );
-  const criterionPerformance = createKnowledgeItem(
-    db,
-    projectId,
-    'criterion',
-    'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture',
-  );
-
-  for (const criterion of [criterionAudit, criterionPermissions, criterionPerformance]) {
-    linkKnowledgeItemToTurn(db, criterion.id, seededCriteria.requirementsConfirmationTurn.id, 'captured');
-  }
+  const criterionAuditContent =
+    'Changing a ticket status creates an audit log entry with actor, previous status, new status, and timestamp';
+  const criterionPermissionsContent =
+    'A viewer cannot edit a ticket and receives a clear authorization failure without mutating data';
+  const criterionPerformanceContent =
+    'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture';
 
   const reviewTurn = createTurn(db, projectId, {
     phase: 'criteria',
@@ -373,21 +345,24 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
         why: 'Review the whole criterion set before moving forward.',
         items: [
           {
+            reviewItemId: 'criteria:1',
             referenceCode: code('criterion', 1),
-            content: criterionAudit.content,
+            content: criterionAuditContent,
             rationale: 'Makes the audit requirement observable in a seeded acceptance check.',
             grounding: [{ code: code('requirement', 1) }, { code: code('context', 2) }],
           },
           {
+            reviewItemId: 'criteria:2',
             referenceCode: code('criterion', 2),
-            content: criterionPermissions.content,
+            content: criterionPermissionsContent,
             rationale: 'Verifies role-based visibility through a concrete denial path.',
             grounding: [{ code: code('requirement', 1) }, { code: code('constraint', 2) }],
             isUserCreated: true,
           },
           {
+            reviewItemId: 'criteria:3',
             referenceCode: code('criterion', 3),
-            content: criterionPerformance.content,
+            content: criterionPerformanceContent,
             rationale: 'Pins the seeded demo to a legible performance target.',
             grounding: [{ code: code('requirement', 1) }, { code: code('assumption', 1) }],
             isRevised: true,
@@ -411,9 +386,9 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
     ...seededCriteria,
     approvedRequirement,
     reviewTurn,
-    criterionAudit,
-    criterionPermissions,
-    criterionPerformance,
+    criterionAuditContent,
+    criterionPermissionsContent,
+    criterionPerformanceContent,
   };
 }
 
@@ -442,12 +417,14 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
         why: 'Review the whole criterion set before moving forward.',
         items: [
           {
+            reviewItemId: 'criteria:1',
             referenceCode: code('criterion', 1),
             content: criterion.content,
             rationale: 'Provides a concise seeded acceptance check for the resume path.',
             grounding: [{ code: code('requirement', 1) }],
           },
           {
+            reviewItemId: 'criteria:2',
             referenceCode: code('criterion', 2),
             content: supportingCriterion.content,
             rationale: 'Shows the user-visible reload behavior that proves persistence worked.',
@@ -642,24 +619,27 @@ export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
       selectedOptionIds: [requirementsAcceptOption.id],
     }),
   });
-  linkKnowledgeItemToTurn(
+  const requirementCrud = createKnowledgeItem(
     db,
-    seededRequirements.requirementCrud.id,
-    seededRequirements.reviewTurn.id,
-    'reviewed',
+    projectId,
+    'requirement',
+    seededRequirements.requirementCrudContent,
   );
-  linkKnowledgeItemToTurn(
+  const requirementAudit = createKnowledgeItem(
     db,
-    seededRequirements.requirementAudit.id,
-    seededRequirements.reviewTurn.id,
-    'reviewed',
+    projectId,
+    'requirement',
+    seededRequirements.requirementAuditContent,
   );
-  linkKnowledgeItemToTurn(
+  const requirementPermissions = createKnowledgeItem(
     db,
-    seededRequirements.requirementPermissions.id,
-    seededRequirements.reviewTurn.id,
-    'reviewed',
+    projectId,
+    'requirement',
+    seededRequirements.requirementPermissionsContent,
   );
+  for (const requirement of [requirementCrud, requirementAudit, requirementPermissions]) {
+    linkKnowledgeItemToTurn(db, requirement.id, seededRequirements.reviewTurn.id, 'reviewed');
+  }
   createConfirmedPhaseOutcome(db, {
     projectId,
     phase: 'requirements',
@@ -669,28 +649,12 @@ export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
   });
   advanceHead(db, projectId, seededRequirements.reviewTurn.id);
 
-  const criterionAudit = createKnowledgeItem(
-    db,
-    projectId,
-    'criterion',
-    'Changing a ticket status creates an audit log entry with actor, previous status, new status, and timestamp',
-  );
-  const criterionPermissions = createKnowledgeItem(
-    db,
-    projectId,
-    'criterion',
-    'A viewer cannot edit a ticket and receives a clear authorization failure without mutating data',
-  );
-  const criterionPerformance = createKnowledgeItem(
-    db,
-    projectId,
-    'criterion',
-    'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture',
-  );
-
-  for (const criterion of [criterionAudit, criterionPermissions, criterionPerformance]) {
-    linkKnowledgeItemToTurn(db, criterion.id, seededRequirements.reviewTurn.id, 'captured');
-  }
+  const criterionAuditContent =
+    'Changing a ticket status creates an audit log entry with actor, previous status, new status, and timestamp';
+  const criterionPermissionsContent =
+    'A viewer cannot edit a ticket and receives a clear authorization failure without mutating data';
+  const criterionPerformanceContent =
+    'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture';
 
   const criteriaReviewTurn = createTurn(db, projectId, {
     phase: 'criteria',
@@ -709,21 +673,24 @@ export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
         why: 'Review the whole criterion set before moving forward.',
         items: [
           {
+            reviewItemId: 'criteria:1',
             referenceCode: code('criterion', 1),
-            content: criterionAudit.content,
+            content: criterionAuditContent,
             rationale: 'Makes the audit requirement observable in a seeded acceptance check.',
             grounding: [{ code: code('requirement', 1) }, { code: code('context', 2) }],
           },
           {
+            reviewItemId: 'criteria:2',
             referenceCode: code('criterion', 2),
-            content: criterionPermissions.content,
+            content: criterionPermissionsContent,
             rationale: 'Verifies role-based visibility through a concrete denial path.',
             grounding: [{ code: code('requirement', 1) }, { code: code('constraint', 2) }],
             isUserCreated: true,
           },
           {
+            reviewItemId: 'criteria:3',
             referenceCode: code('criterion', 3),
-            content: criterionPerformance.content,
+            content: criterionPerformanceContent,
             rationale: 'Pins the seeded demo to a legible performance target.',
             grounding: [{ code: code('requirement', 1) }, { code: code('assumption', 1) }],
             isRevised: true,
@@ -748,6 +715,9 @@ export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
       selectedOptionIds: [criteriaAcceptOption.id],
     }),
   });
+  const criterionAudit = createKnowledgeItem(db, projectId, 'criterion', criterionAuditContent);
+  const criterionPermissions = createKnowledgeItem(db, projectId, 'criterion', criterionPermissionsContent);
+  const criterionPerformance = createKnowledgeItem(db, projectId, 'criterion', criterionPerformanceContent);
   linkKnowledgeItemToTurn(db, criterionAudit.id, criteriaReviewTurn.id, 'reviewed');
   linkKnowledgeItemToTurn(db, criterionPermissions.id, criteriaReviewTurn.id, 'reviewed');
   linkKnowledgeItemToTurn(db, criterionPerformance.id, criteriaReviewTurn.id, 'reviewed');

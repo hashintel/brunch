@@ -105,14 +105,14 @@ describe('formatProjectedTurnResponse', () => {
       reviewAction: 'request-changes',
       freeText: 'Global note about the set',
       itemComments: [
-        { itemIndex: 0, comment: 'Rewrite to focus on auth flow' },
-        { itemIndex: 3, comment: 'Merge with R2' },
+        { reviewItemId: 'requirements:1', comment: 'Rewrite to focus on auth flow' },
+        { reviewItemId: 'requirements:4', comment: 'Merge with R2' },
       ],
     });
 
     expect(result).toContain('Per-item comments:');
-    expect(result).toContain('Item 0: Rewrite to focus on auth flow');
-    expect(result).toContain('Item 3: Merge with R2');
+    expect(result).toContain('Item requirements:1: Rewrite to focus on auth flow');
+    expect(result).toContain('Item requirements:4: Merge with R2');
     expect(result).toContain('Review action: request-changes');
     expect(result).toContain('Free-text response: Global note about the set');
   });
@@ -150,8 +150,8 @@ describe('projectTurnResponse with itemComments', () => {
             reviewAction: 'request-changes',
             freeText: 'Global feedback',
             itemComments: [
-              { itemIndex: 0, comment: 'Rewrite to focus on auth' },
-              { itemIndex: 2, comment: 'Remove this' },
+              { reviewItemId: 'requirements:1', comment: 'Rewrite to focus on auth' },
+              { reviewItemId: 'requirements:3', comment: 'Remove this' },
             ],
           },
         },
@@ -166,8 +166,8 @@ describe('projectTurnResponse with itemComments', () => {
 
     const result = projectTurnResponse(turn);
     expect(result?.itemComments).toEqual([
-      { itemIndex: 0, comment: 'Rewrite to focus on auth' },
-      { itemIndex: 2, comment: 'Remove this' },
+      { reviewItemId: 'requirements:1', comment: 'Rewrite to focus on auth' },
+      { reviewItemId: 'requirements:3', comment: 'Remove this' },
     ]);
     expect(result?.reviewAction).toBe('request-changes');
   });

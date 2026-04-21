@@ -140,7 +140,7 @@ export const curatedGoldenCorpus: GoldenCorpus = {
     },
     'issue-tracker-requirements': {
       description:
-        'Issue-tracker requirements probe that keeps review-mode observer coverage without relying on any legacy scenario-format setup.',
+        'Issue-tracker requirements probe that verifies review-mode observer turns no longer materialize requirement proposals as canonical entities.',
       provenance: 'Direct TypeScript seed setup for the current observer probe seam.',
       scenario: {
         phase: 'requirements',
@@ -150,17 +150,7 @@ export const curatedGoldenCorpus: GoldenCorpus = {
           terms: [],
           contexts: [],
           constraints: [],
-          requirements: [
-            {
-              content:
-                'Create, edit, and close tickets with title, description, priority, and assignee fields',
-              rationale: 'Captures the core ticket workflow the first release must support.',
-            },
-            {
-              content: 'Record every status change with actor identity and timestamp in an audit trail',
-              rationale: 'Preserves the compliance-sensitive audit behavior described in grounding.',
-            },
-          ],
+          requirements: [],
           criteria: [],
           decisions: [],
           assumptions: [],
@@ -361,24 +351,12 @@ function collectObservedTurnCapture(
       rationale: item.rationale ?? null,
       subtype: item.subtype ?? null,
     }));
-  capture.requirements =
-    createdIds.draftReviewItems.requirements.length > 0
-      ? createdIds.draftReviewItems.requirements.map((item) => ({
-          content: item.content,
-          rationale: item.rationale ?? null,
-        }))
-      : entities.requirements
-          .filter((item) => createdIdSet.has(item.id))
-          .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
-  capture.criteria =
-    createdIds.draftReviewItems.criteria.length > 0
-      ? createdIds.draftReviewItems.criteria.map((item) => ({
-          content: item.content,
-          rationale: item.rationale ?? null,
-        }))
-      : entities.criteria
-          .filter((item) => createdIdSet.has(item.id))
-          .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
+  capture.requirements = entities.requirements
+    .filter((item) => createdIdSet.has(item.id))
+    .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
+  capture.criteria = entities.criteria
+    .filter((item) => createdIdSet.has(item.id))
+    .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
   capture.decisions = entities.decisions
     .filter((item) => createdIdSet.has(item.id))
     .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));

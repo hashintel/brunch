@@ -2,7 +2,7 @@ import { anthropic } from '@ai-sdk/anthropic';
 import { generateText, Output } from 'ai';
 import * as z from 'zod/v4';
 
-import { type ObserverDraftReviewItem, type ObserverEntityIds } from '@/shared/chat.js';
+import { type ObserverEntityIds } from '@/shared/chat.js';
 import {
   createKnowledgeCollectionRecord,
   knowledgeKindRegistry,
@@ -23,8 +23,6 @@ import {
   addDecisionParentDecision,
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
-  getDraftCriterionEntitiesForSpecification,
-  getDraftRequirementEntitiesForSpecification,
   getEntitiesForSpecification,
   getOptionsForTurn,
   getSpecification,
@@ -169,36 +167,20 @@ Rules:
 export async function runObserver(
   db: DB,
   turn: Turn,
-  projectId: number,
-  projectCwd?: string,
-): Promise<{
-  entityIds: ObserverEntityIds;
-  draftReviewItems: { requirements: ObserverDraftReviewItem[]; criteria: ObserverDraftReviewItem[] };
-}> {
-  const entities = getEntitiesForSpecification(db, projectId);
-  const draftRequirements = getDraftRequirementEntitiesForSpecification(db, projectId);
-  const draftCriteria = getDraftCriterionEntitiesForSpecification(db, projectId);
-  const project = getSpecification(db, projectId);
+  specificationId: number,
+  workspaceDirectory?: string,
+): Promise<{ entityIds: ObserverEntityIds }> {
+  const entities = getEntitiesForSpecification(db, specificationId);
+  const specification = getSpecification(db, specificationId);
   const context = buildObserverContext({
     turn: {
       ...turn,
       options: getOptionsForTurn(db, turn.id),
     },
     activePathSummary: '',
-    projectMode: project?.mode,
-    projectCwd,
-    entities:
-      turn.phase === 'requirements'
-        ? {
-            ...entities,
-            requirements: draftRequirements,
-          }
-        : turn.phase === 'criteria'
-          ? {
-              ...entities,
-              criteria: draftCriteria,
-            }
-          : entities,
+    specificationMode: specification?.mode,
+    workspaceDirectory,
+    entities,
   });
 
   const result = await generateText({
@@ -213,13 +195,9 @@ export async function runObserver(
 
   // Persist entities in a transaction-like sequence
   const createdEntityIds = createKnowledgeCollectionRecord(() => [] as number[]);
-  const draftReviewItems = {
-    requirements: [] as ObserverDraftReviewItem[],
-    criteria: [] as ObserverDraftReviewItem[],
-  };
 
   for (const item of parsed.goals) {
-    const goal = createKnowledgeItem(db, projectId, 'goal', item.content, {
+    const goal = createKnowledgeItem(db, specificationId, 'goal', item.content, {
       rationale: item.rationale,
     });
     linkKnowledgeItemToTurn(db, goal.id, turn.id);
@@ -227,7 +205,7 @@ export async function runObserver(
   }
 
   for (const item of parsed.terms) {
-    const term = createKnowledgeItem(db, projectId, 'term', item.content, {
+    const term = createKnowledgeItem(db, specificationId, 'term', item.content, {
       rationale: item.rationale,
     });
     linkKnowledgeItemToTurn(db, term.id, turn.id);
@@ -235,7 +213,7 @@ export async function runObserver(
   }
 
   for (const item of parsed.contexts) {
-    const context = createKnowledgeItem(db, projectId, 'context', item.content, {
+    const context = createKnowledgeItem(db, specificationId, 'context', item.content, {
       rationale: item.rationale,
     });
     linkKnowledgeItemToTurn(db, context.id, turn.id);
@@ -243,7 +221,7 @@ export async function runObserver(
   }
 
   for (const item of parsed.constraints) {
-    const constraint = createKnowledgeItem(db, projectId, 'constraint', item.content, {
+    const constraint = createKnowledgeItem(db, specificationId, 'constraint', item.content, {
       subtype: item.subtype,
       rationale: item.rationale,
     });
@@ -251,22 +229,8 @@ export async function runObserver(
     createdEntityIds.constraints.push(constraint.id);
   }
 
-  for (const item of parsed.requirements) {
-    draftReviewItems.requirements.push({
-      content: item.content,
-      rationale: item.rationale,
-    });
-  }
-
-  for (const item of parsed.criteria) {
-    draftReviewItems.criteria.push({
-      content: item.content,
-      rationale: item.rationale,
-    });
-  }
-
   for (const d of parsed.decisions) {
-    const decision = createDecision(db, projectId, d.content, d.rationale);
+    const decision = createDecision(db, specificationId, d.content, d.rationale);
     linkDecisionToTurn(db, decision.id, turn.id);
     createdEntityIds.decisions.push(decision.id);
 
@@ -279,7 +243,7 @@ export async function runObserver(
   }
 
   for (const a of parsed.assumptions) {
-    const assumption = createAssumption(db, projectId, a.content);
+    const assumption = createAssumption(db, specificationId, a.content);
     linkAssumptionToTurn(db, assumption.id, turn.id);
     createdEntityIds.assumptions.push(assumption.id);
 
@@ -290,6 +254,5 @@ export async function runObserver(
 
   return {
     entityIds: createdEntityIds,
-    draftReviewItems,
   };
 }

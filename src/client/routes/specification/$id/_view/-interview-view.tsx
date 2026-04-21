@@ -102,18 +102,6 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   });
   const showLockedState =
     phaseState.status === 'unstarted' && currentReachablePhase !== phase && currentReachablePhase !== null;
-  const fallbackReviewSet =
-    phase === 'requirements'
-      ? {
-          title: 'Requirements',
-          items: entitySnapshot.requirements,
-        }
-      : phase === 'criteria'
-        ? {
-            title: 'Acceptance Criteria',
-            items: entitySnapshot.criteria,
-          }
-        : undefined;
   const phaseIndex = phaseOrder.indexOf(phase);
   const phaseNumber = phaseIndex + 1;
   const phaseTotal = phaseOrder.length;
@@ -217,7 +205,6 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             <WorkspaceTranscriptArtifacts
               streamArtifacts={streamArtifacts}
               specificationId={String(specification.id)}
-              fallbackReviewSet={fallbackReviewSet}
               phaseTurns={phaseTurns}
               captureStatusByTurnId={captureStatusByTurnId}
               showLockedState={showLockedState}

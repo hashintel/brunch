@@ -22,6 +22,7 @@ describe('fixture helpers', () => {
       why: 'Review the whole requirement set before moving forward.',
       items: [
         {
+          reviewItemId: 'requirements:1',
           referenceCode: 'R1',
           content: 'Persist the active path after reload.',
           rationale: 'Resume depends on durable active-path state.',
@@ -39,6 +40,10 @@ describe('fixture helpers', () => {
 
     expect(parts).toEqual(
       expect.arrayContaining([
+        {
+          type: 'data-activity-summary',
+          data: { tools: ['structured question'] },
+        },
         expect.objectContaining({
           type: 'tool-ask_question',
           toolCallId: 'fixture-requirements-review',
@@ -69,6 +74,10 @@ describe('fixture helpers', () => {
 
     expect(parts).toEqual(
       expect.arrayContaining([
+        {
+          type: 'data-activity-summary',
+          data: { tools: ['phase closure proposal'] },
+        },
         expect.objectContaining({
           type: 'tool-propose_phase_closure',
           output: { ok: true, turnId: 23, phase: 'design' },
@@ -95,6 +104,10 @@ describe('fixture helpers', () => {
     );
 
     expect(parts).toEqual([
+      {
+        type: 'data-activity-summary',
+        data: { tools: ['grounding card'] },
+      },
       {
         type: 'data-grounding-card',
         data: {

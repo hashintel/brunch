@@ -82,7 +82,10 @@ export function materializeTurnArtifacts({
 
   return [
     ...assistantParts.filter(
-      (part) => part.type !== 'data-review-set' && part.type !== 'data-grounding-card',
+      (part) =>
+        part.type !== 'data-observer-result' &&
+        part.type !== 'data-review-set' &&
+        part.type !== 'data-grounding-card',
     ),
     ...(persistedReviewMetadata ? [persistedReviewMetadata.reviewQuestionPart] : []),
     ...(persistedGroundingCard ? [persistedGroundingCard] : []),

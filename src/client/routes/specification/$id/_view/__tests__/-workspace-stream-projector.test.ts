@@ -82,6 +82,7 @@ function createBottomArtifact(
         kind,
         kickoff: { phase: 'grounding', mode: 'start' },
         disabled: false,
+        errorMessage: null,
         submitKickoff: vi.fn(),
       };
     case 'recovery':
@@ -89,6 +90,7 @@ function createBottomArtifact(
         kind,
         recovery: { phase: 'grounding' },
         disabled: false,
+        errorMessage: null,
         submitRecovery: vi.fn(),
       };
     case 'phase-summary':
@@ -466,7 +468,7 @@ describe('specificationWorkspaceStream', () => {
           data: {
             phase: 'requirements',
             title: 'Requirements',
-            items: [{ referenceCode: 'R1', content: 'Track auth state' }],
+            items: [{ reviewItemId: 'requirements:1', referenceCode: 'R1', content: 'Track auth state' }],
           },
         },
       ]),
@@ -515,6 +517,103 @@ describe('specificationWorkspaceStream', () => {
       'answered-review-turn',
       'accepted-closure',
     ]);
+  });
+
+  it('keeps revision diffing keyed to review item identity instead of item order', () => {
+    const firstReviewTurn = createTurn({
+      id: 1,
+      phase: 'requirements',
+      question: 'Review requirements',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-review-set',
+          data: {
+            phase: 'requirements',
+            title: 'Requirements',
+            items: [
+              {
+                reviewItemId: 'requirements:1',
+                referenceCode: 'R1',
+                content: 'Resume the interview from SQLite after restart',
+              },
+              {
+                reviewItemId: 'requirements:2',
+                referenceCode: 'R2',
+                content: 'Export the reviewed specification as markdown',
+              },
+            ],
+          },
+        },
+      ]),
+      user_parts: JSON.stringify([
+        {
+          type: 'data-turn-response',
+          data: { turnId: 1, selectedOptionIds: [10], reviewAction: 'request-changes' },
+        },
+      ]),
+    });
+    const revisedReviewTurn = createTurn({
+      id: 2,
+      phase: 'requirements',
+      parent_turn_id: 1,
+      question: 'Review revised requirements',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-review-set',
+          data: {
+            phase: 'requirements',
+            title: 'Requirements',
+            items: [
+              {
+                reviewItemId: 'requirements:2',
+                referenceCode: 'R2',
+                content: 'Export the reviewed specification as markdown',
+              },
+              {
+                reviewItemId: 'requirements:1',
+                referenceCode: 'R1',
+                content: 'Resume the active path from SQLite after restart',
+              },
+              {
+                reviewItemId: 'requirements:3',
+                referenceCode: 'R3',
+                content: 'Record every status change in an audit trail',
+              },
+            ],
+          },
+        },
+      ]),
+      user_parts: JSON.stringify([
+        {
+          type: 'data-turn-response',
+          data: { turnId: 2, selectedOptionIds: [11], reviewAction: 'accept' },
+        },
+      ]),
+    });
+
+    const projection = specificationWorkspaceStream({
+      phase: 'requirements',
+      phaseTurns: [firstReviewTurn, revisedReviewTurn],
+      phaseState: createPhaseState({
+        status: 'in_progress',
+        turnId: revisedReviewTurn.id,
+      }),
+      bottomArtifact: null,
+    });
+
+    expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'phase-section-header',
+      'phase-marker',
+      'collapsed-review-turn',
+      'answered-revision-review',
+    ]);
+
+    const revisedArtifact = projection.streamArtifacts[3];
+    expect(revisedArtifact.kind).toBe('answered-revision-review');
+    if (revisedArtifact.kind !== 'answered-revision-review') {
+      throw new Error('Expected answered-revision-review artifact');
+    }
+    expect(revisedArtifact.changeSummary).toEqual({ added: 1, removed: 0, revised: 1 });
   });
 
   it('keeps closed-phase history ordering stable when handoff and completion artifacts join the ordered stream', () => {

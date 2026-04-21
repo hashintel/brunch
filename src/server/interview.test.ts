@@ -98,6 +98,7 @@ describe('structuredQuestionSchema', () => {
         title: 'Requirements',
         items: [
           {
+            reviewItemId: 'requirements:1',
             referenceCode: 'R1',
             content: 'Resume the interview from SQLite after restart',
             rationale: 'Lets users continue after a restart.',
@@ -147,6 +148,15 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('criteria')).toContain('Request changes');
     expect(getSystemPrompt('criteria')).toContain('reviewSet');
     expect(getSystemPrompt('criteria')).not.toContain('criterionReview');
+  });
+
+  it('uses workspace wording for brownfield grounding prompts', () => {
+    const prompt = getBrownfieldGroundingPrompt('/tmp/repo');
+
+    expect(prompt).toContain('The workspace directory is: /tmp/repo');
+    expect(prompt).toContain('workspace manifest files');
+    expect(prompt).toContain('workspace layout');
+    expect(prompt).not.toContain('The project directory is:');
   });
 });
 
@@ -368,6 +378,7 @@ describe('buildReviewSetForPhase', () => {
       title: 'Requirements',
       items: [
         {
+          reviewItemId: 'requirements:1',
           content: 'Resume the interview from SQLite after restart',
           rationale: 'Lets users continue after a restart.',
           referenceCode: 'R1',
@@ -395,6 +406,7 @@ describe('buildReviewSetForPhase', () => {
       title: 'Acceptance Criteria',
       items: [
         {
+          reviewItemId: 'criteria:2',
           content: 'Restarting restores the active path',
           rationale: 'Proves the persisted branch resumes cleanly.',
           referenceCode: 'AC1',

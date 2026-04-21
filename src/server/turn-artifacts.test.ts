@@ -13,7 +13,11 @@ function createReviewSet(phase: 'requirements' | 'criteria' = 'requirements'): R
     phase,
     title: phase === 'requirements' ? 'Requirements' : 'Acceptance Criteria',
     items: [
-      { referenceCode: phase === 'requirements' ? 'R1' : 'C1', content: 'Persist durable replay artifacts' },
+      {
+        reviewItemId: `${phase}:1`,
+        referenceCode: phase === 'requirements' ? 'R1' : 'C1',
+        content: 'Persist durable replay artifacts',
+      },
     ],
   };
 }
@@ -93,7 +97,13 @@ describe('turn-artifacts', () => {
             data: {
               phase: 'requirements',
               title: 'Fallback requirements',
-              items: [{ referenceCode: 'R9', content: 'Do not keep this stale fallback set' }],
+              items: [
+                {
+                  reviewItemId: 'requirements:9',
+                  referenceCode: 'R9',
+                  content: 'Do not keep this stale fallback set',
+                },
+              ],
             },
           },
           {

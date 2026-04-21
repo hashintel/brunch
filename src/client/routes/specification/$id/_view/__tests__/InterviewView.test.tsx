@@ -59,6 +59,17 @@ function createPendingReviewMessage(): BrunchUIMessage {
             { action: 'accept', optionPosition: 0 },
             { action: 'request-changes', optionPosition: 1 },
           ],
+          reviewSet: {
+            phase: 'requirements',
+            title: 'Requirements',
+            items: [
+              {
+                reviewItemId: 'requirements:1',
+                content: 'Export the reviewed specification as markdown',
+                referenceCode: createKnowledgeReferenceCode('requirement', 1),
+              },
+            ],
+          },
         },
         output: { ok: true, turnId: 2, optionCount: 2 },
       },
@@ -71,15 +82,18 @@ type UseChatOptions = {
   messages: BrunchUIMessage[];
   onData?: (dataPart: { type: string; data?: unknown }) => void;
   onFinish?: () => void;
+  onError?: (error: Error) => void;
 };
 
 type UseChatHarness = {
   sendMessage: ReturnType<typeof vi.fn>;
   setMessages: ReturnType<typeof vi.fn>;
   replaceMessages?: (messages: BrunchUIMessage[]) => void;
-  setStatus?: (status: 'ready' | 'submitted' | 'streaming') => void;
+  setStatus?: (status: 'ready' | 'submitted' | 'streaming' | 'error') => void;
+  setError?: (error: Error | undefined) => void;
   onData?: UseChatOptions['onData'];
   onFinish?: UseChatOptions['onFinish'];
+  onError?: UseChatOptions['onError'];
 };
 
 let currentSpecificationState: SpecificationState;
@@ -90,7 +104,8 @@ let useChatImpl: (options: UseChatOptions) => {
   messages: BrunchUIMessage[];
   sendMessage: (message: { text?: string; parts?: Array<Record<string, unknown>> }) => Promise<void> | void;
   setMessages: (messages: BrunchUIMessage[]) => void;
-  status: 'ready' | 'submitted' | 'streaming';
+  status: 'ready' | 'submitted' | 'streaming' | 'error';
+  error?: Error;
 };
 let useChatHarness: UseChatHarness;
 
@@ -361,7 +376,8 @@ function createUseChatHarness(initialStatus: 'ready' | 'submitted' | 'streaming'
   messages: BrunchUIMessage[];
   sendMessage: (message: { text?: string; parts?: Array<Record<string, unknown>> }) => Promise<void> | void;
   setMessages: (messages: BrunchUIMessage[]) => void;
-  status: 'ready' | 'submitted' | 'streaming';
+  status: 'ready' | 'submitted' | 'streaming' | 'error';
+  error?: Error;
 } {
   const sendMessage = vi.fn(async () => {});
   const setMessagesSpy = vi.fn();
@@ -374,7 +390,8 @@ function createUseChatHarness(initialStatus: 'ready' | 'submitted' | 'streaming'
   return function useChatHarnessImpl(options: UseChatOptions) {
     const [, forceRender] = useState(0);
     const chatStates = useState(() => new Map<string, BrunchUIMessage[]>())[0];
-    const statusStates = useState(() => new Map<string, 'ready' | 'submitted' | 'streaming'>())[0];
+    const statusStates = useState(() => new Map<string, 'ready' | 'submitted' | 'streaming' | 'error'>())[0];
+    const errorStates = useState(() => new Map<string, Error | undefined>())[0];
     const chatId = options.id ?? 'default';
 
     if (!chatStates.has(chatId)) {
@@ -382,6 +399,9 @@ function createUseChatHarness(initialStatus: 'ready' | 'submitted' | 'streaming'
     }
     if (!statusStates.has(chatId)) {
       statusStates.set(chatId, initialStatus);
+    }
+    if (!errorStates.has(chatId)) {
+      errorStates.set(chatId, undefined);
     }
 
     const stableSetMessages = useCallback(
@@ -393,23 +413,33 @@ function createUseChatHarness(initialStatus: 'ready' | 'submitted' | 'streaming'
       [chatId, chatStates],
     );
     const stableSetStatus = useCallback(
-      (nextStatus: 'ready' | 'submitted' | 'streaming') => {
+      (nextStatus: 'ready' | 'submitted' | 'streaming' | 'error') => {
         statusStates.set(chatId, nextStatus);
         forceRender((count) => count + 1);
       },
       [chatId, statusStates],
     );
+    const stableSetError = useCallback(
+      (nextError: Error | undefined) => {
+        errorStates.set(chatId, nextError);
+        forceRender((count) => count + 1);
+      },
+      [chatId, errorStates],
+    );
 
     useChatHarness.onData = options.onData;
     useChatHarness.onFinish = options.onFinish;
+    useChatHarness.onError = options.onError;
     useChatHarness.replaceMessages = stableSetMessages;
     useChatHarness.setStatus = stableSetStatus;
+    useChatHarness.setError = stableSetError;
 
     return {
       messages: chatStates.get(chatId) ?? options.messages,
       sendMessage,
       setMessages: stableSetMessages,
       status: statusStates.get(chatId) ?? initialStatus,
+      error: errorStates.get(chatId),
     };
   };
 }
@@ -734,6 +764,90 @@ describe('InterviewView', () => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
       expect(screen.getByTestId('recovery-control-card')).toBeTruthy();
     });
+  });
+
+  it('falls back to the projected recovery card when auto phase-continue generation errors after submit', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 11,
+            summary: 'Grounding complete.',
+          },
+          design: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'design',
+            turn_kind: 'question',
+            question: 'Which platform should we target first?',
+            why: 'This chooses the first delivery surface.',
+            impact: 'high',
+            answer: 'Desktop — Best fit for launch',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Desktop — Best fit for launch' },
+              {
+                type: 'data-turn-response',
+                data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Which platform should we target first?' },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: true },
+            ],
+          },
+        ],
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    useChatHarness.sendMessage.mockImplementation(async () => {
+      useChatHarness.setStatus?.('submitted');
+    });
+
+    renderWorkspace('design');
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('generating-turn-placeholder')).toBeTruthy();
+    });
+
+    act(() => {
+      useChatHarness.setError?.(new Error('x-api-key header is required'));
+      useChatHarness.setStatus?.('error');
+    });
+
+    const recoveryCard = await screen.findByTestId('recovery-control-card');
+    expect(recoveryCard.textContent).toContain('Continue');
+    expect(screen.getByRole('alert').textContent).toContain('x-api-key header is required');
+    expect(screen.queryByTestId('generating-turn-placeholder')).toBeNull();
   });
 
   it('hides the header phase action for an unstarted reachable phase', async () => {
@@ -2170,6 +2284,7 @@ describe('InterviewView', () => {
                   title: 'Requirements',
                   items: [
                     {
+                      reviewItemId: 'requirements:1',
                       referenceCode: createKnowledgeReferenceCode('requirement', 1),
                       content: 'Export the reviewed specification as markdown',
                       rationale: 'Keeps the accepted review output portable for sharing.',
@@ -2179,6 +2294,7 @@ describe('InterviewView', () => {
                       ],
                     },
                     {
+                      reviewItemId: 'requirements:2',
                       referenceCode: createKnowledgeReferenceCode('requirement', 2),
                       content: 'Resume the interview from persisted local state',
                       rationale: 'Maintains the local-first continuity promise after reload.',
@@ -2301,12 +2417,14 @@ describe('InterviewView', () => {
                   title: 'Acceptance Criteria',
                   items: [
                     {
+                      reviewItemId: 'criteria:1',
                       referenceCode: createKnowledgeReferenceCode('criterion', 1),
                       content: 'Restarting restores the active path',
                       rationale: 'Shows the local persistence seam survives reloads.',
                       grounding: [{ code: createKnowledgeReferenceCode('requirement', 1) }],
                     },
                     {
+                      reviewItemId: 'criteria:2',
                       referenceCode: createKnowledgeReferenceCode('criterion', 2),
                       content: 'Markdown export includes accepted requirements only',
                       rationale: 'Prevents draft review content from leaking into export.',
@@ -2433,6 +2551,58 @@ describe('InterviewView', () => {
     });
   });
 
+  it('renders pending review from streamed reviewSet metadata, not from mismatched entity snapshots', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Earlier question?',
+        answer: 'Earlier answer',
+        workflow: createWorkflowState({
+          requirements: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 2,
+            summary: null,
+          },
+        }),
+        entityState: createEntityState({
+          requirements: [
+            {
+              id: 99,
+              specification_id: 1,
+              kind: 'requirement',
+              subtype: null,
+              content: 'Stale snapshot requirement that should NOT appear',
+              rationale: 'This is a stale entity snapshot.',
+              referenceCode: createKnowledgeReferenceCode('requirement', 99),
+            },
+          ],
+        }),
+      }),
+    );
+    useChatImpl = createUseChatHarness('streaming');
+
+    renderWorkspace('requirements');
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        createPendingReviewMessage(),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('active-review-set-card')).toBeTruthy();
+      expect(screen.getByText(createKnowledgeReferenceCode('requirement', 1))).toBeTruthy();
+      expect(screen.queryByText('Stale snapshot requirement that should NOT appear')).toBeNull();
+      expect(screen.queryByText(createKnowledgeReferenceCode('requirement', 99))).toBeNull();
+      expect(routerInvalidate).not.toHaveBeenCalled();
+    });
+  });
+
   it('replays a closed review turn with the dedicated review-set card instead of the generic answered card', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
@@ -2467,6 +2637,7 @@ describe('InterviewView', () => {
                   title: 'Requirements',
                   items: [
                     {
+                      reviewItemId: 'requirements:1',
                       referenceCode: createKnowledgeReferenceCode('requirement', 1),
                       content: 'Export the reviewed specification as markdown',
                       rationale: 'Keeps the accepted review output portable for sharing.',
@@ -2476,6 +2647,7 @@ describe('InterviewView', () => {
                       ],
                     },
                     {
+                      reviewItemId: 'requirements:2',
                       referenceCode: createKnowledgeReferenceCode('requirement', 2),
                       content: 'Resume the interview from persisted local state',
                       rationale: 'Maintains the local-first continuity promise after reload.',
@@ -2604,10 +2776,35 @@ describe('InterviewView', () => {
                     { action: 'accept', optionPosition: 0 },
                     { action: 'request-changes', optionPosition: 1 },
                   ],
+                  reviewSet: {
+                    phase: 'requirements',
+                    title: 'Requirements',
+                    items: [
+                      {
+                        reviewItemId: 'requirements:1',
+                        content: 'Export the reviewed specification as markdown',
+                        referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                      },
+                    ],
+                  },
                 },
                 output: { ok: true, turnId: 1, optionCount: 2 },
               },
               { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      content: 'Export the reviewed specification as markdown',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                    },
+                  ],
+                },
+              },
             ]),
             created_at: '2026-04-03 10:00:00',
             options: [
@@ -2616,19 +2813,6 @@ describe('InterviewView', () => {
             ],
           },
         ],
-        entityState: createEntityState({
-          requirements: [
-            {
-              id: 31,
-              specification_id: 1,
-              kind: 'requirement',
-              subtype: null,
-              content: 'Export the reviewed specification as markdown',
-              rationale: null,
-              referenceCode: createKnowledgeReferenceCode('requirement', 1),
-            },
-          ],
-        }),
       }),
     );
 
@@ -2733,10 +2917,35 @@ describe('InterviewView', () => {
                     { action: 'request-changes', optionPosition: 0 },
                     { action: 'accept', optionPosition: 1 },
                   ],
+                  reviewSet: {
+                    phase: 'requirements',
+                    title: 'Requirements',
+                    items: [
+                      {
+                        reviewItemId: 'requirements:1',
+                        content: 'Export the reviewed specification as markdown',
+                        referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                      },
+                    ],
+                  },
                 },
                 output: { ok: true, turnId: 1, optionCount: 2 },
               },
               { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      content: 'Export the reviewed specification as markdown',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                    },
+                  ],
+                },
+              },
             ]),
             created_at: '2026-04-03 10:00:00',
             options: [
@@ -2745,19 +2954,6 @@ describe('InterviewView', () => {
             ],
           },
         ],
-        entityState: createEntityState({
-          requirements: [
-            {
-              id: 31,
-              specification_id: 1,
-              kind: 'requirement',
-              subtype: null,
-              content: 'Export the reviewed specification as markdown',
-              rationale: null,
-              referenceCode: createKnowledgeReferenceCode('requirement', 1),
-            },
-          ],
-        }),
       }),
     );
 
@@ -2856,10 +3052,35 @@ describe('InterviewView', () => {
                     { action: 'accept', optionPosition: 0 },
                     { action: 'request-changes', optionPosition: 1 },
                   ],
+                  reviewSet: {
+                    phase: 'criteria',
+                    title: 'Acceptance Criteria',
+                    items: [
+                      {
+                        reviewItemId: 'criteria:1',
+                        content: 'Restarting restores the active path',
+                        referenceCode: createKnowledgeReferenceCode('criterion', 1),
+                      },
+                    ],
+                  },
                 },
                 output: { ok: true, turnId: 1, optionCount: 2 },
               },
               { type: 'text', text: 'Please review the current criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      reviewItemId: 'criteria:1',
+                      content: 'Restarting restores the active path',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 1),
+                    },
+                  ],
+                },
+              },
             ]),
             created_at: '2026-04-03 10:00:00',
             options: [
@@ -2868,19 +3089,6 @@ describe('InterviewView', () => {
             ],
           },
         ],
-        entityState: createEntityState({
-          criteria: [
-            {
-              id: 41,
-              specification_id: 1,
-              kind: 'criterion',
-              subtype: null,
-              content: 'Restarting restores the active path',
-              rationale: null,
-              referenceCode: createKnowledgeReferenceCode('criterion', 1),
-            },
-          ],
-        }),
       }),
     );
 
@@ -3662,6 +3870,23 @@ describe('InterviewView', () => {
     expect(screen.queryByRole('button', { name: /force elicitation closure/i })).toBeNull();
   });
 
+  it('renders an active free-text grounding question when the frontier turn has no options', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
+        options: [],
+      }),
+    );
+
+    renderWorkspace();
+
+    const questionCard = await screen.findByTestId('active-question-card');
+    expect(questionCard.textContent).toContain('What should we build first?');
+    expect(screen.getByLabelText('Your response')).toBeTruthy();
+    expect(screen.queryByRole('checkbox', { name: /none of the above/i })).toBeNull();
+  });
+
   it('posts free-text-only turn responses and forwards the text into chat', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
@@ -3774,6 +3999,71 @@ describe('InterviewView', () => {
     expect(responseContext.disabled).toBe(true);
     expect(desktopOption.getAttribute('data-state')).toBe('checked');
     expect(desktopOption.disabled).toBe(true);
+  });
+
+  it('keeps observer waiting state visible when the answered card appears before the next question arrives', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    routerInvalidate.mockImplementationOnce(async () => {
+      const answeredLoaderData = createWorkspaceLoaderData({
+        answer: 'Desktop — Best fit for our launch',
+        userParts: [
+          { type: 'text', text: 'Desktop — Best fit for our launch' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
+          },
+        ],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      });
+      answeredLoaderData.projectState.specification!.active_turn_id = null;
+      answeredLoaderData.projectState.workflow.phases.grounding.turnId = null;
+      answeredLoaderData.projectState.landing = deriveSpecificationLanding(answeredLoaderData.projectState);
+      setLoaderData(answeredLoaderData);
+    });
+    useChatHarness.sendMessage.mockImplementation(async () => {
+      useChatHarness.setStatus?.('submitted');
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'Best fit for our launch' },
+    });
+    fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('turn-processing-state')).toBeTruthy();
+    });
+
+    await act(async () => {
+      useChatHarness.setStatus?.('ready');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain('Still thinking…');
+    });
+    expect(screen.getByTestId('answered-turn-card').textContent).not.toContain('Captured: —');
   });
 
   it('collapses a submitted turn into an answered card only when interviewer completion reveals the next step', async () => {

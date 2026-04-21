@@ -58,11 +58,8 @@ import {
   findProposedPhaseOutcomeByTurn,
   getCurrentPhase,
   getCurrentWorkflowState,
-  getDraftCriterionEntitiesForSpecification,
-  getDraftRequirementEntitiesForSpecification,
   getTurn,
   getOptionsForTurn,
-  linkKnowledgeItemToTurn,
   materializeAcceptedCriteriaReviewSet,
   materializeAcceptedRequirementsReviewSet,
   updateSpecificationMode,
@@ -74,7 +71,7 @@ import {
   type Turn,
 } from './db.js';
 import { isExportReady, renderExportMarkdown } from './export.js';
-import { buildReviewSetForPhase, persistFallbackQuestionText, streamInterviewer } from './interview.js';
+import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { safeDeserializeAssistantParts, safeDeserializeUserParts, serializeParts } from './parts.js';
 import {
@@ -118,7 +115,7 @@ function appendObserverResultToTurn(
     type: 'data-observer-result',
     data: {
       turnId,
-      ...observerResult,
+      entityIds: observerResult.entityIds,
     },
   });
   updateTurn(db, turnId, {
@@ -141,17 +138,15 @@ function getPersistedFullSetReviewAction(
   return responsePart?.data.reviewAction ?? null;
 }
 
-function acceptRequirementsReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
-  const materializedRequirementIds = materializeAcceptedRequirementsReviewSet(db, projectId, turnId);
-  if (materializedRequirementIds === null) {
-    const requirements = getEntitiesForSpecificationByMode(db, projectId, 'project-wide').requirements;
-    for (const requirement of requirements) {
-      linkKnowledgeItemToTurn(db, requirement.id, turnId, 'reviewed');
-    }
-  }
+function acceptRequirementsReview(
+  db: DB,
+  specificationId: number,
+  turnId: number,
+): SubmitTurnResponseResponse {
+  materializeAcceptedRequirementsReviewSet(db, specificationId, turnId);
 
   createConfirmedPhaseOutcome(db, {
-    projectId,
+    projectId: specificationId,
     phase: 'requirements',
     proposal_turn_id: turnId,
     confirmation_turn_id: turnId,
@@ -161,17 +156,11 @@ function acceptRequirementsReview(db: DB, projectId: number, turnId: number): Su
   return { ok: true, advancedToPhase: 'criteria' };
 }
 
-function acceptCriteriaReview(db: DB, projectId: number, turnId: number): SubmitTurnResponseResponse {
-  const materializedCriterionIds = materializeAcceptedCriteriaReviewSet(db, projectId, turnId);
-  if (materializedCriterionIds === null) {
-    const criteria = getEntitiesForSpecificationByMode(db, projectId, 'project-wide').criteria;
-    for (const criterion of criteria) {
-      linkKnowledgeItemToTurn(db, criterion.id, turnId, 'reviewed');
-    }
-  }
+function acceptCriteriaReview(db: DB, specificationId: number, turnId: number): SubmitTurnResponseResponse {
+  materializeAcceptedCriteriaReviewSet(db, specificationId, turnId);
 
   createConfirmedPhaseOutcome(db, {
-    projectId,
+    projectId: specificationId,
     phase: 'criteria',
     proposal_turn_id: turnId,
     confirmation_turn_id: turnId,
@@ -366,13 +355,19 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
     const fullSetReviewAction = getPersistedFullSetReviewAction(getTurn(db, turnId) ?? turn);
     if (fullSetReviewAction === 'accept') {
-      const response =
-        turn.phase === 'requirements'
-          ? acceptRequirementsReview(db, projectId, turnId)
-          : turn.phase === 'criteria'
-            ? acceptCriteriaReview(db, projectId, turnId)
-            : ({ ok: true } satisfies SubmitTurnResponseResponse);
-      res.json(response satisfies SubmitTurnResponseResponse);
+      try {
+        const response =
+          turn.phase === 'requirements'
+            ? acceptRequirementsReview(db, projectId, turnId)
+            : turn.phase === 'criteria'
+              ? acceptCriteriaReview(db, projectId, turnId)
+              : ({ ok: true } satisfies SubmitTurnResponseResponse);
+        res.json(response satisfies SubmitTurnResponseResponse);
+      } catch (error) {
+        res
+          .status(500)
+          .json({ error: error instanceof Error ? error.message : 'Failed to accept review set' });
+      }
       return;
     }
 
@@ -662,7 +657,12 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
             !(getPersistedGroundingCard(observedTurn) && !observedTurn.question?.trim()) &&
             !persistedUserParts.some((part) => part.type === 'data-confirmation') &&
             !safeDeserializeAssistantParts(observedTurn.assistant_parts).some(
-              (part) => part.type === 'data-observer-result',
+              (part) =>
+                part.type === 'data-observer-result' &&
+                typeof part.data === 'object' &&
+                part.data !== null &&
+                'turnId' in part.data &&
+                part.data.turnId === observedTurn.id,
             );
 
           if (shouldObserve && observedTurn) {
@@ -672,7 +672,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
               type: 'data-observer-result',
               data: {
                 turnId: observedTurn.id,
-                ...observerResult,
+                entityIds: observerResult.entityIds,
               },
             });
           }
@@ -688,15 +688,10 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
         const assistantText = extractTextFromMessage(responseMessage);
         persistFallbackQuestionText(db, prepared.turn.id, assistantText);
-        const synthesizedReviewSet = buildReviewSetForPhase(prepared.turn.phase, {
-          requirements: getDraftRequirementEntitiesForSpecification(db, id),
-          criteria: getDraftCriterionEntitiesForSpecification(db, id),
-        });
         const persistedAssistantParts = materializeTurnArtifacts({
           phase: prepared.turn.phase,
           responseMessage,
           elapsedMs: interviewerElapsedMs,
-          fallbackReviewSet: synthesizedReviewSet,
         });
         updateTurn(db, prepared.turn.id, {
           assistant_parts: serializeParts(persistedAssistantParts),

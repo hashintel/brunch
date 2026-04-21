@@ -24,8 +24,6 @@ import type { TurnWithOptions } from './core.js';
 import {
   createOption,
   getAcceptedRequirementEntitiesForSpecification,
-  getDraftCriterionEntitiesForSpecification,
-  getDraftRequirementEntitiesForSpecification,
   createPhaseOutcome,
   updateTurn,
   getTurn,
@@ -80,11 +78,11 @@ Your job is to review the accumulated requirements as one full-set review turn, 
 
 Use the ask_question tool to present the current requirement set for review with exactly two options: \`Accept review\` and \`Request changes\`. The user's single selected option is the review action, and any attached note is the review note describing corrections, omissions, or confirming why the set is acceptable.
 Include a \`reviewActions\` field mapping those two option positions to \`accept\` and \`request-changes\` so the action semantics live in the tool payload instead of UI inference.
-Also include a \`reviewSet\` field that mirrors the exact requirement set under review, including the current phase, title, and item metadata (reference codes and rationales when available), so the review turn persists its own authoritative review inventory.
+Also include a \`reviewSet\` field that mirrors the exact requirement set under review, including the current phase, title, and item metadata. Every review item must carry a \`reviewItemId\`; preserve the same \`reviewItemId\` when an item survives into a revision, even if you rewrite its text, and mint a fresh \`reviewItemId\` only for genuinely new items. Keep reference codes and rationales when available so the review turn persists its own authoritative review inventory.
 
 Do not run one-requirement-at-a-time approval or rejection turns in this slice.
 
-When the user requests changes, they may include per-item comments targeting specific items by index. Treat uncommented items as implicitly approved. Interpret each per-item comment as a targeted change request (rewrite, split, merge, remove, or add). Regenerate the full set as a successor review turn incorporating all requested changes.
+When the user requests changes, they may include per-item comments targeting specific \`reviewItemId\` values. Treat uncommented items as implicitly approved. Interpret each per-item comment as a targeted change request (rewrite, split, merge, remove, or add). Regenerate the full set as a successor review turn incorporating all requested changes.
 
 Accepting the review is the phase-closing action for requirements. Do not create a separate phase-closure proposal turn for this phase.
 
@@ -96,11 +94,11 @@ Your job is to review the accumulated acceptance criteria as one full-set review
 
 Use the ask_question tool to present the current criterion set for review with exactly two options: \`Accept review\` and \`Request changes\`. The user's single selected option is the review action, and any attached note is the review note describing corrections, omissions, or confirming why the set is acceptable.
 Include a \`reviewActions\` field mapping those two option positions to \`accept\` and \`request-changes\` so the action semantics live in the tool payload instead of UI inference.
-Also include a \`reviewSet\` field that mirrors the exact criterion set under review, including the current phase, title, and item metadata (reference codes and rationales when available), so the review turn persists its own authoritative review inventory.
+Also include a \`reviewSet\` field that mirrors the exact criterion set under review, including the current phase, title, and item metadata. Every review item must carry a \`reviewItemId\`; preserve the same \`reviewItemId\` when an item survives into a revision, even if you rewrite its text, and mint a fresh \`reviewItemId\` only for genuinely new items. Keep reference codes and rationales when available so the review turn persists its own authoritative review inventory.
 
 Do not run one-criterion-at-a-time approval or rejection turns in this slice.
 
-When the user requests changes, they may include per-item comments targeting specific items by index. Treat uncommented items as implicitly approved. Interpret each per-item comment as a targeted change request (rewrite, split, merge, remove, or add). Regenerate the full set as a successor review turn incorporating all requested changes.
+When the user requests changes, they may include per-item comments targeting specific \`reviewItemId\` values. Treat uncommented items as implicitly approved. Interpret each per-item comment as a targeted change request (rewrite, split, merge, remove, or add). Regenerate the full set as a successor review turn incorporating all requested changes.
 
 For every turn, you MUST use the ask_question tool. Never respond with plain text.`,
 };
@@ -122,7 +120,7 @@ When goals, terms, context, and constraints are sufficiently captured for now, u
   if (stage === 'ongoing') {
     return `You are a spec elicitation interviewer conducting the GROUNDING phase for a feature within an existing codebase.
 
-The project directory is: ${cwd}
+The workspace directory is: ${cwd}
 
 You are already inside an ongoing brownfield grounding conversation. Continue the structured grounding interview from the current feature-area context.
 
@@ -139,11 +137,11 @@ ${sharedQuestionRules}`;
 
   return `You are a spec elicitation interviewer conducting the GROUNDING phase for a feature within an existing codebase.
 
-The project directory is: ${cwd}
+The workspace directory is: ${cwd}
 
 Before asking your first grounding question, use your tools to explore the codebase and build a working understanding of the project. Follow this strategy:
-1. Look for README, package.json, Cargo.toml, pyproject.toml, or other project manifest files
-2. Explore the directory structure to understand the project layout
+1. Look for README, package.json, Cargo.toml, pyproject.toml, or other workspace manifest files
+2. Explore the directory structure to understand the workspace layout
 3. Read key files that reveal architecture and conventions
 4. Look for existing documentation, tests, and configuration
 
@@ -193,6 +191,13 @@ export type BaseInterviewerTools = {
 };
 export type InterviewerTools = BaseInterviewerTools & Record<string, Tool<any, any>>;
 export type InterviewerAgent = ToolLoopAgent<never, InterviewerTools>;
+
+function createSynthesizedReviewItemId(
+  phase: Extract<Phase, 'requirements' | 'criteria'>,
+  entityId: number,
+): string {
+  return `${phase}:${entityId}`;
+}
 
 /** Phase-specific system prompts. */
 export function getSystemPrompt(phase: Phase): string {
@@ -392,31 +397,18 @@ export async function streamInterviewer(
   }
 
   const agent = createInterviewerAgent(db, turn.id, phase, specificationId, effectiveModeOptions);
-  const draftRequirements = getDraftRequirementEntitiesForSpecification(db, specificationId);
-  const draftCriteria = getDraftCriterionEntitiesForSpecification(db, specificationId);
   const acceptedRequirements = getAcceptedRequirementEntitiesForSpecification(db, specificationId);
   const fullPrompt = buildInterviewerContext(activePath, userMessage, {
     phase,
     entities:
-      phase === 'requirements'
+      phase === 'criteria'
         ? {
-            requirements: draftRequirements.map((requirement) => ({
+            approvedRequirements: acceptedRequirements.map((requirement) => ({
               id: requirement.id,
               content: requirement.content,
             })),
           }
-        : phase === 'criteria'
-          ? {
-              approvedRequirements: acceptedRequirements.map((requirement) => ({
-                id: requirement.id,
-                content: requirement.content,
-              })),
-              criteria: draftCriteria.map((criterion) => ({
-                id: criterion.id,
-                content: criterion.content,
-              })),
-            }
-          : undefined,
+        : undefined,
   });
   return agent.stream({
     prompt: fullPrompt,
@@ -432,6 +424,7 @@ export function buildReviewSetForPhase(
       phase,
       title: 'Requirements',
       items: entities.requirements.map((requirement) => ({
+        reviewItemId: createSynthesizedReviewItemId(phase, requirement.id),
         content: requirement.content,
         ...(requirement.referenceCode ? { referenceCode: requirement.referenceCode } : {}),
         ...(requirement.rationale ? { rationale: requirement.rationale } : {}),
@@ -444,6 +437,7 @@ export function buildReviewSetForPhase(
       phase,
       title: 'Acceptance Criteria',
       items: entities.criteria.map((criterion) => ({
+        reviewItemId: createSynthesizedReviewItemId(phase, criterion.id),
         content: criterion.content,
         ...(criterion.referenceCode ? { referenceCode: criterion.referenceCode } : {}),
         ...(criterion.rationale ? { rationale: criterion.rationale } : {}),

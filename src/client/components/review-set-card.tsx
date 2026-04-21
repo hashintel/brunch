@@ -7,12 +7,14 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/co
 import { Textarea } from '@/client/components/ui/textarea';
 import { cn } from '@/client/lib/utils';
 import type { ReviewAction } from '@/shared/api-types.js';
+import { getReviewItemIdentity } from '@/shared/review-diffing.js';
 
 export type ReviewSetGroundingRef = {
   code: string;
 };
 
 export type ReviewSetCardItem = {
+  reviewItemId: string;
   content: string;
   referenceCode?: string | null;
   rationale?: string | null;
@@ -27,7 +29,7 @@ export type ReviewSetCardData = {
 };
 
 function getReviewSetItemKey(item: ReviewSetCardItem): string {
-  return item.referenceCode ?? item.content;
+  return getReviewItemIdentity(item);
 }
 
 function StatsBar({ total, grounding, commented }: { total: number; grounding: number; commented?: number }) {
@@ -69,6 +71,7 @@ function ReviewSetItemRow({
   const grounding = item.grounding ?? [];
   const hasComment = comment.trim().length > 0;
   const itemLabel = item.referenceCode ?? item.content;
+  const itemIdentity = getReviewSetItemKey(item);
 
   return (
     <Collapsible>
@@ -133,11 +136,11 @@ function ReviewSetItemRow({
       {showItemComments ? (
         <CollapsibleContent>
           <div className="border-b border-rule bg-tint px-4 pt-3">
-            <label className="text-xs text-sub" htmlFor={`review-set-comment-${itemLabel}`}>
+            <label className="text-xs text-sub" htmlFor={`review-set-comment-${itemIdentity}`}>
               Comment
             </label>
             <Textarea
-              id={`review-set-comment-${itemLabel}`}
+              id={`review-set-comment-${itemIdentity}`}
               value={comment}
               onChange={(event) => onCommentChange(event.target.value)}
               placeholder="Add a revision note for this item…"
@@ -213,7 +216,7 @@ export function ReviewSetCard({
   note: string;
   onNoteChange: (note: string) => void;
   onAccept: () => void;
-  onRequestChanges: (itemComments: Array<{ itemIndex: number; comment: string }>) => void;
+  onRequestChanges: (itemComments: Array<{ reviewItemId: string; comment: string }>) => void;
   disabled: boolean;
   submitted: boolean;
   initialComments?: Record<string, string>;
@@ -316,12 +319,11 @@ export function ReviewSetCard({
               </ShadcnButton>
               <ShadcnButton
                 onClick={() => {
-                  const itemComments: Array<{ itemIndex: number; comment: string }> = [];
-                  for (let index = 0; index < reviewSet.items.length; index++) {
-                    const item = reviewSet.items[index]!;
+                  const itemComments: Array<{ reviewItemId: string; comment: string }> = [];
+                  for (const item of reviewSet.items) {
                     const comment = commentsByItem[getReviewSetItemKey(item)]?.trim();
                     if (comment) {
-                      itemComments.push({ itemIndex: index, comment });
+                      itemComments.push({ reviewItemId: item.reviewItemId, comment });
                     }
                   }
                   onRequestChanges(itemComments);

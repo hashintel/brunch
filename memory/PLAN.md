@@ -55,6 +55,7 @@ Key insight from dependency analysis: grounding free-text (D115), hint-guided pr
 
 ### Infrastructure / tooling / extensions
 
+- Typed fixture-builder convergence for happy-path tests — unify happy-path review/interview test fixtures behind the same typed builders used by seed/walkthrough generation, while keeping raw inline literals only for negative/schema-invalid cases.
 - Drizzle Kit audit remediation.
 - Git-friendly file-based persistence representation for diffable specs.
 - Headless interview driver for scripted end-to-end probes.

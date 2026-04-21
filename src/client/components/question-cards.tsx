@@ -3,11 +3,8 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { Impact, ReviewAction } from '@/shared/api-types.js';
 import type { ActivitySummary, GroundingCardData } from '@/shared/chat.js';
-import {
-  getPersistedReviewAction,
-  getPersistedTurnResponse,
-  type ReviewSetChangeSummary,
-} from '@/shared/specification-state.js';
+import type { ReviewSetChangeSummary } from '@/shared/review-diffing.js';
+import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/specification-state.js';
 import type { SpecificationTurn } from '@/shared/specification.js';
 
 import { cn } from '../lib/utils';
@@ -363,7 +360,7 @@ export function ActiveReviewSetCard({
   onSubmitReviewAction?: (
     reviewAction: ReviewAction,
     freeText?: string,
-    itemComments?: Array<{ itemIndex: number; comment: string }>,
+    itemComments?: Array<{ reviewItemId: string; comment: string }>,
   ) => void | Promise<void>;
   persistedFreeText: string;
   hasPersistedResponse: boolean;
@@ -388,7 +385,7 @@ export function ActiveReviewSetCard({
 
   function submitReviewAction(
     reviewAction: ReviewAction,
-    itemComments?: Array<{ itemIndex: number; comment: string }>,
+    itemComments?: Array<{ reviewItemId: string; comment: string }>,
   ) {
     if (isReadOnly) {
       return;

@@ -4,6 +4,7 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { getSpecificationRecord } from '@/shared/specification.js';
 
 import { getSpecificationState } from '../core.js';
@@ -135,6 +136,7 @@ describe('walkthroughScenarioMatrix', () => {
       expect(requirementsTurns).toHaveLength(1);
       expect(requirementsTurn?.question).toBe('Please review the current requirement set.');
       expect(requirementsTurn?.assistant_parts).toContain('data-review-set');
+      expect(requirementsTurn?.assistant_parts).toContain('data-activity-summary');
       expect(requirementsTurn?.user_parts).toContain('"reviewAction":"accept"');
     });
 
@@ -150,6 +152,7 @@ describe('walkthroughScenarioMatrix', () => {
       expect(requirementsTurns).toHaveLength(1);
       expect(requirementsTurn?.question).toBe('Please review the current requirement set.');
       expect(requirementsTurn?.assistant_parts).toContain('data-review-set');
+      expect(requirementsTurn?.assistant_parts).toContain('data-activity-summary');
     });
 
     await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
@@ -164,6 +167,17 @@ describe('walkthroughScenarioMatrix', () => {
       expect(criteriaTurns).toHaveLength(1);
       expect(criteriaTurn?.question).toBe('Please review the current criterion set.');
       expect(criteriaTurn?.assistant_parts).toContain('data-review-set');
+      expect(criteriaTurn?.assistant_parts).toContain('data-activity-summary');
+    });
+  });
+
+  it('keeps pre-review walkthrough entities non-durable while review-set turns stay self-contained', async () => {
+    await withReopenedSeededScenario('issue-tracker-requirements-ready', ({ db, projectId }) => {
+      expect(getEntitiesForSpecificationOnActivePath(db, projectId).requirements).toEqual([]);
+    });
+
+    await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
+      expect(getEntitiesForSpecificationOnActivePath(db, projectId).criteria).toEqual([]);
     });
   });
 
@@ -191,6 +205,48 @@ describe('walkthroughScenarioMatrix', () => {
     });
   });
 
+  it('reopens the export-ready walkthrough with self-contained persisted review metadata for both accepted review phases', async () => {
+    await withReopenedSeededScenario('issue-tracker-all-phases-closed', ({ db, projectId }) => {
+      const projectState = getSpecificationState(db, projectId);
+      const requirementsReviewTurn = projectState?.turns.find(
+        (turn) =>
+          turn.phase === 'requirements' && turn.question === 'Please review the current requirement set.',
+      );
+      const criteriaReviewTurn = projectState?.turns.find(
+        (turn) => turn.phase === 'criteria' && turn.question === 'Please review the current criterion set.',
+      );
+
+      expect(requirementsReviewTurn?.user_parts).toContain('"reviewAction":"accept"');
+      expect(criteriaReviewTurn?.user_parts).toContain('"reviewAction":"accept"');
+      expect(JSON.parse(requirementsReviewTurn?.assistant_parts ?? '[]')).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'data-review-set',
+            data: expect.objectContaining({
+              phase: 'requirements',
+              items: expect.arrayContaining([
+                expect.objectContaining({ referenceCode: createKnowledgeReferenceCode('requirement', 1) }),
+              ]),
+            }),
+          }),
+        ]),
+      );
+      expect(JSON.parse(criteriaReviewTurn?.assistant_parts ?? '[]')).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'data-review-set',
+            data: expect.objectContaining({
+              phase: 'criteria',
+              items: expect.arrayContaining([
+                expect.objectContaining({ referenceCode: createKnowledgeReferenceCode('criterion', 1) }),
+              ]),
+            }),
+          }),
+        ]),
+      );
+    });
+  });
+
   it('reopens the named brownfield grounding walkthrough with answered and active grounding cards around a substantive turn', async () => {
     await withReopenedSeededScenario('brownfield-grounding-replay', ({ db, projectId }) => {
       const projectState = getSpecificationState(db, projectId);
@@ -210,6 +266,10 @@ describe('walkthroughScenarioMatrix', () => {
       expect(JSON.parse(projectState!.turns[0]!.assistant_parts ?? '[]')).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
+            type: 'data-activity-summary',
+            data: expect.objectContaining({ tools: ['grounding card'] }),
+          }),
+          expect.objectContaining({
             type: 'data-grounding-card',
             data: expect.objectContaining({
               summary: 'The repo already uses SQLite-backed local persistence.',
@@ -220,6 +280,10 @@ describe('walkthroughScenarioMatrix', () => {
       expect(projectState?.turns[1]?.answer).toBe('The chat-runtime finalization path and replay seam.');
       expect(JSON.parse(projectState!.turns[2]!.assistant_parts ?? '[]')).toEqual(
         expect.arrayContaining([
+          expect.objectContaining({
+            type: 'data-activity-summary',
+            data: expect.objectContaining({ tools: ['grounding card'] }),
+          }),
           expect.objectContaining({
             type: 'data-grounding-card',
             data: expect.objectContaining({
