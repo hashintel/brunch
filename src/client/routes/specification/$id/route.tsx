@@ -1,9 +1,10 @@
-import { Outlet, createFileRoute, useLoaderData, useParams } from '@tanstack/react-router';
+import { Outlet, createFileRoute, useParams } from '@tanstack/react-router';
 
 import { Skeleton } from '@/client/components/ui/skeleton';
-import { getSpecificationRecord, type SpecificationState } from '@/shared/specification.js';
+import type { SpecificationState } from '@/shared/specification.js';
 
 import { PhaseNavigationSidebar } from './-phase-navigation-sidebar.js';
+import { useSpecificationCoreData, useSpecificationTurns } from './-specification-data.js';
 
 function SpecificationWorkspaceSkeleton() {
   return (
@@ -37,15 +38,16 @@ export const Route = createFileRoute('/specification/$id')({
   loader: ({ params }) => fetchSpecificationWorkspaceLoaderData(params.id),
   pendingComponent: SpecificationWorkspaceSkeleton,
   component: function SpecificationWorkspaceLayout() {
-    const specificationState = useLoaderData({ from: '/specification/$id' });
+    const { specification, workflow } = useSpecificationCoreData();
+    const turns = useSpecificationTurns();
     const { id: specificationId } = useParams({ from: '/specification/$id' });
     return (
       <div className="flex h-full">
         <PhaseNavigationSidebar
           specificationId={specificationId}
-          specificationName={getSpecificationRecord(specificationState).name}
-          workflow={specificationState.workflow}
-          turns={specificationState.turns}
+          specificationName={specification.name}
+          workflow={workflow}
+          turns={turns}
         />
         <div className="flex-1 overflow-hidden">
           <Outlet />

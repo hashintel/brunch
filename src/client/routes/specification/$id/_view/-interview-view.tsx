@@ -1,4 +1,4 @@
-import { Link, useLoaderData } from '@tanstack/react-router';
+import { Link } from '@tanstack/react-router';
 import { useState } from 'react';
 
 import { Button } from '@/client/components/app-shell';
@@ -28,6 +28,7 @@ import { getPhaseIntentMarkerLabel } from '@/shared/phase-intents.js';
 import { getPersistedActivitySummary } from '@/shared/specification-state.js';
 import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
+import { useSpecificationEntities } from '../-specification-data.js';
 import { useInterviewController } from './-interview-controller';
 import { specificationWorkspaceStream, type WorkspaceStreamMarker } from './-workspace-stream-projector.js';
 import { WorkspaceTranscriptArtifacts } from './-workspace-transcript-artifacts.js';
@@ -86,7 +87,7 @@ function getReadinessLabel(readiness: SpecificationState['workflow']['phases'][W
 
 export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const [isClosePhaseModalOpen, setIsClosePhaseModalOpen] = useState(false);
-  const entitySnapshot = useLoaderData({ from: '/specification/$id/_view' });
+  const entitySnapshot = useSpecificationEntities();
   const { chat, specification, workflow, phaseTurns, bottomArtifact, captureStatusByTurnId } =
     useInterviewController(phase, entitySnapshot);
   const phaseState = workflow.phases[phase];

@@ -1,10 +1,12 @@
-import { Outlet, createFileRoute, useLoaderData } from '@tanstack/react-router';
+import { Outlet, createFileRoute } from '@tanstack/react-router';
 import { Suspense, lazy } from 'react';
 import { z } from 'zod';
 
 import { EntitySidebar } from '@/client/components/EntitySidebar';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/client/components/ui/resizable';
 import type { EntitiesData } from '@/shared/api-types.js';
+
+import { useSpecificationEntities } from '../-specification-data.js';
 
 const LazyGraphView = lazy(() => import('./-graph-view.js').then((m) => ({ default: m.GraphView })));
 
@@ -21,7 +23,7 @@ async function fetchViewLayoutLoaderData(specificationId: string): Promise<Entit
 }
 
 function ViewLayout() {
-  const entitySnapshot = useLoaderData({ from: '/specification/$id/_view' });
+  const entitySnapshot = useSpecificationEntities();
   const { view } = Route.useSearch();
 
   if (view === 'graph') {

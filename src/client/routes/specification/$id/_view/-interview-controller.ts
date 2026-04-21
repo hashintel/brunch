@@ -1,5 +1,5 @@
 import { useChat } from '@ai-sdk/react';
-import { useLoaderData, useRouter } from '@tanstack/react-router';
+import { useRouter } from '@tanstack/react-router';
 import { DefaultChatTransport } from 'ai';
 import type { ChatStatus } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -20,11 +20,12 @@ import type { DataConfirmation } from '@/shared/phase-close.js';
 import { getPhaseRoutePath } from '@/shared/phase-descriptors.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
 import {
-  getSpecificationRecord,
   type SpecificationMode,
+  type SpecificationState,
   type SpecificationTurn,
 } from '@/shared/specification.js';
 
+import { useSpecificationCoreData, useSpecificationTurns } from '../-specification-data.js';
 import {
   buildPhaseTurnIds,
   createInterviewControllerViewState,
@@ -147,9 +148,14 @@ function getLatestAssistantActivity(
 }
 
 export function useInterviewController(phase: WorkflowPhase, entityState: EntitiesData): InterviewController {
-  const specificationState = useLoaderData({ from: '/specification/$id' });
+  const { specification, workflow, landing } = useSpecificationCoreData();
+  const turns = useSpecificationTurns();
   const router = useRouter();
-  const specificationId = getSpecificationRecord(specificationState).id;
+  const specificationId = specification.id;
+  const specificationState = useMemo<SpecificationState>(
+    () => ({ specification, workflow, landing, turns: [...turns] }),
+    [landing, specification, turns, workflow],
+  );
 
   const refreshReadModel = useCallback(() => router.invalidate(), [router]);
   const { durableSpecification, ephemeralChat, handleDataPart } = useInterviewDataAdapter(
@@ -157,18 +163,15 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
     refreshReadModel,
   );
 
-  const phaseTurnIds = useMemo(
-    () => buildPhaseTurnIds(durableSpecification.turns, phase),
-    [durableSpecification.turns, phase],
-  );
+  const phaseTurnIds = useMemo(() => buildPhaseTurnIds(turns, phase), [phase, turns]);
 
   const [stablePhaseTurns, setStablePhaseTurns] = useState(() =>
-    durableSpecification.turns.filter((turn) => turn.phase === phase),
+    turns.filter((turn) => turn.phase === phase),
   );
   const stablePhaseKeyRef = useRef(`${durableSpecification.specification.id}:${phase}`);
 
   useEffect(() => {
-    const phaseTurns = durableSpecification.turns.filter((turn) => turn.phase === phase);
+    const phaseTurns = turns.filter((turn) => turn.phase === phase);
     const stablePhaseKey = `${durableSpecification.specification.id}:${phase}`;
 
     setStablePhaseTurns((current) =>
@@ -177,7 +180,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
         : phaseTurns,
     );
     stablePhaseKeyRef.current = stablePhaseKey;
-  }, [durableSpecification.specification.id, durableSpecification.turns, phase]);
+  }, [durableSpecification.specification.id, phase, turns]);
 
   const transport = useMemo(
     () => new DefaultChatTransport({ api: `/api/specifications/${specificationId}/chat` }),
