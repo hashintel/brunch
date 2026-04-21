@@ -767,7 +767,21 @@ describe('InterviewView', () => {
     expect(screen.queryByRole('link', { name: /advance to/i })).toBeNull();
   });
 
-  it('shows the header close action only when force-close is available for design', async () => {
+  it('shows the header close action when grounding is the active closeable phase', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          grounding: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 1 },
+        }),
+      }),
+    );
+
+    renderWorkspace();
+
+    expect(screen.getByRole('button', { name: 'Close Phase' })).toBeTruthy();
+  });
+
+  it('shows the header close action when design is the active closeable phase', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
@@ -780,6 +794,61 @@ describe('InterviewView', () => {
     renderWorkspace('design');
 
     expect(screen.getByRole('button', { name: 'Close Phase' })).toBeTruthy();
+  });
+
+  it('opens a close-phase confirmation modal with readiness and turn context and allows cancelling', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          grounding: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 1 },
+        }),
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close Phase' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Close Grounding phase?')).toBeTruthy();
+    expect(within(dialog).getByText('Readiness')).toBeTruthy();
+    expect(within(dialog).getByText('Medium')).toBeTruthy();
+    expect(within(dialog).getByText('Turn count')).toBeTruthy();
+    expect(within(dialog).getByText('1 turn')).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Keep phase open' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(useChatHarness.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('submits a force-close action for grounding through chat with typed confirmation parts', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          grounding: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 1 },
+        }),
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close Phase' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm grounding closure' }));
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          { type: 'text', text: 'Force grounding closure' },
+          {
+            type: 'data-confirmation',
+            data: { kind: 'force-close-active-phase', phase: 'grounding' },
+          },
+        ],
+      });
+    });
   });
 
   it('hides the header close action for a review proposal state even when the phase is closeable', async () => {
@@ -2166,8 +2235,8 @@ describe('InterviewView', () => {
     expect(screen.getByText('Grounding')).toBeTruthy();
     expect(
       screen.queryByLabelText(`Comment on ${createKnowledgeReferenceCode('requirement', 1)}`),
-    ).toBeNull();
-    expect(screen.queryByText('Commented')).toBeNull();
+    ).toBeTruthy();
+    expect(screen.queryByText('Commented')).toBeTruthy();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
   });
@@ -2294,8 +2363,10 @@ describe('InterviewView', () => {
     expect(screen.getByText('Markdown export includes accepted requirements only')).toBeTruthy();
     expect(screen.getByText('Items')).toBeTruthy();
     expect(screen.getByText('Grounding')).toBeTruthy();
-    expect(screen.queryByLabelText(`Comment on ${createKnowledgeReferenceCode('criterion', 1)}`)).toBeNull();
-    expect(screen.queryByText('Commented')).toBeNull();
+    expect(
+      screen.queryByLabelText(`Comment on ${createKnowledgeReferenceCode('criterion', 1)}`),
+    ).toBeTruthy();
+    expect(screen.queryByText('Commented')).toBeTruthy();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
   });
@@ -2356,8 +2427,8 @@ describe('InterviewView', () => {
       expect(screen.getByText('Items')).toBeTruthy();
       expect(
         screen.queryByLabelText(`Comment on ${createKnowledgeReferenceCode('requirement', 1)}`),
-      ).toBeNull();
-      expect(screen.queryByText('Commented')).toBeNull();
+      ).toBeTruthy();
+      expect(screen.queryByText('Commented')).toBeTruthy();
       expect(routerInvalidate).not.toHaveBeenCalled();
     });
   });
@@ -3434,6 +3505,7 @@ describe('InterviewView', () => {
     renderWorkspace('design');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Close Phase' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm elicitation closure' }));
 
     await waitFor(() => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
@@ -3532,6 +3604,7 @@ describe('InterviewView', () => {
 
     expect(screen.getByText('Which architecture should we choose next?')).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: 'Close Phase' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm elicitation closure' }));
 
     expect(await screen.findByText('Force elicitation closure', { selector: 'p' })).toBeTruthy();
     expect(screen.getByTestId('generating-turn-placeholder')).toBeTruthy();

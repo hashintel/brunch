@@ -95,7 +95,7 @@ D90, D118, D119; A61, A62; Requirements 11, 12, 25.
 
 ---
 
-## Card 3: Review per-item commenting — interviewer context for change requests [status: next]
+## Card 3: Review per-item commenting — interviewer context for change requests [status: done]
 
 ### Objective
 

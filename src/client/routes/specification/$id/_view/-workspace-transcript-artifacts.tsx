@@ -196,13 +196,13 @@ function renderWorkspaceInteractiveArtifact({
             <ActiveReviewSetCard
               question={artifact.artifact.turn.question}
               why={artifact.artifact.turn.why}
-              onSubmitReviewAction={(reviewAction, freeText) => {
+              onSubmitReviewAction={(reviewAction, freeText, itemComments) => {
                 const position = getReviewPositionForAction(artifact.artifact.turn, reviewAction);
                 if (position === null) {
                   return;
                 }
 
-                return artifact.artifact.submitTurnResponse([position], freeText, reviewAction);
+                return artifact.artifact.submitTurnResponse([position], freeText, reviewAction, itemComments);
               }}
               persistedFreeText={getPersistedTurnResponse(artifact.artifact.turn)?.freeText?.trim() ?? ''}
               hasPersistedResponse={

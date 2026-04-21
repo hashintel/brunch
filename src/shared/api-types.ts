@@ -1,6 +1,6 @@
 import * as z from 'zod/v4';
 
-import { reviewActionSchema } from './chat.js';
+import { reviewActionSchema, reviewItemCommentSchema } from './chat.js';
 import { knowledgeEntityCollections, knowledgeKinds } from './knowledge.js';
 import { phaseClosureBasisSchema, workflowPhaseSchema, type WorkflowPhase } from './phase-close.js';
 import { phaseIntentRequestSchema } from './phase-intents.js';
@@ -217,6 +217,7 @@ export const submitTurnResponseSelectionRequestSchema = z.object({
   positions: z.array(z.number().int().min(0)).min(1),
   freeText: z.string().trim().min(1).optional(),
   reviewAction: reviewActionSchema.optional(),
+  itemComments: z.array(reviewItemCommentSchema).optional(),
 });
 
 export const submitTurnResponseFreeTextRequestSchema = z.object({

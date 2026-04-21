@@ -212,7 +212,7 @@ export function ReviewSetCard({
   note: string;
   onNoteChange: (note: string) => void;
   onAccept: () => void;
-  onRequestChanges: () => void;
+  onRequestChanges: (itemComments: Array<{ itemIndex: number; comment: string }>) => void;
   disabled: boolean;
   submitted: boolean;
   initialComments?: Record<string, string>;
@@ -305,7 +305,20 @@ export function ReviewSetCard({
                 <Check data-icon="inline-start" />
                 Accept Review
               </ShadcnButton>
-              <ShadcnButton onClick={onRequestChanges} disabled={disabled}>
+              <ShadcnButton
+                onClick={() => {
+                  const itemComments: Array<{ itemIndex: number; comment: string }> = [];
+                  for (let index = 0; index < reviewSet.items.length; index++) {
+                    const item = reviewSet.items[index]!;
+                    const comment = commentsByItem[getReviewSetItemKey(item)]?.trim();
+                    if (comment) {
+                      itemComments.push({ itemIndex: index, comment });
+                    }
+                  }
+                  onRequestChanges(itemComments);
+                }}
+                disabled={disabled}
+              >
                 Request Changes
               </ShadcnButton>
             </>

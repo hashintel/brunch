@@ -302,7 +302,11 @@ export function ActiveReviewSetCard({
   question,
   why,
 }: {
-  onSubmitReviewAction?: (reviewAction: ReviewAction, freeText?: string) => void | Promise<void>;
+  onSubmitReviewAction?: (
+    reviewAction: ReviewAction,
+    freeText?: string,
+    itemComments?: Array<{ itemIndex: number; comment: string }>,
+  ) => void | Promise<void>;
   persistedFreeText: string;
   hasPersistedResponse: boolean;
   disabled: boolean;
@@ -323,12 +327,19 @@ export function ActiveReviewSetCard({
     setNote(persistedFreeText);
   }, [hasPersistedResponse, persistedFreeText]);
 
-  function submitReviewAction(reviewAction: ReviewAction) {
+  function submitReviewAction(
+    reviewAction: ReviewAction,
+    itemComments?: Array<{ itemIndex: number; comment: string }>,
+  ) {
     if (isReadOnly) {
       return;
     }
 
-    void onSubmitReviewAction?.(reviewAction, note.trim() || undefined);
+    void onSubmitReviewAction?.(
+      reviewAction,
+      note.trim() || undefined,
+      itemComments?.length ? itemComments : undefined,
+    );
   }
 
   return (
@@ -339,9 +350,10 @@ export function ActiveReviewSetCard({
         note={note}
         onNoteChange={setNote}
         onAccept={() => submitReviewAction('accept')}
-        onRequestChanges={() => submitReviewAction('request-changes')}
+        onRequestChanges={(itemComments) => submitReviewAction('request-changes', itemComments)}
         disabled={isReadOnly}
         submitted={isSubmitted}
+        showItemComments
       />
     </div>
   );

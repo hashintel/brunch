@@ -342,6 +342,9 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       return;
     }
 
+    const itemComments =
+      parsedRequest.data.kind === 'select-options' ? parsedRequest.data.itemComments : undefined;
+
     const dataPart = {
       type: 'data-turn-response',
       data: {
@@ -349,6 +352,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         selectedOptionIds,
         ...(freeText ? { freeText } : {}),
         ...(expectedReviewAction ? { reviewAction: expectedReviewAction } : {}),
+        ...(itemComments?.length ? { itemComments } : {}),
       },
     } as const satisfies Extract<BrunchUserPart, { type: 'data-turn-response' }>;
 

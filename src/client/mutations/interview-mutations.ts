@@ -22,6 +22,7 @@ export interface SubmitTurnResponseMutationState {
     positions?: number[],
     freeText?: string,
     reviewAction?: ReviewAction,
+    itemComments?: Array<{ itemIndex: number; comment: string }>,
   ) => Promise<boolean>;
   readonly isPending: boolean;
   readonly errorMessage: string | null;
@@ -106,6 +107,7 @@ export function useSubmitTurnResponseMutation({
       positions: number[] = [],
       freeText?: string,
       reviewActionOverride?: ReviewAction,
+      itemComments?: Array<{ itemIndex: number; comment: string }>,
     ) => {
       if (!turn) {
         return false;
@@ -132,6 +134,7 @@ export function useSubmitTurnResponseMutation({
               positions: uniquePositions,
               ...(trimmedFreeText ? { freeText: trimmedFreeText } : {}),
               ...(reviewAction ? { reviewAction } : {}),
+              ...(itemComments?.length ? { itemComments } : {}),
             }
           : {
               kind: 'free-text',

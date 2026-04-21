@@ -66,6 +66,7 @@ export type InterviewControllerBottomArtifactState =
         positions: number[],
         freeText?: string,
         reviewAction?: ReviewAction,
+        itemComments?: Array<{ itemIndex: number; comment: string }>,
       ) => Promise<void>;
     }
   | {
@@ -452,6 +453,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
               positions: number[],
               freeText?: string,
               reviewAction?: ReviewAction,
+              itemComments?: Array<{ itemIndex: number; comment: string }>,
             ) => {
               const turnId =
                 viewState.bottomArtifact?.kind === 'persisted-turn' ? viewState.bottomArtifact.turn.id : null;
@@ -464,6 +466,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
                 positions,
                 freeText,
                 reviewAction,
+                itemComments,
               );
               if (!didSubmit) {
                 setSubmittedTurnId(null);
