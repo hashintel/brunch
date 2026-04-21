@@ -68,13 +68,14 @@ let useChatImpl: (options: UseChatOptions) => {
 };
 let useChatHarness: UseChatHarness;
 
+const routerNavigate = vi.fn(async () => {});
 vi.mock('@tanstack/react-router', () => ({
   useLoaderData: ({ from }: { from: string }) => {
     if (from === '/specification/$id') return currentSpecificationState;
     if (from === '/specification/$id/_view') return currentEntityState;
     throw new Error(`Unexpected useLoaderData from: ${from}`);
   },
-  useRouter: () => ({ invalidate: routerInvalidate }),
+  useRouter: () => ({ invalidate: routerInvalidate, navigate: routerNavigate }),
 }));
 
 vi.mock('@ai-sdk/react', () => ({
@@ -321,6 +322,15 @@ function ControllerProbe({
       >
         Submit recovery
       </button>
+      <button
+        type="button"
+        data-testid="force-close-phase"
+        onClick={() => {
+          workspace.chat.forcePhaseClosure(phase);
+        }}
+      >
+        Force close phase
+      </button>
     </div>
   );
 }
@@ -340,6 +350,7 @@ beforeEach(() => {
   currentSpecificationState = createSpecificationState();
   currentEntityState = createEntityState();
   routerInvalidate.mockClear();
+  routerNavigate.mockClear();
   fetchMock.mockReset();
   chatTransportOptions.length = 0;
   useChatImpl = createUseChatHarness();
@@ -1033,6 +1044,40 @@ describe('interview controller', () => {
     });
     expect(screen.getByTestId('messages').textContent).toBe('Build the web app|What should we build first?');
     expect(useChatHarness.setMessages).not.toHaveBeenCalled();
+  });
+
+  it('navigates to the next phase after a close-phase submission finishes against closed loader truth', async () => {
+    renderController();
+
+    await screen.findByTestId('messages');
+
+    currentSpecificationState.workflow.phases.grounding = {
+      ...currentSpecificationState.workflow.phases.grounding,
+      status: 'closed',
+      readiness: 'high',
+      closeability: false,
+      closureBasis: 'user_forced',
+      turnId: 1,
+      summary: 'Grounding is complete.',
+    };
+    currentSpecificationState.workflow.phases.design = {
+      ...currentSpecificationState.workflow.phases.design,
+      status: 'in_progress',
+    };
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
+
+    fireEvent.click(screen.getByTestId('force-close-phase'));
+
+    await act(async () => {
+      useChatHarness.onFinish?.();
+    });
+
+    await waitFor(() => {
+      expect(routerNavigate).toHaveBeenCalledWith({
+        to: '/specification/$id/elicitation',
+        params: { id: '1' },
+      });
+    });
   });
 
   it('keeps the live transcript stable on same-project refresh', async () => {

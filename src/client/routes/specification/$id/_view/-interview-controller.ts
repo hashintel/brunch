@@ -4,7 +4,6 @@ import { DefaultChatTransport } from 'ai';
 import type { ChatStatus } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import { isVisibleKnowledgeKind } from '@/client/components/knowledge-display';
 import {
   useSubmitPhaseIntentMutation,
   useSubmitTurnResponseMutation,
@@ -12,14 +11,13 @@ import {
 import type { EntitiesData, ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
 import { brunchDataPartSchemas, summarizeAssistantActivity } from '@/shared/chat.js';
 import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
-import { knowledgeCollectionKeyByKind } from '@/shared/knowledge.js';
 import {
   createConfirmProposedPhaseClosureCommand,
   createForceCloseActivePhaseCommand,
   getPhaseClosureCommandText,
 } from '@/shared/phase-close.js';
 import type { DataConfirmation } from '@/shared/phase-close.js';
-import { getNextActivePhase, getPhaseRoutePath } from '@/shared/phase-descriptors.js';
+import { getPhaseRoutePath } from '@/shared/phase-descriptors.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
 import {
   getSpecificationRecord,
@@ -42,7 +40,10 @@ import type {
 } from './-interview-controller-core.js';
 import { useInterviewDataAdapter } from './-interview-data.js';
 import { getSpecificationScopedChatId } from './-interview-hydration.js';
-import { useSpecificationScopedAutoPhaseIntent } from './-specification-lifecycle.js';
+import {
+  useSpecificationRuntimeLifecycle,
+  useSpecificationScopedAutoPhaseIntent,
+} from './-specification-lifecycle.js';
 
 export interface InterviewControllerChatState {
   readonly messages: readonly BrunchUIMessage[];
@@ -122,17 +123,6 @@ export interface InterviewController {
   readonly bottomArtifact: InterviewControllerBottomArtifactState | null;
 }
 
-function visibleCapturesAreSynced(
-  turn: Pick<SpecificationTurn, 'captured_items'>,
-  entityState: EntitiesData,
-): boolean {
-  return (turn.captured_items ?? [])
-    .filter((item) => isVisibleKnowledgeKind(item.kind))
-    .every((item) =>
-      entityState[knowledgeCollectionKeyByKind[item.kind]].some((entity) => entity.id === item.id),
-    );
-}
-
 function getLatestAssistantActivity(
   messages: readonly BrunchUIMessage[],
   status: ChatStatus,
@@ -161,10 +151,10 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
   const router = useRouter();
   const specificationId = getSpecificationRecord(specificationState).id;
 
-  const invalidateRouter = useCallback(() => router.invalidate(), [router]);
+  const refreshReadModel = useCallback(() => router.invalidate(), [router]);
   const { durableSpecification, ephemeralChat, handleDataPart } = useInterviewDataAdapter(
     specificationState,
-    invalidateRouter,
+    refreshReadModel,
   );
 
   const phaseTurnIds = useMemo(
@@ -175,13 +165,6 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
   const [stablePhaseTurns, setStablePhaseTurns] = useState(() =>
     durableSpecification.turns.filter((turn) => turn.phase === phase),
   );
-  const [submittedTurnId, setSubmittedTurnId] = useState<number | null>(null);
-  const [captureStatusByTurnId, setCaptureStatusByTurnId] = useState<Map<number, 'waiting' | 'applying'>>(
-    () => new Map(),
-  );
-  const [pendingCaptureSyncTurnIds, setPendingCaptureSyncTurnIds] = useState<Set<number>>(() => new Set());
-  const [pendingCloseNavigation, setPendingCloseNavigation] = useState(false);
-  const pendingCloseRef = useRef(false);
   const stablePhaseKeyRef = useRef(`${durableSpecification.specification.id}:${phase}`);
 
   useEffect(() => {
@@ -196,36 +179,33 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
     stablePhaseKeyRef.current = stablePhaseKey;
   }, [durableSpecification.specification.id, durableSpecification.turns, phase]);
 
-  useEffect(() => {
-    setSubmittedTurnId(null);
-    setCaptureStatusByTurnId(new Map());
-    setPendingCaptureSyncTurnIds(new Set());
-  }, [durableSpecification.specification.id, phase]);
-
   const transport = useMemo(
     () => new DefaultChatTransport({ api: `/api/specifications/${specificationId}/chat` }),
     [specificationId],
   );
+  const navigateToPhase = useCallback(
+    (nextPhase: WorkflowPhase) =>
+      router.navigate({
+        to: getPhaseRoutePath(nextPhase) as '/specification/$id/grounding',
+        params: { id: String(specificationId) },
+      }),
+    [router, specificationId],
+  );
+  const runtime = useSpecificationRuntimeLifecycle({
+    specificationId,
+    phase,
+    workflow: durableSpecification.workflow,
+    entityState,
+    stablePhaseTurns,
+    refreshReadModel,
+    navigateToPhase,
+  });
   const handleChatData = useCallback(
     (dataPart: { type: string; data?: unknown }) => {
-      if (dataPart.type === 'data-observer-result') {
-        const observerTurnId =
-          typeof dataPart.data === 'object' &&
-          dataPart.data !== null &&
-          'turnId' in dataPart.data &&
-          typeof dataPart.data.turnId === 'number'
-            ? dataPart.data.turnId
-            : submittedTurnId;
-
-        if (observerTurnId !== null) {
-          setCaptureStatusByTurnId((current) => new Map(current).set(observerTurnId, 'applying'));
-          setPendingCaptureSyncTurnIds((current) => new Set(current).add(observerTurnId));
-        }
-      }
-
+      runtime.handleDataPart(dataPart);
       handleDataPart(dataPart);
     },
-    [handleDataPart, submittedTurnId],
+    [handleDataPart, runtime.handleDataPart],
   );
 
   const { messages, sendMessage, status, error } = useChat<BrunchUIMessage>({
@@ -234,13 +214,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
     messages: [...ephemeralChat.seedMessages],
     dataPartSchemas: brunchDataPartSchemas,
     onData: handleChatData,
-    onFinish: () => {
-      if (pendingCloseRef.current) {
-        pendingCloseRef.current = false;
-        setPendingCloseNavigation(true);
-      }
-      void router.invalidate();
-    },
+    onFinish: runtime.handleChatFinish,
   });
   const submitTurnResponseMutation = useSubmitTurnResponseMutation({
     specificationId,
@@ -277,18 +251,19 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
         return;
       }
 
-      pendingCloseRef.current = true;
-      void sendMessage({
-        parts: [
-          { type: 'text', text: getPhaseClosureCommandText(command) },
-          {
-            type: 'data-confirmation',
-            data: command,
-          },
-        ],
-      });
+      runtime.submitPhaseClosureCommand(() =>
+        sendMessage({
+          parts: [
+            { type: 'text', text: getPhaseClosureCommandText(command) },
+            {
+              type: 'data-confirmation',
+              data: command,
+            },
+          ],
+        }),
+      );
     },
-    [isLoading, sendMessage],
+    [isLoading, runtime.submitPhaseClosureCommand, sendMessage],
   );
 
   const submitTypedPhaseIntent = useCallback(
@@ -337,22 +312,8 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
     [submitPhaseClosureCommand],
   );
 
-  useEffect(() => {
-    if (!pendingCloseNavigation) return;
-    if (durableSpecification.workflow.phases[phase].status !== 'closed') return;
-
-    setPendingCloseNavigation(false);
-    const nextPhase = getNextActivePhase(durableSpecification.workflow.phases, phase);
-    if (nextPhase) {
-      void router.navigate({
-        to: getPhaseRoutePath(nextPhase) as '/specification/$id/grounding',
-        params: { id: String(specificationId) },
-      });
-    }
-  }, [pendingCloseNavigation, durableSpecification.workflow, phase, router, specificationId]);
-
   const isAutoSubmittingPhaseIntent = useSpecificationScopedAutoPhaseIntent({
-    projectId: specificationId,
+    specificationId,
     phase,
     workflow: durableSpecification.workflow,
     landing: durableSpecification.landing,
@@ -367,73 +328,24 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
         phase,
         phaseMessages,
         isLoading,
-        submittedTurnId,
+        runtime.submittedTurnId,
         isAutoSubmittingPhaseIntent,
       ),
-    [durableSpecification, isAutoSubmittingPhaseIntent, isLoading, phase, phaseMessages, submittedTurnId],
+    [
+      durableSpecification,
+      isAutoSubmittingPhaseIntent,
+      isLoading,
+      phase,
+      phaseMessages,
+      runtime.submittedTurnId,
+    ],
   );
-
-  useEffect(() => {
-    if (submittedTurnId === null) {
-      return;
-    }
-
-    if (
-      viewState.bottomArtifact?.kind === 'pending-question' ||
-      viewState.bottomArtifact?.kind === 'phase-summary'
-    ) {
-      setCaptureStatusByTurnId((current) => {
-        if (current.has(submittedTurnId)) {
-          return current;
-        }
-        return new Map(current).set(submittedTurnId, 'waiting');
-      });
-    }
-
-    const phaseTurnId = durableSpecification.workflow.phases[phase].turnId;
-    if (durableSpecification.workflow.phases[phase].status === 'closed' || phaseTurnId !== submittedTurnId) {
-      setSubmittedTurnId(null);
-    }
-  }, [submittedTurnId, durableSpecification.workflow, phase, viewState.bottomArtifact]);
-
-  useEffect(() => {
-    const syncedTurnIds = stablePhaseTurns
-      .filter((turn) => pendingCaptureSyncTurnIds.has(turn.id) && visibleCapturesAreSynced(turn, entityState))
-      .map((turn) => turn.id);
-
-    if (syncedTurnIds.length === 0) {
-      return;
-    }
-
-    setPendingCaptureSyncTurnIds((current) => {
-      const next = new Set(current);
-      for (const turnId of syncedTurnIds) {
-        next.delete(turnId);
-      }
-      return next;
-    });
-    setCaptureStatusByTurnId((current) => {
-      const next = new Map(current);
-      for (const turnId of syncedTurnIds) {
-        next.delete(turnId);
-      }
-      return next;
-    });
-  }, [entityState, pendingCaptureSyncTurnIds, stablePhaseTurns]);
-
-  const effectiveCaptureStatusByTurnId = useMemo(() => {
-    const next = new Map(captureStatusByTurnId);
-    for (const turnId of pendingCaptureSyncTurnIds) {
-      next.set(turnId, 'applying');
-    }
-    return next;
-  }, [captureStatusByTurnId, pendingCaptureSyncTurnIds]);
 
   return {
     specification: viewState.specification,
     workflow: viewState.workflow,
     phaseTurns: stablePhaseTurns,
-    captureStatusByTurnId: effectiveCaptureStatusByTurnId,
+    captureStatusByTurnId: runtime.captureStatusByTurnId,
     chat: {
       messages: phaseMessages,
       status,
@@ -464,22 +376,14 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
                 return;
               }
 
-              setSubmittedTurnId(turnId);
-              setCaptureStatusByTurnId((current) => new Map(current).set(turnId, 'waiting'));
-              const didSubmit = await submitTurnResponseMutation.submitTurnResponse(
-                positions,
-                freeText,
-                reviewAction,
-                itemComments,
+              await runtime.submitTrackedTurnResponse(turnId, () =>
+                submitTurnResponseMutation.submitTurnResponse(
+                  positions,
+                  freeText,
+                  reviewAction,
+                  itemComments,
+                ),
               );
-              if (!didSubmit) {
-                setSubmittedTurnId(null);
-                setCaptureStatusByTurnId((current) => {
-                  const next = new Map(current);
-                  next.delete(turnId);
-                  return next;
-                });
-              }
             },
           }
         : viewState.bottomArtifact.kind === 'pending-question'
