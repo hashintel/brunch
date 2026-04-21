@@ -122,7 +122,7 @@ D90, D118, D119; A62; Requirements 11, 12, 25.
 
 ---
 
-## Card 4: Review set UI — per-item comment toggles [status: next]
+## Card 4: Review set UI — per-item comment toggles [status: done]
 
 ### Objective
 
