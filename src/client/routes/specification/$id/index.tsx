@@ -1,6 +1,7 @@
 import { createFileRoute, redirect } from '@tanstack/react-router';
 
 import {
+  areAllWorkflowPhasesClosed,
   getCurrentOpenPhase,
   getPhaseRoutePath,
   groundingWorkflowPhase,
@@ -15,6 +16,13 @@ export const Route = createFileRoute('/specification/$id/')({
     }
     const specificationState = (await res.json()) as SpecificationState;
     const phases = specificationState.workflow.phases;
+    if (areAllWorkflowPhasesClosed(phases)) {
+      throw redirect({
+        to: '/specification/$id/export',
+        params,
+      });
+    }
+
     const activePhase = getCurrentOpenPhase(phases) ?? groundingWorkflowPhase;
 
     throw redirect({

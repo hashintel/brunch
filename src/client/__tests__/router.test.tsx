@@ -239,4 +239,32 @@ describe('generated routeTree', () => {
       expect(router.state.location.pathname).toBe('/specification/42/grounding');
     });
   });
+
+  it('redirects a completed specification index to the output route', async () => {
+    fetchMock.mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url.match(/\/api\/specifications\/\d+$/)) {
+        return jsonResponse({
+          ...minimalSpecificationState,
+          workflow: {
+            phases: {
+              grounding: { ...minimalSpecificationState.workflow.phases.grounding, status: 'closed' },
+              design: { ...minimalSpecificationState.workflow.phases.design, status: 'closed' },
+              requirements: { ...minimalSpecificationState.workflow.phases.requirements, status: 'closed' },
+              criteria: { ...minimalSpecificationState.workflow.phases.criteria, status: 'closed' },
+            },
+          },
+        });
+      }
+
+      return defaultFetchHandler(input);
+    });
+
+    const { router } = await renderRouteAt('/specification/42');
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/specification/42/export');
+    });
+  });
 });
