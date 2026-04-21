@@ -102,4 +102,13 @@ Archived out of `memory/PLAN.md` during `ln-sync` once the live frontier narrowe
 - 2026-04-19 — **Legacy route and knowledge-facade cleanup retired** — the legacy `/framing` compatibility route was removed from the active app surface, and the last legacy knowledge-facade/schema cleanup landed so runtime boot, seeding, and projection now flow only through the canonical knowledge seams.
 - 2026-04-18 — **Runtime-generated review turns now persist their own interviewer-owned review metadata** — review turns can carry explicit `reviewActions` plus a durable `reviewSet`, and the happy path now replays and accepts that authoritative runtime metadata instead of relying on synthesized fallback inventory.
 
+## 2026-04-21 Live-plan cleanup archive
+
+Archived out of `memory/PLAN.md` when the active frontier moved from the mostly-landed dramaturgical hardening bundle to the next grounding interaction-model slices, and older completion entries were trimmed back to the last three completed items.
+
+- 2026-04-20 — **Canonical `grounding` workflow key landed under the naming frontier** — the first phase now uses `grounding` across shared contracts, persistence/runtime logic, fixtures, tests, and export/read-model seams instead of preserving `scope` as the internal key.
+- 2026-04-20 — **Canonical specification-named browser and HTTP path family landed under the naming frontier** — routed workspace/export entry moved through `/specification/...`, client fetch/mutation seams targeted `/api/specifications/...`, and legacy `/project/...` plus `/api/projects/...` paths survived only as explicit compatibility seams.
+- 2026-04-20 — **Client-owned terminology cleanup slices landed under the naming frontier** — client-facing state seams defaulted to `Specification*` aliases, specification/workspace helper and module names replaced the remaining client runtime `project` wording, and exhausted execution-queue artifacts were retired without changing DB identifiers.
+- 2026-04-19 — **Phase transition and handoff stabilization retired from the active frontier** — requirements acceptance now advances directly into criteria kickoff, criteria acceptance closes the workflow into export-ready state, and closed phases project explicit handoff/completion artifacts.
+
 Use `memory/PLAN.md` for the live frontier only.
