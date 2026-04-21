@@ -22,7 +22,7 @@ Key insight from dependency analysis: grounding free-text (D115), hint-guided pr
 
 ### Track B — Architecture / completion surfaces
 
-3. **Close Phase confirmation modal** — bounded feature `[status: not-started]`
+3. **Close Phase confirmation modal** — bounded feature `[status: done]`
    - Objective: complete the remaining phase-exit UX by showing a confirmation modal with readiness/turn-count context before closing in-progress non-review phases.
    - Why now / unlocks: makes closure intent explicit before workflow extraction.
    - Acceptance: in-progress non-review phases show a confirmation modal with readiness/turn-count context and gating that matches closeability rules.
@@ -81,6 +81,7 @@ Key insight from dependency analysis: grounding free-text (D115), hint-guided pr
 
 ## Recently Completed
 
+- [2026-04-21] Close Phase confirmation modal — Done: in-progress grounding and elicitation phases now open a confirmation modal with readiness and turn-count context before user-forced close, and the close action uses the shared closeability/proposal-pending gating for non-review phases. Verified: `npm run verify`. Watch: manual grounding / elicitation close-reject-confirm walkthroughs were attempted but browser automation was blocked in this session by local profile/socket permission errors.
 - [2026-04-21] Output route and markdown export refinement — Done: closed specs land on output route, markdown export foregrounds accepted review outputs in canonical order, output preview uses readable presentation with specification terminology. Verified: `npm run verify`.
 - [2026-04-21] Phase section headers — Done: projected `phase-section-header` artifact at top of each realized phase section with phase-specific copy. Verified: `npm run verify`.
 - [2026-04-21] Granular query domain design — Done: design document at `docs/query-domain-design.md` specifying query key taxonomy, hook signatures, invalidation triggers, and router loader reduction.

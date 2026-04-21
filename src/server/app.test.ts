@@ -2466,16 +2466,10 @@ describe('phase outcomes + grounding closure', () => {
     {
       name: 'unsupported phases',
       seed: async (projectId: number) => {
-        const { advanceHead, createTurn } = await import('./db.js');
-        const scopeTurn = createTurn(db, projectId, {
-          phase: 'grounding',
-          question: 'What platform?',
-          answer: 'Web',
-        });
-        advanceHead(db, projectId, scopeTurn.id);
+        seedRequirementsReady(projectId);
       },
-      phase: 'grounding',
-      expectedError: 'Only design supports force-close in this slice',
+      phase: 'requirements',
+      expectedError: 'Only grounding and elicitation support force-close in this slice',
     },
     {
       name: 'inactive phases',

@@ -93,7 +93,7 @@ export function getForceClosePhaseAction(
   workflow: WorkflowPhaseActionProjection,
   phase: WorkflowPhase,
 ): ForceClosePhaseAction {
-  if (phase !== 'design') {
+  if (phase === 'requirements' || phase === 'criteria') {
     return {
       kind: 'force-close-active-phase',
       phase,
@@ -144,7 +144,7 @@ export function getForceCloseActionErrorMessage(action: ForceClosePhaseAction): 
   }
 
   return action.reason === 'unsupported_phase'
-    ? 'Only design supports force-close in this slice'
+    ? 'Only grounding and elicitation support force-close in this slice'
     : action.reason === 'inactive_phase'
       ? 'Only the active phase can be force-closed'
       : action.reason === 'not_closeable'

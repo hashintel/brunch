@@ -87,6 +87,22 @@ describe('phase-close commands', () => {
 });
 
 describe('force-close phase action projection', () => {
+  it('allows force-closing the active grounding phase when it is closeable and has no pending proposal', () => {
+    expect(
+      getForceClosePhaseAction(
+        createWorkflow({
+          grounding: { status: 'in_progress', closeability: true },
+        }),
+        'grounding',
+      ),
+    ).toEqual({
+      kind: 'force-close-active-phase',
+      phase: 'grounding',
+      available: true,
+      reason: null,
+    });
+  });
+
   it('allows force-closing the active design phase when it is closeable and has no pending proposal', () => {
     expect(
       getForceClosePhaseAction(
@@ -108,13 +124,15 @@ describe('force-close phase action projection', () => {
     expect(
       getForceClosePhaseAction(
         createWorkflow({
-          grounding: { status: 'in_progress', closeability: true },
+          grounding: { status: 'closed' },
+          design: { status: 'closed' },
+          requirements: { status: 'in_progress', closeability: true },
         }),
-        'grounding',
+        'requirements',
       ),
     ).toEqual({
       kind: 'force-close-active-phase',
-      phase: 'grounding',
+      phase: 'requirements',
       available: false,
       reason: 'unsupported_phase',
     });
@@ -176,11 +194,11 @@ describe('force-close phase action projection', () => {
     expect(
       getForceCloseActionErrorMessage({
         kind: 'force-close-active-phase',
-        phase: 'grounding',
+        phase: 'requirements',
         available: false,
         reason: 'unsupported_phase',
       }),
-    ).toBe('Only design supports force-close in this slice');
+    ).toBe('Only grounding and elicitation support force-close in this slice');
     expect(
       getForceCloseActionErrorMessage({
         kind: 'force-close-active-phase',
