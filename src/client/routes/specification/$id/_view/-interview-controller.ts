@@ -25,7 +25,11 @@ import {
   type SpecificationTurn,
 } from '@/shared/specification.js';
 
-import { useSpecificationCoreData, useSpecificationTurns } from '../-specification-data.js';
+import {
+  useInvalidateSpecificationQueryDomains,
+  useSpecificationCoreData,
+  useSpecificationTurns,
+} from '../-specification-data.js';
 import {
   buildPhaseTurnIds,
   createInterviewControllerViewState,
@@ -151,16 +155,17 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
   const { specification, workflow, landing } = useSpecificationCoreData();
   const turns = useSpecificationTurns();
   const router = useRouter();
+  const { invalidateCoreAndTurns, invalidateEntities } = useInvalidateSpecificationQueryDomains();
   const specificationId = specification.id;
   const specificationState = useMemo<SpecificationState>(
     () => ({ specification, workflow, landing, turns: [...turns] }),
     [landing, specification, turns, workflow],
   );
 
-  const refreshReadModel = useCallback(() => router.invalidate(), [router]);
+  const refreshReadModel = useCallback(() => invalidateCoreAndTurns(), [invalidateCoreAndTurns]);
   const { durableSpecification, ephemeralChat, handleDataPart } = useInterviewDataAdapter(
     specificationState,
-    refreshReadModel,
+    invalidateEntities,
   );
 
   const phaseTurnIds = useMemo(() => buildPhaseTurnIds(turns, phase), [phase, turns]);

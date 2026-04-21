@@ -99,6 +99,8 @@ type UseChatHarness = {
 let currentSpecificationState: SpecificationState;
 let currentEntityState: EntitiesData;
 const routerInvalidate = vi.fn(async () => {});
+const entityInvalidate = vi.fn(async () => {});
+const routerNavigate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 let useChatImpl: (options: UseChatOptions) => {
   messages: BrunchUIMessage[];
@@ -120,12 +122,54 @@ vi.mock('@tanstack/react-router', () => ({
       {children}
     </a>
   ),
-  useLoaderData: ({ from }: { from: string }) => {
-    if (from === '/specification/$id') return currentSpecificationState;
-    if (from === '/specification/$id/_view') return currentEntityState;
-    throw new Error(`Unexpected useLoaderData from: ${from}`);
+  useParams: () => ({ id: String(currentSpecificationState.specification!.id) }),
+  useRouter: () => ({ navigate: routerNavigate }),
+}));
+
+vi.mock('../../-specification-data.js', () => ({
+  useSpecificationCoreData: () => ({
+    specification: currentSpecificationState.specification,
+    workflow: currentSpecificationState.workflow,
+    landing: currentSpecificationState.landing ?? null,
+  }),
+  useSpecificationTurns: () => currentSpecificationState.turns,
+  useSpecificationEntities: () => currentEntityState,
+  useInvalidateSpecificationQueryDomains: () => ({
+    invalidateCore: vi.fn(async () => {}),
+    invalidateTurns: vi.fn(async () => {}),
+    invalidateEntities: entityInvalidate,
+    invalidateCoreAndTurns: routerInvalidate,
+  }),
+  primeSpecificationCoreAndTurns: vi.fn(),
+  primeSpecificationEntities: vi.fn(),
+  specificationQueryKeys: {
+    core: vi.fn(),
+    turns: vi.fn(),
+    entities: vi.fn(),
   },
-  useRouter: () => ({ invalidate: routerInvalidate }),
+}));
+
+vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
+  useSpecificationCoreData: () => ({
+    specification: currentSpecificationState.specification,
+    workflow: currentSpecificationState.workflow,
+    landing: currentSpecificationState.landing ?? null,
+  }),
+  useSpecificationTurns: () => currentSpecificationState.turns,
+  useSpecificationEntities: () => currentEntityState,
+  useInvalidateSpecificationQueryDomains: () => ({
+    invalidateCore: vi.fn(async () => {}),
+    invalidateTurns: vi.fn(async () => {}),
+    invalidateEntities: entityInvalidate,
+    invalidateCoreAndTurns: routerInvalidate,
+  }),
+  primeSpecificationCoreAndTurns: vi.fn(),
+  primeSpecificationEntities: vi.fn(),
+  specificationQueryKeys: {
+    core: vi.fn(),
+    turns: vi.fn(),
+    entities: vi.fn(),
+  },
 }));
 
 vi.mock('@ai-sdk/react', () => ({
@@ -472,6 +516,8 @@ function renderWorkspace(phase: 'grounding' | 'design' | 'requirements' | 'crite
 beforeEach(() => {
   setLoaderData(createWorkspaceLoaderData());
   routerInvalidate.mockClear();
+  entityInvalidate.mockClear();
+  routerNavigate.mockClear();
   fetchMock.mockReset();
   useChatImpl = createUseChatHarness();
   resetSpecificationLifecycleRegistryForTesting();
@@ -3200,6 +3246,7 @@ describe('InterviewView', () => {
       expect(screen.getByRole('checkbox', { name: /desktop/i })).toBeTruthy();
       expect(screen.queryByLabelText('Type a message...')).toBeNull();
       expect(routerInvalidate).not.toHaveBeenCalled();
+      expect(entityInvalidate).not.toHaveBeenCalled();
     });
   });
 
@@ -4177,7 +4224,7 @@ describe('InterviewView', () => {
         }),
       );
     });
-    routerInvalidate.mockImplementationOnce(async () => {
+    entityInvalidate.mockImplementationOnce(async () => {
       setLoaderData(
         createWorkspaceLoaderData({
           turns: [
@@ -4441,6 +4488,7 @@ describe('InterviewView', () => {
 
     expect((await screen.findByRole('alert')).textContent).toContain('Selection could not be saved');
     expect(routerInvalidate).not.toHaveBeenCalled();
+    expect(entityInvalidate).not.toHaveBeenCalled();
     expect(useChatHarness.sendMessage).not.toHaveBeenCalled();
   });
 });

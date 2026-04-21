@@ -4,23 +4,14 @@ import { z } from 'zod';
 
 import { EntitySidebar } from '@/client/components/EntitySidebar';
 import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from '@/client/components/ui/resizable';
-import type { EntitiesData } from '@/shared/api-types.js';
 
-import { useSpecificationEntities } from '../-specification-data.js';
+import { primeSpecificationEntities, useSpecificationEntities } from '../-specification-data.js';
 
 const LazyGraphView = lazy(() => import('./-graph-view.js').then((m) => ({ default: m.GraphView })));
 
 const viewSearchSchema = z.object({
   view: z.enum(['chat', 'graph']).optional().default('chat'),
 });
-
-async function fetchViewLayoutLoaderData(specificationId: string): Promise<EntitiesData> {
-  const response = await fetch(`/api/specifications/${specificationId}/entities?mode=active-path`);
-  if (!response.ok) {
-    throw new Error('Failed to load project entities');
-  }
-  return (await response.json()) as EntitiesData;
-}
 
 function ViewLayout() {
   const entitySnapshot = useSpecificationEntities();
@@ -57,6 +48,6 @@ function ViewLayout() {
 
 export const Route = createFileRoute('/specification/$id/_view')({
   validateSearch: viewSearchSchema,
-  loader: ({ params }) => fetchViewLayoutLoaderData(params.id),
+  loader: ({ params }) => primeSpecificationEntities(params.id),
   component: ViewLayout,
 });

@@ -19,7 +19,7 @@ export interface InterviewDataAdapter {
 
 export function useInterviewDataAdapter(
   specificationState: SpecificationState,
-  invalidateRouter: () => Promise<void>,
+  invalidateEntities: () => Promise<void>,
 ): InterviewDataAdapter {
   const durableSpecification = useMemo(
     () => createInterviewDurableSpecificationState(specificationState),
@@ -32,10 +32,10 @@ export function useInterviewDataAdapter(
   const handleDataPart = useCallback(
     (dataPart: { type: string; data?: unknown }) => {
       if (dataPart.type === 'data-observer-result') {
-        void invalidateRouter();
+        void invalidateEntities();
       }
     },
-    [invalidateRouter],
+    [invalidateEntities],
   );
 
   return { durableSpecification, ephemeralChat, handleDataPart };

@@ -13,7 +13,7 @@ describe('file-route phase route ownership', () => {
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
 
     expect(specificationLayoutSource).toContain("createFileRoute('/specification/$id')");
-    expect(specificationLayoutSource).toContain('fetchSpecificationWorkspaceLoaderData');
+    expect(specificationLayoutSource).toContain('primeSpecificationCoreAndTurns');
     expect(specificationLayoutSource).toContain('PhaseNavigationSidebar');
     expect(specificationLayoutSource).toContain('Outlet');
 
@@ -25,7 +25,7 @@ describe('file-route phase route ownership', () => {
     const viewLayoutSource = readRepoFile('src/client/routes/specification/$id/_view/route.tsx');
 
     expect(viewLayoutSource).toContain("createFileRoute('/specification/$id/_view')");
-    expect(viewLayoutSource).toContain('fetchViewLayoutLoaderData');
+    expect(viewLayoutSource).toContain('primeSpecificationEntities');
     expect(viewLayoutSource).toContain('Outlet');
 
     // ViewLayout must conditionally render based on the ?view search param

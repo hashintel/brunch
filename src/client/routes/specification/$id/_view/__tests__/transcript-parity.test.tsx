@@ -127,7 +127,68 @@ const testState = vi.hoisted(() => {
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: import('react').ReactNode }) => <a href="#">{children}</a>,
-  useLoaderData: () => testState.emptyEntities,
+  useParams: () => ({ id: '1' }),
+  useRouter: () => ({ navigate: vi.fn() }),
+}));
+
+vi.mock('../../-specification-data.js', () => ({
+  useSpecificationCoreData: () => ({
+    specification: {
+      id: 1,
+      name: 'Project 1',
+      mode: 'greenfield',
+      active_turn_id: 2,
+      created_at: '2026-04-16 10:00:00',
+      updated_at: '2026-04-16 10:00:00',
+    },
+    workflow: testState.groundingWorkflow,
+    landing: null,
+  }),
+  useSpecificationTurns: () => [testState.answeredTurn, testState.activeTurn],
+  useSpecificationEntities: () => testState.emptyEntities,
+  useInvalidateSpecificationQueryDomains: () => ({
+    invalidateCore: vi.fn(async () => {}),
+    invalidateTurns: vi.fn(async () => {}),
+    invalidateEntities: vi.fn(async () => {}),
+    invalidateCoreAndTurns: vi.fn(async () => {}),
+  }),
+  primeSpecificationCoreAndTurns: vi.fn(),
+  primeSpecificationEntities: vi.fn(),
+  specificationQueryKeys: {
+    core: vi.fn(),
+    turns: vi.fn(),
+    entities: vi.fn(),
+  },
+}));
+
+vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
+  useSpecificationCoreData: () => ({
+    specification: {
+      id: 1,
+      name: 'Project 1',
+      mode: 'greenfield',
+      active_turn_id: 2,
+      created_at: '2026-04-16 10:00:00',
+      updated_at: '2026-04-16 10:00:00',
+    },
+    workflow: testState.groundingWorkflow,
+    landing: null,
+  }),
+  useSpecificationTurns: () => [testState.answeredTurn, testState.activeTurn],
+  useSpecificationEntities: () => testState.emptyEntities,
+  useInvalidateSpecificationQueryDomains: () => ({
+    invalidateCore: vi.fn(async () => {}),
+    invalidateTurns: vi.fn(async () => {}),
+    invalidateEntities: vi.fn(async () => {}),
+    invalidateCoreAndTurns: vi.fn(async () => {}),
+  }),
+  primeSpecificationCoreAndTurns: vi.fn(),
+  primeSpecificationEntities: vi.fn(),
+  specificationQueryKeys: {
+    core: vi.fn(),
+    turns: vi.fn(),
+    entities: vi.fn(),
+  },
 }));
 
 vi.mock('../-interview-controller.js', () => ({

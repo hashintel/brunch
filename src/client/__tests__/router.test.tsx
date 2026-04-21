@@ -1,12 +1,15 @@
 // @vitest-environment happy-dom
 
 import { createMemoryHistory } from '@tanstack/history';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EntitiesData } from '@/shared/api-types.js';
 import type { SpecificationState } from '@/shared/specification.js';
+
+import { queryClient } from '../query-client.js';
 
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -142,11 +145,16 @@ async function renderRouteAt(pathname: string) {
 
   return {
     router,
-    ...render(<RouterProvider router={router} />),
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    ),
   };
 }
 
 beforeEach(() => {
+  queryClient.clear();
   fetchMock.mockReset();
   fetchMock.mockImplementation(async (input) => defaultFetchHandler(input));
   vi.stubGlobal('fetch', fetchMock);
@@ -208,7 +216,11 @@ describe('generated routeTree', () => {
     const history = createMemoryHistory({ initialEntries: ['/specification/42/grounding'] });
     const router = createRouter({ routeTree, history, defaultPendingMs: 0 });
 
-    render(<RouterProvider router={router} />);
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
     void router.load();
 
     await waitFor(() => {

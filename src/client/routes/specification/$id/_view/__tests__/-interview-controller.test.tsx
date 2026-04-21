@@ -56,7 +56,8 @@ type UseChatHarness = {
 
 let currentSpecificationState: SpecificationState;
 let currentEntityState: EntitiesData;
-const routerInvalidate = vi.fn(async () => {});
+const invalidateCoreAndTurns = vi.fn(async () => {});
+const invalidateEntities = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 const chatTransportOptions: unknown[] = [];
 let useChatImpl: (options: UseChatOptions) => {
@@ -70,12 +71,54 @@ let useChatHarness: UseChatHarness;
 
 const routerNavigate = vi.fn(async () => {});
 vi.mock('@tanstack/react-router', () => ({
-  useLoaderData: ({ from }: { from: string }) => {
-    if (from === '/specification/$id') return currentSpecificationState;
-    if (from === '/specification/$id/_view') return currentEntityState;
-    throw new Error(`Unexpected useLoaderData from: ${from}`);
+  useParams: () => ({ id: String(currentSpecificationState.specification!.id) }),
+  useRouter: () => ({ navigate: routerNavigate }),
+}));
+
+vi.mock('../../-specification-data.js', () => ({
+  useSpecificationCoreData: () => ({
+    specification: currentSpecificationState.specification,
+    workflow: currentSpecificationState.workflow,
+    landing: currentSpecificationState.landing ?? null,
+  }),
+  useSpecificationTurns: () => currentSpecificationState.turns,
+  useSpecificationEntities: () => currentEntityState,
+  useInvalidateSpecificationQueryDomains: () => ({
+    invalidateCore: vi.fn(async () => {}),
+    invalidateTurns: vi.fn(async () => {}),
+    invalidateEntities,
+    invalidateCoreAndTurns,
+  }),
+  primeSpecificationCoreAndTurns: vi.fn(),
+  primeSpecificationEntities: vi.fn(),
+  specificationQueryKeys: {
+    core: vi.fn(),
+    turns: vi.fn(),
+    entities: vi.fn(),
   },
-  useRouter: () => ({ invalidate: routerInvalidate, navigate: routerNavigate }),
+}));
+
+vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
+  useSpecificationCoreData: () => ({
+    specification: currentSpecificationState.specification,
+    workflow: currentSpecificationState.workflow,
+    landing: currentSpecificationState.landing ?? null,
+  }),
+  useSpecificationTurns: () => currentSpecificationState.turns,
+  useSpecificationEntities: () => currentEntityState,
+  useInvalidateSpecificationQueryDomains: () => ({
+    invalidateCore: vi.fn(async () => {}),
+    invalidateTurns: vi.fn(async () => {}),
+    invalidateEntities,
+    invalidateCoreAndTurns,
+  }),
+  primeSpecificationCoreAndTurns: vi.fn(),
+  primeSpecificationEntities: vi.fn(),
+  specificationQueryKeys: {
+    core: vi.fn(),
+    turns: vi.fn(),
+    entities: vi.fn(),
+  },
 }));
 
 vi.mock('@ai-sdk/react', () => ({
@@ -349,7 +392,8 @@ function renderController(phase: 'grounding' | 'design' | 'requirements' | 'crit
 beforeEach(() => {
   currentSpecificationState = createSpecificationState();
   currentEntityState = createEntityState();
-  routerInvalidate.mockClear();
+  invalidateCoreAndTurns.mockClear();
+  invalidateEntities.mockClear();
   routerNavigate.mockClear();
   fetchMock.mockReset();
   chatTransportOptions.length = 0;
@@ -487,7 +531,7 @@ describe('interview controller', () => {
     });
 
     await waitFor(() => {
-      expect(routerInvalidate).toHaveBeenCalled();
+      expect(invalidateCoreAndTurns).toHaveBeenCalled();
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
         parts: [
           {
@@ -531,7 +575,7 @@ describe('interview controller', () => {
     });
 
     await waitFor(() => {
-      expect(routerInvalidate).toHaveBeenCalled();
+      expect(invalidateCoreAndTurns).toHaveBeenCalled();
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
         parts: [
           {
@@ -953,7 +997,8 @@ describe('interview controller', () => {
     await waitFor(() => {
       expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('pending-question');
       expect(screen.getByTestId('bottom-artifact').textContent).toBe('Which platform should we target next?');
-      expect(routerInvalidate).not.toHaveBeenCalled();
+      expect(invalidateCoreAndTurns).not.toHaveBeenCalled();
+      expect(invalidateEntities).not.toHaveBeenCalled();
     });
   });
 
@@ -1040,7 +1085,7 @@ describe('interview controller', () => {
 
     await waitFor(() => {
       expect(chatTransportOptions).toContainEqual({ api: '/api/specifications/1/chat' });
-      expect(routerInvalidate).toHaveBeenCalled();
+      expect(invalidateEntities).toHaveBeenCalled();
     });
     expect(screen.getByTestId('messages').textContent).toBe('Build the web app|What should we build first?');
     expect(useChatHarness.setMessages).not.toHaveBeenCalled();

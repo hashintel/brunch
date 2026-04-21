@@ -1,10 +1,13 @@
 import { Outlet, createFileRoute, useParams } from '@tanstack/react-router';
 
 import { Skeleton } from '@/client/components/ui/skeleton';
-import type { SpecificationState } from '@/shared/specification.js';
 
 import { PhaseNavigationSidebar } from './-phase-navigation-sidebar.js';
-import { useSpecificationCoreData, useSpecificationTurns } from './-specification-data.js';
+import {
+  primeSpecificationCoreAndTurns,
+  useSpecificationCoreData,
+  useSpecificationTurns,
+} from './-specification-data.js';
 
 function SpecificationWorkspaceSkeleton() {
   return (
@@ -26,16 +29,8 @@ function SpecificationWorkspaceSkeleton() {
   );
 }
 
-async function fetchSpecificationWorkspaceLoaderData(specificationId: string): Promise<SpecificationState> {
-  const response = await fetch(`/api/specifications/${specificationId}`);
-  if (!response.ok) {
-    throw new Error('Failed to load specification');
-  }
-  return (await response.json()) as SpecificationState;
-}
-
 export const Route = createFileRoute('/specification/$id')({
-  loader: ({ params }) => fetchSpecificationWorkspaceLoaderData(params.id),
+  loader: ({ params }) => primeSpecificationCoreAndTurns(params.id),
   pendingComponent: SpecificationWorkspaceSkeleton,
   component: function SpecificationWorkspaceLayout() {
     const { specification, workflow } = useSpecificationCoreData();
