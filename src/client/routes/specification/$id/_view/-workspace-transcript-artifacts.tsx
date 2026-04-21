@@ -14,6 +14,7 @@ import {
   AnsweredQuestionCard,
   AnsweredReviewSetCard,
   GeneratingTurnPlaceholder,
+  RevisionCard,
 } from '@/client/components/question-cards';
 import { ReviewPhaseCompletionCard, type ReviewSetCardData } from '@/client/components/review-set-card';
 import type { ActivitySummary } from '@/shared/chat.js';
@@ -65,6 +66,7 @@ function renderWorkspaceHistoryArtifact({
     | { kind: 'answered-grounding-card' }
     | { kind: 'answered-grounding-question' }
     | { kind: 'answered-review-turn' }
+    | { kind: 'answered-revision-review' }
     | { kind: 'accepted-closure' }
     | { kind: 'divider' }
   >;
@@ -133,6 +135,20 @@ function renderWorkspaceHistoryArtifact({
           key={`answered-review-turn-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
         >
+          <AnsweredReviewSetCard
+            turn={artifact.turn}
+            reviewSet={artifact.reviewSet}
+            revisionNumber={artifact.revisionNumber}
+          />
+        </WorkspaceArtifactRow>
+      );
+    case 'answered-revision-review':
+      return (
+        <WorkspaceArtifactRow
+          key={`answered-revision-review-${artifact.turn.id}`}
+          activity={renderPersistedActivity(artifact.turn)}
+        >
+          <RevisionCard revisionNumber={artifact.revisionNumber} changeSummary={artifact.changeSummary} />
           <AnsweredReviewSetCard
             turn={artifact.turn}
             reviewSet={artifact.reviewSet}
@@ -476,6 +492,7 @@ export function WorkspaceTranscriptArtifacts({
         case 'answered-grounding-card':
         case 'answered-grounding-question':
         case 'answered-review-turn':
+        case 'answered-revision-review':
         case 'accepted-closure':
         case 'divider':
           return renderWorkspaceHistoryArtifact({

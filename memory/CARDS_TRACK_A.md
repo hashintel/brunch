@@ -150,7 +150,7 @@ D90, D118, D119; A61, A62; Requirements 11, 12, 25.
 
 ---
 
-## Card 5: Version badge on active and answered review sets [status: next]
+## Card 5: Version badge on active and answered review sets [status: done]
 
 ### Objective
 
@@ -178,42 +178,38 @@ D90, D118, D119; A61, A62; Requirements 11, 12, 25.
 
 ---
 
-## Card 6: Revision card — data part, projector artifact, and renderer [status: next]
+## Card 6: Revision card — projected artifact and renderer [status: next]
 
-This card adds the revision card that stacks above a review set in a successor review turn after `request-changes`, paralleling the grounding card above question pattern.
+This card adds the revision card that renders above a review set in a successor review turn after `request-changes`, paralleling the grounding card above question pattern. Revision cards are projected from the turn lineage (not persisted as data parts) since all the information is derivable from the predecessor review turn's action and review set diff.
 
 ### Target Behavior
 
-When the interviewer regenerates after `request-changes`, the successor review turn carries a `data-revision-card` assistant part with a changelog summary, and the projector emits composite artifact kinds (`persisted-revision-review` and `answered-revision-review`) that the renderer displays as a revision card stacked above the review set card.
+When a review turn has `revisionNumber > 1` (i.e. it follows a predecessor review turn with `request-changes`), the projector emits a composite artifact kind that the renderer displays as a revision card stacked above the review set card.
 
 ### Boundary Crossings
 
 ```
-→ Schema (src/shared/chat.ts) — new revisionCardSchema, BrunchDataParts entry, BrunchAssistantPart variant, persisted-part codec entry
-→ Interviewer prompt (src/server/interview.ts) — instruct requirements/criteria prompts to emit a revision card via a data part when regenerating after request-changes
-→ Turn artifacts (src/server/turn-artifacts.ts) — materializeTurnArtifacts includes the revision card data part
-→ Specification state (src/shared/specification-state.ts) — getPersistedRevisionCard helper
-→ Stream projector (workspace-stream-projector.ts) — new artifact kinds: answered-revision-review, persisted-revision-review
+→ Stream projector (workspace-stream-projector.ts) — compute revision card data from predecessor review turn; emit answered-revision-review for history artifacts
 → Renderer (workspace-transcript-artifacts.tsx) — render revision card above review set in stacked layout
-→ Revision card component (src/client/components/question-cards.tsx or new) — AnsweredRevisionCard and ActiveRevisionCard UI components
+→ Revision card component (src/client/components/question-cards.tsx) — RevisionCard UI component showing version badge and item change summary
+→ Specification state (src/shared/specification-state.ts) — computeReviewSetChangeSummary helper for diffing predecessor/successor review sets
 ```
 
 ### Risks and Assumptions
 
 ```
-- RISK: Emitting revision cards as data parts requires the model to include them when regenerating → MITIGATION: Can emit revision card server-side in materializeTurnArtifacts by diffing predecessor and successor review sets, rather than depending on LLM output.
-- ASSUMPTION: The multi-part turn rendering seam (proven for grounding card + question) generalizes to revision card + review set without structural changes. → VALIDATE: Same projector pattern; test with the new artifact kinds.
+- ASSUMPTION: The multi-part turn rendering seam (proven for grounding card + question) generalizes to revision card + review set without structural changes. → VALIDATE: Same projector stacking pattern.
+- ASSUMPTION: Review set item identity is tracked via referenceCode for diff purposes; items without referenceCode are compared by content string. → VALIDATE: Review sets already carry referenceCode on items.
 ```
 
 ### Acceptance Criteria
 
 ```
-✓ revision-card-schema — revisionCardSchema defines summary (string) and revisionNumber (number); BrunchDataParts includes 'revision-card' entry
-✓ persisted-revision-card — getPersistedRevisionCard extracts the revision card from assistant_parts
-✓ projector-revision-review-answered — projector emits answered-revision-review for answered review turns that carry a revision card
-✓ projector-revision-review-persisted — projector emits persisted-revision-review for the active/submitted review turn when it carries a revision card
-✓ renderer-stacks-revision-above-review — revision card renders above the review set card for both answered and active/persisted variants
-✓ revision-card-component — AnsweredRevisionCard shows changelog summary and version badge
+✓ change-summary-computation — computeReviewSetChangeSummary returns counts of added, removed, and revised items between two review sets
+✓ projector-revision-review-answered — projector emits answered-revision-review for answered review turns with revisionNumber > 1
+✓ projector-plain-review-v1 — projector still emits answered-review-turn (no revision card) for first review turn in a phase
+✓ renderer-stacks-revision-above-review — revision card renders above the review set for answered-revision-review artifacts
+✓ revision-card-component — RevisionCard shows version badge and change summary (e.g. "2 revised, 1 added")
 ✓ npm-run-verify — all existing tests pass and the build succeeds
 ```
 
@@ -221,7 +217,7 @@ When the interviewer regenerates after `request-changes`, the successor review t
 
 ```
 - Inner: npm run verify (unit tests + type check + build)
-- Middle: projector unit tests for new artifact kinds
+- Middle: projector unit tests for new artifact kind; unit test for change summary computation
 ```
 
 ### Traceability

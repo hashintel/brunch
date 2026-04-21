@@ -3,7 +3,11 @@ import { useEffect, useRef, useState } from 'react';
 
 import type { Impact, ReviewAction } from '@/shared/api-types.js';
 import type { ActivitySummary, GroundingCardData } from '@/shared/chat.js';
-import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/specification-state.js';
+import {
+  getPersistedReviewAction,
+  getPersistedTurnResponse,
+  type ReviewSetChangeSummary,
+} from '@/shared/specification-state.js';
 import type { SpecificationTurn } from '@/shared/specification.js';
 
 import { cn } from '../lib/utils';
@@ -201,6 +205,34 @@ export function AnsweredGroundingCard({
           </div>
         }
       />
+    </div>
+  );
+}
+
+function formatChangeSummary(changeSummary: ReviewSetChangeSummary): string {
+  const parts: string[] = [];
+  if (changeSummary.revised > 0) parts.push(`${changeSummary.revised} revised`);
+  if (changeSummary.added > 0) parts.push(`${changeSummary.added} added`);
+  if (changeSummary.removed > 0) parts.push(`${changeSummary.removed} removed`);
+  return parts.length > 0 ? parts.join(', ') : 'No changes';
+}
+
+export function RevisionCard({
+  revisionNumber,
+  changeSummary,
+}: {
+  revisionNumber: number;
+  changeSummary: ReviewSetChangeSummary;
+}) {
+  return (
+    <div
+      data-testid="revision-card"
+      className="flex items-center gap-3 rounded-xl border border-rule bg-tint px-4 py-3"
+    >
+      <span className="inline-flex h-5 items-center rounded-md bg-[rgba(37,99,235,0.08)] px-1.5 text-[11px] font-medium text-[#2070e6]">
+        v{revisionNumber}
+      </span>
+      <span className="text-xs text-sub">{formatChangeSummary(changeSummary)}</span>
     </div>
   );
 }

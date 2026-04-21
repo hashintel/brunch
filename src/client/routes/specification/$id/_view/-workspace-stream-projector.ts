@@ -1,11 +1,13 @@
 import type { WorkflowPhase } from '@/shared/api-types.js';
 import {
+  computeReviewSetChangeSummary,
   getAcceptedClosureReplay,
   getPersistedGroundingCard,
   getPersistedReviewAction,
   getPersistedReviewSet,
   turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
+  type ReviewSetChangeSummary,
 } from '@/shared/specification-state.js';
 import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
@@ -53,6 +55,13 @@ export type WorkspaceStreamArtifact =
       readonly turn: SpecificationTurn;
       readonly reviewSet: NonNullable<ReturnType<typeof getPersistedReviewSet>>;
       readonly revisionNumber: number;
+    }
+  | {
+      readonly kind: 'answered-revision-review';
+      readonly turn: SpecificationTurn;
+      readonly reviewSet: NonNullable<ReturnType<typeof getPersistedReviewSet>>;
+      readonly revisionNumber: number;
+      readonly changeSummary: ReviewSetChangeSummary;
     }
   | {
       readonly kind: 'accepted-closure';
@@ -197,6 +206,7 @@ function projectHistoryArtifacts({
   const historyArtifacts: WorkspaceStreamArtifact[] = [];
   let answeredTurnCount = 0;
   let reviewTurnCount = 0;
+  let lastReviewSet: NonNullable<ReturnType<typeof getPersistedReviewSet>> | null = null;
 
   for (const turn of phaseTurns) {
     if (turn.id === renderedPersistedTurnId) {
@@ -240,12 +250,25 @@ function projectHistoryArtifacts({
     const reviewSet = getPersistedReviewSet(turn);
     if (reviewSet && getPersistedReviewAction(turn)) {
       reviewTurnCount += 1;
-      historyArtifacts.push({
-        kind: 'answered-review-turn',
-        turn,
-        reviewSet,
-        revisionNumber: reviewTurnCount,
-      });
+
+      if (reviewTurnCount > 1 && lastReviewSet) {
+        historyArtifacts.push({
+          kind: 'answered-revision-review',
+          turn,
+          reviewSet,
+          revisionNumber: reviewTurnCount,
+          changeSummary: computeReviewSetChangeSummary(lastReviewSet, reviewSet),
+        });
+      } else {
+        historyArtifacts.push({
+          kind: 'answered-review-turn',
+          turn,
+          reviewSet,
+          revisionNumber: reviewTurnCount,
+        });
+      }
+
+      lastReviewSet = reviewSet;
       continue;
     }
 
