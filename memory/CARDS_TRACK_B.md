@@ -26,7 +26,7 @@ Queue note: Card 1 and Card 2 are implementation-independent and can land in eit
 
 **Verification**: Inner: `npm run verify`. Middle: manual walkthrough of an all-phases-closed seeded specification.
 
-## Card 2: Markdown export foregrounds accepted outputs `[status: next]`
+## Card 2: Markdown export foregrounds accepted outputs `[status: done]`
 
 **Objective**: The generated markdown presents the completed specification in a deliberate canonical order with accepted review outputs as the primary content.
 

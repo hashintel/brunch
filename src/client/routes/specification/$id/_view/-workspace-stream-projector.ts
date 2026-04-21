@@ -377,7 +377,9 @@ export function specificationWorkspaceStream({
     phaseState,
     renderedPersistedTurnId,
   });
-  const answeredTurnCount = historyArtifacts.filter((artifact) => artifact.kind === 'answered-turn').length;
+  const answeredTurnCount = historyArtifacts.filter(
+    (artifact) => artifact.kind === 'answered-turn' || artifact.kind === 'answered-grounding-question',
+  ).length;
   const projectedBottomArtifact = projectBottomArtifact(bottomArtifact, answeredTurnCount);
   const controlArtifacts = projectControlMarkers(controlMarkers);
   const phaseSectionHeaders = projectPhaseSectionHeader({ phase, phaseState });
