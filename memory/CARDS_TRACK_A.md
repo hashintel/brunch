@@ -1,6 +1,6 @@
 # Track A — Scope Cards
 
-## Card 1: Multi-part turn rendering seam `[status: next]`
+## Card 1: Multi-part turn rendering seam `[status: done]`
 
 **Weight: full scope card**
 
@@ -58,7 +58,7 @@ A single turn projects and renders a stack of assistant-part artifacts (e.g. a g
 
 ---
 
-## Card 2: Phase section headers `[status: next]`
+## Card 2: Phase section headers `[status: done]`
 
 **Weight: light scope card**
 
@@ -98,7 +98,7 @@ Stays light.
 
 ---
 
-## Card 3: Granular query domain design `[status: next]`
+## Card 3: Granular query domain design `[status: done]`
 
 **Weight: light scope card**
 
