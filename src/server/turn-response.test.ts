@@ -97,4 +97,105 @@ describe('formatProjectedTurnResponse', () => {
       }),
     ).toBe('Turn response:\n  Chosen options: Web, Desktop\n  Free-text response: Covers both launch paths');
   });
+
+  it('includes per-item comments in the formatted response', () => {
+    const result = formatProjectedTurnResponse({
+      selectedOptionIds: [2],
+      selectedOptionContents: ['Request changes'],
+      reviewAction: 'request-changes',
+      freeText: 'Global note about the set',
+      itemComments: [
+        { itemIndex: 0, comment: 'Rewrite to focus on auth flow' },
+        { itemIndex: 3, comment: 'Merge with R2' },
+      ],
+    });
+
+    expect(result).toContain('Per-item comments:');
+    expect(result).toContain('Item 0: Rewrite to focus on auth flow');
+    expect(result).toContain('Item 3: Merge with R2');
+    expect(result).toContain('Review action: request-changes');
+    expect(result).toContain('Free-text response: Global note about the set');
+  });
+
+  it('omits per-item comments section when no comments exist', () => {
+    const result = formatProjectedTurnResponse({
+      selectedOptionIds: [1],
+      selectedOptionContents: ['Accept review'],
+      reviewAction: 'accept',
+    });
+
+    expect(result).not.toContain('Per-item comments');
+  });
+});
+
+describe('projectTurnResponse with itemComments', () => {
+  it('includes itemComments in the projected response when present', () => {
+    const turn: TurnWithOptions = {
+      id: 1,
+      specification_id: 1,
+      parent_turn_id: null,
+      phase: 'requirements',
+      question: 'Review requirements',
+      answer: 'Request changes',
+      why: null,
+      impact: null,
+      is_resolution: false,
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Request changes' },
+        {
+          type: 'data-turn-response',
+          data: {
+            turnId: 1,
+            selectedOptionIds: [2],
+            reviewAction: 'request-changes',
+            freeText: 'Global feedback',
+            itemComments: [
+              { itemIndex: 0, comment: 'Rewrite to focus on auth' },
+              { itemIndex: 2, comment: 'Remove this' },
+            ],
+          },
+        },
+      ]),
+      assistant_parts: null,
+      created_at: '2026-01-01',
+      options: [
+        { id: 1, position: 0, content: 'Accept review', is_recommended: false, is_selected: false },
+        { id: 2, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+      ],
+    };
+
+    const result = projectTurnResponse(turn);
+    expect(result?.itemComments).toEqual([
+      { itemIndex: 0, comment: 'Rewrite to focus on auth' },
+      { itemIndex: 2, comment: 'Remove this' },
+    ]);
+    expect(result?.reviewAction).toBe('request-changes');
+  });
+
+  it('omits itemComments from projection when not present', () => {
+    const turn: TurnWithOptions = {
+      id: 1,
+      specification_id: 1,
+      parent_turn_id: null,
+      phase: 'requirements',
+      question: 'Review requirements',
+      answer: 'Accept',
+      why: null,
+      impact: null,
+      is_resolution: false,
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Accept' },
+        {
+          type: 'data-turn-response',
+          data: { turnId: 1, selectedOptionIds: [1], reviewAction: 'accept' },
+        },
+      ]),
+      assistant_parts: null,
+      created_at: '2026-01-01',
+      options: [{ id: 1, position: 0, content: 'Accept review', is_recommended: false, is_selected: true }],
+    };
+
+    const result = projectTurnResponse(turn);
+    expect(result?.itemComments).toBeUndefined();
+  });
 });

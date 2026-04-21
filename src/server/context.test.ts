@@ -253,6 +253,50 @@ describe('buildInterviewerContext', () => {
     expect(result).toContain('Free-text response: Developers building AI tools');
   });
 
+  it('includes per-item comments from review turns in interviewer context', () => {
+    const turns: TurnWithOptions[] = [
+      {
+        id: 1,
+        specification_id: 1,
+        parent_turn_id: null,
+        phase: 'requirements',
+        question: 'Review these requirements',
+        answer: 'Request changes',
+        why: 'Requirements review',
+        impact: 'high',
+        is_resolution: false,
+        user_parts: JSON.stringify([
+          { type: 'text', text: 'Request changes' },
+          {
+            type: 'data-turn-response',
+            data: {
+              turnId: 1,
+              selectedOptionIds: [2],
+              reviewAction: 'request-changes',
+              freeText: 'Global note',
+              itemComments: [
+                { itemIndex: 0, comment: 'Rewrite to focus on auth flow' },
+                { itemIndex: 3, comment: 'Merge with R2' },
+              ],
+            },
+          },
+        ]),
+        assistant_parts: null,
+        created_at: '2026-01-01',
+        options: [
+          { id: 1, position: 0, content: 'Accept review', is_recommended: false, is_selected: false },
+          { id: 2, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+        ],
+      },
+    ];
+
+    const result = buildInterviewerContext(turns, 'next');
+    expect(result).toContain('Per-item comments:');
+    expect(result).toContain('Item 0: Rewrite to focus on auth flow');
+    expect(result).toContain('Item 3: Merge with R2');
+    expect(result).toContain('Review action: request-changes');
+  });
+
   it('handles multi-turn history', () => {
     const turns: TurnWithOptions[] = [
       {

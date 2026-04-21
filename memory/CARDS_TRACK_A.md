@@ -49,7 +49,7 @@ D83, D89, D91, D99, D112, D117; A56, A61; Requirements 20, 21, 28.
 
 ---
 
-## Card 2: Review per-item commenting — schema and payload [status: next]
+## Card 2: Review per-item commenting — schema and payload [status: done]
 
 This is the first sub-slice of the "Review per-item commenting and regeneration" frontier item. It establishes the data model for per-item comments without yet building the full UI or iterative regeneration.
 
@@ -87,6 +87,61 @@ The review set schema, structured turn response, and review submission flow supp
 
 ```
 - Inner: npm run verify (unit tests + type check + build)
+```
+
+### Traceability
+
+D90, D118, D119; A61, A62; Requirements 11, 12, 25.
+
+---
+
+## Card 3: Review per-item commenting — interviewer context for change requests [status: next]
+
+### Objective
+
+When a user submits `request-changes` with per-item comments, the interviewer context for the successor review turn includes the per-item comments alongside the global review note so the model can produce a targeted regeneration.
+
+### Acceptance Criteria
+
+```
+✓ interviewer-context-includes-item-comments — buildInterviewerContext formats per-item comments from the previous review turn's user_parts for the successor review turn
+✓ review-prompt-instructs-per-item — requirements and criteria system prompts instruct the model to interpret per-item comments as targeted change requests (uncommented items are implicitly approved)
+✓ npm-run-verify — all existing tests pass and the build succeeds
+```
+
+### Verification Approach
+
+```
+- Inner: npm run verify (unit tests + type check + build)
+- Middle: unit test for context builder confirming per-item comment formatting
+```
+
+### Traceability
+
+D90, D118, D119; A62; Requirements 11, 12, 25.
+
+---
+
+## Card 4: Review set UI — per-item comment toggles [status: next]
+
+### Objective
+
+Each review set item has an inline comment toggle; when expanded, the user can type a comment. The comments are included in the structured submission payload as `itemComments` when the user selects `Request changes`.
+
+### Acceptance Criteria
+
+```
+✓ per-item-toggle-renders — each review set item renders an inline comment toggle
+✓ comments-included-in-submission — selecting request-changes sends itemComments in the data-turn-response payload
+✓ accept-omits-comments — selecting accept does not include itemComments
+✓ npm-run-verify — all existing tests pass and the build succeeds
+```
+
+### Verification Approach
+
+```
+- Inner: npm run verify
+- Outer: manual review walkthrough (deferred)
 ```
 
 ### Traceability

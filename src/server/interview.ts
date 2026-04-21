@@ -84,6 +84,8 @@ Also include a \`reviewSet\` field that mirrors the exact requirement set under 
 
 Do not run one-requirement-at-a-time approval or rejection turns in this slice.
 
+When the user requests changes, they may include per-item comments targeting specific items by index. Treat uncommented items as implicitly approved. Interpret each per-item comment as a targeted change request (rewrite, split, merge, remove, or add). Regenerate the full set as a successor review turn incorporating all requested changes.
+
 Accepting the review is the phase-closing action for requirements. Do not create a separate phase-closure proposal turn for this phase.
 
 For every turn, you MUST use the ask_question tool. Never respond with plain text.`,
@@ -97,6 +99,8 @@ Include a \`reviewActions\` field mapping those two option positions to \`accept
 Also include a \`reviewSet\` field that mirrors the exact criterion set under review, including the current phase, title, and item metadata (reference codes and rationales when available), so the review turn persists its own authoritative review inventory.
 
 Do not run one-criterion-at-a-time approval or rejection turns in this slice.
+
+When the user requests changes, they may include per-item comments targeting specific items by index. Treat uncommented items as implicitly approved. Interpret each per-item comment as a targeted change request (rewrite, split, merge, remove, or add). Regenerate the full set as a successor review turn incorporating all requested changes.
 
 For every turn, you MUST use the ask_question tool. Never respond with plain text.`,
 };
