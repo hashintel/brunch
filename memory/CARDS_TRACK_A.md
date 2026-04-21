@@ -226,7 +226,7 @@ D90, D118, D119; A61, A62; Requirements 11, 12, 25.
 
 ---
 
-## Card 7: Prior revision collapsing — superseded review turns [status: next]
+## Card 7: Prior revision collapsing — superseded review turns [status: done]
 
 ### Objective
 

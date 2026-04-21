@@ -12,48 +12,29 @@ Key insight from dependency analysis: grounding free-text (D115), hint-guided pr
 
 ### Track A — Interaction model
 
-1. **Turn-internal grounding cards** — grounding cards render within the same turn as their paired question card.
-   - Why now / unlocks: multi-part turn seam and free-text format are done; grounding cards become the enabling primitive for analysis-first grounding. The observer captures one validated unit (grounding context + question + user response).
-   - Traceability: D83, D89, D91, D99, D112, D117; A56, A61; Requirements 20, 21, 28; I24, I54, I101, I104.
-
-2. **Review per-item commenting and regeneration** — add per-item comment toggles, structured change-request payload, iterative regeneration, and revision cards.
-   - Why now / unlocks: multi-part turn seam exists; revision cards can stack above review sets using the same pattern as grounding cards above questions. Independent of grounding work.
-   - Traceability: D90, D118, D119; A61, A62; Requirements 11, 12, 25.
-
-### Track B — Architecture / completion surfaces
-
-3. **Close Phase confirmation modal** — bounded feature `[status: done]`
-   - Objective: complete the remaining phase-exit UX by showing a confirmation modal with readiness/turn-count context before closing in-progress non-review phases.
-   - Why now / unlocks: makes closure intent explicit before workflow extraction.
-   - Acceptance: in-progress non-review phases show a confirmation modal with readiness/turn-count context and gating that matches closeability rules.
-   - Verification: `npm run verify` plus manual close/reject/confirm walkthroughs on grounding and elicitation phases.
-   - Traceability: D104, D65, D66; I72.
-
-## Next
-
-### Track A — Interaction model (continued)
-
 1. **Brownfield workspace-analysis grounding brief** — first analysis-first grounding path using turn-internal grounding cards.
-   - Why now / unlocks: proves the turn-internal grounding-card seam against real brownfield repos.
+   - Why now / unlocks: proves the turn-internal grounding-card seam against real brownfield repos. Turn-internal grounding cards are done and unblocked.
    - Traceability: D32, D83, D99, D117, D120; A47, A56; I101.
 
 2. **Reusable interviewer-invoked context gathering** — generalize context gathering beyond opening grounding.
    - Why now / unlocks: broadens grounding capability without inventing a second artifact model.
    - Traceability: D99, D30, D32, D83, D117; I101, I104.
 
+## Next
+
 ### Track A — Query ownership
 
-3. **Granular query domain implementation** — migrate from coarse `router.invalidate()` to independently invalidable query domains.
+1. **Granular query domain implementation** — migrate from coarse `router.invalidate()` to independently invalidable query domains.
    - Why now / unlocks: design document is done (`docs/query-domain-design.md`). Best sequenced after interaction-model seams settle to avoid query-key churn.
    - Traceability: D87, D121; A20, A50, A64; I24, I54, I102.
 
-### Track B — Architecture / layout (continued)
+### Track B — Architecture / layout
 
-4. **Workflow ownership extraction** — extract projector and `app.ts` workflow ownership.
+2. **Workflow ownership extraction** — extract projector and `app.ts` workflow ownership.
     - Why now / unlocks: architectural cleanup prerequisite for continuous workspace. Does not gate interaction-model work.
     - Traceability: D110, D112, D113; I24, I72, I104.
 
-5. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with phase section navigation.
+3. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with phase section navigation.
     - Why now / unlocks: depends on workflow extraction. Once in place, phase section headers render more naturally in their realized sections.
     - Traceability: A58; D86, D87, D103, D107, D110, D113, D114; I24, I102.
 
@@ -81,12 +62,9 @@ Key insight from dependency analysis: grounding free-text (D115), hint-guided pr
 
 ## Recently Completed
 
-- [2026-04-21] Close Phase confirmation modal — Done: in-progress grounding and elicitation phases now open a confirmation modal with readiness and turn-count context before user-forced close, and the close action uses the shared closeability/proposal-pending gating for non-review phases. Verified: `npm run verify`. Watch: manual grounding / elicitation close-reject-confirm walkthroughs were attempted but browser automation was blocked in this session by local profile/socket permission errors.
-- [2026-04-21] Output route and markdown export refinement — Done: closed specs land on output route, markdown export foregrounds accepted review outputs in canonical order, output preview uses readable presentation with specification terminology. Verified: `npm run verify`.
-- [2026-04-21] Phase section headers — Done: projected `phase-section-header` artifact at top of each realized phase section with phase-specific copy. Verified: `npm run verify`.
-- [2026-04-21] Granular query domain design — Done: design document at `docs/query-domain-design.md` specifying query key taxonomy, hook signatures, invalidation triggers, and router loader reduction.
-- [2026-04-21] Multi-part turn rendering seam — Done: `answered-grounding-question` and `persisted-grounding-question` artifact kinds; stacked rendering; question numbering includes stacked turns. Verified: `npm run verify`. Watch: manual brownfield walkthrough.
-- [2026-04-21] Homepage workspace binding — Done: workspace name + path on homepage. Verified: `npm run verify`.
+- [2026-04-21] Review per-item commenting and regeneration — Done: per-item comment toggles on review set items, structured `itemComments` in submission payload, interviewer context includes per-item comments for successor review turns, version badges (v1, v2, …) on active and answered review sets, revision cards stacked above successor review sets showing change summary, and prior revision collapsing (superseded reviews render as compact summaries). Verified: `npm run verify`. Scope cards in `memory/CARDS_TRACK_A.md`.
+- [2026-04-21] Turn-internal grounding cards — Done: brownfield grounding turns produce both a grounding card and a question card within one turn lifecycle, observer captures the full validated unit, interviewer context renders stacked turns. Verified: `npm run verify`.
+- [2026-04-21] Close Phase confirmation modal — Done: in-progress grounding and elicitation phases open a confirmation modal with readiness and turn-count context before user-forced close.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
@@ -94,15 +72,12 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 
 ```text
 TRACK A — Interaction model
-turn-internal-grounding-cards  (active; unblocked)
-  └──→ brownfield-workspace-analysis-grounding-brief
-        └──→ reusable-context-gathering
-review-per-item-commenting-and-regeneration  (active; unblocked; independent of grounding)
+brownfield-workspace-analysis-grounding-brief  (active; unblocked — turn-internal grounding cards done)
+  └──→ reusable-context-gathering
 
 granular-query-domain-implementation  (design done; after interaction-model seams settle)
 
 TRACK B — Architecture / layout
-close-phase-confirmation-modal  (active; no blockers)
-  └──→ workflow-ownership-extraction
-        └──→ continuous-workspace-phase-addressable-interview-surface
+workflow-ownership-extraction
+  └──→ continuous-workspace-phase-addressable-interview-surface
 ```
