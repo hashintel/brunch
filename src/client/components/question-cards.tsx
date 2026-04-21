@@ -209,6 +209,28 @@ export function AnsweredGroundingCard({
   );
 }
 
+export function CollapsedReviewCard({
+  revisionNumber,
+  reviewAction,
+}: {
+  revisionNumber: number;
+  reviewAction: 'accept' | 'request-changes';
+}) {
+  return (
+    <div
+      data-testid="collapsed-review-card"
+      className="flex items-center gap-3 rounded-lg border border-rule bg-white px-4 py-2.5"
+    >
+      <span className="inline-flex h-5 items-center rounded-md bg-wash px-1.5 text-[11px] font-medium text-sub">
+        v{revisionNumber}
+      </span>
+      <span className="text-xs text-sub">
+        {reviewAction === 'accept' ? 'Review accepted' : 'Changes requested'}
+      </span>
+    </div>
+  );
+}
+
 function formatChangeSummary(changeSummary: ReviewSetChangeSummary): string {
   const parts: string[] = [];
   if (changeSummary.revised > 0) parts.push(`${changeSummary.revised} revised`);

@@ -178,7 +178,7 @@ D90, D118, D119; A61, A62; Requirements 11, 12, 25.
 
 ---
 
-## Card 6: Revision card — projected artifact and renderer [status: next]
+## Card 6: Revision card — projected artifact and renderer [status: done]
 
 This card adds the revision card that renders above a review set in a successor review turn after `request-changes`, paralleling the grounding card above question pattern. Revision cards are projected from the turn lineage (not persisted as data parts) since all the information is derivable from the predecessor review turn's action and review set diff.
 

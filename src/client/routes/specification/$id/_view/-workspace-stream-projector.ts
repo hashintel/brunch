@@ -64,6 +64,12 @@ export type WorkspaceStreamArtifact =
       readonly changeSummary: ReviewSetChangeSummary;
     }
   | {
+      readonly kind: 'collapsed-review-turn';
+      readonly turn: SpecificationTurn;
+      readonly revisionNumber: number;
+      readonly reviewAction: NonNullable<ReturnType<typeof getPersistedReviewAction>>;
+    }
+  | {
       readonly kind: 'accepted-closure';
       readonly turn: SpecificationTurn | undefined;
       readonly acceptedClosure: NonNullable<ReturnType<typeof getAcceptedClosureReplay>>;
@@ -280,7 +286,38 @@ function projectHistoryArtifacts({
     });
   }
 
-  return historyArtifacts;
+  if (reviewTurnCount <= 1) {
+    return historyArtifacts;
+  }
+
+  let lastReviewIndex = -1;
+  for (let i = historyArtifacts.length - 1; i >= 0; i--) {
+    const kind = historyArtifacts[i]!.kind;
+    if (kind === 'answered-review-turn' || kind === 'answered-revision-review') {
+      lastReviewIndex = i;
+      break;
+    }
+  }
+
+  return historyArtifacts.map((artifact, index) => {
+    if (index === lastReviewIndex) {
+      return artifact;
+    }
+
+    if (artifact.kind === 'answered-review-turn' || artifact.kind === 'answered-revision-review') {
+      const reviewAction = getPersistedReviewAction(artifact.turn);
+      if (reviewAction) {
+        return {
+          kind: 'collapsed-review-turn' as const,
+          turn: artifact.turn,
+          revisionNumber: artifact.revisionNumber,
+          reviewAction,
+        };
+      }
+    }
+
+    return artifact;
+  });
 }
 
 function projectBottomArtifact(

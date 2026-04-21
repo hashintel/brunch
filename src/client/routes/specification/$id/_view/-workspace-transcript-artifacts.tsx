@@ -13,6 +13,7 @@ import {
   AnsweredGroundingCard,
   AnsweredQuestionCard,
   AnsweredReviewSetCard,
+  CollapsedReviewCard,
   GeneratingTurnPlaceholder,
   RevisionCard,
 } from '@/client/components/question-cards';
@@ -67,6 +68,7 @@ function renderWorkspaceHistoryArtifact({
     | { kind: 'answered-grounding-question' }
     | { kind: 'answered-review-turn' }
     | { kind: 'answered-revision-review' }
+    | { kind: 'collapsed-review-turn' }
     | { kind: 'accepted-closure' }
     | { kind: 'divider' }
   >;
@@ -155,6 +157,15 @@ function renderWorkspaceHistoryArtifact({
             revisionNumber={artifact.revisionNumber}
           />
         </WorkspaceArtifactRow>
+      );
+    case 'collapsed-review-turn':
+      return (
+        <div key={`collapsed-review-turn-${artifact.turn.id}`}>
+          <CollapsedReviewCard
+            revisionNumber={artifact.revisionNumber}
+            reviewAction={artifact.reviewAction}
+          />
+        </div>
       );
     case 'accepted-closure':
       return (
@@ -493,6 +504,7 @@ export function WorkspaceTranscriptArtifacts({
         case 'answered-grounding-question':
         case 'answered-review-turn':
         case 'answered-revision-review':
+        case 'collapsed-review-turn':
         case 'accepted-closure':
         case 'divider':
           return renderWorkspaceHistoryArtifact({
