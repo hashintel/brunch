@@ -1,6 +1,6 @@
 # Track A — Scope Cards
 
-## Card 1: Turn-internal grounding cards — server-side flow [status: next]
+## Card 1: Turn-internal grounding cards — server-side flow [status: done]
 
 ### Target Behavior
 

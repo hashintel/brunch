@@ -140,12 +140,18 @@ export const activitySummarySchema = z.object({
   tools: z.array(z.string()),
 });
 
+export const reviewItemCommentSchema = z.object({
+  itemIndex: z.number().int().min(0),
+  comment: z.string().trim().min(1),
+});
+
 export const dataTurnResponseSchema = z
   .object({
     turnId: z.number(),
     selectedOptionIds: z.array(z.number()),
     freeText: z.string().trim().min(1).optional(),
     reviewAction: reviewActionSchema.optional(),
+    itemComments: z.array(reviewItemCommentSchema).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.selectedOptionIds.length === 0 && !value.freeText) {
@@ -187,6 +193,7 @@ export type ObserverEntityIds = ObserverResultData['entityIds'];
 export type ReviewSetData = z.infer<typeof reviewSetSchema>;
 export type GroundingCardData = z.infer<typeof groundingCardSchema>;
 export type ActivitySummary = z.infer<typeof activitySummarySchema>;
+export type ReviewItemComment = z.infer<typeof reviewItemCommentSchema>;
 export type DataTurnResponse = z.infer<typeof dataTurnResponseSchema>;
 export type { DataConfirmation };
 export type DataPhaseSummary = z.infer<typeof dataPhaseSummarySchema>;

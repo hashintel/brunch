@@ -61,6 +61,50 @@ describe('LLM-boundary data schemas', () => {
     expect(() => dataTurnResponseSchema.parse({ turnId: 1, selectedOptionIds: [] })).toThrow();
   });
 
+  it('validates data-turn-response payloads with per-item comments', () => {
+    const value = {
+      turnId: 1,
+      selectedOptionIds: [2],
+      reviewAction: 'request-changes' as const,
+      freeText: 'Some global feedback',
+      itemComments: [
+        { itemIndex: 0, comment: 'Rewrite to focus on auth flow' },
+        { itemIndex: 3, comment: 'Merge with R2' },
+      ],
+    };
+    expect(dataTurnResponseSchema.parse(value)).toEqual(value);
+  });
+
+  it('accepts data-turn-response without itemComments (backward compatible)', () => {
+    const value = { turnId: 1, selectedOptionIds: [2], reviewAction: 'accept' as const };
+    const parsed = dataTurnResponseSchema.parse(value);
+    expect(parsed.itemComments).toBeUndefined();
+  });
+
+  it('rejects malformed itemComments in data-turn-response', () => {
+    expect(() =>
+      dataTurnResponseSchema.parse({
+        turnId: 1,
+        selectedOptionIds: [2],
+        itemComments: [{ itemIndex: -1, comment: 'bad' }],
+      }),
+    ).toThrow();
+    expect(() =>
+      dataTurnResponseSchema.parse({
+        turnId: 1,
+        selectedOptionIds: [2],
+        itemComments: [{ itemIndex: 0, comment: '' }],
+      }),
+    ).toThrow();
+    expect(() =>
+      dataTurnResponseSchema.parse({
+        turnId: 1,
+        selectedOptionIds: [2],
+        itemComments: [{ itemIndex: 0 }],
+      }),
+    ).toThrow();
+  });
+
   it('validates explicit recommended-close data-confirmation payloads', () => {
     const value = { kind: 'confirm-proposed-phase-closure', proposalTurnId: 5, phase: 'grounding' };
     expect(dataConfirmationSchema.parse(value)).toEqual(value);
