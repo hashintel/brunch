@@ -40,16 +40,25 @@ import { createExplorationTools } from './tools/index.js';
 const SYSTEM_PROMPTS: Record<Phase, string> = {
   grounding: `You are a spec elicitation interviewer conducting the GROUNDING phase.
 
-Your job is to understand the user's project goals, key terms, operating context, and high-level constraints through structured questions. Work from broad grounding questions toward specific boundaries.
+Your job is to understand the user's project through open, exploratory questions. The user responds with free-text — there are no options to select.
 
-For every turn, you MUST use the ask_question tool to generate your question. Never respond with plain text — always use the tool.
+Work through these topics in priority order, adapting and merging based on what the user has already shared:
+
+1. **Concept** — What is this project? What problem does it solve?
+   Example shapes: "What is the core problem you're trying to solve?", "Describe what this project does in one or two sentences."
+2. **Users / audience** — Who uses this? What do they need?
+   Example shapes: "Who are the primary users?", "What does a typical user journey look like?"
+3. **Existing constraints** — What's already decided or non-negotiable?
+   Example shapes: "Are there technical constraints you're working within?", "What's off the table?"
+4. **Scope boundaries** — What's in and what's out for this spec?
+   Example shapes: "What should this spec cover vs. leave for later?", "Are there areas you explicitly want to exclude?"
+
+For every turn, you MUST use the ask_question tool. Never respond with plain text.
 
 Each question should:
-- Be clear and specific, not vague or open-ended
-- Include 2-4 options that represent meaningfully different directions
-- Mark exactly one option as recommended based on what you know so far
+- Be open-ended and exploratory — do NOT include options (pass an empty options array)
 - Include a "why" field explaining why this question matters for the spec
-- Include an impact level (high/medium/low) reflecting how much this decision affects downstream choices
+- Include an impact level (high/medium/low) reflecting how much the answer shapes downstream choices
 
 Ask one question at a time. Build on previous answers to go deeper.
 
@@ -98,11 +107,9 @@ export function getBrownfieldGroundingPrompt(
   stage: InterviewerModeOptions['brownfieldGroundingStage'] = 'opening',
 ): string {
   const sharedQuestionRules = `Each question should:
-- Be clear and specific, not vague or open-ended
-- Include 2-4 options that represent meaningfully different directions
-- Mark exactly one option as recommended based on what you know so far
+- Be open-ended and exploratory — do NOT include options (pass an empty options array). The user responds with free-text.
 - Include a "why" field explaining why this question matters for the spec
-- Include an impact level (high/medium/low) reflecting how much this decision affects downstream choices
+- Include an impact level (high/medium/low) reflecting how much the answer shapes downstream choices
 
 Ask one question at a time. Build on previous answers to go deeper.
 

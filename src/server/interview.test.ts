@@ -115,9 +115,15 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('grounding')).not.toBe(getSystemPrompt('design'));
   });
 
-  it('keeps the grounding prompt specific to structured questioning', () => {
-    expect(getSystemPrompt('grounding')).toContain('ask_question');
-    expect(getSystemPrompt('grounding')).toContain('structured questions');
+  it('keeps the grounding prompt hint-guided with topic priorities and free-text format', () => {
+    const prompt = getSystemPrompt('grounding');
+    expect(prompt).toContain('ask_question');
+    expect(prompt).toContain('free-text');
+    expect(prompt).toContain('Concept');
+    expect(prompt).toContain('constraints');
+    expect(prompt).toContain('Scope');
+    expect(prompt).not.toContain('Include 2-4 options');
+    expect(prompt).not.toContain('Mark exactly one option as recommended');
   });
 
   it('teaches the design prompt to propose closure when enough design direction is captured', () => {
@@ -298,7 +304,7 @@ describe('brownfield interviewer configuration', () => {
     expect(toolNames).toContain('ask_question');
   });
 
-  it('uses a distinct brownfield system prompt for grounding phase', () => {
+  it('uses a distinct brownfield system prompt for grounding phase without mandating options', () => {
     const brownfieldPrompt = getBrownfieldGroundingPrompt('/tmp/repo');
     const greenfieldPrompt = getSystemPrompt('grounding');
     expect(brownfieldPrompt).not.toBe(greenfieldPrompt);
@@ -308,6 +314,9 @@ describe('brownfield interviewer configuration', () => {
     expect(brownfieldPrompt).toContain('bounded feature area');
     expect(brownfieldPrompt).toContain('partial');
     expect(brownfieldPrompt).toContain('FIRST durable turn');
+    expect(brownfieldPrompt).not.toContain('Include 2-4 options');
+    expect(brownfieldPrompt).not.toContain('Mark exactly one option as recommended');
+    expect(brownfieldPrompt).toContain('free-text');
   });
 
   it('limits brownfield exploration instructions to the grounding phase and makes post-kickoff grounding state-aware', () => {

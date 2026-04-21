@@ -3,7 +3,7 @@
 Frontier item: Track A #1
 Traceability: D115, D120; A59, A63; Requirements 4, 27
 
-## Card 1: Phase-aware free-text grounding questions `[status: in-progress]`
+## Card 1: Phase-aware free-text grounding questions `[status: done]`
 
 **Objective**: Grounding questions use a free-text-only format (question + why + response note, no required options) while elicitation and later phases continue to require option selections.
 
@@ -19,7 +19,7 @@ Traceability: D115, D120; A59, A63; Requirements 4, 27
 
 **Verification**: Inner: `npm run verify`. Middle: manual greenfield grounding walkthrough.
 
-## Card 2: Hint-guided grounding prompts `[status: next]`
+## Card 2: Hint-guided grounding prompts `[status: in-progress]`
 
 **Objective**: The grounding system prompt uses a priority-ordered topic list with example question shapes instead of generating questions from scratch.
 
