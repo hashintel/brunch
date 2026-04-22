@@ -502,6 +502,17 @@ export function ActiveQuestionCard({
   );
 }
 
+// ── Preface card skeleton ────────────────────────────────────────────
+
+export function PrefaceCardSkeleton() {
+  return (
+    <div data-testid="preface-card-skeleton" className="border-l-4 border-wash pl-3.5">
+      <Skeleton className="h-3 w-full bg-wash" />
+      <Skeleton className="mt-1.5 h-3 w-2/3 bg-wash" />
+    </div>
+  );
+}
+
 // ── Question card skeleton ──────────────────────────────────────────
 
 export function QuestionCardSkeleton() {
@@ -531,9 +542,11 @@ export function QuestionCardSkeleton() {
 export function GeneratingTurnPlaceholder({
   liveActivity,
   liveReasoningText,
+  pendingPreface,
 }: {
   liveActivity?: ActivitySummary;
   liveReasoningText?: string;
+  pendingPreface?: PrefaceData;
 }) {
   const startTimeRef = useRef<number>(Date.now());
   const [seconds, setSeconds] = useState(0);
@@ -550,6 +563,7 @@ export function GeneratingTurnPlaceholder({
     <div className="flex flex-col gap-4" data-testid="generating-turn-placeholder">
       <ActivityPlaceholder seconds={seconds > 0 ? seconds : undefined} tools={liveActivity?.tools} />
       {liveReasoningText && <ThinkingTokenScroll text={liveReasoningText} />}
+      {pendingPreface && <PrefaceCard preface={pendingPreface} />}
       <QuestionCardSkeleton />
     </div>
   );

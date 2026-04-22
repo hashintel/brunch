@@ -313,11 +313,13 @@ function renderWorkspaceInteractiveArtifact({
       );
     case 'pending-question': {
       const pendingReviewSet = artifact.artifact.pendingQuestion.reviewSet;
+      const pendingPreface = artifact.artifact.pendingQuestion.preface;
       return (
         <WorkspaceArtifactRow
           key={artifact.artifact.pendingQuestion.id}
           activity={renderLiveActivity(artifact.artifact.liveActivity)}
         >
+          {pendingPreface && <PrefaceCard preface={pendingPreface} />}
           {pendingReviewSet ? (
             <ActiveReviewSetCard
               question={artifact.artifact.pendingQuestion.question}
@@ -404,6 +406,7 @@ function renderWorkspaceInteractiveArtifact({
           key="generating-turn-placeholder"
           liveActivity={artifact.artifact.liveActivity}
           liveReasoningText={artifact.artifact.liveReasoningText}
+          pendingPreface={artifact.artifact.pendingPreface}
         />
       );
   }

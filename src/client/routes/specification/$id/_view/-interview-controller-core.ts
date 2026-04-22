@@ -3,7 +3,9 @@ import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type {
   AskQuestionUIPart,
   BrunchUIMessage,
+  BrunchUIMessagePart,
   BrunchUserPart,
+  PrefaceData,
   ReviewSetData,
   StructuredQuestion,
 } from '@/shared/chat.js';
@@ -48,6 +50,7 @@ export interface PendingQuestionViewModel {
   readonly impact: StructuredQuestion['impact'];
   readonly options: readonly PendingQuestionOption[];
   readonly reviewSet?: ReviewSetData;
+  readonly preface?: PrefaceData;
 }
 
 export type KickoffMode = 'start' | 'continue';
@@ -85,6 +88,7 @@ export type InterviewBottomArtifactViewModel =
     }
   | {
       readonly kind: 'generating';
+      readonly pendingPreface?: PrefaceData;
     }
   | {
       readonly kind: 'phase-handoff';
@@ -300,6 +304,49 @@ function findPendingQuestion(messages: readonly BrunchUIMessage[]): PendingQuest
   return null;
 }
 
+type PresentPrefaceUIPart = Extract<BrunchUIMessagePart, { type: 'tool-present_preface' }>;
+
+function isPresentPrefaceUIPart(part: BrunchUIMessagePart): part is PresentPrefaceUIPart {
+  return part.type === 'tool-present_preface';
+}
+
+function findPendingPreface(messages: readonly BrunchUIMessage[]): PrefaceData | null {
+  function getPrefaceInput(part: PresentPrefaceUIPart): PrefaceData | null {
+    switch (part.state) {
+      case 'input-available':
+      case 'approval-requested':
+      case 'approval-responded':
+      case 'output-available':
+      case 'output-denied':
+        return part.input;
+      case 'output-error':
+        return part.input ?? null;
+      case 'input-streaming':
+        return null;
+    }
+  }
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message.role !== 'assistant') {
+      continue;
+    }
+
+    for (let partIndex = (message.parts?.length ?? 0) - 1; partIndex >= 0; partIndex -= 1) {
+      const part = message.parts?.[partIndex];
+      if (!part || !isPresentPrefaceUIPart(part)) {
+        continue;
+      }
+
+      return getPrefaceInput(part);
+    }
+
+    return null;
+  }
+
+  return null;
+}
+
 function turnHasRenderableCard(
   turn: Pick<SpecificationTurn, 'question' | 'options' | 'assistant_parts'> | null | undefined,
 ): boolean {
@@ -374,7 +421,12 @@ export function createInterviewControllerViewState(
   const showTurnCard = landing?.kind === 'frontier-turn' && turnHasRenderableCard(phaseTurn);
   const isSubmittedTurn = phaseTurn?.id === submittedTurnId;
   const showSubmittedTurnCard = isSubmittedTurn && turnHasRenderableCard(phaseTurn);
-  const pendingQuestion = isLoading || submittedTurnId !== null ? findPendingQuestion(messages) : null;
+  const pendingPreface = isLoading || submittedTurnId !== null ? findPendingPreface(messages) : null;
+  const pendingQuestionBase = isLoading || submittedTurnId !== null ? findPendingQuestion(messages) : null;
+  const pendingQuestion =
+    pendingQuestionBase && pendingPreface
+      ? { ...pendingQuestionBase, preface: pendingPreface }
+      : pendingQuestionBase;
   const latestPhaseSummary = findPhaseSummary(messages);
   const phaseSummary =
     latestPhaseSummary &&
@@ -426,7 +478,7 @@ export function createInterviewControllerViewState(
                 },
               }
             : isLoading || isAutoSubmittingPhaseIntent
-              ? { kind: 'generating' }
+              ? { kind: 'generating', ...(pendingPreface ? { pendingPreface } : {}) }
               : null;
 
   return {

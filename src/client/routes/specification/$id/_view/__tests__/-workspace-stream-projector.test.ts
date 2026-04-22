@@ -587,6 +587,46 @@ describe('specificationWorkspaceStream', () => {
     expect(revisedArtifact.changeSummary).toEqual({ added: 1, removed: 0, revised: 1 });
   });
 
+  it('threads preface from pending-question onto the projected stream artifact', () => {
+    const pendingQuestionWithPreface: InterviewControllerBottomArtifactState = {
+      kind: 'pending-question',
+      pendingQuestion: {
+        id: 'pending-preface-1',
+        question: 'Does this match your understanding?',
+        why: 'Confirming workspace analysis.',
+        impact: 'medium',
+        options: [],
+        preface: {
+          observation: 'Found a React frontend with SQLite storage.',
+          elaboration: 'Provisional context from workspace analysis.',
+        },
+      },
+      disabled: true,
+    };
+
+    const projection = specificationWorkspaceStream({
+      phase: 'grounding',
+      phaseTurns: [],
+      phaseState: createPhaseState(),
+      bottomArtifact: pendingQuestionWithPreface,
+    });
+
+    expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
+      'phase-section-header',
+      'pending-question',
+    ]);
+
+    const pendingArtifact = projection.streamArtifacts[1];
+    if (pendingArtifact?.kind !== 'pending-question') {
+      throw new Error('Expected pending-question artifact');
+    }
+    expect(pendingArtifact.artifact.pendingQuestion.preface).toEqual({
+      observation: 'Found a React frontend with SQLite storage.',
+      elaboration: 'Provisional context from workspace analysis.',
+    });
+    expect(pendingArtifact.questionCode).toBe('Q1');
+  });
+
   it('keeps closed-phase history ordering stable when handoff and completion artifacts join the ordered stream', () => {
     const answeredTurn = createTurn({ id: 1, phase: 'requirements', question: 'Review requirements' });
     const closureTurn = createTurn({

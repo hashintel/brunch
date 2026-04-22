@@ -100,6 +100,7 @@ export type InterviewControllerBottomArtifactState =
       readonly kind: 'generating';
       readonly liveActivity?: ActivitySummary;
       readonly liveReasoningText?: string;
+      readonly pendingPreface?: import('@/shared/chat.js').PrefaceData;
     }
   | {
       readonly kind: 'phase-handoff';
@@ -499,7 +500,12 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                     };
                   })()
                 : viewState.bottomArtifact.kind === 'generating'
-                  ? { kind: 'generating' as const, liveActivity, liveReasoningText }
+                  ? {
+                      kind: 'generating' as const,
+                      liveActivity,
+                      liveReasoningText,
+                      pendingPreface: viewState.bottomArtifact.pendingPreface,
+                    }
                   : viewState.bottomArtifact.kind === 'phase-handoff'
                     ? {
                         kind: 'phase-handoff' as const,
