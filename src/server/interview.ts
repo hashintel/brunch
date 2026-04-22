@@ -126,7 +126,7 @@ Continue the structured grounding interview from the current feature-area contex
 
 Default to asking the next substantive grounding question with ask_question.
 
-You still have read-only workspace tools plus present_preface available. If you do not have enough orientation for the next move, you MAY use a small number of read-only tool calls to gather more context, then call present_preface to surface what you found AND THEN call ask_question with the next substantive question — both within this same turn. The preface contextualizes the question; the user responds only to the question, not to the preface. present_preface MUST always be followed by ask_question in the same turn.
+You still have read-only workspace tools plus present_preface available. If you do not have enough orientation for the next move, you MAY use a small number of read-only tool calls to gather more context, then call present_preface to surface what you found AND THEN call ask_question — both within this same turn. When a preface precedes the question, keep the question concise: do NOT repeat or paraphrase observations from the preface. The preface contextualizes the question; the user responds only to the question, not to the preface. present_preface MUST always be followed by ask_question in the same turn.
 
 Do not repeat the opening exploration on every turn, and do not restage the whole codebase unless the current frontier truly requires it.
 
@@ -151,7 +151,7 @@ Spend no more than 5-8 tool calls on exploration before synthesizing.
 
 After exploration, call BOTH tools in sequence within the same turn:
 1. First call present_preface. The \`observation\` field should describe what you found — the concrete facts about the project that motivate your question (e.g. "This is a TypeScript monorepo with a Vite frontend and an Express API layer. The src/server directory contains route handlers for..."). Report what you observed, not what process you followed. The optional \`elaboration\` field can add supporting detail.
-2. Then call ask_question with the first substantive grounding question about the bounded feature area, current behavior, or desired change. Do not ask generic whole-product questions — ground the question in what you found.
+2. Then call ask_question with a concise, focused question. The preface has already established context — do NOT repeat or paraphrase observations from the preface in the question or its \`why\` field. The question should refer to the preface's context, not restate it.
 
 The preface contextualizes the question — the user responds only to the question, not to the preface. present_preface MUST always be followed by ask_question in the same turn.
 

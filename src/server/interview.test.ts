@@ -405,7 +405,7 @@ describe('brownfield interviewer configuration', () => {
     expect(brownfieldPrompt).toContain('explore');
     expect(brownfieldPrompt).toContain('/tmp/repo');
     expect(brownfieldPrompt).toContain('present_preface');
-    expect(brownfieldPrompt).toContain('bounded feature area');
+    expect(brownfieldPrompt).toContain('concise, focused question');
     expect(brownfieldPrompt).toContain('partial');
     expect(brownfieldPrompt).toContain('call BOTH tools in sequence');
     expect(brownfieldPrompt).not.toContain('Include 2-4 options');
