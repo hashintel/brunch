@@ -175,21 +175,11 @@ export function AnsweredReviewSetCard({
 
 export function PrefaceCard({ preface }: { preface: PrefaceData }) {
   return (
-    <div data-testid="preface-card">
-      <DrawerCard
-        locked
-        header={
-          <div className="flex flex-col gap-1.5">
-            <span className="text-xs font-medium tracking-wide text-[#2070e6] uppercase">Grounding</span>
-            <p className="text-sm-plus font-medium tracking-[-0.015em] text-ink">{preface.observation}</p>
-          </div>
-        }
-        summary={
-          preface.elaboration ? (
-            <p className="text-xs-plus leading-relaxed text-sub">{preface.elaboration}</p>
-          ) : undefined
-        }
-      />
+    <div data-testid="preface-card" className="rounded-lg border border-rule/60 px-3.5 py-3">
+      <p className="text-xs-plus leading-relaxed text-sub">{preface.observation}</p>
+      {preface.elaboration && (
+        <p className="mt-1.5 text-xs leading-relaxed text-hint">{preface.elaboration}</p>
+      )}
     </div>
   );
 }
