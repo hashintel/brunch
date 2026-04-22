@@ -5,6 +5,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+import { getPersistedReviewSet } from '@/shared/specification-state.js';
 import { getSpecificationRecord } from '@/shared/specification.js';
 
 import { getSpecificationState } from '../core.js';
@@ -77,6 +78,24 @@ async function withReopenedWalkthroughScenario<T>(
     reopenedDb.$client.close();
     rmSync(tempDir, { recursive: true, force: true });
   }
+}
+
+function collectVisibleReferenceCodes(
+  entities: ReturnType<typeof getEntitiesForSpecificationOnActivePath>,
+): Set<string> {
+  return new Set(
+    [
+      ...entities.goals,
+      ...entities.contexts,
+      ...entities.constraints,
+      ...entities.requirements,
+      ...entities.criteria,
+      ...entities.decisions,
+      ...entities.assumptions,
+    ]
+      .map((item) => item.referenceCode)
+      .filter((referenceCode): referenceCode is string => Boolean(referenceCode)),
+  );
 }
 
 describe('walkthroughScenarioMatrix', () => {
@@ -178,6 +197,65 @@ describe('walkthroughScenarioMatrix', () => {
 
     await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
       expect(getEntitiesForSpecificationOnActivePath(db, projectId).criteria).toEqual([]);
+    });
+  });
+
+  it('seeds truthful grounding inventory for review-ready walkthrough scenarios', async () => {
+    await withReopenedSeededScenario('issue-tracker-requirements-ready', ({ db, projectId }) => {
+      const projectState = getSpecificationState(db, projectId);
+      const requirementsTurn = projectState?.turns.find((turn) => turn.phase === 'requirements');
+      const reviewSet = getPersistedReviewSet(requirementsTurn);
+      const entities = getEntitiesForSpecificationOnActivePath(db, projectId);
+      const visibleCodes = collectVisibleReferenceCodes(entities);
+
+      expect(reviewSet).not.toBeNull();
+      for (const groundingCode of reviewSet?.items.flatMap(
+        (item) => item.grounding?.map((ref) => ref.code) ?? [],
+      ) ?? []) {
+        expect(visibleCodes).toContain(groundingCode);
+      }
+      expect(entities.goals.map((item) => item.referenceCode)).toEqual([
+        createKnowledgeReferenceCode('goal', 1),
+        createKnowledgeReferenceCode('goal', 2),
+      ]);
+      expect(entities.contexts.map((item) => item.referenceCode)).toEqual([
+        createKnowledgeReferenceCode('context', 1),
+        createKnowledgeReferenceCode('context', 2),
+      ]);
+      expect(entities.constraints.map((item) => item.referenceCode)).toEqual([
+        createKnowledgeReferenceCode('constraint', 1),
+        createKnowledgeReferenceCode('constraint', 2),
+      ]);
+      expect(entities.decisions.map((item) => item.referenceCode)).toEqual([
+        createKnowledgeReferenceCode('decision', 1),
+      ]);
+      expect(entities.requirements).toEqual([]);
+    });
+
+    await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
+      const projectState = getSpecificationState(db, projectId);
+      const criteriaTurn = projectState?.turns.find((turn) => turn.phase === 'criteria');
+      const reviewSet = getPersistedReviewSet(criteriaTurn);
+      const entities = getEntitiesForSpecificationOnActivePath(db, projectId);
+      const visibleCodes = collectVisibleReferenceCodes(entities);
+
+      expect(reviewSet).not.toBeNull();
+      for (const groundingCode of reviewSet?.items.flatMap(
+        (item) => item.grounding?.map((ref) => ref.code) ?? [],
+      ) ?? []) {
+        expect(visibleCodes).toContain(groundingCode);
+      }
+      expect(
+        entities.requirements.find(
+          (item) => item.referenceCode === createKnowledgeReferenceCode('requirement', 1),
+        )?.content,
+      ).toBe(
+        'Create, edit, and close tickets with required fields: title, description, priority, and assignee',
+      );
+      expect(entities.assumptions.map((item) => item.referenceCode)).toEqual([
+        createKnowledgeReferenceCode('assumption', 1),
+      ]);
+      expect(entities.criteria).toEqual([]);
     });
   });
 

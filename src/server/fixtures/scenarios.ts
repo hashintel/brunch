@@ -30,6 +30,154 @@ import {
 
 const code = createKnowledgeReferenceCode;
 
+const issueTrackerRequirementCrudContent =
+  'Create, edit, and close tickets with required fields: title, description, priority, and assignee';
+const issueTrackerRequirementAuditContent =
+  'Every status change records the actor identity and ISO 8601 timestamp in the audit log';
+const issueTrackerRequirementPermissionsContent =
+  'Role-based visibility: admins see all tickets and settings, developers see assigned and unassigned tickets, viewers have read-only access';
+const issueTrackerCriterionAuditContent =
+  'Changing a ticket status creates an audit log entry with actor, previous status, new status, and timestamp';
+const issueTrackerCriterionPermissionsContent =
+  'A viewer cannot edit a ticket and receives a clear authorization failure without mutating data';
+const issueTrackerCriterionPerformanceContent =
+  'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture';
+
+function seedIssueTrackerSupportingKnowledge(db: DB, projectId: number, turnId: number) {
+  const goalLifecycle = createKnowledgeItem(
+    db,
+    projectId,
+    'goal',
+    'Launch a lightweight issue tracker that covers the core ticket lifecycle for day-one teams',
+  );
+  const goalRoles = createKnowledgeItem(
+    db,
+    projectId,
+    'goal',
+    'Keep ticket visibility and role-specific actions clear for admins, developers, and viewers',
+  );
+  const contextFields = createKnowledgeItem(
+    db,
+    projectId,
+    'context',
+    'Tickets move through a workflow that always includes title, description, priority, and assignee',
+  );
+  const contextAudit = createKnowledgeItem(
+    db,
+    projectId,
+    'context',
+    'The team needs a trustworthy audit trail whenever ticket status changes',
+  );
+  const constraintAudit = createKnowledgeItem(
+    db,
+    projectId,
+    'constraint',
+    'Audit history must be retained as immutable actor-and-timestamp records',
+  );
+  const constraintPermissions = createKnowledgeItem(
+    db,
+    projectId,
+    'constraint',
+    'Viewer access must stay read-only and must not mutate ticket data or settings',
+  );
+  const decisionWorkflow = createKnowledgeItem(
+    db,
+    projectId,
+    'decision',
+    'Model the first release around one shared ticket record with role-aware actions',
+  );
+  for (const item of [
+    goalLifecycle,
+    goalRoles,
+    contextFields,
+    contextAudit,
+    constraintAudit,
+    constraintPermissions,
+    decisionWorkflow,
+  ]) {
+    linkKnowledgeItemToTurn(db, item.id, turnId, 'captured');
+  }
+
+  return {
+    goalLifecycle,
+    goalRoles,
+    contextFields,
+    contextAudit,
+    constraintAudit,
+    constraintPermissions,
+    decisionWorkflow,
+  };
+}
+
+function seedIssueTrackerPerformanceAssumption(db: DB, projectId: number, turnId: number) {
+  const assumption = createKnowledgeItem(
+    db,
+    projectId,
+    'assumption',
+    'A seeded workspace of 500 tickets is representative enough for the first performance walkthrough',
+  );
+  linkKnowledgeItemToTurn(db, assumption.id, turnId, 'captured');
+  return assumption;
+}
+
+function seedAcceptedIssueTrackerRequirements(db: DB, projectId: number) {
+  const seededRequirements = seedRequirementsReviewReady(db, projectId);
+  const requirementsAcceptOption = getOptionsForTurn(db, seededRequirements.reviewTurn.id).find(
+    (option) => option.position === 0,
+  );
+
+  if (!requirementsAcceptOption) {
+    throw new Error('Issue-tracker requirements review seed is missing the accept option');
+  }
+
+  applyTurnResponseSelections(db, seededRequirements.reviewTurn.id, [0]);
+  updateTurn(db, seededRequirements.reviewTurn.id, {
+    user_parts: serializeFixtureAcceptedReviewUserParts({
+      turnId: seededRequirements.reviewTurn.id,
+      selectedOptionIds: [requirementsAcceptOption.id],
+    }),
+  });
+
+  const requirementCrud = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    issueTrackerRequirementCrudContent,
+  );
+  const requirementAudit = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    issueTrackerRequirementAuditContent,
+  );
+  const requirementPermissions = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    issueTrackerRequirementPermissionsContent,
+  );
+  for (const requirement of [requirementCrud, requirementAudit, requirementPermissions]) {
+    linkKnowledgeItemToTurn(db, requirement.id, seededRequirements.reviewTurn.id, 'reviewed');
+  }
+
+  createConfirmedPhaseOutcome(db, {
+    projectId,
+    phase: 'requirements',
+    proposal_turn_id: seededRequirements.reviewTurn.id,
+    confirmation_turn_id: seededRequirements.reviewTurn.id,
+    summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
+  });
+  advanceHead(db, projectId, seededRequirements.reviewTurn.id);
+
+  return {
+    ...seededRequirements,
+    requirementCrud,
+    requirementAudit,
+    requirementPermissions,
+    requirementsConfirmationTurn: seededRequirements.reviewTurn,
+  };
+}
+
 export function seedClosedGrounding(db: DB, projectId: number) {
   const groundingTurn = createTurn(db, projectId, {
     phase: 'grounding',
@@ -137,12 +285,10 @@ export function seedRequirementsReady(db: DB, projectId: number) {
 
 export function seedRequirementsReviewReady(db: DB, projectId: number) {
   const seededRequirements = seedRequirementsReady(db, projectId);
-  const requirementCrudContent =
-    'Create, edit, and close tickets with required fields: title, description, priority, and assignee';
-  const requirementAuditContent =
-    'Every status change records the actor identity and ISO 8601 timestamp in the audit log';
-  const requirementPermissionsContent =
-    'Role-based visibility: admins see all tickets and settings, developers see assigned and unassigned tickets, viewers have read-only access';
+  seedIssueTrackerSupportingKnowledge(db, projectId, seededRequirements.designConfirmationTurn.id);
+  const requirementCrudContent = issueTrackerRequirementCrudContent;
+  const requirementAuditContent = issueTrackerRequirementAuditContent;
+  const requirementPermissionsContent = issueTrackerRequirementPermissionsContent;
 
   const reviewTurn = createTurn(db, projectId, {
     phase: 'requirements',
@@ -306,27 +452,12 @@ export function seedCriteriaReady(db: DB, projectId: number) {
 }
 
 export function seedCriteriaReviewReady(db: DB, projectId: number) {
-  const seededCriteria = seedCriteriaReady(db, projectId);
+  const seededCriteria = seedAcceptedIssueTrackerRequirements(db, projectId);
+  seedIssueTrackerPerformanceAssumption(db, projectId, seededCriteria.requirementsConfirmationTurn.id);
 
-  const approvedRequirement = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    'Create, edit, and close tickets with required fields: title, description, priority, and assignee',
-  );
-  linkKnowledgeItemToTurn(
-    db,
-    approvedRequirement.id,
-    seededCriteria.requirementsConfirmationTurn.id,
-    'reviewed',
-  );
-
-  const criterionAuditContent =
-    'Changing a ticket status creates an audit log entry with actor, previous status, new status, and timestamp';
-  const criterionPermissionsContent =
-    'A viewer cannot edit a ticket and receives a clear authorization failure without mutating data';
-  const criterionPerformanceContent =
-    'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture';
+  const criterionAuditContent = issueTrackerCriterionAuditContent;
+  const criterionPermissionsContent = issueTrackerCriterionPermissionsContent;
+  const criterionPerformanceContent = issueTrackerCriterionPerformanceContent;
 
   const reviewTurn = createTurn(db, projectId, {
     phase: 'criteria',
@@ -384,7 +515,6 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
 
   return {
     ...seededCriteria,
-    approvedRequirement,
     reviewTurn,
     criterionAuditContent,
     criterionPermissionsContent,
@@ -603,58 +733,12 @@ export function seedAllPhasesClosedWithLowReadinessGrounding(db: DB, projectId: 
 }
 
 export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
-  const seededRequirements = seedRequirementsReviewReady(db, projectId);
-  const requirementsAcceptOption = getOptionsForTurn(db, seededRequirements.reviewTurn.id).find(
-    (option) => option.position === 0,
-  );
+  const seededRequirements = seedAcceptedIssueTrackerRequirements(db, projectId);
+  seedIssueTrackerPerformanceAssumption(db, projectId, seededRequirements.requirementsConfirmationTurn.id);
 
-  if (!requirementsAcceptOption) {
-    throw new Error('Issue-tracker requirements review seed is missing the accept option');
-  }
-
-  applyTurnResponseSelections(db, seededRequirements.reviewTurn.id, [0]);
-  updateTurn(db, seededRequirements.reviewTurn.id, {
-    user_parts: serializeFixtureAcceptedReviewUserParts({
-      turnId: seededRequirements.reviewTurn.id,
-      selectedOptionIds: [requirementsAcceptOption.id],
-    }),
-  });
-  const requirementCrud = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    seededRequirements.requirementCrudContent,
-  );
-  const requirementAudit = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    seededRequirements.requirementAuditContent,
-  );
-  const requirementPermissions = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    seededRequirements.requirementPermissionsContent,
-  );
-  for (const requirement of [requirementCrud, requirementAudit, requirementPermissions]) {
-    linkKnowledgeItemToTurn(db, requirement.id, seededRequirements.reviewTurn.id, 'reviewed');
-  }
-  createConfirmedPhaseOutcome(db, {
-    projectId,
-    phase: 'requirements',
-    proposal_turn_id: seededRequirements.reviewTurn.id,
-    confirmation_turn_id: seededRequirements.reviewTurn.id,
-    summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
-  });
-  advanceHead(db, projectId, seededRequirements.reviewTurn.id);
-
-  const criterionAuditContent =
-    'Changing a ticket status creates an audit log entry with actor, previous status, new status, and timestamp';
-  const criterionPermissionsContent =
-    'A viewer cannot edit a ticket and receives a clear authorization failure without mutating data';
-  const criterionPerformanceContent =
-    'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture';
+  const criterionAuditContent = issueTrackerCriterionAuditContent;
+  const criterionPermissionsContent = issueTrackerCriterionPermissionsContent;
+  const criterionPerformanceContent = issueTrackerCriterionPerformanceContent;
 
   const criteriaReviewTurn = createTurn(db, projectId, {
     phase: 'criteria',
@@ -737,7 +821,7 @@ export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
     criterionPerformance,
     criteriaConfirmationTurn: criteriaReviewTurn,
     criteriaReviewTurn,
-    requirementsConfirmationTurn: seededRequirements.reviewTurn,
+    requirementsConfirmationTurn: seededRequirements.requirementsConfirmationTurn,
   };
 }
 

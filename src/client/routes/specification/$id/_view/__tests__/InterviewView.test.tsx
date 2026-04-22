@@ -2445,6 +2445,198 @@ describe('InterviewView', () => {
     expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
   });
 
+  it('renders review-ready grounding refs on an active requirements review turn', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Please review the current requirement set.',
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+        ],
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
+          design: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 98,
+          },
+          requirements: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 1,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                      content:
+                        'Create, edit, and close tickets with required fields: title, description, priority, and assignee',
+                      rationale: 'Captures the core ticket lifecycle the tool must support from day one.',
+                      grounding: [
+                        { code: createKnowledgeReferenceCode('goal', 1) },
+                        { code: createKnowledgeReferenceCode('context', 1) },
+                        { code: createKnowledgeReferenceCode('decision', 1) },
+                      ],
+                    },
+                    {
+                      reviewItemId: 'requirements:2',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 2),
+                      content:
+                        'Every status change records the actor identity and ISO 8601 timestamp in the audit log',
+                      rationale: 'Protects accountability and traceability for regulated workflows.',
+                      grounding: [
+                        { code: createKnowledgeReferenceCode('context', 2) },
+                        { code: createKnowledgeReferenceCode('constraint', 1) },
+                      ],
+                    },
+                    {
+                      reviewItemId: 'requirements:3',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 3),
+                      content:
+                        'Role-based visibility: admins see all tickets and settings, developers see assigned and unassigned tickets, viewers have read-only access',
+                      rationale:
+                        'Ensures each role sees only the operations appropriate to its responsibility.',
+                      grounding: [
+                        { code: createKnowledgeReferenceCode('goal', 2) },
+                        { code: createKnowledgeReferenceCode('constraint', 2) },
+                      ],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+        entityState: createEntityState({
+          goals: [
+            {
+              id: 1,
+              specification_id: 1,
+              kind: 'goal',
+              subtype: null,
+              content:
+                'Launch a lightweight issue tracker that covers the core ticket lifecycle for day-one teams',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('goal', 1),
+            },
+            {
+              id: 2,
+              specification_id: 1,
+              kind: 'goal',
+              subtype: null,
+              content:
+                'Keep ticket visibility and role-specific actions clear for admins, developers, and viewers',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('goal', 2),
+            },
+          ],
+          contexts: [
+            {
+              id: 3,
+              specification_id: 1,
+              kind: 'context',
+              subtype: null,
+              content:
+                'Tickets move through a workflow that always includes title, description, priority, and assignee',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('context', 1),
+            },
+            {
+              id: 4,
+              specification_id: 1,
+              kind: 'context',
+              subtype: null,
+              content: 'The team needs a trustworthy audit trail whenever ticket status changes',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('context', 2),
+            },
+          ],
+          constraints: [
+            {
+              id: 5,
+              specification_id: 1,
+              kind: 'constraint',
+              subtype: null,
+              content: 'Audit history must be retained as immutable actor-and-timestamp records',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('constraint', 1),
+            },
+            {
+              id: 6,
+              specification_id: 1,
+              kind: 'constraint',
+              subtype: null,
+              content: 'Viewer access must stay read-only and must not mutate ticket data or settings',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('constraint', 2),
+            },
+          ],
+          decisions: [
+            {
+              id: 7,
+              specification_id: 1,
+              content: 'Model the first release around one shared ticket record with role-aware actions',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('decision', 1),
+            },
+          ],
+        }),
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    const activeReviewSet = await screen.findByTestId('active-review-set-card');
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('goal', 1))).toBeTruthy();
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('context', 1))).toBeTruthy();
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('decision', 1))).toBeTruthy();
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('context', 2))).toBeTruthy();
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('constraint', 1))).toBeTruthy();
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('goal', 2))).toBeTruthy();
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('constraint', 2))).toBeTruthy();
+
+    expect(within(activeReviewSet).getByText('Items')).toBeTruthy();
+    expect(within(activeReviewSet).getByText('Grounding')).toBeTruthy();
+    expect(within(activeReviewSet).getByText('Commented')).toBeTruthy();
+  });
+
   it('renders criterion reference codes and review actions on the criteria full-set review turn', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
