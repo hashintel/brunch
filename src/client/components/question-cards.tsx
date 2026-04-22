@@ -175,7 +175,7 @@ export function AnsweredReviewSetCard({
 
 export function PrefaceCard({ preface }: { preface: PrefaceData }) {
   return (
-    <div data-testid="preface-card" className="rounded-lg border border-rule/60 px-3.5 py-3">
+    <div data-testid="preface-card" className="mb-3 rounded-lg bg-wash px-3.5 py-3">
       <p className="text-xs-plus leading-relaxed text-sub">{preface.observation}</p>
       {preface.elaboration && (
         <p className="mt-1.5 text-xs leading-relaxed text-hint">{preface.elaboration}</p>

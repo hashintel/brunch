@@ -13,6 +13,9 @@ The live frontier is now **Track A — Interaction model**, centered on the firs
 1. **Brownfield workspace-analysis grounding brief** — first analysis-first grounding path using turn-internal grounding cards.
    - Why now / unlocks: with review revision contract drift retired, this can now prove the turn-internal grounding-card seam against real brownfield repos without reopening the core lifecycle question.
    - Traceability: D32, D83, D99, D117, D120; A47, A56; I101.
+   - Sub-slices:
+     - **a. Preface skeleton + pending preface threading** — detect `present_preface` tool call during streaming, thread preface data through `PendingQuestionViewModel`, render `PrefaceCardSkeleton` before `QuestionCardSkeleton` in `GeneratingTurnPlaceholder`, and show live `PrefaceCard` above `ActiveQuestionCard` in the `pending-question` artifact path. Signal: `present_preface` appearing in message parts (even `input-streaming`) triggers the preface+question skeleton instead of the generic one. Risk: partial JSON in `input-streaming` state needs graceful handling.
+     - **b. Progressive tool activity indicator** — during the gap between thinking completion and question card streaming, show an incremental indicator of which tools the agent is calling (e.g. file paths for `read_file`, patterns for `grep`). Enhance `summarizeAssistantActivity` to extract the latest tool's arguments, upgrade `ActivityPlaceholder` to render progressively, and increase its visual weight when `liveReasoningText` is empty. Risk: tool arguments may contain long paths or sensitive content — needs truncation and filtering.
 
 ## Next
 
