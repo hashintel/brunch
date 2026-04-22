@@ -350,7 +350,7 @@ describe('walkthroughScenarioMatrix', () => {
           expect.objectContaining({
             type: 'data-grounding-card',
             data: expect.objectContaining({
-              summary: 'The repo already uses SQLite-backed local persistence.',
+              observation: 'The repo already uses SQLite-backed local persistence.',
             }),
           }),
         ]),
@@ -365,7 +365,7 @@ describe('walkthroughScenarioMatrix', () => {
           expect.objectContaining({
             type: 'data-grounding-card',
             data: expect.objectContaining({
-              summary: 'Later context gathering narrowed the work to turn-finalization ownership.',
+              observation: 'Later context gathering narrowed the work to turn-finalization ownership.',
             }),
           }),
         ]),

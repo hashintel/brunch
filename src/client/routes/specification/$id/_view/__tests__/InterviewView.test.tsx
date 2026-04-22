@@ -2108,9 +2108,9 @@ describe('InterviewView', () => {
               {
                 type: 'data-grounding-card',
                 data: {
-                  summary:
+                  observation:
                     'The repo already uses SQLite-backed local persistence and a routed interview surface.',
-                  detail: 'This is provisional context before the next substantive grounding question.',
+                  elaboration: 'This is provisional context before the next substantive grounding question.',
                   continueLabel: 'Continue',
                 },
               },
@@ -2203,9 +2203,9 @@ describe('InterviewView', () => {
               {
                 type: 'data-grounding-card',
                 data: {
-                  summary:
+                  observation:
                     'The repo already uses SQLite-backed local persistence and a routed interview surface.',
-                  detail: 'This is provisional context before the next substantive grounding question.',
+                  elaboration: 'This is provisional context before the next substantive grounding question.',
                 },
               },
             ]),

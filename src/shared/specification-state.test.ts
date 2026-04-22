@@ -185,8 +185,8 @@ describe('specification-state helpers', () => {
         {
           type: 'data-grounding-card',
           data: {
-            summary: 'The repo already uses local-first persistence.',
-            detail: 'The next turn should narrow the feature-area boundary before design choices.',
+            observation: 'The repo already uses local-first persistence.',
+            elaboration: 'The next turn should narrow the feature-area boundary before design choices.',
             continueLabel: 'Continue',
           },
         },
@@ -195,8 +195,8 @@ describe('specification-state helpers', () => {
     });
 
     expect(getPersistedGroundingCard(groundingTurn)).toEqual({
-      summary: 'The repo already uses local-first persistence.',
-      detail: 'The next turn should narrow the feature-area boundary before design choices.',
+      observation: 'The repo already uses local-first persistence.',
+      elaboration: 'The next turn should narrow the feature-area boundary before design choices.',
       continueLabel: 'Continue',
     });
   });

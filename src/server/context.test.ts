@@ -88,8 +88,8 @@ describe('buildInterviewerContext', () => {
           {
             type: 'data-grounding-card',
             data: {
-              summary: 'The repo already uses SQLite-backed local persistence.',
-              detail: 'This is provisional context before the next substantive question.',
+              observation: 'The repo already uses SQLite-backed local persistence.',
+              elaboration: 'This is provisional context before the next substantive question.',
             },
           },
         ]),
@@ -100,7 +100,9 @@ describe('buildInterviewerContext', () => {
 
     const result = buildInterviewerContext(turns, 'next');
     expect(result).toContain('Grounding card: The repo already uses SQLite-backed local persistence.');
-    expect(result).toContain('Detail: This is provisional context before the next substantive question.');
+    expect(result).toContain(
+      'Elaboration: This is provisional context before the next substantive question.',
+    );
     expect(result).toContain('Free-text response: Focus on the routed workspace seam.');
     expect(result).not.toContain('Question:');
   });
@@ -236,8 +238,8 @@ describe('buildInterviewerContext', () => {
           {
             type: 'data-grounding-card',
             data: {
-              summary: 'The repo uses a React frontend with SQLite storage.',
-              detail: 'Provisional context from workspace analysis.',
+              observation: 'The repo uses a React frontend with SQLite storage.',
+              elaboration: 'Provisional context from workspace analysis.',
             },
           },
         ]),
@@ -247,7 +249,7 @@ describe('buildInterviewerContext', () => {
 
     const result = buildInterviewerContext(turns, 'next');
     expect(result).toContain('Grounding card: The repo uses a React frontend with SQLite storage.');
-    expect(result).toContain('Detail: Provisional context from workspace analysis.');
+    expect(result).toContain('Elaboration: Provisional context from workspace analysis.');
     expect(result).toContain('Question: What is the primary user persona?');
     expect(result).toContain('Why it matters: Understanding users grounds the design.');
     expect(result).toContain('Free-text response: Developers building AI tools');
@@ -633,8 +635,8 @@ describe('observer-context-projection', () => {
         {
           type: 'data-grounding-card',
           data: {
-            summary: 'The repo uses a React frontend with SQLite storage.',
-            detail: 'Provisional context from workspace analysis.',
+            observation: 'The repo uses a React frontend with SQLite storage.',
+            elaboration: 'Provisional context from workspace analysis.',
           },
         },
       ]),
@@ -657,7 +659,7 @@ describe('observer-context-projection', () => {
     });
 
     expect(result).toContain('Grounding card: The repo uses a React frontend with SQLite storage.');
-    expect(result).toContain('Grounding detail: Provisional context from workspace analysis.');
+    expect(result).toContain('Grounding elaboration: Provisional context from workspace analysis.');
     expect(result).toContain('Question: What is the primary user persona?');
     expect(result).toContain('Free-text response: Developers building AI tools');
   });

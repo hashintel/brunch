@@ -50,8 +50,8 @@ export const reviewSetSchema = z
   });
 
 export const groundingCardSchema = z.object({
-  summary: z.string().min(1),
-  detail: z.string().min(1).nullable().optional(),
+  observation: z.string().min(1),
+  elaboration: z.string().min(1).nullable().optional(),
   continueLabel: z.string().min(1).nullable().optional(),
 });
 

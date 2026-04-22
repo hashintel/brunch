@@ -165,8 +165,8 @@ describe('specificationWorkspaceStream', () => {
         {
           type: 'data-grounding-card',
           data: {
-            summary: 'The repo already uses SQLite-backed local persistence.',
-            detail: 'This is provisional context for the next move.',
+            observation: 'The repo already uses SQLite-backed local persistence.',
+            elaboration: 'This is provisional context for the next move.',
           },
         },
       ]),
@@ -187,8 +187,8 @@ describe('specificationWorkspaceStream', () => {
           {
             type: 'data-grounding-card',
             data: {
-              summary: 'The feature area lives under src/client/routes/specification.',
-              detail: 'Continue to move into the first substantive question.',
+              observation: 'The feature area lives under src/client/routes/specification.',
+              elaboration: 'Continue to move into the first substantive question.',
             },
           },
         ]),
@@ -219,8 +219,8 @@ describe('specificationWorkspaceStream', () => {
         {
           type: 'data-grounding-card',
           data: {
-            summary: 'The repo uses a React frontend with SQLite storage.',
-            detail: 'Provisional context from workspace analysis.',
+            observation: 'The repo uses a React frontend with SQLite storage.',
+            elaboration: 'Provisional context from workspace analysis.',
           },
         },
         {
@@ -279,8 +279,8 @@ describe('specificationWorkspaceStream', () => {
           {
             type: 'data-grounding-card',
             data: {
-              summary: 'Found package.json with React and Vite.',
-              detail: 'Provisional workspace context.',
+              observation: 'Found package.json with React and Vite.',
+              elaboration: 'Provisional workspace context.',
             },
           },
           {
@@ -324,8 +324,8 @@ describe('specificationWorkspaceStream', () => {
         {
           type: 'data-grounding-card',
           data: {
-            summary: 'Standalone grounding context.',
-            detail: 'No paired question.',
+            observation: 'Standalone grounding context.',
+            elaboration: 'No paired question.',
           },
         },
       ]),

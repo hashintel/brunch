@@ -842,8 +842,8 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
     question: '',
     answer: 'Continue — Focus on the routed workspace stream seam.',
     assistant_parts: serializeFixtureGroundingCardAssistantParts({
-      summary: 'The repo already uses SQLite-backed local persistence.',
-      detail: 'This provisional brief grounds the first brownfield move.',
+      observation: 'The repo already uses SQLite-backed local persistence.',
+      elaboration: 'This provisional brief grounds the first brownfield move.',
       continueLabel: 'Continue',
     }),
   });
@@ -882,8 +882,8 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
     question: '',
     answer: null,
     assistant_parts: serializeFixtureGroundingCardAssistantParts({
-      summary: 'Later context gathering narrowed the work to turn-finalization ownership.',
-      detail: 'Continue to move from replay evidence back into the next substantive question.',
+      observation: 'Later context gathering narrowed the work to turn-finalization ownership.',
+      elaboration: 'Continue to move from replay evidence back into the next substantive question.',
       continueLabel: 'Continue',
     }),
   });

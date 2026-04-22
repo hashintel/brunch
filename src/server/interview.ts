@@ -150,7 +150,7 @@ Treat your understanding as intentionally partial: the user may only care about 
 Spend no more than 5-8 tool calls on exploration before synthesizing.
 
 After that opening exploration, call BOTH tools in sequence within the same turn:
-1. First call present_grounding_card with the concise user-facing repo brief in the \`summary\` and optional \`detail\` fields. Keep it provisional and bounded to the likely feature area; do not dump raw file listings. Use \`Continue\` as the continue label unless a different short verb is clearly better.
+1. First call present_grounding_card to preface your upcoming question. The \`observation\` field should contain your key finding or reflection — what you learned from exploration that motivates the question. The optional \`elaboration\` field can add supporting context if the observation alone is insufficient. Use \`Continue\` as the continue label unless a different short verb is clearly better.
 2. Then call ask_question with the first substantive grounding question about the bounded feature area, current behavior, or desired change inside this existing codebase. Do not ask generic whole-product greenfield kickoff questions.
 
 The grounding card and question will render as stacked cards with one unified response from the user.
@@ -294,7 +294,7 @@ export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
 export function createPresentGroundingCardTool(db: DB, turnId: number): PresentGroundingCardTool {
   return tool({
     description:
-      'Present provisional repo or feature-area context as a grounding card before the next question.',
+      "Present a grounding card that prefaces the next question — an observation from exploration or reflection on the user's response, with optional elaboration.",
     inputSchema: groundingCardSchema,
     outputSchema: presentGroundingCardToolOutputSchema,
     execute: async (input) => {

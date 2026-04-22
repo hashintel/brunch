@@ -154,8 +154,8 @@ describe('turn-artifacts', () => {
           toolCallId: 'tool-grounding-card',
           state: 'output-available',
           input: {
-            summary: 'The repo already uses SQLite-backed local persistence.',
-            detail: 'This is provisional context before the next substantive move.',
+            observation: 'The repo already uses SQLite-backed local persistence.',
+            elaboration: 'This is provisional context before the next substantive move.',
             continueLabel: 'Continue',
           },
           output: { ok: true, turnId: 7 },
@@ -166,8 +166,8 @@ describe('turn-artifacts', () => {
     expect(groundingCard).toEqual({
       type: 'data-grounding-card',
       data: {
-        summary: 'The repo already uses SQLite-backed local persistence.',
-        detail: 'This is provisional context before the next substantive move.',
+        observation: 'The repo already uses SQLite-backed local persistence.',
+        elaboration: 'This is provisional context before the next substantive move.',
         continueLabel: 'Continue',
       },
     });

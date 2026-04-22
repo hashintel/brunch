@@ -231,8 +231,8 @@ async function makeGroundingCardInterviewer(
   dbArg: DB,
   turnId: number,
   groundingCard = {
-    summary: 'The repo already uses SQLite-backed local persistence and a routed interview surface.',
-    detail: 'This is provisional context before the first substantive grounding question.',
+    observation: 'The repo already uses SQLite-backed local persistence and a routed interview surface.',
+    elaboration: 'This is provisional context before the first substantive grounding question.',
     continueLabel: 'Continue',
   },
 ) {
@@ -603,8 +603,9 @@ describe('POST /api/specifications/:id/chat', () => {
         {
           type: 'data-grounding-card',
           data: {
-            summary: 'The repo already uses SQLite-backed local persistence and a routed interview surface.',
-            detail: 'This is provisional context before the first substantive grounding question.',
+            observation:
+              'The repo already uses SQLite-backed local persistence and a routed interview surface.',
+            elaboration: 'This is provisional context before the first substantive grounding question.',
             continueLabel: 'Continue',
           },
         },
@@ -2947,8 +2948,8 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
         {
           type: 'data-grounding-card',
           data: {
-            summary: 'The repo already uses SQLite-backed local persistence.',
-            detail: 'This is provisional context before the first substantive question.',
+            observation: 'The repo already uses SQLite-backed local persistence.',
+            elaboration: 'This is provisional context before the first substantive question.',
             continueLabel: 'Continue',
           },
         },

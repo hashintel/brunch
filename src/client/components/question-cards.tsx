@@ -190,12 +190,16 @@ export function AnsweredGroundingCard({
         header={
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-medium tracking-wide text-[#2070e6] uppercase">Grounding</span>
-            <p className="text-sm-plus font-medium tracking-[-0.015em] text-ink">{groundingCard.summary}</p>
+            <p className="text-sm-plus font-medium tracking-[-0.015em] text-ink">
+              {groundingCard.observation}
+            </p>
           </div>
         }
         summary={
           <div className="flex flex-col gap-2 text-xs-plus text-sub">
-            {groundingCard.detail ? <p className="leading-relaxed text-sub">{groundingCard.detail}</p> : null}
+            {groundingCard.elaboration ? (
+              <p className="leading-relaxed text-sub">{groundingCard.elaboration}</p>
+            ) : null}
             <div className="flex items-center gap-2 text-xs">
               <span className="text-sub">Note:</span>
               <span className={note ? 'text-ink' : 'text-hint'}>{note || 'None'}</span>
@@ -296,14 +300,14 @@ export function ActiveGroundingCard({
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-medium tracking-wide text-[#2070e6] uppercase">Grounding</span>
             <p className="text-[17px] leading-[1.4] font-medium tracking-[-0.015em] text-ink">
-              {groundingCard.summary}
+              {groundingCard.observation}
             </p>
           </div>
         }
       >
         <div className="flex flex-col gap-4">
-          {groundingCard.detail ? (
-            <p className="text-xs-plus leading-relaxed text-sub">{groundingCard.detail}</p>
+          {groundingCard.elaboration ? (
+            <p className="text-xs-plus leading-relaxed text-sub">{groundingCard.elaboration}</p>
           ) : null}
 
           {isSubmitted ? (

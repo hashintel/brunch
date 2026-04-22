@@ -97,8 +97,8 @@ describe('fixture helpers', () => {
   it('serializes grounding cards as persisted grounding artifacts', () => {
     const parts = deserializeAssistantParts(
       serializeFixtureGroundingCardAssistantParts({
-        summary: 'Later context gathering narrowed the next move.',
-        detail: 'Continue to keep moving through the same stream.',
+        observation: 'Later context gathering narrowed the next move.',
+        elaboration: 'Continue to keep moving through the same stream.',
         continueLabel: 'Continue',
       }),
     );
@@ -111,8 +111,8 @@ describe('fixture helpers', () => {
       {
         type: 'data-grounding-card',
         data: {
-          summary: 'Later context gathering narrowed the next move.',
-          detail: 'Continue to keep moving through the same stream.',
+          observation: 'Later context gathering narrowed the next move.',
+          elaboration: 'Continue to keep moving through the same stream.',
           continueLabel: 'Continue',
         },
       },
