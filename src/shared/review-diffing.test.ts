@@ -4,6 +4,7 @@ import {
   computeReviewSetChangeSummary,
   getReviewItemIdentity,
   getReviewRevisionNumber,
+  normalizeReviewSetForDisplay,
 } from './review-diffing.js';
 
 describe('getReviewItemIdentity', () => {
@@ -106,6 +107,55 @@ describe('computeReviewSetChangeSummary', () => {
       added: 1,
       removed: 1,
       revised: 1,
+    });
+  });
+});
+
+describe('normalizeReviewSetForDisplay', () => {
+  it('carries forward predecessor display metadata and infers revision badges', () => {
+    expect(
+      normalizeReviewSetForDisplay(
+        {
+          phase: 'requirements',
+          title: 'Requirements',
+          items: [
+            { reviewItemId: 'requirements:1', content: 'Revised copy' },
+            { reviewItemId: 'requirements:2', content: 'New item', referenceCode: 'R2' },
+          ],
+        },
+        {
+          phase: 'requirements',
+          title: 'Requirements',
+          items: [
+            {
+              reviewItemId: 'requirements:1',
+              content: 'Original copy',
+              referenceCode: 'R1',
+              rationale: 'Carry this forward.',
+              grounding: [{ code: 'G1' }],
+            },
+          ],
+        },
+      ),
+    ).toEqual({
+      phase: 'requirements',
+      title: 'Requirements',
+      items: [
+        {
+          reviewItemId: 'requirements:1',
+          content: 'Revised copy',
+          referenceCode: 'R1',
+          rationale: 'Carry this forward.',
+          grounding: [{ code: 'G1' }],
+          isRevised: true,
+        },
+        {
+          reviewItemId: 'requirements:2',
+          content: 'New item',
+          referenceCode: 'R2',
+          isUserCreated: true,
+        },
+      ],
     });
   });
 });

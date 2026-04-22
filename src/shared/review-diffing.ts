@@ -1,3 +1,4 @@
+import type { ReviewSetData } from './chat.js';
 import { getPersistedReviewAction, getPersistedReviewSet } from './specification-state.js';
 import type { SpecificationTurn } from './specification.js';
 
@@ -17,6 +18,81 @@ export interface ReviewSetChangeSummary {
   added: number;
   removed: number;
   revised: number;
+}
+
+function groundingRefsEqual(
+  left: ReviewSetData['items'][number]['grounding'],
+  right: ReviewSetData['items'][number]['grounding'],
+): boolean {
+  if (left === right) {
+    return true;
+  }
+
+  if (!left?.length && !right?.length) {
+    return true;
+  }
+
+  if ((left?.length ?? 0) !== (right?.length ?? 0)) {
+    return false;
+  }
+
+  return left!.every((ref, index) => ref.code === right![index]?.code);
+}
+
+function reviewItemsDiffer(
+  predecessor: ReviewSetData['items'][number],
+  successor: ReviewSetData['items'][number],
+): boolean {
+  return (
+    predecessor.content !== successor.content ||
+    (predecessor.referenceCode ?? null) !== (successor.referenceCode ?? null) ||
+    (predecessor.rationale ?? null) !== (successor.rationale ?? null) ||
+    !groundingRefsEqual(predecessor.grounding, successor.grounding)
+  );
+}
+
+export function normalizeReviewSetForDisplay(
+  reviewSet: ReviewSetData,
+  predecessor?: ReviewSetData | null,
+): ReviewSetData {
+  if (!predecessor) {
+    return reviewSet;
+  }
+
+  const predecessorItemsByIdentity = new Map(
+    predecessor.items.map((item) => [getReviewItemIdentity(item), item] as const),
+  );
+
+  return {
+    ...reviewSet,
+    items: reviewSet.items.map((item) => {
+      const predecessorItem = predecessorItemsByIdentity.get(getReviewItemIdentity(item));
+      const normalizedItem: ReviewSetData['items'][number] = {
+        ...item,
+        ...(item.referenceCode === undefined && predecessorItem?.referenceCode
+          ? { referenceCode: predecessorItem.referenceCode }
+          : {}),
+        ...(item.rationale === undefined && predecessorItem?.rationale
+          ? { rationale: predecessorItem.rationale }
+          : {}),
+        ...(item.grounding === undefined && predecessorItem?.grounding
+          ? { grounding: predecessorItem.grounding }
+          : {}),
+      };
+
+      if (!predecessorItem) {
+        return 'isUserCreated' in item ? normalizedItem : { ...normalizedItem, isUserCreated: true };
+      }
+
+      if ('isRevised' in item) {
+        return normalizedItem;
+      }
+
+      return reviewItemsDiffer(predecessorItem, normalizedItem)
+        ? { ...normalizedItem, isRevised: true }
+        : normalizedItem;
+    }),
+  };
 }
 
 /**

@@ -20,8 +20,9 @@ import {
 import { ReviewPhaseCompletionCard } from '@/client/components/review-set-card';
 import type { ActivitySummary } from '@/shared/chat.js';
 import { getPhaseRoutePath, getWorkflowPhaseLabel } from '@/shared/phase-descriptors.js';
-import { getReviewRevisionNumber } from '@/shared/review-diffing.js';
+import { getReviewRevisionNumber, normalizeReviewSetForDisplay } from '@/shared/review-diffing.js';
 import {
+  getPersistedReviewAction,
   getPersistedReviewSet,
   getPersistedSelectedPositions,
   getPersistedTurnResponse,
@@ -53,8 +54,26 @@ function getReviewPhaseCompletionDescription(
   return 'The accepted criteria set is ready for export.';
 }
 
+function findPreviousAnsweredReviewSet(phaseTurns: readonly SpecificationTurn[], turnId?: number) {
+  let previousReviewSet: ReturnType<typeof getPersistedReviewSet> = null;
+
+  for (const phaseTurn of phaseTurns) {
+    if (turnId !== undefined && phaseTurn.id === turnId) {
+      break;
+    }
+
+    const reviewSet = getPersistedReviewSet(phaseTurn);
+    if (reviewSet && getPersistedReviewAction(phaseTurn)) {
+      previousReviewSet = reviewSet;
+    }
+  }
+
+  return previousReviewSet;
+}
+
 function renderWorkspaceHistoryArtifact({
   artifact,
+  phaseTurns,
   captureStatusByTurnId,
   renderPersistedActivity,
 }: {
@@ -72,6 +91,7 @@ function renderWorkspaceHistoryArtifact({
     | { kind: 'accepted-closure' }
     | { kind: 'divider' }
   >;
+  phaseTurns: readonly SpecificationTurn[];
   captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   renderPersistedActivity: (turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined) => React.ReactNode;
 }) {
@@ -139,7 +159,10 @@ function renderWorkspaceHistoryArtifact({
         >
           <AnsweredReviewSetCard
             turn={artifact.turn}
-            reviewSet={artifact.reviewSet}
+            reviewSet={normalizeReviewSetForDisplay(
+              artifact.reviewSet,
+              findPreviousAnsweredReviewSet(phaseTurns, artifact.turn.id),
+            )}
             revisionNumber={artifact.revisionNumber}
           />
         </WorkspaceArtifactRow>
@@ -153,7 +176,10 @@ function renderWorkspaceHistoryArtifact({
           <RevisionCard revisionNumber={artifact.revisionNumber} changeSummary={artifact.changeSummary} />
           <AnsweredReviewSetCard
             turn={artifact.turn}
-            reviewSet={artifact.reviewSet}
+            reviewSet={normalizeReviewSetForDisplay(
+              artifact.reviewSet,
+              findPreviousAnsweredReviewSet(phaseTurns, artifact.turn.id),
+            )}
             revisionNumber={artifact.revisionNumber}
           />
         </WorkspaceArtifactRow>
@@ -240,7 +266,10 @@ function renderWorkspaceInteractiveArtifact({
               }
               disabled={artifact.artifact.disabled}
               state={artifact.artifact.state}
-              reviewSet={reviewSet}
+              reviewSet={normalizeReviewSetForDisplay(
+                reviewSet,
+                findPreviousAnsweredReviewSet(phaseTurns, artifact.artifact.turn.id),
+              )}
               revisionNumber={getReviewRevisionNumber(artifact.artifact.turn, phaseTurns)}
             />
           ) : (
@@ -333,7 +362,10 @@ function renderWorkspaceInteractiveArtifact({
               hasPersistedResponse={false}
               disabled={artifact.artifact.disabled}
               state="active"
-              reviewSet={pendingReviewSet}
+              reviewSet={normalizeReviewSetForDisplay(
+                pendingReviewSet,
+                findPreviousAnsweredReviewSet(phaseTurns),
+              )}
               revisionNumber={
                 phaseTurns.filter(
                   (t) => getPersistedReviewSet(t) && getPersistedTurnResponse(t)?.reviewAction,
@@ -516,6 +548,7 @@ export function WorkspaceTranscriptArtifacts({
         case 'divider':
           return renderWorkspaceHistoryArtifact({
             artifact,
+            phaseTurns,
             captureStatusByTurnId,
             renderPersistedActivity,
           });

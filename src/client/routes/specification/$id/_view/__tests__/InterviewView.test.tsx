@@ -2531,6 +2531,331 @@ describe('InterviewView', () => {
     expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
   });
 
+  it('carries predecessor review metadata and explicit revision badges onto an active regenerated review turn', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
+          design: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 98,
+          },
+          requirements: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 2,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: 'Please revise this set',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Please revise this set' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 1,
+                  selectedOptionIds: [12],
+                  reviewAction: 'request-changes',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                      content: 'Resume the interview from persisted local state',
+                      rationale: 'Maintains the local-first continuity promise after reload.',
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 2) }],
+                    },
+                    {
+                      reviewItemId: 'requirements:2',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 2),
+                      content: 'Export the reviewed specification as markdown',
+                      rationale: 'Keeps the accepted review output portable for sharing.',
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 1) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+            ],
+          },
+          {
+            id: 2,
+            specification_id: 1,
+            parent_turn_id: 1,
+            phase: 'requirements',
+            question: 'Please review the revised requirement set.',
+            why: 'Review the revised set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the revised requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      content: 'Resume the interview from persisted local state after reload',
+                    },
+                    {
+                      reviewItemId: 'requirements:2',
+                      content: 'Export the reviewed specification as markdown',
+                    },
+                    {
+                      reviewItemId: 'requirements:3',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 3),
+                      content: 'Include rationale notes in the exported handoff',
+                      rationale: 'Lets operators see why the reviewed set was accepted.',
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 3) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:05:00',
+            options: [
+              { id: 21, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    const activeReviewCard = await screen.findByTestId('active-review-set-card');
+    expect(activeReviewCard).toBeTruthy();
+    expect(within(activeReviewCard).getByText('v2')).toBeTruthy();
+    expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('requirement', 1))).toBeTruthy();
+    expect(
+      within(activeReviewCard).getByText('Resume the interview from persisted local state after reload'),
+    ).toBeTruthy();
+    expect(
+      within(activeReviewCard).getByText('Maintains the local-first continuity promise after reload.'),
+    ).toBeTruthy();
+    expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('goal', 2))).toBeTruthy();
+    expect(within(activeReviewCard).getByText('Revised')).toBeTruthy();
+    expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('requirement', 3))).toBeTruthy();
+    expect(
+      within(activeReviewCard).getByText('Include rationale notes in the exported handoff'),
+    ).toBeTruthy();
+    expect(within(activeReviewCard).getByText('Added in revision')).toBeTruthy();
+    expect(screen.queryByText('Added by you')).toBeNull();
+  });
+
+  it('replays regenerated review turns with the same carried metadata and revision badge semantics', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 99,
+            summary: 'Grounding closed.',
+          },
+          design: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 98,
+            summary: 'Design closed.',
+          },
+          requirements: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 2,
+            summary: 'Requirements accepted.',
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            turnId: null,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: 'Please revise this set',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Please revise this set' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 1,
+                  selectedOptionIds: [12],
+                  reviewAction: 'request-changes',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                      content: 'Resume the interview from persisted local state',
+                      rationale: 'Maintains the local-first continuity promise after reload.',
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 2) }],
+                    },
+                    {
+                      reviewItemId: 'requirements:2',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 2),
+                      content: 'Export the reviewed specification as markdown',
+                      rationale: 'Keeps the accepted review output portable for sharing.',
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 1) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+            ],
+          },
+          {
+            id: 2,
+            specification_id: 1,
+            parent_turn_id: 1,
+            phase: 'requirements',
+            question: 'Please review the revised requirement set.',
+            why: 'Review the revised set before moving forward.',
+            impact: 'high',
+            answer: 'Accept review',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Accept review' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 2,
+                  selectedOptionIds: [21],
+                  reviewAction: 'accept',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the revised requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      content: 'Resume the interview from persisted local state after reload',
+                    },
+                    {
+                      reviewItemId: 'requirements:2',
+                      content: 'Export the reviewed specification as markdown',
+                    },
+                    {
+                      reviewItemId: 'requirements:3',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 3),
+                      content: 'Include rationale notes in the exported handoff',
+                      rationale: 'Lets operators see why the reviewed set was accepted.',
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 3) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:05:00',
+            options: [
+              { id: 21, position: 0, content: 'Accept review', is_recommended: true, is_selected: true },
+              { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    const revisionCard = await screen.findByTestId('revision-card');
+    expect(revisionCard.textContent).toContain('v2');
+
+    const answeredReviewCards = await screen.findAllByTestId('answered-review-set-card');
+    const answeredReviewCard = answeredReviewCards.at(-1);
+    expect(answeredReviewCard).toBeTruthy();
+    expect(
+      within(answeredReviewCard!).getByText(createKnowledgeReferenceCode('requirement', 1)),
+    ).toBeTruthy();
+    expect(
+      within(answeredReviewCard!).getByText('Resume the interview from persisted local state after reload'),
+    ).toBeTruthy();
+    expect(
+      within(answeredReviewCard!).getByText('Maintains the local-first continuity promise after reload.'),
+    ).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText(createKnowledgeReferenceCode('goal', 2))).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText('Revised')).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText('Added in revision')).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText('Review accepted.')).toBeTruthy();
+    expect(screen.queryByText('Added by you')).toBeNull();
+  });
+
   it('renders a pending review turn through the same lightweight review card family before route invalidation', async () => {
     setLoaderData(
       createWorkspaceLoaderData({

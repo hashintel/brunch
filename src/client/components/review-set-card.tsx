@@ -107,7 +107,7 @@ function ReviewSetItemRow({
         <div className="flex shrink-0 items-center gap-2 pt-0.5">
           {item.isUserCreated ? (
             <span className="inline-flex h-5 items-center rounded-md bg-[rgba(37,99,235,0.08)] px-1.5 text-[11px] font-medium text-[#2070e6]">
-              Added by you
+              Added in revision
             </span>
           ) : null}
           {item.isRevised ? (

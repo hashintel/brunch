@@ -28,7 +28,10 @@ export const ThinkingTokenScroll = memo(({ text, className }: ThinkingTokenScrol
   }, [text]);
 
   return (
-    <div ref={scrollRef} className={cn('h-16 overflow-hidden text-xs leading-4 text-muted-foreground', className)}>
+    <div
+      ref={scrollRef}
+      className={cn('h-16 overflow-hidden text-xs leading-4 text-muted-foreground', className)}
+    >
       <p className="break-words whitespace-pre-wrap">{text}</p>
     </div>
   );
