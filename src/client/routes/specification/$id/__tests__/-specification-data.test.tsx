@@ -126,11 +126,16 @@ describe('specification data ownership', () => {
     vi.unstubAllGlobals();
   });
 
-  it('uses one authoritative bundle key for workflow, landing, and turns', async () => {
-    await primeSpecificationBundle('42');
+  it('uses one authoritative bundle key for workflow, landing, and turns and reuses that cache for priming', async () => {
+    const firstPrime = await primeSpecificationBundle('42');
+    const secondPrime = await primeSpecificationBundle('42');
 
     expect(Object.keys(specificationQueryKeys)).toEqual(['bundle', 'entities']);
+    expect(firstPrime).toEqual(minimalSpecificationState);
+    expect(secondPrime).toEqual(minimalSpecificationState);
     expect(queryClient.getQueryData(specificationQueryKeys.bundle('42'))).toEqual(minimalSpecificationState);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42');
   });
 
   it('invalidates only the bundle and entities ownership domains', async () => {

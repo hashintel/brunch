@@ -62,6 +62,8 @@ Status: **partially landed on 2026-04-22** — `InterviewView` / `useInterviewCo
 
 ### Front 3 - Loader and entry-path consolidation
 
+Status: **landed on 2026-04-22** — `/specification/$id/` redirect decisions and `/specification/$id` route priming now both flow through `primeSpecificationBundle`, and the helper primes through one query-owned path instead of a raw redirect fetch plus bespoke cache writes.
+
 1. Remove the raw `/specification/$id/` redirect fetch as an independent source of truth.
 2. Make route loaders, redirect decisions, and cache priming all flow through the same owned specification data path.
 3. Prefer loader/query priming that matches the design intent in `docs/query-domain-design.md` instead of singleton cache writes that bypass the active route/query ownership model.

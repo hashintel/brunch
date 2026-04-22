@@ -3,8 +3,8 @@
 ## Orientation
 - **Containing seam:** specification-scoped client query ownership across `src/client/routes/specification/$id`, especially the boundary between the specification-owned read model (`workflow`, `landing`, `turns`) and the entities-owned read model.
 - **Frontier item:** `memory/PLAN.md` → **Active / Track A — Query ownership remediation**.
-- **Volatile state:** `memory/REFACTOR.md` remains the temporary execution decomposition; the bundle-ownership slice is now landed, and entry-path consolidation plus ownership oracles remain queued.
-- **Main open risk:** the `/specification/$id/` index redirect still bypasses the bundle-owned path with its own raw fetch, so direct navigation can preserve a second source of truth unless Card 2 consolidates it.
+- **Volatile state:** `memory/REFACTOR.md` remains the temporary execution decomposition; bundle ownership and entry-path consolidation are now landed, and the ownership-oracle slice is next.
+- **Main open risk:** the current tests still lean heavily on mocked invalidation assertions, so the remaining risk is proving observer, mutation, and direct-navigation ownership at the route/query boundary rather than only through unit seams.
 
 ---
 
@@ -46,10 +46,10 @@ Workflow state, landing state, and turns load and invalidate through one authori
 
 ---
 
-## Card 2 — next
+## Card 2 — done
 **Title:** Consolidate `/specification/$id/` redirect and loader priming onto the same bundle-owned path
 **Weight:** full
-**Status:** next
+**Status:** done
 
 ### Target Behavior
 Direct `/specification/$id/` navigation, redirect decisions, and route-loader priming all flow through the same specification bundle ownership path instead of using a raw independent fetch.
@@ -84,10 +84,10 @@ Direct `/specification/$id/` navigation, redirect decisions, and route-loader pr
 
 ---
 
-## Card 3 — queued
+## Card 3 — next
 **Title:** Add route/query ownership integration oracles for observer, mutation, and direct-navigation behavior
 **Weight:** full
-**Status:** queued
+**Status:** next
 
 ### Target Behavior
 Automated ownership tests prove that observer updates refresh only entities while turn/phase mutations and direct navigation refresh the specification bundle without tearing down transcript continuity.

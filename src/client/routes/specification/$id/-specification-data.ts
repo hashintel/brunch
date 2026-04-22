@@ -45,18 +45,18 @@ async function fetchSpecificationEntities(specificationId: string): Promise<Enti
   return (await response.json()) as EntitiesData;
 }
 
-export async function primeSpecificationBundle(specificationId: string) {
-  queryClient.setQueryData(
-    specificationQueryKeys.bundle(specificationId),
-    await fetchSpecificationBundle(specificationId),
-  );
+export async function primeSpecificationBundle(specificationId: string): Promise<SpecificationState> {
+  return await queryClient.ensureQueryData({
+    queryKey: specificationQueryKeys.bundle(specificationId),
+    queryFn: () => fetchSpecificationBundle(specificationId),
+  });
 }
 
-export async function primeSpecificationEntities(specificationId: string) {
-  queryClient.setQueryData(
-    specificationQueryKeys.entities(specificationId),
-    await fetchSpecificationEntities(specificationId),
-  );
+export async function primeSpecificationEntities(specificationId: string): Promise<EntitiesData> {
+  return await queryClient.ensureQueryData({
+    queryKey: specificationQueryKeys.entities(specificationId),
+    queryFn: () => fetchSpecificationEntities(specificationId),
+  });
 }
 
 export function useInvalidateSpecificationQueryDomains() {

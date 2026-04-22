@@ -244,15 +244,21 @@ describe('generated routeTree', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42/export');
   });
 
-  it('redirects project index to the grounding phase by default', async () => {
+  it('redirects project index to the grounding phase by default through one authoritative bundle fetch path', async () => {
     const { router } = await renderRouteAt('/specification/42');
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/specification/42/grounding');
     });
+
+    const specificationFetches = fetchMock.mock.calls.filter(([input]) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      return url === '/api/specifications/42';
+    });
+    expect(specificationFetches).toHaveLength(1);
   });
 
-  it('redirects a completed specification index to the output route', async () => {
+  it('redirects a completed specification index to the output route through one authoritative bundle fetch path', async () => {
     fetchMock.mockImplementation(async (input) => {
       const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
 
@@ -278,5 +284,11 @@ describe('generated routeTree', () => {
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/specification/42/export');
     });
+
+    const specificationFetches = fetchMock.mock.calls.filter(([input]) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      return url === '/api/specifications/42';
+    });
+    expect(specificationFetches).toHaveLength(1);
   });
 });
