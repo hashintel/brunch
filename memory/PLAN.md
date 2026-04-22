@@ -4,40 +4,37 @@
 
 # Plan
 
-The live frontier is now **Track A — Query ownership remediation**. Recent runtime/query commits already began this refactor, so this sync makes `memory/PLAN.md` match the actual in-flight work instead of leaving the overlap implicit. `memory/REFACTOR.md` remains a temporary execution decomposition inside this one frontier item, not a second planning authority.
-
-The interaction-model grounding/context work still matters, and the architecture/layout track still proceeds independently, but neither should outrank the live ownership repair while the transcript/entity boundary is still ambiguous.
+The live frontier is now **Track A — Interaction model**, centered on restoring review revision card contract consistency now that specification-scoped runtime proving has landed. The runtime seam no longer blocks grounding/design successor interactivity on observer capture, so the next planning pressure shifts back to transcript trust, while workflow-ownership extraction and brownfield/context follow-ons stay queued behind that freshly proven lifecycle contract.
 
 ## Active
 
-### Track A — Query ownership
+### Track A — Interaction model
 
-1. **Query ownership remediation** — restore one authoritative specification-owned read path for workflow state, landing state, and turns; keep entities as the separately invalidable domain; and prove that observer updates refresh only entity-owned surfaces instead of destabilizing the transcript.
-   - Why now / unlocks: recent commits already started this refactor, and the current fake `core` / `turns` split plus transcript-side entity subscription leave the canonical ownership boundary unclear. Finishing this frontier removes planning drift between `memory/PLAN.md` and `memory/REFACTOR.md` and stabilizes the client seam that later interaction-model work depends on.
-   - Live design inputs: `docs/query-domain-design.md` for query-owned routing/invalidation and loader priming, read through the current staged bundle-vs-entities correction; `docs/research/tanstack-loaders-vs-queries.md` for router-as-coordinator, targeted invalidation, and subscription placement; `docs/research/async-server-state-to-ui-sync-for-chat-observer-agents.md` for separating chat streaming from observer-owned entity refresh.
-   - Execution fronts: authoritative specification bundle path, transcript/entity boundary repair, loader and entry-path consolidation, ownership integration oracles, residual interaction-model truth pass, and cleanup + walkthrough validation.
-   - Traceability: D22, D87, D121; A20, A64; I24, I54, I102, I104.
+1. **Review revision card contract consistency** — make regenerated requirements/criteria review cards preserve the same display contract as the initial review card, including reference codes, grounding references, rationale line, and explicit badge semantics.
+   - Why now / unlocks: with runtime proving retired, the most visible remaining trust break from the same manual walkthrough is regenerated review-card drift (`Added by you` ambiguity, raw `requirements:one`-style identifiers, missing secondary lines). Fixing the review revision contract before more brownfield/context slices keeps accepted-review semantics legible.
+   - Execution fronts: align first-review and regenerated-review projection on one display contract; preserve stable reference codes, grounding/rationale secondary lines, and explicit badge semantics across live successor turns and replay; prove the contract in routed review tests without widening into broader review UX redesign.
+   - Traceability: D90, D118, D119; A61, A62; I87, I104.
 
 ## Next
 
 ### Track A — Interaction model
 
 1. **Brownfield workspace-analysis grounding brief** — first analysis-first grounding path using turn-internal grounding cards.
-   - Why now / unlocks: proves the turn-internal grounding-card seam against real brownfield repos once the query-ownership seam stops moving under the transcript surface.
+   - Why now / unlocks: now that deferred observer capture no longer blocks successor interactivity, this can prove the turn-internal grounding-card seam against real brownfield repos without reopening the core lifecycle question.
    - Traceability: D32, D83, D99, D117, D120; A47, A56; I101.
 
 2. **Reusable interviewer-invoked context gathering** — generalize context gathering beyond opening grounding.
-   - Why now / unlocks: broadens grounding capability without inventing a second artifact model. Best resumed after the active ownership refactor so the same runtime/query seams do not change twice.
+   - Why now / unlocks: broadens grounding capability without inventing a second artifact model. Best resumed after the brownfield grounding-brief slice proves the current interaction seam on real repositories.
    - Traceability: D99, D30, D32, D83, D117; I101, I104.
 
-### Track B — Architecture / layout
+### Track B — Runtime / workflow ownership
 
-3. **Workflow ownership extraction** — extract projector and `app.ts` workflow ownership.
-   - Why now / unlocks: architectural cleanup prerequisite for continuous workspace. Remains parallel to, not blocked by, query ownership.
-   - Traceability: D110, D112, D113; I24, I72, I104.
+3. **Workflow ownership extraction** — extract the workflow projector/read path and transition/orchestration write path behind explicit runtime-owned seams now that the D113 lifecycle contract has a concrete proving slice.
+   - Why now / unlocks: the runtime proving slice landed the deferred observer backlog seam without introducing a second durable workflow model. This cleanup can now separate transport, durable snapshot assembly, workflow projection, and workflow transition logic without guessing ahead.
+   - Traceability: D110, D112, D113, D123; I24, I72, I104, I105.
 
 4. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with phase section navigation.
-   - Why now / unlocks: depends on workflow extraction. Once in place, phase section headers render more naturally in their realized sections.
+   - Why now / unlocks: still depends on workflow ownership extraction. Once read/write workflow ownership is explicit, a continuous workspace can adopt one chat runtime and section-addressable focus without adding new lifecycle ambiguity.
    - Traceability: A58; D86, D87, D103, D107, D110, D113, D114; I24, I102.
 
 ## Horizon
@@ -65,23 +62,21 @@ The interaction-model grounding/context work still matters, and the architecture
 
 ## Recently Completed
 
-- [2026-04-21] Review per-item commenting and regeneration — Done: per-item comment toggles on review set items, structured `itemComments` in submission payload, interviewer context includes per-item comments for successor review turns, version badges (v1, v2, …) on active and answered review sets, revision cards stacked above successor review sets showing change summary, and prior revision collapsing (superseded reviews render as compact summaries). Verified: `npm run verify`.
-- [2026-04-21] Turn-internal grounding cards — Done: brownfield grounding turns produce both a grounding card and a question card within one turn lifecycle, observer captures the full validated unit, interviewer context renders stacked turns. Verified: `npm run verify`.
-- [2026-04-21] Close Phase confirmation modal — Done: in-progress grounding and elicitation phases open a confirmation modal with readiness and turn-count context before user-forced close.
+- [2026-04-22] Specification runtime state-machine proving retired — Done: decoupled grounding/design structured-response observer capture from interviewer successor readiness using a specification-scoped lifecycle backlog plus turn-owned `/api/specifications/:id/turns/:turnId/observer-capture`, preserved turn-owned capture status / stale-turn safety, and proved reload/reseed behavior without introducing a second durable workflow model. Verified: `npm run verify`. Watch: server dedupe is process-local and deferred capture is still scoped to grounding/design structured responses.
+- [2026-04-22] Query ownership remediation retired — Done: accepted the automated route/query oracles plus manual outer-loop walkthrough validation across `brownfield-grounding-replay`, `issue-tracker-requirements-ready`, `issue-tracker-criteria-ready`, and `issue-tracker-all-phases-closed`, then retired `Active → Track A — Query ownership → Query ownership remediation` as complete. Watch: the same walkthrough surfaced a new lifecycle/runtime concern around observer backlog independence and revision-card contract drift, which now anchors the next planning frontier.
+- [2026-04-22] Transcript/entity boundary repair — Done: moved the entities subscription out of `src/client/routes/specification/$id/_view/route.tsx`'s transcript-owning `ViewLayout` into entity-owned child surfaces only, and strengthened the mounted-route router oracle to prove entities invalidation refetches only `/entities` without remounting or rerendering the interview route. Verified: `npm run verify`.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
 ## Dependencies
 
 ```text
-TRACK A — Query ownership
-query-ownership-remediation  (active; canonical frontier — memory/REFACTOR.md is its temporary execution plan)
-
 TRACK A — Interaction model
+review-revision-card-contract-consistency  (active)
 brownfield-workspace-analysis-grounding-brief
   └──→ reusable-context-gathering
 
-TRACK B — Architecture / layout
+TRACK B — Runtime / workflow ownership
 workflow-ownership-extraction
   └──→ continuous-workspace-phase-addressable-interview-surface
 ```
