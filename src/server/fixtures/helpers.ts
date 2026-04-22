@@ -24,10 +24,11 @@ export function createEmptyFixtureObserverEntityIds(): ObserverResultData['entit
 
 function createFixtureActivitySummaryPart(
   tools: string[],
+  seconds?: number,
 ): Extract<BrunchAssistantPart, { type: 'data-activity-summary' }> {
   return {
     type: 'data-activity-summary',
-    data: { tools },
+    data: { seconds: seconds ?? 5 + (tools.join('').length % 10), tools },
   };
 }
 

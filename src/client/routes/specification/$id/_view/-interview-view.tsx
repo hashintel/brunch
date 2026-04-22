@@ -168,7 +168,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           ) : null}
         </div>
         <ChatScroll className="min-h-0 flex-1">
-          <div className="flex flex-col px-4 pt-3">
+          <div className="flex flex-col gap-4 px-4 pt-3">
             {showLockedState && currentReachablePhase && (
               <div className="mx-auto w-full max-w-2xl">
                 <WorkspaceStateCard
