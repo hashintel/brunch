@@ -137,7 +137,7 @@ describe('PhaseNavigationSidebar', () => {
     expect(rows[3].getAttribute('data-phase-status')).toBe('unstarted');
   });
 
-  it('shows readiness only for in-progress phases and keeps unstarted phases truthful', async () => {
+  it('does not show readiness indicators (suppressed by product decision)', async () => {
     const workflow = createWorkflowState({
       grounding: { status: 'closed', readiness: 'high' },
       design: { status: 'in_progress', readiness: 'medium' },
@@ -153,7 +153,7 @@ describe('PhaseNavigationSidebar', () => {
 
     expect(rows[0].textContent).toContain('Closed');
     expect(rows[0].textContent).toContain('2 turns');
-    expect(rows[1].textContent).toContain('Medium readiness');
+    expect(rows[1].textContent).not.toContain('Medium readiness');
     expect(rows[1].textContent).toContain('3 turns');
     expect(rows[2].textContent).toContain('Unstarted');
     expect(rows[2].textContent).not.toContain('Low readiness');

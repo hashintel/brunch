@@ -13,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/client/components/ui/dialog';
-import { cn } from '@/client/lib/utils';
 import type { WorkflowPhase } from '@/shared/api-types.js';
 import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
@@ -139,20 +138,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               <span className="text-base text-sub">
                 {phaseTurns.length} {phaseTurns.length === 1 ? 'Turn' : 'Turns'}
               </span>
-              <span className="text-hint">·</span>
-              <span className="text-base">
-                <span className="text-sub">Readiness: </span>
-                <span
-                  className={cn(
-                    'font-medium',
-                    phaseState.readiness === 'high' && 'text-emerald-600',
-                    phaseState.readiness === 'medium' && 'text-amber-600',
-                    phaseState.readiness === 'low' && 'text-sub',
-                  )}
-                >
-                  {readinessLabel}
-                </span>
-              </span>
+              {/* Readiness indicator suppressed (product decision) */}
             </div>
           </div>
           {showAdvanceAction ? (

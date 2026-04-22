@@ -24,10 +24,6 @@ function formatStatus(status: WorkflowPhaseState['status']): string {
   }
 }
 
-function formatReadiness(readiness: WorkflowPhaseState['readiness']): string {
-  return `${readiness[0]!.toUpperCase()}${readiness.slice(1)} readiness`;
-}
-
 function formatTurnCount(turnCount: number): string {
   return `${turnCount} ${turnCount === 1 ? 'turn' : 'turns'}`;
 }
@@ -82,21 +78,6 @@ function StatusMeta({ status }: { status: WorkflowPhaseState['status'] }) {
       )}
     >
       {formatStatus(status)}
-    </span>
-  );
-}
-
-function ReadinessMeta({ readiness }: { readiness: WorkflowPhaseState['readiness'] }) {
-  return (
-    <span
-      className={cn(
-        'rounded-full px-1.5 py-0.5 text-xs font-medium',
-        readiness === 'high' && 'bg-emerald-100 text-emerald-700',
-        readiness === 'medium' && 'bg-amber-100 text-amber-700',
-        readiness === 'low' && 'bg-zinc-100 text-zinc-500',
-      )}
-    >
-      {formatReadiness(readiness)}
     </span>
   );
 }
@@ -170,7 +151,6 @@ export function PhaseNavigationSidebar({
                   <div className="mt-1 flex flex-col gap-0.5 text-xs text-sub">
                     <div className="flex items-center gap-1.5">
                       <StatusMeta status={state.status} />
-                      {state.status === 'in_progress' ? <ReadinessMeta readiness={state.readiness} /> : null}
                     </div>
                     <span>{formatTurnCount(phaseTurnCounts[phase])}</span>
                   </div>
