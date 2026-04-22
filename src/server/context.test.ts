@@ -86,7 +86,7 @@ describe('buildInterviewerContext', () => {
         ]),
         assistant_parts: JSON.stringify([
           {
-            type: 'data-grounding-card',
+            type: 'data-preface',
             data: {
               observation: 'The repo already uses SQLite-backed local persistence.',
               elaboration: 'This is provisional context before the next substantive question.',
@@ -236,7 +236,7 @@ describe('buildInterviewerContext', () => {
         ]),
         assistant_parts: JSON.stringify([
           {
-            type: 'data-grounding-card',
+            type: 'data-preface',
             data: {
               observation: 'The repo uses a React frontend with SQLite storage.',
               elaboration: 'Provisional context from workspace analysis.',
@@ -633,7 +633,7 @@ describe('observer-context-projection', () => {
       ]),
       assistant_parts: JSON.stringify([
         {
-          type: 'data-grounding-card',
+          type: 'data-preface',
           data: {
             observation: 'The repo uses a React frontend with SQLite storage.',
             elaboration: 'Provisional context from workspace analysis.',

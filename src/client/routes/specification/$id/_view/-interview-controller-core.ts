@@ -9,7 +9,7 @@ import type {
 } from '@/shared/chat.js';
 import { getNextActivePhase } from '@/shared/phase-descriptors.js';
 import {
-  getPersistedGroundingCard,
+  getTurnPreface,
   hasPersistedTurnResponse,
   safeParsePersistedAssistantParts,
   safeParsePersistedUserParts,
@@ -303,9 +303,7 @@ function findPendingQuestion(messages: readonly BrunchUIMessage[]): PendingQuest
 function turnHasRenderableCard(
   turn: Pick<SpecificationTurn, 'question' | 'options' | 'assistant_parts'> | null | undefined,
 ): boolean {
-  return Boolean(
-    turn?.question?.trim() || turn?.options?.length || (turn && getPersistedGroundingCard(turn)),
-  );
+  return Boolean(turn?.question?.trim() || turn?.options?.length || (turn && getTurnPreface(turn)));
 }
 
 function findPhaseSummary(messages: readonly BrunchUIMessage[]): PhaseSummaryViewModel | null {

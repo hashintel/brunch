@@ -49,7 +49,7 @@ export const reviewSetSchema = z
     }
   });
 
-export const groundingCardSchema = z.object({
+export const prefaceSchema = z.object({
   observation: z.string().min(1),
   elaboration: z.string().min(1).nullable().optional(),
 });
@@ -132,7 +132,7 @@ export const askQuestionToolOutputSchema = z.object({
   optionCount: z.number(),
 });
 
-export const presentGroundingCardToolOutputSchema = z.object({
+export const presentPrefaceToolOutputSchema = z.object({
   ok: z.literal(true),
   turnId: z.number(),
 });
@@ -192,11 +192,11 @@ export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
 export type ReviewAction = z.infer<typeof reviewActionSchema>;
 export type ReviewActionOption = z.infer<typeof reviewActionOptionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
-export type PresentGroundingCardToolOutput = z.infer<typeof presentGroundingCardToolOutputSchema>;
+export type PresentPrefaceToolOutput = z.infer<typeof presentPrefaceToolOutputSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
 export type ObserverEntityIds = ObserverResultData['entityIds'];
 export type ReviewSetData = z.infer<typeof reviewSetSchema>;
-export type GroundingCardData = z.infer<typeof groundingCardSchema>;
+export type PrefaceData = z.infer<typeof prefaceSchema>;
 export type ActivitySummary = z.infer<typeof activitySummarySchema>;
 export type ReviewItemComment = z.infer<typeof reviewItemCommentSchema>;
 export type DataTurnResponse = z.infer<typeof dataTurnResponseSchema>;
@@ -212,7 +212,7 @@ export type BrunchMessageMetadata = {
 export type BrunchDataParts = {
   'observer-result': ObserverResultData;
   'review-set': ReviewSetData;
-  'grounding-card': GroundingCardData;
+  preface: PrefaceData;
   'activity-summary': ActivitySummary;
   'turn-response': DataTurnResponse;
   confirmation: DataConfirmation;
@@ -225,9 +225,9 @@ export type BrunchUITools = {
     input: StructuredQuestion;
     output: AskQuestionToolOutput;
   };
-  present_grounding_card: {
-    input: GroundingCardData;
-    output: PresentGroundingCardToolOutput;
+  present_preface: {
+    input: PrefaceData;
+    output: PresentPrefaceToolOutput;
   };
   propose_phase_closure: {
     input: PhaseClosureProposal;
@@ -244,11 +244,11 @@ export type BrunchAssistantPart =
       {
         type:
           | 'tool-ask_question'
-          | 'tool-present_grounding_card'
+          | 'tool-present_preface'
           | 'tool-propose_phase_closure'
           | 'data-observer-result'
           | 'data-review-set'
-          | 'data-grounding-card'
+          | 'data-preface'
           | 'data-activity-summary'
           | 'data-phase-summary';
       }
@@ -265,13 +265,13 @@ const persistedAssistantPartSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('step-start') }).loose(),
   z.object({ type: z.literal('text'), text: z.string() }).loose(),
   z.object({ type: z.literal('tool-ask_question'), input: structuredQuestionSchema }).loose(),
-  z.object({ type: z.literal('tool-present_grounding_card'), input: groundingCardSchema }).loose(),
+  z.object({ type: z.literal('tool-present_preface'), input: prefaceSchema }).loose(),
   z
     .object({ type: z.literal('tool-propose_phase_closure'), input: phaseClosureProposalSchema.optional() })
     .loose(),
   z.object({ type: z.literal('data-observer-result'), data: observerResultSchema }).loose(),
   z.object({ type: z.literal('data-review-set'), data: reviewSetSchema }).loose(),
-  z.object({ type: z.literal('data-grounding-card'), data: groundingCardSchema }).loose(),
+  z.object({ type: z.literal('data-preface'), data: prefaceSchema }).loose(),
   z.object({ type: z.literal('data-activity-summary'), data: activitySummarySchema }).loose(),
   z.object({ type: z.literal('data-phase-summary'), data: dataPhaseSummarySchema }).loose(),
 ]);
@@ -325,10 +325,10 @@ export const askQuestionValidationTool = tool({
   outputSchema: askQuestionToolOutputSchema,
 });
 
-export const presentGroundingCardValidationTool = tool({
-  description: 'Present a provisional grounding card before the next substantive interview move.',
-  inputSchema: groundingCardSchema,
-  outputSchema: presentGroundingCardToolOutputSchema,
+export const presentPrefaceValidationTool = tool({
+  description: 'Present a provisional preface before the next substantive interview move.',
+  inputSchema: prefaceSchema,
+  outputSchema: presentPrefaceToolOutputSchema,
 });
 
 export const proposePhaseClosureValidationTool = tool({
@@ -339,14 +339,14 @@ export const proposePhaseClosureValidationTool = tool({
 
 export const brunchValidationTools = {
   ask_question: askQuestionValidationTool,
-  present_grounding_card: presentGroundingCardValidationTool,
+  present_preface: presentPrefaceValidationTool,
   propose_phase_closure: proposePhaseClosureValidationTool,
 } as const;
 
 export const brunchDataPartSchemas = {
   'observer-result': observerResultSchema,
   'review-set': reviewSetSchema,
-  'grounding-card': groundingCardSchema,
+  preface: prefaceSchema,
   'activity-summary': activitySummarySchema,
   'turn-response': dataTurnResponseSchema,
   confirmation: dataConfirmationSchema,
@@ -361,7 +361,7 @@ export type PersistedBrunchAssistantPart = Extract<
       | 'text'
       | 'data-observer-result'
       | 'data-review-set'
-      | 'data-grounding-card'
+      | 'data-preface'
       | 'data-phase-summary'
       | 'data-activity-summary';
   }
@@ -372,7 +372,7 @@ const ASSISTANT_PART_TYPES: ReadonlySet<PersistedBrunchAssistantPart['type']> = 
   'text',
   'data-observer-result',
   'data-review-set',
-  'data-grounding-card',
+  'data-preface',
   'data-phase-summary',
   'data-activity-summary',
 ] as const satisfies PersistedBrunchAssistantPart['type'][]);
@@ -386,7 +386,7 @@ type InternalToolPartType = `tool-${keyof BrunchUITools}`;
 
 const INTERNAL_TOOL_PART_TYPES: ReadonlySet<InternalToolPartType> = new Set<InternalToolPartType>([
   'tool-ask_question',
-  'tool-present_grounding_card',
+  'tool-present_preface',
   'tool-propose_phase_closure',
 ]);
 

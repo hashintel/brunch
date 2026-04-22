@@ -6,7 +6,7 @@ import {
   findTurnOptionsByPositions,
   getAcceptedClosureReplay,
   getPersistedActivitySummary,
-  getPersistedGroundingCard,
+  getTurnPreface,
   getPersistedReviewAction,
   getPersistedReviewSet,
   getReviewActionForSelectedPositions,
@@ -178,12 +178,12 @@ describe('specification-state helpers', () => {
     expect(turnIsControlOrClosureArtifact(createTurn({ id: 1 }), new Set())).toBe(false);
   });
 
-  it('reads persisted grounding-card artifacts from assistant parts', () => {
-    const groundingTurn = createTurn({
+  it('reads persisted preface artifacts from assistant parts', () => {
+    const prefaceTurn = createTurn({
       answer: null,
       assistant_parts: JSON.stringify([
         {
-          type: 'data-grounding-card',
+          type: 'data-preface',
           data: {
             observation: 'The repo already uses local-first persistence.',
             elaboration: 'The next turn should narrow the feature-area boundary before design choices.',
@@ -193,7 +193,7 @@ describe('specification-state helpers', () => {
       options: [{ id: 11, position: 0, content: 'Continue', is_recommended: true, is_selected: false }],
     });
 
-    expect(getPersistedGroundingCard(groundingTurn)).toEqual({
+    expect(getTurnPreface(prefaceTurn)).toEqual({
       observation: 'The repo already uses local-first persistence.',
       elaboration: 'The next turn should narrow the feature-area boundary before design choices.',
     });

@@ -2,7 +2,7 @@ import type { WorkflowPhase } from '@/shared/api-types.js';
 import { computeReviewSetChangeSummary, type ReviewSetChangeSummary } from '@/shared/review-diffing.js';
 import {
   getAcceptedClosureReplay,
-  getPersistedGroundingCard,
+  getTurnPreface,
   getPersistedReviewAction,
   getPersistedReviewSet,
   toStructuralArtifactTurnIdSet,
@@ -40,9 +40,9 @@ export type WorkspaceStreamArtifact =
       readonly questionCode: string;
     }
   | {
-      readonly kind: 'answered-grounding-question';
+      readonly kind: 'prefaced-question';
       readonly turn: SpecificationTurn;
-      readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
+      readonly preface: NonNullable<ReturnType<typeof getTurnPreface>>;
       readonly questionCode: string;
     }
   | {
@@ -78,9 +78,9 @@ export type WorkspaceStreamArtifact =
       readonly questionCode: string;
     }
   | {
-      readonly kind: 'persisted-grounding-question';
+      readonly kind: 'active-prefaced-question';
       readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
-      readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
+      readonly preface: NonNullable<ReturnType<typeof getTurnPreface>>;
       readonly questionCode: string;
     }
   | {
@@ -225,13 +225,13 @@ function projectHistoryArtifacts({
       continue;
     }
 
-    const groundingCard = getPersistedGroundingCard(turn);
-    if (groundingCard && turn.question?.trim()) {
+    const preface = getTurnPreface(turn);
+    if (preface && turn.question?.trim()) {
       answeredTurnCount += 1;
       historyArtifacts.push({
-        kind: 'answered-grounding-question',
+        kind: 'prefaced-question',
         turn,
-        groundingCard,
+        preface,
         questionCode: `Q${answeredTurnCount}`,
       });
       continue;
@@ -311,12 +311,12 @@ function projectBottomArtifact(
 
   switch (bottomArtifact?.kind) {
     case 'persisted-turn': {
-      const groundingCard = getPersistedGroundingCard(bottomArtifact.turn);
-      if (groundingCard && bottomArtifact.turn.question?.trim()) {
+      const preface = getTurnPreface(bottomArtifact.turn);
+      if (preface && bottomArtifact.turn.question?.trim()) {
         return {
-          kind: 'persisted-grounding-question',
+          kind: 'active-prefaced-question',
           artifact: bottomArtifact,
-          groundingCard,
+          preface,
           questionCode,
         };
       }
@@ -387,7 +387,7 @@ function shouldInsertDivider({
     historyArtifacts.length > 0 &&
     (controlArtifacts.length > 0 ||
       bottomArtifact?.kind === 'persisted-turn' ||
-      bottomArtifact?.kind === 'persisted-grounding-question' ||
+      bottomArtifact?.kind === 'active-prefaced-question' ||
       bottomArtifact?.kind === 'pending-question' ||
       bottomArtifact?.kind === 'phase-summary' ||
       bottomArtifact?.kind === 'generating' ||
@@ -420,7 +420,7 @@ export function specificationWorkspaceStream({
     structuralArtifactTurnIds,
   });
   const answeredTurnCount = historyArtifacts.filter(
-    (artifact) => artifact.kind === 'answered-turn' || artifact.kind === 'answered-grounding-question',
+    (artifact) => artifact.kind === 'answered-turn' || artifact.kind === 'prefaced-question',
   ).length;
   const projectedBottomArtifact = projectBottomArtifact(bottomArtifact, answeredTurnCount);
   const controlArtifacts = projectControlMarkers(controlMarkers);

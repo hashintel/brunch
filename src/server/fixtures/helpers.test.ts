@@ -6,7 +6,7 @@ import {
   createFixtureReviewQuestionInput,
   serializeFixtureAcceptedReviewUserParts,
   serializeFixtureConfirmationUserParts,
-  serializeFixtureGroundingCardAssistantParts,
+  serializeFixturePrefaceAssistantParts,
   serializeFixturePhaseConfirmationUserParts,
   serializeFixturePhaseProposalAssistantParts,
   serializeFixtureQuestionAssistantParts,
@@ -96,7 +96,7 @@ describe('fixture helpers', () => {
 
   it('serializes grounding cards as persisted grounding artifacts', () => {
     const parts = deserializeAssistantParts(
-      serializeFixtureGroundingCardAssistantParts({
+      serializeFixturePrefaceAssistantParts({
         observation: 'Later context gathering narrowed the next move.',
         elaboration: 'Continue to keep moving through the same stream.',
       }),
@@ -108,7 +108,7 @@ describe('fixture helpers', () => {
         data: { seconds: 5, tools: [] },
       },
       {
-        type: 'data-grounding-card',
+        type: 'data-preface',
         data: {
           observation: 'Later context gathering narrowed the next move.',
           elaboration: 'Continue to keep moving through the same stream.',

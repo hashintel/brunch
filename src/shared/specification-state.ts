@@ -3,7 +3,7 @@ import {
   safeDecodePersistedAssistantParts,
   safeDecodePersistedUserParts,
   structuredQuestionSchema,
-  type GroundingCardData,
+  type PrefaceData,
   type ReviewSetData,
   summarizeAssistantActivity,
   type ActivitySummary,
@@ -54,13 +54,12 @@ export function getPersistedReviewSet(
   );
 }
 
-export function getPersistedGroundingCard(
+export function getTurnPreface(
   turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined,
-): GroundingCardData | null {
+): PrefaceData | null {
   return (
     safeParsePersistedAssistantParts(turn?.assistant_parts).find(
-      (part): part is Extract<BrunchAssistantPart, { type: 'data-grounding-card' }> =>
-        part.type === 'data-grounding-card',
+      (part): part is Extract<BrunchAssistantPart, { type: 'data-preface' }> => part.type === 'data-preface',
     )?.data ?? null
   );
 }
@@ -104,7 +103,7 @@ export function turnNeedsObserverCapture(
     return false;
   }
 
-  if (getPersistedGroundingCard(turn) && !turn.question?.trim()) {
+  if (getTurnPreface(turn) && !turn.question?.trim()) {
     return false;
   }
 

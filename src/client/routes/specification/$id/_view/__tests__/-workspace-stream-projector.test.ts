@@ -163,7 +163,7 @@ describe('specificationWorkspaceStream', () => {
       question: 'What is the primary feature area?',
       assistant_parts: JSON.stringify([
         {
-          type: 'data-grounding-card',
+          type: 'data-preface',
           data: {
             observation: 'The repo already uses SQLite-backed local persistence.',
             elaboration: 'This is provisional context for the next move.',
@@ -194,12 +194,12 @@ describe('specificationWorkspaceStream', () => {
 
     expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
       'phase-section-header',
-      'answered-grounding-question',
+      'prefaced-question',
       'answered-turn',
     ]);
 
     const groundingArtifact = projection.streamArtifacts[1];
-    if (groundingArtifact.kind !== 'answered-grounding-question') {
+    if (groundingArtifact.kind !== 'prefaced-question') {
       throw new Error('Expected answered-grounding-question artifact');
     }
     expect(groundingArtifact.questionCode).toBe('Q1');
@@ -217,7 +217,7 @@ describe('specificationWorkspaceStream', () => {
       question: 'What is the primary user persona?',
       assistant_parts: JSON.stringify([
         {
-          type: 'data-grounding-card',
+          type: 'data-preface',
           data: {
             observation: 'The repo uses a React frontend with SQLite storage.',
             elaboration: 'Provisional context from workspace analysis.',
@@ -245,15 +245,15 @@ describe('specificationWorkspaceStream', () => {
 
     expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
       'phase-section-header',
-      'answered-grounding-question',
+      'prefaced-question',
       'answered-turn',
     ]);
 
     const stackedArtifact = projection.streamArtifacts[1];
-    if (stackedArtifact.kind !== 'answered-grounding-question') {
+    if (stackedArtifact.kind !== 'prefaced-question') {
       throw new Error('Expected answered-grounding-question artifact');
     }
-    expect(stackedArtifact.groundingCard).toBeTruthy();
+    expect(stackedArtifact.preface).toBeTruthy();
     expect(stackedArtifact.questionCode).toBe('Q1');
 
     const followUpArtifact = projection.streamArtifacts[2];
@@ -277,7 +277,7 @@ describe('specificationWorkspaceStream', () => {
         user_parts: null,
         assistant_parts: JSON.stringify([
           {
-            type: 'data-grounding-card',
+            type: 'data-preface',
             data: {
               observation: 'Found package.json with React and Vite.',
               elaboration: 'Provisional workspace context.',
@@ -305,14 +305,14 @@ describe('specificationWorkspaceStream', () => {
 
     expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
       'phase-section-header',
-      'persisted-grounding-question',
+      'active-prefaced-question',
     ]);
 
     const stackedArtifact = projection.streamArtifacts[1];
-    if (stackedArtifact.kind !== 'persisted-grounding-question') {
+    if (stackedArtifact.kind !== 'active-prefaced-question') {
       throw new Error('Expected persisted-grounding-question artifact');
     }
-    expect(stackedArtifact.groundingCard).toBeTruthy();
+    expect(stackedArtifact.preface).toBeTruthy();
     expect(stackedArtifact.questionCode).toBe('Q1');
   });
 

@@ -172,7 +172,7 @@ describe('assistant part round-trip', () => {
         },
       },
       {
-        type: 'data-grounding-card',
+        type: 'data-preface',
         data: {
           observation:
             'The repo already uses SQLite-backed local persistence and a routed three-pane app shell.',

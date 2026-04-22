@@ -23,7 +23,7 @@ import {
   createFixtureReviewQuestionInput,
   serializeFixtureAcceptedReviewUserParts,
   serializeFixtureConfirmationUserParts,
-  serializeFixtureGroundingCardAssistantParts,
+  serializeFixturePrefaceAssistantParts,
   serializeFixturePhaseConfirmationUserParts,
   serializeFixturePhaseProposalAssistantParts,
   serializeFixtureQuestionAssistantParts,
@@ -843,7 +843,7 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
     answer: 'The chat-runtime finalization path and replay seam.',
     assistant_parts: serializeParts([
       ...JSON.parse(
-        serializeFixtureGroundingCardAssistantParts({
+        serializeFixturePrefaceAssistantParts({
           observation: 'The repo already uses SQLite-backed local persistence.',
           elaboration: 'This provisional brief grounds the first brownfield move.',
         }),
@@ -878,7 +878,7 @@ export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number)
     answer: null,
     assistant_parts: serializeParts([
       ...JSON.parse(
-        serializeFixtureGroundingCardAssistantParts({
+        serializeFixturePrefaceAssistantParts({
           observation: 'Later context gathering narrowed the work to turn-finalization ownership.',
           elaboration: 'Continue to move from replay evidence back into the next substantive question.',
         }),
@@ -1041,7 +1041,7 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
     seedScenario: phaseTransitionScenarios['brownfield-grounding-replay']!,
     label: 'Brownfield reusable grounding replay',
     inspectionFocus:
-      'Brownfield kickoff, answered grounding-card continue, later reusable context gathering, and resume all stay legible through the same replay seam.',
+      'Brownfield kickoff, answered preface continue, later reusable context gathering, and resume all stay legible through the same replay seam.',
     expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
   },
   {

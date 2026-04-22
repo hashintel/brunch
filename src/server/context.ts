@@ -4,7 +4,7 @@ import type { SpecificationMode } from '@/shared/api-types.js';
 import type { ReviewSetData } from '@/shared/chat.js';
 import { knowledgeKindRegistry } from '@/shared/knowledge.js';
 import { getReviewItemIdentity } from '@/shared/review-diffing.js';
-import { getPersistedGroundingCard, getPersistedReviewSet } from '@/shared/specification-state.js';
+import { getTurnPreface, getPersistedReviewSet } from '@/shared/specification-state.js';
 
 import type { TurnWithOptions } from './core.js';
 import { formatProjectedTurnResponse, projectTurnResponse } from './turn-response.js';
@@ -101,12 +101,12 @@ export function buildInterviewerContext(
   const sections: string[] = [];
   const lines: string[] = [];
   for (const turn of turns) {
-    const groundingCard = getPersistedGroundingCard(turn);
+    const preface = getTurnPreface(turn);
     const reviewSet = getPersistedReviewSet(turn);
-    if (groundingCard) {
-      lines.push(`Grounding preface: ${groundingCard.observation}`);
-      if (groundingCard.elaboration) {
-        lines.push(`  Elaboration: ${groundingCard.elaboration}`);
+    if (preface) {
+      lines.push(`Grounding preface: ${preface.observation}`);
+      if (preface.elaboration) {
+        lines.push(`  Elaboration: ${preface.elaboration}`);
       }
     }
 
@@ -224,11 +224,11 @@ export function buildObserverContext(input: ObserverContextInput): string {
   }
 
   const turnLines = [`Current turn #${input.turn.id}:`, `  Phase: ${input.turn.phase}`];
-  const groundingCard = getPersistedGroundingCard(input.turn);
-  if (groundingCard) {
-    turnLines.push(`  Grounding preface: ${groundingCard.observation}`);
-    if (groundingCard.elaboration) {
-      turnLines.push(`  Preface elaboration: ${groundingCard.elaboration}`);
+  const preface = getTurnPreface(input.turn);
+  if (preface) {
+    turnLines.push(`  Grounding preface: ${preface.observation}`);
+    if (preface.elaboration) {
+      turnLines.push(`  Preface elaboration: ${preface.elaboration}`);
     }
   }
   if (input.turn.question) turnLines.push(`  Question: ${input.turn.question}`);

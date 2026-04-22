@@ -2,7 +2,7 @@ import { Check, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Impact, ReviewAction } from '@/shared/api-types.js';
-import type { ActivitySummary, GroundingCardData } from '@/shared/chat.js';
+import type { ActivitySummary, PrefaceData } from '@/shared/chat.js';
 import type { ReviewSetChangeSummary } from '@/shared/review-diffing.js';
 import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/specification-state.js';
 import type { SpecificationTurn } from '@/shared/specification.js';
@@ -173,22 +173,20 @@ export function AnsweredReviewSetCard({
   );
 }
 
-export function AnsweredGroundingCard({ groundingCard }: { groundingCard: GroundingCardData }) {
+export function PrefaceCard({ preface }: { preface: PrefaceData }) {
   return (
-    <div data-testid="answered-grounding-card">
+    <div data-testid="preface-card">
       <DrawerCard
         locked
         header={
           <div className="flex flex-col gap-1.5">
             <span className="text-xs font-medium tracking-wide text-[#2070e6] uppercase">Grounding</span>
-            <p className="text-sm-plus font-medium tracking-[-0.015em] text-ink">
-              {groundingCard.observation}
-            </p>
+            <p className="text-sm-plus font-medium tracking-[-0.015em] text-ink">{preface.observation}</p>
           </div>
         }
         summary={
-          groundingCard.elaboration ? (
-            <p className="text-xs-plus leading-relaxed text-sub">{groundingCard.elaboration}</p>
+          preface.elaboration ? (
+            <p className="text-xs-plus leading-relaxed text-sub">{preface.elaboration}</p>
           ) : undefined
         }
       />

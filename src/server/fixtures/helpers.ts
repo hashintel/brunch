@@ -2,7 +2,7 @@ import {
   type BrunchAssistantPart,
   type BrunchUserPart,
   type DataTurnResponse,
-  type GroundingCardData,
+  type PrefaceData,
   type ObserverResultData,
   type ReviewAction,
   type ReviewSetData,
@@ -147,11 +147,11 @@ export function serializeFixturePhaseProposalAssistantParts({
   ] satisfies BrunchAssistantPart[]);
 }
 
-export function serializeFixtureGroundingCardAssistantParts(data: GroundingCardData): string {
+export function serializeFixturePrefaceAssistantParts(data: PrefaceData): string {
   return serializeParts([
     createFixtureActivitySummaryPart([]),
     {
-      type: 'data-grounding-card',
+      type: 'data-preface',
       data,
     },
   ] satisfies BrunchAssistantPart[]);

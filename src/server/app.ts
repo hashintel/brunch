@@ -30,7 +30,7 @@ import {
 } from '@/shared/phase-close.js';
 import { getPhaseIntentDisplayText } from '@/shared/phase-intents.js';
 import {
-  getPersistedGroundingCard,
+  getTurnPreface,
   getPersistedTurnResponse,
   getReviewActionForSelectedPositions,
   toStructuralArtifactTurnIdSet,
@@ -643,7 +643,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
         if (activeTurn) {
           skipObserverForCurrentChatTurn =
-            Boolean(getPersistedGroundingCard(activeTurn)) && !activeTurn.question?.trim();
+            Boolean(getTurnPreface(activeTurn)) && !activeTurn.question?.trim();
           deferObserverCaptureToRuntime =
             getPersistedTurnResponse(activeTurn) !== null &&
             (activeTurn.phase === 'grounding' || activeTurn.phase === 'design');
@@ -744,7 +744,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
             observedTurn.answer !== null &&
             !deferObserverCaptureToRuntime &&
             !skipObserverForCurrentChatTurn &&
-            !(getPersistedGroundingCard(observedTurn) && !observedTurn.question?.trim()) &&
+            !(getTurnPreface(observedTurn) && !observedTurn.question?.trim()) &&
             !persistedUserParts.some((part) => part.type === 'data-confirmation') &&
             !safeDeserializeAssistantParts(observedTurn.assistant_parts).some(
               (part) =>

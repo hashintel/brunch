@@ -354,7 +354,7 @@ describe('brownfield interviewer configuration', () => {
     expect(toolNames).toContain('grep');
     expect(toolNames).toContain('find_files');
     expect(toolNames).toContain('list_directory');
-    expect(toolNames).toContain('present_grounding_card');
+    expect(toolNames).toContain('present_preface');
     expect(toolNames).toContain('ask_question');
   });
 
@@ -404,7 +404,7 @@ describe('brownfield interviewer configuration', () => {
     expect(brownfieldPrompt).not.toBe(greenfieldPrompt);
     expect(brownfieldPrompt).toContain('explore');
     expect(brownfieldPrompt).toContain('/tmp/repo');
-    expect(brownfieldPrompt).toContain('present_grounding_card');
+    expect(brownfieldPrompt).toContain('present_preface');
     expect(brownfieldPrompt).toContain('bounded feature area');
     expect(brownfieldPrompt).toContain('partial');
     expect(brownfieldPrompt).toContain('call BOTH tools in sequence');

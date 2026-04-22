@@ -9,7 +9,7 @@ import {
 import {
   ActiveQuestionCard,
   ActiveReviewSetCard,
-  AnsweredGroundingCard,
+  PrefaceCard,
   AnsweredQuestionCard,
   AnsweredReviewSetCard,
   CollapsedReviewCard,
@@ -82,7 +82,7 @@ function renderWorkspaceHistoryArtifact({
     | { kind: 'phase-marker' }
     | { kind: 'control-marker' }
     | { kind: 'answered-turn' }
-    | { kind: 'answered-grounding-question' }
+    | { kind: 'prefaced-question' }
     | { kind: 'answered-review-turn' }
     | { kind: 'answered-revision-review' }
     | { kind: 'collapsed-review-turn' }
@@ -126,13 +126,13 @@ function renderWorkspaceHistoryArtifact({
           />
         </WorkspaceArtifactRow>
       );
-    case 'answered-grounding-question':
+    case 'prefaced-question':
       return (
         <WorkspaceArtifactRow
-          key={`answered-grounding-question-${artifact.turn.id}`}
+          key={`prefaced-question-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
         >
-          <AnsweredGroundingCard groundingCard={artifact.groundingCard} />
+          <PrefaceCard preface={artifact.preface} />
           <AnsweredQuestionCard
             turn={artifact.turn}
             questionCode={artifact.questionCode}
@@ -210,7 +210,7 @@ function renderWorkspaceInteractiveArtifact({
   artifact: Extract<
     WorkspaceStreamArtifact,
     | { kind: 'persisted-turn' }
-    | { kind: 'persisted-grounding-question' }
+    | { kind: 'active-prefaced-question' }
     | { kind: 'pending-question' }
     | { kind: 'kickoff' }
     | { kind: 'recovery' }
@@ -281,10 +281,10 @@ function renderWorkspaceInteractiveArtifact({
         </WorkspaceArtifactRow>
       );
     }
-    case 'persisted-grounding-question':
+    case 'active-prefaced-question':
       return (
         <WorkspaceArtifactRow
-          key={`persisted-grounding-question-${artifact.artifact.turn.id}`}
+          key={`active-prefaced-question-${artifact.artifact.turn.id}`}
           activity={
             artifact.artifact.liveActivity
               ? renderLiveActivity(artifact.artifact.liveActivity)
@@ -292,9 +292,9 @@ function renderWorkspaceInteractiveArtifact({
           }
           errorMessage={artifact.artifact.errorMessage}
         >
-          <AnsweredGroundingCard groundingCard={artifact.groundingCard} />
+          <PrefaceCard preface={artifact.preface} />
           <ActiveQuestionCard
-            id={`persisted-grounding-question-${artifact.artifact.turn.id}`}
+            id={`active-prefaced-question-${artifact.artifact.turn.id}`}
             questionCode={artifact.questionCode}
             question={artifact.artifact.turn.question}
             why={artifact.artifact.turn.why}
@@ -503,7 +503,7 @@ export function WorkspaceTranscriptArtifacts({
         case 'phase-marker':
         case 'control-marker':
         case 'answered-turn':
-        case 'answered-grounding-question':
+        case 'prefaced-question':
         case 'answered-review-turn':
         case 'answered-revision-review':
         case 'collapsed-review-turn':
@@ -516,7 +516,7 @@ export function WorkspaceTranscriptArtifacts({
             renderPersistedActivity,
           });
         case 'persisted-turn':
-        case 'persisted-grounding-question':
+        case 'active-prefaced-question':
         case 'pending-question':
         case 'kickoff':
         case 'recovery':

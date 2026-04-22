@@ -2,11 +2,7 @@ import { describe, expect, it } from 'vitest';
 
 import type { ReviewSetData } from '@/shared/chat.js';
 
-import {
-  getRuntimeGroundingCard,
-  getRuntimeReviewMetadata,
-  materializeTurnArtifacts,
-} from './turn-artifacts.js';
+import { getRuntimePreface, getRuntimeReviewMetadata, materializeTurnArtifacts } from './turn-artifacts.js';
 
 function createReviewSet(phase: 'requirements' | 'criteria' = 'requirements'): ReviewSetData {
   return {
@@ -146,12 +142,12 @@ describe('turn-artifacts', () => {
     ]);
   });
 
-  it('materializes durable grounding-card artifacts instead of persisting the tool call', () => {
-    const groundingCard = getRuntimeGroundingCard({
+  it('materializes durable preface artifacts instead of persisting the tool call', () => {
+    const preface = getRuntimePreface({
       parts: [
         {
-          type: 'tool-present_grounding_card',
-          toolCallId: 'tool-grounding-card',
+          type: 'tool-present_preface',
+          toolCallId: 'tool-preface',
           state: 'output-available',
           input: {
             observation: 'The repo already uses SQLite-backed local persistence.',
@@ -162,14 +158,14 @@ describe('turn-artifacts', () => {
       ],
     });
 
-    expect(groundingCard).toEqual({
-      type: 'data-grounding-card',
+    expect(preface).toEqual({
+      type: 'data-preface',
       data: {
         observation: 'The repo already uses SQLite-backed local persistence.',
         elaboration: 'This is provisional context before the next substantive move.',
       },
     });
-    if (!groundingCard) {
+    if (!preface) {
       throw new Error('Expected grounding card metadata');
     }
 
@@ -178,17 +174,17 @@ describe('turn-artifacts', () => {
       responseMessage: {
         parts: [
           {
-            type: 'tool-present_grounding_card',
-            toolCallId: 'tool-grounding-card',
+            type: 'tool-present_preface',
+            toolCallId: 'tool-preface',
             state: 'output-available',
-            input: groundingCard.data,
+            input: preface.data,
             output: { ok: true, turnId: 7 },
           },
         ],
       },
     });
 
-    expect(artifacts).toEqual([groundingCard]);
+    expect(artifacts).toEqual([preface]);
   });
 
   it('uses the provided fallback review set when the interviewer output has no review metadata', () => {

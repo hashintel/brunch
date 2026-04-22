@@ -227,10 +227,10 @@ async function makeStructuredQuestionInterviewer(
   };
 }
 
-async function makeGroundingCardInterviewer(
+async function makePrefaceInterviewer(
   dbArg: DB,
   turnId: number,
-  groundingCard = {
+  preface = {
     observation: 'The repo already uses SQLite-backed local persistence and a routed interview surface.',
     elaboration: 'This is provisional context before the first substantive grounding question.',
   },
@@ -263,18 +263,18 @@ async function makeGroundingCardInterviewer(
   return {
     toUIMessageStream: () =>
       makeUIChunkStream([
-        { type: 'start', messageId: 'msg-grounding-card' },
-        { type: 'tool-input-start', toolCallId: 'tool-grounding-1', toolName: 'present_grounding_card' },
+        { type: 'start', messageId: 'msg-preface' },
+        { type: 'tool-input-start', toolCallId: 'tool-preface-1', toolName: 'present_preface' },
         {
           type: 'tool-input-available',
-          toolCallId: 'tool-grounding-1',
-          toolName: 'present_grounding_card',
-          input: groundingCard,
+          toolCallId: 'tool-preface-1',
+          toolName: 'present_preface',
+          input: preface,
         },
         {
           type: 'tool-output-available',
-          toolCallId: 'tool-grounding-1',
-          toolName: 'present_grounding_card',
+          toolCallId: 'tool-preface-1',
+          toolName: 'present_preface',
           output: { ok: true, turnId },
         },
         { type: 'tool-input-start', toolCallId: 'tool-q-1', toolName: 'ask_question' },
@@ -587,7 +587,7 @@ describe('POST /api/specifications/:id/chat', () => {
     );
   });
 
-  it('persists a grounding-card first turn after brownfield kickoff instead of a repo-summary question handoff', async () => {
+  it('persists a preface first turn after brownfield kickoff instead of a repo-summary question handoff', async () => {
     const { createSpecification, getActivePath, getOptionsForTurn } = await import('./db.js');
     const projectId = createSpecification(db, 'Brownfield grounding card').id;
 
@@ -597,7 +597,7 @@ describe('POST /api/specifications/:id/chat', () => {
       .expect(200, { ok: true });
 
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
-      makeGroundingCardInterviewer(dbArg as DB, (turn as { id: number }).id),
+      makePrefaceInterviewer(dbArg as DB, (turn as { id: number }).id),
     );
 
     await request(app)
@@ -630,7 +630,7 @@ describe('POST /api/specifications/:id/chat', () => {
     expect(assistantParts).toEqual(
       expect.arrayContaining([
         {
-          type: 'data-grounding-card',
+          type: 'data-preface',
           data: {
             observation:
               'The repo already uses SQLite-backed local persistence and a routed interview surface.',
@@ -640,7 +640,7 @@ describe('POST /api/specifications/:id/chat', () => {
       ]),
     );
     expect(assistantParts).not.toEqual(
-      expect.arrayContaining([expect.objectContaining({ type: 'tool-present_grounding_card' })]),
+      expect.arrayContaining([expect.objectContaining({ type: 'tool-present_preface' })]),
     );
   });
 
@@ -2965,7 +2965,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
     });
   });
 
-  it('skips observer capture for answered grounding-card turns while still advancing to the next interviewer turn', async () => {
+  it('skips observer capture for answered preface turns while still advancing to the next interviewer turn', async () => {
     const projectId = await createTestProject();
     const { advanceHead, createOption, createTurn, getActivePath } = await import('./db.js');
     const groundingTurn = createTurn(db, projectId, {
@@ -2974,7 +2974,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
       answer: null,
       assistant_parts: JSON.stringify([
         {
-          type: 'data-grounding-card',
+          type: 'data-preface',
           data: {
             observation: 'The repo already uses SQLite-backed local persistence.',
             elaboration: 'This is provisional context before the first substantive question.',

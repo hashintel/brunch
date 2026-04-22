@@ -343,7 +343,7 @@ describe('walkthroughScenarioMatrix', () => {
       expect(JSON.parse(projectState!.turns[0]!.assistant_parts ?? '[]')).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            type: 'data-grounding-card',
+            type: 'data-preface',
             data: expect.objectContaining({
               observation: 'The repo already uses SQLite-backed local persistence.',
             }),
@@ -357,7 +357,7 @@ describe('walkthroughScenarioMatrix', () => {
       expect(JSON.parse(projectState!.turns[1]!.assistant_parts ?? '[]')).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            type: 'data-grounding-card',
+            type: 'data-preface',
             data: expect.objectContaining({
               observation: 'Later context gathering narrowed the work to turn-finalization ownership.',
             }),
