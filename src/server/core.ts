@@ -10,22 +10,23 @@ import type {
 } from '@/shared/specification.js';
 
 import {
-  getProject,
-  getActivePath,
-  getOptionsForTurn,
-  getCurrentPhase,
-  getCurrentWorkflowState,
-  createTurn,
   advanceHead,
+  createSpecification,
+  createTurn,
+  getActivePath,
   getCapturedItemsForTurns,
-  listProjects,
-  createProject,
+  getCurrentPhase,
+  getStructuralArtifactTurnIds,
+  getCurrentWorkflowState,
+  getOptionsForTurn,
+  getSpecification,
   getTurn,
+  listSpecifications as listPersistedSpecifications,
   updateTurn,
-  type CreateProjectOptions,
-  type Turn,
+  type CreateSpecificationOptions,
   type DB,
-  type Project,
+  type Specification as PersistedSpecification,
+  type Turn,
 } from './db.js';
 import { serializeParts } from './parts.js';
 
@@ -45,22 +46,18 @@ type ActivePathTurn = Turn & {
 };
 
 function toSpecificationTurn(turn: ActivePathTurn): TurnWithOptions {
-  const { project_id, ...rest } = turn;
-  return {
-    ...rest,
-    specification_id: project_id,
-  };
+  return turn;
 }
 
-function toSpecification(project: Project): Specification {
-  return project;
+function toSpecification(specification: PersistedSpecification): Specification {
+  return specification;
 }
 
-export function loadActivePathWithOptions(db: DB, projectId: number): TurnWithOptions[] {
-  const rawActivePath = getActivePath(db, projectId);
+export function loadActivePathWithOptions(db: DB, specificationId: number): TurnWithOptions[] {
+  const rawActivePath = getActivePath(db, specificationId);
   const capturedItemsByTurn = getCapturedItemsForTurns(
     db,
-    projectId,
+    specificationId,
     rawActivePath.map((turn) => turn.id),
   );
 
@@ -75,34 +72,34 @@ export function loadActivePathWithOptions(db: DB, projectId: number): TurnWithOp
 
 export function prepareTurn(
   db: DB,
-  projectId: number,
+  specificationId: number,
   userMessage: string,
   userParts: BrunchUserPart[],
   phase: Turn['phase'] | undefined = undefined,
 ) {
-  const project = getProject(db, projectId);
-  if (!project) throw new Error(`Project ${projectId} not found`);
-  const activePath = loadActivePathWithOptions(db, projectId);
-  const turn = createTurn(db, projectId, {
-    parent_turn_id: project.active_turn_id,
-    phase: phase ?? getCurrentPhase(db, projectId),
+  const specification = getSpecification(db, specificationId);
+  if (!specification) throw new Error(`Specification ${specificationId} not found`);
+  const activePath = loadActivePathWithOptions(db, specificationId);
+  const turn = createTurn(db, specificationId, {
+    parent_turn_id: specification.active_turn_id,
+    phase: phase ?? getCurrentPhase(db, specificationId),
     question: '',
     answer: userMessage,
     user_parts: serializeParts(userParts),
   });
-  return { project, turn, activePath };
+  return { specification, turn, activePath };
 }
 
 export function prepareSuccessorTurn(
   db: DB,
-  projectId: number,
+  specificationId: number,
   phase: Turn['phase'],
   parentTurnId: number | null,
 ) {
-  const project = getProject(db, projectId);
-  if (!project) throw new Error(`Project ${projectId} not found`);
-  const activePath = loadActivePathWithOptions(db, projectId);
-  const turn = createTurn(db, projectId, {
+  const specification = getSpecification(db, specificationId);
+  if (!specification) throw new Error(`Specification ${specificationId} not found`);
+  const activePath = loadActivePathWithOptions(db, specificationId);
+  const turn = createTurn(db, specificationId, {
     parent_turn_id: parentTurnId,
     phase,
     question: '',
@@ -110,7 +107,7 @@ export function prepareSuccessorTurn(
     user_parts: null,
     assistant_parts: null,
   });
-  return { project, turn, activePath };
+  return { specification, turn, activePath };
 }
 
 export function resolveTurn(db: DB, turnId: number, userMessage: string, userParts: BrunchUserPart[]): Turn {
@@ -125,37 +122,39 @@ export function resolveTurn(db: DB, turnId: number, userMessage: string, userPar
   return resolvedTurn;
 }
 
-export function finalizeTurn(db: DB, projectId: number, turnId: number): void {
-  advanceHead(db, projectId, turnId);
+export function finalizeTurn(db: DB, specificationId: number, turnId: number): void {
+  advanceHead(db, specificationId, turnId);
 }
 
-export function readSpecificationStateProjection(db: DB, projectId: number): SpecificationState | null {
-  const project = getProject(db, projectId);
-  if (!project) return null;
-  const turns = loadActivePathWithOptions(db, projectId);
-  const workflow = getCurrentWorkflowState(db, projectId);
+export function readSpecificationStateProjection(db: DB, specificationId: number): SpecificationState | null {
+  const specification = getSpecification(db, specificationId);
+  if (!specification) return null;
+  const turns = loadActivePathWithOptions(db, specificationId);
+  const workflow = getCurrentWorkflowState(db, specificationId);
+  const structuralArtifactTurnIds = getStructuralArtifactTurnIds(db, specificationId);
   return {
-    specification: toSpecification(project),
+    specification: toSpecification(specification),
     workflow,
-    landing: deriveSpecificationLanding({ workflow, turns }),
+    landing: deriveSpecificationLanding({ workflow, turns, structuralArtifactTurnIds }),
     turns,
+    structuralArtifactTurnIds,
   };
 }
 
 /** Get specification state: specification + active path turns enriched with options. */
-export function getSpecificationState(db: DB, projectId: number): SpecificationState | null {
-  return readSpecificationStateProjection(db, projectId);
+export function getSpecificationState(db: DB, specificationId: number): SpecificationState | null {
+  return readSpecificationStateProjection(db, specificationId);
 }
 
 /** List all specifications with compact workflow summary. */
 export function listSpecifications(db: DB): SpecificationListItem[] {
-  return listProjects(db).map((project) => {
-    const workflow = getCurrentWorkflowState(db, project.id);
+  return listPersistedSpecifications(db).map((specification) => {
+    const workflow = getCurrentWorkflowState(db, specification.id);
     const currentPhase = getCurrentOpenPhase(workflow.phases);
     return {
-      ...project,
+      ...specification,
       workflowSummary: {
-        scope: workflow.phases.scope.status,
+        grounding: workflow.phases.grounding.status,
         design: workflow.phases.design.status,
         requirements: workflow.phases.requirements.status,
         criteria: workflow.phases.criteria.status,
@@ -166,6 +165,10 @@ export function listSpecifications(db: DB): SpecificationListItem[] {
 }
 
 /** Create a new specification with the given name and optional mode. */
-export function createNewSpecification(db: DB, name: string, options?: CreateProjectOptions): Project {
-  return createProject(db, name, options);
+export function createNewSpecification(
+  db: DB,
+  name: string,
+  options?: CreateSpecificationOptions,
+): PersistedSpecification {
+  return createSpecification(db, name, options);
 }

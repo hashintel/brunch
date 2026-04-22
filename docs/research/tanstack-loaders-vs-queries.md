@@ -2,6 +2,23 @@
 
 > what's the typical essential pattern for making coordinated usage of these two things in a way that makes rendering as efficient as possible?
 
+## Sync status — 2026-04-22
+
+**Status:** partially live design input for the active query-ownership frontier.
+
+### Still-live inputs
+
+- TanStack Router should act as the **navigation / preload coordinator**, while TanStack Query owns cache freshness, subscription placement, and selective invalidation.
+- Loader priming with `ensureQueryData(...)` is still the right route-entry mental model **when it primes the same query-owned domains the UI consumes**.
+- Routine in-page freshness should prefer targeted `queryClient.invalidateQueries(...)` over broad `router.invalidate()`.
+- Query subscription placement matters as much as fetch ownership: broad page-root subscriptions create coarse rerender behavior even if the fetch API is nominally correct.
+
+### Not the live question anymore
+
+- This note should **not** be read as justification for splitting client query domains more finely than the server actually owns. While `/api/specifications/:id` still returns one specification bundle, the live design should treat `workflow + landing + turns` as one owned bundle seam and `entities` as the separately invalidable seam.
+- The SSR / streaming / `useSuspenseQuery` nuances here are background reference, not the current driver.
+- The generic “loader vs hook” debate is settled for this codebase; the active refactor is about **ownership boundaries and invalidation behavior** inside an already Query-backed client.
+
 The usual pattern is not “router owns route data, hooks own live data” as two competing systems; it is “router preloads/co-ordinates, React Query stores/subscribes/refetches.” TanStack Router’s own docs explicitly frame the router as a **coordinator** for external caches, and the canonical integration is: **loader seeds the Query cache, component reads the same query via `useSuspenseQuery`/`useQuery`**. [tanstack](https://tanstack.com/router/latest/docs/integrations/query)
 
 ## Core pattern

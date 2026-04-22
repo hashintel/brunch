@@ -4,11 +4,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { SpecificationListItem as ProjectListItem } from '@/shared/specification.js';
+import type { SpecificationListItem } from '@/shared/specification.js';
 
 import { SpecificationList } from '../-project-list.js';
 
-let currentProjects: ProjectListItem[];
+let currentProjects: SpecificationListItem[];
 const navigateMock = vi.fn();
 const fetchMock = vi.fn<typeof fetch>();
 
@@ -23,9 +23,12 @@ vi.mock('@tanstack/react-router', () => ({
       {children}
     </a>
   ),
-  getRouteApi: () => ({
-    useLoaderData: () => currentProjects,
-  }),
+  getRouteApi: (routeId: string) => {
+    if (routeId === '__root__') {
+      return { useLoaderData: () => ({ cwd: '/Users/test/my-project' }) };
+    }
+    return { useLoaderData: () => currentProjects };
+  },
   useNavigate: () => navigateMock,
 }));
 
@@ -141,13 +144,13 @@ describe('SpecificationList', () => {
         created_at: '2026-04-10 09:00:00',
         updated_at: '2026-04-10 09:30:00',
         workflowSummary: {
-          scope: 'closed',
+          grounding: 'closed',
           design: 'in_progress',
           requirements: 'unstarted',
           criteria: 'unstarted',
           currentReadiness: 'medium',
         },
-      } satisfies ProjectListItem,
+      } satisfies SpecificationListItem,
     ];
 
     renderSpecificationList();
@@ -167,18 +170,55 @@ describe('SpecificationList', () => {
         created_at: '2026-04-10 09:00:00',
         updated_at: '2026-04-10 09:30:00',
         workflowSummary: {
-          scope: 'closed',
+          grounding: 'closed',
           design: 'in_progress',
           requirements: 'unstarted',
           criteria: 'unstarted',
           currentReadiness: 'medium',
         },
-      } satisfies ProjectListItem,
+      } satisfies SpecificationListItem,
     ];
 
     renderSpecificationList();
     expect(screen.getByText('Phase')).toBeDefined();
     expect(screen.getByText(/2\/4 – Elicitation/)).toBeDefined();
+  });
+
+  it('surfaces workspace path context on the homepage', () => {
+    currentProjects = [];
+    renderSpecificationList();
+    expect(screen.getByText('/Users/test/my-project')).toBeDefined();
+  });
+
+  it('frames the spec list as workspace-scoped when specifications exist', () => {
+    currentProjects = [
+      {
+        id: 1,
+        name: 'Active project',
+        mode: 'greenfield',
+        active_turn_id: 5,
+        created_at: '2026-04-10 09:00:00',
+        updated_at: '2026-04-10 09:30:00',
+        workflowSummary: {
+          grounding: 'closed',
+          design: 'in_progress',
+          requirements: 'unstarted',
+          criteria: 'unstarted',
+          currentReadiness: 'medium',
+        },
+      } satisfies SpecificationListItem,
+    ];
+
+    renderSpecificationList();
+    expect(screen.getByText(/specifications in.*workspace/i)).toBeDefined();
+  });
+
+  it('reinforces workspace scoping in the empty state', () => {
+    currentProjects = [];
+    renderSpecificationList();
+    expect(screen.getByText(/first specification in/i)).toBeDefined();
+    // workspace name appears in both the header path line and the empty-state body
+    expect(screen.getAllByText('my-project').length).toBeGreaterThanOrEqual(2);
   });
 
   it('does not present a root-level grounding strategy step during creation', async () => {

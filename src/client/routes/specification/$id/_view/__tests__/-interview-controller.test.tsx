@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { EntitiesData } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { deriveSpecificationLanding } from '@/shared/specification-state.js';
-import type { SpecificationState as ProjectState } from '@/shared/specification.js';
+import type { SpecificationState } from '@/shared/specification.js';
 
 import { useInterviewController } from '../-interview-controller.js';
 import { resetSpecificationLifecycleRegistryForTesting } from '../-specification-lifecycle.js';
@@ -42,36 +42,69 @@ type UseChatOptions = {
   messages: BrunchUIMessage[];
   onData?: (dataPart: { type: string; data?: unknown }) => void;
   onFinish?: () => void;
+  onError?: (error: Error) => void;
 };
 
 type UseChatHarness = {
   sendMessage: ReturnType<typeof vi.fn>;
   setMessages: ReturnType<typeof vi.fn>;
   replaceMessages?: (messages: BrunchUIMessage[]) => void;
+  setStatus?: (status: 'ready' | 'submitted' | 'streaming' | 'error') => void;
+  setError?: (error: Error | undefined) => void;
   onData?: UseChatOptions['onData'];
   onFinish?: UseChatOptions['onFinish'];
+  onError?: UseChatOptions['onError'];
 };
 
-let currentProjectState: ProjectState;
+let currentSpecificationState: SpecificationState;
 let currentEntityState: EntitiesData;
-const routerInvalidate = vi.fn(async () => {});
+const invalidateSpecificationBundle = vi.fn(async () => {});
+const invalidateEntities = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 const chatTransportOptions: unknown[] = [];
 let useChatImpl: (options: UseChatOptions) => {
   messages: BrunchUIMessage[];
   sendMessage: (message: { text?: string; parts?: Array<Record<string, unknown>> }) => Promise<void> | void;
   setMessages: (messages: BrunchUIMessage[]) => void;
-  status: 'ready' | 'submitted' | 'streaming';
+  status: 'ready' | 'submitted' | 'streaming' | 'error';
+  error?: Error;
 };
 let useChatHarness: UseChatHarness;
 
+const routerNavigate = vi.fn(async () => {});
 vi.mock('@tanstack/react-router', () => ({
-  useLoaderData: ({ from }: { from: string }) => {
-    if (from === '/specification/$id') return currentProjectState;
-    if (from === '/specification/$id/_view') return currentEntityState;
-    throw new Error(`Unexpected useLoaderData from: ${from}`);
+  useParams: () => ({ id: String(currentSpecificationState.specification!.id) }),
+  useRouter: () => ({ navigate: routerNavigate }),
+}));
+
+vi.mock('../../-specification-data.js', () => ({
+  useSpecificationBundleData: () => currentSpecificationState,
+  useSpecificationEntities: () => currentEntityState,
+  useInvalidateSpecificationQueryDomains: () => ({
+    invalidateSpecificationBundle,
+    invalidateEntities,
+  }),
+  primeSpecificationBundle: vi.fn(),
+  primeSpecificationEntities: vi.fn(),
+  specificationQueryKeys: {
+    bundle: vi.fn(),
+    entities: vi.fn(),
   },
-  useRouter: () => ({ invalidate: routerInvalidate }),
+}));
+
+vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
+  useSpecificationBundleData: () => currentSpecificationState,
+  useSpecificationEntities: () => currentEntityState,
+  useInvalidateSpecificationQueryDomains: () => ({
+    invalidateSpecificationBundle,
+    invalidateEntities,
+  }),
+  primeSpecificationBundle: vi.fn(),
+  primeSpecificationEntities: vi.fn(),
+  specificationQueryKeys: {
+    bundle: vi.fn(),
+    entities: vi.fn(),
+  },
 }));
 
 vi.mock('@ai-sdk/react', () => ({
@@ -90,14 +123,14 @@ vi.mock('ai', async () => {
   };
 });
 
-function createProjectState({
-  projectId = 1,
+function createSpecificationState({
+  specificationId = 1,
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
   options = [],
   turns,
 }: {
-  projectId?: number;
+  specificationId?: number;
   assistantText?: string;
   answer?: string;
   options?: Array<{
@@ -107,14 +140,14 @@ function createProjectState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
-  turns?: ProjectState['turns'];
-} = {}): ProjectState {
+  turns?: SpecificationState['turns'];
+} = {}): SpecificationState {
   const resolvedTurns = turns ?? [
     {
       id: 1,
-      project_id: projectId,
+      specification_id: specificationId,
       parent_turn_id: null,
-      phase: 'scope',
+      phase: 'grounding',
       turn_kind: 'question',
       question: assistantText,
       why: 'This frames the first iteration.',
@@ -128,10 +161,10 @@ function createProjectState({
     },
   ];
 
-  const projectState: ProjectState = {
-    project: {
-      id: projectId,
-      name: `Project ${projectId}`,
+  const specificationState: SpecificationState = {
+    specification: {
+      id: specificationId,
+      name: `Specification ${specificationId}`,
       mode: 'greenfield',
       active_turn_id: resolvedTurns.at(-1)?.id ?? null,
       created_at: '2026-04-03 10:00:00',
@@ -139,7 +172,7 @@ function createProjectState({
     },
     workflow: {
       phases: {
-        scope: {
+        grounding: {
           status: 'in_progress',
           closeability: false,
           readiness: 'low',
@@ -181,12 +214,12 @@ function createProjectState({
   };
 
   return {
-    ...projectState,
-    landing: deriveSpecificationLanding(projectState),
+    ...specificationState,
+    landing: deriveSpecificationLanding(specificationState),
   };
 }
 
-function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'ready') {
+function createUseChatHarness(initialStatus: 'ready' | 'submitted' | 'streaming' | 'error' = 'ready') {
   const sendMessage = vi.fn(async () => {});
   const setMessagesSpy = vi.fn();
 
@@ -196,6 +229,8 @@ function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'rea
   };
 
   return function useChatHarnessImpl(options: UseChatOptions) {
+    const [status, setStatus] = useState(initialStatus);
+    const [error, setError] = useState<Error | undefined>(undefined);
     const [, forceRender] = useState(0);
     const chatStates = useState(() => new Map<string, BrunchUIMessage[]>())[0];
     const chatId = options.id ?? 'default';
@@ -215,13 +250,17 @@ function createUseChatHarness(status: 'ready' | 'submitted' | 'streaming' = 'rea
 
     useChatHarness.onData = options.onData;
     useChatHarness.onFinish = options.onFinish;
+    useChatHarness.onError = options.onError;
     useChatHarness.replaceMessages = stableSetMessages;
+    useChatHarness.setStatus = setStatus;
+    useChatHarness.setError = setError;
 
     return {
       messages: chatStates.get(chatId) ?? options.messages,
       sendMessage,
       setMessages: stableSetMessages,
       status,
+      error,
     };
   };
 }
@@ -245,6 +284,10 @@ function messageText(messages: readonly BrunchUIMessage[]) {
     .join('|');
 }
 
+function describeFetchInput(input: RequestInfo | URL): string {
+  return typeof input === 'string' ? input : input instanceof URL ? input.toString() : 'request';
+}
+
 function createEntityState(overrides: Partial<EntitiesData> = {}): EntitiesData {
   return {
     goals: [],
@@ -260,14 +303,29 @@ function createEntityState(overrides: Partial<EntitiesData> = {}): EntitiesData 
   };
 }
 
-function ControllerProbe({ phase = 'scope' }: { phase?: 'scope' | 'design' | 'requirements' | 'criteria' }) {
-  const workspace = useInterviewController(phase, currentEntityState);
+function ControllerProbe({
+  phase = 'grounding',
+}: {
+  phase?: 'grounding' | 'design' | 'requirements' | 'criteria';
+}) {
+  const workspace = useInterviewController(phase);
 
   return (
     <div>
-      <div data-testid="project-name">{workspace.project.name}</div>
+      <div data-testid="project-name">{workspace.specification.name}</div>
       <div data-testid="messages">{messageText(workspace.chat.messages)}</div>
+      <div data-testid="capture-statuses">
+        {JSON.stringify(Array.from(workspace.captureStatusByTurnId.entries()).sort(([a], [b]) => a - b))}
+      </div>
       <div data-testid="bottom-artifact-kind">{workspace.bottomArtifact?.kind ?? 'none'}</div>
+      <div data-testid="bottom-artifact-state">
+        {workspace.bottomArtifact?.kind === 'persisted-turn' ? workspace.bottomArtifact.state : 'n/a'}
+      </div>
+      <div data-testid="bottom-artifact-disabled">
+        {workspace.bottomArtifact && 'disabled' in workspace.bottomArtifact
+          ? JSON.stringify(workspace.bottomArtifact.disabled)
+          : 'null'}
+      </div>
       <div data-testid="bottom-artifact-live-activity">
         {workspace.bottomArtifact?.kind === 'persisted-turn' ||
         workspace.bottomArtifact?.kind === 'pending-question' ||
@@ -292,6 +350,17 @@ function ControllerProbe({ phase = 'scope' }: { phase?: 'scope' | 'design' | 're
       </div>
       <button
         type="button"
+        data-testid="submit-persisted-turn"
+        onClick={() => {
+          if (workspace.bottomArtifact?.kind === 'persisted-turn') {
+            void workspace.bottomArtifact.submitTurnResponse([1], 'Best fit for our launch');
+          }
+        }}
+      >
+        Submit persisted turn
+      </button>
+      <button
+        type="button"
         data-testid="submit-kickoff-brownfield"
         onClick={() => {
           if (workspace.bottomArtifact?.kind === 'kickoff') {
@@ -312,11 +381,20 @@ function ControllerProbe({ phase = 'scope' }: { phase?: 'scope' | 'design' | 're
       >
         Submit recovery
       </button>
+      <button
+        type="button"
+        data-testid="force-close-phase"
+        onClick={() => {
+          workspace.chat.forcePhaseClosure(phase);
+        }}
+      >
+        Force close phase
+      </button>
     </div>
   );
 }
 
-function renderController(phase: 'scope' | 'design' | 'requirements' | 'criteria' = 'scope') {
+function renderController(phase: 'grounding' | 'design' | 'requirements' | 'criteria' = 'grounding') {
   const queryClient = createQueryClient();
   const rendered = render(
     <QueryClientProvider client={queryClient}>
@@ -328,9 +406,11 @@ function renderController(phase: 'scope' | 'design' | 'requirements' | 'criteria
 }
 
 beforeEach(() => {
-  currentProjectState = createProjectState();
+  currentSpecificationState = createSpecificationState();
   currentEntityState = createEntityState();
-  routerInvalidate.mockClear();
+  invalidateSpecificationBundle.mockClear();
+  invalidateEntities.mockClear();
+  routerNavigate.mockClear();
   fetchMock.mockReset();
   chatTransportOptions.length = 0;
   useChatImpl = createUseChatHarness();
@@ -345,21 +425,21 @@ afterEach(() => {
 
 describe('interview controller', () => {
   it('projects a kickoff turn card when an open phase has no active frontier turn yet', async () => {
-    currentProjectState = createProjectState({ assistantText: '', answer: '' });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope.turnId = null;
-    currentProjectState.turns = [];
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState = createSpecificationState({ assistantText: '', answer: '' });
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding.turnId = null;
+    currentSpecificationState.turns = [];
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     renderController();
 
     expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('kickoff');
-    expect(screen.getByTestId('bottom-artifact').textContent).toBe('start:scope');
+    expect(screen.getByTestId('bottom-artifact').textContent).toBe('start:grounding');
   });
 
   it('projects a workspace handoff when the current phase is closed and a later phase remains open', async () => {
-    currentProjectState = createProjectState();
-    currentProjectState.workflow.phases.scope = {
+    currentSpecificationState = createSpecificationState();
+    currentSpecificationState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -368,26 +448,26 @@ describe('interview controller', () => {
       turnId: 1,
       summary: 'Grounding is complete.',
     };
-    currentProjectState.workflow.phases.design.status = 'in_progress';
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.workflow.phases.design.status = 'in_progress';
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     renderController();
 
     expect((await screen.findByTestId('bottom-artifact-kind')).textContent).toBe('phase-handoff');
     expect(screen.getByTestId('bottom-artifact').textContent).toBe(
-      'scope->design:workspace:Grounding is complete.',
+      'grounding->design:workspace:Grounding is complete.',
     );
   });
 
   it('projects workflow completion when the final review phase is closed', async () => {
-    currentProjectState = createProjectState();
-    currentProjectState.workflow.phases.scope.status = 'closed';
-    currentProjectState.workflow.phases.scope.readiness = 'high';
-    currentProjectState.workflow.phases.design.status = 'closed';
-    currentProjectState.workflow.phases.design.readiness = 'high';
-    currentProjectState.workflow.phases.requirements.status = 'closed';
-    currentProjectState.workflow.phases.requirements.readiness = 'high';
-    currentProjectState.workflow.phases.criteria = {
+    currentSpecificationState = createSpecificationState();
+    currentSpecificationState.workflow.phases.grounding.status = 'closed';
+    currentSpecificationState.workflow.phases.grounding.readiness = 'high';
+    currentSpecificationState.workflow.phases.design.status = 'closed';
+    currentSpecificationState.workflow.phases.design.readiness = 'high';
+    currentSpecificationState.workflow.phases.requirements.status = 'closed';
+    currentSpecificationState.workflow.phases.requirements.readiness = 'high';
+    currentSpecificationState.workflow.phases.criteria = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -396,7 +476,7 @@ describe('interview controller', () => {
       turnId: 1,
       summary: 'Acceptance criteria are complete.',
     };
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     renderController('criteria');
 
@@ -406,13 +486,13 @@ describe('interview controller', () => {
     );
   });
 
-  it('auto-continues scope recovery when an open phase has a completed turn but no successor frontier', async () => {
-    currentProjectState = createProjectState({
+  it('auto-continues grounding recovery when an open phase has a completed turn but no successor frontier', async () => {
+    currentSpecificationState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.workflow.phases.scope.turnId = null;
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.workflow.phases.grounding.turnId = null;
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -429,7 +509,7 @@ describe('interview controller', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'phase-continue', phase: 'scope' }),
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'grounding' }),
         }),
       );
     });
@@ -438,10 +518,10 @@ describe('interview controller', () => {
   });
 
   it('submits the grounding strategy kickoff from landing-only state without a seeded kickoff turn', async () => {
-    currentProjectState = createProjectState({ assistantText: '', answer: '', turns: [] });
-    currentProjectState.workflow.phases.scope.turnId = null;
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState = createSpecificationState({ assistantText: '', answer: '', turns: [] });
+    currentSpecificationState.workflow.phases.grounding.turnId = null;
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -461,18 +541,18 @@ describe('interview controller', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' }),
+          body: JSON.stringify({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' }),
         }),
       );
     });
 
     await waitFor(() => {
-      expect(routerInvalidate).toHaveBeenCalled();
+      expect(invalidateSpecificationBundle).toHaveBeenCalled();
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
         parts: [
           {
             type: 'data-phase-intent',
-            data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+            data: { kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' },
           },
         ],
       });
@@ -480,12 +560,12 @@ describe('interview controller', () => {
   });
 
   it('submits recovery through the phase-continue intent seam', async () => {
-    currentProjectState = createProjectState({
+    currentSpecificationState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.workflow.phases.scope.turnId = null;
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.workflow.phases.grounding.turnId = null;
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -505,18 +585,18 @@ describe('interview controller', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'phase-continue', phase: 'scope' }),
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'grounding' }),
         }),
       );
     });
 
     await waitFor(() => {
-      expect(routerInvalidate).toHaveBeenCalled();
+      expect(invalidateSpecificationBundle).toHaveBeenCalled();
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
         parts: [
           {
             type: 'data-phase-intent',
-            data: { kind: 'phase-continue', phase: 'scope' },
+            data: { kind: 'phase-continue', phase: 'grounding' },
           },
         ],
       });
@@ -524,9 +604,9 @@ describe('interview controller', () => {
   });
 
   it('auto-submits a typed phase-entry for the current reachable kickoff phase', async () => {
-    currentProjectState = createProjectState({ turns: [] });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope = {
+    currentSpecificationState = createSpecificationState({ turns: [] });
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -535,7 +615,7 @@ describe('interview controller', () => {
       turnId: 11,
       summary: 'Grounding complete.',
     };
-    currentProjectState.workflow.phases.design = {
+    currentSpecificationState.workflow.phases.design = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -544,7 +624,7 @@ describe('interview controller', () => {
       turnId: 12,
       summary: 'Elicitation complete.',
     };
-    currentProjectState.workflow.phases.requirements = {
+    currentSpecificationState.workflow.phases.requirements = {
       status: 'in_progress',
       closeability: false,
       readiness: 'low',
@@ -553,7 +633,7 @@ describe('interview controller', () => {
       turnId: null,
       summary: null,
     };
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -590,11 +670,11 @@ describe('interview controller', () => {
   });
 
   it('auto-submits a typed phase-continue for the current reachable recovery phase', async () => {
-    currentProjectState = createProjectState({
+    currentSpecificationState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope = {
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -603,7 +683,7 @@ describe('interview controller', () => {
       turnId: 11,
       summary: 'Grounding complete.',
     };
-    currentProjectState.workflow.phases.design = {
+    currentSpecificationState.workflow.phases.design = {
       status: 'in_progress',
       closeability: false,
       readiness: 'medium',
@@ -612,13 +692,13 @@ describe('interview controller', () => {
       turnId: null,
       summary: null,
     };
-    currentProjectState.turns = [
+    currentSpecificationState.turns = [
       {
-        ...currentProjectState.turns[0]!,
+        ...currentSpecificationState.turns[0]!,
         phase: 'design',
       },
     ];
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -655,9 +735,9 @@ describe('interview controller', () => {
   });
 
   it('does not duplicate the auto phase-entry submit across rerender and remount', async () => {
-    currentProjectState = createProjectState({ turns: [] });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope = {
+    currentSpecificationState = createSpecificationState({ turns: [] });
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -666,7 +746,7 @@ describe('interview controller', () => {
       turnId: 11,
       summary: 'Grounding complete.',
     };
-    currentProjectState.workflow.phases.design = {
+    currentSpecificationState.workflow.phases.design = {
       status: 'in_progress',
       closeability: false,
       readiness: 'low',
@@ -675,7 +755,7 @@ describe('interview controller', () => {
       turnId: null,
       summary: null,
     };
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
@@ -712,11 +792,11 @@ describe('interview controller', () => {
   });
 
   it('does not duplicate the auto phase-continue submit across rerender and remount', async () => {
-    currentProjectState = createProjectState({
+    currentSpecificationState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope = {
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -725,7 +805,7 @@ describe('interview controller', () => {
       turnId: 11,
       summary: 'Grounding complete.',
     };
-    currentProjectState.workflow.phases.design = {
+    currentSpecificationState.workflow.phases.design = {
       status: 'in_progress',
       closeability: false,
       readiness: 'medium',
@@ -734,13 +814,13 @@ describe('interview controller', () => {
       turnId: null,
       summary: null,
     };
-    currentProjectState.turns = [
+    currentSpecificationState.turns = [
       {
-        ...currentProjectState.turns[0]!,
+        ...currentSpecificationState.turns[0]!,
         phase: 'design',
       },
     ];
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
@@ -777,12 +857,12 @@ describe('interview controller', () => {
   });
 
   it('suppresses repeated auto phase-continue retries after a failed submit until landing changes', async () => {
-    currentProjectState = createProjectState({
+    currentSpecificationState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope.turnId = null;
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding.turnId = null;
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockRejectedValueOnce(new Error('network down'));
 
@@ -809,9 +889,9 @@ describe('interview controller', () => {
   });
 
   it('falls back to the projected kickoff card when auto phase-entry submit rejects', async () => {
-    currentProjectState = createProjectState({ turns: [] });
-    currentProjectState.project!.active_turn_id = null;
-    currentProjectState.workflow.phases.scope = {
+    currentSpecificationState = createSpecificationState({ turns: [] });
+    currentSpecificationState.specification!.active_turn_id = null;
+    currentSpecificationState.workflow.phases.grounding = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -820,7 +900,7 @@ describe('interview controller', () => {
       turnId: 11,
       summary: 'Grounding complete.',
     };
-    currentProjectState.workflow.phases.design = {
+    currentSpecificationState.workflow.phases.design = {
       status: 'closed',
       closeability: false,
       readiness: 'high',
@@ -829,7 +909,7 @@ describe('interview controller', () => {
       turnId: 12,
       summary: 'Elicitation complete.',
     };
-    currentProjectState.workflow.phases.requirements = {
+    currentSpecificationState.workflow.phases.requirements = {
       status: 'in_progress',
       closeability: false,
       readiness: 'low',
@@ -838,7 +918,7 @@ describe('interview controller', () => {
       turnId: null,
       summary: null,
     };
-    currentProjectState.landing = deriveSpecificationLanding(currentProjectState);
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
 
     fetchMock.mockResolvedValueOnce(
       new Response(JSON.stringify({ ok: true }), {
@@ -874,7 +954,7 @@ describe('interview controller', () => {
   });
 
   it('threads live assistant activity onto the streamed bottom artifact while the next question is generating', async () => {
-    currentProjectState = createProjectState({
+    currentSpecificationState = createSpecificationState({
       assistantText: 'Earlier question?',
       answer: 'Earlier answer',
     });
@@ -912,7 +992,7 @@ describe('interview controller', () => {
   });
 
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
-    currentProjectState = createProjectState({
+    currentSpecificationState = createSpecificationState({
       assistantText: 'Earlier question?',
       answer: 'Earlier answer',
     });
@@ -933,12 +1013,13 @@ describe('interview controller', () => {
     await waitFor(() => {
       expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('pending-question');
       expect(screen.getByTestId('bottom-artifact').textContent).toBe('Which platform should we target next?');
-      expect(routerInvalidate).not.toHaveBeenCalled();
+      expect(invalidateSpecificationBundle).not.toHaveBeenCalled();
+      expect(invalidateEntities).not.toHaveBeenCalled();
     });
   });
 
   it('seeds chat state from loader data while auto-continuing the current reachable recovery phase', async () => {
-    currentProjectState = createProjectState({
+    currentSpecificationState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
 
@@ -960,7 +1041,7 @@ describe('interview controller', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'phase-continue', phase: 'scope' }),
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'grounding' }),
         }),
       );
     });
@@ -974,8 +1055,8 @@ describe('interview controller', () => {
       'Build the web app|What should we build first?',
     );
 
-    currentProjectState = createProjectState({
-      projectId: 2,
+    currentSpecificationState = createSpecificationState({
+      specificationId: 2,
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
     });
@@ -987,7 +1068,7 @@ describe('interview controller', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByTestId('project-name').textContent).toBe('Project 2');
+      expect(screen.getByTestId('project-name').textContent).toBe('Specification 2');
       expect(screen.getByTestId('messages').textContent).toBe(
         'Ship the desktop app|Which platform should we target now?',
       );
@@ -995,32 +1076,447 @@ describe('interview controller', () => {
     expect(useChatHarness.setMessages).not.toHaveBeenCalled();
   });
 
-  it('invalidates the router when the chat stream emits an observer result', async () => {
+  it('makes the next frontier interactive while prior observer capture is still applying', async () => {
+    currentSpecificationState = createSpecificationState({
+      answer: '',
+      options: [
+        { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+        { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+      ],
+      turns: [
+        {
+          id: 1,
+          specification_id: 1,
+          parent_turn_id: null,
+          phase: 'grounding',
+          turn_kind: 'question',
+          question: 'What should we build first?',
+          why: 'This frames the first iteration.',
+          impact: 'high',
+          answer: '',
+          is_resolution: false,
+          user_parts: null,
+          assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
+          created_at: '2026-04-03 10:00:00',
+          options: [
+            { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+            { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+          ],
+        },
+      ],
+    });
+
+    const answeredTurn = {
+      ...currentSpecificationState.turns[0]!,
+      answer: 'Desktop — Best fit for our launch',
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Desktop — Best fit for our launch' },
+        {
+          type: 'data-turn-response',
+          data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
+        },
+      ]),
+    };
+    const recoveryState = createSpecificationState({ turns: [answeredTurn] });
+    recoveryState.specification!.active_turn_id = null;
+    recoveryState.workflow.phases.grounding.turnId = null;
+    recoveryState.landing = deriveSpecificationLanding(recoveryState);
+
+    const frontierReadyState = createSpecificationState({
+      turns: [
+        answeredTurn,
+        {
+          id: 2,
+          specification_id: 1,
+          parent_turn_id: 1,
+          phase: 'grounding',
+          turn_kind: 'question',
+          question: 'Which platform should we target next?',
+          why: 'Platform shapes the first build.',
+          impact: 'high',
+          answer: '',
+          is_resolution: false,
+          user_parts: null,
+          assistant_parts: JSON.stringify([{ type: 'text', text: 'Which platform should we target next?' }]),
+          created_at: '2026-04-03 10:01:00',
+          options: [
+            { id: 21, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+            { id: 22, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+          ],
+        },
+      ],
+    });
+    frontierReadyState.workflow.phases.grounding.turnId = 2;
+    frontierReadyState.specification!.active_turn_id = 2;
+    frontierReadyState.landing = deriveSpecificationLanding(frontierReadyState);
+
+    fetchMock.mockImplementation((input, init) => {
+      if (input === '/api/specifications/1/turns/1/response') {
+        return Promise.resolve(
+          new Response(JSON.stringify({ ok: true }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+      }
+
+      if (input === '/api/specifications/1/turns/1/observer-capture') {
+        return new Promise<Response>(() => {});
+      }
+
+      return Promise.reject(
+        new Error(`Unexpected fetch: ${describeFetchInput(input)} ${init?.method ?? 'GET'}`),
+      );
+    });
+
+    invalidateSpecificationBundle
+      .mockImplementationOnce(async () => {
+        currentSpecificationState = recoveryState;
+      })
+      .mockImplementationOnce(async () => {
+        currentSpecificationState = frontierReadyState;
+      });
+
+    useChatHarness.sendMessage.mockImplementation(async () => {
+      useChatHarness.setStatus?.('submitted');
+    });
+
+    const rendered = renderController();
+
+    fireEvent.click(await screen.findByTestId('submit-persisted-turn'));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/specifications/1/turns/1/response',
+        expect.objectContaining({ method: 'POST' }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/specifications/1/turns/1/observer-capture',
+        expect.objectContaining({ method: 'POST' }),
+      );
+      expect(screen.getByTestId('capture-statuses').textContent).toBe('[[1,"applying"]]');
+    });
+
+    await act(async () => {
+      useChatHarness.setStatus?.('ready');
+      useChatHarness.onFinish?.();
+    });
+
+    await waitFor(() => {
+      expect(invalidateSpecificationBundle).toHaveBeenCalledTimes(2);
+    });
+
+    rendered.rerender(
+      <QueryClientProvider client={rendered.queryClient}>
+        <ControllerProbe phase="grounding" />
+      </QueryClientProvider>,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('persisted-turn');
+      expect(screen.getByTestId('bottom-artifact-state').textContent).toBe('active');
+      expect(screen.getByTestId('bottom-artifact-disabled').textContent).toBe('false');
+      expect(screen.getByTestId('bottom-artifact').textContent).toBe('Which platform should we target next?');
+      expect(screen.getByTestId('capture-statuses').textContent).toBe('[[1,"applying"]]');
+    });
+  });
+
+  it('reseeds deferred observer capture from durable turns on reload and clears it after capture sync', async () => {
+    currentSpecificationState = createSpecificationState({
+      turns: [
+        {
+          id: 1,
+          specification_id: 1,
+          parent_turn_id: null,
+          phase: 'grounding',
+          turn_kind: 'question',
+          question: 'What should we build first?',
+          why: 'This frames the first iteration.',
+          impact: 'high',
+          answer: 'Desktop — Best fit for our launch',
+          is_resolution: false,
+          user_parts: JSON.stringify([
+            { type: 'text', text: 'Desktop — Best fit for our launch' },
+            {
+              type: 'data-turn-response',
+              data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
+            },
+          ]),
+          assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
+          created_at: '2026-04-03 10:00:00',
+          options: [
+            { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+            { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+          ],
+        },
+        {
+          id: 2,
+          specification_id: 1,
+          parent_turn_id: 1,
+          phase: 'grounding',
+          turn_kind: 'question',
+          question: 'Which platform should we target next?',
+          why: 'Platform shapes the first build.',
+          impact: 'high',
+          answer: '',
+          is_resolution: false,
+          user_parts: null,
+          assistant_parts: JSON.stringify([{ type: 'text', text: 'Which platform should we target next?' }]),
+          created_at: '2026-04-03 10:01:00',
+          options: [
+            { id: 21, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+            { id: 22, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+          ],
+        },
+      ],
+    });
+    currentSpecificationState.workflow.phases.grounding.turnId = 2;
+    currentSpecificationState.specification!.active_turn_id = 2;
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
+
+    const capturedState = createSpecificationState({
+      turns: [
+        {
+          ...currentSpecificationState.turns[0]!,
+          assistant_parts: JSON.stringify([
+            { type: 'text', text: 'What should we build first?' },
+            {
+              type: 'data-observer-result',
+              data: {
+                turnId: 1,
+                entityIds: {
+                  goals: [],
+                  terms: [],
+                  contexts: [1],
+                  constraints: [],
+                  requirements: [],
+                  criteria: [],
+                  decisions: [],
+                  assumptions: [],
+                },
+              },
+            },
+          ]),
+          captured_items: [
+            {
+              collection: 'knowledge_item',
+              kind: 'context',
+              id: 1,
+              content: 'Desktop launch remains the best fit',
+              referenceCode: 'C1',
+            },
+          ],
+        },
+        currentSpecificationState.turns[1]!,
+      ],
+    });
+    capturedState.workflow.phases.grounding.turnId = 2;
+    capturedState.specification!.active_turn_id = 2;
+    capturedState.landing = deriveSpecificationLanding(capturedState);
+
+    let resolveObserverCapture!: (value: Response) => void;
+    fetchMock.mockImplementation((input) => {
+      if (input === '/api/specifications/1/turns/1/observer-capture') {
+        return new Promise<Response>((resolve) => {
+          resolveObserverCapture = resolve;
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch: ${describeFetchInput(input)}`));
+    });
+
+    invalidateSpecificationBundle.mockImplementationOnce(async () => {
+      currentSpecificationState = capturedState;
+    });
+    invalidateEntities.mockImplementationOnce(async () => {});
+
+    renderController();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bottom-artifact').textContent).toBe('Which platform should we target next?');
+      expect(fetchMock).toHaveBeenCalledWith(
+        '/api/specifications/1/turns/1/observer-capture',
+        expect.objectContaining({ method: 'POST' }),
+      );
+      expect(screen.getByTestId('capture-statuses').textContent).toBe('[[1,"applying"]]');
+    });
+
+    await act(async () => {
+      resolveObserverCapture(
+        new Response(JSON.stringify({ ok: true, turnId: 1, status: 'captured' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(invalidateSpecificationBundle).toHaveBeenCalled();
+      expect(invalidateEntities).toHaveBeenCalled();
+      expect(screen.getByTestId('capture-statuses').textContent).toBe('[]');
+    });
+  });
+
+  it('keeps the live transcript stable while deferred observer capture refreshes entity and bundle data', async () => {
+    currentSpecificationState = createSpecificationState({
+      turns: [
+        {
+          id: 1,
+          specification_id: 1,
+          parent_turn_id: null,
+          phase: 'grounding',
+          turn_kind: 'question',
+          question: 'What should we build first?',
+          why: 'This frames the first iteration.',
+          impact: 'high',
+          answer: 'Desktop — Best fit for our launch',
+          is_resolution: false,
+          user_parts: JSON.stringify([
+            { type: 'text', text: 'Desktop — Best fit for our launch' },
+            {
+              type: 'data-turn-response',
+              data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
+            },
+          ]),
+          assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
+          created_at: '2026-04-03 10:00:00',
+          options: [
+            { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+            { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+          ],
+        },
+        {
+          id: 2,
+          specification_id: 1,
+          parent_turn_id: 1,
+          phase: 'grounding',
+          turn_kind: 'question',
+          question: 'Which platform should we target next?',
+          why: 'Platform shapes the first build.',
+          impact: 'high',
+          answer: '',
+          is_resolution: false,
+          user_parts: null,
+          assistant_parts: JSON.stringify([{ type: 'text', text: 'Which platform should we target next?' }]),
+          created_at: '2026-04-03 10:01:00',
+          options: [
+            { id: 21, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+            { id: 22, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+          ],
+        },
+      ],
+    });
+    currentSpecificationState.workflow.phases.grounding.turnId = 2;
+    currentSpecificationState.specification!.active_turn_id = 2;
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
+
+    const capturedState = createSpecificationState({
+      turns: [
+        {
+          ...currentSpecificationState.turns[0]!,
+          assistant_parts: JSON.stringify([
+            { type: 'text', text: 'What should we build first?' },
+            {
+              type: 'data-observer-result',
+              data: {
+                turnId: 1,
+                entityIds: {
+                  goals: [],
+                  terms: [],
+                  contexts: [1],
+                  constraints: [],
+                  requirements: [],
+                  criteria: [],
+                  decisions: [],
+                  assumptions: [],
+                },
+              },
+            },
+          ]),
+        },
+        currentSpecificationState.turns[1]!,
+      ],
+    });
+    capturedState.workflow.phases.grounding.turnId = 2;
+    capturedState.specification!.active_turn_id = 2;
+    capturedState.landing = deriveSpecificationLanding(capturedState);
+
+    let resolveObserverCapture!: (value: Response) => void;
+    fetchMock.mockImplementation((input) => {
+      if (input === '/api/specifications/1/turns/1/observer-capture') {
+        return new Promise<Response>((resolve) => {
+          resolveObserverCapture = resolve;
+        });
+      }
+
+      return Promise.reject(new Error(`Unexpected fetch: ${describeFetchInput(input)}`));
+    });
+    invalidateSpecificationBundle.mockImplementationOnce(async () => {
+      currentSpecificationState = capturedState;
+    });
+    invalidateEntities.mockImplementationOnce(async () => {});
+
+    renderController();
+
+    await waitFor(() => {
+      expect(chatTransportOptions).toContainEqual({ api: '/api/specifications/1/chat' });
+      expect(screen.getByTestId('capture-statuses').textContent).toBe('[[1,"applying"]]');
+    });
+
+    await act(async () => {
+      resolveObserverCapture(
+        new Response(JSON.stringify({ ok: true, turnId: 1, status: 'captured' }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        }),
+      );
+    });
+
+    await waitFor(() => {
+      expect(invalidateSpecificationBundle).toHaveBeenCalled();
+      expect(invalidateEntities).toHaveBeenCalled();
+      expect(screen.getByTestId('capture-statuses').textContent).toBe('[]');
+    });
+    expect(screen.getByTestId('messages').textContent).toContain('Desktop — Best fit for our launch');
+    expect(screen.getByTestId('messages').textContent).toContain('What should we build first?');
+    expect(screen.getByTestId('messages').textContent).toContain('Which platform should we target next?');
+    expect(useChatHarness.setMessages).not.toHaveBeenCalled();
+  });
+
+  it('navigates to the next phase after a close-phase submission finishes against closed loader truth', async () => {
     renderController();
 
     await screen.findByTestId('messages');
 
+    currentSpecificationState.workflow.phases.grounding = {
+      ...currentSpecificationState.workflow.phases.grounding,
+      status: 'closed',
+      readiness: 'high',
+      closeability: false,
+      closureBasis: 'user_forced',
+      turnId: 1,
+      summary: 'Grounding is complete.',
+    };
+    currentSpecificationState.workflow.phases.design = {
+      ...currentSpecificationState.workflow.phases.design,
+      status: 'in_progress',
+    };
+    currentSpecificationState.landing = deriveSpecificationLanding(currentSpecificationState);
+
+    fireEvent.click(screen.getByTestId('force-close-phase'));
+
     await act(async () => {
-      useChatHarness.onData?.({
-        type: 'data-observer-result',
-        data: {
-          entityIds: {
-            goals: [],
-            terms: [],
-            contexts: [],
-            constraints: [],
-            requirements: [],
-            criteria: [],
-            decisions: [9],
-            assumptions: [],
-          },
-        },
-      });
+      useChatHarness.onFinish?.();
     });
 
     await waitFor(() => {
-      expect(chatTransportOptions).toContainEqual({ api: '/api/specifications/1/chat' });
-      expect(routerInvalidate).toHaveBeenCalled();
+      expect(routerNavigate).toHaveBeenCalledWith({
+        to: '/specification/$id/elicitation',
+        params: { id: '1' },
+      });
     });
   });
 
@@ -1031,7 +1527,7 @@ describe('interview controller', () => {
       'Build the web app|What should we build first?',
     );
 
-    currentProjectState = createProjectState({
+    currentSpecificationState = createSpecificationState({
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
     });

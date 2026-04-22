@@ -1,8 +1,10 @@
 import { table, h3 } from 'md-pen';
 
-import type { ProjectMode } from '@/shared/api-types.js';
+import type { SpecificationMode } from '@/shared/api-types.js';
+import type { ReviewSetData } from '@/shared/chat.js';
 import { knowledgeKindRegistry } from '@/shared/knowledge.js';
-import { getPersistedGroundingCard } from '@/shared/specification-state.js';
+import { getReviewItemIdentity } from '@/shared/review-diffing.js';
+import { getTurnPreface, getPersistedReviewSet } from '@/shared/specification-state.js';
 
 import type { TurnWithOptions } from './core.js';
 import { formatProjectedTurnResponse, projectTurnResponse } from './turn-response.js';
@@ -52,6 +54,39 @@ function formatCriterionReviewInventory(
     .join('\n')}`;
 }
 
+function formatReviewSetInventory(reviewSet: ReviewSetData): string {
+  const lines = [`Review set: ${reviewSet.title}`];
+
+  for (const item of reviewSet.items) {
+    const identity = getReviewItemIdentity(item);
+    lines.push(`  - Item ${identity}`);
+
+    if (item.referenceCode) {
+      lines.push(`    Reference code: ${item.referenceCode}`);
+    }
+
+    lines.push(`    Content: ${item.content}`);
+
+    if (item.rationale) {
+      lines.push(`    Rationale: ${item.rationale}`);
+    }
+
+    if (item.grounding?.length) {
+      lines.push(`    Grounding refs: ${item.grounding.map((groundingRef) => groundingRef.code).join(', ')}`);
+    }
+
+    if (item.isUserCreated) {
+      lines.push('    Badge: Added in revision');
+    }
+
+    if (item.isRevised) {
+      lines.push('    Badge: Revised');
+    }
+  }
+
+  return lines.join('\n');
+}
+
 /**
  * Build interviewer context from active-path turns.
  * Drop-in replacement for formatHistory() — same output, typed interface.
@@ -66,19 +101,13 @@ export function buildInterviewerContext(
   const sections: string[] = [];
   const lines: string[] = [];
   for (const turn of turns) {
-    const groundingCard = getPersistedGroundingCard(turn);
-    if (groundingCard) {
-      lines.push(`Grounding card: ${groundingCard.summary}`);
-      if (groundingCard.detail) {
-        lines.push(`  Detail: ${groundingCard.detail}`);
+    const preface = getTurnPreface(turn);
+    const reviewSet = getPersistedReviewSet(turn);
+    if (preface) {
+      lines.push(`Grounding preface: ${preface.observation}`);
+      if (preface.elaboration) {
+        lines.push(`  Elaboration: ${preface.elaboration}`);
       }
-      const projectedGroundingResponse = projectTurnResponse(turn);
-      if (projectedGroundingResponse) {
-        lines.push(formatProjectedTurnResponse(projectedGroundingResponse));
-      } else if (turn.answer) {
-        lines.push(`Grounding response: ${turn.answer}`);
-      }
-      continue;
     }
 
     if (turn.question) {
@@ -96,6 +125,9 @@ export function buildInterviewerContext(
         questionLine += `\n  Options:\n${optionList}`;
       }
       lines.push(questionLine);
+    }
+    if (reviewSet) {
+      lines.push(formatReviewSetInventory(reviewSet));
     }
     const projectedResponse = projectTurnResponse(turn);
     if (projectedResponse) {
@@ -140,8 +172,8 @@ export function buildInterviewerContext(
 export interface ObserverContextInput {
   turn: TurnWithOptions;
   activePathSummary: string;
-  projectMode?: ProjectMode;
-  projectCwd?: string | null;
+  specificationMode?: SpecificationMode;
+  workspaceDirectory?: string | null;
   entities: {
     goals: Array<{ id: number; content: string }>;
     terms: Array<{ id: number; content: string }>;
@@ -163,12 +195,14 @@ export interface ObserverContextInput {
 export function buildObserverContext(input: ObserverContextInput): string {
   const sections: string[] = [];
 
-  if (input.projectMode === 'brownfield') {
-    const projectContextLines = ['Project mode: brownfield'];
-    if (input.projectCwd) {
-      projectContextLines.push(`Project directory: ${input.projectCwd}`);
+  if (input.specificationMode === 'brownfield') {
+    const specificationContextLines = [
+      'This specification is scoped to a feature or change within an existing codebase.',
+    ];
+    if (input.workspaceDirectory) {
+      specificationContextLines.push(`Workspace directory: ${input.workspaceDirectory}`);
     }
-    sections.push(projectContextLines.join('\n'));
+    sections.push(specificationContextLines.join('\n'));
   }
 
   for (const entry of knowledgeKindRegistry) {
@@ -192,6 +226,13 @@ export function buildObserverContext(input: ObserverContextInput): string {
   }
 
   const turnLines = [`Current turn #${input.turn.id}:`, `  Phase: ${input.turn.phase}`];
+  const preface = getTurnPreface(input.turn);
+  if (preface) {
+    turnLines.push(`  Grounding preface: ${preface.observation}`);
+    if (preface.elaboration) {
+      turnLines.push(`  Preface elaboration: ${preface.elaboration}`);
+    }
+  }
   if (input.turn.question) turnLines.push(`  Question: ${input.turn.question}`);
   if (input.turn.why) turnLines.push(`  Why: ${input.turn.why}`);
   if (input.turn.impact) turnLines.push(`  Impact: ${input.turn.impact}`);

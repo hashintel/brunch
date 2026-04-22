@@ -19,6 +19,7 @@ import { getCurrentOpenPhase, getWorkflowPhaseLabel, phaseOrder } from '@/shared
 import type { SpecificationListItem } from '@/shared/specification.js';
 
 const specificationListRouteApi = getRouteApi('/');
+const rootRouteApi = getRouteApi('__root__');
 
 type DialogStep = 'closed' | 'name';
 
@@ -68,8 +69,14 @@ export async function fetchSpecificationListLoaderData(): Promise<SpecificationL
   return response.json() as Promise<SpecificationListItem[]>;
 }
 
+function workspaceName(cwd: string): string {
+  const last = cwd.split('/').filter(Boolean).pop();
+  return last ?? cwd;
+}
+
 export function SpecificationList() {
   const specifications = specificationListRouteApi.useLoaderData();
+  const { cwd } = rootRouteApi.useLoaderData();
   const navigate = useNavigate();
   const createSpecificationMutation = useCreateSpecificationMutation();
   const [dialogStep, setDialogStep] = useState<DialogStep>('closed');
@@ -113,6 +120,11 @@ export function SpecificationList() {
             <p className="text-base text-sub">
               A tool for building software specifications with AI assistance
             </p>
+            <p className="mt-1 font-mono text-xs text-hint">
+              {workspaceName(cwd)}
+              <span className="ml-1.5 text-rule">—</span>
+              <span className="ml-1.5">{cwd}</span>
+            </p>
           </div>
         </div>
 
@@ -126,7 +138,9 @@ export function SpecificationList() {
           <div className="flex flex-col items-center gap-3 rounded-xl border border-dashed border-rule bg-[#f7f7f7] px-8 py-16 text-center">
             <p className="text-base font-medium tracking-[-0.015em] text-sub">No specifications yet</p>
             <p className="max-w-sm text-sm leading-relaxed text-sub">
-              Create your first specification to start the interview process.
+              Create your first specification in{' '}
+              <span className="font-mono text-xs text-hint">{workspaceName(cwd)}</span> to start the interview
+              process.
             </p>
             <div className="mt-2">
               <Button
@@ -141,11 +155,10 @@ export function SpecificationList() {
           </div>
         ) : (
           <>
-            <EmptyCard
-              // title="Specification"
-              description="Begin building your next spec draft!"
-              className="mb-4"
-            >
+            <p className="mb-3 text-xs font-medium tracking-wide text-hint uppercase">
+              Specifications in this workspace
+            </p>
+            <EmptyCard description="Begin building your next spec draft!" className="mb-4">
               <div className="mt-3">
                 <Button
                   variant="primary"

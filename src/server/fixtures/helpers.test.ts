@@ -6,7 +6,7 @@ import {
   createFixtureReviewQuestionInput,
   serializeFixtureAcceptedReviewUserParts,
   serializeFixtureConfirmationUserParts,
-  serializeFixtureGroundingCardAssistantParts,
+  serializeFixturePrefaceAssistantParts,
   serializeFixturePhaseConfirmationUserParts,
   serializeFixturePhaseProposalAssistantParts,
   serializeFixtureQuestionAssistantParts,
@@ -22,6 +22,7 @@ describe('fixture helpers', () => {
       why: 'Review the whole requirement set before moving forward.',
       items: [
         {
+          reviewItemId: 'requirements:1',
           referenceCode: 'R1',
           content: 'Persist the active path after reload.',
           rationale: 'Resume depends on durable active-path state.',
@@ -39,6 +40,10 @@ describe('fixture helpers', () => {
 
     expect(parts).toEqual(
       expect.arrayContaining([
+        {
+          type: 'data-activity-summary',
+          data: { seconds: 5, tools: [] },
+        },
         expect.objectContaining({
           type: 'tool-ask_question',
           toolCallId: 'fixture-requirements-review',
@@ -69,6 +74,10 @@ describe('fixture helpers', () => {
 
     expect(parts).toEqual(
       expect.arrayContaining([
+        {
+          type: 'data-activity-summary',
+          data: { seconds: 5, tools: [] },
+        },
         expect.objectContaining({
           type: 'tool-propose_phase_closure',
           output: { ok: true, turnId: 23, phase: 'design' },
@@ -87,20 +96,22 @@ describe('fixture helpers', () => {
 
   it('serializes grounding cards as persisted grounding artifacts', () => {
     const parts = deserializeAssistantParts(
-      serializeFixtureGroundingCardAssistantParts({
-        summary: 'Later context gathering narrowed the next move.',
-        detail: 'Continue to keep moving through the same stream.',
-        continueLabel: 'Continue',
+      serializeFixturePrefaceAssistantParts({
+        observation: 'Later context gathering narrowed the next move.',
+        elaboration: 'Continue to keep moving through the same stream.',
       }),
     );
 
     expect(parts).toEqual([
       {
-        type: 'data-grounding-card',
+        type: 'data-activity-summary',
+        data: { seconds: 5, tools: [] },
+      },
+      {
+        type: 'data-preface',
         data: {
-          summary: 'Later context gathering narrowed the next move.',
-          detail: 'Continue to keep moving through the same stream.',
-          continueLabel: 'Continue',
+          observation: 'Later context gathering narrowed the next move.',
+          elaboration: 'Continue to keep moving through the same stream.',
         },
       },
     ]);
@@ -173,7 +184,9 @@ describe('fixture helpers', () => {
     ]);
 
     expect(
-      deserializeUserParts(serializeFixturePhaseConfirmationUserParts({ phase: 'scope', proposalTurnId: 9 })),
+      deserializeUserParts(
+        serializeFixturePhaseConfirmationUserParts({ phase: 'grounding', proposalTurnId: 9 }),
+      ),
     ).toEqual([
       { type: 'text', text: 'Confirm grounding closure' },
       {
@@ -181,7 +194,7 @@ describe('fixture helpers', () => {
         data: {
           kind: 'confirm-proposed-phase-closure',
           proposalTurnId: 9,
-          phase: 'scope',
+          phase: 'grounding',
         },
       },
     ]);

@@ -10,7 +10,11 @@ export const knowledgeDisplayGroups: KnowledgeDisplayGroup[] = [
   { label: 'Assumptions & Decisions', kinds: ['assumption', 'decision'] },
   { label: 'Requirements', kinds: ['requirement'] },
   { label: 'Acceptance Criteria', kinds: ['criterion'] },
+  { label: 'Terminology', kinds: ['term'] },
 ];
+
+/** Groups that should be hidden entirely when they have no items. */
+export const hiddenWhenEmptyGroups = new Set(['Requirements', 'Acceptance Criteria']);
 
 const visibleKnowledgeKinds = new Set(knowledgeDisplayGroups.flatMap((group) => group.kinds));
 

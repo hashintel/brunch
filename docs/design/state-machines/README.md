@@ -196,6 +196,17 @@ owned, retried, canceled, or reconciled**, it belongs in the runtime.
    stop must make stale interviewer/generation outputs harmless through leases and
    idempotent durable writes.
 
+### Bug Class To Fold In
+
+One concrete bug class to retire in this work: observer/capture state must remain
+owned by the answered turn that triggered it, rather than leaking onto the
+successor turn or depending on loosely coordinated UI flags. The failure pattern
+shows up as answered cards skipping their transient `still thinking` state,
+remaining stuck there forever, or inheriting stale `data-observer-result`
+artifacts that suppress later observation for the wrong turn. The eventual state
+model should make per-turn observer lifecycle explicit and reject cross-turn
+observer artifact attachment as invalid.
+
 ## Projected Controls In The Charts
 
 `awaiting_kickoff` and `awaiting_recovery` stay as real workflow states, but their

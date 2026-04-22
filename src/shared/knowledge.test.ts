@@ -152,7 +152,7 @@ describe('knowledge kind registry', () => {
   });
 
   it('declares observer phase ontology policy in one shared place', () => {
-    expect(observerPhaseOntologyPolicies.scope).toEqual({
+    expect(observerPhaseOntologyPolicies.grounding).toEqual({
       focusKinds: ['goal', 'term', 'context', 'constraint'],
       allowedKinds: ['goal', 'term', 'context', 'constraint', 'decision', 'assumption'],
       correctionKinds: [],

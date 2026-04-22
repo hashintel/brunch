@@ -8,7 +8,7 @@ import { ActiveQuestionCard, AnsweredQuestionCard } from '@/client/components/qu
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import { Separator } from '@/client/components/ui/separator';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
-import type { SpecificationTurn as ProjectStateTurn } from '@/shared/specification.js';
+import type { SpecificationTurn as SpecificationStateTurn } from '@/shared/specification.js';
 
 // ── Fixture data ─────────────────────────────────────────────────────
 
@@ -33,10 +33,10 @@ const elicitationOptions = [
   },
 ];
 
-function makeAnsweredTurn(overrides: Partial<ProjectStateTurn>): ProjectStateTurn {
+function makeAnsweredTurn(overrides: Partial<SpecificationStateTurn>): SpecificationStateTurn {
   return {
     id: 10,
-    project_id: 1,
+    specification_id: 1,
     parent_turn_id: 5,
     phase: 'design',
     question: 'How should the system handle conflicting requirements from different stakeholder groups?',

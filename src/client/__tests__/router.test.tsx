@@ -1,17 +1,24 @@
 // @vitest-environment happy-dom
 
 import { createMemoryHistory } from '@tanstack/history';
+import { QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EntitiesData } from '@/shared/api-types.js';
-import type { SpecificationState as ProjectState } from '@/shared/specification.js';
+import type { SpecificationState } from '@/shared/specification.js';
+
+import { queryClient } from '../query-client.js';
 
 const fetchMock = vi.fn<typeof fetch>();
+let interviewViewRenderCount = 0;
+let interviewViewMountCount = 0;
+let interviewViewUnmountCount = 0;
 
-const minimalProjectState: ProjectState = {
-  project: {
+const minimalSpecificationState: SpecificationState = {
+  specification: {
     id: 42,
     name: 'Test',
     mode: 'greenfield',
@@ -21,7 +28,7 @@ const minimalProjectState: ProjectState = {
   },
   workflow: {
     phases: {
-      scope: {
+      grounding: {
         status: 'unstarted',
         closeability: false,
         readiness: 'low',
@@ -79,15 +86,26 @@ vi.mock('../routes/-project-list.js', () => ({
   fetchSpecificationListLoaderData: vi.fn(async () => []),
 }));
 
-vi.mock('../routes/project/$id/_view/-interview-controller', () => ({
+vi.mock('../routes/specification/$id/_view/-interview-controller', () => ({
   useInterviewController: () => ({ __brand: 'interview-controller' }),
 }));
 
-vi.mock('../routes/project/$id/_view/-interview-view.js', () => ({
-  InterviewView: () => <h1>Interview screen</h1>,
+vi.mock('../routes/specification/$id/_view/-interview-view.js', () => ({
+  InterviewView: () => {
+    interviewViewRenderCount += 1;
+
+    useEffect(() => {
+      interviewViewMountCount += 1;
+      return () => {
+        interviewViewUnmountCount += 1;
+      };
+    }, []);
+
+    return <h1>Interview screen</h1>;
+  },
 }));
 
-vi.mock('../routes/project/$id/-export-preview.js', () => ({
+vi.mock('../routes/specification/$id/-export-preview.js', () => ({
   ExportPreview: () => <h1>Export screen</h1>,
 }));
 
@@ -120,7 +138,7 @@ function defaultFetchHandler(input: RequestInfo | URL): Response {
     return jsonResponse({ ready: false });
   }
   if (url.match(/\/api\/specifications\/\d+$/)) {
-    return jsonResponse(minimalProjectState);
+    return jsonResponse(minimalSpecificationState);
   }
   if (url.endsWith('/api/config')) {
     return jsonResponse({ cwd: '/test/cwd' });
@@ -142,12 +160,20 @@ async function renderRouteAt(pathname: string) {
 
   return {
     router,
-    ...render(<RouterProvider router={router} />),
+    ...render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    ),
   };
 }
 
 beforeEach(() => {
+  queryClient.clear();
   fetchMock.mockReset();
+  interviewViewRenderCount = 0;
+  interviewViewMountCount = 0;
+  interviewViewUnmountCount = 0;
   fetchMock.mockImplementation(async (input) => defaultFetchHandler(input));
   vi.stubGlobal('fetch', fetchMock);
 });
@@ -208,7 +234,11 @@ describe('generated routeTree', () => {
     const history = createMemoryHistory({ initialEntries: ['/specification/42/grounding'] });
     const router = createRouter({ routeTree, history, defaultPendingMs: 0 });
 
-    render(<RouterProvider router={router} />);
+    render(
+      <QueryClientProvider client={queryClient}>
+        <RouterProvider router={router} />
+      </QueryClientProvider>,
+    );
     void router.load();
 
     await waitFor(() => {
@@ -219,7 +249,7 @@ describe('generated routeTree', () => {
     expect(screen.queryByRole('heading', { name: 'Interview screen' })).toBeNull();
 
     await act(async () => {
-      deferredFetch.resolve(jsonResponse(minimalProjectState));
+      deferredFetch.resolve(jsonResponse(minimalSpecificationState));
     });
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
@@ -232,11 +262,109 @@ describe('generated routeTree', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42/export');
   });
 
-  it('redirects project index to the grounding phase by default', async () => {
+  it('redirects project index to the grounding phase by default through one authoritative bundle fetch path', async () => {
     const { router } = await renderRouteAt('/specification/42');
 
     await waitFor(() => {
       expect(router.state.location.pathname).toBe('/specification/42/grounding');
     });
+
+    const specificationFetches = fetchMock.mock.calls.filter(([input]) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      return url === '/api/specifications/42';
+    });
+    expect(specificationFetches).toHaveLength(1);
+  });
+
+  it('refreshes only the entities domain for observer-owned invalidation on a mounted interview route', async () => {
+    await renderRouteAt('/specification/42/grounding');
+
+    expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
+    expect(interviewViewRenderCount).toBe(1);
+    expect(interviewViewMountCount).toBe(1);
+    expect(interviewViewUnmountCount).toBe(0);
+
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ['specification', '42', 'entities'] });
+    });
+
+    await waitFor(() => {
+      const entityFetches = fetchMock.mock.calls.filter(([input]) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+        return url === '/api/specifications/42/entities?mode=active-path';
+      });
+      expect(entityFetches).toHaveLength(2);
+    });
+
+    const specificationFetches = fetchMock.mock.calls.filter(([input]) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      return url === '/api/specifications/42';
+    });
+    expect(specificationFetches).toHaveLength(1);
+    expect(interviewViewRenderCount).toBe(1);
+    expect(interviewViewMountCount).toBe(1);
+    expect(interviewViewUnmountCount).toBe(0);
+  });
+
+  it('refreshes the specification bundle without remounting the interview route for mutation-owned invalidation', async () => {
+    await renderRouteAt('/specification/42/grounding');
+
+    expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
+    expect(interviewViewMountCount).toBe(1);
+    expect(interviewViewUnmountCount).toBe(0);
+
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ['specification', '42', 'bundle'] });
+    });
+
+    await waitFor(() => {
+      const specificationFetches = fetchMock.mock.calls.filter(([input]) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+        return url === '/api/specifications/42';
+      });
+      expect(specificationFetches).toHaveLength(2);
+    });
+
+    const entityFetches = fetchMock.mock.calls.filter(([input]) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      return url === '/api/specifications/42/entities?mode=active-path';
+    });
+    expect(entityFetches).toHaveLength(1);
+    expect(interviewViewMountCount).toBe(1);
+    expect(interviewViewUnmountCount).toBe(0);
+  });
+
+  it('redirects a completed specification index to the output route through one authoritative bundle fetch path', async () => {
+    fetchMock.mockImplementation(async (input) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+
+      if (url.match(/\/api\/specifications\/\d+$/)) {
+        return jsonResponse({
+          ...minimalSpecificationState,
+          workflow: {
+            phases: {
+              grounding: { ...minimalSpecificationState.workflow.phases.grounding, status: 'closed' },
+              design: { ...minimalSpecificationState.workflow.phases.design, status: 'closed' },
+              requirements: { ...minimalSpecificationState.workflow.phases.requirements, status: 'closed' },
+              criteria: { ...minimalSpecificationState.workflow.phases.criteria, status: 'closed' },
+            },
+          },
+        });
+      }
+
+      return defaultFetchHandler(input);
+    });
+
+    const { router } = await renderRouteAt('/specification/42');
+
+    await waitFor(() => {
+      expect(router.state.location.pathname).toBe('/specification/42/export');
+    });
+
+    const specificationFetches = fetchMock.mock.calls.filter(([input]) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      return url === '/api/specifications/42';
+    });
+    expect(specificationFetches).toHaveLength(1);
   });
 });

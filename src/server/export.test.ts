@@ -8,16 +8,16 @@ import {
   advanceHead,
   createDb,
   createKnowledgeItem,
-  createProject,
+  createSpecification,
   createTurn,
-  getEntitiesForProject,
-  getEntitiesForProjectOnActivePath,
+  getEntitiesForSpecification,
+  getEntitiesForSpecificationOnActivePath,
   linkKnowledgeItemToTurn,
 } from './db.js';
 import { buildReviewedExportProjection, renderExportMarkdown } from './export.js';
 import {
   seedAllPhasesClosedWithForcedDesign,
-  seedAllPhasesClosedWithLowReadinessScope,
+  seedAllPhasesClosedWithLowReadinessGrounding,
 } from './fixtures/scenarios.js';
 
 function createClosedPhase({
@@ -41,7 +41,7 @@ function createClosedPhase({
 function createAllClosedWorkflow(overrides?: Partial<Record<string, unknown>>): WorkflowState {
   return {
     phases: {
-      scope: createClosedPhase(),
+      grounding: createClosedPhase(),
       design: createClosedPhase(),
       requirements: createClosedPhase(),
       criteria: createClosedPhase(),
@@ -77,73 +77,103 @@ describe('renderExportMarkdown', () => {
       requirements: [
         {
           id: 1,
-          project_id: 1,
+          specification_id: 1,
           kind: 'requirement',
           subtype: null,
           content: 'Export spec',
           rationale: null,
         },
       ],
-      decisions: [{ id: 2, project_id: 1, content: 'Use SQLite', rationale: 'Zero config' }],
+      decisions: [{ id: 2, specification_id: 1, content: 'Use SQLite', rationale: 'Zero config' }],
     };
     const workflow = createAllClosedWorkflow({
       design: createClosedPhase({ basis: 'user_forced', readiness: 'low' }),
     });
 
     expect(buildReviewedExportProjection(entities, workflow)).toEqual({
-      caveats: ['design was closed via user-forced closure', 'design was closed with low readiness'],
+      caveats: [
+        'Elicitation was closed manually before the interviewer recommended closure.',
+        'Elicitation was closed while important uncertainty still remained.',
+      ],
       sections: [
         {
           heading: 'Requirements',
           items: [{ content: 'Export spec', rationale: null }],
         },
         {
-          heading: 'Decisions',
-          items: [{ content: 'Use SQLite', rationale: 'Zero config' }],
+          heading: 'Design Notes',
+          items: [{ label: 'Decision', content: 'Use SQLite', rationale: 'Zero config' }],
         },
       ],
     });
   });
 
-  it('renders kind-grouped sections from entities', () => {
+  it('renders accepted outputs first, then grouped supporting sections, then closure caveats', () => {
     const entities: EntitiesData = {
       ...emptyEntities,
-      goals: [{ id: 1, project_id: 1, kind: 'goal', subtype: null, content: 'Ship MVP', rationale: null }],
+      goals: [
+        { id: 1, specification_id: 1, kind: 'goal', subtype: null, content: 'Ship MVP', rationale: null },
+      ],
       requirements: [
         {
           id: 2,
-          project_id: 1,
+          specification_id: 1,
           kind: 'requirement',
           subtype: null,
           content: 'Resume from SQLite',
           rationale: null,
         },
       ],
-      decisions: [{ id: 3, project_id: 1, content: 'Use SQLite', rationale: 'Zero config' }],
+      criteria: [
+        {
+          id: 4,
+          specification_id: 1,
+          kind: 'criterion',
+          subtype: null,
+          content: 'Reload resumes the active interview state',
+          rationale: null,
+        },
+      ],
+      decisions: [{ id: 3, specification_id: 1, content: 'Use SQLite', rationale: 'Zero config' }],
     };
+    const workflow = createAllClosedWorkflow({
+      grounding: createClosedPhase({ readiness: 'low' }),
+    });
 
-    const md = renderExportMarkdown('Test Project', entities, createAllClosedWorkflow());
+    const md = renderExportMarkdown('Test Project', entities, workflow);
 
     expect(md).toContain('# Test Project');
-    expect(md).toContain('## Goals');
-    expect(md).toContain('Ship MVP');
     expect(md).toContain('## Requirements');
     expect(md).toContain('Resume from SQLite');
-    expect(md).toContain('## Decisions');
-    expect(md).toContain('Use SQLite');
+    expect(md).toContain('## Acceptance Criteria');
+    expect(md).toContain('Reload resumes the active interview state');
+    expect(md).toContain('## Supporting Context');
+    expect(md).toContain('Goal: Ship MVP');
+    expect(md).toContain('## Design Notes');
+    expect(md).toContain('Decision: Use SQLite');
+    expect(md).toContain('## Closure Caveats');
+    expect(md).toContain('Grounding was closed while important uncertainty still remained.');
+
+    expect(md.indexOf('## Requirements')).toBeLessThan(md.indexOf('## Acceptance Criteria'));
+    expect(md.indexOf('## Acceptance Criteria')).toBeLessThan(md.indexOf('## Supporting Context'));
+    expect(md.indexOf('## Supporting Context')).toBeLessThan(md.indexOf('## Design Notes'));
+    expect(md.indexOf('## Design Notes')).toBeLessThan(md.indexOf('## Closure Caveats'));
   });
 
-  it('omits empty kind sections', () => {
+  it('omits empty supporting groups', () => {
     const entities: EntitiesData = {
       ...emptyEntities,
-      goals: [{ id: 1, project_id: 1, kind: 'goal', subtype: null, content: 'Ship MVP', rationale: null }],
+      goals: [
+        { id: 1, specification_id: 1, kind: 'goal', subtype: null, content: 'Ship MVP', rationale: null },
+      ],
     };
 
     const md = renderExportMarkdown('Test', entities, createAllClosedWorkflow());
 
-    expect(md).toContain('## Goals');
-    expect(md).not.toContain('## Terms');
+    expect(md).toContain('## Supporting Context');
+    expect(md).toContain('Goal: Ship MVP');
     expect(md).not.toContain('## Requirements');
+    expect(md).not.toContain('## Design Notes');
   });
 
   it('includes closure caveats for forced-close phases', () => {
@@ -153,8 +183,7 @@ describe('renderExportMarkdown', () => {
 
     const md = renderExportMarkdown('Test', emptyEntities, workflow);
 
-    expect(md).toContain('design');
-    expect(md).toContain('user-forced');
+    expect(md).toContain('Elicitation was closed manually before the interviewer recommended closure.');
   });
 
   it('renders only the accepted requirement and criterion items present in the export projection', () => {
@@ -163,7 +192,7 @@ describe('renderExportMarkdown', () => {
       requirements: [
         {
           id: 1,
-          project_id: 1,
+          specification_id: 1,
           kind: 'requirement',
           subtype: null,
           content: 'Export spec',
@@ -173,7 +202,7 @@ describe('renderExportMarkdown', () => {
       criteria: [
         {
           id: 2,
-          project_id: 1,
+          specification_id: 1,
           kind: 'criterion',
           subtype: null,
           content: 'Reload shows the active interview state',
@@ -197,16 +226,15 @@ describe('renderExportMarkdown', () => {
 
     const md = renderExportMarkdown('Test', emptyEntities, workflow);
 
-    expect(md).toContain('design');
-    expect(md).toContain('low readiness');
+    expect(md).toContain('Elicitation was closed while important uncertainty still remained.');
   });
 
   it('filters export content to knowledge linked on the active path', () => {
     const db = createDb();
     openDbs.push(db);
-    const project = createProject(db, 'Branching Project');
+    const project = createSpecification(db, 'Branching Project');
     const rootTurn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'What database?',
       answer: 'We are still deciding.',
     });
@@ -233,7 +261,7 @@ describe('renderExportMarkdown', () => {
     linkKnowledgeItemToTurn(db, abandonedDecision.id, abandonedBranchTurn.id);
     linkKnowledgeItemToTurn(db, activeDecision.id, activeBranchTurn.id);
 
-    expect(getEntitiesForProject(db, project.id).decisions).toEqual(
+    expect(getEntitiesForSpecification(db, project.id).decisions).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ content: 'Use SQLite for persistence' }),
         expect.objectContaining({ content: 'Use Postgres for persistence' }),
@@ -242,7 +270,7 @@ describe('renderExportMarkdown', () => {
 
     const markdown = renderExportMarkdown(
       project.name,
-      getEntitiesForProjectOnActivePath(db, project.id),
+      getEntitiesForSpecificationOnActivePath(db, project.id),
       createAllClosedWorkflow(),
     );
 
@@ -253,7 +281,7 @@ describe('renderExportMarkdown', () => {
   it('renders the forced-close canonical fixture with the expected export caveat', () => {
     const db = createDb();
     openDbs.push(db);
-    const projectId = createProject(db, 'Forced-Close All Phases Closed').id;
+    const projectId = createSpecification(db, 'Forced-Close All Phases Closed').id;
     seedAllPhasesClosedWithForcedDesign(db, projectId);
 
     const projectState = getSpecificationState(db, projectId);
@@ -265,22 +293,22 @@ describe('renderExportMarkdown', () => {
 
     const markdown = renderExportMarkdown(
       getSpecificationRecord(projectState!).name,
-      getEntitiesForProjectOnActivePath(db, projectId),
+      getEntitiesForSpecificationOnActivePath(db, projectId),
       projectState!.workflow,
     );
-    expect(markdown).toContain('__design__ was closed via user-forced closure');
+    expect(markdown).toContain('Elicitation was closed manually before the interviewer recommended closure.');
     expect(markdown).not.toContain('Support exporting the spec as a PDF');
   });
 
   it('renders the low-readiness canonical fixture with the expected export caveat', () => {
     const db = createDb();
     openDbs.push(db);
-    const projectId = createProject(db, 'Low-Readiness All Phases Closed').id;
-    seedAllPhasesClosedWithLowReadinessScope(db, projectId);
+    const projectId = createSpecification(db, 'Low-Readiness All Phases Closed').id;
+    seedAllPhasesClosedWithLowReadinessGrounding(db, projectId);
 
     const projectState = getSpecificationState(db, projectId);
     expect(projectState).not.toBeNull();
-    expect(projectState?.workflow.phases.scope).toMatchObject({
+    expect(projectState?.workflow.phases.grounding).toMatchObject({
       status: 'closed',
       readiness: 'low',
       closureBasis: 'interviewer_recommended',
@@ -288,10 +316,10 @@ describe('renderExportMarkdown', () => {
 
     const markdown = renderExportMarkdown(
       getSpecificationRecord(projectState!).name,
-      getEntitiesForProjectOnActivePath(db, projectId),
+      getEntitiesForSpecificationOnActivePath(db, projectId),
       projectState!.workflow,
     );
-    expect(markdown).toContain('__scope__ was closed with low readiness');
+    expect(markdown).toContain('Grounding was closed while important uncertainty still remained.');
     expect(markdown).not.toContain('Support exporting the spec as a PDF');
   });
 });

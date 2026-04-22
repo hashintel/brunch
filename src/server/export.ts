@@ -1,9 +1,10 @@
-import { bold, h1, h2, h3, ul } from 'md-pen';
+import { h1, h2, ul } from 'md-pen';
 
 import type { EntitiesData, WorkflowState } from '@/shared/api-types.js';
-import { knowledgeKindRegistry } from '@/shared/knowledge.js';
+import { getWorkflowPhaseLabel, phaseOrder } from '@/shared/phase-descriptors.js';
 
 export interface ReviewedExportItem {
+  label?: string;
   content: string;
   rationale?: string | null;
 }
@@ -19,25 +20,43 @@ export interface ReviewedExportProjection {
 }
 
 function renderItem(item: ReviewedExportItem): string {
-  const parts = [item.content];
+  const parts = [item.label ? `${item.label}: ${item.content}` : item.content];
   if (item.rationale) {
     parts.push(`— ${item.rationale}`);
   }
   return parts.join(' ');
 }
 
-function getReviewedExportItems(items: Array<{ content: string; rationale?: string | null }>) {
-  return items;
+type ReviewedExportCollectionKey = Exclude<keyof EntitiesData, 'relationships'>;
+
+interface ReviewedExportCollectionDescriptor {
+  collectionKey: ReviewedExportCollectionKey;
+  label?: string;
+}
+
+function getReviewedExportItems(
+  entities: EntitiesData,
+  collections: readonly ReviewedExportCollectionDescriptor[],
+): ReviewedExportItem[] {
+  return collections.flatMap(({ collectionKey, label }) =>
+    (entities[collectionKey] as Array<{ content: string; rationale?: string | null }>).map((item) => ({
+      label,
+      content: item.content,
+      rationale: item.rationale,
+    })),
+  );
 }
 
 function getReviewedExportCaveats(workflow: WorkflowState): string[] {
   const caveats: string[] = [];
-  for (const [phase, state] of Object.entries(workflow.phases)) {
+  for (const phase of phaseOrder) {
+    const state = workflow.phases[phase];
+    const phaseLabel = getWorkflowPhaseLabel(phase);
     if (state.closureBasis && state.closureBasis !== 'interviewer_recommended') {
-      caveats.push(`${phase} was closed via user-forced closure`);
+      caveats.push(`${phaseLabel} was closed manually before the interviewer recommended closure.`);
     }
     if (state.readiness === 'low') {
-      caveats.push(`${phase} was closed with low readiness`);
+      caveats.push(`${phaseLabel} was closed while important uncertainty still remained.`);
     }
   }
   return caveats;
@@ -45,7 +64,52 @@ function getReviewedExportCaveats(workflow: WorkflowState): string[] {
 
 function renderCaveats(caveats: string[]): string {
   if (caveats.length === 0) return '';
-  return `${h3('Closure Caveats')}\n\n${ul(caveats.map((caveat) => bold(caveat.split(' ')[0]!) + caveat.slice(caveat.indexOf(' '))))}\n`;
+  return `${h2('Closure Caveats')}\n\n${ul(caveats)}\n`;
+}
+
+const reviewedExportSectionDescriptors = [
+  {
+    heading: 'Requirements',
+    collections: [{ collectionKey: 'requirements' }],
+  },
+  {
+    heading: 'Acceptance Criteria',
+    collections: [{ collectionKey: 'criteria' }],
+  },
+  {
+    heading: 'Supporting Context',
+    collections: [
+      { collectionKey: 'goals', label: 'Goal' },
+      { collectionKey: 'terms', label: 'Term' },
+      { collectionKey: 'contexts', label: 'Context' },
+      { collectionKey: 'constraints', label: 'Constraint' },
+    ],
+  },
+  {
+    heading: 'Design Notes',
+    collections: [
+      { collectionKey: 'decisions', label: 'Decision' },
+      { collectionKey: 'assumptions', label: 'Assumption' },
+    ],
+  },
+] satisfies readonly {
+  heading: string;
+  collections: readonly ReviewedExportCollectionDescriptor[];
+}[];
+
+function buildReviewedExportSection(
+  entities: EntitiesData,
+  descriptor: (typeof reviewedExportSectionDescriptors)[number],
+): ReviewedExportSection | null {
+  const items = getReviewedExportItems(entities, descriptor.collections);
+  if (items.length === 0) {
+    return null;
+  }
+
+  return {
+    heading: descriptor.heading,
+    items,
+  };
 }
 
 export function buildReviewedExportProjection(
@@ -54,20 +118,9 @@ export function buildReviewedExportProjection(
 ): ReviewedExportProjection {
   return {
     caveats: getReviewedExportCaveats(workflow),
-    sections: knowledgeKindRegistry.flatMap((entry) => {
-      const items = getReviewedExportItems(entities[entry.collectionKey]).map((item) => ({
-        content: item.content,
-        rationale: item.rationale,
-      }));
-
-      return items.length > 0
-        ? [
-            {
-              heading: entry.label,
-              items,
-            } satisfies ReviewedExportSection,
-          ]
-        : [];
+    sections: reviewedExportSectionDescriptors.flatMap((descriptor) => {
+      const section = buildReviewedExportSection(entities, descriptor);
+      return section ? [section] : [];
     }),
   };
 }
@@ -80,16 +133,16 @@ export function renderExportMarkdown(
   const sections: string[] = [h1(projectName), ''];
   const projection = buildReviewedExportProjection(entities, workflow);
 
-  const caveatSection = renderCaveats(projection.caveats);
-  if (caveatSection) {
-    sections.push(caveatSection);
-  }
-
   for (const section of projection.sections) {
     sections.push(h2(section.heading));
     sections.push('');
     sections.push(ul(section.items.map(renderItem)));
     sections.push('');
+  }
+
+  const caveatSection = renderCaveats(projection.caveats);
+  if (caveatSection) {
+    sections.push(caveatSection);
   }
 
   return sections.join('\n');

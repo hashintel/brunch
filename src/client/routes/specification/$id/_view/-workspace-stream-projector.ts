@@ -1,9 +1,11 @@
 import type { WorkflowPhase } from '@/shared/api-types.js';
+import { computeReviewSetChangeSummary, type ReviewSetChangeSummary } from '@/shared/review-diffing.js';
 import {
   getAcceptedClosureReplay,
-  getPersistedGroundingCard,
+  getTurnPreface,
   getPersistedReviewAction,
   getPersistedReviewSet,
+  toStructuralArtifactTurnIdSet,
   turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
 } from '@/shared/specification-state.js';
@@ -19,6 +21,12 @@ export interface WorkspaceStreamMarker {
 
 export type WorkspaceStreamArtifact =
   | {
+      readonly kind: 'phase-section-header';
+      readonly phase: WorkflowPhase;
+      readonly purpose: string;
+      readonly knowledgeKinds: string;
+    }
+  | {
       readonly kind: 'phase-marker';
       readonly marker: WorkspaceStreamMarker;
     }
@@ -32,14 +40,29 @@ export type WorkspaceStreamArtifact =
       readonly questionCode: string;
     }
   | {
-      readonly kind: 'answered-grounding-card';
+      readonly kind: 'prefaced-question';
       readonly turn: SpecificationTurn;
-      readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
+      readonly preface: NonNullable<ReturnType<typeof getTurnPreface>>;
+      readonly questionCode: string;
     }
   | {
       readonly kind: 'answered-review-turn';
       readonly turn: SpecificationTurn;
       readonly reviewSet: NonNullable<ReturnType<typeof getPersistedReviewSet>>;
+      readonly revisionNumber: number;
+    }
+  | {
+      readonly kind: 'answered-revision-review';
+      readonly turn: SpecificationTurn;
+      readonly reviewSet: NonNullable<ReturnType<typeof getPersistedReviewSet>>;
+      readonly revisionNumber: number;
+      readonly changeSummary: ReviewSetChangeSummary;
+    }
+  | {
+      readonly kind: 'collapsed-review-turn';
+      readonly turn: SpecificationTurn;
+      readonly revisionNumber: number;
+      readonly reviewAction: NonNullable<ReturnType<typeof getPersistedReviewAction>>;
     }
   | {
       readonly kind: 'accepted-closure';
@@ -55,9 +78,10 @@ export type WorkspaceStreamArtifact =
       readonly questionCode: string;
     }
   | {
-      readonly kind: 'persisted-grounding-card';
+      readonly kind: 'active-prefaced-question';
       readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
-      readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
+      readonly preface: NonNullable<ReturnType<typeof getTurnPreface>>;
+      readonly questionCode: string;
     }
   | {
       readonly kind: 'pending-question';
@@ -102,6 +126,47 @@ function getRenderedPersistedTurnId(
     : null;
 }
 
+const phaseSectionHeaderCopy: Record<WorkflowPhase, { purpose: string; knowledgeKinds: string }> = {
+  grounding: {
+    purpose: 'Establish shared orientation before design begins.',
+    knowledgeKinds: 'Goals, terms, context, and constraints.',
+  },
+  design: {
+    purpose: 'Surface commitments and tradeoffs that shape the solution.',
+    knowledgeKinds: 'Design decisions and assumptions.',
+  },
+  requirements: {
+    purpose: 'Review a synthesized requirement set for completeness and accuracy.',
+    knowledgeKinds: 'Requirement review.',
+  },
+  criteria: {
+    purpose: 'Review verification coverage against accepted requirements.',
+    knowledgeKinds: 'Verification coverage review.',
+  },
+};
+
+function projectPhaseSectionHeader({
+  phase,
+  phaseState,
+}: {
+  phase: WorkflowPhase;
+  phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
+}): WorkspaceStreamArtifact[] {
+  if (phaseState.status === 'unstarted') {
+    return [];
+  }
+
+  const copy = phaseSectionHeaderCopy[phase];
+  return [
+    {
+      kind: 'phase-section-header',
+      phase,
+      purpose: copy.purpose,
+      knowledgeKinds: copy.knowledgeKinds,
+    },
+  ];
+}
+
 function projectPhaseMarkers({
   phase,
   phaseState,
@@ -129,13 +194,17 @@ function projectHistoryArtifacts({
   phaseTurns,
   phaseState,
   renderedPersistedTurnId,
+  structuralArtifactTurnIds,
 }: {
   phaseTurns: readonly SpecificationTurn[];
   phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
   renderedPersistedTurnId: number | null;
+  structuralArtifactTurnIds: ReadonlySet<number>;
 }): WorkspaceStreamArtifact[] {
   const historyArtifacts: WorkspaceStreamArtifact[] = [];
   let answeredTurnCount = 0;
+  let reviewTurnCount = 0;
+  let lastReviewSet: NonNullable<ReturnType<typeof getPersistedReviewSet>> | null = null;
 
   for (const turn of phaseTurns) {
     if (turn.id === renderedPersistedTurnId) {
@@ -152,27 +221,43 @@ function projectHistoryArtifacts({
       continue;
     }
 
-    if (!turnHasCompletedAnswer(turn) || turnIsControlOrClosureArtifact(turn)) {
+    if (!turnHasCompletedAnswer(turn) || turnIsControlOrClosureArtifact(turn, structuralArtifactTurnIds)) {
       continue;
     }
 
-    const groundingCard = getPersistedGroundingCard(turn);
-    if (groundingCard) {
+    const preface = getTurnPreface(turn);
+    if (preface && turn.question?.trim()) {
+      answeredTurnCount += 1;
       historyArtifacts.push({
-        kind: 'answered-grounding-card',
+        kind: 'prefaced-question',
         turn,
-        groundingCard,
+        preface,
+        questionCode: `Q${answeredTurnCount}`,
       });
       continue;
     }
-
     const reviewSet = getPersistedReviewSet(turn);
     if (reviewSet && getPersistedReviewAction(turn)) {
-      historyArtifacts.push({
-        kind: 'answered-review-turn',
-        turn,
-        reviewSet,
-      });
+      reviewTurnCount += 1;
+
+      if (reviewTurnCount > 1 && lastReviewSet) {
+        historyArtifacts.push({
+          kind: 'answered-revision-review',
+          turn,
+          reviewSet,
+          revisionNumber: reviewTurnCount,
+          changeSummary: computeReviewSetChangeSummary(lastReviewSet, reviewSet),
+        });
+      } else {
+        historyArtifacts.push({
+          kind: 'answered-review-turn',
+          turn,
+          reviewSet,
+          revisionNumber: reviewTurnCount,
+        });
+      }
+
+      lastReviewSet = reviewSet;
       continue;
     }
 
@@ -184,7 +269,38 @@ function projectHistoryArtifacts({
     });
   }
 
-  return historyArtifacts;
+  if (reviewTurnCount <= 1) {
+    return historyArtifacts;
+  }
+
+  let lastReviewIndex = -1;
+  for (let i = historyArtifacts.length - 1; i >= 0; i--) {
+    const kind = historyArtifacts[i]!.kind;
+    if (kind === 'answered-review-turn' || kind === 'answered-revision-review') {
+      lastReviewIndex = i;
+      break;
+    }
+  }
+
+  return historyArtifacts.map((artifact, index) => {
+    if (index === lastReviewIndex) {
+      return artifact;
+    }
+
+    if (artifact.kind === 'answered-review-turn' || artifact.kind === 'answered-revision-review') {
+      const reviewAction = getPersistedReviewAction(artifact.turn);
+      if (reviewAction) {
+        return {
+          kind: 'collapsed-review-turn' as const,
+          turn: artifact.turn,
+          revisionNumber: artifact.revisionNumber,
+          reviewAction,
+        };
+      }
+    }
+
+    return artifact;
+  });
 }
 
 function projectBottomArtifact(
@@ -195,15 +311,15 @@ function projectBottomArtifact(
 
   switch (bottomArtifact?.kind) {
     case 'persisted-turn': {
-      const groundingCard = getPersistedGroundingCard(bottomArtifact.turn);
-      if (groundingCard) {
+      const preface = getTurnPreface(bottomArtifact.turn);
+      if (preface && bottomArtifact.turn.question?.trim()) {
         return {
-          kind: 'persisted-grounding-card',
+          kind: 'active-prefaced-question',
           artifact: bottomArtifact,
-          groundingCard,
+          preface,
+          questionCode,
         };
       }
-
       return {
         kind: 'persisted-turn',
         artifact: bottomArtifact,
@@ -271,7 +387,7 @@ function shouldInsertDivider({
     historyArtifacts.length > 0 &&
     (controlArtifacts.length > 0 ||
       bottomArtifact?.kind === 'persisted-turn' ||
-      bottomArtifact?.kind === 'persisted-grounding-card' ||
+      bottomArtifact?.kind === 'active-prefaced-question' ||
       bottomArtifact?.kind === 'pending-question' ||
       bottomArtifact?.kind === 'phase-summary' ||
       bottomArtifact?.kind === 'generating' ||
@@ -286,22 +402,29 @@ export function specificationWorkspaceStream({
   phaseState,
   bottomArtifact,
   controlMarkers = [],
+  structuralArtifactTurnIds: rawStructuralIds,
 }: {
   phase: WorkflowPhase;
   phaseTurns: readonly SpecificationTurn[];
   phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
   bottomArtifact: InterviewControllerBottomArtifactState | null;
   controlMarkers?: readonly WorkspaceStreamMarker[];
+  structuralArtifactTurnIds?: readonly number[];
 }): WorkspaceStreamProjection {
+  const structuralArtifactTurnIds = toStructuralArtifactTurnIdSet(rawStructuralIds);
   const renderedPersistedTurnId = getRenderedPersistedTurnId(bottomArtifact);
   const historyArtifacts = projectHistoryArtifacts({
     phaseTurns,
     phaseState,
     renderedPersistedTurnId,
+    structuralArtifactTurnIds,
   });
-  const answeredTurnCount = historyArtifacts.filter((artifact) => artifact.kind === 'answered-turn').length;
+  const answeredTurnCount = historyArtifacts.filter(
+    (artifact) => artifact.kind === 'answered-turn' || artifact.kind === 'prefaced-question',
+  ).length;
   const projectedBottomArtifact = projectBottomArtifact(bottomArtifact, answeredTurnCount);
   const controlArtifacts = projectControlMarkers(controlMarkers);
+  const phaseSectionHeaders = projectPhaseSectionHeader({ phase, phaseState });
   const phaseMarkers = projectPhaseMarkers({ phase, phaseState });
   const tailArtifacts = projectedBottomArtifact
     ? [...controlArtifacts, projectedBottomArtifact]
@@ -313,7 +436,13 @@ export function specificationWorkspaceStream({
       controlArtifacts,
       bottomArtifact: projectedBottomArtifact,
     })
-      ? [...phaseMarkers, ...historyArtifacts, { kind: 'divider' as const }, ...tailArtifacts]
-      : [...phaseMarkers, ...historyArtifacts, ...tailArtifacts],
+      ? [
+          ...phaseSectionHeaders,
+          ...phaseMarkers,
+          ...historyArtifacts,
+          { kind: 'divider' as const },
+          ...tailArtifacts,
+        ]
+      : [...phaseSectionHeaders, ...phaseMarkers, ...historyArtifacts, ...tailArtifacts],
   };
 }

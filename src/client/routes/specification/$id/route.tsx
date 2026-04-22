@@ -1,9 +1,9 @@
-import { Outlet, createFileRoute, useLoaderData, useParams } from '@tanstack/react-router';
+import { Outlet, createFileRoute, useParams } from '@tanstack/react-router';
 
 import { Skeleton } from '@/client/components/ui/skeleton';
-import { getSpecificationRecord, type SpecificationState } from '@/shared/specification.js';
 
-import { PhaseNavigationSidebar } from '../../project/$id/-phase-navigation-sidebar.js';
+import { PhaseNavigationSidebar } from './-phase-navigation-sidebar.js';
+import { primeSpecificationBundle, useSpecificationBundleData } from './-specification-data.js';
 
 function SpecificationWorkspaceSkeleton() {
   return (
@@ -25,25 +25,18 @@ function SpecificationWorkspaceSkeleton() {
   );
 }
 
-async function fetchSpecificationWorkspaceLoaderData(specificationId: string): Promise<SpecificationState> {
-  const response = await fetch(`/api/specifications/${specificationId}`);
-  if (!response.ok) {
-    throw new Error('Failed to load specification');
-  }
-  return (await response.json()) as SpecificationState;
-}
-
 export const Route = createFileRoute('/specification/$id')({
-  loader: ({ params }) => fetchSpecificationWorkspaceLoaderData(params.id),
+  loader: ({ params }) => primeSpecificationBundle(params.id),
   pendingComponent: SpecificationWorkspaceSkeleton,
   component: function SpecificationWorkspaceLayout() {
-    const specificationState = useLoaderData({ from: '/specification/$id' });
+    const specificationState = useSpecificationBundleData();
     const { id: specificationId } = useParams({ from: '/specification/$id' });
+
     return (
       <div className="flex h-full">
         <PhaseNavigationSidebar
           specificationId={specificationId}
-          specificationName={getSpecificationRecord(specificationState).name}
+          specificationName={specificationState.specification.name}
           workflow={specificationState.workflow}
           turns={specificationState.turns}
         />

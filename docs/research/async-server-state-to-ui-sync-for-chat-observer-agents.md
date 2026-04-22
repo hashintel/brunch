@@ -1,5 +1,23 @@
 # Async Server-State to UI Sync: Chat + Observer Agent Architecture
 
+## Sync status — 2026-04-22
+
+**Status:** partially live design input for the active query-ownership frontier.
+
+### Still-live inputs
+
+- The chat stream and observer side-effects are different sync problems and should not share one ownership model by accident.
+- Observer-created entities belong to query-owned, non-transcript surfaces such as the entity sidebar and graph view.
+- In-band data parts on the existing SSE chat stream remain a valid delivery mechanism while observer completion stays in the same request / turn lifecycle.
+- TanStack Query remains the right client sync seam for observer-owned state; bridge SSE-delivered observer results into query-owned data via `queryClient`, not ad hoc React local state.
+
+### Not the live question anymore
+
+- A separate out-of-band SSE channel is deferred unless observer completion becomes truly async / off-request.
+- TanStack DB evaluation is out of scope for the current refactor.
+- The detailed library comparison and `useChat` stale-closure cautions are background notes, not the primary design drivers.
+- The current live concern is stricter than “observer results update something somewhere”: entity refresh must stay **outside the transcript-owning subtree**.
+
 ## Executive Summary
 
 The architecture described — SSE-based chat streaming via `@ai-sdk/react` `useChat`, plus a background observer agent that creates new data entities — creates two distinct sync problems that should be handled with two different mechanisms. The core chat turn (primary agent response) should stay on the existing `useChat` / AI SDK SSE stream, with observer-created entities surfaced either **in-band** as typed data parts on the same stream, or **out-of-band** via a `queryClient.invalidateQueries` / `queryClient.setQueryData` call triggered from `useChat`'s `onFinish` or `onData` hooks feeding TanStack Query. TanStack DB is real but likely overkill for this use case, as argued below.

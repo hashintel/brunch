@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 
-import { InterviewView } from '../../../project/$id/_view/-interview-view.js';
+import { InterviewView } from './-interview-view.js';
 
 function RequirementsReviewView() {
   return <InterviewView phase="requirements" />;

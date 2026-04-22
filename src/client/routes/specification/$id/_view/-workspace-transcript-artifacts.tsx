@@ -7,18 +7,21 @@ import {
   TranscriptMetaPlaceholder,
 } from '@/client/components/control-cards';
 import {
-  ActiveGroundingCard,
   ActiveQuestionCard,
   ActiveReviewSetCard,
-  AnsweredGroundingCard,
+  PrefaceCard,
   AnsweredQuestionCard,
   AnsweredReviewSetCard,
+  CollapsedReviewCard,
   GeneratingTurnPlaceholder,
+  RevisionCard,
 } from '@/client/components/question-cards';
-import { ReviewPhaseCompletionCard, type ReviewSetCardData } from '@/client/components/review-set-card';
+import { ReviewPhaseCompletionCard } from '@/client/components/review-set-card';
 import type { ActivitySummary } from '@/shared/chat.js';
 import { getPhaseRoutePath, getWorkflowPhaseLabel } from '@/shared/phase-descriptors.js';
+import { getReviewRevisionNumber, normalizeReviewSetForDisplay } from '@/shared/review-diffing.js';
 import {
+  getPersistedReviewAction,
   getPersistedReviewSet,
   getPersistedSelectedPositions,
   getPersistedTurnResponse,
@@ -50,25 +53,56 @@ function getReviewPhaseCompletionDescription(
   return 'The accepted criteria set is ready for export.';
 }
 
+function findPreviousAnsweredReviewSet(phaseTurns: readonly SpecificationTurn[], turnId?: number) {
+  let previousReviewSet: ReturnType<typeof getPersistedReviewSet> = null;
+
+  for (const phaseTurn of phaseTurns) {
+    if (turnId !== undefined && phaseTurn.id === turnId) {
+      break;
+    }
+
+    const reviewSet = getPersistedReviewSet(phaseTurn);
+    if (reviewSet && getPersistedReviewAction(phaseTurn)) {
+      previousReviewSet = reviewSet;
+    }
+  }
+
+  return previousReviewSet;
+}
+
 function renderWorkspaceHistoryArtifact({
   artifact,
+  phaseTurns,
   captureStatusByTurnId,
   renderPersistedActivity,
 }: {
   artifact: Extract<
     WorkspaceStreamArtifact,
+    | { kind: 'phase-section-header' }
     | { kind: 'phase-marker' }
     | { kind: 'control-marker' }
     | { kind: 'answered-turn' }
-    | { kind: 'answered-grounding-card' }
+    | { kind: 'prefaced-question' }
     | { kind: 'answered-review-turn' }
+    | { kind: 'answered-revision-review' }
+    | { kind: 'collapsed-review-turn' }
     | { kind: 'accepted-closure' }
     | { kind: 'divider' }
   >;
+  phaseTurns: readonly SpecificationTurn[];
   captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   renderPersistedActivity: (turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined) => React.ReactNode;
 }) {
   switch (artifact.kind) {
+    case 'phase-section-header':
+      return (
+        <TranscriptMetaPlaceholder
+          key={`phase-section-header-${artifact.phase}`}
+          label={artifact.purpose}
+          detail={artifact.knowledgeKinds}
+          testId={`phase-section-header-${artifact.phase}`}
+        />
+      );
     case 'phase-marker':
     case 'control-marker':
       return (
@@ -92,13 +126,18 @@ function renderWorkspaceHistoryArtifact({
           />
         </WorkspaceArtifactRow>
       );
-    case 'answered-grounding-card':
+    case 'prefaced-question':
       return (
         <WorkspaceArtifactRow
-          key={`answered-grounding-card-${artifact.turn.id}`}
+          key={`prefaced-question-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
         >
-          <AnsweredGroundingCard groundingCard={artifact.groundingCard} turn={artifact.turn} />
+          <PrefaceCard preface={artifact.preface} />
+          <AnsweredQuestionCard
+            turn={artifact.turn}
+            questionCode={artifact.questionCode}
+            captureStatus={captureStatusByTurnId.get(artifact.turn.id)}
+          />
         </WorkspaceArtifactRow>
       );
     case 'answered-review-turn':
@@ -107,8 +146,41 @@ function renderWorkspaceHistoryArtifact({
           key={`answered-review-turn-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
         >
-          <AnsweredReviewSetCard turn={artifact.turn} reviewSet={artifact.reviewSet} />
+          <AnsweredReviewSetCard
+            turn={artifact.turn}
+            reviewSet={normalizeReviewSetForDisplay(
+              artifact.reviewSet,
+              findPreviousAnsweredReviewSet(phaseTurns, artifact.turn.id),
+            )}
+            revisionNumber={artifact.revisionNumber}
+          />
         </WorkspaceArtifactRow>
+      );
+    case 'answered-revision-review':
+      return (
+        <WorkspaceArtifactRow
+          key={`answered-revision-review-${artifact.turn.id}`}
+          activity={renderPersistedActivity(artifact.turn)}
+        >
+          <RevisionCard revisionNumber={artifact.revisionNumber} changeSummary={artifact.changeSummary} />
+          <AnsweredReviewSetCard
+            turn={artifact.turn}
+            reviewSet={normalizeReviewSetForDisplay(
+              artifact.reviewSet,
+              findPreviousAnsweredReviewSet(phaseTurns, artifact.turn.id),
+            )}
+            revisionNumber={artifact.revisionNumber}
+          />
+        </WorkspaceArtifactRow>
+      );
+    case 'collapsed-review-turn':
+      return (
+        <div key={`collapsed-review-turn-${artifact.turn.id}`}>
+          <CollapsedReviewCard
+            revisionNumber={artifact.revisionNumber}
+            reviewAction={artifact.reviewAction}
+          />
+        </div>
       );
     case 'accepted-closure':
       return (
@@ -130,7 +202,6 @@ function renderWorkspaceHistoryArtifact({
 
 function renderWorkspaceInteractiveArtifact({
   artifact,
-  fallbackReviewSet,
   showLockedState,
   phaseTurns,
   renderPersistedActivity,
@@ -139,14 +210,13 @@ function renderWorkspaceInteractiveArtifact({
   artifact: Extract<
     WorkspaceStreamArtifact,
     | { kind: 'persisted-turn' }
-    | { kind: 'persisted-grounding-card' }
+    | { kind: 'active-prefaced-question' }
     | { kind: 'pending-question' }
     | { kind: 'kickoff' }
     | { kind: 'recovery' }
     | { kind: 'phase-summary' }
     | { kind: 'generating' }
   >;
-  fallbackReviewSet?: ReviewSetCardData;
   showLockedState: boolean;
   phaseTurns: readonly SpecificationTurn[];
   renderPersistedActivity: (turn: Pick<SpecificationTurn, 'assistant_parts'> | undefined) => React.ReactNode;
@@ -154,7 +224,7 @@ function renderWorkspaceInteractiveArtifact({
 }) {
   switch (artifact.kind) {
     case 'persisted-turn': {
-      const reviewSet = getPersistedReviewSet(artifact.artifact.turn) ?? fallbackReviewSet;
+      const reviewSet = getPersistedReviewSet(artifact.artifact.turn);
 
       return (
         <WorkspaceArtifactRow
@@ -170,13 +240,13 @@ function renderWorkspaceInteractiveArtifact({
             <ActiveReviewSetCard
               question={artifact.artifact.turn.question}
               why={artifact.artifact.turn.why}
-              onSubmitReviewAction={(reviewAction, freeText) => {
+              onSubmitReviewAction={(reviewAction, freeText, itemComments) => {
                 const position = getReviewPositionForAction(artifact.artifact.turn, reviewAction);
                 if (position === null) {
                   return;
                 }
 
-                return artifact.artifact.submitTurnResponse([position], freeText, reviewAction);
+                return artifact.artifact.submitTurnResponse([position], freeText, reviewAction, itemComments);
               }}
               persistedFreeText={getPersistedTurnResponse(artifact.artifact.turn)?.freeText?.trim() ?? ''}
               hasPersistedResponse={
@@ -184,7 +254,11 @@ function renderWorkspaceInteractiveArtifact({
               }
               disabled={artifact.artifact.disabled}
               state={artifact.artifact.state}
-              reviewSet={reviewSet}
+              reviewSet={normalizeReviewSetForDisplay(
+                reviewSet,
+                findPreviousAnsweredReviewSet(phaseTurns, artifact.artifact.turn.id),
+              )}
+              revisionNumber={getReviewRevisionNumber(artifact.artifact.turn, phaseTurns)}
             />
           ) : (
             <ActiveQuestionCard
@@ -207,10 +281,10 @@ function renderWorkspaceInteractiveArtifact({
         </WorkspaceArtifactRow>
       );
     }
-    case 'persisted-grounding-card':
+    case 'active-prefaced-question':
       return (
         <WorkspaceArtifactRow
-          key={`persisted-grounding-card-${artifact.artifact.turn.id}`}
+          key={`active-prefaced-question-${artifact.artifact.turn.id}`}
           activity={
             artifact.artifact.liveActivity
               ? renderLiveActivity(artifact.artifact.liveActivity)
@@ -218,26 +292,35 @@ function renderWorkspaceInteractiveArtifact({
           }
           errorMessage={artifact.artifact.errorMessage}
         >
-          <ActiveGroundingCard
-            groundingCard={artifact.groundingCard}
+          <PrefaceCard preface={artifact.preface} />
+          <ActiveQuestionCard
+            id={`active-prefaced-question-${artifact.artifact.turn.id}`}
+            questionCode={artifact.questionCode}
+            question={artifact.artifact.turn.question}
+            why={artifact.artifact.turn.why}
+            impact={artifact.artifact.turn.impact}
+            options={artifact.artifact.turn.options ?? []}
             onSubmitResponse={artifact.artifact.submitTurnResponse}
+            persistedSelectedPositions={getPersistedSelectedPositions(artifact.artifact.turn)}
             persistedFreeText={getPersistedTurnResponse(artifact.artifact.turn)?.freeText?.trim() ?? ''}
             hasPersistedResponse={
               artifact.artifact.state === 'submitted' && turnHasCompletedAnswer(artifact.artifact.turn)
             }
             disabled={artifact.artifact.disabled}
             state={artifact.artifact.state}
-            continuePosition={artifact.artifact.turn.options?.[0]?.position}
           />
         </WorkspaceArtifactRow>
       );
-    case 'pending-question':
+    case 'pending-question': {
+      const pendingReviewSet = artifact.artifact.pendingQuestion.reviewSet;
+      const pendingPreface = artifact.artifact.pendingQuestion.preface;
       return (
         <WorkspaceArtifactRow
           key={artifact.artifact.pendingQuestion.id}
           activity={renderLiveActivity(artifact.artifact.liveActivity)}
         >
-          {fallbackReviewSet ? (
+          {pendingPreface && <PrefaceCard preface={pendingPreface} />}
+          {pendingReviewSet ? (
             <ActiveReviewSetCard
               question={artifact.artifact.pendingQuestion.question}
               why={artifact.artifact.pendingQuestion.why}
@@ -245,7 +328,15 @@ function renderWorkspaceInteractiveArtifact({
               hasPersistedResponse={false}
               disabled={artifact.artifact.disabled}
               state="active"
-              reviewSet={fallbackReviewSet}
+              reviewSet={normalizeReviewSetForDisplay(
+                pendingReviewSet,
+                findPreviousAnsweredReviewSet(phaseTurns),
+              )}
+              revisionNumber={
+                phaseTurns.filter(
+                  (t) => getPersistedReviewSet(t) && getPersistedTurnResponse(t)?.reviewAction,
+                ).length + 1
+              }
             />
           ) : (
             <ActiveQuestionCard
@@ -264,25 +355,34 @@ function renderWorkspaceInteractiveArtifact({
           )}
         </WorkspaceArtifactRow>
       );
+    }
     case 'kickoff':
       return !showLockedState ? (
-        <KickoffControlCard
+        <WorkspaceArtifactRow
           key={`kickoff-${artifact.artifact.kickoff.phase}-${artifact.artifact.kickoff.mode}`}
-          phase={artifact.artifact.kickoff.phase}
-          mode={artifact.artifact.kickoff.mode}
-          onProceed={() => artifact.artifact.submitKickoff()}
-          onSelectStrategy={(mode) => artifact.artifact.submitKickoff(mode)}
-          disabled={artifact.artifact.disabled}
-        />
+          errorMessage={artifact.artifact.errorMessage}
+        >
+          <KickoffControlCard
+            phase={artifact.artifact.kickoff.phase}
+            mode={artifact.artifact.kickoff.mode}
+            onProceed={() => artifact.artifact.submitKickoff()}
+            onSelectStrategy={(mode) => artifact.artifact.submitKickoff(mode)}
+            disabled={artifact.artifact.disabled}
+          />
+        </WorkspaceArtifactRow>
       ) : null;
     case 'recovery':
       return !showLockedState ? (
-        <RecoveryControlCard
+        <WorkspaceArtifactRow
           key={`recovery-${artifact.artifact.recovery.phase}`}
-          phase={artifact.artifact.recovery.phase}
-          onRecover={artifact.artifact.submitRecovery}
-          disabled={artifact.artifact.disabled}
-        />
+          errorMessage={artifact.artifact.errorMessage}
+        >
+          <RecoveryControlCard
+            phase={artifact.artifact.recovery.phase}
+            onRecover={artifact.artifact.submitRecovery}
+            disabled={artifact.artifact.disabled}
+          />
+        </WorkspaceArtifactRow>
       ) : null;
     case 'phase-summary':
       return (
@@ -305,6 +405,9 @@ function renderWorkspaceInteractiveArtifact({
         <GeneratingTurnPlaceholder
           key="generating-turn-placeholder"
           liveActivity={artifact.artifact.liveActivity}
+          liveReasoningText={artifact.artifact.liveReasoningText}
+          pendingPreface={artifact.artifact.pendingPreface}
+          latestToolDetail={artifact.artifact.latestToolDetail}
         />
       );
   }
@@ -383,7 +486,6 @@ function renderWorkspaceTransitionArtifact({
 export function WorkspaceTranscriptArtifacts({
   streamArtifacts,
   specificationId,
-  fallbackReviewSet,
   phaseTurns,
   captureStatusByTurnId,
   showLockedState,
@@ -392,7 +494,6 @@ export function WorkspaceTranscriptArtifacts({
 }: {
   streamArtifacts: readonly WorkspaceStreamArtifact[];
   specificationId: string;
-  fallbackReviewSet?: ReviewSetCardData;
   phaseTurns: readonly SpecificationTurn[];
   captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   showLockedState: boolean;
@@ -402,20 +503,24 @@ export function WorkspaceTranscriptArtifacts({
   return streamArtifacts.map((artifact, index) => {
     const artifactNode = (() => {
       switch (artifact.kind) {
+        case 'phase-section-header':
         case 'phase-marker':
         case 'control-marker':
         case 'answered-turn':
-        case 'answered-grounding-card':
+        case 'prefaced-question':
         case 'answered-review-turn':
+        case 'answered-revision-review':
+        case 'collapsed-review-turn':
         case 'accepted-closure':
         case 'divider':
           return renderWorkspaceHistoryArtifact({
             artifact,
+            phaseTurns,
             captureStatusByTurnId,
             renderPersistedActivity,
           });
         case 'persisted-turn':
-        case 'persisted-grounding-card':
+        case 'active-prefaced-question':
         case 'pending-question':
         case 'kickoff':
         case 'recovery':
@@ -423,7 +528,6 @@ export function WorkspaceTranscriptArtifacts({
         case 'generating':
           return renderWorkspaceInteractiveArtifact({
             artifact,
-            fallbackReviewSet,
             showLockedState,
             phaseTurns,
             renderPersistedActivity,

@@ -3,11 +3,15 @@ import { isAskQuestionUIPart } from '@/shared/chat.js';
 import type {
   AskQuestionUIPart,
   BrunchUIMessage,
+  BrunchUIMessagePart,
   BrunchUserPart,
+  PrefaceData,
+  ReviewSetData,
   StructuredQuestion,
 } from '@/shared/chat.js';
 import { getNextActivePhase } from '@/shared/phase-descriptors.js';
 import {
+  getTurnPreface,
   hasPersistedTurnResponse,
   safeParsePersistedAssistantParts,
   safeParsePersistedUserParts,
@@ -20,7 +24,7 @@ import {
 } from '@/shared/specification.js';
 
 export interface InterviewDurableSpecificationState {
-  readonly project: ReturnType<typeof getSpecificationRecord>;
+  readonly specification: ReturnType<typeof getSpecificationRecord>;
   readonly workflow: SpecificationState['workflow'];
   readonly turns: readonly SpecificationTurn[];
   readonly landing: SpecificationLanding | null;
@@ -45,6 +49,8 @@ export interface PendingQuestionViewModel {
   readonly why: string;
   readonly impact: StructuredQuestion['impact'];
   readonly options: readonly PendingQuestionOption[];
+  readonly reviewSet?: ReviewSetData;
+  readonly preface?: PrefaceData;
 }
 
 export type KickoffMode = 'start' | 'continue';
@@ -82,6 +88,7 @@ export type InterviewBottomArtifactViewModel =
     }
   | {
       readonly kind: 'generating';
+      readonly pendingPreface?: PrefaceData;
     }
   | {
       readonly kind: 'phase-handoff';
@@ -98,7 +105,7 @@ export type InterviewBottomArtifactViewModel =
     };
 
 export interface InterviewControllerViewState {
-  readonly project: InterviewDurableSpecificationState['project'];
+  readonly specification: InterviewDurableSpecificationState['specification'];
   readonly workflow: InterviewDurableSpecificationState['workflow'];
   readonly bottomArtifact: InterviewBottomArtifactViewModel | null;
 }
@@ -155,12 +162,12 @@ export function createInterviewDurableSpecificationState(
     | undefined;
 
   return {
-    project: getSpecificationRecord(specificationState),
+    specification: getSpecificationRecord(specificationState),
     workflow: specificationState.workflow,
     turns: specificationState.turns,
     landing: specificationState.landing ?? null,
     lastTurn,
-    showTurnCard: Boolean(lastTurn?.options?.length),
+    showTurnCard: turnHasRenderableCard(lastTurn),
     lastTurnHasResponse: hasPersistedTurnResponse(lastTurn),
   };
 }
@@ -287,6 +294,7 @@ function findPendingQuestion(messages: readonly BrunchUIMessage[]): PendingQuest
           content: option.content,
           is_recommended: option.is_recommended,
         })),
+        ...(input.reviewSet ? { reviewSet: input.reviewSet } : {}),
       };
     }
 
@@ -294,6 +302,55 @@ function findPendingQuestion(messages: readonly BrunchUIMessage[]): PendingQuest
   }
 
   return null;
+}
+
+type PresentPrefaceUIPart = Extract<BrunchUIMessagePart, { type: 'tool-present_preface' }>;
+
+function isPresentPrefaceUIPart(part: BrunchUIMessagePart): part is PresentPrefaceUIPart {
+  return part.type === 'tool-present_preface';
+}
+
+function findPendingPreface(messages: readonly BrunchUIMessage[]): PrefaceData | null {
+  function getPrefaceInput(part: PresentPrefaceUIPart): PrefaceData | null {
+    switch (part.state) {
+      case 'input-available':
+      case 'approval-requested':
+      case 'approval-responded':
+      case 'output-available':
+      case 'output-denied':
+        return part.input;
+      case 'output-error':
+        return part.input ?? null;
+      case 'input-streaming':
+        return null;
+    }
+  }
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message.role !== 'assistant') {
+      continue;
+    }
+
+    for (let partIndex = (message.parts?.length ?? 0) - 1; partIndex >= 0; partIndex -= 1) {
+      const part = message.parts?.[partIndex];
+      if (!part || !isPresentPrefaceUIPart(part)) {
+        continue;
+      }
+
+      return getPrefaceInput(part);
+    }
+
+    return null;
+  }
+
+  return null;
+}
+
+function turnHasRenderableCard(
+  turn: Pick<SpecificationTurn, 'question' | 'options' | 'assistant_parts'> | null | undefined,
+): boolean {
+  return Boolean(turn?.question?.trim() || turn?.options?.length || (turn && getTurnPreface(turn)));
 }
 
 function findPhaseSummary(messages: readonly BrunchUIMessage[]): PhaseSummaryViewModel | null {
@@ -328,7 +385,7 @@ export function createInterviewControllerViewState(
   submittedTurnId: number | null = null,
   isAutoSubmittingPhaseIntent = false,
 ): InterviewControllerViewState {
-  const { project, workflow } = durableSpecification;
+  const { specification, workflow } = durableSpecification;
   const phaseState = workflow.phases[phase];
   const nextPhase = getNextActivePhase(workflow.phases, phase);
   const isReviewPhase = phase === 'requirements' || phase === 'criteria';
@@ -350,7 +407,7 @@ export function createInterviewControllerViewState(
         };
 
     return {
-      project,
+      specification,
       workflow,
       bottomArtifact,
     };
@@ -361,10 +418,15 @@ export function createInterviewControllerViewState(
     landing?.kind === 'frontier-turn'
       ? (durableSpecification.turns.find((turn) => turn.id === landing.turnId) ?? null)
       : findPhaseTurn(durableSpecification, phase);
-  const showTurnCard = landing?.kind === 'frontier-turn' && Boolean(phaseTurn?.options?.length);
+  const showTurnCard = landing?.kind === 'frontier-turn' && turnHasRenderableCard(phaseTurn);
   const isSubmittedTurn = phaseTurn?.id === submittedTurnId;
-  const showSubmittedTurnCard = isSubmittedTurn && Boolean(phaseTurn?.options?.length);
-  const pendingQuestion = isLoading || submittedTurnId !== null ? findPendingQuestion(messages) : null;
+  const showSubmittedTurnCard = isSubmittedTurn && turnHasRenderableCard(phaseTurn);
+  const pendingPreface = isLoading || submittedTurnId !== null ? findPendingPreface(messages) : null;
+  const pendingQuestionBase = isLoading || submittedTurnId !== null ? findPendingQuestion(messages) : null;
+  const pendingQuestion =
+    pendingQuestionBase && pendingPreface
+      ? { ...pendingQuestionBase, preface: pendingPreface }
+      : pendingQuestionBase;
   const latestPhaseSummary = findPhaseSummary(messages);
   const phaseSummary =
     latestPhaseSummary &&
@@ -416,11 +478,11 @@ export function createInterviewControllerViewState(
                 },
               }
             : isLoading || isAutoSubmittingPhaseIntent
-              ? { kind: 'generating' }
+              ? { kind: 'generating', ...(pendingPreface ? { pendingPreface } : {}) }
               : null;
 
   return {
-    project,
+    specification,
     workflow,
     bottomArtifact,
   };

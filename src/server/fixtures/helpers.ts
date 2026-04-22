@@ -2,7 +2,7 @@ import {
   type BrunchAssistantPart,
   type BrunchUserPart,
   type DataTurnResponse,
-  type GroundingCardData,
+  type PrefaceData,
   type ObserverResultData,
   type ReviewAction,
   type ReviewSetData,
@@ -20,6 +20,16 @@ import { serializeParts } from '../parts.js';
 
 export function createEmptyFixtureObserverEntityIds(): ObserverResultData['entityIds'] {
   return createKnowledgeCollectionRecord(() => [] as number[]);
+}
+
+function createFixtureActivitySummaryPart(
+  tools: string[],
+  seconds?: number,
+): Extract<BrunchAssistantPart, { type: 'data-activity-summary' }> {
+  return {
+    type: 'data-activity-summary',
+    data: { seconds: seconds ?? 5 + (tools.join('').length % 10), tools },
+  };
 }
 
 export function createFixtureReviewQuestionInput({
@@ -67,6 +77,7 @@ export function serializeFixtureQuestionAssistantParts({
   entityIds?: ObserverResultData['entityIds'];
 }): string {
   return serializeParts([
+    createFixtureActivitySummaryPart([]),
     {
       type: 'tool-ask_question',
       toolCallId,
@@ -106,6 +117,7 @@ export function serializeFixturePhaseProposalAssistantParts({
   entityIds?: ObserverResultData['entityIds'];
 }): string {
   return serializeParts([
+    createFixtureActivitySummaryPart([]),
     {
       type: 'tool-propose_phase_closure',
       toolCallId: `fixture-turn-${turnId}-propose-phase-closure`,
@@ -135,10 +147,11 @@ export function serializeFixturePhaseProposalAssistantParts({
   ] satisfies BrunchAssistantPart[]);
 }
 
-export function serializeFixtureGroundingCardAssistantParts(data: GroundingCardData): string {
+export function serializeFixturePrefaceAssistantParts(data: PrefaceData): string {
   return serializeParts([
+    createFixtureActivitySummaryPart([]),
     {
-      type: 'data-grounding-card',
+      type: 'data-preface',
       data,
     },
   ] satisfies BrunchAssistantPart[]);

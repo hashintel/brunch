@@ -1,5 +1,4 @@
-import { useRouter } from '@tanstack/react-router';
-
+import { useInvalidateSpecificationQueryDomains } from '@/client/routes/specification/$id/-specification-data.js';
 import type {
   ReviewAction,
   SubmitPhaseIntentRequest,
@@ -22,6 +21,7 @@ export interface SubmitTurnResponseMutationState {
     positions?: number[],
     freeText?: string,
     reviewAction?: ReviewAction,
+    itemComments?: Array<{ reviewItemId: string; comment: string }>,
   ) => Promise<boolean>;
   readonly isPending: boolean;
   readonly errorMessage: string | null;
@@ -40,14 +40,14 @@ export interface SubmitPhaseIntentMutationState {
 }
 
 export function useSubmitPhaseIntentMutation({
-  projectId,
+  specificationId,
 }: {
-  projectId: number;
+  specificationId: number;
 }): SubmitPhaseIntentMutationState {
-  const router = useRouter();
+  const { invalidateSpecificationBundle } = useInvalidateSpecificationQueryDomains();
   const mutation = useClientMutation((request: SubmitPhaseIntentRequest) =>
     postJsonMutation<SubmitPhaseIntentResponse, SubmitPhaseIntentRequest>(
-      `/api/specifications/${projectId}/phase-intent`,
+      `/api/specifications/${specificationId}/phase-intent`,
       request,
       'Failed to submit phase intent',
     ),
@@ -58,7 +58,7 @@ export function useSubmitPhaseIntentMutation({
   ): Promise<SubmitPhaseIntentResponse | null> => {
     try {
       const response = await mutation.run(request);
-      await router.invalidate();
+      await invalidateSpecificationBundle();
       return response;
     } catch {
       return null;
@@ -84,18 +84,18 @@ export function useSubmitPhaseIntentMutation({
 }
 
 export function useSubmitTurnResponseMutation({
-  projectId,
+  specificationId,
   turn,
   sendMessage,
 }: {
-  projectId: number;
+  specificationId: number;
   turn: SpecificationTurn | undefined;
   sendMessage: (message: { text: string }) => Promise<void> | void;
 }): SubmitTurnResponseMutationState {
-  const router = useRouter();
+  const { invalidateSpecificationBundle } = useInvalidateSpecificationQueryDomains();
   const mutation = useClientMutation((variables: { turnId: number; response: SubmitTurnResponseRequest }) =>
     postJsonMutation<SubmitTurnResponseResponse, SubmitTurnResponseRequest>(
-      `/api/specifications/${projectId}/turns/${variables.turnId}/response`,
+      `/api/specifications/${specificationId}/turns/${variables.turnId}/response`,
       variables.response,
       'Failed to save response',
     ),
@@ -106,6 +106,7 @@ export function useSubmitTurnResponseMutation({
       positions: number[] = [],
       freeText?: string,
       reviewActionOverride?: ReviewAction,
+      itemComments?: Array<{ reviewItemId: string; comment: string }>,
     ) => {
       if (!turn) {
         return false;
@@ -132,6 +133,7 @@ export function useSubmitTurnResponseMutation({
               positions: uniquePositions,
               ...(trimmedFreeText ? { freeText: trimmedFreeText } : {}),
               ...(reviewAction ? { reviewAction } : {}),
+              ...(itemComments?.length ? { itemComments } : {}),
             }
           : {
               kind: 'free-text',
@@ -143,7 +145,7 @@ export function useSubmitTurnResponseMutation({
           turnId: turn.id,
           response,
         });
-        await router.invalidate();
+        await invalidateSpecificationBundle();
         if (result.advancedToPhase || result.workflowCompleted) {
           return true;
         }

@@ -6,6 +6,7 @@ export interface ProjectedTurnResponse {
   selectedOptionContents: string[];
   freeText?: string;
   reviewAction?: import('@/shared/chat.js').ReviewAction;
+  itemComments?: import('@/shared/chat.js').ReviewItemComment[];
 }
 
 function findTurnResponsePart(turn: Pick<TurnWithOptions, 'user_parts'>): DataTurnResponsePart | undefined {
@@ -34,6 +35,7 @@ export function projectTurnResponse(
     selectedOptionContents,
     freeText: responsePart.data.freeText,
     reviewAction: responsePart.data.reviewAction,
+    ...(responsePart.data.itemComments?.length ? { itemComments: responsePart.data.itemComments } : {}),
   };
 }
 
@@ -52,6 +54,12 @@ export function formatProjectedTurnResponse(response: ProjectedTurnResponse): st
   }
   if (response.reviewAction) {
     lines.push(`  Review action: ${response.reviewAction}`);
+  }
+  if (response.itemComments?.length) {
+    lines.push('  Per-item comments:');
+    for (const { reviewItemId, comment } of response.itemComments) {
+      lines.push(`    Item ${reviewItemId}: ${comment}`);
+    }
   }
   return lines.join('\n');
 }

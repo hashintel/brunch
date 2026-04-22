@@ -107,7 +107,7 @@ const items: {
       kind: 'assumption',
       content: 'Single user per project',
       rationale: 'Simplifies concurrency model for v1.',
-      subtype: 'scope',
+      subtype: 'grounding',
     },
   },
   {

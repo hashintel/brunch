@@ -1,9 +1,9 @@
 import { sql } from 'drizzle-orm';
-import { sqliteTable, integer, text, primaryKey, uniqueIndex } from 'drizzle-orm/sqlite-core';
+import { integer, primaryKey, sqliteTable, text, uniqueIndex } from 'drizzle-orm/sqlite-core';
 
 // --- Core tables ---
 
-export const project = sqliteTable('project', {
+export const specification = sqliteTable('specification', {
   id: integer().primaryKey({ autoIncrement: true }),
   name: text().notNull(),
   mode: text('mode', { enum: ['greenfield', 'brownfield'] })
@@ -20,11 +20,11 @@ export const project = sqliteTable('project', {
 
 export const turn = sqliteTable('turn', {
   id: integer().primaryKey({ autoIncrement: true }),
-  project_id: integer()
+  specification_id: integer()
     .notNull()
-    .references(() => project.id),
+    .references(() => specification.id),
   parent_turn_id: integer().references((): any => turn.id),
-  phase: text({ enum: ['scope', 'design', 'requirements', 'criteria'] }).notNull(),
+  phase: text({ enum: ['grounding', 'design', 'requirements', 'criteria'] }).notNull(),
   turn_kind: text({ enum: ['question', 'kickoff', 'recovery'] })
     .notNull()
     .default('question'),
@@ -57,10 +57,10 @@ export const option = sqliteTable(
 
 export const phaseOutcome = sqliteTable('phase_outcome', {
   id: integer().primaryKey({ autoIncrement: true }),
-  project_id: integer()
+  specification_id: integer()
     .notNull()
-    .references(() => project.id),
-  phase: text({ enum: ['scope', 'design', 'requirements', 'criteria'] }).notNull(),
+    .references(() => specification.id),
+  phase: text({ enum: ['grounding', 'design', 'requirements', 'criteria'] }).notNull(),
   proposal_turn_id: integer()
     .notNull()
     .references(() => turn.id),
@@ -81,9 +81,9 @@ export const phaseOutcome = sqliteTable('phase_outcome', {
 
 export const knowledgeItem = sqliteTable('knowledge_item', {
   id: integer().primaryKey({ autoIncrement: true }),
-  project_id: integer()
+  specification_id: integer()
     .notNull()
-    .references(() => project.id),
+    .references(() => specification.id),
   kind: text({
     enum: ['goal', 'term', 'context', 'constraint', 'decision', 'assumption', 'requirement', 'criterion'],
   }).notNull(),

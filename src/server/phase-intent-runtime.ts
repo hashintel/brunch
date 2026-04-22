@@ -18,8 +18,9 @@ import {
   applyTurnResponseSelections,
   getCurrentWorkflowState,
   getOptionsForTurn,
-  getProject,
-  updateProjectMode,
+  getStructuralArtifactTurnIds,
+  getSpecification,
+  updateSpecificationMode,
   updateTurn,
   type DB,
   type Turn,
@@ -60,7 +61,7 @@ function persistGroundingStrategyKickoffSelection({
   }
 
   applyTurnResponseSelections(db, kickoffTurn.id, [selectedPosition]);
-  updateProjectMode(db, projectId, mode);
+  updateSpecificationMode(db, projectId, mode);
   updateTurn(db, kickoffTurn.id, {
     answer: messageText,
     user_parts: serializeParts([
@@ -110,14 +111,15 @@ export function submitPhaseIntentWithRuntimeCompatibility({
   projectId: number;
   request: SubmitPhaseIntentRequest;
 }): SubmitPhaseIntentResponse | PhaseIntentRuntimeError {
-  const project = getProject(db, projectId);
+  const project = getSpecification(db, projectId);
   if (!project) {
     return { ok: false, status: 404, error: 'Project not found' };
   }
 
   const workflow = getCurrentWorkflowState(db, projectId);
   const turns = loadActivePathWithOptions(db, projectId);
-  const landing = deriveSpecificationLanding({ workflow, turns });
+  const structuralArtifactTurnIds = getStructuralArtifactTurnIds(db, projectId);
+  const landing = deriveSpecificationLanding({ workflow, turns, structuralArtifactTurnIds });
   const activePhaseTurn = findLatestPhaseTurn(turns, request.phase);
 
   if (request.kind === 'phase-entry') {
@@ -128,7 +130,7 @@ export function submitPhaseIntentWithRuntimeCompatibility({
 
     const kickoffLanding = landing?.kind === 'kickoff' ? landing : null;
 
-    if (request.phase === 'scope' && kickoffLanding?.mode === 'start' && request.mode) {
+    if (request.phase === 'grounding' && kickoffLanding?.mode === 'start' && request.mode) {
       const activeKickoffTurn =
         activePhaseTurn && isGroundingStrategyKickoffTurn(activePhaseTurn) ? activePhaseTurn : null;
       if (activeKickoffTurn) {
@@ -145,7 +147,7 @@ export function submitPhaseIntentWithRuntimeCompatibility({
         throw new Error('Invalid grounding strategy selection');
       }
 
-      updateProjectMode(db, projectId, request.mode);
+      updateSpecificationMode(db, projectId, request.mode);
       return { ok: true };
     }
 

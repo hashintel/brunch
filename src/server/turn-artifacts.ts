@@ -1,6 +1,6 @@
 import {
   filterAssistantParts,
-  groundingCardSchema,
+  prefaceSchema,
   structuredQuestionSchema,
   type BrunchAssistantPart,
   type BrunchUIMessage,
@@ -42,24 +42,24 @@ export function getRuntimeReviewMetadata(
   };
 }
 
-export function getRuntimeGroundingCard(
+export function getRuntimePreface(
   message: Pick<BrunchUIMessage, 'parts'>,
-): Extract<BrunchAssistantPart, { type: 'data-grounding-card' }> | null {
-  const groundingCardPart = message.parts.find(
-    (part): part is Extract<BrunchUIMessage['parts'][number], { type: 'tool-present_grounding_card' }> =>
-      part.type === 'tool-present_grounding_card' && 'input' in part,
+): Extract<BrunchAssistantPart, { type: 'data-preface' }> | null {
+  const prefacePart = message.parts.find(
+    (part): part is Extract<BrunchUIMessage['parts'][number], { type: 'tool-present_preface' }> =>
+      part.type === 'tool-present_preface' && 'input' in part,
   );
-  if (!groundingCardPart) {
+  if (!prefacePart) {
     return null;
   }
 
-  const parsedInput = groundingCardSchema.safeParse(groundingCardPart.input);
+  const parsedInput = prefaceSchema.safeParse(prefacePart.input);
   if (!parsedInput.success) {
     return null;
   }
 
   return {
-    type: 'data-grounding-card',
+    type: 'data-preface',
     data: parsedInput.data,
   };
 }
@@ -77,15 +77,18 @@ export function materializeTurnArtifacts({
 }): BrunchAssistantPart[] {
   const assistantParts = filterAssistantParts(responseMessage.parts, { elapsedMs });
   const persistedReviewMetadata = getRuntimeReviewMetadata(phase, responseMessage);
-  const persistedGroundingCard = getRuntimeGroundingCard(responseMessage);
+  const persistedPreface = getRuntimePreface(responseMessage);
   const persistedReviewSet = persistedReviewMetadata?.reviewSet ?? fallbackReviewSet ?? null;
 
   return [
     ...assistantParts.filter(
-      (part) => part.type !== 'data-review-set' && part.type !== 'data-grounding-card',
+      (part) =>
+        part.type !== 'data-observer-result' &&
+        part.type !== 'data-review-set' &&
+        part.type !== 'data-preface',
     ),
     ...(persistedReviewMetadata ? [persistedReviewMetadata.reviewQuestionPart] : []),
-    ...(persistedGroundingCard ? [persistedGroundingCard] : []),
+    ...(persistedPreface ? [persistedPreface] : []),
     ...(persistedReviewSet
       ? [
           {

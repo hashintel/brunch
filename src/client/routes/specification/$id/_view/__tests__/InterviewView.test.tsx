@@ -9,7 +9,7 @@ import type { EntitiesData } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { deriveSpecificationLanding } from '@/shared/specification-state.js';
-import type { SpecificationState as ProjectState } from '@/shared/specification.js';
+import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
 import { InterviewView } from '../-interview-view.js';
 import { resetSpecificationLifecycleRegistryForTesting } from '../-specification-lifecycle.js';
@@ -59,6 +59,63 @@ function createPendingReviewMessage(): BrunchUIMessage {
             { action: 'accept', optionPosition: 0 },
             { action: 'request-changes', optionPosition: 1 },
           ],
+          reviewSet: {
+            phase: 'requirements',
+            title: 'Requirements',
+            items: [
+              {
+                reviewItemId: 'requirements:1',
+                content: 'Export the reviewed specification as markdown',
+                referenceCode: createKnowledgeReferenceCode('requirement', 1),
+              },
+            ],
+          },
+        },
+        output: { ok: true, turnId: 2, optionCount: 2 },
+      },
+    ],
+  };
+}
+
+function createPendingCriteriaRevisionMessage(): BrunchUIMessage {
+  return {
+    id: 'pending-criteria-review-assistant',
+    role: 'assistant',
+    parts: [
+      {
+        type: 'tool-ask_question',
+        toolCallId: 'tool-criteria-review',
+        state: 'output-available',
+        input: {
+          question: 'Please review the revised criterion set.',
+          why: 'Review the revised criterion set before moving forward.',
+          impact: 'high',
+          options: [
+            { content: 'Accept review', is_recommended: true },
+            { content: 'Request changes', is_recommended: false },
+          ],
+          reviewActions: [
+            { action: 'accept', optionPosition: 0 },
+            { action: 'request-changes', optionPosition: 1 },
+          ],
+          reviewSet: {
+            phase: 'criteria',
+            title: 'Acceptance Criteria',
+            items: [
+              {
+                reviewItemId: 'criteria:1',
+                content: 'Restarting restores the active path after a full reload',
+              },
+              {
+                reviewItemId: 'criteria:3',
+                referenceCode: createKnowledgeReferenceCode('criterion', 3),
+                content:
+                  'Accepted regenerated review cards preserve carried rationale and grounding metadata',
+                rationale: 'Keeps the criteria transcript legible while the review is still pending.',
+                grounding: [{ code: createKnowledgeReferenceCode('requirement', 3) }],
+              },
+            ],
+          },
         },
         output: { ok: true, turnId: 2, optionCount: 2 },
       },
@@ -71,26 +128,34 @@ type UseChatOptions = {
   messages: BrunchUIMessage[];
   onData?: (dataPart: { type: string; data?: unknown }) => void;
   onFinish?: () => void;
+  onError?: (error: Error) => void;
 };
 
 type UseChatHarness = {
   sendMessage: ReturnType<typeof vi.fn>;
   setMessages: ReturnType<typeof vi.fn>;
   replaceMessages?: (messages: BrunchUIMessage[]) => void;
-  setStatus?: (status: 'ready' | 'submitted' | 'streaming') => void;
+  setStatus?: (status: 'ready' | 'submitted' | 'streaming' | 'error') => void;
+  setError?: (error: Error | undefined) => void;
   onData?: UseChatOptions['onData'];
   onFinish?: UseChatOptions['onFinish'];
+  onError?: UseChatOptions['onError'];
 };
 
-let currentProjectState: ProjectState;
+const useSpecificationEntitiesSpy = vi.hoisted(() => vi.fn());
+
+let currentSpecificationState: SpecificationState;
 let currentEntityState: EntitiesData;
 const routerInvalidate = vi.fn(async () => {});
+const entityInvalidate = vi.fn(async () => {});
+const routerNavigate = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 let useChatImpl: (options: UseChatOptions) => {
   messages: BrunchUIMessage[];
   sendMessage: (message: { text?: string; parts?: Array<Record<string, unknown>> }) => Promise<void> | void;
   setMessages: (messages: BrunchUIMessage[]) => void;
-  status: 'ready' | 'submitted' | 'streaming';
+  status: 'ready' | 'submitted' | 'streaming' | 'error';
+  error?: Error;
 };
 let useChatHarness: UseChatHarness;
 
@@ -105,12 +170,38 @@ vi.mock('@tanstack/react-router', () => ({
       {children}
     </a>
   ),
-  useLoaderData: ({ from }: { from: string }) => {
-    if (from === '/specification/$id') return currentProjectState;
-    if (from === '/specification/$id/_view') return currentEntityState;
-    throw new Error(`Unexpected useLoaderData from: ${from}`);
+  useParams: () => ({ id: String(currentSpecificationState.specification!.id) }),
+  useRouter: () => ({ navigate: routerNavigate }),
+}));
+
+vi.mock('../../-specification-data.js', () => ({
+  useSpecificationBundleData: () => currentSpecificationState,
+  useSpecificationEntities: useSpecificationEntitiesSpy,
+  useInvalidateSpecificationQueryDomains: () => ({
+    invalidateSpecificationBundle: routerInvalidate,
+    invalidateEntities: entityInvalidate,
+  }),
+  primeSpecificationBundle: vi.fn(),
+  primeSpecificationEntities: vi.fn(),
+  specificationQueryKeys: {
+    bundle: vi.fn(),
+    entities: vi.fn(),
   },
-  useRouter: () => ({ invalidate: routerInvalidate }),
+}));
+
+vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
+  useSpecificationBundleData: () => currentSpecificationState,
+  useSpecificationEntities: useSpecificationEntitiesSpy,
+  useInvalidateSpecificationQueryDomains: () => ({
+    invalidateSpecificationBundle: routerInvalidate,
+    invalidateEntities: entityInvalidate,
+  }),
+  primeSpecificationBundle: vi.fn(),
+  primeSpecificationEntities: vi.fn(),
+  specificationQueryKeys: {
+    bundle: vi.fn(),
+    entities: vi.fn(),
+  },
 }));
 
 vi.mock('@ai-sdk/react', () => ({
@@ -161,7 +252,7 @@ vi.mock('@/client/components/ai-elements/tool', () => ({
   ToolOutput: () => null,
 }));
 
-function createProjectState({
+function createSpecificationState({
   projectId = 1,
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
@@ -182,16 +273,16 @@ function createProjectState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
-  workflow?: ProjectState['workflow'];
+  workflow?: SpecificationState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
-  turns?: ProjectState['turns'];
-} = {}): ProjectState {
+  turns?: SpecificationState['turns'];
+} = {}): SpecificationState {
   const resolvedTurns = turns ?? [
     {
       id: 1,
-      project_id: projectId,
+      specification_id: projectId,
       parent_turn_id: null,
-      phase: 'scope',
+      phase: 'grounding',
       turn_kind: 'question',
       question: assistantText,
       why: 'This frames the first iteration.',
@@ -207,8 +298,8 @@ function createProjectState({
     },
   ];
 
-  const projectState: ProjectState = {
-    project: {
+  const projectState: SpecificationState = {
+    specification: {
       id: projectId,
       name: `Project ${projectId}`,
       mode: 'greenfield',
@@ -218,7 +309,7 @@ function createProjectState({
     },
     workflow: workflow ?? {
       phases: {
-        scope: {
+        grounding: {
           status: 'in_progress',
           closeability: false,
           readiness: 'low',
@@ -267,9 +358,12 @@ function createProjectState({
 
 function createWorkflowState(
   overrides?: Partial<
-    Record<keyof ProjectState['workflow']['phases'], Partial<ProjectState['workflow']['phases']['scope']>>
+    Record<
+      keyof SpecificationState['workflow']['phases'],
+      Partial<SpecificationState['workflow']['phases']['grounding']>
+    >
   >,
-): ProjectState['workflow'] {
+): SpecificationState['workflow'] {
   const defaultPhase = {
     status: 'unstarted' as const,
     closeability: false,
@@ -282,12 +376,35 @@ function createWorkflowState(
 
   return {
     phases: {
-      scope: { ...defaultPhase, ...overrides?.scope },
+      grounding: { ...defaultPhase, ...overrides?.grounding },
       design: { ...defaultPhase, ...overrides?.design },
       requirements: { ...defaultPhase, ...overrides?.requirements },
       criteria: { ...defaultPhase, ...overrides?.criteria },
     },
   };
+}
+
+function createFillerTurns(
+  phase: SpecificationTurn['phase'],
+  count: number,
+  startId = 100,
+): SpecificationTurn[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: startId + i,
+    specification_id: 1,
+    parent_turn_id: null,
+    phase,
+    turn_kind: 'question' as const,
+    question: `Filler question ${i + 1}`,
+    why: null,
+    impact: 'low' as const,
+    answer: `Answer ${i + 1}`,
+    is_resolution: false,
+    user_parts: JSON.stringify([{ type: 'text', text: `Answer ${i + 1}` }]),
+    assistant_parts: JSON.stringify([{ type: 'text', text: `Filler question ${i + 1}` }]),
+    created_at: '2026-04-03 10:00:00',
+    options: [],
+  }));
 }
 
 function createEntityState(overrides: Partial<EntitiesData> = {}): EntitiesData {
@@ -327,13 +444,13 @@ function createWorkspaceLoaderData({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
-  workflow?: ProjectState['workflow'];
+  workflow?: SpecificationState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
-  turns?: ProjectState['turns'];
+  turns?: SpecificationState['turns'];
   entityState?: EntitiesData;
-} = {}): { projectState: ProjectState; entityState: EntitiesData } {
+} = {}): { projectState: SpecificationState; entityState: EntitiesData } {
   return {
-    projectState: createProjectState({
+    projectState: createSpecificationState({
       projectId,
       assistantText,
       answer,
@@ -347,8 +464,8 @@ function createWorkspaceLoaderData({
   };
 }
 
-function setLoaderData(data: { projectState: ProjectState; entityState: EntitiesData }) {
-  currentProjectState = data.projectState;
+function setLoaderData(data: { projectState: SpecificationState; entityState: EntitiesData }) {
+  currentSpecificationState = data.projectState;
   currentEntityState = data.entityState;
 }
 
@@ -358,7 +475,8 @@ function createUseChatHarness(initialStatus: 'ready' | 'submitted' | 'streaming'
   messages: BrunchUIMessage[];
   sendMessage: (message: { text?: string; parts?: Array<Record<string, unknown>> }) => Promise<void> | void;
   setMessages: (messages: BrunchUIMessage[]) => void;
-  status: 'ready' | 'submitted' | 'streaming';
+  status: 'ready' | 'submitted' | 'streaming' | 'error';
+  error?: Error;
 } {
   const sendMessage = vi.fn(async () => {});
   const setMessagesSpy = vi.fn();
@@ -371,7 +489,8 @@ function createUseChatHarness(initialStatus: 'ready' | 'submitted' | 'streaming'
   return function useChatHarnessImpl(options: UseChatOptions) {
     const [, forceRender] = useState(0);
     const chatStates = useState(() => new Map<string, BrunchUIMessage[]>())[0];
-    const statusStates = useState(() => new Map<string, 'ready' | 'submitted' | 'streaming'>())[0];
+    const statusStates = useState(() => new Map<string, 'ready' | 'submitted' | 'streaming' | 'error'>())[0];
+    const errorStates = useState(() => new Map<string, Error | undefined>())[0];
     const chatId = options.id ?? 'default';
 
     if (!chatStates.has(chatId)) {
@@ -379,6 +498,9 @@ function createUseChatHarness(initialStatus: 'ready' | 'submitted' | 'streaming'
     }
     if (!statusStates.has(chatId)) {
       statusStates.set(chatId, initialStatus);
+    }
+    if (!errorStates.has(chatId)) {
+      errorStates.set(chatId, undefined);
     }
 
     const stableSetMessages = useCallback(
@@ -390,23 +512,33 @@ function createUseChatHarness(initialStatus: 'ready' | 'submitted' | 'streaming'
       [chatId, chatStates],
     );
     const stableSetStatus = useCallback(
-      (nextStatus: 'ready' | 'submitted' | 'streaming') => {
+      (nextStatus: 'ready' | 'submitted' | 'streaming' | 'error') => {
         statusStates.set(chatId, nextStatus);
         forceRender((count) => count + 1);
       },
       [chatId, statusStates],
     );
+    const stableSetError = useCallback(
+      (nextError: Error | undefined) => {
+        errorStates.set(chatId, nextError);
+        forceRender((count) => count + 1);
+      },
+      [chatId, errorStates],
+    );
 
     useChatHarness.onData = options.onData;
     useChatHarness.onFinish = options.onFinish;
+    useChatHarness.onError = options.onError;
     useChatHarness.replaceMessages = stableSetMessages;
     useChatHarness.setStatus = stableSetStatus;
+    useChatHarness.setError = stableSetError;
 
     return {
       messages: chatStates.get(chatId) ?? options.messages,
       sendMessage,
       setMessages: stableSetMessages,
       status: statusStates.get(chatId) ?? initialStatus,
+      error: errorStates.get(chatId),
     };
   };
 }
@@ -422,7 +554,7 @@ function createQueryClient() {
   });
 }
 
-function renderWorkspace(phase: 'scope' | 'design' | 'requirements' | 'criteria' = 'scope') {
+function renderWorkspace(phase: 'grounding' | 'design' | 'requirements' | 'criteria' = 'grounding') {
   const queryClient = createQueryClient();
   const rendered = render(
     <QueryClientProvider client={queryClient}>
@@ -438,7 +570,11 @@ function renderWorkspace(phase: 'scope' | 'design' | 'requirements' | 'criteria'
 
 beforeEach(() => {
   setLoaderData(createWorkspaceLoaderData());
+  useSpecificationEntitiesSpy.mockReset();
+  useSpecificationEntitiesSpy.mockImplementation(() => currentEntityState);
   routerInvalidate.mockClear();
+  entityInvalidate.mockClear();
+  routerNavigate.mockClear();
   fetchMock.mockReset();
   useChatImpl = createUseChatHarness();
   resetSpecificationLifecycleRegistryForTesting();
@@ -451,11 +587,19 @@ afterEach(() => {
 });
 
 describe('InterviewView', () => {
+  it('keeps entity-query subscription out of the transcript-owning interview view', async () => {
+    renderWorkspace();
+
+    await screen.findByText('What should we build first?');
+
+    expect(useSpecificationEntitiesSpy).not.toHaveBeenCalled();
+  });
+
   it('auto-presents the current reachable kickoff phase through a typed phase-entry intent', async () => {
     const loaderData = createWorkspaceLoaderData({
       turns: [],
       workflow: createWorkflowState({
-        scope: {
+        grounding: {
           status: 'closed',
           closeability: false,
           readiness: 'high',
@@ -541,7 +685,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'closed',
             closeability: false,
             readiness: 'high',
@@ -581,7 +725,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'design',
             turn_kind: 'question',
@@ -650,7 +794,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'closed',
             closeability: false,
             readiness: 'high',
@@ -672,7 +816,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'design',
             turn_kind: 'question',
@@ -733,6 +877,90 @@ describe('InterviewView', () => {
     });
   });
 
+  it('falls back to the projected recovery card when auto phase-continue generation errors after submit', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 11,
+            summary: 'Grounding complete.',
+          },
+          design: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'design',
+            turn_kind: 'question',
+            question: 'Which platform should we target first?',
+            why: 'This chooses the first delivery surface.',
+            impact: 'high',
+            answer: 'Desktop — Best fit for launch',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Desktop — Best fit for launch' },
+              {
+                type: 'data-turn-response',
+                data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for launch' },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Which platform should we target first?' },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: true },
+            ],
+          },
+        ],
+      }),
+    );
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+    useChatHarness.sendMessage.mockImplementation(async () => {
+      useChatHarness.setStatus?.('submitted');
+    });
+
+    renderWorkspace('design');
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(useChatHarness.sendMessage).toHaveBeenCalledTimes(1);
+      expect(screen.getByTestId('generating-turn-placeholder')).toBeTruthy();
+    });
+
+    act(() => {
+      useChatHarness.setError?.(new Error('x-api-key header is required'));
+      useChatHarness.setStatus?.('error');
+    });
+
+    const recoveryCard = await screen.findByTestId('recovery-control-card');
+    expect(recoveryCard.textContent).toContain('Continue');
+    expect(screen.getByRole('alert').textContent).toContain('x-api-key header is required');
+    expect(screen.queryByTestId('generating-turn-placeholder')).toBeNull();
+  });
+
   it('hides the header phase action for an unstarted reachable phase', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
@@ -753,7 +981,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: { status: 'in_progress', turnId: 1 },
+          grounding: { status: 'in_progress', turnId: 1 },
         }),
       }),
     );
@@ -764,12 +992,28 @@ describe('InterviewView', () => {
     expect(screen.queryByRole('link', { name: /advance to/i })).toBeNull();
   });
 
-  it('shows the header close action only when force-close is available for design', async () => {
+  it('shows the footer close action when grounding is the active closeable phase with enough turns', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
+        turns: createFillerTurns('grounding', 3),
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
-          design: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 1 },
+          grounding: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 100 },
+        }),
+      }),
+    );
+
+    renderWorkspace();
+
+    expect(screen.getByRole('button', { name: 'Close Phase' })).toBeTruthy();
+  });
+
+  it('shows the footer close action when design is the active closeable phase with enough turns', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: createFillerTurns('design', 3),
+        workflow: createWorkflowState({
+          grounding: { status: 'closed', readiness: 'high' },
+          design: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 100 },
         }),
       }),
     );
@@ -777,6 +1021,63 @@ describe('InterviewView', () => {
     renderWorkspace('design');
 
     expect(screen.getByRole('button', { name: 'Close Phase' })).toBeTruthy();
+  });
+
+  it('opens a close-phase confirmation modal with readiness and turn context and allows cancelling', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: createFillerTurns('grounding', 3),
+        workflow: createWorkflowState({
+          grounding: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 100 },
+        }),
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close Phase' }));
+
+    const dialog = await screen.findByRole('dialog');
+    expect(within(dialog).getByText('Close Grounding phase?')).toBeTruthy();
+    expect(within(dialog).getByText('Readiness')).toBeTruthy();
+    expect(within(dialog).getByText('Medium')).toBeTruthy();
+    expect(within(dialog).getByText('Turn count')).toBeTruthy();
+    expect(within(dialog).getByText('3 turns')).toBeTruthy();
+
+    fireEvent.click(within(dialog).getByRole('button', { name: 'Keep phase open' }));
+
+    await waitFor(() => {
+      expect(screen.queryByRole('dialog')).toBeNull();
+    });
+    expect(useChatHarness.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it('submits a force-close action for grounding through chat with typed confirmation parts', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: createFillerTurns('grounding', 3),
+        workflow: createWorkflowState({
+          grounding: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 100 },
+        }),
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close Phase' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm grounding closure' }));
+
+    await waitFor(() => {
+      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
+        parts: [
+          { type: 'text', text: 'Force grounding closure' },
+          {
+            type: 'data-confirmation',
+            data: { kind: 'force-close-active-phase', phase: 'grounding' },
+          },
+        ],
+      });
+    });
   });
 
   it('hides the header close action for a review proposal state even when the phase is closeable', async () => {
@@ -787,7 +1088,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             turn_kind: 'question',
@@ -813,7 +1114,7 @@ describe('InterviewView', () => {
           },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: {
             status: 'in_progress',
@@ -838,7 +1139,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high', summary: 'Grounding complete.' },
+          grounding: { status: 'closed', readiness: 'high', summary: 'Grounding complete.' },
           design: { status: 'unstarted' },
         }),
       }),
@@ -855,7 +1156,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: { status: 'closed', readiness: 'high' },
           criteria: {
@@ -880,9 +1181,9 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
-            phase: 'scope',
+            phase: 'grounding',
             question: 'What should we build first?',
             why: 'This frames the first iteration.',
             impact: 'high',
@@ -938,9 +1239,9 @@ describe('InterviewView', () => {
           },
           {
             id: 2,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: 1,
-            phase: 'scope',
+            phase: 'grounding',
             question: 'Which platform should we target now?',
             why: 'Platform shapes the next build.',
             impact: 'medium',
@@ -954,7 +1255,7 @@ describe('InterviewView', () => {
         ],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'low',
@@ -1012,7 +1313,7 @@ describe('InterviewView', () => {
         turns: [],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'low',
@@ -1060,7 +1361,7 @@ describe('InterviewView', () => {
         {
           id: 'u-control',
           role: 'user',
-          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'scope' } }],
+          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'grounding' } }],
         },
       ]);
     });
@@ -1075,7 +1376,7 @@ describe('InterviewView', () => {
         turns: [],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'low',
@@ -1123,7 +1424,7 @@ describe('InterviewView', () => {
         {
           id: 'u-control',
           role: 'user',
-          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-entry', phase: 'scope' } }],
+          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-entry', phase: 'grounding' } }],
         },
       ]);
     });
@@ -1138,7 +1439,7 @@ describe('InterviewView', () => {
         turns: [],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'low',
@@ -1186,12 +1487,12 @@ describe('InterviewView', () => {
         {
           id: 'u-control-1',
           role: 'user',
-          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'scope' } }],
+          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'grounding' } }],
         },
         {
           id: 'u-control-2',
           role: 'user',
-          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'scope' } }],
+          parts: [{ type: 'data-phase-intent', data: { kind: 'phase-continue', phase: 'grounding' } }],
         },
       ]);
     });
@@ -1205,7 +1506,7 @@ describe('InterviewView', () => {
         turns: [],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'low',
@@ -1282,9 +1583,9 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
-            phase: 'scope',
+            phase: 'grounding',
             question: 'What should we build first?',
             why: 'This frames the first iteration.',
             impact: 'high',
@@ -1297,9 +1598,9 @@ describe('InterviewView', () => {
           },
           {
             id: 2,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: 1,
-            phase: 'scope',
+            phase: 'grounding',
             question: 'Closure proposal',
             why: null,
             impact: null,
@@ -1309,7 +1610,7 @@ describe('InterviewView', () => {
               { type: 'text', text: 'Confirm grounding closure' },
               {
                 type: 'data-confirmation',
-                data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 2, phase: 'scope' },
+                data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 2, phase: 'grounding' },
               },
             ]),
             assistant_parts: JSON.stringify([
@@ -1317,7 +1618,7 @@ describe('InterviewView', () => {
                 type: 'data-phase-summary',
                 data: {
                   turnId: 2,
-                  phase: 'scope',
+                  phase: 'grounding',
                   summary: 'Goals, terms, context, and constraints are sufficiently captured.',
                 },
               },
@@ -1328,7 +1629,7 @@ describe('InterviewView', () => {
         ],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'closed',
               closeability: false,
               readiness: 'high',
@@ -1395,9 +1696,9 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
-            phase: 'scope',
+            phase: 'grounding',
             question: 'What should we build first?',
             why: 'This frames the first iteration.',
             impact: 'high',
@@ -1410,7 +1711,7 @@ describe('InterviewView', () => {
           },
           {
             id: 2,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: 1,
             phase: 'design',
             question: 'Which architecture should we choose next?',
@@ -1428,7 +1729,7 @@ describe('InterviewView', () => {
         ],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'closed',
               closeability: false,
               readiness: 'high',
@@ -1494,7 +1795,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             question: 'Please review the current requirement set.',
@@ -1532,7 +1833,7 @@ describe('InterviewView', () => {
           },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: {
             status: 'closed',
@@ -1547,7 +1848,7 @@ describe('InterviewView', () => {
           requirements: [
             {
               id: 31,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Export the reviewed specification as markdown',
@@ -1581,7 +1882,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'criteria',
             question: 'Please review the current criterion set.',
@@ -1619,7 +1920,7 @@ describe('InterviewView', () => {
           },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: { status: 'closed', readiness: 'high' },
           criteria: {
@@ -1634,7 +1935,7 @@ describe('InterviewView', () => {
           criteria: [
             {
               id: 41,
-              project_id: 1,
+              specification_id: 1,
               kind: 'criterion',
               subtype: null,
               content: 'Restarting restores the active path',
@@ -1662,13 +1963,13 @@ describe('InterviewView', () => {
     ).toBeTruthy();
   });
 
-  it('renders grounding strategy choices from the projected scope kickoff landing and submits the selected strategy', async () => {
+  it('renders grounding strategy choices from the projected grounding kickoff landing and submits the selected strategy', async () => {
     const loaderData = createWorkspaceLoaderData({
       assistantText: '',
       answer: '',
       turns: [],
       workflow: createWorkflowState({
-        scope: {
+        grounding: {
           status: 'in_progress',
           closeability: false,
           readiness: 'low',
@@ -1679,7 +1980,7 @@ describe('InterviewView', () => {
         },
       }),
     });
-    expect(loaderData.projectState.landing).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+    expect(loaderData.projectState.landing).toEqual({ kind: 'kickoff', phase: 'grounding', mode: 'start' });
     setLoaderData(loaderData);
 
     fetchMock.mockResolvedValueOnce(
@@ -1706,7 +2007,7 @@ describe('InterviewView', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'phase-entry', phase: 'scope', mode: 'brownfield' }),
+          body: JSON.stringify({ kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' }),
         }),
       );
     });
@@ -1716,18 +2017,18 @@ describe('InterviewView', () => {
         parts: [
           {
             type: 'data-phase-intent',
-            data: { kind: 'phase-entry', phase: 'scope', mode: 'brownfield' },
+            data: { kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' },
           },
         ],
       });
     });
   });
 
-  it('auto-continues scope recovery when an open phase has a completed turn but no successor frontier', async () => {
+  it('auto-continues grounding recovery when an open phase has a completed turn but no successor frontier', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'in_progress',
             closeability: false,
             readiness: 'medium',
@@ -1755,7 +2056,7 @@ describe('InterviewView', () => {
         expect.objectContaining({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ kind: 'phase-continue', phase: 'scope' }),
+          body: JSON.stringify({ kind: 'phase-continue', phase: 'grounding' }),
         }),
       );
     });
@@ -1765,7 +2066,7 @@ describe('InterviewView', () => {
         parts: [
           {
             type: 'data-phase-intent',
-            data: { kind: 'phase-continue', phase: 'scope' },
+            data: { kind: 'phase-continue', phase: 'grounding' },
           },
         ],
       });
@@ -1776,159 +2077,12 @@ describe('InterviewView', () => {
     expect(screen.queryByLabelText('Type a message...')).toBeNull();
   });
 
-  it('renders grounding cards as a distinct active turn affordance and submits continue with an optional note', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        workflow: createWorkflowState({
-          scope: {
-            status: 'in_progress',
-            closeability: false,
-            readiness: 'medium',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: 1,
-            summary: null,
-          },
-        }),
-        turns: [
-          {
-            id: 1,
-            project_id: 1,
-            parent_turn_id: null,
-            phase: 'scope',
-            turn_kind: 'question',
-            question: '',
-            why: null,
-            impact: null,
-            answer: null,
-            is_resolution: false,
-            user_parts: null,
-            assistant_parts: JSON.stringify([
-              {
-                type: 'data-grounding-card',
-                data: {
-                  summary:
-                    'The repo already uses SQLite-backed local persistence and a routed interview surface.',
-                  detail: 'This is provisional context before the next substantive grounding question.',
-                  continueLabel: 'Continue',
-                },
-              },
-            ]),
-            created_at: '2026-04-03 10:00:00',
-            options: [{ id: 11, position: 0, content: 'Continue', is_recommended: true, is_selected: false }],
-          },
-        ],
-      }),
-    );
-
-    fetchMock.mockResolvedValueOnce(
-      new Response(JSON.stringify({ ok: true }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json' },
-      }),
-    );
-
-    renderWorkspace();
-
-    const groundingCard = await screen.findByTestId('active-grounding-card');
-    expect(groundingCard.textContent).toContain('Grounding');
-    expect(groundingCard.textContent).toContain('SQLite-backed local persistence');
-    expect(screen.queryByTestId('active-question-card')).toBeNull();
-
-    fireEvent.change(screen.getByLabelText('Grounding card note'), {
-      target: { value: 'Focus on the routed workspace seam, not export.' },
-    });
-    fireEvent.click(screen.getByRole('button', { name: 'Continue' }));
-
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/specifications/1/turns/1/response',
-        expect.objectContaining({
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            kind: 'select-options',
-            positions: [0],
-            freeText: 'Focus on the routed workspace seam, not export.',
-          }),
-        }),
-      );
-    });
-
-    await waitFor(() => {
-      expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
-        text: 'Continue — Focus on the routed workspace seam, not export.',
-      });
-    });
-  });
-
-  it('replays answered grounding cards separately from answered question cards', async () => {
-    setLoaderData(
-      createWorkspaceLoaderData({
-        workflow: createWorkflowState({
-          scope: {
-            status: 'in_progress',
-            closeability: false,
-            readiness: 'medium',
-            closureBasis: null,
-            proposalPending: false,
-            turnId: null,
-            summary: null,
-          },
-        }),
-        turns: [
-          {
-            id: 1,
-            project_id: 1,
-            parent_turn_id: null,
-            phase: 'scope',
-            turn_kind: 'question',
-            question: '',
-            why: null,
-            impact: null,
-            answer: 'Continue — Focus on the routed workspace seam, not export.',
-            is_resolution: false,
-            user_parts: JSON.stringify([
-              {
-                type: 'data-turn-response',
-                data: {
-                  turnId: 1,
-                  selectedOptionIds: [11],
-                  freeText: 'Focus on the routed workspace seam, not export.',
-                },
-              },
-            ]),
-            assistant_parts: JSON.stringify([
-              {
-                type: 'data-grounding-card',
-                data: {
-                  summary:
-                    'The repo already uses SQLite-backed local persistence and a routed interview surface.',
-                  detail: 'This is provisional context before the next substantive grounding question.',
-                },
-              },
-            ]),
-            created_at: '2026-04-03 10:00:00',
-            options: [{ id: 11, position: 0, content: 'Continue', is_recommended: true, is_selected: true }],
-          },
-        ],
-      }),
-    );
-
-    renderWorkspace();
-
-    const answeredGroundingCard = await screen.findByTestId('answered-grounding-card');
-    expect(answeredGroundingCard.textContent).toContain('Grounding');
-    expect(answeredGroundingCard.textContent).toContain('Focus on the routed workspace seam, not export.');
-    expect(screen.queryByTestId('answered-turn-card')).toBeNull();
-  });
-
   it('keeps the grounding strategy kickoff card when grounding still requires an explicit strategy choice', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         turns: [],
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'in_progress',
             closeability: false,
             readiness: 'low',
@@ -1941,7 +2095,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace('scope');
+    renderWorkspace('grounding');
 
     const kickoffCard = await screen.findByTestId('kickoff-control-card');
     expect(kickoffCard.textContent).toContain('How should this specification start?');
@@ -1955,7 +2109,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: { status: 'closed', readiness: 'high' },
           criteria: {
@@ -1971,9 +2125,9 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
-            phase: 'scope',
+            phase: 'grounding',
             turn_kind: 'question',
             question: 'What should we build first?',
             why: 'This frames the first iteration.',
@@ -1987,7 +2141,7 @@ describe('InterviewView', () => {
           },
           {
             id: 2,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: 1,
             phase: 'criteria',
             turn_kind: 'question',
@@ -2055,7 +2209,12 @@ describe('InterviewView', () => {
           { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
           design: {
             status: 'closed',
             readiness: 'high',
@@ -2075,7 +2234,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             question: 'Please review the current requirement set.',
@@ -2093,6 +2252,7 @@ describe('InterviewView', () => {
                   title: 'Requirements',
                   items: [
                     {
+                      reviewItemId: 'requirements:1',
                       referenceCode: createKnowledgeReferenceCode('requirement', 1),
                       content: 'Export the reviewed specification as markdown',
                       rationale: 'Keeps the accepted review output portable for sharing.',
@@ -2102,6 +2262,7 @@ describe('InterviewView', () => {
                       ],
                     },
                     {
+                      reviewItemId: 'requirements:2',
                       referenceCode: createKnowledgeReferenceCode('requirement', 2),
                       content: 'Resume the interview from persisted local state',
                       rationale: 'Maintains the local-first continuity promise after reload.',
@@ -2122,7 +2283,7 @@ describe('InterviewView', () => {
           requirements: [
             {
               id: 31,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Export the reviewed specification as markdown',
@@ -2131,7 +2292,7 @@ describe('InterviewView', () => {
             },
             {
               id: 32,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Resume the interview from persisted local state',
@@ -2158,10 +2319,202 @@ describe('InterviewView', () => {
     expect(screen.getByText('Grounding')).toBeTruthy();
     expect(
       screen.queryByLabelText(`Comment on ${createKnowledgeReferenceCode('requirement', 1)}`),
-    ).toBeNull();
-    expect(screen.queryByText('Commented')).toBeNull();
+    ).toBeTruthy();
+    expect(screen.queryByText('Commented')).toBeTruthy();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
+  });
+
+  it('renders review-ready grounding refs on an active requirements review turn', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Please review the current requirement set.',
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+        ],
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
+          design: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 98,
+          },
+          requirements: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 1,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                      content:
+                        'Create, edit, and close tickets with required fields: title, description, priority, and assignee',
+                      rationale: 'Captures the core ticket lifecycle the tool must support from day one.',
+                      grounding: [
+                        { code: createKnowledgeReferenceCode('goal', 1) },
+                        { code: createKnowledgeReferenceCode('context', 1) },
+                        { code: createKnowledgeReferenceCode('decision', 1) },
+                      ],
+                    },
+                    {
+                      reviewItemId: 'requirements:2',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 2),
+                      content:
+                        'Every status change records the actor identity and ISO 8601 timestamp in the audit log',
+                      rationale: 'Protects accountability and traceability for regulated workflows.',
+                      grounding: [
+                        { code: createKnowledgeReferenceCode('context', 2) },
+                        { code: createKnowledgeReferenceCode('constraint', 1) },
+                      ],
+                    },
+                    {
+                      reviewItemId: 'requirements:3',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 3),
+                      content:
+                        'Role-based visibility: admins see all tickets and settings, developers see assigned and unassigned tickets, viewers have read-only access',
+                      rationale:
+                        'Ensures each role sees only the operations appropriate to its responsibility.',
+                      grounding: [
+                        { code: createKnowledgeReferenceCode('goal', 2) },
+                        { code: createKnowledgeReferenceCode('constraint', 2) },
+                      ],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+        entityState: createEntityState({
+          goals: [
+            {
+              id: 1,
+              specification_id: 1,
+              kind: 'goal',
+              subtype: null,
+              content:
+                'Launch a lightweight issue tracker that covers the core ticket lifecycle for day-one teams',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('goal', 1),
+            },
+            {
+              id: 2,
+              specification_id: 1,
+              kind: 'goal',
+              subtype: null,
+              content:
+                'Keep ticket visibility and role-specific actions clear for admins, developers, and viewers',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('goal', 2),
+            },
+          ],
+          contexts: [
+            {
+              id: 3,
+              specification_id: 1,
+              kind: 'context',
+              subtype: null,
+              content:
+                'Tickets move through a workflow that always includes title, description, priority, and assignee',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('context', 1),
+            },
+            {
+              id: 4,
+              specification_id: 1,
+              kind: 'context',
+              subtype: null,
+              content: 'The team needs a trustworthy audit trail whenever ticket status changes',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('context', 2),
+            },
+          ],
+          constraints: [
+            {
+              id: 5,
+              specification_id: 1,
+              kind: 'constraint',
+              subtype: null,
+              content: 'Audit history must be retained as immutable actor-and-timestamp records',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('constraint', 1),
+            },
+            {
+              id: 6,
+              specification_id: 1,
+              kind: 'constraint',
+              subtype: null,
+              content: 'Viewer access must stay read-only and must not mutate ticket data or settings',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('constraint', 2),
+            },
+          ],
+          decisions: [
+            {
+              id: 7,
+              specification_id: 1,
+              content: 'Model the first release around one shared ticket record with role-aware actions',
+              rationale: null,
+              referenceCode: createKnowledgeReferenceCode('decision', 1),
+            },
+          ],
+        }),
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    const activeReviewSet = await screen.findByTestId('active-review-set-card');
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('goal', 1))).toBeTruthy();
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('context', 1))).toBeTruthy();
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('decision', 1))).toBeTruthy();
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('context', 2))).toBeTruthy();
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('constraint', 1))).toBeTruthy();
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('goal', 2))).toBeTruthy();
+    expect(within(activeReviewSet).getByText(createKnowledgeReferenceCode('constraint', 2))).toBeTruthy();
+
+    expect(within(activeReviewSet).getByText('Items')).toBeTruthy();
+    expect(within(activeReviewSet).getByText('Grounding')).toBeTruthy();
+    expect(within(activeReviewSet).getByText('Commented')).toBeTruthy();
   });
 
   it('renders criterion reference codes and review actions on the criteria full-set review turn', async () => {
@@ -2175,7 +2528,12 @@ describe('InterviewView', () => {
           { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
           design: {
             status: 'closed',
             readiness: 'high',
@@ -2201,7 +2559,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'criteria',
             question: 'Please review the current criterion set.',
@@ -2219,12 +2577,14 @@ describe('InterviewView', () => {
                   title: 'Acceptance Criteria',
                   items: [
                     {
+                      reviewItemId: 'criteria:1',
                       referenceCode: createKnowledgeReferenceCode('criterion', 1),
                       content: 'Restarting restores the active path',
                       rationale: 'Shows the local persistence seam survives reloads.',
                       grounding: [{ code: createKnowledgeReferenceCode('requirement', 1) }],
                     },
                     {
+                      reviewItemId: 'criteria:2',
                       referenceCode: createKnowledgeReferenceCode('criterion', 2),
                       content: 'Markdown export includes accepted requirements only',
                       rationale: 'Prevents draft review content from leaking into export.',
@@ -2248,7 +2608,7 @@ describe('InterviewView', () => {
           criteria: [
             {
               id: 41,
-              project_id: 1,
+              specification_id: 1,
               kind: 'criterion',
               subtype: null,
               content: 'Restarting restores the active path',
@@ -2257,7 +2617,7 @@ describe('InterviewView', () => {
             },
             {
               id: 42,
-              project_id: 1,
+              specification_id: 1,
               kind: 'criterion',
               subtype: null,
               content: 'Markdown export includes accepted requirements only',
@@ -2281,10 +2641,677 @@ describe('InterviewView', () => {
     expect(screen.getByText('Markdown export includes accepted requirements only')).toBeTruthy();
     expect(screen.getByText('Items')).toBeTruthy();
     expect(screen.getByText('Grounding')).toBeTruthy();
-    expect(screen.queryByLabelText(`Comment on ${createKnowledgeReferenceCode('criterion', 1)}`)).toBeNull();
-    expect(screen.queryByText('Commented')).toBeNull();
+    expect(
+      screen.queryByLabelText(`Comment on ${createKnowledgeReferenceCode('criterion', 1)}`),
+    ).toBeTruthy();
+    expect(screen.queryByText('Commented')).toBeTruthy();
     expect(screen.getByLabelText('Review note')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Accept Review' })).toBeTruthy();
+  });
+
+  it('carries predecessor review metadata and explicit revision badges onto an active regenerated review turn', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
+          design: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 98,
+          },
+          requirements: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 2,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: 'Please revise this set',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Please revise this set' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 1,
+                  selectedOptionIds: [12],
+                  reviewAction: 'request-changes',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                      content: 'Resume the interview from persisted local state',
+                      rationale: 'Maintains the local-first continuity promise after reload.',
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 2) }],
+                    },
+                    {
+                      reviewItemId: 'requirements:2',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 2),
+                      content: 'Export the reviewed specification as markdown',
+                      rationale: 'Keeps the accepted review output portable for sharing.',
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 1) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+            ],
+          },
+          {
+            id: 2,
+            specification_id: 1,
+            parent_turn_id: 1,
+            phase: 'requirements',
+            question: 'Please review the revised requirement set.',
+            why: 'Review the revised set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the revised requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      referenceCode: 'requirements:1',
+                      content: 'R1: Resume the interview from persisted local state after reload',
+                    },
+                    {
+                      reviewItemId: 'requirements:2',
+                      content: 'Export the reviewed specification as markdown',
+                    },
+                    {
+                      reviewItemId: 'requirements:3',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 3),
+                      content: 'Include rationale notes in the exported handoff',
+                      rationale: 'Lets operators see why the reviewed set was accepted.',
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 3) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:05:00',
+            options: [
+              { id: 21, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    const activeReviewCard = await screen.findByTestId('active-review-set-card');
+    expect(activeReviewCard).toBeTruthy();
+    expect(within(activeReviewCard).getByText('v2')).toBeTruthy();
+    expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('requirement', 1))).toBeTruthy();
+    expect(
+      within(activeReviewCard).getByText('Resume the interview from persisted local state after reload'),
+    ).toBeTruthy();
+    expect(within(activeReviewCard).queryByText('requirements:1')).toBeNull();
+    expect(
+      within(activeReviewCard).queryByText(
+        'R1: Resume the interview from persisted local state after reload',
+      ),
+    ).toBeNull();
+    expect(
+      within(activeReviewCard).getByText('Maintains the local-first continuity promise after reload.'),
+    ).toBeTruthy();
+    expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('goal', 2))).toBeTruthy();
+    expect(within(activeReviewCard).getByText('Revised')).toBeTruthy();
+    expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('requirement', 3))).toBeTruthy();
+    expect(
+      within(activeReviewCard).getByText('Include rationale notes in the exported handoff'),
+    ).toBeTruthy();
+    expect(within(activeReviewCard).getByText('Added in revision')).toBeTruthy();
+    expect(screen.queryByText('Added by you')).toBeNull();
+  });
+
+  it('carries predecessor review metadata and explicit revision badges onto an active regenerated criteria review turn', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
+          design: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 98,
+          },
+          requirements: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 97,
+            summary: 'Requirements accepted.',
+          },
+          criteria: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 2,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'criteria',
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            answer: 'Please revise this set',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Please revise this set' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 1,
+                  selectedOptionIds: [12],
+                  reviewAction: 'request-changes',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      reviewItemId: 'criteria:1',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 1),
+                      content: 'Restarting restores the active path',
+                      rationale: 'Shows the local persistence seam survives reloads.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 1) }],
+                    },
+                    {
+                      reviewItemId: 'criteria:2',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 2),
+                      content: 'Markdown export includes accepted requirements only',
+                      rationale: 'Prevents draft review content from leaking into export.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 2) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+            ],
+          },
+          {
+            id: 2,
+            specification_id: 1,
+            parent_turn_id: 1,
+            phase: 'criteria',
+            question: 'Please review the revised criterion set.',
+            why: 'Review the revised criterion set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the revised criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      reviewItemId: 'criteria:1',
+                      content: 'Restarting restores the active path after a full reload',
+                    },
+                    {
+                      reviewItemId: 'criteria:3',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 3),
+                      content:
+                        'Accepted regenerated review cards preserve carried rationale and grounding metadata',
+                      rationale:
+                        'Keeps the criteria transcript legible while the review is still in progress.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 3) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:05:00',
+            options: [
+              { id: 21, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+      }),
+    );
+
+    renderWorkspace('criteria');
+
+    const activeReviewCard = await screen.findByTestId('active-review-set-card');
+    expect(activeReviewCard).toBeTruthy();
+    expect(within(activeReviewCard).getByText('v2')).toBeTruthy();
+    expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('criterion', 1))).toBeTruthy();
+    expect(
+      within(activeReviewCard).getByText('Restarting restores the active path after a full reload'),
+    ).toBeTruthy();
+    expect(
+      within(activeReviewCard).getByText('Shows the local persistence seam survives reloads.'),
+    ).toBeTruthy();
+    expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('requirement', 1))).toBeTruthy();
+    expect(within(activeReviewCard).getByText('Revised')).toBeTruthy();
+    expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('criterion', 3))).toBeTruthy();
+    expect(
+      within(activeReviewCard).getByText(
+        'Accepted regenerated review cards preserve carried rationale and grounding metadata',
+      ),
+    ).toBeTruthy();
+    expect(within(activeReviewCard).getByText('Added in revision')).toBeTruthy();
+    expect(screen.queryByText('Added by you')).toBeNull();
+  });
+
+  it('replays regenerated review turns with the same carried metadata and revision badge semantics', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 99,
+            summary: 'Grounding closed.',
+          },
+          design: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 98,
+            summary: 'Design closed.',
+          },
+          requirements: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 2,
+            summary: 'Requirements accepted.',
+          },
+          criteria: {
+            status: 'unstarted',
+            closeability: false,
+            readiness: 'low',
+            turnId: null,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'requirements',
+            question: 'Please review the current requirement set.',
+            why: 'Review the whole requirement set before moving forward.',
+            impact: 'high',
+            answer: 'Please revise this set',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Please revise this set' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 1,
+                  selectedOptionIds: [12],
+                  reviewAction: 'request-changes',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                      content: 'Resume the interview from persisted local state',
+                      rationale: 'Maintains the local-first continuity promise after reload.',
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 2) }],
+                    },
+                    {
+                      reviewItemId: 'requirements:2',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 2),
+                      content: 'Export the reviewed specification as markdown',
+                      rationale: 'Keeps the accepted review output portable for sharing.',
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 1) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+            ],
+          },
+          {
+            id: 2,
+            specification_id: 1,
+            parent_turn_id: 1,
+            phase: 'requirements',
+            question: 'Please review the revised requirement set.',
+            why: 'Review the revised set before moving forward.',
+            impact: 'high',
+            answer: 'Accept review',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Accept review' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 2,
+                  selectedOptionIds: [21],
+                  reviewAction: 'accept',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the revised requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      content: 'Resume the interview from persisted local state after reload',
+                    },
+                    {
+                      reviewItemId: 'requirements:2',
+                      content: 'Export the reviewed specification as markdown',
+                    },
+                    {
+                      reviewItemId: 'requirements:3',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 3),
+                      content: 'Include rationale notes in the exported handoff',
+                      rationale: 'Lets operators see why the reviewed set was accepted.',
+                      grounding: [{ code: createKnowledgeReferenceCode('goal', 3) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:05:00',
+            options: [
+              { id: 21, position: 0, content: 'Accept review', is_recommended: true, is_selected: true },
+              { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+      }),
+    );
+
+    renderWorkspace('requirements');
+
+    const revisionCard = await screen.findByTestId('revision-card');
+    expect(revisionCard.textContent).toContain('v2');
+
+    const answeredReviewCards = await screen.findAllByTestId('answered-review-set-card');
+    const answeredReviewCard = answeredReviewCards.at(-1);
+    expect(answeredReviewCard).toBeTruthy();
+    expect(
+      within(answeredReviewCard!).getByText(createKnowledgeReferenceCode('requirement', 1)),
+    ).toBeTruthy();
+    expect(
+      within(answeredReviewCard!).getByText('Resume the interview from persisted local state after reload'),
+    ).toBeTruthy();
+    expect(
+      within(answeredReviewCard!).getByText('Maintains the local-first continuity promise after reload.'),
+    ).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText(createKnowledgeReferenceCode('goal', 2))).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText('Revised')).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText('Added in revision')).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText('Review accepted.')).toBeTruthy();
+    expect(screen.queryByText('Added by you')).toBeNull();
+  });
+
+  it('replays regenerated criteria review turns with the same carried metadata and revision badge semantics', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 99,
+            summary: 'Grounding closed.',
+          },
+          design: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 98,
+            summary: 'Design closed.',
+          },
+          requirements: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 97,
+            summary: 'Requirements accepted.',
+          },
+          criteria: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 2,
+            summary: 'Criteria accepted.',
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'criteria',
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            answer: 'Please revise this set',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Please revise this set' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 1,
+                  selectedOptionIds: [12],
+                  reviewAction: 'request-changes',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      reviewItemId: 'criteria:1',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 1),
+                      content: 'Restarting restores the active path',
+                      rationale: 'Shows the local persistence seam survives reloads.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 1) }],
+                    },
+                    {
+                      reviewItemId: 'criteria:2',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 2),
+                      content: 'Markdown export includes accepted requirements only',
+                      rationale: 'Prevents draft review content from leaking into export.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 2) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+            ],
+          },
+          {
+            id: 2,
+            specification_id: 1,
+            parent_turn_id: 1,
+            phase: 'criteria',
+            question: 'Please review the revised criterion set.',
+            why: 'Review the revised criterion set before moving forward.',
+            impact: 'high',
+            answer: 'Accept review',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Accept review' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 2,
+                  selectedOptionIds: [21],
+                  reviewAction: 'accept',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the revised criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      reviewItemId: 'criteria:1',
+                      content: 'Restarting restores the active path after a full reload',
+                    },
+                    {
+                      reviewItemId: 'criteria:3',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 3),
+                      content:
+                        'Accepted regenerated review cards preserve carried rationale and grounding metadata',
+                      rationale: 'Keeps the criteria transcript legible after acceptance.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 3) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:05:00',
+            options: [
+              { id: 21, position: 0, content: 'Accept review', is_recommended: true, is_selected: true },
+              { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+      }),
+    );
+
+    renderWorkspace('criteria');
+
+    const revisionCard = await screen.findByTestId('revision-card');
+    expect(revisionCard.textContent).toContain('v2');
+
+    const answeredReviewCards = await screen.findAllByTestId('answered-review-set-card');
+    const answeredReviewCard = answeredReviewCards.at(-1);
+    expect(answeredReviewCard).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText(createKnowledgeReferenceCode('criterion', 1))).toBeTruthy();
+    expect(
+      within(answeredReviewCard!).getByText('Restarting restores the active path after a full reload'),
+    ).toBeTruthy();
+    expect(
+      within(answeredReviewCard!).getByText('Shows the local persistence seam survives reloads.'),
+    ).toBeTruthy();
+    expect(
+      within(answeredReviewCard!).getByText(createKnowledgeReferenceCode('requirement', 1)),
+    ).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText('Revised')).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText('Added in revision')).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText('Review accepted.')).toBeTruthy();
+    expect(screen.queryByText('Added by you')).toBeNull();
   });
 
   it('renders a pending review turn through the same lightweight review card family before route invalidation', async () => {
@@ -2307,7 +3334,7 @@ describe('InterviewView', () => {
           requirements: [
             {
               id: 31,
-              project_id: 1,
+              specification_id: 1,
               kind: 'requirement',
               subtype: null,
               content: 'Export the reviewed specification as markdown',
@@ -2343,8 +3370,167 @@ describe('InterviewView', () => {
       expect(screen.getByText('Items')).toBeTruthy();
       expect(
         screen.queryByLabelText(`Comment on ${createKnowledgeReferenceCode('requirement', 1)}`),
-      ).toBeNull();
-      expect(screen.queryByText('Commented')).toBeNull();
+      ).toBeTruthy();
+      expect(screen.queryByText('Commented')).toBeTruthy();
+      expect(routerInvalidate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('renders pending review from streamed reviewSet metadata, not from mismatched entity snapshots', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        assistantText: 'Earlier question?',
+        answer: 'Earlier answer',
+        workflow: createWorkflowState({
+          requirements: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 2,
+            summary: null,
+          },
+        }),
+        entityState: createEntityState({
+          requirements: [
+            {
+              id: 99,
+              specification_id: 1,
+              kind: 'requirement',
+              subtype: null,
+              content: 'Stale snapshot requirement that should NOT appear',
+              rationale: 'This is a stale entity snapshot.',
+              referenceCode: createKnowledgeReferenceCode('requirement', 99),
+            },
+          ],
+        }),
+      }),
+    );
+    useChatImpl = createUseChatHarness('streaming');
+
+    renderWorkspace('requirements');
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        createPendingReviewMessage(),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('active-review-set-card')).toBeTruthy();
+      expect(screen.getByText(createKnowledgeReferenceCode('requirement', 1))).toBeTruthy();
+      expect(screen.queryByText('Stale snapshot requirement that should NOT appear')).toBeNull();
+      expect(screen.queryByText(createKnowledgeReferenceCode('requirement', 99))).toBeNull();
+      expect(routerInvalidate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('renders a pending regenerated criteria review turn with carried metadata and canonical badges before route invalidation', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          requirements: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 97,
+            summary: 'Requirements accepted.',
+          },
+          criteria: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 2,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'criteria',
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            answer: 'Please revise this set',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Please revise this set' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 1,
+                  selectedOptionIds: [12],
+                  reviewAction: 'request-changes',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      reviewItemId: 'criteria:1',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 1),
+                      content: 'Restarting restores the active path',
+                      rationale: 'Shows the local persistence seam survives reloads.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 1) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+            ],
+          },
+        ],
+      }),
+    );
+    useChatImpl = createUseChatHarness('streaming');
+
+    renderWorkspace('criteria');
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Please revise this set' }] },
+        {
+          id: 'turn-1-assistant',
+          role: 'assistant',
+          parts: [{ type: 'text', text: 'Please review the current criterion set.' }],
+        },
+        createPendingCriteriaRevisionMessage(),
+      ]);
+    });
+
+    await waitFor(() => {
+      const activeReviewCard = screen.getByTestId('active-review-set-card');
+      expect(activeReviewCard).toBeTruthy();
+      expect(within(activeReviewCard).getByText('v2')).toBeTruthy();
+      expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('criterion', 1))).toBeTruthy();
+      expect(
+        within(activeReviewCard).getByText('Restarting restores the active path after a full reload'),
+      ).toBeTruthy();
+      expect(
+        within(activeReviewCard).getByText('Shows the local persistence seam survives reloads.'),
+      ).toBeTruthy();
+      expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('requirement', 1))).toBeTruthy();
+      expect(within(activeReviewCard).getByText('Revised')).toBeTruthy();
+      expect(within(activeReviewCard).getByText('Added in revision')).toBeTruthy();
       expect(routerInvalidate).not.toHaveBeenCalled();
     });
   });
@@ -2355,7 +3541,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             question: 'Please review the current requirement set.',
@@ -2383,6 +3569,7 @@ describe('InterviewView', () => {
                   title: 'Requirements',
                   items: [
                     {
+                      reviewItemId: 'requirements:1',
                       referenceCode: createKnowledgeReferenceCode('requirement', 1),
                       content: 'Export the reviewed specification as markdown',
                       rationale: 'Keeps the accepted review output portable for sharing.',
@@ -2392,6 +3579,7 @@ describe('InterviewView', () => {
                       ],
                     },
                     {
+                      reviewItemId: 'requirements:2',
                       referenceCode: createKnowledgeReferenceCode('requirement', 2),
                       content: 'Resume the interview from persisted local state',
                       rationale: 'Maintains the local-first continuity promise after reload.',
@@ -2409,7 +3597,7 @@ describe('InterviewView', () => {
           },
         ],
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'closed',
             closeability: false,
             readiness: 'high',
@@ -2469,7 +3657,12 @@ describe('InterviewView', () => {
           { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
           design: {
             status: 'closed',
             readiness: 'high',
@@ -2489,7 +3682,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             question: 'Please review the current requirement set.',
@@ -2515,10 +3708,35 @@ describe('InterviewView', () => {
                     { action: 'accept', optionPosition: 0 },
                     { action: 'request-changes', optionPosition: 1 },
                   ],
+                  reviewSet: {
+                    phase: 'requirements',
+                    title: 'Requirements',
+                    items: [
+                      {
+                        reviewItemId: 'requirements:1',
+                        content: 'Export the reviewed specification as markdown',
+                        referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                      },
+                    ],
+                  },
                 },
                 output: { ok: true, turnId: 1, optionCount: 2 },
               },
               { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      content: 'Export the reviewed specification as markdown',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                    },
+                  ],
+                },
+              },
             ]),
             created_at: '2026-04-03 10:00:00',
             options: [
@@ -2527,19 +3745,6 @@ describe('InterviewView', () => {
             ],
           },
         ],
-        entityState: createEntityState({
-          requirements: [
-            {
-              id: 31,
-              project_id: 1,
-              kind: 'requirement',
-              subtype: null,
-              content: 'Export the reviewed specification as markdown',
-              rationale: null,
-              referenceCode: createKnowledgeReferenceCode('requirement', 1),
-            },
-          ],
-        }),
       }),
     );
 
@@ -2586,7 +3791,12 @@ describe('InterviewView', () => {
           { id: 12, position: 1, content: 'Accept review', is_recommended: true, is_selected: false },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
           design: {
             status: 'closed',
             readiness: 'high',
@@ -2613,7 +3823,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             question: 'Please review the current requirement set.',
@@ -2639,10 +3849,35 @@ describe('InterviewView', () => {
                     { action: 'request-changes', optionPosition: 0 },
                     { action: 'accept', optionPosition: 1 },
                   ],
+                  reviewSet: {
+                    phase: 'requirements',
+                    title: 'Requirements',
+                    items: [
+                      {
+                        reviewItemId: 'requirements:1',
+                        content: 'Export the reviewed specification as markdown',
+                        referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                      },
+                    ],
+                  },
                 },
                 output: { ok: true, turnId: 1, optionCount: 2 },
               },
               { type: 'text', text: 'Please review the current requirement set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'requirements',
+                  title: 'Requirements',
+                  items: [
+                    {
+                      reviewItemId: 'requirements:1',
+                      content: 'Export the reviewed specification as markdown',
+                      referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                    },
+                  ],
+                },
+              },
             ]),
             created_at: '2026-04-03 10:00:00',
             options: [
@@ -2651,19 +3886,6 @@ describe('InterviewView', () => {
             ],
           },
         ],
-        entityState: createEntityState({
-          requirements: [
-            {
-              id: 31,
-              project_id: 1,
-              kind: 'requirement',
-              subtype: null,
-              content: 'Export the reviewed specification as markdown',
-              rationale: null,
-              referenceCode: createKnowledgeReferenceCode('requirement', 1),
-            },
-          ],
-        }),
       }),
     );
 
@@ -2705,7 +3927,12 @@ describe('InterviewView', () => {
           { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high', closureBasis: 'interviewer_recommended', turnId: 99 },
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
           design: {
             status: 'closed',
             readiness: 'high',
@@ -2731,7 +3958,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'criteria',
             question: 'Please review the current criterion set.',
@@ -2757,10 +3984,35 @@ describe('InterviewView', () => {
                     { action: 'accept', optionPosition: 0 },
                     { action: 'request-changes', optionPosition: 1 },
                   ],
+                  reviewSet: {
+                    phase: 'criteria',
+                    title: 'Acceptance Criteria',
+                    items: [
+                      {
+                        reviewItemId: 'criteria:1',
+                        content: 'Restarting restores the active path',
+                        referenceCode: createKnowledgeReferenceCode('criterion', 1),
+                      },
+                    ],
+                  },
                 },
                 output: { ok: true, turnId: 1, optionCount: 2 },
               },
               { type: 'text', text: 'Please review the current criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      reviewItemId: 'criteria:1',
+                      content: 'Restarting restores the active path',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 1),
+                    },
+                  ],
+                },
+              },
             ]),
             created_at: '2026-04-03 10:00:00',
             options: [
@@ -2769,19 +4021,6 @@ describe('InterviewView', () => {
             ],
           },
         ],
-        entityState: createEntityState({
-          criteria: [
-            {
-              id: 41,
-              project_id: 1,
-              kind: 'criterion',
-              subtype: null,
-              content: 'Restarting restores the active path',
-              rationale: null,
-              referenceCode: createKnowledgeReferenceCode('criterion', 1),
-            },
-          ],
-        }),
       }),
     );
 
@@ -2822,7 +4061,7 @@ describe('InterviewView', () => {
       createWorkspaceLoaderData({
         turns: [],
         workflow: createWorkflowState({
-          scope: {
+          grounding: {
             status: 'in_progress',
             closeability: false,
             readiness: 'low',
@@ -2893,6 +4132,7 @@ describe('InterviewView', () => {
       expect(screen.getByRole('checkbox', { name: /desktop/i })).toBeTruthy();
       expect(screen.queryByLabelText('Type a message...')).toBeNull();
       expect(routerInvalidate).not.toHaveBeenCalled();
+      expect(entityInvalidate).not.toHaveBeenCalled();
     });
   });
 
@@ -2912,7 +4152,7 @@ describe('InterviewView', () => {
     );
     rendered.rerender(
       <QueryClientProvider client={rendered.queryClient}>
-        <InterviewView phase="scope" />
+        <InterviewView phase="grounding" />
       </QueryClientProvider>,
     );
 
@@ -2937,7 +4177,7 @@ describe('InterviewView', () => {
     );
     rendered.rerender(
       <QueryClientProvider client={rendered.queryClient}>
-        <InterviewView phase="scope" />
+        <InterviewView phase="grounding" />
       </QueryClientProvider>,
     );
 
@@ -3050,14 +4290,14 @@ describe('InterviewView', () => {
     });
   });
 
-  it('submits scope-closure confirmations through chat with typed confirmation parts', async () => {
+  it('submits grounding-closure confirmations through chat with typed confirmation parts', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         assistantText: '',
-        answer: 'We have enough scope context',
+        answer: 'We have enough grounding context',
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: true,
               readiness: 'medium',
@@ -3100,7 +4340,7 @@ describe('InterviewView', () => {
             type: 'data-phase-summary',
             data: {
               turnId: 1,
-              phase: 'scope',
+              phase: 'grounding',
               summary: 'Goals, terms, context, and constraints are sufficiently captured.',
             },
           },
@@ -3120,7 +4360,7 @@ describe('InterviewView', () => {
           { type: 'text', text: 'Confirm grounding closure' },
           {
             type: 'data-confirmation',
-            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
+            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'grounding' },
           },
         ],
       });
@@ -3131,10 +4371,10 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         assistantText: '',
-        answer: 'We have enough scope context',
+        answer: 'We have enough grounding context',
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: true,
               readiness: 'medium',
@@ -3177,7 +4417,7 @@ describe('InterviewView', () => {
             type: 'data-phase-summary',
             data: {
               turnId: 1,
-              phase: 'scope',
+              phase: 'grounding',
               summary: 'Goals, terms, context, and constraints are sufficiently captured.',
             },
           },
@@ -3192,7 +4432,7 @@ describe('InterviewView', () => {
           parts: [
             {
               type: 'data-confirmation',
-              data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
+              data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'grounding' },
             },
           ],
         },
@@ -3218,7 +4458,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'requirements',
             turn_kind: 'question',
@@ -3244,7 +4484,7 @@ describe('InterviewView', () => {
           },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: {
             status: 'in_progress',
@@ -3292,7 +4532,7 @@ describe('InterviewView', () => {
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'criteria',
             turn_kind: 'question',
@@ -3318,7 +4558,7 @@ describe('InterviewView', () => {
           },
         ],
         workflow: createWorkflowState({
-          scope: { status: 'closed', readiness: 'high' },
+          grounding: { status: 'closed', readiness: 'high' },
           design: { status: 'closed', readiness: 'high' },
           requirements: { status: 'closed', readiness: 'high' },
           criteria: {
@@ -3360,9 +4600,10 @@ describe('InterviewView', () => {
   it('submits a force-close action for design through chat with typed confirmation parts', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
+        turns: createFillerTurns('design', 3),
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'closed',
               closeability: false,
               readiness: 'high',
@@ -3406,6 +4647,7 @@ describe('InterviewView', () => {
     renderWorkspace('design');
 
     fireEvent.click(await screen.findByRole('button', { name: 'Close Phase' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm elicitation closure' }));
 
     await waitFor(() => {
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
@@ -3424,9 +4666,10 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         turns: [
+          ...createFillerTurns('design', 2, 200),
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
             phase: 'design',
             question: 'Which architecture should we choose next?',
@@ -3444,7 +4687,7 @@ describe('InterviewView', () => {
         ],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'closed',
               closeability: false,
               readiness: 'high',
@@ -3504,6 +4747,7 @@ describe('InterviewView', () => {
 
     expect(screen.getByText('Which architecture should we choose next?')).toBeTruthy();
     fireEvent.click(await screen.findByRole('button', { name: 'Close Phase' }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Confirm elicitation closure' }));
 
     expect(await screen.findByText('Force elicitation closure', { selector: 'p' })).toBeTruthy();
     expect(screen.getByTestId('generating-turn-placeholder')).toBeTruthy();
@@ -3515,7 +4759,7 @@ describe('InterviewView', () => {
       createWorkspaceLoaderData({
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'closed',
               closeability: false,
               readiness: 'high',
@@ -3559,6 +4803,23 @@ describe('InterviewView', () => {
     renderWorkspace('design');
 
     expect(screen.queryByRole('button', { name: /force elicitation closure/i })).toBeNull();
+  });
+
+  it('renders an active free-text grounding question when the frontier turn has no options', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
+        options: [],
+      }),
+    );
+
+    renderWorkspace();
+
+    const questionCard = await screen.findByTestId('active-question-card');
+    expect(questionCard.textContent).toContain('What should we build first?');
+    expect(screen.getByLabelText('Your response')).toBeTruthy();
+    expect(screen.queryByRole('checkbox', { name: /none of the above/i })).toBeNull();
   });
 
   it('posts free-text-only turn responses and forwards the text into chat', async () => {
@@ -3675,6 +4936,71 @@ describe('InterviewView', () => {
     expect(desktopOption.disabled).toBe(true);
   });
 
+  it('keeps observer waiting state visible when the answered card appears before the next question arrives', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        answer: '',
+        userParts: [],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      }),
+    );
+
+    routerInvalidate.mockImplementationOnce(async () => {
+      const answeredLoaderData = createWorkspaceLoaderData({
+        answer: 'Desktop — Best fit for our launch',
+        userParts: [
+          { type: 'text', text: 'Desktop — Best fit for our launch' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
+          },
+        ],
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      });
+      answeredLoaderData.projectState.specification!.active_turn_id = null;
+      answeredLoaderData.projectState.workflow.phases.grounding.turnId = null;
+      answeredLoaderData.projectState.landing = deriveSpecificationLanding(answeredLoaderData.projectState);
+      setLoaderData(answeredLoaderData);
+    });
+    useChatHarness.sendMessage.mockImplementation(async () => {
+      useChatHarness.setStatus?.('submitted');
+    });
+
+    fetchMock.mockResolvedValueOnce(
+      new Response(JSON.stringify({ ok: true }), {
+        status: 200,
+        headers: { 'Content-Type': 'application/json' },
+      }),
+    );
+
+    renderWorkspace();
+
+    fireEvent.change(await screen.findByLabelText('Additional response context'), {
+      target: { value: 'Best fit for our launch' },
+    });
+    fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
+    fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId('turn-processing-state')).toBeTruthy();
+    });
+
+    await act(async () => {
+      useChatHarness.setStatus?.('ready');
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('answered-turn-card').textContent).toContain('Still thinking…');
+    });
+    expect(screen.getByTestId('answered-turn-card').textContent).not.toContain('Captured: —');
+  });
+
   it('collapses a submitted turn into an answered card only when interviewer completion reveals the next step', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
@@ -3786,15 +5112,15 @@ describe('InterviewView', () => {
         }),
       );
     });
-    routerInvalidate.mockImplementationOnce(async () => {
+    entityInvalidate.mockImplementationOnce(async () => {
       setLoaderData(
         createWorkspaceLoaderData({
           turns: [
             {
               id: 1,
-              project_id: 1,
+              specification_id: 1,
               parent_turn_id: null,
-              phase: 'scope',
+              phase: 'grounding',
               question: 'What should we build first?',
               why: 'This frames the first iteration.',
               impact: 'high',
@@ -3944,18 +5270,18 @@ describe('InterviewView', () => {
     expect(answeredCard.textContent).toContain('Best fit for launch');
   });
 
-  it('hides term captures from the compact answered card', async () => {
-    const visibleCaptureCode = createKnowledgeReferenceCode('goal', 1);
-    const hiddenCaptureCode = createKnowledgeReferenceCode('term', 1);
+  it('shows term captures in the compact answered card', async () => {
+    const goalCode = createKnowledgeReferenceCode('goal', 1);
+    const termCode = createKnowledgeReferenceCode('term', 1);
 
     setLoaderData(
       createWorkspaceLoaderData({
         turns: [
           {
             id: 1,
-            project_id: 1,
+            specification_id: 1,
             parent_turn_id: null,
-            phase: 'scope',
+            phase: 'grounding',
             turn_kind: 'question',
             question: 'What should we build first?',
             why: 'This frames the first iteration.',
@@ -3972,14 +5298,14 @@ describe('InterviewView', () => {
                 kind: 'goal',
                 id: 1,
                 content: 'Ship the web app first',
-                referenceCode: visibleCaptureCode,
+                referenceCode: goalCode,
               },
               {
                 collection: 'knowledge_item',
                 kind: 'term',
                 id: 2,
-                content: 'Invisible term',
-                referenceCode: hiddenCaptureCode,
+                content: 'Visible term',
+                referenceCode: termCode,
               },
             ],
           },
@@ -3991,8 +5317,8 @@ describe('InterviewView', () => {
 
     const answeredCard = await screen.findByTestId('answered-turn-card');
 
-    expect(answeredCard.textContent).toContain(visibleCaptureCode);
-    expect(answeredCard.textContent).not.toContain(hiddenCaptureCode);
+    expect(answeredCard.textContent).toContain(goalCode);
+    expect(answeredCard.textContent).toContain(termCode);
   });
 
   it('renders a compact answered card for a persisted free-text-only response', async () => {
@@ -4050,6 +5376,7 @@ describe('InterviewView', () => {
 
     expect((await screen.findByRole('alert')).textContent).toContain('Selection could not be saved');
     expect(routerInvalidate).not.toHaveBeenCalled();
+    expect(entityInvalidate).not.toHaveBeenCalled();
     expect(useChatHarness.sendMessage).not.toHaveBeenCalled();
   });
 });

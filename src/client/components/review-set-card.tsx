@@ -2,17 +2,18 @@ import { Check, MessageSquare } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
 
 import { Button } from '@/client/components/app-shell';
-import { Button as ShadcnButton } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import { Textarea } from '@/client/components/ui/textarea';
 import { cn } from '@/client/lib/utils';
 import type { ReviewAction } from '@/shared/api-types.js';
+import { getReviewItemIdentity } from '@/shared/review-diffing.js';
 
 export type ReviewSetGroundingRef = {
   code: string;
 };
 
 export type ReviewSetCardItem = {
+  reviewItemId: string;
   content: string;
   referenceCode?: string | null;
   rationale?: string | null;
@@ -27,7 +28,7 @@ export type ReviewSetCardData = {
 };
 
 function getReviewSetItemKey(item: ReviewSetCardItem): string {
-  return item.referenceCode ?? item.content;
+  return getReviewItemIdentity(item);
 }
 
 function StatsBar({ total, grounding, commented }: { total: number; grounding: number; commented?: number }) {
@@ -69,13 +70,13 @@ function ReviewSetItemRow({
   const grounding = item.grounding ?? [];
   const hasComment = comment.trim().length > 0;
   const itemLabel = item.referenceCode ?? item.content;
+  const itemIdentity = getReviewSetItemKey(item);
 
   return (
     <Collapsible>
       <div
         className={cn(
           'relative z-[1] flex items-start gap-3 border-b border-rule bg-white px-4 py-3 shadow-[var(--shadow-card)]',
-          item.isRevised && 'bg-[rgba(37,99,235,0.03)]',
         )}
       >
         <span className="w-14 shrink-0 pt-0.5 font-mono text-xs font-medium text-hint">
@@ -104,11 +105,11 @@ function ReviewSetItemRow({
         <div className="flex shrink-0 items-center gap-2 pt-0.5">
           {item.isUserCreated ? (
             <span className="inline-flex h-5 items-center rounded-md bg-[rgba(37,99,235,0.08)] px-1.5 text-[11px] font-medium text-[#2070e6]">
-              Added by you
+              Added in revision
             </span>
           ) : null}
           {item.isRevised ? (
-            <span className="inline-flex h-5 items-center rounded-md bg-[rgba(37,99,235,0.08)] px-1.5 text-[11px] font-medium text-[#2070e6]">
+            <span className="inline-flex h-5 items-center rounded-md bg-emerald-50 px-1.5 text-[11px] font-medium text-emerald-600">
               Revised
             </span>
           ) : null}
@@ -133,11 +134,11 @@ function ReviewSetItemRow({
       {showItemComments ? (
         <CollapsibleContent>
           <div className="border-b border-rule bg-tint px-4 pt-3">
-            <label className="text-xs text-sub" htmlFor={`review-set-comment-${itemLabel}`}>
+            <label className="text-xs text-sub" htmlFor={`review-set-comment-${itemIdentity}`}>
               Comment
             </label>
             <Textarea
-              id={`review-set-comment-${itemLabel}`}
+              id={`review-set-comment-${itemIdentity}`}
               value={comment}
               onChange={(event) => onCommentChange(event.target.value)}
               placeholder="Add a revision note for this item…"
@@ -206,18 +207,20 @@ export function ReviewSetCard({
   initialComments,
   resolvedAction,
   showItemComments = false,
+  revisionNumber,
 }: {
   reviewSet: ReviewSetCardData;
   description: string;
   note: string;
   onNoteChange: (note: string) => void;
   onAccept: () => void;
-  onRequestChanges: () => void;
+  onRequestChanges: (itemComments: Array<{ reviewItemId: string; comment: string }>) => void;
   disabled: boolean;
   submitted: boolean;
   initialComments?: Record<string, string>;
   resolvedAction?: ReviewAction | null;
   showItemComments?: boolean;
+  revisionNumber?: number;
 }) {
   const [commentsByItem, setCommentsByItem] = useState<Record<string, string>>(initialComments ?? {});
   const totalGrounding = useMemo(
@@ -233,7 +236,14 @@ export function ReviewSetCard({
   return (
     <div className="flex flex-col gap-4" data-testid="review-set-card">
       <div className="overflow-hidden rounded-xl border border-rule bg-white p-5">
-        <h3 className="text-base font-medium text-ink">{reviewSet.title}</h3>
+        <div className="flex items-center gap-2">
+          <h3 className="text-base font-medium text-ink">{reviewSet.title}</h3>
+          {revisionNumber !== undefined ? (
+            <span className="inline-flex h-5 items-center rounded-md bg-wash px-1.5 text-[11px] font-medium text-sub">
+              v{revisionNumber}
+            </span>
+          ) : null}
+        </div>
         <p className="mt-1.5 text-sm leading-relaxed text-sub">{description}</p>
         <div className="mt-4">
           <StatsBar
@@ -301,19 +311,30 @@ export function ReviewSetCard({
         <div className="flex items-center justify-end gap-2">
           {hasAnyFeedback ? (
             <>
-              <ShadcnButton variant="outline" onClick={onAccept} disabled={disabled}>
-                <Check data-icon="inline-start" />
+              <Button variant="outline" onClick={onAccept} disabled={disabled}>
                 Accept Review
-              </ShadcnButton>
-              <ShadcnButton onClick={onRequestChanges} disabled={disabled}>
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  const itemComments: Array<{ reviewItemId: string; comment: string }> = [];
+                  for (const item of reviewSet.items) {
+                    const comment = commentsByItem[getReviewSetItemKey(item)]?.trim();
+                    if (comment) {
+                      itemComments.push({ reviewItemId: item.reviewItemId, comment });
+                    }
+                  }
+                  onRequestChanges(itemComments);
+                }}
+                disabled={disabled}
+              >
                 Request Changes
-              </ShadcnButton>
+              </Button>
             </>
           ) : (
-            <ShadcnButton onClick={onAccept} disabled={disabled}>
-              <Check data-icon="inline-start" />
+            <Button variant="primary" onClick={onAccept} disabled={disabled}>
               Accept Review
-            </ShadcnButton>
+            </Button>
           )}
         </div>
       )}

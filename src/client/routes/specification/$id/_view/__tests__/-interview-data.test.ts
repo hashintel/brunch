@@ -6,7 +6,7 @@ import {
   getAcceptedClosureReplay,
   getPersistedSelectedPositions,
 } from '@/shared/specification-state.js';
-import type { SpecificationState as ProjectState } from '@/shared/specification.js';
+import type { SpecificationState } from '@/shared/specification.js';
 
 import {
   buildPhaseTurnIds,
@@ -16,8 +16,8 @@ import {
   filterMessagesByPhase,
 } from '../-interview-controller-core.js';
 
-function createProjectState({
-  projectId = 1,
+function createSpecificationState({
+  specificationId = 1,
   assistantText = 'What should we build first?',
   answer = 'Build the web app',
   userParts = [{ type: 'text', text: answer }] as Array<Record<string, unknown>>,
@@ -25,7 +25,7 @@ function createProjectState({
   workflow,
   turns,
 }: {
-  projectId?: number;
+  specificationId?: number;
   assistantText?: string;
   answer?: string;
   userParts?: Array<Record<string, unknown>>;
@@ -36,15 +36,15 @@ function createProjectState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
-  workflow?: ProjectState['workflow'];
-  turns?: ProjectState['turns'];
-} = {}): ProjectState {
+  workflow?: SpecificationState['workflow'];
+  turns?: SpecificationState['turns'];
+} = {}): SpecificationState {
   const resolvedTurns = turns ?? [
     {
       id: 1,
-      project_id: projectId,
+      specification_id: specificationId,
       parent_turn_id: null,
-      phase: 'scope',
+      phase: 'grounding',
       turn_kind: 'question',
       question: assistantText,
       why: 'This frames the first iteration.',
@@ -58,10 +58,10 @@ function createProjectState({
     },
   ];
 
-  const projectState: ProjectState = {
-    project: {
-      id: projectId,
-      name: `Project ${projectId}`,
+  const specificationState: SpecificationState = {
+    specification: {
+      id: specificationId,
+      name: `Specification ${specificationId}`,
       mode: 'greenfield',
       active_turn_id: resolvedTurns.at(-1)?.id ?? null,
       created_at: '2026-04-03 10:00:00',
@@ -69,7 +69,7 @@ function createProjectState({
     },
     workflow: workflow ?? {
       phases: {
-        scope: {
+        grounding: {
           status: 'unstarted',
           closeability: false,
           readiness: 'low',
@@ -111,22 +111,22 @@ function createProjectState({
   };
 
   return {
-    ...projectState,
-    landing: deriveSpecificationLanding(projectState),
+    ...specificationState,
+    landing: deriveSpecificationLanding(specificationState),
   };
 }
 
 describe('workspace controller core', () => {
   it('separates durable project state from ephemeral chat seed state', () => {
-    const projectState = createProjectState({
+    const specificationState = createSpecificationState({
       options: [{ id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false }],
     });
 
-    const durableSpecification = createInterviewDurableSpecificationState(projectState);
-    const ephemeralChat = createInterviewEphemeralChatState(projectState);
+    const durableSpecification = createInterviewDurableSpecificationState(specificationState);
+    const ephemeralChat = createInterviewEphemeralChatState(specificationState);
 
-    expect(durableSpecification.project).toEqual(projectState.project);
-    expect(durableSpecification.turns).toEqual(projectState.turns);
+    expect(durableSpecification.specification).toEqual(specificationState.specification);
+    expect(durableSpecification.turns).toEqual(specificationState.turns);
     expect(durableSpecification.lastTurn?.id).toBe(1);
     expect(durableSpecification.showTurnCard).toBe(true);
     expect(durableSpecification.lastTurnHasResponse).toBe(false);
@@ -146,26 +146,26 @@ describe('workspace controller core', () => {
   });
 
   it('derives fresh seed messages from persisted turns without owning hydration timing', () => {
-    const initialProjectState = createProjectState({
+    const initialSpecificationState = createSpecificationState({
       assistantText: 'What should we build first?',
       answer: 'Build the web app',
     });
-    const refreshedProjectState = createProjectState({
-      projectId: initialProjectState.project!.id,
+    const refreshedSpecificationState = createSpecificationState({
+      specificationId: initialSpecificationState.specification!.id,
       assistantText: 'Which platform should we target now?',
       answer: 'Ship the desktop app',
     });
 
-    const initialChat = createInterviewEphemeralChatState(initialProjectState);
-    const refreshedChat = createInterviewEphemeralChatState(refreshedProjectState);
+    const initialChat = createInterviewEphemeralChatState(initialSpecificationState);
+    const refreshedChat = createInterviewEphemeralChatState(refreshedSpecificationState);
 
     expect(refreshedChat.seedMessages).not.toEqual(initialChat.seedMessages);
   });
 
   it('hydrates persisted activity summaries alongside observer state on assistant replay messages', () => {
-    const projectState = createProjectState();
-    projectState.turns[0] = {
-      ...projectState.turns[0]!,
+    const specificationState = createSpecificationState();
+    specificationState.turns[0] = {
+      ...specificationState.turns[0]!,
       assistant_parts: JSON.stringify([
         {
           type: 'data-activity-summary',
@@ -190,7 +190,7 @@ describe('workspace controller core', () => {
       ]),
     };
 
-    expect(createInterviewEphemeralChatState(projectState).seedMessages).toEqual([
+    expect(createInterviewEphemeralChatState(specificationState).seedMessages).toEqual([
       {
         id: 'turn-1-answer',
         role: 'user',
@@ -226,9 +226,9 @@ describe('workspace controller core', () => {
   });
 
   it('builds phase turn ID sets from persisted turns', () => {
-    const projectState = createProjectState();
-    const scopeIds = buildPhaseTurnIds(projectState.turns, 'scope');
-    const designIds = buildPhaseTurnIds(projectState.turns, 'design');
+    const specificationState = createSpecificationState();
+    const scopeIds = buildPhaseTurnIds(specificationState.turns, 'grounding');
+    const designIds = buildPhaseTurnIds(specificationState.turns, 'design');
 
     expect(scopeIds).toEqual(new Set([1]));
     expect(designIds).toEqual(new Set());
@@ -254,7 +254,7 @@ describe('workspace controller core', () => {
   });
 
   it('derives persisted selected positions from structured turn responses instead of option flags', () => {
-    const selectedResponseTurn = createProjectState({
+    const selectedResponseTurn = createSpecificationState({
       answer: 'Desktop — Best fit for launch',
       userParts: [
         { type: 'text', text: 'Desktop — Best fit for launch' },
@@ -274,13 +274,13 @@ describe('workspace controller core', () => {
 
   it('projects a pending phase-summary confirmation card from persisted workflow state and assistant parts', () => {
     const proposedScope = createInterviewDurableSpecificationState(
-      createProjectState({
+      createSpecificationState({
         assistantText: '',
-        answer: 'We have enough scope context',
-        userParts: [{ type: 'text', text: 'We have enough scope context' }],
+        answer: 'We have enough grounding context',
+        userParts: [{ type: 'text', text: 'We have enough grounding context' }],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: true,
               readiness: 'high',
@@ -329,7 +329,7 @@ describe('workspace controller core', () => {
             type: 'data-phase-summary',
             data: {
               turnId: 1,
-              phase: 'scope',
+              phase: 'grounding',
               summary: 'Goals, terms, context, and constraints are sufficiently captured.',
             },
           },
@@ -337,13 +337,13 @@ describe('workspace controller core', () => {
       },
     ];
 
-    expect(createInterviewControllerViewState(proposedScope, 'scope', messages, false)).toEqual({
-      project: proposedScope.project,
+    expect(createInterviewControllerViewState(proposedScope, 'grounding', messages, false)).toEqual({
+      specification: proposedScope.specification,
       workflow: proposedScope.workflow,
       bottomArtifact: {
         kind: 'phase-summary',
         phaseSummary: {
-          phase: 'scope',
+          phase: 'grounding',
           turnId: 1,
           summary: 'Goals, terms, context, and constraints are sufficiently captured.',
         },
@@ -353,10 +353,10 @@ describe('workspace controller core', () => {
 
   it('projects recovery turn-card visibility from the derived landing seam', () => {
     const recoveryState = createInterviewDurableSpecificationState(
-      createProjectState({
+      createSpecificationState({
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'medium',
@@ -398,13 +398,13 @@ describe('workspace controller core', () => {
       }),
     );
 
-    expect(createInterviewControllerViewState(recoveryState, 'scope', [], false)).toEqual({
-      project: recoveryState.project,
+    expect(createInterviewControllerViewState(recoveryState, 'grounding', [], false)).toEqual({
+      specification: recoveryState.specification,
       workflow: recoveryState.workflow,
-      bottomArtifact: { kind: 'recovery', recovery: { phase: 'scope' } },
+      bottomArtifact: { kind: 'recovery', recovery: { phase: 'grounding' } },
     });
-    expect(createInterviewControllerViewState(recoveryState, 'scope', [], true)).toEqual({
-      project: recoveryState.project,
+    expect(createInterviewControllerViewState(recoveryState, 'grounding', [], true)).toEqual({
+      specification: recoveryState.specification,
       workflow: recoveryState.workflow,
       bottomArtifact: { kind: 'generating' },
     });
@@ -412,10 +412,10 @@ describe('workspace controller core', () => {
 
   it('projects kickoff turn-card visibility from the derived landing seam', () => {
     const kickoffState = createInterviewDurableSpecificationState(
-      createProjectState({
+      createSpecificationState({
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'low',
@@ -457,16 +457,16 @@ describe('workspace controller core', () => {
       }),
     );
 
-    expect(createInterviewControllerViewState(kickoffState, 'scope', [], false)).toEqual({
-      project: kickoffState.project,
+    expect(createInterviewControllerViewState(kickoffState, 'grounding', [], false)).toEqual({
+      specification: kickoffState.specification,
       workflow: kickoffState.workflow,
-      bottomArtifact: { kind: 'kickoff', kickoff: { phase: 'scope', mode: 'start' } },
+      bottomArtifact: { kind: 'kickoff', kickoff: { phase: 'grounding', mode: 'start' } },
     });
   });
 
   it('keeps a submitted turn card mounted until interviewer completion reveals the next step', () => {
     const submittedResponse = createInterviewDurableSpecificationState(
-      createProjectState({
+      createSpecificationState({
         answer: 'Desktop — Best fit for launch',
         userParts: [
           { type: 'text', text: 'Desktop — Best fit for launch' },
@@ -481,7 +481,7 @@ describe('workspace controller core', () => {
         ],
         workflow: {
           phases: {
-            scope: {
+            grounding: {
               status: 'in_progress',
               closeability: false,
               readiness: 'medium',
@@ -522,16 +522,16 @@ describe('workspace controller core', () => {
       }),
     );
 
-    expect(createInterviewControllerViewState(submittedResponse, 'scope', [], true, 1)).toEqual({
-      project: submittedResponse.project,
+    expect(createInterviewControllerViewState(submittedResponse, 'grounding', [], true, 1)).toEqual({
+      specification: submittedResponse.specification,
       workflow: submittedResponse.workflow,
       bottomArtifact: { kind: 'persisted-turn', turn: submittedResponse.lastTurn!, state: 'submitted' },
     });
   });
 
   it('projects a pending question before any durable turn exists', () => {
-    const emptyProjectState: ProjectState = {
-      project: {
+    const emptySpecificationState: SpecificationState = {
+      specification: {
         id: 1,
         name: 'Project 1',
         mode: 'greenfield',
@@ -541,7 +541,7 @@ describe('workspace controller core', () => {
       },
       workflow: {
         phases: {
-          scope: {
+          grounding: {
             status: 'unstarted',
             closeability: false,
             readiness: 'low',
@@ -605,13 +605,18 @@ describe('workspace controller core', () => {
       },
     ];
 
-    const durableSpecification = createInterviewDurableSpecificationState(emptyProjectState);
-    const ephemeralChat = createInterviewEphemeralChatState(emptyProjectState);
-    const viewState = createInterviewControllerViewState(durableSpecification, 'scope', liveMessages, true);
+    const durableSpecification = createInterviewDurableSpecificationState(emptySpecificationState);
+    const ephemeralChat = createInterviewEphemeralChatState(emptySpecificationState);
+    const viewState = createInterviewControllerViewState(
+      durableSpecification,
+      'grounding',
+      liveMessages,
+      true,
+    );
 
     expect(ephemeralChat.seedMessages).toEqual([]);
-    expect(viewState.project).toEqual(emptyProjectState.project);
-    expect(viewState.workflow).toEqual(emptyProjectState.workflow);
+    expect(viewState.specification).toEqual(emptySpecificationState.specification);
+    expect(viewState.workflow).toEqual(emptySpecificationState.workflow);
     expect(viewState.bottomArtifact).toEqual({
       kind: 'pending-question',
       pendingQuestion: {
@@ -628,10 +633,10 @@ describe('workspace controller core', () => {
   });
 
   it('interprets accepted interviewer-recommended closure replay from the same durable turn', () => {
-    const projectState = createProjectState({
+    const specificationState = createSpecificationState({
       workflow: {
         phases: {
-          scope: {
+          grounding: {
             status: 'closed',
             closeability: false,
             readiness: 'high',
@@ -670,13 +675,13 @@ describe('workspace controller core', () => {
         },
       },
     });
-    projectState.turns = [
-      projectState.turns[0],
+    specificationState.turns = [
+      specificationState.turns[0],
       {
         id: 2,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: 1,
-        phase: 'scope',
+        phase: 'grounding',
         question: '',
         why: null,
         impact: null,
@@ -686,7 +691,7 @@ describe('workspace controller core', () => {
           { type: 'text', text: 'Confirm grounding closure' },
           {
             type: 'data-confirmation',
-            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 2, phase: 'scope' },
+            data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 2, phase: 'grounding' },
           },
         ]),
         assistant_parts: JSON.stringify([
@@ -694,7 +699,7 @@ describe('workspace controller core', () => {
             type: 'data-phase-summary',
             data: {
               turnId: 2,
-              phase: 'scope',
+              phase: 'grounding',
               summary: 'Goals, terms, context, and constraints are sufficiently captured.',
             },
           },
@@ -704,18 +709,20 @@ describe('workspace controller core', () => {
       },
     ];
 
-    expect(getAcceptedClosureReplay(projectState.turns[1]!, projectState.workflow.phases.scope)).toEqual({
+    expect(
+      getAcceptedClosureReplay(specificationState.turns[1]!, specificationState.workflow.phases.grounding),
+    ).toEqual({
       turnId: 2,
-      phase: 'scope',
+      phase: 'grounding',
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
   });
 
   it('keeps turn-card projection scoped to the current phase', () => {
-    const projectState = createProjectState({
+    const specificationState = createSpecificationState({
       workflow: {
         phases: {
-          scope: {
+          grounding: {
             status: 'closed',
             closeability: false,
             readiness: 'high',
@@ -754,11 +761,11 @@ describe('workspace controller core', () => {
         },
       },
     });
-    projectState.turns = [
-      projectState.turns[0],
+    specificationState.turns = [
+      specificationState.turns[0],
       {
         id: 2,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: 1,
         phase: 'design',
         question: 'Which architecture should we choose next?',
@@ -774,28 +781,28 @@ describe('workspace controller core', () => {
         options: [{ id: 21, position: 0, content: 'Monolith', is_recommended: true, is_selected: false }],
       },
     ];
-    projectState.project!.active_turn_id = 2;
-    projectState.landing = deriveSpecificationLanding(projectState);
+    specificationState.specification!.active_turn_id = 2;
+    specificationState.landing = deriveSpecificationLanding(specificationState);
 
-    const durableSpecification = createInterviewDurableSpecificationState(projectState);
+    const durableSpecification = createInterviewDurableSpecificationState(specificationState);
 
-    expect(createInterviewControllerViewState(durableSpecification, 'scope', [], false)).toEqual({
-      project: durableSpecification.project,
+    expect(createInterviewControllerViewState(durableSpecification, 'grounding', [], false)).toEqual({
+      specification: durableSpecification.specification,
       workflow: durableSpecification.workflow,
       bottomArtifact: {
         kind: 'phase-handoff',
-        phase: 'scope',
+        phase: 'grounding',
         nextPhase: 'design',
         summary: 'Goals, terms, context, and constraints are sufficiently captured.',
         isReviewPhase: false,
       },
     });
     expect(createInterviewControllerViewState(durableSpecification, 'design', [], false)).toEqual({
-      project: durableSpecification.project,
+      specification: durableSpecification.specification,
       workflow: durableSpecification.workflow,
       bottomArtifact: {
         kind: 'persisted-turn',
-        turn: projectState.turns[1]!,
+        turn: specificationState.turns[1]!,
         state: 'active',
       },
     });

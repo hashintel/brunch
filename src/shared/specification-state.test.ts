@@ -6,7 +6,7 @@ import {
   findTurnOptionsByPositions,
   getAcceptedClosureReplay,
   getPersistedActivitySummary,
-  getPersistedGroundingCard,
+  getTurnPreface,
   getPersistedReviewAction,
   getPersistedReviewSet,
   getReviewActionForSelectedPositions,
@@ -16,17 +16,14 @@ import {
   turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
 } from './specification-state.js';
-import type {
-  SpecificationState as ProjectState,
-  SpecificationTurn as ProjectStateTurn,
-} from './specification.js';
+import type { SpecificationState, SpecificationTurn as SpecificationStateTurn } from './specification.js';
 
-function createTurn(overrides: Partial<ProjectStateTurn> = {}): ProjectStateTurn {
+function createTurn(overrides: Partial<SpecificationStateTurn> = {}): SpecificationStateTurn {
   return {
     id: 1,
-    project_id: 1,
+    specification_id: 1,
     parent_turn_id: null,
-    phase: 'scope',
+    phase: 'grounding',
     turn_kind: 'question',
     question: 'What should we build first?',
     why: 'This frames the first iteration.',
@@ -45,8 +42,8 @@ function createTurn(overrides: Partial<ProjectStateTurn> = {}): ProjectStateTurn
 }
 
 function createPhaseState(
-  overrides: Partial<ProjectState['workflow']['phases']['scope']> = {},
-): ProjectState['workflow']['phases']['scope'] {
+  overrides: Partial<SpecificationState['workflow']['phases']['grounding']> = {},
+): SpecificationState['workflow']['phases']['grounding'] {
   return {
     status: 'closed',
     closeability: false,
@@ -59,13 +56,13 @@ function createPhaseState(
   };
 }
 
-function createProjectState(
-  overrides: Partial<ProjectState> = {},
-  phaseOverrides: Partial<ProjectState['workflow']['phases']['scope']> = {},
-  turns: ProjectState['turns'] = [createTurn()],
-): ProjectState {
+function createSpecificationState(
+  overrides: Partial<SpecificationState> = {},
+  phaseOverrides: Partial<SpecificationState['workflow']['phases']['grounding']> = {},
+  turns: SpecificationState['turns'] = [createTurn()],
+): SpecificationState {
   return {
-    project: {
+    specification: {
       id: 1,
       name: 'Project 1',
       mode: 'greenfield',
@@ -75,13 +72,13 @@ function createProjectState(
     },
     workflow: {
       phases: {
-        scope: {
+        grounding: {
           status: 'in_progress',
           closeability: false,
           readiness: 'low',
           closureBasis: null,
           proposalPending: false,
-          turnId: turns.at(-1)?.phase === 'scope' ? (turns.at(-1)?.id ?? null) : null,
+          turnId: turns.at(-1)?.phase === 'grounding' ? (turns.at(-1)?.id ?? null) : null,
           summary: null,
           ...phaseOverrides,
         },
@@ -133,7 +130,7 @@ describe('specification-state helpers', () => {
   it('derives truthful open-phase landing from workflow state and active-path turns', () => {
     expect(
       deriveSpecificationLanding(
-        createProjectState({}, { turnId: null }, [
+        createSpecificationState({}, { turnId: null }, [
           createTurn({
             id: 1,
             answer: 'Build the web app',
@@ -141,11 +138,11 @@ describe('specification-state helpers', () => {
           }),
         ]),
       ),
-    ).toEqual({ kind: 'recovery', phase: 'scope' });
+    ).toEqual({ kind: 'recovery', phase: 'grounding' });
 
     expect(
       deriveSpecificationLanding(
-        createProjectState({}, { turnId: 2 }, [
+        createSpecificationState({}, { turnId: 2 }, [
           createTurn({
             id: 1,
             answer: 'Build the web app',
@@ -159,87 +156,46 @@ describe('specification-state helpers', () => {
           }),
         ]),
       ),
-    ).toEqual({ kind: 'frontier-turn', phase: 'scope', turnId: 2 });
+    ).toEqual({ kind: 'frontier-turn', phase: 'grounding', turnId: 2 });
 
     expect(
-      deriveSpecificationLanding(
-        createProjectState({}, { turnId: null }, [
-          createTurn({ id: 1, turn_kind: 'kickoff', answer: null, options: [], question: '' }),
+      deriveSpecificationLanding({
+        ...createSpecificationState({}, { turnId: null }, [
+          createTurn({ id: 1, answer: null, options: [], question: '' }),
         ]),
-      ),
-    ).toEqual({ kind: 'kickoff', phase: 'scope', mode: 'start' });
+        structuralArtifactTurnIds: [1],
+      }),
+    ).toEqual({ kind: 'kickoff', phase: 'grounding', mode: 'start' });
   });
 
-  it('classifies kickoff, recovery, confirmation, and closure-summary turns as control artifacts', () => {
-    expect(turnIsControlOrClosureArtifact(createTurn({ turn_kind: 'kickoff', answer: null }))).toBe(true);
-    expect(turnIsControlOrClosureArtifact(createTurn({ turn_kind: 'recovery', answer: null }))).toBe(true);
-    expect(
-      turnIsControlOrClosureArtifact(
-        createTurn({
-          user_parts: JSON.stringify([
-            { type: 'text', text: 'Confirm grounding closure' },
-            {
-              type: 'data-confirmation',
-              data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
-            },
-          ]),
-        }),
-      ),
-    ).toBe(true);
-    expect(
-      turnIsControlOrClosureArtifact(
-        createTurn({
-          assistant_parts: JSON.stringify([
-            {
-              type: 'data-phase-summary',
-              data: {
-                turnId: 1,
-                phase: 'scope',
-                summary: 'Goals, terms, context, and constraints are sufficiently captured.',
-              },
-            },
-          ]),
-        }),
-      ),
-    ).toBe(true);
-    expect(turnIsControlOrClosureArtifact(createTurn())).toBe(false);
-    expect(
-      turnIsControlOrClosureArtifact(
-        createTurn({
-          assistant_parts: JSON.stringify([
-            {
-              type: 'data-grounding-card',
-              data: {
-                summary: 'The repo already uses local-first persistence.',
-                detail: 'Provisional context only.',
-              },
-            },
-          ]),
-        }),
-      ),
-    ).toBe(false);
+  it('classifies turns as control artifacts by structural id membership, not by parts or turn_kind', () => {
+    const structuralIds = new Set([10, 20, 30]);
+    expect(turnIsControlOrClosureArtifact(createTurn({ id: 10 }), structuralIds)).toBe(true);
+    expect(turnIsControlOrClosureArtifact(createTurn({ id: 20 }), structuralIds)).toBe(true);
+    expect(turnIsControlOrClosureArtifact(createTurn({ id: 30 }), structuralIds)).toBe(true);
+    expect(turnIsControlOrClosureArtifact(createTurn({ id: 1 }), structuralIds)).toBe(false);
+    expect(turnIsControlOrClosureArtifact(createTurn({ id: 99 }), structuralIds)).toBe(false);
+    expect(turnIsControlOrClosureArtifact(createTurn({ id: 1 }), new Set())).toBe(false);
   });
 
-  it('reads persisted grounding-card artifacts from assistant parts', () => {
-    const groundingTurn = createTurn({
+  it('reads persisted preface artifacts from assistant parts', () => {
+    const prefaceTurn = createTurn({
       answer: null,
       assistant_parts: JSON.stringify([
         {
-          type: 'data-grounding-card',
+          type: 'data-preface',
           data: {
-            summary: 'The repo already uses local-first persistence.',
-            detail: 'The next turn should narrow the feature-area boundary before design choices.',
-            continueLabel: 'Continue',
+            observation: 'The repo already uses local-first persistence.',
+            elaboration: 'The next turn should narrow the feature-area boundary before design choices.',
           },
         },
       ]),
       options: [{ id: 11, position: 0, content: 'Continue', is_recommended: true, is_selected: false }],
     });
 
-    expect(getPersistedGroundingCard(groundingTurn)).toEqual({
-      summary: 'The repo already uses local-first persistence.',
-      detail: 'The next turn should narrow the feature-area boundary before design choices.',
-      continueLabel: 'Continue',
+    expect(getTurnPreface(prefaceTurn)).toEqual({
+      observation: 'The repo already uses local-first persistence.',
+      elaboration: 'The next turn should narrow the feature-area boundary before design choices.',
     });
   });
 
@@ -251,7 +207,7 @@ describe('specification-state helpers', () => {
         { type: 'text', text: 'Confirm grounding closure' },
         {
           type: 'data-confirmation',
-          data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'scope' },
+          data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'grounding' },
         },
       ]),
       assistant_parts: JSON.stringify([
@@ -259,7 +215,7 @@ describe('specification-state helpers', () => {
           type: 'data-phase-summary',
           data: {
             turnId: 1,
-            phase: 'scope',
+            phase: 'grounding',
             summary: 'Goals, terms, context, and constraints are sufficiently captured.',
           },
         },
@@ -268,7 +224,7 @@ describe('specification-state helpers', () => {
 
     expect(getAcceptedClosureReplay(turn, createPhaseState())).toEqual({
       turnId: 1,
-      phase: 'scope',
+      phase: 'grounding',
       summary: 'Goals, terms, context, and constraints are sufficiently captured.',
     });
   });
@@ -346,6 +302,7 @@ describe('specification-state helpers', () => {
               title: 'Requirements',
               items: [
                 {
+                  reviewItemId: 'requirements:1',
                   referenceCode: createKnowledgeReferenceCode('requirement', 1),
                   content: 'Resume the interview from persisted local state',
                   rationale: 'Core local-first promise.',
@@ -386,6 +343,7 @@ describe('specification-state helpers', () => {
             title: 'Requirements',
             items: [
               {
+                reviewItemId: 'requirements:1',
                 referenceCode: createKnowledgeReferenceCode('requirement', 1),
                 content: 'Resume the interview from persisted local state',
                 rationale: 'Core local-first promise.',
@@ -405,6 +363,7 @@ describe('specification-state helpers', () => {
       title: 'Requirements',
       items: [
         {
+          reviewItemId: 'requirements:1',
           referenceCode: createKnowledgeReferenceCode('requirement', 1),
           content: 'Resume the interview from persisted local state',
           rationale: 'Core local-first promise.',

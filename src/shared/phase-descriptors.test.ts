@@ -15,9 +15,9 @@ import {
 
 describe('workflow phase descriptors', () => {
   it('keeps grounding as the canonical first-phase descriptor', () => {
-    expect(groundingWorkflowPhase).toBe('scope');
+    expect(groundingWorkflowPhase).toBe('grounding');
     expect(getWorkflowPhaseDescriptor(groundingWorkflowPhase)).toEqual({
-      phase: 'scope',
+      phase: 'grounding',
       label: 'Grounding',
       routeSegment: 'grounding',
     });
@@ -26,8 +26,8 @@ describe('workflow phase descriptors', () => {
 
   it('owns labels, route segments, and route paths for every workflow phase', () => {
     expect(workflowPhaseDescriptors).toHaveLength(4);
-    expect(getWorkflowPhaseDescriptor('scope')).toEqual({
-      phase: 'scope',
+    expect(getWorkflowPhaseDescriptor('grounding')).toEqual({
+      phase: 'grounding',
       label: 'Grounding',
       routeSegment: 'grounding',
     });
@@ -47,18 +47,18 @@ describe('workflow phase descriptors', () => {
 
   it('finds the current and next unclosed phases in workflow order', () => {
     const workflowSummary = {
-      scope: 'closed',
+      grounding: 'closed',
       design: 'in_progress',
       requirements: 'unstarted',
       criteria: 'unstarted',
     };
 
     expect(getCurrentOpenPhase(workflowSummary)).toBe('design');
-    expect(getNextActivePhase(workflowSummary, 'scope')).toBe('design');
+    expect(getNextActivePhase(workflowSummary, 'grounding')).toBe('design');
     expect(areAllWorkflowPhasesClosed(workflowSummary)).toBe(false);
 
     const closedWorkflowSummary = {
-      scope: 'closed',
+      grounding: 'closed',
       design: 'closed',
       requirements: 'closed',
       criteria: 'closed',

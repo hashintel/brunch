@@ -22,12 +22,12 @@ vi.mock('ai', async () => {
 const { runObserver } = await import('./observer.js');
 const {
   createDb,
-  createProject,
+  createSpecification,
   createTurn,
   createDecision,
   createAssumption,
   createOption,
-  getEntitiesForProject,
+  getEntitiesForSpecification,
 } = await import('./db.js');
 
 let db: DB;
@@ -42,7 +42,7 @@ afterEach(() => {
 });
 
 describe('runObserver', () => {
-  it('persists canonical scope kinds and constraints with turn provenance and returns their ids', async () => {
+  it('persists canonical grounding kinds and constraints with turn provenance and returns their ids', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [
@@ -77,12 +77,12 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createProject(db, 'Spec');
-    const turn = createTurn(db, project.id, { phase: 'scope', question: 'Q', answer: 'A' });
+    const project = createSpecification(db, 'Spec');
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: 'Q', answer: 'A' });
 
     const observerResult = await runObserver(db, turn, project.id);
-    const { entityIds, draftReviewItems } = observerResult;
-    const entities = getEntitiesForProject(db, project.id);
+    const { entityIds } = observerResult;
+    const entities = getEntitiesForSpecification(db, project.id);
     const provenanceRows = db.$client
       .prepare('SELECT turn_id, item_id, relation FROM turn_knowledge_item ORDER BY item_id ASC')
       .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
@@ -95,7 +95,6 @@ describe('runObserver', () => {
     expect(entityIds.criteria).toEqual([]);
     expect(entityIds.decisions).toEqual([]);
     expect(entityIds.assumptions).toEqual([]);
-    expect(draftReviewItems).toEqual({ requirements: [], criteria: [] });
     expect(entities.goals[0]).toMatchObject({
       kind: 'goal',
       content: 'Produce a clean implementation brief',
@@ -141,7 +140,7 @@ describe('runObserver', () => {
     ]);
   });
 
-  it('calls generateText with a scope-biased goal/term/context/constraint prompt and existing generic context', async () => {
+  it('calls generateText with a grounding-biased goal/term/context/constraint prompt and existing generic context', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -156,14 +155,14 @@ describe('runObserver', () => {
     });
 
     const { createKnowledgeItem } = await import('./db.js');
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     createKnowledgeItem(db, project.id, 'context', 'The project starts as a fuzzy brief');
     createKnowledgeItem(db, project.id, 'constraint', 'Avoid heavyweight setup', {
       subtype: 'non-goal',
       rationale: 'Onboarding should stay instant',
     });
     const turn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'What should we avoid?',
       answer: 'We should avoid any heavyweight setup flow.',
     });
@@ -184,7 +183,7 @@ describe('runObserver', () => {
     );
   });
 
-  it('keeps brownfield project context in observer prompts without treating later scope turns as kickoff-only', async () => {
+  it('keeps brownfield specification context in observer prompts without treating later grounding turns as kickoff-only', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -198,12 +197,12 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createProject(db, 'Spec', { mode: 'brownfield' });
+    const project = createSpecification(db, 'Spec', { mode: 'brownfield' });
     const turn = createTurn(db, project.id, {
-      phase: 'scope',
+      phase: 'grounding',
       question: 'Which billing workflow should we focus on first?',
       answer: 'The invoice retry path.',
-      why: 'The existing billing jobs and invoice retry worker make this seam the best next scope boundary.',
+      why: 'The existing billing jobs and invoice retry worker make this seam the best next grounding boundary.',
     });
 
     await runObserver(db, turn, project.id, '/tmp/repo');
@@ -211,7 +210,7 @@ describe('runObserver', () => {
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
         system: expect.not.stringContaining('brownfield kickoff'),
-        prompt: expect.stringContaining('Project mode: brownfield'),
+        prompt: expect.stringContaining('scoped to a feature or change within an existing codebase'),
       }),
     );
     expect(mockGenerateText).toHaveBeenCalledWith(
@@ -221,7 +220,7 @@ describe('runObserver', () => {
     );
   });
 
-  it('persists design-mode decisions and assumptions through the generic seam while allowing scope-kind/constraint spillover', async () => {
+  it('persists design-mode decisions and assumptions through the generic seam while allowing grounding-kind/constraint spillover', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -258,7 +257,7 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     const existingDecision = createDecision(db, project.id, 'Keep the first release browser-based');
     const existingAssumption = createAssumption(db, project.id, 'Users can work in a browser');
     const turn = createTurn(db, project.id, {
@@ -268,8 +267,8 @@ describe('runObserver', () => {
     });
 
     const observerResult = await runObserver(db, turn, project.id);
-    const { entityIds, draftReviewItems } = observerResult;
-    const entities = getEntitiesForProject(db, project.id);
+    const { entityIds } = observerResult;
+    const entities = getEntitiesForSpecification(db, project.id);
 
     expect(entityIds.goals).toEqual([]);
     expect(entityIds.terms).toEqual([]);
@@ -279,7 +278,6 @@ describe('runObserver', () => {
     expect(entityIds.constraints).toHaveLength(1);
     expect(entityIds.decisions).toHaveLength(1);
     expect(entityIds.assumptions).toHaveLength(1);
-    expect(draftReviewItems).toEqual({ requirements: [], criteria: [] });
 
     const [newContextId] = entityIds.contexts;
     const [newConstraintId] = entityIds.constraints;
@@ -345,7 +343,7 @@ describe('runObserver', () => {
     );
   });
 
-  it('calls generateText with a design-biased prompt that prioritizes decisions/assumptions and allows scope-kind/constraint spillover', async () => {
+  it('calls generateText with a design-biased prompt that prioritizes decisions/assumptions and allows grounding-kind/constraint spillover', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -359,7 +357,7 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     createDecision(db, project.id, 'Start with the web app');
     createAssumption(db, project.id, 'Users can work in a browser');
     const turn = createTurn(db, project.id, {
@@ -383,12 +381,12 @@ describe('runObserver', () => {
     );
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        system: expect.stringContaining('scope understanding'),
+        system: expect.stringContaining('grounding understanding'),
       }),
     );
   });
 
-  it('keeps requirements-mode requirement items as turn-owned draft review inputs instead of durable entities', async () => {
+  it('keeps requirements-mode observer output non-durable until interviewer review owns the set', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -407,7 +405,7 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     const turn = createTurn(db, project.id, {
       phase: 'requirements',
       question: 'What must the product do before we can call it complete?',
@@ -415,7 +413,7 @@ describe('runObserver', () => {
     });
 
     const observerResult = await runObserver(db, turn, project.id);
-    const entities = getEntitiesForProject(db, project.id);
+    const entities = getEntitiesForSpecification(db, project.id);
     const provenanceRows = db.$client
       .prepare('SELECT turn_id, item_id, relation FROM turn_knowledge_item ORDER BY item_id ASC')
       .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
@@ -431,21 +429,12 @@ describe('runObserver', () => {
         decisions: [],
         assumptions: [],
       },
-      draftReviewItems: {
-        requirements: [
-          {
-            content: 'The app must resume an interview from SQLite after a browser restart',
-            rationale: 'Users will leave and come back mid-session',
-          },
-        ],
-        criteria: [],
-      },
     });
     expect(entities.requirements).toEqual([]);
     expect(provenanceRows).toEqual([]);
   });
 
-  it('calls generateText with a requirements-biased prompt that prioritizes requirements and defers criteria extraction', async () => {
+  it('does not feed prior observer-owned requirement drafts back into later requirements prompts', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -459,41 +448,12 @@ describe('runObserver', () => {
       },
     });
 
-    const { advanceHead, updateTurn } = await import('./db.js');
-    const project = createProject(db, 'Spec');
+    const { advanceHead } = await import('./db.js');
+    const project = createSpecification(db, 'Spec');
     const priorTurn = createTurn(db, project.id, {
       phase: 'requirements',
       question: 'Which requirements are still missing?',
       answer: 'Resume interviews from SQLite',
-    });
-    updateTurn(db, priorTurn.id, {
-      assistant_parts: JSON.stringify([
-        {
-          type: 'data-observer-result',
-          data: {
-            turnId: priorTurn.id,
-            entityIds: {
-              goals: [],
-              terms: [],
-              contexts: [],
-              constraints: [],
-              requirements: [],
-              criteria: [],
-              decisions: [],
-              assumptions: [],
-            },
-            draftReviewItems: {
-              requirements: [
-                {
-                  content: 'Resume interviews from SQLite',
-                  rationale: 'Users will return later',
-                },
-              ],
-              criteria: [],
-            },
-          },
-        },
-      ]),
     });
     const turn = createTurn(db, project.id, {
       phase: 'requirements',
@@ -508,7 +468,7 @@ describe('runObserver', () => {
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
         system: expect.stringContaining('requirements-mode'),
-        prompt: expect.stringContaining('Resume interviews from SQLite'),
+        prompt: expect.not.stringContaining('Resume interviews from SQLite'),
       }),
     );
     expect(mockGenerateText).toHaveBeenCalledWith(
@@ -537,7 +497,7 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     const turn = createTurn(db, project.id, {
       phase: 'requirements',
       question: 'Which requirements are still missing?',
@@ -573,7 +533,7 @@ describe('runObserver', () => {
     );
   });
 
-  it('keeps criteria-mode criterion items as turn-owned draft review inputs instead of durable entities', async () => {
+  it('keeps criteria-mode observer output non-durable until interviewer review owns the set', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -592,7 +552,7 @@ describe('runObserver', () => {
       },
     });
 
-    const project = createProject(db, 'Spec');
+    const project = createSpecification(db, 'Spec');
     const turn = createTurn(db, project.id, {
       phase: 'criteria',
       question: 'How will we know resume is working well enough?',
@@ -600,7 +560,7 @@ describe('runObserver', () => {
     });
 
     const observerResult = await runObserver(db, turn, project.id);
-    const entities = getEntitiesForProject(db, project.id);
+    const entities = getEntitiesForSpecification(db, project.id);
     const provenanceRows = db.$client
       .prepare('SELECT turn_id, item_id, relation FROM turn_knowledge_item ORDER BY item_id ASC')
       .all() as Array<{ turn_id: number; item_id: number; relation: string }>;
@@ -616,21 +576,12 @@ describe('runObserver', () => {
         decisions: [],
         assumptions: [],
       },
-      draftReviewItems: {
-        requirements: [],
-        criteria: [
-          {
-            content: 'Resuming restores the active path without data loss',
-            rationale: 'This proves persistence worked for the branch the user was on',
-          },
-        ],
-      },
     });
     expect(entities.criteria).toEqual([]);
     expect(provenanceRows).toEqual([]);
   });
 
-  it('calls generateText with a criteria-biased prompt that prioritizes criteria and distinguishes them from requirements', async () => {
+  it('keeps criteria prompts grounded in accepted requirements without reusing observer-owned criterion drafts', async () => {
     mockGenerateText.mockResolvedValue({
       output: {
         goals: [],
@@ -644,8 +595,8 @@ describe('runObserver', () => {
       },
     });
 
-    const { advanceHead, createKnowledgeItem, updateTurn } = await import('./db.js');
-    const project = createProject(db, 'Spec');
+    const { advanceHead, createKnowledgeItem } = await import('./db.js');
+    const project = createSpecification(db, 'Spec');
     createKnowledgeItem(db, project.id, 'requirement', 'Resume interviews from SQLite', {
       rationale: 'Users return later',
     });
@@ -653,35 +604,6 @@ describe('runObserver', () => {
       phase: 'criteria',
       question: 'Which criteria prove the resume requirement is satisfied?',
       answer: 'Resuming restores the active path',
-    });
-    updateTurn(db, priorTurn.id, {
-      assistant_parts: JSON.stringify([
-        {
-          type: 'data-observer-result',
-          data: {
-            turnId: priorTurn.id,
-            entityIds: {
-              goals: [],
-              terms: [],
-              contexts: [],
-              constraints: [],
-              requirements: [],
-              criteria: [],
-              decisions: [],
-              assumptions: [],
-            },
-            draftReviewItems: {
-              requirements: [],
-              criteria: [
-                {
-                  content: 'Resuming restores the active path',
-                  rationale: 'Protect the persistence seam',
-                },
-              ],
-            },
-          },
-        },
-      ]),
     });
     const turn = createTurn(db, project.id, {
       phase: 'criteria',
@@ -701,7 +623,7 @@ describe('runObserver', () => {
     );
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
-        prompt: expect.stringContaining('Resuming restores the active path'),
+        prompt: expect.not.stringContaining('Protect the persistence seam'),
       }),
     );
     expect(mockGenerateText).toHaveBeenCalledWith(

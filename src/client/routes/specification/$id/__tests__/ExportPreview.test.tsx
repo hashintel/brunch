@@ -51,6 +51,14 @@ vi.mock('@/client/components/ui/scroll-area', () => ({
   ),
 }));
 
+vi.mock('@/client/capabilities/markdown-rendering', () => ({
+  MarkdownRenderer: ({ children, className }: { children: string; className?: string }) => (
+    <div className={className} data-testid="markdown-renderer">
+      {children}
+    </div>
+  ),
+}));
+
 afterEach(() => {
   cleanup();
   currentLoaderData = { ready: false };
@@ -62,16 +70,18 @@ describe('ExportPreview', () => {
 
     render(<ExportPreview />);
 
-    expect(screen.getByRole('heading', { name: 'Export Preview' })).toBeTruthy();
+    expect(screen.getByRole('heading', { name: 'Specification Output' })).toBeTruthy();
     expect(
-      screen.getByText('Export is not available yet. All workflow phases must be closed before exporting.'),
+      screen.getByText(
+        'This completion view unlocks after Grounding, Elicitation, Requirements, and Acceptance Criteria are all closed.',
+      ),
     ).toBeTruthy();
     expect(screen.getByRole('link', { name: /Return to specification/ }).getAttribute('href')).toBe(
       '/specification/7',
     );
   });
 
-  it('renders markdown preview and review navigation when export data is ready', () => {
+  it('renders a readable specification output surface when export data is ready', () => {
     currentLoaderData = {
       ready: true,
       markdown: '# Reviewed Spec\n\n## Requirements\n\n- Resume from SQLite',
@@ -79,17 +89,17 @@ describe('ExportPreview', () => {
 
     render(<ExportPreview />);
 
-    expect(screen.getByRole('link', { name: /Back to specification/ }).getAttribute('href')).toBe(
-      '/specification/7',
-    );
-    expect(screen.getByRole('button', { name: /Download .md/ })).toBeTruthy();
-    expect(screen.getByRole('link', { name: /Review specification knowledge/ }).getAttribute('href')).toBe(
-      '/specification/7/grounding',
-    );
+    expect(screen.getByRole('heading', { name: 'Specification Output' })).toBeTruthy();
+    expect(screen.getByText('Completed specification')).toBeTruthy();
     expect(
       screen.getByText(
-        (content, element) => element?.tagName === 'PRE' && content.includes('# Reviewed Spec'),
+        'Accepted Requirements and Acceptance Criteria stay first, with supporting context and closure caveats kept nearby.',
       ),
     ).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Back to specification workspace/ }).getAttribute('href')).toBe(
+      '/specification/7/grounding',
+    );
+    expect(screen.getByRole('button', { name: /Download markdown output/ })).toBeTruthy();
+    expect(screen.getByTestId('markdown-renderer').textContent).toContain('# Reviewed Spec');
   });
 });

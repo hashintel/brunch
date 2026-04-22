@@ -4,7 +4,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, expect, it, vi } from 'vitest';
 
 import type { EntitiesData, WorkflowState } from '@/shared/api-types.js';
-import type { SpecificationTurn as ProjectStateTurn } from '@/shared/specification.js';
+import type { SpecificationTurn as SpecificationStateTurn } from '@/shared/specification.js';
 
 import { InterviewView } from '../-interview-view.js';
 
@@ -19,13 +19,13 @@ function createTurn({
   question: string;
   answer: string | null;
   assistantParts: Array<Record<string, unknown>>;
-  options?: NonNullable<ProjectStateTurn['options']>;
-}): ProjectStateTurn {
+  options?: NonNullable<SpecificationStateTurn['options']>;
+}): SpecificationStateTurn {
   return {
     id,
-    project_id: 1,
+    specification_id: 1,
     parent_turn_id: id === 1 ? null : id - 1,
-    phase: 'scope',
+    phase: 'grounding',
     turn_kind: 'question',
     question,
     why: 'This frames the next move.',
@@ -41,9 +41,9 @@ function createTurn({
 }
 
 const testState = vi.hoisted(() => {
-  const scopeWorkflow: WorkflowState = {
+  const groundingWorkflow: WorkflowState = {
     phases: {
-      scope: {
+      grounding: {
         status: 'in_progress',
         closeability: false,
         readiness: 'medium',
@@ -122,17 +122,18 @@ const testState = vi.hoisted(() => {
     ],
   });
 
-  return { activeTurn, answeredTurn, emptyEntities, scopeWorkflow };
+  return { activeTurn, answeredTurn, emptyEntities, groundingWorkflow };
 });
 
 vi.mock('@tanstack/react-router', () => ({
   Link: ({ children }: { children: import('react').ReactNode }) => <a href="#">{children}</a>,
-  useLoaderData: () => testState.emptyEntities,
+  useParams: () => ({ id: '1' }),
+  useRouter: () => ({ navigate: vi.fn() }),
 }));
 
-vi.mock('../-interview-controller.js', () => ({
-  useInterviewController: () => ({
-    project: {
+vi.mock('../../-specification-data.js', () => ({
+  useSpecificationBundleData: () => ({
+    specification: {
       id: 1,
       name: 'Project 1',
       mode: 'greenfield',
@@ -140,7 +141,61 @@ vi.mock('../-interview-controller.js', () => ({
       created_at: '2026-04-16 10:00:00',
       updated_at: '2026-04-16 10:00:00',
     },
-    workflow: testState.scopeWorkflow,
+    workflow: testState.groundingWorkflow,
+    landing: null,
+    turns: [testState.answeredTurn, testState.activeTurn],
+  }),
+  useSpecificationEntities: () => testState.emptyEntities,
+  useInvalidateSpecificationQueryDomains: () => ({
+    invalidateSpecificationBundle: vi.fn(async () => {}),
+    invalidateEntities: vi.fn(async () => {}),
+  }),
+  primeSpecificationBundle: vi.fn(),
+  primeSpecificationEntities: vi.fn(),
+  specificationQueryKeys: {
+    bundle: vi.fn(),
+    entities: vi.fn(),
+  },
+}));
+
+vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
+  useSpecificationBundleData: () => ({
+    specification: {
+      id: 1,
+      name: 'Project 1',
+      mode: 'greenfield',
+      active_turn_id: 2,
+      created_at: '2026-04-16 10:00:00',
+      updated_at: '2026-04-16 10:00:00',
+    },
+    workflow: testState.groundingWorkflow,
+    landing: null,
+    turns: [testState.answeredTurn, testState.activeTurn],
+  }),
+  useSpecificationEntities: () => testState.emptyEntities,
+  useInvalidateSpecificationQueryDomains: () => ({
+    invalidateSpecificationBundle: vi.fn(async () => {}),
+    invalidateEntities: vi.fn(async () => {}),
+  }),
+  primeSpecificationBundle: vi.fn(),
+  primeSpecificationEntities: vi.fn(),
+  specificationQueryKeys: {
+    bundle: vi.fn(),
+    entities: vi.fn(),
+  },
+}));
+
+vi.mock('../-interview-controller.js', () => ({
+  useInterviewController: () => ({
+    specification: {
+      id: 1,
+      name: 'Project 1',
+      mode: 'greenfield',
+      active_turn_id: 2,
+      created_at: '2026-04-16 10:00:00',
+      updated_at: '2026-04-16 10:00:00',
+    },
+    workflow: testState.groundingWorkflow,
     phaseTurns: [testState.answeredTurn, testState.activeTurn],
     captureStatusByTurnId: new Map(),
     chat: {
@@ -166,7 +221,7 @@ vi.mock('../-interview-controller.js', () => ({
 
 describe('transcript parity activity replay', () => {
   it('renders persisted history activity and live bottom-artifact activity beside the right cards', () => {
-    render(<InterviewView phase="scope" />);
+    render(<InterviewView phase="grounding" />);
 
     expect(screen.getByText('What should we build first?')).toBeTruthy();
     expect(screen.getByText('Which platform should we target next?')).toBeTruthy();

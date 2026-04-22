@@ -2,18 +2,18 @@ import { describe, expect, it } from 'vitest';
 
 import type { ReviewSetData } from '@/shared/chat.js';
 
-import {
-  getRuntimeGroundingCard,
-  getRuntimeReviewMetadata,
-  materializeTurnArtifacts,
-} from './turn-artifacts.js';
+import { getRuntimePreface, getRuntimeReviewMetadata, materializeTurnArtifacts } from './turn-artifacts.js';
 
 function createReviewSet(phase: 'requirements' | 'criteria' = 'requirements'): ReviewSetData {
   return {
     phase,
     title: phase === 'requirements' ? 'Requirements' : 'Acceptance Criteria',
     items: [
-      { referenceCode: phase === 'requirements' ? 'R1' : 'C1', content: 'Persist durable replay artifacts' },
+      {
+        reviewItemId: `${phase}:1`,
+        referenceCode: phase === 'requirements' ? 'R1' : 'C1',
+        content: 'Persist durable replay artifacts',
+      },
     ],
   };
 }
@@ -93,7 +93,13 @@ describe('turn-artifacts', () => {
             data: {
               phase: 'requirements',
               title: 'Fallback requirements',
-              items: [{ referenceCode: 'R9', content: 'Do not keep this stale fallback set' }],
+              items: [
+                {
+                  reviewItemId: 'requirements:9',
+                  referenceCode: 'R9',
+                  content: 'Do not keep this stale fallback set',
+                },
+              ],
             },
           },
           {
@@ -136,51 +142,49 @@ describe('turn-artifacts', () => {
     ]);
   });
 
-  it('materializes durable grounding-card artifacts instead of persisting the tool call', () => {
-    const groundingCard = getRuntimeGroundingCard({
+  it('materializes durable preface artifacts instead of persisting the tool call', () => {
+    const preface = getRuntimePreface({
       parts: [
         {
-          type: 'tool-present_grounding_card',
-          toolCallId: 'tool-grounding-card',
+          type: 'tool-present_preface',
+          toolCallId: 'tool-preface',
           state: 'output-available',
           input: {
-            summary: 'The repo already uses SQLite-backed local persistence.',
-            detail: 'This is provisional context before the next substantive move.',
-            continueLabel: 'Continue',
+            observation: 'The repo already uses SQLite-backed local persistence.',
+            elaboration: 'This is provisional context before the next substantive move.',
           },
           output: { ok: true, turnId: 7 },
         },
       ],
     });
 
-    expect(groundingCard).toEqual({
-      type: 'data-grounding-card',
+    expect(preface).toEqual({
+      type: 'data-preface',
       data: {
-        summary: 'The repo already uses SQLite-backed local persistence.',
-        detail: 'This is provisional context before the next substantive move.',
-        continueLabel: 'Continue',
+        observation: 'The repo already uses SQLite-backed local persistence.',
+        elaboration: 'This is provisional context before the next substantive move.',
       },
     });
-    if (!groundingCard) {
+    if (!preface) {
       throw new Error('Expected grounding card metadata');
     }
 
     const artifacts = materializeTurnArtifacts({
-      phase: 'scope',
+      phase: 'grounding',
       responseMessage: {
         parts: [
           {
-            type: 'tool-present_grounding_card',
-            toolCallId: 'tool-grounding-card',
+            type: 'tool-present_preface',
+            toolCallId: 'tool-preface',
             state: 'output-available',
-            input: groundingCard.data,
+            input: preface.data,
             output: { ok: true, turnId: 7 },
           },
         ],
       },
     });
 
-    expect(artifacts).toEqual([groundingCard]);
+    expect(artifacts).toEqual([preface]);
   });
 
   it('uses the provided fallback review set when the interviewer output has no review metadata', () => {

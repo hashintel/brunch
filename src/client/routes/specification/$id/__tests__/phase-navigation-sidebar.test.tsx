@@ -12,12 +12,12 @@ import { afterEach, describe, expect, it } from 'vitest';
 
 import type { WorkflowState } from '@/shared/api-types.js';
 import { workflowPhaseDescriptors } from '@/shared/phase-descriptors.js';
-import type { SpecificationTurn as ProjectStateTurn } from '@/shared/specification.js';
+import type { SpecificationTurn as SpecificationStateTurn } from '@/shared/specification.js';
 
 import { PhaseNavigationSidebar } from '../-phase-navigation-sidebar.js';
 
 function createWorkflowState(
-  overrides?: Partial<Record<string, Partial<WorkflowState['phases']['scope']>>>,
+  overrides?: Partial<Record<string, Partial<WorkflowState['phases']['grounding']>>>,
 ): WorkflowState {
   const defaultPhase = {
     status: 'unstarted' as const,
@@ -30,7 +30,7 @@ function createWorkflowState(
   };
   return {
     phases: {
-      scope: { ...defaultPhase, ...overrides?.scope },
+      grounding: { ...defaultPhase, ...overrides?.grounding },
       design: { ...defaultPhase, ...overrides?.design },
       requirements: { ...defaultPhase, ...overrides?.requirements },
       criteria: { ...defaultPhase, ...overrides?.criteria },
@@ -40,15 +40,15 @@ function createWorkflowState(
 
 function createTurns(
   turnCounts?: Partial<Record<keyof WorkflowState['phases'], number>>,
-): ProjectStateTurn[] {
-  const phases: Array<keyof WorkflowState['phases']> = ['scope', 'design', 'requirements', 'criteria'];
+): SpecificationStateTurn[] {
+  const phases: Array<keyof WorkflowState['phases']> = ['grounding', 'design', 'requirements', 'criteria'];
   let nextTurnId = 1;
 
   return phases.flatMap((phase) => {
     const turnCount = turnCounts?.[phase] ?? 0;
     return Array.from({ length: turnCount }, (_, index) => ({
       id: nextTurnId++,
-      project_id: 42,
+      specification_id: 42,
       parent_turn_id: index === 0 ? null : nextTurnId - 2,
       phase,
       question: `${phase} question ${index + 1}`,
@@ -72,7 +72,7 @@ async function renderSidebar(
   }: {
     pathname?: string;
     specificationName?: string;
-    turns?: ProjectStateTurn[];
+    turns?: SpecificationStateTurn[];
   } = {},
 ) {
   const rootRoute = createRootRoute();
@@ -120,7 +120,7 @@ describe('PhaseNavigationSidebar', () => {
 
   it('shows correct status for each phase', async () => {
     const workflow = createWorkflowState({
-      scope: { status: 'closed' },
+      grounding: { status: 'closed' },
       design: { status: 'in_progress' },
       requirements: { status: 'unstarted' },
       criteria: { status: 'unstarted' },
@@ -137,15 +137,15 @@ describe('PhaseNavigationSidebar', () => {
     expect(rows[3].getAttribute('data-phase-status')).toBe('unstarted');
   });
 
-  it('shows readiness only for in-progress phases and keeps unstarted phases truthful', async () => {
+  it('does not show readiness indicators (suppressed by product decision)', async () => {
     const workflow = createWorkflowState({
-      scope: { status: 'closed', readiness: 'high' },
+      grounding: { status: 'closed', readiness: 'high' },
       design: { status: 'in_progress', readiness: 'medium' },
       requirements: { readiness: 'low' },
     });
 
     await renderSidebar(workflow, {
-      turns: createTurns({ scope: 2, design: 3, requirements: 0, criteria: 0 }),
+      turns: createTurns({ grounding: 2, design: 3, requirements: 0, criteria: 0 }),
     });
 
     const nav = screen.getByRole('navigation', { name: 'Phase navigation' });
@@ -153,7 +153,7 @@ describe('PhaseNavigationSidebar', () => {
 
     expect(rows[0].textContent).toContain('Closed');
     expect(rows[0].textContent).toContain('2 turns');
-    expect(rows[1].textContent).toContain('Medium readiness');
+    expect(rows[1].textContent).not.toContain('Medium readiness');
     expect(rows[1].textContent).toContain('3 turns');
     expect(rows[2].textContent).toContain('Unstarted');
     expect(rows[2].textContent).not.toContain('Low readiness');
@@ -161,7 +161,7 @@ describe('PhaseNavigationSidebar', () => {
 
   it('shows closeability for each phase', async () => {
     const workflow = createWorkflowState({
-      scope: { status: 'in_progress', closeability: true },
+      grounding: { status: 'in_progress', closeability: true },
       design: { status: 'unstarted', closeability: false },
     });
 
@@ -176,7 +176,7 @@ describe('PhaseNavigationSidebar', () => {
 
   it('gates future unopened phases while keeping the current phase reachable', async () => {
     const workflow = createWorkflowState({
-      scope: { status: 'closed', readiness: 'high' },
+      grounding: { status: 'closed', readiness: 'high' },
       design: { status: 'unstarted' },
       requirements: { status: 'unstarted' },
       criteria: { status: 'unstarted' },
@@ -196,7 +196,7 @@ describe('PhaseNavigationSidebar', () => {
   it('shows the Output item only when all workflow phases are closed', async () => {
     await renderSidebar(
       createWorkflowState({
-        scope: { status: 'closed' },
+        grounding: { status: 'closed' },
         design: { status: 'closed' },
         requirements: { status: 'closed' },
         criteria: { status: 'in_progress' },
@@ -209,7 +209,7 @@ describe('PhaseNavigationSidebar', () => {
 
     await renderSidebar(
       createWorkflowState({
-        scope: { status: 'closed' },
+        grounding: { status: 'closed' },
         design: { status: 'closed' },
         requirements: { status: 'closed' },
         criteria: { status: 'closed' },

@@ -4,10 +4,12 @@ import { join } from 'node:path';
 
 import { describe, expect, it } from 'vitest';
 
+import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
+import { getPersistedReviewSet } from '@/shared/specification-state.js';
 import { getSpecificationRecord } from '@/shared/specification.js';
 
 import { getSpecificationState } from '../core.js';
-import { createDb, getActivePath, getEntitiesForProjectOnActivePath } from '../db.js';
+import { createDb, getActivePath, getEntitiesForSpecificationOnActivePath } from '../db.js';
 import { renderExportMarkdown } from '../export.js';
 import {
   publicScenarios,
@@ -18,7 +20,7 @@ import {
 
 function summarizeWorkflow(projectState: NonNullable<ReturnType<typeof getSpecificationState>>) {
   return {
-    scope: projectState.workflow.phases.scope.status,
+    grounding: projectState.workflow.phases.grounding.status,
     design: projectState.workflow.phases.design.status,
     requirements: projectState.workflow.phases.requirements.status,
     criteria: projectState.workflow.phases.criteria.status,
@@ -78,6 +80,24 @@ async function withReopenedWalkthroughScenario<T>(
   }
 }
 
+function collectVisibleReferenceCodes(
+  entities: ReturnType<typeof getEntitiesForSpecificationOnActivePath>,
+): Set<string> {
+  return new Set(
+    [
+      ...entities.goals,
+      ...entities.contexts,
+      ...entities.constraints,
+      ...entities.requirements,
+      ...entities.criteria,
+      ...entities.decisions,
+      ...entities.assumptions,
+    ]
+      .map((item) => item.referenceCode)
+      .filter((referenceCode): referenceCode is string => Boolean(referenceCode)),
+  );
+}
+
 describe('walkthroughScenarioMatrix', () => {
   it('front-loads the walkthrough workspace scenarios in the public seed catalog', () => {
     expect(publicScenarioNames.slice(0, walkthroughScenarioMatrix.length)).toEqual(
@@ -104,7 +124,10 @@ describe('walkthroughScenarioMatrix', () => {
 
   it('seeds kickoff-ready and recovery-ready fixtures from durable authority without legacy control rows', async () => {
     await withReopenedSeededScenario('issue-tracker-design-kickoff-ready', ({ db, projectId }) => {
-      expect(getActivePath(db, projectId).at(-1)).toMatchObject({ phase: 'scope', turn_kind: 'question' });
+      expect(getActivePath(db, projectId).at(-1)).toMatchObject({
+        phase: 'grounding',
+        turn_kind: 'question',
+      });
     });
 
     await withReopenedSeededScenario('issue-tracker-design-recovery', ({ db, projectId }) => {
@@ -132,6 +155,7 @@ describe('walkthroughScenarioMatrix', () => {
       expect(requirementsTurns).toHaveLength(1);
       expect(requirementsTurn?.question).toBe('Please review the current requirement set.');
       expect(requirementsTurn?.assistant_parts).toContain('data-review-set');
+      expect(requirementsTurn?.assistant_parts).toContain('data-activity-summary');
       expect(requirementsTurn?.user_parts).toContain('"reviewAction":"accept"');
     });
 
@@ -147,6 +171,7 @@ describe('walkthroughScenarioMatrix', () => {
       expect(requirementsTurns).toHaveLength(1);
       expect(requirementsTurn?.question).toBe('Please review the current requirement set.');
       expect(requirementsTurn?.assistant_parts).toContain('data-review-set');
+      expect(requirementsTurn?.assistant_parts).toContain('data-activity-summary');
     });
 
     await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
@@ -161,6 +186,76 @@ describe('walkthroughScenarioMatrix', () => {
       expect(criteriaTurns).toHaveLength(1);
       expect(criteriaTurn?.question).toBe('Please review the current criterion set.');
       expect(criteriaTurn?.assistant_parts).toContain('data-review-set');
+      expect(criteriaTurn?.assistant_parts).toContain('data-activity-summary');
+    });
+  });
+
+  it('keeps pre-review walkthrough entities non-durable while review-set turns stay self-contained', async () => {
+    await withReopenedSeededScenario('issue-tracker-requirements-ready', ({ db, projectId }) => {
+      expect(getEntitiesForSpecificationOnActivePath(db, projectId).requirements).toEqual([]);
+    });
+
+    await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
+      expect(getEntitiesForSpecificationOnActivePath(db, projectId).criteria).toEqual([]);
+    });
+  });
+
+  it('seeds truthful grounding inventory for review-ready walkthrough scenarios', async () => {
+    await withReopenedSeededScenario('issue-tracker-requirements-ready', ({ db, projectId }) => {
+      const projectState = getSpecificationState(db, projectId);
+      const requirementsTurn = projectState?.turns.find((turn) => turn.phase === 'requirements');
+      const reviewSet = getPersistedReviewSet(requirementsTurn);
+      const entities = getEntitiesForSpecificationOnActivePath(db, projectId);
+      const visibleCodes = collectVisibleReferenceCodes(entities);
+
+      expect(reviewSet).not.toBeNull();
+      for (const groundingCode of reviewSet?.items.flatMap(
+        (item) => item.grounding?.map((ref) => ref.code) ?? [],
+      ) ?? []) {
+        expect(visibleCodes).toContain(groundingCode);
+      }
+      expect(entities.goals.map((item) => item.referenceCode)).toEqual([
+        createKnowledgeReferenceCode('goal', 1),
+        createKnowledgeReferenceCode('goal', 2),
+      ]);
+      expect(entities.contexts.map((item) => item.referenceCode)).toEqual([
+        createKnowledgeReferenceCode('context', 1),
+        createKnowledgeReferenceCode('context', 2),
+      ]);
+      expect(entities.constraints.map((item) => item.referenceCode)).toEqual([
+        createKnowledgeReferenceCode('constraint', 1),
+        createKnowledgeReferenceCode('constraint', 2),
+      ]);
+      expect(entities.decisions.map((item) => item.referenceCode)).toEqual([
+        createKnowledgeReferenceCode('decision', 1),
+      ]);
+      expect(entities.requirements).toEqual([]);
+    });
+
+    await withReopenedSeededScenario('issue-tracker-criteria-ready', ({ db, projectId }) => {
+      const projectState = getSpecificationState(db, projectId);
+      const criteriaTurn = projectState?.turns.find((turn) => turn.phase === 'criteria');
+      const reviewSet = getPersistedReviewSet(criteriaTurn);
+      const entities = getEntitiesForSpecificationOnActivePath(db, projectId);
+      const visibleCodes = collectVisibleReferenceCodes(entities);
+
+      expect(reviewSet).not.toBeNull();
+      for (const groundingCode of reviewSet?.items.flatMap(
+        (item) => item.grounding?.map((ref) => ref.code) ?? [],
+      ) ?? []) {
+        expect(visibleCodes).toContain(groundingCode);
+      }
+      expect(
+        entities.requirements.find(
+          (item) => item.referenceCode === createKnowledgeReferenceCode('requirement', 1),
+        )?.content,
+      ).toBe(
+        'Create, edit, and close tickets with required fields: title, description, priority, and assignee',
+      );
+      expect(entities.assumptions.map((item) => item.referenceCode)).toEqual([
+        createKnowledgeReferenceCode('assumption', 1),
+      ]);
+      expect(entities.criteria).toEqual([]);
     });
   });
 
@@ -171,7 +266,7 @@ describe('walkthroughScenarioMatrix', () => {
       expect(projectState).not.toBeNull();
       const markdown = renderExportMarkdown(
         getSpecificationRecord(projectState!).name,
-        getEntitiesForProjectOnActivePath(db, projectId),
+        getEntitiesForSpecificationOnActivePath(db, projectId),
         projectState!.workflow,
       );
 
@@ -188,40 +283,87 @@ describe('walkthroughScenarioMatrix', () => {
     });
   });
 
-  it('reopens the named brownfield grounding walkthrough with answered and active grounding cards around a substantive turn', async () => {
-    await withReopenedSeededScenario('brownfield-grounding-replay', ({ db, projectId }) => {
+  it('reopens the export-ready walkthrough with self-contained persisted review metadata for both accepted review phases', async () => {
+    await withReopenedSeededScenario('issue-tracker-all-phases-closed', ({ db, projectId }) => {
       const projectState = getSpecificationState(db, projectId);
+      const requirementsReviewTurn = projectState?.turns.find(
+        (turn) =>
+          turn.phase === 'requirements' && turn.question === 'Please review the current requirement set.',
+      );
+      const criteriaReviewTurn = projectState?.turns.find(
+        (turn) => turn.phase === 'criteria' && turn.question === 'Please review the current criterion set.',
+      );
 
-      expect(projectState ? getSpecificationRecord(projectState).mode : null).toBe('brownfield');
-      expect(projectState?.turns).toHaveLength(3);
-      expect(projectState?.landing).toEqual({
-        kind: 'frontier-turn',
-        phase: 'scope',
-        turnId: projectState!.turns[2]!.id,
-      });
-      expect(projectState?.turns.map((turn) => turn.question)).toEqual([
-        '',
-        'Which seam needs another grounding pass before we keep going?',
-        '',
-      ]);
-      expect(JSON.parse(projectState!.turns[0]!.assistant_parts ?? '[]')).toEqual(
+      expect(requirementsReviewTurn?.user_parts).toContain('"reviewAction":"accept"');
+      expect(criteriaReviewTurn?.user_parts).toContain('"reviewAction":"accept"');
+      expect(JSON.parse(requirementsReviewTurn?.assistant_parts ?? '[]')).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            type: 'data-grounding-card',
+            type: 'data-review-set',
             data: expect.objectContaining({
-              summary: 'The repo already uses SQLite-backed local persistence.',
+              phase: 'requirements',
+              items: expect.arrayContaining([
+                expect.objectContaining({ referenceCode: createKnowledgeReferenceCode('requirement', 1) }),
+              ]),
             }),
           }),
         ]),
       );
-      expect(projectState?.turns[1]?.answer).toBe('The chat-runtime finalization path and replay seam.');
-      expect(JSON.parse(projectState!.turns[2]!.assistant_parts ?? '[]')).toEqual(
+      expect(JSON.parse(criteriaReviewTurn?.assistant_parts ?? '[]')).toEqual(
         expect.arrayContaining([
           expect.objectContaining({
-            type: 'data-grounding-card',
+            type: 'data-review-set',
             data: expect.objectContaining({
-              summary: 'Later context gathering narrowed the work to turn-finalization ownership.',
+              phase: 'criteria',
+              items: expect.arrayContaining([
+                expect.objectContaining({ referenceCode: createKnowledgeReferenceCode('criterion', 1) }),
+              ]),
             }),
+          }),
+        ]),
+      );
+    });
+  });
+
+  it('reopens the named brownfield grounding walkthrough with grounding cards combined on question turns', async () => {
+    await withReopenedSeededScenario('brownfield-grounding-replay', ({ db, projectId }) => {
+      const projectState = getSpecificationState(db, projectId);
+
+      expect(projectState ? getSpecificationRecord(projectState).mode : null).toBe('brownfield');
+      expect(projectState?.turns).toHaveLength(2);
+      expect(projectState?.landing).toEqual({
+        kind: 'frontier-turn',
+        phase: 'grounding',
+        turnId: projectState!.turns[1]!.id,
+      });
+      expect(projectState?.turns.map((turn) => turn.question)).toEqual([
+        'Which seam needs another grounding pass before we keep going?',
+        'What does the finalization path need to handle for replay consistency?',
+      ]);
+      expect(JSON.parse(projectState!.turns[0]!.assistant_parts ?? '[]')).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'data-preface',
+            data: expect.objectContaining({
+              observation: 'The repo already uses SQLite-backed local persistence.',
+            }),
+          }),
+          expect.objectContaining({
+            type: 'tool-ask_question',
+          }),
+        ]),
+      );
+      expect(projectState?.turns[0]?.answer).toBe('The chat-runtime finalization path and replay seam.');
+      expect(JSON.parse(projectState!.turns[1]!.assistant_parts ?? '[]')).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            type: 'data-preface',
+            data: expect.objectContaining({
+              observation: 'Later context gathering narrowed the work to turn-finalization ownership.',
+            }),
+          }),
+          expect.objectContaining({
+            type: 'tool-ask_question',
           }),
         ]),
       );

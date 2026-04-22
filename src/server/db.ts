@@ -16,8 +16,8 @@ import type {
   EntitiesData,
   EntityReference as SharedEntityReference,
   EntityRelationship as SharedEntityRelationship,
-  ProjectMode,
-  ProjectStateTurn,
+  SpecificationMode,
+  SpecificationStateTurn,
   ReadinessBand,
   TurnKind,
   RequirementEntity as SharedRequirementEntity,
@@ -25,14 +25,7 @@ import type {
   WorkflowPhaseStatus,
   WorkflowState as SharedWorkflowState,
 } from '@/shared/api-types.js';
-import {
-  observerResultSchema,
-  reviewSetSchema,
-  type BrunchAssistantPart,
-  type ObserverDraftReviewItem,
-  type ObserverResultData,
-  type ReviewSetData,
-} from '@/shared/chat.js';
+import { reviewSetSchema, type BrunchAssistantPart, type ReviewSetData } from '@/shared/chat.js';
 import {
   createKnowledgeReferenceCode,
   genericKnowledgeKindRegistry,
@@ -44,6 +37,8 @@ import {
   type KnowledgeKind as SharedKnowledgeKind,
 } from '@/shared/knowledge.js';
 import { parsePhaseClosureCommand, type PhaseClosureBasis } from '@/shared/phase-close.js';
+import { normalizeReviewSetForDisplay } from '@/shared/review-diffing.js';
+import { getPersistedReviewAction } from '@/shared/specification-state.js';
 
 import {
   safeDeserializeAssistantParts,
@@ -53,8 +48,11 @@ import {
 import * as schema from './schema.js';
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
-export type Project = InferSelectModel<typeof schema.project>;
-export type Turn = InferSelectModel<typeof schema.turn>;
+export type Specification = InferSelectModel<typeof schema.specification>;
+type PersistedTurn = InferSelectModel<typeof schema.turn>;
+export type Turn = Omit<PersistedTurn, 'specification_id'> & {
+  specification_id: number;
+};
 export type Option = InferSelectModel<typeof schema.option>;
 export type PhaseOutcome = InferSelectModel<typeof schema.phaseOutcome>;
 export type Phase = Turn['phase'];
@@ -67,7 +65,8 @@ export type WorkflowPhaseState = SharedWorkflowPhaseState;
 export type WorkflowState = SharedWorkflowState;
 
 export interface CreatePhaseOutcomeInput {
-  projectId: number;
+  specificationId?: number;
+  projectId?: number;
   phase: Phase;
   proposal_turn_id: number;
   summary: string;
@@ -102,46 +101,61 @@ export function createDb(path: string = ':memory:'): DB {
   return db;
 }
 
-export function getOrCreateProject(db: DB, name = 'default'): Project {
-  const existing = db.select().from(schema.project).orderBy(desc(schema.project.created_at)).limit(1).get();
-  if (existing) return existing as Project;
-  const result = db.insert(schema.project).values({ name }).returning().get();
-  return result as Project;
+export function getOrCreateSpecification(db: DB, name = 'default'): Specification {
+  const existing = db
+    .select()
+    .from(schema.specification)
+    .orderBy(desc(schema.specification.created_at))
+    .limit(1)
+    .get();
+  if (existing) return existing as Specification;
+  const result = db.insert(schema.specification).values({ name }).returning().get();
+  return result as Specification;
 }
 
-export function listProjects(db: DB): Project[] {
-  return db.select().from(schema.project).orderBy(desc(schema.project.updated_at)).all() as Project[];
+export function listSpecifications(db: DB): Specification[] {
+  return db
+    .select()
+    .from(schema.specification)
+    .orderBy(desc(schema.specification.updated_at))
+    .all() as Specification[];
 }
 
-export interface CreateProjectOptions {
-  mode?: ProjectMode;
+export interface CreateSpecificationOptions {
+  mode?: SpecificationMode;
 }
 
-export function createProject(db: DB, name: string, options?: CreateProjectOptions): Project {
+export function createSpecification(
+  db: DB,
+  name: string,
+  options?: CreateSpecificationOptions,
+): Specification {
   const result = db
-    .insert(schema.project)
+    .insert(schema.specification)
     .values({
       name,
       ...(options?.mode ? { mode: options.mode } : {}),
     })
     .returning()
     .get();
-  return result as Project;
+  return result as Specification;
 }
 
-export function getProject(db: DB, id: number): Project | undefined {
-  return db.select().from(schema.project).where(eq(schema.project.id, id)).get() as Project | undefined;
+export function getSpecification(db: DB, id: number): Specification | undefined {
+  return db.select().from(schema.specification).where(eq(schema.specification.id, id)).get() as
+    | Specification
+    | undefined;
 }
 
 export function getTurn(db: DB, turnId: number): Turn | undefined {
   return db.select().from(schema.turn).where(eq(schema.turn.id, turnId)).get() as Turn | undefined;
 }
 
-export function createTurn(db: DB, projectId: number, input: CreateTurnInput): Turn {
+export function createTurn(db: DB, specificationId: number, input: CreateTurnInput): Turn {
   const result = db
     .insert(schema.turn)
     .values({
-      project_id: projectId,
+      specification_id: specificationId,
       parent_turn_id: input.parent_turn_id ?? null,
       phase: input.phase,
       turn_kind: input.turn_kind ?? 'question',
@@ -202,11 +216,11 @@ export function createOption(db: DB, turnId: number, input: CreateOptionInput): 
   return result as Option;
 }
 
-export function getActivePath(db: DB, projectId: number): Turn[] {
+export function getActivePath(db: DB, specificationId: number): Turn[] {
   const project = db
-    .select({ active_turn_id: schema.project.active_turn_id })
-    .from(schema.project)
-    .where(eq(schema.project.id, projectId))
+    .select({ active_turn_id: schema.specification.active_turn_id })
+    .from(schema.specification)
+    .where(eq(schema.specification.id, specificationId))
     .get();
   if (!project?.active_turn_id) return [];
 
@@ -223,7 +237,7 @@ export function getActivePath(db: DB, projectId: number): Turn[] {
 }
 
 const workflowPhaseOrder = [
-  'scope',
+  'grounding',
   'design',
   'requirements',
   'criteria',
@@ -251,18 +265,18 @@ function getReadinessBand(turnCount: number): ReadinessBand {
   return 'high';
 }
 
-export function listPhaseOutcomesForProject(db: DB, projectId: number): PhaseOutcome[] {
+export function listPhaseOutcomesForSpecification(db: DB, specificationId: number): PhaseOutcome[] {
   return db
     .select()
     .from(schema.phaseOutcome)
-    .where(eq(schema.phaseOutcome.project_id, projectId))
+    .where(eq(schema.phaseOutcome.specification_id, specificationId))
     .orderBy(desc(schema.phaseOutcome.id))
     .all() as PhaseOutcome[];
 }
 
-function reconcilePhaseOutcomesForProject(db: DB, projectId: number): void {
-  const activeTurnIds = new Set(getActivePath(db, projectId).map((turn) => turn.id));
-  const outcomesToSupersede = listPhaseOutcomesForProject(db, projectId).filter(
+function reconcilePhaseOutcomesForSpecification(db: DB, specificationId: number): void {
+  const activeTurnIds = new Set(getActivePath(db, specificationId).map((turn) => turn.id));
+  const outcomesToSupersede = listPhaseOutcomesForSpecification(db, specificationId).filter(
     (outcome) =>
       (outcome.status === 'proposed' || outcome.status === 'confirmed') &&
       !activeTurnIds.has(outcome.proposal_turn_id),
@@ -280,10 +294,15 @@ function reconcilePhaseOutcomesForProject(db: DB, projectId: number): void {
 }
 
 export function createPhaseOutcome(db: DB, input: CreatePhaseOutcomeInput): PhaseOutcome {
+  const specificationId = input.specificationId ?? input.projectId;
+  if (!specificationId) {
+    throw new Error('createPhaseOutcome requires specificationId');
+  }
+
   const result = db
     .insert(schema.phaseOutcome)
     .values({
-      project_id: input.projectId,
+      specification_id: specificationId,
       phase: input.phase,
       proposal_turn_id: input.proposal_turn_id,
       summary: input.summary,
@@ -330,10 +349,15 @@ export function createConfirmedPhaseOutcome(
   db: DB,
   input: CreatePhaseOutcomeInput & { confirmation_turn_id: number },
 ): PhaseOutcome {
+  const specificationId = input.specificationId ?? input.projectId;
+  if (!specificationId) {
+    throw new Error('createConfirmedPhaseOutcome requires specificationId');
+  }
+
   const result = db
     .insert(schema.phaseOutcome)
     .values({
-      project_id: input.projectId,
+      specification_id: specificationId,
       phase: input.phase,
       proposal_turn_id: input.proposal_turn_id,
       summary: input.summary,
@@ -349,7 +373,7 @@ export function createConfirmedPhaseOutcome(
 
 export function findProposedPhaseOutcomeByTurn(
   db: DB,
-  projectId: number,
+  specificationId: number,
   proposalTurnId: number,
 ): PhaseOutcome | undefined {
   return db
@@ -357,7 +381,7 @@ export function findProposedPhaseOutcomeByTurn(
     .from(schema.phaseOutcome)
     .where(
       and(
-        eq(schema.phaseOutcome.project_id, projectId),
+        eq(schema.phaseOutcome.specification_id, specificationId),
         eq(schema.phaseOutcome.proposal_turn_id, proposalTurnId),
         eq(schema.phaseOutcome.status, 'proposed'),
       ),
@@ -368,7 +392,7 @@ export function findProposedPhaseOutcomeByTurn(
 
 export function findPhaseOutcomeForTurn(
   db: DB,
-  projectId: number,
+  specificationId: number,
   proposalTurnId: number,
 ): PhaseOutcome | undefined {
   return db
@@ -376,7 +400,7 @@ export function findPhaseOutcomeForTurn(
     .from(schema.phaseOutcome)
     .where(
       and(
-        eq(schema.phaseOutcome.project_id, projectId),
+        eq(schema.phaseOutcome.specification_id, specificationId),
         eq(schema.phaseOutcome.proposal_turn_id, proposalTurnId),
       ),
     )
@@ -394,15 +418,15 @@ function getClosureBasisForOutcome(outcome: PhaseOutcome | undefined): ClosureBa
 
 function findConfirmedPhaseOutcomeOnActivePath(
   db: DB,
-  projectId: number,
+  specificationId: number,
   phase: Phase,
 ): PhaseOutcome | undefined {
-  const activeTurnIds = new Set(getActivePath(db, projectId).map((turn) => turn.id));
+  const activeTurnIds = new Set(getActivePath(db, specificationId).map((turn) => turn.id));
   if (activeTurnIds.size === 0) {
     return undefined;
   }
 
-  return listPhaseOutcomesForProject(db, projectId).find(
+  return listPhaseOutcomesForSpecification(db, specificationId).find(
     (outcome) =>
       outcome.phase === phase &&
       outcome.status === 'confirmed' &&
@@ -412,13 +436,13 @@ function findConfirmedPhaseOutcomeOnActivePath(
 
 function getAcceptedKnowledgeItemIdsForPhase(
   db: DB,
-  projectId: number,
+  specificationId: number,
   phase: 'requirements' | 'criteria',
   kind: 'requirement' | 'criterion',
 ): Set<number> {
   const confirmationTurnId = findConfirmedPhaseOutcomeOnActivePath(
     db,
-    projectId,
+    specificationId,
     phase,
   )?.confirmation_turn_id;
   if (!confirmationTurnId) {
@@ -431,7 +455,7 @@ function getAcceptedKnowledgeItemIdsForPhase(
     .innerJoin(schema.knowledgeItem, eq(schema.knowledgeItem.id, schema.turnKnowledgeItem.item_id))
     .where(
       and(
-        eq(schema.knowledgeItem.project_id, projectId),
+        eq(schema.knowledgeItem.specification_id, specificationId),
         eq(schema.knowledgeItem.kind, kind),
         eq(schema.turnKnowledgeItem.turn_id, confirmationTurnId),
         eq(schema.turnKnowledgeItem.relation, 'reviewed'),
@@ -442,17 +466,17 @@ function getAcceptedKnowledgeItemIdsForPhase(
   return new Set(rows.map((row) => row.itemId));
 }
 
-function hasRequirementsReviewCoverage(db: DB, projectId: number): boolean {
-  return getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'requirements', 'requirement').size > 0;
+function hasRequirementsReviewCoverage(db: DB, specificationId: number): boolean {
+  return getAcceptedKnowledgeItemIdsForPhase(db, specificationId, 'requirements', 'requirement').size > 0;
 }
 
-function hasCriteriaReviewCoverage(db: DB, projectId: number): boolean {
-  return getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'criteria', 'criterion').size > 0;
+function hasCriteriaReviewCoverage(db: DB, specificationId: number): boolean {
+  return getAcceptedKnowledgeItemIdsForPhase(db, specificationId, 'criteria', 'criterion').size > 0;
 }
 
 function getPhaseCloseability(
   db: DB,
-  projectId: number,
+  specificationId: number,
   phase: Phase,
   isConfirmed: boolean,
   hasTurnHistory: boolean,
@@ -462,27 +486,27 @@ function getPhaseCloseability(
   }
 
   if (phase === 'requirements') {
-    return hasRequirementsReviewCoverage(db, projectId);
+    return hasRequirementsReviewCoverage(db, specificationId);
   }
 
   if (phase === 'criteria') {
-    return hasCriteriaReviewCoverage(db, projectId);
+    return hasCriteriaReviewCoverage(db, specificationId);
   }
 
   return hasTurnHistory;
 }
 
-export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowState {
+export function getCurrentWorkflowState(db: DB, specificationId: number): WorkflowState {
   const workflow: WorkflowState = {
     phases: {
-      scope: createEmptyWorkflowPhaseState(),
+      grounding: createEmptyWorkflowPhaseState(),
       design: createEmptyWorkflowPhaseState(),
       requirements: createEmptyWorkflowPhaseState(),
       criteria: createEmptyWorkflowPhaseState(),
     },
   };
 
-  const activePath = getActivePath(db, projectId);
+  const activePath = getActivePath(db, specificationId);
   const activeTurnIds = new Set(activePath.map((turn) => turn.id));
   const substantiveTurnCounts = Object.fromEntries(workflowPhaseOrder.map((phase) => [phase, 0])) as Record<
     Phase,
@@ -506,7 +530,7 @@ export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowStat
     }
   }
 
-  const currentOutcomes = listPhaseOutcomesForProject(db, projectId).filter(
+  const currentOutcomes = listPhaseOutcomesForSpecification(db, specificationId).filter(
     (outcome) =>
       (outcome.status === 'proposed' || outcome.status === 'confirmed') &&
       activeTurnIds.has(outcome.proposal_turn_id),
@@ -529,7 +553,7 @@ export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowStat
         : phase === firstUnclosedPhase || hasTurnHistory
           ? 'in_progress'
           : 'unstarted',
-      closeability: getPhaseCloseability(db, projectId, phase, isConfirmed, hasTurnHistory),
+      closeability: getPhaseCloseability(db, specificationId, phase, isConfirmed, hasTurnHistory),
       readiness: getReadinessBand(answeredTurnCounts[phase]),
       closureBasis: getClosureBasisForOutcome(outcome),
       proposalPending,
@@ -541,8 +565,33 @@ export function getCurrentWorkflowState(db: DB, projectId: number): WorkflowStat
   return workflow;
 }
 
-export function getCurrentPhase(db: DB, projectId: number): Phase {
-  const workflow = getCurrentWorkflowState(db, projectId);
+export function getStructuralArtifactTurnIds(db: DB, specificationId: number): number[] {
+  const activePath = getActivePath(db, specificationId);
+  const activeTurnIds = new Set(activePath.map((turn) => turn.id));
+  const ids = new Set<number>();
+
+  // Phase outcome anchors: proposal and confirmation turns
+  for (const outcome of listPhaseOutcomesForSpecification(db, specificationId)) {
+    if (activeTurnIds.has(outcome.proposal_turn_id)) {
+      ids.add(outcome.proposal_turn_id);
+    }
+    if (outcome.confirmation_turn_id && activeTurnIds.has(outcome.confirmation_turn_id)) {
+      ids.add(outcome.confirmation_turn_id);
+    }
+  }
+
+  // Legacy transitional: kickoff/recovery turn rows (D95 marks these as transitional)
+  for (const turn of activePath) {
+    if (turn.turn_kind === 'kickoff' || turn.turn_kind === 'recovery' || turn.is_resolution) {
+      ids.add(turn.id);
+    }
+  }
+
+  return [...ids];
+}
+
+export function getCurrentPhase(db: DB, specificationId: number): Phase {
+  const workflow = getCurrentWorkflowState(db, specificationId);
   return workflowPhaseOrder.find((phase) => workflow.phases[phase].status !== 'closed') ?? 'criteria';
 }
 
@@ -572,29 +621,32 @@ export function applyTurnResponseSelections(db: DB, turnId: number, selectedPosi
     .run();
 }
 
-export function advanceHead(db: DB, projectId: number, turnId: number): void {
-  db.update(schema.project)
+export function advanceHead(db: DB, specificationId: number, turnId: number): void {
+  db.update(schema.specification)
     .set({ active_turn_id: turnId, updated_at: sql`datetime('now')` })
-    .where(eq(schema.project.id, projectId))
+    .where(eq(schema.specification.id, specificationId))
     .run();
-  reconcilePhaseOutcomesForProject(db, projectId);
+  reconcilePhaseOutcomesForSpecification(db, specificationId);
 }
 
-export function updateProjectMode(db: DB, projectId: number, mode: ProjectMode): void {
-  db.update(schema.project)
+export function updateSpecificationMode(db: DB, specificationId: number, mode: SpecificationMode): void {
+  db.update(schema.specification)
     .set({ mode, updated_at: sql`datetime('now')` })
-    .where(eq(schema.project.id, projectId))
+    .where(eq(schema.specification.id, specificationId))
     .run();
 }
 
 // --- Entity persistence (generic knowledge items + compatibility projections) ---
 
-export type KnowledgeItem = InferSelectModel<typeof schema.knowledgeItem>;
+type PersistedKnowledgeItem = InferSelectModel<typeof schema.knowledgeItem>;
+export type KnowledgeItem = Omit<PersistedKnowledgeItem, 'specification_id'> & {
+  specification_id: number;
+};
 export type KnowledgeKind = Extract<KnowledgeItem['kind'], SharedKnowledgeKind>;
 export type EntityCollection = KnowledgeEntityCollection;
 
-export type Decision = SharedDecision;
-export type Assumption = SharedAssumption;
+export type Decision = SharedDecision & { specification_id: number };
+export type Assumption = SharedAssumption & { specification_id: number };
 export type EntityReference = SharedEntityReference;
 export type EntityRelationship = SharedEntityRelationship;
 export type RequirementEntity = SharedRequirementEntity & { kind_ordinal: number };
@@ -607,7 +659,7 @@ type GenericKnowledgeEntity<K extends GenericKnowledgeKind> = K extends 'require
 type ProjectedKnowledgeEntity<K extends 'decision' | 'assumption'> = K extends 'decision'
   ? Decision & { kind_ordinal: number }
   : Assumption & { kind_ordinal: number };
-export type EntitiesForProject = EntitiesData;
+export type EntitiesForSpecification = EntitiesData;
 
 function projectKnowledgeItemEntity<K extends 'decision' | 'assumption'>(
   item: KnowledgeItem,
@@ -615,7 +667,7 @@ function projectKnowledgeItemEntity<K extends 'decision' | 'assumption'>(
 ): ProjectedKnowledgeEntity<K> {
   const base = {
     id: item.id,
-    project_id: item.project_id,
+    specification_id: item.specification_id,
     content: item.content,
     kind_ordinal: item.kind_ordinal,
   };
@@ -624,15 +676,15 @@ function projectKnowledgeItemEntity<K extends 'decision' | 'assumption'>(
     return {
       ...base,
       rationale: item.rationale,
-    } as ProjectedKnowledgeEntity<K>;
+    } as unknown as ProjectedKnowledgeEntity<K>;
   }
 
-  return base as ProjectedKnowledgeEntity<K>;
+  return base as unknown as ProjectedKnowledgeEntity<K>;
 }
 
 export function createDecision(
   db: DB,
-  projectId: number,
+  specificationId: number,
   content: string,
   rationale?: string | null,
 ): Decision {
@@ -640,12 +692,12 @@ export function createDecision(
     db
       .insert(schema.knowledgeItem)
       .values({
-        project_id: projectId,
+        specification_id: specificationId,
         kind: 'decision',
         subtype: null,
         content,
         rationale: rationale ?? null,
-        kind_ordinal: sql`(SELECT COALESCE(MAX(kind_ordinal), 0) + 1 FROM knowledge_item WHERE project_id = ${projectId} AND kind = 'decision')`,
+        kind_ordinal: sql`(SELECT COALESCE(MAX(kind_ordinal), 0) + 1 FROM knowledge_item WHERE specification_id = ${specificationId} AND kind = 'decision')`,
       })
       .returning()
       .get() as KnowledgeItem,
@@ -653,17 +705,17 @@ export function createDecision(
   );
 }
 
-export function createAssumption(db: DB, projectId: number, content: string): Assumption {
+export function createAssumption(db: DB, specificationId: number, content: string): Assumption {
   return projectKnowledgeItemEntity(
     db
       .insert(schema.knowledgeItem)
       .values({
-        project_id: projectId,
+        specification_id: specificationId,
         kind: 'assumption',
         subtype: null,
         content,
         rationale: null,
-        kind_ordinal: sql`(SELECT COALESCE(MAX(kind_ordinal), 0) + 1 FROM knowledge_item WHERE project_id = ${projectId} AND kind = 'assumption')`,
+        kind_ordinal: sql`(SELECT COALESCE(MAX(kind_ordinal), 0) + 1 FROM knowledge_item WHERE specification_id = ${specificationId} AND kind = 'assumption')`,
       })
       .returning()
       .get() as KnowledgeItem,
@@ -681,7 +733,7 @@ export function linkAssumptionToTurn(db: DB, assumptionId: number, turnId: numbe
 
 export function createKnowledgeItem(
   db: DB,
-  projectId: number,
+  specificationId: number,
   kind: KnowledgeKind,
   content: string,
   options?: { subtype?: string | null; rationale?: string | null },
@@ -689,12 +741,12 @@ export function createKnowledgeItem(
   return db
     .insert(schema.knowledgeItem)
     .values({
-      project_id: projectId,
+      specification_id: specificationId,
       kind,
       subtype: options?.subtype ?? null,
       content,
       rationale: options?.rationale ?? null,
-      kind_ordinal: sql`(SELECT COALESCE(MAX(kind_ordinal), 0) + 1 FROM knowledge_item WHERE project_id = ${projectId} AND kind = ${kind})`,
+      kind_ordinal: sql`(SELECT COALESCE(MAX(kind_ordinal), 0) + 1 FROM knowledge_item WHERE specification_id = ${specificationId} AND kind = ${kind})`,
     })
     .returning()
     .get() as KnowledgeItem;
@@ -737,15 +789,17 @@ export function addAssumptionParentAssumption(
   addKnowledgeEdge(db, assumptionId, parentAssumptionId, 'depends_on');
 }
 
-function getKnowledgeItemsForProjectByKind(
+function getKnowledgeItemsForSpecificationByKind(
   db: DB,
-  projectId: number,
+  specificationId: number,
   kind: GenericKnowledgeKind | 'decision' | 'assumption',
 ): KnowledgeItem[] {
   return db
     .select()
     .from(schema.knowledgeItem)
-    .where(and(eq(schema.knowledgeItem.project_id, projectId), eq(schema.knowledgeItem.kind, kind)))
+    .where(
+      and(eq(schema.knowledgeItem.specification_id, specificationId), eq(schema.knowledgeItem.kind, kind)),
+    )
     .all() as KnowledgeItem[];
 }
 
@@ -761,30 +815,16 @@ function withReferenceCodes<T extends { id: number; kind: SharedKnowledgeKind; k
     }));
 }
 
-function getGenericKnowledgeEntitiesForProjectByKind<K extends GenericKnowledgeKind>(
+function getGenericKnowledgeEntitiesForSpecificationByKind<K extends GenericKnowledgeKind>(
   db: DB,
-  projectId: number,
+  specificationId: number,
   kind: K,
 ): Array<GenericKnowledgeEntity<K>> {
-  return getKnowledgeItemsForProjectByKind(db, projectId, kind).map((item) => ({
+  return getKnowledgeItemsForSpecificationByKind(db, specificationId, kind).map((item) => ({
     ...item,
+    specification_id: item.specification_id,
     kind,
-  })) as Array<GenericKnowledgeEntity<K>>;
-}
-
-function getPersistedObserverResultForTurn(
-  turn: Pick<Turn, 'assistant_parts'> | undefined,
-): ObserverResultData | null {
-  const persistedObserverResult = safeDeserializeAssistantParts(turn?.assistant_parts).find(
-    (part): part is Extract<BrunchAssistantPart, { type: 'data-observer-result' }> =>
-      part.type === 'data-observer-result',
-  );
-  if (!persistedObserverResult) {
-    return null;
-  }
-
-  const parsedObserverResult = observerResultSchema.safeParse(persistedObserverResult.data);
-  return parsedObserverResult.success ? parsedObserverResult.data : null;
+  })) as unknown as Array<GenericKnowledgeEntity<K>>;
 }
 
 function getPersistedReviewSetForTurn(turn: Pick<Turn, 'assistant_parts'> | undefined): ReviewSetData | null {
@@ -802,7 +842,7 @@ function getPersistedReviewSetForTurn(turn: Pick<Turn, 'assistant_parts'> | unde
 
 function findExistingKnowledgeItemForReviewSetItem(
   db: DB,
-  projectId: number,
+  specificationId: number,
   kind: 'requirement' | 'criterion',
   content: string,
 ): KnowledgeItem | undefined {
@@ -811,7 +851,7 @@ function findExistingKnowledgeItemForReviewSetItem(
     .from(schema.knowledgeItem)
     .where(
       and(
-        eq(schema.knowledgeItem.project_id, projectId),
+        eq(schema.knowledgeItem.specification_id, specificationId),
         eq(schema.knowledgeItem.kind, kind),
         eq(schema.knowledgeItem.content, content),
       ),
@@ -820,26 +860,72 @@ function findExistingKnowledgeItemForReviewSetItem(
     .get() as KnowledgeItem | undefined;
 }
 
-function materializeAcceptedReviewSetItems(
+function getTurnLineageToRoot(db: DB, turnId: number): Turn[] {
+  const lineage: Turn[] = [];
+  let currentTurn = getTurn(db, turnId);
+
+  while (currentTurn) {
+    lineage.push(currentTurn);
+    currentTurn = currentTurn.parent_turn_id ? getTurn(db, currentTurn.parent_turn_id) : undefined;
+  }
+
+  return lineage.reverse();
+}
+
+function getEffectiveAcceptedReviewSetForTurn(
   db: DB,
-  projectId: number,
   turnId: number,
   phase: 'requirements' | 'criteria',
-): number[] | null {
-  const reviewTurn = getTurn(db, turnId);
-  const reviewSet = getPersistedReviewSetForTurn(reviewTurn);
+): ReviewSetData | null {
+  let normalizedReviewSet: ReviewSetData | null = null;
+
+  for (const turn of getTurnLineageToRoot(db, turnId)) {
+    if (turn.phase !== phase) {
+      continue;
+    }
+
+    const reviewSet = getPersistedReviewSetForTurn(turn);
+    if (!reviewSet || reviewSet.phase !== phase) {
+      continue;
+    }
+
+    if (turn.id !== turnId && !getPersistedReviewAction(turn)) {
+      continue;
+    }
+
+    normalizedReviewSet = normalizedReviewSet
+      ? normalizeReviewSetForDisplay(reviewSet, normalizedReviewSet)
+      : reviewSet;
+
+    if (turn.id === turnId) {
+      return normalizedReviewSet;
+    }
+  }
+
+  return normalizedReviewSet;
+}
+
+function materializeAcceptedReviewSetItems(
+  db: DB,
+  specificationId: number,
+  turnId: number,
+  phase: 'requirements' | 'criteria',
+): number[] {
+  const reviewSet = getEffectiveAcceptedReviewSetForTurn(db, turnId, phase);
   if (!reviewSet || reviewSet.phase !== phase) {
-    return null;
+    throw new Error(
+      `Cannot materialize accepted ${phase} review: persisted review set is missing or mismatched on turn ${turnId}`,
+    );
   }
 
   const kind = phase === 'requirements' ? 'requirement' : 'criterion';
   const itemIds: number[] = [];
 
   for (const item of reviewSet.items) {
-    const existingItem = findExistingKnowledgeItemForReviewSetItem(db, projectId, kind, item.content);
+    const existingItem = findExistingKnowledgeItemForReviewSetItem(db, specificationId, kind, item.content);
     const materializedItem =
       existingItem ??
-      createKnowledgeItem(db, projectId, kind, item.content, {
+      createKnowledgeItem(db, specificationId, kind, item.content, {
         rationale: item.rationale ?? null,
       });
     linkKnowledgeItemToTurn(db, materializedItem.id, turnId, 'reviewed');
@@ -849,141 +935,61 @@ function materializeAcceptedReviewSetItems(
   return itemIds;
 }
 
-function getDraftReviewItemsForProject(
+export function getAcceptedRequirementEntitiesForSpecification(
   db: DB,
-  projectId: number,
-  kind: 'requirement' | 'criterion',
-): ObserverDraftReviewItem[] {
-  const seenContents = new Set<string>();
-  const draftItems: ObserverDraftReviewItem[] = [];
-
-  for (const turn of getActivePath(db, projectId)) {
-    const observerResult = getPersistedObserverResultForTurn(turn);
-    const items =
-      kind === 'requirement'
-        ? observerResult?.draftReviewItems?.requirements
-        : observerResult?.draftReviewItems?.criteria;
-
-    for (const item of items ?? []) {
-      const normalizedContent = item.content.trim();
-      if (!normalizedContent || seenContents.has(normalizedContent)) {
-        continue;
-      }
-
-      seenContents.add(normalizedContent);
-      draftItems.push({
-        content: item.content,
-        rationale: item.rationale ?? null,
-      });
-    }
-  }
-
-  return draftItems;
-}
-
-function createDraftReviewEntities(
-  projectId: number,
-  kind: 'requirement',
-  draftItems: ObserverDraftReviewItem[],
-): SharedRequirementEntity[];
-function createDraftReviewEntities(
-  projectId: number,
-  kind: 'criterion',
-  draftItems: ObserverDraftReviewItem[],
-): SharedCriterionEntity[];
-function createDraftReviewEntities(
-  projectId: number,
-  kind: 'requirement' | 'criterion',
-  draftItems: ObserverDraftReviewItem[],
-): Array<SharedRequirementEntity | SharedCriterionEntity> {
-  if (kind === 'requirement') {
-    return draftItems.map((item, index) => ({
-      id: index + 1,
-      project_id: projectId,
-      kind: 'requirement',
-      subtype: null,
-      content: item.content,
-      rationale: item.rationale ?? null,
-      referenceCode: createKnowledgeReferenceCode('requirement', index + 1),
-    }));
-  }
-
-  return draftItems.map((item, index) => ({
-    id: index + 1,
-    project_id: projectId,
-    kind: 'criterion',
-    subtype: null,
-    content: item.content,
-    rationale: item.rationale ?? null,
-    referenceCode: createKnowledgeReferenceCode('criterion', index + 1),
-  }));
-}
-
-export function getDraftRequirementEntitiesForProject(db: DB, projectId: number): SharedRequirementEntity[] {
-  return createDraftReviewEntities(
-    projectId,
-    'requirement',
-    getDraftReviewItemsForProject(db, projectId, 'requirement'),
-  );
-}
-
-export function getDraftCriterionEntitiesForProject(db: DB, projectId: number): SharedCriterionEntity[] {
-  return createDraftReviewEntities(
-    projectId,
-    'criterion',
-    getDraftReviewItemsForProject(db, projectId, 'criterion'),
-  );
-}
-
-export function getAcceptedRequirementEntitiesForProject(db: DB, projectId: number): RequirementEntity[] {
-  const acceptedIds = getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'requirements', 'requirement');
+  specificationId: number,
+): RequirementEntity[] {
+  const acceptedIds = getAcceptedKnowledgeItemIdsForPhase(db, specificationId, 'requirements', 'requirement');
   if (acceptedIds.size === 0) {
     return [];
   }
 
-  return getGenericKnowledgeEntitiesForProjectByKind(db, projectId, 'requirement').filter((item) =>
-    acceptedIds.has(item.id),
+  return getGenericKnowledgeEntitiesForSpecificationByKind(db, specificationId, 'requirement').filter(
+    (item) => acceptedIds.has(item.id),
   );
 }
 
-export function getAcceptedCriterionEntitiesForProject(db: DB, projectId: number): CriterionEntity[] {
-  const acceptedIds = getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'criteria', 'criterion');
+export function getAcceptedCriterionEntitiesForSpecification(
+  db: DB,
+  specificationId: number,
+): CriterionEntity[] {
+  const acceptedIds = getAcceptedKnowledgeItemIdsForPhase(db, specificationId, 'criteria', 'criterion');
   if (acceptedIds.size === 0) {
     return [];
   }
 
-  return getGenericKnowledgeEntitiesForProjectByKind(db, projectId, 'criterion').filter((item) =>
+  return getGenericKnowledgeEntitiesForSpecificationByKind(db, specificationId, 'criterion').filter((item) =>
     acceptedIds.has(item.id),
   );
 }
 
 export function materializeAcceptedRequirementsReviewSet(
   db: DB,
-  projectId: number,
+  specificationId: number,
   turnId: number,
-): number[] | null {
-  return materializeAcceptedReviewSetItems(db, projectId, turnId, 'requirements');
+): number[] {
+  return materializeAcceptedReviewSetItems(db, specificationId, turnId, 'requirements');
 }
 
 export function materializeAcceptedCriteriaReviewSet(
   db: DB,
-  projectId: number,
+  specificationId: number,
   turnId: number,
-): number[] | null {
-  return materializeAcceptedReviewSetItems(db, projectId, turnId, 'criteria');
+): number[] {
+  return materializeAcceptedReviewSetItems(db, specificationId, turnId, 'criteria');
 }
 
-export function getScopeBundleForProject(db: DB, projectId: number) {
+export function getGroundingBundleForSpecification(db: DB, specificationId: number) {
   return {
-    goals: getKnowledgeItemsForProjectByKind(db, projectId, 'goal'),
-    terms: getKnowledgeItemsForProjectByKind(db, projectId, 'term'),
-    contexts: getKnowledgeItemsForProjectByKind(db, projectId, 'context'),
-    constraints: getKnowledgeItemsForProjectByKind(db, projectId, 'constraint'),
+    goals: getKnowledgeItemsForSpecificationByKind(db, specificationId, 'goal'),
+    terms: getKnowledgeItemsForSpecificationByKind(db, specificationId, 'term'),
+    contexts: getKnowledgeItemsForSpecificationByKind(db, specificationId, 'context'),
+    constraints: getKnowledgeItemsForSpecificationByKind(db, specificationId, 'constraint'),
   };
 }
 
-function getKnowledgeItemIdsLinkedToActivePath(db: DB, projectId: number): Set<number> {
-  const activeTurnIds = getActivePath(db, projectId).map((turn) => turn.id);
+function getKnowledgeItemIdsLinkedToActivePath(db: DB, specificationId: number): Set<number> {
+  const activeTurnIds = getActivePath(db, specificationId).map((turn) => turn.id);
   if (activeTurnIds.length === 0) {
     return new Set();
   }
@@ -994,7 +1000,7 @@ function getKnowledgeItemIdsLinkedToActivePath(db: DB, projectId: number): Set<n
     .innerJoin(schema.knowledgeItem, eq(schema.knowledgeItem.id, schema.turnKnowledgeItem.item_id))
     .where(
       and(
-        eq(schema.knowledgeItem.project_id, projectId),
+        eq(schema.knowledgeItem.specification_id, specificationId),
         inArray(schema.turnKnowledgeItem.turn_id, activeTurnIds),
       ),
     )
@@ -1005,17 +1011,20 @@ function getKnowledgeItemIdsLinkedToActivePath(db: DB, projectId: number): Set<n
 
 export type EntityProjectionMode = 'project-wide' | 'active-path';
 
-function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
+function getSpecificationWideEntitiesForSpecification(
+  db: DB,
+  specificationId: number,
+): EntitiesForSpecification {
   const genericKnowledgeCollections = Object.fromEntries(
     genericKnowledgeKindRegistry.map((entry) => [
       entry.collectionKey,
-      withReferenceCodes(getGenericKnowledgeEntitiesForProjectByKind(db, projectId, entry.kind)).map(
-        ({ kind_ordinal: _, ...item }) => item,
-      ),
+      withReferenceCodes(
+        getGenericKnowledgeEntitiesForSpecificationByKind(db, specificationId, entry.kind),
+      ).map(({ kind_ordinal: _, ...item }) => item),
     ]),
-  ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
+  ) as Pick<EntitiesForSpecification, GenericKnowledgeCollectionKey>;
   const decisions = withReferenceCodes(
-    getKnowledgeItemsForProjectByKind(db, projectId, 'decision')
+    getKnowledgeItemsForSpecificationByKind(db, specificationId, 'decision')
       .map((item) => projectKnowledgeItemEntity(item, 'decision'))
       .map((decision) => ({
         ...decision,
@@ -1023,7 +1032,7 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
       })),
   ).map(({ kind: _, kind_ordinal: __, ...decision }) => decision);
   const assumptions = withReferenceCodes(
-    getKnowledgeItemsForProjectByKind(db, projectId, 'assumption')
+    getKnowledgeItemsForSpecificationByKind(db, specificationId, 'assumption')
       .map((item) => projectKnowledgeItemEntity(item, 'assumption'))
       .map((assumption) => ({
         ...assumption,
@@ -1041,8 +1050,8 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
     JOIN knowledge_item source ON source.id = edge.from_item_id
     JOIN knowledge_item target ON target.id = edge.to_item_id
     WHERE
-      source.project_id = ${projectId}
-      AND target.project_id = ${projectId}
+      source.specification_id = ${specificationId}
+      AND target.specification_id = ${specificationId}
     ORDER BY
       CASE source.kind WHEN 'decision' THEN 0 WHEN 'assumption' THEN 1 ELSE 2 END,
       source.id,
@@ -1077,13 +1086,13 @@ function getProjectWideEntitiesForProject(db: DB, projectId: number): EntitiesFo
 }
 
 function filterGenericKnowledgeCollectionsToActivePath(
-  entities: EntitiesForProject,
+  entities: EntitiesForSpecification,
   activeItemIds: ReadonlySet<number>,
   options?: {
     acceptedRequirementIds?: ReadonlySet<number>;
     acceptedCriterionIds?: ReadonlySet<number>;
   },
-): Pick<EntitiesForProject, GenericKnowledgeCollectionKey> {
+): Pick<EntitiesForSpecification, GenericKnowledgeCollectionKey> {
   return Object.fromEntries(
     genericKnowledgeKindRegistry.map((entry) => {
       const acceptedIds =
@@ -1098,17 +1107,17 @@ function filterGenericKnowledgeCollectionsToActivePath(
           : entities[entry.collectionKey].filter((item) => activeItemIds.has(item.id));
       return [entry.collectionKey, visibleItems];
     }),
-  ) as Pick<EntitiesForProject, GenericKnowledgeCollectionKey>;
+  ) as Pick<EntitiesForSpecification, GenericKnowledgeCollectionKey>;
 }
 
 function filterEntitiesToActivePath(
-  entities: EntitiesForProject,
+  entities: EntitiesForSpecification,
   activeItemIds: ReadonlySet<number>,
   options?: {
     acceptedRequirementIds?: ReadonlySet<number>;
     acceptedCriterionIds?: ReadonlySet<number>;
   },
-): EntitiesForProject {
+): EntitiesForSpecification {
   const genericKnowledgeCollections = filterGenericKnowledgeCollectionsToActivePath(
     entities,
     activeItemIds,
@@ -1139,51 +1148,54 @@ function filterEntitiesToActivePath(
   };
 }
 
-export function getEntitiesForProjectByMode(
+export function getEntitiesForSpecificationByMode(
   db: DB,
-  projectId: number,
+  specificationId: number,
   mode: EntityProjectionMode,
-): EntitiesForProject {
-  const projectWideEntities = getProjectWideEntitiesForProject(db, projectId);
+): EntitiesForSpecification {
+  const projectWideEntities = getSpecificationWideEntitiesForSpecification(db, specificationId);
   if (mode === 'project-wide') {
     return projectWideEntities;
   }
 
   return filterEntitiesToActivePath(
     projectWideEntities,
-    getKnowledgeItemIdsLinkedToActivePath(db, projectId),
+    getKnowledgeItemIdsLinkedToActivePath(db, specificationId),
     {
       acceptedRequirementIds: getAcceptedKnowledgeItemIdsForPhase(
         db,
-        projectId,
+        specificationId,
         'requirements',
         'requirement',
       ),
-      acceptedCriterionIds: getAcceptedKnowledgeItemIdsForPhase(db, projectId, 'criteria', 'criterion'),
+      acceptedCriterionIds: getAcceptedKnowledgeItemIdsForPhase(db, specificationId, 'criteria', 'criterion'),
     },
   );
 }
 
-export function getEntitiesForProject(db: DB, projectId: number): EntitiesForProject {
-  return getEntitiesForProjectByMode(db, projectId, 'project-wide');
+export function getEntitiesForSpecification(db: DB, specificationId: number): EntitiesForSpecification {
+  return getEntitiesForSpecificationByMode(db, specificationId, 'project-wide');
 }
 
-export function getEntitiesForProjectOnActivePath(db: DB, projectId: number): EntitiesForProject {
-  return getEntitiesForProjectByMode(db, projectId, 'active-path');
+export function getEntitiesForSpecificationOnActivePath(
+  db: DB,
+  specificationId: number,
+): EntitiesForSpecification {
+  return getEntitiesForSpecificationByMode(db, specificationId, 'active-path');
 }
 
 export function getCapturedItemsForTurns(
   db: DB,
-  projectId: number,
+  specificationId: number,
   turnIds: readonly number[],
-): Map<number, NonNullable<ProjectStateTurn['captured_items']>> {
-  const capturedItemsByTurn = new Map<number, NonNullable<ProjectStateTurn['captured_items']>>();
+): Map<number, NonNullable<SpecificationStateTurn['captured_items']>> {
+  const capturedItemsByTurn = new Map<number, NonNullable<SpecificationStateTurn['captured_items']>>();
   if (turnIds.length === 0) {
     return capturedItemsByTurn;
   }
 
-  const projectWideEntities = getEntitiesForProject(db, projectId);
-  const itemsById = new Map<number, NonNullable<ProjectStateTurn['captured_items']>[number]>();
+  const projectWideEntities = getEntitiesForSpecification(db, specificationId);
+  const itemsById = new Map<number, NonNullable<SpecificationStateTurn['captured_items']>[number]>();
 
   for (const entry of knowledgeKindRegistry) {
     const items = projectWideEntities[entry.collectionKey] as ReadonlyArray<{
@@ -1212,7 +1224,7 @@ export function getCapturedItemsForTurns(
     .innerJoin(schema.knowledgeItem, eq(schema.knowledgeItem.id, schema.turnKnowledgeItem.item_id))
     .where(
       and(
-        eq(schema.knowledgeItem.project_id, projectId),
+        eq(schema.knowledgeItem.specification_id, specificationId),
         eq(schema.turnKnowledgeItem.relation, 'captured'),
         inArray(schema.turnKnowledgeItem.turn_id, [...turnIds]),
       ),

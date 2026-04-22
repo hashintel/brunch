@@ -1,3 +1,4 @@
+import type { BrunchAssistantPart } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { createForceCloseActivePhaseCommand } from '@/shared/phase-close.js';
 
@@ -9,7 +10,7 @@ import {
   createOption,
   createPhaseOutcome,
   createConfirmedPhaseOutcome,
-  createProject,
+  createSpecification,
   createTurn,
   getOptionsForTurn,
   linkKnowledgeItemToTurn,
@@ -22,91 +23,249 @@ import {
   createFixtureReviewQuestionInput,
   serializeFixtureAcceptedReviewUserParts,
   serializeFixtureConfirmationUserParts,
-  serializeFixtureGroundingCardAssistantParts,
+  serializeFixturePrefaceAssistantParts,
   serializeFixturePhaseConfirmationUserParts,
+  serializeFixturePhaseProposalAssistantParts,
   serializeFixtureQuestionAssistantParts,
-  serializeFixtureTurnResponseUserParts,
 } from './helpers.js';
 
 const code = createKnowledgeReferenceCode;
 
-export function seedClosedScope(db: DB, projectId: number) {
-  const scopeTurn = createTurn(db, projectId, {
-    phase: 'scope',
+const issueTrackerRequirementCrudContent =
+  'Create, edit, and close tickets with required fields: title, description, priority, and assignee';
+const issueTrackerRequirementAuditContent =
+  'Every status change records the actor identity and ISO 8601 timestamp in the audit log';
+const issueTrackerRequirementPermissionsContent =
+  'Role-based visibility: admins see all tickets and settings, developers see assigned and unassigned tickets, viewers have read-only access';
+const issueTrackerCriterionAuditContent =
+  'Changing a ticket status creates an audit log entry with actor, previous status, new status, and timestamp';
+const issueTrackerCriterionPermissionsContent =
+  'A viewer cannot edit a ticket and receives a clear authorization failure without mutating data';
+const issueTrackerCriterionPerformanceContent =
+  'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture';
+
+function seedIssueTrackerSupportingKnowledge(db: DB, projectId: number, turnId: number) {
+  const goalLifecycle = createKnowledgeItem(
+    db,
+    projectId,
+    'goal',
+    'Launch a lightweight issue tracker that covers the core ticket lifecycle for day-one teams',
+  );
+  const goalRoles = createKnowledgeItem(
+    db,
+    projectId,
+    'goal',
+    'Keep ticket visibility and role-specific actions clear for admins, developers, and viewers',
+  );
+  const contextFields = createKnowledgeItem(
+    db,
+    projectId,
+    'context',
+    'Tickets move through a workflow that always includes title, description, priority, and assignee',
+  );
+  const contextAudit = createKnowledgeItem(
+    db,
+    projectId,
+    'context',
+    'The team needs a trustworthy audit trail whenever ticket status changes',
+  );
+  const constraintAudit = createKnowledgeItem(
+    db,
+    projectId,
+    'constraint',
+    'Audit history must be retained as immutable actor-and-timestamp records',
+  );
+  const constraintPermissions = createKnowledgeItem(
+    db,
+    projectId,
+    'constraint',
+    'Viewer access must stay read-only and must not mutate ticket data or settings',
+  );
+  const decisionWorkflow = createKnowledgeItem(
+    db,
+    projectId,
+    'decision',
+    'Model the first release around one shared ticket record with role-aware actions',
+  );
+  for (const item of [
+    goalLifecycle,
+    goalRoles,
+    contextFields,
+    contextAudit,
+    constraintAudit,
+    constraintPermissions,
+    decisionWorkflow,
+  ]) {
+    linkKnowledgeItemToTurn(db, item.id, turnId, 'captured');
+  }
+
+  return {
+    goalLifecycle,
+    goalRoles,
+    contextFields,
+    contextAudit,
+    constraintAudit,
+    constraintPermissions,
+    decisionWorkflow,
+  };
+}
+
+function seedIssueTrackerPerformanceAssumption(db: DB, projectId: number, turnId: number) {
+  const assumption = createKnowledgeItem(
+    db,
+    projectId,
+    'assumption',
+    'A seeded workspace of 500 tickets is representative enough for the first performance walkthrough',
+  );
+  linkKnowledgeItemToTurn(db, assumption.id, turnId, 'captured');
+  return assumption;
+}
+
+function seedAcceptedIssueTrackerRequirements(db: DB, projectId: number) {
+  const seededRequirements = seedRequirementsReviewReady(db, projectId);
+  const requirementsAcceptOption = getOptionsForTurn(db, seededRequirements.reviewTurn.id).find(
+    (option) => option.position === 0,
+  );
+
+  if (!requirementsAcceptOption) {
+    throw new Error('Issue-tracker requirements review seed is missing the accept option');
+  }
+
+  applyTurnResponseSelections(db, seededRequirements.reviewTurn.id, [0]);
+  updateTurn(db, seededRequirements.reviewTurn.id, {
+    user_parts: serializeFixtureAcceptedReviewUserParts({
+      turnId: seededRequirements.reviewTurn.id,
+      selectedOptionIds: [requirementsAcceptOption.id],
+    }),
+  });
+
+  const requirementCrud = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    issueTrackerRequirementCrudContent,
+  );
+  const requirementAudit = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    issueTrackerRequirementAuditContent,
+  );
+  const requirementPermissions = createKnowledgeItem(
+    db,
+    projectId,
+    'requirement',
+    issueTrackerRequirementPermissionsContent,
+  );
+  for (const requirement of [requirementCrud, requirementAudit, requirementPermissions]) {
+    linkKnowledgeItemToTurn(db, requirement.id, seededRequirements.reviewTurn.id, 'reviewed');
+  }
+
+  createConfirmedPhaseOutcome(db, {
+    projectId,
+    phase: 'requirements',
+    proposal_turn_id: seededRequirements.reviewTurn.id,
+    confirmation_turn_id: seededRequirements.reviewTurn.id,
+    summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
+  });
+  advanceHead(db, projectId, seededRequirements.reviewTurn.id);
+
+  return {
+    ...seededRequirements,
+    requirementCrud,
+    requirementAudit,
+    requirementPermissions,
+    requirementsConfirmationTurn: seededRequirements.reviewTurn,
+  };
+}
+
+export function seedClosedGrounding(db: DB, projectId: number) {
+  const groundingTurn = createTurn(db, projectId, {
+    phase: 'grounding',
     question: 'What platform?',
     answer: 'Web',
   });
-  advanceHead(db, projectId, scopeTurn.id);
+  advanceHead(db, projectId, groundingTurn.id);
 
-  const scopeProposalTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    parent_turn_id: scopeTurn.id,
+  const groundingProposalTurn = createTurn(db, projectId, {
+    phase: 'grounding',
+    parent_turn_id: groundingTurn.id,
     question: '',
-    answer: 'We have enough scope context',
+    answer: 'We have enough grounding context',
+    assistant_parts: serializeFixturePhaseProposalAssistantParts({
+      turnId: groundingTurn.id + 1,
+      phase: 'grounding',
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    }),
   });
-  advanceHead(db, projectId, scopeProposalTurn.id);
+  advanceHead(db, projectId, groundingProposalTurn.id);
 
-  const scopeOutcome = createPhaseOutcome(db, {
+  const groundingOutcome = createPhaseOutcome(db, {
     projectId,
-    phase: 'scope',
-    proposal_turn_id: scopeProposalTurn.id,
+    phase: 'grounding',
+    proposal_turn_id: groundingProposalTurn.id,
     summary: 'Goals, terms, context, and constraints are sufficiently captured.',
   });
 
-  const scopeConfirmationTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    parent_turn_id: scopeProposalTurn.id,
+  const groundingConfirmationTurn = createTurn(db, projectId, {
+    phase: 'grounding',
+    parent_turn_id: groundingProposalTurn.id,
     question: '',
     answer: 'Confirm grounding closure',
     user_parts: serializeFixturePhaseConfirmationUserParts({
-      phase: 'scope',
-      proposalTurnId: scopeProposalTurn.id,
+      phase: 'grounding',
+      proposalTurnId: groundingProposalTurn.id,
     }),
   });
-  confirmPhaseOutcome(db, scopeOutcome.id, scopeConfirmationTurn.id);
-  advanceHead(db, projectId, scopeConfirmationTurn.id);
+  confirmPhaseOutcome(db, groundingOutcome.id, groundingConfirmationTurn.id);
+  advanceHead(db, projectId, groundingConfirmationTurn.id);
 
-  return { scopeTurn, scopeProposalTurn, scopeConfirmationTurn };
+  return { groundingTurn, groundingProposalTurn, groundingConfirmationTurn };
 }
 
-export function seedScopeClosurePending(db: DB, projectId: number) {
-  const scopeTurn = createTurn(db, projectId, {
-    phase: 'scope',
+export function seedGroundingClosurePending(db: DB, projectId: number) {
+  const groundingTurn = createTurn(db, projectId, {
+    phase: 'grounding',
     question: 'What platform?',
     answer: 'Web',
   });
-  advanceHead(db, projectId, scopeTurn.id);
+  advanceHead(db, projectId, groundingTurn.id);
 
-  const scopeProposalTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    parent_turn_id: scopeTurn.id,
+  const groundingProposalTurn = createTurn(db, projectId, {
+    phase: 'grounding',
+    parent_turn_id: groundingTurn.id,
     question: '',
-    answer: 'We have enough scope context',
+    answer: 'We have enough grounding context',
+    assistant_parts: serializeFixturePhaseProposalAssistantParts({
+      turnId: groundingTurn.id + 1,
+      phase: 'grounding',
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    }),
   });
-  advanceHead(db, projectId, scopeProposalTurn.id);
+  advanceHead(db, projectId, groundingProposalTurn.id);
 
   createPhaseOutcome(db, {
     projectId,
-    phase: 'scope',
-    proposal_turn_id: scopeProposalTurn.id,
+    phase: 'grounding',
+    proposal_turn_id: groundingProposalTurn.id,
     summary: 'Goals, terms, context, and constraints are sufficiently captured.',
   });
 
-  return { scopeTurn, scopeProposalTurn };
+  return { groundingTurn, groundingProposalTurn };
 }
 
 export function seedActiveDesign(db: DB, projectId: number) {
-  const seededScope = seedClosedScope(db, projectId);
+  const seededGrounding = seedClosedGrounding(db, projectId);
 
   const designTurn = createTurn(db, projectId, {
     phase: 'design',
-    parent_turn_id: seededScope.scopeConfirmationTurn.id,
+    parent_turn_id: seededGrounding.groundingConfirmationTurn.id,
     question: 'Which tradeoff matters most?',
     answer: 'Keep the repository seam small',
   });
   advanceHead(db, projectId, designTurn.id);
 
-  return { ...seededScope, designTurn };
+  return { ...seededGrounding, designTurn };
 }
 
 export function seedRequirementsReady(db: DB, projectId: number) {
@@ -137,29 +296,10 @@ export function seedRequirementsReady(db: DB, projectId: number) {
 
 export function seedRequirementsReviewReady(db: DB, projectId: number) {
   const seededRequirements = seedRequirementsReady(db, projectId);
-
-  const requirementCrud = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    'Create, edit, and close tickets with required fields: title, description, priority, and assignee',
-  );
-  const requirementAudit = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    'Every status change records the actor identity and ISO 8601 timestamp in the audit log',
-  );
-  const requirementPermissions = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    'Role-based visibility: admins see all tickets and settings, developers see assigned and unassigned tickets, viewers have read-only access',
-  );
-
-  for (const requirement of [requirementCrud, requirementAudit, requirementPermissions]) {
-    linkKnowledgeItemToTurn(db, requirement.id, seededRequirements.designConfirmationTurn.id, 'captured');
-  }
+  seedIssueTrackerSupportingKnowledge(db, projectId, seededRequirements.designConfirmationTurn.id);
+  const requirementCrudContent = issueTrackerRequirementCrudContent;
+  const requirementAuditContent = issueTrackerRequirementAuditContent;
+  const requirementPermissionsContent = issueTrackerRequirementPermissionsContent;
 
   const reviewTurn = createTurn(db, projectId, {
     phase: 'requirements',
@@ -178,8 +318,9 @@ export function seedRequirementsReviewReady(db: DB, projectId: number) {
         why: 'Review the whole requirement set before moving forward.',
         items: [
           {
+            reviewItemId: 'requirements:1',
             referenceCode: code('requirement', 1),
-            content: requirementCrud.content,
+            content: requirementCrudContent,
             rationale: 'Captures the core ticket lifecycle the tool must support from day one.',
             grounding: [
               { code: code('goal', 1) },
@@ -188,14 +329,16 @@ export function seedRequirementsReviewReady(db: DB, projectId: number) {
             ],
           },
           {
+            reviewItemId: 'requirements:2',
             referenceCode: code('requirement', 2),
-            content: requirementAudit.content,
+            content: requirementAuditContent,
             rationale: 'Protects accountability and traceability for regulated workflows.',
             grounding: [{ code: code('context', 2) }, { code: code('constraint', 1) }],
           },
           {
+            reviewItemId: 'requirements:3',
             referenceCode: code('requirement', 3),
-            content: requirementPermissions.content,
+            content: requirementPermissionsContent,
             rationale: 'Ensures each role sees only the operations appropriate to its responsibility.',
             grounding: [{ code: code('goal', 2) }, { code: code('constraint', 2) }],
             isRevised: true,
@@ -218,9 +361,9 @@ export function seedRequirementsReviewReady(db: DB, projectId: number) {
   return {
     ...seededRequirements,
     reviewTurn,
-    requirementCrud,
-    requirementAudit,
-    requirementPermissions,
+    requirementCrudContent,
+    requirementAuditContent,
+    requirementPermissionsContent,
   };
 }
 
@@ -255,12 +398,14 @@ function seedClosedRequirementsReview(db: DB, projectId: number, parentTurnId: n
         why: 'Review the whole requirement set before moving forward.',
         items: [
           {
+            reviewItemId: 'requirements:1',
             referenceCode: code('requirement', 1),
             content: approvedRequirement.content,
             rationale: 'Keeps resume behavior explicit in the accepted requirement set.',
             grounding: [{ code: code('goal', 1) }, { code: code('context', 1) }],
           },
           {
+            reviewItemId: 'requirements:2',
             referenceCode: code('requirement', 2),
             content: supportingRequirement.content,
             rationale: 'Preserves the local-first persistence seam as a first-order concern.',
@@ -318,43 +463,12 @@ export function seedCriteriaReady(db: DB, projectId: number) {
 }
 
 export function seedCriteriaReviewReady(db: DB, projectId: number) {
-  const seededCriteria = seedCriteriaReady(db, projectId);
+  const seededCriteria = seedAcceptedIssueTrackerRequirements(db, projectId);
+  seedIssueTrackerPerformanceAssumption(db, projectId, seededCriteria.requirementsConfirmationTurn.id);
 
-  const approvedRequirement = createKnowledgeItem(
-    db,
-    projectId,
-    'requirement',
-    'Create, edit, and close tickets with required fields: title, description, priority, and assignee',
-  );
-  linkKnowledgeItemToTurn(
-    db,
-    approvedRequirement.id,
-    seededCriteria.requirementsConfirmationTurn.id,
-    'reviewed',
-  );
-
-  const criterionAudit = createKnowledgeItem(
-    db,
-    projectId,
-    'criterion',
-    'Changing a ticket status creates an audit log entry with actor, previous status, new status, and timestamp',
-  );
-  const criterionPermissions = createKnowledgeItem(
-    db,
-    projectId,
-    'criterion',
-    'A viewer cannot edit a ticket and receives a clear authorization failure without mutating data',
-  );
-  const criterionPerformance = createKnowledgeItem(
-    db,
-    projectId,
-    'criterion',
-    'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture',
-  );
-
-  for (const criterion of [criterionAudit, criterionPermissions, criterionPerformance]) {
-    linkKnowledgeItemToTurn(db, criterion.id, seededCriteria.requirementsConfirmationTurn.id, 'captured');
-  }
+  const criterionAuditContent = issueTrackerCriterionAuditContent;
+  const criterionPermissionsContent = issueTrackerCriterionPermissionsContent;
+  const criterionPerformanceContent = issueTrackerCriterionPerformanceContent;
 
   const reviewTurn = createTurn(db, projectId, {
     phase: 'criteria',
@@ -373,21 +487,24 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
         why: 'Review the whole criterion set before moving forward.',
         items: [
           {
+            reviewItemId: 'criteria:1',
             referenceCode: code('criterion', 1),
-            content: criterionAudit.content,
+            content: criterionAuditContent,
             rationale: 'Makes the audit requirement observable in a seeded acceptance check.',
             grounding: [{ code: code('requirement', 1) }, { code: code('context', 2) }],
           },
           {
+            reviewItemId: 'criteria:2',
             referenceCode: code('criterion', 2),
-            content: criterionPermissions.content,
+            content: criterionPermissionsContent,
             rationale: 'Verifies role-based visibility through a concrete denial path.',
             grounding: [{ code: code('requirement', 1) }, { code: code('constraint', 2) }],
             isUserCreated: true,
           },
           {
+            reviewItemId: 'criteria:3',
             referenceCode: code('criterion', 3),
-            content: criterionPerformance.content,
+            content: criterionPerformanceContent,
             rationale: 'Pins the seeded demo to a legible performance target.',
             grounding: [{ code: code('requirement', 1) }, { code: code('assumption', 1) }],
             isRevised: true,
@@ -409,11 +526,10 @@ export function seedCriteriaReviewReady(db: DB, projectId: number) {
 
   return {
     ...seededCriteria,
-    approvedRequirement,
     reviewTurn,
-    criterionAudit,
-    criterionPermissions,
-    criterionPerformance,
+    criterionAuditContent,
+    criterionPermissionsContent,
+    criterionPerformanceContent,
   };
 }
 
@@ -442,12 +558,14 @@ function seedClosedCriteriaReview(db: DB, projectId: number, parentTurnId: numbe
         why: 'Review the whole criterion set before moving forward.',
         items: [
           {
+            reviewItemId: 'criteria:1',
             referenceCode: code('criterion', 1),
             content: criterion.content,
             rationale: 'Provides a concise seeded acceptance check for the resume path.',
             grounding: [{ code: code('requirement', 1) }],
           },
           {
+            reviewItemId: 'criteria:2',
             referenceCode: code('criterion', 2),
             content: supportingCriterion.content,
             rationale: 'Shows the user-visible reload behavior that proves persistence worked.',
@@ -505,11 +623,11 @@ export function seedAllPhasesClosed(db: DB, projectId: number) {
 }
 
 export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
-  const seededScope = seedClosedScope(db, projectId);
+  const seededGrounding = seedClosedGrounding(db, projectId);
 
   const designTurn = createTurn(db, projectId, {
     phase: 'design',
-    parent_turn_id: seededScope.scopeConfirmationTurn.id,
+    parent_turn_id: seededGrounding.groundingConfirmationTurn.id,
     question: 'Which tradeoff matters most?',
     answer: 'Keep the repository seam small',
   });
@@ -543,7 +661,7 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
   );
 
   return {
-    ...seededScope,
+    ...seededGrounding,
     designTurn,
     designForceCloseTurn,
     ...reviewedRequirements,
@@ -551,7 +669,7 @@ export function seedAllPhasesClosedWithForcedDesign(db: DB, projectId: number) {
   };
 }
 
-export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: number) {
+export function seedAllPhasesClosedWithLowReadinessGrounding(db: DB, projectId: number) {
   const designTurn = createTurn(db, projectId, {
     phase: 'design',
     question: 'Which tradeoff matters most?',
@@ -559,30 +677,30 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
   });
   advanceHead(db, projectId, designTurn.id);
 
-  const scopeClosureTurn = createTurn(db, projectId, {
+  const groundingClosureTurn = createTurn(db, projectId, {
     phase: 'design',
     parent_turn_id: designTurn.id,
     question: '',
     answer: 'Confirm grounding closure',
     user_parts: serializeFixturePhaseConfirmationUserParts({
-      phase: 'scope',
+      phase: 'grounding',
       proposalTurnId: designTurn.id,
     }),
   });
-  advanceHead(db, projectId, scopeClosureTurn.id);
+  advanceHead(db, projectId, groundingClosureTurn.id);
 
   createConfirmedPhaseOutcome(db, {
     projectId,
-    phase: 'scope',
-    proposal_turn_id: scopeClosureTurn.id,
-    confirmation_turn_id: scopeClosureTurn.id,
+    phase: 'grounding',
+    proposal_turn_id: groundingClosureTurn.id,
+    confirmation_turn_id: groundingClosureTurn.id,
     summary:
-      'Scope was closed from a minimal downstream checkpoint to exercise low-readiness export caveats.',
+      'Grounding was closed from a minimal downstream checkpoint to exercise low-readiness export caveats.',
   });
 
   const designProposalTurn = createTurn(db, projectId, {
     phase: 'design',
-    parent_turn_id: scopeClosureTurn.id,
+    parent_turn_id: groundingClosureTurn.id,
     question: '',
     answer: 'The main architectural commitments are captured well enough to review requirements.',
   });
@@ -617,7 +735,7 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
 
   return {
     designTurn,
-    scopeClosureTurn,
+    groundingClosureTurn,
     designProposalTurn,
     designConfirmationTurn,
     ...reviewedRequirements,
@@ -626,71 +744,12 @@ export function seedAllPhasesClosedWithLowReadinessScope(db: DB, projectId: numb
 }
 
 export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
-  const seededRequirements = seedRequirementsReviewReady(db, projectId);
-  const requirementsAcceptOption = getOptionsForTurn(db, seededRequirements.reviewTurn.id).find(
-    (option) => option.position === 0,
-  );
+  const seededRequirements = seedAcceptedIssueTrackerRequirements(db, projectId);
+  seedIssueTrackerPerformanceAssumption(db, projectId, seededRequirements.requirementsConfirmationTurn.id);
 
-  if (!requirementsAcceptOption) {
-    throw new Error('Issue-tracker requirements review seed is missing the accept option');
-  }
-
-  applyTurnResponseSelections(db, seededRequirements.reviewTurn.id, [0]);
-  updateTurn(db, seededRequirements.reviewTurn.id, {
-    user_parts: serializeFixtureAcceptedReviewUserParts({
-      turnId: seededRequirements.reviewTurn.id,
-      selectedOptionIds: [requirementsAcceptOption.id],
-    }),
-  });
-  linkKnowledgeItemToTurn(
-    db,
-    seededRequirements.requirementCrud.id,
-    seededRequirements.reviewTurn.id,
-    'reviewed',
-  );
-  linkKnowledgeItemToTurn(
-    db,
-    seededRequirements.requirementAudit.id,
-    seededRequirements.reviewTurn.id,
-    'reviewed',
-  );
-  linkKnowledgeItemToTurn(
-    db,
-    seededRequirements.requirementPermissions.id,
-    seededRequirements.reviewTurn.id,
-    'reviewed',
-  );
-  createConfirmedPhaseOutcome(db, {
-    projectId,
-    phase: 'requirements',
-    proposal_turn_id: seededRequirements.reviewTurn.id,
-    confirmation_turn_id: seededRequirements.reviewTurn.id,
-    summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
-  });
-  advanceHead(db, projectId, seededRequirements.reviewTurn.id);
-
-  const criterionAudit = createKnowledgeItem(
-    db,
-    projectId,
-    'criterion',
-    'Changing a ticket status creates an audit log entry with actor, previous status, new status, and timestamp',
-  );
-  const criterionPermissions = createKnowledgeItem(
-    db,
-    projectId,
-    'criterion',
-    'A viewer cannot edit a ticket and receives a clear authorization failure without mutating data',
-  );
-  const criterionPerformance = createKnowledgeItem(
-    db,
-    projectId,
-    'criterion',
-    'Filtering 500 tickets by status or assignee returns visible results within two seconds on the seeded fixture',
-  );
-
-  for (const criterion of [criterionAudit, criterionPermissions, criterionPerformance]) {
-    linkKnowledgeItemToTurn(db, criterion.id, seededRequirements.reviewTurn.id, 'captured');
-  }
+  const criterionAuditContent = issueTrackerCriterionAuditContent;
+  const criterionPermissionsContent = issueTrackerCriterionPermissionsContent;
+  const criterionPerformanceContent = issueTrackerCriterionPerformanceContent;
 
   const criteriaReviewTurn = createTurn(db, projectId, {
     phase: 'criteria',
@@ -709,21 +768,24 @@ export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
         why: 'Review the whole criterion set before moving forward.',
         items: [
           {
+            reviewItemId: 'criteria:1',
             referenceCode: code('criterion', 1),
-            content: criterionAudit.content,
+            content: criterionAuditContent,
             rationale: 'Makes the audit requirement observable in a seeded acceptance check.',
             grounding: [{ code: code('requirement', 1) }, { code: code('context', 2) }],
           },
           {
+            reviewItemId: 'criteria:2',
             referenceCode: code('criterion', 2),
-            content: criterionPermissions.content,
+            content: criterionPermissionsContent,
             rationale: 'Verifies role-based visibility through a concrete denial path.',
             grounding: [{ code: code('requirement', 1) }, { code: code('constraint', 2) }],
             isUserCreated: true,
           },
           {
+            reviewItemId: 'criteria:3',
             referenceCode: code('criterion', 3),
-            content: criterionPerformance.content,
+            content: criterionPerformanceContent,
             rationale: 'Pins the seeded demo to a legible performance target.',
             grounding: [{ code: code('requirement', 1) }, { code: code('assumption', 1) }],
             isRevised: true,
@@ -748,6 +810,9 @@ export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
       selectedOptionIds: [criteriaAcceptOption.id],
     }),
   });
+  const criterionAudit = createKnowledgeItem(db, projectId, 'criterion', criterionAuditContent);
+  const criterionPermissions = createKnowledgeItem(db, projectId, 'criterion', criterionPermissionsContent);
+  const criterionPerformance = createKnowledgeItem(db, projectId, 'criterion', criterionPerformanceContent);
   linkKnowledgeItemToTurn(db, criterionAudit.id, criteriaReviewTurn.id, 'reviewed');
   linkKnowledgeItemToTurn(db, criterionPermissions.id, criteriaReviewTurn.id, 'reviewed');
   linkKnowledgeItemToTurn(db, criterionPerformance.id, criteriaReviewTurn.id, 'reviewed');
@@ -767,79 +832,97 @@ export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
     criterionPerformance,
     criteriaConfirmationTurn: criteriaReviewTurn,
     criteriaReviewTurn,
-    requirementsConfirmationTurn: seededRequirements.reviewTurn,
+    requirementsConfirmationTurn: seededRequirements.requirementsConfirmationTurn,
   };
 }
 
 export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number) {
-  const firstGroundingTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    question: '',
-    answer: 'Continue — Focus on the routed workspace stream seam.',
-    assistant_parts: serializeFixtureGroundingCardAssistantParts({
-      summary: 'The repo already uses SQLite-backed local persistence.',
-      detail: 'This provisional brief grounds the first brownfield move.',
-      continueLabel: 'Continue',
-    }),
-  });
-  const firstContinueOption = createOption(db, firstGroundingTurn.id, {
-    position: 0,
-    content: 'Continue',
-    is_recommended: true,
-  });
-  updateTurn(db, firstGroundingTurn.id, {
-    user_parts: serializeFixtureTurnResponseUserParts({
-      text: 'Continue — Focus on the routed workspace stream seam.',
-      data: {
-        turnId: firstGroundingTurn.id,
-        selectedOptionIds: [firstContinueOption.id],
-        freeText: 'Focus on the routed workspace stream seam.',
-      },
-    }),
-  });
-  applyTurnResponseSelections(db, firstGroundingTurn.id, [0]);
-  advanceHead(db, projectId, firstGroundingTurn.id);
-
-  const substantiveTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    parent_turn_id: firstGroundingTurn.id,
+  const groundedQuestionTurn = createTurn(db, projectId, {
+    phase: 'grounding',
     question: 'Which seam needs another grounding pass before we keep going?',
     answer: 'The chat-runtime finalization path and replay seam.',
+    assistant_parts: serializeParts([
+      ...JSON.parse(
+        serializeFixturePrefaceAssistantParts({
+          observation: 'The repo already uses SQLite-backed local persistence.',
+          elaboration: 'This provisional brief grounds the first brownfield move.',
+        }),
+      ),
+      {
+        type: 'tool-ask_question',
+        toolCallId: 'fixture-grounded-question-1',
+        state: 'output-available',
+        input: {
+          question: 'Which seam needs another grounding pass before we keep going?',
+          why: 'Narrows the next brownfield move.',
+          impact: 'medium',
+          options: [
+            { content: 'The chat-runtime finalization path and replay seam.', is_recommended: true },
+            { content: 'The workspace persistence layer.', is_recommended: false },
+          ],
+        },
+        output: { ok: true, turnId: 0, optionCount: 2 },
+      },
+      { type: 'text', text: 'Which seam needs another grounding pass before we keep going?' },
+    ] satisfies BrunchAssistantPart[]),
     user_parts: serializeParts([
       { type: 'text', text: 'The chat-runtime finalization path and replay seam.' },
     ]),
   });
-  advanceHead(db, projectId, substantiveTurn.id);
+  advanceHead(db, projectId, groundedQuestionTurn.id);
 
-  const laterGroundingTurn = createTurn(db, projectId, {
-    phase: 'scope',
-    parent_turn_id: substantiveTurn.id,
-    question: '',
+  const followUpTurn = createTurn(db, projectId, {
+    phase: 'grounding',
+    parent_turn_id: groundedQuestionTurn.id,
+    question: 'What does the finalization path need to handle for replay consistency?',
     answer: null,
-    assistant_parts: serializeFixtureGroundingCardAssistantParts({
-      summary: 'Later context gathering narrowed the work to turn-finalization ownership.',
-      detail: 'Continue to move from replay evidence back into the next substantive question.',
-      continueLabel: 'Continue',
-    }),
+    assistant_parts: serializeParts([
+      ...JSON.parse(
+        serializeFixturePrefaceAssistantParts({
+          observation: 'Later context gathering narrowed the work to turn-finalization ownership.',
+          elaboration: 'Continue to move from replay evidence back into the next substantive question.',
+        }),
+      ),
+      {
+        type: 'tool-ask_question',
+        toolCallId: 'fixture-grounded-question-2',
+        state: 'output-available',
+        input: {
+          question: 'What does the finalization path need to handle for replay consistency?',
+          why: 'Clarifies turn-finalization ownership.',
+          impact: 'medium',
+          options: [
+            { content: 'Ordering guarantees on concurrent writes.', is_recommended: true },
+            { content: 'Idempotent replay of partial turns.', is_recommended: false },
+          ],
+        },
+        output: { ok: true, turnId: 0, optionCount: 2 },
+      },
+      { type: 'text', text: 'What does the finalization path need to handle for replay consistency?' },
+    ] satisfies BrunchAssistantPart[]),
   });
-  createOption(db, laterGroundingTurn.id, {
+  createOption(db, followUpTurn.id, {
     position: 0,
-    content: 'Continue',
+    content: 'Ordering guarantees on concurrent writes.',
     is_recommended: true,
   });
-  advanceHead(db, projectId, laterGroundingTurn.id);
+  createOption(db, followUpTurn.id, {
+    position: 1,
+    content: 'Idempotent replay of partial turns.',
+    is_recommended: false,
+  });
+  advanceHead(db, projectId, followUpTurn.id);
 
   return {
-    firstGroundingTurn,
-    substantiveTurn,
-    laterGroundingTurn,
+    groundedQuestionTurn,
+    followUpTurn,
   };
 }
 
 export type ScenarioFn = (db: DB, projectName?: string) => number;
 
 type WalkthroughWorkflowSummary = Record<
-  'scope' | 'design' | 'requirements' | 'criteria',
+  'grounding' | 'design' | 'requirements' | 'criteria',
   WorkflowPhaseStatus
 >;
 
@@ -852,101 +935,101 @@ export interface WalkthroughScenarioMatrixEntry {
 }
 
 function createWorkflowSummary(
-  scope: WorkflowPhaseStatus,
+  grounding: WorkflowPhaseStatus,
   design: WorkflowPhaseStatus,
   requirements: WorkflowPhaseStatus,
   criteria: WorkflowPhaseStatus,
 ): WalkthroughWorkflowSummary {
-  return { scope, design, requirements, criteria };
+  return { grounding, design, requirements, criteria };
 }
 
 export const scenarios: Record<string, ScenarioFn> = {
-  'scope-closed': (db, name = 'Scope Closed') => {
-    const project = createProject(db, name);
-    seedClosedScope(db, project.id);
+  'grounding-closed': (db, name = 'Grounding Closed') => {
+    const project = createSpecification(db, name);
+    seedClosedGrounding(db, project.id);
     return project.id;
   },
   'design-active': (db, name = 'Design Active') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedActiveDesign(db, project.id);
     return project.id;
   },
   'requirements-ready': (db, name = 'Requirements Ready') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedRequirementsReviewReady(db, project.id);
     return project.id;
   },
   'criteria-ready': (db, name = 'Criteria Ready') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedCriteriaReviewReady(db, project.id);
     return project.id;
   },
   'all-phases-closed': (db, name = 'All Phases Closed') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedAllPhasesClosed(db, project.id);
     return project.id;
   },
   'forced-close-all-phases-closed': (db, name = 'Forced-Close All Phases Closed') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedAllPhasesClosedWithForcedDesign(db, project.id);
     return project.id;
   },
   'low-readiness-all-phases-closed': (db, name = 'Low-Readiness All Phases Closed') => {
-    const project = createProject(db, name);
-    seedAllPhasesClosedWithLowReadinessScope(db, project.id);
+    const project = createSpecification(db, name);
+    seedAllPhasesClosedWithLowReadinessGrounding(db, project.id);
     return project.id;
   },
 };
 
 const phaseTransitionScenarios: Record<string, ScenarioFn> = {
   'brownfield-grounding-replay': (db, name = 'Brownfield reusable grounding replay') => {
-    const project = createProject(db, name, {
+    const project = createSpecification(db, name, {
       mode: 'brownfield',
     });
     seedBrownfieldReusableGroundingReplay(db, project.id);
     return project.id;
   },
   'issue-tracker-kickoff-ready': (db, name = 'Issue Tracker (kickoff ready)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     return project.id;
   },
-  'issue-tracker-scope-closure-pending': (db, name = 'Issue Tracker (scope closure pending)') => {
-    const project = createProject(db, name);
-    seedScopeClosurePending(db, project.id);
+  'issue-tracker-grounding-closure-pending': (db, name = 'Issue Tracker (grounding closure pending)') => {
+    const project = createSpecification(db, name);
+    seedGroundingClosurePending(db, project.id);
     return project.id;
   },
   'issue-tracker-design-kickoff-ready': (db, name = 'Issue Tracker (design kickoff ready)') => {
-    const project = createProject(db, name);
-    seedClosedScope(db, project.id);
+    const project = createSpecification(db, name);
+    seedClosedGrounding(db, project.id);
     return project.id;
   },
   'issue-tracker-design-recovery': (db, name = 'Issue Tracker (design recovery)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedActiveDesign(db, project.id);
     return project.id;
   },
   'issue-tracker-requirements-kickoff-ready': (db, name = 'Issue Tracker (requirements kickoff ready)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedRequirementsReady(db, project.id);
     return project.id;
   },
   'issue-tracker-criteria-kickoff-ready': (db, name = 'Issue Tracker (criteria kickoff ready)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedCriteriaReady(db, project.id);
     return project.id;
   },
   'issue-tracker-requirements-ready': (db, name = 'Issue Tracker (requirements review ready)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedRequirementsReviewReady(db, project.id);
     return project.id;
   },
   'issue-tracker-criteria-ready': (db, name = 'Issue Tracker (criteria review ready)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedCriteriaReviewReady(db, project.id);
     return project.id;
   },
   'issue-tracker-all-phases-closed': (db, name = 'Issue Tracker (all phases closed)') => {
-    const project = createProject(db, name);
+    const project = createSpecification(db, name);
     seedIssueTrackerAllPhasesClosed(db, project.id);
     return project.id;
   },
@@ -958,7 +1041,7 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
     seedScenario: phaseTransitionScenarios['brownfield-grounding-replay']!,
     label: 'Brownfield reusable grounding replay',
     inspectionFocus:
-      'Brownfield kickoff, answered grounding-card continue, later reusable context gathering, and resume all stay legible through the same replay seam.',
+      'Brownfield kickoff, answered preface continue, later reusable context gathering, and resume all stay legible through the same replay seam.',
     expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
   },
   {
@@ -969,9 +1052,9 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
     expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
   },
   {
-    scenarioName: 'issue-tracker-scope-closure-pending',
-    seedScenario: phaseTransitionScenarios['issue-tracker-scope-closure-pending']!,
-    label: 'Scope closure pending',
+    scenarioName: 'issue-tracker-grounding-closure-pending',
+    seedScenario: phaseTransitionScenarios['issue-tracker-grounding-closure-pending']!,
+    label: 'Grounding closure pending',
     inspectionFocus: 'Closure proposal summary is visible and waiting for explicit confirmation.',
     expectedWorkflowSummary: createWorkflowSummary('in_progress', 'unstarted', 'unstarted', 'unstarted'),
   },
@@ -979,7 +1062,8 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
     scenarioName: 'issue-tracker-design-kickoff-ready',
     seedScenario: phaseTransitionScenarios['issue-tracker-design-kickoff-ready']!,
     label: 'Design kickoff ready',
-    inspectionFocus: 'Scope handoff has landed and the next phase opens with an explicit kickoff frontier.',
+    inspectionFocus:
+      'Grounding handoff has landed and the next phase opens with an explicit kickoff frontier.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'in_progress', 'unstarted', 'unstarted'),
   },
   {
@@ -1038,7 +1122,7 @@ export const walkthroughScenarioMatrix: readonly WalkthroughScenarioMatrixEntry[
     scenarioName: 'low-readiness-all-phases-closed',
     seedScenario: scenarios['low-readiness-all-phases-closed']!,
     label: 'Low-readiness export caveat',
-    inspectionFocus: 'Manual inspection of export caveats when scope closed with low readiness.',
+    inspectionFocus: 'Manual inspection of export caveats when grounding closed with low readiness.',
     expectedWorkflowSummary: createWorkflowSummary('closed', 'closed', 'closed', 'closed'),
   },
 ] as const;

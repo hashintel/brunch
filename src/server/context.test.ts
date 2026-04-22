@@ -15,9 +15,9 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
-        phase: 'scope',
+        phase: 'grounding',
         question: 'What is the project about?',
         answer: 'A chat app',
         why: null,
@@ -39,9 +39,9 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
-        phase: 'scope',
+        phase: 'grounding',
         question: 'What is the primary goal?',
         answer: 'Build a new product',
         why: 'Shapes downstream decisions.',
@@ -69,9 +69,9 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
-        phase: 'scope',
+        phase: 'grounding',
         question: '',
         answer: 'Continue — Focus on the routed workspace seam.',
         why: null,
@@ -86,10 +86,10 @@ describe('buildInterviewerContext', () => {
         ]),
         assistant_parts: JSON.stringify([
           {
-            type: 'data-grounding-card',
+            type: 'data-preface',
             data: {
-              summary: 'The repo already uses SQLite-backed local persistence.',
-              detail: 'This is provisional context before the next substantive question.',
+              observation: 'The repo already uses SQLite-backed local persistence.',
+              elaboration: 'This is provisional context before the next substantive question.',
             },
           },
         ]),
@@ -99,8 +99,10 @@ describe('buildInterviewerContext', () => {
     ];
 
     const result = buildInterviewerContext(turns, 'next');
-    expect(result).toContain('Grounding card: The repo already uses SQLite-backed local persistence.');
-    expect(result).toContain('Detail: This is provisional context before the next substantive question.');
+    expect(result).toContain('Grounding preface: The repo already uses SQLite-backed local persistence.');
+    expect(result).toContain(
+      'Elaboration: This is provisional context before the next substantive question.',
+    );
     expect(result).toContain('Free-text response: Focus on the routed workspace seam.');
     expect(result).not.toContain('Question:');
   });
@@ -109,9 +111,9 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
-        phase: 'scope',
+        phase: 'grounding',
         question: 'Which platform should we target?',
         answer: 'Desktop — Best fit for our launch',
         why: 'Platform shapes the first build.',
@@ -145,9 +147,9 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
-        phase: 'scope',
+        phase: 'grounding',
         question: 'Which platform should we target?',
         answer: 'None of these fit our use case',
         why: 'Platform shapes the first build.',
@@ -181,9 +183,9 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
-        phase: 'scope',
+        phase: 'grounding',
         question: 'Which platform should we target?',
         answer: 'Web, Desktop — Covers both launch paths',
         why: 'Platform shapes the first build.',
@@ -213,13 +215,116 @@ describe('buildInterviewerContext', () => {
     expect(result).not.toContain('Answer: Web, Desktop — Covers both launch paths');
   });
 
+  it('renders both grounding card and question for stacked turns in history', () => {
+    const turns: TurnWithOptions[] = [
+      {
+        id: 1,
+        specification_id: 1,
+        parent_turn_id: null,
+        phase: 'grounding',
+        question: 'What is the primary user persona?',
+        answer: 'Developers building AI tools',
+        why: 'Understanding users grounds the design.',
+        impact: 'high',
+        is_resolution: false,
+        user_parts: JSON.stringify([
+          { type: 'text', text: 'Developers building AI tools' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [], freeText: 'Developers building AI tools' },
+          },
+        ]),
+        assistant_parts: JSON.stringify([
+          {
+            type: 'data-preface',
+            data: {
+              observation: 'The repo uses a React frontend with SQLite storage.',
+              elaboration: 'Provisional context from workspace analysis.',
+            },
+          },
+        ]),
+        created_at: '2026-01-01',
+      },
+    ];
+
+    const result = buildInterviewerContext(turns, 'next');
+    expect(result).toContain('Grounding preface: The repo uses a React frontend with SQLite storage.');
+    expect(result).toContain('Elaboration: Provisional context from workspace analysis.');
+    expect(result).toContain('Question: What is the primary user persona?');
+    expect(result).toContain('Why it matters: Understanding users grounds the design.');
+    expect(result).toContain('Free-text response: Developers building AI tools');
+  });
+
+  it('includes per-item comments from review turns in interviewer context', () => {
+    const turns: TurnWithOptions[] = [
+      {
+        id: 1,
+        specification_id: 1,
+        parent_turn_id: null,
+        phase: 'requirements',
+        question: 'Review these requirements',
+        answer: 'Request changes',
+        why: 'Requirements review',
+        impact: 'high',
+        is_resolution: false,
+        user_parts: JSON.stringify([
+          { type: 'text', text: 'Request changes' },
+          {
+            type: 'data-turn-response',
+            data: {
+              turnId: 1,
+              selectedOptionIds: [2],
+              reviewAction: 'request-changes',
+              freeText: 'Global note',
+              itemComments: [
+                { reviewItemId: 'requirements:1', comment: 'Rewrite to focus on auth flow' },
+                { reviewItemId: 'requirements:4', comment: 'Merge with R2' },
+              ],
+            },
+          },
+        ]),
+        assistant_parts: JSON.stringify([
+          {
+            type: 'data-review-set',
+            data: {
+              phase: 'requirements',
+              title: 'Requirements',
+              items: [
+                {
+                  reviewItemId: 'requirements:1',
+                  referenceCode: 'R1',
+                  content: 'Track auth state',
+                },
+              ],
+            },
+          },
+        ]),
+        created_at: '2026-01-01',
+        options: [
+          { id: 1, position: 0, content: 'Accept review', is_recommended: false, is_selected: false },
+          { id: 2, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+        ],
+      },
+    ];
+
+    const result = buildInterviewerContext(turns, 'next');
+    expect(result).toContain('Review set: Requirements');
+    expect(result).toContain('- Item requirements:1');
+    expect(result).toContain('Reference code: R1');
+    expect(result).toContain('Content: Track auth state');
+    expect(result).toContain('Per-item comments:');
+    expect(result).toContain('Item requirements:1: Rewrite to focus on auth flow');
+    expect(result).toContain('Item requirements:4: Merge with R2');
+    expect(result).toContain('Review action: request-changes');
+  });
+
   it('handles multi-turn history', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: null,
-        phase: 'scope',
+        phase: 'grounding',
         question: 'Q1',
         answer: 'A1',
         why: 'W1',
@@ -231,9 +336,9 @@ describe('buildInterviewerContext', () => {
       },
       {
         id: 2,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: 1,
-        phase: 'scope',
+        phase: 'grounding',
         question: 'Q2',
         answer: 'A2',
         why: null,
@@ -257,7 +362,7 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 10,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: 9,
         phase: 'criteria',
         question: 'What would prove the resume flow is complete?',
@@ -298,7 +403,7 @@ describe('buildInterviewerContext', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 7,
-        project_id: 1,
+        specification_id: 1,
         parent_turn_id: 6,
         phase: 'requirements',
         question: 'Which requirements are still missing?',
@@ -327,6 +432,106 @@ describe('buildInterviewerContext', () => {
     expect(result).toContain('- [6] Export the reviewed spec as markdown');
     expect(result).toContain('User: Review the next gap');
   });
+
+  it('keeps review regeneration context grounded in both the current inventory and prior request-changes feedback', () => {
+    const turns: TurnWithOptions[] = [
+      {
+        id: 8,
+        specification_id: 1,
+        parent_turn_id: 7,
+        phase: 'requirements',
+        question: 'Please review the current requirement set.',
+        answer: 'Request changes',
+        why: 'Requirements review',
+        impact: 'high',
+        is_resolution: false,
+        user_parts: JSON.stringify([
+          { type: 'text', text: 'Request changes' },
+          {
+            type: 'data-turn-response',
+            data: {
+              turnId: 8,
+              selectedOptionIds: [2],
+              reviewAction: 'request-changes',
+              freeText: 'Add a clearer export requirement.',
+              itemComments: [
+                {
+                  reviewItemId: 'requirements:5',
+                  comment: 'Be explicit about restart recovery.',
+                },
+                { reviewItemId: 'requirements:6', comment: 'Split export from sharing.' },
+              ],
+            },
+          },
+        ]),
+        assistant_parts: JSON.stringify([
+          {
+            type: 'data-review-set',
+            data: {
+              phase: 'requirements',
+              title: 'Requirements',
+              items: [
+                {
+                  reviewItemId: 'requirements:5',
+                  referenceCode: 'R1',
+                  content: 'Resume the interview from SQLite after restart',
+                  rationale: 'Keeps the active path stable after a restart.',
+                  grounding: [{ code: 'G1' }, { code: 'C2' }],
+                  isRevised: true,
+                },
+                {
+                  reviewItemId: 'requirements:6',
+                  referenceCode: 'R2',
+                  content: 'Export the reviewed spec as markdown',
+                  rationale: 'Makes the reviewed output portable for sharing.',
+                  grounding: [{ code: 'D1' }],
+                  isUserCreated: true,
+                },
+              ],
+            },
+          },
+        ]),
+        created_at: '2026-01-04',
+        options: [
+          { id: 1, position: 0, content: 'Accept review', is_recommended: false, is_selected: false },
+          { id: 2, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+        ],
+      },
+    ];
+
+    const result = buildInterviewerContext(turns, 'Regenerate the requirement set', {
+      phase: 'requirements',
+      entities: {
+        requirements: [
+          { id: 5, content: 'Resume the interview from SQLite after restart' },
+          { id: 6, content: 'Export the reviewed spec as markdown' },
+        ],
+      },
+    });
+
+    expect(result).toContain('Current requirements under review:');
+    expect(result).toContain('- [5] Resume the interview from SQLite after restart');
+    expect(result).toContain('- [6] Export the reviewed spec as markdown');
+    expect(result).toContain('Review set: Requirements');
+    expect(result).toContain('- Item requirements:5');
+    expect(result).toContain('Reference code: R1');
+    expect(result).toContain('Content: Resume the interview from SQLite after restart');
+    expect(result).toContain('Rationale: Keeps the active path stable after a restart.');
+    expect(result).toContain('Grounding refs: G1, C2');
+    expect(result).toContain('Badge: Revised');
+    expect(result).toContain('- Item requirements:6');
+    expect(result).toContain('Reference code: R2');
+    expect(result).toContain('Content: Export the reviewed spec as markdown');
+    expect(result).toContain('Rationale: Makes the reviewed output portable for sharing.');
+    expect(result).toContain('Grounding refs: D1');
+    expect(result).toContain('Badge: Added in revision');
+    expect(result).toContain('Review action: request-changes');
+    expect(result).toContain('Per-item comments:');
+    expect(result).toContain('Item requirements:5: Be explicit about restart recovery.');
+    expect(result).toContain('Item requirements:6: Split export from sharing.');
+    expect(result).toContain('Free-text response: Add a clearer export requirement.');
+    expect(result).toContain('User: Regenerate the requirement set');
+  });
 });
 
 // --- Observer context projection ---
@@ -335,9 +540,9 @@ describe('observer-context-projection', () => {
   it('includes current turn question and answer', () => {
     const turn: Turn = {
       id: 5,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 4,
-      phase: 'scope',
+      phase: 'grounding',
       turn_kind: 'question',
       question: 'What is the target audience?',
       answer: 'Developers building APIs',
@@ -371,9 +576,9 @@ describe('observer-context-projection', () => {
   it('includes brownfield project context when kickoff is grounded in an existing repo', () => {
     const turn: Turn = {
       id: 5,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 4,
-      phase: 'scope',
+      phase: 'grounding',
       turn_kind: 'question',
       question: 'Which part of the existing auth flow should we refine first?',
       answer: 'The login callback and redirect behavior.',
@@ -388,8 +593,8 @@ describe('observer-context-projection', () => {
     const result = buildObserverContext({
       turn,
       activePathSummary: '',
-      projectMode: 'brownfield',
-      projectCwd: '/tmp/repo',
+      specificationMode: 'brownfield',
+      workspaceDirectory: '/tmp/repo',
       entities: {
         goals: [],
         terms: [],
@@ -402,17 +607,69 @@ describe('observer-context-projection', () => {
       },
     });
 
-    expect(result).toContain('Project mode: brownfield');
-    expect(result).toContain('Project directory: /tmp/repo');
+    expect(result).toContain('scoped to a feature or change within an existing codebase');
+    expect(result).toContain('Workspace directory: /tmp/repo');
     expect(result).toContain('Grounding: The repo has a dedicated auth module and callback route.');
+  });
+
+  it('includes grounding card content in observer context for stacked turns', () => {
+    const turn: TurnWithOptions = {
+      id: 5,
+      specification_id: 1,
+      parent_turn_id: 4,
+      phase: 'grounding',
+      turn_kind: 'question',
+      question: 'What is the primary user persona?',
+      answer: 'Developers building AI tools',
+      why: 'Understanding users grounds the design.',
+      impact: 'high',
+      is_resolution: false,
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Developers building AI tools' },
+        {
+          type: 'data-turn-response',
+          data: { turnId: 5, selectedOptionIds: [], freeText: 'Developers building AI tools' },
+        },
+      ]),
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-preface',
+          data: {
+            observation: 'The repo uses a React frontend with SQLite storage.',
+            elaboration: 'Provisional context from workspace analysis.',
+          },
+        },
+      ]),
+      created_at: '2026-01-01',
+    };
+
+    const result = buildObserverContext({
+      turn,
+      activePathSummary: '',
+      entities: {
+        goals: [],
+        terms: [],
+        contexts: [],
+        constraints: [],
+        requirements: [],
+        criteria: [],
+        decisions: [],
+        assumptions: [],
+      },
+    });
+
+    expect(result).toContain('Grounding preface: The repo uses a React frontend with SQLite storage.');
+    expect(result).toContain('Preface elaboration: Provisional context from workspace analysis.');
+    expect(result).toContain('Question: What is the primary user persona?');
+    expect(result).toContain('Free-text response: Developers building AI tools');
   });
 
   it('includes existing entity graph', () => {
     const turn: Turn = {
       id: 5,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 4,
-      phase: 'scope',
+      phase: 'grounding',
       turn_kind: 'question',
       question: 'Q5',
       answer: 'A5',
@@ -449,9 +706,9 @@ describe('observer-context-projection', () => {
   it('omits full conversational history padding', () => {
     const turn: Turn = {
       id: 5,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 4,
-      phase: 'scope',
+      phase: 'grounding',
       turn_kind: 'question',
       question: 'Q5',
       answer: 'A5',
@@ -485,7 +742,7 @@ describe('observer-context-projection', () => {
   it('projects structured turn responses in observer context through the shared response seam', () => {
     const turn: TurnWithOptions = {
       id: 5,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 4,
       phase: 'requirements',
       turn_kind: 'question',
@@ -537,9 +794,9 @@ describe('observer-context-projection', () => {
   it('renders entity tables with md-pen (not hand-rolled strings)', () => {
     const turn: Turn = {
       id: 5,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 4,
-      phase: 'scope',
+      phase: 'grounding',
       turn_kind: 'question',
       question: 'Q5',
       answer: 'A5',
@@ -584,7 +841,7 @@ describe('observer-context-projection', () => {
   it('includes existing criteria alongside other generic entity sections for later-mode extraction', () => {
     const turn: Turn = {
       id: 6,
-      project_id: 1,
+      specification_id: 1,
       parent_turn_id: 5,
       phase: 'criteria',
       turn_kind: 'question',

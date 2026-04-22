@@ -9,7 +9,7 @@ export interface WorkflowPhaseDescriptor {
 type WorkflowPhaseStatusSource = string | { readonly status: string };
 
 export const workflowPhaseDescriptors = [
-  { phase: 'scope', label: 'Grounding', routeSegment: 'grounding' },
+  { phase: 'grounding', label: 'Grounding', routeSegment: 'grounding' },
   { phase: 'design', label: 'Elicitation', routeSegment: 'elicitation' },
   { phase: 'requirements', label: 'Requirements', routeSegment: 'requirements-review' },
   { phase: 'criteria', label: 'Acceptance Criteria', routeSegment: 'acceptance-review' },

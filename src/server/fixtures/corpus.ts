@@ -2,7 +2,14 @@ import { createKnowledgeCollectionRecord } from '@/shared/knowledge.js';
 
 import type { TurnWithOptions } from '../core.js';
 import { loadActivePathWithOptions } from '../core.js';
-import { advanceHead, createDb, createProject, createTurn, getEntitiesForProject, type DB } from '../db.js';
+import {
+  advanceHead,
+  createDb,
+  createSpecification,
+  createTurn,
+  getEntitiesForSpecification,
+  type DB,
+} from '../db.js';
 import { runObserver, type ObserverOutput } from '../observer.js';
 import { seedRequirementsReady, type ScenarioFn } from './scenarios.js';
 
@@ -73,10 +80,10 @@ export interface GoldenCorpus {
   entries: Record<string, GoldenCorpusEntry>;
 }
 
-const seedIssueTrackerScopeProbe: ScenarioFn = (db, projectName = 'Observer scope probe') => {
-  const project = createProject(db, projectName);
+const seedIssueTrackerGroundingProbe: ScenarioFn = (db, projectName = 'Observer grounding probe') => {
+  const project = createSpecification(db, projectName);
   const turn = createTurn(db, project.id, {
-    phase: 'scope',
+    phase: 'grounding',
     question: 'What is the primary goal of this issue tracker?',
     answer:
       'Replace our spreadsheet with a simple tracker that keeps ownership visible and records status-change history.',
@@ -86,7 +93,7 @@ const seedIssueTrackerScopeProbe: ScenarioFn = (db, projectName = 'Observer scop
 };
 
 const seedIssueTrackerRequirementsProbe: ScenarioFn = (db, projectName = 'Observer requirements probe') => {
-  const project = createProject(db, projectName);
+  const project = createSpecification(db, projectName);
   const { designConfirmationTurn } = seedRequirementsReady(db, project.id);
   const turn = createTurn(db, project.id, {
     phase: 'requirements',
@@ -104,13 +111,13 @@ export const curatedGoldenCorpus: GoldenCorpus = {
   description:
     'Curated TypeScript-native observer probes that seed projects directly through fixture builders or direct DB setup.',
   entries: {
-    'issue-tracker-scope': {
+    'issue-tracker-grounding': {
       description:
-        'Issue-tracker grounding probe focused on goal / term / context / constraint discrimination from one answered scope turn.',
+        'Issue-tracker grounding probe focused on goal / term / context / constraint discrimination from one answered grounding turn.',
       provenance: 'Direct TypeScript seed setup for the current observer probe seam.',
       scenario: {
-        phase: 'scope',
-        seedProject: seedIssueTrackerScopeProbe,
+        phase: 'grounding',
+        seedProject: seedIssueTrackerGroundingProbe,
         expectedCapture: {
           goals: [{ content: 'Replace spreadsheet issue tracking with a durable workflow', rationale: null }],
           terms: [{ content: 'ticket', rationale: 'Trackable work item with visible ownership and status.' }],
@@ -133,7 +140,7 @@ export const curatedGoldenCorpus: GoldenCorpus = {
     },
     'issue-tracker-requirements': {
       description:
-        'Issue-tracker requirements probe that keeps review-mode observer coverage without relying on any legacy scenario-format setup.',
+        'Issue-tracker requirements probe that verifies review-mode observer turns no longer materialize requirement proposals as canonical entities.',
       provenance: 'Direct TypeScript seed setup for the current observer probe seam.',
       scenario: {
         phase: 'requirements',
@@ -143,17 +150,7 @@ export const curatedGoldenCorpus: GoldenCorpus = {
           terms: [],
           contexts: [],
           constraints: [],
-          requirements: [
-            {
-              content:
-                'Create, edit, and close tickets with title, description, priority, and assignee fields',
-              rationale: 'Captures the core ticket workflow the first release must support.',
-            },
-            {
-              content: 'Record every status change with actor identity and timestamp in an audit trail',
-              rationale: 'Preserves the compliance-sensitive audit behavior described in grounding.',
-            },
-          ],
+          requirements: [],
           criteria: [],
           decisions: [],
           assumptions: [],
@@ -214,7 +211,7 @@ function buildExpectedTurnCapture(scenario: ObserverProbeScenario): ObservedTurn
 }
 
 function getAllEntityContentById(db: DB, projectId: number): Map<number, string> {
-  const entities = getEntitiesForProject(db, projectId);
+  const entities = getEntitiesForSpecification(db, projectId);
   const contentById = new Map<number, string>();
 
   for (const item of entities.goals) contentById.set(item.id, item.content);
@@ -235,7 +232,7 @@ function getEntityIdByKindAndContent(
   kind: DependencyKind,
   content: string,
 ): number {
-  const entities = getEntitiesForProject(db, projectId);
+  const entities = getEntitiesForSpecification(db, projectId);
   const collection = kind === 'decision' ? entities.decisions : entities.assumptions;
   const match = collection.find((item) => item.content === content);
   if (!match) {
@@ -324,7 +321,7 @@ function collectObservedTurnCapture(
   projectId: number,
   createdIds: Awaited<ReturnType<typeof runObserver>>,
 ): ObservedTurnCapture {
-  const entities = getEntitiesForProject(db, projectId);
+  const entities = getEntitiesForSpecification(db, projectId);
   const createdIdSet = new Set<number>([
     ...createdIds.entityIds.goals,
     ...createdIds.entityIds.terms,
@@ -354,24 +351,12 @@ function collectObservedTurnCapture(
       rationale: item.rationale ?? null,
       subtype: item.subtype ?? null,
     }));
-  capture.requirements =
-    createdIds.draftReviewItems.requirements.length > 0
-      ? createdIds.draftReviewItems.requirements.map((item) => ({
-          content: item.content,
-          rationale: item.rationale ?? null,
-        }))
-      : entities.requirements
-          .filter((item) => createdIdSet.has(item.id))
-          .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
-  capture.criteria =
-    createdIds.draftReviewItems.criteria.length > 0
-      ? createdIds.draftReviewItems.criteria.map((item) => ({
-          content: item.content,
-          rationale: item.rationale ?? null,
-        }))
-      : entities.criteria
-          .filter((item) => createdIdSet.has(item.id))
-          .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
+  capture.requirements = entities.requirements
+    .filter((item) => createdIdSet.has(item.id))
+    .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
+  capture.criteria = entities.criteria
+    .filter((item) => createdIdSet.has(item.id))
+    .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));
   capture.decisions = entities.decisions
     .filter((item) => createdIdSet.has(item.id))
     .map((item) => ({ content: item.content, rationale: item.rationale ?? null }));

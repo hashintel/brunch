@@ -24,10 +24,6 @@ function formatStatus(status: WorkflowPhaseState['status']): string {
   }
 }
 
-function formatReadiness(readiness: WorkflowPhaseState['readiness']): string {
-  return `${readiness[0]!.toUpperCase()}${readiness.slice(1)} readiness`;
-}
-
 function formatTurnCount(turnCount: number): string {
   return `${turnCount} ${turnCount === 1 ? 'turn' : 'turns'}`;
 }
@@ -38,7 +34,7 @@ function getCurrentReachablePhase(workflow: WorkflowState): WorkflowPhase | null
 
 function getPhaseTurnCounts(turns: readonly SpecificationTurn[]): Record<WorkflowPhase, number> {
   const turnCounts = {
-    scope: 0,
+    grounding: 0,
     design: 0,
     requirements: 0,
     criteria: 0,
@@ -77,26 +73,11 @@ function StatusMeta({ status }: { status: WorkflowPhaseState['status'] }) {
       className={cn(
         'text-xs font-medium',
         status === 'closed' && 'text-[#2070e6]',
-        status === 'in_progress' && 'text-[#2070e6]',
+        status === 'in_progress' && 'text-amber-600',
         status === 'unstarted' && 'text-sub',
       )}
     >
       {formatStatus(status)}
-    </span>
-  );
-}
-
-function ReadinessMeta({ readiness }: { readiness: WorkflowPhaseState['readiness'] }) {
-  return (
-    <span
-      className={cn(
-        'rounded-full px-1.5 py-0.5 text-xs font-medium',
-        readiness === 'high' && 'bg-emerald-100 text-emerald-700',
-        readiness === 'medium' && 'bg-amber-100 text-amber-700',
-        readiness === 'low' && 'bg-zinc-100 text-zinc-500',
-      )}
-    >
-      {formatReadiness(readiness)}
     </span>
   );
 }
@@ -122,7 +103,7 @@ export function PhaseNavigationSidebar({
       data-testid="phase-sidebar"
     >
       <div className="flex h-16 shrink-0 items-center border-b border-rule bg-background px-3">
-        <div className="flex flex-col gap-0.5">
+        <div className="flex min-w-0 flex-col gap-0.5">
           <Link
             to="/"
             className="inline-flex items-center gap-1 text-xs text-hint transition-colors hover:text-ink"
@@ -160,9 +141,9 @@ export function PhaseNavigationSidebar({
                 <div className="min-w-0">
                   <span
                     className={cn(
-                      'inline-block text-sm leading-tight font-medium',
+                      '-mx-1.5 inline-block rounded px-1.5 py-0.5 text-sm leading-tight font-medium',
                       state.status === 'unstarted' ? 'text-hint' : 'text-sub',
-                      'group-[.is-active]/phase:rounded-md group-[.is-active]/phase:bg-white group-[.is-active]/phase:px-2 group-[.is-active]/phase:py-0.5 group-[.is-active]/phase:text-ink',
+                      'group-[.is-active]/phase:bg-white group-[.is-active]/phase:text-ink',
                     )}
                   >
                     {getWorkflowPhaseLabel(phase)}
@@ -170,7 +151,6 @@ export function PhaseNavigationSidebar({
                   <div className="mt-1 flex flex-col gap-0.5 text-xs text-sub">
                     <div className="flex items-center gap-1.5">
                       <StatusMeta status={state.status} />
-                      {state.status === 'in_progress' ? <ReadinessMeta readiness={state.readiness} /> : null}
                     </div>
                     <span>{formatTurnCount(phaseTurnCounts[phase])}</span>
                   </div>
@@ -226,12 +206,12 @@ export function PhaseNavigationSidebar({
                   data-phase="output"
                   data-phase-reachable="true"
                 >
-                  <span className="inline-block text-sm leading-tight font-medium text-sub group-[.is-active]/phase:rounded-md group-[.is-active]/phase:bg-white group-[.is-active]/phase:px-2 group-[.is-active]/phase:py-0.5 group-[.is-active]/phase:text-ink">
+                  <span className="-mx-1.5 inline-block rounded px-1.5 py-0.5 text-sm leading-tight font-medium text-sub group-[.is-active]/phase:bg-white group-[.is-active]/phase:text-ink">
                     Output
                   </span>
                   <div className="mt-1 flex flex-col gap-0.5 text-xs text-sub">
                     <span className="font-medium text-[#2070e6]">Available</span>
-                    <span>Markdown export</span>
+                    <span>Completed specification</span>
                   </div>
                 </Link>
               </li>

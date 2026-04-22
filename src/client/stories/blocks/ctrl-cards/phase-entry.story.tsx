@@ -30,7 +30,7 @@ export function PhaseEntryStory() {
 
           <div className="mt-6 max-w-2xl">
             <KickoffControlCard
-              phase="scope"
+              phase="grounding"
               mode="start"
               onProceed={() => console.log('proceed:scope')}
               onSelectStrategy={(mode) => console.log('selectStrategy', mode)}

@@ -15,7 +15,10 @@ export const reviewSetGroundingRefSchema = z.object({
   code: z.string().min(1),
 });
 
+export const reviewItemIdentitySchema = z.string().min(1);
+
 export const reviewSetItemSchema = z.object({
+  reviewItemId: reviewItemIdentitySchema,
   content: z.string().min(1),
   referenceCode: z.string().min(1).optional(),
   rationale: z.string().min(1).nullable().optional(),
@@ -24,16 +27,31 @@ export const reviewSetItemSchema = z.object({
   isRevised: z.boolean().optional(),
 });
 
-export const reviewSetSchema = z.object({
-  phase: workflowPhaseSchema,
-  title: z.string().min(1),
-  items: z.array(reviewSetItemSchema),
-});
+export const reviewSetSchema = z
+  .object({
+    phase: workflowPhaseSchema,
+    title: z.string().min(1),
+    items: z.array(reviewSetItemSchema),
+  })
+  .superRefine((value, ctx) => {
+    const seenReviewItemIds = new Set<string>();
 
-export const groundingCardSchema = z.object({
-  summary: z.string().min(1),
-  detail: z.string().min(1).nullable().optional(),
-  continueLabel: z.string().min(1).nullable().optional(),
+    for (let index = 0; index < value.items.length; index += 1) {
+      const reviewItemId = value.items[index]!.reviewItemId;
+      if (seenReviewItemIds.has(reviewItemId)) {
+        ctx.addIssue({
+          code: 'custom',
+          message: 'reviewSet items must not repeat the same reviewItemId',
+          path: ['items', index, 'reviewItemId'],
+        });
+      }
+      seenReviewItemIds.add(reviewItemId);
+    }
+  });
+
+export const prefaceSchema = z.object({
+  observation: z.string().min(1),
+  elaboration: z.string().min(1).nullable().optional(),
 });
 
 function validateReviewActionOptionPosition(
@@ -63,7 +81,17 @@ export const structuredQuestionSchema = z
           is_recommended: z.boolean(),
         }),
       )
-      .min(2),
+      .check((ctx) => {
+        if (ctx.value.length === 1) {
+          ctx.issues.push({
+            code: 'too_small',
+            minimum: 2,
+            input: ctx.value,
+            origin: 'array',
+            inclusive: true,
+          });
+        }
+      }),
     reviewActions: z.array(reviewActionOptionSchema).optional(),
     reviewSet: reviewSetSchema.optional(),
   })
@@ -104,30 +132,24 @@ export const askQuestionToolOutputSchema = z.object({
   optionCount: z.number(),
 });
 
-export const presentGroundingCardToolOutputSchema = z.object({
+export const presentPrefaceToolOutputSchema = z.object({
   ok: z.literal(true),
   turnId: z.number(),
-});
-
-export const observerDraftReviewItemSchema = z.object({
-  content: z.string().min(1),
-  rationale: z.string().nullable(),
-});
-
-export const observerReviewDraftsSchema = z.object({
-  requirements: z.array(observerDraftReviewItemSchema),
-  criteria: z.array(observerDraftReviewItemSchema),
 });
 
 export const observerResultSchema = z.object({
   turnId: z.number().int().positive().optional(),
   entityIds: z.object(createKnowledgeCollectionRecord(() => z.array(z.number()))),
-  draftReviewItems: observerReviewDraftsSchema.optional(),
 });
 
 export const activitySummarySchema = z.object({
   seconds: z.number().int().positive().optional(),
   tools: z.array(z.string()),
+});
+
+export const reviewItemCommentSchema = z.object({
+  reviewItemId: reviewItemIdentitySchema,
+  comment: z.string().trim().min(1),
 });
 
 export const dataTurnResponseSchema = z
@@ -136,6 +158,7 @@ export const dataTurnResponseSchema = z
     selectedOptionIds: z.array(z.number()),
     freeText: z.string().trim().min(1).optional(),
     reviewAction: reviewActionSchema.optional(),
+    itemComments: z.array(reviewItemCommentSchema).optional(),
   })
   .superRefine((value, ctx) => {
     if (value.selectedOptionIds.length === 0 && !value.freeText) {
@@ -169,14 +192,13 @@ export type StructuredQuestion = z.infer<typeof structuredQuestionSchema>;
 export type ReviewAction = z.infer<typeof reviewActionSchema>;
 export type ReviewActionOption = z.infer<typeof reviewActionOptionSchema>;
 export type AskQuestionToolOutput = z.infer<typeof askQuestionToolOutputSchema>;
-export type PresentGroundingCardToolOutput = z.infer<typeof presentGroundingCardToolOutputSchema>;
-export type ObserverDraftReviewItem = z.infer<typeof observerDraftReviewItemSchema>;
-export type ObserverReviewDrafts = z.infer<typeof observerReviewDraftsSchema>;
+export type PresentPrefaceToolOutput = z.infer<typeof presentPrefaceToolOutputSchema>;
 export type ObserverResultData = z.infer<typeof observerResultSchema>;
 export type ObserverEntityIds = ObserverResultData['entityIds'];
 export type ReviewSetData = z.infer<typeof reviewSetSchema>;
-export type GroundingCardData = z.infer<typeof groundingCardSchema>;
+export type PrefaceData = z.infer<typeof prefaceSchema>;
 export type ActivitySummary = z.infer<typeof activitySummarySchema>;
+export type ReviewItemComment = z.infer<typeof reviewItemCommentSchema>;
 export type DataTurnResponse = z.infer<typeof dataTurnResponseSchema>;
 export type { DataConfirmation };
 export type DataPhaseSummary = z.infer<typeof dataPhaseSummarySchema>;
@@ -190,7 +212,7 @@ export type BrunchMessageMetadata = {
 export type BrunchDataParts = {
   'observer-result': ObserverResultData;
   'review-set': ReviewSetData;
-  'grounding-card': GroundingCardData;
+  preface: PrefaceData;
   'activity-summary': ActivitySummary;
   'turn-response': DataTurnResponse;
   confirmation: DataConfirmation;
@@ -203,9 +225,9 @@ export type BrunchUITools = {
     input: StructuredQuestion;
     output: AskQuestionToolOutput;
   };
-  present_grounding_card: {
-    input: GroundingCardData;
-    output: PresentGroundingCardToolOutput;
+  present_preface: {
+    input: PrefaceData;
+    output: PresentPrefaceToolOutput;
   };
   propose_phase_closure: {
     input: PhaseClosureProposal;
@@ -222,11 +244,11 @@ export type BrunchAssistantPart =
       {
         type:
           | 'tool-ask_question'
-          | 'tool-present_grounding_card'
+          | 'tool-present_preface'
           | 'tool-propose_phase_closure'
           | 'data-observer-result'
           | 'data-review-set'
-          | 'data-grounding-card'
+          | 'data-preface'
           | 'data-activity-summary'
           | 'data-phase-summary';
       }
@@ -243,13 +265,13 @@ const persistedAssistantPartSchema = z.discriminatedUnion('type', [
   z.object({ type: z.literal('step-start') }).loose(),
   z.object({ type: z.literal('text'), text: z.string() }).loose(),
   z.object({ type: z.literal('tool-ask_question'), input: structuredQuestionSchema }).loose(),
-  z.object({ type: z.literal('tool-present_grounding_card'), input: groundingCardSchema }).loose(),
+  z.object({ type: z.literal('tool-present_preface'), input: prefaceSchema }).loose(),
   z
     .object({ type: z.literal('tool-propose_phase_closure'), input: phaseClosureProposalSchema.optional() })
     .loose(),
   z.object({ type: z.literal('data-observer-result'), data: observerResultSchema }).loose(),
   z.object({ type: z.literal('data-review-set'), data: reviewSetSchema }).loose(),
-  z.object({ type: z.literal('data-grounding-card'), data: groundingCardSchema }).loose(),
+  z.object({ type: z.literal('data-preface'), data: prefaceSchema }).loose(),
   z.object({ type: z.literal('data-activity-summary'), data: activitySummarySchema }).loose(),
   z.object({ type: z.literal('data-phase-summary'), data: dataPhaseSummarySchema }).loose(),
 ]);
@@ -303,10 +325,10 @@ export const askQuestionValidationTool = tool({
   outputSchema: askQuestionToolOutputSchema,
 });
 
-export const presentGroundingCardValidationTool = tool({
-  description: 'Present a provisional grounding card before the next substantive interview move.',
-  inputSchema: groundingCardSchema,
-  outputSchema: presentGroundingCardToolOutputSchema,
+export const presentPrefaceValidationTool = tool({
+  description: 'Present a provisional preface before the next substantive interview move.',
+  inputSchema: prefaceSchema,
+  outputSchema: presentPrefaceToolOutputSchema,
 });
 
 export const proposePhaseClosureValidationTool = tool({
@@ -317,14 +339,14 @@ export const proposePhaseClosureValidationTool = tool({
 
 export const brunchValidationTools = {
   ask_question: askQuestionValidationTool,
-  present_grounding_card: presentGroundingCardValidationTool,
+  present_preface: presentPrefaceValidationTool,
   propose_phase_closure: proposePhaseClosureValidationTool,
 } as const;
 
 export const brunchDataPartSchemas = {
   'observer-result': observerResultSchema,
   'review-set': reviewSetSchema,
-  'grounding-card': groundingCardSchema,
+  preface: prefaceSchema,
   'activity-summary': activitySummarySchema,
   'turn-response': dataTurnResponseSchema,
   confirmation: dataConfirmationSchema,
@@ -339,7 +361,7 @@ export type PersistedBrunchAssistantPart = Extract<
       | 'text'
       | 'data-observer-result'
       | 'data-review-set'
-      | 'data-grounding-card'
+      | 'data-preface'
       | 'data-phase-summary'
       | 'data-activity-summary';
   }
@@ -350,42 +372,31 @@ const ASSISTANT_PART_TYPES: ReadonlySet<PersistedBrunchAssistantPart['type']> = 
   'text',
   'data-observer-result',
   'data-review-set',
-  'data-grounding-card',
+  'data-preface',
   'data-phase-summary',
   'data-activity-summary',
 ] as const satisfies PersistedBrunchAssistantPart['type'][]);
 
-function getToolSummaryLabel(toolName: string): string {
-  switch (toolName) {
-    case 'ask_question':
-      return 'structured question';
-    case 'present_grounding_card':
-      return 'grounding card';
-    case 'propose_phase_closure':
-      return 'phase closure proposal';
-    default:
-      return toolName.replaceAll(/[_-]+/g, ' ').trim();
-  }
-}
+/**
+ * Internal tool part types — these are brunch's own orchestration tools
+ * and should never appear in user-facing activity summaries.
+ * Only external/dynamic tools (file system, web search, etc.) are interesting to users.
+ */
+type InternalToolPartType = `tool-${keyof BrunchUITools}`;
 
-/** Tools that fire on every turn and add noise to the activity summary. */
-const FILTERED_ACTIVITY_TOOLS = new Set(['tool-ask_question', 'tool-present_grounding_card']);
+const INTERNAL_TOOL_PART_TYPES: ReadonlySet<InternalToolPartType> = new Set<InternalToolPartType>([
+  'tool-ask_question',
+  'tool-present_preface',
+  'tool-propose_phase_closure',
+]);
 
 function getActivityToolLabel(part: BrunchUIMessagePart): string | null {
-  if (FILTERED_ACTIVITY_TOOLS.has(part.type)) {
+  if (INTERNAL_TOOL_PART_TYPES.has(part.type as InternalToolPartType)) {
     return null;
   }
 
-  if (part.type === 'tool-present_grounding_card') {
-    return getToolSummaryLabel('present_grounding_card');
-  }
-
-  if (part.type === 'tool-propose_phase_closure') {
-    return getToolSummaryLabel('propose_phase_closure');
-  }
-
   if (part.type === 'dynamic-tool') {
-    return getToolSummaryLabel(part.toolName);
+    return part.toolName.replaceAll(/[_-]+/g, ' ').trim();
   }
 
   return null;

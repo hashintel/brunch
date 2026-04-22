@@ -15,6 +15,7 @@ const code = createKnowledgeReferenceCode;
 
 const criterionItems: ReviewSetCardItem[] = [
   {
+    reviewItemId: 'criteria:1',
     referenceCode: code('criterion', 1),
     content:
       'Intake form submissions with all required fields populated are accepted into the processing queue within 5 seconds',
@@ -22,12 +23,14 @@ const criterionItems: ReviewSetCardItem[] = [
     grounding: [{ code: code('requirement', 1) }, { code: code('goal', 1) }, { code: code('constraint', 2) }],
   },
   {
+    reviewItemId: 'criteria:2',
     referenceCode: code('criterion', 2),
     content: 'Submissions missing any required field display inline validation errors and are not queued',
     rationale: 'Ensures the completeness checklist requirement prevents incomplete submissions.',
     grounding: [{ code: code('requirement', 2) }, { code: code('decision', 1) }],
   },
   {
+    reviewItemId: 'criteria:3',
     referenceCode: code('criterion', 3),
     content:
       'The unified dashboard reflects data from all three source systems with no more than 30 seconds of staleness',
@@ -35,25 +38,30 @@ const criterionItems: ReviewSetCardItem[] = [
     grounding: [{ code: code('requirement', 3) }, { code: code('goal', 2) }, { code: code('assumption', 1) }],
   },
   {
+    reviewItemId: 'criteria:4',
     referenceCode: code('criterion', 4),
-    content: 'A user with viewer permissions cannot modify any project data or configuration',
-    rationale: 'Verifies the RBAC tier boundary for the viewer role.',
+    content:
+      'A user with viewer permissions cannot modify any project data or configuration after a full page reload',
+    rationale: 'Revised to prove the RBAC boundary still holds after the workspace rehydrates.',
     grounding: [
       { code: code('requirement', 5) },
       { code: code('constraint', 3) },
       { code: code('decision', 2) },
     ],
+    isRevised: true,
   },
   {
+    reviewItemId: 'criteria:5',
     referenceCode: code('criterion', 5),
     content:
-      'Every state transition on an intake request produces an audit log entry containing timestamp, user ID, and previous/new state',
-    rationale: 'Validates the audit trail requirement against compliance constraints.',
+      'Every accepted review revision shows Added in revision and Revised badges before the route refresh completes',
+    rationale: 'Adds an explicit transcript-trust proof for review regeneration states.',
     grounding: [
       { code: code('requirement', 6) },
       { code: code('constraint', 4) },
       { code: code('assumption', 7) },
     ],
+    isUserCreated: true,
   },
 ];
 
