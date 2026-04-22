@@ -77,7 +77,7 @@ describe('EntitySidebar', () => {
     expect(screen.queryByText('Pending')).toBeNull();
   });
 
-  it('renders all visible knowledge groups, hides terms, and reports visible totals only', () => {
+  it('renders all visible knowledge groups including terms and reports visible totals', () => {
     render(
       <EntitySidebar
         entityState={createEntityState({
@@ -159,17 +159,18 @@ describe('EntitySidebar', () => {
 
     expect(screen.getByText('Knowledge Graph')).toBeTruthy();
     expect(screen.getByText('Goals & Context')).toBeTruthy();
+    expect(screen.getByText('Terminology')).toBeTruthy();
     expect(screen.getByText('Assumptions & Decisions')).toBeTruthy();
     expect(screen.getByText('Requirements')).toBeTruthy();
     expect(screen.getByText('Acceptance Criteria')).toBeTruthy();
-    expect(screen.queryByText('Invisible term')).toBeNull();
+    expect(screen.getByText('Invisible term')).toBeTruthy();
     expect(screen.getByText('Ship a faithful active-path export')).toBeTruthy();
     expect(screen.getByText('Use the active-path entity projection for routed state')).toBeTruthy();
     expect(screen.getByText('Users only trust the current branch state')).toBeTruthy();
     expect(screen.getByText('Export must be markdown')).toBeTruthy();
     expect(screen.getByText('Export reflects approved items only')).toBeTruthy();
     const header = screen.getByText('Knowledge Graph').parentElement?.textContent ?? '';
-    expect(header).toContain('6 Items');
+    expect(header).toContain('7 Items');
     expect(header).toContain('0 Connections');
   });
 

@@ -5388,9 +5388,9 @@ describe('InterviewView', () => {
     expect(answeredCard.textContent).toContain('Best fit for launch');
   });
 
-  it('hides term captures from the compact answered card', async () => {
-    const visibleCaptureCode = createKnowledgeReferenceCode('goal', 1);
-    const hiddenCaptureCode = createKnowledgeReferenceCode('term', 1);
+  it('shows term captures in the compact answered card', async () => {
+    const goalCode = createKnowledgeReferenceCode('goal', 1);
+    const termCode = createKnowledgeReferenceCode('term', 1);
 
     setLoaderData(
       createWorkspaceLoaderData({
@@ -5416,14 +5416,14 @@ describe('InterviewView', () => {
                 kind: 'goal',
                 id: 1,
                 content: 'Ship the web app first',
-                referenceCode: visibleCaptureCode,
+                referenceCode: goalCode,
               },
               {
                 collection: 'knowledge_item',
                 kind: 'term',
                 id: 2,
-                content: 'Invisible term',
-                referenceCode: hiddenCaptureCode,
+                content: 'Visible term',
+                referenceCode: termCode,
               },
             ],
           },
@@ -5435,8 +5435,8 @@ describe('InterviewView', () => {
 
     const answeredCard = await screen.findByTestId('answered-turn-card');
 
-    expect(answeredCard.textContent).toContain(visibleCaptureCode);
-    expect(answeredCard.textContent).not.toContain(hiddenCaptureCode);
+    expect(answeredCard.textContent).toContain(goalCode);
+    expect(answeredCard.textContent).toContain(termCode);
   });
 
   it('renders a compact answered card for a persisted free-text-only response', async () => {
