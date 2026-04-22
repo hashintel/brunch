@@ -3,15 +3,15 @@
 ## Orientation
 - **Containing seam:** specification-scoped client query ownership across `src/client/routes/specification/$id`, especially the boundary between the specification-owned read model (`workflow`, `landing`, `turns`) and the entities-owned read model.
 - **Frontier item:** `memory/PLAN.md` → **Active / Track A — Query ownership remediation**.
-- **Volatile state:** `memory/REFACTOR.md` remains the temporary execution decomposition; the transcript/entity boundary slice is partially landed, but bundle ownership and entry-path consolidation are still open.
-- **Main open risk:** the current fake `core` / `turns` split still implies ownership that the server does not actually provide, so later fixes could accidentally preserve misleading invalidation behavior unless the bundle seam is made explicit first.
+- **Volatile state:** `memory/REFACTOR.md` remains the temporary execution decomposition; the bundle-ownership slice is now landed, and entry-path consolidation plus ownership oracles remain queued.
+- **Main open risk:** the `/specification/$id/` index redirect still bypasses the bundle-owned path with its own raw fetch, so direct navigation can preserve a second source of truth unless Card 2 consolidates it.
 
 ---
 
-## Card 1 — next
+## Card 1 — done
 **Title:** Replace the fake `core` / `turns` split with one authoritative specification bundle domain
 **Weight:** full
-**Status:** next
+**Status:** done
 
 ### Target Behavior
 Workflow state, landing state, and turns load and invalidate through one authoritative specification bundle query domain instead of a fake `core` / `turns` split over the same `/api/specifications/:id` payload.
@@ -46,10 +46,10 @@ Workflow state, landing state, and turns load and invalidate through one authori
 
 ---
 
-## Card 2 — queued
+## Card 2 — next
 **Title:** Consolidate `/specification/$id/` redirect and loader priming onto the same bundle-owned path
 **Weight:** full
-**Status:** queued
+**Status:** next
 
 ### Target Behavior
 Direct `/specification/$id/` navigation, redirect decisions, and route-loader priming all flow through the same specification bundle ownership path instead of using a raw independent fetch.

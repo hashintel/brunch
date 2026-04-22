@@ -13,7 +13,7 @@ describe('file-route phase route ownership', () => {
     const generatedRouteTreeSource = readRepoFile('src/client/routeTree.gen.ts');
 
     expect(specificationLayoutSource).toContain("createFileRoute('/specification/$id')");
-    expect(specificationLayoutSource).toContain('primeSpecificationCoreAndTurns');
+    expect(specificationLayoutSource).toContain('primeSpecificationBundle');
     expect(specificationLayoutSource).toContain('PhaseNavigationSidebar');
     expect(specificationLayoutSource).toContain('Outlet');
 

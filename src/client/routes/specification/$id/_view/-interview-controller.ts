@@ -19,16 +19,11 @@ import {
 import type { DataConfirmation } from '@/shared/phase-close.js';
 import { getPhaseRoutePath } from '@/shared/phase-descriptors.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
-import {
-  type SpecificationMode,
-  type SpecificationState,
-  type SpecificationTurn,
-} from '@/shared/specification.js';
+import { type SpecificationMode, type SpecificationTurn } from '@/shared/specification.js';
 
 import {
   useInvalidateSpecificationQueryDomains,
-  useSpecificationCoreData,
-  useSpecificationTurns,
+  useSpecificationBundleData,
 } from '../-specification-data.js';
 import {
   buildPhaseTurnIds,
@@ -152,17 +147,16 @@ function getLatestAssistantActivity(
 }
 
 export function useInterviewController(phase: WorkflowPhase): InterviewController {
-  const { specification, workflow, landing } = useSpecificationCoreData();
-  const turns = useSpecificationTurns();
+  const specificationState = useSpecificationBundleData();
+  const turns = specificationState.turns;
   const router = useRouter();
-  const { invalidateCoreAndTurns, invalidateEntities } = useInvalidateSpecificationQueryDomains();
-  const specificationId = specification.id;
-  const specificationState = useMemo<SpecificationState>(
-    () => ({ specification, workflow, landing, turns: [...turns] }),
-    [landing, specification, turns, workflow],
-  );
+  const { invalidateSpecificationBundle, invalidateEntities } = useInvalidateSpecificationQueryDomains();
+  const specificationId = specificationState.specification.id;
 
-  const refreshReadModel = useCallback(() => invalidateCoreAndTurns(), [invalidateCoreAndTurns]);
+  const refreshReadModel = useCallback(
+    () => invalidateSpecificationBundle(),
+    [invalidateSpecificationBundle],
+  );
   const { durableSpecification, ephemeralChat } = useInterviewDataAdapter(specificationState);
 
   const phaseTurnIds = useMemo(() => buildPhaseTurnIds(turns, phase), [phase, turns]);

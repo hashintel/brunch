@@ -56,7 +56,7 @@ type UseChatHarness = {
 
 let currentSpecificationState: SpecificationState;
 let currentEntityState: EntitiesData;
-const invalidateCoreAndTurns = vi.fn(async () => {});
+const invalidateSpecificationBundle = vi.fn(async () => {});
 const invalidateEntities = vi.fn(async () => {});
 const fetchMock = vi.fn<typeof fetch>();
 const chatTransportOptions: unknown[] = [];
@@ -76,47 +76,31 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 vi.mock('../../-specification-data.js', () => ({
-  useSpecificationCoreData: () => ({
-    specification: currentSpecificationState.specification,
-    workflow: currentSpecificationState.workflow,
-    landing: currentSpecificationState.landing ?? null,
-  }),
-  useSpecificationTurns: () => currentSpecificationState.turns,
+  useSpecificationBundleData: () => currentSpecificationState,
   useSpecificationEntities: () => currentEntityState,
   useInvalidateSpecificationQueryDomains: () => ({
-    invalidateCore: vi.fn(async () => {}),
-    invalidateTurns: vi.fn(async () => {}),
+    invalidateSpecificationBundle,
     invalidateEntities,
-    invalidateCoreAndTurns,
   }),
-  primeSpecificationCoreAndTurns: vi.fn(),
+  primeSpecificationBundle: vi.fn(),
   primeSpecificationEntities: vi.fn(),
   specificationQueryKeys: {
-    core: vi.fn(),
-    turns: vi.fn(),
+    bundle: vi.fn(),
     entities: vi.fn(),
   },
 }));
 
 vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
-  useSpecificationCoreData: () => ({
-    specification: currentSpecificationState.specification,
-    workflow: currentSpecificationState.workflow,
-    landing: currentSpecificationState.landing ?? null,
-  }),
-  useSpecificationTurns: () => currentSpecificationState.turns,
+  useSpecificationBundleData: () => currentSpecificationState,
   useSpecificationEntities: () => currentEntityState,
   useInvalidateSpecificationQueryDomains: () => ({
-    invalidateCore: vi.fn(async () => {}),
-    invalidateTurns: vi.fn(async () => {}),
+    invalidateSpecificationBundle,
     invalidateEntities,
-    invalidateCoreAndTurns,
   }),
-  primeSpecificationCoreAndTurns: vi.fn(),
+  primeSpecificationBundle: vi.fn(),
   primeSpecificationEntities: vi.fn(),
   specificationQueryKeys: {
-    core: vi.fn(),
-    turns: vi.fn(),
+    bundle: vi.fn(),
     entities: vi.fn(),
   },
 }));
@@ -395,7 +379,7 @@ function renderController(phase: 'grounding' | 'design' | 'requirements' | 'crit
 beforeEach(() => {
   currentSpecificationState = createSpecificationState();
   currentEntityState = createEntityState();
-  invalidateCoreAndTurns.mockClear();
+  invalidateSpecificationBundle.mockClear();
   invalidateEntities.mockClear();
   routerNavigate.mockClear();
   fetchMock.mockReset();
@@ -534,7 +518,7 @@ describe('interview controller', () => {
     });
 
     await waitFor(() => {
-      expect(invalidateCoreAndTurns).toHaveBeenCalled();
+      expect(invalidateSpecificationBundle).toHaveBeenCalled();
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
         parts: [
           {
@@ -578,7 +562,7 @@ describe('interview controller', () => {
     });
 
     await waitFor(() => {
-      expect(invalidateCoreAndTurns).toHaveBeenCalled();
+      expect(invalidateSpecificationBundle).toHaveBeenCalled();
       expect(useChatHarness.sendMessage).toHaveBeenCalledWith({
         parts: [
           {
@@ -1000,7 +984,7 @@ describe('interview controller', () => {
     await waitFor(() => {
       expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('pending-question');
       expect(screen.getByTestId('bottom-artifact').textContent).toBe('Which platform should we target next?');
-      expect(invalidateCoreAndTurns).not.toHaveBeenCalled();
+      expect(invalidateSpecificationBundle).not.toHaveBeenCalled();
       expect(invalidateEntities).not.toHaveBeenCalled();
     });
   });

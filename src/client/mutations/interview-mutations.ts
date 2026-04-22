@@ -44,7 +44,7 @@ export function useSubmitPhaseIntentMutation({
 }: {
   specificationId: number;
 }): SubmitPhaseIntentMutationState {
-  const { invalidateCoreAndTurns } = useInvalidateSpecificationQueryDomains();
+  const { invalidateSpecificationBundle } = useInvalidateSpecificationQueryDomains();
   const mutation = useClientMutation((request: SubmitPhaseIntentRequest) =>
     postJsonMutation<SubmitPhaseIntentResponse, SubmitPhaseIntentRequest>(
       `/api/specifications/${specificationId}/phase-intent`,
@@ -58,7 +58,7 @@ export function useSubmitPhaseIntentMutation({
   ): Promise<SubmitPhaseIntentResponse | null> => {
     try {
       const response = await mutation.run(request);
-      await invalidateCoreAndTurns();
+      await invalidateSpecificationBundle();
       return response;
     } catch {
       return null;
@@ -92,7 +92,7 @@ export function useSubmitTurnResponseMutation({
   turn: SpecificationTurn | undefined;
   sendMessage: (message: { text: string }) => Promise<void> | void;
 }): SubmitTurnResponseMutationState {
-  const { invalidateCoreAndTurns } = useInvalidateSpecificationQueryDomains();
+  const { invalidateSpecificationBundle } = useInvalidateSpecificationQueryDomains();
   const mutation = useClientMutation((variables: { turnId: number; response: SubmitTurnResponseRequest }) =>
     postJsonMutation<SubmitTurnResponseResponse, SubmitTurnResponseRequest>(
       `/api/specifications/${specificationId}/turns/${variables.turnId}/response`,
@@ -145,7 +145,7 @@ export function useSubmitTurnResponseMutation({
           turnId: turn.id,
           response,
         });
-        await invalidateCoreAndTurns();
+        await invalidateSpecificationBundle();
         if (result.advancedToPhase || result.workflowCompleted) {
           return true;
         }

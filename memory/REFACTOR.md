@@ -44,6 +44,8 @@ The target state is:
 
 ### Front 1 - Query ownership remediation
 
+Status: **landed on 2026-04-22** — the client now uses one authoritative specification bundle query for workflow + landing + turns; route priming, interview-controller consumption, and mutation/runtime refresh target that bundle seam; and the fake `core` / `turns` invalidation story is removed.
+
 1. Replace the current fake `core`/`turns` split over the shared `/api/specifications/:id` payload with one authoritative interim ownership model.
 2. Default remediation strategy: use one specification bundle query for workflow + landing + turns, and keep entities as the separately invalidable domain. Only introduce true split endpoints if that becomes necessary after the bundle path is clean.
 3. Remove or collapse transitional invalidation helpers that imply `core` and `turns` are independently safe when they are still backed by the same server payload.

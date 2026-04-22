@@ -3,11 +3,7 @@ import { Outlet, createFileRoute, useParams } from '@tanstack/react-router';
 import { Skeleton } from '@/client/components/ui/skeleton';
 
 import { PhaseNavigationSidebar } from './-phase-navigation-sidebar.js';
-import {
-  primeSpecificationCoreAndTurns,
-  useSpecificationCoreData,
-  useSpecificationTurns,
-} from './-specification-data.js';
+import { primeSpecificationBundle, useSpecificationBundleData } from './-specification-data.js';
 
 function SpecificationWorkspaceSkeleton() {
   return (
@@ -30,19 +26,19 @@ function SpecificationWorkspaceSkeleton() {
 }
 
 export const Route = createFileRoute('/specification/$id')({
-  loader: ({ params }) => primeSpecificationCoreAndTurns(params.id),
+  loader: ({ params }) => primeSpecificationBundle(params.id),
   pendingComponent: SpecificationWorkspaceSkeleton,
   component: function SpecificationWorkspaceLayout() {
-    const { specification, workflow } = useSpecificationCoreData();
-    const turns = useSpecificationTurns();
+    const specificationState = useSpecificationBundleData();
     const { id: specificationId } = useParams({ from: '/specification/$id' });
+
     return (
       <div className="flex h-full">
         <PhaseNavigationSidebar
           specificationId={specificationId}
-          specificationName={specification.name}
-          workflow={workflow}
-          turns={turns}
+          specificationName={specificationState.specification.name}
+          workflow={specificationState.workflow}
+          turns={specificationState.turns}
         />
         <div className="flex-1 overflow-hidden">
           <Outlet />

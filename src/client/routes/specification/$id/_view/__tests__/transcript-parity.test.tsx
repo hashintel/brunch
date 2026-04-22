@@ -132,7 +132,7 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 vi.mock('../../-specification-data.js', () => ({
-  useSpecificationCoreData: () => ({
+  useSpecificationBundleData: () => ({
     specification: {
       id: 1,
       name: 'Project 1',
@@ -143,26 +143,23 @@ vi.mock('../../-specification-data.js', () => ({
     },
     workflow: testState.groundingWorkflow,
     landing: null,
+    turns: [testState.answeredTurn, testState.activeTurn],
   }),
-  useSpecificationTurns: () => [testState.answeredTurn, testState.activeTurn],
   useSpecificationEntities: () => testState.emptyEntities,
   useInvalidateSpecificationQueryDomains: () => ({
-    invalidateCore: vi.fn(async () => {}),
-    invalidateTurns: vi.fn(async () => {}),
+    invalidateSpecificationBundle: vi.fn(async () => {}),
     invalidateEntities: vi.fn(async () => {}),
-    invalidateCoreAndTurns: vi.fn(async () => {}),
   }),
-  primeSpecificationCoreAndTurns: vi.fn(),
+  primeSpecificationBundle: vi.fn(),
   primeSpecificationEntities: vi.fn(),
   specificationQueryKeys: {
-    core: vi.fn(),
-    turns: vi.fn(),
+    bundle: vi.fn(),
     entities: vi.fn(),
   },
 }));
 
 vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
-  useSpecificationCoreData: () => ({
+  useSpecificationBundleData: () => ({
     specification: {
       id: 1,
       name: 'Project 1',
@@ -173,20 +170,17 @@ vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
     },
     workflow: testState.groundingWorkflow,
     landing: null,
+    turns: [testState.answeredTurn, testState.activeTurn],
   }),
-  useSpecificationTurns: () => [testState.answeredTurn, testState.activeTurn],
   useSpecificationEntities: () => testState.emptyEntities,
   useInvalidateSpecificationQueryDomains: () => ({
-    invalidateCore: vi.fn(async () => {}),
-    invalidateTurns: vi.fn(async () => {}),
+    invalidateSpecificationBundle: vi.fn(async () => {}),
     invalidateEntities: vi.fn(async () => {}),
-    invalidateCoreAndTurns: vi.fn(async () => {}),
   }),
-  primeSpecificationCoreAndTurns: vi.fn(),
+  primeSpecificationBundle: vi.fn(),
   primeSpecificationEntities: vi.fn(),
   specificationQueryKeys: {
-    core: vi.fn(),
-    turns: vi.fn(),
+    bundle: vi.fn(),
     entities: vi.fn(),
   },
 }));

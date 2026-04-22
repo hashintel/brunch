@@ -129,47 +129,31 @@ vi.mock('@tanstack/react-router', () => ({
 }));
 
 vi.mock('../../-specification-data.js', () => ({
-  useSpecificationCoreData: () => ({
-    specification: currentSpecificationState.specification,
-    workflow: currentSpecificationState.workflow,
-    landing: currentSpecificationState.landing ?? null,
-  }),
-  useSpecificationTurns: () => currentSpecificationState.turns,
+  useSpecificationBundleData: () => currentSpecificationState,
   useSpecificationEntities: useSpecificationEntitiesSpy,
   useInvalidateSpecificationQueryDomains: () => ({
-    invalidateCore: vi.fn(async () => {}),
-    invalidateTurns: vi.fn(async () => {}),
+    invalidateSpecificationBundle: routerInvalidate,
     invalidateEntities: entityInvalidate,
-    invalidateCoreAndTurns: routerInvalidate,
   }),
-  primeSpecificationCoreAndTurns: vi.fn(),
+  primeSpecificationBundle: vi.fn(),
   primeSpecificationEntities: vi.fn(),
   specificationQueryKeys: {
-    core: vi.fn(),
-    turns: vi.fn(),
+    bundle: vi.fn(),
     entities: vi.fn(),
   },
 }));
 
 vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
-  useSpecificationCoreData: () => ({
-    specification: currentSpecificationState.specification,
-    workflow: currentSpecificationState.workflow,
-    landing: currentSpecificationState.landing ?? null,
-  }),
-  useSpecificationTurns: () => currentSpecificationState.turns,
+  useSpecificationBundleData: () => currentSpecificationState,
   useSpecificationEntities: useSpecificationEntitiesSpy,
   useInvalidateSpecificationQueryDomains: () => ({
-    invalidateCore: vi.fn(async () => {}),
-    invalidateTurns: vi.fn(async () => {}),
+    invalidateSpecificationBundle: routerInvalidate,
     invalidateEntities: entityInvalidate,
-    invalidateCoreAndTurns: routerInvalidate,
   }),
-  primeSpecificationCoreAndTurns: vi.fn(),
+  primeSpecificationBundle: vi.fn(),
   primeSpecificationEntities: vi.fn(),
   specificationQueryKeys: {
-    core: vi.fn(),
-    turns: vi.fn(),
+    bundle: vi.fn(),
     entities: vi.fn(),
   },
 }));

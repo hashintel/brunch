@@ -3,22 +3,11 @@ import { useParams } from '@tanstack/react-router';
 import { useCallback } from 'react';
 
 import { queryClient } from '@/client/query-client.js';
-import type { EntitiesData, SpecificationLanding } from '@/shared/api-types.js';
-import {
-  getSpecificationRecord,
-  type SpecificationState,
-  type SpecificationTurn,
-} from '@/shared/specification.js';
-
-export interface SpecificationCoreData {
-  readonly specification: SpecificationState['specification'];
-  readonly workflow: SpecificationState['workflow'];
-  readonly landing: SpecificationLanding | null;
-}
+import type { EntitiesData } from '@/shared/api-types.js';
+import type { SpecificationState } from '@/shared/specification.js';
 
 export const specificationQueryKeys = {
-  core: (specificationId: string) => ['specification', specificationId, 'core'] as const,
-  turns: (specificationId: string) => ['specification', specificationId, 'turns'] as const,
+  bundle: (specificationId: string) => ['specification', specificationId, 'bundle'] as const,
   entities: (specificationId: string) => ['specification', specificationId, 'entities'] as const,
 };
 
@@ -28,15 +17,7 @@ function useSpecificationId() {
   return useParams({ from: '/specification/$id' }).id;
 }
 
-function projectSpecificationCoreData(specificationState: SpecificationState): SpecificationCoreData {
-  return {
-    specification: getSpecificationRecord(specificationState),
-    workflow: specificationState.workflow,
-    landing: specificationState.landing ?? null,
-  };
-}
-
-async function fetchSpecificationWorkspaceState(specificationId: string): Promise<SpecificationState> {
+async function fetchSpecificationBundle(specificationId: string): Promise<SpecificationState> {
   const inflightRequest = inflightSpecificationStateRequests.get(specificationId);
   if (inflightRequest) {
     return inflightRequest;
@@ -56,14 +37,6 @@ async function fetchSpecificationWorkspaceState(specificationId: string): Promis
   return request;
 }
 
-async function fetchSpecificationCoreData(specificationId: string): Promise<SpecificationCoreData> {
-  return projectSpecificationCoreData(await fetchSpecificationWorkspaceState(specificationId));
-}
-
-async function fetchSpecificationTurns(specificationId: string): Promise<readonly SpecificationTurn[]> {
-  return (await fetchSpecificationWorkspaceState(specificationId)).turns;
-}
-
 async function fetchSpecificationEntities(specificationId: string): Promise<EntitiesData> {
   const response = await fetch(`/api/specifications/${specificationId}/entities?mode=active-path`);
   if (!response.ok) {
@@ -72,13 +45,11 @@ async function fetchSpecificationEntities(specificationId: string): Promise<Enti
   return (await response.json()) as EntitiesData;
 }
 
-export async function primeSpecificationCoreAndTurns(specificationId: string) {
-  const specificationState = await fetchSpecificationWorkspaceState(specificationId);
+export async function primeSpecificationBundle(specificationId: string) {
   queryClient.setQueryData(
-    specificationQueryKeys.core(specificationId),
-    projectSpecificationCoreData(specificationState),
+    specificationQueryKeys.bundle(specificationId),
+    await fetchSpecificationBundle(specificationId),
   );
-  queryClient.setQueryData(specificationQueryKeys.turns(specificationId), specificationState.turns);
 }
 
 export async function primeSpecificationEntities(specificationId: string) {
@@ -92,45 +63,27 @@ export function useInvalidateSpecificationQueryDomains() {
   const specificationId = useSpecificationId();
   const client = useQueryClient();
 
-  const invalidateCore = useCallback(
-    async () => client.invalidateQueries({ queryKey: specificationQueryKeys.core(specificationId) }),
-    [client, specificationId],
-  );
-  const invalidateTurns = useCallback(
-    async () => client.invalidateQueries({ queryKey: specificationQueryKeys.turns(specificationId) }),
+  const invalidateSpecificationBundle = useCallback(
+    async () => client.invalidateQueries({ queryKey: specificationQueryKeys.bundle(specificationId) }),
     [client, specificationId],
   );
   const invalidateEntities = useCallback(
     async () => client.invalidateQueries({ queryKey: specificationQueryKeys.entities(specificationId) }),
     [client, specificationId],
   );
-  const invalidateCoreAndTurns = useCallback(async () => {
-    await Promise.all([invalidateCore(), invalidateTurns()]);
-  }, [invalidateCore, invalidateTurns]);
 
   return {
-    invalidateCore,
-    invalidateTurns,
+    invalidateSpecificationBundle,
     invalidateEntities,
-    invalidateCoreAndTurns,
   };
 }
 
-export function useSpecificationCoreData(): SpecificationCoreData {
+export function useSpecificationBundleData(): SpecificationState {
   const specificationId = useSpecificationId();
 
   return useSuspenseQuery({
-    queryKey: specificationQueryKeys.core(specificationId),
-    queryFn: () => fetchSpecificationCoreData(specificationId),
-  }).data;
-}
-
-export function useSpecificationTurns(): readonly SpecificationTurn[] {
-  const specificationId = useSpecificationId();
-
-  return useSuspenseQuery({
-    queryKey: specificationQueryKeys.turns(specificationId),
-    queryFn: () => fetchSpecificationTurns(specificationId),
+    queryKey: specificationQueryKeys.bundle(specificationId),
+    queryFn: () => fetchSpecificationBundle(specificationId),
   }).data;
 }
 
