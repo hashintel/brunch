@@ -345,7 +345,7 @@ describe('walkthroughScenarioMatrix', () => {
         expect.arrayContaining([
           expect.objectContaining({
             type: 'data-activity-summary',
-            data: expect.objectContaining({ tools: ['grounding card'] }),
+            data: expect.objectContaining({ tools: [] }),
           }),
           expect.objectContaining({
             type: 'data-grounding-card',
@@ -360,7 +360,7 @@ describe('walkthroughScenarioMatrix', () => {
         expect.arrayContaining([
           expect.objectContaining({
             type: 'data-activity-summary',
-            data: expect.objectContaining({ tools: ['grounding card'] }),
+            data: expect.objectContaining({ tools: [] }),
           }),
           expect.objectContaining({
             type: 'data-grounding-card',

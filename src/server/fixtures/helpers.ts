@@ -77,7 +77,7 @@ export function serializeFixtureQuestionAssistantParts({
   entityIds?: ObserverResultData['entityIds'];
 }): string {
   return serializeParts([
-    createFixtureActivitySummaryPart(['structured question']),
+    createFixtureActivitySummaryPart([]),
     {
       type: 'tool-ask_question',
       toolCallId,
@@ -117,7 +117,7 @@ export function serializeFixturePhaseProposalAssistantParts({
   entityIds?: ObserverResultData['entityIds'];
 }): string {
   return serializeParts([
-    createFixtureActivitySummaryPart(['phase closure proposal']),
+    createFixtureActivitySummaryPart([]),
     {
       type: 'tool-propose_phase_closure',
       toolCallId: `fixture-turn-${turnId}-propose-phase-closure`,
@@ -149,7 +149,7 @@ export function serializeFixturePhaseProposalAssistantParts({
 
 export function serializeFixtureGroundingCardAssistantParts(data: GroundingCardData): string {
   return serializeParts([
-    createFixtureActivitySummaryPart(['grounding card']),
+    createFixtureActivitySummaryPart([]),
     {
       type: 'data-grounding-card',
       data,

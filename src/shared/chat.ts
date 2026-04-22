@@ -378,37 +378,26 @@ const ASSISTANT_PART_TYPES: ReadonlySet<PersistedBrunchAssistantPart['type']> = 
   'data-activity-summary',
 ] as const satisfies PersistedBrunchAssistantPart['type'][]);
 
-function getToolSummaryLabel(toolName: string): string {
-  switch (toolName) {
-    case 'ask_question':
-      return 'structured question';
-    case 'present_grounding_card':
-      return 'grounding card';
-    case 'propose_phase_closure':
-      return 'phase closure proposal';
-    default:
-      return toolName.replaceAll(/[_-]+/g, ' ').trim();
-  }
-}
+/**
+ * Internal tool part types — these are brunch's own orchestration tools
+ * and should never appear in user-facing activity summaries.
+ * Only external/dynamic tools (file system, web search, etc.) are interesting to users.
+ */
+type InternalToolPartType = `tool-${keyof BrunchUITools}`;
 
-/** Tools that fire on every turn and add noise to the activity summary. */
-const FILTERED_ACTIVITY_TOOLS = new Set(['tool-ask_question', 'tool-present_grounding_card']);
+const INTERNAL_TOOL_PART_TYPES: ReadonlySet<InternalToolPartType> = new Set<InternalToolPartType>([
+  'tool-ask_question',
+  'tool-present_grounding_card',
+  'tool-propose_phase_closure',
+]);
 
 function getActivityToolLabel(part: BrunchUIMessagePart): string | null {
-  if (FILTERED_ACTIVITY_TOOLS.has(part.type)) {
+  if (INTERNAL_TOOL_PART_TYPES.has(part.type as InternalToolPartType)) {
     return null;
   }
 
-  if (part.type === 'tool-present_grounding_card') {
-    return getToolSummaryLabel('present_grounding_card');
-  }
-
-  if (part.type === 'tool-propose_phase_closure') {
-    return getToolSummaryLabel('propose_phase_closure');
-  }
-
   if (part.type === 'dynamic-tool') {
-    return getToolSummaryLabel(part.toolName);
+    return part.toolName.replaceAll(/[_-]+/g, ' ').trim();
   }
 
   return null;

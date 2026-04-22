@@ -42,7 +42,7 @@ describe('fixture helpers', () => {
       expect.arrayContaining([
         {
           type: 'data-activity-summary',
-          data: { seconds: 14, tools: ['structured question'] },
+          data: { seconds: 5, tools: [] },
         },
         expect.objectContaining({
           type: 'tool-ask_question',
@@ -76,7 +76,7 @@ describe('fixture helpers', () => {
       expect.arrayContaining([
         {
           type: 'data-activity-summary',
-          data: { seconds: 7, tools: ['phase closure proposal'] },
+          data: { seconds: 5, tools: [] },
         },
         expect.objectContaining({
           type: 'tool-propose_phase_closure',
@@ -106,7 +106,7 @@ describe('fixture helpers', () => {
     expect(parts).toEqual([
       {
         type: 'data-activity-summary',
-        data: { seconds: 9, tools: ['grounding card'] },
+        data: { seconds: 5, tools: [] },
       },
       {
         type: 'data-grounding-card',
