@@ -103,7 +103,7 @@ export function PhaseNavigationSidebar({
       data-testid="phase-sidebar"
     >
       <div className="flex h-16 shrink-0 items-center border-b border-rule bg-background px-3">
-        <div className="flex flex-col gap-0.5">
+        <div className="flex min-w-0 flex-col gap-0.5">
           <Link
             to="/"
             className="inline-flex items-center gap-1 text-xs text-hint transition-colors hover:text-ink"
