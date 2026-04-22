@@ -233,15 +233,31 @@ async function makeGroundingCardInterviewer(
   groundingCard = {
     observation: 'The repo already uses SQLite-backed local persistence and a routed interview surface.',
     elaboration: 'This is provisional context before the first substantive grounding question.',
-    continueLabel: 'Continue',
+  },
+  question: StructuredQuestion = {
+    question: 'What is the primary feature area you want to specify?',
+    why: 'Narrows the grounding scope to a concrete surface.',
+    impact: 'high' as const,
+    options: [
+      { content: 'Workspace replay', is_recommended: true },
+      { content: 'Export pipeline', is_recommended: false },
+    ],
   },
 ) {
-  const { createOption } = await import('./db.js');
+  const { updateTurn, createOption } = await import('./db.js');
 
-  createOption(dbArg, turnId, {
-    position: 0,
-    content: groundingCard.continueLabel,
-    is_recommended: true,
+  updateTurn(dbArg, turnId, {
+    question: question.question,
+    why: question.why,
+    impact: question.impact,
+  });
+
+  question.options.forEach((option, index) => {
+    createOption(dbArg, turnId, {
+      position: index,
+      content: option.content,
+      is_recommended: option.is_recommended,
+    });
   });
 
   return {
@@ -260,6 +276,18 @@ async function makeGroundingCardInterviewer(
           toolCallId: 'tool-grounding-1',
           toolName: 'present_grounding_card',
           output: { ok: true, turnId },
+        },
+        { type: 'tool-input-start', toolCallId: 'tool-q-1', toolName: 'ask_question' },
+        {
+          type: 'tool-input-available',
+          toolCallId: 'tool-q-1',
+          toolName: 'ask_question',
+          input: question,
+        },
+        {
+          type: 'tool-output-available',
+          toolCallId: 'tool-q-1',
+          output: { ok: true, turnId, optionCount: question.options.length },
         },
       ]),
     finishReason: Promise.resolve('tool-calls'),
@@ -591,10 +619,11 @@ describe('POST /api/specifications/:id/chat', () => {
       .expect(200);
 
     const groundingTurn = getActivePath(db, projectId).at(-1)!;
-    expect(groundingTurn.question).toBe('');
+    expect(groundingTurn.question).toBe('What is the primary feature area you want to specify?');
     expect(getOptionsForTurn(db, groundingTurn.id)).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({ position: 0, content: 'Continue', is_recommended: true }),
+        expect.objectContaining({ position: 0, content: 'Workspace replay', is_recommended: true }),
+        expect.objectContaining({ position: 1, content: 'Export pipeline', is_recommended: false }),
       ]),
     );
     const assistantParts = JSON.parse(groundingTurn.assistant_parts ?? '[]');
@@ -606,7 +635,6 @@ describe('POST /api/specifications/:id/chat', () => {
             observation:
               'The repo already uses SQLite-backed local persistence and a routed interview surface.',
             elaboration: 'This is provisional context before the first substantive grounding question.',
-            continueLabel: 'Continue',
           },
         },
       ]),

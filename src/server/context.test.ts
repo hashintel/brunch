@@ -99,7 +99,7 @@ describe('buildInterviewerContext', () => {
     ];
 
     const result = buildInterviewerContext(turns, 'next');
-    expect(result).toContain('Grounding card: The repo already uses SQLite-backed local persistence.');
+    expect(result).toContain('Grounding preface: The repo already uses SQLite-backed local persistence.');
     expect(result).toContain(
       'Elaboration: This is provisional context before the next substantive question.',
     );
@@ -248,7 +248,7 @@ describe('buildInterviewerContext', () => {
     ];
 
     const result = buildInterviewerContext(turns, 'next');
-    expect(result).toContain('Grounding card: The repo uses a React frontend with SQLite storage.');
+    expect(result).toContain('Grounding preface: The repo uses a React frontend with SQLite storage.');
     expect(result).toContain('Elaboration: Provisional context from workspace analysis.');
     expect(result).toContain('Question: What is the primary user persona?');
     expect(result).toContain('Why it matters: Understanding users grounds the design.');
@@ -658,8 +658,8 @@ describe('observer-context-projection', () => {
       },
     });
 
-    expect(result).toContain('Grounding card: The repo uses a React frontend with SQLite storage.');
-    expect(result).toContain('Grounding elaboration: Provisional context from workspace analysis.');
+    expect(result).toContain('Grounding preface: The repo uses a React frontend with SQLite storage.');
+    expect(result).toContain('Preface elaboration: Provisional context from workspace analysis.');
     expect(result).toContain('Question: What is the primary user persona?');
     expect(result).toContain('Free-text response: Developers building AI tools');
   });

@@ -1,3 +1,4 @@
+import type { BrunchAssistantPart } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { createForceCloseActivePhaseCommand } from '@/shared/phase-close.js';
 
@@ -26,7 +27,6 @@ import {
   serializeFixturePhaseConfirmationUserParts,
   serializeFixturePhaseProposalAssistantParts,
   serializeFixtureQuestionAssistantParts,
-  serializeFixtureTurnResponseUserParts,
 } from './helpers.js';
 
 const code = createKnowledgeReferenceCode;
@@ -837,67 +837,85 @@ export function seedIssueTrackerAllPhasesClosed(db: DB, projectId: number) {
 }
 
 export function seedBrownfieldReusableGroundingReplay(db: DB, projectId: number) {
-  const firstGroundingTurn = createTurn(db, projectId, {
+  const groundedQuestionTurn = createTurn(db, projectId, {
     phase: 'grounding',
-    question: '',
-    answer: 'Continue — Focus on the routed workspace stream seam.',
-    assistant_parts: serializeFixtureGroundingCardAssistantParts({
-      observation: 'The repo already uses SQLite-backed local persistence.',
-      elaboration: 'This provisional brief grounds the first brownfield move.',
-      continueLabel: 'Continue',
-    }),
-  });
-  const firstContinueOption = createOption(db, firstGroundingTurn.id, {
-    position: 0,
-    content: 'Continue',
-    is_recommended: true,
-  });
-  updateTurn(db, firstGroundingTurn.id, {
-    user_parts: serializeFixtureTurnResponseUserParts({
-      text: 'Continue — Focus on the routed workspace stream seam.',
-      data: {
-        turnId: firstGroundingTurn.id,
-        selectedOptionIds: [firstContinueOption.id],
-        freeText: 'Focus on the routed workspace stream seam.',
-      },
-    }),
-  });
-  applyTurnResponseSelections(db, firstGroundingTurn.id, [0]);
-  advanceHead(db, projectId, firstGroundingTurn.id);
-
-  const substantiveTurn = createTurn(db, projectId, {
-    phase: 'grounding',
-    parent_turn_id: firstGroundingTurn.id,
     question: 'Which seam needs another grounding pass before we keep going?',
     answer: 'The chat-runtime finalization path and replay seam.',
+    assistant_parts: serializeParts([
+      ...JSON.parse(
+        serializeFixtureGroundingCardAssistantParts({
+          observation: 'The repo already uses SQLite-backed local persistence.',
+          elaboration: 'This provisional brief grounds the first brownfield move.',
+        }),
+      ),
+      {
+        type: 'tool-ask_question',
+        toolCallId: 'fixture-grounded-question-1',
+        state: 'output-available',
+        input: {
+          question: 'Which seam needs another grounding pass before we keep going?',
+          why: 'Narrows the next brownfield move.',
+          impact: 'medium',
+          options: [
+            { content: 'The chat-runtime finalization path and replay seam.', is_recommended: true },
+            { content: 'The workspace persistence layer.', is_recommended: false },
+          ],
+        },
+        output: { ok: true, turnId: 0, optionCount: 2 },
+      },
+      { type: 'text', text: 'Which seam needs another grounding pass before we keep going?' },
+    ] satisfies BrunchAssistantPart[]),
     user_parts: serializeParts([
       { type: 'text', text: 'The chat-runtime finalization path and replay seam.' },
     ]),
   });
-  advanceHead(db, projectId, substantiveTurn.id);
+  advanceHead(db, projectId, groundedQuestionTurn.id);
 
-  const laterGroundingTurn = createTurn(db, projectId, {
+  const followUpTurn = createTurn(db, projectId, {
     phase: 'grounding',
-    parent_turn_id: substantiveTurn.id,
-    question: '',
+    parent_turn_id: groundedQuestionTurn.id,
+    question: 'What does the finalization path need to handle for replay consistency?',
     answer: null,
-    assistant_parts: serializeFixtureGroundingCardAssistantParts({
-      observation: 'Later context gathering narrowed the work to turn-finalization ownership.',
-      elaboration: 'Continue to move from replay evidence back into the next substantive question.',
-      continueLabel: 'Continue',
-    }),
+    assistant_parts: serializeParts([
+      ...JSON.parse(
+        serializeFixtureGroundingCardAssistantParts({
+          observation: 'Later context gathering narrowed the work to turn-finalization ownership.',
+          elaboration: 'Continue to move from replay evidence back into the next substantive question.',
+        }),
+      ),
+      {
+        type: 'tool-ask_question',
+        toolCallId: 'fixture-grounded-question-2',
+        state: 'output-available',
+        input: {
+          question: 'What does the finalization path need to handle for replay consistency?',
+          why: 'Clarifies turn-finalization ownership.',
+          impact: 'medium',
+          options: [
+            { content: 'Ordering guarantees on concurrent writes.', is_recommended: true },
+            { content: 'Idempotent replay of partial turns.', is_recommended: false },
+          ],
+        },
+        output: { ok: true, turnId: 0, optionCount: 2 },
+      },
+      { type: 'text', text: 'What does the finalization path need to handle for replay consistency?' },
+    ] satisfies BrunchAssistantPart[]),
   });
-  createOption(db, laterGroundingTurn.id, {
+  createOption(db, followUpTurn.id, {
     position: 0,
-    content: 'Continue',
+    content: 'Ordering guarantees on concurrent writes.',
     is_recommended: true,
   });
-  advanceHead(db, projectId, laterGroundingTurn.id);
+  createOption(db, followUpTurn.id, {
+    position: 1,
+    content: 'Idempotent replay of partial turns.',
+    is_recommended: false,
+  });
+  advanceHead(db, projectId, followUpTurn.id);
 
   return {
-    firstGroundingTurn,
-    substantiveTurn,
-    laterGroundingTurn,
+    groundedQuestionTurn,
+    followUpTurn,
   };
 }
 

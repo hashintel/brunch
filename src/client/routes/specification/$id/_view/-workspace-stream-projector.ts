@@ -40,11 +40,6 @@ export type WorkspaceStreamArtifact =
       readonly questionCode: string;
     }
   | {
-      readonly kind: 'answered-grounding-card';
-      readonly turn: SpecificationTurn;
-      readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
-    }
-  | {
       readonly kind: 'answered-grounding-question';
       readonly turn: SpecificationTurn;
       readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
@@ -81,11 +76,6 @@ export type WorkspaceStreamArtifact =
       readonly kind: 'persisted-turn';
       readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
       readonly questionCode: string;
-    }
-  | {
-      readonly kind: 'persisted-grounding-card';
-      readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
-      readonly groundingCard: NonNullable<ReturnType<typeof getPersistedGroundingCard>>;
     }
   | {
       readonly kind: 'persisted-grounding-question';
@@ -246,15 +236,6 @@ function projectHistoryArtifacts({
       });
       continue;
     }
-    if (groundingCard) {
-      historyArtifacts.push({
-        kind: 'answered-grounding-card',
-        turn,
-        groundingCard,
-      });
-      continue;
-    }
-
     const reviewSet = getPersistedReviewSet(turn);
     if (reviewSet && getPersistedReviewAction(turn)) {
       reviewTurnCount += 1;
@@ -339,14 +320,6 @@ function projectBottomArtifact(
           questionCode,
         };
       }
-      if (groundingCard) {
-        return {
-          kind: 'persisted-grounding-card',
-          artifact: bottomArtifact,
-          groundingCard,
-        };
-      }
-
       return {
         kind: 'persisted-turn',
         artifact: bottomArtifact,
@@ -414,7 +387,6 @@ function shouldInsertDivider({
     historyArtifacts.length > 0 &&
     (controlArtifacts.length > 0 ||
       bottomArtifact?.kind === 'persisted-turn' ||
-      bottomArtifact?.kind === 'persisted-grounding-card' ||
       bottomArtifact?.kind === 'persisted-grounding-question' ||
       bottomArtifact?.kind === 'pending-question' ||
       bottomArtifact?.kind === 'phase-summary' ||

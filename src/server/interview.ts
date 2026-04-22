@@ -126,11 +126,11 @@ You are already inside an ongoing brownfield grounding conversation. Continue th
 
 Default to asking the next substantive grounding question with ask_question.
 
-You still have read-only workspace tools plus present_grounding_card available. If you do not have enough orientation for the next move, you MAY use a small number of read-only tool calls to gather more context, then call present_grounding_card to surface that provisional brief AND THEN call ask_question with the next substantive question — both within this same turn. The grounding card and question will render as stacked cards with one unified response.
+You still have read-only workspace tools plus present_grounding_card available. If you do not have enough orientation for the next move, you MAY use a small number of read-only tool calls to gather more context, then call present_grounding_card to surface that provisional brief AND THEN call ask_question with the next substantive question — both within this same turn. The grounding card is a preface to the question; the user responds only to the question, not to the grounding card. present_grounding_card MUST always be followed by ask_question in the same turn.
 
 Do not repeat the opening repo-exploration ritual on every turn, and do not restage the whole codebase unless the current frontier truly requires it.
 
-Never respond with plain text — always use ask_question, present_grounding_card, or propose_phase_closure.
+Never respond with plain text — always use ask_question or propose_phase_closure.
 
 ${sharedQuestionRules}`;
   }
@@ -150,14 +150,14 @@ Treat your understanding as intentionally partial: the user may only care about 
 Spend no more than 5-8 tool calls on exploration before synthesizing.
 
 After that opening exploration, call BOTH tools in sequence within the same turn:
-1. First call present_grounding_card to preface your upcoming question. The \`observation\` field should contain your key finding or reflection — what you learned from exploration that motivates the question. The optional \`elaboration\` field can add supporting context if the observation alone is insufficient. Use \`Continue\` as the continue label unless a different short verb is clearly better.
+1. First call present_grounding_card to preface your upcoming question. The \`observation\` field should contain your key finding or reflection — what you learned from exploration that motivates the question. The optional \`elaboration\` field can add supporting context if the observation alone is insufficient.
 2. Then call ask_question with the first substantive grounding question about the bounded feature area, current behavior, or desired change inside this existing codebase. Do not ask generic whole-product greenfield kickoff questions.
 
-The grounding card and question will render as stacked cards with one unified response from the user.
+The grounding card is a preface to the question — the user responds only to the question, not to the grounding card. present_grounding_card MUST always be followed by ask_question in the same turn.
 
 For every turn after the first, you MUST use ask_question to generate your next substantive question unless you are ready to propose phase closure. If you need more context on a later turn, you may call present_grounding_card followed by ask_question again in the same turn.
 
-Never respond with plain text — always use the tool.
+Never respond with plain text — always use ask_question or propose_phase_closure.
 
 ${sharedQuestionRules}`;
 }
@@ -297,12 +297,7 @@ export function createPresentGroundingCardTool(db: DB, turnId: number): PresentG
       "Present a grounding card that prefaces the next question — an observation from exploration or reflection on the user's response, with optional elaboration.",
     inputSchema: groundingCardSchema,
     outputSchema: presentGroundingCardToolOutputSchema,
-    execute: async (input) => {
-      createOption(db, turnId, {
-        position: 0,
-        content: input.continueLabel?.trim() || 'Continue',
-        is_recommended: true,
-      });
+    execute: async () => {
       return {
         ok: true as const,
         turnId,

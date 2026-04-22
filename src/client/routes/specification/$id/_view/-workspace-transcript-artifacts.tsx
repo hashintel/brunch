@@ -7,7 +7,6 @@ import {
   TranscriptMetaPlaceholder,
 } from '@/client/components/control-cards';
 import {
-  ActiveGroundingCard,
   ActiveQuestionCard,
   ActiveReviewSetCard,
   AnsweredGroundingCard,
@@ -83,7 +82,6 @@ function renderWorkspaceHistoryArtifact({
     | { kind: 'phase-marker' }
     | { kind: 'control-marker' }
     | { kind: 'answered-turn' }
-    | { kind: 'answered-grounding-card' }
     | { kind: 'answered-grounding-question' }
     | { kind: 'answered-review-turn' }
     | { kind: 'answered-revision-review' }
@@ -128,22 +126,13 @@ function renderWorkspaceHistoryArtifact({
           />
         </WorkspaceArtifactRow>
       );
-    case 'answered-grounding-card':
-      return (
-        <WorkspaceArtifactRow
-          key={`answered-grounding-card-${artifact.turn.id}`}
-          activity={renderPersistedActivity(artifact.turn)}
-        >
-          <AnsweredGroundingCard groundingCard={artifact.groundingCard} turn={artifact.turn} />
-        </WorkspaceArtifactRow>
-      );
     case 'answered-grounding-question':
       return (
         <WorkspaceArtifactRow
           key={`answered-grounding-question-${artifact.turn.id}`}
           activity={renderPersistedActivity(artifact.turn)}
         >
-          <AnsweredGroundingCard groundingCard={artifact.groundingCard} turn={artifact.turn} />
+          <AnsweredGroundingCard groundingCard={artifact.groundingCard} />
           <AnsweredQuestionCard
             turn={artifact.turn}
             questionCode={artifact.questionCode}
@@ -221,7 +210,6 @@ function renderWorkspaceInteractiveArtifact({
   artifact: Extract<
     WorkspaceStreamArtifact,
     | { kind: 'persisted-turn' }
-    | { kind: 'persisted-grounding-card' }
     | { kind: 'persisted-grounding-question' }
     | { kind: 'pending-question' }
     | { kind: 'kickoff' }
@@ -293,30 +281,6 @@ function renderWorkspaceInteractiveArtifact({
         </WorkspaceArtifactRow>
       );
     }
-    case 'persisted-grounding-card':
-      return (
-        <WorkspaceArtifactRow
-          key={`persisted-grounding-card-${artifact.artifact.turn.id}`}
-          activity={
-            artifact.artifact.liveActivity
-              ? renderLiveActivity(artifact.artifact.liveActivity)
-              : renderPersistedActivity(artifact.artifact.turn)
-          }
-          errorMessage={artifact.artifact.errorMessage}
-        >
-          <ActiveGroundingCard
-            groundingCard={artifact.groundingCard}
-            onSubmitResponse={artifact.artifact.submitTurnResponse}
-            persistedFreeText={getPersistedTurnResponse(artifact.artifact.turn)?.freeText?.trim() ?? ''}
-            hasPersistedResponse={
-              artifact.artifact.state === 'submitted' && turnHasCompletedAnswer(artifact.artifact.turn)
-            }
-            disabled={artifact.artifact.disabled}
-            state={artifact.artifact.state}
-            continuePosition={artifact.artifact.turn.options?.[0]?.position}
-          />
-        </WorkspaceArtifactRow>
-      );
     case 'persisted-grounding-question':
       return (
         <WorkspaceArtifactRow
@@ -328,7 +292,7 @@ function renderWorkspaceInteractiveArtifact({
           }
           errorMessage={artifact.artifact.errorMessage}
         >
-          <AnsweredGroundingCard groundingCard={artifact.groundingCard} turn={artifact.artifact.turn} />
+          <AnsweredGroundingCard groundingCard={artifact.groundingCard} />
           <ActiveQuestionCard
             id={`persisted-grounding-question-${artifact.artifact.turn.id}`}
             questionCode={artifact.questionCode}
@@ -539,7 +503,6 @@ export function WorkspaceTranscriptArtifacts({
         case 'phase-marker':
         case 'control-marker':
         case 'answered-turn':
-        case 'answered-grounding-card':
         case 'answered-grounding-question':
         case 'answered-review-turn':
         case 'answered-revision-review':
@@ -553,7 +516,6 @@ export function WorkspaceTranscriptArtifacts({
             renderPersistedActivity,
           });
         case 'persisted-turn':
-        case 'persisted-grounding-card':
         case 'persisted-grounding-question':
         case 'pending-question':
         case 'kickoff':

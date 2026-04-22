@@ -177,7 +177,6 @@ describe('assistant part round-trip', () => {
           observation:
             'The repo already uses SQLite-backed local persistence and a routed three-pane app shell.',
           elaboration: 'This grounding brief is provisional context for the next interview move.',
-          continueLabel: 'Continue',
         },
       },
     ];

@@ -157,10 +157,10 @@ describe('specificationWorkspaceStream', () => {
     expect(activeArtifact.questionCode).toBe('Q2');
   });
 
-  it('projects grounding cards without consuming question numbering', () => {
-    const answeredGroundingTurn = createTurn({
+  it('projects grounding cards paired with questions and consumes question numbering', () => {
+    const answeredGroundingQuestionTurn = createTurn({
       id: 1,
-      question: '',
+      question: 'What is the primary feature area?',
       assistant_parts: JSON.stringify([
         {
           type: 'data-grounding-card',
@@ -169,46 +169,46 @@ describe('specificationWorkspaceStream', () => {
             elaboration: 'This is provisional context for the next move.',
           },
         },
-      ]),
-      options: [{ id: 10, position: 0, content: 'Continue', is_recommended: true, is_selected: true }],
-    });
-    const basePersistedTurn = createBottomArtifact('persisted-turn');
-    if (basePersistedTurn.kind !== 'persisted-turn') {
-      throw new Error('Expected persisted-turn bottom artifact');
-    }
-    const persistedTurn = {
-      ...basePersistedTurn,
-      turn: createTurn({
-        id: 2,
-        answer: null,
-        question: '',
-        user_parts: null,
-        assistant_parts: JSON.stringify([
-          {
-            type: 'data-grounding-card',
-            data: {
-              observation: 'The feature area lives under src/client/routes/specification.',
-              elaboration: 'Continue to move into the first substantive question.',
-            },
+        {
+          type: 'tool-ask_question',
+          input: {
+            question: 'What is the primary feature area?',
+            why: 'Narrows grounding scope.',
+            impact: 'high',
+            options: [],
           },
-        ]),
-        options: [{ id: 11, position: 0, content: 'Continue', is_recommended: true, is_selected: false }],
-      }),
-    } satisfies Extract<InterviewControllerBottomArtifactState, { kind: 'persisted-turn' }>;
+        },
+      ]),
+      options: [
+        { id: 10, position: 0, content: 'Workspace replay', is_recommended: true, is_selected: true },
+      ],
+    });
+    const followUpTurn = createTurn({ id: 2, question: 'Follow-up question' });
 
     const projection = specificationWorkspaceStream({
       phase: 'grounding',
-      phaseTurns: [answeredGroundingTurn, persistedTurn.turn],
-      phaseState: createPhaseState({ turnId: persistedTurn.turn.id }),
-      bottomArtifact: persistedTurn,
+      phaseTurns: [answeredGroundingQuestionTurn, followUpTurn],
+      phaseState: createPhaseState(),
+      bottomArtifact: null,
     });
 
     expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
       'phase-section-header',
-      'answered-grounding-card',
-      'divider',
-      'persisted-grounding-card',
+      'answered-grounding-question',
+      'answered-turn',
     ]);
+
+    const groundingArtifact = projection.streamArtifacts[1];
+    if (groundingArtifact.kind !== 'answered-grounding-question') {
+      throw new Error('Expected answered-grounding-question artifact');
+    }
+    expect(groundingArtifact.questionCode).toBe('Q1');
+
+    const followUpArtifact = projection.streamArtifacts[2];
+    if (followUpArtifact.kind !== 'answered-turn') {
+      throw new Error('Expected answered-turn artifact');
+    }
+    expect(followUpArtifact.questionCode).toBe('Q2');
   });
 
   it('projects a stacked grounding-question artifact for an answered turn with both grounding card and question parts', () => {
@@ -314,35 +314,6 @@ describe('specificationWorkspaceStream', () => {
     }
     expect(stackedArtifact.groundingCard).toBeTruthy();
     expect(stackedArtifact.questionCode).toBe('Q1');
-  });
-
-  it('still projects standalone grounding card for turns with only a grounding card and no question', () => {
-    const groundingOnlyTurn = createTurn({
-      id: 1,
-      question: '',
-      assistant_parts: JSON.stringify([
-        {
-          type: 'data-grounding-card',
-          data: {
-            observation: 'Standalone grounding context.',
-            elaboration: 'No paired question.',
-          },
-        },
-      ]),
-      options: [{ id: 10, position: 0, content: 'Continue', is_recommended: true, is_selected: true }],
-    });
-
-    const projection = specificationWorkspaceStream({
-      phase: 'grounding',
-      phaseTurns: [groundingOnlyTurn],
-      phaseState: createPhaseState(),
-      bottomArtifact: null,
-    });
-
-    expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
-      'phase-section-header',
-      'answered-grounding-card',
-    ]);
   });
 
   it('projects a phase-section-header for each realized phase with phase-specific copy', () => {

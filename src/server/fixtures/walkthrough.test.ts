@@ -325,48 +325,45 @@ describe('walkthroughScenarioMatrix', () => {
     });
   });
 
-  it('reopens the named brownfield grounding walkthrough with answered and active grounding cards around a substantive turn', async () => {
+  it('reopens the named brownfield grounding walkthrough with grounding cards combined on question turns', async () => {
     await withReopenedSeededScenario('brownfield-grounding-replay', ({ db, projectId }) => {
       const projectState = getSpecificationState(db, projectId);
 
       expect(projectState ? getSpecificationRecord(projectState).mode : null).toBe('brownfield');
-      expect(projectState?.turns).toHaveLength(3);
+      expect(projectState?.turns).toHaveLength(2);
       expect(projectState?.landing).toEqual({
         kind: 'frontier-turn',
         phase: 'grounding',
-        turnId: projectState!.turns[2]!.id,
+        turnId: projectState!.turns[1]!.id,
       });
       expect(projectState?.turns.map((turn) => turn.question)).toEqual([
-        '',
         'Which seam needs another grounding pass before we keep going?',
-        '',
+        'What does the finalization path need to handle for replay consistency?',
       ]);
       expect(JSON.parse(projectState!.turns[0]!.assistant_parts ?? '[]')).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({
-            type: 'data-activity-summary',
-            data: expect.objectContaining({ tools: [] }),
-          }),
           expect.objectContaining({
             type: 'data-grounding-card',
             data: expect.objectContaining({
               observation: 'The repo already uses SQLite-backed local persistence.',
             }),
           }),
+          expect.objectContaining({
+            type: 'tool-ask_question',
+          }),
         ]),
       );
-      expect(projectState?.turns[1]?.answer).toBe('The chat-runtime finalization path and replay seam.');
-      expect(JSON.parse(projectState!.turns[2]!.assistant_parts ?? '[]')).toEqual(
+      expect(projectState?.turns[0]?.answer).toBe('The chat-runtime finalization path and replay seam.');
+      expect(JSON.parse(projectState!.turns[1]!.assistant_parts ?? '[]')).toEqual(
         expect.arrayContaining([
-          expect.objectContaining({
-            type: 'data-activity-summary',
-            data: expect.objectContaining({ tools: [] }),
-          }),
           expect.objectContaining({
             type: 'data-grounding-card',
             data: expect.objectContaining({
               observation: 'Later context gathering narrowed the work to turn-finalization ownership.',
             }),
+          }),
+          expect.objectContaining({
+            type: 'tool-ask_question',
           }),
         ]),
       );

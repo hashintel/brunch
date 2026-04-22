@@ -104,18 +104,9 @@ export function buildInterviewerContext(
     const groundingCard = getPersistedGroundingCard(turn);
     const reviewSet = getPersistedReviewSet(turn);
     if (groundingCard) {
-      lines.push(`Grounding card: ${groundingCard.observation}`);
+      lines.push(`Grounding preface: ${groundingCard.observation}`);
       if (groundingCard.elaboration) {
         lines.push(`  Elaboration: ${groundingCard.elaboration}`);
-      }
-      if (!turn.question?.trim()) {
-        const projectedGroundingResponse = projectTurnResponse(turn);
-        if (projectedGroundingResponse) {
-          lines.push(formatProjectedTurnResponse(projectedGroundingResponse));
-        } else if (turn.answer) {
-          lines.push(`Grounding response: ${turn.answer}`);
-        }
-        continue;
       }
     }
 
@@ -235,9 +226,9 @@ export function buildObserverContext(input: ObserverContextInput): string {
   const turnLines = [`Current turn #${input.turn.id}:`, `  Phase: ${input.turn.phase}`];
   const groundingCard = getPersistedGroundingCard(input.turn);
   if (groundingCard) {
-    turnLines.push(`  Grounding card: ${groundingCard.observation}`);
+    turnLines.push(`  Grounding preface: ${groundingCard.observation}`);
     if (groundingCard.elaboration) {
-      turnLines.push(`  Grounding elaboration: ${groundingCard.elaboration}`);
+      turnLines.push(`  Preface elaboration: ${groundingCard.elaboration}`);
     }
   }
   if (input.turn.question) turnLines.push(`  Question: ${input.turn.question}`);

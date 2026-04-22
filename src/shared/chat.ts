@@ -52,7 +52,6 @@ export const reviewSetSchema = z
 export const groundingCardSchema = z.object({
   observation: z.string().min(1),
   elaboration: z.string().min(1).nullable().optional(),
-  continueLabel: z.string().min(1).nullable().optional(),
 });
 
 function validateReviewActionOptionPosition(

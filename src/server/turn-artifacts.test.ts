@@ -156,7 +156,6 @@ describe('turn-artifacts', () => {
           input: {
             observation: 'The repo already uses SQLite-backed local persistence.',
             elaboration: 'This is provisional context before the next substantive move.',
-            continueLabel: 'Continue',
           },
           output: { ok: true, turnId: 7 },
         },
@@ -168,7 +167,6 @@ describe('turn-artifacts', () => {
       data: {
         observation: 'The repo already uses SQLite-backed local persistence.',
         elaboration: 'This is provisional context before the next substantive move.',
-        continueLabel: 'Continue',
       },
     });
     if (!groundingCard) {

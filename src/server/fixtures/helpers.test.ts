@@ -99,7 +99,6 @@ describe('fixture helpers', () => {
       serializeFixtureGroundingCardAssistantParts({
         observation: 'Later context gathering narrowed the next move.',
         elaboration: 'Continue to keep moving through the same stream.',
-        continueLabel: 'Continue',
       }),
     );
 
@@ -113,7 +112,6 @@ describe('fixture helpers', () => {
         data: {
           observation: 'Later context gathering narrowed the next move.',
           elaboration: 'Continue to keep moving through the same stream.',
-          continueLabel: 'Continue',
         },
       },
     ]);
