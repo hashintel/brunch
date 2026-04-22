@@ -9,7 +9,7 @@ import type { EntitiesData } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { createKnowledgeReferenceCode } from '@/shared/knowledge.js';
 import { deriveSpecificationLanding } from '@/shared/specification-state.js';
-import type { SpecificationState } from '@/shared/specification.js';
+import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
 import { InterviewView } from '../-interview-view.js';
 import { resetSpecificationLifecycleRegistryForTesting } from '../-specification-lifecycle.js';
@@ -382,6 +382,29 @@ function createWorkflowState(
       criteria: { ...defaultPhase, ...overrides?.criteria },
     },
   };
+}
+
+function createFillerTurns(
+  phase: SpecificationTurn['phase'],
+  count: number,
+  startId = 100,
+): SpecificationTurn[] {
+  return Array.from({ length: count }, (_, i) => ({
+    id: startId + i,
+    specification_id: 1,
+    parent_turn_id: null,
+    phase,
+    turn_kind: 'question' as const,
+    question: `Filler question ${i + 1}`,
+    why: null,
+    impact: 'low' as const,
+    answer: `Answer ${i + 1}`,
+    is_resolution: false,
+    user_parts: JSON.stringify([{ type: 'text', text: `Answer ${i + 1}` }]),
+    assistant_parts: JSON.stringify([{ type: 'text', text: `Filler question ${i + 1}` }]),
+    created_at: '2026-04-03 10:00:00',
+    options: [],
+  }));
 }
 
 function createEntityState(overrides: Partial<EntitiesData> = {}): EntitiesData {
@@ -969,11 +992,12 @@ describe('InterviewView', () => {
     expect(screen.queryByRole('link', { name: /advance to/i })).toBeNull();
   });
 
-  it('shows the header close action when grounding is the active closeable phase', async () => {
+  it('shows the footer close action when grounding is the active closeable phase with enough turns', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
+        turns: createFillerTurns('grounding', 3),
         workflow: createWorkflowState({
-          grounding: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 1 },
+          grounding: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 100 },
         }),
       }),
     );
@@ -983,12 +1007,13 @@ describe('InterviewView', () => {
     expect(screen.getByRole('button', { name: 'Close Phase' })).toBeTruthy();
   });
 
-  it('shows the header close action when design is the active closeable phase', async () => {
+  it('shows the footer close action when design is the active closeable phase with enough turns', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
+        turns: createFillerTurns('design', 3),
         workflow: createWorkflowState({
           grounding: { status: 'closed', readiness: 'high' },
-          design: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 1 },
+          design: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 100 },
         }),
       }),
     );
@@ -1001,8 +1026,9 @@ describe('InterviewView', () => {
   it('opens a close-phase confirmation modal with readiness and turn context and allows cancelling', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
+        turns: createFillerTurns('grounding', 3),
         workflow: createWorkflowState({
-          grounding: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 1 },
+          grounding: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 100 },
         }),
       }),
     );
@@ -1016,7 +1042,7 @@ describe('InterviewView', () => {
     expect(within(dialog).getByText('Readiness')).toBeTruthy();
     expect(within(dialog).getByText('Medium')).toBeTruthy();
     expect(within(dialog).getByText('Turn count')).toBeTruthy();
-    expect(within(dialog).getByText('1 turn')).toBeTruthy();
+    expect(within(dialog).getByText('3 turns')).toBeTruthy();
 
     fireEvent.click(within(dialog).getByRole('button', { name: 'Keep phase open' }));
 
@@ -1029,8 +1055,9 @@ describe('InterviewView', () => {
   it('submits a force-close action for grounding through chat with typed confirmation parts', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
+        turns: createFillerTurns('grounding', 3),
         workflow: createWorkflowState({
-          grounding: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 1 },
+          grounding: { status: 'in_progress', closeability: true, readiness: 'medium', turnId: 100 },
         }),
       }),
     );
@@ -4720,6 +4747,7 @@ describe('InterviewView', () => {
   it('submits a force-close action for design through chat with typed confirmation parts', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
+        turns: createFillerTurns('design', 3),
         workflow: {
           phases: {
             grounding: {
@@ -4785,6 +4813,7 @@ describe('InterviewView', () => {
     setLoaderData(
       createWorkspaceLoaderData({
         turns: [
+          ...createFillerTurns('design', 2, 200),
           {
             id: 1,
             specification_id: 1,

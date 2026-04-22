@@ -165,14 +165,6 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             >
               Open export preview
             </Link>
-          ) : showClosePhaseAction ? (
-            <Button
-              variant="outline"
-              onClick={() => setIsClosePhaseModalOpen(true)}
-              disabled={chat.isLoading}
-            >
-              Close Phase
-            </Button>
           ) : null}
         </div>
         <ChatScroll className="min-h-0 flex-1">
@@ -209,6 +201,17 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             <div className="h-30 shrink-0" />
           </div>
         </ChatScroll>
+        {showClosePhaseAction && phaseTurns.length >= 3 && (
+          <div className="flex shrink-0 items-center justify-center border-t border-rule bg-background px-4 py-3">
+            <Button
+              variant="outline"
+              onClick={() => setIsClosePhaseModalOpen(true)}
+              disabled={chat.isLoading}
+            >
+              Close Phase
+            </Button>
+          </div>
+        )}
       </div>
 
       <Dialog open={isClosePhaseModalOpen} onOpenChange={setIsClosePhaseModalOpen}>
