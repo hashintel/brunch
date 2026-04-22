@@ -4,26 +4,21 @@
 
 # Plan
 
-The live frontier is now **Track A — Interaction model**, centered on restoring review revision card contract consistency now that specification-scoped runtime proving has landed. The runtime seam no longer blocks grounding/design successor interactivity on observer capture, so the next planning pressure shifts back to transcript trust, while workflow-ownership extraction and brownfield/context follow-ons stay queued behind that freshly proven lifecycle contract.
+The live frontier is now **Track A — Interaction model**, centered on the first brownfield workspace-analysis grounding brief now that review revision card contract consistency has landed. The runtime seam no longer blocks grounding/design successor interactivity on observer capture, and regenerated review cards now hold a stable source-owned contract, so the next planning pressure shifts back to proving turn-internal grounding cards against real brownfield repos while workflow-ownership extraction stays queued behind that interaction seam.
 
 ## Active
 
 ### Track A — Interaction model
 
-1. **Review revision card contract consistency** — make regenerated requirements/criteria review cards preserve the same display contract as the initial review card, including reference codes, grounding references, rationale line, and explicit badge semantics.
-   - Why now / unlocks: with runtime proving retired, the most visible remaining trust break from the same manual walkthrough is regenerated review-card drift (`Added by you` ambiguity, raw `requirements:one`-style identifiers, missing secondary lines). Fixing the review revision contract before more brownfield/context slices keeps accepted-review semantics legible.
-   - Execution fronts: align first-review and regenerated-review projection on one display contract; preserve stable reference codes, grounding/rationale secondary lines, and explicit badge semantics across live successor turns and replay; prove the contract in routed review tests without widening into broader review UX redesign.
-   - Traceability: D90, D118, D119; A61, A62; I87, I104.
+1. **Brownfield workspace-analysis grounding brief** — first analysis-first grounding path using turn-internal grounding cards.
+   - Why now / unlocks: with review revision contract drift retired, this can now prove the turn-internal grounding-card seam against real brownfield repos without reopening the core lifecycle question.
+   - Traceability: D32, D83, D99, D117, D120; A47, A56; I101.
 
 ## Next
 
 ### Track A — Interaction model
 
-1. **Brownfield workspace-analysis grounding brief** — first analysis-first grounding path using turn-internal grounding cards.
-   - Why now / unlocks: now that deferred observer capture no longer blocks successor interactivity, this can prove the turn-internal grounding-card seam against real brownfield repos without reopening the core lifecycle question.
-   - Traceability: D32, D83, D99, D117, D120; A47, A56; I101.
-
-2. **Reusable interviewer-invoked context gathering** — generalize context gathering beyond opening grounding.
+1. **Reusable interviewer-invoked context gathering** — generalize context gathering beyond opening grounding.
    - Why now / unlocks: broadens grounding capability without inventing a second artifact model. Best resumed after the brownfield grounding-brief slice proves the current interaction seam on real repositories.
    - Traceability: D99, D30, D32, D83, D117; I101, I104.
 
@@ -62,6 +57,7 @@ The live frontier is now **Track A — Interaction model**, centered on restorin
 
 ## Recently Completed
 
+- [2026-04-22] Review revision card contract consistency retired — Done: acceptance now carries predecessor metadata across sparse regenerated review sets, regeneration context/prompt sources preserve reference codes + rationale + grounding refs + explicit `Added in revision` / `Revised` semantics, and criteria-phase active/replayed/pending review-card routes plus source-owned examples now prove the same contract as requirements. Verified: `npm run verify`. Watch: the next honest follow-on is deciding whether projector-side normalization/fallback can now be reduced without regressing transcript trust.
 - [2026-04-22] Specification runtime state-machine proving retired — Done: decoupled grounding/design structured-response observer capture from interviewer successor readiness using a specification-scoped lifecycle backlog plus turn-owned `/api/specifications/:id/turns/:turnId/observer-capture`, preserved turn-owned capture status / stale-turn safety, and proved reload/reseed behavior without introducing a second durable workflow model. Verified: `npm run verify`. Watch: server dedupe is process-local and deferred capture is still scoped to grounding/design structured responses.
 - [2026-04-22] Query ownership remediation retired — Done: accepted the automated route/query oracles plus manual outer-loop walkthrough validation across `brownfield-grounding-replay`, `issue-tracker-requirements-ready`, `issue-tracker-criteria-ready`, and `issue-tracker-all-phases-closed`, then retired `Active → Track A — Query ownership → Query ownership remediation` as complete. Watch: the same walkthrough surfaced a new lifecycle/runtime concern around observer backlog independence and revision-card contract drift, which now anchors the next planning frontier.
 - [2026-04-22] Transcript/entity boundary repair — Done: moved the entities subscription out of `src/client/routes/specification/$id/_view/route.tsx`'s transcript-owning `ViewLayout` into entity-owned child surfaces only, and strengthened the mounted-route router oracle to prove entities invalidation refetches only `/entities` without remounting or rerendering the interview route. Verified: `npm run verify`.
@@ -72,8 +68,7 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 
 ```text
 TRACK A — Interaction model
-review-revision-card-contract-consistency  (active)
-brownfield-workspace-analysis-grounding-brief
+brownfield-workspace-analysis-grounding-brief  (active)
   └──→ reusable-context-gathering
 
 TRACK B — Runtime / workflow ownership

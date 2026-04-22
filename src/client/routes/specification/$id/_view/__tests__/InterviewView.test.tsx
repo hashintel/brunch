@@ -77,6 +77,52 @@ function createPendingReviewMessage(): BrunchUIMessage {
   };
 }
 
+function createPendingCriteriaRevisionMessage(): BrunchUIMessage {
+  return {
+    id: 'pending-criteria-review-assistant',
+    role: 'assistant',
+    parts: [
+      {
+        type: 'tool-ask_question',
+        toolCallId: 'tool-criteria-review',
+        state: 'output-available',
+        input: {
+          question: 'Please review the revised criterion set.',
+          why: 'Review the revised criterion set before moving forward.',
+          impact: 'high',
+          options: [
+            { content: 'Accept review', is_recommended: true },
+            { content: 'Request changes', is_recommended: false },
+          ],
+          reviewActions: [
+            { action: 'accept', optionPosition: 0 },
+            { action: 'request-changes', optionPosition: 1 },
+          ],
+          reviewSet: {
+            phase: 'criteria',
+            title: 'Acceptance Criteria',
+            items: [
+              {
+                reviewItemId: 'criteria:1',
+                content: 'Restarting restores the active path after a full reload',
+              },
+              {
+                reviewItemId: 'criteria:3',
+                referenceCode: createKnowledgeReferenceCode('criterion', 3),
+                content:
+                  'Accepted regenerated review cards preserve carried rationale and grounding metadata',
+                rationale: 'Keeps the criteria transcript legible while the review is still pending.',
+                grounding: [{ code: createKnowledgeReferenceCode('requirement', 3) }],
+              },
+            ],
+          },
+        },
+        output: { ok: true, turnId: 2, optionCount: 2 },
+      },
+    ],
+  };
+}
+
 type UseChatOptions = {
   id?: string;
   messages: BrunchUIMessage[];
@@ -2681,6 +2727,165 @@ describe('InterviewView', () => {
     expect(screen.queryByText('Added by you')).toBeNull();
   });
 
+  it('carries predecessor review metadata and explicit revision badges onto an active regenerated criteria review turn', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 99,
+          },
+          design: {
+            status: 'closed',
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            turnId: 98,
+          },
+          requirements: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 97,
+            summary: 'Requirements accepted.',
+          },
+          criteria: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 2,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'criteria',
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            answer: 'Please revise this set',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Please revise this set' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 1,
+                  selectedOptionIds: [12],
+                  reviewAction: 'request-changes',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      reviewItemId: 'criteria:1',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 1),
+                      content: 'Restarting restores the active path',
+                      rationale: 'Shows the local persistence seam survives reloads.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 1) }],
+                    },
+                    {
+                      reviewItemId: 'criteria:2',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 2),
+                      content: 'Markdown export includes accepted requirements only',
+                      rationale: 'Prevents draft review content from leaking into export.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 2) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+            ],
+          },
+          {
+            id: 2,
+            specification_id: 1,
+            parent_turn_id: 1,
+            phase: 'criteria',
+            question: 'Please review the revised criterion set.',
+            why: 'Review the revised criterion set before moving forward.',
+            impact: 'high',
+            answer: null,
+            is_resolution: false,
+            user_parts: null,
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the revised criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      reviewItemId: 'criteria:1',
+                      content: 'Restarting restores the active path after a full reload',
+                    },
+                    {
+                      reviewItemId: 'criteria:3',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 3),
+                      content:
+                        'Accepted regenerated review cards preserve carried rationale and grounding metadata',
+                      rationale:
+                        'Keeps the criteria transcript legible while the review is still in progress.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 3) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:05:00',
+            options: [
+              { id: 21, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+      }),
+    );
+
+    renderWorkspace('criteria');
+
+    const activeReviewCard = await screen.findByTestId('active-review-set-card');
+    expect(activeReviewCard).toBeTruthy();
+    expect(within(activeReviewCard).getByText('v2')).toBeTruthy();
+    expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('criterion', 1))).toBeTruthy();
+    expect(
+      within(activeReviewCard).getByText('Restarting restores the active path after a full reload'),
+    ).toBeTruthy();
+    expect(
+      within(activeReviewCard).getByText('Shows the local persistence seam survives reloads.'),
+    ).toBeTruthy();
+    expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('requirement', 1))).toBeTruthy();
+    expect(within(activeReviewCard).getByText('Revised')).toBeTruthy();
+    expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('criterion', 3))).toBeTruthy();
+    expect(
+      within(activeReviewCard).getByText(
+        'Accepted regenerated review cards preserve carried rationale and grounding metadata',
+      ),
+    ).toBeTruthy();
+    expect(within(activeReviewCard).getByText('Added in revision')).toBeTruthy();
+    expect(screen.queryByText('Added by you')).toBeNull();
+  });
+
   it('replays regenerated review turns with the same carried metadata and revision badge semantics', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
@@ -2856,6 +3061,180 @@ describe('InterviewView', () => {
     expect(screen.queryByText('Added by you')).toBeNull();
   });
 
+  it('replays regenerated criteria review turns with the same carried metadata and revision badge semantics', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 99,
+            summary: 'Grounding closed.',
+          },
+          design: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 98,
+            summary: 'Design closed.',
+          },
+          requirements: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 97,
+            summary: 'Requirements accepted.',
+          },
+          criteria: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 2,
+            summary: 'Criteria accepted.',
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'criteria',
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            answer: 'Please revise this set',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Please revise this set' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 1,
+                  selectedOptionIds: [12],
+                  reviewAction: 'request-changes',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      reviewItemId: 'criteria:1',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 1),
+                      content: 'Restarting restores the active path',
+                      rationale: 'Shows the local persistence seam survives reloads.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 1) }],
+                    },
+                    {
+                      reviewItemId: 'criteria:2',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 2),
+                      content: 'Markdown export includes accepted requirements only',
+                      rationale: 'Prevents draft review content from leaking into export.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 2) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+            ],
+          },
+          {
+            id: 2,
+            specification_id: 1,
+            parent_turn_id: 1,
+            phase: 'criteria',
+            question: 'Please review the revised criterion set.',
+            why: 'Review the revised criterion set before moving forward.',
+            impact: 'high',
+            answer: 'Accept review',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Accept review' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 2,
+                  selectedOptionIds: [21],
+                  reviewAction: 'accept',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the revised criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      reviewItemId: 'criteria:1',
+                      content: 'Restarting restores the active path after a full reload',
+                    },
+                    {
+                      reviewItemId: 'criteria:3',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 3),
+                      content:
+                        'Accepted regenerated review cards preserve carried rationale and grounding metadata',
+                      rationale: 'Keeps the criteria transcript legible after acceptance.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 3) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:05:00',
+            options: [
+              { id: 21, position: 0, content: 'Accept review', is_recommended: true, is_selected: true },
+              { id: 22, position: 1, content: 'Request changes', is_recommended: false, is_selected: false },
+            ],
+          },
+        ],
+      }),
+    );
+
+    renderWorkspace('criteria');
+
+    const revisionCard = await screen.findByTestId('revision-card');
+    expect(revisionCard.textContent).toContain('v2');
+
+    const answeredReviewCards = await screen.findAllByTestId('answered-review-set-card');
+    const answeredReviewCard = answeredReviewCards.at(-1);
+    expect(answeredReviewCard).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText(createKnowledgeReferenceCode('criterion', 1))).toBeTruthy();
+    expect(
+      within(answeredReviewCard!).getByText('Restarting restores the active path after a full reload'),
+    ).toBeTruthy();
+    expect(
+      within(answeredReviewCard!).getByText('Shows the local persistence seam survives reloads.'),
+    ).toBeTruthy();
+    expect(
+      within(answeredReviewCard!).getByText(createKnowledgeReferenceCode('requirement', 1)),
+    ).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText('Revised')).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText('Added in revision')).toBeTruthy();
+    expect(within(answeredReviewCard!).getByText('Review accepted.')).toBeTruthy();
+    expect(screen.queryByText('Added by you')).toBeNull();
+  });
+
   it('renders a pending review turn through the same lightweight review card family before route invalidation', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
@@ -2966,6 +3345,113 @@ describe('InterviewView', () => {
       expect(screen.getByText(createKnowledgeReferenceCode('requirement', 1))).toBeTruthy();
       expect(screen.queryByText('Stale snapshot requirement that should NOT appear')).toBeNull();
       expect(screen.queryByText(createKnowledgeReferenceCode('requirement', 99))).toBeNull();
+      expect(routerInvalidate).not.toHaveBeenCalled();
+    });
+  });
+
+  it('renders a pending regenerated criteria review turn with carried metadata and canonical badges before route invalidation', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        workflow: createWorkflowState({
+          requirements: {
+            status: 'closed',
+            closeability: false,
+            readiness: 'high',
+            closureBasis: 'interviewer_recommended',
+            proposalPending: false,
+            turnId: 97,
+            summary: 'Requirements accepted.',
+          },
+          criteria: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'medium',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: 2,
+            summary: null,
+          },
+        }),
+        turns: [
+          {
+            id: 1,
+            specification_id: 1,
+            parent_turn_id: null,
+            phase: 'criteria',
+            question: 'Please review the current criterion set.',
+            why: 'Review the whole criterion set before moving forward.',
+            impact: 'high',
+            answer: 'Please revise this set',
+            is_resolution: false,
+            user_parts: JSON.stringify([
+              { type: 'text', text: 'Please revise this set' },
+              {
+                type: 'data-turn-response',
+                data: {
+                  turnId: 1,
+                  selectedOptionIds: [12],
+                  reviewAction: 'request-changes',
+                },
+              },
+            ]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'Please review the current criterion set.' },
+              {
+                type: 'data-review-set',
+                data: {
+                  phase: 'criteria',
+                  title: 'Acceptance Criteria',
+                  items: [
+                    {
+                      reviewItemId: 'criteria:1',
+                      referenceCode: createKnowledgeReferenceCode('criterion', 1),
+                      content: 'Restarting restores the active path',
+                      rationale: 'Shows the local persistence seam survives reloads.',
+                      grounding: [{ code: createKnowledgeReferenceCode('requirement', 1) }],
+                    },
+                  ],
+                },
+              },
+            ]),
+            created_at: '2026-04-03 10:00:00',
+            options: [
+              { id: 11, position: 0, content: 'Accept review', is_recommended: true, is_selected: false },
+              { id: 12, position: 1, content: 'Request changes', is_recommended: false, is_selected: true },
+            ],
+          },
+        ],
+      }),
+    );
+    useChatImpl = createUseChatHarness('streaming');
+
+    renderWorkspace('criteria');
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Please revise this set' }] },
+        {
+          id: 'turn-1-assistant',
+          role: 'assistant',
+          parts: [{ type: 'text', text: 'Please review the current criterion set.' }],
+        },
+        createPendingCriteriaRevisionMessage(),
+      ]);
+    });
+
+    await waitFor(() => {
+      const activeReviewCard = screen.getByTestId('active-review-set-card');
+      expect(activeReviewCard).toBeTruthy();
+      expect(within(activeReviewCard).getByText('v2')).toBeTruthy();
+      expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('criterion', 1))).toBeTruthy();
+      expect(
+        within(activeReviewCard).getByText('Restarting restores the active path after a full reload'),
+      ).toBeTruthy();
+      expect(
+        within(activeReviewCard).getByText('Shows the local persistence seam survives reloads.'),
+      ).toBeTruthy();
+      expect(within(activeReviewCard).getByText(createKnowledgeReferenceCode('requirement', 1))).toBeTruthy();
+      expect(within(activeReviewCard).getByText('Revised')).toBeTruthy();
+      expect(within(activeReviewCard).getByText('Added in revision')).toBeTruthy();
       expect(routerInvalidate).not.toHaveBeenCalled();
     });
   });
