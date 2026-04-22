@@ -24,6 +24,7 @@ import {
   serializeFixtureConfirmationUserParts,
   serializeFixtureGroundingCardAssistantParts,
   serializeFixturePhaseConfirmationUserParts,
+  serializeFixturePhaseProposalAssistantParts,
   serializeFixtureQuestionAssistantParts,
   serializeFixtureTurnResponseUserParts,
 } from './helpers.js';
@@ -191,6 +192,11 @@ export function seedClosedGrounding(db: DB, projectId: number) {
     parent_turn_id: groundingTurn.id,
     question: '',
     answer: 'We have enough grounding context',
+    assistant_parts: serializeFixturePhaseProposalAssistantParts({
+      turnId: groundingTurn.id + 1,
+      phase: 'grounding',
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    }),
   });
   advanceHead(db, projectId, groundingProposalTurn.id);
 
@@ -230,6 +236,11 @@ export function seedGroundingClosurePending(db: DB, projectId: number) {
     parent_turn_id: groundingTurn.id,
     question: '',
     answer: 'We have enough grounding context',
+    assistant_parts: serializeFixturePhaseProposalAssistantParts({
+      turnId: groundingTurn.id + 1,
+      phase: 'grounding',
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    }),
   });
   advanceHead(db, projectId, groundingProposalTurn.id);
 
