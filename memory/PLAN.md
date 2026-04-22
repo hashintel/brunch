@@ -39,7 +39,7 @@ The live frontier is now **Track A — Interaction model**, centered on the firs
 
 ### Engagement / polish
 
-- Thinking token streaming in a lines-limited vertical scrolling sub-area for the interview view.
+- ~~Thinking token streaming in a lines-limited vertical scrolling sub-area for the interview view.~~ Largely landed (`ThinkingTokenScroll`); remaining gap (tool activity visibility during the post-thinking window) is covered by sub-slice (b) in the active frontier.
 
 ### Completion / reporting follow-ons
 
