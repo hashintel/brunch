@@ -197,8 +197,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               renderLiveActivity={renderActivitySummary}
             />
 
-            {/* Bottom spacer — future home of phase-advance controls */}
-            <div className="h-30 shrink-0" />
+            <div className="h-8 shrink-0" />
           </div>
         </ChatScroll>
         {showClosePhaseAction && phaseTurns.length >= 3 && (
