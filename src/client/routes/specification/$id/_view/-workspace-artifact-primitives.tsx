@@ -16,7 +16,7 @@ export function WorkspaceArtifactRow({
   testId?: string;
 }) {
   return (
-    <div className={cn('flex flex-col', className)} {...(testId ? { 'data-testid': testId } : {})}>
+    <div className={cn('flex flex-col gap-4', className)} {...(testId ? { 'data-testid': testId } : {})}>
       {activity}
       {children}
       {errorMessage ? <WorkspaceArtifactErrorMessage message={errorMessage} /> : null}

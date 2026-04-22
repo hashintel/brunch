@@ -29,7 +29,7 @@ const impactColor: Record<Impact, string> = {
 
 export function ActivityPlaceholder({ seconds, tools }: { seconds?: number; tools?: string[] }) {
   return (
-    <div className="flex items-center justify-between px-1 py-1.5">
+    <div className="flex items-center justify-between px-1">
       <span className="text-xs text-hint">{seconds != null ? `Thought for ${seconds}s` : 'Thinking…'}</span>
       {tools && tools.length > 0 && <span className="text-xs text-hint">Tools: {tools.join(', ')}</span>}
     </div>
@@ -175,7 +175,7 @@ export function AnsweredReviewSetCard({
 
 export function PrefaceCard({ preface }: { preface: PrefaceData }) {
   return (
-    <div data-testid="preface-card" className="mb-3 rounded-lg bg-tint px-3.5 py-3 italic">
+    <div data-testid="preface-card" className="border-l-4 border-wash pl-3.5 italic">
       <p className="text-xs-plus leading-relaxed text-sub">{preface.observation}</p>
       {preface.elaboration && (
         <p className="mt-1.5 text-xs leading-relaxed text-hint">{preface.elaboration}</p>
@@ -547,9 +547,9 @@ export function GeneratingTurnPlaceholder({
   }, []);
 
   return (
-    <div className="flex flex-col" data-testid="generating-turn-placeholder">
+    <div className="flex flex-col gap-4" data-testid="generating-turn-placeholder">
       <ActivityPlaceholder seconds={seconds > 0 ? seconds : undefined} tools={liveActivity?.tools} />
-      {liveReasoningText && <ThinkingTokenScroll text={liveReasoningText} className="mt-1" />}
+      {liveReasoningText && <ThinkingTokenScroll text={liveReasoningText} />}
       <QuestionCardSkeleton />
     </div>
   );

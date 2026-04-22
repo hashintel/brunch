@@ -210,7 +210,7 @@ describe('runObserver', () => {
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
         system: expect.not.stringContaining('brownfield kickoff'),
-        prompt: expect.stringContaining('Specification mode: brownfield'),
+        prompt: expect.stringContaining('scoped to a feature or change within an existing codebase'),
       }),
     );
     expect(mockGenerateText).toHaveBeenCalledWith(

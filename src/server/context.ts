@@ -196,7 +196,9 @@ export function buildObserverContext(input: ObserverContextInput): string {
   const sections: string[] = [];
 
   if (input.specificationMode === 'brownfield') {
-    const specificationContextLines = ['Specification mode: brownfield'];
+    const specificationContextLines = [
+      'This specification is scoped to a feature or change within an existing codebase.',
+    ];
     if (input.workspaceDirectory) {
       specificationContextLines.push(`Workspace directory: ${input.workspaceDirectory}`);
     }

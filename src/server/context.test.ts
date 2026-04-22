@@ -607,7 +607,7 @@ describe('observer-context-projection', () => {
       },
     });
 
-    expect(result).toContain('Specification mode: brownfield');
+    expect(result).toContain('scoped to a feature or change within an existing codebase');
     expect(result).toContain('Workspace directory: /tmp/repo');
     expect(result).toContain('Grounding: The repo has a dedicated auth module and callback route.');
   });

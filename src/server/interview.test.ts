@@ -164,7 +164,7 @@ describe('getSystemPrompt', () => {
     const prompt = getBrownfieldGroundingPrompt('/tmp/repo');
 
     expect(prompt).toContain('The workspace directory is: /tmp/repo');
-    expect(prompt).toContain('workspace manifest files');
+    expect(prompt).toContain('project manifest files');
     expect(prompt).toContain('workspace layout');
     expect(prompt).not.toContain('The project directory is:');
   });
@@ -423,7 +423,7 @@ describe('brownfield interviewer configuration', () => {
         cwd: '/tmp/repo',
         brownfieldGroundingStage: 'ongoing',
       }),
-    ).toContain('ongoing brownfield grounding conversation');
+    ).toContain('Continue the structured grounding interview');
     expect(
       getInterviewerInstructions('grounding', {
         mode: 'brownfield',
