@@ -8,6 +8,7 @@ import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/spe
 import type { SpecificationTurn } from '@/shared/specification.js';
 
 import { cn } from '../lib/utils';
+import { ThinkingTokenScroll } from './ai-elements/thinking-token-scroll';
 import { Button } from './app-shell';
 import { DrawerCard } from './drawer-card';
 import { isVisibleKnowledgeKind } from './knowledge-display';
@@ -640,7 +641,13 @@ export function QuestionCardSkeleton() {
 
 // ── Generating state container ──────────────────────────────────────
 
-export function GeneratingTurnPlaceholder({ liveActivity }: { liveActivity?: ActivitySummary }) {
+export function GeneratingTurnPlaceholder({
+  liveActivity,
+  liveReasoningText,
+}: {
+  liveActivity?: ActivitySummary;
+  liveReasoningText?: string;
+}) {
   const startTimeRef = useRef<number>(Date.now());
   const [seconds, setSeconds] = useState(0);
 
@@ -655,6 +662,7 @@ export function GeneratingTurnPlaceholder({ liveActivity }: { liveActivity?: Act
   return (
     <div className="flex flex-col" data-testid="generating-turn-placeholder">
       <ActivityPlaceholder seconds={seconds > 0 ? seconds : undefined} tools={liveActivity?.tools} />
+      {liveReasoningText && <ThinkingTokenScroll text={liveReasoningText} className="mt-1" />}
       <QuestionCardSkeleton />
     </div>
   );

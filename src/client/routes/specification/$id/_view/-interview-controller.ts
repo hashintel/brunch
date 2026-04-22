@@ -99,6 +99,7 @@ export type InterviewControllerBottomArtifactState =
   | {
       readonly kind: 'generating';
       readonly liveActivity?: ActivitySummary;
+      readonly liveReasoningText?: string;
     }
   | {
       readonly kind: 'phase-handoff';
@@ -140,6 +141,34 @@ function getLatestAssistantActivity(
     const activitySummary = summarizeAssistantActivity(message.parts);
     if (activitySummary) {
       return activitySummary;
+    }
+  }
+
+  return undefined;
+}
+
+function getLatestReasoningText(
+  messages: readonly BrunchUIMessage[],
+  status: ChatStatus,
+): string | undefined {
+  if (status !== 'streaming') {
+    return undefined;
+  }
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message?.role !== 'assistant' || !message.parts) {
+      continue;
+    }
+
+    const chunks: string[] = [];
+    for (const part of message.parts) {
+      if (part.type === 'reasoning') {
+        chunks.push(part.text);
+      }
+    }
+    if (chunks.length > 0) {
+      return chunks.join('');
     }
   }
 
@@ -234,6 +263,10 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
   );
   const liveActivity = useMemo(
     () => getLatestAssistantActivity(phaseMessages, status),
+    [phaseMessages, status],
+  );
+  const liveReasoningText = useMemo(
+    () => getLatestReasoningText(phaseMessages, status),
     [phaseMessages, status],
   );
 
@@ -466,7 +499,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                     };
                   })()
                 : viewState.bottomArtifact.kind === 'generating'
-                  ? { kind: 'generating' as const, liveActivity }
+                  ? { kind: 'generating' as const, liveActivity, liveReasoningText }
                   : viewState.bottomArtifact.kind === 'phase-handoff'
                     ? {
                         kind: 'phase-handoff' as const,

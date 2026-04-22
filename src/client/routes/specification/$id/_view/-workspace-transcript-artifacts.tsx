@@ -407,6 +407,7 @@ function renderWorkspaceInteractiveArtifact({
         <GeneratingTurnPlaceholder
           key="generating-turn-placeholder"
           liveActivity={artifact.artifact.liveActivity}
+          liveReasoningText={artifact.artifact.liveReasoningText}
         />
       );
   }
