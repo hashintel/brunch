@@ -13,6 +13,7 @@ import type { SpecificationState } from '@/shared/specification.js';
 import { queryClient } from '../query-client.js';
 
 const fetchMock = vi.fn<typeof fetch>();
+let interviewViewRenderCount = 0;
 let interviewViewMountCount = 0;
 let interviewViewUnmountCount = 0;
 
@@ -91,6 +92,8 @@ vi.mock('../routes/specification/$id/_view/-interview-controller', () => ({
 
 vi.mock('../routes/specification/$id/_view/-interview-view.js', () => ({
   InterviewView: () => {
+    interviewViewRenderCount += 1;
+
     useEffect(() => {
       interviewViewMountCount += 1;
       return () => {
@@ -168,6 +171,7 @@ async function renderRouteAt(pathname: string) {
 beforeEach(() => {
   queryClient.clear();
   fetchMock.mockReset();
+  interviewViewRenderCount = 0;
   interviewViewMountCount = 0;
   interviewViewUnmountCount = 0;
   fetchMock.mockImplementation(async (input) => defaultFetchHandler(input));
@@ -276,6 +280,7 @@ describe('generated routeTree', () => {
     await renderRouteAt('/specification/42/grounding');
 
     expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
+    expect(interviewViewRenderCount).toBe(1);
     expect(interviewViewMountCount).toBe(1);
     expect(interviewViewUnmountCount).toBe(0);
 
@@ -296,6 +301,7 @@ describe('generated routeTree', () => {
       return url === '/api/specifications/42';
     });
     expect(specificationFetches).toHaveLength(1);
+    expect(interviewViewRenderCount).toBe(1);
     expect(interviewViewMountCount).toBe(1);
     expect(interviewViewUnmountCount).toBe(0);
   });

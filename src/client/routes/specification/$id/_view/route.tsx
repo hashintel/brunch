@@ -13,22 +13,33 @@ const viewSearchSchema = z.object({
   view: z.enum(['chat', 'graph']).optional().default('chat'),
 });
 
-function ViewLayout() {
+function GraphViewScreen() {
   const entitySnapshot = useSpecificationEntities();
+
+  return (
+    <Suspense
+      fallback={
+        <div className="flex h-full items-center justify-center">
+          <p className="text-sm text-muted-foreground">Loading graph view…</p>
+        </div>
+      }
+    >
+      <LazyGraphView entityState={entitySnapshot} />
+    </Suspense>
+  );
+}
+
+function EntitySidebarPane() {
+  const entitySnapshot = useSpecificationEntities();
+
+  return <EntitySidebar entityState={entitySnapshot} />;
+}
+
+function ViewLayout() {
   const { view } = Route.useSearch();
 
   if (view === 'graph') {
-    return (
-      <Suspense
-        fallback={
-          <div className="flex h-full items-center justify-center">
-            <p className="text-sm text-muted-foreground">Loading graph view…</p>
-          </div>
-        }
-      >
-        <LazyGraphView entityState={entitySnapshot} />
-      </Suspense>
-    );
+    return <GraphViewScreen />;
   }
 
   return (
@@ -40,7 +51,7 @@ function ViewLayout() {
       <ResizableHandle withHandle />
 
       <ResizablePanel defaultSize={35} minSize={20}>
-        <EntitySidebar entityState={entitySnapshot} />
+        <EntitySidebarPane />
       </ResizablePanel>
     </ResizablePanelGroup>
   );

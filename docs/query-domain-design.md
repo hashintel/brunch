@@ -3,7 +3,7 @@
 > Design document for migrating from coarse `router.invalidate()` to granular TanStack Query domains.
 > Traceability: D121, A64.
 >
-> **Sync note — 2026-04-22:** The router/query ownership migration remains live, but the earlier three-way split (`core`, `turns`, `entities`) should not be read as the immediate canonical boundary while `/api/specifications/:id` still returns one monolithic specification payload. The current live frontier treats `workflow + landing + turns` as one authoritative specification bundle domain and `entities` as the separately invalidable domain. Use this document for the query-owned routing/invalidation rationale and loader-priming shape, then follow `memory/PLAN.md` and `memory/REFACTOR.md` for the staged execution order.
+> **Sync note — 2026-04-22:** The current canonical client boundary is one authoritative specification bundle domain (`workflow + landing + turns`) plus a separately invalidable `entities` domain. The stricter transcript/entity boundary also landed: entity subscriptions now live only in entity-owned child surfaces, so the routed transcript subtree is no longer rendered by an entity-subscribing layout component. Any references below to the earlier three-way split (`core`, `turns`, `entities`) are historical design exploration rather than the live implementation target. Use `memory/PLAN.md` as the canonical frontier authority.
 
 ## Problem
 
