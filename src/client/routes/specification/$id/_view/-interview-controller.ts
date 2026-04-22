@@ -101,6 +101,7 @@ export type InterviewControllerBottomArtifactState =
       readonly liveActivity?: ActivitySummary;
       readonly liveReasoningText?: string;
       readonly pendingPreface?: import('@/shared/chat.js').PrefaceData;
+      readonly latestToolDetail?: string;
     }
   | {
       readonly kind: 'phase-handoff';
@@ -124,6 +125,62 @@ export interface InterviewController {
   readonly chat: InterviewControllerChatState;
   readonly bottomArtifact: InterviewControllerBottomArtifactState | null;
   readonly structuralArtifactTurnIds: readonly number[] | undefined;
+}
+
+const MAX_TOOL_DETAIL_LENGTH = 80;
+
+function truncateToolDetail(value: string): string {
+  const sanitized = value.replace(/[\n\r]+/g, ' ').trim();
+  return sanitized.length > MAX_TOOL_DETAIL_LENGTH
+    ? `${sanitized.slice(0, MAX_TOOL_DETAIL_LENGTH - 1)}…`
+    : sanitized;
+}
+
+function extractToolDetail(input: unknown): string | null {
+  if (input === null || typeof input !== 'object') {
+    return null;
+  }
+
+  const record = input as Record<string, unknown>;
+  for (const key of ['path', 'pattern', 'glob', 'url', 'query', 'command'] as const) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) {
+      return truncateToolDetail(value);
+    }
+  }
+
+  return null;
+}
+
+function getLatestToolDetail(messages: readonly BrunchUIMessage[], status: ChatStatus): string | undefined {
+  if (status !== 'streaming') {
+    return undefined;
+  }
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message?.role !== 'assistant' || !message.parts) {
+      continue;
+    }
+
+    for (let partIndex = (message.parts?.length ?? 0) - 1; partIndex >= 0; partIndex -= 1) {
+      const part = message.parts[partIndex];
+      if (part?.type !== 'dynamic-tool') {
+        continue;
+      }
+
+      if (part.state === 'input-streaming') {
+        continue;
+      }
+
+      const detail = extractToolDetail(part.input);
+      if (detail) {
+        return detail;
+      }
+    }
+  }
+
+  return undefined;
 }
 
 function getLatestAssistantActivity(
@@ -269,6 +326,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     () => getLatestReasoningText(phaseMessages, status),
     [phaseMessages, status],
   );
+  const latestToolDetail = useMemo(() => getLatestToolDetail(phaseMessages, status), [phaseMessages, status]);
 
   const submitText = useCallback(
     (text: string) => {
@@ -505,6 +563,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                       liveActivity,
                       liveReasoningText,
                       pendingPreface: viewState.bottomArtifact.pendingPreface,
+                      latestToolDetail,
                     }
                   : viewState.bottomArtifact.kind === 'phase-handoff'
                     ? {

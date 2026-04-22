@@ -407,6 +407,7 @@ function renderWorkspaceInteractiveArtifact({
           liveActivity={artifact.artifact.liveActivity}
           liveReasoningText={artifact.artifact.liveReasoningText}
           pendingPreface={artifact.artifact.pendingPreface}
+          latestToolDetail={artifact.artifact.latestToolDetail}
         />
       );
   }

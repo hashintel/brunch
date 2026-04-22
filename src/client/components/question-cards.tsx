@@ -27,11 +27,31 @@ const impactColor: Record<Impact, string> = {
 
 // ── Activity placeholder ────────────────────────────────────────────
 
-export function ActivityPlaceholder({ seconds, tools }: { seconds?: number; tools?: string[] }) {
+export function ActivityPlaceholder({
+  seconds,
+  tools,
+  toolDetail,
+  prominent,
+}: {
+  seconds?: number;
+  tools?: string[];
+  toolDetail?: string;
+  prominent?: boolean;
+}) {
+  const hasTools = tools && tools.length > 0;
   return (
-    <div className="flex items-center justify-between px-1">
-      <span className="text-xs text-hint">{seconds != null ? `Thought for ${seconds}s` : 'Thinking…'}</span>
-      {tools && tools.length > 0 && <span className="text-xs text-hint">Tools: {tools.join(', ')}</span>}
+    <div className={cn('flex flex-col gap-1 px-1', prominent && 'py-1')}>
+      <div className="flex items-center justify-between">
+        <span className={cn('text-hint', prominent ? 'text-xs-plus font-medium text-sub' : 'text-xs')}>
+          {seconds != null ? `Thought for ${seconds}s` : 'Thinking…'}
+        </span>
+        {hasTools && (
+          <span className={cn('text-hint', prominent ? 'text-xs-plus text-sub' : 'text-xs')}>
+            Tools: {tools.join(', ')}
+          </span>
+        )}
+      </div>
+      {toolDetail && <span className="truncate text-xs text-hint italic">{toolDetail}</span>}
     </div>
   );
 }
@@ -543,13 +563,16 @@ export function GeneratingTurnPlaceholder({
   liveActivity,
   liveReasoningText,
   pendingPreface,
+  latestToolDetail,
 }: {
   liveActivity?: ActivitySummary;
   liveReasoningText?: string;
   pendingPreface?: PrefaceData;
+  latestToolDetail?: string;
 }) {
   const startTimeRef = useRef<number>(Date.now());
   const [seconds, setSeconds] = useState(0);
+  const prominent = !liveReasoningText && (liveActivity?.tools?.length ?? 0) > 0;
 
   useEffect(() => {
     startTimeRef.current = Date.now();
@@ -561,7 +584,12 @@ export function GeneratingTurnPlaceholder({
 
   return (
     <div className="flex flex-col gap-4" data-testid="generating-turn-placeholder">
-      <ActivityPlaceholder seconds={seconds > 0 ? seconds : undefined} tools={liveActivity?.tools} />
+      <ActivityPlaceholder
+        seconds={seconds > 0 ? seconds : undefined}
+        tools={liveActivity?.tools}
+        toolDetail={latestToolDetail}
+        prominent={prominent}
+      />
       {liveReasoningText && <ThinkingTokenScroll text={liveReasoningText} />}
       {pendingPreface && <PrefaceCard preface={pendingPreface} />}
       <QuestionCardSkeleton />
