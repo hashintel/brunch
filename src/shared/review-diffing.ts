@@ -1,4 +1,5 @@
 import type { ReviewSetData } from './chat.js';
+import { createKnowledgeReferenceCode } from './knowledge.js';
 import { getPersistedReviewAction, getPersistedReviewSet } from './specification-state.js';
 import type { SpecificationTurn } from './specification.js';
 
@@ -51,21 +52,66 @@ function reviewItemsDiffer(
   );
 }
 
+function getCanonicalReferenceCodeForReviewItem(reviewItemId: string): string | null {
+  const match = /^(requirements|criteria):(\d+)$/.exec(reviewItemId);
+  if (!match) {
+    return null;
+  }
+
+  const [, phase, ordinal] = match;
+  return createKnowledgeReferenceCode(
+    phase === 'requirements' ? 'requirement' : 'criterion',
+    Number(ordinal),
+  );
+}
+
+function stripReferenceCodePrefix(content: string, referenceCode: string | null): string {
+  if (!referenceCode) {
+    return content;
+  }
+
+  const prefix = `${referenceCode}: `;
+  return content.startsWith(prefix) ? content.slice(prefix.length) : content;
+}
+
+function sanitizeReviewSetItemDisplayFields(
+  item: ReviewSetData['items'][number],
+): ReviewSetData['items'][number] {
+  const canonicalReferenceCode = getCanonicalReferenceCodeForReviewItem(item.reviewItemId);
+  const usesInternalReferenceCode = item.referenceCode === item.reviewItemId;
+  const normalizedReferenceCode = usesInternalReferenceCode
+    ? (canonicalReferenceCode ?? item.referenceCode)
+    : (item.referenceCode ?? canonicalReferenceCode);
+
+  return {
+    ...item,
+    ...(normalizedReferenceCode ? { referenceCode: normalizedReferenceCode } : {}),
+    content: stripReferenceCodePrefix(item.content, normalizedReferenceCode ?? canonicalReferenceCode),
+  };
+}
+
 export function normalizeReviewSetForDisplay(
   reviewSet: ReviewSetData,
   predecessor?: ReviewSetData | null,
 ): ReviewSetData {
+  const sanitizedReviewSet = {
+    ...reviewSet,
+    items: reviewSet.items.map(sanitizeReviewSetItemDisplayFields),
+  } satisfies ReviewSetData;
+
   if (!predecessor) {
-    return reviewSet;
+    return sanitizedReviewSet;
   }
 
   const predecessorItemsByIdentity = new Map(
-    predecessor.items.map((item) => [getReviewItemIdentity(item), item] as const),
+    predecessor.items.map(
+      (item) => [getReviewItemIdentity(item), sanitizeReviewSetItemDisplayFields(item)] as const,
+    ),
   );
 
   return {
-    ...reviewSet,
-    items: reviewSet.items.map((item) => {
+    ...sanitizedReviewSet,
+    items: sanitizedReviewSet.items.map((item) => {
       const predecessorItem = predecessorItemsByIdentity.get(getReviewItemIdentity(item));
       const normalizedItem: ReviewSetData['items'][number] = {
         ...item,

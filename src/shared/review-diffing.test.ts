@@ -158,6 +158,61 @@ describe('normalizeReviewSetForDisplay', () => {
       ],
     });
   });
+
+  it('repairs malformed regenerated display fields when reviewItemId leaks into referenceCode and content', () => {
+    expect(
+      normalizeReviewSetForDisplay(
+        {
+          phase: 'requirements',
+          title: 'Requirements',
+          items: [
+            {
+              reviewItemId: 'requirements:1',
+              referenceCode: 'requirements:1',
+              content: 'R1: Revised copy',
+            },
+            {
+              reviewItemId: 'requirements:2',
+              referenceCode: 'requirements:2',
+              content: 'R2: New item',
+            },
+          ],
+        },
+        {
+          phase: 'requirements',
+          title: 'Requirements',
+          items: [
+            {
+              reviewItemId: 'requirements:1',
+              content: 'Original copy',
+              referenceCode: 'R1',
+              rationale: 'Carry this forward.',
+              grounding: [{ code: 'G1' }],
+            },
+          ],
+        },
+      ),
+    ).toEqual({
+      phase: 'requirements',
+      title: 'Requirements',
+      items: [
+        {
+          reviewItemId: 'requirements:1',
+          content: 'Revised copy',
+          referenceCode: 'R1',
+          rationale: 'Carry this forward.',
+          grounding: [{ code: 'G1' }],
+          isRevised: true,
+        },
+        {
+          reviewItemId: 'requirements:2',
+          content: 'New item',
+          referenceCode: 'R2',
+          isUserCreated: true,
+        },
+      ],
+    });
+  });
 });
 
 describe('getReviewRevisionNumber', () => {

@@ -2678,7 +2678,8 @@ describe('InterviewView', () => {
                   items: [
                     {
                       reviewItemId: 'requirements:1',
-                      content: 'Resume the interview from persisted local state after reload',
+                      referenceCode: 'requirements:1',
+                      content: 'R1: Resume the interview from persisted local state after reload',
                     },
                     {
                       reviewItemId: 'requirements:2',
@@ -2714,6 +2715,12 @@ describe('InterviewView', () => {
     expect(
       within(activeReviewCard).getByText('Resume the interview from persisted local state after reload'),
     ).toBeTruthy();
+    expect(within(activeReviewCard).queryByText('requirements:1')).toBeNull();
+    expect(
+      within(activeReviewCard).queryByText(
+        'R1: Resume the interview from persisted local state after reload',
+      ),
+    ).toBeNull();
     expect(
       within(activeReviewCard).getByText('Maintains the local-first continuity promise after reload.'),
     ).toBeTruthy();

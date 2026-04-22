@@ -59,8 +59,13 @@ function formatReviewSetInventory(reviewSet: ReviewSetData): string {
 
   for (const item of reviewSet.items) {
     const identity = getReviewItemIdentity(item);
-    const label = item.referenceCode ? `[${identity}] ${item.referenceCode}` : `[${identity}]`;
-    lines.push(`  - ${label}: ${item.content}`);
+    lines.push(`  - Item ${identity}`);
+
+    if (item.referenceCode) {
+      lines.push(`    Reference code: ${item.referenceCode}`);
+    }
+
+    lines.push(`    Content: ${item.content}`);
 
     if (item.rationale) {
       lines.push(`    Rationale: ${item.rationale}`);

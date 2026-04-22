@@ -307,7 +307,9 @@ describe('buildInterviewerContext', () => {
 
     const result = buildInterviewerContext(turns, 'next');
     expect(result).toContain('Review set: Requirements');
-    expect(result).toContain('- [requirements:1] R1: Track auth state');
+    expect(result).toContain('- Item requirements:1');
+    expect(result).toContain('Reference code: R1');
+    expect(result).toContain('Content: Track auth state');
     expect(result).toContain('Per-item comments:');
     expect(result).toContain('Item requirements:1: Rewrite to focus on auth flow');
     expect(result).toContain('Item requirements:4: Merge with R2');
@@ -509,11 +511,15 @@ describe('buildInterviewerContext', () => {
     expect(result).toContain('- [5] Resume the interview from SQLite after restart');
     expect(result).toContain('- [6] Export the reviewed spec as markdown');
     expect(result).toContain('Review set: Requirements');
-    expect(result).toContain('- [requirements:5] R1: Resume the interview from SQLite after restart');
+    expect(result).toContain('- Item requirements:5');
+    expect(result).toContain('Reference code: R1');
+    expect(result).toContain('Content: Resume the interview from SQLite after restart');
     expect(result).toContain('Rationale: Keeps the active path stable after a restart.');
     expect(result).toContain('Grounding refs: G1, C2');
     expect(result).toContain('Badge: Revised');
-    expect(result).toContain('- [requirements:6] R2: Export the reviewed spec as markdown');
+    expect(result).toContain('- Item requirements:6');
+    expect(result).toContain('Reference code: R2');
+    expect(result).toContain('Content: Export the reviewed spec as markdown');
     expect(result).toContain('Rationale: Makes the reviewed output portable for sharing.');
     expect(result).toContain('Grounding refs: D1');
     expect(result).toContain('Badge: Added in revision');
