@@ -141,7 +141,7 @@ export function PhaseNavigationSidebar({
                 <div className="min-w-0">
                   <span
                     className={cn(
-                      'inline-block rounded-md px-2 py-0.5 text-sm leading-tight font-medium',
+                      '-mx-1.5 inline-block rounded px-1.5 py-0.5 text-sm leading-tight font-medium',
                       state.status === 'unstarted' ? 'text-hint' : 'text-sub',
                       'group-[.is-active]/phase:bg-white group-[.is-active]/phase:text-ink',
                     )}
@@ -206,7 +206,7 @@ export function PhaseNavigationSidebar({
                   data-phase="output"
                   data-phase-reachable="true"
                 >
-                  <span className="inline-block rounded-md px-2 py-0.5 text-sm leading-tight font-medium text-sub group-[.is-active]/phase:bg-white group-[.is-active]/phase:text-ink">
+                  <span className="-mx-1.5 inline-block rounded px-1.5 py-0.5 text-sm leading-tight font-medium text-sub group-[.is-active]/phase:bg-white group-[.is-active]/phase:text-ink">
                     Output
                   </span>
                   <div className="mt-1 flex flex-col gap-0.5 text-xs text-sub">

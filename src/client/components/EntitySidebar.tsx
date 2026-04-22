@@ -9,7 +9,7 @@ import {
 } from '@/shared/knowledge.js';
 
 import { KnowledgeDetailCard, type KnowledgeEdgeData, type KnowledgeItemData } from './knowledge-card';
-import { knowledgeDisplayGroups, isVisibleKnowledgeKind } from './knowledge-display';
+import { hiddenWhenEmptyGroups, knowledgeDisplayGroups, isVisibleKnowledgeKind } from './knowledge-display';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -109,6 +109,10 @@ export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
             }
 
             const count = groupItems.length;
+
+            if (count === 0 && hiddenWhenEmptyGroups.has(group.label)) {
+              return null;
+            }
 
             return (
               <section key={group.label}>

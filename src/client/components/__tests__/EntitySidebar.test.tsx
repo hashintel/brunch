@@ -159,10 +159,10 @@ describe('EntitySidebar', () => {
 
     expect(screen.getByText('Knowledge Graph')).toBeTruthy();
     expect(screen.getByText('Goals & Context')).toBeTruthy();
-    expect(screen.getByText('Terminology')).toBeTruthy();
     expect(screen.getByText('Assumptions & Decisions')).toBeTruthy();
     expect(screen.getByText('Requirements')).toBeTruthy();
     expect(screen.getByText('Acceptance Criteria')).toBeTruthy();
+    expect(screen.getByText('Terminology')).toBeTruthy();
     expect(screen.getByText('Invisible term')).toBeTruthy();
     expect(screen.getByText('Ship a faithful active-path export')).toBeTruthy();
     expect(screen.getByText('Use the active-path entity projection for routed state')).toBeTruthy();
