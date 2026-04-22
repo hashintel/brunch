@@ -3392,6 +3392,139 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
     );
   });
 
+  it('accepting a regenerated requirements review preserves predecessor rationale on sparse successor items', async () => {
+    const projectId = await createTestProject();
+    const seededRequirements = seedRequirementsReady(projectId);
+    const {
+      advanceHead,
+      applyTurnResponseSelections,
+      createKnowledgeItem,
+      createOption,
+      createTurn,
+      updateTurn,
+    } = await import('./db.js');
+
+    createKnowledgeItem(
+      db,
+      projectId,
+      'requirement',
+      'Fallback project-wide requirement that should stay out of the accepted set',
+    );
+
+    const predecessorReviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: seededRequirements.designConfirmationTurn.id,
+      question: 'Please review the current requirement set.',
+      why: 'Carry forward metadata from the previous reviewed set when revisions stay sparse.',
+      impact: 'high',
+      answer: 'Request changes',
+      assistant_parts: createReviewSetAssistantParts({
+        phase: 'requirements',
+        title: 'Requirements',
+        question: 'Please review the current requirement set.',
+        why: 'Carry forward metadata from the previous reviewed set when revisions stay sparse.',
+        items: [
+          {
+            reviewItemId: 'requirements:1',
+            referenceCode: createKnowledgeReferenceCode('requirement', 1),
+            content: 'Export the reviewed specification as markdown',
+            rationale: 'Keeps the accepted review output portable for sharing.',
+          },
+          {
+            reviewItemId: 'requirements:2',
+            referenceCode: createKnowledgeReferenceCode('requirement', 2),
+            content: 'Resume the interview from persisted local state',
+            rationale: 'Users should be able to continue after a restart.',
+          },
+        ],
+      }),
+    });
+    createOption(db, predecessorReviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    const predecessorRequestChangesOption = createOption(db, predecessorReviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    applyTurnResponseSelections(db, predecessorReviewTurn.id, [1]);
+    updateTurn(db, predecessorReviewTurn.id, {
+      user_parts: JSON.stringify([
+        {
+          type: 'data-turn-response',
+          data: {
+            turnId: predecessorReviewTurn.id,
+            selectedOptionIds: [predecessorRequestChangesOption.id],
+            reviewAction: 'request-changes',
+            freeText: 'Keep the export requirement, but tighten the rest of the set.',
+          },
+        },
+      ]),
+    });
+
+    const successorReviewTurn = createTurn(db, projectId, {
+      phase: 'requirements',
+      parent_turn_id: predecessorReviewTurn.id,
+      question: 'Please review the revised requirement set.',
+      why: 'The persisted successor set should stay authoritative even when it omits unchanged metadata.',
+      impact: 'high',
+      answer: '',
+      assistant_parts: createReviewSetAssistantParts({
+        phase: 'requirements',
+        title: 'Requirements',
+        question: 'Please review the revised requirement set.',
+        why: 'The persisted successor set should stay authoritative even when it omits unchanged metadata.',
+        items: [
+          {
+            reviewItemId: 'requirements:1',
+            content: 'Export the reviewed specification as markdown',
+          },
+          {
+            reviewItemId: 'requirements:3',
+            content: 'Keep accepted review output scoped to the persisted review set only',
+            rationale: 'Prevents stale project-wide inventory from leaking into the accepted path.',
+          },
+        ],
+      }),
+    });
+    createOption(db, successorReviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    createOption(db, successorReviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, successorReviewTurn.id);
+
+    await request(app)
+      .post(`/api/specifications/${projectId}/turns/${successorReviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
+      .expect(200);
+
+    const entitiesRes = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.requirements).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          content: 'Export the reviewed specification as markdown',
+          rationale: 'Keeps the accepted review output portable for sharing.',
+        }),
+        expect.objectContaining({
+          content: 'Keep accepted review output scoped to the persisted review set only',
+          rationale: 'Prevents stale project-wide inventory from leaking into the accepted path.',
+        }),
+      ]),
+    );
+    expect(entitiesRes.body.requirements).toHaveLength(2);
+    expect(
+      entitiesRes.body.requirements.map((requirement: { content: string }) => requirement.content),
+    ).not.toContain('Fallback project-wide requirement that should stay out of the accepted set');
+  });
+
   it('requesting changes on the requirements full-set review keeps requirements open and does not advance to criteria', async () => {
     const projectId = await createTestProject();
     const seededRequirements = seedRequirementsReady(projectId);
@@ -3856,6 +3989,139 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
         'PDF export renders the reviewed requirements',
       ]),
     );
+  });
+
+  it('accepting a regenerated criteria review preserves predecessor rationale on sparse successor items', async () => {
+    const projectId = await createTestProject();
+    const seededCriteria = seedCriteriaReady(projectId);
+    const {
+      advanceHead,
+      applyTurnResponseSelections,
+      createKnowledgeItem,
+      createOption,
+      createTurn,
+      updateTurn,
+    } = await import('./db.js');
+
+    createKnowledgeItem(
+      db,
+      projectId,
+      'criterion',
+      'Fallback project-wide criterion that should stay out of the accepted set',
+    );
+
+    const predecessorReviewTurn = createTurn(db, projectId, {
+      phase: 'criteria',
+      parent_turn_id: seededCriteria.requirementsConfirmationTurn.id,
+      question: 'Please review the current criterion set.',
+      why: 'Carry forward metadata from the previous reviewed set when revisions stay sparse.',
+      impact: 'high',
+      answer: 'Request changes',
+      assistant_parts: createReviewSetAssistantParts({
+        phase: 'criteria',
+        title: 'Acceptance Criteria',
+        question: 'Please review the current criterion set.',
+        why: 'Carry forward metadata from the previous reviewed set when revisions stay sparse.',
+        items: [
+          {
+            reviewItemId: 'criteria:1',
+            referenceCode: createKnowledgeReferenceCode('criterion', 1),
+            content: 'Restarting restores the active path',
+            rationale: 'Proves the persisted branch resumes cleanly.',
+          },
+          {
+            reviewItemId: 'criteria:2',
+            referenceCode: createKnowledgeReferenceCode('criterion', 2),
+            content: 'Markdown export includes accepted requirements only',
+            rationale: 'Checks the final handoff stays scoped to accepted output.',
+          },
+        ],
+      }),
+    });
+    createOption(db, predecessorReviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    const predecessorRequestChangesOption = createOption(db, predecessorReviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    applyTurnResponseSelections(db, predecessorReviewTurn.id, [1]);
+    updateTurn(db, predecessorReviewTurn.id, {
+      user_parts: JSON.stringify([
+        {
+          type: 'data-turn-response',
+          data: {
+            turnId: predecessorReviewTurn.id,
+            selectedOptionIds: [predecessorRequestChangesOption.id],
+            reviewAction: 'request-changes',
+            freeText: 'Keep the restart check, but tighten the rest of the set.',
+          },
+        },
+      ]),
+    });
+
+    const successorReviewTurn = createTurn(db, projectId, {
+      phase: 'criteria',
+      parent_turn_id: predecessorReviewTurn.id,
+      question: 'Please review the revised criterion set.',
+      why: 'The persisted successor set should stay authoritative even when it omits unchanged metadata.',
+      impact: 'high',
+      answer: '',
+      assistant_parts: createReviewSetAssistantParts({
+        phase: 'criteria',
+        title: 'Acceptance Criteria',
+        question: 'Please review the revised criterion set.',
+        why: 'The persisted successor set should stay authoritative even when it omits unchanged metadata.',
+        items: [
+          {
+            reviewItemId: 'criteria:1',
+            content: 'Restarting restores the active path',
+          },
+          {
+            reviewItemId: 'criteria:3',
+            content: 'Accepting a sparse regenerated review preserves carried rationale on unchanged items',
+            rationale: 'Proves regenerated review metadata survives into the accepted output.',
+          },
+        ],
+      }),
+    });
+    createOption(db, successorReviewTurn.id, {
+      position: 0,
+      content: 'Accept review',
+      is_recommended: true,
+    });
+    createOption(db, successorReviewTurn.id, {
+      position: 1,
+      content: 'Request changes',
+      is_recommended: false,
+    });
+    advanceHead(db, projectId, successorReviewTurn.id);
+
+    await request(app)
+      .post(`/api/specifications/${projectId}/turns/${successorReviewTurn.id}/response`)
+      .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
+      .expect(200);
+
+    const entitiesRes = await request(app).get(`/api/specifications/${projectId}/entities`).expect(200);
+    expect(entitiesRes.body.criteria).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          content: 'Restarting restores the active path',
+          rationale: 'Proves the persisted branch resumes cleanly.',
+        }),
+        expect.objectContaining({
+          content: 'Accepting a sparse regenerated review preserves carried rationale on unchanged items',
+          rationale: 'Proves regenerated review metadata survives into the accepted output.',
+        }),
+      ]),
+    );
+    expect(entitiesRes.body.criteria).toHaveLength(2);
+    expect(
+      entitiesRes.body.criteria.map((criterion: { content: string }) => criterion.content),
+    ).not.toContain('Fallback project-wide criterion that should stay out of the accepted set');
   });
 
   it('requesting changes on the criteria full-set review keeps criteria open and does not advance to output semantics', async () => {

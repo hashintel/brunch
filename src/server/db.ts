@@ -37,6 +37,8 @@ import {
   type KnowledgeKind as SharedKnowledgeKind,
 } from '@/shared/knowledge.js';
 import { parsePhaseClosureCommand, type PhaseClosureBasis } from '@/shared/phase-close.js';
+import { normalizeReviewSetForDisplay } from '@/shared/review-diffing.js';
+import { getPersistedReviewAction } from '@/shared/specification-state.js';
 
 import {
   safeDeserializeAssistantParts,
@@ -833,14 +835,58 @@ function findExistingKnowledgeItemForReviewSetItem(
     .get() as KnowledgeItem | undefined;
 }
 
+function getTurnLineageToRoot(db: DB, turnId: number): Turn[] {
+  const lineage: Turn[] = [];
+  let currentTurn = getTurn(db, turnId);
+
+  while (currentTurn) {
+    lineage.push(currentTurn);
+    currentTurn = currentTurn.parent_turn_id ? getTurn(db, currentTurn.parent_turn_id) : undefined;
+  }
+
+  return lineage.reverse();
+}
+
+function getEffectiveAcceptedReviewSetForTurn(
+  db: DB,
+  turnId: number,
+  phase: 'requirements' | 'criteria',
+): ReviewSetData | null {
+  let normalizedReviewSet: ReviewSetData | null = null;
+
+  for (const turn of getTurnLineageToRoot(db, turnId)) {
+    if (turn.phase !== phase) {
+      continue;
+    }
+
+    const reviewSet = getPersistedReviewSetForTurn(turn);
+    if (!reviewSet || reviewSet.phase !== phase) {
+      continue;
+    }
+
+    if (turn.id !== turnId && !getPersistedReviewAction(turn)) {
+      continue;
+    }
+
+    normalizedReviewSet = normalizedReviewSet
+      ? normalizeReviewSetForDisplay(reviewSet, normalizedReviewSet)
+      : reviewSet;
+
+    if (turn.id === turnId) {
+      return normalizedReviewSet;
+    }
+  }
+
+  return normalizedReviewSet;
+}
+
 function materializeAcceptedReviewSetItems(
   db: DB,
   specificationId: number,
   turnId: number,
   phase: 'requirements' | 'criteria',
 ): number[] {
-  const reviewTurn = getTurn(db, turnId);
-  const reviewSet = getPersistedReviewSetForTurn(reviewTurn);
+  const reviewSet = getEffectiveAcceptedReviewSetForTurn(db, turnId, phase);
   if (!reviewSet || reviewSet.phase !== phase) {
     throw new Error(
       `Cannot materialize accepted ${phase} review: persisted review set is missing or mismatched on turn ${turnId}`,
