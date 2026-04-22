@@ -2,7 +2,6 @@ import { Check, MessageSquare } from 'lucide-react';
 import { type ReactNode, useMemo, useState } from 'react';
 
 import { Button } from '@/client/components/app-shell';
-import { Button as ShadcnButton } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import { Textarea } from '@/client/components/ui/textarea';
 import { cn } from '@/client/lib/utils';
@@ -312,11 +311,11 @@ export function ReviewSetCard({
         <div className="flex items-center justify-end gap-2">
           {hasAnyFeedback ? (
             <>
-              <ShadcnButton variant="outline" onClick={onAccept} disabled={disabled}>
-                <Check data-icon="inline-start" />
+              <Button variant="outline" onClick={onAccept} disabled={disabled}>
                 Accept Review
-              </ShadcnButton>
-              <ShadcnButton
+              </Button>
+              <Button
+                variant="primary"
                 onClick={() => {
                   const itemComments: Array<{ reviewItemId: string; comment: string }> = [];
                   for (const item of reviewSet.items) {
@@ -330,13 +329,12 @@ export function ReviewSetCard({
                 disabled={disabled}
               >
                 Request Changes
-              </ShadcnButton>
+              </Button>
             </>
           ) : (
-            <ShadcnButton onClick={onAccept} disabled={disabled}>
-              <Check data-icon="inline-start" />
+            <Button variant="primary" onClick={onAccept} disabled={disabled}>
               Accept Review
-            </ShadcnButton>
+            </Button>
           )}
         </div>
       )}
