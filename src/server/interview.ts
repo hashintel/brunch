@@ -227,6 +227,30 @@ export function persistStructuredQuestion(db: DB, turnId: number, args: Structur
   }
 }
 
+function escapeForRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function validateReviewSetSemantics(reviewSet: ReviewSetData): void {
+  for (const item of reviewSet.items) {
+    if (item.referenceCode && item.referenceCode === item.reviewItemId) {
+      throw new Error('reviewSet.referenceCode must stay human-facing instead of repeating reviewItemId');
+    }
+
+    if (!item.referenceCode) {
+      continue;
+    }
+
+    const contentStartsWithReferenceCode = new RegExp(
+      `^${escapeForRegExp(item.referenceCode)}\\s*:`,
+      'u',
+    ).test(item.content.trimStart());
+    if (contentStartsWithReferenceCode) {
+      throw new Error('reviewSet.content must not be prefixed with the visible referenceCode');
+    }
+  }
+}
+
 export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
   return tool({
     description:
@@ -254,6 +278,7 @@ export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
             'Requirements and criteria review turns must declare reviewSet metadata for the active phase',
           );
         }
+        validateReviewSetSemantics(input.reviewSet);
       }
 
       persistStructuredQuestion(db, turnId, input);

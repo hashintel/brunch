@@ -217,6 +217,80 @@ describe('createAskQuestionTool phase-aware options enforcement', () => {
       ),
     ).rejects.toThrow(/options/i);
   });
+
+  it('rejects requirements review items whose referenceCode repeats the internal reviewItemId', async () => {
+    const project = createSpecification(db, 'Spec');
+    const turn = createTurn(db, project.id, { phase: 'requirements', question: '', answer: '' });
+    const askTool = getInterviewerTools(db, turn.id, 'requirements', project.id).ask_question;
+
+    await expect(
+      askTool.execute!(
+        {
+          question: 'Please review the current requirement set.',
+          why: 'We need a truthful full-set review contract before closing requirements.',
+          impact: 'high',
+          options: [
+            { content: 'Accept review', is_recommended: true },
+            { content: 'Request changes', is_recommended: false },
+          ],
+          reviewActions: [
+            { action: 'accept', optionPosition: 0 },
+            { action: 'request-changes', optionPosition: 1 },
+          ],
+          reviewSet: {
+            phase: 'requirements',
+            title: 'Requirements',
+            items: [
+              {
+                reviewItemId: 'requirements:1',
+                referenceCode: 'requirements:1',
+                content: 'Resume the interview from SQLite after restart',
+              },
+            ],
+          },
+        },
+        { toolCallId: 'tc-3', messages: [], abortSignal: new AbortController().signal },
+      ),
+    ).rejects.toThrow(/referenceCode/i);
+    expect(getOptionsForTurn(db, turn.id)).toEqual([]);
+  });
+
+  it('rejects criteria review items whose content repeats the visible reference code prefix', async () => {
+    const project = createSpecification(db, 'Spec');
+    const turn = createTurn(db, project.id, { phase: 'criteria', question: '', answer: '' });
+    const askTool = getInterviewerTools(db, turn.id, 'criteria', project.id).ask_question;
+
+    await expect(
+      askTool.execute!(
+        {
+          question: 'Please review the current criterion set.',
+          why: 'We need a truthful full-set review contract before closing criteria.',
+          impact: 'high',
+          options: [
+            { content: 'Accept review', is_recommended: true },
+            { content: 'Request changes', is_recommended: false },
+          ],
+          reviewActions: [
+            { action: 'accept', optionPosition: 0 },
+            { action: 'request-changes', optionPosition: 1 },
+          ],
+          reviewSet: {
+            phase: 'criteria',
+            title: 'Acceptance Criteria',
+            items: [
+              {
+                reviewItemId: 'criteria:1',
+                referenceCode: 'AC1',
+                content: 'AC1: Restarting restores the active path',
+              },
+            ],
+          },
+        },
+        { toolCallId: 'tc-4', messages: [], abortSignal: new AbortController().signal },
+      ),
+    ).rejects.toThrow(/content/i);
+    expect(getOptionsForTurn(db, turn.id)).toEqual([]);
+  });
 });
 
 describe('persistStructuredQuestion', () => {
