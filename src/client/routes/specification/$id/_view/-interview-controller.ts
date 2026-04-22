@@ -8,7 +8,7 @@ import {
   useSubmitPhaseIntentMutation,
   useSubmitTurnResponseMutation,
 } from '@/client/mutations/interview-mutations';
-import type { EntitiesData, ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
+import type { ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
 import { brunchDataPartSchemas, summarizeAssistantActivity } from '@/shared/chat.js';
 import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
 import {
@@ -151,7 +151,7 @@ function getLatestAssistantActivity(
   return undefined;
 }
 
-export function useInterviewController(phase: WorkflowPhase, entityState: EntitiesData): InterviewController {
+export function useInterviewController(phase: WorkflowPhase): InterviewController {
   const { specification, workflow, landing } = useSpecificationCoreData();
   const turns = useSpecificationTurns();
   const router = useRouter();
@@ -163,10 +163,7 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
   );
 
   const refreshReadModel = useCallback(() => invalidateCoreAndTurns(), [invalidateCoreAndTurns]);
-  const { durableSpecification, ephemeralChat, handleDataPart } = useInterviewDataAdapter(
-    specificationState,
-    invalidateEntities,
-  );
+  const { durableSpecification, ephemeralChat } = useInterviewDataAdapter(specificationState);
 
   const phaseTurnIds = useMemo(() => buildPhaseTurnIds(turns, phase), [phase, turns]);
 
@@ -203,17 +200,21 @@ export function useInterviewController(phase: WorkflowPhase, entityState: Entiti
     specificationId,
     phase,
     workflow: durableSpecification.workflow,
-    entityState,
-    stablePhaseTurns,
     refreshReadModel,
     navigateToPhase,
   });
   const handleChatData = useCallback(
     (dataPart: { type: string; data?: unknown }) => {
-      runtime.handleDataPart(dataPart);
-      handleDataPart(dataPart);
+      const captureSyncTurnId = runtime.beginCaptureSync(dataPart);
+      if (captureSyncTurnId === null) {
+        return;
+      }
+
+      void invalidateEntities().then(() => {
+        runtime.completeCaptureSync(captureSyncTurnId);
+      });
     },
-    [handleDataPart, runtime.handleDataPart],
+    [invalidateEntities, runtime.beginCaptureSync, runtime.completeCaptureSync],
   );
 
   const { messages, sendMessage, status, error } = useChat<BrunchUIMessage>({

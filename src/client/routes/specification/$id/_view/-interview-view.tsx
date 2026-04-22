@@ -28,7 +28,6 @@ import { getPhaseIntentMarkerLabel } from '@/shared/phase-intents.js';
 import { getPersistedActivitySummary } from '@/shared/specification-state.js';
 import type { SpecificationState, SpecificationTurn } from '@/shared/specification.js';
 
-import { useSpecificationEntities } from '../-specification-data.js';
 import { useInterviewController } from './-interview-controller';
 import { specificationWorkspaceStream, type WorkspaceStreamMarker } from './-workspace-stream-projector.js';
 import { WorkspaceTranscriptArtifacts } from './-workspace-transcript-artifacts.js';
@@ -87,9 +86,8 @@ function getReadinessLabel(readiness: SpecificationState['workflow']['phases'][W
 
 export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const [isClosePhaseModalOpen, setIsClosePhaseModalOpen] = useState(false);
-  const entitySnapshot = useSpecificationEntities();
   const { chat, specification, workflow, phaseTurns, bottomArtifact, captureStatusByTurnId } =
-    useInterviewController(phase, entitySnapshot);
+    useInterviewController(phase);
   const phaseState = workflow.phases[phase];
   const currentReachablePhase = getCurrentOpenPhase(workflow.phases);
   const nextPhase = getNextActivePhase(workflow.phases, phase);

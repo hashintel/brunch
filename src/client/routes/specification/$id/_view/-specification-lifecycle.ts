@@ -1,10 +1,9 @@
 import type { ChatStatus } from 'ai';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 
-import type { EntitiesData, SpecificationLanding, WorkflowPhase, WorkflowState } from '@/shared/api-types.js';
+import type { SpecificationLanding, WorkflowPhase, WorkflowState } from '@/shared/api-types.js';
 import { getCurrentOpenPhase, getNextActivePhase } from '@/shared/phase-descriptors.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
-import type { SpecificationTurn } from '@/shared/specification.js';
 
 const autoPhaseIntentRegistry = new Map<
   number,
@@ -160,38 +159,11 @@ export function useSpecificationScopedAutoPhaseIntent({
 
 type CaptureStatus = 'waiting' | 'applying';
 
-function visibleCapturesAreSynced(
-  turn: Pick<SpecificationTurn, 'captured_items'>,
-  entityState: EntitiesData,
-): boolean {
-  return (turn.captured_items ?? [])
-    .filter((item) => item.kind !== 'term')
-    .every((item) => {
-      switch (item.kind) {
-        case 'goal':
-          return entityState.goals.some((entity) => entity.id === item.id);
-        case 'context':
-          return entityState.contexts.some((entity) => entity.id === item.id);
-        case 'constraint':
-          return entityState.constraints.some((entity) => entity.id === item.id);
-        case 'requirement':
-          return entityState.requirements.some((entity) => entity.id === item.id);
-        case 'criterion':
-          return entityState.criteria.some((entity) => entity.id === item.id);
-        case 'decision':
-          return entityState.decisions.some((entity) => entity.id === item.id);
-        case 'assumption':
-          return entityState.assumptions.some((entity) => entity.id === item.id);
-        default:
-          return false;
-      }
-    });
-}
-
 export interface SpecificationRuntimeLifecycle {
   readonly submittedTurnId: number | null;
   readonly captureStatusByTurnId: ReadonlyMap<number, CaptureStatus>;
-  readonly handleDataPart: (dataPart: { type: string; data?: unknown }) => void;
+  readonly beginCaptureSync: (dataPart: { type: string; data?: unknown }) => number | null;
+  readonly completeCaptureSync: (turnId: number | null) => void;
   readonly handleChatFinish: () => void;
   readonly submitTrackedTurnResponse: (turnId: number, submit: () => Promise<boolean>) => Promise<boolean>;
   readonly submitPhaseClosureCommand: (send: () => Promise<void> | void) => void;
@@ -201,16 +173,12 @@ export function useSpecificationRuntimeLifecycle({
   specificationId,
   phase,
   workflow,
-  entityState,
-  stablePhaseTurns,
   refreshReadModel,
   navigateToPhase,
 }: {
   specificationId: number;
   phase: WorkflowPhase;
   workflow: WorkflowState;
-  entityState: EntitiesData;
-  stablePhaseTurns: readonly SpecificationTurn[];
   refreshReadModel: () => Promise<void>;
   navigateToPhase: (phase: WorkflowPhase) => Promise<void> | void;
 }): SpecificationRuntimeLifecycle {
@@ -242,31 +210,6 @@ export function useSpecificationRuntimeLifecycle({
   }, [phase, submittedTurnId, workflow]);
 
   useEffect(() => {
-    const syncedTurnIds = stablePhaseTurns
-      .filter((turn) => pendingCaptureSyncTurnIds.has(turn.id) && visibleCapturesAreSynced(turn, entityState))
-      .map((turn) => turn.id);
-
-    if (syncedTurnIds.length === 0) {
-      return;
-    }
-
-    setPendingCaptureSyncTurnIds((current) => {
-      const next = new Set(current);
-      for (const turnId of syncedTurnIds) {
-        next.delete(turnId);
-      }
-      return next;
-    });
-    setCaptureStatusByTurnId((current) => {
-      const next = new Map(current);
-      for (const turnId of syncedTurnIds) {
-        next.delete(turnId);
-      }
-      return next;
-    });
-  }, [entityState, pendingCaptureSyncTurnIds, stablePhaseTurns]);
-
-  useEffect(() => {
     if (!pendingCloseNavigation || workflow.phases[phase].status !== 'closed') {
       return;
     }
@@ -278,10 +221,10 @@ export function useSpecificationRuntimeLifecycle({
     }
   }, [navigateToPhase, pendingCloseNavigation, phase, workflow]);
 
-  const handleDataPart = useCallback(
+  const beginCaptureSync = useCallback(
     (dataPart: { type: string; data?: unknown }) => {
       if (dataPart.type !== 'data-observer-result') {
-        return;
+        return null;
       }
 
       const observerTurnId =
@@ -293,14 +236,40 @@ export function useSpecificationRuntimeLifecycle({
           : submittedTurnId;
 
       if (observerTurnId === null) {
-        return;
+        return null;
       }
 
       setCaptureStatusByTurnId((current) => new Map(current).set(observerTurnId, 'applying'));
       setPendingCaptureSyncTurnIds((current) => new Set(current).add(observerTurnId));
+      return observerTurnId;
     },
     [submittedTurnId],
   );
+
+  const completeCaptureSync = useCallback((turnId: number | null) => {
+    if (turnId === null) {
+      return;
+    }
+
+    setPendingCaptureSyncTurnIds((current) => {
+      if (!current.has(turnId)) {
+        return current;
+      }
+
+      const next = new Set(current);
+      next.delete(turnId);
+      return next;
+    });
+    setCaptureStatusByTurnId((current) => {
+      if (!current.has(turnId)) {
+        return current;
+      }
+
+      const next = new Map(current);
+      next.delete(turnId);
+      return next;
+    });
+  }, []);
 
   const handleChatFinish = useCallback(() => {
     if (pendingCloseRef.current) {
@@ -344,7 +313,8 @@ export function useSpecificationRuntimeLifecycle({
   return {
     submittedTurnId,
     captureStatusByTurnId: effectiveCaptureStatusByTurnId,
-    handleDataPart,
+    beginCaptureSync,
+    completeCaptureSync,
     handleChatFinish,
     submitTrackedTurnResponse,
     submitPhaseClosureCommand,

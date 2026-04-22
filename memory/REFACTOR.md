@@ -1,3 +1,6 @@
+<!-- REFACTOR.md — temporary execution plan subordinate to memory/PLAN.md.
+     Canonical frontier: Track A / Query ownership remediation. -->
+
 ## Problem Statement
 
 This document no longer tracks the original wave sequence literally. Recent commits already landed a substantial portion of the intended ownership cleanup, including review-turn improvements and an initial runtime/query-management pass. A focused review of the last four commits showed that the new query-ownership work is only partially aligned with the intended design in `memory/PLAN.md` and `docs/query-domain-design.md`.
@@ -20,6 +23,14 @@ These items are no longer the active plan unless remediation work uncovers a reg
 
 Finish the ownership refactor from the codebase we actually have now.
 
+## Live Design Inputs
+
+- `memory/PLAN.md` is the canonical frontier authority; this file only decomposes execution inside that frontier item.
+- `docs/query-domain-design.md` remains live for router/query ownership, loader priming, and targeted invalidation, but its earlier `core` / `turns` split should not be read literally while both are still backed by `/api/specifications/:id`.
+- `docs/research/tanstack-loaders-vs-queries.md` remains live for router-as-coordinator, Query-owned freshness, targeted invalidation, and subscription placement.
+- `docs/research/async-server-state-to-ui-sync-for-chat-observer-agents.md` remains live for separating chat streaming from observer-owned entity refresh and for using TanStack Query as the client sync seam.
+- Not-live inputs from those docs: a separate out-of-band SSE channel, TanStack DB evaluation, or any fake micro-domain split that outruns the real server ownership boundary.
+
 The target state is:
 
 - one authoritative read-model ownership path for specification workflow state, landing state, and turns
@@ -39,6 +50,8 @@ The target state is:
 4. Keep the specification-runtime seam, but make it consume the corrected ownership boundary rather than rebuilding a synthetic specification state from fake-separated caches.
 
 ### Front 2 - Transcript/entity boundary repair
+
+Status: **partially landed on 2026-04-22** — `InterviewView` / `useInterviewController` no longer subscribe to the entities query directly, and capture-sync progression now clears from the entity invalidation promise rather than from transcript-side `entityState` observation.
 
 1. Move entity-query subscription out of any component that also owns or renders the center-pane transcript subtree.
 2. Ensure observer-result invalidation refreshes entity-owned surfaces only: entity sidebar, graph view, and any entity-only consumers.

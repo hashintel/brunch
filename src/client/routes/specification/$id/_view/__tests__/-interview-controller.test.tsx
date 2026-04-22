@@ -314,12 +314,15 @@ function ControllerProbe({
 }: {
   phase?: 'grounding' | 'design' | 'requirements' | 'criteria';
 }) {
-  const workspace = useInterviewController(phase, currentEntityState);
+  const workspace = useInterviewController(phase);
 
   return (
     <div>
       <div data-testid="project-name">{workspace.specification.name}</div>
       <div data-testid="messages">{messageText(workspace.chat.messages)}</div>
+      <div data-testid="capture-statuses">
+        {JSON.stringify(Array.from(workspace.captureStatusByTurnId.entries()).sort(([a], [b]) => a - b))}
+      </div>
       <div data-testid="bottom-artifact-kind">{workspace.bottomArtifact?.kind ?? 'none'}</div>
       <div data-testid="bottom-artifact-live-activity">
         {workspace.bottomArtifact?.kind === 'persisted-turn' ||
@@ -1060,7 +1063,15 @@ describe('interview controller', () => {
     expect(useChatHarness.setMessages).not.toHaveBeenCalled();
   });
 
-  it('invalidates loader state on observer updates without resetting the live transcript', async () => {
+  it('invalidates entity-owned state on observer updates without resetting the live transcript', async () => {
+    let resolveEntityRefresh!: () => void;
+    invalidateEntities.mockImplementationOnce(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveEntityRefresh = resolve;
+        }),
+    );
+
     renderController();
 
     await screen.findByTestId('messages');
@@ -1069,6 +1080,7 @@ describe('interview controller', () => {
       useChatHarness.onData?.({
         type: 'data-observer-result',
         data: {
+          turnId: 1,
           entityIds: {
             goals: [],
             terms: [],
@@ -1086,6 +1098,13 @@ describe('interview controller', () => {
     await waitFor(() => {
       expect(chatTransportOptions).toContainEqual({ api: '/api/specifications/1/chat' });
       expect(invalidateEntities).toHaveBeenCalled();
+      expect(screen.getByTestId('capture-statuses').textContent).toBe('[[1,"applying"]]');
+    });
+
+    resolveEntityRefresh();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('capture-statuses').textContent).toBe('[]');
     });
     expect(screen.getByTestId('messages').textContent).toBe('Build the web app|What should we build first?');
     expect(useChatHarness.setMessages).not.toHaveBeenCalled();

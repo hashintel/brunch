@@ -2,6 +2,8 @@
 
 > Design document for migrating from coarse `router.invalidate()` to granular TanStack Query domains.
 > Traceability: D121, A64.
+>
+> **Sync note — 2026-04-22:** The router/query ownership migration remains live, but the earlier three-way split (`core`, `turns`, `entities`) should not be read as the immediate canonical boundary while `/api/specifications/:id` still returns one monolithic specification payload. The current live frontier treats `workflow + landing + turns` as one authoritative specification bundle domain and `entities` as the separately invalidable domain. Use this document for the query-owned routing/invalidation rationale and loader-priming shape, then follow `memory/PLAN.md` and `memory/REFACTOR.md` for the staged execution order.
 
 ## Problem
 

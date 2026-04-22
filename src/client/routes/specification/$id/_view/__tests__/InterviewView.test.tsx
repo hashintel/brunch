@@ -96,6 +96,8 @@ type UseChatHarness = {
   onError?: UseChatOptions['onError'];
 };
 
+const useSpecificationEntitiesSpy = vi.hoisted(() => vi.fn());
+
 let currentSpecificationState: SpecificationState;
 let currentEntityState: EntitiesData;
 const routerInvalidate = vi.fn(async () => {});
@@ -133,7 +135,7 @@ vi.mock('../../-specification-data.js', () => ({
     landing: currentSpecificationState.landing ?? null,
   }),
   useSpecificationTurns: () => currentSpecificationState.turns,
-  useSpecificationEntities: () => currentEntityState,
+  useSpecificationEntities: useSpecificationEntitiesSpy,
   useInvalidateSpecificationQueryDomains: () => ({
     invalidateCore: vi.fn(async () => {}),
     invalidateTurns: vi.fn(async () => {}),
@@ -156,7 +158,7 @@ vi.mock('@/client/routes/specification/$id/-specification-data.js', () => ({
     landing: currentSpecificationState.landing ?? null,
   }),
   useSpecificationTurns: () => currentSpecificationState.turns,
-  useSpecificationEntities: () => currentEntityState,
+  useSpecificationEntities: useSpecificationEntitiesSpy,
   useInvalidateSpecificationQueryDomains: () => ({
     invalidateCore: vi.fn(async () => {}),
     invalidateTurns: vi.fn(async () => {}),
@@ -515,6 +517,8 @@ function renderWorkspace(phase: 'grounding' | 'design' | 'requirements' | 'crite
 
 beforeEach(() => {
   setLoaderData(createWorkspaceLoaderData());
+  useSpecificationEntitiesSpy.mockReset();
+  useSpecificationEntitiesSpy.mockImplementation(() => currentEntityState);
   routerInvalidate.mockClear();
   entityInvalidate.mockClear();
   routerNavigate.mockClear();
@@ -530,6 +534,14 @@ afterEach(() => {
 });
 
 describe('InterviewView', () => {
+  it('keeps entity-query subscription out of the transcript-owning interview view', async () => {
+    renderWorkspace();
+
+    await screen.findByText('What should we build first?');
+
+    expect(useSpecificationEntitiesSpy).not.toHaveBeenCalled();
+  });
+
   it('auto-presents the current reachable kickoff phase through a typed phase-entry intent', async () => {
     const loaderData = createWorkspaceLoaderData({
       turns: [],

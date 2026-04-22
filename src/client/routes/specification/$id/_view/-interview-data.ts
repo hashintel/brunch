@@ -1,4 +1,4 @@
-import { useCallback, useMemo } from 'react';
+import { useMemo } from 'react';
 
 import { getSpecificationRecord, type SpecificationState } from '@/shared/specification.js';
 
@@ -14,13 +14,9 @@ import type {
 export interface InterviewDataAdapter {
   readonly durableSpecification: InterviewDurableSpecificationState;
   readonly ephemeralChat: InterviewEphemeralChatState;
-  readonly handleDataPart: (dataPart: { type: string; data?: unknown }) => void;
 }
 
-export function useInterviewDataAdapter(
-  specificationState: SpecificationState,
-  invalidateEntities: () => Promise<void>,
-): InterviewDataAdapter {
+export function useInterviewDataAdapter(specificationState: SpecificationState): InterviewDataAdapter {
   const durableSpecification = useMemo(
     () => createInterviewDurableSpecificationState(specificationState),
     [specificationState],
@@ -29,14 +25,6 @@ export function useInterviewDataAdapter(
     () => createInterviewEphemeralChatState(specificationState),
     [getSpecificationRecord(specificationState).id],
   );
-  const handleDataPart = useCallback(
-    (dataPart: { type: string; data?: unknown }) => {
-      if (dataPart.type === 'data-observer-result') {
-        void invalidateEntities();
-      }
-    },
-    [invalidateEntities],
-  );
 
-  return { durableSpecification, ephemeralChat, handleDataPart };
+  return { durableSpecification, ephemeralChat };
 }
