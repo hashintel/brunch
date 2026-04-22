@@ -73,7 +73,7 @@ function StatusMeta({ status }: { status: WorkflowPhaseState['status'] }) {
       className={cn(
         'text-xs font-medium',
         status === 'closed' && 'text-[#2070e6]',
-        status === 'in_progress' && 'text-[#2070e6]',
+        status === 'in_progress' && 'text-amber-600',
         status === 'unstarted' && 'text-sub',
       )}
     >

@@ -13,6 +13,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/client/components/ui/dialog';
+import { cn } from '@/client/lib/utils';
 import type { WorkflowPhase } from '@/shared/api-types.js';
 import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
 import { getForceClosePhaseAction, getPhaseClosureCommandText } from '@/shared/phase-close.js';
@@ -126,7 +127,14 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
             <div className="flex items-center gap-2.5">
               <span className="text-base">
                 <span className="text-sub">Status: </span>
-                <span className="font-medium text-[#2070e6]">
+                <span
+                  className={cn(
+                    'font-medium',
+                    phaseState.status === 'in_progress' && 'text-amber-600',
+                    phaseState.status === 'closed' && 'text-[#2070e6]',
+                    phaseState.status === 'unstarted' && 'text-sub',
+                  )}
+                >
                   {phaseState.status === 'in_progress'
                     ? 'In-Progress'
                     : phaseState.status === 'closed'
