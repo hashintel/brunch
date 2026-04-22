@@ -4,6 +4,7 @@ import { createMemoryHistory } from '@tanstack/history';
 import { QueryClientProvider } from '@tanstack/react-query';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { act, cleanup, render, screen, waitFor } from '@testing-library/react';
+import { useEffect } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import type { EntitiesData } from '@/shared/api-types.js';
@@ -12,6 +13,8 @@ import type { SpecificationState } from '@/shared/specification.js';
 import { queryClient } from '../query-client.js';
 
 const fetchMock = vi.fn<typeof fetch>();
+let interviewViewMountCount = 0;
+let interviewViewUnmountCount = 0;
 
 const minimalSpecificationState: SpecificationState = {
   specification: {
@@ -87,7 +90,16 @@ vi.mock('../routes/specification/$id/_view/-interview-controller', () => ({
 }));
 
 vi.mock('../routes/specification/$id/_view/-interview-view.js', () => ({
-  InterviewView: () => <h1>Interview screen</h1>,
+  InterviewView: () => {
+    useEffect(() => {
+      interviewViewMountCount += 1;
+      return () => {
+        interviewViewUnmountCount += 1;
+      };
+    }, []);
+
+    return <h1>Interview screen</h1>;
+  },
 }));
 
 vi.mock('../routes/specification/$id/-export-preview.js', () => ({
@@ -156,6 +168,8 @@ async function renderRouteAt(pathname: string) {
 beforeEach(() => {
   queryClient.clear();
   fetchMock.mockReset();
+  interviewViewMountCount = 0;
+  interviewViewUnmountCount = 0;
   fetchMock.mockImplementation(async (input) => defaultFetchHandler(input));
   vi.stubGlobal('fetch', fetchMock);
 });
@@ -256,6 +270,62 @@ describe('generated routeTree', () => {
       return url === '/api/specifications/42';
     });
     expect(specificationFetches).toHaveLength(1);
+  });
+
+  it('refreshes only the entities domain for observer-owned invalidation on a mounted interview route', async () => {
+    await renderRouteAt('/specification/42/grounding');
+
+    expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
+    expect(interviewViewMountCount).toBe(1);
+    expect(interviewViewUnmountCount).toBe(0);
+
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ['specification', '42', 'entities'] });
+    });
+
+    await waitFor(() => {
+      const entityFetches = fetchMock.mock.calls.filter(([input]) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+        return url === '/api/specifications/42/entities?mode=active-path';
+      });
+      expect(entityFetches).toHaveLength(2);
+    });
+
+    const specificationFetches = fetchMock.mock.calls.filter(([input]) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      return url === '/api/specifications/42';
+    });
+    expect(specificationFetches).toHaveLength(1);
+    expect(interviewViewMountCount).toBe(1);
+    expect(interviewViewUnmountCount).toBe(0);
+  });
+
+  it('refreshes the specification bundle without remounting the interview route for mutation-owned invalidation', async () => {
+    await renderRouteAt('/specification/42/grounding');
+
+    expect(await screen.findByRole('heading', { name: 'Interview screen' })).toBeTruthy();
+    expect(interviewViewMountCount).toBe(1);
+    expect(interviewViewUnmountCount).toBe(0);
+
+    await act(async () => {
+      await queryClient.invalidateQueries({ queryKey: ['specification', '42', 'bundle'] });
+    });
+
+    await waitFor(() => {
+      const specificationFetches = fetchMock.mock.calls.filter(([input]) => {
+        const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+        return url === '/api/specifications/42';
+      });
+      expect(specificationFetches).toHaveLength(2);
+    });
+
+    const entityFetches = fetchMock.mock.calls.filter(([input]) => {
+      const url = typeof input === 'string' ? input : input instanceof URL ? input.toString() : input.url;
+      return url === '/api/specifications/42/entities?mode=active-path';
+    });
+    expect(entityFetches).toHaveLength(1);
+    expect(interviewViewMountCount).toBe(1);
+    expect(interviewViewUnmountCount).toBe(0);
   });
 
   it('redirects a completed specification index to the output route through one authoritative bundle fetch path', async () => {

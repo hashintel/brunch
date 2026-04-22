@@ -71,6 +71,8 @@ Status: **landed on 2026-04-22** — `/specification/$id/` redirect decisions an
 
 ### Front 4 - Ownership oracles and verification repair
 
+Status: **landed on 2026-04-22** — route/query integration coverage now proves that entities invalidation refetches only the entities domain without remounting the interview route, bundle invalidation refetches only the specification bundle seam, and direct `/specification/$id/` navigation uses one authoritative bundle fetch path.
+
 1. Add route/query ownership integration tests that prove observer updates do not refetch or remount the transcript-owned bundle path.
 2. Add tests that prove turn responses and phase-intent mutations refresh the specification-owned bundle path while preserving chat continuity.
 3. Add an entry-path test that proves direct `/specification/$id/` navigation uses one authoritative owned fetch/prime path.
