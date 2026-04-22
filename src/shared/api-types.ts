@@ -242,12 +242,19 @@ export const submitPhaseIntentResponseSchema = z.object({
   ok: z.literal(true),
 });
 
+export const submitObserverCaptureResponseSchema = z.object({
+  ok: z.literal(true),
+  turnId: z.number().int().positive(),
+  status: z.enum(['captured', 'already-captured']),
+});
+
 export type SpecificationMode = z.infer<typeof specificationModeSchema>;
 export type Impact = z.infer<typeof impactSchema>;
 export type TurnKind = z.infer<typeof turnKindSchema>;
 export type ReviewAction = z.infer<typeof reviewActionSchema>;
 export type SubmitPhaseIntentRequest = z.infer<typeof submitPhaseIntentRequestSchema>;
 export type SubmitPhaseIntentResponse = z.infer<typeof submitPhaseIntentResponseSchema>;
+export type SubmitObserverCaptureResponse = z.infer<typeof submitObserverCaptureResponseSchema>;
 export type EdgeRelation = z.infer<typeof edgeRelationSchema>;
 export type WorkflowPhaseStatus = z.infer<typeof workflowPhaseStatusSchema>;
 export type ReadinessBand = z.infer<typeof readinessBandSchema>;

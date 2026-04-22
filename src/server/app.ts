@@ -7,6 +7,7 @@ import type {
   EntitiesData,
   ExportLoaderData,
   MutationErrorResponse,
+  SubmitObserverCaptureResponse,
   SubmitPhaseIntentResponse,
   SubmitTurnResponseResponse,
 } from '@/shared/api-types.js';
@@ -30,7 +31,9 @@ import {
 import { getPhaseIntentDisplayText } from '@/shared/phase-intents.js';
 import {
   getPersistedGroundingCard,
+  getPersistedTurnResponse,
   getReviewActionForSelectedPositions,
+  turnNeedsObserverCapture,
 } from '@/shared/specification-state.js';
 import {
   createSpecificationRequestSchema,
@@ -123,6 +126,51 @@ function appendObserverResultToTurn(
   });
 }
 
+function createObserverCaptureKey(specificationId: number, turnId: number): string {
+  return `${specificationId}:${turnId}`;
+}
+
+async function ensureObserverCapture({
+  db,
+  observerCaptureRegistry,
+  specificationId,
+  turnId,
+  projectCwd,
+}: {
+  db: DB;
+  observerCaptureRegistry: Map<string, Promise<void>>;
+  specificationId: number;
+  turnId: number;
+  projectCwd: string;
+}): Promise<'captured' | 'already-captured'> {
+  const turn = getTurn(db, turnId);
+  if (!turn || turn.specification_id !== specificationId) {
+    throw new Error('Turn not found');
+  }
+
+  if (!turnNeedsObserverCapture(turn)) {
+    return 'already-captured';
+  }
+
+  const captureKey = createObserverCaptureKey(specificationId, turnId);
+  const existingCapture = observerCaptureRegistry.get(captureKey);
+  if (existingCapture) {
+    await existingCapture;
+    return turnNeedsObserverCapture(getTurn(db, turnId)) ? 'captured' : 'already-captured';
+  }
+
+  const capturePromise = (async () => {
+    const observerResult = await runObserver(db, turn, specificationId, projectCwd);
+    appendObserverResultToTurn(db, turn.id, observerResult);
+  })().finally(() => {
+    observerCaptureRegistry.delete(captureKey);
+  });
+
+  observerCaptureRegistry.set(captureKey, capturePromise);
+  await capturePromise;
+  return 'captured';
+}
+
 function getPersistedFullSetReviewAction(
   turn: Pick<Turn, 'phase' | 'user_parts'>,
 ): 'accept' | 'request-changes' | null {
@@ -176,11 +224,15 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const projectCwd = options.projectCwd ?? process.cwd();
   const app = express();
   app.use(express.json());
+  const observerCaptureRegistry = new Map<string, Promise<void>>();
 
   const specificationCollectionPaths = ['/api/specifications'] as const;
   const specificationResourcePaths = ['/api/specifications/:id'] as const;
   const specificationPhaseIntentPaths = ['/api/specifications/:id/phase-intent'] as const;
   const specificationTurnResponsePaths = ['/api/specifications/:id/turns/:turnId/response'] as const;
+  const specificationObserverCapturePaths = [
+    '/api/specifications/:id/turns/:turnId/observer-capture',
+  ] as const;
   const specificationEntitiesPaths = ['/api/specifications/:id/entities'] as const;
   const specificationExportPaths = ['/api/specifications/:id/export'] as const;
   const specificationChatPaths = ['/api/specifications/:id/chat'] as const;
@@ -374,6 +426,31 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     res.json({ ok: true } satisfies SubmitTurnResponseResponse);
   });
 
+  registerPost(specificationObserverCapturePaths, async (req: Request, res: Response) => {
+    const specificationId = Number(req.params.id);
+    const turnId = Number(req.params.turnId);
+
+    if (Number.isNaN(specificationId) || Number.isNaN(turnId)) {
+      res.status(400).json({ error: 'Invalid IDs' } satisfies MutationErrorResponse);
+      return;
+    }
+
+    try {
+      const status = await ensureObserverCapture({
+        db,
+        observerCaptureRegistry,
+        specificationId,
+        turnId,
+        projectCwd,
+      });
+      res.json({ ok: true, turnId, status } satisfies SubmitObserverCaptureResponse);
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Failed to capture observer result';
+      const statusCode = message === 'Turn not found' ? 404 : 500;
+      res.status(statusCode).json({ error: message } satisfies MutationErrorResponse);
+    }
+  });
+
   // Get entities for a project
   registerGet(specificationEntitiesPaths, (req: Request, res: Response) => {
     const id = Number(req.params.id);
@@ -505,6 +582,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     let confirmedClosureTurnId: number | null = null;
     let observedTurnId: number | null = null;
     let skipObserverForCurrentChatTurn = false;
+    let deferObserverCaptureToRuntime = false;
     let interviewerElapsedMs: number | undefined;
     try {
       if (confirmationTarget) {
@@ -558,6 +636,9 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         if (activeTurn) {
           skipObserverForCurrentChatTurn =
             Boolean(getPersistedGroundingCard(activeTurn)) && !activeTurn.question?.trim();
+          deferObserverCaptureToRuntime =
+            getPersistedTurnResponse(activeTurn) !== null &&
+            (activeTurn.phase === 'grounding' || activeTurn.phase === 'design');
           const successorPhase = activeTurn.answer === null ? activeTurn.phase : currentPhase;
           if (activeTurn.answer === null) {
             resolveTurn(db, activeTurn.id, promptText, persistedUserParts);
@@ -653,6 +734,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
           const shouldObserve =
             observedTurn &&
             observedTurn.answer !== null &&
+            !deferObserverCaptureToRuntime &&
             !skipObserverForCurrentChatTurn &&
             !(getPersistedGroundingCard(observedTurn) && !observedTurn.question?.trim()) &&
             !persistedUserParts.some((part) => part.type === 'data-confirmation') &&

@@ -223,21 +223,18 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     specificationId,
     phase,
     workflow: durableSpecification.workflow,
+    turns,
     refreshReadModel,
+    refreshEntities: invalidateEntities,
     navigateToPhase,
   });
   const handleChatData = useCallback(
     (dataPart: { type: string; data?: unknown }) => {
-      const captureSyncTurnId = runtime.beginCaptureSync(dataPart);
-      if (captureSyncTurnId === null) {
-        return;
-      }
-
-      void invalidateEntities().then(() => {
-        runtime.completeCaptureSync(captureSyncTurnId);
+      runtime.handleObserverResult(dataPart, async () => {
+        await Promise.all([refreshReadModel(), invalidateEntities()]);
       });
     },
-    [invalidateEntities, runtime.beginCaptureSync, runtime.completeCaptureSync],
+    [invalidateEntities, refreshReadModel, runtime],
   );
 
   const { messages, sendMessage, status, error } = useChat<BrunchUIMessage>({
@@ -406,13 +403,13 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
               reviewAction?: ReviewAction,
               itemComments?: Array<{ reviewItemId: string; comment: string }>,
             ) => {
-              const turnId =
-                viewState.bottomArtifact?.kind === 'persisted-turn' ? viewState.bottomArtifact.turn.id : null;
-              if (turnId === null) {
+              const activeTurn =
+                viewState.bottomArtifact?.kind === 'persisted-turn' ? viewState.bottomArtifact.turn : null;
+              if (activeTurn === null) {
                 return;
               }
 
-              await runtime.submitTrackedTurnResponse(turnId, () =>
+              await runtime.submitTrackedTurnResponse(activeTurn, () =>
                 submitTurnResponseMutation.submitTurnResponse(
                   positions,
                   freeText,

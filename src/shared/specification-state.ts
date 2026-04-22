@@ -71,6 +71,42 @@ export function turnHasCompletedAnswer(
   return Boolean(getPersistedTurnResponse(turn) || turn?.answer?.trim());
 }
 
+export function turnHasPersistedObserverResult(
+  turn: Pick<SpecificationTurn, 'id' | 'assistant_parts'> | undefined,
+): boolean {
+  if (!turn) {
+    return false;
+  }
+
+  return safeParsePersistedAssistantParts(turn.assistant_parts).some(
+    (part) =>
+      part.type === 'data-observer-result' &&
+      typeof part.data === 'object' &&
+      part.data !== null &&
+      'turnId' in part.data &&
+      part.data.turnId === turn.id,
+  );
+}
+
+export function turnNeedsObserverCapture(
+  turn:
+    | Pick<
+        SpecificationTurn,
+        'id' | 'question' | 'assistant_parts' | 'answer' | 'user_parts' | 'turn_kind' | 'is_resolution'
+      >
+    | undefined,
+): boolean {
+  if (!turn || !turnHasCompletedAnswer(turn) || turnIsControlOrClosureArtifact(turn)) {
+    return false;
+  }
+
+  if (getPersistedGroundingCard(turn) && !turn.question?.trim()) {
+    return false;
+  }
+
+  return !turnHasPersistedObserverResult(turn);
+}
+
 export function getPersistedSelectedPositions(
   turn: Pick<SpecificationTurn, 'user_parts' | 'options'> | undefined,
 ): number[] {

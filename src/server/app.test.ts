@@ -752,7 +752,7 @@ describe('POST /api/specifications/:id/chat', () => {
     ]);
   });
 
-  it('still observes the current turn when stale observer data belongs to a different turn', async () => {
+  it('defers structured-response observer capture to the turn-owned endpoint even when stale observer data belongs to a different turn', async () => {
     const projectId = await createTestProject();
     const { advanceHead, createTurn, getTurn } = await import('./db.js');
     const activeTurn = createTurn(db, projectId, {
@@ -793,7 +793,7 @@ describe('POST /api/specifications/:id/chat', () => {
       makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
     );
 
-    await request(app)
+    const chatRes = await request(app)
       .post(`/api/specifications/${projectId}/chat`)
       .send({
         messages: [
@@ -805,6 +805,15 @@ describe('POST /api/specifications/:id/chat', () => {
         ],
       })
       .expect(200);
+
+    expect(parseSSELines(collectSSE(chatRes)).filter((event) => event !== '[DONE]')).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: 'data-observer-result' })]),
+    );
+    expect(mockRunObserver).not.toHaveBeenCalled();
+
+    await request(app)
+      .post(`/api/specifications/${projectId}/turns/${activeTurn.id}/observer-capture`)
+      .expect(200, { ok: true, turnId: activeTurn.id, status: 'captured' });
 
     expect(mockRunObserver).toHaveBeenCalledWith(
       db,
@@ -1465,6 +1474,7 @@ describe('phase outcomes + grounding closure', () => {
       'design',
       undefined,
     );
+
     expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),
@@ -1719,6 +1729,7 @@ describe('phase outcomes + grounding closure', () => {
       'requirements',
       undefined,
     );
+
     expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),
@@ -2011,6 +2022,7 @@ describe('phase outcomes + grounding closure', () => {
       'criteria',
       undefined,
     );
+
     expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),
@@ -2464,6 +2476,7 @@ describe('phase outcomes + grounding closure', () => {
       'requirements',
       undefined,
     );
+
     expect(mockRunObserver).toHaveBeenCalledTimes(observerCallCount + 1);
     expect(mockRunObserver).toHaveBeenLastCalledWith(
       expect.anything(),
