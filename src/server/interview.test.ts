@@ -136,6 +136,9 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('requirements')).toContain('Accept review');
     expect(getSystemPrompt('requirements')).toContain('Request changes');
     expect(getSystemPrompt('requirements')).toContain('reviewSet');
+    expect(getSystemPrompt('requirements')).toContain('grounding refs');
+    expect(getSystemPrompt('requirements')).toContain('isUserCreated');
+    expect(getSystemPrompt('requirements')).toContain('isRevised');
     expect(getSystemPrompt('requirements')).not.toContain('requirementReview');
     expect(getSystemPrompt('requirements')).not.toContain('propose_phase_closure');
     expect(getSystemPrompt('requirements')).toContain('phase-closing action');
@@ -147,6 +150,9 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('criteria')).toContain('Accept review');
     expect(getSystemPrompt('criteria')).toContain('Request changes');
     expect(getSystemPrompt('criteria')).toContain('reviewSet');
+    expect(getSystemPrompt('criteria')).toContain('grounding refs');
+    expect(getSystemPrompt('criteria')).toContain('isUserCreated');
+    expect(getSystemPrompt('criteria')).toContain('isRevised');
     expect(getSystemPrompt('criteria')).not.toContain('criterionReview');
   });
 

@@ -471,11 +471,17 @@ describe('buildInterviewerContext', () => {
                   reviewItemId: 'requirements:5',
                   referenceCode: 'R1',
                   content: 'Resume the interview from SQLite after restart',
+                  rationale: 'Keeps the active path stable after a restart.',
+                  grounding: [{ code: 'G1' }, { code: 'C2' }],
+                  isRevised: true,
                 },
                 {
                   reviewItemId: 'requirements:6',
                   referenceCode: 'R2',
                   content: 'Export the reviewed spec as markdown',
+                  rationale: 'Makes the reviewed output portable for sharing.',
+                  grounding: [{ code: 'D1' }],
+                  isUserCreated: true,
                 },
               ],
             },
@@ -504,7 +510,13 @@ describe('buildInterviewerContext', () => {
     expect(result).toContain('- [6] Export the reviewed spec as markdown');
     expect(result).toContain('Review set: Requirements');
     expect(result).toContain('- [requirements:5] R1: Resume the interview from SQLite after restart');
+    expect(result).toContain('Rationale: Keeps the active path stable after a restart.');
+    expect(result).toContain('Grounding refs: G1, C2');
+    expect(result).toContain('Badge: Revised');
     expect(result).toContain('- [requirements:6] R2: Export the reviewed spec as markdown');
+    expect(result).toContain('Rationale: Makes the reviewed output portable for sharing.');
+    expect(result).toContain('Grounding refs: D1');
+    expect(result).toContain('Badge: Added in revision');
     expect(result).toContain('Review action: request-changes');
     expect(result).toContain('Per-item comments:');
     expect(result).toContain('Item requirements:5: Be explicit about restart recovery.');

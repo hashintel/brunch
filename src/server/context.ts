@@ -61,6 +61,22 @@ function formatReviewSetInventory(reviewSet: ReviewSetData): string {
     const identity = getReviewItemIdentity(item);
     const label = item.referenceCode ? `[${identity}] ${item.referenceCode}` : `[${identity}]`;
     lines.push(`  - ${label}: ${item.content}`);
+
+    if (item.rationale) {
+      lines.push(`    Rationale: ${item.rationale}`);
+    }
+
+    if (item.grounding?.length) {
+      lines.push(`    Grounding refs: ${item.grounding.map((groundingRef) => groundingRef.code).join(', ')}`);
+    }
+
+    if (item.isUserCreated) {
+      lines.push('    Badge: Added in revision');
+    }
+
+    if (item.isRevised) {
+      lines.push('    Badge: Revised');
+    }
   }
 
   return lines.join('\n');

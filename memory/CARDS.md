@@ -40,7 +40,7 @@ Current judgment: all no; keep light.
 
 ---
 
-## Card 2 — next
+## Card 2 — done
 
 ### Title
 Review-regeneration context and prompt carry explicit metadata and badge semantics at the source
@@ -71,7 +71,7 @@ Current judgment: all no; keep light.
 
 ---
 
-## Card 3 — queued
+## Card 3 — next
 
 ### Title
 Regenerated review-card contract is proved across criteria and source-owned examples
