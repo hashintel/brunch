@@ -28,13 +28,8 @@ export const ThinkingTokenScroll = memo(({ text, className }: ThinkingTokenScrol
   }, [text]);
 
   return (
-    <div className={cn('relative', className)}>
-      {/* Top fade-out gradient */}
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-10 h-5 bg-gradient-to-b from-background to-transparent" />
-      {/* Scrolling container — 4 lines of text-xs ≈ 4rem */}
-      <div ref={scrollRef} className="h-16 overflow-hidden text-xs leading-4 text-muted-foreground">
-        <p className="break-words whitespace-pre-wrap">{text}</p>
-      </div>
+    <div ref={scrollRef} className={cn('h-16 overflow-hidden text-xs leading-4 text-muted-foreground', className)}>
+      <p className="break-words whitespace-pre-wrap">{text}</p>
     </div>
   );
 });
