@@ -78,7 +78,6 @@ function ReviewSetItemRow({
       <div
         className={cn(
           'relative z-[1] flex items-start gap-3 border-b border-rule bg-white px-4 py-3 shadow-[var(--shadow-card)]',
-          item.isRevised && 'bg-[rgba(37,99,235,0.03)]',
         )}
       >
         <span className="w-14 shrink-0 pt-0.5 font-mono text-xs font-medium text-hint">
@@ -111,7 +110,7 @@ function ReviewSetItemRow({
             </span>
           ) : null}
           {item.isRevised ? (
-            <span className="inline-flex h-5 items-center rounded-md bg-[rgba(37,99,235,0.08)] px-1.5 text-[11px] font-medium text-[#2070e6]">
+            <span className="inline-flex h-5 items-center rounded-md bg-emerald-50 px-1.5 text-[11px] font-medium text-emerald-600">
               Revised
             </span>
           ) : null}
