@@ -86,8 +86,15 @@ function getReadinessLabel(readiness: SpecificationState['workflow']['phases'][W
 
 export function InterviewView({ phase }: { phase: WorkflowPhase }) {
   const [isClosePhaseModalOpen, setIsClosePhaseModalOpen] = useState(false);
-  const { chat, specification, workflow, phaseTurns, bottomArtifact, captureStatusByTurnId } =
-    useInterviewController(phase);
+  const {
+    chat,
+    specification,
+    workflow,
+    phaseTurns,
+    bottomArtifact,
+    captureStatusByTurnId,
+    structuralArtifactTurnIds,
+  } = useInterviewController(phase);
   const phaseState = workflow.phases[phase];
   const currentReachablePhase = getCurrentOpenPhase(workflow.phases);
   const nextPhase = getNextActivePhase(workflow.phases, phase);
@@ -98,6 +105,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
     phaseState,
     bottomArtifact,
     controlMarkers,
+    structuralArtifactTurnIds,
   });
   const showLockedState =
     phaseState.status === 'unstarted' && currentReachablePhase !== phase && currentReachablePhase !== null;

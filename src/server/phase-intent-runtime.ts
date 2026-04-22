@@ -18,6 +18,7 @@ import {
   applyTurnResponseSelections,
   getCurrentWorkflowState,
   getOptionsForTurn,
+  getStructuralArtifactTurnIds,
   getSpecification,
   updateSpecificationMode,
   updateTurn,
@@ -117,7 +118,8 @@ export function submitPhaseIntentWithRuntimeCompatibility({
 
   const workflow = getCurrentWorkflowState(db, projectId);
   const turns = loadActivePathWithOptions(db, projectId);
-  const landing = deriveSpecificationLanding({ workflow, turns });
+  const structuralArtifactTurnIds = getStructuralArtifactTurnIds(db, projectId);
+  const landing = deriveSpecificationLanding({ workflow, turns, structuralArtifactTurnIds });
   const activePhaseTurn = findLatestPhaseTurn(turns, request.phase);
 
   if (request.kind === 'phase-entry') {

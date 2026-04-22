@@ -16,6 +16,7 @@ import {
   getActivePath,
   getCapturedItemsForTurns,
   getCurrentPhase,
+  getStructuralArtifactTurnIds,
   getCurrentWorkflowState,
   getOptionsForTurn,
   getSpecification,
@@ -130,11 +131,13 @@ export function readSpecificationStateProjection(db: DB, specificationId: number
   if (!specification) return null;
   const turns = loadActivePathWithOptions(db, specificationId);
   const workflow = getCurrentWorkflowState(db, specificationId);
+  const structuralArtifactTurnIds = getStructuralArtifactTurnIds(db, specificationId);
   return {
     specification: toSpecification(specification),
     workflow,
-    landing: deriveSpecificationLanding({ workflow, turns }),
+    landing: deriveSpecificationLanding({ workflow, turns, structuralArtifactTurnIds }),
     turns,
+    structuralArtifactTurnIds,
   };
 }
 

@@ -159,62 +159,23 @@ describe('specification-state helpers', () => {
     ).toEqual({ kind: 'frontier-turn', phase: 'grounding', turnId: 2 });
 
     expect(
-      deriveSpecificationLanding(
-        createSpecificationState({}, { turnId: null }, [
-          createTurn({ id: 1, turn_kind: 'kickoff', answer: null, options: [], question: '' }),
+      deriveSpecificationLanding({
+        ...createSpecificationState({}, { turnId: null }, [
+          createTurn({ id: 1, answer: null, options: [], question: '' }),
         ]),
-      ),
+        structuralArtifactTurnIds: [1],
+      }),
     ).toEqual({ kind: 'kickoff', phase: 'grounding', mode: 'start' });
   });
 
-  it('classifies kickoff, recovery, confirmation, and closure-summary turns as control artifacts', () => {
-    expect(turnIsControlOrClosureArtifact(createTurn({ turn_kind: 'kickoff', answer: null }))).toBe(true);
-    expect(turnIsControlOrClosureArtifact(createTurn({ turn_kind: 'recovery', answer: null }))).toBe(true);
-    expect(
-      turnIsControlOrClosureArtifact(
-        createTurn({
-          user_parts: JSON.stringify([
-            { type: 'text', text: 'Confirm grounding closure' },
-            {
-              type: 'data-confirmation',
-              data: { kind: 'confirm-proposed-phase-closure', proposalTurnId: 1, phase: 'grounding' },
-            },
-          ]),
-        }),
-      ),
-    ).toBe(true);
-    expect(
-      turnIsControlOrClosureArtifact(
-        createTurn({
-          assistant_parts: JSON.stringify([
-            {
-              type: 'data-phase-summary',
-              data: {
-                turnId: 1,
-                phase: 'grounding',
-                summary: 'Goals, terms, context, and constraints are sufficiently captured.',
-              },
-            },
-          ]),
-        }),
-      ),
-    ).toBe(true);
-    expect(turnIsControlOrClosureArtifact(createTurn())).toBe(false);
-    expect(
-      turnIsControlOrClosureArtifact(
-        createTurn({
-          assistant_parts: JSON.stringify([
-            {
-              type: 'data-grounding-card',
-              data: {
-                summary: 'The repo already uses local-first persistence.',
-                detail: 'Provisional context only.',
-              },
-            },
-          ]),
-        }),
-      ),
-    ).toBe(false);
+  it('classifies turns as control artifacts by structural id membership, not by parts or turn_kind', () => {
+    const structuralIds = new Set([10, 20, 30]);
+    expect(turnIsControlOrClosureArtifact(createTurn({ id: 10 }), structuralIds)).toBe(true);
+    expect(turnIsControlOrClosureArtifact(createTurn({ id: 20 }), structuralIds)).toBe(true);
+    expect(turnIsControlOrClosureArtifact(createTurn({ id: 30 }), structuralIds)).toBe(true);
+    expect(turnIsControlOrClosureArtifact(createTurn({ id: 1 }), structuralIds)).toBe(false);
+    expect(turnIsControlOrClosureArtifact(createTurn({ id: 99 }), structuralIds)).toBe(false);
+    expect(turnIsControlOrClosureArtifact(createTurn({ id: 1 }), new Set())).toBe(false);
   });
 
   it('reads persisted grounding-card artifacts from assistant parts', () => {

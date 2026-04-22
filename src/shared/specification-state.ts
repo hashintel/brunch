@@ -14,6 +14,10 @@ import {
 import { workflowPhaseOrder } from './phase-close.js';
 import type { SpecificationState, SpecificationTurn } from './specification.js';
 
+export function toStructuralArtifactTurnIdSet(ids: readonly number[] | undefined): ReadonlySet<number> {
+  return new Set(ids ?? []);
+}
+
 export function safeParsePersistedAssistantParts(json: string | null | undefined): BrunchAssistantPart[] {
   return safeDecodePersistedAssistantParts(json);
 }
@@ -89,14 +93,14 @@ export function turnHasPersistedObserverResult(
 }
 
 export function turnNeedsObserverCapture(
-  turn:
-    | Pick<
-        SpecificationTurn,
-        'id' | 'question' | 'assistant_parts' | 'answer' | 'user_parts' | 'turn_kind' | 'is_resolution'
-      >
-    | undefined,
+  turn: Pick<SpecificationTurn, 'id' | 'question' | 'assistant_parts' | 'answer' | 'user_parts'> | undefined,
+  structuralArtifactTurnIds: ReadonlySet<number> = new Set(),
 ): boolean {
-  if (!turn || !turnHasCompletedAnswer(turn) || turnIsControlOrClosureArtifact(turn)) {
+  if (
+    !turn ||
+    !turnHasCompletedAnswer(turn) ||
+    turnIsControlOrClosureArtifact(turn, structuralArtifactTurnIds)
+  ) {
     return false;
   }
 
@@ -179,33 +183,28 @@ export function getReviewActionForSelectedPositions(
 }
 
 export function turnIsControlOrClosureArtifact(
-  turn: Pick<SpecificationTurn, 'assistant_parts' | 'is_resolution' | 'turn_kind' | 'user_parts'>,
+  turn: Pick<SpecificationTurn, 'id'>,
+  structuralArtifactTurnIds: ReadonlySet<number>,
 ): boolean {
-  if (turn.turn_kind === 'kickoff' || turn.turn_kind === 'recovery' || turn.is_resolution) {
-    return true;
-  }
-
-  const userParts = safeParsePersistedUserParts(turn.user_parts);
-  if (userParts.some((part) => part.type === 'data-confirmation')) {
-    return true;
-  }
-
-  const assistantParts = safeParsePersistedAssistantParts(turn.assistant_parts);
-  return assistantParts.some(
-    (part) => part.type === 'tool-propose_phase_closure' || part.type === 'data-phase-summary',
-  );
+  return structuralArtifactTurnIds.has(turn.id);
 }
 
 function getKickoffLandingMode(
-  turns: readonly Pick<SpecificationTurn, 'phase' | 'turn_kind'>[],
+  turns: readonly Pick<SpecificationTurn, 'id' | 'phase'>[],
   phase: WorkflowPhase,
+  structuralArtifactTurnIds: ReadonlySet<number>,
 ): KickoffLandingMode {
-  return turns.some((turn) => turn.phase === phase && turn.turn_kind !== 'kickoff') ? 'continue' : 'start';
+  return turns.some((turn) => turn.phase === phase && !structuralArtifactTurnIds.has(turn.id))
+    ? 'continue'
+    : 'start';
 }
 
 export function deriveSpecificationLanding(
-  snapshot: Pick<SpecificationState, 'workflow' | 'turns'>,
+  snapshot: Pick<SpecificationState, 'workflow' | 'turns'> & {
+    structuralArtifactTurnIds?: readonly number[];
+  },
 ): SpecificationLanding | null {
+  const structuralTurnIds = toStructuralArtifactTurnIdSet(snapshot.structuralArtifactTurnIds);
   const phase = workflowPhaseOrder.find(
     (candidatePhase) => snapshot.workflow.phases[candidatePhase].status !== 'closed',
   );
@@ -221,7 +220,9 @@ export function deriveSpecificationLanding(
   const phaseTurns = snapshot.turns.filter((turn) => turn.phase === phase);
   const frontierTurn = [...phaseTurns]
     .reverse()
-    .find((turn) => !turnHasCompletedAnswer(turn) && !turnIsControlOrClosureArtifact(turn));
+    .find(
+      (turn) => !turnHasCompletedAnswer(turn) && !turnIsControlOrClosureArtifact(turn, structuralTurnIds),
+    );
   if (frontierTurn) {
     return {
       kind: 'frontier-turn',
@@ -231,7 +232,7 @@ export function deriveSpecificationLanding(
   }
 
   const hasCompletedSubstantiveHistory = phaseTurns.some(
-    (turn) => turnHasCompletedAnswer(turn) && !turnIsControlOrClosureArtifact(turn),
+    (turn) => turnHasCompletedAnswer(turn) && !turnIsControlOrClosureArtifact(turn, structuralTurnIds),
   );
   if (hasCompletedSubstantiveHistory) {
     return {
@@ -243,7 +244,7 @@ export function deriveSpecificationLanding(
   return {
     kind: 'kickoff',
     phase,
-    mode: getKickoffLandingMode(phaseTurns, phase),
+    mode: getKickoffLandingMode(phaseTurns, phase, structuralTurnIds),
   };
 }
 

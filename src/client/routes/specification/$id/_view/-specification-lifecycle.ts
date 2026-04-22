@@ -9,7 +9,11 @@ import type {
 } from '@/shared/api-types.js';
 import { getCurrentOpenPhase, getNextActivePhase } from '@/shared/phase-descriptors.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
-import { getPersistedTurnResponse, turnNeedsObserverCapture } from '@/shared/specification-state.js';
+import {
+  getPersistedTurnResponse,
+  toStructuralArtifactTurnIdSet,
+  turnNeedsObserverCapture,
+} from '@/shared/specification-state.js';
 
 const autoPhaseIntentRegistry = new Map<
   number,
@@ -92,14 +96,17 @@ function supportsDeferredObserverCapture(turn: Pick<SpecificationStateTurn, 'pha
   return turn.phase === 'grounding' || turn.phase === 'design';
 }
 
-function getDeferredObserverCaptureTurnIds(turns: readonly SpecificationStateTurn[]): Set<number> {
+function getDeferredObserverCaptureTurnIds(
+  turns: readonly SpecificationStateTurn[],
+  structuralArtifactTurnIds: ReadonlySet<number>,
+): Set<number> {
   return new Set(
     turns
       .filter(
         (turn) =>
           supportsDeferredObserverCapture(turn) &&
           getPersistedTurnResponse(turn) !== null &&
-          turnNeedsObserverCapture(turn),
+          turnNeedsObserverCapture(turn, structuralArtifactTurnIds),
       )
       .map((turn) => turn.id),
   );
@@ -108,9 +115,11 @@ function getDeferredObserverCaptureTurnIds(turns: readonly SpecificationStateTur
 function getAutoObserverCaptureTurnIds({
   turns,
   workflow,
+  structuralArtifactTurnIds,
 }: {
   turns: readonly SpecificationStateTurn[];
   workflow: WorkflowState;
+  structuralArtifactTurnIds: ReadonlySet<number>;
 }): Set<number> {
   return new Set(
     turns
@@ -118,7 +127,7 @@ function getAutoObserverCaptureTurnIds({
         if (
           !supportsDeferredObserverCapture(turn) ||
           getPersistedTurnResponse(turn) === null ||
-          !turnNeedsObserverCapture(turn)
+          !turnNeedsObserverCapture(turn, structuralArtifactTurnIds)
         ) {
           return false;
         }
@@ -257,6 +266,7 @@ export function useSpecificationRuntimeLifecycle({
   phase,
   workflow,
   turns,
+  structuralArtifactTurnIds: rawStructuralIds,
   refreshReadModel,
   refreshEntities,
   navigateToPhase,
@@ -265,6 +275,7 @@ export function useSpecificationRuntimeLifecycle({
   phase: WorkflowPhase;
   workflow: WorkflowState;
   turns: readonly SpecificationStateTurn[];
+  structuralArtifactTurnIds?: readonly number[];
   refreshReadModel: () => Promise<void>;
   refreshEntities: () => Promise<void>;
   navigateToPhase: (phase: WorkflowPhase) => Promise<void> | void;
@@ -279,10 +290,17 @@ export function useSpecificationRuntimeLifecycle({
   const [pendingCloseNavigation, setPendingCloseNavigation] = useState(false);
   const pendingCloseRef = useRef(false);
 
-  const deferredObserverCaptureTurnIds = useMemo(() => getDeferredObserverCaptureTurnIds(turns), [turns]);
+  const structuralArtifactTurnIds = useMemo(
+    () => toStructuralArtifactTurnIdSet(rawStructuralIds),
+    [rawStructuralIds],
+  );
+  const deferredObserverCaptureTurnIds = useMemo(
+    () => getDeferredObserverCaptureTurnIds(turns, structuralArtifactTurnIds),
+    [turns, structuralArtifactTurnIds],
+  );
   const autoObserverCaptureTurnIds = useMemo(
-    () => getAutoObserverCaptureTurnIds({ turns, workflow }),
-    [turns, workflow],
+    () => getAutoObserverCaptureTurnIds({ turns, workflow, structuralArtifactTurnIds }),
+    [turns, workflow, structuralArtifactTurnIds],
   );
 
   useEffect(() => {

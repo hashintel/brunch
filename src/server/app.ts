@@ -33,6 +33,7 @@ import {
   getPersistedGroundingCard,
   getPersistedTurnResponse,
   getReviewActionForSelectedPositions,
+  toStructuralArtifactTurnIdSet,
   turnNeedsObserverCapture,
 } from '@/shared/specification-state.js';
 import {
@@ -61,6 +62,7 @@ import {
   findProposedPhaseOutcomeByTurn,
   getCurrentPhase,
   getCurrentWorkflowState,
+  getStructuralArtifactTurnIds,
   getTurn,
   getOptionsForTurn,
   materializeAcceptedCriteriaReviewSet,
@@ -148,7 +150,8 @@ async function ensureObserverCapture({
     throw new Error('Turn not found');
   }
 
-  if (!turnNeedsObserverCapture(turn)) {
+  const structuralTurnIds = toStructuralArtifactTurnIdSet(getStructuralArtifactTurnIds(db, specificationId));
+  if (!turnNeedsObserverCapture(turn, structuralTurnIds)) {
     return 'already-captured';
   }
 
@@ -156,7 +159,12 @@ async function ensureObserverCapture({
   const existingCapture = observerCaptureRegistry.get(captureKey);
   if (existingCapture) {
     await existingCapture;
-    return turnNeedsObserverCapture(getTurn(db, turnId)) ? 'captured' : 'already-captured';
+    const refreshedStructuralTurnIds = toStructuralArtifactTurnIdSet(
+      getStructuralArtifactTurnIds(db, specificationId),
+    );
+    return turnNeedsObserverCapture(getTurn(db, turnId), refreshedStructuralTurnIds)
+      ? 'captured'
+      : 'already-captured';
   }
 
   const capturePromise = (async () => {

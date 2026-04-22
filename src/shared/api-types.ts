@@ -123,6 +123,7 @@ export const specificationStateSchema = z.object({
   workflow: workflowStateSchema,
   landing: specificationLandingSchema.nullable().optional(),
   turns: z.array(specificationStateTurnSchema),
+  structuralArtifactTurnIds: z.array(z.number().int().positive()).optional(),
 });
 
 const knowledgeItemKindSchema = z.enum(knowledgeKinds);

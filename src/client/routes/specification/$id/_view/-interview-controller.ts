@@ -122,6 +122,7 @@ export interface InterviewController {
   readonly captureStatusByTurnId: ReadonlyMap<number, 'waiting' | 'applying'>;
   readonly chat: InterviewControllerChatState;
   readonly bottomArtifact: InterviewControllerBottomArtifactState | null;
+  readonly structuralArtifactTurnIds: readonly number[] | undefined;
 }
 
 function getLatestAssistantActivity(
@@ -224,6 +225,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     phase,
     workflow: durableSpecification.workflow,
     turns,
+    structuralArtifactTurnIds: specificationState.structuralArtifactTurnIds,
     refreshReadModel,
     refreshEntities: invalidateEntities,
     navigateToPhase,
@@ -379,6 +381,7 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     workflow: viewState.workflow,
     phaseTurns: stablePhaseTurns,
     captureStatusByTurnId: runtime.captureStatusByTurnId,
+    structuralArtifactTurnIds: specificationState.structuralArtifactTurnIds,
     chat: {
       messages: phaseMessages,
       status,

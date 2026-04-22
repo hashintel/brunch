@@ -565,6 +565,31 @@ export function getCurrentWorkflowState(db: DB, specificationId: number): Workfl
   return workflow;
 }
 
+export function getStructuralArtifactTurnIds(db: DB, specificationId: number): number[] {
+  const activePath = getActivePath(db, specificationId);
+  const activeTurnIds = new Set(activePath.map((turn) => turn.id));
+  const ids = new Set<number>();
+
+  // Phase outcome anchors: proposal and confirmation turns
+  for (const outcome of listPhaseOutcomesForSpecification(db, specificationId)) {
+    if (activeTurnIds.has(outcome.proposal_turn_id)) {
+      ids.add(outcome.proposal_turn_id);
+    }
+    if (outcome.confirmation_turn_id && activeTurnIds.has(outcome.confirmation_turn_id)) {
+      ids.add(outcome.confirmation_turn_id);
+    }
+  }
+
+  // Legacy transitional: kickoff/recovery turn rows (D95 marks these as transitional)
+  for (const turn of activePath) {
+    if (turn.turn_kind === 'kickoff' || turn.turn_kind === 'recovery' || turn.is_resolution) {
+      ids.add(turn.id);
+    }
+  }
+
+  return [...ids];
+}
+
 export function getCurrentPhase(db: DB, specificationId: number): Phase {
   const workflow = getCurrentWorkflowState(db, specificationId);
   return workflowPhaseOrder.find((phase) => workflow.phases[phase].status !== 'closed') ?? 'criteria';

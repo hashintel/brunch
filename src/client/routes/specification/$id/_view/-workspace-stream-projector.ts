@@ -5,6 +5,7 @@ import {
   getPersistedGroundingCard,
   getPersistedReviewAction,
   getPersistedReviewSet,
+  toStructuralArtifactTurnIdSet,
   turnHasCompletedAnswer,
   turnIsControlOrClosureArtifact,
 } from '@/shared/specification-state.js';
@@ -203,10 +204,12 @@ function projectHistoryArtifacts({
   phaseTurns,
   phaseState,
   renderedPersistedTurnId,
+  structuralArtifactTurnIds,
 }: {
   phaseTurns: readonly SpecificationTurn[];
   phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
   renderedPersistedTurnId: number | null;
+  structuralArtifactTurnIds: ReadonlySet<number>;
 }): WorkspaceStreamArtifact[] {
   const historyArtifacts: WorkspaceStreamArtifact[] = [];
   let answeredTurnCount = 0;
@@ -228,7 +231,7 @@ function projectHistoryArtifacts({
       continue;
     }
 
-    if (!turnHasCompletedAnswer(turn) || turnIsControlOrClosureArtifact(turn)) {
+    if (!turnHasCompletedAnswer(turn) || turnIsControlOrClosureArtifact(turn, structuralArtifactTurnIds)) {
       continue;
     }
 
@@ -427,18 +430,22 @@ export function specificationWorkspaceStream({
   phaseState,
   bottomArtifact,
   controlMarkers = [],
+  structuralArtifactTurnIds: rawStructuralIds,
 }: {
   phase: WorkflowPhase;
   phaseTurns: readonly SpecificationTurn[];
   phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
   bottomArtifact: InterviewControllerBottomArtifactState | null;
   controlMarkers?: readonly WorkspaceStreamMarker[];
+  structuralArtifactTurnIds?: readonly number[];
 }): WorkspaceStreamProjection {
+  const structuralArtifactTurnIds = toStructuralArtifactTurnIdSet(rawStructuralIds);
   const renderedPersistedTurnId = getRenderedPersistedTurnId(bottomArtifact);
   const historyArtifacts = projectHistoryArtifacts({
     phaseTurns,
     phaseState,
     renderedPersistedTurnId,
+    structuralArtifactTurnIds,
   });
   const answeredTurnCount = historyArtifacts.filter(
     (artifact) => artifact.kind === 'answered-turn' || artifact.kind === 'answered-grounding-question',
