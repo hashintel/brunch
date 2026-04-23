@@ -438,6 +438,49 @@ describe('brownfield interviewer configuration', () => {
       getSystemPrompt('requirements'),
     );
   });
+
+  it('keeps reusable read-only exploration tools available during ongoing brownfield grounding', () => {
+    const project = createSpecification(db, 'BF', { mode: 'brownfield' });
+    const priorTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Which seam still needs grounding?',
+      answer: 'The replay handoff.',
+    });
+    const nextTurn = createTurn(db, project.id, {
+      parent_turn_id: priorTurn.id,
+      phase: 'grounding',
+      question: '',
+      answer: null,
+    });
+
+    const tools = getInterviewerTools(db, nextTurn.id, 'grounding', project.id, {
+      mode: 'brownfield',
+      cwd: '/tmp/repo',
+    });
+    const toolNames = Object.keys(tools);
+
+    expect(toolNames).toContain('read_file');
+    expect(toolNames).toContain('grep');
+    expect(toolNames).toContain('find_files');
+    expect(toolNames).toContain('list_directory');
+    expect(toolNames).toContain('present_preface');
+    expect(toolNames).toContain('ask_question');
+    expect(toolNames).not.toContain('write_file');
+    expect(toolNames).not.toContain('edit_file');
+    expect(toolNames).not.toContain('bash');
+
+    const instructions = getInterviewerInstructions('grounding', {
+      mode: 'brownfield',
+      cwd: '/tmp/repo',
+      brownfieldGroundingStage: 'ongoing',
+    });
+    expect(instructions).toContain('Continue the structured grounding interview');
+    expect(instructions).toContain('read-only workspace tools plus present_preface available');
+    expect(instructions).not.toContain('Before asking your first grounding question');
+    expect(instructions).not.toContain(
+      'Spend no more than 5-8 tool calls on exploration before synthesizing.',
+    );
+  });
 });
 
 describe('buildReviewSetForPhase', () => {

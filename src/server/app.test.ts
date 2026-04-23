@@ -705,6 +705,82 @@ describe('POST /api/specifications/:id/chat', () => {
     );
   });
 
+  it('persists a reusable prefaced grounding turn during ongoing brownfield grounding', async () => {
+    const { advanceHead, createSpecification, createTurn, getActivePath, getOptionsForTurn } =
+      await import('./db.js');
+    const project = createSpecification(db, 'Brownfield reusable grounding', { mode: 'brownfield' });
+    const priorTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Which seam still needs more grounding?',
+      answer: 'The replay handoff.',
+    });
+    advanceHead(db, project.id, priorTurn.id);
+
+    const followUpQuestion: StructuredQuestion = {
+      question: 'What about the replay handoff is still unclear?',
+      why: 'Turns the new context into one follow-up grounding move.',
+      impact: 'medium',
+      options: [],
+    };
+
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makePrefaceInterviewer(
+        dbArg as DB,
+        (turn as { id: number }).id,
+        {
+          observation: 'The replay path already persists turn-owned activity summaries.',
+          elaboration: 'This later grounding pass narrows the next move to replay handoff details.',
+        },
+        followUpQuestion,
+      ),
+    );
+
+    await request(app)
+      .post(`/api/specifications/${project.id}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-brownfield-ongoing',
+            role: 'user',
+            parts: [{ type: 'text', text: 'The replay handoff still feels risky.' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.arrayContaining([expect.objectContaining({ id: priorTurn.id })]),
+      'The replay handoff still feels risky.',
+      'grounding',
+      { mode: 'brownfield', cwd: process.cwd() },
+    );
+
+    const activePath = getActivePath(db, project.id);
+    expect(activePath).toHaveLength(2);
+
+    const followUpTurn = activePath[1]!;
+    expect(followUpTurn.question).toBe('What about the replay handoff is still unclear?');
+    expect(followUpTurn.why).toBe('Turns the new context into one follow-up grounding move.');
+    expect(followUpTurn.impact).toBe('medium');
+    expect(getOptionsForTurn(db, followUpTurn.id)).toEqual([]);
+
+    const assistantParts = JSON.parse(followUpTurn.assistant_parts ?? '[]');
+    expect(assistantParts).toEqual([
+      {
+        type: 'data-preface',
+        data: {
+          observation: 'The replay path already persists turn-owned activity summaries.',
+          elaboration: 'This later grounding pass narrows the next move to replay handoff details.',
+        },
+      },
+    ]);
+    expect(assistantParts).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: 'tool-present_preface' })]),
+    );
+  });
+
   it('emits canonical grounding-kind observer results and persists them through the entities API', async () => {
     const projectId = await createTestProject();
     mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
