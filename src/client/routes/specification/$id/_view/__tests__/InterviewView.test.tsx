@@ -269,6 +269,12 @@ vi.mock('@/client/components/ai-elements/reasoning', () => ({
     children?: React.ReactNode;
     getThinkingMessage?: (isStreaming: boolean, duration?: number) => React.ReactNode;
   }) => <div>{children ?? getThinkingMessage?.(false, undefined) ?? null}</div>,
+  useReasoning: () => ({
+    duration: undefined,
+    isOpen: false,
+    isStreaming: false,
+    setIsOpen: vi.fn(),
+  }),
 }));
 
 vi.mock('@/client/components/ai-elements/tool', () => ({

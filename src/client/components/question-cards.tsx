@@ -1,4 +1,4 @@
-import { Check, Loader2 } from 'lucide-react';
+import { Check, ChevronDown, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Impact, ReviewAction } from '@/shared/api-types.js';
@@ -8,7 +8,7 @@ import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/spe
 import type { SpecificationTurn } from '@/shared/specification.js';
 
 import { cn } from '../lib/utils';
-import { Reasoning, ReasoningContent, ReasoningTrigger } from './ai-elements/reasoning';
+import { Reasoning, ReasoningContent, ReasoningTrigger, useReasoning } from './ai-elements/reasoning';
 import { Task, TaskContent, TaskItem, TaskTrigger } from './ai-elements/task';
 import { Button } from './app-shell';
 import { DrawerCard } from './drawer-card';
@@ -28,6 +28,19 @@ const impactColor: Record<Impact, string> = {
 
 function renderThinkingMessage(_isStreaming: boolean, duration?: number) {
   return <span>{duration != null ? `Thought for ${duration}s` : 'Thinking…'}</span>;
+}
+
+function ActivityReasoningLabel({ collapsible }: { collapsible: boolean }) {
+  const { duration, isOpen, isStreaming } = useReasoning();
+
+  return (
+    <span className="inline-flex items-center gap-1 text-xxs text-hint">
+      <span>{renderThinkingMessage(isStreaming, duration)}</span>
+      {collapsible ? (
+        <ChevronDown className={cn('size-3 transition-transform', isOpen ? 'rotate-180' : 'rotate-0')} />
+      ) : null}
+    </span>
+  );
 }
 
 // ── Activity placeholder ────────────────────────────────────────────
@@ -62,8 +75,18 @@ export function ActivityPlaceholder({
         isStreaming={Boolean(reasoningText) && Boolean(reasoningStreaming)}
         open={reasoningText ? undefined : false}
       >
-        <ReasoningTrigger collapsible={Boolean(reasoningText)} getThinkingMessage={renderThinkingMessage} />
-        {reasoningText ? <ReasoningContent>{reasoningText}</ReasoningContent> : null}
+        <ReasoningTrigger
+          className="gap-1 text-xxs text-hint hover:text-hint"
+          collapsible={Boolean(reasoningText)}
+          getThinkingMessage={renderThinkingMessage}
+        >
+          <ActivityReasoningLabel collapsible={Boolean(reasoningText)} />
+        </ReasoningTrigger>
+        {reasoningText ? (
+          <ReasoningContent className="mt-2 text-xxs leading-relaxed text-hint [&_*]:text-inherit">
+            {reasoningText}
+          </ReasoningContent>
+        ) : null}
       </Reasoning>
 
       {hasTools ? (
