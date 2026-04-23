@@ -406,8 +406,9 @@ function renderWorkspaceInteractiveArtifact({
           key="generating-turn-placeholder"
           liveActivity={artifact.artifact.liveActivity}
           liveReasoningText={artifact.artifact.liveReasoningText}
+          liveToolItems={artifact.artifact.liveToolItems}
+          liveToolsRunning={artifact.artifact.liveToolsRunning}
           pendingPreface={artifact.artifact.pendingPreface}
-          latestToolDetail={artifact.artifact.latestToolDetail}
         />
       );
   }

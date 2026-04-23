@@ -8,7 +8,7 @@ import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/spe
 import type { SpecificationTurn } from '@/shared/specification.js';
 
 import { cn } from '../lib/utils';
-import { Reasoning, ReasoningContent, ReasoningTrigger, useReasoning } from './ai-elements/reasoning';
+import { Reasoning, ReasoningContent, ReasoningTrigger } from './ai-elements/reasoning';
 import { Task, TaskContent, TaskItem, TaskTrigger } from './ai-elements/task';
 import { Button } from './app-shell';
 import { DrawerCard } from './drawer-card';
@@ -30,34 +30,33 @@ function renderThinkingMessage(_isStreaming: boolean, duration?: number) {
   return <span>{duration != null ? `Thought for ${duration}s` : 'Thinking…'}</span>;
 }
 
-function ActivityReasoningLabel() {
-  const { duration } = useReasoning();
-  return duration != null ? `Thought for ${duration}s` : 'Thinking…';
-}
-
 // ── Activity placeholder ────────────────────────────────────────────
 
 export function ActivityPlaceholder({
   seconds,
   tools,
-  toolDetail,
+  toolItems,
+  toolRunning,
   reasoningText,
   reasoningStreaming,
   prominent,
 }: {
   seconds?: number;
   tools?: string[];
-  toolDetail?: string;
+  toolItems?: Array<{ key: string; label: string; detail?: string }>;
+  toolRunning?: boolean;
   reasoningText?: string;
   reasoningStreaming?: boolean;
   prominent?: boolean;
 }) {
-  const hasTools = (tools?.length ?? 0) > 0 || Boolean(toolDetail);
-  const taskItems = [
-    ...(tools ?? []).map((tool) => ({ key: `tool-${tool}`, value: tool })),
-    ...(toolDetail ? [{ key: 'tool-detail', value: toolDetail }] : []),
-  ];
-  const taskTitle = (tools?.length ?? 0) > 0 ? `Tools: ${tools!.join(', ')}` : 'Tool activity';
+  const taskItems: Array<{ key: string; label: string; detail?: string }> =
+    toolItems && toolItems.length > 0
+      ? toolItems
+      : (tools ?? []).map((tool) => ({ key: `tool-${tool}`, label: tool }));
+  const taskLabels = (tools?.length ?? 0) > 0 ? tools! : [...new Set(taskItems.map((item) => item.label))];
+  const hasTools = taskLabels.length > 0;
+  const taskTitle = taskLabels.length > 0 ? `Tools: ${taskLabels.join(', ')}` : 'Tool activity';
+  const isTaskCollapsible = Boolean(toolRunning && taskItems.length > 0);
 
   return (
     <div className={cn('flex flex-col gap-3 px-1', prominent && 'py-1')}>
@@ -72,9 +71,7 @@ export function ActivityPlaceholder({
           className="gap-1 text-xs text-hint hover:text-hint"
           collapsible={Boolean(reasoningText)}
           getThinkingMessage={renderThinkingMessage}
-        >
-          <ActivityReasoningLabel />
-        </ReasoningTrigger>
+        />
         {reasoningText ? (
           <ReasoningContent className="mt-2 text-xs text-hint [&_*]:text-inherit">
             {reasoningText}
@@ -83,12 +80,18 @@ export function ActivityPlaceholder({
       </Reasoning>
 
       {hasTools ? (
-        <Task className="w-full" defaultOpen={Boolean(toolDetail) || (tools?.length ?? 0) > 1}>
-          <TaskTrigger title={taskTitle} />
+        <Task className="w-full" isRunning={isTaskCollapsible}>
+          <TaskTrigger collapsible={isTaskCollapsible} title={taskTitle} />
           <TaskContent>
             {taskItems.map((item) => (
-              <TaskItem key={item.key} className={item.key === 'tool-detail' ? 'italic' : undefined}>
-                {item.value}
+              <TaskItem key={item.key} className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                <span>{item.label}</span>
+                {item.detail ? (
+                  <>
+                    <span className="opacity-50">→</span>
+                    <span className="break-all">{item.detail}</span>
+                  </>
+                ) : null}
               </TaskItem>
             ))}
           </TaskContent>
@@ -603,12 +606,14 @@ export function GeneratingTurnPlaceholder({
   liveActivity,
   liveReasoningText,
   pendingPreface,
-  latestToolDetail,
+  liveToolItems,
+  liveToolsRunning,
 }: {
   liveActivity?: ActivitySummary;
   liveReasoningText?: string;
   pendingPreface?: PrefaceData;
-  latestToolDetail?: string;
+  liveToolItems?: Array<{ key: string; label: string; detail?: string }>;
+  liveToolsRunning?: boolean;
 }) {
   const startTimeRef = useRef<number>(Date.now());
   const [seconds, setSeconds] = useState(0);
@@ -629,7 +634,8 @@ export function GeneratingTurnPlaceholder({
         reasoningStreaming={Boolean(liveReasoningText)}
         reasoningText={liveReasoningText}
         tools={liveActivity?.tools}
-        toolDetail={latestToolDetail}
+        toolItems={liveToolItems}
+        toolRunning={liveToolsRunning}
         prominent={prominent}
       />
       {pendingPreface && <PrefaceCardSkeleton />}

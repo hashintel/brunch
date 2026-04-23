@@ -101,7 +101,12 @@ export type InterviewControllerBottomArtifactState =
       readonly liveActivity?: ActivitySummary;
       readonly liveReasoningText?: string;
       readonly pendingPreface?: import('@/shared/chat.js').PrefaceData;
-      readonly latestToolDetail?: string;
+      readonly liveToolItems?: Array<{
+        readonly detail?: string;
+        readonly key: string;
+        readonly label: string;
+      }>;
+      readonly liveToolsRunning: boolean;
     }
   | {
       readonly kind: 'phase-handoff';
@@ -129,6 +134,12 @@ export interface InterviewController {
 
 const MAX_TOOL_DETAIL_LENGTH = 80;
 const HYDRATED_TURN_MESSAGE_ID_PATTERN = /^turn-\d+-/;
+const RUNNING_TOOL_STATES = new Set([
+  'approval-requested',
+  'approval-responded',
+  'input-available',
+  'input-streaming',
+]);
 
 function isLiveAssistantMessage(message: BrunchUIMessage): boolean {
   return message.role === 'assistant' && !HYDRATED_TURN_MESSAGE_ID_PATTERN.test(message.id);
@@ -159,40 +170,75 @@ function truncateToolDetail(value: string): string {
     : sanitized;
 }
 
+function getToolInputString(input: Record<string, unknown>, key: string): string | null {
+  const value = input[key];
+  return typeof value === 'string' && value.trim() ? truncateToolDetail(value) : null;
+}
+
 function extractToolDetail(input: unknown): string | null {
   if (input === null || typeof input !== 'object') {
     return null;
   }
 
   const record = input as Record<string, unknown>;
-  for (const key of ['path', 'pattern', 'glob', 'url', 'query', 'command'] as const) {
-    const value = record[key];
-    if (typeof value === 'string' && value.trim()) {
-      return truncateToolDetail(value);
+  const command = getToolInputString(record, 'command');
+  if (command) {
+    return command;
+  }
+
+  const path = getToolInputString(record, 'path') ?? getToolInputString(record, 'workdir');
+  const pattern = getToolInputString(record, 'pattern');
+  if (pattern && path) {
+    return truncateToolDetail(`${pattern} in ${path}`);
+  }
+  if (path) {
+    return path;
+  }
+
+  for (const key of ['glob', 'query', 'url', 'requestFilePath', 'responseFilePath'] as const) {
+    const value = getToolInputString(record, key);
+    if (value) {
+      return value;
     }
   }
 
   return null;
 }
 
-function getLatestToolDetail(messages: readonly BrunchUIMessage[], status: ChatStatus): string | undefined {
+function getLiveToolItems(messages: readonly BrunchUIMessage[], status: ChatStatus) {
   const liveAssistantMessage = getLatestLiveAssistantMessage(messages, status);
   if (!liveAssistantMessage?.parts) {
     return undefined;
   }
 
-  for (let partIndex = liveAssistantMessage.parts.length - 1; partIndex >= 0; partIndex -= 1) {
-    const part = liveAssistantMessage.parts[partIndex];
-    if (!part || !getActivityToolLabel(part) || !('input' in part)) {
+  const toolItems = new Map<
+    string,
+    {
+      detail?: string;
+      isRunning: boolean;
+      key: string;
+      label: string;
+    }
+  >();
+
+  for (const part of liveAssistantMessage.parts) {
+    const label = part ? getActivityToolLabel(part) : null;
+    if (!part || !label || !('input' in part) || !('state' in part) || !('toolCallId' in part)) {
       continue;
     }
-    const detail = extractToolDetail(part.input);
-    if (detail) {
-      return detail;
-    }
+
+    const existing = toolItems.get(part.toolCallId);
+    const detail = extractToolDetail(part.input) ?? existing?.detail;
+
+    toolItems.set(part.toolCallId, {
+      ...(detail ? { detail } : {}),
+      isRunning: RUNNING_TOOL_STATES.has(part.state),
+      key: part.toolCallId,
+      label,
+    });
   }
 
-  return undefined;
+  return toolItems.size > 0 ? [...toolItems.values()] : undefined;
 }
 
 function getLatestAssistantActivity(
@@ -318,7 +364,8 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
     () => getLatestReasoningText(phaseMessages, status),
     [phaseMessages, status],
   );
-  const latestToolDetail = useMemo(() => getLatestToolDetail(phaseMessages, status), [phaseMessages, status]);
+  const liveToolItems = useMemo(() => getLiveToolItems(phaseMessages, status), [phaseMessages, status]);
+  const liveToolsRunning = liveToolItems?.some((toolItem) => toolItem.isRunning) ?? false;
 
   const submitText = useCallback(
     (text: string) => {
@@ -554,8 +601,9 @@ export function useInterviewController(phase: WorkflowPhase): InterviewControlle
                       kind: 'generating' as const,
                       liveActivity,
                       liveReasoningText,
+                      liveToolItems: liveToolItems?.map(({ detail, key, label }) => ({ detail, key, label })),
+                      liveToolsRunning,
                       pendingPreface: viewState.bottomArtifact.pendingPreface,
-                      latestToolDetail,
                     }
                   : viewState.bottomArtifact.kind === 'phase-handoff'
                     ? {

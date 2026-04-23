@@ -4177,7 +4177,8 @@ describe('InterviewView', () => {
     expect(await screen.findByTestId('generating-turn-placeholder')).toBeTruthy();
     expect(screen.getAllByText('Thinking…')).toHaveLength(1);
     expect(screen.getAllByText('Tools: read file')).toHaveLength(1);
-    expect(screen.getByText('src/server/app.ts')).toBeTruthy();
+    expect(screen.queryByText('src/server/app.ts')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Tools: read file' }).hasAttribute('disabled')).toBe(true);
   });
 
   it('stages a preface skeleton during generation and swaps to the full prefaced question before route invalidation', async () => {

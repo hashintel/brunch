@@ -333,6 +333,16 @@ function ControllerProbe({
           ? JSON.stringify(workspace.bottomArtifact.liveActivity ?? null)
           : 'null'}
       </div>
+      <div data-testid="bottom-artifact-live-tool-items">
+        {workspace.bottomArtifact?.kind === 'generating'
+          ? JSON.stringify(workspace.bottomArtifact.liveToolItems ?? null)
+          : 'null'}
+      </div>
+      <div data-testid="bottom-artifact-live-tools-running">
+        {workspace.bottomArtifact?.kind === 'generating'
+          ? JSON.stringify(workspace.bottomArtifact.liveToolsRunning)
+          : 'null'}
+      </div>
       <div data-testid="bottom-artifact">
         {workspace.bottomArtifact?.kind === 'persisted-turn'
           ? workspace.bottomArtifact.turn.question
@@ -1024,6 +1034,57 @@ describe('interview controller', () => {
       expect(screen.getByTestId('bottom-artifact-live-activity').textContent).toBe(
         JSON.stringify({ tools: ['read file'] }),
       );
+    });
+  });
+
+  it('surfaces live tool targets and running state while the generating placeholder is active', async () => {
+    currentSpecificationState = createSpecificationState({
+      assistantText: 'Earlier question?',
+      answer: 'Earlier answer',
+    });
+    useChatImpl = createUseChatHarness('streaming');
+
+    renderController();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        {
+          id: 'live-assistant',
+          role: 'assistant',
+          parts: [
+            {
+              type: 'tool-list_directory',
+              toolCallId: 'tool-list-directory',
+              state: 'input-available',
+              input: { path: 'src/client/components' },
+            } as never,
+            {
+              type: 'tool-read_file',
+              toolCallId: 'tool-read-file',
+              state: 'output-available',
+              input: { path: 'src/client/components/question-cards.tsx' },
+              output: { ok: true },
+            } as never,
+          ],
+        },
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('generating');
+      expect(JSON.parse(screen.getByTestId('bottom-artifact-live-tool-items').textContent ?? 'null')).toEqual(
+        [
+          { key: 'tool-list-directory', label: 'list directory', detail: 'src/client/components' },
+          {
+            key: 'tool-read-file',
+            label: 'read file',
+            detail: 'src/client/components/question-cards.tsx',
+          },
+        ],
+      );
+      expect(screen.getByTestId('bottom-artifact-live-tools-running').textContent).toBe('true');
     });
   });
 

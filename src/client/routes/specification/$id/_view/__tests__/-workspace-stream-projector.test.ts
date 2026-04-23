@@ -101,7 +101,7 @@ function createBottomArtifact(
         confirmPhaseSummary: vi.fn(),
       };
     case 'generating':
-      return { kind };
+      return { kind, liveToolsRunning: false };
     case 'phase-handoff':
       return {
         kind,
