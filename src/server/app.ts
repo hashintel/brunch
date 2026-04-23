@@ -13,17 +13,8 @@ import type {
   SubmitPhaseIntentResponse,
   SubmitTurnResponseResponse,
 } from '@/shared/api-types.js';
-import {
-  brunchDataPartSchemas,
-  brunchValidationTools,
-  extractTextFromMessage,
-  formatTurnResponseText,
-} from '@/shared/chat.js';
+import { brunchDataPartSchemas, brunchValidationTools, extractTextFromMessage } from '@/shared/chat.js';
 import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
-import {
-  getGroundingStrategyModeForPosition,
-  isGroundingStrategyKickoffTurn,
-} from '@/shared/grounding-strategy.js';
 import {
   getForceCloseActionErrorMessage,
   getForceClosePhaseAction,
@@ -34,7 +25,6 @@ import { getPhaseIntentDisplayText } from '@/shared/phase-intents.js';
 import {
   getTurnPreface,
   getPersistedTurnResponse,
-  getReviewActionForSelectedPositions,
   toStructuralArtifactTurnIdSet,
   turnNeedsObserverCapture,
 } from '@/shared/specification-state.js';
@@ -56,7 +46,6 @@ import {
   resolveTurn,
 } from './core.js';
 import {
-  applyTurnResponseSelections,
   confirmPhaseOutcome,
   createConfirmedPhaseOutcome,
   createDb,
@@ -66,26 +55,23 @@ import {
   getCurrentWorkflowState,
   getTurn,
   getOptionsForTurn,
-  materializeAcceptedCriteriaReviewSet,
-  materializeAcceptedRequirementsReviewSet,
-  updateSpecificationMode,
   updateTurn,
   getEntitiesForSpecificationByMode,
   supersedePhaseOutcome,
   type DB,
   type EntityProjectionMode,
-  type Turn,
 } from './db.js';
 import { isExportReady, renderExportMarkdown } from './export.js';
 import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
-import { safeDeserializeAssistantParts, safeDeserializeUserParts, serializeParts } from './parts.js';
+import { safeDeserializeAssistantParts, serializeParts } from './parts.js';
 import {
   getPhaseIntentRuntimeAvailabilityError,
   submitPhaseIntentWithRuntimeCompatibility,
 } from './phase-intent-runtime.js';
 import { createCoreTools } from './tools/index.js';
 import { materializeTurnArtifacts } from './turn-artifacts.js';
+import { submitTurnResponseTransition } from './turn-response-transition.js';
 
 export interface AppOptions {
   readonly dbPath?: string;
@@ -210,53 +196,6 @@ async function ensureObserverCapture({
   return 'captured';
 }
 
-function getPersistedFullSetReviewAction(
-  turn: Pick<Turn, 'phase' | 'user_parts'>,
-): 'accept' | 'request-changes' | null {
-  if (turn.phase !== 'requirements' && turn.phase !== 'criteria') {
-    return null;
-  }
-
-  const responsePart = safeDeserializeUserParts(turn.user_parts).find(
-    (part): part is Extract<BrunchUserPart, { type: 'data-turn-response' }> =>
-      part.type === 'data-turn-response',
-  );
-
-  return responsePart?.data.reviewAction ?? null;
-}
-
-function acceptRequirementsReview(
-  db: DB,
-  specificationId: number,
-  turnId: number,
-): SubmitTurnResponseResponse {
-  materializeAcceptedRequirementsReviewSet(db, specificationId, turnId);
-
-  createConfirmedPhaseOutcome(db, {
-    projectId: specificationId,
-    phase: 'requirements',
-    proposal_turn_id: turnId,
-    confirmation_turn_id: turnId,
-    summary: 'The reviewed requirement set is accepted and ready for acceptance criteria.',
-  });
-
-  return { ok: true, advancedToPhase: 'criteria' };
-}
-
-function acceptCriteriaReview(db: DB, specificationId: number, turnId: number): SubmitTurnResponseResponse {
-  materializeAcceptedCriteriaReviewSet(db, specificationId, turnId);
-
-  createConfirmedPhaseOutcome(db, {
-    projectId: specificationId,
-    phase: 'criteria',
-    proposal_turn_id: turnId,
-    confirmation_turn_id: turnId,
-    summary: 'The reviewed criteria set is accepted and the specification is ready for output.',
-  });
-
-  return { ok: true, workflowCompleted: true };
-}
-
 export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const options = typeof dbPathOrOptions === 'string' ? { dbPath: dbPathOrOptions } : (dbPathOrOptions ?? {});
   const db = createDb(options.dbPath);
@@ -373,8 +312,6 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
     const uniquePositions =
       parsedRequest.data.kind === 'select-options' ? [...new Set(parsedRequest.data.positions)] : [];
-    const freeText = parsedRequest.data.freeText;
-
     const turn = getTurn(db, turnId);
     if (!turn || turn.specification_id !== projectId) {
       res.status(404).json({ error: 'Turn not found' } satisfies MutationErrorResponse);
@@ -387,83 +324,26 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       res.status(400).json({ error: 'Selected option not found' } satisfies MutationErrorResponse);
       return;
     }
-    applyTurnResponseSelections(db, turnId, uniquePositions);
-
-    if (isGroundingStrategyKickoffTurn(turn)) {
-      const selectedMode =
-        uniquePositions.length === 1 ? getGroundingStrategyModeForPosition(uniquePositions[0]!) : null;
-      if (selectedMode) {
-        updateSpecificationMode(db, projectId, selectedMode);
-      }
-    }
-
-    const selectedOptionIds = selectedOptions.map((option) => option.id);
-    const selectedOptionContents = selectedOptions.map((option) => option.content);
-    const responseText = formatTurnResponseText({
-      selectedOptionContents,
-      freeText,
-    });
-
-    const reviewAction =
-      parsedRequest.data.kind === 'select-options' ? parsedRequest.data.reviewAction : null;
-    const expectedReviewAction =
-      parsedRequest.data.kind === 'select-options'
-        ? getReviewActionForSelectedPositions(turn, uniquePositions)
-        : null;
-
-    if (expectedReviewAction && reviewAction !== expectedReviewAction) {
-      res
-        .status(400)
-        .json({ error: 'Review turns must submit the explicit reviewAction for the selected option' });
-      return;
-    }
-
-    if (!expectedReviewAction && reviewAction) {
-      res.status(400).json({ error: 'reviewAction is only valid for review turns' });
-      return;
-    }
-
-    const itemComments =
-      parsedRequest.data.kind === 'select-options' ? parsedRequest.data.itemComments : undefined;
-
-    const dataPart = {
-      type: 'data-turn-response',
-      data: {
+    try {
+      const response = submitTurnResponseTransition({
+        db,
+        specificationId: projectId,
+        turn,
         turnId,
-        selectedOptionIds,
-        ...(freeText ? { freeText } : {}),
-        ...(expectedReviewAction ? { reviewAction: expectedReviewAction } : {}),
-        ...(itemComments?.length ? { itemComments } : {}),
-      },
-    } as const satisfies Extract<BrunchUserPart, { type: 'data-turn-response' }>;
+        request: parsedRequest.data,
+        selectedOptions,
+        selectedPositions: uniquePositions,
+      });
 
-    updateTurn(db, turnId, {
-      answer: responseText,
-      user_parts: serializeParts([
-        ...(responseText ? ([{ type: 'text', text: responseText }] as const) : []),
-        dataPart,
-      ] satisfies BrunchUserPart[]),
-    });
-
-    const fullSetReviewAction = getPersistedFullSetReviewAction(getTurn(db, turnId) ?? turn);
-    if (fullSetReviewAction === 'accept') {
-      try {
-        const response =
-          turn.phase === 'requirements'
-            ? acceptRequirementsReview(db, projectId, turnId)
-            : turn.phase === 'criteria'
-              ? acceptCriteriaReview(db, projectId, turnId)
-              : ({ ok: true } satisfies SubmitTurnResponseResponse);
-        res.json(response satisfies SubmitTurnResponseResponse);
-      } catch (error) {
-        res
-          .status(500)
-          .json({ error: error instanceof Error ? error.message : 'Failed to accept review set' });
+      if (!response.ok) {
+        res.status(response.status).json({ error: response.error } satisfies MutationErrorResponse);
+        return;
       }
-      return;
-    }
 
-    res.json({ ok: true } satisfies SubmitTurnResponseResponse);
+      res.json(response satisfies SubmitTurnResponseResponse);
+    } catch (error) {
+      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to accept review set' });
+    }
   });
 
   registerPost(specificationObserverCapturePaths, async (req: Request, res: Response) => {

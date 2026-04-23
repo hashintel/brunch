@@ -90,7 +90,7 @@ Server read-model consumers obtain workflow, structural artifact ids, and landin
 
 ## Card 3 — Extract Turn-Response Review Advancement From `app.ts`
 
-Status: `next`
+Status: `done`
 Weight: `full`
 
 ### Target Behavior
