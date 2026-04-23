@@ -64,7 +64,6 @@ import {
   findProposedPhaseOutcomeByTurn,
   getCurrentPhase,
   getCurrentWorkflowState,
-  getStructuralArtifactTurnIds,
   getTurn,
   getOptionsForTurn,
   materializeAcceptedCriteriaReviewSet,
@@ -162,6 +161,10 @@ function createObserverCaptureKey(specificationId: number, turnId: number): stri
   return `${specificationId}:${turnId}`;
 }
 
+function getStructuralArtifactTurnIdSet(db: DB, specificationId: number): ReadonlySet<number> {
+  return toStructuralArtifactTurnIdSet(getSpecificationState(db, specificationId)?.structuralArtifactTurnIds);
+}
+
 async function ensureObserverCapture({
   db,
   observerCaptureRegistry,
@@ -180,7 +183,7 @@ async function ensureObserverCapture({
     throw new Error('Turn not found');
   }
 
-  const structuralTurnIds = toStructuralArtifactTurnIdSet(getStructuralArtifactTurnIds(db, specificationId));
+  const structuralTurnIds = getStructuralArtifactTurnIdSet(db, specificationId);
   if (!turnNeedsObserverCapture(turn, structuralTurnIds)) {
     return 'already-captured';
   }
@@ -189,9 +192,7 @@ async function ensureObserverCapture({
   const existingCapture = observerCaptureRegistry.get(captureKey);
   if (existingCapture) {
     await existingCapture;
-    const refreshedStructuralTurnIds = toStructuralArtifactTurnIdSet(
-      getStructuralArtifactTurnIds(db, specificationId),
-    );
+    const refreshedStructuralTurnIds = getStructuralArtifactTurnIdSet(db, specificationId);
     return turnNeedsObserverCapture(getTurn(db, turnId), refreshedStructuralTurnIds)
       ? 'captured'
       : 'already-captured';

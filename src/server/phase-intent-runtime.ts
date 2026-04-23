@@ -10,16 +10,12 @@ import {
   getGroundingStrategyTitle,
   isGroundingStrategyKickoffTurn,
 } from '@/shared/grounding-strategy.js';
-import { deriveSpecificationLanding } from '@/shared/specification-state.js';
 import type { SpecificationTurn } from '@/shared/specification.js';
 
-import { loadActivePathWithOptions } from './core.js';
+import { getSpecificationState } from './core.js';
 import {
   applyTurnResponseSelections,
-  getCurrentWorkflowState,
   getOptionsForTurn,
-  getStructuralArtifactTurnIds,
-  getSpecification,
   updateSpecificationMode,
   updateTurn,
   type DB,
@@ -80,7 +76,7 @@ function persistGroundingStrategyKickoffSelection({
 }
 
 function findLatestPhaseTurn(
-  turns: ReturnType<typeof loadActivePathWithOptions>,
+  turns: readonly SpecificationTurn[],
   phase: WorkflowPhase,
 ): SpecificationTurn | null {
   return [...turns].reverse().find((turn) => turn.phase === phase) ?? null;
@@ -111,16 +107,13 @@ export function submitPhaseIntentWithRuntimeCompatibility({
   projectId: number;
   request: SubmitPhaseIntentRequest;
 }): SubmitPhaseIntentResponse | PhaseIntentRuntimeError {
-  const project = getSpecification(db, projectId);
-  if (!project) {
+  const specificationState = getSpecificationState(db, projectId);
+  if (!specificationState) {
     return { ok: false, status: 404, error: 'Project not found' };
   }
 
-  const workflow = getCurrentWorkflowState(db, projectId);
-  const turns = loadActivePathWithOptions(db, projectId);
-  const structuralArtifactTurnIds = getStructuralArtifactTurnIds(db, projectId);
-  const landing = deriveSpecificationLanding({ workflow, turns, structuralArtifactTurnIds });
-  const activePhaseTurn = findLatestPhaseTurn(turns, request.phase);
+  const activePhaseTurn = findLatestPhaseTurn(specificationState.turns, request.phase);
+  const { landing } = specificationState;
 
   if (request.kind === 'phase-entry') {
     const availabilityError = getPhaseIntentRuntimeAvailabilityError(request, landing);

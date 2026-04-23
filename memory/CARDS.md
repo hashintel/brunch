@@ -56,7 +56,7 @@ Server workflow-state derivation is implemented by a pure projector that consume
 
 ## Card 2 — Route Server Read Consumers Through One Projection Helper
 
-Status: `next`
+Status: `done`
 Weight: `full`
 
 ### Target Behavior
