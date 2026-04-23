@@ -4,14 +4,13 @@
 
 # Plan
 
-The live frontier remains **Track A — Interaction model**, centered on reusable interviewer-invoked context gathering. The interviewer now has format autonomy (D115 revised): it chooses whether to include options per-question based on conversational trajectory, with phase-aware submit gating and observer interpretation. The next interaction-model work is broadening the context-gathering seam beyond the opening turn. Workflow-ownership extraction stays queued behind this interaction-model expansion.
+The live frontier remains **Track A — Interaction model**, centered on reusable interviewer-invoked context gathering. The interviewer now has format autonomy (D115 revised): it chooses whether to include options per-question based on conversational trajectory, with phase-aware submit gating and observer interpretation. Context gathering is now phase- and mode-agnostic: the interviewer can use preface cards + workspace exploration tools in any phase when cwd is available, not just brownfield grounding. Workflow-ownership extraction stays queued behind further interaction-model expansion.
 
 ## Active
 
 ### Track A — Interaction model
 
-1. **Reusable interviewer-invoked context gathering** — generalize context gathering beyond opening grounding.
-   - Why now / unlocks: the opening brownfield grounding-brief seam is now proven in both automated coverage and real usage, so the next honest step is reusing that same artifact/lifecycle seam whenever the interviewer needs more orientation later in grounding. This broadens grounding capability without inventing a second artifact model.
+1. ~~**Reusable interviewer-invoked context gathering**~~ — **Done**: context gathering is now phase- and mode-agnostic. `present_preface` + exploration tools are available in all phases when `cwd` is present. "Grounding card" terminology replaced with "preface card" throughout code, tests, and canonical docs.
    - Traceability: D99, D30, D32, D83, D117; I101, I104.
 
 ## Next
@@ -54,6 +53,7 @@ The live frontier remains **Track A — Interaction model**, centered on reusabl
 
 ## Recently Completed
 
+- [2026-04-23] Phase- and mode-agnostic context gathering — Done: `present_preface` + exploration tools available in all phases when `cwd` is present (not just brownfield grounding); lightweight context-gathering addendum appended to all phase prompts; "grounding card" terminology replaced with "preface card" in code, tests, and canonical docs. Verified: `npm run verify`. Watch: manual walkthrough of preface usage in design/review phases; future web-tool extensions slot into the same gate.
 - [2026-04-23] Interviewer-autonomous question format with phase-aware gating — Done: revised D115 so the interviewer chooses whether to include options per-question (grounding starts open, adds suggestive options as the user narrows); observer interprets selections as resonance in grounding, commitment in design; ActiveQuestionCard has phase-aware submit gate (grounding requires free-text, design preserves selection-or-none), phase-aware "none of the above" copy, and phase-threaded rendering. Verified: `npm run verify`. Watch: validate in manual grounding walkthroughs that the interviewer exercises format autonomy well and that observer captures stay coherent.
 - [2026-04-23] Brownfield workspace-analysis grounding brief parity / proving retired — Done: a real brownfield start confirmed that the grounding brief, paired question, and live activity chrome read as one coherent turn lifecycle, so the remaining uncertainty is no longer about startup parity. Verified: manual confirmation in a real brownfield run. Watch: reuse the same seam for later interviewer-invoked context gathering rather than inventing a second artifact family.
 - [2026-04-23] Transcript activity chrome and workspace polish retired — Done: task activity now mirrors reasoning's auto-open/auto-collapse behavior, task/reasoning triggers can hide leading icons, live tool activity surfaces richer target details during streaming, the duplicate `src/components/ai-elements` tree was removed in favor of `src/client/components/ai-elements`, and workspace/review header layout polish landed. Verified: `npm run verify`. Watch: extend `extractToolDetail()` as new tool families need richer live targets.
