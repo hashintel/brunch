@@ -262,7 +262,13 @@ vi.mock('@/client/components/ai-elements/prompt-input', () => ({
 vi.mock('@/client/components/ai-elements/reasoning', () => ({
   Reasoning: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   ReasoningContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  ReasoningTrigger: () => null,
+  ReasoningTrigger: ({
+    children,
+    getThinkingMessage,
+  }: {
+    children?: React.ReactNode;
+    getThinkingMessage?: (isStreaming: boolean, duration?: number) => React.ReactNode;
+  }) => <div>{children ?? getThinkingMessage?.(false, undefined) ?? null}</div>,
 }));
 
 vi.mock('@/client/components/ai-elements/tool', () => ({

@@ -1,5 +1,4 @@
 import { anthropic } from '@ai-sdk/anthropic';
-import type { Tool } from '@ai-sdk/provider-utils';
 import { ToolLoopAgent, stepCountIs, tool } from 'ai';
 
 import type { EntitiesData, SpecificationMode } from '@/shared/api-types.js';
@@ -10,11 +9,6 @@ import {
   presentPrefaceToolOutputSchema,
   proposePhaseClosureToolOutputSchema,
   structuredQuestionSchema,
-  type AskQuestionToolOutput,
-  type PhaseClosureProposal,
-  type PrefaceData,
-  type PresentPrefaceToolOutput,
-  type ProposePhaseClosureToolOutput,
   type ReviewSetData,
   type StructuredQuestion,
 } from '@/shared/chat.js';
@@ -181,17 +175,6 @@ export function getInterviewerInstructions(phase: Phase, options?: InterviewerMo
     : getSystemPrompt(phase);
 }
 
-export type AskQuestionTool = Tool<StructuredQuestion, AskQuestionToolOutput>;
-export type PresentPrefaceTool = Tool<PrefaceData, PresentPrefaceToolOutput>;
-export type ProposePhaseClosureTool = Tool<PhaseClosureProposal, ProposePhaseClosureToolOutput>;
-export type BaseInterviewerTools = {
-  ask_question: AskQuestionTool;
-  present_preface?: PresentPrefaceTool;
-  propose_phase_closure?: ProposePhaseClosureTool;
-};
-export type InterviewerTools = BaseInterviewerTools & Record<string, Tool<any, any>>;
-export type InterviewerAgent = ToolLoopAgent<never, InterviewerTools>;
-
 function createSynthesizedReviewItemId(
   phase: Extract<Phase, 'requirements' | 'criteria'>,
   entityId: number,
@@ -251,7 +234,7 @@ function validateReviewSetSemantics(reviewSet: ReviewSetData): void {
   }
 }
 
-export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
+export function createAskQuestionTool(db: DB, turnId: number) {
   return tool({
     description:
       'Ask the user a structured interview question with options, strategic grounding, and impact signal.',
@@ -291,7 +274,7 @@ export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
   });
 }
 
-export function createPresentPrefaceTool(db: DB, turnId: number): PresentPrefaceTool {
+export function createPresentPrefaceTool(db: DB, turnId: number) {
   return tool({
     description:
       "Present a preface that prefaces the next question — an observation from exploration or reflection on the user's response, with optional elaboration.",
@@ -306,12 +289,7 @@ export function createPresentPrefaceTool(db: DB, turnId: number): PresentPreface
   });
 }
 
-export function createProposePhaseClosureTool(
-  db: DB,
-  turnId: number,
-  phase: Phase,
-  projectId: number,
-): ProposePhaseClosureTool {
+export function createProposePhaseClosureTool(db: DB, turnId: number, phase: Phase, projectId: number) {
   return tool({
     description: 'Propose closing the current workflow phase with a concise summary for user confirmation.',
     inputSchema: phaseClosureProposalSchema,
@@ -331,6 +309,18 @@ export function createProposePhaseClosureTool(
     },
   });
 }
+
+export type AskQuestionTool = ReturnType<typeof createAskQuestionTool>;
+export type PresentPrefaceTool = ReturnType<typeof createPresentPrefaceTool>;
+export type ProposePhaseClosureTool = ReturnType<typeof createProposePhaseClosureTool>;
+export type BaseInterviewerTools = {
+  ask_question: AskQuestionTool;
+  present_preface?: PresentPrefaceTool;
+  propose_phase_closure?: ProposePhaseClosureTool;
+};
+type ExplorationTools = ReturnType<typeof createExplorationTools>;
+export type InterviewerTools = BaseInterviewerTools & Partial<ExplorationTools>;
+export type InterviewerAgent = ToolLoopAgent<never, InterviewerTools>;
 
 /** Build the tool set for the interviewer agent, conditionally including core tools for brownfield mode. */
 export function getInterviewerTools(

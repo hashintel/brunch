@@ -8,7 +8,8 @@ import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/spe
 import type { SpecificationTurn } from '@/shared/specification.js';
 
 import { cn } from '../lib/utils';
-import { ThinkingTokenScroll } from './ai-elements/thinking-token-scroll';
+import { Reasoning, ReasoningContent, ReasoningTrigger } from './ai-elements/reasoning';
+import { Task, TaskContent, TaskItem, TaskTrigger } from './ai-elements/task';
 import { Button } from './app-shell';
 import { DrawerCard } from './drawer-card';
 import { isVisibleKnowledgeKind } from './knowledge-display';
@@ -25,33 +26,58 @@ const impactColor: Record<Impact, string> = {
   low: 'text-[color:#16a34a]',
 };
 
+function renderThinkingMessage(_isStreaming: boolean, duration?: number) {
+  return <span>{duration != null ? `Thought for ${duration}s` : 'Thinking…'}</span>;
+}
+
 // ── Activity placeholder ────────────────────────────────────────────
 
 export function ActivityPlaceholder({
   seconds,
   tools,
   toolDetail,
+  reasoningText,
+  reasoningStreaming,
   prominent,
 }: {
   seconds?: number;
   tools?: string[];
   toolDetail?: string;
+  reasoningText?: string;
+  reasoningStreaming?: boolean;
   prominent?: boolean;
 }) {
-  const hasTools = tools && tools.length > 0;
+  const hasTools = (tools?.length ?? 0) > 0;
+  const taskItems = [
+    ...(tools ?? []).map((tool) => ({ key: `tool-${tool}`, value: tool })),
+    ...(toolDetail ? [{ key: 'tool-detail', value: toolDetail }] : []),
+  ];
+
   return (
-    <div className={cn('flex flex-col gap-1 px-1', prominent && 'py-1')}>
-      <div className="flex items-center justify-between">
-        <span className={cn('text-hint', prominent ? 'text-xs-plus font-medium text-sub' : 'text-xs')}>
-          {seconds != null ? `Thought for ${seconds}s` : 'Thinking…'}
-        </span>
-        {hasTools && (
-          <span className={cn('text-hint', prominent ? 'text-xs-plus text-sub' : 'text-xs')}>
-            Tools: {tools.join(', ')}
-          </span>
-        )}
-      </div>
-      {toolDetail && <span className="truncate text-xs text-hint italic">{toolDetail}</span>}
+    <div className={cn('flex flex-col gap-3 px-1', prominent && 'py-1')}>
+      <Reasoning
+        className="mb-0 w-full"
+        defaultOpen={Boolean(reasoningText)}
+        duration={seconds}
+        isStreaming={Boolean(reasoningText) && Boolean(reasoningStreaming)}
+        open={reasoningText ? undefined : false}
+      >
+        <ReasoningTrigger collapsible={Boolean(reasoningText)} getThinkingMessage={renderThinkingMessage} />
+        {reasoningText ? <ReasoningContent>{reasoningText}</ReasoningContent> : null}
+      </Reasoning>
+
+      {hasTools ? (
+        <Task className="w-full" defaultOpen={Boolean(toolDetail) || (tools?.length ?? 0) > 1}>
+          <TaskTrigger title={`Tools: ${tools!.join(', ')}`} />
+          <TaskContent>
+            {taskItems.map((item) => (
+              <TaskItem key={item.key} className={item.key === 'tool-detail' ? 'italic' : undefined}>
+                {item.value}
+              </TaskItem>
+            ))}
+          </TaskContent>
+        </Task>
+      ) : null}
     </div>
   );
 }
@@ -586,11 +612,12 @@ export function GeneratingTurnPlaceholder({
     <div className="flex flex-col gap-4" data-testid="generating-turn-placeholder">
       <ActivityPlaceholder
         seconds={seconds > 0 ? seconds : undefined}
+        reasoningStreaming={Boolean(liveReasoningText)}
+        reasoningText={liveReasoningText}
         tools={liveActivity?.tools}
         toolDetail={latestToolDetail}
         prominent={prominent}
       />
-      {liveReasoningText && <ThinkingTokenScroll text={liveReasoningText} />}
       {pendingPreface && <PrefaceCardSkeleton />}
       <QuestionCardSkeleton />
     </div>
