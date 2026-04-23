@@ -71,6 +71,7 @@ export function ActivityPlaceholder({
           className="gap-1 text-xs text-hint hover:text-hint"
           collapsible={Boolean(reasoningText)}
           getThinkingMessage={renderThinkingMessage}
+          showIcon={false}
         />
         {reasoningText ? (
           <ReasoningContent className="mt-2 text-xs text-hint [&_*]:text-inherit">
@@ -81,7 +82,7 @@ export function ActivityPlaceholder({
 
       {hasTools ? (
         <Task className="w-full" isRunning={isTaskCollapsible}>
-          <TaskTrigger collapsible={isTaskCollapsible} title={taskTitle} />
+          <TaskTrigger collapsible={isTaskCollapsible} showIcon={false} title={taskTitle} />
           <TaskContent>
             {taskItems.map((item) => (
               <TaskItem key={item.key} className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">

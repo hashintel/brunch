@@ -132,6 +132,7 @@ export const Reasoning = memo(
 export type ReasoningTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
   collapsible?: boolean;
   getThinkingMessage?: (isStreaming: boolean, duration?: number) => ReactNode;
+  showIcon?: boolean;
 };
 
 const defaultGetThinkingMessage = (isStreaming: boolean, duration?: number) => {
@@ -150,6 +151,7 @@ export const ReasoningTrigger = memo(
     collapsible = true,
     children,
     getThinkingMessage = defaultGetThinkingMessage,
+    showIcon = true,
     ...props
   }: ReasoningTriggerProps) => {
     const { isStreaming, isOpen, duration } = useReasoning();
@@ -166,7 +168,7 @@ export const ReasoningTrigger = memo(
       >
         {children ?? (
           <>
-            <BrainIcon className="size-4" />
+            {showIcon ? <BrainIcon className="size-4" /> : null}
             {getThinkingMessage(isStreaming, duration)}
             {collapsible ? (
               <ChevronDownIcon

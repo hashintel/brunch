@@ -17,7 +17,7 @@ describe('Task', () => {
 
     const rendered = render(
       <Task isRunning>
-        <TaskTrigger title="Tools: read file" />
+        <TaskTrigger showIcon={false} title="Tools: read file" />
         <TaskContent>
           <TaskItem>src/client/components/question-cards.tsx</TaskItem>
         </TaskContent>
@@ -34,7 +34,7 @@ describe('Task', () => {
 
     rendered.rerender(
       <Task isRunning={false}>
-        <TaskTrigger title="Tools: read file" />
+        <TaskTrigger showIcon={false} title="Tools: read file" />
         <TaskContent>
           <TaskItem>src/client/components/question-cards.tsx</TaskItem>
         </TaskContent>

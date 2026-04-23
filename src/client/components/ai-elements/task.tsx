@@ -1,7 +1,7 @@
 'use client';
 
 import { useControllableState } from '@radix-ui/react-use-controllable-state';
-import { ChevronDownIcon } from 'lucide-react';
+import { ChevronDownIcon, WrenchIcon } from 'lucide-react';
 import {
   createContext,
   type ComponentProps,
@@ -125,10 +125,18 @@ export const Task = ({
 
 export type TaskTriggerProps = ComponentProps<typeof CollapsibleTrigger> & {
   collapsible?: boolean;
+  showIcon?: boolean;
   title: string;
 };
 
-export const TaskTrigger = ({ children, className, collapsible, title, ...props }: TaskTriggerProps) => {
+export const TaskTrigger = ({
+  children,
+  className,
+  collapsible,
+  showIcon = true,
+  title,
+  ...props
+}: TaskTriggerProps) => {
   const { isOpen, isRunning } = useTask();
   const isCollapsible = collapsible ?? isRunning;
 
@@ -144,6 +152,7 @@ export const TaskTrigger = ({ children, className, collapsible, title, ...props 
     >
       {children ?? (
         <>
+          {showIcon ? <WrenchIcon className="size-3.5" /> : null}
           <span>{title}</span>
           {isCollapsible ? (
             <ChevronDownIcon
