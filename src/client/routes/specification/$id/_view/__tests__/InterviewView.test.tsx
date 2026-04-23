@@ -4163,13 +4163,12 @@ describe('InterviewView', () => {
           role: 'assistant',
           parts: [
             {
-              type: 'dynamic-tool',
-              toolName: 'lookup_workspace_context',
+              type: 'tool-read_file',
               toolCallId: 'tool-lookup',
               state: 'output-available',
               input: { path: 'src/server/app.ts' },
               output: { ok: true },
-            },
+            } as never,
           ],
         },
       ]);
@@ -4177,7 +4176,7 @@ describe('InterviewView', () => {
 
     expect(await screen.findByTestId('generating-turn-placeholder')).toBeTruthy();
     expect(screen.getAllByText('Thinking…')).toHaveLength(1);
-    expect(screen.getAllByText('Tools: lookup workspace context')).toHaveLength(1);
+    expect(screen.getAllByText('Tools: read file')).toHaveLength(1);
     expect(screen.getByText('src/server/app.ts')).toBeTruthy();
   });
 

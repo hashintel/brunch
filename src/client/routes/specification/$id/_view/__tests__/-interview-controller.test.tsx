@@ -1007,13 +1007,12 @@ describe('interview controller', () => {
         createPendingQuestionMessage({
           parts: [
             {
-              type: 'dynamic-tool',
-              toolName: 'lookup_workspace_context',
+              type: 'tool-read_file',
               toolCallId: 'tool-lookup',
               state: 'output-available',
               input: { path: 'src/server/app.ts' },
               output: { ok: true },
-            },
+            } as never,
             ...createPendingQuestionMessage().parts!,
           ],
         }),
@@ -1023,7 +1022,7 @@ describe('interview controller', () => {
     await waitFor(() => {
       expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('pending-question');
       expect(screen.getByTestId('bottom-artifact-live-activity').textContent).toBe(
-        JSON.stringify({ tools: ['lookup workspace context'] }),
+        JSON.stringify({ tools: ['read file'] }),
       );
     });
   });

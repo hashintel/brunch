@@ -1,4 +1,4 @@
-import { Check, ChevronDown, Loader2 } from 'lucide-react';
+import { Check, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
 import type { Impact, ReviewAction } from '@/shared/api-types.js';
@@ -30,17 +30,9 @@ function renderThinkingMessage(_isStreaming: boolean, duration?: number) {
   return <span>{duration != null ? `Thought for ${duration}s` : 'Thinking…'}</span>;
 }
 
-function ActivityReasoningLabel({ collapsible }: { collapsible: boolean }) {
-  const { duration, isOpen, isStreaming } = useReasoning();
-
-  return (
-    <span className="inline-flex items-center gap-1 text-xxs text-hint">
-      <span>{renderThinkingMessage(isStreaming, duration)}</span>
-      {collapsible ? (
-        <ChevronDown className={cn('size-3 transition-transform', isOpen ? 'rotate-180' : 'rotate-0')} />
-      ) : null}
-    </span>
-  );
+function ActivityReasoningLabel() {
+  const { duration } = useReasoning();
+  return duration != null ? `Thought for ${duration}s` : 'Thinking…';
 }
 
 // ── Activity placeholder ────────────────────────────────────────────
@@ -60,11 +52,12 @@ export function ActivityPlaceholder({
   reasoningStreaming?: boolean;
   prominent?: boolean;
 }) {
-  const hasTools = (tools?.length ?? 0) > 0;
+  const hasTools = (tools?.length ?? 0) > 0 || Boolean(toolDetail);
   const taskItems = [
     ...(tools ?? []).map((tool) => ({ key: `tool-${tool}`, value: tool })),
     ...(toolDetail ? [{ key: 'tool-detail', value: toolDetail }] : []),
   ];
+  const taskTitle = (tools?.length ?? 0) > 0 ? `Tools: ${tools!.join(', ')}` : 'Tool activity';
 
   return (
     <div className={cn('flex flex-col gap-3 px-1', prominent && 'py-1')}>
@@ -76,14 +69,14 @@ export function ActivityPlaceholder({
         open={reasoningText ? undefined : false}
       >
         <ReasoningTrigger
-          className="gap-1 text-xxs text-hint hover:text-hint"
+          className="gap-1 text-xs text-hint hover:text-hint"
           collapsible={Boolean(reasoningText)}
           getThinkingMessage={renderThinkingMessage}
         >
-          <ActivityReasoningLabel collapsible={Boolean(reasoningText)} />
+          <ActivityReasoningLabel />
         </ReasoningTrigger>
         {reasoningText ? (
-          <ReasoningContent className="mt-2 text-xxs leading-relaxed text-hint [&_*]:text-inherit">
+          <ReasoningContent className="mt-2 text-xs text-hint [&_*]:text-inherit">
             {reasoningText}
           </ReasoningContent>
         ) : null}
@@ -91,7 +84,7 @@ export function ActivityPlaceholder({
 
       {hasTools ? (
         <Task className="w-full" defaultOpen={Boolean(toolDetail) || (tools?.length ?? 0) > 1}>
-          <TaskTrigger title={`Tools: ${tools!.join(', ')}`} />
+          <TaskTrigger title={taskTitle} />
           <TaskContent>
             {taskItems.map((item) => (
               <TaskItem key={item.key} className={item.key === 'tool-detail' ? 'italic' : undefined}>
@@ -245,10 +238,8 @@ export function AnsweredReviewSetCard({
 export function PrefaceCard({ preface }: { preface: PrefaceData }) {
   return (
     <div data-testid="preface-card" className="border-l-4 border-wash pl-3.5 italic">
-      <p className="text-xs-plus leading-relaxed text-sub">{preface.observation}</p>
-      {preface.elaboration && (
-        <p className="mt-1.5 text-xs leading-relaxed text-hint">{preface.elaboration}</p>
-      )}
+      <p className="text-xs-plus text-sub">{preface.observation}</p>
+      {preface.elaboration && <p className="mt-1.5 text-xs text-hint">{preface.elaboration}</p>}
     </div>
   );
 }
@@ -465,7 +456,7 @@ export function ActiveQuestionCard({
 
   const body = (
     <>
-      {why && <p className="text-xs leading-relaxed text-sub">{why}</p>}
+      {why && <p className="text-xs text-sub">{why}</p>}
 
       {!isFreeTextOnly && (
         <div className="flex flex-col gap-0.5">

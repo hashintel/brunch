@@ -9,7 +9,7 @@ import {
   useSubmitTurnResponseMutation,
 } from '@/client/mutations/interview-mutations';
 import type { ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
-import { brunchDataPartSchemas, summarizeAssistantActivity } from '@/shared/chat.js';
+import { brunchDataPartSchemas, getActivityToolLabel, summarizeAssistantActivity } from '@/shared/chat.js';
 import type { ActivitySummary, BrunchUIMessage } from '@/shared/chat.js';
 import {
   createConfirmProposedPhaseClosureCommand,
@@ -183,14 +183,9 @@ function getLatestToolDetail(messages: readonly BrunchUIMessage[], status: ChatS
 
   for (let partIndex = liveAssistantMessage.parts.length - 1; partIndex >= 0; partIndex -= 1) {
     const part = liveAssistantMessage.parts[partIndex];
-    if (part?.type !== 'dynamic-tool') {
+    if (!part || !getActivityToolLabel(part) || !('input' in part)) {
       continue;
     }
-
-    if (part.state === 'input-streaming') {
-      continue;
-    }
-
     const detail = extractToolDetail(part.input);
     if (detail) {
       return detail;
