@@ -4,7 +4,7 @@
 
 # Plan
 
-The live frontier remains **Track A — Interaction model**, now centered on reusable interviewer-invoked context gathering. The brownfield grounding-brief proving slice is retired: real brownfield startup now reads as a coherent grounding brief + paired question + live activity lifecycle, so the next interaction-model work is broadening that same context-gathering seam beyond the opening turn. Workflow-ownership extraction stays queued behind this interaction-model expansion.
+The live frontier remains **Track A — Interaction model**, centered on reusable interviewer-invoked context gathering. The interviewer now has format autonomy (D115 revised): it chooses whether to include options per-question based on conversational trajectory, with phase-aware submit gating and observer interpretation. The next interaction-model work is broadening the context-gathering seam beyond the opening turn. Workflow-ownership extraction stays queued behind this interaction-model expansion.
 
 ## Active
 
@@ -54,9 +54,9 @@ The live frontier remains **Track A — Interaction model**, now centered on reu
 
 ## Recently Completed
 
+- [2026-04-23] Interviewer-autonomous question format with phase-aware gating — Done: revised D115 so the interviewer chooses whether to include options per-question (grounding starts open, adds suggestive options as the user narrows); observer interprets selections as resonance in grounding, commitment in design; ActiveQuestionCard has phase-aware submit gate (grounding requires free-text, design preserves selection-or-none), phase-aware "none of the above" copy, and phase-threaded rendering. Verified: `npm run verify`. Watch: validate in manual grounding walkthroughs that the interviewer exercises format autonomy well and that observer captures stay coherent.
 - [2026-04-23] Brownfield workspace-analysis grounding brief parity / proving retired — Done: a real brownfield start confirmed that the grounding brief, paired question, and live activity chrome read as one coherent turn lifecycle, so the remaining uncertainty is no longer about startup parity. Verified: manual confirmation in a real brownfield run. Watch: reuse the same seam for later interviewer-invoked context gathering rather than inventing a second artifact family.
 - [2026-04-23] Transcript activity chrome and workspace polish retired — Done: task activity now mirrors reasoning's auto-open/auto-collapse behavior, task/reasoning triggers can hide leading icons, live tool activity surfaces richer target details during streaming, the duplicate `src/components/ai-elements` tree was removed in favor of `src/client/components/ai-elements`, and workspace/review header layout polish landed. Verified: `npm run verify`. Watch: extend `extractToolDetail()` as new tool families need richer live targets.
-- [2026-04-22] Review revision card contract consistency retired — Done: acceptance now carries predecessor metadata across sparse regenerated review sets, regeneration context/prompt sources preserve reference codes + rationale + grounding refs + explicit `Added in revision` / `Revised` semantics, and criteria-phase active/replayed/pending review-card routes plus source-owned examples now prove the same contract as requirements. Verified: `npm run verify`. Watch: the next honest follow-on is deciding whether projector-side normalization/fallback can now be reduced without regressing transcript trust.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
