@@ -316,19 +316,15 @@ describe('specificationWorkspaceStream', () => {
     expect(stackedArtifact.questionCode).toBe('Q1');
   });
 
-  it('projects a phase-section-header for each realized phase with phase-specific copy', () => {
-    const phases = ['grounding', 'design', 'requirements', 'criteria'] as const;
+  it('projects a phase-section-header for non-review phases with phase-specific copy', () => {
+    const phases = ['grounding', 'design'] as const;
     const expectedPurpose: Record<string, string> = {
       grounding: 'Establish shared orientation before design begins.',
       design: 'Surface commitments and tradeoffs that shape the solution.',
-      requirements: 'Review a synthesized requirement set for completeness and accuracy.',
-      criteria: 'Review verification coverage against accepted requirements.',
     };
     const expectedKnowledgeKinds: Record<string, string> = {
       grounding: 'Goals, terms, context, and constraints.',
       design: 'Design decisions and assumptions.',
-      requirements: 'Requirement review.',
-      criteria: 'Verification coverage review.',
     };
 
     for (const phase of phases) {
@@ -347,6 +343,22 @@ describe('specificationWorkspaceStream', () => {
       expect(header.phase).toBe(phase);
       expect(header.purpose).toBe(expectedPurpose[phase]);
       expect(header.knowledgeKinds).toBe(expectedKnowledgeKinds[phase]);
+    }
+  });
+
+  it('does not project a phase-section-header for active structured review phases', () => {
+    const phases = ['requirements', 'criteria'] as const;
+
+    for (const phase of phases) {
+      const projection = specificationWorkspaceStream({
+        phase,
+        phaseTurns: [],
+        phaseState: createPhaseState({ status: 'in_progress' }),
+        bottomArtifact: null,
+      });
+
+      const header = projection.streamArtifacts.find((artifact) => artifact.kind === 'phase-section-header');
+      expect(header).toBeUndefined();
     }
   });
 
@@ -375,7 +387,7 @@ describe('specificationWorkspaceStream', () => {
     expect(header).toBeUndefined();
   });
 
-  it('places phase-section-header before phase markers and history artifacts', () => {
+  it('places the review-phase banner before review history artifacts', () => {
     const answeredTurn = createTurn({ id: 1, phase: 'requirements', question: 'Review requirements' });
     const projection = specificationWorkspaceStream({
       phase: 'requirements',
@@ -385,9 +397,8 @@ describe('specificationWorkspaceStream', () => {
     });
 
     const kinds = projection.streamArtifacts.map((a) => a.kind);
-    expect(kinds[0]).toBe('phase-section-header');
-    expect(kinds[1]).toBe('phase-marker');
-    expect(kinds[2]).toBe('answered-turn');
+    expect(kinds[0]).toBe('phase-marker');
+    expect(kinds[1]).toBe('answered-turn');
   });
 
   it('projects the review-phase banner as a phase marker', () => {
@@ -398,11 +409,8 @@ describe('specificationWorkspaceStream', () => {
       bottomArtifact: null,
     });
 
-    expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
-      'phase-section-header',
-      'phase-marker',
-    ]);
-    const phaseMarker = projection.streamArtifacts[1];
+    expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual(['phase-marker']);
+    const phaseMarker = projection.streamArtifacts[0];
     expect(phaseMarker?.kind).toBe('phase-marker');
     if (phaseMarker?.kind !== 'phase-marker') {
       throw new Error('Expected phase-marker artifact');
@@ -573,13 +581,12 @@ describe('specificationWorkspaceStream', () => {
     });
 
     expect(projection.streamArtifacts.map((artifact) => artifact.kind)).toEqual([
-      'phase-section-header',
       'phase-marker',
       'collapsed-review-turn',
       'answered-revision-review',
     ]);
 
-    const revisedArtifact = projection.streamArtifacts[3];
+    const revisedArtifact = projection.streamArtifacts[2];
     expect(revisedArtifact.kind).toBe('answered-revision-review');
     if (revisedArtifact.kind !== 'answered-revision-review') {
       throw new Error('Expected answered-revision-review artifact');

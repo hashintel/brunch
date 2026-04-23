@@ -152,7 +152,10 @@ function projectPhaseSectionHeader({
   phase: WorkflowPhase;
   phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
 }): WorkspaceStreamArtifact[] {
-  if (phaseState.status === 'unstarted') {
+  const usesStructuredReviewBanner =
+    phaseState.status === 'in_progress' && (phase === 'requirements' || phase === 'criteria');
+
+  if (phaseState.status === 'unstarted' || usesStructuredReviewBanner) {
     return [];
   }
 
