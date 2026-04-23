@@ -11,6 +11,10 @@ const Agentation = import.meta.env.DEV
   ? lazy(() => import('agentation').then((m) => ({ default: m.Agentation })))
   : null;
 
+const ClickToComponent = import.meta.env.DEV
+  ? lazy(() => import('click-to-react-component').then((m) => ({ default: m.ClickToComponent })))
+  : null;
+
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
@@ -19,6 +23,11 @@ createRoot(document.getElementById('root')!).render(
     {Agentation && (
       <Suspense>
         <Agentation endpoint="http://localhost:4747" />
+      </Suspense>
+    )}
+    {ClickToComponent && (
+      <Suspense>
+        <ClickToComponent editor="cursor" />
       </Suspense>
     )}
   </StrictMode>,

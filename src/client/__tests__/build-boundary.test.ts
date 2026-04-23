@@ -26,7 +26,10 @@ const routeComponentManifestIds = [
   'src/client/routes/specification/$id/_view/acceptance-review.tsx?tsr-split=component',
 ] as const;
 
-const lazyThirdPartyManifestIds = ['node_modules/agentation/dist/index.mjs'] as const;
+const lazyThirdPartyManifestIds = [
+  'node_modules/agentation/dist/index.mjs',
+  'node_modules/click-to-react-component/src/index.js',
+] as const;
 
 describe('client build boundary', () => {
   const tempDirs: string[] = [];
