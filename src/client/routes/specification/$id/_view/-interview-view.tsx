@@ -209,7 +209,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
           </div>
         </ChatScroll>
         {showClosePhaseAction && phaseTurns.length >= 3 && (
-          <div className="flex shrink-0 items-center justify-center border-t border-rule bg-background px-4 py-3">
+          <div className="flex shrink-0 items-center justify-center border-t border-rule bg-tint px-4 py-3">
             <Button
               variant="outline"
               onClick={() => setIsClosePhaseModalOpen(true)}
