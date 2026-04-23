@@ -4,25 +4,17 @@
 
 # Plan
 
-The live frontier remains **Track A — Interaction model**, now narrowed to the last honest brownfield proving pass for turn-internal grounding cards. The transcript activity chrome now stages and streams correctly, including live thinking/tool displays, so the remaining gap is broader grounding-brief parity in a real repository rather than missing tool indication. Workflow-ownership extraction stays queued behind closing that last interaction-model proof.
+The live frontier remains **Track A — Interaction model**, now centered on reusable interviewer-invoked context gathering. The brownfield grounding-brief proving slice is retired: real brownfield startup now reads as a coherent grounding brief + paired question + live activity lifecycle, so the next interaction-model work is broadening that same context-gathering seam beyond the opening turn. Workflow-ownership extraction stays queued behind this interaction-model expansion.
 
 ## Active
 
 ### Track A — Interaction model
 
-1. **Brownfield workspace-analysis grounding brief parity / proving** — close the gap between synthetic coverage and real brownfield runtime behavior for turn-internal grounding cards.
-   - Why now / unlocks: the staging/runtime parity fixes now cover both pending-preface and live tool-activity projection in automated runtime tests, and the current activity chrome is behaving correctly in the app. The remaining question is whether one honest built-app brownfield walkthrough in `~/code/lunelson/cco` proves the full grounding-brief-to-question sequence as a coherent end-to-end interaction. Closing that last outer-loop check unlocks the reusable context-gathering frontier on top of a proven interaction seam instead of a test-only one.
-   - Traceability: D32, D83, D99, D117, D120; A47, A56; I101.
-   - Remaining proof:
-     - Confirm in a real brownfield run that the grounding brief, paired question, and live activity chrome read as one legible turn lifecycle rather than three loosely related states.
+1. **Reusable interviewer-invoked context gathering** — generalize context gathering beyond opening grounding.
+   - Why now / unlocks: the opening brownfield grounding-brief seam is now proven in both automated coverage and real usage, so the next honest step is reusing that same artifact/lifecycle seam whenever the interviewer needs more orientation later in grounding. This broadens grounding capability without inventing a second artifact model.
+   - Traceability: D99, D30, D32, D83, D117; I101, I104.
 
 ## Next
-
-### Track A — Interaction model
-
-1. **Reusable interviewer-invoked context gathering** — generalize context gathering beyond opening grounding.
-   - Why now / unlocks: broadens grounding capability without inventing a second artifact model. Best resumed after the remaining brownfield grounding-brief proof retires.
-   - Traceability: D99, D30, D32, D83, D117; I101, I104.
 
 ### Track B — Runtime / workflow ownership
 
@@ -57,9 +49,9 @@ The live frontier remains **Track A — Interaction model**, now narrowed to the
 
 ## Recently Completed
 
+- [2026-04-23] Brownfield workspace-analysis grounding brief parity / proving retired — Done: a real brownfield start confirmed that the grounding brief, paired question, and live activity chrome read as one coherent turn lifecycle, so the remaining uncertainty is no longer about startup parity. Verified: manual confirmation in a real brownfield run. Watch: reuse the same seam for later interviewer-invoked context gathering rather than inventing a second artifact family.
 - [2026-04-23] Transcript activity chrome and workspace polish retired — Done: task activity now mirrors reasoning's auto-open/auto-collapse behavior, task/reasoning triggers can hide leading icons, live tool activity surfaces richer target details during streaming, the duplicate `src/components/ai-elements` tree was removed in favor of `src/client/components/ai-elements`, and workspace/review header layout polish landed. Verified: `npm run verify`. Watch: extend `extractToolDetail()` as new tool families need richer live targets.
 - [2026-04-22] Review revision card contract consistency retired — Done: acceptance now carries predecessor metadata across sparse regenerated review sets, regeneration context/prompt sources preserve reference codes + rationale + grounding refs + explicit `Added in revision` / `Revised` semantics, and criteria-phase active/replayed/pending review-card routes plus source-owned examples now prove the same contract as requirements. Verified: `npm run verify`. Watch: the next honest follow-on is deciding whether projector-side normalization/fallback can now be reduced without regressing transcript trust.
-- [2026-04-22] Specification runtime state-machine proving retired — Done: decoupled grounding/design structured-response observer capture from interviewer successor readiness using a specification-scoped lifecycle backlog plus turn-owned `/api/specifications/:id/turns/:turnId/observer-capture`, preserved turn-owned capture status / stale-turn safety, and proved reload/reseed behavior without introducing a second durable workflow model. Verified: `npm run verify`. Watch: server dedupe is process-local and deferred capture is still scoped to grounding/design structured responses.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
@@ -67,8 +59,7 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 
 ```text
 TRACK A — Interaction model
-brownfield-workspace-analysis-grounding-brief-parity-proving  (active)
-  └──→ reusable-context-gathering
+reusable-context-gathering  (active)
 
 TRACK B — Runtime / workflow ownership
 workflow-ownership-extraction
