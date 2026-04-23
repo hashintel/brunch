@@ -462,7 +462,7 @@ Every meaningful code change should pass `npm run fix` in the inner loop and `np
 | Middle | Explicit state-model oracles for in-flight UI states | Every major in-flight mode is named, projectable, and visibly representable instead of collapsing into one opaque loading bit. | Requirement 5; I24, I44 |
 | Outer | Fixture-backed manual walkthroughs on seeded scenarios | Walkthrough fixtures are useful enough to inspect phase transitions, export output, resume behavior, and missing-view discovery. | Requirements 13, 14, 15; I100, I103 |
 | Outer | Brownfield kickoff walkthroughs on real repos, evaluated qualitatively | Kickoff yields durable useful knowledge and a grounded first question for feature-area work, without needing a fully automated quality score. | Requirements 3, 16; A47; I101 |
-| Outer | Dramaturgical story and transcript review | Phase differentiation, transcript artifact legibility, and waiting-state clarity are judged as staged user experience rather than just structural output. | Requirement 5; A15, A28, A40, A44, A50 |
+| Outer | Dramaturgical story and transcript review | Phase differentiation, transcript artifact legibility, and waiting-state clarity are judged as staged user experience rather than just structural output. | Requirement 5; A15, A44, A51, A53, A54 |
 
 ### Design Notes
 
@@ -481,7 +481,7 @@ Every meaningful code change should pass `npm run fix` in the inner loop and `np
 | Transcript trust and readability after hydration | Exact replay of all reasoning/tool detail is intentionally deferred | Legible placeholders/summary markers plus manual transcript review | Users still cannot understand what happened after replay despite visible markers |
 | Actual lock/wait causality in the UI | Instrumentation is not yet the primary investment | Require explicit visible in-flight states and inspect browser behavior manually | Manual inspection cannot explain a repeated perceived lock or disappearance bug |
 | Story quality and phase differentiation | Design quality is not executable in a trustworthy way yet | Story variants reviewed against seeded walkthrough findings | Story/app drift grows or design disagreement blocks implementation |
-| Observer latency and layout refresh freshness | No explicit latency budget or perf gate yet | Runtime observation during manual sessions | A20 or A50 show recurring latency or coarse refresh pain |
+| Observer latency and layout refresh freshness | No explicit latency budget or perf gate yet | Runtime observation during manual sessions | A20 shows recurring latency or coarse refresh pain |
 | Revisit UX and secondary-thread adequacy | That seam is still future work | Keep structural coverage on graph/persistence seams only | Revisit work moves from horizon into the active frontier |
 
 ### Current Coverage

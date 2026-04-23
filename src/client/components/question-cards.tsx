@@ -591,7 +591,7 @@ export function GeneratingTurnPlaceholder({
         prominent={prominent}
       />
       {liveReasoningText && <ThinkingTokenScroll text={liveReasoningText} />}
-      {pendingPreface && <PrefaceCard preface={pendingPreface} />}
+      {pendingPreface && <PrefaceCardSkeleton />}
       <QuestionCardSkeleton />
     </div>
   );

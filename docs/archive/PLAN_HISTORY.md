@@ -123,4 +123,8 @@ Archived out of `memory/PLAN.md` when the active frontier moved from the mostly-
 - 2026-04-20 — **Alias deletion retired the naming frontier** — removed remaining `/api/projects/...` compatibility entry points and deleted shared/server `project` alias seams.
 - 2026-04-20 — **Specification routes moved to canonical ownership** — routed workspace/export entry through `/specification/...` and client seams through `/api/specifications/...`.
 
+## 2026-04-23 Sync archive
+
+- 2026-04-22 — **Transcript/entity boundary repair** — moved the entities subscription out of `src/client/routes/specification/$id/_view/route.tsx`'s transcript-owning `ViewLayout` into entity-owned child surfaces only, and strengthened the mounted-route router oracle to prove entities invalidation refetches only `/entities` without remounting or rerendering the interview route. Verified: `npm run verify`.
+
 Use `memory/PLAN.md` for the live frontier only.

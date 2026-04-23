@@ -521,6 +521,67 @@ describe('POST /api/specifications/:id/chat', () => {
       .expect(400);
   });
 
+  it('accepts follow-up chat history containing echoed workspace tool parts', async () => {
+    const projectId = await createTestProject();
+
+    await request(app)
+      .post(`/api/specifications/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/specifications/${projectId}/chat`)
+      .send({
+        messages: [
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] },
+          {
+            id: 'a1',
+            role: 'assistant',
+            parts: [
+              { type: 'reasoning', text: 'Inspecting the workspace', state: 'done' },
+              {
+                type: 'dynamic-tool',
+                toolName: 'list_directory',
+                toolCallId: 'toolu_018J24NXxYXGSgxx6pMdPvgx',
+                state: 'output-available',
+                input: { path: '.' },
+                output: {
+                  entries: './:\n.brunch\nsrc/',
+                  count: 2,
+                },
+              },
+              {
+                type: 'tool-ask_question',
+                toolCallId: 'toolu_ask_question',
+                state: 'output-available',
+                input: {
+                  question: 'What should we focus on first?',
+                  why: 'This narrows the initial slice.',
+                  impact: 'high',
+                  options: [],
+                },
+                output: { ok: true, turnId: 2, optionCount: 0 },
+              },
+            ],
+          },
+          { id: 'u2', role: 'user', parts: [{ type: 'text', text: 'Focus on export flow' }] },
+        ],
+      })
+      .expect('Content-Type', /text\/event-stream/)
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.any(Array),
+      'Focus on export flow',
+      'grounding',
+      undefined,
+    );
+  });
+
   it('returns an AI SDK UI message stream and persists the turn', async () => {
     const projectId = await createTestProject();
 

@@ -14,11 +14,32 @@ import type { SpecificationState, SpecificationTurn } from '@/shared/specificati
 import { InterviewView } from '../-interview-view.js';
 import { resetSpecificationLifecycleRegistryForTesting } from '../-specification-lifecycle.js';
 
-function createPendingQuestionMessage(): BrunchUIMessage {
+const pendingPreface = {
+  observation: 'The repo already uses SQLite-backed local persistence.',
+  elaboration: 'This is provisional context for the next move.',
+};
+
+function createPendingPrefaceMessage(): BrunchUIMessage {
+  return {
+    id: 'pending-preface-assistant',
+    role: 'assistant',
+    parts: [
+      {
+        type: 'tool-present_preface',
+        toolCallId: 'tool-preface',
+        state: 'output-available',
+        input: pendingPreface,
+        output: { ok: true, turnId: 2 },
+      },
+    ],
+  };
+}
+
+function createPendingQuestionMessage(overrides?: { parts?: BrunchUIMessage['parts'] }): BrunchUIMessage {
   return {
     id: 'pending-question-assistant',
     role: 'assistant',
-    parts: [
+    parts: overrides?.parts ?? [
       {
         type: 'tool-ask_question',
         toolCallId: 'tool-1',
@@ -4102,7 +4123,7 @@ describe('InterviewView', () => {
     expect(screen.getAllByText('Tools: lookup workspace context')).toHaveLength(1);
   });
 
-  it('renders the turn card from a pending-question tool part before route invalidation', async () => {
+  it('stages a preface skeleton during generation and swaps to the full prefaced question before route invalidation', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         assistantText: 'Earlier question?',
@@ -4122,14 +4143,32 @@ describe('InterviewView', () => {
       useChatHarness.replaceMessages?.([
         { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
         { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
-        createPendingQuestionMessage(),
+        createPendingPrefaceMessage(),
       ]);
     });
 
     await waitFor(() => {
+      expect(screen.getByTestId('preface-card-skeleton')).toBeTruthy();
+      expect(screen.queryByTestId('preface-card')).toBeNull();
+    });
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        createPendingQuestionMessage({
+          parts: [...createPendingPrefaceMessage().parts, ...createPendingQuestionMessage().parts],
+        }),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('preface-card')).toBeTruthy();
+      expect(screen.getByText(pendingPreface.observation)).toBeTruthy();
       expect(screen.getByText('Which platform should we target next?')).toBeTruthy();
       expect(screen.getByRole('checkbox', { name: /web/i })).toBeTruthy();
       expect(screen.getByRole('checkbox', { name: /desktop/i })).toBeTruthy();
+      expect(screen.queryByTestId('preface-card-skeleton')).toBeNull();
       expect(screen.queryByLabelText('Type a message...')).toBeNull();
       expect(routerInvalidate).not.toHaveBeenCalled();
       expect(entityInvalidate).not.toHaveBeenCalled();
