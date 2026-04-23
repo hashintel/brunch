@@ -650,7 +650,7 @@ describe('POST /api/specifications/:id/chat', () => {
 
   it('persists a preface first turn after brownfield kickoff instead of a repo-summary question handoff', async () => {
     const { createSpecification, getActivePath, getOptionsForTurn } = await import('./db.js');
-    const projectId = createSpecification(db, 'Brownfield grounding card').id;
+    const projectId = createSpecification(db, 'Brownfield preface card').id;
 
     await request(app)
       .post(`/api/specifications/${projectId}/phase-intent`)

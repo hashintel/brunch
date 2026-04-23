@@ -157,7 +157,7 @@ describe('specificationWorkspaceStream', () => {
     expect(activeArtifact.questionCode).toBe('Q2');
   });
 
-  it('projects grounding cards paired with questions and consumes question numbering', () => {
+  it('projects preface cards paired with questions and consumes question numbering', () => {
     const answeredGroundingQuestionTurn = createTurn({
       id: 1,
       question: 'What is the primary feature area?',
@@ -211,7 +211,7 @@ describe('specificationWorkspaceStream', () => {
     expect(followUpArtifact.questionCode).toBe('Q2');
   });
 
-  it('projects a stacked grounding-question artifact for an answered turn with both grounding card and question parts', () => {
+  it('projects a stacked preface-question artifact for an answered turn with both preface and question parts', () => {
     const stackedTurn = createTurn({
       id: 1,
       question: 'What is the primary user persona?',

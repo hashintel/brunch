@@ -169,10 +169,31 @@ function isBrownfieldGroundingExploration(
   return phase === 'grounding' && options?.mode === 'brownfield' && Boolean(options.cwd);
 }
 
+/** Whether the interviewer has access to workspace exploration tools in this configuration. */
+function hasExplorationCapability(
+  options?: InterviewerModeOptions,
+): options is InterviewerModeOptions & { cwd: string } {
+  return Boolean(options?.cwd);
+}
+
 export function getInterviewerInstructions(phase: Phase, options?: InterviewerModeOptions): string {
-  return isBrownfieldGroundingExploration(phase, options)
-    ? getBrownfieldGroundingPrompt(options.cwd, options.brownfieldGroundingStage)
-    : getSystemPrompt(phase);
+  if (isBrownfieldGroundingExploration(phase, options)) {
+    return getBrownfieldGroundingPrompt(options.cwd, options.brownfieldGroundingStage);
+  }
+  const base = getSystemPrompt(phase);
+  if (hasExplorationCapability(options)) {
+    return base + getContextGatheringAddendum(options.cwd);
+  }
+  return base;
+}
+
+/** Lightweight addendum appended to any phase prompt when workspace exploration tools are available. */
+function getContextGatheringAddendum(cwd: string): string {
+  return `
+
+You have read-only workspace tools (read_file, grep, find_files, list_directory) and present_preface available. The workspace directory is: ${cwd}
+
+If you need more orientation to formulate your next question or review — for instance to check implementation details, verify assumptions, or understand existing code — you may use a small number of read-only tool calls, then call present_preface to surface what you found, followed by ask_question. The preface contextualizes the question; do not repeat observations from the preface in the question. present_preface MUST always be followed by ask_question in the same turn. Do not explore unless the current frontier genuinely requires it.`;
 }
 
 function createSynthesizedReviewItemId(
@@ -322,7 +343,7 @@ type ExplorationTools = ReturnType<typeof createExplorationTools>;
 export type InterviewerTools = BaseInterviewerTools & Partial<ExplorationTools>;
 export type InterviewerAgent = ToolLoopAgent<never, InterviewerTools>;
 
-/** Build the tool set for the interviewer agent, conditionally including core tools for brownfield mode. */
+/** Build the tool set for the interviewer agent, conditionally including exploration tools when cwd is available. */
 export function getInterviewerTools(
   db: DB,
   turnId: number,
@@ -333,7 +354,7 @@ export function getInterviewerTools(
   const closeability = getCurrentWorkflowState(db, projectId).phases[phase].closeability;
   return {
     ask_question: createAskQuestionTool(db, turnId),
-    ...(isBrownfieldGroundingExploration(phase, options)
+    ...(hasExplorationCapability(options)
       ? {
           present_preface: createPresentPrefaceTool(db, turnId),
           ...createExplorationTools(options.cwd),
@@ -353,7 +374,7 @@ export function createInterviewerAgent(
   options?: InterviewerModeOptions,
 ): InterviewerAgent {
   const tools = getInterviewerTools(db, turnId, phase, projectId, options);
-  const usesBrownfieldGroundingExploration = isBrownfieldGroundingExploration(phase, options);
+  const usesExploration = hasExplorationCapability(options);
   const instructions = getInterviewerInstructions(phase, options);
 
   return new ToolLoopAgent({
@@ -370,7 +391,7 @@ export function createInterviewerAgent(
       },
     },
     maxOutputTokens: 16000,
-    stopWhen: stepCountIs(usesBrownfieldGroundingExploration ? 12 : 4),
+    stopWhen: stepCountIs(usesExploration ? 12 : 4),
   });
 }
 

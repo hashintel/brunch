@@ -325,7 +325,7 @@ describe('walkthroughScenarioMatrix', () => {
     });
   });
 
-  it('reopens the named brownfield grounding walkthrough with grounding cards combined on question turns', async () => {
+  it('reopens the named brownfield grounding walkthrough with preface cards combined on question turns', async () => {
     await withReopenedSeededScenario('brownfield-grounding-replay', ({ db, projectId }) => {
       const projectState = getSpecificationState(db, projectId);
 
