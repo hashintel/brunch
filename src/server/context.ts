@@ -104,7 +104,7 @@ export function buildInterviewerContext(
     const preface = getTurnPreface(turn);
     const reviewSet = getPersistedReviewSet(turn);
     if (preface) {
-      lines.push(`Grounding preface: ${preface.observation}`);
+      lines.push(`Preface: ${preface.observation}`);
       if (preface.elaboration) {
         lines.push(`  Elaboration: ${preface.elaboration}`);
       }
@@ -228,7 +228,7 @@ export function buildObserverContext(input: ObserverContextInput): string {
   const turnLines = [`Current turn #${input.turn.id}:`, `  Phase: ${input.turn.phase}`];
   const preface = getTurnPreface(input.turn);
   if (preface) {
-    turnLines.push(`  Grounding preface: ${preface.observation}`);
+    turnLines.push(`  Preface: ${preface.observation}`);
     if (preface.elaboration) {
       turnLines.push(`  Preface elaboration: ${preface.elaboration}`);
     }

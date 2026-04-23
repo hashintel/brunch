@@ -1,14 +1,15 @@
 import { Check, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import type { Impact, ReviewAction } from '@/shared/api-types.js';
+import type { Impact, ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
 import type { ActivitySummary, PrefaceData } from '@/shared/chat.js';
 import type { ReviewSetChangeSummary } from '@/shared/review-diffing.js';
 import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/specification-state.js';
 import type { SpecificationTurn } from '@/shared/specification.js';
 
 import { cn } from '../lib/utils';
-import { ThinkingTokenScroll } from './ai-elements/thinking-token-scroll';
+import { Reasoning, ReasoningContent, ReasoningTrigger } from './ai-elements/reasoning';
+import { Task, TaskContent, TaskItem, TaskTrigger } from './ai-elements/task';
 import { Button } from './app-shell';
 import { DrawerCard } from './drawer-card';
 import { isVisibleKnowledgeKind } from './knowledge-display';
@@ -25,33 +26,78 @@ const impactColor: Record<Impact, string> = {
   low: 'text-[color:#16a34a]',
 };
 
+function renderThinkingMessage(_isStreaming: boolean, duration?: number) {
+  return <span>{duration != null ? `Thought for ${duration}s` : 'Thinking…'}</span>;
+}
+
 // ── Activity placeholder ────────────────────────────────────────────
 
 export function ActivityPlaceholder({
   seconds,
   tools,
-  toolDetail,
+  toolItems,
+  toolRunning,
+  reasoningText,
+  reasoningStreaming,
   prominent,
 }: {
   seconds?: number;
   tools?: string[];
-  toolDetail?: string;
+  toolItems?: Array<{ key: string; label: string; detail?: string }>;
+  toolRunning?: boolean;
+  reasoningText?: string;
+  reasoningStreaming?: boolean;
   prominent?: boolean;
 }) {
-  const hasTools = tools && tools.length > 0;
+  const taskItems: Array<{ key: string; label: string; detail?: string }> =
+    toolItems && toolItems.length > 0
+      ? toolItems
+      : (tools ?? []).map((tool) => ({ key: `tool-${tool}`, label: tool }));
+  const taskLabels = (tools?.length ?? 0) > 0 ? tools! : [...new Set(taskItems.map((item) => item.label))];
+  const hasTools = taskLabels.length > 0;
+  const taskTitle = taskLabels.length > 0 ? `Tools: ${taskLabels.join(', ')}` : 'Tool activity';
+  const isTaskCollapsible = Boolean(toolRunning && taskItems.length > 0);
+
   return (
-    <div className={cn('flex flex-col gap-1 px-1', prominent && 'py-1')}>
-      <div className="flex items-center justify-between">
-        <span className={cn('text-hint', prominent ? 'text-xs-plus font-medium text-sub' : 'text-xs')}>
-          {seconds != null ? `Thought for ${seconds}s` : 'Thinking…'}
-        </span>
-        {hasTools && (
-          <span className={cn('text-hint', prominent ? 'text-xs-plus text-sub' : 'text-xs')}>
-            Tools: {tools.join(', ')}
-          </span>
-        )}
-      </div>
-      {toolDetail && <span className="truncate text-xs text-hint italic">{toolDetail}</span>}
+    <div className={cn('flex flex-col gap-3 px-1', prominent && 'py-1')}>
+      <Reasoning
+        className="mb-0 w-full"
+        defaultOpen={Boolean(reasoningText)}
+        duration={seconds}
+        isStreaming={Boolean(reasoningText) && Boolean(reasoningStreaming)}
+        open={reasoningText ? undefined : false}
+      >
+        <ReasoningTrigger
+          className="gap-1 text-xs text-hint hover:text-hint"
+          collapsible={Boolean(reasoningText)}
+          getThinkingMessage={renderThinkingMessage}
+          showIcon={false}
+        />
+        {reasoningText ? (
+          <ReasoningContent className="mt-2 text-xs text-hint [&_*]:text-inherit">
+            {reasoningText}
+          </ReasoningContent>
+        ) : null}
+      </Reasoning>
+
+      {hasTools ? (
+        <Task className="w-full" isRunning={isTaskCollapsible}>
+          <TaskTrigger collapsible={isTaskCollapsible} showIcon={false} title={taskTitle} />
+          <TaskContent>
+            {taskItems.map((item) => (
+              <TaskItem key={item.key} className="flex flex-wrap items-baseline gap-x-1.5 gap-y-0.5">
+                <span>{item.label}</span>
+                {item.detail ? (
+                  <>
+                    <span className="opacity-50">→</span>
+                    <span className="break-all">{item.detail}</span>
+                  </>
+                ) : null}
+              </TaskItem>
+            ))}
+          </TaskContent>
+        </Task>
+      ) : null}
     </div>
   );
 }
@@ -94,9 +140,8 @@ export function AnsweredQuestionCard({
         <span className={cn('font-medium', impactColor[impact])}>
           {impact[0]!.toUpperCase() + impact.slice(1)} Impact
         </span>
-        <span className="-m-0.5 flex h-5 shrink-0 items-center justify-center gap-1 rounded-full bg-[rgba(22,163,106,0.1)] px-2 text-[11px] text-[#16a34a]">
-          Answered
-          <Check className="size-2.5" />
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[rgba(22,163,106,0.15)]">
+          <Check className="size-3 text-[#16a34a]" />
         </span>
       </div>
 
@@ -113,7 +158,7 @@ export function AnsweredQuestionCard({
         {isFreeTextOnly ? (
           <div className="min-w-0 grow">
             <span className="block truncate text-sub">
-              Response: <span className="text-sub italic">"{responseContext ?? '—'}"</span>
+              Response: <span className="text-hint">{responseContext ?? '—'}</span>
             </span>
           </div>
         ) : (
@@ -125,7 +170,7 @@ export function AnsweredQuestionCard({
                 <span className="shrink-0 text-rule">|</span>
                 <div className="min-w-0 grow">
                   <span className="block truncate text-sub">
-                    Context: <span className="text-sub italic">"{responseContext}"</span>
+                    Context: <span className="text-hint">{responseContext}</span>
                   </span>
                 </div>
               </>
@@ -196,10 +241,8 @@ export function AnsweredReviewSetCard({
 export function PrefaceCard({ preface }: { preface: PrefaceData }) {
   return (
     <div data-testid="preface-card" className="border-l-4 border-wash pl-3.5 italic">
-      <p className="text-xs-plus leading-relaxed text-sub">{preface.observation}</p>
-      {preface.elaboration && (
-        <p className="mt-1.5 text-xs leading-relaxed text-hint">{preface.elaboration}</p>
-      )}
+      <p className="text-xs-plus text-sub">{preface.observation}</p>
+      {preface.elaboration && <p className="mt-1.5 text-xs text-hint">{preface.elaboration}</p>}
     </div>
   );
 }
@@ -338,6 +381,7 @@ export function ActiveQuestionCard({
   why,
   impact,
   options,
+  phase,
   onSubmitResponse,
   onBack,
   onSkip,
@@ -353,6 +397,7 @@ export function ActiveQuestionCard({
   why: string | null;
   impact: SpecificationTurn['impact'];
   options: readonly TurnCardOption[];
+  phase?: WorkflowPhase;
   onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
   onBack?: () => void;
   onSkip?: () => void;
@@ -366,9 +411,14 @@ export function ActiveQuestionCard({
   const [freeText, setFreeText] = useState(persistedFreeText);
   const [noneOfTheAbove, setNoneOfTheAbove] = useState(false);
   const isFreeTextOnly = options.length === 0;
+  const isGrounding = phase === 'grounding';
   const hasSelection = selectedPositions.length > 0;
   const hasFreeText = freeText.trim().length > 0;
-  const canSubmit = isFreeTextOnly ? hasFreeText : hasSelection || (noneOfTheAbove && hasFreeText);
+  const canSubmit = isFreeTextOnly
+    ? hasFreeText
+    : isGrounding
+      ? hasFreeText
+      : hasSelection || (noneOfTheAbove && hasFreeText);
   const isSubmitted = state === 'submitted';
   const isReadOnly = disabled || hasPersistedResponse || isSubmitted;
   const displayImpact = impact ?? 'low';
@@ -416,7 +466,7 @@ export function ActiveQuestionCard({
 
   const body = (
     <>
-      {why && <p className="text-xs leading-relaxed text-sub">{why}</p>}
+      {why && <p className="text-xs text-sub">{why}</p>}
 
       {!isFreeTextOnly && (
         <div className="flex flex-col gap-0.5">
@@ -456,7 +506,7 @@ export function ActiveQuestionCard({
                 className="mt-px shrink-0 data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
               />
               <span className={cn('text-sub', noneOfTheAbove && 'text-ink')}>
-                None of the above / I'm not sure
+                {isGrounding ? 'Something else (specify below)' : "None of the above / I'm not sure"}
               </span>
             </label>
           </>
@@ -474,13 +524,21 @@ export function ActiveQuestionCard({
 
       <div className="-mx-4 -mb-4 border-t border-rule bg-white px-4 pt-3">
         <label className="text-xs text-sub" htmlFor={`turn-response-${id}`}>
-          {isFreeTextOnly ? 'Your response' : 'Please provide additional context for your answer.'}
+          {isFreeTextOnly || isGrounding
+            ? 'Your response'
+            : 'Please provide additional context for your answer.'}
         </label>
         <Textarea
           id={`turn-response-${id}`}
           aria-label={isFreeTextOnly ? 'Your response' : 'Additional response context'}
           value={freeText}
           onChange={(e) => setFreeText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSubmit && !isReadOnly) {
+              e.preventDefault();
+              void onSubmitResponse?.(selectedPositions, freeText.trim() || undefined);
+            }
+          }}
           disabled={isReadOnly}
           placeholder={
             isFreeTextOnly
@@ -563,12 +621,14 @@ export function GeneratingTurnPlaceholder({
   liveActivity,
   liveReasoningText,
   pendingPreface,
-  latestToolDetail,
+  liveToolItems,
+  liveToolsRunning,
 }: {
   liveActivity?: ActivitySummary;
   liveReasoningText?: string;
   pendingPreface?: PrefaceData;
-  latestToolDetail?: string;
+  liveToolItems?: Array<{ key: string; label: string; detail?: string }>;
+  liveToolsRunning?: boolean;
 }) {
   const startTimeRef = useRef<number>(Date.now());
   const [seconds, setSeconds] = useState(0);
@@ -586,12 +646,14 @@ export function GeneratingTurnPlaceholder({
     <div className="flex flex-col gap-4" data-testid="generating-turn-placeholder">
       <ActivityPlaceholder
         seconds={seconds > 0 ? seconds : undefined}
+        reasoningStreaming={Boolean(liveReasoningText)}
+        reasoningText={liveReasoningText}
         tools={liveActivity?.tools}
-        toolDetail={latestToolDetail}
+        toolItems={liveToolItems}
+        toolRunning={liveToolsRunning}
         prominent={prominent}
       />
-      {liveReasoningText && <ThinkingTokenScroll text={liveReasoningText} />}
-      {pendingPreface && <PrefaceCard preface={pendingPreface} />}
+      {pendingPreface && <PrefaceCardSkeleton />}
       <QuestionCardSkeleton />
     </div>
   );

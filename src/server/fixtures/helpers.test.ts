@@ -94,7 +94,7 @@ describe('fixture helpers', () => {
     );
   });
 
-  it('serializes grounding cards as persisted grounding artifacts', () => {
+  it('serializes preface cards as persisted preface artifacts', () => {
     const parts = deserializeAssistantParts(
       serializeFixturePrefaceAssistantParts({
         observation: 'Later context gathering narrowed the next move.',

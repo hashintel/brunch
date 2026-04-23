@@ -116,13 +116,15 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('grounding')).not.toBe(getSystemPrompt('design'));
   });
 
-  it('keeps the grounding prompt hint-guided with topic priorities and free-text format', () => {
+  it('keeps the grounding prompt hint-guided with topic priorities and tendency guidance', () => {
     const prompt = getSystemPrompt('grounding');
     expect(prompt).toContain('ask_question');
-    expect(prompt).toContain('free-text');
+    expect(prompt).toContain('suggestive options');
+    expect(prompt).toContain('orientation aids');
     expect(prompt).toContain('Concept');
     expect(prompt).toContain('constraints');
     expect(prompt).toContain('Scope');
+    expect(prompt).not.toContain('do NOT include options');
     expect(prompt).not.toContain('Include 2-4 options');
     expect(prompt).not.toContain('Mark exactly one option as recommended');
   });
@@ -372,29 +374,46 @@ describe('brownfield interviewer configuration', () => {
     expect(toolNames).not.toContain('bash');
   });
 
-  it('removes brownfield exploration tools after grounding', () => {
+  it('provides exploration tools in all phases when cwd is available', () => {
     const project = createSpecification(db, 'BF', { mode: 'brownfield' });
-    const turn = createTurn(db, project.id, { phase: 'design', question: '', answer: '' });
-    const tools = getInterviewerTools(db, turn.id, 'design', project.id, {
-      mode: 'brownfield',
+    for (const phase of ['design', 'requirements', 'criteria'] as const) {
+      const turn = createTurn(db, project.id, { phase, question: '', answer: '' });
+      const tools = getInterviewerTools(db, turn.id, phase, project.id, {
+        mode: 'brownfield',
+        cwd: '/tmp/repo',
+      });
+      const toolNames = Object.keys(tools);
+
+      expect(toolNames).toContain('read_file');
+      expect(toolNames).toContain('grep');
+      expect(toolNames).toContain('find_files');
+      expect(toolNames).toContain('list_directory');
+      expect(toolNames).toContain('present_preface');
+      expect(toolNames).toContain('ask_question');
+    }
+  });
+
+  it('provides exploration tools in greenfield grounding when cwd is available', () => {
+    const project = createSpecification(db, 'GF');
+    const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
+    const tools = getInterviewerTools(db, turn.id, 'grounding', project.id, {
       cwd: '/tmp/repo',
     });
     const toolNames = Object.keys(tools);
-
-    expect(toolNames).not.toContain('read_file');
-    expect(toolNames).not.toContain('grep');
-    expect(toolNames).not.toContain('find_files');
-    expect(toolNames).not.toContain('list_directory');
+    expect(toolNames).toContain('read_file');
+    expect(toolNames).toContain('grep');
+    expect(toolNames).toContain('present_preface');
     expect(toolNames).toContain('ask_question');
   });
 
-  it('excludes core tools when mode is greenfield', () => {
+  it('excludes exploration tools when no cwd is provided', () => {
     const project = createSpecification(db, 'GF');
     const turn = createTurn(db, project.id, { phase: 'grounding', question: '', answer: '' });
     const tools = getInterviewerTools(db, turn.id, 'grounding', project.id);
     const toolNames = Object.keys(tools);
     expect(toolNames).not.toContain('read_file');
     expect(toolNames).not.toContain('grep');
+    expect(toolNames).not.toContain('present_preface');
     expect(toolNames).toContain('ask_question');
   });
 
@@ -410,10 +429,11 @@ describe('brownfield interviewer configuration', () => {
     expect(brownfieldPrompt).toContain('call BOTH tools in sequence');
     expect(brownfieldPrompt).not.toContain('Include 2-4 options');
     expect(brownfieldPrompt).not.toContain('Mark exactly one option as recommended');
-    expect(brownfieldPrompt).toContain('free-text');
+    expect(brownfieldPrompt).toContain('suggestive options');
+    expect(brownfieldPrompt).toContain('orientation aids');
   });
 
-  it('limits brownfield exploration instructions to the grounding phase and makes post-kickoff grounding state-aware', () => {
+  it('limits brownfield opening exploration to grounding phase but appends context-gathering addendum in all phases when cwd is available', () => {
     expect(getInterviewerInstructions('grounding', { mode: 'brownfield', cwd: '/tmp/repo' })).toContain(
       'Before asking your first grounding question',
     );
@@ -431,11 +451,72 @@ describe('brownfield interviewer configuration', () => {
         brownfieldGroundingStage: 'ongoing',
       }),
     ).not.toContain('Before asking your first grounding question');
-    expect(getInterviewerInstructions('design', { mode: 'brownfield', cwd: '/tmp/repo' })).toBe(
-      getSystemPrompt('design'),
-    );
-    expect(getInterviewerInstructions('requirements', { mode: 'brownfield', cwd: '/tmp/repo' })).toBe(
-      getSystemPrompt('requirements'),
+
+    const designInstructions = getInterviewerInstructions('design', { mode: 'brownfield', cwd: '/tmp/repo' });
+    expect(designInstructions).toContain(getSystemPrompt('design'));
+    expect(designInstructions).toContain('present_preface');
+    expect(designInstructions).toContain('read-only workspace tools');
+
+    const reqInstructions = getInterviewerInstructions('requirements', {
+      mode: 'brownfield',
+      cwd: '/tmp/repo',
+    });
+    expect(reqInstructions).toContain(getSystemPrompt('requirements'));
+    expect(reqInstructions).toContain('present_preface');
+  });
+
+  it('appends context-gathering addendum to greenfield grounding when cwd is available', () => {
+    const instructions = getInterviewerInstructions('grounding', { cwd: '/tmp/repo' });
+    expect(instructions).toContain(getSystemPrompt('grounding'));
+    expect(instructions).toContain('present_preface');
+    expect(instructions).toContain('/tmp/repo');
+  });
+
+  it('returns base prompt without addendum when no cwd is provided', () => {
+    expect(getInterviewerInstructions('grounding')).toBe(getSystemPrompt('grounding'));
+    expect(getInterviewerInstructions('design')).toBe(getSystemPrompt('design'));
+  });
+
+  it('keeps reusable read-only exploration tools available during ongoing brownfield grounding', () => {
+    const project = createSpecification(db, 'BF', { mode: 'brownfield' });
+    const priorTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Which seam still needs grounding?',
+      answer: 'The replay handoff.',
+    });
+    const nextTurn = createTurn(db, project.id, {
+      parent_turn_id: priorTurn.id,
+      phase: 'grounding',
+      question: '',
+      answer: null,
+    });
+
+    const tools = getInterviewerTools(db, nextTurn.id, 'grounding', project.id, {
+      mode: 'brownfield',
+      cwd: '/tmp/repo',
+    });
+    const toolNames = Object.keys(tools);
+
+    expect(toolNames).toContain('read_file');
+    expect(toolNames).toContain('grep');
+    expect(toolNames).toContain('find_files');
+    expect(toolNames).toContain('list_directory');
+    expect(toolNames).toContain('present_preface');
+    expect(toolNames).toContain('ask_question');
+    expect(toolNames).not.toContain('write_file');
+    expect(toolNames).not.toContain('edit_file');
+    expect(toolNames).not.toContain('bash');
+
+    const instructions = getInterviewerInstructions('grounding', {
+      mode: 'brownfield',
+      cwd: '/tmp/repo',
+      brownfieldGroundingStage: 'ongoing',
+    });
+    expect(instructions).toContain('Continue the structured grounding interview');
+    expect(instructions).toContain('read-only workspace tools plus present_preface available');
+    expect(instructions).not.toContain('Before asking your first grounding question');
+    expect(instructions).not.toContain(
+      'Spend no more than 5-8 tool calls on exploration before synthesizing.',
     );
   });
 });

@@ -79,7 +79,7 @@ function ReviewSetItemRow({
           'relative z-[1] flex items-start gap-3 border-b border-rule bg-white px-4 py-3 shadow-[var(--shadow-card)]',
         )}
       >
-        <span className="w-14 shrink-0 pt-0.5 font-mono text-xs font-medium text-hint">
+        <span className="shrink-0 pt-0.5 font-mono text-xs font-medium text-hint">
           {item.referenceCode ?? '—'}
         </span>
 

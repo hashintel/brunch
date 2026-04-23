@@ -1,5 +1,4 @@
 import { anthropic } from '@ai-sdk/anthropic';
-import type { Tool } from '@ai-sdk/provider-utils';
 import { ToolLoopAgent, stepCountIs, tool } from 'ai';
 
 import type { EntitiesData, SpecificationMode } from '@/shared/api-types.js';
@@ -10,11 +9,6 @@ import {
   presentPrefaceToolOutputSchema,
   proposePhaseClosureToolOutputSchema,
   structuredQuestionSchema,
-  type AskQuestionToolOutput,
-  type PhaseClosureProposal,
-  type PrefaceData,
-  type PresentPrefaceToolOutput,
-  type ProposePhaseClosureToolOutput,
   type ReviewSetData,
   type StructuredQuestion,
 } from '@/shared/chat.js';
@@ -38,7 +32,7 @@ import { createExplorationTools } from './tools/index.js';
 const SYSTEM_PROMPTS: Record<Phase, string> = {
   grounding: `You are a spec elicitation interviewer conducting the GROUNDING phase.
 
-Your job is to understand the user's project through open, exploratory questions. The user responds with free-text — there are no options to select.
+Your job is to understand the user's project through open, exploratory questions.
 
 Work through these topics in priority order, adapting and merging based on what the user has already shared:
 
@@ -54,8 +48,8 @@ Work through these topics in priority order, adapting and merging based on what 
 For every turn, you MUST use the ask_question tool. Never respond with plain text.
 
 Each question should:
-- Be open-ended and exploratory — do NOT include options (pass an empty options array)
-- Include a "why" field explaining why this question matters for the spec
+- Start with open questions. As the user's responses narrow the space, you may add suggestive options as orientation aids — not binding choices. Whether to include options on any given question is your call based on conversational trajectory.
+- Include a "why" field explaining what understanding you are seeking and how the answer helps formulate subsequent questions
 - Include an impact level (high/medium/low) reflecting how much the answer shapes downstream choices
 
 Ask one question at a time. Build on previous answers to go deeper.
@@ -68,7 +62,7 @@ Your job is to walk the design decision tree — exploring architectural choices
 
 For every turn, you MUST use the ask_question tool or the propose_phase_closure tool. Never respond with plain text.
 
-Each question should present meaningfully different design alternatives with clear tradeoffs in the options.
+When exploring design choices, typically present meaningfully different alternatives with clear tradeoffs in the options. The \`why\` field should explain what's at stake in this decision.
 
 When the main architectural commitments are sufficiently captured for now, use the propose_phase_closure tool instead of asking another question. The summary should concisely explain what is now understood and why design can close.`,
 
@@ -109,8 +103,8 @@ export function getBrownfieldGroundingPrompt(
   stage: InterviewerModeOptions['brownfieldGroundingStage'] = 'opening',
 ): string {
   const sharedQuestionRules = `Each question should:
-- Be open-ended and exploratory — do NOT include options (pass an empty options array). The user responds with free-text.
-- Include a "why" field explaining why this question matters for the spec
+- Start with open questions. As the user's responses narrow the space, you may add suggestive options as orientation aids — not binding choices. Whether to include options on any given question is your call based on conversational trajectory.
+- Include a "why" field explaining what understanding you are seeking and how the answer helps formulate subsequent questions
 - Include an impact level (high/medium/low) reflecting how much the answer shapes downstream choices
 
 Ask one question at a time. Build on previous answers to go deeper.
@@ -175,22 +169,32 @@ function isBrownfieldGroundingExploration(
   return phase === 'grounding' && options?.mode === 'brownfield' && Boolean(options.cwd);
 }
 
-export function getInterviewerInstructions(phase: Phase, options?: InterviewerModeOptions): string {
-  return isBrownfieldGroundingExploration(phase, options)
-    ? getBrownfieldGroundingPrompt(options.cwd, options.brownfieldGroundingStage)
-    : getSystemPrompt(phase);
+/** Whether the interviewer has access to workspace exploration tools in this configuration. */
+function hasExplorationCapability(
+  options?: InterviewerModeOptions,
+): options is InterviewerModeOptions & { cwd: string } {
+  return Boolean(options?.cwd);
 }
 
-export type AskQuestionTool = Tool<StructuredQuestion, AskQuestionToolOutput>;
-export type PresentPrefaceTool = Tool<PrefaceData, PresentPrefaceToolOutput>;
-export type ProposePhaseClosureTool = Tool<PhaseClosureProposal, ProposePhaseClosureToolOutput>;
-export type BaseInterviewerTools = {
-  ask_question: AskQuestionTool;
-  present_preface?: PresentPrefaceTool;
-  propose_phase_closure?: ProposePhaseClosureTool;
-};
-export type InterviewerTools = BaseInterviewerTools & Record<string, Tool<any, any>>;
-export type InterviewerAgent = ToolLoopAgent<never, InterviewerTools>;
+export function getInterviewerInstructions(phase: Phase, options?: InterviewerModeOptions): string {
+  if (isBrownfieldGroundingExploration(phase, options)) {
+    return getBrownfieldGroundingPrompt(options.cwd, options.brownfieldGroundingStage);
+  }
+  const base = getSystemPrompt(phase);
+  if (hasExplorationCapability(options)) {
+    return base + getContextGatheringAddendum(options.cwd);
+  }
+  return base;
+}
+
+/** Lightweight addendum appended to any phase prompt when workspace exploration tools are available. */
+function getContextGatheringAddendum(cwd: string): string {
+  return `
+
+You have read-only workspace tools (read_file, grep, find_files, list_directory) and present_preface available. The workspace directory is: ${cwd}
+
+If you need more orientation to formulate your next question or review — for instance to check implementation details, verify assumptions, or understand existing code — you may use a small number of read-only tool calls, then call present_preface to surface what you found, followed by ask_question. The preface contextualizes the question; do not repeat observations from the preface in the question. present_preface MUST always be followed by ask_question in the same turn. Do not explore unless the current frontier genuinely requires it.`;
+}
 
 function createSynthesizedReviewItemId(
   phase: Extract<Phase, 'requirements' | 'criteria'>,
@@ -251,7 +255,7 @@ function validateReviewSetSemantics(reviewSet: ReviewSetData): void {
   }
 }
 
-export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
+export function createAskQuestionTool(db: DB, turnId: number) {
   return tool({
     description:
       'Ask the user a structured interview question with options, strategic grounding, and impact signal.',
@@ -291,7 +295,7 @@ export function createAskQuestionTool(db: DB, turnId: number): AskQuestionTool {
   });
 }
 
-export function createPresentPrefaceTool(db: DB, turnId: number): PresentPrefaceTool {
+export function createPresentPrefaceTool(db: DB, turnId: number) {
   return tool({
     description:
       "Present a preface that prefaces the next question — an observation from exploration or reflection on the user's response, with optional elaboration.",
@@ -306,12 +310,7 @@ export function createPresentPrefaceTool(db: DB, turnId: number): PresentPreface
   });
 }
 
-export function createProposePhaseClosureTool(
-  db: DB,
-  turnId: number,
-  phase: Phase,
-  projectId: number,
-): ProposePhaseClosureTool {
+export function createProposePhaseClosureTool(db: DB, turnId: number, phase: Phase, projectId: number) {
   return tool({
     description: 'Propose closing the current workflow phase with a concise summary for user confirmation.',
     inputSchema: phaseClosureProposalSchema,
@@ -332,7 +331,19 @@ export function createProposePhaseClosureTool(
   });
 }
 
-/** Build the tool set for the interviewer agent, conditionally including core tools for brownfield mode. */
+export type AskQuestionTool = ReturnType<typeof createAskQuestionTool>;
+export type PresentPrefaceTool = ReturnType<typeof createPresentPrefaceTool>;
+export type ProposePhaseClosureTool = ReturnType<typeof createProposePhaseClosureTool>;
+export type BaseInterviewerTools = {
+  ask_question: AskQuestionTool;
+  present_preface?: PresentPrefaceTool;
+  propose_phase_closure?: ProposePhaseClosureTool;
+};
+type ExplorationTools = ReturnType<typeof createExplorationTools>;
+export type InterviewerTools = BaseInterviewerTools & Partial<ExplorationTools>;
+export type InterviewerAgent = ToolLoopAgent<never, InterviewerTools>;
+
+/** Build the tool set for the interviewer agent, conditionally including exploration tools when cwd is available. */
 export function getInterviewerTools(
   db: DB,
   turnId: number,
@@ -343,7 +354,7 @@ export function getInterviewerTools(
   const closeability = getCurrentWorkflowState(db, projectId).phases[phase].closeability;
   return {
     ask_question: createAskQuestionTool(db, turnId),
-    ...(isBrownfieldGroundingExploration(phase, options)
+    ...(hasExplorationCapability(options)
       ? {
           present_preface: createPresentPrefaceTool(db, turnId),
           ...createExplorationTools(options.cwd),
@@ -363,7 +374,7 @@ export function createInterviewerAgent(
   options?: InterviewerModeOptions,
 ): InterviewerAgent {
   const tools = getInterviewerTools(db, turnId, phase, projectId, options);
-  const usesBrownfieldGroundingExploration = isBrownfieldGroundingExploration(phase, options);
+  const usesExploration = hasExplorationCapability(options);
   const instructions = getInterviewerInstructions(phase, options);
 
   return new ToolLoopAgent({
@@ -380,7 +391,7 @@ export function createInterviewerAgent(
       },
     },
     maxOutputTokens: 16000,
-    stopWhen: stepCountIs(usesBrownfieldGroundingExploration ? 12 : 4),
+    stopWhen: stepCountIs(usesExploration ? 12 : 4),
   });
 }
 

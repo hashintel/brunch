@@ -390,13 +390,21 @@ const INTERNAL_TOOL_PART_TYPES: ReadonlySet<InternalToolPartType> = new Set<Inte
   'tool-propose_phase_closure',
 ]);
 
-function getActivityToolLabel(part: BrunchUIMessagePart): string | null {
+function formatToolLabel(value: string): string {
+  return value.replaceAll(/[_-]+/g, ' ').trim();
+}
+
+export function getActivityToolLabel(part: BrunchUIMessagePart): string | null {
   if (INTERNAL_TOOL_PART_TYPES.has(part.type as InternalToolPartType)) {
     return null;
   }
 
   if (part.type === 'dynamic-tool') {
-    return part.toolName.replaceAll(/[_-]+/g, ' ').trim();
+    return formatToolLabel(part.toolName);
+  }
+
+  if (part.type.startsWith('tool-')) {
+    return formatToolLabel(part.type.slice('tool-'.length));
   }
 
   return null;

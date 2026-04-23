@@ -14,11 +14,32 @@ import type { SpecificationState, SpecificationTurn } from '@/shared/specificati
 import { InterviewView } from '../-interview-view.js';
 import { resetSpecificationLifecycleRegistryForTesting } from '../-specification-lifecycle.js';
 
-function createPendingQuestionMessage(): BrunchUIMessage {
+const pendingPreface = {
+  observation: 'The repo already uses SQLite-backed local persistence.',
+  elaboration: 'This is provisional context for the next move.',
+};
+
+function createPendingPrefaceMessage(): BrunchUIMessage {
+  return {
+    id: 'pending-preface-assistant',
+    role: 'assistant',
+    parts: [
+      {
+        type: 'tool-present_preface',
+        toolCallId: 'tool-preface',
+        state: 'output-available',
+        input: pendingPreface,
+        output: { ok: true, turnId: 2 },
+      },
+    ],
+  };
+}
+
+function createPendingQuestionMessage(overrides?: { parts?: BrunchUIMessage['parts'] }): BrunchUIMessage {
   return {
     id: 'pending-question-assistant',
     role: 'assistant',
-    parts: [
+    parts: overrides?.parts ?? [
       {
         type: 'tool-ask_question',
         toolCallId: 'tool-1',
@@ -241,7 +262,19 @@ vi.mock('@/client/components/ai-elements/prompt-input', () => ({
 vi.mock('@/client/components/ai-elements/reasoning', () => ({
   Reasoning: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
   ReasoningContent: ({ children }: { children: React.ReactNode }) => <div>{children}</div>,
-  ReasoningTrigger: () => null,
+  ReasoningTrigger: ({
+    children,
+    getThinkingMessage,
+  }: {
+    children?: React.ReactNode;
+    getThinkingMessage?: (isStreaming: boolean, duration?: number) => React.ReactNode;
+  }) => <div>{children ?? getThinkingMessage?.(false, undefined) ?? null}</div>,
+  useReasoning: () => ({
+    duration: undefined,
+    isOpen: false,
+    isStreaming: false,
+    setIsOpen: vi.fn(),
+  }),
 }));
 
 vi.mock('@/client/components/ai-elements/tool', () => ({
@@ -258,6 +291,7 @@ function createSpecificationState({
   answer = 'Build the web app',
   userParts = [{ type: 'text', text: answer }] as Array<Record<string, unknown>>,
   options = [],
+  phase = 'grounding' as SpecificationTurn['phase'],
   workflow,
   assistantParts,
   turns,
@@ -273,6 +307,7 @@ function createSpecificationState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
+  phase?: SpecificationTurn['phase'];
   workflow?: SpecificationState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
   turns?: SpecificationState['turns'];
@@ -282,7 +317,7 @@ function createSpecificationState({
       id: 1,
       specification_id: projectId,
       parent_turn_id: null,
-      phase: 'grounding',
+      phase,
       turn_kind: 'question',
       question: assistantText,
       why: 'This frames the first iteration.',
@@ -428,6 +463,7 @@ function createWorkspaceLoaderData({
   answer = 'Build the web app',
   userParts,
   options = [],
+  phase,
   workflow,
   assistantParts,
   turns,
@@ -444,6 +480,7 @@ function createWorkspaceLoaderData({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
+  phase?: SpecificationTurn['phase'];
   workflow?: SpecificationState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
   turns?: SpecificationState['turns'];
@@ -456,6 +493,7 @@ function createWorkspaceLoaderData({
       answer,
       userParts,
       options,
+      phase,
       workflow,
       assistantParts,
       turns,
@@ -4102,7 +4140,53 @@ describe('InterviewView', () => {
     expect(screen.getAllByText('Tools: lookup workspace context')).toHaveLength(1);
   });
 
-  it('renders the turn card from a pending-question tool part before route invalidation', async () => {
+  it('renders live workspace-tool activity during the submitted pre-stream generating window', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [],
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        }),
+      }),
+    );
+    useChatImpl = createUseChatHarness('submitted');
+
+    renderWorkspace();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        {
+          id: 'assistant-generating',
+          role: 'assistant',
+          parts: [
+            {
+              type: 'tool-read_file',
+              toolCallId: 'tool-lookup',
+              state: 'output-available',
+              input: { path: 'src/server/app.ts' },
+              output: { ok: true },
+            } as never,
+          ],
+        },
+      ]);
+    });
+
+    expect(await screen.findByTestId('generating-turn-placeholder')).toBeTruthy();
+    expect(screen.getAllByText('Thinking…')).toHaveLength(1);
+    expect(screen.getAllByText('Tools: read file')).toHaveLength(1);
+    expect(screen.queryByText('src/server/app.ts')).toBeNull();
+    expect(screen.getByRole('button', { name: 'Tools: read file' }).hasAttribute('disabled')).toBe(true);
+  });
+
+  it('stages a preface skeleton during generation and swaps to the full prefaced question before route invalidation', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         assistantText: 'Earlier question?',
@@ -4122,14 +4206,32 @@ describe('InterviewView', () => {
       useChatHarness.replaceMessages?.([
         { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
         { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
-        createPendingQuestionMessage(),
+        createPendingPrefaceMessage(),
       ]);
     });
 
     await waitFor(() => {
+      expect(screen.getByTestId('preface-card-skeleton')).toBeTruthy();
+      expect(screen.queryByTestId('preface-card')).toBeNull();
+    });
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        createPendingQuestionMessage({
+          parts: [...createPendingPrefaceMessage().parts, ...createPendingQuestionMessage().parts],
+        }),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('preface-card')).toBeTruthy();
+      expect(screen.getByText(pendingPreface.observation)).toBeTruthy();
       expect(screen.getByText('Which platform should we target next?')).toBeTruthy();
       expect(screen.getByRole('checkbox', { name: /web/i })).toBeTruthy();
       expect(screen.getByRole('checkbox', { name: /desktop/i })).toBeTruthy();
+      expect(screen.queryByTestId('preface-card-skeleton')).toBeNull();
       expect(screen.queryByLabelText('Type a message...')).toBeNull();
       expect(routerInvalidate).not.toHaveBeenCalled();
       expect(entityInvalidate).not.toHaveBeenCalled();
@@ -4822,15 +4924,20 @@ describe('InterviewView', () => {
     expect(screen.queryByRole('checkbox', { name: /none of the above/i })).toBeNull();
   });
 
-  it('posts free-text-only turn responses and forwards the text into chat', async () => {
+  it('posts free-text-only turn responses via none-of-the-above in design phase', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         answer: '',
         userParts: [],
+        phase: 'design',
         options: [
           { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
           { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
         ],
+        workflow: createWorkflowState({
+          grounding: { status: 'closed' },
+          design: { status: 'in_progress', turnId: 1 },
+        }),
       }),
     );
 
@@ -4841,7 +4948,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace();
+    renderWorkspace('design');
 
     fireEvent.click(await screen.findByRole('checkbox', { name: /none of the above/i }));
     fireEvent.change(await screen.findByLabelText('Additional response context'), {
@@ -5355,10 +5462,15 @@ describe('InterviewView', () => {
       createWorkspaceLoaderData({
         answer: '',
         userParts: [],
+        phase: 'design',
         options: [
           { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
           { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
         ],
+        workflow: createWorkflowState({
+          grounding: { status: 'closed' },
+          design: { status: 'in_progress', turnId: 1 },
+        }),
       }),
     );
 
@@ -5369,7 +5481,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace();
+    renderWorkspace('design');
 
     fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
     fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));

@@ -521,6 +521,67 @@ describe('POST /api/specifications/:id/chat', () => {
       .expect(400);
   });
 
+  it('accepts follow-up chat history containing echoed workspace tool parts', async () => {
+    const projectId = await createTestProject();
+
+    await request(app)
+      .post(`/api/specifications/${projectId}/chat`)
+      .send({
+        messages: [{ id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] }],
+      })
+      .expect(200);
+
+    await request(app)
+      .post(`/api/specifications/${projectId}/chat`)
+      .send({
+        messages: [
+          { id: 'u1', role: 'user', parts: [{ type: 'text', text: 'hello' }] },
+          {
+            id: 'a1',
+            role: 'assistant',
+            parts: [
+              { type: 'reasoning', text: 'Inspecting the workspace', state: 'done' },
+              {
+                type: 'dynamic-tool',
+                toolName: 'list_directory',
+                toolCallId: 'toolu_018J24NXxYXGSgxx6pMdPvgx',
+                state: 'output-available',
+                input: { path: '.' },
+                output: {
+                  entries: './:\n.brunch\nsrc/',
+                  count: 2,
+                },
+              },
+              {
+                type: 'tool-ask_question',
+                toolCallId: 'toolu_ask_question',
+                state: 'output-available',
+                input: {
+                  question: 'What should we focus on first?',
+                  why: 'This narrows the initial slice.',
+                  impact: 'high',
+                  options: [],
+                },
+                output: { ok: true, turnId: 2, optionCount: 0 },
+              },
+            ],
+          },
+          { id: 'u2', role: 'user', parts: [{ type: 'text', text: 'Focus on export flow' }] },
+        ],
+      })
+      .expect('Content-Type', /text\/event-stream/)
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenLastCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.any(Array),
+      'Focus on export flow',
+      'grounding',
+      undefined,
+    );
+  });
+
   it('returns an AI SDK UI message stream and persists the turn', async () => {
     const projectId = await createTestProject();
 
@@ -589,7 +650,7 @@ describe('POST /api/specifications/:id/chat', () => {
 
   it('persists a preface first turn after brownfield kickoff instead of a repo-summary question handoff', async () => {
     const { createSpecification, getActivePath, getOptionsForTurn } = await import('./db.js');
-    const projectId = createSpecification(db, 'Brownfield grounding card').id;
+    const projectId = createSpecification(db, 'Brownfield preface card').id;
 
     await request(app)
       .post(`/api/specifications/${projectId}/phase-intent`)
@@ -639,6 +700,82 @@ describe('POST /api/specifications/:id/chat', () => {
         },
       ]),
     );
+    expect(assistantParts).not.toEqual(
+      expect.arrayContaining([expect.objectContaining({ type: 'tool-present_preface' })]),
+    );
+  });
+
+  it('persists a reusable prefaced grounding turn during ongoing brownfield grounding', async () => {
+    const { advanceHead, createSpecification, createTurn, getActivePath, getOptionsForTurn } =
+      await import('./db.js');
+    const project = createSpecification(db, 'Brownfield reusable grounding', { mode: 'brownfield' });
+    const priorTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'Which seam still needs more grounding?',
+      answer: 'The replay handoff.',
+    });
+    advanceHead(db, project.id, priorTurn.id);
+
+    const followUpQuestion: StructuredQuestion = {
+      question: 'What about the replay handoff is still unclear?',
+      why: 'Turns the new context into one follow-up grounding move.',
+      impact: 'medium',
+      options: [],
+    };
+
+    mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
+      makePrefaceInterviewer(
+        dbArg as DB,
+        (turn as { id: number }).id,
+        {
+          observation: 'The replay path already persists turn-owned activity summaries.',
+          elaboration: 'This later grounding pass narrows the next move to replay handoff details.',
+        },
+        followUpQuestion,
+      ),
+    );
+
+    await request(app)
+      .post(`/api/specifications/${project.id}/chat`)
+      .send({
+        messages: [
+          {
+            id: 'u-brownfield-ongoing',
+            role: 'user',
+            parts: [{ type: 'text', text: 'The replay handoff still feels risky.' }],
+          },
+        ],
+      })
+      .expect(200);
+
+    expect(mockStreamInterviewer).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.anything(),
+      expect.arrayContaining([expect.objectContaining({ id: priorTurn.id })]),
+      'The replay handoff still feels risky.',
+      'grounding',
+      { mode: 'brownfield', cwd: process.cwd() },
+    );
+
+    const activePath = getActivePath(db, project.id);
+    expect(activePath).toHaveLength(2);
+
+    const followUpTurn = activePath[1]!;
+    expect(followUpTurn.question).toBe('What about the replay handoff is still unclear?');
+    expect(followUpTurn.why).toBe('Turns the new context into one follow-up grounding move.');
+    expect(followUpTurn.impact).toBe('medium');
+    expect(getOptionsForTurn(db, followUpTurn.id)).toEqual([]);
+
+    const assistantParts = JSON.parse(followUpTurn.assistant_parts ?? '[]');
+    expect(assistantParts).toEqual([
+      {
+        type: 'data-preface',
+        data: {
+          observation: 'The replay path already persists turn-owned activity summaries.',
+          elaboration: 'This later grounding pass narrows the next move to replay handoff details.',
+        },
+      },
+    ]);
     expect(assistantParts).not.toEqual(
       expect.arrayContaining([expect.objectContaining({ type: 'tool-present_preface' })]),
     );

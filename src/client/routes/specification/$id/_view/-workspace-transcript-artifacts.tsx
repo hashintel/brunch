@@ -268,6 +268,7 @@ function renderWorkspaceInteractiveArtifact({
               why={artifact.artifact.turn.why}
               impact={artifact.artifact.turn.impact}
               options={artifact.artifact.turn.options ?? []}
+              phase={artifact.artifact.turn.phase}
               onSubmitResponse={artifact.artifact.submitTurnResponse}
               persistedSelectedPositions={getPersistedSelectedPositions(artifact.artifact.turn)}
               persistedFreeText={getPersistedTurnResponse(artifact.artifact.turn)?.freeText?.trim() ?? ''}
@@ -300,6 +301,7 @@ function renderWorkspaceInteractiveArtifact({
             why={artifact.artifact.turn.why}
             impact={artifact.artifact.turn.impact}
             options={artifact.artifact.turn.options ?? []}
+            phase={artifact.artifact.turn.phase}
             onSubmitResponse={artifact.artifact.submitTurnResponse}
             persistedSelectedPositions={getPersistedSelectedPositions(artifact.artifact.turn)}
             persistedFreeText={getPersistedTurnResponse(artifact.artifact.turn)?.freeText?.trim() ?? ''}
@@ -346,6 +348,7 @@ function renderWorkspaceInteractiveArtifact({
               why={artifact.artifact.pendingQuestion.why}
               impact={artifact.artifact.pendingQuestion.impact}
               options={artifact.artifact.pendingQuestion.options}
+              phase={artifact.phase}
               persistedSelectedPositions={[]}
               persistedFreeText=""
               hasPersistedResponse={false}
@@ -406,8 +409,9 @@ function renderWorkspaceInteractiveArtifact({
           key="generating-turn-placeholder"
           liveActivity={artifact.artifact.liveActivity}
           liveReasoningText={artifact.artifact.liveReasoningText}
+          liveToolItems={artifact.artifact.liveToolItems}
+          liveToolsRunning={artifact.artifact.liveToolsRunning}
           pendingPreface={artifact.artifact.pendingPreface}
-          latestToolDetail={artifact.artifact.latestToolDetail}
         />
       );
   }

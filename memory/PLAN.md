@@ -4,77 +4,64 @@
 
 # Plan
 
-The live frontier is now **Track A — Interaction model**, centered on the first brownfield workspace-analysis grounding brief now that review revision card contract consistency has landed. The runtime seam no longer blocks grounding/design successor interactivity on observer capture, and regenerated review cards now hold a stable source-owned contract, so the next planning pressure shifts back to proving turn-internal grounding cards against real brownfield repos while workflow-ownership extraction stays queued behind that interaction seam.
+The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, and observer knowledge extraction all ship as working product. The live frontier shifts to **infrastructure** — workflow ownership extraction and continuous workspace — which enable the next wave of user-facing capabilities (revisit/cascade, trigger-popover composer, web tools). Manual proving of recently landed interaction-model changes (preface cards in non-grounding phases, format autonomy quality, observer coherence) happens continuously alongside infrastructure work.
 
 ## Active
 
-### Track A — Interaction model
+### Track B — Infrastructure
 
-1. **Brownfield workspace-analysis grounding brief** — first analysis-first grounding path using turn-internal grounding cards.
-   - Why now / unlocks: with review revision contract drift retired, this can now prove the turn-internal grounding-card seam against real brownfield repos without reopening the core lifecycle question.
-   - Traceability: D32, D83, D99, D117, D120; A47, A56; I101.
-   - Sub-slices:
-     - ~~**a. Preface skeleton + pending preface threading**~~ Done.
-     - ~~**b. Progressive tool activity indicator**~~ Done.
+1. **Workflow ownership extraction** — extract the workflow projector/read path and transition/orchestration write path behind explicit runtime-owned seams.
+   - Why now / unlocks: the runtime proving slice landed deferred observer backlog without a second durable workflow model. This cleanup separates transport, durable snapshot assembly, workflow projection, and workflow transition logic so the continuous workspace can adopt one chat runtime cleanly.
+   - Traceability: D110, D112, D113, D123; A57; I24, I72, I104, I105.
 
 ## Next
 
-### Track A — Interaction model
-
-1. **Reusable interviewer-invoked context gathering** — generalize context gathering beyond opening grounding.
-   - Why now / unlocks: broadens grounding capability without inventing a second artifact model. Best resumed after the brownfield grounding-brief slice proves the current interaction seam on real repositories.
-   - Traceability: D99, D30, D32, D83, D117; I101, I104.
-
-### Track B — Runtime / workflow ownership
-
-3. **Workflow ownership extraction** — extract the workflow projector/read path and transition/orchestration write path behind explicit runtime-owned seams now that the D113 lifecycle contract has a concrete proving slice.
-   - Why now / unlocks: the runtime proving slice landed the deferred observer backlog seam without introducing a second durable workflow model. This cleanup can now separate transport, durable snapshot assembly, workflow projection, and workflow transition logic without guessing ahead.
-   - Traceability: D110, D112, D113, D123; I24, I72, I104, I105.
-
-4. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with phase section navigation.
-   - Why now / unlocks: still depends on workflow ownership extraction. Once read/write workflow ownership is explicit, a continuous workspace can adopt one chat runtime and section-addressable focus without adding new lifecycle ambiguity.
-   - Traceability: A58; D86, D87, D103, D107, D110, D113, D114; I24, I102.
+2. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with phase section navigation, one chat runtime per specification, scroll-spy phase focus.
+   - Why now / unlocks: depends on workflow ownership extraction. Once read/write workflow ownership is explicit, a continuous workspace can adopt one chat runtime and section-addressable focus without adding new lifecycle ambiguity.
+   - Traceability: A58; D86, D87, D110, D113, D114; I24, I102.
+   - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`
 
 ## Horizon
 
-### Engagement / polish
+### User-facing capabilities (need design work before scoping)
 
-- ~~Thinking token streaming in a lines-limited vertical scrolling sub-area for the interview view.~~ Largely landed (`ThinkingTokenScroll`); remaining gap (tool activity visibility during the post-thinking window) is covered by sub-slice (b) in the active frontier.
+- **Revisit / edit mode + cascade preview** — edit knowledge items, see downstream effects, resolve through secondary thread. Has a design doc (`docs/design/REVISIT_MODULE.md`) but needs design refinement before scoping.
+  - Traceability: R10, D50, D80; A48, A49.
 
-### Completion / reporting follow-ons
+- **Trigger-popover composer** — persistent workspace composer with `/` commands, `@` knowledge mentions, `#` phase refs. Depends on continuous workspace establishing a persistent composer as the canonical input seam.
+  - Depends on: continuous workspace.
+  - Traceability: A51, D89.
 
-- Dashboard / result summaries and completeness metrics.
+- **Web research as a context-gathering capability** — web search and page-fetch tools as interviewer-invoked context gathering, surfaced as preface cards. The tool gate and preface lifecycle are ready; this adds new tool implementations.
+  - Traceability: D99.
 
-### Revisit / cascade
+- **Dashboard result summaries and completeness metrics** — progress visibility across specifications.
 
-- Edit mode + cascade preview.
-- Cascade execution + secondary thread lifecycle.
+### Infrastructure / tooling
 
-### Infrastructure / tooling / extensions
-
-- Typed fixture-builder convergence for happy-path tests — unify happy-path review/interview test fixtures behind the same typed builders used by seed/walkthrough generation, while keeping raw inline literals only for negative/schema-invalid cases.
-- Drizzle Kit audit remediation.
-- Git-friendly file-based persistence representation for diffable specs.
 - Headless interview driver for scripted end-to-end probes.
 - MCP server adapter for core operations.
+- Git-friendly file-based persistence representation for diffable specs.
+- Typed fixture-builder convergence for happy-path tests.
 
 ## Recently Completed
 
-- [2026-04-22] Review revision card contract consistency retired — Done: acceptance now carries predecessor metadata across sparse regenerated review sets, regeneration context/prompt sources preserve reference codes + rationale + grounding refs + explicit `Added in revision` / `Revised` semantics, and criteria-phase active/replayed/pending review-card routes plus source-owned examples now prove the same contract as requirements. Verified: `npm run verify`. Watch: the next honest follow-on is deciding whether projector-side normalization/fallback can now be reduced without regressing transcript trust.
-- [2026-04-22] Specification runtime state-machine proving retired — Done: decoupled grounding/design structured-response observer capture from interviewer successor readiness using a specification-scoped lifecycle backlog plus turn-owned `/api/specifications/:id/turns/:turnId/observer-capture`, preserved turn-owned capture status / stale-turn safety, and proved reload/reseed behavior without introducing a second durable workflow model. Verified: `npm run verify`. Watch: server dedupe is process-local and deferred capture is still scoped to grounding/design structured responses.
-- [2026-04-22] Query ownership remediation retired — Done: accepted the automated route/query oracles plus manual outer-loop walkthrough validation across `brownfield-grounding-replay`, `issue-tracker-requirements-ready`, `issue-tracker-criteria-ready`, and `issue-tracker-all-phases-closed`, then retired `Active → Track A — Query ownership → Query ownership remediation` as complete. Watch: the same walkthrough surfaced a new lifecycle/runtime concern around observer backlog independence and revision-card contract drift, which now anchors the next planning frontier.
-- [2026-04-22] Transcript/entity boundary repair — Done: moved the entities subscription out of `src/client/routes/specification/$id/_view/route.tsx`'s transcript-owning `ViewLayout` into entity-owned child surfaces only, and strengthened the mounted-route router oracle to prove entities invalidation refetches only `/entities` without remounting or rerendering the interview route. Verified: `npm run verify`.
+- [2026-04-23] Phase- and mode-agnostic context gathering — `present_preface` + exploration tools available in all phases when `cwd` is present; "grounding card" terminology replaced with "preface card". Verified: `npm run verify`.
+- [2026-04-23] Interviewer-autonomous question format with phase-aware gating — D115 revised. Verified: `npm run verify`.
+- [2026-04-23] SPEC.md pruning — retired 8 embedded assumptions and 33 embedded decisions from the live register, keeping only items that guard active seams, shape forward work, or constrain unbuilt capabilities.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
 ## Dependencies
 
 ```text
-TRACK A — Interaction model
-brownfield-workspace-analysis-grounding-brief  (active)
-  └──→ reusable-context-gathering
+TRACK B — Infrastructure
+workflow-ownership-extraction  (active)
+  └──→ continuous-workspace  (next)
+        └──→ trigger-popover-composer  (horizon)
 
-TRACK B — Runtime / workflow ownership
-workflow-ownership-extraction
-  └──→ continuous-workspace-phase-addressable-interview-surface
+UNBLOCKED HORIZON
+revisit / edit-mode  (needs design)
+web-research tools  (gate ready, needs tool impl)
+dashboard metrics
 ```

@@ -1,3 +1,5 @@
+import os from 'node:os';
+
 import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessages } from 'ai';
 import express from 'express';
 import type { Express, Request, RequestHandler, Response } from 'express';
@@ -83,6 +85,7 @@ import {
   getPhaseIntentRuntimeAvailabilityError,
   submitPhaseIntentWithRuntimeCompatibility,
 } from './phase-intent-runtime.js';
+import { createCoreTools } from './tools/index.js';
 import { materializeTurnArtifacts } from './turn-artifacts.js';
 
 export interface AppOptions {
@@ -259,7 +262,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
   // App config (cwd for display in AppLayout)
   app.get('/api/config', (_req: Request, res: Response) => {
-    res.json({ cwd: projectCwd });
+    res.json({ cwd: projectCwd, homedir: os.homedir() });
   });
 
   // List all projects
@@ -513,7 +516,15 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       messages = await validateUIMessages<BrunchUIMessage>({
         messages: req.body.messages ?? [],
         dataSchemas: brunchDataPartSchemas,
-        tools: brunchValidationTools,
+        // The client may echo earlier assistant history that still contains dynamic
+        // workspace-tool parts from a live stream (for example `list_directory`).
+        // Validate against the full server tool registry so follow-up user turns do
+        // not fail before route invalidation collapses those parts into persisted
+        // activity summaries.
+        tools: {
+          ...createCoreTools(projectCwd),
+          ...brunchValidationTools,
+        },
       });
     } catch (error) {
       const message = error instanceof Error ? error.message : 'Invalid chat payload';

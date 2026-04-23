@@ -65,7 +65,7 @@ describe('buildInterviewerContext', () => {
     expect(result).toContain('[selected]');
   });
 
-  it('replays grounding cards as provisional history instead of ordinary questions', () => {
+  it('replays preface cards as provisional history instead of ordinary questions', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
@@ -99,7 +99,7 @@ describe('buildInterviewerContext', () => {
     ];
 
     const result = buildInterviewerContext(turns, 'next');
-    expect(result).toContain('Grounding preface: The repo already uses SQLite-backed local persistence.');
+    expect(result).toContain('Preface: The repo already uses SQLite-backed local persistence.');
     expect(result).toContain(
       'Elaboration: This is provisional context before the next substantive question.',
     );
@@ -215,7 +215,7 @@ describe('buildInterviewerContext', () => {
     expect(result).not.toContain('Answer: Web, Desktop — Covers both launch paths');
   });
 
-  it('renders both grounding card and question for stacked turns in history', () => {
+  it('renders both preface and question for stacked turns in history', () => {
     const turns: TurnWithOptions[] = [
       {
         id: 1,
@@ -248,7 +248,7 @@ describe('buildInterviewerContext', () => {
     ];
 
     const result = buildInterviewerContext(turns, 'next');
-    expect(result).toContain('Grounding preface: The repo uses a React frontend with SQLite storage.');
+    expect(result).toContain('Preface: The repo uses a React frontend with SQLite storage.');
     expect(result).toContain('Elaboration: Provisional context from workspace analysis.');
     expect(result).toContain('Question: What is the primary user persona?');
     expect(result).toContain('Why it matters: Understanding users grounds the design.');
@@ -612,7 +612,7 @@ describe('observer-context-projection', () => {
     expect(result).toContain('Grounding: The repo has a dedicated auth module and callback route.');
   });
 
-  it('includes grounding card content in observer context for stacked turns', () => {
+  it('includes preface content in observer context for stacked turns', () => {
     const turn: TurnWithOptions = {
       id: 5,
       specification_id: 1,
@@ -658,7 +658,7 @@ describe('observer-context-projection', () => {
       },
     });
 
-    expect(result).toContain('Grounding preface: The repo uses a React frontend with SQLite storage.');
+    expect(result).toContain('Preface: The repo uses a React frontend with SQLite storage.');
     expect(result).toContain('Preface elaboration: Provisional context from workspace analysis.');
     expect(result).toContain('Question: What is the primary user persona?');
     expect(result).toContain('Free-text response: Developers building AI tools');

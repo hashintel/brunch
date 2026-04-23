@@ -87,6 +87,7 @@ export type WorkspaceStreamArtifact =
       readonly kind: 'pending-question';
       readonly artifact: Extract<InterviewControllerBottomArtifactState, { kind: 'pending-question' }>;
       readonly questionCode: string;
+      readonly phase: WorkflowPhase;
     }
   | {
       readonly kind: 'kickoff';
@@ -152,7 +153,10 @@ function projectPhaseSectionHeader({
   phase: WorkflowPhase;
   phaseState: SpecificationState['workflow']['phases'][SpecificationTurn['phase']];
 }): WorkspaceStreamArtifact[] {
-  if (phaseState.status === 'unstarted') {
+  const usesStructuredReviewBanner =
+    phaseState.status === 'in_progress' && (phase === 'requirements' || phase === 'criteria');
+
+  if (phaseState.status === 'unstarted' || usesStructuredReviewBanner) {
     return [];
   }
 
@@ -306,6 +310,7 @@ function projectHistoryArtifacts({
 function projectBottomArtifact(
   bottomArtifact: InterviewControllerBottomArtifactState | null,
   answeredTurnCount: number,
+  phase: WorkflowPhase,
 ): WorkspaceStreamArtifact | null {
   const questionCode = `Q${answeredTurnCount + 1}`;
 
@@ -331,6 +336,7 @@ function projectBottomArtifact(
         kind: 'pending-question',
         artifact: bottomArtifact,
         questionCode,
+        phase,
       };
     case 'kickoff':
       return {
@@ -422,7 +428,7 @@ export function specificationWorkspaceStream({
   const answeredTurnCount = historyArtifacts.filter(
     (artifact) => artifact.kind === 'answered-turn' || artifact.kind === 'prefaced-question',
   ).length;
-  const projectedBottomArtifact = projectBottomArtifact(bottomArtifact, answeredTurnCount);
+  const projectedBottomArtifact = projectBottomArtifact(bottomArtifact, answeredTurnCount, phase);
   const controlArtifacts = projectControlMarkers(controlMarkers);
   const phaseSectionHeaders = projectPhaseSectionHeader({ phase, phaseState });
   const phaseMarkers = projectPhaseMarkers({ phase, phaseState });

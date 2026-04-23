@@ -166,7 +166,7 @@ describe('turn-artifacts', () => {
       },
     });
     if (!preface) {
-      throw new Error('Expected grounding card metadata');
+      throw new Error('Expected preface metadata');
     }
 
     const artifacts = materializeTurnArtifacts({

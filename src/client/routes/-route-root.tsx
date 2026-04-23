@@ -7,7 +7,7 @@ function BrunchBrand() {
   return (
     <>
       <img src={brunchLogo} alt="Brunch" className="h-7 w-auto shrink-0" />
-      <span className="text-base font-medium tracking-[-0.02em] text-foreground">brunch</span>
+      <span className="text-lg font-medium tracking-[-0.02em] text-foreground">brunch</span>
     </>
   );
 }
@@ -18,8 +18,7 @@ export function RouteRoot({ cwd }: { cwd: string }) {
       <header className="flex h-14 shrink-0 items-center gap-3 border-b border-rule bg-card px-3">
         <Link to="/" className="flex min-w-0 items-center gap-2 text-foreground">
           <BrunchBrand />
-          {/* Version indicator hidden (product decision) — kept in code for future use */}
-          {/* <span className="shrink-0 font-mono text-sm text-sub">v{__APP_VERSION__}</span> */}
+          <span className="shrink-0 font-mono text-sm text-sub">v{__APP_VERSION__}</span>
         </Link>
         <Separator orientation="vertical" className="h-4 !self-center" />
         <span className="truncate text-base text-sub">AI-guided spec elicitation</span>
