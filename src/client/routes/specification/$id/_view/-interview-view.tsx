@@ -133,7 +133,7 @@ export function InterviewView({ phase }: { phase: WorkflowPhase }) {
               Phase {phaseNumber}/{phaseTotal} – {getWorkflowPhaseLabel(phase)}
             </span>
             <div className="flex items-center gap-2.5">
-              <span className="text-base">
+              <span className="text-base leading-snug">
                 <span className="text-sub">Status: </span>
                 <span
                   className={cn(

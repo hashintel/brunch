@@ -110,7 +110,7 @@ describe('PhaseNavigationSidebar', () => {
     const nav = screen.getByRole('navigation', { name: 'Phase navigation' });
     expect(nav).toBeTruthy();
 
-    expect(screen.getByRole('link', { name: /Back to Workspace/i })).toBeTruthy();
+    expect(screen.getByRole('link', { name: /Back/i })).toBeTruthy();
     expect(screen.getByText('Specification Alpha')).toBeTruthy();
 
     for (const { label } of workflowPhaseDescriptors) {

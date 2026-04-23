@@ -1,3 +1,5 @@
+import os from 'node:os';
+
 import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessages } from 'ai';
 import express from 'express';
 import type { Express, Request, RequestHandler, Response } from 'express';
@@ -260,7 +262,7 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
 
   // App config (cwd for display in AppLayout)
   app.get('/api/config', (_req: Request, res: Response) => {
-    res.json({ cwd: projectCwd });
+    res.json({ cwd: projectCwd, homedir: os.homedir() });
   });
 
   // List all projects

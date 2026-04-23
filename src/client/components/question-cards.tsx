@@ -140,9 +140,8 @@ export function AnsweredQuestionCard({
         <span className={cn('font-medium', impactColor[impact])}>
           {impact[0]!.toUpperCase() + impact.slice(1)} Impact
         </span>
-        <span className="-m-0.5 flex h-5 shrink-0 items-center justify-center gap-1 rounded-full bg-[rgba(22,163,106,0.1)] px-2 text-[11px] text-[#16a34a]">
-          Answered
-          <Check className="size-2.5" />
+        <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-[rgba(22,163,106,0.15)]">
+          <Check className="size-3 text-[#16a34a]" />
         </span>
       </div>
 
@@ -159,7 +158,7 @@ export function AnsweredQuestionCard({
         {isFreeTextOnly ? (
           <div className="min-w-0 grow">
             <span className="block truncate text-sub">
-              Response: <span className="text-sub italic">"{responseContext ?? '—'}"</span>
+              Response: <span className="text-hint">{responseContext ?? '—'}</span>
             </span>
           </div>
         ) : (
@@ -171,7 +170,7 @@ export function AnsweredQuestionCard({
                 <span className="shrink-0 text-rule">|</span>
                 <div className="min-w-0 grow">
                   <span className="block truncate text-sub">
-                    Context: <span className="text-sub italic">"{responseContext}"</span>
+                    Context: <span className="text-hint">{responseContext}</span>
                   </span>
                 </div>
               </>
@@ -525,6 +524,12 @@ export function ActiveQuestionCard({
           aria-label={isFreeTextOnly ? 'Your response' : 'Additional response context'}
           value={freeText}
           onChange={(e) => setFreeText(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' && (e.metaKey || e.ctrlKey) && canSubmit && !isReadOnly) {
+              e.preventDefault();
+              void onSubmitResponse?.(selectedPositions, freeText.trim() || undefined);
+            }
+          }}
           disabled={isReadOnly}
           placeholder={
             isFreeTextOnly
