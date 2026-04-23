@@ -24,7 +24,6 @@ import {
 import { getPhaseIntentDisplayText } from '@/shared/phase-intents.js';
 import {
   getTurnPreface,
-  getPersistedTurnResponse,
   toStructuralArtifactTurnIdSet,
   turnNeedsObserverCapture,
 } from '@/shared/specification-state.js';
@@ -35,15 +34,13 @@ import {
   type SpecificationState,
 } from '@/shared/specification.js';
 
+import { prepareChatRouteTransition } from './chat-route-transition.js';
 import {
   createNewSpecification,
   extractPrompt,
   finalizeTurn,
   getSpecificationState,
   listSpecifications,
-  prepareSuccessorTurn,
-  prepareTurn,
-  resolveTurn,
 } from './core.js';
 import {
   confirmPhaseOutcome,
@@ -51,13 +48,11 @@ import {
   createDb,
   findPhaseOutcomeForTurn,
   findProposedPhaseOutcomeByTurn,
-  getCurrentPhase,
   getCurrentWorkflowState,
-  getTurn,
-  getOptionsForTurn,
   updateTurn,
   getEntitiesForSpecificationByMode,
-  supersedePhaseOutcome,
+  getTurn,
+  getOptionsForTurn,
   type DB,
   type EntityProjectionMode,
 } from './db.js';
@@ -65,10 +60,7 @@ import { isExportReady, renderExportMarkdown } from './export.js';
 import { persistFallbackQuestionText, streamInterviewer } from './interview.js';
 import { runObserver } from './observer.js';
 import { safeDeserializeAssistantParts, serializeParts } from './parts.js';
-import {
-  getPhaseIntentRuntimeAvailabilityError,
-  submitPhaseIntentWithRuntimeCompatibility,
-} from './phase-intent-runtime.js';
+import { submitPhaseIntentWithRuntimeCompatibility } from './phase-intent-runtime.js';
 import { createCoreTools } from './tools/index.js';
 import { materializeTurnArtifacts } from './turn-artifacts.js';
 import { submitTurnResponseTransition } from './turn-response-transition.js';
@@ -506,119 +498,44 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       return;
     }
 
-    let prepared: ReturnType<typeof prepareTurn> | ReturnType<typeof prepareSuccessorTurn> | null = null;
-    let confirmedClosureTurnId: number | null = null;
-    let observedTurnId: number | null = null;
-    let skipObserverForCurrentChatTurn = false;
-    let deferObserverCaptureToRuntime = false;
     let interviewerElapsedMs: number | undefined;
-    try {
-      if (confirmationTarget) {
-        const proposalTurn = getTurn(db, confirmationTarget.proposal_turn_id);
-        if (!proposalTurn || proposalTurn.specification_id !== id) {
-          res.status(404).json({ error: 'Phase closure proposal not found' });
-          return;
-        }
-        resolveTurn(db, proposalTurn.id, promptText, persistedUserParts);
-        confirmedClosureTurnId = proposalTurn.id;
-      } else if (forceClosePhase) {
-        prepared = prepareTurn(db, id, promptText, persistedUserParts, forceClosePhase);
-      } else if (phaseIntentPart) {
-        const specificationState = getSpecificationState(db, id);
-        if (!specificationState) {
-          res.status(404).json({ error: 'Project not found' });
-          return;
-        }
-
-        const availabilityError = getPhaseIntentRuntimeAvailabilityError(
-          phaseIntentPart.data,
-          specificationState.landing,
-        );
-        if (availabilityError) {
-          res.status(availabilityError.status).json({ error: availabilityError.error });
-          return;
-        }
-
-        prepared = prepareSuccessorTurn(
-          db,
-          id,
-          phaseIntentPart.data.phase,
-          getSpecificationRecord(specificationState).active_turn_id ?? null,
-        );
-      } else {
-        const specificationState = getSpecificationState(db, id);
-        if (!specificationState) {
-          res.status(404).json({ error: 'Project not found' });
-          return;
-        }
-
-        const currentPhase = getCurrentPhase(db, id);
-        const activeTurnId = getSpecificationRecord(specificationState).active_turn_id;
-        const activeTurn = activeTurnId ? getTurn(db, activeTurnId) : undefined;
-
-        const activeOutcome = activeTurn ? findPhaseOutcomeForTurn(db, id, activeTurn.id) : undefined;
-        if (activeOutcome?.status === 'proposed') {
-          supersedePhaseOutcome(db, activeOutcome.id);
-        }
-
-        if (activeTurn) {
-          skipObserverForCurrentChatTurn =
-            Boolean(getTurnPreface(activeTurn)) && !activeTurn.question?.trim();
-          deferObserverCaptureToRuntime =
-            getPersistedTurnResponse(activeTurn) !== null &&
-            (activeTurn.phase === 'grounding' || activeTurn.phase === 'design');
-          const successorPhase = activeTurn.answer === null ? activeTurn.phase : currentPhase;
-          if (activeTurn.answer === null) {
-            resolveTurn(db, activeTurn.id, promptText, persistedUserParts);
-          }
-          observedTurnId = activeTurn.id;
-          finalizeTurn(db, id, activeTurn.id);
-          prepared = prepareSuccessorTurn(db, id, successorPhase, activeTurn.id);
-        } else {
-          const answeredTurn = prepareTurn(db, id, promptText, persistedUserParts, currentPhase);
-          finalizeTurn(db, id, answeredTurn.turn.id);
-          observedTurnId = answeredTurn.turn.id;
-          prepared = prepareSuccessorTurn(db, id, currentPhase, answeredTurn.turn.id);
-        }
-      }
-    } catch (error) {
-      const message = error instanceof Error ? error.message : 'Unknown error';
-      res.status(404).json({ error: message });
+    const transition = prepareChatRouteTransition({
+      db,
+      specificationId: id,
+      promptText,
+      persistedUserParts,
+      confirmationTarget,
+      forceClosePhase,
+      phaseIntentRequest: phaseIntentPart?.data,
+    });
+    if (!transition.ok) {
+      res.status(transition.status).json({ error: transition.error });
       return;
     }
 
     const stream = createUIMessageStream<BrunchUIMessage>({
       async execute({ writer }) {
-        if (confirmationTarget) {
-          if (confirmedClosureTurnId === null) {
-            throw new Error('Expected confirmed closure turn');
-          }
-          confirmPhaseOutcome(db, confirmationTarget.id, confirmedClosureTurnId);
-          finalizeTurn(db, id, confirmedClosureTurnId);
+        if (transition.kind === 'confirm-phase-closure') {
+          confirmPhaseOutcome(db, transition.confirmationTargetId, transition.confirmedClosureTurnId);
+          finalizeTurn(db, id, transition.confirmedClosureTurnId);
           writer.write({ type: 'finish', finishReason: 'stop' });
           return;
         }
 
-        if (forceClosePhase) {
-          if (!prepared) {
-            throw new Error('Expected prepared force-close turn');
-          }
-
+        if (transition.kind === 'force-close') {
           createConfirmedPhaseOutcome(db, {
             projectId: id,
-            phase: forceClosePhase,
-            proposal_turn_id: prepared.turn.id,
-            confirmation_turn_id: prepared.turn.id,
-            summary: getForcedPhaseClosureSummary(forceClosePhase),
+            phase: forceClosePhase!,
+            proposal_turn_id: transition.prepared.turn.id,
+            confirmation_turn_id: transition.prepared.turn.id,
+            summary: getForcedPhaseClosureSummary(forceClosePhase!),
           });
-          finalizeTurn(db, id, prepared.turn.id);
+          finalizeTurn(db, id, transition.prepared.turn.id);
           writer.write({ type: 'finish', finishReason: 'stop' });
           return;
         }
 
-        if (!prepared) {
-          throw new Error('Expected prepared interviewer turn');
-        }
+        const { prepared } = transition;
 
         const specification = prepared.specification;
         const modeOptions =
@@ -658,12 +575,12 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         }
 
         try {
-          const observedTurn = observedTurnId ? getTurn(db, observedTurnId) : undefined;
+          const observedTurn = transition.observedTurnId ? getTurn(db, transition.observedTurnId) : undefined;
           const shouldObserve =
             observedTurn &&
             observedTurn.answer !== null &&
-            !deferObserverCaptureToRuntime &&
-            !skipObserverForCurrentChatTurn &&
+            !transition.deferObserverCaptureToRuntime &&
+            !transition.skipObserverForCurrentChatTurn &&
             !(getTurnPreface(observedTurn) && !observedTurn.question?.trim()) &&
             !persistedUserParts.some((part) => part.type === 'data-confirmation') &&
             !safeDeserializeAssistantParts(observedTurn.assistant_parts).some(
@@ -693,9 +610,10 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
         writer.write({ type: 'finish', finishReason });
       },
       async onFinish({ responseMessage }) {
-        if (confirmationTarget || forceClosePhase || !prepared) {
+        if (transition.kind !== 'interviewer-turn') {
           return;
         }
+        const { prepared } = transition;
         const assistantText = extractTextFromMessage(responseMessage);
         persistFallbackQuestionText(db, prepared.turn.id, assistantText);
         const persistedAssistantParts = materializeTurnArtifacts({
