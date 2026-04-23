@@ -4123,6 +4123,52 @@ describe('InterviewView', () => {
     expect(screen.getAllByText('Tools: lookup workspace context')).toHaveLength(1);
   });
 
+  it('renders live workspace-tool activity during the submitted pre-stream generating window', async () => {
+    setLoaderData(
+      createWorkspaceLoaderData({
+        turns: [],
+        workflow: createWorkflowState({
+          grounding: {
+            status: 'in_progress',
+            closeability: false,
+            readiness: 'low',
+            closureBasis: null,
+            proposalPending: false,
+            turnId: null,
+            summary: null,
+          },
+        }),
+      }),
+    );
+    useChatImpl = createUseChatHarness('submitted');
+
+    renderWorkspace();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        {
+          id: 'assistant-generating',
+          role: 'assistant',
+          parts: [
+            {
+              type: 'dynamic-tool',
+              toolName: 'lookup_workspace_context',
+              toolCallId: 'tool-lookup',
+              state: 'output-available',
+              input: { path: 'src/server/app.ts' },
+              output: { ok: true },
+            },
+          ],
+        },
+      ]);
+    });
+
+    expect(await screen.findByTestId('generating-turn-placeholder')).toBeTruthy();
+    expect(screen.getAllByText('Thinking…')).toHaveLength(1);
+    expect(screen.getAllByText('Tools: lookup workspace context')).toHaveLength(1);
+    expect(screen.getByText('src/server/app.ts')).toBeTruthy();
+  });
+
   it('stages a preface skeleton during generation and swaps to the full prefaced question before route invalidation', async () => {
     setLoaderData(
       createWorkspaceLoaderData({

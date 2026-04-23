@@ -11,11 +11,11 @@ The live frontier is now **Track A — Interaction model**, centered on proving 
 ### Track A — Interaction model
 
 1. **Brownfield workspace-analysis grounding brief parity / proving** — close the gap between synthetic coverage and real brownfield runtime behavior for turn-internal grounding cards.
-   - Why now / unlocks: review revision contract drift is retired, but the brownfield brief seam is still not trustworthy enough to declare done while real runtime/manual runs fail to show the intended staging. Closing this gap unlocks the reusable context-gathering frontier on top of a proven interaction seam instead of a test-only one.
+   - Why now / unlocks: the staging/runtime parity fixes now cover both pending-preface and live tool-activity projection in automated runtime tests, but the brownfield brief seam still wants one honest built-app confirmation in `~/code/lunelson/cco` before this frontier can be retired as fully proven. Closing that last outer-loop check unlocks the reusable context-gathering frontier on top of a proven interaction seam instead of a test-only one.
    - Traceability: D32, D83, D99, D117, D120; A47, A56; I101.
    - Sub-slices:
      - ~~**a. Pending preface staging / skeleton parity**~~ Done — the generating placeholder now renders `PrefaceCardSkeleton` while preface input is pending, and the routed interview view test proves the later pending-question transition still renders the full prefaced question exactly once. Verified: `npm run verify`. Watch: confirm the same staging in the real brownfield run in `~/code/lunelson/cco`.
-     - **b. Progressive tool activity indicator parity** — synthetic `dynamic-tool` tests cover coarse tool labels/detail, but the built brownfield flow still failed to show live workspace-tool activity. Prove or fix the runtime path before retiring the slice.
+     - ~~**b. Progressive tool activity indicator parity**~~ Done — live activity projection now reads the latest non-persisted assistant message during both `submitted` and `streaming`, so brownfield workspace-tool calls surface in the generating/pending-question UI instead of waiting for post-stream hydration. Verified: `npm run verify`. Watch: confirm the same live tool indication in the real brownfield run in `~/code/lunelson/cco`.
 
 ## Next
 

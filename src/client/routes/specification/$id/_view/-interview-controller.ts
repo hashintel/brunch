@@ -128,6 +128,29 @@ export interface InterviewController {
 }
 
 const MAX_TOOL_DETAIL_LENGTH = 80;
+const HYDRATED_TURN_MESSAGE_ID_PATTERN = /^turn-\d+-/;
+
+function isLiveAssistantMessage(message: BrunchUIMessage): boolean {
+  return message.role === 'assistant' && !HYDRATED_TURN_MESSAGE_ID_PATTERN.test(message.id);
+}
+
+function getLatestLiveAssistantMessage(
+  messages: readonly BrunchUIMessage[],
+  status: ChatStatus,
+): BrunchUIMessage | undefined {
+  if (status !== 'submitted' && status !== 'streaming') {
+    return undefined;
+  }
+
+  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
+    const message = messages[messageIndex];
+    if (message && isLiveAssistantMessage(message)) {
+      return message;
+    }
+  }
+
+  return undefined;
+}
 
 function truncateToolDetail(value: string): string {
   const sanitized = value.replace(/[\n\r]+/g, ' ').trim();
@@ -153,30 +176,24 @@ function extractToolDetail(input: unknown): string | null {
 }
 
 function getLatestToolDetail(messages: readonly BrunchUIMessage[], status: ChatStatus): string | undefined {
-  if (status !== 'streaming') {
+  const liveAssistantMessage = getLatestLiveAssistantMessage(messages, status);
+  if (!liveAssistantMessage?.parts) {
     return undefined;
   }
 
-  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
-    const message = messages[messageIndex];
-    if (message?.role !== 'assistant' || !message.parts) {
+  for (let partIndex = liveAssistantMessage.parts.length - 1; partIndex >= 0; partIndex -= 1) {
+    const part = liveAssistantMessage.parts[partIndex];
+    if (part?.type !== 'dynamic-tool') {
       continue;
     }
 
-    for (let partIndex = (message.parts?.length ?? 0) - 1; partIndex >= 0; partIndex -= 1) {
-      const part = message.parts[partIndex];
-      if (part?.type !== 'dynamic-tool') {
-        continue;
-      }
+    if (part.state === 'input-streaming') {
+      continue;
+    }
 
-      if (part.state === 'input-streaming') {
-        continue;
-      }
-
-      const detail = extractToolDetail(part.input);
-      if (detail) {
-        return detail;
-      }
+    const detail = extractToolDetail(part.input);
+    if (detail) {
+      return detail;
     }
   }
 
@@ -187,51 +204,31 @@ function getLatestAssistantActivity(
   messages: readonly BrunchUIMessage[],
   status: ChatStatus,
 ): ActivitySummary | undefined {
-  if (status !== 'streaming') {
+  const liveAssistantMessage = getLatestLiveAssistantMessage(messages, status);
+  if (!liveAssistantMessage?.parts) {
     return undefined;
   }
 
-  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
-    const message = messages[messageIndex];
-    if (message?.role !== 'assistant' || !message.parts) {
-      continue;
-    }
-
-    const activitySummary = summarizeAssistantActivity(message.parts);
-    if (activitySummary) {
-      return activitySummary;
-    }
-  }
-
-  return undefined;
+  return summarizeAssistantActivity(liveAssistantMessage.parts) ?? undefined;
 }
 
 function getLatestReasoningText(
   messages: readonly BrunchUIMessage[],
   status: ChatStatus,
 ): string | undefined {
-  if (status !== 'streaming') {
+  const liveAssistantMessage = getLatestLiveAssistantMessage(messages, status);
+  if (!liveAssistantMessage?.parts) {
     return undefined;
   }
 
-  for (let messageIndex = messages.length - 1; messageIndex >= 0; messageIndex -= 1) {
-    const message = messages[messageIndex];
-    if (message?.role !== 'assistant' || !message.parts) {
-      continue;
-    }
-
-    const chunks: string[] = [];
-    for (const part of message.parts) {
-      if (part.type === 'reasoning') {
-        chunks.push(part.text);
-      }
-    }
-    if (chunks.length > 0) {
-      return chunks.join('');
+  const chunks: string[] = [];
+  for (const part of liveAssistantMessage.parts) {
+    if (part.type === 'reasoning') {
+      chunks.push(part.text);
     }
   }
 
-  return undefined;
+  return chunks.length > 0 ? chunks.join('') : undefined;
 }
 
 export function useInterviewController(phase: WorkflowPhase): InterviewController {

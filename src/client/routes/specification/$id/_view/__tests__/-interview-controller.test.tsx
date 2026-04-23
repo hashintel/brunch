@@ -991,6 +991,43 @@ describe('interview controller', () => {
     });
   });
 
+  it('threads live assistant activity onto the pending bottom artifact during the submitted pre-stream window', async () => {
+    currentSpecificationState = createSpecificationState({
+      assistantText: 'Earlier question?',
+      answer: 'Earlier answer',
+    });
+    useChatImpl = createUseChatHarness('submitted');
+
+    renderController();
+
+    await act(async () => {
+      useChatHarness.replaceMessages?.([
+        { id: 'turn-1-answer', role: 'user', parts: [{ type: 'text', text: 'Earlier answer' }] },
+        { id: 'turn-1-assistant', role: 'assistant', parts: [{ type: 'text', text: 'Earlier question?' }] },
+        createPendingQuestionMessage({
+          parts: [
+            {
+              type: 'dynamic-tool',
+              toolName: 'lookup_workspace_context',
+              toolCallId: 'tool-lookup',
+              state: 'output-available',
+              input: { path: 'src/server/app.ts' },
+              output: { ok: true },
+            },
+            ...createPendingQuestionMessage().parts!,
+          ],
+        }),
+      ]);
+    });
+
+    await waitFor(() => {
+      expect(screen.getByTestId('bottom-artifact-kind').textContent).toBe('pending-question');
+      expect(screen.getByTestId('bottom-artifact-live-activity').textContent).toBe(
+        JSON.stringify({ tools: ['lookup workspace context'] }),
+      );
+    });
+  });
+
   it('projects a pending-question turn card from the streamed ask_question part before route invalidation', async () => {
     currentSpecificationState = createSpecificationState({
       assistantText: 'Earlier question?',
