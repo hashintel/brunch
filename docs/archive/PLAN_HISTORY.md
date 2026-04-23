@@ -130,4 +130,13 @@ Archived out of `memory/PLAN.md` when the active frontier moved from the mostly-
 
 - 2026-04-22 — **Transcript/entity boundary repair** — moved the entities subscription out of `src/client/routes/specification/$id/_view/route.tsx`'s transcript-owning `ViewLayout` into entity-owned child surfaces only, and strengthened the mounted-route router oracle to prove entities invalidation refetches only `/entities` without remounting or rerendering the interview route. Verified: `npm run verify`.
 
+## 2026-04-23 Plan revision archive
+
+Archived when Track A (interaction model) completed and the frontier shifted to Track B (infrastructure). SPEC.md was pruned: 8 embedded assumptions and 33 embedded decisions retired from the live register.
+
+- 2026-04-23 — **Phase- and mode-agnostic context gathering** — `present_preface` + exploration tools available in all phases when `cwd` is present (not just brownfield grounding); lightweight context-gathering addendum appended to all phase prompts; "grounding card" terminology replaced with "preface card" in code, tests, and canonical docs.
+- 2026-04-23 — **Interviewer-autonomous question format with phase-aware gating** — revised D115 so the interviewer chooses whether to include options per-question; observer interprets selections as resonance in grounding, commitment in design; ActiveQuestionCard has phase-aware submit gate and "none of the above" copy.
+- 2026-04-23 — **Brownfield workspace-analysis grounding brief parity / proving retired** — real brownfield start confirmed the grounding brief, paired question, and live activity chrome read as one coherent turn lifecycle.
+- 2026-04-23 — **Transcript activity chrome and workspace polish** — task activity mirrors reasoning's auto-open/auto-collapse behavior, live tool activity surfaces richer target details during streaming, duplicate `src/components/ai-elements` tree removed.
+
 Use `memory/PLAN.md` for the live frontier only.
