@@ -30,6 +30,11 @@ The live frontier remains **Track A — Interaction model**, now centered on reu
 
 ### Engagement / polish
 
+- **Trigger-popover composer with symbol-activated auto-completion** — a persistent workspace composer textarea with character-triggered popover completions (e.g. `/` slash commands, `@` knowledge-item mentions, `#` phase/section references), built from existing `cmdk` + Radix primitives rather than importing `assistant-ui`. Feature watermark (from assistant-ui `ComposerTriggerPopover`): multiple coexisting trigger characters each with independent adapter/search, categorized + filterable item lists, directive-insert mode (leaves a chip/token in the input) vs action mode (executes and optionally strips the trigger text), keyboard navigation across categories and items, and composability with existing `PromptInput` / `InputGroup` primitives. The proving work is the generic trigger-popover mechanism and at least one concrete adapter (slash commands or knowledge mentions); additional adapters are incremental once the mechanism is proven.
+  - Why now / unlocks: becomes viable only after the continuous-workspace surface establishes a persistent composer as the canonical input seam. Once that lands, this enriches the composer into a power-user interaction surface without changing the underlying structured-response contract.
+  - Depends on: continuous-workspace-phase-addressable-interview-surface.
+  - Traceability: A51, D89; extends the PromptInput primitive family in `src/client/components/ai-elements/`.
+
 ### Completion / reporting follow-ons
 
 - Dashboard / result summaries and completeness metrics.
@@ -64,4 +69,5 @@ reusable-context-gathering  (active)
 TRACK B — Runtime / workflow ownership
 workflow-ownership-extraction
   └──→ continuous-workspace-phase-addressable-interview-surface
+        └──→ trigger-popover-composer  (horizon / engagement)
 ```

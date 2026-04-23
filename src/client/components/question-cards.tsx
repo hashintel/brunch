@@ -1,7 +1,7 @@
 import { Check, Loader2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-import type { Impact, ReviewAction } from '@/shared/api-types.js';
+import type { Impact, ReviewAction, WorkflowPhase } from '@/shared/api-types.js';
 import type { ActivitySummary, PrefaceData } from '@/shared/chat.js';
 import type { ReviewSetChangeSummary } from '@/shared/review-diffing.js';
 import { getPersistedReviewAction, getPersistedTurnResponse } from '@/shared/specification-state.js';
@@ -381,6 +381,7 @@ export function ActiveQuestionCard({
   why,
   impact,
   options,
+  phase,
   onSubmitResponse,
   onBack,
   onSkip,
@@ -396,6 +397,7 @@ export function ActiveQuestionCard({
   why: string | null;
   impact: SpecificationTurn['impact'];
   options: readonly TurnCardOption[];
+  phase?: WorkflowPhase;
   onSubmitResponse?: (positions: number[], freeText?: string) => void | Promise<void>;
   onBack?: () => void;
   onSkip?: () => void;
@@ -409,9 +411,14 @@ export function ActiveQuestionCard({
   const [freeText, setFreeText] = useState(persistedFreeText);
   const [noneOfTheAbove, setNoneOfTheAbove] = useState(false);
   const isFreeTextOnly = options.length === 0;
+  const isGrounding = phase === 'grounding';
   const hasSelection = selectedPositions.length > 0;
   const hasFreeText = freeText.trim().length > 0;
-  const canSubmit = isFreeTextOnly ? hasFreeText : hasSelection || (noneOfTheAbove && hasFreeText);
+  const canSubmit = isFreeTextOnly
+    ? hasFreeText
+    : isGrounding
+      ? hasFreeText
+      : hasSelection || (noneOfTheAbove && hasFreeText);
   const isSubmitted = state === 'submitted';
   const isReadOnly = disabled || hasPersistedResponse || isSubmitted;
   const displayImpact = impact ?? 'low';
@@ -499,7 +506,7 @@ export function ActiveQuestionCard({
                 className="mt-px shrink-0 data-checked:border-[#1060d6] data-checked:bg-[#2070e6]"
               />
               <span className={cn('text-sub', noneOfTheAbove && 'text-ink')}>
-                None of the above / I'm not sure
+                {isGrounding ? 'Something else (specify below)' : "None of the above / I'm not sure"}
               </span>
             </label>
           </>
@@ -517,7 +524,9 @@ export function ActiveQuestionCard({
 
       <div className="-mx-4 -mb-4 border-t border-rule bg-white px-4 pt-3">
         <label className="text-xs text-sub" htmlFor={`turn-response-${id}`}>
-          {isFreeTextOnly ? 'Your response' : 'Please provide additional context for your answer.'}
+          {isFreeTextOnly || isGrounding
+            ? 'Your response'
+            : 'Please provide additional context for your answer.'}
         </label>
         <Textarea
           id={`turn-response-${id}`}

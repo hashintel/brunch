@@ -632,6 +632,7 @@ describe('specificationWorkspaceStream', () => {
       elaboration: 'Provisional context from workspace analysis.',
     });
     expect(pendingArtifact.questionCode).toBe('Q1');
+    expect(pendingArtifact.phase).toBe('grounding');
   });
 
   it('keeps closed-phase history ordering stable when handoff and completion artifacts join the ordered stream', () => {

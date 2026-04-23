@@ -139,6 +139,7 @@ export function GroundingStory() {
               why="Understanding the core motivation helps scope all downstream decisions — architecture, constraints, and success criteria flow from this answer."
               impact="high"
               options={groundingOptions}
+              phase="grounding"
               persistedSelectedPositions={[]}
               persistedFreeText=""
               hasPersistedResponse={false}

@@ -154,6 +154,7 @@ export function ElicitationStory() {
               why="Conflict resolution strategy affects the entire requirements graph. Choosing the wrong approach early creates cascading rework later."
               impact="medium"
               options={elicitationOptions}
+              phase="design"
               persistedSelectedPositions={[]}
               persistedFreeText=""
               hasPersistedResponse={false}

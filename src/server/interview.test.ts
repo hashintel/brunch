@@ -116,13 +116,15 @@ describe('getSystemPrompt', () => {
     expect(getSystemPrompt('grounding')).not.toBe(getSystemPrompt('design'));
   });
 
-  it('keeps the grounding prompt hint-guided with topic priorities and free-text format', () => {
+  it('keeps the grounding prompt hint-guided with topic priorities and tendency guidance', () => {
     const prompt = getSystemPrompt('grounding');
     expect(prompt).toContain('ask_question');
-    expect(prompt).toContain('free-text');
+    expect(prompt).toContain('suggestive options');
+    expect(prompt).toContain('orientation aids');
     expect(prompt).toContain('Concept');
     expect(prompt).toContain('constraints');
     expect(prompt).toContain('Scope');
+    expect(prompt).not.toContain('do NOT include options');
     expect(prompt).not.toContain('Include 2-4 options');
     expect(prompt).not.toContain('Mark exactly one option as recommended');
   });
@@ -410,7 +412,8 @@ describe('brownfield interviewer configuration', () => {
     expect(brownfieldPrompt).toContain('call BOTH tools in sequence');
     expect(brownfieldPrompt).not.toContain('Include 2-4 options');
     expect(brownfieldPrompt).not.toContain('Mark exactly one option as recommended');
-    expect(brownfieldPrompt).toContain('free-text');
+    expect(brownfieldPrompt).toContain('suggestive options');
+    expect(brownfieldPrompt).toContain('orientation aids');
   });
 
   it('limits brownfield exploration instructions to the grounding phase and makes post-kickoff grounding state-aware', () => {

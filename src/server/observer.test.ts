@@ -181,6 +181,11 @@ describe('runObserver', () => {
         prompt: expect.stringContaining('Avoid heavyweight setup'),
       }),
     );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('resonance signals'),
+      }),
+    );
   });
 
   it('keeps brownfield specification context in observer prompts without treating later grounding turns as kickoff-only', async () => {
@@ -382,6 +387,11 @@ describe('runObserver', () => {
     expect(mockGenerateText).toHaveBeenCalledWith(
       expect.objectContaining({
         system: expect.stringContaining('grounding understanding'),
+      }),
+    );
+    expect(mockGenerateText).toHaveBeenCalledWith(
+      expect.objectContaining({
+        system: expect.stringContaining('commitment signals'),
       }),
     );
   });

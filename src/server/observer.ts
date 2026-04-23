@@ -130,6 +130,16 @@ function buildObserverPhaseBias(phase: Turn['phase']): string {
     );
   }
 
+  if (phase === 'grounding') {
+    lines.push(
+      'When the user selects options, treat those selections as resonance signals — indicators of their direction or thinking — and capture them as context, goals, or constraints rather than as decisive commitments.',
+    );
+  } else if (phase === 'design') {
+    lines.push(
+      'When the user selects options, treat those selections as commitment signals and capture them as decisions or assumptions.',
+    );
+  }
+
   return lines.join(' ');
 }
 

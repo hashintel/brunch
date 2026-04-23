@@ -291,6 +291,7 @@ function createSpecificationState({
   answer = 'Build the web app',
   userParts = [{ type: 'text', text: answer }] as Array<Record<string, unknown>>,
   options = [],
+  phase = 'grounding' as SpecificationTurn['phase'],
   workflow,
   assistantParts,
   turns,
@@ -306,6 +307,7 @@ function createSpecificationState({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
+  phase?: SpecificationTurn['phase'];
   workflow?: SpecificationState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
   turns?: SpecificationState['turns'];
@@ -315,7 +317,7 @@ function createSpecificationState({
       id: 1,
       specification_id: projectId,
       parent_turn_id: null,
-      phase: 'grounding',
+      phase,
       turn_kind: 'question',
       question: assistantText,
       why: 'This frames the first iteration.',
@@ -461,6 +463,7 @@ function createWorkspaceLoaderData({
   answer = 'Build the web app',
   userParts,
   options = [],
+  phase,
   workflow,
   assistantParts,
   turns,
@@ -477,6 +480,7 @@ function createWorkspaceLoaderData({
     is_recommended: boolean;
     is_selected: boolean;
   }>;
+  phase?: SpecificationTurn['phase'];
   workflow?: SpecificationState['workflow'];
   assistantParts?: Array<Record<string, unknown>>;
   turns?: SpecificationState['turns'];
@@ -489,6 +493,7 @@ function createWorkspaceLoaderData({
       answer,
       userParts,
       options,
+      phase,
       workflow,
       assistantParts,
       turns,
@@ -4919,15 +4924,20 @@ describe('InterviewView', () => {
     expect(screen.queryByRole('checkbox', { name: /none of the above/i })).toBeNull();
   });
 
-  it('posts free-text-only turn responses and forwards the text into chat', async () => {
+  it('posts free-text-only turn responses via none-of-the-above in design phase', async () => {
     setLoaderData(
       createWorkspaceLoaderData({
         answer: '',
         userParts: [],
+        phase: 'design',
         options: [
           { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
           { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
         ],
+        workflow: createWorkflowState({
+          grounding: { status: 'closed' },
+          design: { status: 'in_progress', turnId: 1 },
+        }),
       }),
     );
 
@@ -4938,7 +4948,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace();
+    renderWorkspace('design');
 
     fireEvent.click(await screen.findByRole('checkbox', { name: /none of the above/i }));
     fireEvent.change(await screen.findByLabelText('Additional response context'), {
@@ -5452,10 +5462,15 @@ describe('InterviewView', () => {
       createWorkspaceLoaderData({
         answer: '',
         userParts: [],
+        phase: 'design',
         options: [
           { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
           { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
         ],
+        workflow: createWorkflowState({
+          grounding: { status: 'closed' },
+          design: { status: 'in_progress', turnId: 1 },
+        }),
       }),
     );
 
@@ -5466,7 +5481,7 @@ describe('InterviewView', () => {
       }),
     );
 
-    renderWorkspace();
+    renderWorkspace('design');
 
     fireEvent.click(await screen.findByRole('checkbox', { name: /desktop/i }));
     fireEvent.click(await screen.findByRole('button', { name: 'Submit' }));

@@ -32,7 +32,7 @@ import { createExplorationTools } from './tools/index.js';
 const SYSTEM_PROMPTS: Record<Phase, string> = {
   grounding: `You are a spec elicitation interviewer conducting the GROUNDING phase.
 
-Your job is to understand the user's project through open, exploratory questions. The user responds with free-text — there are no options to select.
+Your job is to understand the user's project through open, exploratory questions.
 
 Work through these topics in priority order, adapting and merging based on what the user has already shared:
 
@@ -48,8 +48,8 @@ Work through these topics in priority order, adapting and merging based on what 
 For every turn, you MUST use the ask_question tool. Never respond with plain text.
 
 Each question should:
-- Be open-ended and exploratory — do NOT include options (pass an empty options array)
-- Include a "why" field explaining why this question matters for the spec
+- Start with open questions. As the user's responses narrow the space, you may add suggestive options as orientation aids — not binding choices. Whether to include options on any given question is your call based on conversational trajectory.
+- Include a "why" field explaining what understanding you are seeking and how the answer helps formulate subsequent questions
 - Include an impact level (high/medium/low) reflecting how much the answer shapes downstream choices
 
 Ask one question at a time. Build on previous answers to go deeper.
@@ -62,7 +62,7 @@ Your job is to walk the design decision tree — exploring architectural choices
 
 For every turn, you MUST use the ask_question tool or the propose_phase_closure tool. Never respond with plain text.
 
-Each question should present meaningfully different design alternatives with clear tradeoffs in the options.
+When exploring design choices, typically present meaningfully different alternatives with clear tradeoffs in the options. The \`why\` field should explain what's at stake in this decision.
 
 When the main architectural commitments are sufficiently captured for now, use the propose_phase_closure tool instead of asking another question. The summary should concisely explain what is now understood and why design can close.`,
 
@@ -103,8 +103,8 @@ export function getBrownfieldGroundingPrompt(
   stage: InterviewerModeOptions['brownfieldGroundingStage'] = 'opening',
 ): string {
   const sharedQuestionRules = `Each question should:
-- Be open-ended and exploratory — do NOT include options (pass an empty options array). The user responds with free-text.
-- Include a "why" field explaining why this question matters for the spec
+- Start with open questions. As the user's responses narrow the space, you may add suggestive options as orientation aids — not binding choices. Whether to include options on any given question is your call based on conversational trajectory.
+- Include a "why" field explaining what understanding you are seeking and how the answer helps formulate subsequent questions
 - Include an impact level (high/medium/low) reflecting how much the answer shapes downstream choices
 
 Ask one question at a time. Build on previous answers to go deeper.
