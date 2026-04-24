@@ -103,14 +103,14 @@ export function PhaseNavigationSidebar({
       data-testid="phase-sidebar"
     >
       <div className="flex h-16 items-center justify-between border-b border-rule bg-background px-4">
-        <div className="flex min-w-0 flex-col items-end gap-0.5 text-right">
-          <div className="flex w-full justify-between text-xs text-hint">
+        <div className="flex w-full min-w-0 flex-col gap-0.5 text-right">
+          <div className="flex justify-between text-xs text-hint">
             <Link to="/" className="inline-flex items-center gap-1 transition-colors hover:text-ink">
               <ArrowLeftIcon className="size-3" />
               <span>Back</span>
             </Link>
 
-            <span className="">Spec Name</span>
+            <span>Specification</span>
           </div>
           <p
             className="w-full truncate text-base leading-snug font-medium text-ink "

@@ -1,4 +1,5 @@
 import { readFileSync } from 'node:fs';
+import { builtinModules } from 'node:module';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -13,10 +14,24 @@ import { getBackendProxyTarget } from './src/server/runtime-config';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const packageJson = JSON.parse(readFileSync(resolve(__dirname, 'package.json'), 'utf8')) as {
+  dependencies?: Record<string, string>;
   version?: string;
 };
 
 export const defaultDevServerPort = 5173;
+export const serverRuntimeBuildMode = 'server-runtime';
+
+const nodeBuiltinModuleIds = new Set([
+  ...builtinModules,
+  ...builtinModules.map((moduleId) => `node:${moduleId}`),
+]);
+const runtimeDependencyIds = Object.keys(packageJson.dependencies ?? {});
+
+const isRuntimeExternal = (moduleId: string) =>
+  nodeBuiltinModuleIds.has(moduleId) ||
+  runtimeDependencyIds.some(
+    (dependencyId) => moduleId === dependencyId || moduleId.startsWith(`${dependencyId}/`),
+  );
 
 export const resolveDevServerPort = (argv: string[]) => {
   const inlinePortFlag = argv.find((arg) => arg.startsWith('--port='));
@@ -42,47 +57,82 @@ export const resolveDevServerPort = (argv: string[]) => {
   return defaultDevServerPort;
 };
 
-export const getViteCacheDir = (command: 'build' | 'serve', argv: string[]) =>
+export const getViteCacheDir = (command: 'build' | 'serve', argv: string[], mode?: string) =>
   resolve(
     __dirname,
-    command === 'serve' ? `node_modules/.vite-${resolveDevServerPort(argv)}` : 'node_modules/.vite-build',
+    command === 'serve'
+      ? `node_modules/.vite-${resolveDevServerPort(argv)}`
+      : mode === serverRuntimeBuildMode
+        ? 'node_modules/.vite-build-server'
+        : 'node_modules/.vite-build',
   );
 
-export default defineConfig(({ command }) => ({
-  cacheDir: getViteCacheDir(command, process.argv),
-  define: {
-    __APP_VERSION__: JSON.stringify(packageJson.version ?? '0.0.0'),
-  },
-  plugins: [
-    tanstackRouter({
-      target: 'react',
-      autoCodeSplitting: true,
-      routesDirectory: resolve(__dirname, 'src/client/routes'),
-      generatedRouteTree: resolve(__dirname, 'src/client/routeTree.gen.ts'),
-      routeFileIgnorePattern: '.*\\.test\\.(ts|tsx)$',
-    }),
-    react(),
-    tailwindcss(),
-    agentTail(),
-    codeInspectorPlugin({ bundler: 'vite' }),
-  ],
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, './src'),
+export default defineConfig(({ command, mode }) => {
+  const isServerRuntimeBuild = command === 'build' && mode === serverRuntimeBuildMode;
+  const enableCodeInspector = command === 'serve' && !process.env.VITEST;
+
+  const sharedConfig = {
+    cacheDir: getViteCacheDir(command, process.argv, mode),
+    define: {
+      __APP_VERSION__: JSON.stringify(packageJson.version ?? '0.0.0'),
     },
-    dedupe: ['react', 'react-dom'],
-  },
-  server: {
-    port: defaultDevServerPort,
-    strictPort: true,
-    proxy: {
-      '/api': getBackendProxyTarget(process.env),
+    resolve: {
+      alias: {
+        '@': resolve(__dirname, './src'),
+      },
+      dedupe: ['react', 'react-dom'],
     },
-  },
-  build: {
-    chunkSizeWarningLimit: 800,
-  },
-  test: {
-    include: ['src/**/*.test.{js,ts,jsx,tsx}'],
-  },
-}));
+    test: {
+      include: ['src/**/*.test.{js,ts,jsx,tsx}'],
+    },
+  };
+
+  if (isServerRuntimeBuild) {
+    return {
+      ...sharedConfig,
+      build: {
+        copyPublicDir: false,
+        emptyOutDir: false,
+        minify: false,
+        outDir: resolve(__dirname, 'dist/server'),
+        rollupOptions: {
+          external: isRuntimeExternal,
+          output: {
+            chunkFileNames: 'chunks/[name]-[hash].js',
+            entryFileNames: 'cli.js',
+            format: 'es',
+          },
+        },
+        ssr: resolve(__dirname, 'src/server/cli.ts'),
+        target: 'node22',
+      },
+    };
+  }
+
+  return {
+    ...sharedConfig,
+    plugins: [
+      tanstackRouter({
+        target: 'react',
+        autoCodeSplitting: true,
+        routesDirectory: resolve(__dirname, 'src/client/routes'),
+        generatedRouteTree: resolve(__dirname, 'src/client/routeTree.gen.ts'),
+        routeFileIgnorePattern: '.*\\.test\\.(ts|tsx)$',
+      }),
+      react(),
+      tailwindcss(),
+      agentTail(),
+      ...(enableCodeInspector ? [codeInspectorPlugin({ bundler: 'vite' })] : []),
+    ],
+    server: {
+      port: defaultDevServerPort,
+      strictPort: true,
+      proxy: {
+        '/api': getBackendProxyTarget(process.env),
+      },
+    },
+    build: {
+      chunkSizeWarningLimit: 800,
+    },
+  };
+});

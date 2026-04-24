@@ -1,0 +1,8 @@
+{
+  "hooks": {
+    "before:npm:release": [
+      "npm run build",
+      "npm pack --dry-run --json"
+    ]
+  }
+}
