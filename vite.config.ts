@@ -48,41 +48,45 @@ export const getViteCacheDir = (command: 'build' | 'serve', argv: string[]) =>
     command === 'serve' ? `node_modules/.vite-${resolveDevServerPort(argv)}` : 'node_modules/.vite-build',
   );
 
-export default defineConfig(({ command }) => ({
-  cacheDir: getViteCacheDir(command, process.argv),
-  define: {
-    __APP_VERSION__: JSON.stringify(packageJson.version ?? '0.0.0'),
-  },
-  plugins: [
-    tanstackRouter({
-      target: 'react',
-      autoCodeSplitting: true,
-      routesDirectory: resolve(__dirname, 'src/client/routes'),
-      generatedRouteTree: resolve(__dirname, 'src/client/routeTree.gen.ts'),
-      routeFileIgnorePattern: '.*\\.test\\.(ts|tsx)$',
-    }),
-    react(),
-    tailwindcss(),
-    agentTail(),
-    codeInspectorPlugin({ bundler: 'vite' }),
-  ],
-  resolve: {
-    alias: {
-      '@': resolve(__dirname, './src'),
+export default defineConfig(({ command }) => {
+  const enableCodeInspector = command === 'serve' && !process.env.VITEST;
+
+  return {
+    cacheDir: getViteCacheDir(command, process.argv),
+    define: {
+      __APP_VERSION__: JSON.stringify(packageJson.version ?? '0.0.0'),
     },
-    dedupe: ['react', 'react-dom'],
-  },
-  server: {
-    port: defaultDevServerPort,
-    strictPort: true,
-    proxy: {
-      '/api': getBackendProxyTarget(process.env),
+    plugins: [
+      tanstackRouter({
+        target: 'react',
+        autoCodeSplitting: true,
+        routesDirectory: resolve(__dirname, 'src/client/routes'),
+        generatedRouteTree: resolve(__dirname, 'src/client/routeTree.gen.ts'),
+        routeFileIgnorePattern: '.*\\.test\\.(ts|tsx)$',
+      }),
+      react(),
+      tailwindcss(),
+      agentTail(),
+      ...(enableCodeInspector ? [codeInspectorPlugin({ bundler: 'vite' })] : []),
+    ],
+    resolve: {
+      alias: {
+        '@': resolve(__dirname, './src'),
+      },
+      dedupe: ['react', 'react-dom'],
     },
-  },
-  build: {
-    chunkSizeWarningLimit: 800,
-  },
-  test: {
-    include: ['src/**/*.test.{js,ts,jsx,tsx}'],
-  },
-}));
+    server: {
+      port: defaultDevServerPort,
+      strictPort: true,
+      proxy: {
+        '/api': getBackendProxyTarget(process.env),
+      },
+    },
+    build: {
+      chunkSizeWarningLimit: 800,
+    },
+    test: {
+      include: ['src/**/*.test.{js,ts,jsx,tsx}'],
+    },
+  };
+});

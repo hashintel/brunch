@@ -23,7 +23,8 @@ describe('file-route dashboard ownership', () => {
     expect(projectListRouteSource).toContain('useCreateSpecificationMutation');
     expect(projectListRouteSource).toContain("navigate({ to: '/specification/$id'");
     expect(routeRootSource).toContain('Outlet');
-    expect(routeRootSource).toContain('BrunchBrand');
+    expect(routeRootSource).toContain('brunchLogo');
+    expect(routeRootSource).toContain('min-w-0 flex-1 items-baseline');
     expect(routeRootSource).toContain('__APP_VERSION__');
     expect(fileRouteRootSource).toContain('fetchAppConfig');
 

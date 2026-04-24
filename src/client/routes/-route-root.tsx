@@ -9,13 +9,13 @@ export function RouteRoot({ cwd }: { cwd: string }) {
         <Link to="/" className="flex shrink-0 items-baseline gap-2 text-foreground">
           <img src={brunchLogo} alt="Brunch" className="h-7 w-auto shrink-0" />
         </Link>
-        <div className="flex h-auto w-full items-baseline gap-2">
-          <Link to="/" className="flex items-baseline gap-2">
+        <div className="flex min-w-0 flex-1 items-baseline gap-2">
+          <Link to="/" className="flex shrink-0 items-baseline gap-2">
             <span className="text-lg font-medium tracking-[-0.02em] text-foreground">brunch</span>
             <span className="font-mono text-sm text-sub">v{__APP_VERSION__}</span>
           </Link>
           <div className="h-4 w-px translate-y-0.5 border-r border-rule" />
-          <span className="truncate text-base text-sub">AI-guided spec elicitation</span>
+          <span className="min-w-0 truncate text-base text-sub">AI-guided spec elicitation</span>
           <span className="min-w-0 flex-1 truncate text-right font-mono text-sm text-sub">{cwd}</span>
         </div>
       </header>
