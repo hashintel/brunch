@@ -50,11 +50,7 @@ import {
   type DataConfirmationPart,
 } from './parts.js';
 import * as schema from './schema.js';
-import {
-  projectWorkflowState,
-  type WorkflowProjectionOutcome,
-  type WorkflowProjectionSnapshot,
-} from './workflow-projector.js';
+import { projectWorkflowState, type WorkflowProjectionSnapshot } from './workflow-projector.js';
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
 export type Specification = InferSelectModel<typeof schema.specification>;
@@ -446,73 +442,45 @@ function getAcceptedKnowledgeItemIdsForPhase(
   return new Set(rows.map((row) => row.itemId));
 }
 
-function hasRequirementsReviewCoverage(db: DB, specificationId: number): boolean {
-  return getAcceptedKnowledgeItemIdsForPhase(db, specificationId, 'requirements', 'requirement').size > 0;
+function countAcceptedKnowledgeItemsForPhase(
+  db: DB,
+  specificationId: number,
+  phase: 'requirements' | 'criteria',
+  kind: 'requirement' | 'criterion',
+): number {
+  return getAcceptedKnowledgeItemIdsForPhase(db, specificationId, phase, kind).size;
 }
 
-function hasCriteriaReviewCoverage(db: DB, specificationId: number): boolean {
-  return getAcceptedKnowledgeItemIdsForPhase(db, specificationId, 'criteria', 'criterion').size > 0;
-}
-
-function isProjectableWorkflowOutcome(
-  outcome: PhaseOutcome,
-  activeTurnIds: ReadonlySet<number>,
-): outcome is PhaseOutcome & { status: WorkflowProjectionOutcome['status'] } {
-  return (
-    (outcome.status === 'proposed' || outcome.status === 'confirmed') &&
-    activeTurnIds.has(outcome.proposal_turn_id)
-  );
-}
-
-function getWorkflowProjectionSnapshot(db: DB, specificationId: number): WorkflowProjectionSnapshot {
+export function readWorkflowProjectionSnapshot(db: DB, specificationId: number): WorkflowProjectionSnapshot {
   const activePath = getActivePath(db, specificationId);
   const activeTurnIds = new Set(activePath.map((turn) => turn.id));
-  const substantiveTurnCounts = Object.fromEntries(workflowPhaseOrder.map((phase) => [phase, 0])) as Record<
-    Phase,
-    number
-  >;
-  const answeredTurnCounts = Object.fromEntries(workflowPhaseOrder.map((phase) => [phase, 0])) as Record<
-    Phase,
-    number
-  >;
-
-  for (const turn of activePath) {
-    const isSubstantiveTurn = turn.question.trim().length > 0 || getOptionsForTurn(db, turn.id).length > 0;
-    if (!isSubstantiveTurn) {
-      continue;
-    }
-
-    substantiveTurnCounts[turn.phase] += 1;
-
-    const hasCompletedAnswer = turn.answer !== null && turn.answer.trim().length > 0;
-    if (hasCompletedAnswer) {
-      answeredTurnCounts[turn.phase] += 1;
-    }
-  }
-
-  const activeOutcomes = listPhaseOutcomesForSpecification(db, specificationId)
-    .filter((outcome) => isProjectableWorkflowOutcome(outcome, activeTurnIds))
-    .map((outcome) => ({
-      phase: outcome.phase,
-      status: outcome.status,
-      proposalTurnId: outcome.proposal_turn_id,
-      summary: outcome.summary,
-      closureBasis: getClosureBasisForOutcome(outcome),
-    })) satisfies WorkflowProjectionSnapshot['activeOutcomes'];
+  const turns = activePath.map((turn) => ({
+    phase: turn.phase,
+    question: turn.question,
+    answer: turn.answer,
+    optionCount: getOptionsForTurn(db, turn.id).length,
+  })) satisfies WorkflowProjectionSnapshot['turns'];
+  const phaseOutcomes = listPhaseOutcomesForSpecification(db, specificationId).map((outcome) => ({
+    phase: outcome.phase,
+    status: outcome.status,
+    proposalTurnId: outcome.proposal_turn_id,
+    summary: outcome.summary,
+    closureBasis: getClosureBasisForOutcome(outcome),
+    onActivePath: activeTurnIds.has(outcome.proposal_turn_id),
+  })) satisfies WorkflowProjectionSnapshot['phaseOutcomes'];
 
   return {
-    substantiveTurnCounts,
-    answeredTurnCounts,
-    reviewCoverage: {
-      requirements: hasRequirementsReviewCoverage(db, specificationId),
-      criteria: hasCriteriaReviewCoverage(db, specificationId),
+    turns,
+    phaseOutcomes,
+    acceptedReviewItemCounts: {
+      requirements: countAcceptedKnowledgeItemsForPhase(db, specificationId, 'requirements', 'requirement'),
+      criteria: countAcceptedKnowledgeItemsForPhase(db, specificationId, 'criteria', 'criterion'),
     },
-    activeOutcomes,
   };
 }
 
 export function getCurrentWorkflowState(db: DB, specificationId: number): WorkflowState {
-  return projectWorkflowState(getWorkflowProjectionSnapshot(db, specificationId));
+  return projectWorkflowState(readWorkflowProjectionSnapshot(db, specificationId));
 }
 
 export function getStructuralArtifactTurnIds(db: DB, specificationId: number): number[] {

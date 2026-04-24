@@ -35,6 +35,7 @@ import {
   getGroundingBundleForSpecification,
   listPhaseOutcomesForSpecification,
   getCurrentWorkflowState,
+  readWorkflowProjectionSnapshot,
   type DB,
 } from './db.js';
 
@@ -327,6 +328,64 @@ describe('phase outcome lifecycle', () => {
     expect(listPhaseOutcomesForSpecification(db, project.id)[0]).toMatchObject({
       id: proposed.id,
       status: 'superseded',
+    });
+  });
+
+  it('reads a durable workflow snapshot with raw turn facts and active-path outcome flags', async () => {
+    const project = getOrCreateSpecification(db);
+    const root = createTurn(db, project.id, { phase: 'grounding', question: 'Goal?', answer: 'Spec tool' });
+    const closureTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: '',
+      answer: 'We have enough grounding context',
+      parent_turn_id: root.id,
+    });
+    advanceHead(db, project.id, closureTurn.id);
+
+    const { createPhaseOutcome } = await import('./db.js');
+
+    createPhaseOutcome(db, {
+      projectId: project.id,
+      phase: 'grounding',
+      proposal_turn_id: closureTurn.id,
+      summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+    });
+
+    const alternateTurn = createTurn(db, project.id, {
+      phase: 'grounding',
+      question: 'What should we revisit?',
+      answer: 'Target audience',
+      parent_turn_id: root.id,
+    });
+    advanceHead(db, project.id, alternateTurn.id);
+
+    const snapshot = readWorkflowProjectionSnapshot(db, project.id);
+
+    expect(snapshot.turns).toEqual([
+      expect.objectContaining({
+        phase: 'grounding',
+        question: 'Goal?',
+        answer: 'Spec tool',
+        optionCount: 0,
+      }),
+      expect.objectContaining({
+        phase: 'grounding',
+        question: 'What should we revisit?',
+        answer: 'Target audience',
+        optionCount: 0,
+      }),
+    ]);
+    expect(snapshot.phaseOutcomes).toEqual([
+      expect.objectContaining({
+        phase: 'grounding',
+        status: 'superseded',
+        summary: 'Goals, terms, context, and constraints are sufficiently captured.',
+        onActivePath: false,
+      }),
+    ]);
+    expect(snapshot.acceptedReviewItemCounts).toEqual({
+      requirements: 0,
+      criteria: 0,
     });
   });
 

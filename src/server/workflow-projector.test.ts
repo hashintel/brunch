@@ -1,25 +1,45 @@
 import { describe, expect, it } from 'vitest';
 
-import { workflowPhaseOrder, type WorkflowPhase } from '@/shared/phase-close.js';
+import { type WorkflowPhase } from '@/shared/phase-close.js';
 
 import { projectWorkflowState, type WorkflowProjectionSnapshot } from './workflow-projector.js';
 
-function createCountRecord(value = 0): Record<WorkflowPhase, number> {
-  return Object.fromEntries(workflowPhaseOrder.map((phase) => [phase, value])) as Record<
-    WorkflowPhase,
-    number
-  >;
+function createTurnSnapshot(
+  phase: WorkflowPhase,
+  overrides: Partial<WorkflowProjectionSnapshot['turns'][number]> = {},
+): WorkflowProjectionSnapshot['turns'][number] {
+  return {
+    phase,
+    question: '',
+    answer: null,
+    optionCount: 0,
+    ...overrides,
+  };
+}
+
+function createOutcomeSnapshot(
+  phase: WorkflowPhase,
+  overrides: Partial<WorkflowProjectionSnapshot['phaseOutcomes'][number]> = {},
+): WorkflowProjectionSnapshot['phaseOutcomes'][number] {
+  return {
+    phase,
+    status: 'proposed',
+    proposalTurnId: 1,
+    summary: null,
+    closureBasis: null,
+    onActivePath: true,
+    ...overrides,
+  };
 }
 
 function createSnapshot(overrides: Partial<WorkflowProjectionSnapshot> = {}): WorkflowProjectionSnapshot {
   return {
-    substantiveTurnCounts: createCountRecord(0),
-    answeredTurnCounts: createCountRecord(0),
-    reviewCoverage: {
-      requirements: false,
-      criteria: false,
+    turns: [],
+    phaseOutcomes: [],
+    acceptedReviewItemCounts: {
+      requirements: 0,
+      criteria: 0,
     },
-    activeOutcomes: [],
     ...overrides,
   };
 }
@@ -28,33 +48,32 @@ describe('projectWorkflowState', () => {
   it('projects phase status, readiness, and proposal state from a durable snapshot', () => {
     const workflow = projectWorkflowState(
       createSnapshot({
-        substantiveTurnCounts: {
-          grounding: 2,
-          design: 1,
-          requirements: 0,
-          criteria: 0,
-        },
-        answeredTurnCounts: {
-          grounding: 2,
-          design: 1,
-          requirements: 0,
-          criteria: 0,
-        },
-        activeOutcomes: [
-          {
-            phase: 'grounding',
+        turns: [
+          createTurnSnapshot('grounding', {
+            question: 'Goal?',
+            answer: 'Spec tool',
+          }),
+          createTurnSnapshot('grounding', {
+            question: 'Audience?',
+            answer: 'Solo builders',
+          }),
+          createTurnSnapshot('design', {
+            question: 'Primary flow?',
+            answer: 'Interview-first',
+          }),
+        ],
+        phaseOutcomes: [
+          createOutcomeSnapshot('grounding', {
             status: 'confirmed',
             proposalTurnId: 2,
             summary: 'Grounding is complete.',
             closureBasis: 'interviewer_recommended',
-          },
-          {
-            phase: 'design',
+          }),
+          createOutcomeSnapshot('design', {
             status: 'proposed',
             proposalTurnId: 3,
             summary: 'Design is ready to close.',
-            closureBasis: null,
-          },
+          }),
         ],
       }),
     );
@@ -91,25 +110,23 @@ describe('projectWorkflowState', () => {
   it('uses accepted review coverage to determine review-phase closeability', () => {
     const requirementsWorkflow = projectWorkflowState(
       createSnapshot({
-        activeOutcomes: [
-          {
-            phase: 'grounding',
+        phaseOutcomes: [
+          createOutcomeSnapshot('grounding', {
             status: 'confirmed',
             proposalTurnId: 1,
             summary: 'Grounding complete.',
             closureBasis: 'interviewer_recommended',
-          },
-          {
-            phase: 'design',
+          }),
+          createOutcomeSnapshot('design', {
             status: 'confirmed',
             proposalTurnId: 2,
             summary: 'Elicitation complete.',
             closureBasis: 'interviewer_recommended',
-          },
+          }),
         ],
-        reviewCoverage: {
-          requirements: true,
-          criteria: false,
+        acceptedReviewItemCounts: {
+          requirements: 2,
+          criteria: 0,
         },
       }),
     );
@@ -127,32 +144,29 @@ describe('projectWorkflowState', () => {
 
     const criteriaWorkflow = projectWorkflowState(
       createSnapshot({
-        activeOutcomes: [
-          {
-            phase: 'grounding',
+        phaseOutcomes: [
+          createOutcomeSnapshot('grounding', {
             status: 'confirmed',
             proposalTurnId: 1,
             summary: 'Grounding complete.',
             closureBasis: 'interviewer_recommended',
-          },
-          {
-            phase: 'design',
+          }),
+          createOutcomeSnapshot('design', {
             status: 'confirmed',
             proposalTurnId: 2,
             summary: 'Elicitation complete.',
             closureBasis: 'interviewer_recommended',
-          },
-          {
-            phase: 'requirements',
+          }),
+          createOutcomeSnapshot('requirements', {
             status: 'confirmed',
             proposalTurnId: 3,
             summary: 'Requirements complete.',
             closureBasis: 'interviewer_recommended',
-          },
+          }),
         ],
-        reviewCoverage: {
-          requirements: true,
-          criteria: true,
+        acceptedReviewItemCounts: {
+          requirements: 2,
+          criteria: 1,
         },
       }),
     );
@@ -161,6 +175,40 @@ describe('projectWorkflowState', () => {
       status: 'in_progress',
       closeability: true,
       readiness: 'low',
+    });
+  });
+
+  it('ignores superseded and off-path outcomes when deriving proposal state', () => {
+    const workflow = projectWorkflowState(
+      createSnapshot({
+        turns: [
+          createTurnSnapshot('grounding', {
+            question: 'Goal?',
+            answer: 'Spec tool',
+          }),
+        ],
+        phaseOutcomes: [
+          createOutcomeSnapshot('grounding', {
+            status: 'proposed',
+            proposalTurnId: 1,
+            summary: 'Off-path proposal',
+            onActivePath: false,
+          }),
+          createOutcomeSnapshot('grounding', {
+            status: 'superseded',
+            proposalTurnId: 2,
+            summary: 'Superseded proposal',
+            onActivePath: true,
+          }),
+        ],
+      }),
+    );
+
+    expect(workflow.phases.grounding).toMatchObject({
+      status: 'in_progress',
+      proposalPending: false,
+      summary: null,
+      turnId: null,
     });
   });
 });

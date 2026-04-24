@@ -1,24 +1,36 @@
 import type { ReadinessBand, WorkflowPhaseState, WorkflowState } from '@/shared/api-types.js';
 import { workflowPhaseOrder, type PhaseClosureBasis, type WorkflowPhase } from '@/shared/phase-close.js';
 
-type ProjectablePhaseOutcomeStatus = 'proposed' | 'confirmed';
+type WorkflowProjectionOutcomeStatus = 'proposed' | 'confirmed' | 'superseded';
+
+export interface WorkflowProjectionTurn {
+  readonly phase: WorkflowPhase;
+  readonly question: string;
+  readonly answer: string | null;
+  readonly optionCount: number;
+}
 
 export interface WorkflowProjectionOutcome {
   readonly phase: WorkflowPhase;
-  readonly status: ProjectablePhaseOutcomeStatus;
+  readonly status: WorkflowProjectionOutcomeStatus;
   readonly proposalTurnId: number;
   readonly summary: string | null;
   readonly closureBasis: PhaseClosureBasis | null;
+  readonly onActivePath: boolean;
 }
 
 export interface WorkflowProjectionSnapshot {
-  readonly substantiveTurnCounts: Record<WorkflowPhase, number>;
-  readonly answeredTurnCounts: Record<WorkflowPhase, number>;
-  readonly reviewCoverage: {
-    readonly requirements: boolean;
-    readonly criteria: boolean;
+  readonly turns: readonly WorkflowProjectionTurn[];
+  readonly phaseOutcomes: readonly WorkflowProjectionOutcome[];
+  readonly acceptedReviewItemCounts: {
+    readonly requirements: number;
+    readonly criteria: number;
   };
-  readonly activeOutcomes: readonly WorkflowProjectionOutcome[];
+}
+
+interface WorkflowReviewCoverage {
+  readonly requirements: boolean;
+  readonly criteria: boolean;
 }
 
 function createEmptyWorkflowPhaseState(): WorkflowPhaseState {
@@ -44,6 +56,60 @@ function createEmptyWorkflowState(): WorkflowState {
   };
 }
 
+function createCountRecord(value = 0): Record<WorkflowPhase, number> {
+  return Object.fromEntries(workflowPhaseOrder.map((phase) => [phase, value])) as Record<
+    WorkflowPhase,
+    number
+  >;
+}
+
+function isSubstantiveTurn(turn: WorkflowProjectionTurn): boolean {
+  return turn.question.trim().length > 0 || turn.optionCount > 0;
+}
+
+function hasCompletedAnswer(turn: WorkflowProjectionTurn): boolean {
+  return turn.answer !== null && turn.answer.trim().length > 0;
+}
+
+function getSubstantiveTurnCounts(snapshot: WorkflowProjectionSnapshot): Record<WorkflowPhase, number> {
+  const counts = createCountRecord();
+
+  for (const turn of snapshot.turns) {
+    if (!isSubstantiveTurn(turn)) {
+      continue;
+    }
+    counts[turn.phase] += 1;
+  }
+
+  return counts;
+}
+
+function getAnsweredTurnCounts(snapshot: WorkflowProjectionSnapshot): Record<WorkflowPhase, number> {
+  const counts = createCountRecord();
+
+  for (const turn of snapshot.turns) {
+    if (!isSubstantiveTurn(turn) || !hasCompletedAnswer(turn)) {
+      continue;
+    }
+    counts[turn.phase] += 1;
+  }
+
+  return counts;
+}
+
+function getReviewCoverage(snapshot: WorkflowProjectionSnapshot): WorkflowReviewCoverage {
+  return {
+    requirements: snapshot.acceptedReviewItemCounts.requirements > 0,
+    criteria: snapshot.acceptedReviewItemCounts.criteria > 0,
+  };
+}
+
+function isProjectableOutcome(outcome: WorkflowProjectionOutcome): outcome is WorkflowProjectionOutcome & {
+  status: Extract<WorkflowProjectionOutcomeStatus, 'proposed' | 'confirmed'>;
+} {
+  return (outcome.status === 'proposed' || outcome.status === 'confirmed') && outcome.onActivePath;
+}
+
 function getReadinessBand(turnCount: number): ReadinessBand {
   if (turnCount <= 0) {
     return 'low';
@@ -63,7 +129,7 @@ function getPhaseCloseability({
   phase: WorkflowPhase;
   isConfirmed: boolean;
   hasTurnHistory: boolean;
-  reviewCoverage: WorkflowProjectionSnapshot['reviewCoverage'];
+  reviewCoverage: WorkflowReviewCoverage;
 }): boolean {
   if (isConfirmed) {
     return false;
@@ -82,16 +148,20 @@ function getPhaseCloseability({
 
 export function projectWorkflowState(snapshot: WorkflowProjectionSnapshot): WorkflowState {
   const workflow = createEmptyWorkflowState();
+  const substantiveTurnCounts = getSubstantiveTurnCounts(snapshot);
+  const answeredTurnCounts = getAnsweredTurnCounts(snapshot);
+  const reviewCoverage = getReviewCoverage(snapshot);
+  const activeOutcomes = snapshot.phaseOutcomes.filter((outcome) => isProjectableOutcome(outcome));
   const firstUnclosedPhase =
     workflowPhaseOrder.find(
-      (phase) => snapshot.activeOutcomes.find((entry) => entry.phase === phase)?.status !== 'confirmed',
+      (phase) => activeOutcomes.find((entry) => entry.phase === phase)?.status !== 'confirmed',
     ) ?? 'criteria';
 
   for (const phase of workflowPhaseOrder) {
-    const outcome = snapshot.activeOutcomes.find((entry) => entry.phase === phase);
+    const outcome = activeOutcomes.find((entry) => entry.phase === phase);
     const isConfirmed = outcome?.status === 'confirmed';
     const proposalPending = outcome?.status === 'proposed';
-    const hasTurnHistory = snapshot.substantiveTurnCounts[phase] > 0;
+    const hasTurnHistory = substantiveTurnCounts[phase] > 0;
 
     workflow.phases[phase] = {
       status: isConfirmed
@@ -103,9 +173,9 @@ export function projectWorkflowState(snapshot: WorkflowProjectionSnapshot): Work
         phase,
         isConfirmed,
         hasTurnHistory,
-        reviewCoverage: snapshot.reviewCoverage,
+        reviewCoverage,
       }),
-      readiness: getReadinessBand(snapshot.answeredTurnCounts[phase]),
+      readiness: getReadinessBand(answeredTurnCounts[phase]),
       closureBasis: outcome?.closureBasis ?? null,
       proposalPending,
       turnId: outcome?.proposalTurnId ?? null,
