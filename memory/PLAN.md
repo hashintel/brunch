@@ -4,26 +4,19 @@
 
 # Plan
 
-The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, and observer knowledge extraction all ship as working product. The live frontier now splits between **distribution hardening** — closing FE-531 with a real publishable package/release path for `npx brunch` — and **infrastructure** — workflow ownership extraction and continuous workspace, which enable the next wave of user-facing capabilities (revisit/cascade, trigger-popover composer, web tools). Manual proving of recently landed interaction-model changes (preface cards in non-grounding phases, format autonomy quality, observer coherence) happens continuously alongside these seams.
+The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, and observer knowledge extraction all ship as working product. FE-531 distribution hardening is now closed through a real publishable package/release path for `npx brunch`, so the live frontier centers on **infrastructure** — workflow ownership extraction and continuous workspace — which enables the next wave of user-facing capabilities (revisit/cascade, trigger-popover composer, web tools). Manual proving of recently landed interaction-model changes (preface cards in non-grounding phases, format autonomy quality, observer coherence) continues alongside these seams.
 
 ## Active
 
-### Track C — Distribution hardening
-
-1. **Publishable npm release path for `brunch`** — harden the already-shipped local-first `npx` distribution into a precompiled, runtime-only npm package on Node 22+, then wire `release-it` around that artifact.
-   - Why now / unlocks: this is the closing work for FE-531. It turns the existing repo-local/source-booting distribution seam into a real install-and-run release contract, gives demos a reproducible external artifact, and establishes the package boundary that future release automation can trust.
-   - Current state: `npm run build` emits a compiled `dist/server/cli.js`, the package bin boots that runtime instead of `tsx` + source TS, package metadata now curates a real tarball boundary (`files`, Node 22 engine floor, public scoped publish config), and build-backed `npm pack` smoke coverage proves an extracted install can still serve the built client for a workspace cwd. Remaining work is release automation around that proven artifact.
-   - Traceability: Requirement 1; Acceptance 1; D81; I100.
-
 ### Track B — Infrastructure
 
-2. **Workflow ownership extraction** — extract the workflow projector/read path and transition/orchestration write path behind explicit runtime-owned seams.
+1. **Workflow ownership extraction** — extract the workflow projector/read path and transition/orchestration write path behind explicit runtime-owned seams.
    - Why now / unlocks: the runtime proving slice landed deferred observer backlog without a second durable workflow model. This cleanup separates transport, durable snapshot assembly, workflow projection, and workflow transition logic so the continuous workspace can adopt one chat runtime cleanly.
    - Traceability: D110, D112, D113, D123; A57; I24, I72, I104, I105.
 
 ## Next
 
-3. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with phase section navigation, one chat runtime per specification, scroll-spy phase focus.
+2. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with phase section navigation, one chat runtime per specification, scroll-spy phase focus.
    - Why now / unlocks: depends on workflow ownership extraction. Once read/write workflow ownership is explicit, a continuous workspace can adopt one chat runtime and section-addressable focus without adding new lifecycle ambiguity.
    - Traceability: A58; D86, D87, D110, D113, D114; I24, I102.
    - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`
@@ -53,6 +46,7 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 
 ## Recently Completed
 
+- [2026-04-24] `release-it` publish wiring for the packaged artifact — `npm run release` now drives release-it at repo root, release hooks rebuild and `npm pack --dry-run --json` the packaged CLI/runtime artifact before `npm publish`, dry-run coverage proves the release flow stays pinned to the packaged boundary, and README release docs now make the npm-auth prerequisite explicit. Verified: `npm run verify`. Watch: CI trusted publishing is still intentionally out of scope for this seam.
 - [2026-04-24] Publishable pack artifact boundary for distribution hardening — `package.json` now declares the Node 22+ engine floor, explicit shipped files, and public scoped publish config; `npm pack` smoke coverage proves the tarball excludes repo-only source/docs state and an extracted install can still launch `brunch` against the built client artifact. Verified: `npm run verify`.
 - [2026-04-24] Compiled CLI runtime boundary for distribution hardening — `npm run build` now emits `dist/server/cli.js`, `bin/brunch.js` targets the compiled runtime, and build-backed package-bin smoke coverage proves help-path execution plus local-first launcher startup against the built client artifact. Verified: `npm run verify`.
 - [2026-04-23] Phase- and mode-agnostic context gathering — `present_preface` + exploration tools available in all phases when `cwd` is present; "grounding card" terminology replaced with "preface card". Verified: `npm run verify`.
@@ -64,9 +58,6 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 ## Dependencies
 
 ```text
-TRACK C — Distribution hardening
-publishable-npm-release-path  (active, independent)
-
 TRACK B — Infrastructure
 workflow-ownership-extraction  (active)
   └──→ continuous-workspace  (next)

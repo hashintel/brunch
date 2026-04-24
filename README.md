@@ -45,10 +45,35 @@ Open http://localhost:5173.
 | `npm run dev` | Start frontend (Vite :5173) + API (:3000) with hot reload |
 | `npm run server` | Start API server only |
 | `npm run build` | Build the production client and packaged CLI runtime |
+| `npm run release -- <level>` | Run `release-it` for the packaged npm artifact |
 | `npm run test` | Run test suite (vitest) |
 | `npm run verify` | Full gate: lint + format + test + build |
 | `npm run fix` | Auto-fix lint + format issues |
 | `npm run seed <scenario>` | Seed a database with a named fixture scenario |
+
+## Releasing
+
+Preview the version bump and publish flow without mutating git or npm:
+
+```bash
+npm run release -- --dry-run patch
+```
+
+For headless CI-style proving, add `--ci`:
+
+```bash
+npm run release -- --dry-run --ci patch
+```
+
+Run the real release from a clean checkout when you are ready to tag and publish:
+
+```bash
+npm run release -- patch
+```
+
+The release flow rebuilds the packaged CLI/runtime artifact and runs `npm pack --dry-run --json` before `npm publish`, so the published package stays aligned with the tarball boundary already proven by the distribution tests.
+
+Local releases still require npm authentication (`npm login` or equivalent registry credentials). Trusted-publishing CI wiring is not configured in this repo yet.
 
 ## Fixture scenarios
 
@@ -164,7 +189,7 @@ src/
 
 ## Tests
 
-288 tests across 33 test files covering DB operations, app routes, launcher/distribution seams, core logic, interview flow, observer extraction, parts serialization, context builders, workspace hydration/controller/data, client components, phase-close logic, and build boundaries. Provider calls are mocked for CI; prompt quality depends on manual evaluation.
+562 tests across 56 test files covering DB operations, app routes, launcher/distribution seams, release wiring, core logic, interview flow, observer extraction, parts serialization, context builders, workspace hydration/controller/data, client components, phase-close logic, and build boundaries. Provider calls are mocked for CI; prompt quality depends on manual evaluation.
 
 ```bash
 npm test

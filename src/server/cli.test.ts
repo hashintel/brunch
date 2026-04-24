@@ -170,6 +170,33 @@ describe('published CLI entrypoint', () => {
     expect(result.stdout).toContain('Usage: brunch');
   });
 
+  it('dry-runs the release flow against the packaged npm artifact seam', async () => {
+    const result = await runCommand(
+      'npm',
+      [
+        'run',
+        'release',
+        '--',
+        '--dry-run',
+        '--ci',
+        'patch',
+        '--git.requireCleanWorkingDir=false',
+        '--git.requireUpstream=false',
+        '--git.push=false',
+        '--npm.skipChecks=true',
+      ],
+      packageRoot,
+    );
+
+    const output = `${result.stdout}\n${result.stderr}`;
+
+    expect(result.code).toBe(0);
+    expect(output).toContain('npm run build');
+    expect(output).toContain('npm pack --dry-run --json');
+    expect(output).toContain('npm publish');
+    expect(output).toContain('@hashintel/brunch');
+  }, 30_000);
+
   it('launches the compiled package runtime and serves the built client artifact for a workspace cwd', async () => {
     const workspaceCwd = makeTempDir('brunch-workspace-');
 
