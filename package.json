@@ -89,6 +89,7 @@
     "@types/supertest": "^7.2.0",
     "agent-tail": "^0.4.0",
     "chrome-devtools-mcp": "^0.21.0",
+    "code-inspector-plugin": "^1.5.1",
     "drizzle-kit": "^0.31.10",
     "happy-dom": "^20.8.9",
     "oxfmt": "^0.43.0",

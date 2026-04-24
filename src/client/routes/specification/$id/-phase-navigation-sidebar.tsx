@@ -102,17 +102,20 @@ export function PhaseNavigationSidebar({
       className="flex h-full w-72 shrink-0 flex-col border-r border-rule bg-tint"
       data-testid="phase-sidebar"
     >
-      <div className="flex h-16 shrink-0 items-start justify-between border-b border-rule bg-background px-3 pt-2.5">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1 text-xs leading-tight text-hint transition-colors hover:text-ink"
-        >
-          <ArrowLeftIcon className="size-3" />
-          <span>Back</span>
-        </Link>
-        <div className="flex min-w-0 flex-col items-end gap-0.5">
-          <span className="text-xs leading-tight text-hint">Specification</span>
-          <p className="truncate text-base leading-snug font-medium text-ink" title={specificationName}>
+      <div className="flex h-16 items-center justify-between border-b border-rule bg-background px-4">
+        <div className="flex min-w-0 flex-col items-end gap-0.5 text-right">
+          <div className="flex w-full justify-between text-xs text-hint">
+            <Link to="/" className="inline-flex items-center gap-1 transition-colors hover:text-ink">
+              <ArrowLeftIcon className="size-3" />
+              <span>Back</span>
+            </Link>
+
+            <span className="">Spec Name</span>
+          </div>
+          <p
+            className="w-full truncate text-base leading-snug font-medium text-ink "
+            title={specificationName}
+          >
             {specificationName}
           </p>
         </div>

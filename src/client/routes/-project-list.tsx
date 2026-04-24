@@ -113,7 +113,7 @@ export function SpecificationList() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-3xl p-6">
-        <div className="mb-6 flex max-w-[315px] items-center gap-4">
+        <div className="mb-6 flex items-center gap-4">
           <img src={brunchLogo} alt="Brunch logo" className="size-24  object-contain" />
           <div className="flex flex-col">
             <h1 className="text-[24px] font-semibold tracking-[-0.015em] text-ink">Brunch</h1>

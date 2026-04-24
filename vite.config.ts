@@ -6,6 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 import { tanstackRouter } from '@tanstack/router-plugin/vite';
 import react from '@vitejs/plugin-react';
 import { agentTail } from 'agent-tail/vite';
+import { codeInspectorPlugin } from 'code-inspector-plugin';
 import { defineConfig } from 'vitest/config';
 
 import { getBackendProxyTarget } from './src/server/runtime-config';
@@ -63,6 +64,7 @@ export default defineConfig(({ command }) => ({
     react(),
     tailwindcss(),
     agentTail(),
+    codeInspectorPlugin({ bundler: 'vite' }),
   ],
   resolve: {
     alias: {
