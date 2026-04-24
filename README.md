@@ -44,7 +44,7 @@ Open http://localhost:5173.
 |---|---|
 | `npm run dev` | Start frontend (Vite :5173) + API (:3000) with hot reload |
 | `npm run server` | Start API server only |
-| `npm run build` | Build frontend for production |
+| `npm run build` | Build the production client and packaged CLI runtime |
 | `npm run test` | Run test suite (vitest) |
 | `npm run verify` | Full gate: lint + format + test + build |
 | `npm run fix` | Auto-fix lint + format issues |

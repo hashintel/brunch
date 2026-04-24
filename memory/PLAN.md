@@ -12,7 +12,7 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 
 1. **Publishable npm release path for `brunch`** — harden the already-shipped local-first `npx` distribution into a precompiled, runtime-only npm package on Node 22+, then wire `release-it` around that artifact.
    - Why now / unlocks: this is the closing work for FE-531. It turns the existing repo-local/source-booting distribution seam into a real install-and-run release contract, gives demos a reproducible external artifact, and establishes the package boundary that future release automation can trust.
-   - Current state: `npm run build` now emits a compiled `dist/server/cli.js`, the package bin boots that runtime instead of `tsx` + source TS, and build-backed smoke coverage proves the compiled launcher can still serve the built client for a workspace cwd. Remaining work is package curation plus release automation.
+   - Current state: `npm run build` emits a compiled `dist/server/cli.js`, the package bin boots that runtime instead of `tsx` + source TS, package metadata now curates a real tarball boundary (`files`, Node 22 engine floor, public scoped publish config), and build-backed `npm pack` smoke coverage proves an extracted install can still serve the built client for a workspace cwd. Remaining work is release automation around that proven artifact.
    - Traceability: Requirement 1; Acceptance 1; D81; I100.
 
 ### Track B — Infrastructure
@@ -53,6 +53,7 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 
 ## Recently Completed
 
+- [2026-04-24] Publishable pack artifact boundary for distribution hardening — `package.json` now declares the Node 22+ engine floor, explicit shipped files, and public scoped publish config; `npm pack` smoke coverage proves the tarball excludes repo-only source/docs state and an extracted install can still launch `brunch` against the built client artifact. Verified: `npm run verify`.
 - [2026-04-24] Compiled CLI runtime boundary for distribution hardening — `npm run build` now emits `dist/server/cli.js`, `bin/brunch.js` targets the compiled runtime, and build-backed package-bin smoke coverage proves help-path execution plus local-first launcher startup against the built client artifact. Verified: `npm run verify`.
 - [2026-04-23] Phase- and mode-agnostic context gathering — `present_preface` + exploration tools available in all phases when `cwd` is present; "grounding card" terminology replaced with "preface card". Verified: `npm run verify`.
 - [2026-04-23] Interviewer-autonomous question format with phase-aware gating — D115 revised. Verified: `npm run verify`.

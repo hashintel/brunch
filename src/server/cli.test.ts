@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { copyFileSync, mkdtempSync, mkdirSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -8,13 +8,27 @@ import { build } from 'vite';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 const packageRoot = dirname(dirname(dirname(fileURLToPath(import.meta.url))));
-const sourceBinEntrypoint = join(packageRoot, 'bin', 'brunch.js');
-const sourceDrizzleDirectory = join(packageRoot, 'drizzle');
 const sourceNodeModules = join(packageRoot, 'node_modules');
-const sourcePackageManifest = join(packageRoot, 'package.json');
 const viteConfigFile = join(packageRoot, 'vite.config.ts');
 const tempDirs: string[] = [];
-let publishedPackageRoot = '';
+
+type CommandResult = {
+  code: number | null;
+  stderr: string;
+  stdout: string;
+};
+
+type PackFileEntry = {
+  path: string;
+};
+
+type PackResult = {
+  files: PackFileEntry[];
+  filename: string;
+};
+
+let installedPackageRoot = '';
+let packFilePaths: string[] = [];
 
 function makeTempDir(prefix: string = 'brunch-cli-'): string {
   const dir = mkdtempSync(join(tmpdir(), prefix));
@@ -22,43 +36,31 @@ function makeTempDir(prefix: string = 'brunch-cli-'): string {
   return dir;
 }
 
-async function buildPublishedPackage(targetRoot: string): Promise<void> {
-  mkdirSync(join(targetRoot, 'bin'), { recursive: true });
-  copyFileSync(sourceBinEntrypoint, join(targetRoot, 'bin', 'brunch.js'));
-  copyFileSync(sourcePackageManifest, join(targetRoot, 'package.json'));
-  symlinkSync(sourceDrizzleDirectory, join(targetRoot, 'drizzle'), 'dir');
-  symlinkSync(sourceNodeModules, join(targetRoot, 'node_modules'), 'dir');
-
+async function buildPackageAssets(): Promise<void> {
   await build({
-    build: {
-      outDir: join(targetRoot, 'dist'),
-    },
     configFile: viteConfigFile,
     logLevel: 'silent',
   });
 
   await build({
-    build: {
-      emptyOutDir: false,
-      outDir: join(targetRoot, 'dist', 'server'),
-    },
     configFile: viteConfigFile,
     logLevel: 'silent',
     mode: 'server-runtime',
   });
 }
 
-function getPublishedBinEntrypoint(): string {
-  return join(publishedPackageRoot, 'bin', 'brunch.js');
+function getInstalledBinEntrypoint(): string {
+  return join(installedPackageRoot, 'bin', 'brunch.js');
 }
 
-function runCli(
+function runCommand(
+  command: string,
   args: string[],
   cwd: string,
   env: NodeJS.ProcessEnv = process.env,
-): Promise<{ code: number | null; stdout: string; stderr: string }> {
+): Promise<CommandResult> {
   return new Promise((resolve, reject) => {
-    const child = spawn(process.execPath, [getPublishedBinEntrypoint(), ...args], {
+    const child = spawn(command, args, {
       cwd,
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
@@ -80,15 +82,74 @@ function runCli(
   });
 }
 
+async function packBuiltPackage(): Promise<{ filePaths: string[]; installedRoot: string }> {
+  const packDir = makeTempDir('brunch-pack-');
+  const packResult = await runCommand('npm', ['pack', '--json', '--pack-destination', packDir], packageRoot);
+
+  if (packResult.code !== 0) {
+    throw new Error(`npm pack failed. stdout: ${packResult.stdout}\nstderr: ${packResult.stderr}`);
+  }
+
+  const [packedArtifact] = JSON.parse(packResult.stdout) as PackResult[];
+  const installedRoot = makeTempDir('brunch-installed-package-');
+
+  symlinkSync(sourceNodeModules, join(installedRoot, 'node_modules'), 'dir');
+
+  const extractResult = await runCommand(
+    'tar',
+    ['-xzf', join(packDir, packedArtifact.filename), '-C', installedRoot],
+    packageRoot,
+  );
+
+  if (extractResult.code !== 0) {
+    throw new Error(
+      `tar extraction failed. stdout: ${extractResult.stdout}\nstderr: ${extractResult.stderr}`,
+    );
+  }
+
+  return {
+    filePaths: packedArtifact.files.map((file) => file.path),
+    installedRoot: join(installedRoot, 'package'),
+  };
+}
+
+function runCli(args: string[], cwd: string, env: NodeJS.ProcessEnv = process.env): Promise<CommandResult> {
+  return runCommand(process.execPath, [getInstalledBinEntrypoint(), ...args], cwd, env);
+}
+
 describe('published CLI entrypoint', () => {
   beforeAll(async () => {
-    publishedPackageRoot = makeTempDir('brunch-published-package-');
-    await buildPublishedPackage(publishedPackageRoot);
+    await buildPackageAssets();
+
+    const packedPackage = await packBuiltPackage();
+    installedPackageRoot = packedPackage.installedRoot;
+    packFilePaths = packedPackage.filePaths;
   }, 60_000);
 
   afterAll(() => {
     for (const dir of tempDirs.splice(0)) {
       rmSync(dir, { recursive: true, force: true });
+    }
+  });
+
+  it('packs only the runtime assets needed for the published package', () => {
+    expect(packFilePaths).toEqual(
+      expect.arrayContaining([
+        'LICENSE',
+        'README.md',
+        'bin/brunch.js',
+        'dist/index.html',
+        'dist/server/cli.js',
+        'drizzle/meta/_journal.json',
+        'package.json',
+      ]),
+    );
+    expect(packFilePaths.some((path) => path.startsWith('dist/assets/'))).toBe(true);
+
+    for (const excludedPath of ['.agents/', 'docs/', 'memory/', 'src/', 'tmp/', 'vite.config.ts']) {
+      expect(packFilePaths.some((path) => path.startsWith(excludedPath) || path === excludedPath)).toBe(
+        false,
+      );
     }
   });
 
@@ -112,7 +173,7 @@ describe('published CLI entrypoint', () => {
   it('launches the compiled package runtime and serves the built client artifact for a workspace cwd', async () => {
     const workspaceCwd = makeTempDir('brunch-workspace-');
 
-    const child = spawn(process.execPath, [getPublishedBinEntrypoint()], {
+    const child = spawn(process.execPath, [getInstalledBinEntrypoint()], {
       cwd: workspaceCwd,
       env: {
         ...process.env,
