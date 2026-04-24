@@ -304,7 +304,7 @@ async function makePhaseClosureInterviewer(
   const { createPhaseOutcome } = await import('./db.js');
 
   createPhaseOutcome(dbArg, {
-    projectId,
+    specificationId: projectId,
     phase,
     proposal_turn_id: turnId,
     summary,
@@ -2136,7 +2136,7 @@ describe('phase outcomes + grounding closure', () => {
     advanceHead(db, projectId, proposalTurn.id);
 
     createPhaseOutcome(db, {
-      projectId,
+      specificationId: projectId,
       phase: 'requirements',
       proposal_turn_id: proposalTurn.id,
       summary: 'The requirement set has explicit review coverage and is ready to move into criteria.',
@@ -2400,7 +2400,7 @@ describe('phase outcomes + grounding closure', () => {
     advanceHead(db, projectId, proposalTurn.id);
 
     createPhaseOutcome(db, {
-      projectId,
+      specificationId: projectId,
       phase: 'criteria',
       proposal_turn_id: proposalTurn.id,
       summary: 'All criteria have been explicitly reviewed and the criteria set is ready to close.',
@@ -2489,7 +2489,7 @@ describe('phase outcomes + grounding closure', () => {
     advanceHead(db, projectId, proposalTurn.id);
 
     createPhaseOutcome(db, {
-      projectId,
+      specificationId: projectId,
       phase: 'criteria',
       proposal_turn_id: proposalTurn.id,
       summary: 'Criteria reviewed.',
@@ -2708,7 +2708,7 @@ describe('phase outcomes + grounding closure', () => {
         const { createPhaseOutcome } = await import('./db.js');
         const { designTurn } = seedActiveDesign(projectId);
         createPhaseOutcome(db, {
-          projectId,
+          specificationId: projectId,
           phase: 'design',
           proposal_turn_id: designTurn.id,
           summary: 'The main architectural commitments are captured well enough to review requirements.',

@@ -71,7 +71,6 @@ export type WorkflowState = SharedWorkflowState;
 
 export interface CreatePhaseOutcomeInput {
   specificationId?: number;
-  projectId?: number;
   phase: Phase;
   proposal_turn_id: number;
   summary: string;
@@ -270,7 +269,7 @@ function reconcilePhaseOutcomesForSpecification(db: DB, specificationId: number)
 }
 
 export function createPhaseOutcome(db: DB, input: CreatePhaseOutcomeInput): PhaseOutcome {
-  const specificationId = input.specificationId ?? input.projectId;
+  const { specificationId } = input;
   if (!specificationId) {
     throw new Error('createPhaseOutcome requires specificationId');
   }
@@ -325,7 +324,7 @@ export function createConfirmedPhaseOutcome(
   db: DB,
   input: CreatePhaseOutcomeInput & { confirmation_turn_id: number },
 ): PhaseOutcome {
-  const specificationId = input.specificationId ?? input.projectId;
+  const { specificationId } = input;
   if (!specificationId) {
     throw new Error('createConfirmedPhaseOutcome requires specificationId');
   }

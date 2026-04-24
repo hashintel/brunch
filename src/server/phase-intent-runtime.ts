@@ -35,12 +35,12 @@ export interface PhaseIntentRuntimeError {
 
 function persistGroundingStrategyKickoffSelection({
   db,
-  projectId,
+  specificationId,
   kickoffTurn,
   mode,
 }: {
   db: DB;
-  projectId: number;
+  specificationId: number;
   kickoffTurn: Pick<Turn, 'id'>;
   mode: 'greenfield' | 'brownfield';
 }): PhaseIntentRuntimeResult {
@@ -57,7 +57,7 @@ function persistGroundingStrategyKickoffSelection({
   }
 
   applyTurnResponseSelections(db, kickoffTurn.id, [selectedPosition]);
-  updateSpecificationMode(db, projectId, mode);
+  updateSpecificationMode(db, specificationId, mode);
   updateTurn(db, kickoffTurn.id, {
     answer: messageText,
     user_parts: serializeParts([
@@ -100,16 +100,16 @@ export function getPhaseIntentRuntimeAvailabilityError(
 
 export function submitPhaseIntentWithRuntimeCompatibility({
   db,
-  projectId,
+  specificationId,
   request,
 }: {
   db: DB;
-  projectId: number;
+  specificationId: number;
   request: SubmitPhaseIntentRequest;
 }): SubmitPhaseIntentResponse | PhaseIntentRuntimeError {
-  const specificationState = getSpecificationState(db, projectId);
+  const specificationState = getSpecificationState(db, specificationId);
   if (!specificationState) {
-    return { ok: false, status: 404, error: 'Project not found' };
+    return { ok: false, status: 404, error: 'Specification not found' };
   }
 
   const activePhaseTurn = findLatestPhaseTurn(specificationState.turns, request.phase);
@@ -129,7 +129,7 @@ export function submitPhaseIntentWithRuntimeCompatibility({
       if (activeKickoffTurn) {
         return persistGroundingStrategyKickoffSelection({
           db,
-          projectId,
+          specificationId,
           kickoffTurn: activeKickoffTurn,
           mode: request.mode,
         });
@@ -140,7 +140,7 @@ export function submitPhaseIntentWithRuntimeCompatibility({
         throw new Error('Invalid grounding strategy selection');
       }
 
-      updateSpecificationMode(db, projectId, request.mode);
+      updateSpecificationMode(db, specificationId, request.mode);
       return { ok: true };
     }
 

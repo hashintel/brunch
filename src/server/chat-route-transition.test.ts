@@ -2,18 +2,22 @@ import { beforeEach, describe, expect, it } from 'vitest';
 
 import type { BrunchUserPart } from '@/shared/chat.js';
 
-import { prepareChatRouteTransition } from './chat-route-transition.js';
+import { applyChatRouteTransition } from './chat-route-transition.js';
 import {
   advanceHead,
   createDb,
+  createConfirmedPhaseOutcome,
   createPhaseOutcome,
   createSpecification,
   createTurn,
+  findPhaseOutcomeForTurn,
+  getSpecification,
   getTurn,
+  supersedePhaseOutcome,
   type DB,
 } from './db.js';
 
-describe('prepareChatRouteTransition', () => {
+describe('applyChatRouteTransition', () => {
   let db: DB;
 
   beforeEach(() => {
@@ -36,7 +40,7 @@ describe('prepareChatRouteTransition', () => {
     });
     advanceHead(db, specification.id, activeTurn.id);
 
-    const result = prepareChatRouteTransition({
+    const result = applyChatRouteTransition({
       db,
       specificationId: specification.id,
       promptText: 'Web',
@@ -60,7 +64,7 @@ describe('prepareChatRouteTransition', () => {
   it('prepares a successor turn for a phase-intent entry path', () => {
     const specification = createSpecification(db, 'Phase intent entry');
 
-    const result = prepareChatRouteTransition({
+    const result = applyChatRouteTransition({
       db,
       specificationId: specification.id,
       promptText: 'Feature within existing codebase',
@@ -97,13 +101,13 @@ describe('prepareChatRouteTransition', () => {
     });
     advanceHead(db, specification.id, proposalTurn.id);
     const confirmationTarget = createPhaseOutcome(db, {
-      projectId: specification.id,
+      specificationId: specification.id,
       phase: 'grounding',
       proposal_turn_id: proposalTurn.id,
       summary: 'Grounding is ready to close.',
     });
 
-    const result = prepareChatRouteTransition({
+    const result = applyChatRouteTransition({
       db,
       specificationId: specification.id,
       promptText: 'Confirm grounding closure',
@@ -118,22 +122,46 @@ describe('prepareChatRouteTransition', () => {
           },
         },
       ],
-      confirmationTarget,
+      confirmation: {
+        kind: 'confirm-proposed-phase-closure',
+        proposalTurnId: proposalTurn.id,
+        phase: 'grounding',
+      },
     });
 
-    expect(result).toEqual({
-      ok: true,
-      kind: 'confirm-phase-closure',
-      confirmationTargetId: confirmationTarget.id,
-      confirmedClosureTurnId: proposalTurn.id,
-    });
+    expect(result).toEqual({ ok: true, kind: 'phase-closure-confirmed' });
     expect(getTurn(db, proposalTurn.id)?.answer).toBe('Confirm grounding closure');
+    expect(findPhaseOutcomeForTurn(db, specification.id, proposalTurn.id)).toMatchObject({
+      id: confirmationTarget.id,
+      status: 'confirmed',
+      confirmation_turn_id: proposalTurn.id,
+    });
   });
 
   it('prepares a force-close turn in the requested phase', () => {
     const specification = createSpecification(db, 'Force close');
+    const groundingTurn = createTurn(db, specification.id, {
+      phase: 'grounding',
+      question: 'What are we building?',
+      answer: 'A spec tool',
+    });
+    advanceHead(db, specification.id, groundingTurn.id);
+    createConfirmedPhaseOutcome(db, {
+      specificationId: specification.id,
+      phase: 'grounding',
+      proposal_turn_id: groundingTurn.id,
+      confirmation_turn_id: groundingTurn.id,
+      summary: 'Grounding is complete.',
+    });
+    const designTurn = createTurn(db, specification.id, {
+      parent_turn_id: groundingTurn.id,
+      phase: 'design',
+      question: 'What is the primary flow?',
+      answer: 'Interview-first',
+    });
+    advanceHead(db, specification.id, designTurn.id);
 
-    const result = prepareChatRouteTransition({
+    const result = applyChatRouteTransition({
       db,
       specificationId: specification.id,
       promptText: 'Force close the active phase',
@@ -144,17 +172,193 @@ describe('prepareChatRouteTransition', () => {
           data: { kind: 'force-close-active-phase', phase: 'design' },
         },
       ],
-      forceClosePhase: 'design',
+      confirmation: { kind: 'force-close-active-phase', phase: 'design' },
+    });
+
+    expect(result).toEqual({
+      ok: true,
+      kind: 'phase-force-closed',
+    });
+    const forceCloseTurn = getTurn(db, getSpecification(db, specification.id)?.active_turn_id ?? -1);
+    expect(forceCloseTurn).toMatchObject({
+      phase: 'design',
+      answer: 'Force close the active phase',
+    });
+    expect(findPhaseOutcomeForTurn(db, specification.id, forceCloseTurn?.id ?? -1)).toMatchObject({
+      status: 'confirmed',
+      closure_basis: 'user_forced',
+    });
+  });
+
+  it('rejects force-close commands when the target phase is not closeable', () => {
+    const specification = createSpecification(db, 'Rejected force close');
+
+    const result = applyChatRouteTransition({
+      db,
+      specificationId: specification.id,
+      promptText: 'Force close the active phase',
+      persistedUserParts: [
+        { type: 'text', text: 'Force close the active phase' },
+        {
+          type: 'data-confirmation',
+          data: { kind: 'force-close-active-phase', phase: 'grounding' },
+        },
+      ],
+      confirmation: { kind: 'force-close-active-phase', phase: 'grounding' },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      kind: 'force-close-not-allowed',
+      message: 'Phase is not closeable yet',
+    });
+  });
+
+  it('rejects unavailable phase-intent paths at the helper seam', () => {
+    const specification = createSpecification(db, 'Unavailable phase intent');
+
+    const result = applyChatRouteTransition({
+      db,
+      specificationId: specification.id,
+      promptText: 'Begin the elicitation phase.',
+      persistedUserParts: [
+        { type: 'text', text: 'Begin the elicitation phase.' },
+        {
+          type: 'data-phase-intent',
+          data: { kind: 'phase-entry', phase: 'design' },
+        },
+      ],
+      phaseIntentRequest: { kind: 'phase-entry', phase: 'design' },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      kind: 'phase-intent-not-available',
+      message: 'Phase entry is not currently available',
+    });
+  });
+
+  it('rejects superseded closure confirmations when the proposal is no longer pending', () => {
+    const specification = createSpecification(db, 'Superseded closure confirmation');
+    const proposalTurn = createTurn(db, specification.id, {
+      phase: 'grounding',
+      question: '',
+      answer: 'We have enough grounding context',
+    });
+    const outcome = createPhaseOutcome(db, {
+      specificationId: specification.id,
+      phase: 'grounding',
+      proposal_turn_id: proposalTurn.id,
+      summary: 'Grounding is ready to close.',
+    });
+    supersedePhaseOutcome(db, outcome.id);
+
+    const result = applyChatRouteTransition({
+      db,
+      specificationId: specification.id,
+      promptText: 'Confirm grounding closure',
+      persistedUserParts: [
+        { type: 'text', text: 'Confirm grounding closure' },
+        {
+          type: 'data-confirmation',
+          data: {
+            kind: 'confirm-proposed-phase-closure',
+            proposalTurnId: proposalTurn.id,
+            phase: 'grounding',
+          },
+        },
+      ],
+      confirmation: {
+        kind: 'confirm-proposed-phase-closure',
+        proposalTurnId: proposalTurn.id,
+        phase: 'grounding',
+      },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      kind: 'phase-closure-proposal-not-found',
+      message: 'Phase closure proposal not found',
+    });
+  });
+
+  it('rejects closure confirmations whose payload phase does not match the proposal phase', () => {
+    const specification = createSpecification(db, 'Mismatched closure confirmation');
+    const proposalTurn = createTurn(db, specification.id, {
+      phase: 'grounding',
+      question: '',
+      answer: 'We have enough grounding context',
+    });
+    createPhaseOutcome(db, {
+      specificationId: specification.id,
+      phase: 'grounding',
+      proposal_turn_id: proposalTurn.id,
+      summary: 'Grounding is ready to close.',
+    });
+
+    const result = applyChatRouteTransition({
+      db,
+      specificationId: specification.id,
+      promptText: 'Confirm design closure',
+      persistedUserParts: [
+        { type: 'text', text: 'Confirm design closure' },
+        {
+          type: 'data-confirmation',
+          data: {
+            kind: 'confirm-proposed-phase-closure',
+            proposalTurnId: proposalTurn.id,
+            phase: 'design',
+          },
+        },
+      ],
+      confirmation: {
+        kind: 'confirm-proposed-phase-closure',
+        proposalTurnId: proposalTurn.id,
+        phase: 'design',
+      },
+    });
+
+    expect(result).toEqual({
+      ok: false,
+      kind: 'phase-closure-phase-mismatch',
+      message: 'Phase closure confirmation phase mismatch',
+    });
+  });
+
+  it('supersedes an active proposed outcome before preparing the successor turn', () => {
+    const specification = createSpecification(db, 'Supersede active proposal');
+    const activeTurn = createTurn(db, specification.id, {
+      phase: 'grounding',
+      question: 'What platform should we support first?',
+      answer: 'Web',
+      user_parts: JSON.stringify([
+        { type: 'text', text: 'Web' },
+        {
+          type: 'data-turn-response',
+          data: { turnId: 1, selectedOptionIds: [11] },
+        },
+      ] satisfies BrunchUserPart[]),
+    });
+    advanceHead(db, specification.id, activeTurn.id);
+    createPhaseOutcome(db, {
+      specificationId: specification.id,
+      phase: 'grounding',
+      proposal_turn_id: activeTurn.id,
+      summary: 'Grounding is ready to close.',
+    });
+
+    const result = applyChatRouteTransition({
+      db,
+      specificationId: specification.id,
+      promptText: 'Web',
+      persistedUserParts: [{ type: 'text', text: 'Web' }],
     });
 
     expect(result).toMatchObject({
       ok: true,
-      kind: 'force-close',
+      kind: 'interviewer-turn',
+      observedTurnId: activeTurn.id,
     });
-    if (!result.ok || result.kind !== 'force-close') {
-      throw new Error('Expected force-close result');
-    }
-    expect(result.prepared.turn.phase).toBe('design');
-    expect(result.prepared.turn.answer).toBe('Force close the active phase');
+    expect(findPhaseOutcomeForTurn(db, specification.id, activeTurn.id)?.status).toBe('superseded');
   });
 });

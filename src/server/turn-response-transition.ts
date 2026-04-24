@@ -14,20 +14,26 @@ import {
   applyTurnResponseSelections,
   createConfirmedPhaseOutcome,
   getTurn,
+  getOptionsForTurn,
   materializeAcceptedCriteriaReviewSet,
   materializeAcceptedRequirementsReviewSet,
   updateSpecificationMode,
   updateTurn,
   type DB,
-  type Option,
   type Turn,
 } from './db.js';
 import { serializeParts } from './parts.js';
 
+export type SubmitTurnResponseTransitionErrorKind =
+  | 'review-action-mismatch'
+  | 'review-action-not-allowed'
+  | 'selected-option-not-found'
+  | 'turn-not-found';
+
 export interface SubmitTurnResponseTransitionError {
   readonly ok: false;
-  readonly status: 400;
-  readonly error: string;
+  readonly kind: SubmitTurnResponseTransitionErrorKind;
+  readonly message: string;
 }
 
 function getPersistedFullSetReviewAction(
@@ -48,7 +54,7 @@ function acceptRequirementsReview(
   materializeAcceptedRequirementsReviewSet(db, specificationId, turnId);
 
   createConfirmedPhaseOutcome(db, {
-    projectId: specificationId,
+    specificationId,
     phase: 'requirements',
     proposal_turn_id: turnId,
     confirmation_turn_id: turnId,
@@ -62,7 +68,7 @@ function acceptCriteriaReview(db: DB, specificationId: number, turnId: number): 
   materializeAcceptedCriteriaReviewSet(db, specificationId, turnId);
 
   createConfirmedPhaseOutcome(db, {
-    projectId: specificationId,
+    specificationId,
     phase: 'criteria',
     proposal_turn_id: turnId,
     confirmation_turn_id: turnId,
@@ -75,21 +81,26 @@ function acceptCriteriaReview(db: DB, specificationId: number, turnId: number): 
 export function submitTurnResponseTransition({
   db,
   specificationId,
-  turn,
   turnId,
   request,
-  selectedOptions,
-  selectedPositions,
 }: {
   db: DB;
   specificationId: number;
-  turn: Turn;
   turnId: number;
   request: SubmitTurnResponseRequest;
-  selectedOptions: Option[];
-  selectedPositions: number[];
 }): SubmitTurnResponseResponse | SubmitTurnResponseTransitionError {
+  const turn = getTurn(db, turnId);
+  if (!turn || turn.specification_id !== specificationId) {
+    return { ok: false, kind: 'turn-not-found', message: 'Turn not found' };
+  }
+
   const freeText = request.freeText;
+  const selectedPositions = request.kind === 'select-options' ? [...new Set(request.positions)] : [];
+  const options = getOptionsForTurn(db, turnId);
+  const selectedOptions = options.filter((option) => selectedPositions.includes(option.position));
+  if (selectedOptions.length !== selectedPositions.length) {
+    return { ok: false, kind: 'selected-option-not-found', message: 'Selected option not found' };
+  }
 
   applyTurnResponseSelections(db, turnId, selectedPositions);
 
@@ -115,16 +126,16 @@ export function submitTurnResponseTransition({
   if (expectedReviewAction && reviewAction !== expectedReviewAction) {
     return {
       ok: false,
-      status: 400,
-      error: 'Review turns must submit the explicit reviewAction for the selected option',
+      kind: 'review-action-mismatch',
+      message: 'Review turns must submit the explicit reviewAction for the selected option',
     };
   }
 
   if (!expectedReviewAction && reviewAction) {
     return {
       ok: false,
-      status: 400,
-      error: 'reviewAction is only valid for review turns',
+      kind: 'review-action-not-allowed',
+      message: 'reviewAction is only valid for review turns',
     };
   }
 

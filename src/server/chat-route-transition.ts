@@ -1,5 +1,11 @@
 import type { SubmitPhaseIntentRequest } from '@/shared/api-types.js';
 import type { BrunchUserPart } from '@/shared/chat.js';
+import type { DataConfirmation } from '@/shared/phase-close.js';
+import {
+  getForceCloseActionErrorMessage,
+  getForceClosePhaseAction,
+  getForcedPhaseClosureSummary,
+} from '@/shared/phase-close.js';
 import { getPersistedTurnResponse, getTurnPreface } from '@/shared/specification-state.js';
 import { getSpecificationRecord } from '@/shared/specification.js';
 
@@ -11,30 +17,29 @@ import {
   resolveTurn,
 } from './core.js';
 import {
+  confirmPhaseOutcome,
+  createConfirmedPhaseOutcome,
   findPhaseOutcomeForTurn,
+  findProposedPhaseOutcomeByTurn,
   getCurrentPhase,
+  getCurrentWorkflowState,
   getSpecification,
   getTurn,
   supersedePhaseOutcome,
   type DB,
-  type Phase,
-  type PhaseOutcome,
 } from './db.js';
 import { getPhaseIntentRuntimeAvailabilityError } from './phase-intent-runtime.js';
 
 type PreparedChatTurn = ReturnType<typeof prepareTurn> | ReturnType<typeof prepareSuccessorTurn>;
 
-export type ChatRouteTransitionPlan =
+export type ChatRouteTransitionResult =
   | {
       readonly ok: true;
-      readonly kind: 'confirm-phase-closure';
-      readonly confirmationTargetId: number;
-      readonly confirmedClosureTurnId: number;
+      readonly kind: 'phase-closure-confirmed';
     }
   | {
       readonly ok: true;
-      readonly kind: 'force-close';
-      readonly prepared: PreparedChatTurn;
+      readonly kind: 'phase-force-closed';
     }
   | {
       readonly ok: true;
@@ -45,60 +50,111 @@ export type ChatRouteTransitionPlan =
       readonly deferObserverCaptureToRuntime: boolean;
     };
 
+export type ChatRouteTransitionErrorKind =
+  | 'force-close-not-allowed'
+  | 'phase-closure-phase-mismatch'
+  | 'phase-closure-proposal-not-found'
+  | 'phase-intent-not-available'
+  | 'specification-not-found';
+
 export interface ChatRouteTransitionError {
   readonly ok: false;
-  readonly status: 404 | 409;
-  readonly error: string;
+  readonly kind: ChatRouteTransitionErrorKind;
+  readonly message: string;
 }
 
-export function prepareChatRouteTransition({
+export function applyChatRouteTransition({
   db,
   specificationId,
   promptText,
   persistedUserParts,
-  confirmationTarget,
-  forceClosePhase,
+  confirmation,
   phaseIntentRequest,
 }: {
   db: DB;
   specificationId: number;
   promptText: string;
   persistedUserParts: BrunchUserPart[];
-  confirmationTarget?: Pick<PhaseOutcome, 'id' | 'phase' | 'proposal_turn_id'>;
-  forceClosePhase?: Phase;
+  confirmation?: DataConfirmation;
   phaseIntentRequest?: SubmitPhaseIntentRequest;
-}): ChatRouteTransitionPlan | ChatRouteTransitionError {
-  if (confirmationTarget) {
+}): ChatRouteTransitionResult | ChatRouteTransitionError {
+  if (confirmation?.kind === 'confirm-proposed-phase-closure') {
+    const confirmationTarget = findProposedPhaseOutcomeByTurn(
+      db,
+      specificationId,
+      confirmation.proposalTurnId,
+    );
+    if (!confirmationTarget) {
+      return {
+        ok: false,
+        kind: 'phase-closure-proposal-not-found',
+        message: 'Phase closure proposal not found',
+      };
+    }
+    if (confirmationTarget.phase !== confirmation.phase) {
+      return {
+        ok: false,
+        kind: 'phase-closure-phase-mismatch',
+        message: 'Phase closure confirmation phase mismatch',
+      };
+    }
+
     const proposalTurn = getTurn(db, confirmationTarget.proposal_turn_id);
     if (!proposalTurn || proposalTurn.specification_id !== specificationId) {
-      return { ok: false, status: 404, error: 'Phase closure proposal not found' };
+      return {
+        ok: false,
+        kind: 'phase-closure-proposal-not-found',
+        message: 'Phase closure proposal not found',
+      };
     }
 
     resolveTurn(db, proposalTurn.id, promptText, persistedUserParts);
+    confirmPhaseOutcome(db, confirmationTarget.id, proposalTurn.id);
+    finalizeTurn(db, specificationId, proposalTurn.id);
     return {
       ok: true,
-      kind: 'confirm-phase-closure',
-      confirmationTargetId: confirmationTarget.id,
-      confirmedClosureTurnId: proposalTurn.id,
+      kind: 'phase-closure-confirmed',
     };
   }
 
-  if (forceClosePhase) {
+  if (confirmation?.kind === 'force-close-active-phase') {
     if (!getSpecification(db, specificationId)) {
-      return { ok: false, status: 404, error: 'Project not found' };
+      return { ok: false, kind: 'specification-not-found', message: 'Specification not found' };
     }
+
+    const forceCloseAction = getForceClosePhaseAction(
+      getCurrentWorkflowState(db, specificationId),
+      confirmation.phase,
+    );
+    const forceCloseError = getForceCloseActionErrorMessage(forceCloseAction);
+    if (forceCloseError) {
+      return {
+        ok: false,
+        kind: 'force-close-not-allowed',
+        message: forceCloseError,
+      };
+    }
+
+    const prepared = prepareTurn(db, specificationId, promptText, persistedUserParts, confirmation.phase);
+    createConfirmedPhaseOutcome(db, {
+      specificationId,
+      phase: confirmation.phase,
+      proposal_turn_id: prepared.turn.id,
+      confirmation_turn_id: prepared.turn.id,
+      summary: getForcedPhaseClosureSummary(confirmation.phase),
+    });
+    finalizeTurn(db, specificationId, prepared.turn.id);
 
     return {
       ok: true,
-      kind: 'force-close',
-      prepared: prepareTurn(db, specificationId, promptText, persistedUserParts, forceClosePhase),
+      kind: 'phase-force-closed',
     };
   }
 
   if (phaseIntentRequest) {
     const specificationState = getSpecificationState(db, specificationId);
     if (!specificationState) {
-      return { ok: false, status: 404, error: 'Project not found' };
+      return { ok: false, kind: 'specification-not-found', message: 'Specification not found' };
     }
 
     const availabilityError = getPhaseIntentRuntimeAvailabilityError(
@@ -106,7 +162,11 @@ export function prepareChatRouteTransition({
       specificationState.landing,
     );
     if (availabilityError) {
-      return availabilityError;
+      return {
+        ok: false,
+        kind: 'phase-intent-not-available',
+        message: availabilityError.error,
+      };
     }
 
     return {
@@ -124,9 +184,13 @@ export function prepareChatRouteTransition({
     };
   }
 
+  if (!getSpecification(db, specificationId)) {
+    return { ok: false, kind: 'specification-not-found', message: 'Specification not found' };
+  }
+
   const specificationState = getSpecificationState(db, specificationId);
   if (!specificationState) {
-    return { ok: false, status: 404, error: 'Project not found' };
+    return { ok: false, kind: 'specification-not-found', message: 'Specification not found' };
   }
 
   const currentPhase = getCurrentPhase(db, specificationId);
