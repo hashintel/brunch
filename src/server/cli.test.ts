@@ -138,6 +138,7 @@ describe('published CLI entrypoint', () => {
         'LICENSE',
         'README.md',
         'bin/brunch.js',
+        'dist/favicon.ico',
         'dist/index.html',
         'dist/server/cli.js',
         'drizzle/meta/_journal.json',
@@ -253,6 +254,10 @@ describe('published CLI entrypoint', () => {
       const indexResponse = await fetch(url);
       expect(indexResponse.ok).toBe(true);
       expect(await indexResponse.text()).toContain('<div id="root"></div>');
+
+      const faviconResponse = await fetch(`${url}/favicon.ico`);
+      expect(faviconResponse.ok).toBe(true);
+      expect(faviconResponse.headers.get('content-type')).toContain('icon');
 
       const apiResponse = await fetch(`${url}/api/specifications`);
       expect(apiResponse.ok).toBe(true);
