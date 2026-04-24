@@ -1,5 +1,5 @@
 import { spawn } from 'node:child_process';
-import { mkdtempSync, rmSync, symlinkSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, symlinkSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -29,6 +29,10 @@ type PackResult = {
 
 let installedPackageRoot = '';
 let packFilePaths: string[] = [];
+
+type PackedPackageManifest = {
+  dependencies?: Record<string, string>;
+};
 
 function makeTempDir(prefix: string = 'brunch-cli-'): string {
   const dir = mkdtempSync(join(tmpdir(), prefix));
@@ -152,6 +156,14 @@ describe('published CLI entrypoint', () => {
         false,
       );
     }
+  });
+
+  it('omits Ladle from the published runtime dependency set', () => {
+    const packageManifest = JSON.parse(
+      readFileSync(join(installedPackageRoot, 'package.json'), 'utf8'),
+    ) as PackedPackageManifest;
+
+    expect(packageManifest.dependencies?.['@ladle/react']).toBeUndefined();
   });
 
   it('executes through the package bin wrapper', async () => {
