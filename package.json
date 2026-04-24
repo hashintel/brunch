@@ -17,7 +17,7 @@
     "brunch": "./bin/brunch.js"
   },
   "scripts": {
-    "build": "vite build",
+    "build": "vite build && vite build --mode server-runtime",
     "check": "npm run fmt:check && npm run lint && npm run typecheck",
     "dev": "agent-tail run 'vite: vite' 'api: npx tsx --watch src/server/index.ts'",
     "fix": "npm run lint:fix && npm run fmt",
