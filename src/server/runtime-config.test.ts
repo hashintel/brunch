@@ -94,7 +94,7 @@ describe('runtime config', () => {
       if (previousApiKey === undefined) {
         delete process.env.ANTHROPIC_API_KEY;
       } else {
-        process.env.ANTHROPIC_API_KEY = 'shell-value';
+        process.env.ANTHROPIC_API_KEY = previousApiKey;
       }
 
       if (previousPort === undefined) {
@@ -144,7 +144,7 @@ describe('runtime config', () => {
       if (previousApiKey === undefined) {
         delete process.env.ANTHROPIC_API_KEY;
       } else {
-        process.env.ANTHROPIC_API_KEY = 'shell-value';
+        process.env.ANTHROPIC_API_KEY = previousApiKey;
       }
 
       if (previousPort === undefined) {
