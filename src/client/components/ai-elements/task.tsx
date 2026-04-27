@@ -86,13 +86,12 @@ export const Task = ({
   useEffect(() => {
     if (isRunning) {
       hasEverRunRef.current = true;
-      setHasAutoClosed(false);
 
-      if (!isOpen && !isExplicitlyClosed) {
+      if (!isOpen && !isExplicitlyClosed && !hasAutoClosed) {
         setIsOpen(true);
       }
     }
-  }, [isExplicitlyClosed, isOpen, isRunning, setIsOpen]);
+  }, [isExplicitlyClosed, isOpen, isRunning, setIsOpen, hasAutoClosed]);
 
   useEffect(() => {
     if (hasEverRunRef.current && !isRunning && isOpen && !hasAutoClosed) {

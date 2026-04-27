@@ -65,7 +65,6 @@ export function ActivityPlaceholder({
         defaultOpen={Boolean(reasoningText)}
         duration={seconds}
         isStreaming={Boolean(reasoningText) && Boolean(reasoningStreaming)}
-        open={reasoningText ? undefined : false}
       >
         <ReasoningTrigger
           className="gap-1 text-xs text-hint hover:text-hint"
