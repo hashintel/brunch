@@ -50,6 +50,8 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
   - Traceability: Requirement 31; A67; D126.
 
 - **Progressive detail / recursive deflation** — support broad-pass interviewing with explicit next-level-of-detail actions rather than one uniform depth-first drill-down.
+  - Recommended shape: pair ordinary grounding/design question turns with a turn-owned breadth-skeleton artifact that makes current coverage visible and exposes a structured detail reaction (`deepen this area`, `continue broad pass`, `sufficient for now`). The chosen reaction should steer the next same-phase frontier turn instead of introducing a separate detail workflow.
+  - First cut should optimize for `broad question -> choose one area to deepen next -> focused successor question -> refreshed breadth skeleton`, while keeping the same detail-focus intent reusable later from chat or graph surfaces.
   - Traceability: Requirement 32; A67, A68; D127.
 
 - **Actionable graph workspace** — turn graph view into a spatial knowledge workspace with visible DAG edges and node-launched refinement side-chats.
