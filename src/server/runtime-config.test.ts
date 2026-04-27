@@ -94,13 +94,33 @@ describe('runtime config', () => {
       if (previousApiKey === undefined) {
         delete process.env.ANTHROPIC_API_KEY;
       } else {
-        process.env.ANTHROPIC_API_KEY = 'shell-value';
+        process.env.ANTHROPIC_API_KEY = previousApiKey;
       }
 
       if (previousPort === undefined) {
         delete process.env.BRUNCH_PORT;
       } else {
         process.env.BRUNCH_PORT = previousPort;
+      }
+    }
+  });
+
+  it('overrides stale shell env values with non-empty values from a local .env file', () => {
+    const cwd = makeTempDir();
+    writeFileSync(join(cwd, '.env'), 'ANTHROPIC_API_KEY=file-value\n');
+
+    const previousApiKey = process.env.ANTHROPIC_API_KEY;
+    process.env.ANTHROPIC_API_KEY = 'stale-shell-value';
+
+    try {
+      loadLocalEnvFile(cwd);
+
+      expect(process.env.ANTHROPIC_API_KEY).toBe('file-value');
+    } finally {
+      if (previousApiKey === undefined) {
+        delete process.env.ANTHROPIC_API_KEY;
+      } else {
+        process.env.ANTHROPIC_API_KEY = previousApiKey;
       }
     }
   });
@@ -124,7 +144,7 @@ describe('runtime config', () => {
       if (previousApiKey === undefined) {
         delete process.env.ANTHROPIC_API_KEY;
       } else {
-        process.env.ANTHROPIC_API_KEY = 'shell-value';
+        process.env.ANTHROPIC_API_KEY = previousApiKey;
       }
 
       if (previousPort === undefined) {

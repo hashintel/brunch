@@ -1,6 +1,7 @@
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import type { Server } from 'node:http';
 import { join } from 'node:path';
+import { parseEnv } from 'node:util';
 
 import type { Express } from 'express';
 
@@ -19,7 +20,14 @@ export function loadLocalEnvFile(cwd: string): void {
     return;
   }
 
-  process.loadEnvFile(envFilePath);
+  const parsed = parseEnv(readFileSync(envFilePath, 'utf8'));
+  for (const [key, value] of Object.entries(parsed)) {
+    if (value === '') {
+      continue;
+    }
+
+    process.env[key] = value;
+  }
 }
 
 function parsePort(value: string, source: 'BRUNCH_PORT' | 'PORT'): number {
@@ -86,7 +94,11 @@ export async function listenOnLocalhost(
       server.off('error', handleError);
       if (!settled) {
         settled = true;
-        resolve({ server, port: address.port, url: `http://localhost:${address.port}` });
+        resolve({
+          server,
+          port: address.port,
+          url: `http://localhost:${address.port}`,
+        });
       }
     });
 
