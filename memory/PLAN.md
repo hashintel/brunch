@@ -41,6 +41,8 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
   - Traceability: Requirement 29; A65; D124.
 
 - **Relation-first observer capture** — expand observer relationship extraction so graph edges are captured across the ontology when reasonably traceable, not only for decisions and assumptions.
+  - Recommended shape: keep `runObserver()` as the public turn-owned seam, but widen its internal output into a generic graph delta: per-kind item arrays plus a top-level relationship-candidate set that can reference existing entities and same-turn provisional items. Server-owned alias resolution plus typed relation-policy validation should persist only supported edges, and the same resolver should be reusable when accepted review sets materialize requirements / criteria.
+  - First cut should optimize for `new or revised item in the current turn -> link to existing graph anchors when explicit`, with accepted-review grounding / materialization reusing the same relation seam instead of creating a separate review-graph workflow.
   - Traceability: Requirements 30, 33; A66; D125.
 
 - **Candidate-spec completion assist** — replace skip-only remainder handling with a `fill in the rest for me` path that generates candidate specs, implications, and tradeoffs for reaction-based refinement.
