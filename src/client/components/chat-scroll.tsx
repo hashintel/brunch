@@ -10,7 +10,7 @@ import { cn } from '@/client/lib/utils';
 export function ChatScroll({ children, className }: { children: React.ReactNode; className?: string }) {
   const { scrollRef, contentRef, scrollToBottom, isAtBottom } = useStickToBottom({
     resize: 'smooth',
-    initial: 'smooth',
+    initial: false,
   });
 
   const viewportRef = useRef<HTMLDivElement>(null);
