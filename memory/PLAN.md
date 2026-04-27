@@ -4,7 +4,7 @@
 
 # Plan
 
-The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, and observer knowledge extraction all ship as working product. FE-531 distribution hardening is now closed through a real publishable package/release path for `npx brunch`, so the live frontier centers on **infrastructure** — workflow ownership extraction and continuous workspace — which enables the next wave of user-facing capabilities (revisit/cascade, trigger-popover composer, web tools). Manual proving of recently landed interaction-model changes (preface cards in non-grounding phases, format autonomy quality, observer coherence) continues alongside these seams.
+The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, and observer knowledge extraction all ship as working product. FE-531 distribution hardening is now closed through a real publishable package/release path for `npx brunch`, so the live frontier centers on **infrastructure** — workflow ownership extraction and continuous workspace — which enables the next wave of user-facing capabilities (revisit/cascade, trigger-popover composer, web tools, and the new post-launch interview-model expansion themes). Manual proving of recently landed interaction-model changes (preface cards in non-grounding phases, format autonomy quality, observer coherence) continues alongside these seams.
 
 ## Active
 
@@ -26,16 +26,38 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 ### User-facing capabilities (need design work before scoping)
 
 - **Revisit / edit mode + cascade preview** — edit knowledge items, see downstream effects, resolve through secondary thread. Has a design doc (`docs/design/REVISIT_MODULE.md`) but needs design refinement before scoping.
-  - Traceability: R10, D50, D80; A48, A49.
+  - Traceability: Requirement 10; D50, D80; A48, A49.
 
 - **Trigger-popover composer** — persistent workspace composer with `/` commands, `@` knowledge mentions, `#` phase refs. Depends on continuous workspace establishing a persistent composer as the canonical input seam.
   - Depends on: continuous workspace.
   - Traceability: A51, D89.
 
-- **Web research as a context-gathering capability** — web search and page-fetch tools as interviewer-invoked context gathering, surfaced as preface cards. The tool gate and preface lifecycle are ready; this adds new tool implementations.
-  - Traceability: D99.
+- **Web research as a context-gathering capability** — web search and page-fetch tools as interviewer-invoked context gathering, surfaced as preface cards. The preface lifecycle is ready; this adds new context-gathering tool implementations.
+  - Traceability: Requirements 20, 21; D112.
 
 - **Dashboard result summaries and completeness metrics** — progress visibility across specifications.
+
+- **Two-axis interview framing** — adapt interviewer setup and questioning to the full `greenfield <> brownfield` by `end-to-end build <> incremental feature` matrix instead of treating partial-scope work as a special case.
+  - Traceability: Requirement 29; A65; D124.
+
+- **Relation-first observer capture** — expand observer relationship extraction so graph edges are captured across the ontology when reasonably traceable, not only for decisions and assumptions.
+  - Recommended shape: keep `runObserver()` as the public turn-owned seam, but widen its internal output into a generic graph delta: per-kind item arrays plus a top-level relationship-candidate set that can reference existing entities and same-turn provisional items. Server-owned alias resolution plus typed relation-policy validation should persist only supported edges, and the same resolver should be reusable when accepted review sets materialize requirements / criteria.
+  - First cut should optimize for `new or revised item in the current turn -> link to existing graph anchors when explicit`, with accepted-review grounding / materialization reusing the same relation seam instead of creating a separate review-graph workflow.
+  - Traceability: Requirements 30, 33; A66; D125.
+
+- **Candidate-spec completion assist** — replace skip-only remainder handling with a `fill in the rest for me` path that generates candidate specs, implications, and tradeoffs for reaction-based refinement.
+  - Recommended shape: a turn-owned candidate-spec set artifact plus a structured reaction loop (`accept-direction`, `refine`, `regenerate`); accepting a candidate steers the next move but does not itself close the phase.
+  - Traceability: Requirement 31; A67; D126.
+
+- **Progressive detail / recursive deflation** — support broad-pass interviewing with explicit next-level-of-detail actions rather than one uniform depth-first drill-down.
+  - Recommended shape: pair ordinary grounding/design question turns with a turn-owned breadth-skeleton artifact that makes current coverage visible and exposes a structured detail reaction (`deepen this area`, `continue broad pass`, `sufficient for now`). The chosen reaction should steer the next same-phase frontier turn instead of introducing a separate detail workflow.
+  - First cut should optimize for `broad question -> choose one area to deepen next -> focused successor question -> refreshed breadth skeleton`, while keeping the same detail-focus intent reusable later from chat or graph surfaces.
+  - Traceability: Requirement 32; A67, A68; D127.
+
+- **Actionable graph workspace** — turn graph view into a spatial knowledge workspace with visible DAG edges and node-launched refinement side-chats.
+  - Recommended shape: a projection-first graph workspace seam that transforms `EntitiesData` into a spatial scene, owns only ephemeral graph-local UI state (`viewport`, `selection`, `focus`, `path highlighting`), and emits node action intents into the existing workspace lifecycle instead of creating a second workflow or edit store. First cut should optimize for `select node -> inspect -> launch refinement`, with revisit/edit overlays layered on later.
+  - Depends on: continuous workspace; revisit / edit mode.
+  - Traceability: Requirement 33; A69; D128.
 
 ### Infrastructure / tooling
 
@@ -49,10 +71,6 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
 - [2026-04-27] Runtime JSON payload hardening — Express API parsing now accepts chat-sized request bodies above the default parser ceiling and returns a JSON 413 response instead of Express HTML when a payload exceeds the app limit. Verified: `npm run verify`. Watch: if real chat requests still exceed the 5 MB limit, investigate client history / tool-result pruning rather than only raising the ceiling.
 - [2026-04-24] `release-it` publish wiring for the packaged artifact — `npm run release` now drives release-it at repo root, release hooks rebuild and `npm pack --dry-run --json` the packaged CLI/runtime artifact before `npm publish`, dry-run coverage proves the release flow stays pinned to the packaged boundary, and README release docs now make the npm-auth prerequisite explicit. Verified: `npm run verify`. Watch: CI trusted publishing is still intentionally out of scope for this seam.
 - [2026-04-24] Publishable pack artifact boundary for distribution hardening — `package.json` now declares the Node 22+ engine floor, explicit shipped files, and public scoped publish config; `npm pack` smoke coverage proves the tarball excludes repo-only source/docs state and an extracted install can still launch `brunch` against the built client artifact. Verified: `npm run verify`.
-- [2026-04-24] Compiled CLI runtime boundary for distribution hardening — `npm run build` now emits `dist/server/cli.js`, `bin/brunch.js` targets the compiled runtime, and build-backed package-bin smoke coverage proves help-path execution plus local-first launcher startup against the built client artifact. Verified: `npm run verify`.
-- [2026-04-23] Phase- and mode-agnostic context gathering — `present_preface` + exploration tools available in all phases when `cwd` is present; "grounding card" terminology replaced with "preface card". Verified: `npm run verify`.
-- [2026-04-23] Interviewer-autonomous question format with phase-aware gating — D115 revised. Verified: `npm run verify`.
-- [2026-04-23] SPEC.md pruning — retired 8 embedded assumptions and 33 embedded decisions from the live register, keeping only items that guard active seams, shape forward work, or constrain unbuilt capabilities.
 
 Older history: `docs/archive/PLAN_HISTORY.md`
 
@@ -68,4 +86,9 @@ UNBLOCKED HORIZON
 revisit / edit-mode  (needs design)
 web-research tools  (gate ready, needs tool impl)
 dashboard metrics
+two-axis interview framing
+relation-first observer capture
+candidate-spec completion assist
+progressive detail / recursive deflation
+actionable graph workspace
 ```

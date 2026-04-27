@@ -13,7 +13,9 @@ Plan-level frontier items in `memory/PLAN.md` are the unit of tracker/branch wor
 
 When starting a new frontier item:
 
-1. Create a Linear issue under FE-531 — use `/cli-linear`
+1. Create a Linear issue in the **Frontend (FE)** team and **brunch** project — use `/cli-linear`
+   - Do **not** parent new post-release issues under FE-531; FE-531 tracked the now-closed initial release.
+   - Only set a parent issue when the user or current plan explicitly names an active parent.
 2. Create a Graphite stacked branch — use `/cli-graphite` (read `docs/praxis/graphite-workflow.md` first)
 
 One branch per frontier item. `ln-scope` may thin that frontier item into smaller scope cards or sub-slices for implementation, but those do **not** get their own Linear issues or branches by default. Keep sub-slices on the same issue + branch unless `ln-plan` explicitly revises `memory/PLAN.md` into separate frontier items that should stack independently. Stacked branches mirror frontier-item dependencies in PLAN.md, not intra-item sub-slice sequencing. Graphite manages the stack; Linear tracks the plan-level work item.

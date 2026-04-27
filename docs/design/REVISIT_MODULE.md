@@ -1,7 +1,7 @@
 # Knowledge-Graph Revisit Module Design
 
-> Design exploration from 2026-04-12. Referenced by SPEC.md D80, D84.
-> Status: **approved direction** — C-flavored hybrid (state machine projected from DB).
+> Design exploration from 2026-04-12. Referenced by SPEC.md D80.
+> Status: **future-facing draft** — likely direction, but it needs refinement before scoping.
 > Canonicality: this is a future-facing module design note, not the live frontier authority. For what is true now and what should happen next, prefer `memory/SPEC.md` and `memory/PLAN.md`.
 
 ## Shape
@@ -13,7 +13,7 @@ State machine lifecycle reconstructed from DB state on each HTTP request. No in-
 ```typescript
 interface RevisitSession {
   id: number
-  projectId: number
+  specificationId: number
   status: 'planned' | 'active' | 'closing' | 'done' | 'aborted'
   rootItemIds: number[]          // items the user invalidated
   affectedItemIds: number[]      // cascade result
@@ -40,10 +40,10 @@ type RevisitState =
 
 ```typescript
 /** Read-only: compute cascade without writing anything */
-function previewCascade(projectId: number, itemIds: number[]): CascadePreview
+function previewCascade(specificationId: number, itemIds: number[]): CascadePreview
 
 /** planned: write the session, mark items invalidated */
-function beginRevisit(projectId: number, itemIds: number[]): RevisitSession
+function beginRevisit(specificationId: number, itemIds: number[]): RevisitSession
 
 /** active: open the secondary thread, reopen phases */
 function openRevisitThread(sessionId: number, anchorTurnId: number): RevisitSession

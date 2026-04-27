@@ -23,7 +23,7 @@ Any replacement needs to preserve these constraints from the current architectur
 
 1. Durable workflow truth stays loader-derived and server-authored.
 2. The app keeps one chat session per specification, not one `useChat` per rendered phase.
-3. `ProjectLayout` and `ViewLayout` remain the main loader/layout shells.
+3. `SpecificationWorkspaceLayout` and `ViewLayout` remain the main loader/layout shells.
 4. Graph view remains a sibling mode of chat view, selected via the `view` search param.
 5. Workflow gating stays honest: future phases may be visible, but only the current reachable phase is actionable.
 6. During migration, phase URLs should remain deep-linkable even if they stop being the primary rendering boundary.
@@ -46,7 +46,7 @@ function useContinuousWorkspace(focusedPhase: WorkflowPhase): ContinuousWorkspac
 
 ```typescript
 function GroundingView() {
-  return <ContinuousWorkspaceView focusedPhase="scope" />
+  return <ContinuousWorkspaceView focusedPhase="grounding" />
 }
 
 function RequirementsReviewView() {
@@ -117,8 +117,8 @@ interface WorkspaceChat {
 }
 
 interface ContinuousWorkspaceController {
-  project: InterviewDurableProjectState['project']
-  workflow: InterviewDurableProjectState['workflow']
+  specification: InterviewDurableSpecificationState['specification']
+  workflow: InterviewDurableSpecificationState['workflow']
   sections: readonly WorkspaceSection[]
   navigation: WorkspaceNavigation
   chat: WorkspaceChat
@@ -194,7 +194,7 @@ interface WorkspaceSupervisorSnapshot {
 
 function useWorkspaceSupervisor(options: {
   initialPhase: WorkflowPhase
-  durableProject: InterviewDurableProjectState
+  durableSpecification: InterviewDurableSpecificationState
   chat: WorkspaceChatRuntime
 }): {
   snapshot: WorkspaceSupervisorSnapshot
@@ -207,12 +207,12 @@ function useWorkspaceSupervisor(options: {
 ```typescript
 const workspace = useWorkspaceSupervisor({
   initialPhase,
-  durableProject,
+  durableSpecification,
   chat,
 })
 
 workspace.send({ type: 'SECTION_VISIBLE', phase: 'design' })
-workspace.send({ type: 'PHASE_CLOSED', phase: 'scope' })
+workspace.send({ type: 'PHASE_CLOSED', phase: 'grounding' })
 ```
 
 ### What it hides
@@ -279,8 +279,8 @@ That means:
 
 ```typescript
 interface ContinuousWorkspaceController {
-  project: InterviewDurableProjectState['project']
-  workflow: InterviewDurableProjectState['workflow']
+  specification: InterviewDurableSpecificationState['specification']
+  workflow: InterviewDurableSpecificationState['workflow']
   sections: readonly WorkspaceSection[]
   navigation: WorkspaceNavigation
   chat: WorkspaceChat
@@ -298,14 +298,14 @@ This is intentionally one main hook, not four phase-local hooks.
 
 ```typescript
 function useContinuousWorkspaceController({ initialPhase }: { initialPhase: WorkflowPhase }) {
-  const durableProject = useInterviewDataAdapter(...)
+  const { durableSpecification } = useInterviewDataAdapter(...)
   const chatRuntime = useSpecificationChatRuntime(...)
-  const sections = projectWorkspaceSections(durableProject, chatRuntime)
-  const navigation = useWorkspacePhaseNavigation({ initialPhase, workflow: durableProject.workflow })
+  const sections = projectWorkspaceSections(durableSpecification, chatRuntime)
+  const navigation = useWorkspacePhaseNavigation({ initialPhase, workflow: durableSpecification.workflow })
 
   return {
-    project: durableProject.project,
-    workflow: durableProject.workflow,
+    specification: durableSpecification.specification,
+    workflow: durableSpecification.workflow,
     sections,
     navigation,
     chat: chatRuntime.chat,
@@ -318,7 +318,7 @@ function useContinuousWorkspaceController({ initialPhase }: { initialPhase: Work
 
 ```typescript
 function projectWorkspaceSections(
-  durableProject: InterviewDurableProjectState,
+  durableSpecification: InterviewDurableSpecificationState,
   runtime: WorkspaceChatRuntime,
 ): WorkspaceSection[]
 ```

@@ -11,7 +11,7 @@ import { assign, setup } from 'xstate';
 
 type TurnId = string;
 
-type PhaseKey = 'scope' | 'design' | 'requirements' | 'criteria';
+type PhaseKey = 'grounding' | 'design' | 'requirements' | 'criteria';
 
 type DurableFrontierTurnKind = 'question' | 'grounding' | 'review' | 'closure';
 
