@@ -395,6 +395,31 @@ afterEach(() => {
   db.$client.close();
 });
 
+describe('json body parsing', () => {
+  it('accepts chat-sized JSON payloads above the Express default parser limit', async () => {
+    const largeMessage = 'x'.repeat(150 * 1024);
+
+    const res = await request(app)
+      .post('/api/specifications/not-a-number/chat')
+      .send({ messages: [{ role: 'user', parts: [{ type: 'text', text: largeMessage }] }] })
+      .expect(400);
+
+    expect(res.body).toEqual({ error: 'Invalid project ID' });
+  });
+
+  it('returns a JSON 413 response when the JSON payload exceeds the app limit', async () => {
+    const oversizedMessage = 'x'.repeat(6 * 1024 * 1024);
+
+    const res = await request(app)
+      .post('/api/specifications/not-a-number/chat')
+      .send({ messages: [{ role: 'user', parts: [{ type: 'text', text: oversizedMessage }] }] })
+      .expect(413);
+
+    expect(res.headers['content-type']).toContain('application/json');
+    expect(res.body).toEqual({ error: 'Request payload too large' });
+  });
+});
+
 describe('GET /api/specifications', () => {
   it('returns an empty array when no projects exist', async () => {
     const res = await request(app).get('/api/specifications').expect(200);

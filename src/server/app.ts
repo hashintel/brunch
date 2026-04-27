@@ -2,7 +2,7 @@ import os from 'node:os';
 
 import { createUIMessageStream, pipeUIMessageStreamToResponse, validateUIMessages } from 'ai';
 import express from 'express';
-import type { Express, Request, RequestHandler, Response } from 'express';
+import type { ErrorRequestHandler, Express, Request, RequestHandler, Response } from 'express';
 
 import { submitPhaseIntentRequestSchema, submitTurnResponseRequestSchema } from '@/shared/api-types.js';
 import type {
@@ -97,6 +97,33 @@ export interface AppServices {
   readonly app: Express;
   readonly db: DB;
 }
+
+const JSON_BODY_LIMIT = '5mb';
+
+function isPayloadTooLargeError(error: unknown): boolean {
+  if (!(error instanceof Error)) {
+    return false;
+  }
+
+  const parserError = error as Error & {
+    readonly status?: unknown;
+    readonly statusCode?: unknown;
+    readonly type?: unknown;
+  };
+
+  return (
+    parserError.type === 'entity.too.large' || parserError.status === 413 || parserError.statusCode === 413
+  );
+}
+
+const jsonBodyParserErrorHandler: ErrorRequestHandler = (error, _req, res, next) => {
+  if (isPayloadTooLargeError(error)) {
+    res.status(413).json({ error: 'Request payload too large' } satisfies MutationErrorResponse);
+    return;
+  }
+
+  next(error);
+};
 
 function parseEntityProjectionMode(rawMode: unknown): EntityProjectionMode | null {
   if (rawMode === undefined) {
@@ -234,7 +261,8 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
   const db = createDb(options.dbPath);
   const projectCwd = options.projectCwd ?? process.cwd();
   const app = express();
-  app.use(express.json());
+  app.use(express.json({ limit: JSON_BODY_LIMIT }));
+  app.use(jsonBodyParserErrorHandler);
   const observerCaptureRegistry = new Map<string, Promise<void>>();
 
   const specificationCollectionPaths = ['/api/specifications'] as const;
