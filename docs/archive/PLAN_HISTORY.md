@@ -139,4 +139,11 @@ Archived when Track A (interaction model) completed and the frontier shifted to 
 - 2026-04-23 — **Brownfield workspace-analysis grounding brief parity / proving retired** — real brownfield start confirmed the grounding brief, paired question, and live activity chrome read as one coherent turn lifecycle.
 - 2026-04-23 — **Transcript activity chrome and workspace polish** — task activity mirrors reasoning's auto-open/auto-collapse behavior, live tool activity surfaces richer target details during streaming, duplicate `src/components/ai-elements` tree removed.
 
+## 2026-04-27 Sync archive
+
+- 2026-04-24 — **Compiled CLI runtime boundary for distribution hardening** — `npm run build` emits `dist/server/cli.js`, `bin/brunch.js` targets the compiled runtime, and build-backed package-bin smoke coverage proves help-path execution plus local-first launcher startup against the built client artifact.
+- 2026-04-23 — **Phase- and mode-agnostic context gathering** — `present_preface` + exploration tools became available in all phases when `cwd` is present, and "grounding card" terminology was replaced with "preface card".
+- 2026-04-23 — **Interviewer-autonomous question format with phase-aware gating** — the interviewer chooses whether to include options per question; observer capture interprets selections phase-appropriately while the client keeps grounding free-text-required and design selection-gated.
+- 2026-04-23 — **SPEC.md pruning** — retired embedded assumptions and decisions from the live register, leaving only active uncertainty, seam-defining decisions, and future-facing constraints.
+
 Use `memory/PLAN.md` for the live frontier only.
