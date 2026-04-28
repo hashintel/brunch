@@ -114,11 +114,13 @@ describe('StructuredListView', () => {
   });
 
   it('groups items by knowledge display group and renders each section header', () => {
-    render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
-    expect(screen.getByText('Goals & Context')).toBeTruthy();
-    expect(screen.getByText('Assumptions & Decisions')).toBeTruthy();
-    expect(screen.getByText('Requirements')).toBeTruthy();
+    const sections = container.querySelectorAll('[data-graph-section]');
+    const sectionLabels = Array.from(sections).map((s) => s.getAttribute('data-graph-section'));
+    expect(sectionLabels).toContain('Goals & Context');
+    expect(sectionLabels).toContain('Assumptions & Decisions');
+    expect(sectionLabels).toContain('Requirements');
   });
 
   it('renders Outgoing and Incoming subsections in the relations footer when an item has edges', () => {
@@ -416,6 +418,59 @@ describe('StructuredListView', () => {
 
     // The header element should use justify-between so content + rail flank one another
     expect(rowHeader.className).toContain('justify-between');
+  });
+
+  it('renders a kind-filter toggler row when items exist', () => {
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const toggler = container.querySelector('[data-graph-kind-filter]');
+    expect(toggler).toBeTruthy();
+    if (!toggler) return;
+
+    // crossPhaseDecisionLink has goals + constraints + decisions + requirements populated
+    const buttons = toggler.querySelectorAll('button[data-graph-kind-toggle]');
+    expect(buttons.length).toBe(4);
+  });
+
+  it('does not render the kind-filter toggler when there are no items', () => {
+    const { container } = render(<StructuredListView entityState={emptySpec()} />);
+    expect(container.querySelector('[data-graph-kind-filter]')).toBeNull();
+  });
+
+  it('clicking a kind toggle hides items of that kind from rendering', () => {
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const decisionToggle = container.querySelector(
+      '[data-graph-kind-toggle="decision"]',
+    ) as HTMLButtonElement | null;
+    expect(decisionToggle).toBeTruthy();
+    if (!decisionToggle) return;
+
+    expect(container.querySelector('[data-graph-row-ref="D1"]')).toBeTruthy();
+
+    act(() => {
+      decisionToggle.click();
+    });
+
+    expect(container.querySelector('[data-graph-row-ref="D1"]')).toBeNull();
+    expect(decisionToggle.getAttribute('aria-pressed')).toBe('false');
+  });
+
+  it('clicking a kind toggle twice restores items', () => {
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const decisionToggle = container.querySelector(
+      '[data-graph-kind-toggle="decision"]',
+    ) as HTMLButtonElement | null;
+    expect(decisionToggle).toBeTruthy();
+    if (!decisionToggle) return;
+
+    act(() => decisionToggle.click());
+    expect(container.querySelector('[data-graph-row-ref="D1"]')).toBeNull();
+
+    act(() => decisionToggle.click());
+    expect(container.querySelector('[data-graph-row-ref="D1"]')).toBeTruthy();
+    expect(decisionToggle.getAttribute('aria-pressed')).toBe('true');
   });
 
   it('renders items sorted by referenceCode within their kind grouping', () => {

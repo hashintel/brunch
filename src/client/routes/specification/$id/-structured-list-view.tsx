@@ -118,9 +118,11 @@ function collectItemsForGroup(
   entityState: EntitiesData,
   kinds: readonly KnowledgeKind[],
   itemsByKey: Map<string, KnowledgeItemSummary>,
+  hiddenKinds: ReadonlySet<KnowledgeKind>,
 ): KnowledgeItemSummary[] {
   const result: KnowledgeItemSummary[] = [];
   for (const kind of kinds) {
+    if (hiddenKinds.has(kind)) continue;
     const collectionEntry = knowledgeKindRegistry.find((entry) => entry.kind === kind);
     if (!collectionEntry) continue;
     for (const item of entityState[collectionEntry.collectionKey]) {
@@ -129,6 +131,45 @@ function collectItemsForGroup(
     }
   }
   return result;
+}
+
+function KindFilterToggler({
+  entityState,
+  hiddenKinds,
+  onToggle,
+}: {
+  entityState: EntitiesData;
+  hiddenKinds: ReadonlySet<KnowledgeKind>;
+  onToggle: (kind: KnowledgeKind) => void;
+}) {
+  const populated = knowledgeKindRegistry.filter((entry) => entityState[entry.collectionKey].length > 0);
+  if (populated.length === 0) return null;
+
+  return (
+    <div data-graph-kind-filter className="flex flex-wrap gap-1.5">
+      {populated.map((entry) => {
+        const isHidden = hiddenKinds.has(entry.kind);
+        const count = entityState[entry.collectionKey].length;
+        return (
+          <button
+            key={entry.kind}
+            type="button"
+            data-graph-kind-toggle={entry.kind}
+            aria-pressed={!isHidden}
+            onClick={() => onToggle(entry.kind)}
+            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
+              isHidden
+                ? 'border-rule bg-background text-hint hover:text-sub'
+                : 'border-rule bg-wash text-ink hover:bg-tint'
+            }`}
+          >
+            <span className="font-medium">{entry.label}</span>
+            <span className="font-mono text-[10px] text-hint">{count}</span>
+          </button>
+        );
+      })}
+    </div>
+  );
 }
 
 function groupEdgesByType(edges: DirectedEdge[]): Map<EdgeRelation, DirectedEdge[]> {
@@ -277,6 +318,16 @@ export function StructuredListView({
   const { itemsByKey, outgoingByItem, incomingByItem } = projectGraph(entityState);
   const containerRef = useRef<HTMLDivElement>(null);
   const { anchoredRowRef } = useGraphHashAnchor(containerRef);
+  const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
+
+  const toggleKind = (kind: KnowledgeKind) => {
+    setHiddenKinds((current) => {
+      const next = new Set(current);
+      if (next.has(kind)) next.delete(kind);
+      else next.add(kind);
+      return next;
+    });
+  };
 
   const totalItems = itemsByKey.size;
 
@@ -289,10 +340,13 @@ export function StructuredListView({
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
         {header}
         {totalItems === 0 && <EmptyStateCard action={emptyStateAction} />}
+        {totalItems > 0 && (
+          <KindFilterToggler entityState={entityState} hiddenKinds={hiddenKinds} onToggle={toggleKind} />
+        )}
         {totalItems > 0 &&
           knowledgeDisplayGroups.map((group) => {
-            const items = collectItemsForGroup(entityState, group.kinds, itemsByKey).sort((a, b) =>
-              compareReferenceCode(a.referenceCode, b.referenceCode),
+            const items = collectItemsForGroup(entityState, group.kinds, itemsByKey, hiddenKinds).sort(
+              (a, b) => compareReferenceCode(a.referenceCode, b.referenceCode),
             );
             if (items.length === 0) return null;
             return (
