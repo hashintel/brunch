@@ -11,6 +11,7 @@ import {
   singleItemNoEdges,
 } from '@/client/__fixtures__/graph-view.js';
 
+import { RelationChipPreview } from '../-relation-chip.js';
 import { StructuredListView } from '../-structured-list-view.js';
 
 afterEach(() => {
@@ -96,6 +97,26 @@ describe('StructuredListView', () => {
     expect(chips.length).toBe(15);
   });
 
+  it('renders each relation chip as a keyboard-focusable button', () => {
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const chips = container.querySelectorAll('[data-testid="relation-chip"]');
+    expect(chips.length).toBeGreaterThan(0);
+    for (const chip of chips) {
+      expect(chip.tagName).toBe('BUTTON');
+      // Native button is focusable; type should be 'button' to avoid form submission
+      expect(chip.getAttribute('type')).toBe('button');
+    }
+  });
+
+  it('clicking a relation chip is inert in slice 2 (no navigation, no thrown error)', () => {
+    render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const chips = screen.getAllByTestId('relation-chip');
+    expect(chips.length).toBeGreaterThan(0);
+    expect(() => (chips[0] as HTMLButtonElement).click()).not.toThrow();
+  });
+
   it('renders items sorted by referenceCode within their kind grouping', () => {
     const entityState = denseGoalAnchor();
 
@@ -127,5 +148,69 @@ describe('StructuredListView', () => {
       'D14',
       'D15',
     ]);
+  });
+});
+
+describe('RelationChipPreview', () => {
+  it('shows the target reference code, content, rationale, and edge counts', () => {
+    render(
+      <RelationChipPreview
+        target={{
+          kind: 'goal',
+          id: 1,
+          referenceCode: 'G1',
+          content: 'Reduce signup drop-off',
+          rationale: 'Conversion telemetry shows 38% abandonment.',
+          outgoingCount: 2,
+          incomingCount: 5,
+        }}
+      />,
+    );
+
+    expect(screen.getByText('G1')).toBeTruthy();
+    expect(screen.getByText('Reduce signup drop-off')).toBeTruthy();
+    expect(screen.getByText(/Conversion telemetry/)).toBeTruthy();
+    expect(screen.getByText(/2.*outgoing/i)).toBeTruthy();
+    expect(screen.getByText(/5.*incoming/i)).toBeTruthy();
+  });
+
+  it('omits rationale when none is present', () => {
+    const { container } = render(
+      <RelationChipPreview
+        target={{
+          kind: 'decision',
+          id: 1,
+          referenceCode: 'D1',
+          content: 'Some decision',
+          rationale: null,
+          outgoingCount: 0,
+          incomingCount: 0,
+        }}
+      />,
+    );
+
+    expect(screen.getByText('D1')).toBeTruthy();
+    expect(screen.getByText('Some decision')).toBeTruthy();
+    // No rationale text should appear; preview still renders
+    expect(container.textContent).not.toMatch(/rationale/i);
+  });
+
+  it('expresses zero edge counts honestly rather than hiding them', () => {
+    render(
+      <RelationChipPreview
+        target={{
+          kind: 'term',
+          id: 1,
+          referenceCode: 'T1',
+          content: 'A term with no relationships',
+          rationale: null,
+          outgoingCount: 0,
+          incomingCount: 0,
+        }}
+      />,
+    );
+
+    expect(screen.getByText(/0.*outgoing/i)).toBeTruthy();
+    expect(screen.getByText(/0.*incoming/i)).toBeTruthy();
   });
 });

@@ -2,13 +2,9 @@ import { knowledgeDisplayGroups } from '@/client/components/knowledge-display.js
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 
-interface KnowledgeItemSummary {
-  kind: KnowledgeKind;
-  id: number;
-  referenceCode: string;
-  content: string;
-  rationale: string | null;
-}
+import { RelationChip, type RelationChipTarget } from './-relation-chip.js';
+
+type KnowledgeItemSummary = RelationChipTarget;
 
 interface DirectedEdge {
   type: EdgeRelation;
@@ -26,6 +22,7 @@ function compareReferenceCode(a: string, b: string): number {
 
 function buildItemIndex(entityState: EntitiesData): Map<string, KnowledgeItemSummary> {
   const map = new Map<string, KnowledgeItemSummary>();
+
   for (const entry of knowledgeKindRegistry) {
     for (const item of entityState[entry.collectionKey]) {
       const referenceCode = item.referenceCode ?? `${entry.referenceCodePrefix}${item.id}`;
@@ -35,9 +32,19 @@ function buildItemIndex(entityState: EntitiesData): Map<string, KnowledgeItemSum
         referenceCode,
         content: item.content,
         rationale: 'rationale' in item ? item.rationale : null,
+        outgoingCount: 0,
+        incomingCount: 0,
       });
     }
   }
+
+  for (const rel of entityState.relationships) {
+    const source = map.get(`${rel.source.kind}:${rel.source.id}`);
+    if (source) source.outgoingCount += 1;
+    const target = map.get(`${rel.target.kind}:${rel.target.id}`);
+    if (target) target.incomingCount += 1;
+  }
+
   return map;
 }
 
@@ -95,18 +102,6 @@ function groupEdgesByType(edges: DirectedEdge[]): Map<EdgeRelation, DirectedEdge
   return groups;
 }
 
-function RelationChip({ other }: { other: KnowledgeItemSummary }) {
-  return (
-    <span
-      data-testid="relation-chip"
-      className="inline-flex items-center gap-1.5 rounded bg-wash px-1.5 py-0.5 text-xs"
-    >
-      <span className="font-mono text-[10px] font-medium text-hint">{other.referenceCode}</span>
-      <span className="max-w-xs truncate text-ink">{other.content}</span>
-    </span>
-  );
-}
-
 function RelationsSubsection({ label, edges }: { label: string; edges: DirectedEdge[] }) {
   if (edges.length === 0) return null;
 
@@ -121,7 +116,7 @@ function RelationsSubsection({ label, edges }: { label: string; edges: DirectedE
             <span className="text-xs text-sub">{type}</span>
             {typeEdges.map((edge, index) =>
               edge.other ? (
-                <RelationChip key={`${type}-${edge.other.kind}-${edge.other.id}`} other={edge.other} />
+                <RelationChip key={`${type}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
               ) : (
                 <span
                   key={`${type}-missing-${index}`}
