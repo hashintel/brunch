@@ -138,13 +138,18 @@ export function EntitySidebar({
             return (
               <Collapsible key={group.label} defaultOpen asChild>
                 <section data-knowledge-group={group.label}>
-                  <CollapsibleTrigger className="group mb-2 flex w-full items-center justify-between gap-2 rounded px-1 py-1 text-xs font-medium text-sub outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30">
+                  <div className="mb-2 flex w-full items-center justify-between gap-2 px-1 py-1 text-xs font-medium text-sub">
                     <span>
                       {group.label}
                       {count > 0 && <span className="ml-1.5 font-mono text-hint">{count}</span>}
                     </span>
-                    <ChevronRight className="size-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
-                  </CollapsibleTrigger>
+                    <CollapsibleTrigger
+                      aria-label={`Toggle ${group.label}`}
+                      className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+                    >
+                      <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
+                    </CollapsibleTrigger>
+                  </div>
                   <CollapsibleContent>
                     {count === 0 ? (
                       <EmptyCard

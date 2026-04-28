@@ -243,17 +243,20 @@ function RelationsSubsection({
 
   return (
     <Collapsible defaultOpen className="flex flex-col">
-      <CollapsibleTrigger
-        data-graph-relations-subsection={direction}
-        className="group flex w-full items-center justify-between gap-2 px-3 py-2 text-xs text-sub outline-none hover:bg-wash focus-visible:ring-2 focus-visible:ring-foreground/30 focus-visible:ring-inset"
-      >
+      <div className="flex w-full items-center justify-between gap-2 px-3 py-2 text-xs text-sub">
         <span className="flex items-center gap-1.5">
           <DirectionIcon className="size-3.5 shrink-0 text-hint" />
           <span className="font-medium">{label}</span>
           <span className="font-mono text-hint">({edges.length})</span>
         </span>
-        <ChevronRight className="size-3.5 shrink-0 text-hint transition-transform group-data-[state=open]:rotate-90" />
-      </CollapsibleTrigger>
+        <CollapsibleTrigger
+          data-graph-relations-subsection={direction}
+          aria-label={`Toggle ${direction} relations`}
+          className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+        >
+          <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
+        </CollapsibleTrigger>
+      </div>
       <CollapsibleContent className="flex flex-col gap-1.5 px-3 pb-3">
         {Array.from(grouped.entries()).map(([type, typeEdges]) => (
           <ChipListByRelationType key={type} type={type} edges={typeEdges} />
