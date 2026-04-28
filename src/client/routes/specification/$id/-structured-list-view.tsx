@@ -245,15 +245,16 @@ function RelationsSubsection({
     <Collapsible defaultOpen className="flex flex-col">
       <CollapsibleTrigger
         data-graph-relations-subsection={direction}
-        className="group flex items-center justify-between gap-2 rounded px-1 py-1 text-xxs font-medium tracking-wide text-hint uppercase outline-none hover:text-sub focus-visible:ring-2 focus-visible:ring-foreground/30"
+        className="group flex w-full items-center justify-between gap-2 px-3 py-2 text-xs text-sub outline-none hover:bg-wash focus-visible:ring-2 focus-visible:ring-foreground/30 focus-visible:ring-inset"
       >
         <span className="flex items-center gap-1.5">
-          <DirectionIcon className="size-3 shrink-0" />
-          {label} <span className="font-mono text-hint normal-case">({edges.length})</span>
+          <DirectionIcon className="size-3.5 shrink-0 text-hint" />
+          <span className="font-medium">{label}</span>
+          <span className="font-mono text-hint">({edges.length})</span>
         </span>
-        <ChevronRight className="size-3 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
+        <ChevronRight className="size-3.5 shrink-0 text-hint transition-transform group-data-[state=open]:rotate-90" />
       </CollapsibleTrigger>
-      <CollapsibleContent className="flex flex-col gap-1 pt-1">
+      <CollapsibleContent className="flex flex-col gap-1.5 px-3 pb-3">
         {Array.from(grouped.entries()).map(([type, typeEdges]) => (
           <ChipListByRelationType key={type} type={type} edges={typeEdges} />
         ))}
@@ -266,8 +267,9 @@ function RelationsFooter({ outgoing, incoming }: { outgoing: DirectedEdge[]; inc
   if (outgoing.length === 0 && incoming.length === 0) return null;
 
   return (
-    <div className="mt-2 flex flex-col gap-2 border-t border-rule pt-2">
+    <div className="border-t border-rule bg-tint">
       <RelationsSubsection label="Outgoing" direction="outgoing" edges={outgoing} />
+      {outgoing.length > 0 && incoming.length > 0 && <div className="border-t border-rule" />}
       <RelationsSubsection label="Incoming" direction="incoming" edges={incoming} />
     </div>
   );
@@ -321,18 +323,20 @@ function ItemRow({
       data-graph-row
       data-graph-row-ref={item.referenceCode}
       data-graph-row-anchored={anchored ? 'true' : undefined}
-      className={`rounded-md border bg-background p-3 transition-all duration-700 ${anchored ? 'animate-in border-link/50 ring-2 ring-link/30 duration-300 fade-in' : 'border-rule'}`}
+      className={`overflow-hidden rounded-md border bg-background transition-all duration-700 ${anchored ? 'animate-in border-link/50 ring-2 ring-link/30 duration-300 fade-in' : 'border-rule'}`}
     >
-      <div className="flex items-baseline justify-between gap-2">
-        <div className="flex items-baseline gap-2">
-          <span data-graph-row-reference className="shrink-0 font-mono text-xs text-hint">
-            {item.referenceCode}
-          </span>
-          <p className="text-sm text-ink">{item.content}</p>
+      <div className="p-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <div className="flex items-baseline gap-2">
+            <span data-graph-row-reference className="shrink-0 font-mono text-xs text-hint">
+              {item.referenceCode}
+            </span>
+            <p className="text-sm text-ink">{item.content}</p>
+          </div>
+          <ItemActionRail />
         </div>
-        <ItemActionRail />
+        {item.rationale && <p className="mt-1 text-xs text-sub">{item.rationale}</p>}
       </div>
-      {item.rationale && <p className="mt-1 text-xs text-sub">{item.rationale}</p>}
       <RelationsFooter outgoing={outgoing} incoming={incoming} />
     </div>
   );

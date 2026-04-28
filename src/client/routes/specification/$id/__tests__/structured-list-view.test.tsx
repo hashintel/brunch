@@ -412,12 +412,13 @@ describe('StructuredListView', () => {
     expect(row).toBeTruthy();
     if (!row) return;
 
-    const rowHeader = row.firstElementChild;
-    expect(rowHeader).toBeTruthy();
-    if (!rowHeader) return;
-
-    // The header element should use justify-between so content + rail flank one another
-    expect(rowHeader.className).toContain('justify-between');
+    // The action rail lives next to item content via a justify-between flex header.
+    // Walk up from the action rail to find that header (regardless of card-body
+    // nesting depth).
+    const actionRail = row.querySelector('[data-graph-action-rail]');
+    expect(actionRail).toBeTruthy();
+    const flexHeader = actionRail?.parentElement;
+    expect(flexHeader?.className).toContain('justify-between');
   });
 
   it('renders a kind-filter toggler row when items exist', () => {
