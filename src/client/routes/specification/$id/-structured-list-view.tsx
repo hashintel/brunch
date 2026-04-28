@@ -295,7 +295,10 @@ function EmptyStateCard({ action }: { action?: ReactNode }) {
 
 function ItemActionRail() {
   return (
-    <div data-graph-action-rail className="flex shrink-0 items-center gap-1">
+    <div
+      data-graph-action-rail
+      className="flex shrink-0 items-center gap-1 opacity-0 transition-opacity group-focus-within/row:opacity-100 group-hover/row:opacity-100"
+    >
       <button
         type="button"
         data-graph-action="chat-with"
@@ -326,19 +329,19 @@ function ItemRow({
       data-graph-row
       data-graph-row-ref={item.referenceCode}
       data-graph-row-anchored={anchored ? 'true' : undefined}
-      className={`overflow-hidden rounded-md border bg-background transition-all duration-700 ${anchored ? 'animate-in border-link/50 ring-2 ring-link/30 duration-300 fade-in' : 'border-rule'}`}
+      className={`group/row overflow-hidden rounded-md border bg-background transition-all duration-700 ${anchored ? 'animate-in border-link/50 ring-2 ring-link/30 duration-300 fade-in' : 'border-rule'}`}
     >
-      <div className="p-3">
-        <div className="flex items-baseline justify-between gap-2">
-          <div className="flex items-baseline gap-2">
-            <span data-graph-row-reference className="shrink-0 font-mono text-xs text-hint">
-              {item.referenceCode}
-            </span>
+      <div className="flex items-baseline justify-between gap-2 p-3">
+        <div className="flex items-baseline gap-2">
+          <span data-graph-row-reference className="shrink-0 font-mono text-xs text-hint">
+            {item.referenceCode}
+          </span>
+          <div className="flex flex-col gap-1">
             <p className="text-sm text-ink">{item.content}</p>
+            {item.rationale && <p className="text-xs text-sub">{item.rationale}</p>}
           </div>
-          <ItemActionRail />
         </div>
-        {item.rationale && <p className="mt-1 text-xs text-sub">{item.rationale}</p>}
+        <ItemActionRail />
       </div>
       <RelationsFooter outgoing={outgoing} incoming={incoming} />
     </div>
