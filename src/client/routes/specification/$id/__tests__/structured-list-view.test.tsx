@@ -42,10 +42,38 @@ describe('StructuredListView', () => {
     expect(screen.queryByText(/incoming/i)).toBeNull();
   });
 
-  it('renders the empty placeholder gracefully when there are no knowledge items', () => {
+  it('renders the empty-state orientation card when there are no knowledge items', () => {
     const { container } = render(<StructuredListView entityState={emptySpec()} />);
-    expect(container.querySelector('[data-graph-structured-list]')).toBeTruthy();
+    expect(container.querySelector('[data-graph-empty-state]')).toBeTruthy();
     expect(container.querySelectorAll('[data-graph-row]')).toHaveLength(0);
+  });
+
+  it('the empty-state card mentions that knowledge appears as the interview progresses', () => {
+    render(<StructuredListView entityState={emptySpec()} />);
+    expect(screen.getByText(/knowledge.*interview progresses/i)).toBeTruthy();
+  });
+
+  it('renders the supplied emptyStateAction inside the empty-state card', () => {
+    render(
+      <StructuredListView
+        entityState={emptySpec()}
+        emptyStateAction={<a href="/test-action">Go somewhere</a>}
+      />,
+    );
+    const link = screen.getByRole('link', { name: 'Go somewhere' });
+    expect(link).toBeTruthy();
+    expect(link.getAttribute('href')).toBe('/test-action');
+  });
+
+  it('does not render the empty-state card when items exist', () => {
+    const { container } = render(
+      <StructuredListView
+        entityState={singleItemNoEdges()}
+        emptyStateAction={<a href="/test">Should not render</a>}
+      />,
+    );
+    expect(container.querySelector('[data-graph-empty-state]')).toBeNull();
+    expect(screen.queryByRole('link', { name: 'Should not render' })).toBeNull();
   });
 
   it('groups items by knowledge display group and renders each section header', () => {

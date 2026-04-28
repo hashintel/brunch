@@ -1,5 +1,5 @@
 import { useLocation } from '@tanstack/react-router';
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { knowledgeDisplayGroups } from '@/client/components/knowledge-display.js';
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
@@ -163,6 +163,21 @@ function RelationsFooter({ outgoing, incoming }: { outgoing: DirectedEdge[]; inc
   );
 }
 
+function EmptyStateCard({ action }: { action?: ReactNode }) {
+  return (
+    <div
+      data-graph-empty-state
+      className="flex flex-col items-center gap-3 rounded-md border border-rule bg-tint p-8 text-center"
+    >
+      <p className="text-sm font-medium text-ink">No knowledge captured yet</p>
+      <p className="max-w-md text-xs text-sub">
+        Knowledge appears here as the interview progresses. Start a turn to populate the graph.
+      </p>
+      {action && <div className="mt-2">{action}</div>}
+    </div>
+  );
+}
+
 function ItemRow({
   item,
   outgoing,
@@ -193,7 +208,13 @@ function ItemRow({
   );
 }
 
-export function StructuredListView({ entityState }: { entityState: EntitiesData }) {
+export function StructuredListView({
+  entityState,
+  emptyStateAction,
+}: {
+  entityState: EntitiesData;
+  emptyStateAction?: ReactNode;
+}) {
   const itemIndex = buildItemIndex(entityState);
   const location = useLocation();
   const containerRef = useRef<HTMLDivElement>(null);
@@ -219,6 +240,8 @@ export function StructuredListView({ entityState }: { entityState: EntitiesData 
     return () => clearTimeout(timer);
   }, [targetRef]);
 
+  const totalItems = itemIndex.size;
+
   return (
     <div
       ref={containerRef}
@@ -226,31 +249,33 @@ export function StructuredListView({ entityState }: { entityState: EntitiesData 
       className="flex h-full flex-col overflow-y-auto bg-background"
     >
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
-        {knowledgeDisplayGroups.map((group) => {
-          const items = collectItemsForGroup(entityState, group.kinds, itemIndex).sort((a, b) =>
-            compareReferenceCode(a.referenceCode, b.referenceCode),
-          );
-          if (items.length === 0) return null;
-          return (
-            <section key={group.label} data-graph-section={group.label}>
-              <h2 className="mb-2 text-sm font-medium text-sub">{group.label}</h2>
-              <div className="flex flex-col gap-2">
-                {items.map((item) => {
-                  const { outgoing, incoming } = getEdgesForItem(entityState, itemIndex, item);
-                  return (
-                    <ItemRow
-                      key={`${item.kind}:${item.id}`}
-                      item={item}
-                      outgoing={outgoing}
-                      incoming={incoming}
-                      anchored={anchoredRowRef === item.referenceCode}
-                    />
-                  );
-                })}
-              </div>
-            </section>
-          );
-        })}
+        {totalItems === 0 && <EmptyStateCard action={emptyStateAction} />}
+        {totalItems > 0 &&
+          knowledgeDisplayGroups.map((group) => {
+            const items = collectItemsForGroup(entityState, group.kinds, itemIndex).sort((a, b) =>
+              compareReferenceCode(a.referenceCode, b.referenceCode),
+            );
+            if (items.length === 0) return null;
+            return (
+              <section key={group.label} data-graph-section={group.label}>
+                <h2 className="mb-2 text-sm font-medium text-sub">{group.label}</h2>
+                <div className="flex flex-col gap-2">
+                  {items.map((item) => {
+                    const { outgoing, incoming } = getEdgesForItem(entityState, itemIndex, item);
+                    return (
+                      <ItemRow
+                        key={`${item.kind}:${item.id}`}
+                        item={item}
+                        outgoing={outgoing}
+                        incoming={incoming}
+                        anchored={anchoredRowRef === item.referenceCode}
+                      />
+                    );
+                  })}
+                </div>
+              </section>
+            );
+          })}
       </div>
     </div>
   );
