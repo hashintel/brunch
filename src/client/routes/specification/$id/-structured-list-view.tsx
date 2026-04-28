@@ -207,22 +207,26 @@ function ChipListByRelationType({ type, edges }: { type: EdgeRelation; edges: Di
   const showTypeLabel = type !== 'depends_on';
 
   return (
-    <div className="flex flex-wrap items-center gap-1.5">
+    <div className="flex items-start gap-2">
       {showTypeLabel && (
-        <span className={`text-xs font-medium ${relationTypeColor[type]}`}>{relationTypeLabel[type]}</span>
+        <span className={`mt-0.5 shrink-0 text-xs font-medium ${relationTypeColor[type]}`}>
+          {relationTypeLabel[type]}
+        </span>
       )}
-      {visibleEdges.map((edge) => (
-        <RelationChip key={`${type}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
-      ))}
-      {showMoreButton && (
-        <button
-          type="button"
-          onClick={() => setExpanded(true)}
-          className="rounded bg-wash px-1.5 py-0.5 text-xs text-sub outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
-        >
-          +{overflowCount} more
-        </button>
-      )}
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        {visibleEdges.map((edge) => (
+          <RelationChip key={`${type}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
+        ))}
+        {showMoreButton && (
+          <button
+            type="button"
+            onClick={() => setExpanded(true)}
+            className="rounded bg-wash px-1.5 py-0.5 text-xs text-sub outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+          >
+            +{overflowCount} more
+          </button>
+        )}
+      </div>
     </div>
   );
 }
