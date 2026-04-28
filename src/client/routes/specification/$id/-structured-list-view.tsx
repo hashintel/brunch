@@ -1,8 +1,19 @@
+import { useLocation } from '@tanstack/react-router';
+import { useEffect, useRef, useState } from 'react';
+
 import { knowledgeDisplayGroups } from '@/client/components/knowledge-display.js';
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 
 import { RelationChip, type RelationChipTarget } from './-relation-chip.js';
+
+const ARRIVAL_HIGHLIGHT_MS = 1500;
+
+function readHashTargetRef(rawHash: string): string | null {
+  if (!rawHash) return null;
+  const stripped = rawHash.startsWith('#') ? rawHash.slice(1) : rawHash;
+  return stripped.length > 0 ? stripped : null;
+}
 
 type KnowledgeItemSummary = RelationChipTarget;
 
@@ -149,16 +160,19 @@ function ItemRow({
   item,
   outgoing,
   incoming,
+  arrived,
 }: {
   item: KnowledgeItemSummary;
   outgoing: DirectedEdge[];
   incoming: DirectedEdge[];
+  arrived: boolean;
 }) {
   return (
     <div
       data-graph-row
       data-graph-row-ref={item.referenceCode}
-      className="rounded-md border border-rule bg-background p-3"
+      data-graph-row-arrived={arrived ? 'true' : undefined}
+      className={`rounded-md border bg-background p-3 transition-shadow ${arrived ? 'border-foreground/40 ring-2 ring-foreground/20' : 'border-rule'}`}
     >
       <div className="flex items-baseline gap-2">
         <span data-graph-row-reference className="shrink-0 font-mono text-xs text-hint">
@@ -174,9 +188,36 @@ function ItemRow({
 
 export function StructuredListView({ entityState }: { entityState: EntitiesData }) {
   const itemIndex = buildItemIndex(entityState);
+  const location = useLocation();
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [arrivedRef, setArrivedRef] = useState<string | null>(null);
+
+  const targetRef = readHashTargetRef(location.hash);
+
+  useEffect(() => {
+    if (!targetRef) {
+      setArrivedRef(null);
+      return;
+    }
+    const row = containerRef.current?.querySelector(
+      `[data-graph-row-ref="${CSS.escape(targetRef)}"]`,
+    ) as HTMLElement | null;
+    if (!row) {
+      setArrivedRef(null);
+      return;
+    }
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setArrivedRef(targetRef);
+    const timer = setTimeout(() => setArrivedRef(null), ARRIVAL_HIGHLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [targetRef]);
 
   return (
-    <div data-graph-structured-list className="flex h-full flex-col overflow-y-auto bg-background">
+    <div
+      ref={containerRef}
+      data-graph-structured-list
+      className="flex h-full flex-col overflow-y-auto bg-background"
+    >
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
         {knowledgeDisplayGroups.map((group) => {
           const items = collectItemsForGroup(entityState, group.kinds, itemIndex).sort((a, b) =>
@@ -195,6 +236,7 @@ export function StructuredListView({ entityState }: { entityState: EntitiesData 
                       item={item}
                       outgoing={outgoing}
                       incoming={incoming}
+                      arrived={arrivedRef === item.referenceCode}
                     />
                   );
                 })}

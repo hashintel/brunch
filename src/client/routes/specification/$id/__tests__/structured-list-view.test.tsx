@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
-import { cleanup, render, screen, within } from '@testing-library/react';
-import { afterEach, describe, expect, it } from 'vitest';
+import { act, cleanup, render, screen, within } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
   activePathDivergence,
@@ -11,8 +11,22 @@ import {
   singleItemNoEdges,
 } from '@/client/__fixtures__/graph-view.js';
 
+const mockNavigate = vi.fn();
+let mockHash = '';
+
+vi.mock('@tanstack/react-router', () => ({
+  useNavigate: () => mockNavigate,
+  useLocation: () => ({ hash: mockHash, pathname: '/specification/1/graph', search: '' }),
+}));
+
 import { RelationChipPreview } from '../-relation-chip.js';
 import { StructuredListView } from '../-structured-list-view.js';
+
+beforeEach(() => {
+  mockNavigate.mockClear();
+  mockHash = '';
+  Element.prototype.scrollIntoView = vi.fn();
+});
 
 afterEach(() => {
   cleanup();
@@ -109,12 +123,76 @@ describe('StructuredListView', () => {
     }
   });
 
-  it('clicking a relation chip is inert in slice 2 (no navigation, no thrown error)', () => {
+  it('clicking a relation chip navigates to the target reference code as a hash anchor', () => {
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    // Decision row has an outgoing chip targeting goal G1
+    const decisionRow = container.querySelector('[data-graph-row-ref="D1"]');
+    expect(decisionRow).toBeTruthy();
+    if (!decisionRow) return;
+
+    const chips = within(decisionRow as HTMLElement).getAllByTestId('relation-chip');
+    expect(chips.length).toBeGreaterThan(0);
+
+    (chips[0] as HTMLButtonElement).click();
+
+    expect(mockNavigate).toHaveBeenCalledTimes(1);
+    expect(mockNavigate).toHaveBeenCalledWith(expect.objectContaining({ hash: expect.any(String) }));
+  });
+
+  it('mounting with a hash matching a row scrolls that row into view', () => {
+    mockHash = '#G1';
+    const scrollSpy = vi.fn();
+    Element.prototype.scrollIntoView = scrollSpy;
+
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const goalRow = container.querySelector('[data-graph-row-ref="G1"]');
+    expect(goalRow).toBeTruthy();
+    expect(scrollSpy).toHaveBeenCalled();
+  });
+
+  it('does not scroll when there is no hash', () => {
+    mockHash = '';
+    const scrollSpy = vi.fn();
+    Element.prototype.scrollIntoView = scrollSpy;
+
     render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
-    const chips = screen.getAllByTestId('relation-chip');
-    expect(chips.length).toBeGreaterThan(0);
-    expect(() => (chips[0] as HTMLButtonElement).click()).not.toThrow();
+    expect(scrollSpy).not.toHaveBeenCalled();
+  });
+
+  it('does not scroll or highlight when the hash matches no rendered row', () => {
+    mockHash = '#NOPE99';
+    const scrollSpy = vi.fn();
+    Element.prototype.scrollIntoView = scrollSpy;
+
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    expect(scrollSpy).not.toHaveBeenCalled();
+    // No row should carry the arrival highlight attribute
+    expect(container.querySelectorAll('[data-graph-row-arrived]')).toHaveLength(0);
+  });
+
+  it('applies a transient arrival highlight on the matched row, then clears it after 1.5s', async () => {
+    vi.useFakeTimers();
+    try {
+      mockHash = '#G1';
+
+      const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+      const goalRow = container.querySelector('[data-graph-row-ref="G1"]');
+      expect(goalRow).toBeTruthy();
+      expect(goalRow?.getAttribute('data-graph-row-arrived')).toBe('true');
+
+      await act(async () => {
+        vi.advanceTimersByTime(1500);
+      });
+
+      expect(goalRow?.getAttribute('data-graph-row-arrived')).not.toBe('true');
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('renders items sorted by referenceCode within their kind grouping', () => {

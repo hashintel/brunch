@@ -1,3 +1,5 @@
+import { useNavigate } from '@tanstack/react-router';
+
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/client/components/ui/hover-card';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
@@ -29,12 +31,16 @@ export function RelationChipPreview({ target }: { target: RelationChipTarget }) 
 }
 
 export function RelationChip({ target }: { target: RelationChipTarget }) {
+  const navigate = useNavigate();
   return (
     <HoverCard>
       <HoverCardTrigger asChild>
         <button
           type="button"
           data-testid="relation-chip"
+          onClick={() => {
+            void navigate({ to: '.', hash: target.referenceCode });
+          }}
           className="inline-flex items-center gap-1.5 rounded bg-wash px-1.5 py-0.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-foreground/30"
         >
           <span className="font-mono text-[10px] font-medium text-hint">{target.referenceCode}</span>
