@@ -1,3 +1,6 @@
+import { Link } from '@tanstack/react-router';
+import { Maximize2 } from 'lucide-react';
+
 import { EmptyCard } from '@/client/components/app-shell';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import type { EntitiesData } from '@/shared/api-types.js';
@@ -67,7 +70,13 @@ function buildOutgoingEdgesForItem(
 
 // ── Component ───────────────────────────────────────────────────────
 
-export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
+export function EntitySidebar({
+  entityState,
+  specificationId,
+}: {
+  entityState: EntitiesData;
+  specificationId?: string;
+}) {
   const totalItems = knowledgeKindRegistry
     .filter((entry) => isVisibleKnowledgeKind(entry.kind))
     .reduce((sum, entry) => sum + entityState[entry.collectionKey].length, 0);
@@ -76,7 +85,7 @@ export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
   return (
     <div className="flex h-full flex-col bg-background">
       {/* Header */}
-      <div className="flex h-16 shrink-0 items-center border-b border-rule bg-background px-3">
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-rule bg-background px-3">
         <div className="flex flex-col gap-0.5">
           <span className="text-xs text-hint">Knowledge Graph</span>
           <div className="flex items-center gap-2.5 text-base text-sub">
@@ -88,6 +97,17 @@ export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
             </span>
           </div>
         </div>
+        {specificationId && (
+          <Link
+            to="/specification/$id/graph"
+            params={{ id: specificationId }}
+            aria-label="Open knowledge graph view"
+            title="Open knowledge graph view"
+            className="flex size-7 items-center justify-center rounded text-sub outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+          >
+            <Maximize2 className="size-3.5" />
+          </Link>
+        )}
       </div>
 
       {/* Grouped knowledge list */}
