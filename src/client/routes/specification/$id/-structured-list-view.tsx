@@ -1,4 +1,5 @@
 import { useLocation } from '@tanstack/react-router';
+import { MessageCircle } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 
 import { knowledgeDisplayGroups } from '@/client/components/knowledge-display.js';
@@ -178,6 +179,23 @@ function EmptyStateCard({ action }: { action?: ReactNode }) {
   );
 }
 
+function ItemActionRail() {
+  return (
+    <div data-graph-action-rail className="flex shrink-0 items-center gap-1">
+      <button
+        type="button"
+        data-graph-action="chat-with"
+        disabled
+        title="Chat about this item (coming soon)"
+        aria-label="Chat about this item"
+        className="flex size-6 items-center justify-center rounded text-hint opacity-40"
+      >
+        <MessageCircle className="size-3.5" />
+      </button>
+    </div>
+  );
+}
+
 function ItemRow({
   item,
   outgoing,
@@ -196,11 +214,14 @@ function ItemRow({
       data-graph-row-anchored={anchored ? 'true' : undefined}
       className={`rounded-md border bg-background p-3 transition-shadow ${anchored ? 'border-foreground/40 ring-2 ring-foreground/20' : 'border-rule'}`}
     >
-      <div className="flex items-baseline gap-2">
-        <span data-graph-row-reference className="shrink-0 font-mono text-xs text-hint">
-          {item.referenceCode}
-        </span>
-        <p className="text-sm text-ink">{item.content}</p>
+      <div className="flex items-baseline justify-between gap-2">
+        <div className="flex items-baseline gap-2">
+          <span data-graph-row-reference className="shrink-0 font-mono text-xs text-hint">
+            {item.referenceCode}
+          </span>
+          <p className="text-sm text-ink">{item.content}</p>
+        </div>
+        <ItemActionRail />
       </div>
       {item.rationale && <p className="mt-1 text-xs text-sub">{item.rationale}</p>}
       <RelationsFooter outgoing={outgoing} incoming={incoming} />

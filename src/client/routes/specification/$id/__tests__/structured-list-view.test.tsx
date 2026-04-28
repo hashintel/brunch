@@ -383,6 +383,41 @@ describe('StructuredListView', () => {
     }
   });
 
+  it('renders an action rail with a disabled chat-with placeholder on every item row', () => {
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const rows = container.querySelectorAll('[data-graph-row]');
+    expect(rows.length).toBeGreaterThan(0);
+
+    for (const row of rows) {
+      const rail = row.querySelector('[data-graph-action-rail]');
+      expect(rail).toBeTruthy();
+      const chatButton = row.querySelector(
+        'button[data-graph-action="chat-with"]',
+      ) as HTMLButtonElement | null;
+      expect(chatButton).toBeTruthy();
+      if (!chatButton) continue;
+      expect(chatButton.disabled).toBe(true);
+      expect(chatButton.getAttribute('title')?.toLowerCase()).toContain('coming soon');
+      expect(chatButton.getAttribute('aria-label')?.toLowerCase()).toMatch(/chat/);
+    }
+  });
+
+  it('positions the action rail to the right of the item content', () => {
+    const { container } = render(<StructuredListView entityState={singleItemNoEdges()} />);
+
+    const row = container.querySelector('[data-graph-row]');
+    expect(row).toBeTruthy();
+    if (!row) return;
+
+    const rowHeader = row.firstElementChild;
+    expect(rowHeader).toBeTruthy();
+    if (!rowHeader) return;
+
+    // The header element should use justify-between so content + rail flank one another
+    expect(rowHeader.className).toContain('justify-between');
+  });
+
   it('renders items sorted by referenceCode within their kind grouping', () => {
     const entityState = denseGoalAnchor();
 
