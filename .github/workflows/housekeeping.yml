@@ -41,13 +41,30 @@ on:
           - full
 
 permissions:
-  actions: read
-  contents: write
-  id-token: write
+  contents: read
 
 jobs:
+  validate:
+    name: Validate
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-24.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Validate Renovate config
+        run: jq empty .github/renovate.json
+
+      - name: Validate workflow
+        run: go run github.com/rhysd/actionlint/cmd/actionlint@v1.7.12 .github/workflows/housekeeping.yml
+
   renovate:
     name: Dependencies
+    if: github.event_name != 'pull_request'
+    permissions:
+      actions: read
+      contents: write
+      id-token: write
     uses: hashintel/.github/.github/workflows/housekeeping-dependencies.yml@a0df113e5602f3b721bf306bf6050ee2a0866956
     with:
       repoCache: ${{ inputs.repoCache || 'enabled' }}
