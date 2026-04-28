@@ -83,10 +83,12 @@ export const Task = ({
   const hasEverRunRef = useRef(isRunning);
   const [hasAutoClosed, setHasAutoClosed] = useState(false);
 
-  // Auto-open when streaming starts (unless explicitly closed)
+  // Auto-open when running starts (unless explicitly closed). Resetting
+  // hasAutoClosed here re-arms the auto-close one-shot for a later run cycle.
   useEffect(() => {
     if (isRunning) {
       hasEverRunRef.current = true;
+      setHasAutoClosed(false);
       if (!isExplicitlyClosed) {
         setIsOpen(true);
       }

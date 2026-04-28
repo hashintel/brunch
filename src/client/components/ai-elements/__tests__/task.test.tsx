@@ -80,4 +80,36 @@ describe('Task', () => {
 
     expect(trigger.getAttribute('data-state')).toBe('closed');
   });
+
+  it('auto-closes again on a second run cycle on the same instance', () => {
+    vi.useFakeTimers();
+
+    const renderTask = (isRunning: boolean) => (
+      <Task isRunning={isRunning}>
+        <TaskTrigger showIcon={false} title="Tools: read file" />
+        <TaskContent>
+          <TaskItem>src/client/components/question-cards.tsx</TaskItem>
+        </TaskContent>
+      </Task>
+    );
+
+    const rendered = render(renderTask(true));
+    const trigger = screen.getByRole('button', { name: 'Tools: read file' });
+    expect(trigger.getAttribute('data-state')).toBe('open');
+
+    rendered.rerender(renderTask(false));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(trigger.getAttribute('data-state')).toBe('closed');
+
+    rendered.rerender(renderTask(true));
+    expect(trigger.getAttribute('data-state')).toBe('open');
+
+    rendered.rerender(renderTask(false));
+    act(() => {
+      vi.advanceTimersByTime(1000);
+    });
+    expect(trigger.getAttribute('data-state')).toBe('closed');
+  });
 });
