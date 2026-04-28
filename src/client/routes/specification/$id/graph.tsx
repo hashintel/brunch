@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
 
+import type { WorkflowState } from '@/shared/api-types.js';
 import {
   areAllWorkflowPhasesClosed,
   getCurrentOpenPhase,
@@ -14,58 +15,49 @@ import {
 } from './-specification-data.js';
 import { StructuredListView } from './-structured-list-view.js';
 
+const RETURN_LINK_CLASS = 'text-xs font-medium text-[#2070e6] hover:underline';
+
+interface ReturnTarget {
+  to: '/specification/$id/grounding' | '/specification/$id/export';
+  params: { id: string };
+  openLabel: string;
+}
+
+function returnTarget(workflow: WorkflowState, specificationId: string): ReturnTarget | null {
+  const currentReachable = getCurrentOpenPhase(workflow.phases);
+  if (currentReachable) {
+    return {
+      to: getPhaseRoutePath(currentReachable) as '/specification/$id/grounding',
+      params: { id: specificationId },
+      openLabel: `Go to ${getWorkflowPhaseLabel(currentReachable).toLowerCase()}`,
+    };
+  }
+  if (areAllWorkflowPhasesClosed(workflow.phases)) {
+    return {
+      to: '/specification/$id/export',
+      params: { id: specificationId },
+      openLabel: 'View output',
+    };
+  }
+  return null;
+}
+
 function GraphRouteComponent() {
   const entityState = useSpecificationEntitiesProjectWide();
   const bundle = useSpecificationBundleData();
-  const specificationId = String(bundle.specification.id);
+  const target = returnTarget(bundle.workflow, String(bundle.specification.id));
 
-  const currentReachable = getCurrentOpenPhase(bundle.workflow.phases);
-  const allClosed = areAllWorkflowPhasesClosed(bundle.workflow.phases);
+  const backToChatLink = target ? (
+    <Link to={target.to} params={target.params} className={RETURN_LINK_CLASS}>
+      Back to chat
+    </Link>
+  ) : null;
 
-  let backToChatLink = null;
-  let emptyStateAction;
-
-  if (currentReachable) {
-    const phaseLabel = getWorkflowPhaseLabel(currentReachable).toLowerCase();
-    const phaseTo = getPhaseRoutePath(currentReachable) as '/specification/$id/grounding';
-    backToChatLink = (
-      <Link
-        to={phaseTo}
-        params={{ id: specificationId }}
-        className="text-xs font-medium text-[#2070e6] hover:underline"
-      >
-        Back to chat
-      </Link>
-    );
-    emptyStateAction = (
-      <Link
-        to={phaseTo}
-        params={{ id: specificationId }}
-        className="text-xs font-medium text-[#2070e6] hover:underline"
-      >
-        Go to {phaseLabel}
-      </Link>
-    );
-  } else if (allClosed) {
-    backToChatLink = (
-      <Link
-        to="/specification/$id/export"
-        params={{ id: specificationId }}
-        className="text-xs font-medium text-[#2070e6] hover:underline"
-      >
-        Back to chat
-      </Link>
-    );
-    emptyStateAction = (
-      <Link
-        to="/specification/$id/export"
-        params={{ id: specificationId }}
-        className="text-xs font-medium text-[#2070e6] hover:underline"
-      >
-        View output
-      </Link>
-    );
-  }
+  const emptyStateAction = target ? (
+    <Link to={target.to} params={target.params} className={RETURN_LINK_CLASS}>
+      {target.openLabel}
+    </Link>
+  ) : undefined;
 
   const header = (
     <header data-graph-header className="flex items-center justify-between border-b border-rule pb-3">

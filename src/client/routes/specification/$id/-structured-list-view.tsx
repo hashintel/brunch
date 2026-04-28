@@ -1,6 +1,6 @@
 import { useLocation } from '@tanstack/react-router';
 import { MessageCircle } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 
 import { knowledgeDisplayGroups } from '@/client/components/knowledge-display.js';
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
@@ -17,11 +17,45 @@ function readHashTargetRef(rawHash: string): string | null {
   return stripped.length > 0 ? stripped : null;
 }
 
+function useGraphHashAnchor(containerRef: RefObject<HTMLElement | null>): {
+  anchoredRowRef: string | null;
+} {
+  const location = useLocation();
+  const [anchoredRowRef, setAnchoredRowRef] = useState<string | null>(null);
+  const targetRef = readHashTargetRef(location.hash);
+
+  useEffect(() => {
+    if (!targetRef) {
+      setAnchoredRowRef(null);
+      return;
+    }
+    const row = containerRef.current?.querySelector(
+      `[data-graph-row-ref="${CSS.escape(targetRef)}"]`,
+    ) as HTMLElement | null;
+    if (!row) {
+      setAnchoredRowRef(null);
+      return;
+    }
+    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setAnchoredRowRef(targetRef);
+    const timer = setTimeout(() => setAnchoredRowRef(null), HASH_ANCHOR_HIGHLIGHT_MS);
+    return () => clearTimeout(timer);
+  }, [targetRef, containerRef]);
+
+  return { anchoredRowRef };
+}
+
 type KnowledgeItemSummary = RelationChipTarget;
 
 interface DirectedEdge {
   type: EdgeRelation;
   other: KnowledgeItemSummary;
+}
+
+interface GraphProjection {
+  itemsByKey: Map<string, KnowledgeItemSummary>;
+  outgoingByItem: Map<string, DirectedEdge[]>;
+  incomingByItem: Map<string, DirectedEdge[]>;
 }
 
 function compareReferenceCode(a: string, b: string): number {
@@ -33,13 +67,24 @@ function compareReferenceCode(a: string, b: string): number {
   return Number.parseInt(aMatch[2], 10) - Number.parseInt(bMatch[2], 10);
 }
 
-function buildItemIndex(entityState: EntitiesData): Map<string, KnowledgeItemSummary> {
-  const map = new Map<string, KnowledgeItemSummary>();
+function pushBucket<K, V>(map: Map<K, V[]>, key: K, value: V) {
+  const bucket = map.get(key);
+  if (bucket) {
+    bucket.push(value);
+  } else {
+    map.set(key, [value]);
+  }
+}
+
+function projectGraph(entityState: EntitiesData): GraphProjection {
+  const itemsByKey = new Map<string, KnowledgeItemSummary>();
+  const outgoingByItem = new Map<string, DirectedEdge[]>();
+  const incomingByItem = new Map<string, DirectedEdge[]>();
 
   for (const entry of knowledgeKindRegistry) {
     for (const item of entityState[entry.collectionKey]) {
       const referenceCode = item.referenceCode ?? `${entry.referenceCodePrefix}${item.id}`;
-      map.set(`${entry.kind}:${item.id}`, {
+      itemsByKey.set(`${entry.kind}:${item.id}`, {
         kind: entry.kind,
         id: item.id,
         referenceCode,
@@ -52,61 +97,44 @@ function buildItemIndex(entityState: EntitiesData): Map<string, KnowledgeItemSum
   }
 
   for (const rel of entityState.relationships) {
-    const source = map.get(`${rel.source.kind}:${rel.source.id}`);
-    if (source) source.outgoingCount += 1;
-    const target = map.get(`${rel.target.kind}:${rel.target.id}`);
-    if (target) target.incomingCount += 1;
+    const sourceKey = `${rel.source.kind}:${rel.source.id}`;
+    const targetKey = `${rel.target.kind}:${rel.target.id}`;
+    const sourceItem = itemsByKey.get(sourceKey);
+    const targetItem = itemsByKey.get(targetKey);
+
+    if (sourceItem) sourceItem.outgoingCount += 1;
+    if (targetItem) targetItem.incomingCount += 1;
+
+    if (sourceItem && targetItem) {
+      pushBucket(outgoingByItem, sourceKey, { type: rel.type, other: targetItem });
+      pushBucket(incomingByItem, targetKey, { type: rel.type, other: sourceItem });
+    }
   }
 
-  return map;
+  return { itemsByKey, outgoingByItem, incomingByItem };
 }
 
 function collectItemsForGroup(
   entityState: EntitiesData,
   kinds: readonly KnowledgeKind[],
-  itemIndex: Map<string, KnowledgeItemSummary>,
+  itemsByKey: Map<string, KnowledgeItemSummary>,
 ): KnowledgeItemSummary[] {
   const result: KnowledgeItemSummary[] = [];
   for (const kind of kinds) {
     const collectionEntry = knowledgeKindRegistry.find((entry) => entry.kind === kind);
     if (!collectionEntry) continue;
     for (const item of entityState[collectionEntry.collectionKey]) {
-      const summary = itemIndex.get(`${kind}:${item.id}`);
+      const summary = itemsByKey.get(`${kind}:${item.id}`);
       if (summary) result.push(summary);
     }
   }
   return result;
 }
 
-function getEdgesForItem(
-  entityState: EntitiesData,
-  itemIndex: Map<string, KnowledgeItemSummary>,
-  item: KnowledgeItemSummary,
-): { outgoing: DirectedEdge[]; incoming: DirectedEdge[] } {
-  const outgoing: DirectedEdge[] = [];
-  const incoming: DirectedEdge[] = [];
-  for (const rel of entityState.relationships) {
-    if (rel.source.kind === item.kind && rel.source.id === item.id) {
-      const other = itemIndex.get(`${rel.target.kind}:${rel.target.id}`);
-      if (other) outgoing.push({ type: rel.type, other });
-    }
-    if (rel.target.kind === item.kind && rel.target.id === item.id) {
-      const other = itemIndex.get(`${rel.source.kind}:${rel.source.id}`);
-      if (other) incoming.push({ type: rel.type, other });
-    }
-  }
-  return { outgoing, incoming };
-}
-
 function groupEdgesByType(edges: DirectedEdge[]): Map<EdgeRelation, DirectedEdge[]> {
   const groups = new Map<EdgeRelation, DirectedEdge[]>();
   for (const edge of edges) {
-    const bucket = groups.get(edge.type);
-    if (bucket) {
-      bucket.push(edge);
-    } else {
-      groups.set(edge.type, [edge]);
-    }
+    pushBucket(groups, edge.type, edge);
   }
   return groups;
 }
@@ -238,32 +266,11 @@ export function StructuredListView({
   emptyStateAction?: ReactNode;
   header?: ReactNode;
 }) {
-  const itemIndex = buildItemIndex(entityState);
-  const location = useLocation();
+  const { itemsByKey, outgoingByItem, incomingByItem } = projectGraph(entityState);
   const containerRef = useRef<HTMLDivElement>(null);
-  const [anchoredRowRef, setAnchoredRowRef] = useState<string | null>(null);
+  const { anchoredRowRef } = useGraphHashAnchor(containerRef);
 
-  const targetRef = readHashTargetRef(location.hash);
-
-  useEffect(() => {
-    if (!targetRef) {
-      setAnchoredRowRef(null);
-      return;
-    }
-    const row = containerRef.current?.querySelector(
-      `[data-graph-row-ref="${CSS.escape(targetRef)}"]`,
-    ) as HTMLElement | null;
-    if (!row) {
-      setAnchoredRowRef(null);
-      return;
-    }
-    row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setAnchoredRowRef(targetRef);
-    const timer = setTimeout(() => setAnchoredRowRef(null), HASH_ANCHOR_HIGHLIGHT_MS);
-    return () => clearTimeout(timer);
-  }, [targetRef]);
-
-  const totalItems = itemIndex.size;
+  const totalItems = itemsByKey.size;
 
   return (
     <div
@@ -276,7 +283,7 @@ export function StructuredListView({
         {totalItems === 0 && <EmptyStateCard action={emptyStateAction} />}
         {totalItems > 0 &&
           knowledgeDisplayGroups.map((group) => {
-            const items = collectItemsForGroup(entityState, group.kinds, itemIndex).sort((a, b) =>
+            const items = collectItemsForGroup(entityState, group.kinds, itemsByKey).sort((a, b) =>
               compareReferenceCode(a.referenceCode, b.referenceCode),
             );
             if (items.length === 0) return null;
@@ -285,13 +292,13 @@ export function StructuredListView({
                 <h2 className="mb-2 text-sm font-medium text-sub">{group.label}</h2>
                 <div className="flex flex-col gap-2">
                   {items.map((item) => {
-                    const { outgoing, incoming } = getEdgesForItem(entityState, itemIndex, item);
+                    const itemKey = `${item.kind}:${item.id}`;
                     return (
                       <ItemRow
-                        key={`${item.kind}:${item.id}`}
+                        key={itemKey}
                         item={item}
-                        outgoing={outgoing}
-                        incoming={incoming}
+                        outgoing={outgoingByItem.get(itemKey) ?? []}
+                        incoming={incomingByItem.get(itemKey) ?? []}
                         anchored={anchoredRowRef === item.referenceCode}
                       />
                     );
