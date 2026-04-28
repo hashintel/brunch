@@ -130,7 +130,7 @@ describe('specification data ownership', () => {
     const firstPrime = await primeSpecificationBundle('42');
     const secondPrime = await primeSpecificationBundle('42');
 
-    expect(Object.keys(specificationQueryKeys)).toEqual(['bundle', 'entities']);
+    expect(Object.keys(specificationQueryKeys)).toEqual(['bundle', 'entities', 'entitiesProjectWide']);
     expect(firstPrime).toEqual(minimalSpecificationState);
     expect(secondPrime).toEqual(minimalSpecificationState);
     expect(queryClient.getQueryData(specificationQueryKeys.bundle('42'))).toEqual(minimalSpecificationState);

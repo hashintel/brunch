@@ -19,6 +19,7 @@ const routeComponentManifestIds = [
   'src/client/routes/index.tsx?tsr-split=component',
   'src/client/routes/specification/$id/route.tsx?tsr-split=component',
   'src/client/routes/specification/$id/export.tsx?tsr-split=component',
+  'src/client/routes/specification/$id/graph.tsx?tsr-split=component',
   'src/client/routes/specification/$id/_view/route.tsx?tsr-split=component',
   'src/client/routes/specification/$id/_view/grounding.tsx?tsr-split=component',
   'src/client/routes/specification/$id/_view/elicitation.tsx?tsr-split=component',

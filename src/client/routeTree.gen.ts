@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SpecificationIdRouteRouteImport } from './routes/specification/$id/route'
 import { Route as SpecificationIdIndexRouteImport } from './routes/specification/$id/index'
+import { Route as SpecificationIdGraphRouteImport } from './routes/specification/$id/graph'
 import { Route as SpecificationIdExportRouteImport } from './routes/specification/$id/export'
 import { Route as SpecificationIdViewRouteRouteImport } from './routes/specification/$id/_view/route'
 import { Route as SpecificationIdViewRequirementsReviewRouteImport } from './routes/specification/$id/_view/requirements-review'
@@ -32,6 +33,11 @@ const SpecificationIdRouteRoute = SpecificationIdRouteRouteImport.update({
 const SpecificationIdIndexRoute = SpecificationIdIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => SpecificationIdRouteRoute,
+} as any)
+const SpecificationIdGraphRoute = SpecificationIdGraphRouteImport.update({
+  id: '/graph',
+  path: '/graph',
   getParentRoute: () => SpecificationIdRouteRoute,
 } as any)
 const SpecificationIdExportRoute = SpecificationIdExportRouteImport.update({
@@ -73,6 +79,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/specification/$id': typeof SpecificationIdViewRouteRouteWithChildren
   '/specification/$id/export': typeof SpecificationIdExportRoute
+  '/specification/$id/graph': typeof SpecificationIdGraphRoute
   '/specification/$id/': typeof SpecificationIdIndexRoute
   '/specification/$id/acceptance-review': typeof SpecificationIdViewAcceptanceReviewRoute
   '/specification/$id/elicitation': typeof SpecificationIdViewElicitationRoute
@@ -83,6 +90,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/specification/$id': typeof SpecificationIdIndexRoute
   '/specification/$id/export': typeof SpecificationIdExportRoute
+  '/specification/$id/graph': typeof SpecificationIdGraphRoute
   '/specification/$id/acceptance-review': typeof SpecificationIdViewAcceptanceReviewRoute
   '/specification/$id/elicitation': typeof SpecificationIdViewElicitationRoute
   '/specification/$id/grounding': typeof SpecificationIdViewGroundingRoute
@@ -94,6 +102,7 @@ export interface FileRoutesById {
   '/specification/$id': typeof SpecificationIdRouteRouteWithChildren
   '/specification/$id/_view': typeof SpecificationIdViewRouteRouteWithChildren
   '/specification/$id/export': typeof SpecificationIdExportRoute
+  '/specification/$id/graph': typeof SpecificationIdGraphRoute
   '/specification/$id/': typeof SpecificationIdIndexRoute
   '/specification/$id/_view/acceptance-review': typeof SpecificationIdViewAcceptanceReviewRoute
   '/specification/$id/_view/elicitation': typeof SpecificationIdViewElicitationRoute
@@ -106,6 +115,7 @@ export interface FileRouteTypes {
     | '/'
     | '/specification/$id'
     | '/specification/$id/export'
+    | '/specification/$id/graph'
     | '/specification/$id/'
     | '/specification/$id/acceptance-review'
     | '/specification/$id/elicitation'
@@ -116,6 +126,7 @@ export interface FileRouteTypes {
     | '/'
     | '/specification/$id'
     | '/specification/$id/export'
+    | '/specification/$id/graph'
     | '/specification/$id/acceptance-review'
     | '/specification/$id/elicitation'
     | '/specification/$id/grounding'
@@ -126,6 +137,7 @@ export interface FileRouteTypes {
     | '/specification/$id'
     | '/specification/$id/_view'
     | '/specification/$id/export'
+    | '/specification/$id/graph'
     | '/specification/$id/'
     | '/specification/$id/_view/acceptance-review'
     | '/specification/$id/_view/elicitation'
@@ -159,6 +171,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/specification/$id/'
       preLoaderRoute: typeof SpecificationIdIndexRouteImport
+      parentRoute: typeof SpecificationIdRouteRoute
+    }
+    '/specification/$id/graph': {
+      id: '/specification/$id/graph'
+      path: '/graph'
+      fullPath: '/specification/$id/graph'
+      preLoaderRoute: typeof SpecificationIdGraphRouteImport
       parentRoute: typeof SpecificationIdRouteRoute
     }
     '/specification/$id/export': {
@@ -231,12 +250,14 @@ const SpecificationIdViewRouteRouteWithChildren =
 interface SpecificationIdRouteRouteChildren {
   SpecificationIdViewRouteRoute: typeof SpecificationIdViewRouteRouteWithChildren
   SpecificationIdExportRoute: typeof SpecificationIdExportRoute
+  SpecificationIdGraphRoute: typeof SpecificationIdGraphRoute
   SpecificationIdIndexRoute: typeof SpecificationIdIndexRoute
 }
 
 const SpecificationIdRouteRouteChildren: SpecificationIdRouteRouteChildren = {
   SpecificationIdViewRouteRoute: SpecificationIdViewRouteRouteWithChildren,
   SpecificationIdExportRoute: SpecificationIdExportRoute,
+  SpecificationIdGraphRoute: SpecificationIdGraphRoute,
   SpecificationIdIndexRoute: SpecificationIdIndexRoute,
 }
 

@@ -9,6 +9,8 @@ import type { SpecificationState } from '@/shared/specification.js';
 export const specificationQueryKeys = {
   bundle: (specificationId: string) => ['specification', specificationId, 'bundle'] as const,
   entities: (specificationId: string) => ['specification', specificationId, 'entities'] as const,
+  entitiesProjectWide: (specificationId: string) =>
+    ['specification', specificationId, 'entities', 'project-wide'] as const,
 };
 
 const inflightSpecificationStateRequests = new Map<string, Promise<SpecificationState>>();
@@ -45,6 +47,14 @@ async function fetchSpecificationEntities(specificationId: string): Promise<Enti
   return (await response.json()) as EntitiesData;
 }
 
+async function fetchSpecificationEntitiesProjectWide(specificationId: string): Promise<EntitiesData> {
+  const response = await fetch(`/api/specifications/${specificationId}/entities?mode=project-wide`);
+  if (!response.ok) {
+    throw new Error('Failed to load project-wide entities');
+  }
+  return (await response.json()) as EntitiesData;
+}
+
 export async function primeSpecificationBundle(specificationId: string): Promise<SpecificationState> {
   return await queryClient.ensureQueryData({
     queryKey: specificationQueryKeys.bundle(specificationId),
@@ -56,6 +66,13 @@ export async function primeSpecificationEntities(specificationId: string): Promi
   return await queryClient.ensureQueryData({
     queryKey: specificationQueryKeys.entities(specificationId),
     queryFn: () => fetchSpecificationEntities(specificationId),
+  });
+}
+
+export async function primeSpecificationEntitiesProjectWide(specificationId: string): Promise<EntitiesData> {
+  return await queryClient.ensureQueryData({
+    queryKey: specificationQueryKeys.entitiesProjectWide(specificationId),
+    queryFn: () => fetchSpecificationEntitiesProjectWide(specificationId),
   });
 }
 
@@ -93,5 +110,14 @@ export function useSpecificationEntities(): EntitiesData {
   return useSuspenseQuery({
     queryKey: specificationQueryKeys.entities(specificationId),
     queryFn: () => fetchSpecificationEntities(specificationId),
+  }).data;
+}
+
+export function useSpecificationEntitiesProjectWide(): EntitiesData {
+  const specificationId = useSpecificationId();
+
+  return useSuspenseQuery({
+    queryKey: specificationQueryKeys.entitiesProjectWide(specificationId),
+    queryFn: () => fetchSpecificationEntitiesProjectWide(specificationId),
   }).data;
 }
