@@ -97,7 +97,7 @@ describe('StructuredListView', () => {
     expect(container.querySelector('[data-graph-row-ref="D1"]')?.textContent).toContain('On-path decision');
   });
 
-  it('renders an outgoing relation chip per edge for a densely connected anchor (no soft-truncate yet)', () => {
+  it('soft-truncates dense relation lists at 6 with a +N more expander', () => {
     const { container } = render(<StructuredListView entityState={denseGoalAnchor()} />);
 
     const goalRow = container.querySelector('[data-graph-row-ref="G1"]');
@@ -107,8 +107,131 @@ describe('StructuredListView', () => {
     const goalScope = within(goalRow as HTMLElement);
     // Goal is the target of 15 incoming `refines` edges
     expect(goalScope.getByText('Incoming')).toBeTruthy();
-    const chips = goalScope.queryAllByTestId('relation-chip');
-    expect(chips.length).toBe(15);
+    const visibleChips = goalScope.queryAllByTestId('relation-chip');
+    expect(visibleChips.length).toBe(6);
+    expect(goalScope.getByRole('button', { name: '+9 more' })).toBeTruthy();
+  });
+
+  it('expanding the +N more button reveals all chips for that relation type and hides the button', () => {
+    const { container } = render(<StructuredListView entityState={denseGoalAnchor()} />);
+
+    const goalRow = container.querySelector('[data-graph-row-ref="G1"]');
+    expect(goalRow).toBeTruthy();
+    if (!goalRow) return;
+
+    const goalScope = within(goalRow as HTMLElement);
+    const moreButton = goalScope.getByRole('button', { name: '+9 more' });
+
+    act(() => {
+      (moreButton as HTMLButtonElement).click();
+    });
+
+    expect(goalScope.queryAllByTestId('relation-chip').length).toBe(15);
+    expect(goalScope.queryByRole('button', { name: /more/ })).toBeNull();
+  });
+
+  it('does not truncate when an item has 6 or fewer chips of a relation type', () => {
+    const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
+
+    const decisionRow = container.querySelector('[data-graph-row-ref="D1"]');
+    expect(decisionRow).toBeTruthy();
+    if (!decisionRow) return;
+
+    const decisionScope = within(decisionRow as HTMLElement);
+    // Decision has 1 outgoing refines + 1 incoming constrains + 1 incoming derived_from = 3 chips total, all under the limit
+    expect(decisionScope.queryByRole('button', { name: /more/ })).toBeNull();
+    expect(decisionScope.queryAllByTestId('relation-chip').length).toBe(3);
+  });
+
+  it('truncates per relation type independently within the same direction', () => {
+    // Build a fixture with one item having 8 outgoing refines + 8 outgoing derived_from edges
+    const entityState = denseGoalAnchor();
+    // Add 8 more decisions with derived_from edges to the same goal
+    const goalId = 100;
+    const startId = 300;
+    const extras = Array.from({ length: 8 }, (_, index) => ({
+      id: startId + index,
+      specification_id: 1,
+      content: `Extra decision ${index + 1}`,
+      rationale: null,
+      referenceCode: `D${index + 100}`,
+    }));
+    entityState.decisions = [...entityState.decisions, ...extras];
+    entityState.relationships = [
+      ...entityState.relationships,
+      ...extras.map((d) => ({
+        type: 'derived_from' as const,
+        source: { kind: 'decision' as const, collection: 'knowledge_item' as const, id: d.id },
+        target: { kind: 'goal' as const, collection: 'knowledge_item' as const, id: goalId },
+      })),
+    ];
+
+    const { container } = render(<StructuredListView entityState={entityState} />);
+
+    const goalRow = container.querySelector('[data-graph-row-ref="G1"]');
+    expect(goalRow).toBeTruthy();
+    if (!goalRow) return;
+
+    const goalScope = within(goalRow as HTMLElement);
+    // Two distinct +N more buttons should appear (one per relation type)
+    expect(goalScope.queryAllByRole('button', { name: /more/ }).length).toBe(2);
+  });
+
+  it('expand state is row-local (expanding one row does not expand another)', () => {
+    const entityState = denseGoalAnchor();
+    // Add a second goal with 10 incoming refines edges so two rows have +N buttons
+    const secondGoalId = 999;
+    entityState.goals = [
+      ...entityState.goals,
+      {
+        id: secondGoalId,
+        specification_id: 1,
+        kind: 'goal',
+        subtype: null,
+        content: 'Second goal',
+        rationale: null,
+        referenceCode: 'G2',
+      },
+    ];
+    const secondAnchorDecisions = Array.from({ length: 10 }, (_, index) => ({
+      id: 500 + index,
+      specification_id: 1,
+      content: `Second-anchor decision ${index + 1}`,
+      rationale: null,
+      referenceCode: `D${200 + index}`,
+    }));
+    entityState.decisions = [...entityState.decisions, ...secondAnchorDecisions];
+    entityState.relationships = [
+      ...entityState.relationships,
+      ...secondAnchorDecisions.map((d) => ({
+        type: 'refines' as const,
+        source: { kind: 'decision' as const, collection: 'knowledge_item' as const, id: d.id },
+        target: { kind: 'goal' as const, collection: 'knowledge_item' as const, id: secondGoalId },
+      })),
+    ];
+
+    const { container } = render(<StructuredListView entityState={entityState} />);
+
+    const firstGoal = container.querySelector('[data-graph-row-ref="G1"]') as HTMLElement | null;
+    const secondGoal = container.querySelector('[data-graph-row-ref="G2"]') as HTMLElement | null;
+    expect(firstGoal).toBeTruthy();
+    expect(secondGoal).toBeTruthy();
+    if (!firstGoal || !secondGoal) return;
+
+    // Initial state: both rows have 6 chips visible
+    expect(within(firstGoal).queryAllByTestId('relation-chip').length).toBe(6);
+    expect(within(secondGoal).queryAllByTestId('relation-chip').length).toBe(6);
+
+    // Expand first row only
+    const firstMoreButton = within(firstGoal).getByRole('button', { name: '+9 more' });
+    act(() => {
+      (firstMoreButton as HTMLButtonElement).click();
+    });
+
+    // First row expanded; second row still truncated
+    expect(within(firstGoal).queryAllByTestId('relation-chip').length).toBe(15);
+    expect(within(secondGoal).queryAllByTestId('relation-chip').length).toBe(6);
+    expect(within(secondGoal).getByRole('button', { name: '+4 more' })).toBeTruthy();
   });
 
   it('renders each relation chip as a keyboard-focusable button', () => {

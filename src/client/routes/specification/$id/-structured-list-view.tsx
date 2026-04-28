@@ -8,6 +8,7 @@ import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js
 import { RelationChip, type RelationChipTarget } from './-relation-chip.js';
 
 const HASH_ANCHOR_HIGHLIGHT_MS = 1500;
+const CHIP_TRUNCATE_LIMIT = 6;
 
 function readHashTargetRef(rawHash: string): string | null {
   if (!rawHash) return null;
@@ -109,6 +110,31 @@ function groupEdgesByType(edges: DirectedEdge[]): Map<EdgeRelation, DirectedEdge
   return groups;
 }
 
+function ChipListByRelationType({ type, edges }: { type: EdgeRelation; edges: DirectedEdge[] }) {
+  const [expanded, setExpanded] = useState(false);
+  const overflowCount = edges.length - CHIP_TRUNCATE_LIMIT;
+  const showMoreButton = !expanded && overflowCount > 0;
+  const visibleEdges = expanded ? edges : edges.slice(0, CHIP_TRUNCATE_LIMIT);
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      <span className="text-xs text-sub">{type}</span>
+      {visibleEdges.map((edge) => (
+        <RelationChip key={`${type}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
+      ))}
+      {showMoreButton && (
+        <button
+          type="button"
+          onClick={() => setExpanded(true)}
+          className="rounded bg-wash px-1.5 py-0.5 text-xs text-sub outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+        >
+          +{overflowCount} more
+        </button>
+      )}
+    </div>
+  );
+}
+
 function RelationsSubsection({ label, edges }: { label: string; edges: DirectedEdge[] }) {
   if (edges.length === 0) return null;
 
@@ -119,12 +145,7 @@ function RelationsSubsection({ label, edges }: { label: string; edges: DirectedE
       <span className="text-xxs font-medium tracking-wide text-hint uppercase">{label}</span>
       <div className="flex flex-col gap-1">
         {Array.from(grouped.entries()).map(([type, typeEdges]) => (
-          <div key={type} className="flex flex-wrap items-center gap-1.5">
-            <span className="text-xs text-sub">{type}</span>
-            {typeEdges.map((edge) => (
-              <RelationChip key={`${type}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
-            ))}
-          </div>
+          <ChipListByRelationType key={type} type={type} edges={typeEdges} />
         ))}
       </div>
     </div>
