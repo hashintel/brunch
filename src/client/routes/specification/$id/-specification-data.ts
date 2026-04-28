@@ -84,10 +84,14 @@ export function useInvalidateSpecificationQueryDomains() {
     async () => client.invalidateQueries({ queryKey: specificationQueryKeys.bundle(specificationId) }),
     [client, specificationId],
   );
-  const invalidateEntities = useCallback(
-    async () => client.invalidateQueries({ queryKey: specificationQueryKeys.entities(specificationId) }),
-    [client, specificationId],
-  );
+  const invalidateEntities = useCallback(async () => {
+    await Promise.all([
+      client.invalidateQueries({ queryKey: specificationQueryKeys.entities(specificationId) }),
+      client.invalidateQueries({
+        queryKey: specificationQueryKeys.entitiesProjectWide(specificationId),
+      }),
+    ]);
+  }, [client, specificationId]);
 
   return {
     invalidateSpecificationBundle,
