@@ -333,7 +333,7 @@ function ItemRow({
       data-graph-row
       data-graph-row-ref={item.referenceCode}
       data-graph-row-anchored={anchored ? 'true' : undefined}
-      className={`group/row overflow-hidden rounded-md border bg-background transition-all duration-700 ${anchored ? 'animate-in border-link/50 ring-2 ring-link/30 duration-300 fade-in' : 'border-rule'}`}
+      className={`group/row overflow-hidden rounded-xl border bg-background shadow-[var(--shadow-card)] transition-all duration-700 ${anchored ? 'animate-in border-link/50 ring-2 ring-link/30 duration-300 fade-in' : 'border-rule'}`}
     >
       <div className="flex items-baseline justify-between gap-2 p-3">
         <div className="flex items-baseline gap-2">
@@ -342,7 +342,7 @@ function ItemRow({
           </span>
           <div className="flex flex-col gap-1">
             <p className="text-sm text-ink">{item.content}</p>
-            {item.rationale && <p className="text-xs text-sub">{item.rationale}</p>}
+            {item.rationale && <p className="text-xs leading-relaxed text-sub">{item.rationale}</p>}
           </div>
         </div>
         <ItemActionRail />
@@ -396,23 +396,38 @@ export function StructuredListView({
             );
             if (items.length === 0) return null;
             return (
-              <section key={group.label} data-graph-section={group.label}>
-                <h2 className="mb-2 text-sm font-medium text-sub">{group.label}</h2>
-                <div className="flex flex-col gap-2">
-                  {items.map((item) => {
-                    const itemKey = `${item.kind}:${item.id}`;
-                    return (
-                      <ItemRow
-                        key={itemKey}
-                        item={item}
-                        outgoing={outgoingByItem.get(itemKey) ?? []}
-                        incoming={incomingByItem.get(itemKey) ?? []}
-                        anchored={anchoredRowRef === item.referenceCode}
-                      />
-                    );
-                  })}
-                </div>
-              </section>
+              <Collapsible key={group.label} defaultOpen asChild>
+                <section data-graph-section={group.label}>
+                  <div className="mb-2 flex w-full items-center justify-between gap-2">
+                    <h2 className="text-sm font-medium text-sub">
+                      {group.label}
+                      <span className="ml-1.5 font-mono text-hint">{items.length}</span>
+                    </h2>
+                    <CollapsibleTrigger
+                      aria-label={`Toggle ${group.label}`}
+                      className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+                    >
+                      <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
+                    </CollapsibleTrigger>
+                  </div>
+                  <CollapsibleContent>
+                    <div className="flex flex-col gap-2">
+                      {items.map((item) => {
+                        const itemKey = `${item.kind}:${item.id}`;
+                        return (
+                          <ItemRow
+                            key={itemKey}
+                            item={item}
+                            outgoing={outgoingByItem.get(itemKey) ?? []}
+                            incoming={incomingByItem.get(itemKey) ?? []}
+                            anchored={anchoredRowRef === item.referenceCode}
+                          />
+                        );
+                      })}
+                    </div>
+                  </CollapsibleContent>
+                </section>
+              </Collapsible>
             );
           })}
       </div>
