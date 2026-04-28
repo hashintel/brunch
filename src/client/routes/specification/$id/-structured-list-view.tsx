@@ -1,8 +1,9 @@
 import { useLocation } from '@tanstack/react-router';
-import { MessageCircle } from 'lucide-react';
+import { ArrowDownLeft, ArrowUpRight, ChevronRight, MessageCircle } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 
 import { knowledgeDisplayGroups } from '@/client/components/knowledge-display.js';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 
@@ -188,15 +189,28 @@ const relationTypeColor: Record<EdgeRelation, string> = {
   refines: 'text-rel-refines',
 };
 
+const relationTypeLabel: Record<EdgeRelation, string> = {
+  depends_on: 'Depends on',
+  derived_from: 'Derived from',
+  constrains: 'Constrains',
+  verifies: 'Verifies',
+  refines: 'Refines',
+};
+
 function ChipListByRelationType({ type, edges }: { type: EdgeRelation; edges: DirectedEdge[] }) {
   const [expanded, setExpanded] = useState(false);
   const overflowCount = edges.length - CHIP_TRUNCATE_LIMIT;
   const showMoreButton = !expanded && overflowCount > 0;
   const visibleEdges = expanded ? edges : edges.slice(0, CHIP_TRUNCATE_LIMIT);
+  // depends_on is the most generic relation; the Outgoing/Incoming subsection
+  // header already conveys direction, so the per-type label adds no signal.
+  const showTypeLabel = type !== 'depends_on';
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className={`text-xs font-medium ${relationTypeColor[type]}`}>{type}</span>
+      {showTypeLabel && (
+        <span className={`text-xs font-medium ${relationTypeColor[type]}`}>{relationTypeLabel[type]}</span>
+      )}
       {visibleEdges.map((edge) => (
         <RelationChip key={`${type}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
       ))}
@@ -213,20 +227,38 @@ function ChipListByRelationType({ type, edges }: { type: EdgeRelation; edges: Di
   );
 }
 
-function RelationsSubsection({ label, edges }: { label: string; edges: DirectedEdge[] }) {
+function RelationsSubsection({
+  label,
+  direction,
+  edges,
+}: {
+  label: string;
+  direction: 'outgoing' | 'incoming';
+  edges: DirectedEdge[];
+}) {
   if (edges.length === 0) return null;
 
   const grouped = groupEdgesByType(edges);
+  const DirectionIcon = direction === 'outgoing' ? ArrowUpRight : ArrowDownLeft;
 
   return (
-    <div className="flex flex-col gap-1">
-      <span className="text-xxs font-medium tracking-wide text-hint uppercase">{label}</span>
-      <div className="flex flex-col gap-1">
+    <Collapsible defaultOpen className="flex flex-col">
+      <CollapsibleTrigger
+        data-graph-relations-subsection={direction}
+        className="group flex items-center justify-between gap-2 rounded px-1 py-1 text-xxs font-medium tracking-wide text-hint uppercase outline-none hover:text-sub focus-visible:ring-2 focus-visible:ring-foreground/30"
+      >
+        <span className="flex items-center gap-1.5">
+          <DirectionIcon className="size-3 shrink-0" />
+          {label} <span className="font-mono text-hint normal-case">({edges.length})</span>
+        </span>
+        <ChevronRight className="size-3 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
+      </CollapsibleTrigger>
+      <CollapsibleContent className="flex flex-col gap-1 pt-1">
         {Array.from(grouped.entries()).map(([type, typeEdges]) => (
           <ChipListByRelationType key={type} type={type} edges={typeEdges} />
         ))}
-      </div>
-    </div>
+      </CollapsibleContent>
+    </Collapsible>
   );
 }
 
@@ -235,8 +267,8 @@ function RelationsFooter({ outgoing, incoming }: { outgoing: DirectedEdge[]; inc
 
   return (
     <div className="mt-2 flex flex-col gap-2 border-t border-rule pt-2">
-      <RelationsSubsection label="Outgoing" edges={outgoing} />
-      <RelationsSubsection label="Incoming" edges={incoming} />
+      <RelationsSubsection label="Outgoing" direction="outgoing" edges={outgoing} />
+      <RelationsSubsection label="Incoming" direction="incoming" edges={incoming} />
     </div>
   );
 }

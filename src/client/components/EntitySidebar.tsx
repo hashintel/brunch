@@ -1,7 +1,8 @@
 import { Link } from '@tanstack/react-router';
-import { Maximize2 } from 'lucide-react';
+import { ChevronRight, Maximize2 } from 'lucide-react';
 
 import { EmptyCard } from '@/client/components/app-shell';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import type { EntitiesData } from '@/shared/api-types.js';
 import type { KnowledgeEntityCollection, KnowledgeKind } from '@/shared/knowledge.js';
@@ -135,28 +136,35 @@ export function EntitySidebar({
             }
 
             return (
-              <section key={group.label}>
-                <h3 className="mb-2 text-xs font-medium text-sub">
-                  {group.label}
-                  {count > 0 && <span className="ml-1.5 text-sub">{count}</span>}
-                </h3>
-                {count === 0 ? (
-                  <EmptyCard
-                    title={`No ${group.label.toLowerCase()} yet`}
-                    description="Items will appear as the interview progresses."
-                  />
-                ) : (
-                  <div className="flex flex-col gap-1.5">
-                    {groupItems.map(({ item, edges }) => (
-                      <KnowledgeDetailCard
-                        key={`${item.kind}-${item.id}`}
-                        item={item}
-                        edges={edges.length > 0 ? edges : undefined}
+              <Collapsible key={group.label} defaultOpen asChild>
+                <section data-knowledge-group={group.label}>
+                  <CollapsibleTrigger className="group mb-2 flex w-full items-center justify-between gap-2 rounded px-1 py-1 text-xs font-medium text-sub outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30">
+                    <span>
+                      {group.label}
+                      {count > 0 && <span className="ml-1.5 font-mono text-hint">{count}</span>}
+                    </span>
+                    <ChevronRight className="size-3.5 shrink-0 transition-transform group-data-[state=open]:rotate-90" />
+                  </CollapsibleTrigger>
+                  <CollapsibleContent>
+                    {count === 0 ? (
+                      <EmptyCard
+                        title={`No ${group.label.toLowerCase()} yet`}
+                        description="Items will appear as the interview progresses."
                       />
-                    ))}
-                  </div>
-                )}
-              </section>
+                    ) : (
+                      <div className="flex flex-col gap-1.5">
+                        {groupItems.map(({ item, edges }) => (
+                          <KnowledgeDetailCard
+                            key={`${item.kind}-${item.id}`}
+                            item={item}
+                            edges={edges.length > 0 ? edges : undefined}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </section>
+              </Collapsible>
             );
           })}
         </div>

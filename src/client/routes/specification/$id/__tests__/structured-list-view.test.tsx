@@ -144,12 +144,12 @@ describe('StructuredListView', () => {
     const decisionScope = within(decisionRow as HTMLElement);
 
     // Outgoing edge: decision refines goal G1
-    expect(decisionScope.getByText('refines')).toBeTruthy();
+    expect(decisionScope.getByText('Refines')).toBeTruthy();
     expect(decisionScope.getByText('G1')).toBeTruthy();
     expect(decisionScope.getByText(/Reduce signup drop-off/)).toBeTruthy();
 
     // Incoming edge: requirement R1 derives_from this decision
-    expect(decisionScope.getByText('derived_from')).toBeTruthy();
+    expect(decisionScope.getByText('Derived from')).toBeTruthy();
     expect(decisionScope.getByText('R1')).toBeTruthy();
     expect(decisionScope.getByText(/Email verification on first login/)).toBeTruthy();
   });
