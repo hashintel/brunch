@@ -275,6 +275,14 @@ describe('generated routeTree', () => {
     // Loader fetches whole-spec entities (D129), not active-path
     expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42/entities?mode=project-wide');
     expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42');
+
+    // Header strip surfaces a "Knowledge graph" title and a Back-to-chat
+    // link targeting the current reachable phase (default workflow has all
+    // phases unstarted, so current reachable = grounding)
+    expect(screen.getByText('Knowledge graph')).toBeTruthy();
+    const backLink = screen.getByRole('link', { name: /back to chat/i });
+    expect(backLink).toBeTruthy();
+    expect(backLink.getAttribute('href')).toContain('/specification/42/grounding');
   });
 
   it('redirects project index to the grounding phase by default through one authoritative bundle fetch path', async () => {

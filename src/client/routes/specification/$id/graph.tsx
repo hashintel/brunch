@@ -22,18 +22,40 @@ function GraphRouteComponent() {
   const currentReachable = getCurrentOpenPhase(bundle.workflow.phases);
   const allClosed = areAllWorkflowPhasesClosed(bundle.workflow.phases);
 
+  let backToChatLink = null;
   let emptyStateAction;
+
   if (currentReachable) {
-    emptyStateAction = (
+    const phaseLabel = getWorkflowPhaseLabel(currentReachable).toLowerCase();
+    const phaseTo = getPhaseRoutePath(currentReachable) as '/specification/$id/grounding';
+    backToChatLink = (
       <Link
-        to={getPhaseRoutePath(currentReachable) as '/specification/$id/grounding'}
+        to={phaseTo}
         params={{ id: specificationId }}
         className="text-xs font-medium text-[#2070e6] hover:underline"
       >
-        Go to {getWorkflowPhaseLabel(currentReachable).toLowerCase()}
+        Back to chat
+      </Link>
+    );
+    emptyStateAction = (
+      <Link
+        to={phaseTo}
+        params={{ id: specificationId }}
+        className="text-xs font-medium text-[#2070e6] hover:underline"
+      >
+        Go to {phaseLabel}
       </Link>
     );
   } else if (allClosed) {
+    backToChatLink = (
+      <Link
+        to="/specification/$id/export"
+        params={{ id: specificationId }}
+        className="text-xs font-medium text-[#2070e6] hover:underline"
+      >
+        Back to chat
+      </Link>
+    );
     emptyStateAction = (
       <Link
         to="/specification/$id/export"
@@ -45,7 +67,14 @@ function GraphRouteComponent() {
     );
   }
 
-  return <StructuredListView entityState={entityState} emptyStateAction={emptyStateAction} />;
+  const header = (
+    <header data-graph-header className="flex items-center justify-between border-b border-rule pb-3">
+      <h1 className="text-sm font-medium text-ink">Knowledge graph</h1>
+      {backToChatLink}
+    </header>
+  );
+
+  return <StructuredListView entityState={entityState} emptyStateAction={emptyStateAction} header={header} />;
 }
 
 export const Route = createFileRoute('/specification/$id/graph')({

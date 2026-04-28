@@ -65,6 +65,43 @@ describe('StructuredListView', () => {
     expect(link.getAttribute('href')).toBe('/test-action');
   });
 
+  it('renders the supplied header above the structured list', () => {
+    const { container } = render(
+      <StructuredListView
+        entityState={singleItemNoEdges()}
+        header={<div data-testid="test-header">Header content</div>}
+      />,
+    );
+
+    const header = screen.getByTestId('test-header');
+    const list = container.querySelector('[data-graph-structured-list]');
+    expect(header).toBeTruthy();
+    expect(list).toBeTruthy();
+    if (!list) return;
+    // Header should appear before the first row in DOM order
+    const firstRow = list.querySelector('[data-graph-row]');
+    expect(firstRow).toBeTruthy();
+    if (!firstRow) return;
+    expect(header.compareDocumentPosition(firstRow) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('does not render a header element when no header prop is supplied', () => {
+    const { container } = render(<StructuredListView entityState={singleItemNoEdges()} />);
+    expect(container.querySelector('[data-graph-header]')).toBeNull();
+  });
+
+  it('renders the supplied header even when the empty-state card is shown', () => {
+    render(
+      <StructuredListView
+        entityState={emptySpec()}
+        header={<div data-testid="test-header">Header content</div>}
+      />,
+    );
+    expect(screen.getByTestId('test-header')).toBeTruthy();
+    // Empty-state still rendered too
+    expect(screen.getByText(/no knowledge captured yet/i)).toBeTruthy();
+  });
+
   it('does not render the empty-state card when items exist', () => {
     const { container } = render(
       <StructuredListView

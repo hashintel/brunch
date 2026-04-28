@@ -211,9 +211,11 @@ function ItemRow({
 export function StructuredListView({
   entityState,
   emptyStateAction,
+  header,
 }: {
   entityState: EntitiesData;
   emptyStateAction?: ReactNode;
+  header?: ReactNode;
 }) {
   const itemIndex = buildItemIndex(entityState);
   const location = useLocation();
@@ -249,6 +251,7 @@ export function StructuredListView({
       className="flex h-full flex-col overflow-y-auto bg-background"
     >
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
+        {header}
         {totalItems === 0 && <EmptyStateCard action={emptyStateAction} />}
         {totalItems > 0 &&
           knowledgeDisplayGroups.map((group) => {
