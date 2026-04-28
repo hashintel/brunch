@@ -4,7 +4,7 @@
 
 # Plan
 
-The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, and observer knowledge extraction all ship as working product. FE-531 distribution hardening is now closed through a real publishable package/release path for `npx brunch`, so the live frontier centers on **infrastructure** — workflow ownership extraction and continuous workspace — which enables the next wave of user-facing capabilities (revisit/cascade, trigger-popover composer, web tools, and the new post-launch interview-model expansion themes). Manual proving of recently landed interaction-model changes (preface cards in non-grounding phases, format autonomy quality, observer coherence) continues alongside these seams.
+The interaction model is mature: four-phase interview, interviewer-autonomous question format, phase-agnostic preface cards with workspace exploration, structured review with per-item commenting, and observer knowledge extraction all ship as working product. FE-531 distribution hardening is now closed through a real publishable package/release path for `npx brunch`, so the live frontier centers on **infrastructure** — workflow ownership extraction and continuous workspace — which enables the next wave of user-facing capabilities (revisit/cascade, trigger-popover composer, web tools, and the new post-launch interview-model expansion themes). Graph view's structured-list layout (D128, D129) ships in parallel as a peer route that is independently scopeable and prepares the seam for spatial canvas and node-launched refinement later. Manual proving of recently landed interaction-model changes (preface cards in non-grounding phases, format autonomy quality, observer coherence) continues alongside these seams.
 
 ## Active
 
@@ -14,9 +14,16 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
    - Why now / unlocks: the runtime proving slice landed deferred observer backlog without a second durable workflow model. This cleanup separates transport, durable snapshot assembly, workflow projection, and workflow transition logic so the continuous workspace can adopt one chat runtime cleanly.
    - Traceability: D110, D112, D113, D123; A57; I24, I72, I104, I105.
 
+### Track A — User-facing
+
+2. **Graph view: peer route + structured-list layout** — promote graph view from `_view` placeholder to a peer route at `/specification/$id/graph` rendering knowledge items as a structured list with relations footers (Outgoing / Incoming relation chips, hover-card preview, soft-truncate at 6, action rail with disabled `chat-with` placeholder, empty state, "Back to chat" affordance). First ship of D128's actionable graph view; spatial canvas layout deferred.
+   - Why now / unlocks: independently shippable — uses today's `/entities?mode=project-wide` API, no shared state with the workspace shell, no dependency on workflow ownership extraction or continuous workspace. Parallels the infrastructure track without conflict. Surfaces relation-density gaps (A66) and prepares the projection seam for the spatial canvas and node-launched refinement flows.
+   - Traceability: Requirement 33; A66, A69, A70; D114, D128, D129; I102.
+   - Verification approach: F1 component tests + F3 a11y on the structured-list rendering; F2 router-integrated tests for chip click → URL → hash anchor → scroll chain and "Back to chat" affordance; F5 network-call counter for fetch-once + scope-toggle behavior; F6 graph-view fixture matrix (`emptySpec`, `singleItemNoEdges`, `crossPhaseDecisionLink`, `denseGoalAnchor`, `activePathDivergence`, `compareLowVsHighEdgeDensity`); F7 dramaturgical walkthrough on all six fixtures. See `memory/SPEC.md` §Verification Design.
+
 ## Next
 
-2. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with phase section navigation, one chat runtime per specification, scroll-spy phase focus.
+3. **Continuous workspace / phase-addressable interview surface** — cumulative center pane with phase section navigation, one chat runtime per specification, scroll-spy phase focus.
    - Why now / unlocks: depends on workflow ownership extraction. Once read/write workflow ownership is explicit, a continuous workspace can adopt one chat runtime and section-addressable focus without adding new lifecycle ambiguity.
    - Traceability: A58; D86, D87, D110, D113, D114; I24, I102.
    - Design doc: `docs/design/CONTINUOUS_WORKSPACE_HYBRID.md`
@@ -54,9 +61,9 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
   - First cut should optimize for `broad question -> choose one area to deepen next -> focused successor question -> refreshed breadth skeleton`, while keeping the same detail-focus intent reusable later from chat or graph surfaces.
   - Traceability: Requirement 32; A67, A68; D127.
 
-- **Actionable graph workspace** — turn graph view into a spatial knowledge workspace with visible DAG edges and node-launched refinement side-chats.
-  - Recommended shape: a projection-first graph workspace seam that transforms `EntitiesData` into a spatial scene, owns only ephemeral graph-local UI state (`viewport`, `selection`, `focus`, `path highlighting`), and emits node action intents into the existing workspace lifecycle instead of creating a second workflow or edit store. First cut should optimize for `select node -> inspect -> launch refinement`, with revisit/edit overlays layered on later.
-  - Depends on: continuous workspace; revisit / edit mode.
+- **Spatial canvas layout for graph view** — add the spatial DAG layout as a second layout choice inside graph mode, alongside the structured-list ship. Same projection seam, same intent contract; only the layout strategy changes (e.g. `?layout=spatial`).
+  - Recommended shape: a layout switch inside the existing `/specification/$id/graph` route that transforms the same `EntitiesData` projection into a spatial scene with viewport / selection / focus / path-highlighting, leaving the action-rail intent contract unchanged. First cut should optimize for `select node -> inspect -> launch refinement`.
+  - Depends on: graph view structured-list ship (Active 2). Richer node actions may benefit from revisit / edit mode.
   - Traceability: Requirement 33; A69; D128.
 
 ### Infrastructure / tooling
@@ -77,6 +84,10 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 ## Dependencies
 
 ```text
+TRACK A — User-facing
+graph-view-structured-list  (active)
+  └──→ spatial-canvas-layout  (horizon)
+
 TRACK B — Infrastructure
 workflow-ownership-extraction  (active)
   └──→ continuous-workspace  (next)
@@ -90,5 +101,4 @@ two-axis interview framing
 relation-first observer capture
 candidate-spec completion assist
 progressive detail / recursive deflation
-actionable graph workspace
 ```
