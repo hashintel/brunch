@@ -66,6 +66,11 @@ The interaction model is mature: four-phase interview, interviewer-autonomous qu
   - Depends on: graph view structured-list ship (Active 2). Richer node actions may benefit from revisit / edit mode.
   - Traceability: Requirement 33; A69; D128.
 
+- **Graph view active-path render filter + scope toggle** — render only active-path items by default in graph view, with a `Show all` toggle in the header that flips to the full whole-spec set. Both subsets project from the same in-memory `mode=project-wide` data; no second fetch.
+  - Recommended shape: server-side change to expose per-item active-path membership in the entities API response (e.g. `activePath: boolean` on each item, or a separate `activePathItemIds` collection); client-side filter inside `StructuredListView`'s projection plus a toggle UI in the graph view header.
+  - Depends on: server data-layer change for active-path membership exposure. Pairs with relation-first observer capture (A66) — both shape the graph view's apparent density. Was originally part of FE-643's slice family but deferred at slice 1 when no client-side derivation existed.
+  - Traceability: Requirement 33; D128, D129; I102.
+
 ### Infrastructure / tooling
 
 - Headless interview driver for scripted end-to-end probes.
@@ -86,6 +91,7 @@ Older history: `docs/archive/PLAN_HISTORY.md`
 ```text
 TRACK A — User-facing
 graph-view-structured-list  (active)
+  ├──→ active-path-filter-and-scope-toggle  (horizon, blocked on server data-layer)
   └──→ spatial-canvas-layout  (horizon)
 
 TRACK B — Infrastructure
