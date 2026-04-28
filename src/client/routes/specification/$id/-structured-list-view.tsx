@@ -399,10 +399,7 @@ export function StructuredListView({
               <Collapsible key={group.label} defaultOpen asChild>
                 <section data-graph-section={group.label}>
                   <div className="mb-2 flex w-full items-center justify-between gap-2">
-                    <h2 className="text-sm font-medium text-sub">
-                      {group.label}
-                      <span className="ml-1.5 font-mono text-hint">{items.length}</span>
-                    </h2>
+                    <h2 className="text-sm font-medium text-sub">{group.label}</h2>
                     <CollapsibleTrigger
                       aria-label={`Toggle ${group.label}`}
                       className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
