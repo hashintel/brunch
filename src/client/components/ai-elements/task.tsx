@@ -83,15 +83,15 @@ export const Task = ({
   const hasEverRunRef = useRef(isRunning);
   const [hasAutoClosed, setHasAutoClosed] = useState(false);
 
+  // Auto-open when streaming starts (unless explicitly closed)
   useEffect(() => {
     if (isRunning) {
       hasEverRunRef.current = true;
-
-      if (!isOpen && !isExplicitlyClosed && !hasAutoClosed) {
+      if (!isExplicitlyClosed) {
         setIsOpen(true);
       }
     }
-  }, [isExplicitlyClosed, isOpen, isRunning, setIsOpen, hasAutoClosed]);
+  }, [isRunning, isExplicitlyClosed, setIsOpen]);
 
   useEffect(() => {
     if (hasEverRunRef.current && !isRunning && isOpen && !hasAutoClosed) {
