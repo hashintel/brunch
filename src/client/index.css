@@ -43,6 +43,15 @@
   --color-wash: #f0f0f0; /* toggle tracks, ghost button fills */
   --color-tint: #fafafa; /* subtle background tint */
 
+  /* Semantic accent tokens — link color and per-relation-type hues for
+     graph view's relation-type labels. Use via text-link, text-rel-*. */
+  --color-link: #2070e6;
+  --color-rel-depends-on: #ea580c;
+  --color-rel-derived-from: #2563eb;
+  --color-rel-constrains: #e14640;
+  --color-rel-verifies: #16a34a;
+  --color-rel-refines: #7c3aed;
+
   /* Shadow tokens matching Figma's consistent card shadow */
   --shadow-card: 0px 4px 4px -2px rgba(0, 0, 0, 0.02), 0px 2px 2px -1px rgba(0, 0, 0, 0.02);
   --shadow-ring: 0px 0px 0px 1px rgba(0, 0, 0, 0.08);

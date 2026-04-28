@@ -139,6 +139,14 @@ function groupEdgesByType(edges: DirectedEdge[]): Map<EdgeRelation, DirectedEdge
   return groups;
 }
 
+const relationTypeColor: Record<EdgeRelation, string> = {
+  depends_on: 'text-rel-depends-on',
+  derived_from: 'text-rel-derived-from',
+  constrains: 'text-rel-constrains',
+  verifies: 'text-rel-verifies',
+  refines: 'text-rel-refines',
+};
+
 function ChipListByRelationType({ type, edges }: { type: EdgeRelation; edges: DirectedEdge[] }) {
   const [expanded, setExpanded] = useState(false);
   const overflowCount = edges.length - CHIP_TRUNCATE_LIMIT;
@@ -147,7 +155,7 @@ function ChipListByRelationType({ type, edges }: { type: EdgeRelation; edges: Di
 
   return (
     <div className="flex flex-wrap items-center gap-1.5">
-      <span className="text-xs text-sub">{type}</span>
+      <span className={`text-xs font-medium ${relationTypeColor[type]}`}>{type}</span>
       {visibleEdges.map((edge) => (
         <RelationChip key={`${type}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
       ))}
@@ -240,7 +248,7 @@ function ItemRow({
       data-graph-row
       data-graph-row-ref={item.referenceCode}
       data-graph-row-anchored={anchored ? 'true' : undefined}
-      className={`rounded-md border bg-background p-3 transition-shadow ${anchored ? 'border-foreground/40 ring-2 ring-foreground/20' : 'border-rule'}`}
+      className={`rounded-md border bg-background p-3 transition-all duration-700 ${anchored ? 'animate-in border-link/50 ring-2 ring-link/30 duration-300 fade-in' : 'border-rule'}`}
     >
       <div className="flex items-baseline justify-between gap-2">
         <div className="flex items-baseline gap-2">

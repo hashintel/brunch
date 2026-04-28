@@ -15,7 +15,7 @@ import {
 } from './-specification-data.js';
 import { StructuredListView } from './-structured-list-view.js';
 
-const RETURN_LINK_CLASS = 'text-xs font-medium text-[#2070e6] hover:underline';
+const RETURN_LINK_CLASS = 'text-xs font-medium text-link hover:underline';
 
 interface ReturnTarget {
   to: '/specification/$id/grounding' | '/specification/$id/export';
