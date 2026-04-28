@@ -7,7 +7,7 @@ import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js
 
 import { RelationChip, type RelationChipTarget } from './-relation-chip.js';
 
-const ARRIVAL_HIGHLIGHT_MS = 1500;
+const HASH_ANCHOR_HIGHLIGHT_MS = 1500;
 
 function readHashTargetRef(rawHash: string): string | null {
   if (!rawHash) return null;
@@ -19,7 +19,7 @@ type KnowledgeItemSummary = RelationChipTarget;
 
 interface DirectedEdge {
   type: EdgeRelation;
-  other: KnowledgeItemSummary | undefined;
+  other: KnowledgeItemSummary;
 }
 
 function compareReferenceCode(a: string, b: string): number {
@@ -85,16 +85,12 @@ function getEdgesForItem(
   const incoming: DirectedEdge[] = [];
   for (const rel of entityState.relationships) {
     if (rel.source.kind === item.kind && rel.source.id === item.id) {
-      outgoing.push({
-        type: rel.type,
-        other: itemIndex.get(`${rel.target.kind}:${rel.target.id}`),
-      });
+      const other = itemIndex.get(`${rel.target.kind}:${rel.target.id}`);
+      if (other) outgoing.push({ type: rel.type, other });
     }
     if (rel.target.kind === item.kind && rel.target.id === item.id) {
-      incoming.push({
-        type: rel.type,
-        other: itemIndex.get(`${rel.source.kind}:${rel.source.id}`),
-      });
+      const other = itemIndex.get(`${rel.source.kind}:${rel.source.id}`);
+      if (other) incoming.push({ type: rel.type, other });
     }
   }
   return { outgoing, incoming };
@@ -125,19 +121,9 @@ function RelationsSubsection({ label, edges }: { label: string; edges: DirectedE
         {Array.from(grouped.entries()).map(([type, typeEdges]) => (
           <div key={type} className="flex flex-wrap items-center gap-1.5">
             <span className="text-xs text-sub">{type}</span>
-            {typeEdges.map((edge, index) =>
-              edge.other ? (
-                <RelationChip key={`${type}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
-              ) : (
-                <span
-                  key={`${type}-missing-${index}`}
-                  data-testid="relation-chip-missing"
-                  className="text-xs text-hint italic"
-                >
-                  (missing)
-                </span>
-              ),
-            )}
+            {typeEdges.map((edge) => (
+              <RelationChip key={`${type}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
+            ))}
           </div>
         ))}
       </div>
@@ -160,19 +146,19 @@ function ItemRow({
   item,
   outgoing,
   incoming,
-  arrived,
+  anchored,
 }: {
   item: KnowledgeItemSummary;
   outgoing: DirectedEdge[];
   incoming: DirectedEdge[];
-  arrived: boolean;
+  anchored: boolean;
 }) {
   return (
     <div
       data-graph-row
       data-graph-row-ref={item.referenceCode}
-      data-graph-row-arrived={arrived ? 'true' : undefined}
-      className={`rounded-md border bg-background p-3 transition-shadow ${arrived ? 'border-foreground/40 ring-2 ring-foreground/20' : 'border-rule'}`}
+      data-graph-row-anchored={anchored ? 'true' : undefined}
+      className={`rounded-md border bg-background p-3 transition-shadow ${anchored ? 'border-foreground/40 ring-2 ring-foreground/20' : 'border-rule'}`}
     >
       <div className="flex items-baseline gap-2">
         <span data-graph-row-reference className="shrink-0 font-mono text-xs text-hint">
@@ -190,25 +176,25 @@ export function StructuredListView({ entityState }: { entityState: EntitiesData 
   const itemIndex = buildItemIndex(entityState);
   const location = useLocation();
   const containerRef = useRef<HTMLDivElement>(null);
-  const [arrivedRef, setArrivedRef] = useState<string | null>(null);
+  const [anchoredRowRef, setAnchoredRowRef] = useState<string | null>(null);
 
   const targetRef = readHashTargetRef(location.hash);
 
   useEffect(() => {
     if (!targetRef) {
-      setArrivedRef(null);
+      setAnchoredRowRef(null);
       return;
     }
     const row = containerRef.current?.querySelector(
       `[data-graph-row-ref="${CSS.escape(targetRef)}"]`,
     ) as HTMLElement | null;
     if (!row) {
-      setArrivedRef(null);
+      setAnchoredRowRef(null);
       return;
     }
     row.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    setArrivedRef(targetRef);
-    const timer = setTimeout(() => setArrivedRef(null), ARRIVAL_HIGHLIGHT_MS);
+    setAnchoredRowRef(targetRef);
+    const timer = setTimeout(() => setAnchoredRowRef(null), HASH_ANCHOR_HIGHLIGHT_MS);
     return () => clearTimeout(timer);
   }, [targetRef]);
 
@@ -236,7 +222,7 @@ export function StructuredListView({ entityState }: { entityState: EntitiesData 
                       item={item}
                       outgoing={outgoing}
                       incoming={incoming}
-                      arrived={arrivedRef === item.referenceCode}
+                      anchored={anchoredRowRef === item.referenceCode}
                     />
                   );
                 })}

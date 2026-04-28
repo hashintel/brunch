@@ -171,10 +171,10 @@ describe('StructuredListView', () => {
 
     expect(scrollSpy).not.toHaveBeenCalled();
     // No row should carry the arrival highlight attribute
-    expect(container.querySelectorAll('[data-graph-row-arrived]')).toHaveLength(0);
+    expect(container.querySelectorAll('[data-graph-row-anchored]')).toHaveLength(0);
   });
 
-  it('applies a transient arrival highlight on the matched row, then clears it after 1.5s', async () => {
+  it('applies a transient hash-anchor highlight on the matched row, then clears it after 1.5s', async () => {
     vi.useFakeTimers();
     try {
       mockHash = '#G1';
@@ -183,13 +183,13 @@ describe('StructuredListView', () => {
 
       const goalRow = container.querySelector('[data-graph-row-ref="G1"]');
       expect(goalRow).toBeTruthy();
-      expect(goalRow?.getAttribute('data-graph-row-arrived')).toBe('true');
+      expect(goalRow?.getAttribute('data-graph-row-anchored')).toBe('true');
 
       await act(async () => {
         vi.advanceTimersByTime(1500);
       });
 
-      expect(goalRow?.getAttribute('data-graph-row-arrived')).not.toBe('true');
+      expect(goalRow?.getAttribute('data-graph-row-anchored')).not.toBe('true');
     } finally {
       vi.useRealTimers();
     }
