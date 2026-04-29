@@ -21,7 +21,7 @@ Align touched tests and helper names to `specification` where they refer to the 
 1. [done] Align the app test helper and assertion vocabulary from legacy project naming to canonical specification naming for the reviewed surfaces.
 2. [done] Import and use the exported transition error-kind union types in the HTTP status helpers, and give both helpers deterministic fallback returns.
 3. [done] Narrow the turn-response route exception message to a generic transition failure message while preserving explicit domain error responses.
-4. Add route-boundary handling around chat transition application so expected transition errors still map to client errors and unexpected exceptions become JSON mutation failures instead of Express default responses.
+4. [done] Add route-boundary handling around chat transition application so expected transition errors still map to client errors and unexpected exceptions become JSON mutation failures instead of Express default responses.
 5. Replace the chat transition helper's optional-field argument bag with a discriminated command interface, updating tests and route construction one command variant at a time.
 6. Collapse duplicate specification existence checks inside the chat transition helper into one fail-fast lookup before command-specific logic.
 

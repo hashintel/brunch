@@ -470,14 +470,22 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     }
 
     let interviewerElapsedMs: number | undefined;
-    const transition = applyChatRouteTransition({
-      db,
-      specificationId,
-      promptText,
-      persistedUserParts,
-      confirmation: confirmationPart?.data,
-      phaseIntentRequest: phaseIntentPart?.data,
-    });
+    let transition: ReturnType<typeof applyChatRouteTransition>;
+    try {
+      transition = applyChatRouteTransition({
+        db,
+        specificationId,
+        promptText,
+        persistedUserParts,
+        confirmation: confirmationPart?.data,
+        phaseIntentRequest: phaseIntentPart?.data,
+      });
+    } catch {
+      res
+        .status(500)
+        .json({ error: 'Failed to apply chat route transition' } satisfies MutationErrorResponse);
+      return;
+    }
     if (!transition.ok) {
       res.status(getChatRouteTransitionErrorStatus(transition.kind)).json({ error: transition.message });
       return;
