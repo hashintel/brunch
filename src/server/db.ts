@@ -36,7 +36,11 @@ import {
   type KnowledgeEntityCollection,
   type KnowledgeKind as SharedKnowledgeKind,
 } from '@/shared/knowledge.js';
-import { parsePhaseClosureCommand, type PhaseClosureBasis } from '@/shared/phase-close.js';
+import {
+  parsePhaseClosureCommand,
+  workflowPhaseOrder,
+  type PhaseClosureBasis,
+} from '@/shared/phase-close.js';
 import { normalizeReviewSetForDisplay } from '@/shared/review-diffing.js';
 import { getPersistedReviewAction } from '@/shared/specification-state.js';
 
@@ -46,6 +50,7 @@ import {
   type DataConfirmationPart,
 } from './parts.js';
 import * as schema from './schema.js';
+import { projectWorkflowState, type WorkflowProjectionSnapshot } from './workflow-projector.js';
 
 export type DB = ReturnType<typeof drizzle<typeof schema>>;
 export type Specification = InferSelectModel<typeof schema.specification>;
@@ -66,7 +71,6 @@ export type WorkflowState = SharedWorkflowState;
 
 export interface CreatePhaseOutcomeInput {
   specificationId?: number;
-  projectId?: number;
   phase: Phase;
   proposal_turn_id: number;
   summary: string;
@@ -236,35 +240,6 @@ export function getActivePath(db: DB, specificationId: number): Turn[] {
   return rows as Turn[];
 }
 
-const workflowPhaseOrder = [
-  'grounding',
-  'design',
-  'requirements',
-  'criteria',
-] as const satisfies readonly Phase[];
-
-function createEmptyWorkflowPhaseState(): WorkflowPhaseState {
-  return {
-    status: 'unstarted',
-    closeability: false,
-    readiness: 'low',
-    closureBasis: null,
-    proposalPending: false,
-    turnId: null,
-    summary: null,
-  };
-}
-
-function getReadinessBand(turnCount: number): ReadinessBand {
-  if (turnCount <= 0) {
-    return 'low';
-  }
-  if (turnCount === 1) {
-    return 'medium';
-  }
-  return 'high';
-}
-
 export function listPhaseOutcomesForSpecification(db: DB, specificationId: number): PhaseOutcome[] {
   return db
     .select()
@@ -294,7 +269,7 @@ function reconcilePhaseOutcomesForSpecification(db: DB, specificationId: number)
 }
 
 export function createPhaseOutcome(db: DB, input: CreatePhaseOutcomeInput): PhaseOutcome {
-  const specificationId = input.specificationId ?? input.projectId;
+  const { specificationId } = input;
   if (!specificationId) {
     throw new Error('createPhaseOutcome requires specificationId');
   }
@@ -349,7 +324,7 @@ export function createConfirmedPhaseOutcome(
   db: DB,
   input: CreatePhaseOutcomeInput & { confirmation_turn_id: number },
 ): PhaseOutcome {
-  const specificationId = input.specificationId ?? input.projectId;
+  const { specificationId } = input;
   if (!specificationId) {
     throw new Error('createConfirmedPhaseOutcome requires specificationId');
   }
@@ -466,103 +441,45 @@ function getAcceptedKnowledgeItemIdsForPhase(
   return new Set(rows.map((row) => row.itemId));
 }
 
-function hasRequirementsReviewCoverage(db: DB, specificationId: number): boolean {
-  return getAcceptedKnowledgeItemIdsForPhase(db, specificationId, 'requirements', 'requirement').size > 0;
-}
-
-function hasCriteriaReviewCoverage(db: DB, specificationId: number): boolean {
-  return getAcceptedKnowledgeItemIdsForPhase(db, specificationId, 'criteria', 'criterion').size > 0;
-}
-
-function getPhaseCloseability(
+function countAcceptedKnowledgeItemsForPhase(
   db: DB,
   specificationId: number,
-  phase: Phase,
-  isConfirmed: boolean,
-  hasTurnHistory: boolean,
-): boolean {
-  if (isConfirmed) {
-    return false;
-  }
+  phase: 'requirements' | 'criteria',
+  kind: 'requirement' | 'criterion',
+): number {
+  return getAcceptedKnowledgeItemIdsForPhase(db, specificationId, phase, kind).size;
+}
 
-  if (phase === 'requirements') {
-    return hasRequirementsReviewCoverage(db, specificationId);
-  }
+export function readWorkflowProjectionSnapshot(db: DB, specificationId: number): WorkflowProjectionSnapshot {
+  const activePath = getActivePath(db, specificationId);
+  const activeTurnIds = new Set(activePath.map((turn) => turn.id));
+  const turns = activePath.map((turn) => ({
+    phase: turn.phase,
+    question: turn.question,
+    answer: turn.answer,
+    optionCount: getOptionsForTurn(db, turn.id).length,
+  })) satisfies WorkflowProjectionSnapshot['turns'];
+  const phaseOutcomes = listPhaseOutcomesForSpecification(db, specificationId).map((outcome) => ({
+    phase: outcome.phase,
+    status: outcome.status,
+    proposalTurnId: outcome.proposal_turn_id,
+    summary: outcome.summary,
+    closureBasis: getClosureBasisForOutcome(outcome),
+    onActivePath: activeTurnIds.has(outcome.proposal_turn_id),
+  })) satisfies WorkflowProjectionSnapshot['phaseOutcomes'];
 
-  if (phase === 'criteria') {
-    return hasCriteriaReviewCoverage(db, specificationId);
-  }
-
-  return hasTurnHistory;
+  return {
+    turns,
+    phaseOutcomes,
+    acceptedReviewItemCounts: {
+      requirements: countAcceptedKnowledgeItemsForPhase(db, specificationId, 'requirements', 'requirement'),
+      criteria: countAcceptedKnowledgeItemsForPhase(db, specificationId, 'criteria', 'criterion'),
+    },
+  };
 }
 
 export function getCurrentWorkflowState(db: DB, specificationId: number): WorkflowState {
-  const workflow: WorkflowState = {
-    phases: {
-      grounding: createEmptyWorkflowPhaseState(),
-      design: createEmptyWorkflowPhaseState(),
-      requirements: createEmptyWorkflowPhaseState(),
-      criteria: createEmptyWorkflowPhaseState(),
-    },
-  };
-
-  const activePath = getActivePath(db, specificationId);
-  const activeTurnIds = new Set(activePath.map((turn) => turn.id));
-  const substantiveTurnCounts = Object.fromEntries(workflowPhaseOrder.map((phase) => [phase, 0])) as Record<
-    Phase,
-    number
-  >;
-  const answeredTurnCounts = Object.fromEntries(workflowPhaseOrder.map((phase) => [phase, 0])) as Record<
-    Phase,
-    number
-  >;
-  for (const turn of activePath) {
-    const isSubstantiveTurn = turn.question.trim().length > 0 || getOptionsForTurn(db, turn.id).length > 0;
-    if (!isSubstantiveTurn) {
-      continue;
-    }
-
-    substantiveTurnCounts[turn.phase] += 1;
-
-    const hasCompletedAnswer = turn.answer !== null && turn.answer.trim().length > 0;
-    if (hasCompletedAnswer) {
-      answeredTurnCounts[turn.phase] += 1;
-    }
-  }
-
-  const currentOutcomes = listPhaseOutcomesForSpecification(db, specificationId).filter(
-    (outcome) =>
-      (outcome.status === 'proposed' || outcome.status === 'confirmed') &&
-      activeTurnIds.has(outcome.proposal_turn_id),
-  );
-
-  const firstUnclosedPhase =
-    workflowPhaseOrder.find(
-      (phase) => currentOutcomes.find((entry) => entry.phase === phase)?.status !== 'confirmed',
-    ) ?? 'criteria';
-
-  for (const phase of workflowPhaseOrder) {
-    const outcome = currentOutcomes.find((entry) => entry.phase === phase);
-    const isConfirmed = outcome?.status === 'confirmed';
-    const proposalPending = outcome?.status === 'proposed';
-    const hasTurnHistory = substantiveTurnCounts[phase] > 0;
-
-    workflow.phases[phase] = {
-      status: isConfirmed
-        ? 'closed'
-        : phase === firstUnclosedPhase || hasTurnHistory
-          ? 'in_progress'
-          : 'unstarted',
-      closeability: getPhaseCloseability(db, specificationId, phase, isConfirmed, hasTurnHistory),
-      readiness: getReadinessBand(answeredTurnCounts[phase]),
-      closureBasis: getClosureBasisForOutcome(outcome),
-      proposalPending,
-      turnId: outcome?.proposal_turn_id ?? null,
-      summary: outcome?.summary ?? null,
-    };
-  }
-
-  return workflow;
+  return projectWorkflowState(readWorkflowProjectionSnapshot(db, specificationId));
 }
 
 export function getStructuralArtifactTurnIds(db: DB, specificationId: number): number[] {
