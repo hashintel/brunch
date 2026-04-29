@@ -22,7 +22,6 @@ import {
   findProposedPhaseOutcomeByTurn,
   getCurrentPhase,
   getCurrentWorkflowState,
-  getSpecification,
   getTurn,
   supersedePhaseOutcome,
   type DB,
@@ -98,6 +97,11 @@ export function applyChatRouteTransition(
   },
   command: ChatCommand,
 ): ChatRouteTransitionResult | ChatRouteTransitionError {
+  const specificationState = getSpecificationState(db, specificationId);
+  if (!specificationState) {
+    return { ok: false, kind: 'specification-not-found', message: 'Specification not found' };
+  }
+
   if (command.kind === 'confirm-phase-closure') {
     const confirmationTarget = findProposedPhaseOutcomeByTurn(db, specificationId, command.proposalTurnId);
     if (!confirmationTarget) {
@@ -134,10 +138,6 @@ export function applyChatRouteTransition(
   }
 
   if (command.kind === 'force-close-phase') {
-    if (!getSpecification(db, specificationId)) {
-      return { ok: false, kind: 'specification-not-found', message: 'Specification not found' };
-    }
-
     const forceCloseAction = getForceClosePhaseAction(
       getCurrentWorkflowState(db, specificationId),
       command.phase,
@@ -168,11 +168,6 @@ export function applyChatRouteTransition(
   }
 
   if (command.kind === 'phase-entry') {
-    const specificationState = getSpecificationState(db, specificationId);
-    if (!specificationState) {
-      return { ok: false, kind: 'specification-not-found', message: 'Specification not found' };
-    }
-
     const availabilityError = getPhaseIntentRuntimeAvailabilityError(
       command.request,
       specificationState.landing,
@@ -198,15 +193,6 @@ export function applyChatRouteTransition(
       skipObserverForCurrentChatTurn: false,
       deferObserverCaptureToRuntime: false,
     };
-  }
-
-  if (!getSpecification(db, specificationId)) {
-    return { ok: false, kind: 'specification-not-found', message: 'Specification not found' };
-  }
-
-  const specificationState = getSpecificationState(db, specificationId);
-  if (!specificationState) {
-    return { ok: false, kind: 'specification-not-found', message: 'Specification not found' };
   }
 
   const currentPhase = getCurrentPhase(db, specificationId);

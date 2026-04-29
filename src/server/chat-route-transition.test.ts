@@ -24,6 +24,27 @@ describe('applyChatRouteTransition', () => {
     db = createDb();
   });
 
+  it('rejects missing specifications before command-specific lookup', () => {
+    const result = applyChatRouteTransition(
+      { db, specificationId: 1234 },
+      {
+        kind: 'confirm-phase-closure',
+        phase: 'grounding',
+        proposalTurnId: 99,
+        reply: {
+          text: 'Confirm grounding closure',
+          parts: [{ type: 'text', text: 'Confirm grounding closure' }],
+        },
+      },
+    );
+
+    expect(result).toEqual({
+      ok: false,
+      kind: 'specification-not-found',
+      message: 'Specification not found',
+    });
+  });
+
   it('prepares an interviewer successor from an already-answered structured turn', () => {
     const specification = createSpecification(db, 'Answered structured turn');
     const activeTurn = createTurn(db, specification.id, {
