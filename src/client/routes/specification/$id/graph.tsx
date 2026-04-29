@@ -78,7 +78,7 @@ function GraphRouteComponent() {
   ) : undefined;
 
   const header = (
-    <header data-graph-header className="flex items-center justify-between border-b border-rule pb-3">
+    <header data-graph-header className="flex items-center justify-between">
       <KnowledgeGraphIdentity entityState={entityState} />
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1">

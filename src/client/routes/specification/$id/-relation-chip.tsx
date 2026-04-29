@@ -1,4 +1,5 @@
 import { useNavigate } from '@tanstack/react-router';
+import { createContext, useContext } from 'react';
 
 import { kindColor } from '@/client/components/knowledge-card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/client/components/ui/hover-card';
@@ -13,6 +14,10 @@ export interface RelationChipTarget {
   outgoingCount: number;
   incomingCount: number;
 }
+
+type ChipActivateHandler = (target: RelationChipTarget) => void;
+const ChipActivateContext = createContext<ChipActivateHandler | null>(null);
+export const ChipActivateProvider = ChipActivateContext.Provider;
 
 export function RelationChipPreview({ target }: { target: RelationChipTarget }) {
   return (
@@ -37,6 +42,7 @@ export function RelationChipPreview({ target }: { target: RelationChipTarget }) 
 
 export function RelationChip({ target }: { target: RelationChipTarget }) {
   const navigate = useNavigate();
+  const onActivate = useContext(ChipActivateContext);
   return (
     <HoverCard>
       <HoverCardTrigger asChild>
@@ -44,7 +50,11 @@ export function RelationChip({ target }: { target: RelationChipTarget }) {
           type="button"
           data-testid="relation-chip"
           onClick={() => {
-            void navigate({ to: '.', hash: target.referenceCode });
+            if (onActivate) {
+              onActivate(target);
+            } else {
+              void navigate({ to: '.', hash: target.referenceCode });
+            }
           }}
           className="inline-flex cursor-pointer items-center gap-1.5 rounded bg-wash px-1.5 py-0.5 text-xs outline-none hover:bg-rule focus-visible:ring-2 focus-visible:ring-foreground/30"
         >
