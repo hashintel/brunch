@@ -40,12 +40,10 @@ describe('applyChatRouteTransition', () => {
     });
     advanceHead(db, specification.id, activeTurn.id);
 
-    const result = applyChatRouteTransition({
-      db,
-      specificationId: specification.id,
-      promptText: 'Web',
-      persistedUserParts: [{ type: 'text', text: 'Web' }],
-    });
+    const result = applyChatRouteTransition(
+      { db, specificationId: specification.id },
+      { kind: 'continue', reply: { text: 'Web', parts: [{ type: 'text', text: 'Web' }] } },
+    );
 
     expect(result).toMatchObject({
       ok: true,
@@ -64,19 +62,10 @@ describe('applyChatRouteTransition', () => {
   it('prepares a successor turn for a phase-intent entry path', () => {
     const specification = createSpecification(db, 'Phase intent entry');
 
-    const result = applyChatRouteTransition({
-      db,
-      specificationId: specification.id,
-      promptText: 'Feature within existing codebase',
-      persistedUserParts: [
-        { type: 'text', text: 'Feature within existing codebase' },
-        {
-          type: 'data-phase-intent',
-          data: { kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' },
-        },
-      ],
-      phaseIntentRequest: { kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' },
-    });
+    const result = applyChatRouteTransition(
+      { db, specificationId: specification.id },
+      { kind: 'phase-entry', request: { kind: 'phase-entry', phase: 'grounding', mode: 'brownfield' } },
+    );
 
     expect(result).toMatchObject({
       ok: true,
@@ -107,27 +96,28 @@ describe('applyChatRouteTransition', () => {
       summary: 'Grounding is ready to close.',
     });
 
-    const result = applyChatRouteTransition({
-      db,
-      specificationId: specification.id,
-      promptText: 'Confirm grounding closure',
-      persistedUserParts: [
-        { type: 'text', text: 'Confirm grounding closure' },
-        {
-          type: 'data-confirmation',
-          data: {
-            kind: 'confirm-proposed-phase-closure',
-            proposalTurnId: proposalTurn.id,
-            phase: 'grounding',
-          },
-        },
-      ],
-      confirmation: {
-        kind: 'confirm-proposed-phase-closure',
-        proposalTurnId: proposalTurn.id,
+    const result = applyChatRouteTransition(
+      { db, specificationId: specification.id },
+      {
+        kind: 'confirm-phase-closure',
         phase: 'grounding',
+        proposalTurnId: proposalTurn.id,
+        reply: {
+          text: 'Confirm grounding closure',
+          parts: [
+            { type: 'text', text: 'Confirm grounding closure' },
+            {
+              type: 'data-confirmation',
+              data: {
+                kind: 'confirm-proposed-phase-closure',
+                proposalTurnId: proposalTurn.id,
+                phase: 'grounding',
+              },
+            },
+          ],
+        },
       },
-    });
+    );
 
     expect(result).toEqual({ ok: true, kind: 'phase-closure-confirmed' });
     expect(getTurn(db, proposalTurn.id)?.answer).toBe('Confirm grounding closure');
@@ -161,19 +151,23 @@ describe('applyChatRouteTransition', () => {
     });
     advanceHead(db, specification.id, designTurn.id);
 
-    const result = applyChatRouteTransition({
-      db,
-      specificationId: specification.id,
-      promptText: 'Force close the active phase',
-      persistedUserParts: [
-        { type: 'text', text: 'Force close the active phase' },
-        {
-          type: 'data-confirmation',
-          data: { kind: 'force-close-active-phase', phase: 'design' },
+    const result = applyChatRouteTransition(
+      { db, specificationId: specification.id },
+      {
+        kind: 'force-close-phase',
+        phase: 'design',
+        reply: {
+          text: 'Force close the active phase',
+          parts: [
+            { type: 'text', text: 'Force close the active phase' },
+            {
+              type: 'data-confirmation',
+              data: { kind: 'force-close-active-phase', phase: 'design' },
+            },
+          ],
         },
-      ],
-      confirmation: { kind: 'force-close-active-phase', phase: 'design' },
-    });
+      },
+    );
 
     expect(result).toEqual({
       ok: true,
@@ -193,19 +187,23 @@ describe('applyChatRouteTransition', () => {
   it('rejects force-close commands when the target phase is not closeable', () => {
     const specification = createSpecification(db, 'Rejected force close');
 
-    const result = applyChatRouteTransition({
-      db,
-      specificationId: specification.id,
-      promptText: 'Force close the active phase',
-      persistedUserParts: [
-        { type: 'text', text: 'Force close the active phase' },
-        {
-          type: 'data-confirmation',
-          data: { kind: 'force-close-active-phase', phase: 'grounding' },
+    const result = applyChatRouteTransition(
+      { db, specificationId: specification.id },
+      {
+        kind: 'force-close-phase',
+        phase: 'grounding',
+        reply: {
+          text: 'Force close the active phase',
+          parts: [
+            { type: 'text', text: 'Force close the active phase' },
+            {
+              type: 'data-confirmation',
+              data: { kind: 'force-close-active-phase', phase: 'grounding' },
+            },
+          ],
         },
-      ],
-      confirmation: { kind: 'force-close-active-phase', phase: 'grounding' },
-    });
+      },
+    );
 
     expect(result).toEqual({
       ok: false,
@@ -217,19 +215,10 @@ describe('applyChatRouteTransition', () => {
   it('rejects unavailable phase-intent paths at the helper seam', () => {
     const specification = createSpecification(db, 'Unavailable phase intent');
 
-    const result = applyChatRouteTransition({
-      db,
-      specificationId: specification.id,
-      promptText: 'Begin the elicitation phase.',
-      persistedUserParts: [
-        { type: 'text', text: 'Begin the elicitation phase.' },
-        {
-          type: 'data-phase-intent',
-          data: { kind: 'phase-entry', phase: 'design' },
-        },
-      ],
-      phaseIntentRequest: { kind: 'phase-entry', phase: 'design' },
-    });
+    const result = applyChatRouteTransition(
+      { db, specificationId: specification.id },
+      { kind: 'phase-entry', request: { kind: 'phase-entry', phase: 'design' } },
+    );
 
     expect(result).toEqual({
       ok: false,
@@ -253,27 +242,28 @@ describe('applyChatRouteTransition', () => {
     });
     supersedePhaseOutcome(db, outcome.id);
 
-    const result = applyChatRouteTransition({
-      db,
-      specificationId: specification.id,
-      promptText: 'Confirm grounding closure',
-      persistedUserParts: [
-        { type: 'text', text: 'Confirm grounding closure' },
-        {
-          type: 'data-confirmation',
-          data: {
-            kind: 'confirm-proposed-phase-closure',
-            proposalTurnId: proposalTurn.id,
-            phase: 'grounding',
-          },
-        },
-      ],
-      confirmation: {
-        kind: 'confirm-proposed-phase-closure',
-        proposalTurnId: proposalTurn.id,
+    const result = applyChatRouteTransition(
+      { db, specificationId: specification.id },
+      {
+        kind: 'confirm-phase-closure',
         phase: 'grounding',
+        proposalTurnId: proposalTurn.id,
+        reply: {
+          text: 'Confirm grounding closure',
+          parts: [
+            { type: 'text', text: 'Confirm grounding closure' },
+            {
+              type: 'data-confirmation',
+              data: {
+                kind: 'confirm-proposed-phase-closure',
+                proposalTurnId: proposalTurn.id,
+                phase: 'grounding',
+              },
+            },
+          ],
+        },
       },
-    });
+    );
 
     expect(result).toEqual({
       ok: false,
@@ -296,27 +286,28 @@ describe('applyChatRouteTransition', () => {
       summary: 'Grounding is ready to close.',
     });
 
-    const result = applyChatRouteTransition({
-      db,
-      specificationId: specification.id,
-      promptText: 'Confirm design closure',
-      persistedUserParts: [
-        { type: 'text', text: 'Confirm design closure' },
-        {
-          type: 'data-confirmation',
-          data: {
-            kind: 'confirm-proposed-phase-closure',
-            proposalTurnId: proposalTurn.id,
-            phase: 'design',
-          },
-        },
-      ],
-      confirmation: {
-        kind: 'confirm-proposed-phase-closure',
-        proposalTurnId: proposalTurn.id,
+    const result = applyChatRouteTransition(
+      { db, specificationId: specification.id },
+      {
+        kind: 'confirm-phase-closure',
         phase: 'design',
+        proposalTurnId: proposalTurn.id,
+        reply: {
+          text: 'Confirm design closure',
+          parts: [
+            { type: 'text', text: 'Confirm design closure' },
+            {
+              type: 'data-confirmation',
+              data: {
+                kind: 'confirm-proposed-phase-closure',
+                proposalTurnId: proposalTurn.id,
+                phase: 'design',
+              },
+            },
+          ],
+        },
       },
-    });
+    );
 
     expect(result).toEqual({
       ok: false,
@@ -347,12 +338,10 @@ describe('applyChatRouteTransition', () => {
       summary: 'Grounding is ready to close.',
     });
 
-    const result = applyChatRouteTransition({
-      db,
-      specificationId: specification.id,
-      promptText: 'Web',
-      persistedUserParts: [{ type: 'text', text: 'Web' }],
-    });
+    const result = applyChatRouteTransition(
+      { db, specificationId: specification.id },
+      { kind: 'continue', reply: { text: 'Web', parts: [{ type: 'text', text: 'Web' }] } },
+    );
 
     expect(result).toMatchObject({
       ok: true,

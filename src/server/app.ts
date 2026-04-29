@@ -28,7 +28,11 @@ import {
   type SpecificationState,
 } from '@/shared/specification.js';
 
-import { applyChatRouteTransition, type ChatRouteTransitionErrorKind } from './chat-route-transition.js';
+import {
+  applyChatRouteTransition,
+  type ChatCommand,
+  type ChatRouteTransitionErrorKind,
+} from './chat-route-transition.js';
 import {
   createNewSpecification,
   extractPrompt,
@@ -470,16 +474,32 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
     }
 
     let interviewerElapsedMs: number | undefined;
+    const chatCommand: ChatCommand =
+      confirmationPart?.data.kind === 'confirm-proposed-phase-closure'
+        ? {
+            kind: 'confirm-phase-closure',
+            phase: confirmationPart.data.phase,
+            proposalTurnId: confirmationPart.data.proposalTurnId,
+            reply: { text: promptText, parts: persistedUserParts },
+          }
+        : confirmationPart?.data.kind === 'force-close-active-phase'
+          ? {
+              kind: 'force-close-phase',
+              phase: confirmationPart.data.phase,
+              reply: { text: promptText, parts: persistedUserParts },
+            }
+          : phaseIntentPart
+            ? {
+                kind: 'phase-entry',
+                request: phaseIntentPart.data,
+              }
+            : {
+                kind: 'continue',
+                reply: { text: promptText, parts: persistedUserParts },
+              };
     let transition: ReturnType<typeof applyChatRouteTransition>;
     try {
-      transition = applyChatRouteTransition({
-        db,
-        specificationId,
-        promptText,
-        persistedUserParts,
-        confirmation: confirmationPart?.data,
-        phaseIntentRequest: phaseIntentPart?.data,
-      });
+      transition = applyChatRouteTransition({ db, specificationId }, chatCommand);
     } catch {
       res
         .status(500)
