@@ -296,7 +296,7 @@ async function makePrefaceInterviewer(
 
 async function makePhaseClosureInterviewer(
   dbArg: DB,
-  projectId: number,
+  specificationId: number,
   turnId: number,
   phase: WorkflowPhase = 'grounding',
   summary = 'Goals, terms, context, and constraints are sufficiently captured.',
@@ -304,7 +304,7 @@ async function makePhaseClosureInterviewer(
   const { createPhaseOutcome } = await import('./db.js');
 
   createPhaseOutcome(dbArg, {
-    specificationId: projectId,
+    specificationId,
     phase,
     proposal_turn_id: turnId,
     summary,
@@ -350,34 +350,34 @@ function parseSSELines(body: string): Array<Record<string, unknown> | '[DONE]'> 
     });
 }
 
-async function createTestProject(name = 'Test Project'): Promise<number> {
+async function createTestSpecification(name = 'Test Specification'): Promise<number> {
   const res = await request(app).post('/api/specifications').send({ name });
   return res.body.id;
 }
 
-async function getSpecificationSnapshot(projectId: number) {
-  const res = await request(app).get(`/api/specifications/${projectId}`).expect(200);
+async function getSpecificationSnapshot(specificationId: number) {
+  const res = await request(app).get(`/api/specifications/${specificationId}`).expect(200);
   return res.body as SpecificationState;
 }
 
-function seedClosedGrounding(projectId: number) {
-  return _seedClosedGrounding(db, projectId);
+function seedClosedGrounding(specificationId: number) {
+  return _seedClosedGrounding(db, specificationId);
 }
 
-function seedActiveDesign(projectId: number) {
-  return _seedActiveDesign(db, projectId);
+function seedActiveDesign(specificationId: number) {
+  return _seedActiveDesign(db, specificationId);
 }
 
-function seedRequirementsReady(projectId: number) {
-  return _seedRequirementsReady(db, projectId);
+function seedRequirementsReady(specificationId: number) {
+  return _seedRequirementsReady(db, specificationId);
 }
 
-function seedCriteriaReady(projectId: number) {
-  return _seedCriteriaReady(db, projectId);
+function seedCriteriaReady(specificationId: number) {
+  return _seedCriteriaReady(db, specificationId);
 }
 
-function seedAllPhasesClosed(projectId: number) {
-  return _seedAllPhasesClosed(db, projectId);
+function seedAllPhasesClosed(specificationId: number) {
+  return _seedAllPhasesClosed(db, specificationId);
 }
 
 beforeEach(() => {
@@ -404,7 +404,7 @@ describe('json body parsing', () => {
       .send({ messages: [{ role: 'user', parts: [{ type: 'text', text: largeMessage }] }] })
       .expect(400);
 
-    expect(res.body).toEqual({ error: 'Invalid project ID' });
+    expect(res.body).toEqual({ error: 'Invalid specification ID' });
   });
 
   it('returns a JSON 413 response when the JSON payload exceeds the app limit', async () => {
@@ -427,7 +427,7 @@ describe('GET /api/specifications', () => {
   });
 
   it('returns workflow summary with grounding in-progress for a new project', async () => {
-    await createTestProject('Fresh project');
+    await createTestSpecification('Fresh project');
     const res = await request(app).get('/api/specifications').expect(200);
     expect(res.body).toHaveLength(1);
     expect(res.body[0]).toMatchObject({
@@ -442,7 +442,7 @@ describe('GET /api/specifications', () => {
   });
 
   it('returns workflow summary reflecting closed grounding and in-progress design', async () => {
-    const projectId = await createTestProject('Active project');
+    const projectId = await createTestSpecification('Active project');
     seedActiveDesign(projectId);
     const res = await request(app).get('/api/specifications').expect(200);
     expect(res.body[0]).toMatchObject({
@@ -456,7 +456,7 @@ describe('GET /api/specifications', () => {
   });
 
   it('returns workflow summary with all phases closed for a completed project', async () => {
-    const projectId = await createTestProject('Done project');
+    const projectId = await createTestSpecification('Done project');
     seedAllPhasesClosed(projectId);
     const res = await request(app).get('/api/specifications').expect(200);
     expect(res.body[0]).toMatchObject({
@@ -472,14 +472,14 @@ describe('GET /api/specifications', () => {
 
 describe('GET /api/specifications/:id/export', () => {
   it('returns not ready when not all phases are closed', async () => {
-    const projectId = await createTestProject('In Progress');
+    const projectId = await createTestSpecification('In Progress');
     seedRequirementsReady(projectId);
     const res = await request(app).get(`/api/specifications/${projectId}/export`).expect(200);
     expect(res.body).toEqual({ ready: false });
   });
 
   it('returns ready with markdown when all phases are closed', async () => {
-    const projectId = await createTestProject('Done');
+    const projectId = await createTestSpecification('Done');
     seedAllPhasesClosed(projectId);
     const res = await request(app).get(`/api/specifications/${projectId}/export`).expect(200);
     expect(res.body.ready).toBe(true);
@@ -538,7 +538,7 @@ describe('POST /api/specifications', () => {
 
 describe('POST /api/specifications/:id/chat', () => {
   it('requires typed UI messages', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
 
     await request(app)
       .post(`/api/specifications/${projectId}/chat`)
@@ -547,7 +547,7 @@ describe('POST /api/specifications/:id/chat', () => {
   });
 
   it('accepts follow-up chat history containing echoed workspace tool parts', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
 
     await request(app)
       .post(`/api/specifications/${projectId}/chat`)
@@ -608,7 +608,7 @@ describe('POST /api/specifications/:id/chat', () => {
   });
 
   it('returns an AI SDK UI message stream and persists the turn', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
 
     const res = await request(app)
       .post(`/api/specifications/${projectId}/chat`)
@@ -807,7 +807,7 @@ describe('POST /api/specifications/:id/chat', () => {
   });
 
   it('emits canonical grounding-kind observer results and persists them through the entities API', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockRunObserver.mockImplementation(async (dbArg, turnArg, projectIdArg) => {
       const { createKnowledgeItem, linkKnowledgeItemToTurn } = await import('./db.js');
       const goal = createKnowledgeItem(
@@ -944,7 +944,7 @@ describe('POST /api/specifications/:id/chat', () => {
   });
 
   it('defers structured-response observer capture to the turn-owned endpoint even when stale observer data belongs to a different turn', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const { advanceHead, createTurn, getTurn } = await import('./db.js');
     const activeTurn = createTurn(db, projectId, {
       phase: 'grounding',
@@ -1023,7 +1023,7 @@ describe('POST /api/specifications/:id/chat', () => {
   });
 
   it('emits mixed observer results and persists generic design entities through the entities API', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     let createdIds: {
       context: number;
       constraint: number;
@@ -1166,7 +1166,7 @@ describe('POST /api/specifications/:id/chat', () => {
   });
 
   it('keeps requirements empty before review acceptance even when the review-phase observer runs', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockRunObserver.mockImplementation(async () => createMockObserverResult());
 
     const res = await request(app)
@@ -1201,7 +1201,7 @@ describe('POST /api/specifications/:id/chat', () => {
   });
 
   it('keeps criteria empty before review acceptance even when the review-phase observer runs', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockRunObserver.mockImplementation(async () => createMockObserverResult());
 
     const res = await request(app)
@@ -1238,7 +1238,7 @@ describe('POST /api/specifications/:id/chat', () => {
 
 describe('GET /api/specifications/:id/entities', () => {
   it('returns canonical generic knowledge kinds alongside decisions, assumptions, and relationships', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const { createDecision, createAssumption, createKnowledgeItem, addDecisionParentAssumption } =
       await import('./db.js');
 
@@ -1309,7 +1309,7 @@ describe('GET /api/specifications/:id/entities', () => {
   it('projects relation vocabulary through the entities api', async () => {
     const { advanceHead, createKnowledgeItem, createTurn, linkKnowledgeItemToTurn } = await import('./db.js');
 
-    const projectId = await createTestProject('Relation characterization');
+    const projectId = await createTestSpecification('Relation characterization');
     const rootTurn = createTurn(db, projectId, {
       phase: 'grounding',
       question: 'What are we building?',
@@ -1408,7 +1408,7 @@ describe('GET /api/specifications/:id/entities', () => {
   it('keeps canonical entities on the active path while project-wide inventory stays explicit', async () => {
     const { advanceHead, createKnowledgeItem, createTurn, linkKnowledgeItemToTurn } = await import('./db.js');
 
-    const projectId = await createTestProject('Branching Project');
+    const projectId = await createTestSpecification('Branching Project');
     const rootTurn = createTurn(db, projectId, {
       phase: 'grounding',
       question: 'What kind of workflow is this project replacing?',
@@ -1466,7 +1466,7 @@ describe('GET /api/specifications/:id/entities', () => {
 
 describe('phase outcomes + grounding closure', () => {
   it('streams a grounding phase summary proposal and projects workflow state from an explicit phase outcome', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
     );
@@ -1515,7 +1515,7 @@ describe('phase outcomes + grounding closure', () => {
   });
 
   it('confirms a proposed grounding phase outcome through /chat and persists confirmed workflow state', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
     );
@@ -1599,7 +1599,7 @@ describe('phase outcomes + grounding closure', () => {
   });
 
   it('enters design mode on the next chat turn after grounding closure and runs the observer in design phase', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
     );
@@ -1676,7 +1676,7 @@ describe('phase outcomes + grounding closure', () => {
   });
 
   it('streams a design phase summary proposal and projects workflow state through the shared phase seam', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
     );
@@ -1783,7 +1783,7 @@ describe('phase outcomes + grounding closure', () => {
   });
 
   it('confirms a proposed design phase outcome and enters requirements mode on the next turn', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
     );
@@ -1931,7 +1931,7 @@ describe('phase outcomes + grounding closure', () => {
   });
 
   it('does not synthesize a replacement requirement review set through the response loop and keeps requirements not yet closeable', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createOption, createTurn, getTurn } = await import('./db.js');
 
@@ -2028,7 +2028,7 @@ describe('phase outcomes + grounding closure', () => {
   });
 
   it('emits a requirements phase-summary proposal once every requirement is explicitly reviewed', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createKnowledgeItem, createTurn, linkKnowledgeItemToTurn } = await import('./db.js');
 
@@ -2104,7 +2104,7 @@ describe('phase outcomes + grounding closure', () => {
   });
 
   it('confirms a proposed requirements phase outcome, closes requirements, and uses criteria on the next turn', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createKnowledgeItem, createPhaseOutcome, createTurn, linkKnowledgeItemToTurn } =
       await import('./db.js');
@@ -2233,7 +2233,7 @@ describe('phase outcomes + grounding closure', () => {
   });
 
   it('grounds the first criteria turn in approved requirements while keeping criteria draft-only before acceptance', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     seedCriteriaReady(projectId);
 
     mockStreamInterviewer.mockImplementation(async () =>
@@ -2288,7 +2288,7 @@ describe('phase outcomes + grounding closure', () => {
   });
 
   it('emits a criteria phase-summary proposal once every criterion is explicitly reviewed', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededCriteria = seedCriteriaReady(projectId);
     const { advanceHead, createKnowledgeItem, createTurn, linkKnowledgeItemToTurn } = await import('./db.js');
 
@@ -2363,7 +2363,7 @@ describe('phase outcomes + grounding closure', () => {
   });
 
   it('confirms a proposed criteria outcome, closes criteria, and projects all workflow phases as closed', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededCriteria = seedCriteriaReady(projectId);
     const { advanceHead, createKnowledgeItem, createPhaseOutcome, createTurn, linkKnowledgeItemToTurn } =
       await import('./db.js');
@@ -2459,7 +2459,7 @@ describe('phase outcomes + grounding closure', () => {
   });
 
   it('projects no stale active interviewer phase after criteria closure confirmation', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededCriteria = seedCriteriaReady(projectId);
     const { advanceHead, createKnowledgeItem, createPhaseOutcome, createTurn, linkKnowledgeItemToTurn } =
       await import('./db.js');
@@ -2531,7 +2531,7 @@ describe('phase outcomes + grounding closure', () => {
   });
 
   it('force-closes design through the shared confirmation seam and enters requirements mode on the next turn', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
     );
@@ -2723,7 +2723,7 @@ describe('phase outcomes + grounding closure', () => {
     phase: WorkflowPhase;
     expectedError: string;
   }>)('preserves force-close validation errors for $name', async ({ seed, phase, expectedError }) => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     await seed(projectId);
 
     const response = await request(app)
@@ -2749,7 +2749,7 @@ describe('phase outcomes + grounding closure', () => {
   });
 
   it('rejects a confirm-proposed-phase-closure when the payload phase does not match the outcome phase', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makePhaseClosureInterviewer(dbArg as DB, projectId, (turn as { id: number }).id),
     );
@@ -2808,7 +2808,7 @@ describe('GET /api/specifications/:id', () => {
   });
 
   it('returns structured question state after a tool-driven turn', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
     );
@@ -2990,7 +2990,7 @@ describe('POST /api/specifications/:id/phase-intent', () => {
 
 describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   it('persists the selected option and free-text turn response into answer and user parts', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
     );
@@ -3032,7 +3032,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('persists many selected options and free-text turn responses into answer and user parts', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
     );
@@ -3075,7 +3075,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('reuses an already-answered active turn instead of creating a duplicate answered turn', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
     );
@@ -3128,7 +3128,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('skips observer capture for answered preface turns while still advancing to the next interviewer turn', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const { advanceHead, createOption, createTurn, getActivePath } = await import('./db.js');
     const groundingTurn = createTurn(db, projectId, {
       phase: 'grounding',
@@ -3186,7 +3186,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('persists interviewer-owned requirement review metadata on runtime review turns and accepts from it', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     seedRequirementsReady(projectId);
     const { updateTurn } = await import('./db.js');
 
@@ -3301,7 +3301,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('accepting the requirements full-set review uses explicit reviewAction instead of option copy', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createKnowledgeItem, createOption, createTurn, getTurn } = await import('./db.js');
 
@@ -3427,7 +3427,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
     ]);
   });
   it('enforces explicit reviewAction semantics even when review options are reordered', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createOption, createTurn } = await import('./db.js');
 
@@ -3495,7 +3495,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('accepting the requirements review materializes only the persisted review-set items onto the active path', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
 
@@ -3584,7 +3584,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('accepting a regenerated requirements review preserves predecessor rationale on sparse successor items', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededRequirements = seedRequirementsReady(projectId);
     const {
       advanceHead,
@@ -3717,7 +3717,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('requesting changes on the requirements full-set review keeps requirements open and does not advance to criteria', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
 
@@ -3813,7 +3813,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('rejects requirements review submissions that omit the explicit reviewAction', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createOption, createTurn, updateTurn } = await import('./db.js');
 
@@ -3869,7 +3869,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('persists interviewer-owned criteria review metadata on runtime review turns and accepts from it', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     seedCriteriaReady(projectId);
     const { updateTurn } = await import('./db.js');
 
@@ -3984,7 +3984,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('accepting the criteria full-set review uses explicit reviewAction instead of option copy', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededCriteria = seedCriteriaReady(projectId);
     const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
 
@@ -4095,7 +4095,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('accepting the criteria review materializes only the persisted review-set items onto the active path', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededCriteria = seedCriteriaReady(projectId);
     const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
 
@@ -4183,7 +4183,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('accepting a regenerated criteria review preserves predecessor rationale on sparse successor items', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededCriteria = seedCriteriaReady(projectId);
     const {
       advanceHead,
@@ -4316,7 +4316,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('requesting changes on the criteria full-set review keeps criteria open and does not advance to output semantics', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededCriteria = seedCriteriaReady(projectId);
     const { advanceHead, createKnowledgeItem, createOption, createTurn } = await import('./db.js');
 
@@ -4401,7 +4401,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('round-trips structured turn responses through project reload, transcript hydration, and interviewer history', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
     );
@@ -4507,7 +4507,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('persists a free-text-only turn response when no option is selected', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
     );
@@ -4541,7 +4541,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('acceptance with itemComments and freeText produces identical materialized entities as acceptance without comments', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createOption, createTurn } = await import('./db.js');
 
@@ -4615,7 +4615,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('acceptance fails deterministically when the persisted review set is missing', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     const seededRequirements = seedRequirementsReady(projectId);
     const { advanceHead, createOption, createTurn } = await import('./db.js');
 
@@ -4669,7 +4669,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
   });
 
   it('rejects a free-text-only turn response when no free text is provided', async () => {
-    const projectId = await createTestProject();
+    const projectId = await createTestSpecification();
     mockStreamInterviewer.mockImplementation(async (dbArg, turn) =>
       makeStructuredQuestionInterviewer(dbArg as DB, (turn as { id: number }).id),
     );
