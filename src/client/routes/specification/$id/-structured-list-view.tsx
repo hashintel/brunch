@@ -2,7 +2,7 @@ import { useLocation } from '@tanstack/react-router';
 import { ArrowDownLeft, ArrowUpRight, ChevronRight, MessageCircle } from 'lucide-react';
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 
-import { knowledgeDisplayGroups } from '@/client/components/knowledge-display.js';
+import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
 import { Badge } from '@/client/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
@@ -422,7 +422,7 @@ export function StructuredListView({
           <KindFilterToggler entityState={entityState} hiddenKinds={hiddenKinds} onToggle={toggleKind} />
         )}
         {totalItems > 0 &&
-          knowledgeDisplayGroups.map((group) => {
+          graphDisplayGroups.map((group) => {
             const items = collectItemsForGroup(entityState, group.kinds, itemsByKey, hiddenKinds);
             if (items.length === 0) return null;
             return (

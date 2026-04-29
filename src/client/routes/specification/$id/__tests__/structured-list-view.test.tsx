@@ -113,14 +113,18 @@ describe('StructuredListView', () => {
     expect(screen.queryByRole('link', { name: 'Should not render' })).toBeNull();
   });
 
-  it('groups items by knowledge display group and renders each section header', () => {
+  it('groups items into per-kind sections in the full-screen view', () => {
     const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
     const sections = container.querySelectorAll('[data-graph-section]');
     const sectionLabels = Array.from(sections).map((s) => s.getAttribute('data-graph-section'));
     expect(sectionLabels).toContain('Goals');
-    expect(sectionLabels).toContain('Assumptions & Decisions');
+    expect(sectionLabels).toContain('Constraints');
+    expect(sectionLabels).toContain('Decisions');
     expect(sectionLabels).toContain('Requirements');
+    // Combined sidebar bundles ("Goals & Context", "Assumptions & Decisions") do not appear here.
+    expect(sectionLabels).not.toContain('Goals & Context');
+    expect(sectionLabels).not.toContain('Assumptions & Decisions');
   });
 
   it('renders Links to and Linked from subsections in the relations footer when an item has edges', () => {
@@ -483,7 +487,7 @@ describe('StructuredListView', () => {
     const { container } = render(<StructuredListView entityState={entityState} />);
 
     // The 15 decisions should appear in D1, D2, ..., D15 reference order in the rendered DOM
-    const decisionSection = container.querySelector('[data-graph-section="Assumptions & Decisions"]');
+    const decisionSection = container.querySelector('[data-graph-section="Decisions"]');
     expect(decisionSection).toBeTruthy();
     if (!decisionSection) return;
 
