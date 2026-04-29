@@ -41,7 +41,7 @@ export function RelationChip({ target }: { target: RelationChipTarget }) {
           onClick={() => {
             void navigate({ to: '.', hash: target.referenceCode });
           }}
-          className="inline-flex items-center gap-1.5 rounded bg-wash px-1.5 py-0.5 text-xs outline-none focus-visible:ring-2 focus-visible:ring-foreground/30"
+          className="inline-flex cursor-pointer items-center gap-1.5 rounded bg-wash px-1.5 py-0.5 text-xs outline-none hover:bg-rule focus-visible:ring-2 focus-visible:ring-foreground/30"
         >
           <span className="font-mono text-[10px] font-medium text-hint">{target.referenceCode}</span>
           <span className="max-w-xs truncate text-ink">{target.content}</span>

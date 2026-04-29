@@ -18,6 +18,7 @@ import {
 } from './-specification-data.js';
 import { StructuredListView } from './-structured-list-view.js';
 
+const BACK_LINK_CLASS = 'inline-flex items-center gap-1 text-xs text-hint transition-colors hover:text-ink';
 const RETURN_LINK_CLASS = 'inline-flex items-center gap-1 text-xs font-medium text-link hover:underline';
 
 interface ReturnTarget {
@@ -64,9 +65,9 @@ function GraphRouteComponent() {
   const ToggleIcon = rowsDefaultOpen ? ChevronsUp : ChevronsDown;
 
   const backToChatLink = target ? (
-    <Link to={target.to} params={target.params} className={RETURN_LINK_CLASS}>
-      <ArrowLeft className="size-3.5" />
-      Back to chat
+    <Link to={target.to} params={target.params} className={BACK_LINK_CLASS}>
+      <ArrowLeft className="size-3" />
+      <span>Back to chat</span>
     </Link>
   ) : null;
 
