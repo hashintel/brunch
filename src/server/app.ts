@@ -335,8 +335,10 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
       }
 
       res.json(response satisfies SubmitTurnResponseResponse);
-    } catch (error) {
-      res.status(500).json({ error: error instanceof Error ? error.message : 'Failed to accept review set' });
+    } catch {
+      res.status(500).json({
+        error: 'Failed to submit turn response',
+      } satisfies MutationErrorResponse);
     }
   });
 

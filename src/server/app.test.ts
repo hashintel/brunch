@@ -4665,7 +4665,7 @@ describe('POST /api/specifications/:id/turns/:turnId/response', () => {
       .send({ kind: 'select-options', positions: [0], reviewAction: 'accept' })
       .expect(500);
 
-    expect(response.body.error).toContain('review set');
+    expect(response.body).toEqual({ error: 'Failed to submit turn response' });
   });
 
   it('rejects a free-text-only turn response when no free text is provided', async () => {
