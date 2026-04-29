@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { ChevronsDown, ChevronsUp } from 'lucide-react';
+import { ArrowLeft, ChevronsDown, ChevronsUp } from 'lucide-react';
 import { useState } from 'react';
 
 import type { WorkflowState } from '@/shared/api-types.js';
@@ -17,7 +17,7 @@ import {
 } from './-specification-data.js';
 import { StructuredListView } from './-structured-list-view.js';
 
-const RETURN_LINK_CLASS = 'text-xs font-medium text-link hover:underline';
+const RETURN_LINK_CLASS = 'inline-flex items-center gap-1 text-xs font-medium text-link hover:underline';
 
 interface ReturnTarget {
   to: '/specification/$id/grounding' | '/specification/$id/export';
@@ -64,6 +64,7 @@ function GraphRouteComponent() {
 
   const backToChatLink = target ? (
     <Link to={target.to} params={target.params} className={RETURN_LINK_CLASS}>
+      <ArrowLeft className="size-3.5" />
       Back to chat
     </Link>
   ) : null;
@@ -78,18 +79,25 @@ function GraphRouteComponent() {
     <header data-graph-header className="flex items-center justify-between border-b border-rule pb-3">
       <h1 className="text-sm font-medium text-ink">Knowledge graph</h1>
       <div className="flex items-center gap-3">
-        <button
-          type="button"
-          data-graph-action="toggle-all-rows"
-          aria-label={toggleLabel}
-          aria-pressed={!rowsDefaultOpen}
-          title={toggleLabel}
-          onClick={toggleAllRows}
-          className={ROW_TOGGLE_CLASS}
-        >
-          <ToggleIcon className="size-3.5" />
-        </button>
-        {backToChatLink}
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            data-graph-action="toggle-all-rows"
+            aria-label={toggleLabel}
+            aria-pressed={!rowsDefaultOpen}
+            title={toggleLabel}
+            onClick={toggleAllRows}
+            className={ROW_TOGGLE_CLASS}
+          >
+            <ToggleIcon className="size-3.5" />
+          </button>
+        </div>
+        {backToChatLink && (
+          <>
+            <div aria-hidden="true" className="h-4 w-px bg-rule" />
+            {backToChatLink}
+          </>
+        )}
       </div>
     </header>
   );
