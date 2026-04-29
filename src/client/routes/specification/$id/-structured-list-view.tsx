@@ -3,6 +3,7 @@ import { ArrowDownLeft, ArrowUpRight, ChevronRight, MessageCircle } from 'lucide
 import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 
 import { knowledgeDisplayGroups } from '@/client/components/knowledge-display.js';
+import { Badge } from '@/client/components/ui/badge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
@@ -152,21 +153,18 @@ function KindFilterToggler({
         const isHidden = hiddenKinds.has(entry.kind);
         const count = entityState[entry.collectionKey].length;
         return (
-          <button
-            key={entry.kind}
-            type="button"
-            data-graph-kind-toggle={entry.kind}
-            aria-pressed={!isHidden}
-            onClick={() => onToggle(entry.kind)}
-            className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-0.5 text-xs transition-colors ${
-              isHidden
-                ? 'border-rule bg-background text-hint hover:text-sub'
-                : 'border-rule bg-wash text-ink hover:bg-tint'
-            }`}
-          >
-            <span className="font-medium">{entry.label}</span>
-            <span className="font-mono text-[10px] text-hint">{count}</span>
-          </button>
+          <Badge key={entry.kind} variant={isHidden ? 'outline' : 'secondary'} asChild>
+            <button
+              type="button"
+              data-graph-kind-toggle={entry.kind}
+              aria-pressed={!isHidden}
+              onClick={() => onToggle(entry.kind)}
+              className="cursor-pointer"
+            >
+              <span>{entry.label}</span>
+              <span className="font-mono text-[10px] text-hint">{count}</span>
+            </button>
+          </Badge>
         );
       })}
     </div>
@@ -218,13 +216,11 @@ function ChipListByRelationType({ type, edges }: { type: EdgeRelation; edges: Di
           <RelationChip key={`${type}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
         ))}
         {showMoreButton && (
-          <button
-            type="button"
-            onClick={() => setExpanded(true)}
-            className="rounded bg-wash px-1.5 py-0.5 text-xs text-sub outline-none hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
-          >
-            +{overflowCount} more
-          </button>
+          <Badge variant="secondary" asChild>
+            <button type="button" onClick={() => setExpanded(true)} className="cursor-pointer">
+              +{overflowCount} more
+            </button>
+          </Badge>
         )}
       </div>
     </div>
