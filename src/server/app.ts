@@ -28,7 +28,7 @@ import {
   type SpecificationState,
 } from '@/shared/specification.js';
 
-import { applyChatRouteTransition } from './chat-route-transition.js';
+import { applyChatRouteTransition, type ChatRouteTransitionErrorKind } from './chat-route-transition.js';
 import {
   createNewSpecification,
   extractPrompt,
@@ -52,7 +52,10 @@ import { safeDeserializeAssistantParts, serializeParts } from './parts.js';
 import { submitPhaseIntentWithRuntimeCompatibility } from './phase-intent-runtime.js';
 import { createCoreTools } from './tools/index.js';
 import { materializeTurnArtifacts } from './turn-artifacts.js';
-import { submitTurnResponseTransition } from './turn-response-transition.js';
+import {
+  submitTurnResponseTransition,
+  type SubmitTurnResponseTransitionErrorKind,
+} from './turn-response-transition.js';
 
 export interface AppOptions {
   readonly dbPath?: string;
@@ -99,11 +102,7 @@ function parseEntityProjectionMode(rawMode: unknown): EntityProjectionMode | nul
   return rawMode === 'active-path' || rawMode === 'project-wide' ? rawMode : null;
 }
 
-function getChatRouteTransitionErrorStatus(
-  kind: ReturnType<typeof applyChatRouteTransition> extends { ok: false; kind: infer K } | { ok: true }
-    ? K
-    : never,
-): 400 | 404 | 409 {
+function getChatRouteTransitionErrorStatus(kind: ChatRouteTransitionErrorKind): 400 | 404 | 409 {
   switch (kind) {
     case 'phase-intent-not-available':
       return 409;
@@ -117,11 +116,7 @@ function getChatRouteTransitionErrorStatus(
   return 400;
 }
 
-function getTurnResponseTransitionErrorStatus(
-  kind: ReturnType<typeof submitTurnResponseTransition> extends { ok: false; kind: infer K } | { ok: true }
-    ? K
-    : never,
-): 400 | 404 {
+function getTurnResponseTransitionErrorStatus(kind: SubmitTurnResponseTransitionErrorKind): 400 | 404 {
   switch (kind) {
     case 'turn-not-found':
       return 404;
@@ -130,6 +125,7 @@ function getTurnResponseTransitionErrorStatus(
     case 'review-action-not-allowed':
       return 400;
   }
+  return 400;
 }
 
 function appendObserverResultToTurn(
