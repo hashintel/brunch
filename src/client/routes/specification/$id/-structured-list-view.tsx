@@ -338,16 +338,18 @@ function ItemRow({
   outgoing,
   incoming,
   anchored,
+  defaultOpen = true,
 }: {
   item: KnowledgeItemSummary;
   outgoing: DirectedEdge[];
   incoming: DirectedEdge[];
   anchored: boolean;
+  defaultOpen?: boolean;
 }) {
   const hasExpansion = Boolean(item.rationale) || outgoing.length > 0 || incoming.length > 0;
 
   return (
-    <Collapsible defaultOpen asChild>
+    <Collapsible defaultOpen={defaultOpen} asChild>
       <div
         data-graph-row
         data-graph-row-ref={item.referenceCode}
@@ -386,10 +388,14 @@ export function StructuredListView({
   entityState,
   emptyStateAction,
   header,
+  rowsDefaultOpen = true,
+  rowsRemountKey = 0,
 }: {
   entityState: EntitiesData;
   emptyStateAction?: ReactNode;
   header?: ReactNode;
+  rowsDefaultOpen?: boolean;
+  rowsRemountKey?: number;
 }) {
   const { itemsByKey, outgoingByItem, incomingByItem } = projectGraph(entityState);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -443,11 +449,12 @@ export function StructuredListView({
                         const itemKey = `${item.kind}:${item.id}`;
                         return (
                           <ItemRow
-                            key={itemKey}
+                            key={`${itemKey}-v${rowsRemountKey}`}
                             item={item}
                             outgoing={outgoingByItem.get(itemKey) ?? []}
                             incoming={incomingByItem.get(itemKey) ?? []}
                             anchored={anchoredRowRef === item.referenceCode}
+                            defaultOpen={rowsDefaultOpen}
                           />
                         );
                       })}

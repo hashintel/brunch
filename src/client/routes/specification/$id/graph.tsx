@@ -1,4 +1,6 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
+import { ChevronsDown, ChevronsUp } from 'lucide-react';
+import { useState } from 'react';
 
 import type { WorkflowState } from '@/shared/api-types.js';
 import {
@@ -42,10 +44,23 @@ function returnTarget(workflow: WorkflowState, specificationId: string): ReturnT
   return null;
 }
 
+const ROW_TOGGLE_CLASS =
+  'flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30';
+
 function GraphRouteComponent() {
   const entityState = useSpecificationEntitiesProjectWide();
   const bundle = useSpecificationBundleData();
   const target = returnTarget(bundle.workflow, String(bundle.specification.id));
+  const [rowsDefaultOpen, setRowsDefaultOpen] = useState(true);
+  const [rowsRemountKey, setRowsRemountKey] = useState(0);
+
+  const toggleAllRows = () => {
+    setRowsDefaultOpen((prev) => !prev);
+    setRowsRemountKey((k) => k + 1);
+  };
+
+  const toggleLabel = rowsDefaultOpen ? 'Collapse all' : 'Expand all';
+  const ToggleIcon = rowsDefaultOpen ? ChevronsUp : ChevronsDown;
 
   const backToChatLink = target ? (
     <Link to={target.to} params={target.params} className={RETURN_LINK_CLASS}>
@@ -62,11 +77,32 @@ function GraphRouteComponent() {
   const header = (
     <header data-graph-header className="flex items-center justify-between border-b border-rule pb-3">
       <h1 className="text-sm font-medium text-ink">Knowledge graph</h1>
-      {backToChatLink}
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          data-graph-action="toggle-all-rows"
+          aria-label={toggleLabel}
+          aria-pressed={!rowsDefaultOpen}
+          title={toggleLabel}
+          onClick={toggleAllRows}
+          className={ROW_TOGGLE_CLASS}
+        >
+          <ToggleIcon className="size-3.5" />
+        </button>
+        {backToChatLink}
+      </div>
     </header>
   );
 
-  return <StructuredListView entityState={entityState} emptyStateAction={emptyStateAction} header={header} />;
+  return (
+    <StructuredListView
+      entityState={entityState}
+      emptyStateAction={emptyStateAction}
+      header={header}
+      rowsDefaultOpen={rowsDefaultOpen}
+      rowsRemountKey={rowsRemountKey}
+    />
+  );
 }
 
 export const Route = createFileRoute('/specification/$id/graph')({
