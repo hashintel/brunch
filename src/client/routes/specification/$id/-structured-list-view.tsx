@@ -187,14 +187,6 @@ function groupEdgesByType(edges: DirectedEdge[]): Map<EdgeRelation, DirectedEdge
   return groups;
 }
 
-const relationTypeColor: Record<EdgeRelation, string> = {
-  depends_on: 'text-rel-depends-on',
-  derived_from: 'text-rel-derived-from',
-  constrains: 'text-rel-constrains',
-  verifies: 'text-rel-verifies',
-  refines: 'text-rel-refines',
-};
-
 const relationTypeLabel: Record<EdgeRelation, string> = {
   depends_on: 'Depends on',
   derived_from: 'Derived from',
@@ -255,7 +247,7 @@ function RelationTypeSubsection({
       <div className="flex w-full items-center justify-between gap-2 px-3 py-2 text-xs text-sub">
         <span className="flex items-center gap-1.5">
           <DirectionIcon className="size-3.5 shrink-0 text-hint" />
-          <span className={`font-medium ${relationTypeColor[type]}`}>{relationTypeLabel[type]}</span>
+          <span className="font-medium">{relationTypeLabel[type]}</span>
           <span className="font-mono text-hint">({edges.length})</span>
         </span>
         <CollapsibleTrigger
@@ -291,9 +283,7 @@ function DependsOnSubsection({ outgoing, incoming }: { outgoing: DirectedEdge[];
     <Collapsible defaultOpen className="flex flex-col">
       <div className="flex w-full items-center justify-between gap-2 px-3 py-2 text-xs text-sub">
         <span className="flex items-center gap-1.5">
-          <span className={`font-medium ${relationTypeColor.depends_on}`}>
-            {relationTypeLabel.depends_on}
-          </span>
+          <span className="font-medium">{relationTypeLabel.depends_on}</span>
           <span className="font-mono text-hint">({totalCount})</span>
         </span>
         <CollapsibleTrigger
