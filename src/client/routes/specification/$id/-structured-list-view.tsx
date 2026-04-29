@@ -197,48 +197,19 @@ const relationTypeLabel: Record<EdgeRelation, string> = {
   refines: 'Refines',
 };
 
-function ChipListByRelationType({ type, edges }: { type: EdgeRelation; edges: DirectedEdge[] }) {
+function RelationTypeSubsection({
+  type,
+  direction,
+  edges,
+}: {
+  type: EdgeRelation;
+  direction: 'outgoing' | 'incoming';
+  edges: DirectedEdge[];
+}) {
   const [expanded, setExpanded] = useState(false);
   const overflowCount = edges.length - CHIP_TRUNCATE_LIMIT;
   const showMoreButton = !expanded && overflowCount > 0;
   const visibleEdges = expanded ? edges : edges.slice(0, CHIP_TRUNCATE_LIMIT);
-  const showTypeLabel = type !== 'depends_on';
-
-  return (
-    <div className="flex items-start gap-2">
-      {showTypeLabel && (
-        <span className={`mt-0.5 shrink-0 text-xs font-medium ${relationTypeColor[type]}`}>
-          {relationTypeLabel[type]}
-        </span>
-      )}
-      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
-        {visibleEdges.map((edge) => (
-          <RelationChip key={`${type}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
-        ))}
-        {showMoreButton && (
-          <Badge variant="secondary" asChild>
-            <button type="button" onClick={() => setExpanded(true)} className="cursor-pointer">
-              +{overflowCount} more
-            </button>
-          </Badge>
-        )}
-      </div>
-    </div>
-  );
-}
-
-function RelationsSubsection({
-  label,
-  direction,
-  edges,
-}: {
-  label: string;
-  direction: 'outgoing' | 'incoming';
-  edges: DirectedEdge[];
-}) {
-  if (edges.length === 0) return null;
-
-  const grouped = groupEdgesByType(edges);
   const DirectionIcon = direction === 'outgoing' ? ArrowUpRight : ArrowDownLeft;
 
   return (
@@ -246,24 +217,63 @@ function RelationsSubsection({
       <div className="flex w-full items-center justify-between gap-2 px-3 py-2 text-xs text-sub">
         <span className="flex items-center gap-1.5">
           <DirectionIcon className="size-3.5 shrink-0 text-hint" />
-          <span className="font-medium">{label}</span>
+          <span className={`font-medium ${relationTypeColor[type]}`}>{relationTypeLabel[type]}</span>
           <span className="font-mono text-hint">({edges.length})</span>
         </span>
         <CollapsibleTrigger
-          data-graph-relations-subsection={direction}
-          aria-label={`Toggle ${direction} relations`}
+          data-graph-relations-subsection={`${direction}-${type}`}
+          aria-label={`Toggle ${direction} ${relationTypeLabel[type]} relations`}
           className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
         >
           <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
         </CollapsibleTrigger>
       </div>
       <CollapsibleContent className="flex flex-col gap-1.5 px-3 pb-3">
-        {Array.from(grouped.entries()).map(([type, typeEdges]) => (
-          <ChipListByRelationType key={type} type={type} edges={typeEdges} />
-        ))}
+        <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+          {visibleEdges.map((edge) => (
+            <RelationChip key={`${type}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
+          ))}
+          {showMoreButton && (
+            <Badge variant="secondary" asChild>
+              <button type="button" onClick={() => setExpanded(true)} className="cursor-pointer">
+                +{overflowCount} more
+              </button>
+            </Badge>
+          )}
+        </div>
       </CollapsibleContent>
     </Collapsible>
   );
+}
+
+const RELATION_TYPE_ORDER: readonly EdgeRelation[] = [
+  'depends_on',
+  'derived_from',
+  'refines',
+  'constrains',
+  'verifies',
+];
+
+function renderTypedRelationSubsections(
+  edges: DirectedEdge[],
+  direction: 'outgoing' | 'incoming',
+): ReactNode[] {
+  if (edges.length === 0) return [];
+  const grouped = groupEdgesByType(edges);
+  const sections: ReactNode[] = [];
+  for (const type of RELATION_TYPE_ORDER) {
+    const typeEdges = grouped.get(type);
+    if (!typeEdges || typeEdges.length === 0) continue;
+    sections.push(
+      <RelationTypeSubsection
+        key={`${direction}-${type}`}
+        type={type}
+        direction={direction}
+        edges={typeEdges}
+      />,
+    );
+  }
+  return sections;
 }
 
 function ItemDetailsFooter({
@@ -287,9 +297,8 @@ function ItemDetailsFooter({
         </div>
       )}
       {hasRationale && hasRelations && <div className="border-t border-rule" />}
-      <RelationsSubsection label="Links to" direction="outgoing" edges={outgoing} />
-      {outgoing.length > 0 && incoming.length > 0 && <div className="border-t border-rule" />}
-      <RelationsSubsection label="Linked from" direction="incoming" edges={incoming} />
+      {renderTypedRelationSubsections(outgoing, 'outgoing')}
+      {renderTypedRelationSubsections(incoming, 'incoming')}
     </div>
   );
 }
