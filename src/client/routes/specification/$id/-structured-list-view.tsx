@@ -5,6 +5,7 @@ import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'rea
 import { kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
 import { Badge } from '@/client/components/ui/badge';
+import { Button } from '@/client/components/ui/button';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
@@ -138,23 +139,32 @@ function collectItemsForGroup(
   return result;
 }
 
+interface PopulatedKind {
+  entry: (typeof knowledgeKindRegistry)[number];
+  count: number;
+}
+
+function getPopulatedKinds(entityState: EntitiesData): PopulatedKind[] {
+  return knowledgeKindRegistry
+    .map((entry) => ({ entry, count: entityState[entry.collectionKey].length }))
+    .filter(({ count }) => count > 0);
+}
+
 function KindFilterToggler({
-  entityState,
+  populatedKinds,
   hiddenKinds,
   onToggle,
 }: {
-  entityState: EntitiesData;
+  populatedKinds: PopulatedKind[];
   hiddenKinds: ReadonlySet<KnowledgeKind>;
   onToggle: (kind: KnowledgeKind) => void;
 }) {
-  const populated = knowledgeKindRegistry.filter((entry) => entityState[entry.collectionKey].length > 0);
-  if (populated.length === 0) return null;
+  if (populatedKinds.length === 0) return null;
 
   return (
     <div data-graph-kind-filter className="flex flex-wrap gap-1.5">
-      {populated.map((entry) => {
+      {populatedKinds.map(({ entry, count }) => {
         const isHidden = hiddenKinds.has(entry.kind);
-        const count = entityState[entry.collectionKey].length;
         return (
           <Badge
             key={entry.kind}
@@ -373,36 +383,25 @@ function ItemDetailsFooter({
   );
 }
 
-function EmptyStateCard({ action }: { action?: ReactNode }) {
+function EmptyStateCard({
+  state,
+  title,
+  description,
+  action,
+}: {
+  state: 'no-items' | 'all-kinds-hidden';
+  title: string;
+  description: string;
+  action?: ReactNode;
+}) {
   return (
     <div
-      data-graph-empty-state
+      data-graph-empty-state={state}
       className="flex flex-col items-center gap-3 rounded-md border border-rule bg-tint p-8 text-center"
     >
-      <p className="text-sm font-medium text-ink">No knowledge captured yet</p>
-      <p className="max-w-md text-xs text-sub">
-        Knowledge appears here as the interview progresses. Start a turn to populate the graph.
-      </p>
+      <p className="text-sm font-medium text-ink">{title}</p>
+      <p className="max-w-md text-xs text-sub">{description}</p>
       {action && <div className="mt-2">{action}</div>}
-    </div>
-  );
-}
-
-function AllKindsHiddenCard({ onShowAll }: { onShowAll: () => void }) {
-  return (
-    <div
-      data-graph-empty-state="all-kinds-hidden"
-      className="flex flex-col items-center gap-3 rounded-md border border-rule bg-tint p-8 text-center"
-    >
-      <p className="text-sm font-medium text-ink">All kinds are hidden</p>
-      <p className="max-w-md text-xs text-sub">Show at least one kind to see your knowledge graph.</p>
-      <button
-        type="button"
-        onClick={onShowAll}
-        className="mt-2 inline-flex h-7 items-center justify-center rounded-md bg-wash px-2.5 text-xs-plus font-medium text-sub transition-colors hover:bg-wash/80"
-      >
-        Show all kinds
-      </button>
     </div>
   );
 }
@@ -508,9 +507,14 @@ export function StructuredListView({
     });
   };
 
+  const populatedKinds = getPopulatedKinds(entityState);
   const totalItems = itemsByKey.size;
-  const populatedKinds = knowledgeKindRegistry.filter((entry) => entityState[entry.collectionKey].length > 0);
-  const allKindsHidden = totalItems > 0 && populatedKinds.every((entry) => hiddenKinds.has(entry.kind));
+  const view: 'empty' | 'all-hidden' | 'list' =
+    totalItems === 0
+      ? 'empty'
+      : populatedKinds.every(({ entry }) => hiddenKinds.has(entry.kind))
+        ? 'all-hidden'
+        : 'list';
 
   return (
     <div
@@ -520,13 +524,34 @@ export function StructuredListView({
     >
       <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 py-8">
         {header}
-        {totalItems === 0 && <EmptyStateCard action={emptyStateAction} />}
-        {totalItems > 0 && (
-          <KindFilterToggler entityState={entityState} hiddenKinds={hiddenKinds} onToggle={toggleKind} />
+        {view !== 'empty' && (
+          <KindFilterToggler
+            populatedKinds={populatedKinds}
+            hiddenKinds={hiddenKinds}
+            onToggle={toggleKind}
+          />
         )}
-        {allKindsHidden && <AllKindsHiddenCard onShowAll={() => setHiddenKinds(new Set())} />}
-        {totalItems > 0 &&
-          !allKindsHidden &&
+        {view === 'empty' && (
+          <EmptyStateCard
+            state="no-items"
+            title="No knowledge captured yet"
+            description="Knowledge appears here as the interview progresses. Start a turn to populate the graph."
+            action={emptyStateAction}
+          />
+        )}
+        {view === 'all-hidden' && (
+          <EmptyStateCard
+            state="all-kinds-hidden"
+            title="All kinds are hidden"
+            description="Show at least one kind to see your knowledge graph."
+            action={
+              <Button size="sm" variant="secondary" onClick={() => setHiddenKinds(new Set())}>
+                Show all kinds
+              </Button>
+            }
+          />
+        )}
+        {view === 'list' &&
           graphDisplayGroups.map((group) => {
             const items = collectItemsForGroup(entityState, group.kinds, itemsByKey, hiddenKinds);
             if (items.length === 0) return null;
