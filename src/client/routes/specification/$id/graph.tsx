@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowLeft, ChevronsDown, ChevronsUp } from 'lucide-react';
 import { useState } from 'react';
 
+import { KnowledgeGraphIdentity } from '@/client/components/knowledge-graph-identity';
 import type { WorkflowState } from '@/shared/api-types.js';
 import {
   areAllWorkflowPhasesClosed,
@@ -77,7 +78,7 @@ function GraphRouteComponent() {
 
   const header = (
     <header data-graph-header className="flex items-center justify-between border-b border-rule pb-3">
-      <h1 className="text-sm font-medium text-ink">Knowledge graph</h1>
+      <KnowledgeGraphIdentity entityState={entityState} />
       <div className="flex items-center gap-3">
         <div className="flex items-center gap-1">
           <button

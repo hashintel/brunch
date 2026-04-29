@@ -6,14 +6,11 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/co
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import type { EntitiesData } from '@/shared/api-types.js';
 import type { KnowledgeEntityCollection, KnowledgeKind } from '@/shared/knowledge.js';
-import {
-  knowledgeCollectionKeyByKind,
-  knowledgeEntityCollectionByKind,
-  knowledgeKindRegistry,
-} from '@/shared/knowledge.js';
+import { knowledgeCollectionKeyByKind, knowledgeEntityCollectionByKind } from '@/shared/knowledge.js';
 
 import { KnowledgeDetailCard, type KnowledgeEdgeData, type KnowledgeItemData } from './knowledge-card';
-import { hiddenWhenEmptyGroups, knowledgeDisplayGroups, isVisibleKnowledgeKind } from './knowledge-display';
+import { hiddenWhenEmptyGroups, knowledgeDisplayGroups } from './knowledge-display';
+import { KnowledgeGraphIdentity } from './knowledge-graph-identity';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -78,26 +75,11 @@ export function EntitySidebar({
   entityState: EntitiesData;
   specificationId?: string;
 }) {
-  const totalItems = knowledgeKindRegistry
-    .filter((entry) => isVisibleKnowledgeKind(entry.kind))
-    .reduce((sum, entry) => sum + entityState[entry.collectionKey].length, 0);
-  const totalConnections = entityState.relationships.length;
-
   return (
     <div className="flex h-full flex-col bg-background">
       {/* Header */}
       <div className="flex h-16 shrink-0 items-center justify-between border-b border-rule bg-background px-3">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs text-hint">Knowledge Graph</span>
-          <div className="flex items-center gap-2.5 text-base text-sub">
-            <span>
-              <span className="font-medium text-ink">{totalItems}</span> Items
-            </span>
-            <span>
-              <span className="font-medium text-ink">{totalConnections}</span> Connections
-            </span>
-          </div>
-        </div>
+        <KnowledgeGraphIdentity entityState={entityState} />
         {specificationId && (
           <Link
             to="/specification/$id/graph"

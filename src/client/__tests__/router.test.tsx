@@ -276,10 +276,10 @@ describe('generated routeTree', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42/entities?mode=project-wide');
     expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42');
 
-    // Header strip surfaces a "Knowledge graph" title and a Back-to-chat
-    // link targeting the current reachable phase (default workflow has all
-    // phases unstarted, so current reachable = grounding)
-    expect(screen.getByText('Knowledge graph')).toBeTruthy();
+    // Header strip surfaces the shared Knowledge Graph identity (eyebrow +
+    // counts) and a Back-to-chat link targeting the current reachable phase
+    // (default workflow has all phases unstarted, so current reachable = grounding)
+    expect(screen.getByText('Knowledge Graph')).toBeTruthy();
     const backLink = screen.getByRole('link', { name: /back to chat/i });
     expect(backLink).toBeTruthy();
     expect(backLink.getAttribute('href')).toContain('/specification/42/grounding');
