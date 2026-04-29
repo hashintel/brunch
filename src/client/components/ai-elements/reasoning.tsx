@@ -85,10 +85,10 @@ export const Reasoning = memo(
 
     // Auto-open when streaming starts (unless explicitly closed)
     useEffect(() => {
-      if (isStreaming && !isOpen && !isExplicitlyClosed) {
+      if (isStreaming && !isExplicitlyClosed) {
         setIsOpen(true);
       }
-    }, [isStreaming, isOpen, setIsOpen, isExplicitlyClosed]);
+    }, [isStreaming, isExplicitlyClosed, setIsOpen]);
 
     // Auto-close when streaming ends (once only, and only if it ever streamed)
     useEffect(() => {
