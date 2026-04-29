@@ -16,11 +16,7 @@ import type {
 import { brunchDataPartSchemas, brunchValidationTools, extractTextFromMessage } from '@/shared/chat.js';
 import type { BrunchAssistantPart, BrunchUIMessage, BrunchUserPart } from '@/shared/chat.js';
 import { getPhaseIntentDisplayText } from '@/shared/phase-intents.js';
-import {
-  getTurnPreface,
-  toStructuralArtifactTurnIdSet,
-  turnNeedsObserverCapture,
-} from '@/shared/specification-state.js';
+import { toStructuralArtifactTurnIdSet, turnNeedsObserverCapture } from '@/shared/specification-state.js';
 import {
   createSpecificationRequestSchema,
   getSpecificationRecord,
@@ -555,39 +551,6 @@ export function createApp(dbPathOrOptions?: string | AppOptions): AppServices {
               summary: phaseOutcome.summary,
             },
           });
-        }
-
-        try {
-          const observedTurn = transition.observedTurnId ? getTurn(db, transition.observedTurnId) : undefined;
-          const shouldObserve =
-            observedTurn &&
-            observedTurn.answer !== null &&
-            !transition.deferObserverCaptureToRuntime &&
-            !transition.skipObserverForCurrentChatTurn &&
-            !(getTurnPreface(observedTurn) && !observedTurn.question?.trim()) &&
-            !persistedUserParts.some((part) => part.type === 'data-confirmation') &&
-            !safeDeserializeAssistantParts(observedTurn.assistant_parts).some(
-              (part) =>
-                part.type === 'data-observer-result' &&
-                typeof part.data === 'object' &&
-                part.data !== null &&
-                'turnId' in part.data &&
-                part.data.turnId === observedTurn.id,
-            );
-
-          if (shouldObserve && observedTurn) {
-            const observerResult = await runObserver(db, observedTurn, specificationId, projectCwd);
-            appendObserverResultToTurn(db, observedTurn.id, observerResult);
-            writer.write({
-              type: 'data-observer-result',
-              data: {
-                turnId: observedTurn.id,
-                entityIds: observerResult.entityIds,
-              },
-            });
-          }
-        } catch {
-          // Observer failures are non-fatal to the interviewer turn.
         }
 
         writer.write({ type: 'finish', finishReason });

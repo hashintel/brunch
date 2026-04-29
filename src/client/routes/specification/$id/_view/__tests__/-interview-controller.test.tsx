@@ -5,7 +5,7 @@ import { act, cleanup, fireEvent, render, screen, waitFor } from '@testing-libra
 import { useCallback, useState } from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { EntitiesData } from '@/shared/api-types.js';
+import type { EntitiesData, WorkflowPhase } from '@/shared/api-types.js';
 import type { BrunchUIMessage } from '@/shared/chat.js';
 import { deriveSpecificationLanding } from '@/shared/specification-state.js';
 import type { SpecificationState } from '@/shared/specification.js';
@@ -301,6 +301,69 @@ function createEntityState(overrides: Partial<EntitiesData> = {}): EntitiesData 
     relationships: [],
     ...overrides,
   };
+}
+
+function createAnsweredTurnWithFrontierState(phase: WorkflowPhase): SpecificationState {
+  const state = createSpecificationState({
+    turns: [
+      {
+        id: 1,
+        specification_id: 1,
+        parent_turn_id: null,
+        phase,
+        turn_kind: 'question',
+        question: 'What should we build first?',
+        why: 'This frames the first iteration.',
+        impact: 'high',
+        answer: 'Desktop — Best fit for our launch',
+        is_resolution: false,
+        user_parts: JSON.stringify([
+          { type: 'text', text: 'Desktop — Best fit for our launch' },
+          {
+            type: 'data-turn-response',
+            data: { turnId: 1, selectedOptionIds: [12], freeText: 'Best fit for our launch' },
+          },
+        ]),
+        assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
+        created_at: '2026-04-03 10:00:00',
+        options: [
+          { id: 11, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 12, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      },
+      {
+        id: 2,
+        specification_id: 1,
+        parent_turn_id: 1,
+        phase,
+        turn_kind: 'question',
+        question: 'Which platform should we target next?',
+        why: 'Platform shapes the first build.',
+        impact: 'high',
+        answer: '',
+        is_resolution: false,
+        user_parts: null,
+        assistant_parts: JSON.stringify([{ type: 'text', text: 'Which platform should we target next?' }]),
+        created_at: '2026-04-03 10:01:00',
+        options: [
+          { id: 21, position: 0, content: 'Web', is_recommended: true, is_selected: false },
+          { id: 22, position: 1, content: 'Desktop', is_recommended: false, is_selected: false },
+        ],
+      },
+    ],
+  });
+  const phaseOrder: WorkflowPhase[] = ['grounding', 'design', 'requirements', 'criteria'];
+  const phaseIndex = phaseOrder.indexOf(phase);
+  for (const [index, candidatePhase] of phaseOrder.entries()) {
+    state.workflow.phases[candidatePhase] = {
+      ...state.workflow.phases[candidatePhase],
+      status: index < phaseIndex ? 'closed' : index === phaseIndex ? 'in_progress' : 'unstarted',
+      turnId: index === phaseIndex ? 2 : null,
+    };
+  }
+  state.specification!.active_turn_id = 2;
+  state.landing = deriveSpecificationLanding(state);
+  return state;
 }
 
 function ControllerProbe({
@@ -1456,6 +1519,85 @@ describe('interview controller', () => {
       expect(screen.getByTestId('capture-statuses').textContent).toBe('[]');
     });
   });
+
+  it.each<WorkflowPhase>(['grounding', 'design', 'requirements', 'criteria'])(
+    'reseeds observer capture backlog for answered %s turns',
+    async (phase) => {
+      currentSpecificationState = createAnsweredTurnWithFrontierState(phase);
+      const capturedState: SpecificationState = {
+        ...currentSpecificationState,
+        turns: [
+          {
+            ...currentSpecificationState.turns[0]!,
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'What should we build first?' },
+              {
+                type: 'data-observer-result',
+                data: {
+                  turnId: 1,
+                  entityIds: {
+                    goals: [],
+                    terms: [],
+                    contexts: [1],
+                    constraints: [],
+                    requirements: [],
+                    criteria: [],
+                    decisions: [],
+                    assumptions: [],
+                  },
+                },
+              },
+            ]),
+          },
+          currentSpecificationState.turns[1]!,
+        ],
+      };
+      capturedState.landing = deriveSpecificationLanding(capturedState);
+
+      let resolveObserverCapture!: (value: Response) => void;
+      fetchMock.mockImplementation((input) => {
+        if (input === '/api/specifications/1/turns/1/observer-capture') {
+          return new Promise<Response>((resolve) => {
+            resolveObserverCapture = resolve;
+          });
+        }
+
+        return Promise.reject(new Error(`Unexpected fetch: ${describeFetchInput(input)}`));
+      });
+      invalidateSpecificationBundle.mockImplementationOnce(async () => {
+        currentSpecificationState = capturedState;
+      });
+      invalidateEntities.mockImplementationOnce(async () => {});
+
+      renderController(phase);
+
+      await waitFor(() => {
+        expect(screen.getByTestId('bottom-artifact').textContent).toBe(
+          'Which platform should we target next?',
+        );
+        expect(fetchMock).toHaveBeenCalledWith(
+          '/api/specifications/1/turns/1/observer-capture',
+          expect.objectContaining({ method: 'POST' }),
+        );
+        expect(screen.getByTestId('capture-statuses').textContent).toBe('[[1,"applying"]]');
+      });
+
+      await act(async () => {
+        resolveObserverCapture(
+          new Response(JSON.stringify({ ok: true, turnId: 1, status: 'captured' }), {
+            status: 200,
+            headers: { 'Content-Type': 'application/json' },
+          }),
+        );
+      });
+
+      await waitFor(() => {
+        expect(invalidateSpecificationBundle).toHaveBeenCalled();
+        expect(invalidateEntities).toHaveBeenCalled();
+        expect(screen.getByTestId('capture-statuses').textContent).toBe('[]');
+      });
+    },
+  );
 
   it('keeps the live transcript stable while deferred observer capture refreshes entity and bundle data', async () => {
     currentSpecificationState = createSpecificationState({

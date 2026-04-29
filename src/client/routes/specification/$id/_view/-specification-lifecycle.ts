@@ -9,11 +9,7 @@ import type {
 } from '@/shared/api-types.js';
 import { getCurrentOpenPhase, getNextActivePhase } from '@/shared/phase-descriptors.js';
 import type { PhaseIntentRequest } from '@/shared/phase-intents.js';
-import {
-  getPersistedTurnResponse,
-  toStructuralArtifactTurnIdSet,
-  turnNeedsObserverCapture,
-} from '@/shared/specification-state.js';
+import { toStructuralArtifactTurnIdSet, turnNeedsObserverCapture } from '@/shared/specification-state.js';
 
 const autoPhaseIntentRegistry = new Map<
   number,
@@ -92,23 +88,12 @@ function mapEquals<K, V>(left: ReadonlyMap<K, V>, right: ReadonlyMap<K, V>): boo
   return true;
 }
 
-function supportsDeferredObserverCapture(turn: Pick<SpecificationStateTurn, 'phase'>): boolean {
-  return turn.phase === 'grounding' || turn.phase === 'design';
-}
-
 function getDeferredObserverCaptureTurnIds(
   turns: readonly SpecificationStateTurn[],
   structuralArtifactTurnIds: ReadonlySet<number>,
 ): Set<number> {
   return new Set(
-    turns
-      .filter(
-        (turn) =>
-          supportsDeferredObserverCapture(turn) &&
-          getPersistedTurnResponse(turn) !== null &&
-          turnNeedsObserverCapture(turn, structuralArtifactTurnIds),
-      )
-      .map((turn) => turn.id),
+    turns.filter((turn) => turnNeedsObserverCapture(turn, structuralArtifactTurnIds)).map((turn) => turn.id),
   );
 }
 
@@ -124,11 +109,7 @@ function getAutoObserverCaptureTurnIds({
   return new Set(
     turns
       .filter((turn) => {
-        if (
-          !supportsDeferredObserverCapture(turn) ||
-          getPersistedTurnResponse(turn) === null ||
-          !turnNeedsObserverCapture(turn, structuralArtifactTurnIds)
-        ) {
+        if (!turnNeedsObserverCapture(turn, structuralArtifactTurnIds)) {
           return false;
         }
 
@@ -463,7 +444,6 @@ export function useSpecificationRuntimeLifecycle({
   const submitTrackedTurnResponse = useCallback(
     async (turn: Pick<SpecificationStateTurn, 'id' | 'phase'>, submit: () => Promise<boolean>) => {
       const turnId = turn.id;
-      const shouldDeferObserverCapture = supportsDeferredObserverCapture(turn);
 
       setSubmittedTurnId(turnId);
       setFailedCaptureTurnIds((current) => {
@@ -475,9 +455,7 @@ export function useSpecificationRuntimeLifecycle({
         next.delete(turnId);
         return next;
       });
-      if (shouldDeferObserverCapture) {
-        setCaptureStatusByTurnId((current) => new Map(current).set(turnId, 'waiting'));
-      }
+      setCaptureStatusByTurnId((current) => new Map(current).set(turnId, 'waiting'));
 
       const didSubmit = await submit();
       if (!didSubmit) {
@@ -503,9 +481,7 @@ export function useSpecificationRuntimeLifecycle({
         return didSubmit;
       }
 
-      if (shouldDeferObserverCapture) {
-        setPendingCaptureTurnIds((current) => new Set(current).add(turnId));
-      }
+      setPendingCaptureTurnIds((current) => new Set(current).add(turnId));
       return didSubmit;
     },
     [],

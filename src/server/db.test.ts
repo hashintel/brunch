@@ -28,11 +28,14 @@ import {
   addDecisionParentDecision,
   addDecisionParentAssumption,
   addAssumptionParentAssumption,
+  addKnowledgeRelationship,
   getEntitiesForSpecificationByMode,
   getEntitiesForSpecification,
   getEntitiesForSpecificationOnActivePath,
   getCapturedItemsForTurns,
   getGroundingBundleForSpecification,
+  materializeAcceptedCriteriaReviewSet,
+  materializeAcceptedRequirementsReviewSet,
   listPhaseOutcomesForSpecification,
   getCurrentWorkflowState,
   readWorkflowProjectionSnapshot,
@@ -1916,6 +1919,146 @@ describe('entity persistence — decisions, assumptions, and generic knowledge i
           type: 'refines',
           source: { collection: 'knowledge_item', kind: 'criterion', id: criterion.id },
           target: { collection: 'knowledge_item', kind: 'term', id: term.id },
+        },
+      ]),
+    );
+  });
+
+  it('persists generic supported relationships idempotently and projects them through entities', () => {
+    const project = createSpecification(db, 'Test');
+    const goal = createKnowledgeItem(db, project.id, 'goal', 'Ship a trustworthy spec handoff');
+    const context = createKnowledgeItem(db, project.id, 'context', 'The first users are solo builders');
+    const constraint = createKnowledgeItem(db, project.id, 'constraint', 'No hosted account for V1');
+    const requirement = createKnowledgeItem(db, project.id, 'requirement', 'Export the accepted spec');
+    const criterion = createKnowledgeItem(
+      db,
+      project.id,
+      'criterion',
+      'Export includes accepted requirements',
+    );
+
+    addKnowledgeRelationship(db, context.id, goal.id, 'derived_from');
+    addKnowledgeRelationship(db, context.id, goal.id, 'derived_from');
+    addKnowledgeRelationship(db, constraint.id, requirement.id, 'constrains');
+    addKnowledgeRelationship(db, criterion.id, requirement.id, 'verifies');
+
+    const entities = getEntitiesForSpecification(db, project.id);
+
+    expect(db.$client.prepare('SELECT COUNT(*) AS count FROM knowledge_edge').get()).toEqual({ count: 3 });
+    expect(entities.relationships).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'derived_from',
+          source: { collection: 'knowledge_item', kind: 'context', id: context.id },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
+        },
+        {
+          type: 'constrains',
+          source: { collection: 'knowledge_item', kind: 'constraint', id: constraint.id },
+          target: { collection: 'knowledge_item', kind: 'requirement', id: requirement.id },
+        },
+        {
+          type: 'verifies',
+          source: { collection: 'knowledge_item', kind: 'criterion', id: criterion.id },
+          target: { collection: 'knowledge_item', kind: 'requirement', id: requirement.id },
+        },
+      ]),
+    );
+  });
+
+  it('materializes accepted requirements review grounding refs into derived knowledge edges', () => {
+    const project = createSpecification(db, 'Test');
+    const goal = createKnowledgeItem(db, project.id, 'goal', 'Ship a trustworthy spec handoff');
+    const context = createKnowledgeItem(db, project.id, 'context', 'The first users are solo builders');
+    const reviewTurn = createTurn(db, project.id, {
+      phase: 'requirements',
+      question: 'Please review the requirements.',
+      answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-review-set',
+          data: {
+            phase: 'requirements',
+            title: 'Requirements',
+            items: [
+              {
+                reviewItemId: 'requirements:1',
+                referenceCode: createKnowledgeReferenceCode('requirement', 1),
+                content: 'Export the accepted spec as markdown',
+                grounding: [
+                  { code: createKnowledgeReferenceCode('goal', 1) },
+                  { code: createKnowledgeReferenceCode('context', 1) },
+                ],
+              },
+            ],
+          },
+        },
+      ]),
+    });
+
+    const [requirementId] = materializeAcceptedRequirementsReviewSet(db, project.id, reviewTurn.id);
+    const entities = getEntitiesForSpecification(db, project.id);
+
+    expect(entities.relationships).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'derived_from',
+          source: { collection: 'knowledge_item', kind: 'requirement', id: requirementId },
+          target: { collection: 'knowledge_item', kind: 'goal', id: goal.id },
+        },
+        {
+          type: 'derived_from',
+          source: { collection: 'knowledge_item', kind: 'requirement', id: requirementId },
+          target: { collection: 'knowledge_item', kind: 'context', id: context.id },
+        },
+      ]),
+    );
+  });
+
+  it('materializes accepted criteria review grounding refs into verifies and derived knowledge edges', () => {
+    const project = createSpecification(db, 'Test');
+    const requirement = createKnowledgeItem(db, project.id, 'requirement', 'Export the accepted spec');
+    const context = createKnowledgeItem(db, project.id, 'context', 'The first users are solo builders');
+    const reviewTurn = createTurn(db, project.id, {
+      phase: 'criteria',
+      question: 'Please review the criteria.',
+      answer: '',
+      assistant_parts: JSON.stringify([
+        {
+          type: 'data-review-set',
+          data: {
+            phase: 'criteria',
+            title: 'Acceptance Criteria',
+            items: [
+              {
+                reviewItemId: 'criteria:1',
+                referenceCode: createKnowledgeReferenceCode('criterion', 1),
+                content: 'Markdown export includes accepted requirements',
+                grounding: [
+                  { code: createKnowledgeReferenceCode('requirement', 1) },
+                  { code: createKnowledgeReferenceCode('context', 1) },
+                ],
+              },
+            ],
+          },
+        },
+      ]),
+    });
+
+    const [criterionId] = materializeAcceptedCriteriaReviewSet(db, project.id, reviewTurn.id);
+    const entities = getEntitiesForSpecification(db, project.id);
+
+    expect(entities.relationships).toEqual(
+      expect.arrayContaining([
+        {
+          type: 'verifies',
+          source: { collection: 'knowledge_item', kind: 'criterion', id: criterionId },
+          target: { collection: 'knowledge_item', kind: 'requirement', id: requirement.id },
+        },
+        {
+          type: 'derived_from',
+          source: { collection: 'knowledge_item', kind: 'criterion', id: criterionId },
+          target: { collection: 'knowledge_item', kind: 'context', id: context.id },
         },
       ]),
     );

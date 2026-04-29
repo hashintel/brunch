@@ -1247,6 +1247,7 @@ describe('InterviewView', () => {
               {
                 type: 'data-observer-result',
                 data: {
+                  turnId: 1,
                   entityIds: {
                     goals: [1],
                     terms: [],
@@ -5396,7 +5397,25 @@ describe('InterviewView', () => {
             answer: 'Build the web app',
             is_resolution: false,
             user_parts: JSON.stringify([{ type: 'text', text: 'Build the web app' }]),
-            assistant_parts: JSON.stringify([{ type: 'text', text: 'What should we build first?' }]),
+            assistant_parts: JSON.stringify([
+              { type: 'text', text: 'What should we build first?' },
+              {
+                type: 'data-observer-result',
+                data: {
+                  turnId: 1,
+                  entityIds: {
+                    goals: [1],
+                    terms: [2],
+                    contexts: [],
+                    constraints: [],
+                    requirements: [],
+                    criteria: [],
+                    decisions: [],
+                    assumptions: [],
+                  },
+                },
+              },
+            ]),
             created_at: '2026-04-03 10:00:00',
             options: [],
             captured_items: [

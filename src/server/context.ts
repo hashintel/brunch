@@ -1,5 +1,3 @@
-import { table, h3 } from 'md-pen';
-
 import type { SpecificationMode } from '@/shared/api-types.js';
 import type { ReviewSetData } from '@/shared/chat.js';
 import { knowledgeKindRegistry } from '@/shared/knowledge.js';
@@ -186,6 +184,29 @@ export interface ObserverContextInput {
   };
 }
 
+const OBSERVER_ANCHOR_PREVIEW_MAX_LENGTH = 160;
+
+function formatObserverAnchorPreview(content: string): string {
+  const normalized = content.replace(/\s+/g, ' ').trim();
+  if (normalized.length <= OBSERVER_ANCHOR_PREVIEW_MAX_LENGTH) {
+    return normalized;
+  }
+
+  return `${normalized.slice(0, OBSERVER_ANCHOR_PREVIEW_MAX_LENGTH - 1).trimEnd()}…`;
+}
+
+function formatExistingKnowledgeAnchors(input: ObserverContextInput['entities']): string | null {
+  const lines: string[] = [];
+
+  for (const entry of knowledgeKindRegistry) {
+    for (const item of input[entry.collectionKey]) {
+      lines.push(`#${item.id} ${entry.kind} | ${formatObserverAnchorPreview(item.content)}`);
+    }
+  }
+
+  return lines.length > 0 ? `Existing knowledge anchors:\n${lines.join('\n')}` : null;
+}
+
 /**
  * Build observer context optimized for entity extraction.
  * Provides the current turn's Q&A plus existing entity graph — NOT full
@@ -205,20 +226,9 @@ export function buildObserverContext(input: ObserverContextInput): string {
     sections.push(specificationContextLines.join('\n'));
   }
 
-  for (const entry of knowledgeKindRegistry) {
-    const items = input.entities[entry.collectionKey];
-    if (items.length === 0) {
-      continue;
-    }
-
-    sections.push(
-      h3(entry.contextHeading) +
-        '\n' +
-        table(
-          items.map((item) => ({ ID: item.id, Content: item.content })),
-          { columns: ['ID', 'Content'] },
-        ),
-    );
+  const existingKnowledgeAnchors = formatExistingKnowledgeAnchors(input.entities);
+  if (existingKnowledgeAnchors) {
+    sections.push(existingKnowledgeAnchors);
   }
 
   if (input.activePathSummary) {
