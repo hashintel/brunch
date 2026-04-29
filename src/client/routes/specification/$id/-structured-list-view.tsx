@@ -197,6 +197,38 @@ const relationTypeLabel: Record<EdgeRelation, string> = {
   refines: 'Refines',
 };
 
+function DirectionalChipRow({
+  direction,
+  edges,
+}: {
+  direction: 'outgoing' | 'incoming';
+  edges: DirectedEdge[];
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const overflowCount = edges.length - CHIP_TRUNCATE_LIMIT;
+  const showMoreButton = !expanded && overflowCount > 0;
+  const visibleEdges = expanded ? edges : edges.slice(0, CHIP_TRUNCATE_LIMIT);
+  const DirectionIcon = direction === 'outgoing' ? ArrowUpRight : ArrowDownLeft;
+
+  return (
+    <div className="flex items-start gap-2">
+      <DirectionIcon className="mt-0.5 size-3.5 shrink-0 text-hint" />
+      <div className="flex min-w-0 flex-1 flex-wrap items-center gap-1.5">
+        {visibleEdges.map((edge) => (
+          <RelationChip key={`${direction}-${edge.other.kind}-${edge.other.id}`} target={edge.other} />
+        ))}
+        {showMoreButton && (
+          <Badge variant="secondary" asChild>
+            <button type="button" onClick={() => setExpanded(true)} className="cursor-pointer">
+              +{overflowCount} more
+            </button>
+          </Badge>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function RelationTypeSubsection({
   type,
   direction,
@@ -246,13 +278,35 @@ function RelationTypeSubsection({
   );
 }
 
-const RELATION_TYPE_ORDER: readonly EdgeRelation[] = [
-  'depends_on',
-  'derived_from',
-  'refines',
-  'constrains',
-  'verifies',
-];
+function DependsOnSubsection({ outgoing, incoming }: { outgoing: DirectedEdge[]; incoming: DirectedEdge[] }) {
+  const totalCount = outgoing.length + incoming.length;
+
+  return (
+    <Collapsible defaultOpen className="flex flex-col">
+      <div className="flex w-full items-center justify-between gap-2 px-3 py-2 text-xs text-sub">
+        <span className="flex items-center gap-1.5">
+          <span className={`font-medium ${relationTypeColor.depends_on}`}>
+            {relationTypeLabel.depends_on}
+          </span>
+          <span className="font-mono text-hint">({totalCount})</span>
+        </span>
+        <CollapsibleTrigger
+          data-graph-relations-subsection="depends_on"
+          aria-label="Toggle Depends on relations"
+          className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+        >
+          <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
+        </CollapsibleTrigger>
+      </div>
+      <CollapsibleContent className="flex flex-col gap-2 px-3 pb-3">
+        {outgoing.length > 0 && <DirectionalChipRow direction="outgoing" edges={outgoing} />}
+        {incoming.length > 0 && <DirectionalChipRow direction="incoming" edges={incoming} />}
+      </CollapsibleContent>
+    </Collapsible>
+  );
+}
+
+const TYPED_RELATION_ORDER: readonly EdgeRelation[] = ['derived_from', 'refines', 'constrains', 'verifies'];
 
 function renderTypedRelationSubsections(
   edges: DirectedEdge[],
@@ -261,7 +315,7 @@ function renderTypedRelationSubsections(
   if (edges.length === 0) return [];
   const grouped = groupEdgesByType(edges);
   const sections: ReactNode[] = [];
-  for (const type of RELATION_TYPE_ORDER) {
+  for (const type of TYPED_RELATION_ORDER) {
     const typeEdges = grouped.get(type);
     if (!typeEdges || typeEdges.length === 0) continue;
     sections.push(
@@ -274,6 +328,19 @@ function renderTypedRelationSubsections(
     );
   }
   return sections;
+}
+
+function partitionDependsOn(edges: DirectedEdge[]): {
+  dependsOn: DirectedEdge[];
+  others: DirectedEdge[];
+} {
+  const dependsOn: DirectedEdge[] = [];
+  const others: DirectedEdge[] = [];
+  for (const edge of edges) {
+    if (edge.type === 'depends_on') dependsOn.push(edge);
+    else others.push(edge);
+  }
+  return { dependsOn, others };
 }
 
 function ItemDetailsFooter({
@@ -289,6 +356,10 @@ function ItemDetailsFooter({
   const hasRationale = Boolean(rationale);
   if (!hasRationale && !hasRelations) return null;
 
+  const outgoingSplit = partitionDependsOn(outgoing);
+  const incomingSplit = partitionDependsOn(incoming);
+  const hasDependsOn = outgoingSplit.dependsOn.length > 0 || incomingSplit.dependsOn.length > 0;
+
   return (
     <div className="border-t border-rule bg-tint">
       {hasRationale && (
@@ -297,8 +368,11 @@ function ItemDetailsFooter({
         </div>
       )}
       {hasRationale && hasRelations && <div className="border-t border-rule" />}
-      {renderTypedRelationSubsections(outgoing, 'outgoing')}
-      {renderTypedRelationSubsections(incoming, 'incoming')}
+      {hasDependsOn && (
+        <DependsOnSubsection outgoing={outgoingSplit.dependsOn} incoming={incomingSplit.dependsOn} />
+      )}
+      {renderTypedRelationSubsections(outgoingSplit.others, 'outgoing')}
+      {renderTypedRelationSubsections(incomingSplit.others, 'incoming')}
     </div>
   );
 }
