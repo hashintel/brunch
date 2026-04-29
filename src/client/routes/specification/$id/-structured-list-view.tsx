@@ -60,15 +60,6 @@ interface GraphProjection {
   incomingByItem: Map<string, DirectedEdge[]>;
 }
 
-function compareReferenceCode(a: string, b: string): number {
-  const aMatch = a.match(/^([A-Z]+)(\d+)$/);
-  const bMatch = b.match(/^([A-Z]+)(\d+)$/);
-  if (!aMatch || !bMatch) return a.localeCompare(b);
-  const prefixCmp = aMatch[1].localeCompare(bMatch[1]);
-  if (prefixCmp !== 0) return prefixCmp;
-  return Number.parseInt(aMatch[2], 10) - Number.parseInt(bMatch[2], 10);
-}
-
 function pushBucket<K, V>(map: Map<K, V[]>, key: K, value: V) {
   const bucket = map.get(key);
   if (bucket) {
@@ -128,15 +119,20 @@ function collectItemsForGroup(
   itemsByKey: Map<string, KnowledgeItemSummary>,
   hiddenKinds: ReadonlySet<KnowledgeKind>,
 ): KnowledgeItemSummary[] {
+  // Items render in the group's declared kinds order so toggle chips at the
+  // top map to contiguous, matching blocks in the section
   const result: KnowledgeItemSummary[] = [];
   for (const kind of kinds) {
     if (hiddenKinds.has(kind)) continue;
     const collectionEntry = knowledgeKindRegistry.find((entry) => entry.kind === kind);
     if (!collectionEntry) continue;
+    const kindItems: KnowledgeItemSummary[] = [];
     for (const item of entityState[collectionEntry.collectionKey]) {
       const summary = itemsByKey.get(`${kind}:${item.id}`);
-      if (summary) result.push(summary);
+      if (summary) kindItems.push(summary);
     }
+    kindItems.sort((a, b) => a.id - b.id);
+    result.push(...kindItems);
   }
   return result;
 }
@@ -427,9 +423,7 @@ export function StructuredListView({
         )}
         {totalItems > 0 &&
           knowledgeDisplayGroups.map((group) => {
-            const items = collectItemsForGroup(entityState, group.kinds, itemsByKey, hiddenKinds).sort(
-              (a, b) => compareReferenceCode(a.referenceCode, b.referenceCode),
-            );
+            const items = collectItemsForGroup(entityState, group.kinds, itemsByKey, hiddenKinds);
             if (items.length === 0) return null;
             return (
               <Collapsible key={group.label} defaultOpen asChild>
