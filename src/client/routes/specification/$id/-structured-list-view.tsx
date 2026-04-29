@@ -388,6 +388,25 @@ function EmptyStateCard({ action }: { action?: ReactNode }) {
   );
 }
 
+function AllKindsHiddenCard({ onShowAll }: { onShowAll: () => void }) {
+  return (
+    <div
+      data-graph-empty-state="all-kinds-hidden"
+      className="flex flex-col items-center gap-3 rounded-md border border-rule bg-tint p-8 text-center"
+    >
+      <p className="text-sm font-medium text-ink">All kinds are hidden</p>
+      <p className="max-w-md text-xs text-sub">Show at least one kind to see your knowledge graph.</p>
+      <button
+        type="button"
+        onClick={onShowAll}
+        className="mt-2 inline-flex h-7 items-center justify-center rounded-md bg-wash px-2.5 text-xs-plus font-medium text-sub transition-colors hover:bg-wash/80"
+      >
+        Show all kinds
+      </button>
+    </div>
+  );
+}
+
 function ItemActionRail() {
   return (
     <div
@@ -490,6 +509,8 @@ export function StructuredListView({
   };
 
   const totalItems = itemsByKey.size;
+  const populatedKinds = knowledgeKindRegistry.filter((entry) => entityState[entry.collectionKey].length > 0);
+  const allKindsHidden = totalItems > 0 && populatedKinds.every((entry) => hiddenKinds.has(entry.kind));
 
   return (
     <div
@@ -503,7 +524,9 @@ export function StructuredListView({
         {totalItems > 0 && (
           <KindFilterToggler entityState={entityState} hiddenKinds={hiddenKinds} onToggle={toggleKind} />
         )}
+        {allKindsHidden && <AllKindsHiddenCard onShowAll={() => setHiddenKinds(new Set())} />}
         {totalItems > 0 &&
+          !allKindsHidden &&
           graphDisplayGroups.map((group) => {
             const items = collectItemsForGroup(entityState, group.kinds, itemsByKey, hiddenKinds);
             if (items.length === 0) return null;
