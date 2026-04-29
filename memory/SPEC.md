@@ -233,7 +233,7 @@ Scroll container: ChatScroll (ScrollArea + useStickToBottom).
 
 | Group label | Kinds | Visible |
 | ----------- | ----- | ------- |
-| Goals & Context | goal, context, constraint (including `non-goal` subtype) | yes |
+| Goals | goal, context, constraint (including `non-goal` subtype) | yes |
 | Assumptions & Decisions | assumption, decision | yes |
 | Requirements | requirement | yes |
 | Acceptance Criteria | criterion | yes |

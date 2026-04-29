@@ -118,7 +118,7 @@ describe('StructuredListView', () => {
 
     const sections = container.querySelectorAll('[data-graph-section]');
     const sectionLabels = Array.from(sections).map((s) => s.getAttribute('data-graph-section'));
-    expect(sectionLabels).toContain('Goals & Context');
+    expect(sectionLabels).toContain('Goals');
     expect(sectionLabels).toContain('Assumptions & Decisions');
     expect(sectionLabels).toContain('Requirements');
   });
