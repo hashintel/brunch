@@ -412,13 +412,16 @@ describe('StructuredListView', () => {
     expect(row).toBeTruthy();
     if (!row) return;
 
-    // The action rail lives next to item content via a justify-between flex header.
-    // Walk up from the action rail to find that header (regardless of card-body
-    // nesting depth).
+    // The action rail sits inside a justify-between flex header. Walk up from
+    // the action rail until we find the ancestor carrying justify-between
+    // (decoupled from how many wrappers sit between rail and header).
     const actionRail = row.querySelector('[data-graph-action-rail]');
     expect(actionRail).toBeTruthy();
-    const flexHeader = actionRail?.parentElement;
-    expect(flexHeader?.className).toContain('justify-between');
+    let cursor: HTMLElement | null = actionRail as HTMLElement | null;
+    while (cursor && cursor !== row && !cursor.className.includes('justify-between')) {
+      cursor = cursor.parentElement;
+    }
+    expect(cursor?.className).toContain('justify-between');
   });
 
   it('renders a kind-filter toggler row when items exist', () => {

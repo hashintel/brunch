@@ -266,11 +266,27 @@ function RelationsSubsection({
   );
 }
 
-function RelationsFooter({ outgoing, incoming }: { outgoing: DirectedEdge[]; incoming: DirectedEdge[] }) {
-  if (outgoing.length === 0 && incoming.length === 0) return null;
+function ItemDetailsFooter({
+  rationale,
+  outgoing,
+  incoming,
+}: {
+  rationale: string | null;
+  outgoing: DirectedEdge[];
+  incoming: DirectedEdge[];
+}) {
+  const hasRelations = outgoing.length > 0 || incoming.length > 0;
+  const hasRationale = Boolean(rationale);
+  if (!hasRationale && !hasRelations) return null;
 
   return (
     <div className="border-t border-rule bg-tint">
+      {hasRationale && (
+        <div className="px-3 py-2.5">
+          <p className="text-xs leading-relaxed text-sub">{rationale}</p>
+        </div>
+      )}
+      {hasRationale && hasRelations && <div className="border-t border-rule" />}
       <RelationsSubsection label="Outgoing" direction="outgoing" edges={outgoing} />
       {outgoing.length > 0 && incoming.length > 0 && <div className="border-t border-rule" />}
       <RelationsSubsection label="Incoming" direction="incoming" edges={incoming} />
@@ -324,27 +340,41 @@ function ItemRow({
   incoming: DirectedEdge[];
   anchored: boolean;
 }) {
+  const hasExpansion = Boolean(item.rationale) || outgoing.length > 0 || incoming.length > 0;
+
   return (
-    <div
-      data-graph-row
-      data-graph-row-ref={item.referenceCode}
-      data-graph-row-anchored={anchored ? 'true' : undefined}
-      className={`group/row overflow-hidden rounded-xl border bg-background shadow-[var(--shadow-card)] transition-all duration-700 ${anchored ? 'animate-in border-link/50 ring-2 ring-link/30 duration-300 fade-in' : 'border-rule'}`}
-    >
-      <div className="flex items-baseline justify-between gap-2 p-3">
-        <div className="flex items-baseline gap-2">
-          <span data-graph-row-reference className="shrink-0 font-mono text-xs text-hint">
-            {item.referenceCode}
-          </span>
-          <div className="flex flex-col gap-1">
+    <Collapsible defaultOpen asChild>
+      <div
+        data-graph-row
+        data-graph-row-ref={item.referenceCode}
+        data-graph-row-anchored={anchored ? 'true' : undefined}
+        className={`group/row overflow-hidden rounded-xl border bg-background shadow-[var(--shadow-card)] transition-all duration-700 ${anchored ? 'animate-in border-link/50 ring-2 ring-link/30 duration-300 fade-in' : 'border-rule'}`}
+      >
+        <div className="flex items-baseline justify-between gap-2 p-3">
+          <div className="flex items-baseline gap-2">
+            <span data-graph-row-reference className="shrink-0 font-mono text-xs text-hint">
+              {item.referenceCode}
+            </span>
             <p className="text-sm text-ink">{item.content}</p>
-            {item.rationale && <p className="text-xs leading-relaxed text-sub">{item.rationale}</p>}
+          </div>
+          <div className="flex items-center gap-1">
+            <ItemActionRail />
+            {hasExpansion && (
+              <CollapsibleTrigger
+                data-graph-row-toggle
+                aria-label="Toggle item details"
+                className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+              >
+                <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
+              </CollapsibleTrigger>
+            )}
           </div>
         </div>
-        <ItemActionRail />
+        <CollapsibleContent>
+          <ItemDetailsFooter rationale={item.rationale} outgoing={outgoing} incoming={incoming} />
+        </CollapsibleContent>
       </div>
-      <RelationsFooter outgoing={outgoing} incoming={incoming} />
-    </div>
+    </Collapsible>
   );
 }
 
