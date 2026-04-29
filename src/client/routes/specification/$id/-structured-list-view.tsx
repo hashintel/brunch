@@ -108,8 +108,14 @@ function projectGraph(entityState: EntitiesData): GraphProjection {
     if (targetItem) targetItem.incomingCount += 1;
 
     if (sourceItem && targetItem) {
-      pushBucket(outgoingByItem, sourceKey, { type: rel.type, other: targetItem });
-      pushBucket(incomingByItem, targetKey, { type: rel.type, other: sourceItem });
+      pushBucket(outgoingByItem, sourceKey, {
+        type: rel.type,
+        other: targetItem,
+      });
+      pushBucket(incomingByItem, targetKey, {
+        type: rel.type,
+        other: sourceItem,
+      });
     }
   }
 
@@ -200,8 +206,6 @@ function ChipListByRelationType({ type, edges }: { type: EdgeRelation; edges: Di
   const overflowCount = edges.length - CHIP_TRUNCATE_LIMIT;
   const showMoreButton = !expanded && overflowCount > 0;
   const visibleEdges = expanded ? edges : edges.slice(0, CHIP_TRUNCATE_LIMIT);
-  // depends_on is the most generic relation; the Outgoing/Incoming subsection
-  // header already conveys direction, so the per-type label adds no signal.
   const showTypeLabel = type !== 'depends_on';
 
   return (
@@ -287,9 +291,9 @@ function ItemDetailsFooter({
         </div>
       )}
       {hasRationale && hasRelations && <div className="border-t border-rule" />}
-      <RelationsSubsection label="Outgoing" direction="outgoing" edges={outgoing} />
+      <RelationsSubsection label="Links to" direction="outgoing" edges={outgoing} />
       {outgoing.length > 0 && incoming.length > 0 && <div className="border-t border-rule" />}
-      <RelationsSubsection label="Incoming" direction="incoming" edges={incoming} />
+      <RelationsSubsection label="Linked from" direction="incoming" edges={incoming} />
     </div>
   );
 }

@@ -38,8 +38,8 @@ describe('StructuredListView', () => {
 
     expect(screen.getByText('Reduce signup drop-off')).toBeTruthy();
     expect(screen.queryByText(/no relationships/i)).toBeNull();
-    expect(screen.queryByText(/outgoing/i)).toBeNull();
-    expect(screen.queryByText(/incoming/i)).toBeNull();
+    expect(screen.queryByText(/links to/i)).toBeNull();
+    expect(screen.queryByText(/linked from/i)).toBeNull();
   });
 
   it('renders the empty-state orientation card when there are no knowledge items', () => {
@@ -123,15 +123,15 @@ describe('StructuredListView', () => {
     expect(sectionLabels).toContain('Requirements');
   });
 
-  it('renders Outgoing and Incoming subsections in the relations footer when an item has edges', () => {
+  it('renders Links to and Linked from subsections in the relations footer when an item has edges', () => {
     const { container } = render(<StructuredListView entityState={crossPhaseDecisionLink()} />);
 
     const decisionRow = container.querySelector('[data-graph-row-ref="D1"]');
     expect(decisionRow).toBeTruthy();
     if (!decisionRow) return;
 
-    expect(within(decisionRow as HTMLElement).getByText('Outgoing')).toBeTruthy();
-    expect(within(decisionRow as HTMLElement).getByText('Incoming')).toBeTruthy();
+    expect(within(decisionRow as HTMLElement).getByText('Links to')).toBeTruthy();
+    expect(within(decisionRow as HTMLElement).getByText('Linked from')).toBeTruthy();
   });
 
   it('shows relation chips with the target reference code and content snippet', () => {
@@ -172,8 +172,8 @@ describe('StructuredListView', () => {
     if (!goalRow) return;
 
     const goalScope = within(goalRow as HTMLElement);
-    // Goal is the target of 15 incoming `refines` edges
-    expect(goalScope.getByText('Incoming')).toBeTruthy();
+    // Goal is the target of 15 incoming `refines` edges, surfaced under "Linked from"
+    expect(goalScope.getByText('Linked from')).toBeTruthy();
     const visibleChips = goalScope.queryAllByTestId('relation-chip');
     expect(visibleChips.length).toBe(6);
     expect(goalScope.getByRole('button', { name: '+9 more' })).toBeTruthy();
