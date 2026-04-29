@@ -1,5 +1,6 @@
 import { useNavigate } from '@tanstack/react-router';
 
+import { kindColor } from '@/client/components/knowledge-card';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/client/components/ui/hover-card';
 import type { KnowledgeKind } from '@/shared/knowledge.js';
 
@@ -17,7 +18,11 @@ export function RelationChipPreview({ target }: { target: RelationChipTarget }) 
   return (
     <div className="flex flex-col gap-1.5">
       <div className="flex items-baseline gap-2">
-        <span className="font-mono text-[11px] font-medium text-hint">{target.referenceCode}</span>
+        <span
+          className={`inline-flex items-center rounded px-1.5 py-0.5 font-mono text-[11px] font-medium ${kindColor[target.kind]}`}
+        >
+          {target.referenceCode}
+        </span>
         <p className="text-sm leading-snug text-ink">{target.content}</p>
       </div>
       {target.rationale && <p className="text-xs leading-relaxed text-sub">{target.rationale}</p>}
@@ -43,7 +48,11 @@ export function RelationChip({ target }: { target: RelationChipTarget }) {
           }}
           className="inline-flex cursor-pointer items-center gap-1.5 rounded bg-wash px-1.5 py-0.5 text-xs outline-none hover:bg-rule focus-visible:ring-2 focus-visible:ring-foreground/30"
         >
-          <span className="font-mono text-[10px] font-medium text-hint">{target.referenceCode}</span>
+          <span
+            className={`inline-flex items-center rounded px-1 py-0.5 font-mono text-[10px] font-medium ${kindColor[target.kind]}`}
+          >
+            {target.referenceCode}
+          </span>
           <span className="max-w-xs truncate text-ink">{target.content}</span>
         </button>
       </HoverCardTrigger>
