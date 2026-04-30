@@ -1,15 +1,16 @@
+import { Link } from '@tanstack/react-router';
+import { ChevronRight, Maximize2 } from 'lucide-react';
+
 import { EmptyCard } from '@/client/components/app-shell';
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import type { EntitiesData } from '@/shared/api-types.js';
 import type { KnowledgeEntityCollection, KnowledgeKind } from '@/shared/knowledge.js';
-import {
-  knowledgeCollectionKeyByKind,
-  knowledgeEntityCollectionByKind,
-  knowledgeKindRegistry,
-} from '@/shared/knowledge.js';
+import { knowledgeCollectionKeyByKind, knowledgeEntityCollectionByKind } from '@/shared/knowledge.js';
 
 import { KnowledgeDetailCard, type KnowledgeEdgeData, type KnowledgeItemData } from './knowledge-card';
-import { hiddenWhenEmptyGroups, knowledgeDisplayGroups, isVisibleKnowledgeKind } from './knowledge-display';
+import { hiddenWhenEmptyGroups, knowledgeDisplayGroups } from './knowledge-display';
+import { KnowledgeGraphIdentity } from './knowledge-graph-identity';
 
 // ── Helpers ─────────────────────────────────────────────────────────
 
@@ -67,27 +68,29 @@ function buildOutgoingEdgesForItem(
 
 // ── Component ───────────────────────────────────────────────────────
 
-export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
-  const totalItems = knowledgeKindRegistry
-    .filter((entry) => isVisibleKnowledgeKind(entry.kind))
-    .reduce((sum, entry) => sum + entityState[entry.collectionKey].length, 0);
-  const totalConnections = entityState.relationships.length;
-
+export function EntitySidebar({
+  entityState,
+  specificationId,
+}: {
+  entityState: EntitiesData;
+  specificationId?: string;
+}) {
   return (
     <div className="flex h-full flex-col bg-background">
       {/* Header */}
-      <div className="flex h-16 shrink-0 items-center border-b border-rule bg-background px-3">
-        <div className="flex flex-col gap-0.5">
-          <span className="text-xs text-hint">Knowledge Graph</span>
-          <div className="flex items-center gap-2.5 text-base text-sub">
-            <span>
-              <span className="font-medium text-ink">{totalItems}</span> Items
-            </span>
-            <span>
-              <span className="font-medium text-ink">{totalConnections}</span> Connections
-            </span>
-          </div>
-        </div>
+      <div className="flex h-16 shrink-0 items-center justify-between border-b border-rule bg-background px-3">
+        <KnowledgeGraphIdentity entityState={entityState} />
+        {specificationId && (
+          <Link
+            to="/specification/$id/graph"
+            params={{ id: specificationId }}
+            aria-label="Open knowledge graph view"
+            title="Open knowledge graph view"
+            className="flex size-7 items-center justify-center rounded text-sub outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+          >
+            <Maximize2 className="size-3.5" />
+          </Link>
+        )}
       </div>
 
       {/* Grouped knowledge list */}
@@ -115,28 +118,40 @@ export function EntitySidebar({ entityState }: { entityState: EntitiesData }) {
             }
 
             return (
-              <section key={group.label}>
-                <h3 className="mb-2 text-xs font-medium text-sub">
-                  {group.label}
-                  {count > 0 && <span className="ml-1.5 text-sub">{count}</span>}
-                </h3>
-                {count === 0 ? (
-                  <EmptyCard
-                    title={`No ${group.label.toLowerCase()} yet`}
-                    description="Items will appear as the interview progresses."
-                  />
-                ) : (
-                  <div className="flex flex-col gap-1.5">
-                    {groupItems.map(({ item, edges }) => (
-                      <KnowledgeDetailCard
-                        key={`${item.kind}-${item.id}`}
-                        item={item}
-                        edges={edges.length > 0 ? edges : undefined}
-                      />
-                    ))}
+              <Collapsible key={group.label} defaultOpen asChild>
+                <section data-knowledge-group={group.label}>
+                  <div className="mb-2 flex w-full items-center justify-between gap-2 px-1 py-1 text-xs font-medium text-sub">
+                    <span>
+                      {group.label}
+                      {count > 0 && <span className="ml-1.5 font-mono text-hint">{count}</span>}
+                    </span>
+                    <CollapsibleTrigger
+                      aria-label={`Toggle ${group.label}`}
+                      className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+                    >
+                      <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
+                    </CollapsibleTrigger>
                   </div>
-                )}
-              </section>
+                  <CollapsibleContent>
+                    {count === 0 ? (
+                      <EmptyCard
+                        title={`No ${group.label.toLowerCase()} yet`}
+                        description="Items will appear as the interview progresses."
+                      />
+                    ) : (
+                      <div className="flex flex-col gap-1.5">
+                        {groupItems.map(({ item, edges }) => (
+                          <KnowledgeDetailCard
+                            key={`${item.kind}-${item.id}`}
+                            item={item}
+                            edges={edges.length > 0 ? edges : undefined}
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </CollapsibleContent>
+                </section>
+              </Collapsible>
             );
           })}
         </div>

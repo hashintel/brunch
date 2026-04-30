@@ -158,7 +158,7 @@ describe('EntitySidebar', () => {
     );
 
     expect(screen.getByText('Knowledge Graph')).toBeTruthy();
-    expect(screen.getByText('Goals & Context')).toBeTruthy();
+    expect(screen.getByText('Goals')).toBeTruthy();
     expect(screen.getByText('Assumptions & Decisions')).toBeTruthy();
     expect(screen.getByText('Requirements')).toBeTruthy();
     expect(screen.getByText('Acceptance Criteria')).toBeTruthy();
@@ -311,7 +311,7 @@ describe('EntitySidebar', () => {
     expect(within(reviewSetCard).getByText(createKnowledgeReferenceCode('constraint', 2))).toBeTruthy();
     expect(within(reviewSetCard).getByText(createKnowledgeReferenceCode('decision', 1))).toBeTruthy();
 
-    const goalsAndContextSection = screen.getByText('Goals & Context').closest('section');
+    const goalsAndContextSection = screen.getByText('Goals').closest('section');
     const assumptionsAndDecisionsSection = screen.getByText('Assumptions & Decisions').closest('section');
     expect(goalsAndContextSection).not.toBeNull();
     expect(assumptionsAndDecisionsSection).not.toBeNull();
@@ -330,7 +330,7 @@ describe('EntitySidebar', () => {
     expect(header).toContain('0 Connections');
   });
 
-  it('groups goals, contexts, and constraints together under Goals & Context', () => {
+  it('groups goals, contexts, and constraints together under Goals', () => {
     render(
       <EntitySidebar
         entityState={createEntityState({
@@ -371,7 +371,7 @@ describe('EntitySidebar', () => {
       />,
     );
 
-    const goalsAndContextSection = screen.getByText('Goals & Context').closest('section');
+    const goalsAndContextSection = screen.getByText('Goals').closest('section');
     expect(goalsAndContextSection?.textContent).toContain('Ship something useful');
     expect(goalsAndContextSection?.textContent).toContain('Users already work in docs');
     expect(goalsAndContextSection?.textContent).toContain('Keep first run local-first');

@@ -31,8 +31,9 @@ function GraphViewScreen() {
 
 function EntitySidebarPane() {
   const entitySnapshot = useSpecificationEntities();
+  const { id: specificationId } = Route.useParams();
 
-  return <EntitySidebar entityState={entitySnapshot} />;
+  return <EntitySidebar entityState={entitySnapshot} specificationId={specificationId} />;
 }
 
 function ViewLayout() {

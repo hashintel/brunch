@@ -262,6 +262,29 @@ describe('generated routeTree', () => {
     expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42/export');
   });
 
+  it('maps the graph URL to the structured-list view as a peer route, with no active phase highlight on the sidebar', async () => {
+    const { container } = await renderRouteAt('/specification/42/graph');
+
+    // Structured list mounts under the spec layout shell
+    expect(container.querySelector('[data-graph-structured-list]')).toBeTruthy();
+    // Phase sidebar still renders (continuity per D114)
+    expect(screen.getByTestId('phase-sidebar')).toBeTruthy();
+    // No phase Link carries the is-active class on /graph
+    const sidebar = screen.getByTestId('phase-sidebar');
+    expect(sidebar.querySelectorAll('.is-active')).toHaveLength(0);
+    // Loader fetches whole-spec entities (D129), not active-path
+    expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42/entities?mode=project-wide');
+    expect(fetchMock).toHaveBeenCalledWith('/api/specifications/42');
+
+    // Header strip surfaces the shared Knowledge Graph identity (eyebrow +
+    // counts) and a Back-to-chat link targeting the current reachable phase
+    // (default workflow has all phases unstarted, so current reachable = grounding)
+    expect(screen.getByText('Knowledge Graph')).toBeTruthy();
+    const backLink = screen.getByRole('link', { name: /back to chat/i });
+    expect(backLink).toBeTruthy();
+    expect(backLink.getAttribute('href')).toContain('/specification/42/grounding');
+  });
+
   it('redirects project index to the grounding phase by default through one authoritative bundle fetch path', async () => {
     const { router } = await renderRouteAt('/specification/42');
 

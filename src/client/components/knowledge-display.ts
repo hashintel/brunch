@@ -6,7 +6,7 @@ export interface KnowledgeDisplayGroup {
 }
 
 export const knowledgeDisplayGroups: KnowledgeDisplayGroup[] = [
-  { label: 'Goals & Context', kinds: ['goal', 'context', 'constraint'] },
+  { label: 'Goals', kinds: ['goal', 'context', 'constraint'] },
   { label: 'Assumptions & Decisions', kinds: ['assumption', 'decision'] },
   { label: 'Requirements', kinds: ['requirement'] },
   { label: 'Acceptance Criteria', kinds: ['criterion'] },
