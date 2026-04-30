@@ -1,6 +1,6 @@
-import { useLocation } from '@tanstack/react-router';
+import { useLocation, useNavigate } from '@tanstack/react-router';
 import { ArrowDownLeft, ArrowUpRight, ChevronRight, MessageCircle } from 'lucide-react';
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 
 import { kindColor, kindTextColor } from '@/client/components/knowledge-card';
 import { graphDisplayGroups } from '@/client/components/knowledge-display.js';
@@ -10,7 +10,7 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/co
 import type { EdgeRelation, EntitiesData } from '@/shared/api-types.js';
 import { knowledgeKindRegistry, type KnowledgeKind } from '@/shared/knowledge.js';
 
-import { RelationChip, type RelationChipTarget } from './-relation-chip.js';
+import { ChipActivateProvider, RelationChip, type RelationChipTarget } from './-relation-chip.js';
 
 const HASH_ANCHOR_HIGHLIGHT_MS = 1500;
 const CHIP_TRUNCATE_LIMIT = 6;
@@ -497,6 +497,7 @@ export function StructuredListView({
   const containerRef = useRef<HTMLDivElement>(null);
   const { anchoredRowRef } = useGraphHashAnchor(containerRef);
   const [hiddenKinds, setHiddenKinds] = useState<ReadonlySet<KnowledgeKind>>(new Set());
+  const navigate = useNavigate();
 
   const toggleKind = (kind: KnowledgeKind) => {
     setHiddenKinds((current) => {
@@ -506,6 +507,19 @@ export function StructuredListView({
       return next;
     });
   };
+
+  const onChipActivate = useCallback(
+    (target: RelationChipTarget) => {
+      setHiddenKinds((current) => {
+        if (!current.has(target.kind)) return current;
+        const next = new Set(current);
+        next.delete(target.kind);
+        return next;
+      });
+      void navigate({ to: '.', hash: target.referenceCode });
+    },
+    [navigate],
+  );
 
   const populatedKinds = getPopulatedKinds(entityState);
   const totalItems = itemsByKey.size;
@@ -517,82 +531,84 @@ export function StructuredListView({
         : 'list';
 
   return (
-    <div
-      ref={containerRef}
-      data-graph-structured-list
-      className="flex h-full flex-col overflow-y-auto bg-background"
-    >
-      <div className="mx-auto flex w-full max-w-3xl flex-col px-6">
-        <div className="sticky top-0 z-10 mt-8 flex flex-col gap-6 bg-background pb-3">
-          {header}
-          {view !== 'empty' && (
-            <KindFilterToggler
-              populatedKinds={populatedKinds}
-              hiddenKinds={hiddenKinds}
-              onToggle={toggleKind}
-            />
-          )}
+    <ChipActivateProvider value={onChipActivate}>
+      <div ref={containerRef} data-graph-structured-list className="flex h-full flex-col bg-background">
+        <div data-graph-header-bar className="flex h-16 shrink-0 items-center border-b border-rule px-6">
+          <div className="mx-auto w-full max-w-3xl">{header}</div>
         </div>
-        <div className="flex flex-col gap-6 pt-3 pb-8">
-          {view === 'empty' && (
-            <EmptyStateCard
-              state="no-items"
-              title="No knowledge captured yet"
-              description="Knowledge appears here as the interview progresses. Start a turn to populate the graph."
-              action={emptyStateAction}
-            />
-          )}
-          {view === 'all-hidden' && (
-            <EmptyStateCard
-              state="all-kinds-hidden"
-              title="All kinds are hidden"
-              description="Show at least one kind to see your knowledge graph."
-              action={
-                <Button size="sm" variant="secondary" onClick={() => setHiddenKinds(new Set())}>
-                  Show all kinds
-                </Button>
-              }
-            />
-          )}
-          {view === 'list' &&
-            graphDisplayGroups.map((group) => {
-              const items = collectItemsForGroup(entityState, group.kinds, itemsByKey, hiddenKinds);
-              if (items.length === 0) return null;
-              return (
-                <Collapsible key={group.label} defaultOpen asChild>
-                  <section data-graph-section={group.label}>
-                    <div className="mb-2 flex w-full items-center justify-between gap-2 pr-3">
-                      <h2 className="text-sm font-medium text-sub">{group.label}</h2>
-                      <CollapsibleTrigger
-                        aria-label={`Toggle ${group.label}`}
-                        className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
-                      >
-                        <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
-                      </CollapsibleTrigger>
-                    </div>
-                    <CollapsibleContent>
-                      <div className="flex flex-col gap-2">
-                        {items.map((item) => {
-                          const itemKey = `${item.kind}:${item.id}`;
-                          return (
-                            <ItemRow
-                              key={`${itemKey}-v${rowsRemountKey}`}
-                              item={item}
-                              outgoing={outgoingByItem.get(itemKey) ?? []}
-                              incoming={incomingByItem.get(itemKey) ?? []}
-                              anchored={anchoredRowRef === item.referenceCode}
-                              defaultOpen={rowsDefaultOpen}
-                            />
-                          );
-                        })}
+        {view !== 'empty' && (
+          <div data-graph-filter-bar className="shrink-0 border-b border-rule bg-tint px-6 py-2">
+            <div className="mx-auto w-full max-w-3xl">
+              <KindFilterToggler
+                populatedKinds={populatedKinds}
+                hiddenKinds={hiddenKinds}
+                onToggle={toggleKind}
+              />
+            </div>
+          </div>
+        )}
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-6 pt-6 pb-8">
+            {view === 'empty' && (
+              <EmptyStateCard
+                state="no-items"
+                title="No knowledge captured yet"
+                description="Knowledge appears here as the interview progresses. Start a turn to populate the graph."
+                action={emptyStateAction}
+              />
+            )}
+            {view === 'all-hidden' && (
+              <EmptyStateCard
+                state="all-kinds-hidden"
+                title="All kinds are hidden"
+                description="Show at least one kind to see your knowledge graph."
+                action={
+                  <Button size="sm" variant="secondary" onClick={() => setHiddenKinds(new Set())}>
+                    Show all kinds
+                  </Button>
+                }
+              />
+            )}
+            {view === 'list' &&
+              graphDisplayGroups.map((group) => {
+                const items = collectItemsForGroup(entityState, group.kinds, itemsByKey, hiddenKinds);
+                if (items.length === 0) return null;
+                return (
+                  <Collapsible key={group.label} defaultOpen asChild>
+                    <section data-graph-section={group.label}>
+                      <div className="mb-2 flex w-full items-center justify-between gap-2 pr-3">
+                        <h2 className="text-sm font-medium text-sub">{group.label}</h2>
+                        <CollapsibleTrigger
+                          aria-label={`Toggle ${group.label}`}
+                          className="group flex size-6 shrink-0 items-center justify-center rounded text-hint outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
+                        >
+                          <ChevronRight className="size-3.5 transition-transform group-data-[state=open]:rotate-90" />
+                        </CollapsibleTrigger>
                       </div>
-                    </CollapsibleContent>
-                  </section>
-                </Collapsible>
-              );
-            })}
+                      <CollapsibleContent>
+                        <div className="flex flex-col gap-2">
+                          {items.map((item) => {
+                            const itemKey = `${item.kind}:${item.id}`;
+                            return (
+                              <ItemRow
+                                key={`${itemKey}-v${rowsRemountKey}`}
+                                item={item}
+                                outgoing={outgoingByItem.get(itemKey) ?? []}
+                                incoming={incomingByItem.get(itemKey) ?? []}
+                                anchored={anchoredRowRef === item.referenceCode}
+                                defaultOpen={rowsDefaultOpen}
+                              />
+                            );
+                          })}
+                        </div>
+                      </CollapsibleContent>
+                    </section>
+                  </Collapsible>
+                );
+              })}
+          </div>
         </div>
       </div>
-    </div>
+    </ChipActivateProvider>
   );
 }

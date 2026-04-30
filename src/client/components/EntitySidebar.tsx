@@ -2,11 +2,13 @@ import { Link } from '@tanstack/react-router';
 import { ChevronRight, Maximize2 } from 'lucide-react';
 
 import { EmptyCard } from '@/client/components/app-shell';
+import { readChatScrollY } from '@/client/components/chat-scroll-bridge';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/client/components/ui/collapsible';
 import { ScrollArea } from '@/client/components/ui/scroll-area';
 import type { EntitiesData } from '@/shared/api-types.js';
 import type { KnowledgeEntityCollection, KnowledgeKind } from '@/shared/knowledge.js';
 import { knowledgeCollectionKeyByKind, knowledgeEntityCollectionByKind } from '@/shared/knowledge.js';
+import type { WorkflowPhase } from '@/shared/phase-close.js';
 
 import { KnowledgeDetailCard, type KnowledgeEdgeData, type KnowledgeItemData } from './knowledge-card';
 import { hiddenWhenEmptyGroups, knowledgeDisplayGroups } from './knowledge-display';
@@ -71,9 +73,11 @@ function buildOutgoingEdgesForItem(
 export function EntitySidebar({
   entityState,
   specificationId,
+  currentPhase,
 }: {
   entityState: EntitiesData;
   specificationId?: string;
+  currentPhase?: WorkflowPhase;
 }) {
   return (
     <div className="flex h-full flex-col bg-background">
@@ -84,6 +88,13 @@ export function EntitySidebar({
           <Link
             to="/specification/$id/graph"
             params={{ id: specificationId }}
+            state={() => {
+              const fromScrollY = readChatScrollY();
+              return {
+                ...(currentPhase ? { fromPhase: currentPhase } : {}),
+                ...(fromScrollY != null ? { fromScrollY } : {}),
+              };
+            }}
             aria-label="Open knowledge graph view"
             title="Open knowledge graph view"
             className="flex size-7 items-center justify-center rounded text-sub outline-none hover:bg-wash hover:text-ink focus-visible:ring-2 focus-visible:ring-foreground/30"
